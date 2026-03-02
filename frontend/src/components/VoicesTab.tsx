@@ -1982,8 +1982,14 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                                 }}
                             >
                                 <option value="" disabled>Select a speaker...</option>
-                                {speakers.filter(s => s.id !== moveVariantProfile.speaker_id).map(s => (
-                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                {allVoices.filter(v => {
+                                    // Don't show the current speaker group as a target
+                                    if (moveVariantProfile.speaker_id && v.id === moveVariantProfile.speaker_id) return false;
+                                    // Don't show the profile's own group if it's currently unassigned
+                                    if (!moveVariantProfile.speaker_id && v.id === `unassigned-${moveVariantProfile.name}`) return false;
+                                    return true;
+                                }).map(v => (
+                                    <option key={v.id} value={v.id}>{v.name}</option>
                                 ))}
                             </select>
                         </div>
@@ -2001,8 +2007,39 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                                 onClick={async () => {
                                     setIsMovingVariant(true);
                                     try {
+                                        let targetSpeakerId = selectedMoveSpeakerId;
+
+                                        // If moving to an unassigned group, we first need to create a speaker for it
+                                        if (selectedMoveSpeakerId.startsWith('unassigned-')) {
+                                            const targetProfileName = selectedMoveSpeakerId.replace('unassigned-', '');
+                                            const targetVoiceEntry = allVoices.find(v => v.id === selectedMoveSpeakerId);
+                                            
+                                            if (targetVoiceEntry) {
+                                                // 1. Create the speaker in the DB
+                                                const createResp = await fetch('/api/speakers', {
+                                                    method: 'POST',
+                                                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                                                    body: new URLSearchParams({ name: targetVoiceEntry.name })
+                                                });
+                                                
+                                                if (!createResp.ok) throw new Error('Failed to create speaker for target group');
+                                                const newSpeaker = await createResp.json();
+                                                targetSpeakerId = newSpeaker.id;
+
+                                                // 2. Assign the target's original profile to the new speaker too
+                                                // so it behaves like a grouping as expected
+                                                const assignProfileFormData = new URLSearchParams();
+                                                assignProfileFormData.append('speaker_id', targetSpeakerId);
+                                                assignProfileFormData.append('variant_name', 'Default');
+                                                await fetch(`/api/speaker-profiles/${encodeURIComponent(targetProfileName)}/assign`, {
+                                                    method: 'POST',
+                                                    body: assignProfileFormData
+                                                });
+                                            }
+                                        }
+
                                         const formData = new URLSearchParams();
-                                        formData.append('speaker_id', selectedMoveSpeakerId);
+                                        formData.append('speaker_id', targetSpeakerId);
                                         // We keep the variant name as is
                                         formData.append('variant_name', moveVariantProfile.variant_name || 'Default');
                                         
@@ -2024,6 +2061,14 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                                                 isAlert: true
                                             });
                                         }
+                                    } catch (err: any) {
+                                        console.error('Failed to move variant:', err);
+                                        handleRequestConfirm({
+                                            title: 'Move Failed',
+                                            message: err.message || 'An error occurred during movement.',
+                                            onConfirm: () => {},
+                                            isAlert: true
+                                        });
                                     } finally {
                                         setIsMovingVariant(false);
                                     }

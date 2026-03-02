@@ -527,7 +527,8 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
                 onClick={handleStartAssemblyMode}
                 style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                    border: '1px solid var(--border)', padding: '0.75rem'
+                    border: '1px solid var(--border)', padding: '0.75rem',
+                    borderRadius: '12px'
                 }}
             >   
                 <CheckCircle size={16} />
