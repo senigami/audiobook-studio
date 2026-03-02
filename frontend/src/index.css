@@ -536,11 +536,33 @@ button {
   }
 
   .nav-label {
-    display: none;
+    display: none !important;
+  }
+
+  .btn-responsive {
+    padding: 0 !important;
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    gap: 0 !important;
+    justify-content: center !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius-button) !important;
+    background: transparent !important;
+  }
+
+  .btn-responsive:hover {
+    background: var(--accent-glow) !important;
+    border-color: var(--accent) !important;
+    color: var(--accent) !important;
   }
 
   .header-logo-text {
-    display: none;
+    display: none !important;
+  }
+
+  .search-responsive {
+    width: 160px !important;
   }
 
   .mobile-hide {

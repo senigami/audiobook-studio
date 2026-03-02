@@ -6,6 +6,7 @@ import { ActionMenu } from './ActionMenu';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import { GlassInput } from './GlassInput';
+import { GhostButton } from './GhostButton';
 
 // --- Components ---
 
@@ -17,7 +18,7 @@ interface DrawerProps {
 }
 
 const Drawer: React.FC<DrawerProps> = ({ isOpen, onClose, title, children }) => {
-    const [width, setWidth] = useState(450);
+    const [width, setWidth] = useState(800);
     const [isResizing, setIsResizing] = useState(false);
 
     const startResizing = useCallback((e: React.MouseEvent) => {
@@ -326,7 +327,6 @@ const ProfileDetails: React.FC<ProfileDetailsProps> = ({
     voiceName, showControlsInline = false
 }) => {
     const [localSpeed, setLocalSpeed] = useState<number | null>(null);
-    const [isSaving, setIsSaving] = useState(false);
     const [cacheBuster, setCacheBuster] = useState(Date.now());
     const [isPlaying, setIsPlaying] = useState(false);
     const [playingSample, setPlayingSample] = useState<string | null>(null);
@@ -412,7 +412,6 @@ const ProfileDetails: React.FC<ProfileDetailsProps> = ({
     };
 
     const handleSpeedChange = async (val: number) => {
-        setIsSaving(true);
         try {
             const formData = new URLSearchParams();
             formData.append('speed', val.toString());
@@ -424,7 +423,6 @@ const ProfileDetails: React.FC<ProfileDetailsProps> = ({
         } catch (e) {
             console.error('Failed to update profile speed', e);
         } finally {
-            setIsSaving(false);
             setLocalSpeed(null);
         }
     };
@@ -1515,6 +1513,7 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                             placeholder="Search voices..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
+                            className="search-responsive"
                             style={{
                                 width: '240px',
                                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
@@ -1530,21 +1529,19 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <button 
+                    <GhostButton 
                         onClick={() => setIsCreateModalOpen(true)} 
-                        className="btn-primary" 
-                        style={{ gap: '8px', padding: '0 20px', height: '40px', borderRadius: '100px' }}
-                    >
-                        <Plus size={18} />
-                        New Voice
-                    </button>
+                        icon={Plus}
+                        label="New Voice"
+                    />
                     
-                    <div style={{ width: '1px', height: '24px', background: 'var(--border)', margin: '0 8px' }} />
+                    <div className="mobile-hide" style={{ width: '1px', height: '24px', background: 'var(--border)', margin: '0 4px' }} />
                     
-                    <button onClick={() => setShowGuide(true)} className="btn-ghost" style={{ gap: '8px' }}>
-                        <Info size={16} />
-                        Recording Guide
-                    </button>
+                    <GhostButton 
+                        onClick={() => setShowGuide(true)} 
+                        icon={Info}
+                        label="Recording Guide"
+                    />
                 </div>
             </div>
 

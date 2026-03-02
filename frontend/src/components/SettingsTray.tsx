@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Settings, RefreshCw, Loader2, Terminal, ShieldCheck, Music } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { GhostButton } from './GhostButton';
 
 interface SettingsTrayProps {
     settings: any;
@@ -16,7 +17,6 @@ export const SettingsTray: React.FC<SettingsTrayProps> = ({
     onToggleLogs
 }) => {
     const [isOpen, setIsOpen] = useState(false);
-    const [hovered, setHovered] = useState(false);
     const [hoveredItem, setHoveredItem] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
 
@@ -48,33 +48,13 @@ export const SettingsTray: React.FC<SettingsTrayProps> = ({
 
     return (
         <div style={{ position: 'relative' }}>
-            <button 
+            <GhostButton 
                 onClick={() => setIsOpen(!isOpen)}
-                onMouseEnter={() => setHovered(true)}
-                onMouseLeave={() => setHovered(false)}
-                className="btn-ghost"
-                style={{ 
-                    width: '40px',
-                    height: '40px',
-                    borderRadius: 'var(--radius-button)',
-                    color: isOpen 
-                        ? 'white' 
-                        : (hovered ? 'var(--accent)' : 'var(--text-secondary)'),
-                    background: isOpen 
-                        ? 'var(--accent)' 
-                        : (hovered ? 'var(--accent-glow)' : 'transparent'),
-                    border: isOpen ? 'none' : '1px solid var(--border)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: 0,
-                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                    boxShadow: isOpen ? 'var(--shadow-sm)' : 'none'
-                }}
+                icon={Settings}
+                isActive={isOpen}
                 title="Synthesis Preferences"
-            >
-                <Settings size={18} strokeWidth={isOpen ? 2.5 : 2} className={isOpen ? 'animate-spin-slow' : ''} />
-            </button>
+                className={isOpen ? "animate-spin-slow" : ""}
+            />
 
             <AnimatePresence>
                 {isOpen && (
