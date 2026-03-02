@@ -310,18 +310,19 @@ interface ProfileDetailsProps {
     isTesting: boolean;
     testStatus?: any;
     onTest: (name: string) => void;
-    onDelete: (name: string) => void;
+    onDeleteVariant: (name: string) => void;
     onRefresh: () => void;
     onEditTestText: (profile: SpeakerProfile) => void;
     onBuildNow: (name: string, files: File[]) => void;
     requestConfirm: (config: { title: string; message: string; onConfirm: () => void; isDestructive?: boolean }) => void;
+    voiceName: string;
     showControlsInline?: boolean;
 }
 
 const ProfileDetails: React.FC<ProfileDetailsProps> = ({ 
-    profile, isTesting, onTest, onDelete, onRefresh, 
+    profile, isTesting, onTest, onDeleteVariant, onRefresh, 
     onEditTestText, onBuildNow, requestConfirm, testStatus,
-    showControlsInline = false
+    voiceName, showControlsInline = false
 }) => {
     const [localSpeed, setLocalSpeed] = useState<number | null>(null);
     const [isSaving, setIsSaving] = useState(false);
@@ -692,17 +693,35 @@ const ProfileDetails: React.FC<ProfileDetailsProps> = ({
                     <div style={{ flexShrink: 0 }}>
                         <button 
                             onClick={handlePlayClick}
-                            className="btn-primary"
+                            className="btn-ghost"
                             title={profile.preview_url ? (isPlaying ? "Pause Sample" : "Play Sample") : "Generate Sample"}
                             style={{ 
                                 width: '40px', 
                                 height: '40px', 
                                 padding: 0,
                                 borderRadius: '12px',
-                                background: isPlaying ? 'var(--accent-active)' : 'var(--accent)',
+                                background: isPlaying ? 'var(--accent)' : 'var(--surface)',
+                                color: isPlaying ? 'white' : 'var(--text-primary)',
+                                border: isPlaying ? '1px solid var(--accent)' : '1px solid var(--border)',
                                 position: 'relative',
                                 overflow: 'hidden',
-                                boxShadow: 'var(--shadow-sm)'
+                                boxShadow: isPlaying ? '0 0 0 3px rgba(var(--accent-rgb), 0.2)' : 'var(--shadow-sm)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'all 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                                if (!isPlaying) {
+                                    e.currentTarget.style.borderColor = 'var(--accent)';
+                                    e.currentTarget.style.background = 'rgba(var(--accent-rgb), 0.02)';
+                                }
+                            }}
+                            onMouseLeave={(e) => {
+                                if (!isPlaying) {
+                                    e.currentTarget.style.borderColor = 'var(--border)';
+                                    e.currentTarget.style.background = 'var(--surface)';
+                                }
                             }}
                         >
                             {isTesting ? (
@@ -720,9 +739,9 @@ const ProfileDetails: React.FC<ProfileDetailsProps> = ({
                                         inset: 0,
                                         border: '2px solid white',
                                         borderRadius: '12px',
-                                        opacity: 0.5
+                                        opacity: 0.3
                                     }}
-                                    animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0, 0.5] }}
+                                    animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0, 0.3] }}
                                     transition={{ duration: 2, repeat: Infinity }}
                                 />
                             )}
@@ -794,8 +813,16 @@ const ProfileDetails: React.FC<ProfileDetailsProps> = ({
                     <button 
                         className="btn-ghost"
                         style={{ width: '32px', height: '32px', padding: 0 }}
-                        onClick={(e) => { e.stopPropagation(); onDelete(profile.name); }}
-                        title="Delete Variant"
+                        onClick={(e) => { 
+                            e.stopPropagation(); 
+                            requestConfirm({
+                                title: 'Delete variant?',
+                                message: `Delete variant '${profile.variant_name || 'Default'}' from '${voiceName}'? This cannot be undone.`,
+                                isDestructive: true,
+                                onConfirm: () => onDeleteVariant(profile.name)
+                            });
+                        }}
+                        title="Delete variant"
                     >
                         <Trash2 size={16} color="var(--error)" style={{ width: '16px', height: '16px', flexShrink: 0 }} />
                     </button>
@@ -826,7 +853,6 @@ interface VoiceCardProps {
     onEditTestText: (profile: SpeakerProfile) => void;
     onBuildNow: (name: string, files: File[]) => void;
     requestConfirm: (config: { title: string; message: string; onConfirm: () => void; isDestructive?: boolean }) => void;
-    speakers: Speaker[];
     isExpanded: boolean;
     onToggleExpand: () => void;
 }
@@ -963,11 +989,11 @@ const VoiceCard: React.FC<VoiceCardProps> = ({
                     <ActionMenu 
                         items={[
                             { 
-                                label: 'Delete Voice', 
+                                label: 'Delete Voice (all variants)', 
                                 icon: Trash2,
                                 onClick: () => requestConfirm({
-                                    title: 'Delete Voice?',
-                                    message: `Are you sure you want to delete "${speaker.name}" and all its variants/samples? This cannot be undone.`,
+                                    title: 'Delete voice?',
+                                    message: `Delete voice '${speaker.name}' and all ${profiles.length} variants? This cannot be undone.`,
                                     isDestructive: true,
                                     onConfirm: () => {
                                         fetch(`/api/speakers/${speaker.id}`, { method: 'DELETE' })
@@ -1051,11 +1077,12 @@ const VoiceCard: React.FC<VoiceCardProps> = ({
                                     isTesting={isTestingProfileId === activeProfile?.name}
                                     testStatus={testProgress[activeProfile?.name || '']}
                                     onTest={onTest}
-                                    onDelete={onDelete}
+                                    onDeleteVariant={onDelete}
                                     onRefresh={onRefresh}
                                     onEditTestText={onEditTestText}
                                     onBuildNow={onBuildNow}
                                     requestConfirm={requestConfirm}
+                                    voiceName={speaker.name}
                                     showControlsInline={true}
                                 />
                         </div>
@@ -1077,6 +1104,7 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
     const [testingProfile, setTestingProfile] = useState<string | null>(null);
     const [editingProfile, setEditingProfile] = useState<SpeakerProfile | null>(null);
     const [testText, setTestText] = useState('');
+    const [variantName, setVariantName] = useState('');
     const [isSavingText, setIsSavingText] = useState(false);
     const [showGuide, setShowGuide] = useState(false);
     const [confirmConfig, setConfirmConfig] = useState<{ 
@@ -1085,6 +1113,17 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
         onConfirm: () => void; 
         isDestructive?: boolean 
     } | null>(null);
+    
+    // Sync state with editing profile
+    useEffect(() => {
+        if (editingProfile) {
+            setTestText(editingProfile.test_text || '');
+            setVariantName(editingProfile.variant_name || editingProfile.name);
+        } else {
+            setTestText('');
+            setVariantName('');
+        }
+    }, [editingProfile]);
 
     // --- Voice Management State ---
     const [speakers, setSpeakers] = useState<Speaker[]>([]);
@@ -1144,7 +1183,18 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 method: 'POST',
                 body: formData
             });
+            
             if (resp.ok) {
+                // Also handle name change if different
+                const currentName = editingProfile.variant_name || editingProfile.name;
+                if (variantName && variantName !== currentName) {
+                    const renameForm = new URLSearchParams();
+                    renameForm.append('new_name', variantName);
+                    await fetch(`/api/speaker-profiles/${encodeURIComponent(editingProfile.name)}/rename`, {
+                        method: 'POST',
+                        body: renameForm
+                    });
+                }
                 setEditingProfile(null);
                 onRefresh();
             }
@@ -1175,21 +1225,14 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
     };
 
     const handleDelete = async (name: string) => {
-        handleRequestConfirm({
-            title: 'Delete Voice Profile',
-            message: `Are you sure you want to delete the voice profile "${name}"? This will permanently remove all associated voice samples and previews.`,
-            isDestructive: true,
-            onConfirm: async () => {
-                try {
-                    const resp = await fetch(`/api/speaker-profiles/${encodeURIComponent(name)}`, {
-                        method: 'DELETE',
-                    });
-                    if (resp.ok) onRefresh();
-                } catch (err) {
-                    console.error('Failed to delete profile', err);
-                }
-            }
-        });
+        try {
+            const resp = await fetch(`/api/speaker-profiles/${encodeURIComponent(name)}`, {
+                method: 'DELETE',
+            });
+            if (resp.ok) onRefresh();
+        } catch (err) {
+            console.error('Failed to delete profile', err);
+        }
     };
 
     const handleTest = async (name: string) => {
@@ -1379,7 +1422,6 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                                     isTestingProfileId={testingProfile}
                                     testProgress={testProgress}
                                     requestConfirm={handleRequestConfirm}
-                                    speakers={speakers || []}
                                     isExpanded={expandedVoiceId === voice.id}
                                     onToggleExpand={() => setExpandedVoiceId(expandedVoiceId === voice.id ? null : voice.id)}
                                 />
@@ -1484,11 +1526,39 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
             <Drawer
                 isOpen={!!editingProfile}
                 onClose={() => setEditingProfile(null)}
-                title={`Edit Script: ${editingProfile?.variant_name || editingProfile?.name || ''}`}
-            >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                    <div className="glass-panel" style={{ padding: '1.5rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            title={`Edit: ${editingProfile?.variant_name || editingProfile?.name || ''}`}
+        >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                <div className="glass-panel" style={{ padding: '1.5rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '1.5rem' }}>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>VARIANT NAME</label>
+                        <input 
+                            type="text"
+                            value={variantName}
+                            onChange={(e) => setVariantName(e.target.value)}
+                            className="form-input"
+                            placeholder="Variant name"
+                            style={{ 
+                                padding: '10px 14px',
+                                borderRadius: '100px',
+                                background: 'var(--surface)',
+                                border: '1px solid var(--border)',
+                                fontSize: '0.85rem',
+                                width: '100%',
+                                transition: 'all 0.2s'
+                            }}
+                            onFocus={(e) => {
+                                e.currentTarget.style.borderColor = 'var(--accent)';
+                                e.currentTarget.style.boxShadow = '0 0 0 2px rgba(var(--accent-rgb), 0.1)';
+                            }}
+                            onBlur={(e) => {
+                                e.currentTarget.style.borderColor = 'var(--border)';
+                                e.currentTarget.style.boxShadow = 'none';
+                            }}
+                        />
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                             <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>PREVIEW TEXT SCRIPT</label>
                             <button 
                                 onClick={handleResetTestText} 
