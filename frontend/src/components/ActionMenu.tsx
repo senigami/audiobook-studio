@@ -10,6 +10,7 @@ interface ActionMenuItem {
     onClick: () => void;
     isDestructive?: boolean;
     isDivider?: boolean;
+    disabled?: boolean;
 }
 
 interface ActionMenuProps {
@@ -19,6 +20,7 @@ interface ActionMenuProps {
 
 export const ActionMenu: React.FC<ActionMenuProps> = ({ items, onDelete }) => {
     const [isOpen, setIsOpen] = useState(false);
+    const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
     const triggerRef = useRef<HTMLButtonElement>(null);
     const [menuRect, setMenuRect] = useState<{ top: number; left: number; width: number } | null>(null);
     const [isAbove, setIsAbove] = useState(false);
@@ -146,36 +148,36 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({ items, onDelete }) => {
                             <React.Fragment key={idx}>
                                 {item.isDivider && <div style={{ height: '1px', background: 'var(--border)', margin: '6px 4px', opacity: 0.5 }} />}
                                 <button
+                                    disabled={item.disabled}
                                     onClick={(e) => {
                                         e.stopPropagation();
+                                        if (item.disabled) return;
+                                        setHoveredIndex(null);
                                         setIsOpen(false);
                                         item.onClick();
                                     }}
+                                    onMouseEnter={() => !item.disabled && setHoveredIndex(idx)}
+                                    onMouseLeave={() => setHoveredIndex(null)}
                                     style={{
                                         width: '100%',
                                         padding: '10px 14px',
                                         display: 'flex',
                                         alignItems: 'center',
                                         gap: '12px',
-                                        background: 'none',
+                                        background: hoveredIndex === idx ? 'var(--accent-glow)' : 'none',
                                         border: 'none',
                                         borderRadius: '8px',
-                                        cursor: 'pointer',
+                                        cursor: item.disabled ? 'not-allowed' : 'pointer',
                                         textAlign: 'left',
                                         justifyContent: 'flex-start',
-                                        color: item.isDestructive ? 'var(--error)' : 'var(--text-primary)',
+                                        color: item.disabled ? 'var(--text-muted)' : (item.isDestructive ? 'var(--error)' : 'var(--text-primary)'),
+                                        opacity: item.disabled ? 0.5 : 1,
                                         fontSize: '0.85rem',
                                         fontWeight: 500,
                                         transition: 'all 0.1s ease'
                                     }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.background = 'none';
-                                    }}
                                 >
-                                    {item.icon && <item.icon size={14} />}
+                                    {item.icon && <item.icon size={14} style={{ opacity: item.disabled ? 0.5 : 1 }} />}
                                     {item.label}
                                 </button>
                             </React.Fragment>

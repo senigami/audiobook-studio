@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react';
-import { User, Plus, Music, Trash2, Play, Loader2, Info, RefreshCw, FileEdit, X, RotateCcw, ChevronUp, Sliders, Pause, Upload, AlertTriangle, Search } from 'lucide-react';
+import { User, Plus, Music, Trash2, Play, Loader2, Info, RefreshCw, FileEdit, X, RotateCcw, ChevronUp, Sliders, Pause, Upload, AlertTriangle, Search, Star } from 'lucide-react';
 import { RecordingGuide } from './RecordingGuide';
 import { ConfirmModal } from './ConfirmModal';
 import { ActionMenu } from './ActionMenu';
@@ -856,6 +856,7 @@ interface VoiceCardProps {
     requestConfirm: (config: { title: string; message: string; onConfirm: () => void; isDestructive?: boolean }) => void;
     onAddVariantClick: (speaker: Speaker, profileCount: number) => void;
     onRenameClick: (speaker: Speaker) => void;
+    onSetDefaultClick: (profileName: string) => void;
     isExpanded: boolean;
     onToggleExpand: () => void;
 }
@@ -863,7 +864,7 @@ const VoiceCard: React.FC<VoiceCardProps> = ({
     speaker, profiles, isTestingProfileId, testProgress, 
     onTest, onDelete, onRefresh,
     onEditTestText, onBuildNow, requestConfirm,
-    onAddVariantClick, onRenameClick, isExpanded, onToggleExpand
+    onAddVariantClick, onRenameClick, onSetDefaultClick, isExpanded, onToggleExpand
 }) => {
     const defaultProfile = profiles.find(p => p.is_default) || profiles[0] || { name: '', speed: 1.0, wav_count: 0 } as SpeakerProfile;
     const [activeProfileId, setActiveProfileId] = useState(defaultProfile?.name || '');
@@ -952,7 +953,12 @@ const VoiceCard: React.FC<VoiceCardProps> = ({
                     
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0 }}>{speaker.name}</h3>
+                            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                {speaker.name}
+                                {profiles.some(p => p.is_default) && (
+                                    <Star size={16} fill="var(--accent)" color="var(--accent)" />
+                                )}
+                            </h3>
                             <span style={{ 
                                 fontSize: '0.65rem', 
                                 padding: '2px 8px', 
@@ -969,6 +975,12 @@ const VoiceCard: React.FC<VoiceCardProps> = ({
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <ActionMenu 
                         items={[
+                            {
+                                label: 'Set as Default',
+                                icon: Star,
+                                disabled: profiles.find(p => p.name === activeProfileId)?.is_default,
+                                onClick: () => onSetDefaultClick(activeProfileId)
+                            },
                             {
                                 label: 'Rename Voice',
                                 icon: FileEdit,
@@ -1030,6 +1042,7 @@ const VoiceCard: React.FC<VoiceCardProps> = ({
                                                 whiteSpace: 'nowrap'
                                             }}
                                         >
+                                            {p.is_default && <Star size={12} fill={isActive ? "white" : "var(--accent)"} color={isActive ? "white" : "var(--accent)"} />}
                                             {p.variant_name || 'Default'}
                                         </button>
                                     );
@@ -1141,6 +1154,22 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
             console.error('Failed to fetch speakers', e);
         }
     }, []);
+
+    const handleSetDefault = async (profileName: string) => {
+        try {
+            const formData = new URLSearchParams();
+            formData.append('name', profileName);
+            const resp = await fetch('/api/settings/default-speaker', {
+                method: 'POST',
+                body: formData
+            });
+            if (resp.ok) {
+                fetchSpeakers();
+            }
+        } catch (error) {
+            console.error('Failed to set default voice:', error);
+        }
+    };
 
     useEffect(() => {
         fetchSpeakers();
@@ -1414,6 +1443,7 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                                         setNewVariantNameModal(`Variant ${count + 1}`);
                                         setIsAddVariantModalOpen(true);
                                     }}
+                                    onSetDefaultClick={handleSetDefault}
                                     onRenameClick={(s) => {
                                         setRenameSpeakerId(s.id);
                                         setOriginalSpeakerName(s.name);
