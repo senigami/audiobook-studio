@@ -313,6 +313,7 @@ interface ProfileDetailsProps {
     testStatus?: any;
     onTest: (name: string) => void;
     onDeleteVariant: (name: string) => void;
+    onMoveVariant: (profile: SpeakerProfile) => void;
     onRefresh: () => void;
     onEditTestText: (profile: SpeakerProfile) => void;
     onBuildNow: (name: string, files: File[]) => Promise<boolean>;
@@ -322,7 +323,7 @@ interface ProfileDetailsProps {
 }
 
 const ProfileDetails: React.FC<ProfileDetailsProps> = ({ 
-    profile, isTesting, onTest, onDeleteVariant, onRefresh, 
+    profile, isTesting, onTest, onDeleteVariant, onMoveVariant, onRefresh, 
     onEditTestText, onBuildNow, requestConfirm, testStatus,
     voiceName, showControlsInline = false
 }) => {
@@ -922,33 +923,7 @@ const ProfileDetails: React.FC<ProfileDetailsProps> = ({
                     </button>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <button 
-                        className="btn-ghost"
-                        style={{ width: '32px', height: '32px', padding: 0 }}
-                        onClick={(e) => { 
-                            e.stopPropagation(); 
-                            requestConfirm({
-                                title: 'Delete variant?',
-                                message: `Delete variant '${profile.variant_name || 'Default'}' from '${voiceName}'? This cannot be undone.`,
-                                isDestructive: true,
-                                onConfirm: () => onDeleteVariant(profile.name)
-                            });
-                        }}
-                        onMouseEnter={(e) => {
-                            const icon = e.currentTarget.querySelector('svg');
-                            if (icon) icon.style.color = 'var(--error)';
-                        }}
-                        onMouseLeave={(e) => {
-                            const icon = e.currentTarget.querySelector('svg');
-                            if (icon) icon.style.color = 'var(--text-muted)';
-                        }}
-                        title="Delete variant"
-                    >
-                        <Trash2 size={16} style={{ width: '16px', height: '16px', flexShrink: 0, color: 'var(--text-muted)', transition: 'color 0.2s' }} />
-                    </button>
                 </div>
-            </div>
 
             {isTesting && (
                 <div style={{ padding: showControlsInline ? '0 0 1.25rem' : '1.25rem' }}>
@@ -959,6 +934,63 @@ const ProfileDetails: React.FC<ProfileDetailsProps> = ({
             )}
 
             {renderControls()}
+
+            {/* Danger Zone */}
+            <div style={{ 
+                padding: '1.25rem', 
+                borderTop: '1px solid var(--border-light)', 
+                background: 'rgba(239, 68, 68, 0.02)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                borderRadius: '0 0 16px 16px'
+            }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-primary)' }}>Advanced Actions</span>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Move this variant to another voice or delete it.</span>
+                </div>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                    <button 
+                        onClick={() => onMoveVariant(profile)}
+                        className="btn-ghost"
+                        style={{ gap: '6px', fontSize: '0.8rem', padding: '0 12px', height: '32px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--surface)' }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.borderColor = 'var(--accent)';
+                            e.currentTarget.style.color = 'var(--accent)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.borderColor = 'var(--border)';
+                            e.currentTarget.style.color = 'var(--text-primary)';
+                        }}
+                    >
+                        <RefreshCw size={14} />
+                        Move Variant
+                    </button>
+                    <button 
+                        onClick={() => {
+                            requestConfirm({
+                                title: 'Delete variant?',
+                                message: `Delete variant '${profile.variant_name || 'Default'}' from '${voiceName}'? This cannot be undone.`,
+                                isDestructive: true,
+                                onConfirm: () => onDeleteVariant(profile.name)
+                            });
+                        }}
+                        className="btn-ghost"
+                        style={{ color: 'var(--error)', gap: '6px', fontSize: '0.8rem', padding: '0 12px', height: '32px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--surface)' }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.borderColor = 'var(--error)';
+                            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.05)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.borderColor = 'var(--border)';
+                            e.currentTarget.style.background = 'var(--surface)';
+                        }}
+                    >
+                        <Trash2 size={14} />
+                        Delete Variant
+                    </button>
+                </div>
+            </div>
         </div>
     );
 };
@@ -970,6 +1002,7 @@ interface VoiceCardProps {
     testProgress: Record<string, any>;
     onTest: (name: string) => void;
     onDelete: (name: string) => void;
+    onMoveVariant: (profile: SpeakerProfile) => void;
     onRefresh: () => void;
     onEditTestText: (profile: SpeakerProfile) => void;
     onBuildNow: (name: string, files: File[]) => Promise<boolean>;
@@ -984,7 +1017,7 @@ const VoiceCard: React.FC<VoiceCardProps> = ({
     speaker, profiles, isTestingProfileId, testProgress, 
     onTest, onDelete, onRefresh,
     onEditTestText, onBuildNow, requestConfirm,
-    onAddVariantClick, onRenameClick, onSetDefaultClick, isExpanded, onToggleExpand
+    onAddVariantClick, onRenameClick, onSetDefaultClick, isExpanded, onToggleExpand, onMoveVariant
 }) => {
     const defaultProfile = profiles.find(p => p.is_default) || profiles[0] || { name: '', speed: 1.0, wav_count: 0 } as SpeakerProfile;
     const [activeProfileId, setActiveProfileId] = useState(defaultProfile?.name || '');
@@ -1204,6 +1237,7 @@ const VoiceCard: React.FC<VoiceCardProps> = ({
                                     testStatus={testProgress[activeProfile?.name || '']}
                                     onTest={onTest}
                                     onDeleteVariant={onDelete}
+                                    onMoveVariant={onMoveVariant}
                                     onRefresh={onRefresh}
                                     onEditTestText={onEditTestText}
                                     onBuildNow={onBuildNow}
@@ -1268,6 +1302,10 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
     const [isAddingVariantModal, setIsAddingVariantModal] = useState(false);
     const [isRenamingSpeaker, setIsRenamingSpeaker] = useState(false);
     const [expandedVoiceId, setExpandedVoiceId] = useState<string | null>(null);
+    const [isMoveVariantModalOpen, setIsMoveVariantModalOpen] = useState(false);
+    const [moveVariantProfile, setMoveVariantProfile] = useState<SpeakerProfile | null>(null);
+    const [selectedMoveSpeakerId, setSelectedMoveSpeakerId] = useState<string>('');
+    const [isMovingVariant, setIsMovingVariant] = useState(false);
 
     const fetchSpeakers = useCallback(async () => {
         try {
@@ -1597,6 +1635,11 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                                     onRefresh={onRefresh}
                                     onTest={handleTest}
                                     onDelete={handleDelete}
+                                    onMoveVariant={(p) => {
+                                        setMoveVariantProfile(p);
+                                        setSelectedMoveSpeakerId('');
+                                        setIsMoveVariantModalOpen(true);
+                                    }}
                                     onEditTestText={(p) => setEditingProfile(p)}
                                     onBuildNow={handleBuildNow}
                                     isTestingProfileId={testingProfile}
@@ -1886,6 +1929,109 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                                 style={{ flex: 1, height: '44px', borderRadius: '12px' }}
                             >
                                 {isAddingVariantModal ? 'Adding...' : 'Add Variant'}
+                            </button>
+                        </div>
+                    </motion.div>
+                </div>
+            )}
+
+            {/* Move Variant Modal */}
+            {isMoveVariantModalOpen && moveVariantProfile && (
+                <div style={{
+                    position: 'fixed',
+                    inset: 0,
+                    zIndex: 1000,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: 'rgba(0,0,0,0.4)',
+                    backdropFilter: 'blur(4px)'
+                }}>
+                    <motion.div 
+                        initial={{ scale: 0.95, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        style={{
+                            width: '440px',
+                            background: 'var(--surface)',
+                            borderRadius: '24px',
+                            padding: '24px',
+                            boxShadow: 'var(--shadow-lg)',
+                            border: '1px solid var(--border)'
+                        }}
+                    >
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '8px' }}>Move Variant</h3>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '24px' }}>
+                            Move <span style={{ color: 'var(--accent)', fontWeight: 700 }}>"{moveVariantProfile.variant_name || moveVariantProfile.name}"</span> to another speaker profile.
+                        </p>
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '24px' }}>
+                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>SELECT TARGET SPEAKER</label>
+                            <select 
+                                value={selectedMoveSpeakerId}
+                                onChange={(e) => setSelectedMoveSpeakerId(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px 14px',
+                                    borderRadius: '12px',
+                                    background: 'var(--surface-alt)',
+                                    border: '1px solid var(--border)',
+                                    color: 'var(--text-primary)',
+                                    fontSize: '0.9rem',
+                                    outline: 'none',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                <option value="" disabled>Select a speaker...</option>
+                                {speakers.filter(s => s.id !== moveVariantProfile.speaker_id).map(s => (
+                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            <button 
+                                onClick={() => setIsMoveVariantModalOpen(false)}
+                                className="btn-ghost"
+                                style={{ flex: 1, height: '44px', borderRadius: '12px' }}
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                disabled={!selectedMoveSpeakerId || isMovingVariant}
+                                onClick={async () => {
+                                    setIsMovingVariant(true);
+                                    try {
+                                        const formData = new URLSearchParams();
+                                        formData.append('speaker_id', selectedMoveSpeakerId);
+                                        // We keep the variant name as is
+                                        formData.append('variant_name', moveVariantProfile.variant_name || 'Default');
+                                        
+                                        const resp = await fetch(`/api/speaker-profiles/${encodeURIComponent(moveVariantProfile.name)}/assign`, {
+                                            method: 'POST',
+                                            body: formData
+                                        });
+                                        if (resp.ok) {
+                                            setIsMoveVariantModalOpen(false);
+                                            setMoveVariantProfile(null);
+                                            onRefresh();
+                                            fetchSpeakers();
+                                        } else {
+                                            const err = await resp.json();
+                                            handleRequestConfirm({
+                                                title: 'Move Failed',
+                                                message: formatError(err, 'An unknown error occurred while moving the variant.'),
+                                                onConfirm: () => {},
+                                                isAlert: true
+                                            });
+                                        }
+                                    } finally {
+                                        setIsMovingVariant(false);
+                                    }
+                                }}
+                                className="btn-primary"
+                                style={{ flex: 1, height: '44px', borderRadius: '12px' }}
+                            >
+                                {isMovingVariant ? 'Moving...' : 'Move Variant'}
                             </button>
                         </div>
                     </motion.div>

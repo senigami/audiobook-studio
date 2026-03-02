@@ -8,13 +8,15 @@ interface SettingsTrayProps {
     onRefresh: () => void;
     showLogs: boolean;
     onToggleLogs: () => void;
+    onShowNotification?: (message: string) => void;
 }
 
 export const SettingsTray: React.FC<SettingsTrayProps> = ({ 
     settings, 
     onRefresh, 
     showLogs, 
-    onToggleLogs
+    onToggleLogs,
+    onShowNotification
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [hoveredItem, setHoveredItem] = useState<string | null>(null);
@@ -131,38 +133,46 @@ export const SettingsTray: React.FC<SettingsTrayProps> = ({
                                         </button>
                                     </div>
 
-                                    {/* Sub-item: Create Missing MP3s */}
-                                    {settings?.make_mp3 && (
-                                        <div 
-                                            style={{
-                                                ...rowStyle('sync'),
-                                                marginLeft: '16px',
-                                                marginRight: '-12px',
-                                                cursor: 'pointer'
-                                            }}
-                                            onMouseEnter={() => setHoveredItem('sync')}
+                                {/* Backfill MP3s */}
+                                {settings?.make_mp3 && (
+                                    <div 
+                                        style={rowStyle('sync')}
+                                        onMouseEnter={() => setHoveredItem('sync')}
+                                        onMouseLeave={() => setHoveredItem(null)}
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                            <RefreshCw size={18} color={hoveredItem === 'sync' ? 'var(--accent)' : 'var(--text-muted)'} />
+                                            <div>
+                                                <div style={{ fontSize: '0.85rem', fontWeight: 500 }}>Backfill MP3s</div>
+                                                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Generate missing high-quality MP3s</div>
+                                            </div>
+                                        </div>
+                                        <button 
                                             onClick={async (e) => {
                                                 e.stopPropagation();
                                                 await fetch('/queue/backfill_mp3', { method: 'POST' });
                                                 onRefresh();
-                                                alert('Sync process started.');
+                                                onShowNotification?.('Generating missing MP3s. Check queue for progress.');
+                                            }}
+                                            className="btn-glass"
+                                            style={{ fontSize: '0.65rem', padding: '4px 10px', borderRadius: '6px', minWidth: '42px', fontWeight: 700, color: 'var(--accent)' }}
+                                            onMouseEnter={(e) => {
+                                                e.currentTarget.style.background = 'var(--accent)';
+                                                e.currentTarget.style.color = 'white';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.currentTarget.style.background = 'white';
+                                                e.currentTarget.style.color = 'var(--accent)';
                                             }}
                                         >
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <RefreshCw size={14} color={hoveredItem === 'sync' ? 'var(--accent)' : 'var(--text-muted)'} />
-                                                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: hoveredItem === 'sync' ? 'var(--accent)' : 'var(--text-secondary)' }}>Create Missing MP3s</div>
-                                            </div>
-                                            <div style={{ 
-                                                fontSize: '0.6rem', 
-                                                fontWeight: 800, 
-                                                color: 'var(--accent)', 
-                                                opacity: hoveredItem === 'sync' ? 1 : 0.6,
-                                                minWidth: '42px',
-                                                display: 'flex',
-                                                justifyContent: 'center'
-                                            }}>START</div>
-                                        </div>
-                                    )}
+                                            START
+                                        </button>
+                                    </div>
+                                )}
+
+                                {/* Advanced Section */}
+                                <div style={{ height: '1px', background: 'var(--border)', margin: '12px 0 4px', opacity: 0.5 }} />
+                                <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em', padding: '0 4px 4px' }}>ADVANCED</div>
                                 </div>
 
                                 {/* System Console */}

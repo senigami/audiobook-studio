@@ -12,12 +12,12 @@ import { ConfirmModal } from './ConfirmModal';
 interface ProjectViewProps {
   jobs: Record<string, Job>;
   speakerProfiles: SpeakerProfile[];
-  onOpenPreview: (filename: string) => void;
+  speakers: import('../types').Speaker[];
   refreshTrigger?: number;
   segmentUpdate?: { chapterId: string; tick: number };
 }
 
-export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles, onOpenPreview, refreshTrigger = 0, segmentUpdate }) => {
+export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles, speakers, refreshTrigger = 0, segmentUpdate }) => {
   const { projectId } = useParams() as { projectId: string };
   const navigate = useNavigate();
   
@@ -421,7 +421,18 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
             onMouseOut={(e) => { if (project.cover_image_path) e.currentTarget.style.transform = 'scale(1)' }}
         >
             {project.cover_image_path ? (
-                <img src={project.cover_image_path} alt="Cover" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                <img 
+                    src={project.cover_image_path} 
+                    alt="Cover" 
+                    style={{ 
+                        width: '100%', 
+                        height: '100%', 
+                        objectFit: 'contain',
+                        padding: '12px',
+                        background: 'rgba(0,0,0,0.03)',
+                        borderRadius: '12px'
+                    }} 
+                />
             ) : (
                 <ImageIcon size={48} style={{ opacity: 0.2 }} />
             )}
@@ -470,14 +481,39 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: '220px' }}>
             {bestM4b ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <a href={bestM4b.url || `/out/audiobook/${bestM4b.filename}`} download className="btn-primary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '1rem', width: '100%', fontSize: '1rem', textDecoration: 'none' }}>
+                    <a 
+                        href={bestM4b.url || `/out/audiobook/${bestM4b.filename}`} 
+                        download 
+                        className="btn-primary" 
+                        style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            gap: '8px', 
+                            padding: '1rem', 
+                            width: '100%', 
+                            fontSize: '1rem', 
+                            textDecoration: 'none',
+                            background: 'var(--accent)',
+                            boxShadow: 'var(--shadow-md)'
+                        }}
+                    >
                       <Download size={20} />
-                      Download {bestM4b.filename}
+                      Download Latest M4B
                     </a>
-                    <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textAlign: 'center' }}>{bestM4b.filename}</p>
+                    {availableAudiobooks.length > 1 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
+                            <span style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>EXPORT HISTORY</span>
+                            {availableAudiobooks.slice(1, 4).map((a, i) => (
+                                <a key={i} href={a.url || `/out/audiobook/${a.filename}`} download style={{ fontSize: '0.75rem', color: 'var(--accent)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <Clock size={10} /> {a.filename.split('_').pop()?.replace('.m4b', '') || 'Previous'}
+                                </a>
+                            ))}
+                        </div>
+                    )}
                 </div>
             ) : (
-                <button className="btn-primary" disabled style={{ padding: '1rem', opacity: 0.5, cursor: 'not-allowed' }}>
+                <button className="btn-primary" disabled style={{ padding: '1rem', opacity: 0.5, cursor: 'not-allowed', width: '100%' }}>
                     No Assembly Yet
                 </button>
             )}
@@ -491,10 +527,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
                 }}
             >   
                 <CheckCircle size={16} />
-                Assemble Audiobook
-            </button>
-            <button className="btn-ghost" onClick={() => setShowAddModal(true)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', border: '1px solid var(--border)', padding: '0.75rem' }}>
-                <Plus size={16} /> Add Chapter
+                Assemble Project
             </button>
         </div>
       </header>
@@ -573,7 +606,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
       )}
 
       {currentTab === 'characters' ? (
-          <CharactersTab projectId={projectId} speakerProfiles={speakerProfiles} />
+          <CharactersTab projectId={projectId} speakers={speakers} />
       ) : (
           <>
       {/* Chapters List */}
@@ -598,15 +631,23 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
                   </>
               ) : (
                   <>
+                      <button 
+                          onClick={handleQueueAllUnprocessed}
+                          disabled={submitting || chapters.filter(c => c.audio_status === 'unprocessed' || c.audio_status === 'error').length === 0}
+                          className="btn-ghost" 
+                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0.5rem 1rem', fontSize: '0.85rem', border: '1px solid var(--border)', color: 'var(--accent)' }}
+                      >
+                          <Zap size={16} /> Queue Remaining
+                      </button>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--surface)', padding: '0.25rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Project Voice:</span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Speaker:</span>
                           <select 
                               style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', outline: 'none', fontSize: '0.85rem', cursor: 'pointer' }}
                               onChange={(e) => setSelectedVoice(e.target.value)}
-                              value={selectedVoice || (speakerProfiles.find(p => p.is_default)?.name || (speakerProfiles[0]?.name || ''))}
+                              value={selectedVoice || (speakers.find(s => s.name === (speakerProfiles.find(p => p.is_default)?.name))?.name || (speakers[0]?.name || ''))}
                           >
-                              {speakerProfiles.map(p => (
-                                  <option key={p.name} value={p.name}>{p.name}</option>
+                              {speakers.map(s => (
+                                  <option key={s.id} value={s.name}>{s.name}</option>
                               ))}
                           </select>
                       </div>
@@ -618,12 +659,11 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
                           <ArrowUpDown size={16} /> Sort A-Z
                       </button>
                       <button 
-                          onClick={handleQueueAllUnprocessed}
-                          disabled={submitting || chapters.filter(c => c.audio_status === 'unprocessed' || c.audio_status === 'error').length === 0}
+                          onClick={() => setShowAddModal(true)}
                           className="btn-primary" 
                           style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0.5rem 1rem', fontSize: '0.85rem' }}
                       >
-                          <Zap size={16} /> Queue All Unprocessed
+                          <Plus size={16} /> Add Chapter
                       </button>
                   </>
               )}
@@ -885,13 +925,6 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
                       >
                         <button 
                           className="btn-ghost" 
-                          style={{ width: '100%', justifyContent: 'flex-start', padding: '0.5rem', fontSize: '0.8rem' }}
-                          onClick={() => { setOpenMenuId(null); onOpenPreview(chap.id); }}
-                        >
-                          <FileText size={14} /> Preview & Analyze
-                        </button>
-                        <button 
-                          className="btn-ghost" 
                           disabled={chap.audio_status !== 'done' || isExporting !== null}
                           style={{ 
                             width: '100%', 
@@ -925,8 +958,10 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
                           <RefreshCw size={14} /> Reset Audio
                         </button>
                         <button 
-                          className="btn-danger" 
-                          style={{ width: '100%', justifyContent: 'flex-start', padding: '0.5rem', fontSize: '0.8rem' }}
+                          className="btn-ghost" 
+                          style={{ width: '100%', justifyContent: 'flex-start', padding: '0.5rem', fontSize: '0.8rem', color: 'var(--error)' }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--error-glow)'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                           onClick={() => { setOpenMenuId(null); handleDeleteChapter(chap.id); }}
                         >
                           <Trash2 size={14} /> Delete Chapter

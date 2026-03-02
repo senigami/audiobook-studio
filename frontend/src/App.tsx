@@ -11,6 +11,7 @@ import { useJobs } from './hooks/useJobs';
 import { useInitialData } from './hooks/useInitialData';
 import { SettingsTray } from './components/SettingsTray';
 import { ConfirmModal } from './components/ConfirmModal';
+import { motion, AnimatePresence } from 'framer-motion';
 import type { Job } from './types';
 
 function App() {
@@ -46,6 +47,13 @@ function App() {
     confirmText?: string;
   } | null>(null);
 
+  const [toast, setToast] = useState<{ message: string; visible: boolean } | null>(null);
+
+  const showToast = (message: string) => {
+    setToast({ message, visible: true });
+    setTimeout(() => setToast(prev => prev ? { ...prev, visible: false } : null), 4000);
+  };
+
   useEffect(() => {
      fetchQueueCount();
      const interval = setInterval(fetchQueueCount, 3000);
@@ -74,6 +82,7 @@ function App() {
             onRefresh={handleRefresh}
             showLogs={showLogs}
             onToggleLogs={() => setShowLogs(!showLogs)}
+            onShowNotification={showToast}
           />
         }
       >
@@ -92,7 +101,7 @@ function App() {
                 <ProjectView 
                   jobs={jobs}
                   speakerProfiles={initialData?.speaker_profiles || []}
-                  onOpenPreview={(filename: string) => setPreviewFilename(filename)}
+                  speakers={initialData?.speakers || []}
                   refreshTrigger={queueRefreshTrigger}
                   segmentUpdate={segmentUpdate}
                 />
@@ -150,6 +159,56 @@ function App() {
         isDestructive={confirmConfig?.isDestructive}
         confirmText={confirmConfig?.confirmText}
       />
+
+      {/* Simple Toast */}
+      <AnimatePresence>
+        {toast?.visible && (
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            style={{
+              position: 'fixed',
+              bottom: '24px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 9999,
+              background: 'var(--as-ink)',
+              color: 'white',
+              padding: '12px 20px',
+              borderRadius: '12px',
+              boxShadow: 'var(--shadow-lg)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              fontSize: '0.9rem',
+              fontWeight: 600,
+              minWidth: '300px',
+              justifyContent: 'space-between',
+              border: '1px solid rgba(255,255,255,0.1)'
+            }}
+          >
+            <span>{toast.message}</span>
+            <button 
+              onClick={() => {
+                setToast(null);
+                window.location.hash = '#/queue'; // Simple internal nav
+              }}
+              style={{ 
+                background: 'var(--accent)', 
+                color: 'white', 
+                padding: '4px 10px', 
+                borderRadius: '6px', 
+                fontSize: '0.75rem',
+                border: 'none',
+                cursor: 'pointer'
+              }}
+            >
+              View Queue
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

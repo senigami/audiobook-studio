@@ -274,6 +274,12 @@ def delete_speaker(speaker_id: str) -> bool:
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
+            # Cascade: Revert character mapping to NULL if speaker deleted
+            cursor.execute("SELECT name FROM speakers WHERE id = ?", (speaker_id,))
+            row = cursor.fetchone()
+            if row:
+                cursor.execute("UPDATE characters SET speaker_profile_name = NULL WHERE speaker_profile_name = ?", (row[0],))
+
             cursor.execute("DELETE FROM speakers WHERE id = ?", (speaker_id,))
             conn.commit()
             return cursor.rowcount > 0

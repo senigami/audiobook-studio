@@ -812,6 +812,8 @@ def api_home():
 
     # 1. Get profiles first (this auto-sets default_speaker_profile if needed)
     profiles = list_speaker_profiles()
+    from .db import list_speakers
+    speakers = list_speakers()
 
     # 2. Re-fetch settings so they include the potential new default
     settings = get_settings()
@@ -840,6 +842,7 @@ def api_home():
         "xtts_wav_only": xtts_wav_only,
         "audiobooks": list_audiobooks(),
         "speaker_profiles": profiles,
+        "speakers": speakers,
     }
 
 @app.post("/settings")

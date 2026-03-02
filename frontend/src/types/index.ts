@@ -74,6 +74,14 @@ export interface SpeakerProfile {
   preview_url: string | null;
 }
 
+export interface Speaker {
+  id: string;
+  name: string;
+  default_profile_name: string | null;
+  created_at: number;
+  updated_at: number;
+}
+
 export interface Job {
   id: string;
   engine: Engine;
@@ -134,4 +142,5 @@ export interface GlobalState {
   xtts_wav_only: string[];
   narrator_ok: boolean;
   speaker_profiles: SpeakerProfile[];
+  speakers: Speaker[];
 }
