@@ -868,6 +868,7 @@ const VoiceCard: React.FC<VoiceCardProps> = ({
 }) => {
     const defaultProfile = profiles.find(p => p.is_default) || profiles[0] || { name: '', speed: 1.0, wav_count: 0 } as SpeakerProfile;
     const [activeProfileId, setActiveProfileId] = useState(defaultProfile?.name || '');
+    const [hoveredProfileId, setHoveredProfileId] = useState<string | null>(null);
 
     const activeProfile = profiles.find(p => p.name === activeProfileId) || defaultProfile;
 
@@ -1026,6 +1027,8 @@ const VoiceCard: React.FC<VoiceCardProps> = ({
                                                 setActiveProfileId(p.name);
                                                 if (!isExpanded) onToggleExpand(); // Expand if not already expanded
                                             }}
+                                            onMouseEnter={() => setHoveredProfileId(p.name)}
+                                            onMouseLeave={() => setHoveredProfileId(null)}
                                             style={{
                                                 padding: '6px 14px',
                                                 borderRadius: '100px',
@@ -1034,8 +1037,12 @@ const VoiceCard: React.FC<VoiceCardProps> = ({
                                                 transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                                                 border: '1px solid',
                                                 borderColor: isActive ? 'var(--accent)' : 'transparent',
-                                                background: isActive ? 'var(--accent)' : 'transparent',
-                                                color: isActive ? 'white' : 'var(--text-muted)',
+                                                background: isActive 
+                                                    ? 'var(--accent)' 
+                                                    : (hoveredProfileId === p.name ? 'var(--accent-glow)' : 'transparent'),
+                                                color: isActive 
+                                                    ? 'white' 
+                                                    : (hoveredProfileId === p.name ? 'var(--text-primary)' : 'var(--text-muted)'),
                                                 display: 'flex',
                                                 alignItems: 'center',
                                                 gap: '6px',

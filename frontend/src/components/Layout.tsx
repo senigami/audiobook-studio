@@ -1,3 +1,4 @@
+import React, { useState } from 'react';
 import { Mic, Zap, Library, Terminal } from 'lucide-react';
 import { BrandLogo } from './BrandLogo';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -13,6 +14,7 @@ interface LayoutProps {
 export const Layout: React.FC<LayoutProps> = ({ children, headerRight, showLogs, onToggleLogs, queueCount }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const [hoveredTab, setHoveredTab] = useState<string | null>(null);
 
   // Derive active tab from path
   const getActiveTab = () => {
@@ -63,6 +65,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, headerRight, showLogs,
               <button
                 key={item.id}
                 onClick={() => navigate(item.path)}
+                onMouseEnter={() => setHoveredTab(item.id)}
+                onMouseLeave={() => setHoveredTab(null)}
                 className="btn-ghost"
                 style={{
                   display: 'flex',
@@ -70,24 +74,29 @@ export const Layout: React.FC<LayoutProps> = ({ children, headerRight, showLogs,
                   gap: '8px',
                   padding: '8px 16px',
                   borderRadius: 'var(--radius-button)',
-                  background: activeTab === item.id ? 'var(--accent-glow)' : 'transparent',
-                  color: activeTab === item.id ? 'var(--accent)' : 'var(--text-secondary)',
+                  background: activeTab === item.id 
+                    ? 'var(--accent)' 
+                    : (hoveredTab === item.id ? 'var(--accent-glow)' : 'transparent'),
+                  color: activeTab === item.id 
+                    ? 'white' 
+                    : (hoveredTab === item.id ? 'var(--text-primary)' : 'var(--text-secondary)'),
                   position: 'relative',
-                  transition: 'all 0.2s ease',
+                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                   border: 'none',
-                  boxShadow: 'none'
+                  boxShadow: activeTab === item.id ? 'var(--shadow-sm)' : 'none',
+                  fontWeight: 700
                 }}
               >
                 <item.icon size={16} strokeWidth={activeTab === item.id ? 2.5 : 2} />
-                <span className="nav-label" style={{ fontWeight: 600, fontSize: '0.9rem' }}>{item.label}</span>
+                <span className="nav-label" style={{ fontSize: '0.9rem' }}>{item.label}</span>
                 {item.id === 'queue' && queueCount !== undefined && queueCount > 0 && (
                    <div style={{ 
-                       background: 'var(--accent)', 
-                       color: 'white', 
+                       background: activeTab === item.id ? 'white' : 'var(--accent)', 
+                       color: activeTab === item.id ? 'var(--accent)' : 'white', 
                        borderRadius: '6px', 
                        padding: '1px 6px', 
                        fontSize: '0.7rem', 
-                       fontWeight: 700, 
+                       fontWeight: 800, 
                        marginLeft: '4px' 
                    }}>{queueCount}</div>
                 )}
@@ -98,7 +107,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, headerRight, showLogs,
                     left: '16px',
                     right: '16px',
                     height: '2px',
-                    background: 'var(--accent)',
+                    background: 'rgba(255,255,255,0.4)',
                     borderRadius: '2px'
                   }} />
                 )}

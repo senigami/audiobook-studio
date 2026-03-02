@@ -57,3 +57,12 @@ These rules apply to all development activities in this repository.
 - **Recommend the better way** when you know one: e.g., “We could do X as you said, but Y is simpler and matches our existing pattern—I recommend Y.”
 - **Ask one clarifying question** only when the request is ambiguous and the answer would change the implementation; otherwise make a reasonable choice and state it.
 - Stay respectful and collaborative: frame suggestions as recommendations, not vetoes, so the user can still choose the original approach if they prefer.
+
+## 10. UI Consistency & Styling
+
+- **Standard Interaction Pattern**: All interactive list items, tabs, and menu items must follow a consistent visual hierarchy:
+  - **Selected/Active**: `background: var(--accent)` (Dark Blue), `color: white` or `var(--accent)` border/text if ghost-style.
+  - **Hovered**: `background: var(--accent-glow)` (Light Blue / Tint), `color: var(--text-primary)`.
+  - **Default**: `background: transparent` or `var(--surface)`, `color: var(--text-muted)`.
+- **CSS Variables**: Always prefer theme variables (`--accent`, `--accent-glow`, `--text-primary`) over hardcoded hex codes to ensure theme compatibility.
+- **Component Reuse**: High-level interaction logic (like hover states in `ActionMenu`) should be implemented using React state where possible to ensure reliability during re-renders.

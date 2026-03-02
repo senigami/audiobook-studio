@@ -25,6 +25,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentTab, setCurrentTab] = useState<'chapters' | 'characters'>('chapters');
+  const [hoveredTab, setHoveredTab] = useState<'chapters' | 'characters' | null>(null);
   const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
   const skipBlurSaveId = useRef<string | null>(null);
@@ -528,34 +529,40 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
           <div style={{ display: 'flex', gap: '2rem', borderBottom: '1px solid var(--border)', marginBottom: '1.5rem', padding: '0 0.5rem' }}>
               <button 
                   onClick={() => setCurrentTab('chapters')}
+                  onMouseEnter={() => setHoveredTab('chapters')}
+                  onMouseLeave={() => setHoveredTab(null)}
                   style={{ 
-                      padding: '1rem 0.5rem', 
-                      background: 'none', 
+                      padding: '1rem 0.75rem', 
+                      background: hoveredTab === 'chapters' ? 'var(--accent-glow)' : 'none', 
                       border: 'none', 
                       color: currentTab === 'chapters' ? 'var(--accent)' : 'var(--text-muted)',
-                      fontWeight: 600,
-                      fontSize: '1rem',
+                      fontWeight: 700,
+                      fontSize: '0.95rem',
                       cursor: 'pointer',
-                      borderBottom: currentTab === 'chapters' ? '2px solid var(--accent)' : '2px solid transparent',
-                      transition: 'all 0.2s',
-                      marginBottom: '-1px'
+                      borderBottom: currentTab === 'chapters' ? '3px solid var(--accent)' : '3px solid transparent',
+                      transition: 'all 0.1s ease-out',
+                      marginBottom: '-1px',
+                      borderRadius: '8px 8px 0 0'
                   }}
               >
                   Chapters
               </button>
               <button 
                   onClick={() => setCurrentTab('characters')}
+                  onMouseEnter={() => setHoveredTab('characters')}
+                  onMouseLeave={() => setHoveredTab(null)}
                   style={{ 
-                      padding: '1rem 0.5rem', 
-                      background: 'none', 
+                      padding: '1rem 0.75rem', 
+                      background: hoveredTab === 'characters' ? 'var(--accent-glow)' : 'none', 
                       border: 'none', 
                       color: currentTab === 'characters' ? 'var(--accent)' : 'var(--text-muted)',
-                      fontWeight: 600,
-                      fontSize: '1rem',
+                      fontWeight: 700,
+                      fontSize: '0.95rem',
                       cursor: 'pointer',
-                      borderBottom: currentTab === 'characters' ? '2px solid var(--accent)' : '2px solid transparent',
-                      transition: 'all 0.2s',
-                      marginBottom: '-1px'
+                      borderBottom: currentTab === 'characters' ? '3px solid var(--accent)' : '3px solid transparent',
+                      transition: 'all 0.1s ease-out',
+                      marginBottom: '-1px',
+                      borderRadius: '8px 8px 0 0'
                   }}
               >
                   Characters

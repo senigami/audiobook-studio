@@ -166,8 +166,8 @@ button {
 }
 
 .btn-ghost:hover:not(:disabled) {
-  background: var(--glass-hover);
-  color: var(--text-primary);
+  background: var(--accent-glow);
+  color: var(--accent);
 }
 
 .btn-ghost:disabled {
@@ -197,7 +197,7 @@ button {
 }
 
 .action-menu-item.standard:hover {
-  background: var(--surface-alt);
+  background: var(--accent-glow);
   color: var(--accent);
 }
 
