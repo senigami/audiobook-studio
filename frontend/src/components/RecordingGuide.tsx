@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, Copy, Shuffle, Check, HelpCircle } from 'lucide-react';
+import { ChevronDown, ChevronRight, Copy, Check, HelpCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface Prompt {
@@ -56,7 +56,6 @@ const PROMPT_LIBRARY: PromptCategory[] = [
 export const RecordingGuide: React.FC = () => {
     const [expandedCategory, setExpandedCategory] = useState<string | null>('Neutral / Calm');
     const [copiedId, setCopiedId] = useState<string | null>(null);
-    const [, setShuffleSeed] = useState(0);
 
     const copyToClipboard = (text: string, id: string) => {
         navigator.clipboard.writeText(text);
@@ -107,14 +106,6 @@ export const RecordingGuide: React.FC = () => {
             <div className="input-group">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                     <label>Prompt Library</label>
-                    <button 
-                        onClick={() => setShuffleSeed(s => s + 1)}
-                        className="btn-ghost" 
-                        style={{ padding: '4px 8px', fontSize: '0.75rem', height: 'auto' }}
-                    >
-                        <Shuffle size={12} />
-                        Shuffle
-                    </button>
                 </div>
                 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>

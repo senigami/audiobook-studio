@@ -5,6 +5,7 @@ import { ConfirmModal } from './ConfirmModal';
 import { ActionMenu } from './ActionMenu';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
+import { GlassInput } from './GlassInput';
 
 // --- Components ---
 
@@ -854,6 +855,7 @@ interface VoiceCardProps {
     onBuildNow: (name: string, files: File[]) => void;
     requestConfirm: (config: { title: string; message: string; onConfirm: () => void; isDestructive?: boolean }) => void;
     onAddVariantClick: (speaker: Speaker, profileCount: number) => void;
+    onRenameClick: (speaker: Speaker) => void;
     isExpanded: boolean;
     onToggleExpand: () => void;
 }
@@ -861,7 +863,7 @@ const VoiceCard: React.FC<VoiceCardProps> = ({
     speaker, profiles, isTestingProfileId, testProgress, 
     onTest, onDelete, onRefresh,
     onEditTestText, onBuildNow, requestConfirm,
-    onAddVariantClick, isExpanded, onToggleExpand
+    onAddVariantClick, onRenameClick, isExpanded, onToggleExpand
 }) => {
     const defaultProfile = profiles.find(p => p.is_default) || profiles[0] || { name: '', speed: 1.0, wav_count: 0 } as SpeakerProfile;
     const [activeProfileId, setActiveProfileId] = useState(defaultProfile?.name || '');
@@ -967,6 +969,11 @@ const VoiceCard: React.FC<VoiceCardProps> = ({
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <ActionMenu 
                         items={[
+                            {
+                                label: 'Rename Voice',
+                                icon: FileEdit,
+                                onClick: () => onRenameClick(speaker)
+                            },
                             { 
                                 label: 'Delete Voice (all variants)', 
                                 icon: Trash2,
@@ -1109,11 +1116,16 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
     const [searchQuery, setSearchQuery] = useState('');
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isAddVariantModalOpen, setIsAddVariantModalOpen] = useState(false);
+    const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
+    const [renameSpeakerId, setRenameSpeakerId] = useState<string | null>(null);
+    const [originalSpeakerName, setOriginalSpeakerName] = useState('');
     const [addVariantSpeaker, setAddVariantSpeaker] = useState<{ speaker: Speaker, nextVariantNum: number } | null>(null);
     const [newVoiceName, setNewVoiceName] = useState('');
+    const [newSpeakerName, setNewSpeakerName] = useState('');
     const [newVariantNameModal, setNewVariantNameModal] = useState('');
     const [isCreatingVoice, setIsCreatingVoice] = useState(false);
     const [isAddingVariantModal, setIsAddingVariantModal] = useState(false);
+    const [isRenamingSpeaker, setIsRenamingSpeaker] = useState(false);
     const [expandedVoiceId, setExpandedVoiceId] = useState<string | null>(null);
 
     const fetchSpeakers = useCallback(async () => {
@@ -1302,28 +1314,20 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                     <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>Voices</h2>
                     
                     <div style={{ position: 'relative' }}>
-                        <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                        <input
-                            type="text"
+                        <GlassInput
+                            icon={<Search size={16} />}
                             placeholder="Search voices..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             style={{
-                                padding: '8px 12px 8px 36px',
-                                borderRadius: '100px',
-                                border: '1px solid var(--border)',
-                                background: 'var(--surface)',
-                                fontSize: '0.85rem',
                                 width: '240px',
-                                transition: 'all 0.2s'
+                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
                             }}
                             onFocus={(e) => {
                                 e.currentTarget.style.width = '320px';
-                                e.currentTarget.style.borderColor = 'var(--accent)';
                             }}
                             onBlur={(e) => {
                                 e.currentTarget.style.width = '240px';
-                                e.currentTarget.style.borderColor = 'var(--border)';
                             }}
                         />
                     </div>
@@ -1410,6 +1414,12 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                                         setNewVariantNameModal(`Variant ${count + 1}`);
                                         setIsAddVariantModalOpen(true);
                                     }}
+                                    onRenameClick={(s) => {
+                                        setRenameSpeakerId(s.id);
+                                        setOriginalSpeakerName(s.name);
+                                        setNewSpeakerName(s.name);
+                                        setIsRenameModalOpen(true);
+                                    }}
                                     isExpanded={expandedVoiceId === voice.id}
                                     onToggleExpand={() => setExpandedVoiceId(expandedVoiceId === voice.id ? null : voice.id)}
                                 />
@@ -1450,30 +1460,11 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                         
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '24px' }}>
                             <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>VOICE NAME</label>
-                            <input
+                            <GlassInput
                                 autoFocus
-                                type="text"
                                 placeholder="e.g. Victor the Vampire"
                                 value={newVoiceName}
                                 onChange={(e) => setNewVoiceName(e.target.value)}
-                                className="form-input"
-                                style={{ 
-                                    padding: '10px 14px',
-                                    borderRadius: '100px',
-                                    background: 'var(--surface)',
-                                    border: '1px solid var(--border)',
-                                    fontSize: '0.85rem',
-                                    width: '100%',
-                                    transition: 'all 0.2s'
-                                }}
-                                onFocus={(e) => {
-                                    e.currentTarget.style.borderColor = 'var(--accent)';
-                                    e.currentTarget.style.boxShadow = '0 0 0 2px rgba(var(--accent-rgb), 0.1)';
-                                }}
-                                onBlur={(e) => {
-                                    e.currentTarget.style.borderColor = 'var(--border)';
-                                    e.currentTarget.style.boxShadow = 'none';
-                                }}
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter' && newVoiceName.trim()) {
                                         const button = e.currentTarget.closest('div')?.parentElement?.querySelector('button.btn-primary') as HTMLButtonElement;
@@ -1519,6 +1510,95 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 </div>
             )}
 
+            {/* Rename Voice Modal */}
+            {isRenameModalOpen && (
+                <div style={{
+                    position: 'fixed',
+                    inset: 0,
+                    zIndex: 1000,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: 'rgba(0,0,0,0.4)',
+                    backdropFilter: 'blur(4px)'
+                }}>
+                    <motion.div 
+                        initial={{ scale: 0.95, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        style={{
+                            width: '400px',
+                            background: 'var(--surface)',
+                            borderRadius: '24px',
+                            padding: '24px',
+                            boxShadow: 'var(--shadow-lg)',
+                            border: '1px solid var(--border)'
+                        }}
+                    >
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '8px' }}>
+                            Rename Voice: <span style={{ color: 'var(--accent)' }}>{originalSpeakerName}</span>
+                        </h3>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '24px' }}>
+                            Update the name for this voice. This will also update the prefix for all its variants.
+                        </p>
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '24px' }}>
+                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>NEW NAME</label>
+                            <GlassInput
+                                autoFocus
+                                placeholder="e.g. Victor the Vampire"
+                                value={newSpeakerName}
+                                onChange={(e) => setNewSpeakerName(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && newSpeakerName.trim() && !isRenamingSpeaker) {
+                                        const button = e.currentTarget.closest('div')?.parentElement?.querySelector('button.btn-primary') as HTMLButtonElement;
+                                        button?.click();
+                                    }
+                                }}
+                            />
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            <button 
+                                onClick={() => setIsRenameModalOpen(false)}
+                                className="btn-ghost"
+                                style={{ flex: 1, height: '44px', borderRadius: '12px' }}
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                disabled={!newSpeakerName.trim() || isRenamingSpeaker}
+                                onClick={async () => {
+                                    if (!renameSpeakerId) return;
+                                    setIsRenamingSpeaker(true);
+                                    try {
+                                        const formData = new URLSearchParams();
+                                        formData.append('id', renameSpeakerId);
+                                        formData.append('name', newSpeakerName.trim());
+                                        const resp = await fetch('/api/speakers', {
+                                            method: 'POST',
+                                            body: formData
+                                        });
+                                        if (resp.ok) {
+                                            setIsRenameModalOpen(false);
+                                            fetchSpeakers();
+                                        } else {
+                                            const err = await resp.json();
+                                            alert(`Failed to rename voice: ${err.message}`);
+                                        }
+                                    } finally {
+                                        setIsRenamingSpeaker(false);
+                                    }
+                                }}
+                                className="btn-primary"
+                                style={{ flex: 1, height: '44px', borderRadius: '12px' }}
+                            >
+                                {isRenamingSpeaker ? 'Renaming...' : 'Rename Voice'}
+                            </button>
+                        </div>
+                    </motion.div>
+                </div>
+            )}
+
             {/* Add Variant Modal */}
             {isAddVariantModalOpen && addVariantSpeaker && (
                 <div style={{
@@ -1550,33 +1630,13 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                         
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '24px' }}>
                             <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>VARIANT NAME</label>
-                            <input
+                            <GlassInput
                                 autoFocus
-                                type="text"
                                 placeholder={`e.g. Variant ${addVariantSpeaker?.nextVariantNum}`}
                                 value={newVariantNameModal}
                                 onChange={(e) => setNewVariantNameModal(e.target.value)}
-                                className="form-input"
-                                style={{ 
-                                    padding: '10px 14px',
-                                    borderRadius: '100px',
-                                    background: 'var(--surface)',
-                                    border: '1px solid var(--border)',
-                                    fontSize: '0.85rem',
-                                    width: '100%',
-                                    transition: 'all 0.2s'
-                                }}
-                                onFocus={(e) => {
-                                    e.currentTarget.style.borderColor = 'var(--accent)';
-                                    e.currentTarget.style.boxShadow = '0 0 0 2px rgba(var(--accent-rgb), 0.1)';
-                                }}
-                                onBlur={(e) => {
-                                    e.currentTarget.style.borderColor = 'var(--border)';
-                                    e.currentTarget.style.boxShadow = 'none';
-                                }}
                                 onKeyDown={async (e) => {
                                     if (e.key === 'Enter' && newVariantNameModal.trim() && !isAddingVariantModal) {
-                                        // Submit if Enter is pressed
                                         const button = e.currentTarget.closest('div')?.parentElement?.querySelector('button.btn-primary') as HTMLButtonElement;
                                         button?.click();
                                     }
@@ -1647,29 +1707,10 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 <div className="glass-panel" style={{ padding: '1.5rem' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '1.5rem' }}>
                         <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>VARIANT NAME</label>
-                        <input 
-                            type="text"
+                        <GlassInput
+                            placeholder="Variant name"
                             value={variantName}
                             onChange={(e) => setVariantName(e.target.value)}
-                            className="form-input"
-                            placeholder="Variant name"
-                            style={{ 
-                                padding: '10px 14px',
-                                borderRadius: '100px',
-                                background: 'var(--surface)',
-                                border: '1px solid var(--border)',
-                                fontSize: '0.85rem',
-                                width: '100%',
-                                transition: 'all 0.2s'
-                            }}
-                            onFocus={(e) => {
-                                e.currentTarget.style.borderColor = 'var(--accent)';
-                                e.currentTarget.style.boxShadow = '0 0 0 2px rgba(var(--accent-rgb), 0.1)';
-                            }}
-                            onBlur={(e) => {
-                                e.currentTarget.style.borderColor = 'var(--border)';
-                                e.currentTarget.style.boxShadow = 'none';
-                            }}
                         />
                     </div>
 
