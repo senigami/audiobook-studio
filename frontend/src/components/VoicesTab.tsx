@@ -329,8 +329,10 @@ const ProfileDetails: React.FC<ProfileDetailsProps> = ({
     const [isSaving, setIsSaving] = useState(false);
     const [cacheBuster, setCacheBuster] = useState(Date.now());
     const [isPlaying, setIsPlaying] = useState(false);
+    const [playingSample, setPlayingSample] = useState<string | null>(null);
     const [isRebuildRequired, setIsRebuildRequired] = useState(false);
     const audioRef = useRef<HTMLAudioElement>(null);
+    const sampleAudioRef = useRef<HTMLAudioElement>(null);
     const speed = localSpeed ?? profile.speed;
 
     const [isDragging, setIsDragging] = useState(false);
@@ -368,12 +370,39 @@ const ProfileDetails: React.FC<ProfileDetailsProps> = ({
             return;
         }
 
+        if (playingSample) {
+            sampleAudioRef.current?.pause();
+            setPlayingSample(null);
+        }
+
         if (audioRef.current) {
             if (isPlaying) {
                 audioRef.current.pause();
             } else {
                 audioRef.current.play();
             }
+        }
+    };
+
+    const handlePlaySample = (s: string) => {
+        if (playingSample === s) {
+            sampleAudioRef.current?.pause();
+            setPlayingSample(null);
+            return;
+        }
+
+        if (isPlaying) {
+            audioRef.current?.pause();
+            setIsPlaying(false);
+        }
+
+        setPlayingSample(s);
+        if (sampleAudioRef.current) {
+            sampleAudioRef.current.src = `/out/voices/${encodeURIComponent(profile.name)}/${encodeURIComponent(s)}?t=${Date.now()}`;
+            sampleAudioRef.current.play().catch(err => {
+                console.error("Playback failed", err);
+                setPlayingSample(null);
+            });
         }
     };
 
@@ -589,9 +618,49 @@ const ProfileDetails: React.FC<ProfileDetailsProps> = ({
                                     background: idx % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent',
                                     transition: 'background 0.2s'
                                 }}>
-                                    <span style={{ color: 'var(--text-primary)', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                                        {s}
-                                    </span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, overflow: 'hidden' }}>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handlePlaySample(s);
+                                            }}
+                                            className="btn-ghost"
+                                            style={{
+                                                padding: 0,
+                                                width: '24px',
+                                                height: '24px',
+                                                borderRadius: '6px',
+                                                background: playingSample === s ? 'var(--accent-glow)' : 'rgba(255,255,255,0.05)',
+                                                border: playingSample === s ? '1px solid var(--accent)' : '1px solid var(--border-light)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                color: playingSample === s ? 'var(--accent)' : 'var(--text-muted)',
+                                                transition: 'all 0.2s'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                if (playingSample !== s) {
+                                                    e.currentTarget.style.borderColor = 'var(--accent)';
+                                                    e.currentTarget.style.color = 'var(--accent)';
+                                                }
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                if (playingSample !== s) {
+                                                    e.currentTarget.style.borderColor = 'var(--border-light)';
+                                                    e.currentTarget.style.color = 'var(--text-muted)';
+                                                }
+                                            }}
+                                        >
+                                            {playingSample === s ? (
+                                                <Pause size={12} fill="currentColor" />
+                                            ) : (
+                                                <Play size={12} fill="currentColor" />
+                                            )}
+                                        </button>
+                                        <span style={{ color: 'var(--text-primary)', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            {s}
+                                        </span>
+                                    </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <span style={{ color: 'var(--text-muted)', fontSize: '0.65rem' }}>WAV</span>
                                     <button 
@@ -678,6 +747,12 @@ const ProfileDetails: React.FC<ProfileDetailsProps> = ({
                     onEnded={() => setIsPlaying(false)}
                 />
             )}
+            <audio 
+                ref={sampleAudioRef}
+                onPlay={() => setPlayingSample(playingSample)} 
+                onPause={() => setPlayingSample(null)}
+                onEnded={() => setPlayingSample(null)}
+            />
 
             <div 
                 style={{ 

@@ -66,3 +66,8 @@ These rules apply to all development activities in this repository.
   - **Default**: `background: transparent` or `var(--surface)`, `color: var(--text-muted)`.
 - **CSS Variables**: Always prefer theme variables (`--accent`, `--accent-glow`, `--text-primary`) over hardcoded hex codes to ensure theme compatibility.
 - **Component Reuse**: High-level interaction logic (like hover states in `ActionMenu`) should be implemented using React state where possible to ensure reliability during re-renders.
+
+## 11. Manual Verification
+
+- **User Preference**: The user prefers to perform manual verification themselves to save tokens and maintain control over the verification process.
+- **No Browser Autonomy**: Do NOT open a browser or use browser subagents to verify UI/UX changes unless specifically requested by the user. Rely on the user's feedback after they have had a chance to test the changes locally.
