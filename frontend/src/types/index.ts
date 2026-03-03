@@ -27,6 +27,7 @@ export interface ChapterSegment {
   text_content: string;
   sanitized_text?: string;
   character_id: string | null;
+  speaker_profile_name: string | null;
   audio_file_path: string | null;
   audio_status: 'unprocessed' | 'processing' | 'done' | 'error';
   audio_generated_at: number | null;

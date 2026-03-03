@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, AlertTriangle, CheckCircle, RefreshCw, Zap, User, Info, Volume2, List } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, CheckCircle, RefreshCw, Zap, User, Info, Volume2, List, ChevronRight, ChevronDown } from 'lucide-react';
 import { ColorSwatchPicker } from './ColorSwatchPicker';
 import { ConfirmModal } from './ConfirmModal';
 
@@ -48,6 +48,8 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({ chapterId, project
   const [characters, setCharacters] = useState<Character[]>([]);
   const [activeSegmentId, setActiveSegmentId] = useState<string | null>(null);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
+  const [selectedProfileName, setSelectedProfileName] = useState<string | null>(null);
+  const [expandedSpeakerIds, setExpandedSpeakerIds] = useState<Set<string>>(new Set());
   const [hoveredSegmentId, setHoveredSegmentId] = useState<string | null>(null);
   
   const [confirmConfig, setConfirmConfig] = useState<{
@@ -457,11 +459,29 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({ chapterId, project
   const handleParagraphBulkAssign = async (segmentIds: string[]) => {
     if (!selectedCharacterId) return;
     try {
-        await api.updateSegmentsBulk(segmentIds, { character_id: selectedCharacterId });
-        setSegments(prev => prev.map(s => segmentIds.includes(s.id) ? { ...s, character_id: selectedCharacterId } : s));
+        await api.updateSegmentsBulk(segmentIds, { 
+            character_id: selectedCharacterId,
+            speaker_profile_name: selectedProfileName,
+            audio_status: 'unprocessed' 
+        });
+        setSegments(prev => prev.map(s => segmentIds.includes(s.id) ? { 
+            ...s, 
+            character_id: selectedCharacterId,
+            speaker_profile_name: selectedProfileName,
+            audio_status: 'unprocessed'
+        } : s));
     } catch (e) {
         console.error("Bulk assign failed", e);
     }
+  };
+
+  const toggleSpeakerExpansion = (speakerId: string) => {
+    setExpandedSpeakerIds(prev => {
+        const next = new Set(prev);
+        if (next.has(speakerId)) next.delete(speakerId);
+        else next.add(speakerId);
+        return next;
+    });
   };
 
   const handleParagraphBulkReset = async (segmentIds: string[]) => {
@@ -1058,12 +1078,27 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({ chapterId, project
                         textTransform: 'uppercase',
                         letterSpacing: '0.05em',
                         display: 'flex',
-                        flexDirection: 'column'
+                        flexDirection: 'column',
+                        gap: '2px'
                     }}>
-                        {char?.name || 'NARRATOR'}
-                        <span style={{ fontSize: '0.65rem', fontWeight: 400, opacity: 0.6 }}>
-                            {char?.speaker_profile_name || 'Chapter Default'}
-                        </span>
+                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {char?.name || 'NARRATOR'}
+                        </div>
+                        {group.segments[0].speaker_profile_name && (
+                            <div style={{ 
+                                fontSize: '0.6rem', 
+                                background: 'rgba(255,255,255,0.05)', 
+                                padding: '2px 6px', 
+                                borderRadius: '4px', 
+                                width: 'fit-content',
+                                opacity: 0.8,
+                                fontWeight: 600,
+                                textTransform: 'none',
+                                letterSpacing: 'normal'
+                            }}>
+                                {group.segments[0].speaker_profile_name}
+                            </div>
+                        )}
                     </div>
 
                     {/* Text column */}
@@ -1130,7 +1165,10 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({ chapterId, project
                     
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', overflowY: 'auto', flex: 1, paddingRight: '0.5rem' }}>
                         <button 
-                            onClick={() => setSelectedCharacterId(null)}
+                            onClick={() => {
+                                setSelectedCharacterId(null);
+                                setSelectedProfileName(null);
+                            }}
                             style={{ 
                                 padding: '0.75rem', 
                                 borderRadius: '8px', 
@@ -1148,43 +1186,104 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({ chapterId, project
                             <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--text-muted)' }} />
                             <div style={{ flex: 1 }}>
                                 <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>None / Default</div>
-                                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Stop bulk assignment</div>
+                                <div style={{ fontSize: '0.7rem', opacity: 0.6 }}>Normal selection mode</div>
                             </div>
                         </button>
 
-                        {characters.map(char => (
-                            <div 
-                                key={char.id}
-                                onClick={() => setSelectedCharacterId(char.id)}
-                                style={{ 
-                                    padding: '0.75rem', 
-                                    borderRadius: '8px', 
-                                    border: selectedCharacterId === char.id ? `2px solid ${char.color}` : '1px solid var(--border)',
-                                    background: selectedCharacterId === char.id ? `${char.color}15` : 'transparent',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '0.75rem',
-                                    color: 'var(--text-primary)',
-                                    textAlign: 'left',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s',
-                                    // Add hover effect since it's now a div
-                                    outline: 'none'
-                                }}
-                                onMouseEnter={(e) => { if (selectedCharacterId !== char.id) e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
-                                onMouseLeave={(e) => { if (selectedCharacterId !== char.id) e.currentTarget.style.background = 'transparent'; }}
-                            >
-                                <ColorSwatchPicker 
-                                    value={char.color || '#94a3b8'} 
-                                    onChange={(color) => handleUpdateCharacterColor(char.id, color)} 
-                                    size="sm" 
-                                />
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{char.name}</div>
-                                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{char.speaker_profile_name || 'No voice'}</div>
-                                </div>
-                            </div>
-                        ))}
+                        {characters.map(char => {
+                            const speakerMatch = (speakers || []).find(s => s.name === char.speaker_profile_name);
+                            const variants = speakerMatch ? (speakerProfiles || []).filter(p => p.speaker_id === speakerMatch.id) : [];
+                            const isExpanded = speakerMatch && expandedSpeakerIds.has(speakerMatch.id);
+                            const isSpeakerSelected = selectedCharacterId === char.id && !selectedProfileName;
+
+                            return (
+                                <React.Fragment key={char.id}>
+                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                        {/* Expansion arrow toggle */}
+                                        {variants.length > 1 ? (
+                                            <button 
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (speakerMatch) toggleSpeakerExpansion(speakerMatch.id);
+                                                }}
+                                                className="btn-ghost"
+                                                style={{ 
+                                                    width: '28px', minWidth: '28px', height: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                                                    padding: 0, opacity: 0.6, borderRadius: '4px'
+                                                }}
+                                            >
+                                                {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                            </button>
+                                        ) : (
+                                            <div style={{ width: '28px', minWidth: '28px' }} />
+                                        )}
+
+                                        <div 
+                                            onClick={() => {
+                                                setSelectedCharacterId(char.id);
+                                                setSelectedProfileName(null);
+                                            }}
+                                            style={{ 
+                                                flex: 1, padding: '0.75rem', borderRadius: '8px', 
+                                                border: `1px solid ${isSpeakerSelected ? char.color : 'var(--border)'}`,
+                                                background: isSpeakerSelected ? `${char.color}15` : 'transparent',
+                                                display: 'flex', alignItems: 'center', gap: '0.75rem',
+                                                color: 'var(--text-primary)', textAlign: 'left', cursor: 'pointer', transition: 'all 0.2s',
+                                                minWidth: 0
+                                            }}
+                                        >
+                                            <ColorSwatchPicker 
+                                                value={char.color || '#94a3b8'} 
+                                                onChange={(color) => handleUpdateCharacterColor(char.id, color)} 
+                                                size="sm" 
+                                            />
+                                            <div style={{ flex: 1, overflow: 'hidden' }}>
+                                                <div style={{ fontWeight: 600, fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{char.name}</div>
+                                                <div style={{ fontSize: '0.7rem', opacity: 0.6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{char.speaker_profile_name || 'No voice'}</div>
+                                            </div>
+                                            {variants.length > 1 && (
+                                                <div style={{ fontSize: '0.65rem', background: 'var(--surface-light)', padding: '2px 6px', borderRadius: '10px', opacity: 0.8, fontWeight: 700, flexShrink: 0 }}>
+                                                    {variants.length}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Variants list (nested) */}
+                                    {isExpanded && variants.map(variant => {
+                                        const isVariantSelected = selectedCharacterId === char.id && selectedProfileName === variant.name;
+                                        return (
+                                            <button 
+                                                key={variant.name}
+                                                onClick={() => {
+                                                    setSelectedCharacterId(char.id);
+                                                    setSelectedProfileName(variant.name);
+                                                }}
+                                                style={{ 
+                                                    marginLeft: '36px', padding: '0.5rem 0.75rem', borderRadius: '6px', 
+                                                    border: `1px solid ${isVariantSelected ? char.color : 'transparent'}`,
+                                                    background: isVariantSelected ? `${char.color}10` : 'transparent',
+                                                    display: 'flex', alignItems: 'center', gap: '0.75rem',
+                                                    color: 'var(--text-primary)', textAlign: 'left', cursor: 'pointer', transition: 'all 0.2s',
+                                                    opacity: isVariantSelected ? 1 : 0.7,
+                                                    minWidth: 0
+                                                }}
+                                            >
+                                                <div style={{ 
+                                                    width: '8px', height: '8px', borderRadius: '50%', 
+                                                    border: `1.5px solid ${char.color}`, 
+                                                    background: isVariantSelected ? char.color : 'transparent',
+                                                    flexShrink: 0
+                                                }} />
+                                                <div style={{ flex: 1, fontSize: '0.8rem', fontWeight: isVariantSelected ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {variant.variant_name || 'Standard'}
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </React.Fragment>
+                            );
+                        })}
                     </div>
 
                     <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border)', fontSize: '0.75rem', color: 'var(--text-muted)' }}>

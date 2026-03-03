@@ -524,12 +524,15 @@ def api_generate_segments(segment_ids: List[str] = Form(...)):
 def api_update_segment(
     segment_id: str,
     character_id: Optional[str] = Form(None),
+    speaker_profile_name: Optional[str] = Form(None),
     audio_status: Optional[str] = Form(None)
 ):
     updates = {}
     if character_id is not None:
         # allow clearing character
         updates["character_id"] = character_id if character_id != "" else None
+    if speaker_profile_name is not None:
+        updates["speaker_profile_name"] = speaker_profile_name if speaker_profile_name != "" else None
     if audio_status is not None:
         updates["audio_status"] = audio_status
 
@@ -543,6 +546,7 @@ def api_update_segment(
 async def api_update_segments_bulk(
     segment_ids: List[str] = Form(...),
     character_id: Optional[str] = Form(None),
+    speaker_profile_name: Optional[str] = Form(None),
     audio_status: Optional[str] = Form(None)
 ):
     # Handle both ["id1,id2"] and ["id1", "id2"]
@@ -556,6 +560,8 @@ async def api_update_segments_bulk(
     updates = {}
     if character_id is not None:
         updates["character_id"] = character_id if character_id != "" else None
+    if speaker_profile_name is not None:
+        updates["speaker_profile_name"] = speaker_profile_name if speaker_profile_name != "" else None
     if audio_status is not None:
         updates["audio_status"] = audio_status
 

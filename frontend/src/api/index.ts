@@ -113,17 +113,19 @@ export const api = {
     const data = await res.json();
     return data.segments || [];
   },
-  updateSegment: async (segmentId: string, data: { character_id?: string | null; audio_status?: string }): Promise<any> => {
+  updateSegment: async (segmentId: string, data: { character_id?: string | null; speaker_profile_name?: string | null; audio_status?: string }): Promise<any> => {
     const formData = new FormData();
     if (data.character_id !== undefined) formData.append('character_id', data.character_id || "");
+    if (data.speaker_profile_name !== undefined) formData.append('speaker_profile_name', data.speaker_profile_name || "");
     if (data.audio_status) formData.append('audio_status', data.audio_status);
     const res = await fetch(`/api/segments/${segmentId}`, { method: 'PUT', body: formData });
     return res.json();
   },
-  updateSegmentsBulk: async (segmentIds: string[], data: { character_id?: string | null; audio_status?: string }): Promise<any> => {
+  updateSegmentsBulk: async (segmentIds: string[], data: { character_id?: string | null; speaker_profile_name?: string | null; audio_status?: string }): Promise<any> => {
     const formData = new FormData();
     formData.append('segment_ids', segmentIds.join(','));
     if (data.character_id !== undefined) formData.append('character_id', data.character_id || "");
+    if (data.speaker_profile_name !== undefined) formData.append('speaker_profile_name', data.speaker_profile_name || "");
     if (data.audio_status) formData.append('audio_status', data.audio_status);
     const res = await fetch('/api/segments', { method: 'PUT', body: formData });
     return res.json();

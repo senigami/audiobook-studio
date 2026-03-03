@@ -91,6 +91,7 @@ def init_db():
                     text_content TEXT NOT NULL,
                     sanitized_text TEXT,
                     character_id TEXT,
+                    speaker_profile_name TEXT,
                     audio_file_path TEXT,
                     audio_status TEXT DEFAULT 'unprocessed',
                     audio_generated_at REAL,
@@ -98,6 +99,13 @@ def init_db():
                     FOREIGN KEY (character_id) REFERENCES characters (id)
                 )
             """)
+
+            # Migration: Ensure speaker_profile_name exists in chapter_segments
+            try:
+                cursor.execute("ALTER TABLE chapter_segments ADD COLUMN speaker_profile_name TEXT")
+            except sqlite3.OperationalError:
+                # Already exists
+                pass
 
             # Speakers table
             cursor.execute("""
@@ -428,7 +436,7 @@ def get_chapter_segments(chapter_id: str) -> List[Dict[str, Any]]:
         with get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT s.*, c.speaker_profile_name, c.color as character_color, c.name as character_name
+                SELECT s.*, c.color as character_color, c.name as character_name
                 FROM chapter_segments s
                 LEFT JOIN characters c ON s.character_id = c.id
                 WHERE s.chapter_id = ? 
@@ -535,6 +543,7 @@ def sync_chapter_segments(chapter_id: str, text_content: str):
                     # Reuse old segment attributes
                     seg_id = old_seg['id']
                     char_id = old_seg['character_id']
+                    speaker_profile_name = old_seg.get('speaker_profile_name')
                     audio_path = old_seg['audio_file_path']
                     audio_status = old_seg['audio_status']
                     audio_gen_at = old_seg['audio_generated_at']
@@ -545,15 +554,16 @@ def sync_chapter_segments(chapter_id: str, text_content: str):
                     # New segment
                     seg_id = str(uuid.uuid4())
                     char_id = None
+                    speaker_profile_name = None
                     audio_path = None
                     audio_status = 'unprocessed'
                     audio_gen_at = None
 
                 cursor.execute("""
                     INSERT INTO chapter_segments 
-                    (id, chapter_id, segment_order, text_content, sanitized_text, character_id, audio_file_path, audio_status, audio_generated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (seg_id, chapter_id, i, text, sanitized, char_id, audio_path, audio_status, audio_gen_at))
+                    (id, chapter_id, segment_order, text_content, sanitized_text, character_id, speaker_profile_name, audio_file_path, audio_status, audio_generated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (seg_id, chapter_id, i, text, sanitized, char_id, speaker_profile_name, audio_path, audio_status, audio_gen_at))
 
             conn.commit()
 
