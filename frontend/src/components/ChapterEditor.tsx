@@ -49,7 +49,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({ chapterId, project
   const [activeSegmentId, setActiveSegmentId] = useState<string | null>(null);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
   const [selectedProfileName, setSelectedProfileName] = useState<string | null>(null);
-  const [expandedSpeakerIds, setExpandedSpeakerIds] = useState<Set<string>>(new Set());
+  const [expandedCharacterId, setExpandedCharacterId] = useState<string | null>(null);
   const [hoveredSegmentId, setHoveredSegmentId] = useState<string | null>(null);
   
   const [confirmConfig, setConfirmConfig] = useState<{
@@ -457,37 +457,48 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({ chapterId, project
   };
 
   const handleParagraphBulkAssign = async (segmentIds: string[]) => {
-    if (!selectedCharacterId) return;
+    const isClearing = selectedCharacterId === 'CLEAR_ASSIGNMENT';
+    const characterId = isClearing ? null : selectedCharacterId;
+    const profileName = isClearing ? null : (selectedCharacterId ? selectedProfileName : null);
+    const audioStatus = isClearing ? undefined : 'unprocessed';
+
+    // Optimistic update
+    setSegments(prev => prev.map(s => segmentIds.includes(s.id) ? { 
+        ...s, 
+        character_id: characterId,
+        speaker_profile_name: profileName,
+        audio_status: audioStatus || s.audio_status
+    } : s));
+
     try {
         await api.updateSegmentsBulk(segmentIds, { 
-            character_id: selectedCharacterId,
-            speaker_profile_name: selectedProfileName,
-            audio_status: 'unprocessed' 
+            character_id: characterId,
+            speaker_profile_name: profileName,
+            audio_status: audioStatus
         });
-        setSegments(prev => prev.map(s => segmentIds.includes(s.id) ? { 
-            ...s, 
-            character_id: selectedCharacterId,
-            speaker_profile_name: selectedProfileName,
-            audio_status: 'unprocessed'
-        } : s));
     } catch (e) {
         console.error("Bulk assign failed", e);
+        // Fallback or refresh? Maybe loadChapter() if failed
     }
   };
 
-  const toggleSpeakerExpansion = (speakerId: string) => {
-    setExpandedSpeakerIds(prev => {
-        const next = new Set(prev);
-        if (next.has(speakerId)) next.delete(speakerId);
-        else next.add(speakerId);
-        return next;
-    });
+  const toggleCharacterExpansion = (characterId: string) => {
+    setExpandedCharacterId(prev => prev === characterId ? null : characterId);
   };
 
   const handleParagraphBulkReset = async (segmentIds: string[]) => {
+    // Optimistic update
+    setSegments(prev => prev.map(s => segmentIds.includes(s.id) ? { 
+        ...s, 
+        character_id: null,
+        speaker_profile_name: null 
+    } : s));
+
     try {
-        await api.updateSegmentsBulk(segmentIds, { character_id: null });
-        setSegments(prev => prev.map(s => segmentIds.includes(s.id) ? { ...s, character_id: null } : s));
+        await api.updateSegmentsBulk(segmentIds, { 
+            character_id: null,
+            speaker_profile_name: null
+        });
     } catch (e) {
         console.error("Bulk reset failed", e);
     }
@@ -1062,7 +1073,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({ chapterId, project
                       borderRadius: '8px',
                       background: isSelectedCharLines ? `${char?.color || '#94a3b8'}15` : (isHovered ? 'var(--surface-light)' : 'transparent'),
                       borderLeft: `4px solid ${char ? char.color : 'var(--text-muted)'}`,
-                      cursor: selectedCharacterId ? 'copy' : 'pointer',
+                      cursor: (selectedCharacterId && selectedCharacterId !== 'CLEAR_ASSIGNMENT') ? 'copy' : (selectedCharacterId === 'CLEAR_ASSIGNMENT' ? 'crosshair' : 'pointer'),
                       transition: 'all 0.1s ease',
                       gap: '2rem',
                       boxShadow: isHovered ? '0 2px 8px rgba(0,0,0,0.1)' : 'none'
@@ -1166,34 +1177,42 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({ chapterId, project
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', overflowY: 'auto', flex: 1, paddingRight: '0.5rem' }}>
                         <button 
                             onClick={() => {
-                                setSelectedCharacterId(null);
-                                setSelectedProfileName(null);
+                                if (selectedCharacterId === 'CLEAR_ASSIGNMENT') {
+                                    setSelectedCharacterId(null);
+                                } else {
+                                    setSelectedCharacterId('CLEAR_ASSIGNMENT');
+                                    setSelectedProfileName(null);
+                                }
                             }}
                             style={{ 
                                 padding: '0.75rem', 
                                 borderRadius: '8px', 
-                                border: '1px solid var(--border)',
-                                background: selectedCharacterId === null ? 'var(--surface-light)' : 'transparent',
+                                border: `1px solid ${selectedCharacterId === 'CLEAR_ASSIGNMENT' ? 'var(--accent)' : 'var(--border)'}`,
+                                background: selectedCharacterId === 'CLEAR_ASSIGNMENT' ? 'var(--surface-light)' : 'transparent',
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '0.75rem',
                                 color: 'var(--text-primary)',
                                 textAlign: 'left',
                                 cursor: 'pointer',
-                                transition: 'all 0.2s'
+                                transition: 'all 0.2s',
+                                position: 'relative'
                             }}
                         >
                             <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--text-muted)' }} />
                             <div style={{ flex: 1 }}>
                                 <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>None / Default</div>
-                                <div style={{ fontSize: '0.7rem', opacity: 0.6 }}>Normal selection mode</div>
+                                <div style={{ fontSize: '0.7rem', opacity: 0.6 }}>{selectedCharacterId === 'CLEAR_ASSIGNMENT' ? 'Click lines to clear' : 'Normal selection mode'}</div>
                             </div>
+                            {selectedCharacterId === 'CLEAR_ASSIGNMENT' && (
+                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--accent)', position: 'absolute', top: '8px', right: '8px' }} />
+                            )}
                         </button>
 
                         {characters.map(char => {
                             const speakerMatch = (speakers || []).find(s => s.name === char.speaker_profile_name);
                             const variants = speakerMatch ? (speakerProfiles || []).filter(p => p.speaker_id === speakerMatch.id) : [];
-                            const isExpanded = speakerMatch && expandedSpeakerIds.has(speakerMatch.id);
+                            const isExpanded = expandedCharacterId === char.id;
                             const isSpeakerSelected = selectedCharacterId === char.id && !selectedProfileName;
 
                             return (
@@ -1204,7 +1223,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({ chapterId, project
                                             <button 
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    if (speakerMatch) toggleSpeakerExpansion(speakerMatch.id);
+                                                    toggleCharacterExpansion(char.id);
                                                 }}
                                                 className="btn-ghost"
                                                 style={{ 
