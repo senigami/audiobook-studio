@@ -10,6 +10,8 @@ The **Global Queue** is usually visible on the right sidebar or via a dedicated 
 - **Running**: The current task being processed by the AI engine. You will see a predictive progress bar here.
 - **Done/Failed**: History of recent work.
 
+![Global Queue sidebar showing job progress and ETA](images/queue-sidebar.jpg)
+
 ## 📊 Performance Metrics
 
 The system tracks **Characters Per Second (CPS)** and uses it to provide:

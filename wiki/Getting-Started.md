@@ -59,6 +59,8 @@ Open your browser to `http://localhost:5173`.
 3. **Fill Details**: Enter a name (e.g., "My First Audiobook") and upload a cover if you have one.
 4. **Enter Project**: Click on the project card to enter the **Project View**.
 
+![Library view with the New Project button highlighted](images/new-project.jpg)
+
 ---
 
 [[Home]] | [[Concepts]] | [[Library and Projects]]

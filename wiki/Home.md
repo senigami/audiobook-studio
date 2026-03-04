@@ -21,6 +21,8 @@ Welcome to the Audiobook Studio internal documentation. This Wiki is designed to
 5. **Generate Audio**: Click **Queue All** or **Generate** on specific segments. Monitor progress in the **Queue** sidebar.
 6. **Bake & Export**: Once all segments are 'Done', click **Bake Chapter**. Finally, go to the project level and click **Assemble Audiobook** to get your `.m4b` file.
 
+![Launch screen showing character assignments and progress](images/launch-screen.jpg)
+
 ## 🛠️ Local Preview
 
 To preview these docs locally before pushing to GitHub:

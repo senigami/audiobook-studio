@@ -107,7 +107,9 @@ def _output_exists(engine: str, chapter_file: str, project_id: Optional[str] = N
         return False
 
     if make_mp3:
-        return mp3
+        # If MP3 is required but missing, check if WAV exists as a fallback.
+        # This prevents reconciliation from resetting a job that is currently converting WAV -> MP3.
+        return mp3 or wav
     return wav
 
 
@@ -756,17 +758,17 @@ def worker_loop(q: "queue.Queue[str]"):
 
                     from .engines import get_audio_duration
                     rc = stitch_segments(pdir, segment_paths, out_wav, on_output, cancel_check)
+
                     if rc == 0 and out_wav.exists():
                         duration = get_audio_duration(out_wav)
-                        update_job(jid, status="done", finished_at=time.time(), progress=1.0, output_wav=out_wav.name)
+                        # We don't mark as 'done' yet, we let it fall through to MP3 conversion if needed
+                        # Update the DB record now though
                         from .db import update_queue_item
                         update_queue_item(jid, "done", audio_length_seconds=duration)
                     else:
                         update_job(jid, status="failed", error=f"Stitching failed (rc={rc})", finished_at=time.time())
-                    continue
-
-                # NEW: Handle Granular Segment Generation
-                if j.segment_ids:
+                        continue
+                elif j.segment_ids:
                     on_output(f"Processing generation for {len(j.segment_ids)} requested segments...\n")
                     from .db import get_connection, update_segment, get_chapter_segments
                     from .textops import sanitize_for_xtts, safe_split_long_sentences
@@ -893,96 +895,97 @@ def worker_loop(q: "queue.Queue[str]"):
                     update_job(jid, status="done", progress=1.0, finished_at=time.time())
                     continue
 
-                # Check for segment-level character assignments
-                segments_data = []
-                if j.chapter_id:
-                    with get_connection() as conn:
-                        cursor = conn.cursor()
-                        cursor.execute("""
-                            SELECT s.text_content, s.character_id, c.speaker_profile_name
-                            FROM chapter_segments s
-                            LEFT JOIN characters c ON s.character_id = c.id
-                            WHERE s.chapter_id = ?
-                            ORDER BY s.segment_order
-                        """, (j.chapter_id,))
-                        segments_data = cursor.fetchall()
+                else:
+                    # Check for segment-level character assignments
+                    segments_data = []
+                    if j.chapter_id:
+                        with get_connection() as conn:
+                            cursor = conn.cursor()
+                            cursor.execute("""
+                                SELECT s.text_content, s.character_id, c.speaker_profile_name
+                                FROM chapter_segments s
+                                LEFT JOIN characters c ON s.character_id = c.id
+                                WHERE s.chapter_id = ?
+                                ORDER BY s.segment_order
+                            """, (j.chapter_id,))
+                            segments_data = cursor.fetchall()
 
-                has_custom_characters = any(s['character_id'] for s in segments_data) if segments_data else False
+                    has_custom_characters = any(s['character_id'] for s in segments_data) if segments_data else False
 
-                if has_custom_characters:
-                    on_output("Detected segment-level character assignments. Using script mode.\n")
-                    script = []
+                    if has_custom_characters:
+                        on_output("Detected segment-level character assignments. Using script mode.\n")
+                        script = []
 
-                    current_sw = None
-                    current_text = ""
+                        current_sw = None
+                        current_text = ""
 
-                    from .textops import sanitize_for_xtts, safe_split_long_sentences
+                        from .textops import sanitize_for_xtts, safe_split_long_sentences
 
-                    for s in segments_data:
-                        if not s['text_content'] or not s['text_content'].strip():
-                            continue
+                        for s in segments_data:
+                            if not s['text_content'] or not s['text_content'].strip():
+                                continue
 
-                        # Resolve speaker for this segment
-                        if s['character_id'] and s['speaker_profile_name']:
-                            sw = get_speaker_wavs(s['speaker_profile_name'])
-                        else:
-                            sw = default_sw
+                            # Resolve speaker for this segment
+                            if s['character_id'] and s['speaker_profile_name']:
+                                sw = get_speaker_wavs(s['speaker_profile_name'])
+                            else:
+                                sw = default_sw
 
-                        # Merge if same voice
-                        if current_sw is not None and sw == current_sw:
-                            current_text += " " + s['text_content'].strip()
-                        else:
-                            if current_sw is not None:
-                                processed_text = current_text.strip()
-                                if j.safe_mode:
-                                    processed_text = sanitize_for_xtts(processed_text)
-                                    processed_text = safe_split_long_sentences(processed_text, target=SENT_CHAR_LIMIT)
-                                script.append({
-                                    "text": processed_text,
-                                    "speaker_wav": current_sw
-                                })
+                            # Merge if same voice
+                            if current_sw is not None and sw == current_sw:
+                                current_text += " " + s['text_content'].strip()
+                            else:
+                                if current_sw is not None:
+                                    processed_text = current_text.strip()
+                                    if j.safe_mode:
+                                        processed_text = sanitize_for_xtts(processed_text)
+                                        processed_text = safe_split_long_sentences(processed_text, target=SENT_CHAR_LIMIT)
+                                    script.append({
+                                        "text": processed_text,
+                                        "speaker_wav": current_sw
+                                    })
 
-                            current_sw = sw
-                            current_text = s['text_content'].strip()
+                                current_sw = sw
+                                current_text = s['text_content'].strip()
 
-                    # Add last one
-                    if current_sw is not None:
-                        processed_text = current_text.strip()
-                        if j.safe_mode:
-                            processed_text = sanitize_for_xtts(processed_text)
-                            processed_text = safe_split_long_sentences(processed_text, target=SENT_CHAR_LIMIT)
-                        script.append({
-                            "text": processed_text,
-                            "speaker_wav": current_sw
-                        })
+                        # Add last one
+                        if current_sw is not None:
+                            processed_text = current_text.strip()
+                            if j.safe_mode:
+                                processed_text = sanitize_for_xtts(processed_text)
+                                processed_text = safe_split_long_sentences(processed_text, target=SENT_CHAR_LIMIT)
+                            script.append({
+                                "text": processed_text,
+                                "speaker_wav": current_sw
+                            })
 
-                    # Write script to tmp file
-                    script_path = pdir / f"{j.id}_script.json"
-                    script_path.write_text(json.dumps(script), encoding="utf-8")
-                    on_output(f"[script] Mode: processing {len(script)} merged chunks from {len(segments_data)} segments.\n")
+                        # Write script to tmp file
+                        script_path = pdir / f"{j.id}_script.json"
+                        script_path.write_text(json.dumps(script), encoding="utf-8")
+                        on_output(f"[script] Mode: processing {len(script)} merged chunks from {len(segments_data)} segments.\n")
 
-                    try:
-                        rc = xtts_generate_script(
-                            script_json_path=script_path,
+                        try:
+                            rc = xtts_generate_script(
+                                script_json_path=script_path,
+                                out_wav=out_wav,
+                                on_output=on_output,
+                                cancel_check=cancel_check,
+                                speed=speed
+                            )
+                        finally:
+                            if script_path.exists():
+                                script_path.unlink()
+                    else:
+                        # Original single-speaker mode
+                        rc = xtts_generate(
+                            text=text,
                             out_wav=out_wav,
+                            safe_mode=j.safe_mode,
                             on_output=on_output,
                             cancel_check=cancel_check,
+                            speaker_wav=default_sw,
                             speed=speed
                         )
-                    finally:
-                        if script_path.exists():
-                            script_path.unlink()
-                else:
-                    # Original single-speaker mode
-                    rc = xtts_generate(
-                        text=text,
-                        out_wav=out_wav,
-                        safe_mode=j.safe_mode,
-                        on_output=on_output,
-                        cancel_check=cancel_check,
-                        speaker_wav=default_sw,
-                        speed=speed
-                    )
             else:
                 update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error=f"Unknown engine: {j.engine}", log="".join(logs))
                 continue
@@ -992,7 +995,7 @@ def worker_loop(q: "queue.Queue[str]"):
                 continue
 
             # --- Auto-tuning feedback (TTS) ---
-            if rc == 0 and out_wav.exists() and chars > 0:
+            if rc == 0 and out_wav.exists() and chars > 0 and not getattr(j, 'is_bake', False):
                 actual_dur = time.time() - start
                 if actual_dur > 0:
                     new_cps = chars / actual_dur

@@ -19,18 +19,29 @@ This is where you manage the structure of your book.
 - **Add Chapter**: Upload a `.txt` file or paste text directly.
 - **Reorder**: Drag and drop chapters to change their sequence.
 - **Metadata**: Click the settings icon to change title, author, or the book's cover.
+- **Assemble Audiobook**: Located at the top right of the Project View.
 
-### 2. Performance Tab
+![Project View highlighting the Chapters list and Assembly button](images/project-view.jpg)
 
-The most powerful part of the editor.
+### 2. Characters Tab
 
-- **Segment View**: Your text is broken into color-coded segments.
-- **Assigning Voices**: Select one or more segments and use the floating menu to assign a Character.
+Manage the personas within your project.
+
+- **Assign Profiles**: Link a project character to a Voice Variant from the AI Voice Lab.
 - **Bulk Actions**: Select multiple segments to generate audio or change voices at once.
 
-### 3. Listen Tab
+![Characters tab showing persona mapping to AI voices](images/characters-tab.jpg)
 
-Preview the "Baked" audio for each chapter before final export.
+## 📝 Chapter Editor
+
+Clicking a chapter opens the **Chapter Editor**, which has four primary workflows:
+
+1. **Edit**: Raw text entry and cleanup.
+2. **Production**: Quick voice assignment by highlighting text.
+3. **Performance**: Granular segment management, playback, and per-segment generation.
+4. **Preview**: See how the text will be partitioned by the engine.
+
+![Chapter Editor showing the Performance tab and audio segments](images/chapter-editor.jpg)
 
 ## 🖼️ Covers and Metadata
 

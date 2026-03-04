@@ -6,10 +6,12 @@ Global configuration for Audiobook Studio.
 
 Access settings via the Sidebar menu.
 
-- **XTTS Speed**: The global default speed for all generation (can be overridden per Voice Profile).
-- **Audio Format**: Choose between `.wav` (Lossless) and `.mp3` for chapter processing.
-- **MP3 Quality**: Controls the bitrate of generated MP3 files.
-- **Auto-Tune ETA**: If enabled, the system will adjust timing predictions based on your hardware's performance.
+- **Safe Mode**: Automatically attempts to recover the AI engine if it encounters an error.
+- **Produce MP3**: Toggles generation of MP3 files alongside WAV for better compatibility.
+- **Backfill MP3s**: Scans your library and generates missing MP3 files for existing chapters.
+- **System Console**: Toggle the visibility of real-time server logs.
+
+![Settings Tray popover showing synthesis preferences](images/settings-tray.jpg)
 
 ## 📁 Storage Locations
 

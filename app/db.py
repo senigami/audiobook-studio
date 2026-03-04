@@ -512,6 +512,9 @@ def sync_chapter_segments(chapter_id: str, text_content: str):
     """
     from .textops import split_sentences, preprocess_text, normalize_newlines
 
+    # Clean newlines and standardize structure before splitting
+    text_content = normalize_newlines(text_content)
+
     # Split into actual sentences while preserving trailing spaces/newlines
     text_content = normalize_newlines(text_content)
     sentences = [s for s, _, _ in split_sentences(text_content, preserve_gap=True)]
