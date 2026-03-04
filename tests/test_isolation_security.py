@@ -219,8 +219,8 @@ def test_legacy_path_and_forward_sync(client):
         make_mp3=True,
         output_mp3=f"{cid}_0.mp3",
         created_at=time.time(),
-        started_at=123.0,
-        finished_at=125.0,
+        started_at=time.time() - 2.0,
+        finished_at=time.time(),
         bypass_pause=False
     )
     put_job(j)

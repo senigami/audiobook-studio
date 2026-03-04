@@ -587,7 +587,7 @@ def add_to_queue(project_id: str, chapter_id: str, split_part: int = 0) -> str:
             # Enforce Uniqueness: check if already queued or running
             cursor.execute("""
                 SELECT id FROM processing_queue 
-                WHERE chapter_id = ? AND split_part = ? AND status IN ('queued', 'running')
+                WHERE chapter_id = ? AND split_part = ? AND status IN ('queued', 'preparing', 'running', 'finalizing')
             """, (chapter_id, split_part))
             existing = cursor.fetchone()
             if existing:
@@ -627,15 +627,15 @@ def clear_queue() -> int:
             cursor = conn.cursor()
 
             # 1. Update chapters associated with queued items to be 'unprocessed' again
-            # Only for items we are about to delete (status != 'running')
+            # Only for items we are about to delete (status NOT IN active states)
             cursor.execute("""
                 UPDATE chapters 
                 SET audio_status = 'unprocessed'
-                WHERE id IN (SELECT chapter_id FROM processing_queue WHERE status != 'running')
+                WHERE id IN (SELECT chapter_id FROM processing_queue WHERE status NOT IN ('running', 'preparing', 'finalizing'))
             """)
 
             # 2. Delete the queue items
-            cursor.execute("DELETE FROM processing_queue WHERE status != 'running'")
+            cursor.execute("DELETE FROM processing_queue WHERE status NOT IN ('running', 'preparing', 'finalizing')")
             conn.commit()
             return cursor.rowcount
 

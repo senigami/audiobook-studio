@@ -136,7 +136,7 @@ def put_job(job: Job) -> None:
         _atomic_write_text(STATE_FILE, json.dumps(state, indent=2))
 
 
-def update_job(job_id: str, **updates) -> None:
+def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
     with _STATE_LOCK:
         state = _load_state_no_lock()
         jobs = state.setdefault("jobs", {})
@@ -144,24 +144,45 @@ def update_job(job_id: str, **updates) -> None:
         if not j:
             return
 
-        # Only proceed if something actually changes
+        # Apply updates with protection
         changed_fields = []
         for k, v in updates.items():
-            if k == "progress" and j.get("status") not in ("queued", "preparing"):
-                # Don't allow progress to go backwards (e.g. heartbeat overwriting a finished segment)
-                if v < (j.get("progress") or 0.0):
-                    print(f"DEBUG: Skipping progress regression for {job_id}: {j.get('progress')} -> {v}")
-                    continue
+            # 1. Status regression protection
+            if k == "status":
+                current_status = j.get("status")
+                # Higher number = more advanced state
+                status_priority = {
+                    "done": 5, "failed": 5, "cancelled": 5, 
+                    "finalizing": 4, "running": 3, "preparing": 2, "queued": 1, None: 0
+                }
+                new_p = status_priority.get(v, 0)
+                old_p = status_priority.get(current_status, 0)
+                if new_p < old_p:
+                    # Allow regression only if explicitly resetting (e.g. back to queued)
+                    # But if we're in the middle of a run, don't let a stray 'queued' msg win.
+                    if not (v == "queued" and current_status in ("preparing", "running", "finalizing")):
+                         print(f"DEBUG: Allowing status regression for {job_id}: {current_status} -> {v}")
+                    else:
+                        print(f"DEBUG: Preventing status regression for {job_id}: {current_status} -> {v}")
+                        continue
+
+            # 2. Progress regression protection
+            if k == "progress":
+                current_status = j.get("status")
+                if current_status not in ("queued", "preparing"):
+                    if v < (j.get("progress") or 0.0):
+                        print(f"DEBUG: Skipping progress regression for {job_id}: {j.get('progress')} -> {v}")
+                        continue
 
             if j.get(k) != v:
                 j[k] = v
                 changed_fields.append(k)
-
-        if not changed_fields:
+        if not changed_fields and not force_broadcast:
             return
 
-        jobs[job_id] = j
-        _atomic_write_text(STATE_FILE, json.dumps(state, indent=2))
+        if changed_fields:
+            jobs[job_id] = j
+            _atomic_write_text(STATE_FILE, json.dumps(state, indent=2))
 
         # Sync with SQLite DB if this job corresponds to a processing_queue item
         if "status" in changed_fields:

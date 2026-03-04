@@ -17,7 +17,7 @@ from .config import (
     XTTS_OUT_DIR, PART_CHAR_LIMIT, AUDIOBOOK_DIR, VOICES_DIR, COVER_DIR,
     SAMPLES_DIR, ASSETS_DIR, PROJECTS_DIR
 )
-from .state import get_jobs, get_settings, update_settings, clear_all_jobs, update_job
+from .state import get_jobs, get_settings, update_settings, clear_all_jobs, update_job, put_job
 from .models import Job
 from .jobs import enqueue, cancel as cancel_job, paused, requeue, clear_job_queue
 from .db import (
@@ -1021,8 +1021,9 @@ def start_xtts_queue(speaker_profile: Optional[str] = Form(None)):
             custom_title=existing_title,
             speaker_profile=speaker_profile
         )
+        put_job(j)
         enqueue(j)
-        update_job(jid, status="queued") # trigger bridge
+        update_job(jid, force_broadcast=True, status="queued") # trigger bridge
     return JSONResponse({"status": "ok", "message": "XTTS queue started"})
 
 @app.get("/queue/start_xtts")
@@ -1097,8 +1098,9 @@ async def create_audiobook(
         chapter_list=chapter_list,
         cover_path=cover_path
     )
+    put_job(j)
     enqueue(j)
-    update_job(jid, status="queued")
+    update_job(jid, force_broadcast=True, status="queued")
     return JSONResponse({"status": "ok", "message": "Audiobook assembly enqueued"})
 
 @app.get("/api/audiobook/prepare")
@@ -2389,6 +2391,7 @@ def api_add_to_queue(
                 is_bake=has_segments  # Use bake flow to honor Performance tab segments
             )
             put_job(j)
+            update_job(qid, force_broadcast=True, status="queued")
             enqueue(j)
             broadcast_queue_update()
 
@@ -2554,10 +2557,9 @@ def assemble_project(project_id: str, chapter_ids: Optional[str] = Form(None)):
     )
 
     put_job(j)
+    update_job(jid, force_broadcast=True, status="queued") # Trigger SSE broadcast immediately
     enqueue(j)
 
-    from .state import update_job
-    update_job(jid, status="queued") # Trigger SSE broadcast immediately
 
     return JSONResponse({"status": "success", "job_id": jid})
 

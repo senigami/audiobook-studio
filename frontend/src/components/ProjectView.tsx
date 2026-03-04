@@ -859,12 +859,16 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
                         const isRunning = job.status === 'running';
                         const isFailed = job.status === 'failed';
 
+                        // Disable prediction for preparing/finalizing states to show their specific progress values (e.g. 0.88, 0.99)
+                        // This makes the transition into these stages more visually distinct.
+                        const usePredictionLabels = isRunning; 
+
                         return (
                             <div style={{ width: '100%', maxWidth: '600px' }}>
                                 <PredictiveProgressBar 
                                     progress={job.progress || 0}
-                                    startedAt={job.started_at}
-                                    etaSeconds={job.eta_seconds}
+                                    startedAt={usePredictionLabels ? job.started_at : undefined}
+                                    etaSeconds={usePredictionLabels ? job.eta_seconds : undefined}
                                     label={isFailed ? "Failed" : (isPreparing ? "Preparing..." : (isFinalizing ? "Finalizing..." : (isRunning ? "Synthesizing..." : "Queued")))}
                                 />
                             </div>
