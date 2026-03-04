@@ -805,10 +805,27 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({ chapterId, project
                                     const char = characters.find(c => c.id === group.characterId);
                                     const allDone = group.segments.every(s => s.audio_status === 'done');
                                     const anyProcessing = group.segments.some(s => s.audio_status === 'processing' || generatingSegmentIds.has(s.id));
-                                    const isPlaying = group.segments.some(s => {
-                                        const playingSegment = segments.find(ps => ps.id === playingSegmentId);
-                                        return playingSegmentId === s.id || (playingSegment && playingSegment.audio_file_path && s.audio_file_path === playingSegment.audio_file_path);
-                                    });
+                                    const isPlaying = playingSegmentId && group.segments.some(s => s.id === playingSegmentId);
+                                    const nextId = (() => {
+                                        if (!playingSegmentId || playbackQueueRef.current.length === 0) return null;
+                                        const currIdx = playbackQueueRef.current.indexOf(playingSegmentId);
+                                        if (currIdx === -1 || currIdx >= playbackQueueRef.current.length - 1) return null;
+                                        
+                                        // Skip siblings that share same audio path as current to find the TRUE "next" group
+                                        const playingSeg = segmentsRef.current.find(ps => ps.id === playingSegmentId);
+                                        let nextIdx = currIdx + 1;
+                                        while (nextIdx < playbackQueueRef.current.length) {
+                                            const sId = playbackQueueRef.current[nextIdx];
+                                            const s = segmentsRef.current.find(ps => ps.id === sId);
+                                            if (s && playingSeg && s.audio_file_path && s.audio_file_path === playingSeg.audio_file_path) {
+                                                nextIdx++;
+                                            } else {
+                                                break;
+                                            }
+                                        }
+                                        return nextIdx < playbackQueueRef.current.length ? playbackQueueRef.current[nextIdx] : null;
+                                    })();
+                                    const isNext = nextId && group.segments.some(s => s.id === nextId);
 
                                     return (
                                         <div key={gidx} style={{ 
@@ -879,14 +896,14 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({ chapterId, project
                                                     borderRadius: '8px',
                                                     transition: 'all 0.2s ease',
                                                     cursor: 'pointer',
-                                                    opacity: (allDone || isPlaying || anyProcessing) ? 1 : 0.45,
-                                                    filter: (allDone || isPlaying || anyProcessing) ? 'none' : 'grayscale(1)',
+                                                    opacity: (allDone || isPlaying || anyProcessing || isNext) ? 1 : 0.45,
+                                                    filter: (allDone || isPlaying || anyProcessing || isNext) ? 'none' : 'grayscale(1)',
                                                     background: isPlaying 
-                                                        ? `${char?.color || '#ffffff'}22` 
-                                                        : anyProcessing 
-                                                            ? 'rgba(255,165,0,0.1)' 
+                                                        ? '#ffeb3b44' // Yellow (playing)
+                                                        : (anyProcessing || isNext)
+                                                            ? '#e1bee733' // Light Purple (preparing or next)
                                                             : 'transparent',
-                                                    borderBottom: isPlaying ? `2px solid ${char?.color || 'var(--accent)'}` : '2px solid transparent',
+                                                    borderBottom: isPlaying ? '3px solid #fbc02d' : (anyProcessing || isNext) ? '2px dashed #9c27b0' : '2px solid transparent',
                                                     position: 'relative',
                                                     whiteSpace: 'pre-wrap'
                                                 }}

@@ -523,6 +523,8 @@ def api_generate_segments(segment_ids: List[str] = Form(...)):
     put_job(job)
     enqueue(job)
     from .state import update_job
+    from .db import update_segments_status_bulk
+    update_segments_status_bulk(sids, chapter_id, "processing")
     update_job(job.id, force_broadcast=True, status="queued")
     return JSONResponse({"status": "success", "job_id": job.id})
 
@@ -615,6 +617,13 @@ def api_bake_chapter(chapter_id: str):
     put_job(job)
     enqueue(job)
     from .state import update_job
+    # Bake processes missing segments in the chapter
+    from .db import get_chapter_segments, update_segments_status_bulk
+    all_segs = get_chapter_segments(chapter_id)
+    sids = [s['id'] for s in all_segs if s.get('audio_status') != 'done']
+    if sids:
+        update_segments_status_bulk(sids, chapter_id, "processing")
+
     update_job(job.id, force_broadcast=True, status="queued")
     return JSONResponse({"status": "success", "job_id": job.id})
 
@@ -2403,6 +2412,13 @@ def api_add_to_queue(
                 speaker_profile=speaker_profile or get_settings().get("default_speaker_profile"),
                 is_bake=has_segments  # Use bake flow to honor Performance tab segments
             )
+            if has_segments:
+                from .db import update_segments_status_bulk
+                all_segs = get_chapter_segments(chapter_id)
+                s_ids = [s['id'] for s in all_segs if s.get('audio_status') != 'done']
+                if s_ids:
+                    update_segments_status_bulk(s_ids, chapter_id, "processing")
+
             put_job(j)
             update_job(qid, force_broadcast=True, status="queued")
             enqueue(j)

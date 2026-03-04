@@ -431,6 +431,22 @@ def reset_chapter_audio(chapter_id: str) -> bool:
 
 # --- Chapter Segment Functions ---
 
+def update_segments_status_bulk(segment_ids: List[str], chapter_id: str, status: str, broadcast: bool = True):
+    if not segment_ids: return
+    with _db_lock:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            placeholders = ",".join(["?"] * len(segment_ids))
+            cursor.execute(f"UPDATE chapter_segments SET audio_status = ? WHERE id IN ({placeholders})", [status] + segment_ids)
+            conn.commit()
+
+    if broadcast:
+        try:
+            from .web import broadcast_segments_updated
+            broadcast_segments_updated(chapter_id)
+        except Exception as e:
+            print(f"Warning: Failed to broadcast bulk segment update: {e}")
+
 def get_chapter_segments(chapter_id: str) -> List[Dict[str, Any]]:
     with _db_lock:
         with get_connection() as conn:
