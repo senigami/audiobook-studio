@@ -30,14 +30,16 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
     if (data.type === 'job_updated') {
       const { job_id, updates } = data;
       setJobs(prev => {
-        if (!prev[job_id]) {
-          refreshJobs(); // Fetch all and hope the new one is there
-          return prev;
+        const oldJob = prev[job_id];
+        if (!oldJob) {
+          // If we don't have the job yet, we can't merge safely without the default fields.
+          // We'll add it as a partial and trigger a refresh to get the full object.
+          refreshJobs();
+          // But let's still store what we got so the UI can at least show the status/progress
+          return { ...prev, [job_id]: { id: job_id, ...updates } as Job };
         }
 
-        const oldJob = prev[job_id];
         const newJob = { ...oldJob, ...updates };
-
         return { ...prev, [job_id]: newJob };
       });
     } else if (data.type === 'queue_updated') {

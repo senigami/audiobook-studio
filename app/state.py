@@ -143,12 +143,28 @@ def update_job(job_id: str, **updates) -> None:
         j = jobs.get(job_id)
         if not j:
             return
-        j.update(updates)
+
+        # Only proceed if something actually changes
+        changed_fields = []
+        for k, v in updates.items():
+            if k == "progress" and j.get("status") not in ("queued", "preparing"):
+                # Don't allow progress to go backwards (e.g. heartbeat overwriting a finished segment)
+                if v < (j.get("progress") or 0.0):
+                    print(f"DEBUG: Skipping progress regression for {job_id}: {j.get('progress')} -> {v}")
+                    continue
+
+            if j.get(k) != v:
+                j[k] = v
+                changed_fields.append(k)
+
+        if not changed_fields:
+            return
+
         jobs[job_id] = j
         _atomic_write_text(STATE_FILE, json.dumps(state, indent=2))
 
         # Sync with SQLite DB if this job corresponds to a processing_queue item
-        if "status" in updates:
+        if "status" in changed_fields:
             try:
                 from .db import update_queue_item
                 from .config import XTTS_OUT_DIR

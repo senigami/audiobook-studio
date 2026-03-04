@@ -152,6 +152,13 @@ def cleanup_and_reconcile():
                 print(f"DEBUG: Pruning stale audiobook job {jid} - M4B missing")
                 stale_ids.append(jid)
 
+        # New: Prune ANY job that has been finished (done/failed) for more than 5 minutes
+        now = time.time()
+        if j.status in ("done", "failed", "cancelled") and j.finished_at:
+            if now - j.finished_at > 300: # 5 minutes
+                print(f"DEBUG: Pruning old finished job {jid} (finished {(now-j.finished_at)/60:.1f}m ago)")
+                stale_ids.append(jid)
+
     if stale_ids:
         delete_jobs(stale_ids)
         # Refresh local map for the next step
@@ -422,6 +429,9 @@ def worker_loop(q: "queue.Queue[str]"):
             initial_start = time.time() if j.engine == "audiobook" else None
             update_job(jid,
                        status=initial_status,
+                       project_id=j.project_id,
+                       chapter_id=j.chapter_id,
+                       chapter_file=j.chapter_file,
                        started_at=initial_start,
                        finished_at=None,
                        progress=0.0,
@@ -564,7 +574,7 @@ def worker_loop(q: "queue.Queue[str]"):
                         # Use synthesis_started_at for a more accurate elapsed time if available
                         effective_start = getattr(j, 'synthesis_started_at', start)
                         actual_elapsed = now - effective_start
-                        new_val = min(0.85, max(current_p, actual_elapsed / max(1, eta)))
+                        new_val = max(current_p, min(0.85, actual_elapsed / max(1, eta)))
 
                     new_progress = round(new_val, 2)
 
@@ -627,9 +637,9 @@ def worker_loop(q: "queue.Queue[str]"):
                     update_performance_metrics(audiobook_speed_multiplier=updated_mult)
 
                     on_output(f"\n[performance] Tuned Audiobook multiplier: {old_mult:.2f} -> {updated_mult:.2f}\n")
-                    update_job(jid, status="done", finished_at=time.time(), progress=1.0, output_mp3=out_file.name, log="".join(logs))
+                    update_job(jid, status="done", project_id=j.project_id, chapter_id=j.chapter_id, finished_at=time.time(), progress=1.0, output_mp3=out_file.name, log="".join(logs))
                 else:
-                    update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error=f"Audiobook assembly failed (rc={rc})", log="".join(logs))
+                    update_job(jid, status="failed", project_id=j.project_id, chapter_id=j.chapter_id, finished_at=time.time(), progress=1.0, error=f"Audiobook assembly failed (rc={rc})", log="".join(logs))
                 continue
 
             elif j.engine == "xtts":
@@ -770,7 +780,7 @@ def worker_loop(q: "queue.Queue[str]"):
                     if cancel_check(): continue
 
                     j.status = "finalizing"
-                    update_job(jid, status="finalizing", progress=0.91, log="".join(logs)[-20000:])
+                    update_job(jid, status="finalizing", project_id=j.project_id, chapter_id=j.chapter_id, progress=0.91, log="".join(logs)[-20000:])
                     on_output("Stitching all segments into final chapter file...\n")
                     # Refresh segment statuses
                     fresh_segs = get_chapter_segments(j.chapter_id)
@@ -1040,7 +1050,7 @@ def worker_loop(q: "queue.Queue[str]"):
 
             if rc == 0 and out_wav.exists() and not getattr(j, 'status', None) == 'finalizing':
                 j.status = "finalizing"
-                update_job(jid, status="finalizing", progress=0.88, log="".join(logs)[-20000:])
+                update_job(jid, status="finalizing", project_id=j.project_id, chapter_id=j.chapter_id, progress=0.88, log="".join(logs)[-20000:])
 
             if rc != 0 or not out_wav.exists():
                 update_job(
@@ -1056,13 +1066,15 @@ def worker_loop(q: "queue.Queue[str]"):
             # --- Convert to MP3 if enabled ---
             if j.make_mp3:
                 j.status = "finalizing"
-                update_job(jid, status="finalizing", progress=0.99, log="".join(logs)[-20000:])
+                update_job(jid, status="finalizing", project_id=j.project_id, chapter_id=j.chapter_id, progress=0.99, log="".join(logs)[-20000:])
                 frc = wav_to_mp3(out_wav, out_mp3, on_output=on_output, cancel_check=cancel_check)
                 logs.append(f"\n[ffmpeg] rc={frc}\n")
                 if frc == 0 and out_mp3.exists():
                     update_job(
                         jid,
                         status="done",
+                        project_id=j.project_id,
+                        chapter_id=j.chapter_id,
                         finished_at=time.time(),
                         progress=1.0,
                         output_wav=out_wav.name,
@@ -1073,16 +1085,20 @@ def worker_loop(q: "queue.Queue[str]"):
                     update_job(
                         jid,
                         status="done",
+                        project_id=j.project_id,
+                        chapter_id=j.chapter_id,
                         finished_at=time.time(),
                         progress=1.0,
                         output_wav=out_wav.name,
                         log="".join(logs),
-                        error="MP3 conversion failed. Check ffmpeg install and logs."
+                        error="MP3 conversion failed (using WAV fallback)"
                     )
             else:
                 update_job(
                     jid,
                     status="done",
+                    project_id=j.project_id,
+                    chapter_id=j.chapter_id,
                     finished_at=time.time(),
                     progress=1.0,
                     output_wav=out_wav.name,
