@@ -639,7 +639,7 @@ def clear_queue() -> int:
             conn.commit()
             return cursor.rowcount
 
-def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 0.0) -> bool:
+def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 0.0, force_chapter_id: str = None, output_file: str = None) -> bool:
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
@@ -655,7 +655,9 @@ def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 
             chapter_id = None
             split_part = 0
 
-            if row:
+            if force_chapter_id:
+                chapter_id = force_chapter_id
+            elif row:
                 chapter_id, split_part = row
             else:
                 # Fallback: if queue_id is formatted like a chapter ID and exists, use that
@@ -678,7 +680,7 @@ def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 
             if chapter_id:
                 if status == 'done':
                     # Assuming standard naming output by jobs.py
-                    audio_path = f"{chapter_id}_{split_part}.mp3"
+                    audio_path = output_file if output_file else f"{chapter_id}_{split_part}.mp3"
                     cursor.execute(
                         "UPDATE chapters SET audio_status = 'done', audio_file_path = ?, audio_generated_at = ?, audio_length_seconds = ? WHERE id = ?", 
                         (audio_path, now, audio_length_seconds, chapter_id)

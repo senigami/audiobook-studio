@@ -517,7 +517,10 @@ def api_generate_segments(segment_ids: List[str] = Form(...)):
         chapter_id=chapter_id,
         segment_ids=sids
     )
+    put_job(job)
     enqueue(job)
+    from .state import update_job
+    update_job(job.id, force_broadcast=True, status="queued")
     return JSONResponse({"status": "success", "job_id": job.id})
 
 @app.put("/api/segments/{segment_id}")
@@ -603,7 +606,10 @@ def api_bake_chapter(chapter_id: str):
         chapter_id=chapter_id,
         is_bake=True
     )
+    put_job(job)
     enqueue(job)
+    from .state import update_job
+    update_job(job.id, force_broadcast=True, status="queued")
     return JSONResponse({"status": "success", "job_id": job.id})
 
 # --- Characters API ---
@@ -1990,8 +1996,9 @@ def enqueue_single(
         bypass_pause=True,
         custom_title=existing_title
     )
+    put_job(j)
     enqueue(j)
-    update_job(jid, status="queued") # trigger bridge
+    update_job(jid, force_broadcast=True, status="queued") # trigger bridge
 
     return JSONResponse({"status": "ok", "job_id": jid})
 

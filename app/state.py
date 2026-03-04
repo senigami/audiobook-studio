@@ -192,11 +192,15 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
                 import subprocess
 
                 audio_length = 0.0
+                output_file = None
                 if updates["status"] == "done":
                     # Try to extract the true duration using ffprobe for the synchronized database record
                     # We need the filename, which is usually constructed in DB as sqlite_{job_id}_{part}.mp3
                     # But jobs.py usually tells us output_mp3 if it set it in updates, else we check the job itself
                     output_file = updates.get("output_mp3", j.get("output_mp3"))
+                    if not output_file:
+                        output_file = updates.get("output_wav", j.get("output_wav"))
+
                     if output_file:
                         project_id = updates.get("project_id", j.get("project_id"))
                         if project_id:
@@ -219,7 +223,7 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
                             except Exception as e:
                                 print(f"Warning: Could not get duration for {output_file}: {e}")
 
-                result_code = update_queue_item(job_id, updates["status"], audio_length_seconds=audio_length)
+                result_code = update_queue_item(job_id, updates["status"], audio_length_seconds=audio_length, force_chapter_id=j.get("chapter_id"), output_file=output_file)
 
                 # print(f"DEBUG: SQLite sync for {job_id}: status={updates['status']}, len={audio_length}, result={result_code}")
 
