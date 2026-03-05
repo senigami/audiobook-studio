@@ -368,7 +368,7 @@ def consolidate_single_word_sentences(text: str) -> str:
                 # Merge with NEXT
                 next_sent = all_sentences_with_meta[i+1]
                 # Use ;; if they were on different lines
-                sep = ";; " if curr['line_idx'] != next_sent['line_idx'] else "; "
+                sep = "; "
 
                 merged_text = curr['text'].rstrip(".!?") + sep + next_sent['text']
                 consolidated.append({
@@ -379,7 +379,7 @@ def consolidate_single_word_sentences(text: str) -> str:
             elif consolidated:
                 # Last resort: merge with PREVIOUS
                 prev = consolidated.pop()
-                sep = ";; " if prev['line_idx'] != curr['line_idx'] else "; "
+                sep = "; "
                 consolidated.append({
                     "text": prev['text'].rstrip(".!?;") + sep + curr['text'],
                     "line_idx": curr['line_idx']
