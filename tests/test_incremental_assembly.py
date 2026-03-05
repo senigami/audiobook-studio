@@ -1,4 +1,5 @@
 import pytest
+import os
 from unittest.mock import patch, MagicMock
 from pathlib import Path
 import time
@@ -129,4 +130,3 @@ def test_incremental_assembly_performs_encoding_when_outdated(tmp_path):
         # Should be 2 calls (encode + concat)
         assert mock_run_cmd.call_count == 2
 
-import os # Needed for utime in tests
