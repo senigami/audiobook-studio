@@ -63,6 +63,7 @@ def init_db():
                     split_part INTEGER DEFAULT 0,
                     status TEXT DEFAULT 'queued',
                     created_at REAL,
+                    started_at REAL,
                     completed_at REAL,
                     FOREIGN KEY (project_id) REFERENCES projects (id),
                     FOREIGN KEY (chapter_id) REFERENCES chapters (id)
@@ -120,6 +121,10 @@ def init_db():
             # Migration
             try:
                 cursor.execute("ALTER TABLE chapter_segments ADD COLUMN sanitized_text TEXT")
+            except:
+                pass
+            try:
+                cursor.execute("ALTER TABLE processing_queue ADD COLUMN started_at REAL")
             except:
                 pass
 
@@ -431,6 +436,22 @@ def reset_chapter_audio(chapter_id: str) -> bool:
 
 # --- Chapter Segment Functions ---
 
+def update_segments_status_bulk(segment_ids: List[str], chapter_id: str, status: str, broadcast: bool = True):
+    if not segment_ids: return
+    with _db_lock:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            placeholders = ",".join(["?"] * len(segment_ids))
+            cursor.execute(f"UPDATE chapter_segments SET audio_status = ? WHERE id IN ({placeholders})", [status] + segment_ids)
+            conn.commit()
+
+    if broadcast:
+        try:
+            from .web import broadcast_segments_updated
+            broadcast_segments_updated(chapter_id)
+        except Exception as e:
+            print(f"Warning: Failed to broadcast bulk segment update: {e}")
+
 def get_chapter_segments(chapter_id: str) -> List[Dict[str, Any]]:
     with _db_lock:
         with get_connection() as conn:
@@ -587,7 +608,7 @@ def add_to_queue(project_id: str, chapter_id: str, split_part: int = 0) -> str:
             # Enforce Uniqueness: check if already queued or running
             cursor.execute("""
                 SELECT id FROM processing_queue 
-                WHERE chapter_id = ? AND split_part = ? AND status IN ('queued', 'running')
+                WHERE chapter_id = ? AND split_part = ? AND status IN ('queued', 'preparing', 'running', 'finalizing')
             """, (chapter_id, split_part))
             existing = cursor.fetchone()
             if existing:
@@ -616,7 +637,7 @@ def get_queue() -> List[Dict[str, Any]]:
                 JOIN chapters c ON q.chapter_id = c.id
                 JOIN projects p ON q.project_id = p.id
                 ORDER BY 
-                    CASE WHEN q.status = 'running' THEN 0 ELSE 1 END,
+                    CASE WHEN q.status IN ('running', 'preparing', 'finalizing') THEN 0 ELSE 1 END,
                     q.created_at ASC
             """)
             return [dict(row) for row in cursor.fetchall()]
@@ -627,25 +648,28 @@ def clear_queue() -> int:
             cursor = conn.cursor()
 
             # 1. Update chapters associated with queued items to be 'unprocessed' again
-            # Only for items we are about to delete (status != 'running')
+            # Only for items we are about to delete (status NOT IN active states)
             cursor.execute("""
                 UPDATE chapters 
                 SET audio_status = 'unprocessed'
-                WHERE id IN (SELECT chapter_id FROM processing_queue WHERE status != 'running')
+                WHERE id IN (SELECT chapter_id FROM processing_queue WHERE status NOT IN ('running', 'preparing', 'finalizing'))
             """)
 
             # 2. Delete the queue items
-            cursor.execute("DELETE FROM processing_queue WHERE status != 'running'")
+            cursor.execute("DELETE FROM processing_queue WHERE status NOT IN ('running', 'preparing', 'finalizing')")
             conn.commit()
             return cursor.rowcount
 
-def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 0.0) -> bool:
+def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 0.0, force_chapter_id: str = None, output_file: str = None) -> bool:
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
             now = time.time()
             if status in ['done', 'failed', 'cancelled']:
                 cursor.execute("UPDATE processing_queue SET status = ?, completed_at = ? WHERE id = ?", (status, now, queue_id))
+            elif status in ['running', 'preparing', 'finalizing']:
+                # Only set started_at if not already set
+                cursor.execute("UPDATE processing_queue SET status = ?, started_at = COALESCE(started_at, ?) WHERE id = ?", (status, now, queue_id))
             else:
                 cursor.execute("UPDATE processing_queue SET status = ? WHERE id = ?", (status, queue_id))
 
@@ -655,7 +679,9 @@ def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 
             chapter_id = None
             split_part = 0
 
-            if row:
+            if force_chapter_id:
+                chapter_id = force_chapter_id
+            elif row:
                 chapter_id, split_part = row
             else:
                 # Fallback: if queue_id is formatted like a chapter ID and exists, use that
@@ -678,12 +704,12 @@ def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 
             if chapter_id:
                 if status == 'done':
                     # Assuming standard naming output by jobs.py
-                    audio_path = f"{chapter_id}_{split_part}.mp3"
+                    audio_path = output_file if output_file else f"{chapter_id}_{split_part}.mp3"
                     cursor.execute(
                         "UPDATE chapters SET audio_status = 'done', audio_file_path = ?, audio_generated_at = ?, audio_length_seconds = ? WHERE id = ?", 
                         (audio_path, now, audio_length_seconds, chapter_id)
                     )
-                elif status == 'running' or status == 'queued':
+                elif status in ('running', 'preparing', 'finalizing', 'queued'):
                     cursor.execute("UPDATE chapters SET audio_status = 'processing', audio_generated_at = NULL WHERE id = ?", (chapter_id,))
                 elif status == 'cancelled' or status == 'failed' or status == 'error':
                     cursor.execute("UPDATE chapters SET audio_status = ?, audio_generated_at = NULL WHERE id = ?", ('unprocessed' if status == 'cancelled' else 'error', chapter_id))

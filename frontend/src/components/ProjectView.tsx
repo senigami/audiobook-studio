@@ -684,8 +684,15 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
           </div>
         ) : (
           <Reorder.Group axis="y" values={chapters} onReorder={handleReorder} style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column' }}>
-            {chapters.map((chap, idx) => (
-              <Reorder.Item 
+            {chapters.map((chap, idx) => {
+                const relevantJobs = Object.values(jobs).filter(j => 
+                    j.project_id === projectId && 
+                    (j.chapter_id === chap.id || (j.chapter_file && j.chapter_file.includes(chap.id)))
+                );
+                const activeJob = relevantJobs.find(j => ['running', 'preparing', 'finalizing', 'queued'].includes(j.status));
+
+                return (
+                  <Reorder.Item 
                 key={chap.id}
                 value={chap}
                 initial={{ opacity: 0 }}
@@ -819,9 +826,15 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
                         </h4>
                     )}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
-                        {chap.audio_status === 'done' && <span title="Audio Generated"><CheckCircle size={14} color="var(--success)" /></span>}
-                        {chap.audio_status === 'processing' && <span title="Generating Audio..."><Clock size={14} color="var(--warning)" /></span>}
-                        {chap.audio_status === 'error' && <span title="Generation Failed"><AlertTriangle size={14} color="var(--error)" /></span>}
+                        {(() => {
+                           if (activeJob) {
+                               return <span title="Generating Audio..."><Clock size={14} color="var(--warning)" /></span>;
+                           }
+                           if (chap.audio_status === 'done') return <span title="Audio Generated"><CheckCircle size={14} color="var(--success)" /></span>;
+                           if (chap.audio_status === 'processing') return <span title="Generating Audio..."><Clock size={14} color="var(--warning)" /></span>;
+                           if (chap.audio_status === 'error') return <span title="Generation Failed"><AlertTriangle size={14} color="var(--error)" /></span>;
+                           return null;
+                        })()}
                         {chap.text_last_modified && chap.audio_generated_at && chap.audio_generated_at > 0 && (chap.text_last_modified > chap.audio_generated_at) && (
                         <span title="Text modified since last audio generation" style={{ display: 'flex', alignItems: 'center' }}>
                             <AlertTriangle size={14} color="var(--warning)" />
@@ -832,20 +845,31 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '1rem', flex: '2 1 0', minWidth: 0 }}>
                   {(() => {
-                    const job = Object.values(jobs).find(j => 
-                        j.project_id === projectId && 
-                        j.chapter_file && j.chapter_file.startsWith(chap.id)
-                    );
-                    
-                    if (chap.audio_status === 'processing' && job) {
+                    const job = relevantJobs.length > 0 ? [...relevantJobs].sort((a, b) => {
+                        const statusOrder: Record<string, number> = { 'running': 0, 'preparing': 1, 'finalizing': 2, 'queued': 3 };
+                        const orderA = statusOrder[a.status] ?? 99;
+                        const orderB = statusOrder[b.status] ?? 99;
+                        if (orderA !== orderB) return orderA - orderB;
+                        return (b.created_at || 0) - (a.created_at || 0);
+                    })[0] : undefined;
+
+                    if (job && job.status !== 'done') {
+                        const isPreparing = job.status === 'preparing';
+                        const isFinalizing = job.status === 'finalizing';
                         const isRunning = job.status === 'running';
+                        const isFailed = job.status === 'failed';
+
+                        // Disable prediction for preparing/finalizing states to show their specific progress values (e.g. 0.88, 0.99)
+                        // This makes the transition into these stages more visually distinct.
+                        const usePredictionLabels = isRunning; 
+
                         return (
                             <div style={{ width: '100%', maxWidth: '600px' }}>
                                 <PredictiveProgressBar 
                                     progress={job.progress || 0}
-                                    startedAt={job.started_at}
-                                    etaSeconds={job.eta_seconds}
-                                    label={isRunning ? "Synthesizing..." : "Queued"}
+                                    startedAt={usePredictionLabels ? job.started_at : undefined}
+                                    etaSeconds={usePredictionLabels ? job.eta_seconds : undefined}
+                                    label={isFailed ? "Failed" : (isPreparing ? "Preparing..." : (isFinalizing ? "Finalizing..." : (isRunning ? "Synthesizing..." : "Queued")))}
                                 />
                             </div>
                         );
@@ -975,8 +999,9 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
                     )}
                   </div>
                 </div>
-              </Reorder.Item>
-            ))}
+                </Reorder.Item>
+              );
+            })}
           </Reorder.Group>
         )}
       </div>

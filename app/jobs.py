@@ -152,6 +152,13 @@ def cleanup_and_reconcile():
                 print(f"DEBUG: Pruning stale audiobook job {jid} - M4B missing")
                 stale_ids.append(jid)
 
+        # New: Prune ANY job that has been finished (done/failed) for more than 5 minutes
+        now = time.time()
+        if j.status in ("done", "failed", "cancelled") and j.finished_at:
+            if now - j.finished_at > 300: # 5 minutes
+                print(f"DEBUG: Pruning old finished job {jid} (finished {(now-j.finished_at)/60:.1f}m ago)")
+                stale_ids.append(jid)
+
     if stale_ids:
         delete_jobs(stale_ids)
         # Refresh local map for the next step
@@ -228,8 +235,10 @@ def get_speaker_wavs(profile_name_or_id: str) -> Optional[str]:
     """Returns a comma-separated string of absolute paths for the given profile or speaker ID."""
     from .db import get_speaker
 
-    # Resolve speaker ID to profile name if necessary
-    target_profile = profile_name_or_id if profile_name_or_id else "Dark Fantasy"
+    target_profile = profile_name_or_id
+    if not target_profile:
+        from .state import get_settings
+        target_profile = get_settings().get("default_speaker_profile") or "Dark Fantasy"
 
     # Heuristic: if it looks like a UUID, check if it's a speaker ID
     if len(target_profile) == 36 and "-" in target_profile:
@@ -256,17 +265,20 @@ def get_speaker_wavs(profile_name_or_id: str) -> Optional[str]:
 
 def get_speaker_settings(profile_name_or_id: str) -> dict:
     """Returns metadata (like speed and test text) for a profile or speaker ID, falling back to global settings."""
-    from .db import get_speaker
-    target_profile = profile_name_or_id if profile_name_or_id else "Dark Fantasy"
+    defaults = get_settings()
+
+    target_profile = profile_name_or_id
+    if not target_profile:
+        target_profile = defaults.get("default_speaker_profile") or "Dark Fantasy"
 
     # Resolve speaker ID to profile name if necessary
     if len(target_profile) == 36 and "-" in target_profile:
+        from .db import get_speaker
         spk = get_speaker(target_profile)
         if spk and spk["default_profile_name"]:
             target_profile = spk["default_profile_name"]
     p = VOICES_DIR / target_profile
 
-    defaults = get_settings()
     default_test_text = (
         "The mysterious traveler, bathed in the soft glow of the azure twilight, "
         "whispered of ancient treasures buried beneath the jagged mountains. "
@@ -418,9 +430,14 @@ def worker_loop(q: "queue.Queue[str]"):
                 ]
 
             # Trigger immediate UI update with status, ETA, and Log Header
+            initial_status = "running" if j.engine == "audiobook" else "preparing"
+            initial_start = time.time() if j.engine == "audiobook" else None
             update_job(jid,
-                       status="running",
-                       started_at=time.time(),
+                       status=initial_status,
+                       project_id=j.project_id,
+                       chapter_id=j.chapter_id,
+                       chapter_file=j.chapter_file,
+                       started_at=initial_start,
                        finished_at=None,
                        progress=0.0,
                        error=None,
@@ -429,13 +446,13 @@ def worker_loop(q: "queue.Queue[str]"):
 
             # CRITICAL: Synchronize the local 'j' object properties so the on_output
             # closure uses the fresh start state instead of stale data from a previous session.
-            j.status = "running"
+            j.status = initial_status
             j.progress = 0.0
             j.finished_at = None
             j.log = "".join(header)
             j.error = None
             j.eta_seconds = eta
-            j.started_at = time.time()
+            j.started_at = initial_start
             j._last_broadcast_p = 0.0 # Track what we just sent in update_job above
 
             # --- Safety Checks ---
@@ -463,7 +480,13 @@ def worker_loop(q: "queue.Queue[str]"):
                 if not s:
                     # Heartbeat: only update prediction if it's a meaningful change (>1% or >5s since last)
                     current_p = getattr(j, 'progress', 0.0)
-                    prog = min(0.98, max(current_p, elapsed / max(1, eta)))
+
+                    if not getattr(j, 'synthesis_started_at', None) and j.engine != "audiobook":
+                        prog = min(0.01, current_p + 0.001)
+                    else:
+                        effective_start = j.synthesis_started_at or start
+                        actual_elapsed = now - effective_start
+                        prog = min(0.98, max(current_p, actual_elapsed / max(1, eta)))
 
                     last_b = getattr(j, '_last_broadcast_time', 0)
                     last_p = getattr(j, '_last_broadcast_p', 0.0)
@@ -477,7 +500,16 @@ def worker_loop(q: "queue.Queue[str]"):
                         update_job(jid, progress=prog)
                     return
 
-                # 1. Filter out noisy lines provided by XTTS
+                # 0. Filter out noisy lines provided by XTTS
+                if "[START_SYNTHESIS]" in s:
+                    j.synthesis_started_at = now
+                    j.started_at = now
+                    j.status = "running"
+                    new_progress = 0.01
+                    on_output("Model prepared. Starting synthesis...\n")
+                    # Explicitly broadcast status and started_at
+                    update_job(jid, status="running", started_at=now, progress=0.01)
+                    return
                 if s.startswith("> Text"): return
                 if s.startswith("> Processing sentence:"): return
                 if s.startswith("['") or s.startswith('["'): return
@@ -496,7 +528,7 @@ def worker_loop(q: "queue.Queue[str]"):
                 # 2. Extract Progress from tqdm if present
                 progress_match = re.search(r'(\d+)%', s)
                 is_progress_line = progress_match and "|" in s
-                if is_progress_line:
+                if is_progress_line and getattr(j, 'synthesis_started_at', None):
                     try:
                         p_val = round(int(progress_match.group(1)) / 100.0, 2)
                         current_p = getattr(j, 'progress', 0.0)
@@ -536,7 +568,19 @@ def worker_loop(q: "queue.Queue[str]"):
                 # Update calculation for prediction (prediction floor)
                 if new_progress is None:
                     current_p = getattr(j, 'progress', 0.0)
-                    new_val = min(0.98, max(current_p, elapsed / max(1, eta)))
+
+                    # If synthesis hasn't started yet, cap progress at 0.05 (Preparing)
+                    if not getattr(j, 'synthesis_started_at', None) and j.engine != "audiobook":
+                        new_val = min(0.05, current_p + 0.005)
+                    elif getattr(j, 'status', None) == 'finalizing':
+                        # Stop predicting during finalization; only use the manually set progress
+                        new_val = current_p
+                    else:
+                        # Use synthesis_started_at for a more accurate elapsed time if available
+                        effective_start = getattr(j, 'synthesis_started_at', start)
+                        actual_elapsed = now - effective_start
+                        new_val = max(current_p, min(0.85, actual_elapsed / max(1, eta)))
+
                     new_progress = round(new_val, 2)
 
                 # Check threshold against last broadcast
@@ -598,9 +642,9 @@ def worker_loop(q: "queue.Queue[str]"):
                     update_performance_metrics(audiobook_speed_multiplier=updated_mult)
 
                     on_output(f"\n[performance] Tuned Audiobook multiplier: {old_mult:.2f} -> {updated_mult:.2f}\n")
-                    update_job(jid, status="done", finished_at=time.time(), progress=1.0, output_mp3=out_file.name, log="".join(logs))
+                    update_job(jid, status="done", project_id=j.project_id, chapter_id=j.chapter_id, finished_at=time.time(), progress=1.0, output_mp3=out_file.name, log="".join(logs))
                 else:
-                    update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error=f"Audiobook assembly failed (rc={rc})", log="".join(logs))
+                    update_job(jid, status="failed", project_id=j.project_id, chapter_id=j.chapter_id, finished_at=time.time(), progress=1.0, error=f"Audiobook assembly failed (rc={rc})", log="".join(logs))
                 continue
 
             elif j.engine == "xtts":
@@ -740,6 +784,8 @@ def worker_loop(q: "queue.Queue[str]"):
                     # 3. Final Stitch
                     if cancel_check(): continue
 
+                    j.status = "finalizing"
+                    update_job(jid, status="finalizing", project_id=j.project_id, chapter_id=j.chapter_id, progress=0.91, log="".join(logs)[-20000:])
                     on_output("Stitching all segments into final chapter file...\n")
                     # Refresh segment statuses
                     fresh_segs = get_chapter_segments(j.chapter_id)
@@ -996,7 +1042,9 @@ def worker_loop(q: "queue.Queue[str]"):
 
             # --- Auto-tuning feedback (TTS) ---
             if rc == 0 and out_wav.exists() and chars > 0 and not getattr(j, 'is_bake', False):
-                actual_dur = time.time() - start
+                # Use synthesis_started_at for much more accurate CPS calculation
+                effective_start = getattr(j, 'synthesis_started_at', start)
+                actual_dur = time.time() - effective_start
                 if actual_dur > 0:
                     new_cps = chars / actual_dur
                     field = "xtts_cps"
@@ -1004,6 +1052,10 @@ def worker_loop(q: "queue.Queue[str]"):
                     # Smoothed update (80% old, 20% new to avoid outlier fluctuations)
                     updated_cps = (old_cps * 0.8) + (new_cps * 0.2)
                     update_performance_metrics(**{field: updated_cps})
+
+            if rc == 0 and out_wav.exists() and not getattr(j, 'status', None) == 'finalizing':
+                j.status = "finalizing"
+                update_job(jid, status="finalizing", project_id=j.project_id, chapter_id=j.chapter_id, progress=0.88, log="".join(logs)[-20000:])
 
             if rc != 0 or not out_wav.exists():
                 update_job(
@@ -1018,13 +1070,16 @@ def worker_loop(q: "queue.Queue[str]"):
 
             # --- Convert to MP3 if enabled ---
             if j.make_mp3:
-                update_job(jid, progress=0.99, log="".join(logs)[-20000:])
+                j.status = "finalizing"
+                update_job(jid, status="finalizing", project_id=j.project_id, chapter_id=j.chapter_id, progress=0.99, log="".join(logs)[-20000:])
                 frc = wav_to_mp3(out_wav, out_mp3, on_output=on_output, cancel_check=cancel_check)
                 logs.append(f"\n[ffmpeg] rc={frc}\n")
                 if frc == 0 and out_mp3.exists():
                     update_job(
                         jid,
                         status="done",
+                        project_id=j.project_id,
+                        chapter_id=j.chapter_id,
                         finished_at=time.time(),
                         progress=1.0,
                         output_wav=out_wav.name,
@@ -1035,16 +1090,20 @@ def worker_loop(q: "queue.Queue[str]"):
                     update_job(
                         jid,
                         status="done",
+                        project_id=j.project_id,
+                        chapter_id=j.chapter_id,
                         finished_at=time.time(),
                         progress=1.0,
                         output_wav=out_wav.name,
                         log="".join(logs),
-                        error="MP3 conversion failed. Check ffmpeg install and logs."
+                        error="MP3 conversion failed (using WAV fallback)"
                     )
             else:
                 update_job(
                     jid,
                     status="done",
+                    project_id=j.project_id,
+                    chapter_id=j.chapter_id,
                     finished_at=time.time(),
                     progress=1.0,
                     output_wav=out_wav.name,

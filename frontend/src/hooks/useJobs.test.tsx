@@ -25,7 +25,7 @@ describe('useJobs', () => {
         })
 
         expect(result.current.jobs).toBeDefined()
-        expect(result.current.jobs['c1.txt']).toBeDefined()
-        expect(result.current.jobs['c1.txt'].id).toBe('job1')
+        expect(result.current.jobs['job1']).toBeDefined()
+        expect(result.current.jobs['job1'].id).toBe('job1')
     })
 })

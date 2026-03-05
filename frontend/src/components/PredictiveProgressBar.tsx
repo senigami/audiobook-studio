@@ -36,7 +36,10 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             return { remaining: null, localProgress: progress };
         }
         const elapsed = (now / 1000) - startedAt;
-        const timeProgress = Math.min(0.99, elapsed / etaSeconds);
+        const timeProgress = Math.min(0.99, Math.max(0, elapsed / etaSeconds));
+        // If we disabled prediction via props (e.g. usePredictionLabels=false),
+        // ETA seconds or startedAt would be undefined.
+        // It should drop into the if block above.
         const currentProgress = Math.max(progress, timeProgress);
 
         const blend = Math.min(1.0, currentProgress / 0.25);

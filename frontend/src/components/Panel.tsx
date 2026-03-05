@@ -99,7 +99,7 @@ export const Panel: React.FC<PanelProps> = ({ title, logs, subtitle, progress, s
                 </div>
             </div>
 
-            {(status === 'running' || status === 'queued') && (
+            {(status === 'running' || status === 'preparing' || status === 'finalizing' || status === 'queued') && (
                 <div style={{ height: '2px', background: 'rgba(0,0,0,0.05)', width: '100%', overflow: 'hidden' }}>
                     <div
                         className="progress-bar-animated"

@@ -136,30 +136,71 @@ def put_job(job: Job) -> None:
         _atomic_write_text(STATE_FILE, json.dumps(state, indent=2))
 
 
-def update_job(job_id: str, **updates) -> None:
+def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
     with _STATE_LOCK:
         state = _load_state_no_lock()
         jobs = state.setdefault("jobs", {})
         j = jobs.get(job_id)
         if not j:
             return
-        j.update(updates)
-        jobs[job_id] = j
-        _atomic_write_text(STATE_FILE, json.dumps(state, indent=2))
+
+        # Apply updates with protection
+        changed_fields = []
+        for k, v in updates.items():
+            # 1. Status regression protection
+            if k == "status":
+                current_status = j.get("status")
+                # Higher number = more advanced state
+                status_priority = {
+                    "done": 5, "failed": 5, "cancelled": 5, 
+                    "finalizing": 4, "running": 3, "preparing": 2, "queued": 1, None: 0
+                }
+                new_p = status_priority.get(v, 0)
+                old_p = status_priority.get(current_status, 0)
+                if new_p < old_p:
+                    # Allow regression only if explicitly resetting (e.g. back to queued)
+                    # But if we're in the middle of a run, don't let a stray 'queued' msg win.
+                    if not (v == "queued" and current_status in ("preparing", "running", "finalizing")):
+                         print(f"DEBUG: Allowing status regression for {job_id}: {current_status} -> {v}")
+                    else:
+                        print(f"DEBUG: Preventing status regression for {job_id}: {current_status} -> {v}")
+                        continue
+
+            # 2. Progress regression protection
+            if k == "progress":
+                current_status = j.get("status")
+                if current_status not in ("queued", "preparing"):
+                    if v < (j.get("progress") or 0.0):
+                        print(f"DEBUG: Skipping progress regression for {job_id}: {j.get('progress')} -> {v}")
+                        continue
+
+            if j.get(k) != v:
+                j[k] = v
+                changed_fields.append(k)
+        if not changed_fields and not force_broadcast:
+            return
+
+        if changed_fields:
+            jobs[job_id] = j
+            _atomic_write_text(STATE_FILE, json.dumps(state, indent=2))
 
         # Sync with SQLite DB if this job corresponds to a processing_queue item
-        if "status" in updates:
+        if "status" in changed_fields:
             try:
                 from .db import update_queue_item
                 from .config import XTTS_OUT_DIR
                 import subprocess
 
                 audio_length = 0.0
+                output_file = None
                 if updates["status"] == "done":
                     # Try to extract the true duration using ffprobe for the synchronized database record
                     # We need the filename, which is usually constructed in DB as sqlite_{job_id}_{part}.mp3
                     # But jobs.py usually tells us output_mp3 if it set it in updates, else we check the job itself
                     output_file = updates.get("output_mp3", j.get("output_mp3"))
+                    if not output_file:
+                        output_file = updates.get("output_wav", j.get("output_wav"))
+
                     if output_file:
                         project_id = updates.get("project_id", j.get("project_id"))
                         if project_id:
@@ -182,7 +223,7 @@ def update_job(job_id: str, **updates) -> None:
                             except Exception as e:
                                 print(f"Warning: Could not get duration for {output_file}: {e}")
 
-                result_code = update_queue_item(job_id, updates["status"], audio_length_seconds=audio_length)
+                result_code = update_queue_item(job_id, updates["status"], audio_length_seconds=audio_length, force_chapter_id=j.get("chapter_id"), output_file=output_file)
 
                 # print(f"DEBUG: SQLite sync for {job_id}: status={updates['status']}, len={audio_length}, result={result_code}")
 

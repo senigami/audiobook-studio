@@ -20,7 +20,7 @@ Each **Voice** always has at least one variant (usually the "Default" variant). 
 5. **Build**: Click **Build Voice**. Once built, the Samples section auto-collapses to provide a cleaner view of the performance controls.
 6. **Add Variants**: Use the **+ Variant** button inside the expanded voice card to create a new stylistic companion for that voice.
 
-![AI Voice Lab showing the accordion list of narrator profiles](images/voice-lab-list.png)
+![AI Voice Lab showing the accordion list of narrator profiles](images/voice-lab-list.jpg)
 
 ## 🗣️ UI & Navigation
 
@@ -31,7 +31,7 @@ Each **Voice** always has at least one variant (usually the "Default" variant). 
 - **Streaming Build Status**: A "BUILDING..." status label persists through sample generation for real-time feedback.
 - **Kebab Menu**: Access the **Delete Voice** action from the top-right of the card. This will remove the speaker and cascade deletion to all variant folders and samples on disk.
 
-![Expanded Voice card showing variant tabs and sample management](images/voice-card-expanded.png)
+![Expanded Voice card showing variant tabs and sample management](images/voice-card-expanded.jpg)
 
 ## ⚙️ Performance Tuning
 

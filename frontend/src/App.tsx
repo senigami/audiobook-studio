@@ -23,7 +23,7 @@ function App() {
     try {
         const res = await fetch('/api/processing_queue');
         const queueData = await res.json();
-        const active = queueData.filter((q: any) => q.status === 'queued' || q.status === 'running');
+        const active = queueData.filter((q: any) => q.status === 'queued' || q.status === 'preparing' || q.status === 'running' || q.status === 'finalizing');
         setQueueCount(active.length);
     } catch(e) { console.error('Failed to get queue count', e); }
   };
@@ -65,7 +65,7 @@ function App() {
     await Promise.all([refetchHome(), refreshJobs()]);
   };
 
-  const runningJobs = Object.values(jobs).filter(j => j.status === 'running' || j.status === 'queued') as Job[];
+  const runningJobs = Object.values(jobs).filter(j => j.status === 'running' || j.status === 'preparing' || j.status === 'finalizing' || j.status === 'queued') as Job[];
   const activeJob = runningJobs.find(j => j.engine === 'audiobook') || runningJobs[0];
   const viewingJob = activeJob;
 

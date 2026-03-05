@@ -1321,6 +1321,7 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
             });
             if (resp.ok) {
                 fetchSpeakers();
+                onRefresh();
             }
         } catch (error) {
             console.error('Failed to set default voice:', error);

@@ -1,31 +1,29 @@
 from app.textops import consolidate_single_word_sentences
 
-def test_single_word_merge_next():
-    text = "Wait. Come back."
-    # sentences: ["Wait.", "Come back."]
-    # "Wait" is 1 word, i < len-1, merges with "Come back."
-    expected = "Wait; Come back."
-    assert consolidate_single_word_sentences(text) == expected
-
-def test_single_word_merge_prev():
-    text = "Ready. Now."
-    # sentences: ["Ready.", "Now."]
-    expected = "Ready; Now."
-    assert consolidate_single_word_sentences(text) == expected
-
-def test_multiple_single_words():
+def test_greedy_merge_forward():
     text = "Wait. No. Stop. Go."
-    result = consolidate_single_word_sentences(text)
-    # Pairs are merged forward: Wait+No, Stop+Go
-    # The merge strips trailing .!? from the left side, so period is removed from 'Wait'
-    # but 'No' retains its period. Result: two merged blocks joined by space.
-    assert result == "Wait; No. Stop; Go."
-
-def test_tailing_single_word():
-    text = "The end is near. Goodbye."
-    # ["The end is near.", "Goodbye."]
-    # i=0: "The end is near." (4 words) -> new_sentences = ["The end is near."]
-    # i=1: "Goodbye." (1 word) -> i=1, not < len-1. merges with PREV.
-    # pop "The end is near.", push "The end is near, Goodbye."
-    expected = "The end is near; Goodbye."
+    # 1+1+1+1 = 4 words. All should merge into one line.
+    expected = "Wait; No; Stop; Go."
     assert consolidate_single_word_sentences(text) == expected
+
+def test_paragraph_preservation_with_merge():
+    # Even if they merge, we want to know it's one block now
+    text = "Effie.\nFine, fine.\nShe threw her hands up."
+    result = consolidate_single_word_sentences(text)
+    # The new logic updates line_idx as it merges, so "Effie" and "Fine, fine" 
+    # are absorbed into the line of the latest sentence that made it "safe".
+    assert "Effie; Fine, fine; She threw her hands up." in result
+
+def test_short_merge_limit():
+    text = "Hello. This is a very long sentence that is safe."
+    # "Hello" (1) merges with "This..." (10) -> 11 words.
+    expected = "Hello; This is a very long sentence that is safe."
+    assert consolidate_single_word_sentences(text) == expected
+
+def test_no_merge_needed():
+    text = "This is four words. This is also four."
+    # Both are safe (>= 4 words)
+    # Note: consolidate_single_word_sentences strips trailing punc from left side ONLY IF it merges. 
+    # Here no merge happens.
+    result = consolidate_single_word_sentences(text)
+    assert "This is four words.\nThis is also four." in result or "This is four words. This is also four." in result

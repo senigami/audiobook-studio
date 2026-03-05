@@ -53,7 +53,23 @@ describe('GlobalQueue', () => {
         expect(await screen.findByText(/Resume Processing/i)).toBeTruthy()
     })
 
-    it('toggles history visibility', async () => {
+    it('toggles history visibility and shows start/end times', async () => {
+        const startTime = 1710000000; // Example timestamp
+        const endTime = 1710000060;   // 1 minute later
+        const mockJobsWithTime = [
+            ...mockJobs.filter(j => j.id !== 'job-3'),
+            { 
+                id: 'job-3', 
+                status: 'done', 
+                chapter_title: 'Chapter 3', 
+                project_name: 'Project A', 
+                split_part: 0, 
+                started_at: startTime, 
+                completed_at: endTime 
+            }
+        ]
+        vi.mocked(api.getProcessingQueue).mockResolvedValue(mockJobsWithTime)
+
         render(<GlobalQueue />)
         
         const historyToggle = await screen.findByText(/Completed \/ Failed History/i)
@@ -65,6 +81,10 @@ describe('GlobalQueue', () => {
         
         // Now it should be visible
         expect(await screen.findByText('Chapter 3')).toBeTruthy()
+
+        // Check for formatted times (note: formatting depends on locale, but should contain the time)
+        // Since we implementation used toLocaleTimeString, we just check for presence of time parts or the arrow
+        expect(screen.getByText(/→/)).toBeTruthy()
     })
 
     it('calls clear completed from ActionMenu', async () => {

@@ -17,7 +17,7 @@ from .config import (
     XTTS_OUT_DIR, PART_CHAR_LIMIT, AUDIOBOOK_DIR, VOICES_DIR, COVER_DIR,
     SAMPLES_DIR, ASSETS_DIR, PROJECTS_DIR
 )
-from .state import get_jobs, get_settings, update_settings, clear_all_jobs, update_job
+from .state import get_jobs, get_settings, update_settings, clear_all_jobs, update_job, put_job
 from .models import Job
 from .jobs import enqueue, cancel as cancel_job, paused, requeue, clear_job_queue
 from .db import (
@@ -156,7 +156,7 @@ def startup_event():
     existing = get_jobs()
     to_delete = []
     for jid, j in existing.items():
-        if j.status == "queued" or j.status == "running":
+        if j.status in ("queued", "preparing", "running", "finalizing"):
             to_delete.append(jid)
 
     if to_delete:
@@ -505,7 +505,9 @@ def api_generate_segments(segment_ids: List[str] = Form(...)):
 
     from .jobs import enqueue
     from .models import Job
+    from .state import get_settings
     import uuid
+    settings = get_settings()
 
     job = Job(
         id=str(uuid.uuid4()),
@@ -515,9 +517,15 @@ def api_generate_segments(segment_ids: List[str] = Form(...)):
         created_at=time.time(),
         project_id=project_id,
         chapter_id=chapter_id,
-        segment_ids=sids
+        segment_ids=sids,
+        speaker_profile=settings.get("default_speaker_profile")
     )
+    put_job(job)
     enqueue(job)
+    from .state import update_job
+    from .db import update_segments_status_bulk
+    update_segments_status_bulk(sids, chapter_id, "processing")
+    update_job(job.id, force_broadcast=True, status="queued")
     return JSONResponse({"status": "success", "job_id": job.id})
 
 @app.put("/api/segments/{segment_id}")
@@ -591,7 +599,9 @@ def api_bake_chapter(chapter_id: str):
 
     from .jobs import enqueue
     from .models import Job
+    from .state import get_settings
     import uuid
+    settings = get_settings()
 
     job = Job(
         id=str(uuid.uuid4()),
@@ -601,9 +611,20 @@ def api_bake_chapter(chapter_id: str):
         created_at=time.time(),
         project_id=project_id,
         chapter_id=chapter_id,
-        is_bake=True
+        is_bake=True,
+        speaker_profile=settings.get("default_speaker_profile")
     )
+    put_job(job)
     enqueue(job)
+    from .state import update_job
+    # Bake processes missing segments in the chapter
+    from .db import get_chapter_segments, update_segments_status_bulk
+    all_segs = get_chapter_segments(chapter_id)
+    sids = [s['id'] for s in all_segs if s.get('audio_status') != 'done']
+    if sids:
+        update_segments_status_bulk(sids, chapter_id, "processing")
+
+    update_job(job.id, force_broadcast=True, status="queued")
     return JSONResponse({"status": "success", "job_id": job.id})
 
 # --- Characters API ---
@@ -1021,8 +1042,9 @@ def start_xtts_queue(speaker_profile: Optional[str] = Form(None)):
             custom_title=existing_title,
             speaker_profile=speaker_profile
         )
+        put_job(j)
         enqueue(j)
-        update_job(jid, status="queued") # trigger bridge
+        update_job(jid, force_broadcast=True, status="queued") # trigger bridge
     return JSONResponse({"status": "ok", "message": "XTTS queue started"})
 
 @app.get("/queue/start_xtts")
@@ -1097,8 +1119,9 @@ async def create_audiobook(
         chapter_list=chapter_list,
         cover_path=cover_path
     )
+    put_job(j)
     enqueue(j)
-    update_job(jid, status="queued")
+    update_job(jid, force_broadcast=True, status="queued")
     return JSONResponse({"status": "ok", "message": "Audiobook assembly enqueued"})
 
 @app.get("/api/audiobook/prepare")
@@ -1988,8 +2011,9 @@ def enqueue_single(
         bypass_pause=True,
         custom_title=existing_title
     )
+    put_job(j)
     enqueue(j)
-    update_job(jid, status="queued") # trigger bridge
+    update_job(jid, force_broadcast=True, status="queued") # trigger bridge
 
     return JSONResponse({"status": "ok", "job_id": jid})
 
@@ -2314,6 +2338,7 @@ def api_get_queue():
             item['progress'] = job.progress
             item['eta_seconds'] = job.eta_seconds
             item['started_at'] = job.started_at
+            item['completed_at'] = job.finished_at
             item['log'] = job.log
             # Re-sync status if DB is stale but job is running
             if job.status == 'running' and item['status'] != 'running':
@@ -2388,7 +2413,15 @@ def api_add_to_queue(
                 speaker_profile=speaker_profile or get_settings().get("default_speaker_profile"),
                 is_bake=has_segments  # Use bake flow to honor Performance tab segments
             )
+            if has_segments:
+                from .db import update_segments_status_bulk
+                all_segs = get_chapter_segments(chapter_id)
+                s_ids = [s['id'] for s in all_segs if s.get('audio_status') != 'done']
+                if s_ids:
+                    update_segments_status_bulk(s_ids, chapter_id, "processing")
+
             put_job(j)
+            update_job(qid, force_broadcast=True, status="queued")
             enqueue(j)
             broadcast_queue_update()
 
@@ -2554,10 +2587,9 @@ def assemble_project(project_id: str, chapter_ids: Optional[str] = Form(None)):
     )
 
     put_job(j)
+    update_job(jid, force_broadcast=True, status="queued") # Trigger SSE broadcast immediately
     enqueue(j)
 
-    from .state import update_job
-    update_job(jid, status="queued") # Trigger SSE broadcast immediately
 
     return JSONResponse({"status": "success", "job_id": jid})
 

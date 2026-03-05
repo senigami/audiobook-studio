@@ -1,5 +1,5 @@
 export type Engine = 'xtts' | 'audiobook';
-export type Status = 'queued' | 'running' | 'done' | 'failed' | 'cancelled' | 'error';
+export type Status = 'queued' | 'preparing' | 'running' | 'finalizing' | 'done' | 'failed' | 'cancelled' | 'error';
 
 export interface Project {
   id: string;
