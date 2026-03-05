@@ -284,7 +284,15 @@ def list_audiobooks():
     import subprocess
     import shlex
     for p, url in m4b_files:
-        item = {"filename": p.name, "title": p.name, "cover_url": None, "url": url}
+        st = p.stat()
+        item = {
+            "filename": p.name, 
+            "title": p.name, 
+            "cover_url": None, 
+            "url": url,
+            "created_at": st.st_mtime,
+            "size_bytes": st.st_size
+        }
 
         # Try to extract embedded title
         try:
@@ -310,6 +318,75 @@ def list_audiobooks():
             except:
                 # If extraction fails (e.g. no embedded cover), just skip
                 pass
+        res.append(item)
+    return res
+
+@app.get("/api/projects/{project_id}/audiobooks")
+def api_list_project_audiobooks(project_id: str):
+    """Returns a list of audiobooks specifically for a given project."""
+    from .db import get_project
+    project = get_project(project_id)
+    if not project:
+        return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
+
+    # We filter by project's dedicated m4b directory
+    from .config import get_project_m4b_dir
+    m4b_dir = get_project_m4b_dir(project_id)
+
+    m4b_files = []
+    if m4b_dir.exists():
+        for p in m4b_dir.glob("*.m4b"):
+            m4b_files.append((p, f"/projects/{project_id}/m4b/{p.name}"))
+
+    # Also check the legacy folder for files matching the project name
+    if AUDIOBOOK_DIR.exists():
+        for p in AUDIOBOOK_DIR.glob("*.m4b"):
+            # Check if it starts with project name or contains it
+            if p.name.startswith(project['name']):
+                m4b_files.append((p, f"/out/audiobook/{p.name}"))
+
+    # Remove duplicates if any (p is Path object)
+    seen_paths = set()
+    unique_files = []
+    for p, url in m4b_files:
+        if p not in seen_paths:
+            seen_paths.add(p)
+            unique_files.append((p, url))
+
+    # Logic to build response matches list_audiobooks but restricted to these files
+    res = []
+    unique_files.sort(key=lambda x: x[0].stat().st_mtime, reverse=True)
+
+    import subprocess
+    import shlex
+    for p, url in unique_files:
+        st = p.stat()
+        item = {
+            "filename": p.name, 
+            "title": p.name, 
+            "cover_url": None, 
+            "url": url,
+            "created_at": st.st_mtime,
+            "size_bytes": st.st_size
+        }
+
+        try:
+            probe_cmd = f"ffprobe -v error -show_entries format_tags=title -of default=noprint_wrappers=1:nokey=1 {shlex.quote(str(p))}"
+            title_res = subprocess.run(shlex.split(probe_cmd), capture_output=True, text=True, check=True, timeout=3)
+            extracted_title = title_res.stdout.strip()
+            if extracted_title: item["title"] = extracted_title
+        except: pass
+
+        target_jpg = AUDIOBOOK_DIR / f"{p.stem}.jpg"
+        if target_jpg.exists() and target_jpg.stat().st_size > 0:
+            item["cover_url"] = f"/out/audiobook/{p.stem}.jpg"
+        else:
+            cmd = f"ffmpeg -y -i {shlex.quote(str(p))} -map 0:v -c copy -frames:v 1 {shlex.quote(str(target_jpg))}"
+            try:
+                subprocess.run(shlex.split(cmd), capture_output=True, check=True, timeout=5)
+                if target_jpg.exists() and target_jpg.stat().st_size > 0:
+                    item["cover_url"] = f"/out/audiobook/{p.stem}.jpg"
+            except: pass
         res.append(item)
     return res
 

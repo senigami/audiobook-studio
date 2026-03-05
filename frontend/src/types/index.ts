@@ -125,6 +125,8 @@ export interface Audiobook {
   title: string;
   cover_url: string | null;
   url?: string;
+  created_at?: number;
+  size_bytes?: number;
 }
 
 export interface AssemblyChapter {

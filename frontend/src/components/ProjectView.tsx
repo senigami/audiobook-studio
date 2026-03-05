@@ -70,18 +70,20 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
 
   const loadData = async () => {
     try {
-      const [projData, chapsData, audiobooksData] = await Promise.all([
+      // Load project and chapters first (critical)
+      const [projData, chapsData] = await Promise.all([
         api.fetchProject(projectId),
-        api.fetchChapters(projectId),
-        api.fetchAudiobooks()
+        api.fetchChapters(projectId)
       ]);
       setProject(projData);
       setChapters(chapsData);
       
-      // Look for assembled audiobooks matching this project's name
-      if (projData && audiobooksData) {
-          const projectM4bs = audiobooksData.filter((a: Audiobook) => a.filename.includes(projData.name));
-          setAvailableAudiobooks(projectM4bs);
+      // Load history independently (non-critical)
+      try {
+        const audiobooksData = await api.fetchProjectAudiobooks(projectId);
+        setAvailableAudiobooks(audiobooksData);
+      } catch (err) {
+        console.error("Failed to load assembly history", err);
       }
     } catch (e) {
       console.error(e);
@@ -201,6 +203,33 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
     const hrs = Math.floor(mins / 60);
     const remMins = mins % 60;
     return `${hrs}h ${remMins}m`;
+  };
+
+  const formatRelativeTime = (timestamp?: number) => {
+    if (!timestamp) return 'Unknown date';
+    const date = new Date(timestamp * 1000);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+    
+    if (diffInSeconds < 60) return 'just now';
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`;
+    
+    return date.toLocaleDateString(undefined, { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const formatFileSize = (bytes?: number) => {
+    if (!bytes) return '';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   // Use a ref to store pending reorder timeout so we can debounce
@@ -395,8 +424,6 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
   
   const totalPredicted = chapters.reduce((acc, chap) => acc + (chap.predicted_audio_length || 0), 0);
 
-  const bestM4b = availableAudiobooks.length > 0 ? availableAudiobooks[0] : null;
-
   return (
     <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '2rem', minHeight: '100%', paddingBottom: '4rem' }}>
       {/* Header Overview */}
@@ -482,39 +509,65 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
 
         {/* Action Buttons */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: '220px' }}>
-            {bestM4b ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <a 
-                        href={bestM4b.url || `/out/audiobook/${bestM4b.filename}`} 
-                        download 
-                        className="btn-primary" 
-                        style={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'center', 
-                            gap: '8px', 
-                            padding: '1rem', 
-                            width: '100%', 
-                            fontSize: '1rem', 
-                            textDecoration: 'none',
-                            background: 'var(--accent)',
-                            boxShadow: 'var(--shadow-md)',
-                            borderRadius: '12px'
-                        }}
-                    >
-                      <Download size={20} />
-                      Download Latest M4B
-                    </a>
-                    {availableAudiobooks.length > 1 && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
-                            <span style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>EXPORT HISTORY</span>
-                            {availableAudiobooks.slice(1, 4).map((a, i) => (
-                                <a key={i} href={a.url || `/out/audiobook/${a.filename}`} download style={{ fontSize: '0.75rem', color: 'var(--accent)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    <Clock size={10} /> {a.filename.split('_').pop()?.replace('.m4b', '') || 'Previous'}
+            {availableAudiobooks.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em', marginBottom: '-0.25rem' }}>
+                        ASSEMBLY HISTORY
+                    </div>
+                    <div style={{ 
+                        maxHeight: '160px', 
+                        overflowY: 'auto', 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        gap: '0.5rem',
+                        paddingRight: '4px',
+                        scrollbarWidth: 'thin'
+                    }}>
+                        {availableAudiobooks.map((a, i) => (
+                            <div key={i} style={{ 
+                                background: i === 0 ? 'var(--accent-glow)' : 'var(--surface-light)',
+                                border: `1px solid ${i === 0 ? 'var(--accent)' : 'var(--border)'}`,
+                                borderRadius: '8px',
+                                padding: '0.6rem 0.8rem',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                gap: '1rem'
+                            }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                                    <span style={{ 
+                                        fontSize: '0.8rem', 
+                                        fontWeight: 600, 
+                                        color: 'var(--text-primary)',
+                                        whiteSpace: 'nowrap',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis'
+                                    }}>
+                                        {a.title || a.filename}
+                                    </span>
+                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                                        <span>{formatRelativeTime(a.created_at)}</span>
+                                        {a.size_bytes && <span>• {formatFileSize(a.size_bytes)}</span>}
+                                    </div>
+                                </div>
+                                <a 
+                                    href={a.url || `/out/audiobook/${a.filename}`} 
+                                    download 
+                                    title="Download this version"
+                                    style={{ 
+                                        color: i === 0 ? 'var(--accent)' : 'var(--text-secondary)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        transition: 'transform 0.1s'
+                                    }}
+                                    onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+                                    onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                >
+                                    <Download size={16} />
                                 </a>
-                            ))}
-                        </div>
-                    )}
+                            </div>
+                        ))}
+                    </div>
                 </div>
             ) : (
                 <button className="btn-primary" disabled style={{ padding: '1rem', opacity: 0.5, cursor: 'not-allowed', width: '100%', borderRadius: '12px' }}>
