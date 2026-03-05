@@ -115,6 +115,25 @@ def _output_exists(engine: str, chapter_file: str, project_id: Optional[str] = N
 
 
 
+def calculate_predicted_progress(job, now: float, start_time: float, eta: int, limit: float = 0.85, prepare_limit: float = 0.05, prepare_step: float = 0.005) -> float:
+    """Safely calculates the predicted progress floor for a job."""
+    current_p = getattr(job, 'progress', 0.0)
+
+    if getattr(job, 'status', None) == 'finalizing':
+        return current_p
+
+    # If synthesis hasn't started yet, cap progress (Preparing)
+    synthesis_started = getattr(job, 'synthesis_started_at', None)
+
+    if not synthesis_started and getattr(job, 'engine', None) != "audiobook":
+        return min(prepare_limit, current_p + prepare_step)
+
+    # Use synthesis_started if available (for XTTS), else fallback to worker start time (for audiobook)
+    effective_start = synthesis_started or start_time
+    actual_elapsed = now - effective_start
+    return max(current_p, min(limit, actual_elapsed / max(1, eta)))
+
+
 def cleanup_and_reconcile():
     """
     Perform a complete scan. 
@@ -479,14 +498,7 @@ def worker_loop(q: "queue.Queue[str]"):
                 new_log = None
                 if not s:
                     # Heartbeat: only update prediction if it's a meaningful change (>1% or >5s since last)
-                    current_p = getattr(j, 'progress', 0.0)
-
-                    if not getattr(j, 'synthesis_started_at', None) and j.engine != "audiobook":
-                        prog = min(0.01, current_p + 0.001)
-                    else:
-                        effective_start = j.synthesis_started_at or start
-                        actual_elapsed = now - effective_start
-                        prog = min(0.98, max(current_p, actual_elapsed / max(1, eta)))
+                    prog = calculate_predicted_progress(j, now, start, eta, limit=0.98, prepare_limit=0.01, prepare_step=0.001)
 
                     last_b = getattr(j, '_last_broadcast_time', 0)
                     last_p = getattr(j, '_last_broadcast_p', 0.0)
@@ -567,20 +579,7 @@ def worker_loop(q: "queue.Queue[str]"):
 
                 # Update calculation for prediction (prediction floor)
                 if new_progress is None:
-                    current_p = getattr(j, 'progress', 0.0)
-
-                    # If synthesis hasn't started yet, cap progress at 0.05 (Preparing)
-                    if not getattr(j, 'synthesis_started_at', None) and j.engine != "audiobook":
-                        new_val = min(0.05, current_p + 0.005)
-                    elif getattr(j, 'status', None) == 'finalizing':
-                        # Stop predicting during finalization; only use the manually set progress
-                        new_val = current_p
-                    else:
-                        # Use synthesis_started_at for a more accurate elapsed time if available
-                        effective_start = getattr(j, 'synthesis_started_at', start)
-                        actual_elapsed = now - effective_start
-                        new_val = max(current_p, min(0.85, actual_elapsed / max(1, eta)))
-
+                    new_val = calculate_predicted_progress(j, now, start, eta, limit=0.85, prepare_limit=0.05, prepare_step=0.005)
                     new_progress = round(new_val, 2)
 
                 # Check threshold against last broadcast
@@ -1043,7 +1042,7 @@ def worker_loop(q: "queue.Queue[str]"):
             # --- Auto-tuning feedback (TTS) ---
             if rc == 0 and out_wav.exists() and chars > 0 and not getattr(j, 'is_bake', False):
                 # Use synthesis_started_at for much more accurate CPS calculation
-                effective_start = getattr(j, 'synthesis_started_at', start)
+                effective_start = getattr(j, 'synthesis_started_at', None) or start
                 actual_dur = time.time() - effective_start
                 if actual_dur > 0:
                     new_cps = chars / actual_dur
