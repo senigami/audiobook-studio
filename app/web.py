@@ -2338,6 +2338,7 @@ def api_get_queue():
             item['progress'] = job.progress
             item['eta_seconds'] = job.eta_seconds
             item['started_at'] = job.started_at
+            item['completed_at'] = job.finished_at
             item['log'] = job.log
             # Re-sync status if DB is stale but job is running
             if job.status == 'running' and item['status'] != 'running':

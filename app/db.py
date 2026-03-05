@@ -63,6 +63,7 @@ def init_db():
                     split_part INTEGER DEFAULT 0,
                     status TEXT DEFAULT 'queued',
                     created_at REAL,
+                    started_at REAL,
                     completed_at REAL,
                     FOREIGN KEY (project_id) REFERENCES projects (id),
                     FOREIGN KEY (chapter_id) REFERENCES chapters (id)
@@ -120,6 +121,10 @@ def init_db():
             # Migration
             try:
                 cursor.execute("ALTER TABLE chapter_segments ADD COLUMN sanitized_text TEXT")
+            except:
+                pass
+            try:
+                cursor.execute("ALTER TABLE processing_queue ADD COLUMN started_at REAL")
             except:
                 pass
 
@@ -662,6 +667,9 @@ def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 
             now = time.time()
             if status in ['done', 'failed', 'cancelled']:
                 cursor.execute("UPDATE processing_queue SET status = ?, completed_at = ? WHERE id = ?", (status, now, queue_id))
+            elif status in ['running', 'preparing', 'finalizing']:
+                # Only set started_at if not already set
+                cursor.execute("UPDATE processing_queue SET status = ?, started_at = COALESCE(started_at, ?) WHERE id = ?", (status, now, queue_id))
             else:
                 cursor.execute("UPDATE processing_queue SET status = ? WHERE id = ?", (status, queue_id))
 

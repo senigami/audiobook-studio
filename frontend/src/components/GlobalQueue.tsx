@@ -18,6 +18,12 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({ paused = false, jobs =
   const [queue, setQueue] = useState<ProcessingQueueItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [localPaused, setLocalPaused] = useState(paused);
+
+  const formatTime = (ts: number | null | undefined) => {
+    if (!ts) return "";
+    const d = new Date(ts * 1000);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  };
   const [hoveredJobId, setHoveredJobId] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [confirmConfig, setConfirmConfig] = useState<{
@@ -292,8 +298,14 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({ paused = false, jobs =
                                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
                                       <div style={{ minWidth: 0 }}>
                                           <h4 style={{ fontWeight: 700, fontSize: '1.1rem', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.chapter_title}</h4>
-                                          <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
-                                              {job.project_name} • Part {job.split_part + 1}
+                                          <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                              <span>{job.project_name} • Part {job.split_part + 1}</span>
+                                              {started && (
+                                                  <>
+                                                      <span style={{ width: '3px', height: '3px', borderRadius: '50%', background: 'var(--text-muted)' }} />
+                                                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Started {formatTime(started)}</span>
+                                                  </>
+                                              )}
                                           </div>
                                       </div>
                                       <div style={{ display: 'flex', gap: '8px' }}>
@@ -476,6 +488,14 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({ paused = false, jobs =
                                             </h4>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
                                                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500 }}>{job.project_name}</span>
+                                                {job.started_at && (
+                                                    <>
+                                                        <span style={{ width: '3px', height: '3px', borderRadius: '50%', background: 'var(--text-muted)' }} />
+                                                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                                                            {formatTime(job.started_at)} {job.completed_at ? `→ ${formatTime(job.completed_at)}` : ''}
+                                                        </span>
+                                                    </>
+                                                )}
                                                 <span style={{ width: '3px', height: '3px', borderRadius: '50%', background: 'var(--text-muted)' }} />
                                                 <span style={{ 
                                                     fontSize: '0.7rem', 
