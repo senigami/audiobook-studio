@@ -21,6 +21,17 @@ This is where you manage the structure of your book.
 - **Metadata**: Click the settings icon to change title, author, or the book's cover.
 - **Assemble Audiobook**: Located at the top right of the Project View.
 
+#### Status Indicators (Status Orb)
+
+Each chapter features a **Status Orb** that provides instant visual feedback and common actions:
+
+- **Green**: Synthesis complete and in sync with the script.
+- **Yellow Triangle**: "Out of Sync" — changes have been made to the script or voice assignments since the last render.
+- **Empty / Grey Arc**: Shows percentage completion for chapters that have only been partially rendered.
+- **Spinner**: Indicates a job is currently in progress.
+
+**Pro Tip**: Click any non-rendering Orb to access a contextual action menu (e.g., "Queue rebuild", "Queue remaining").
+
 ![Project View highlighting the Chapters list and Assembly button](images/project-view.jpg)
 
 ### 2. Characters Tab
