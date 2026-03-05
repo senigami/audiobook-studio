@@ -18,6 +18,10 @@ interface ProjectViewProps {
   segmentUpdate?: { chapterId: string; tick: number };
 }
 
+function sanitizeFilename(name: string): string {
+  return name.replace(/[^a-z0-9]/gi, '_').replace(/_{2,}/g, '_').toLowerCase();
+}
+
 export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles, speakers, refreshTrigger = 0, segmentUpdate }) => {
   const { projectId } = useParams() as { projectId: string };
   const navigate = useNavigate();
@@ -975,7 +979,16 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
                            if (activeJob) {
                                return <span title="Generating Audio..."><Clock size={14} color="var(--warning)" /></span>;
                            }
-                           if (chap.audio_status === 'done') return <span title="Audio Generated"><CheckCircle size={14} color="var(--success)" /></span>;
+                           if (chap.audio_status === 'done') {
+                               return (
+                                   <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                       {chap.has_wav && <span style={{ fontSize: '0.6rem', padding: '2px 4px', borderRadius: '4px', background: 'var(--accent)', color: 'var(--text-primary)', fontWeight: 'bold' }} title="WAV available">WAV</span>}
+                                       {chap.has_mp3 && <span style={{ fontSize: '0.6rem', padding: '2px 4px', borderRadius: '4px', background: 'var(--accent)', color: 'var(--text-primary)', fontWeight: 'bold' }} title="MP3 available">MP3</span>}
+                                       {chap.has_m4a && <span style={{ fontSize: '0.6rem', padding: '2px 4px', borderRadius: '4px', background: 'var(--accent)', color: 'var(--text-primary)', fontWeight: 'bold' }} title="M4A available">M4A</span>}
+                                       {(!chap.has_wav && !chap.has_mp3 && !chap.has_m4a) && <span title="Audio Generated"><CheckCircle size={14} color="var(--success)" /></span>}
+                                   </div>
+                               );
+                           }
                            if (chap.audio_status === 'processing') return <span title="Generating Audio..."><Clock size={14} color="var(--warning)" /></span>;
                            if (chap.audio_status === 'error') return <span title="Generation Failed"><AlertTriangle size={14} color="var(--error)" /></span>;
                            return null;
@@ -1115,7 +1128,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
                         {chap.audio_status === 'done' && chap.audio_file_path && (
                           <a 
                             href={`/projects/${projectId}/audio/${chap.audio_file_path}`}
-                            download={chap.audio_file_path}
+                            download={`${sanitizeFilename(chap.title)}${chap.audio_file_path.substring(chap.audio_file_path.lastIndexOf('.'))}`}
                             className="btn-ghost" 
                             style={{ width: '100%', justifyContent: 'flex-start', padding: '0.5rem', fontSize: '0.8rem', textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center', gap: '8px' }}
                             onClick={() => setOpenMenuId(null)}

@@ -332,11 +332,34 @@ def get_chapter(chapter_id: str) -> Optional[Dict[str, Any]]:
             return dict(row) if row else None
 
 def list_chapters(project_id: str) -> List[Dict[str, Any]]:
+    from .config import get_project_audio_dir
+    import os
+    audio_dir = get_project_audio_dir(project_id)
+
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM chapters WHERE project_id = ? ORDER BY sort_order ASC", (project_id,))
-            return [dict(row) for row in cursor.fetchall()]
+            chapters = [dict(row) for row in cursor.fetchall()]
+
+            # Decorate chapters with audio format flags
+            for ch in chapters:
+                ch['has_wav'] = False
+                ch['has_mp3'] = False
+                ch['has_m4a'] = False
+
+                # Check based on UUID stem if no explicit audio_file_path exists yet
+                # Most generated files follow the pattern {chapter_id}.wav or {chapter_id}_{split}.wav
+                stem = Path(ch["audio_file_path"]).stem if ch.get("audio_file_path") else ch["id"]
+
+                if (audio_dir / f"{stem}.wav").exists():
+                    ch['has_wav'] = True
+                if (audio_dir / f"{stem}.mp3").exists():
+                    ch['has_mp3'] = True
+                if (audio_dir / f"{stem}.m4a").exists():
+                    ch['has_m4a'] = True
+
+            return chapters
 
 def update_chapter(chapter_id: str, **updates) -> bool:
     if not updates: return False

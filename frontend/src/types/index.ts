@@ -41,6 +41,9 @@ export interface Chapter {
   sort_order: number;
   audio_status: 'unprocessed' | 'processing' | 'done' | 'error';
   audio_file_path: string | null;
+  has_wav?: boolean;
+  has_mp3?: boolean;
+  has_m4a?: boolean;
   text_last_modified: number | null;
   audio_generated_at: number | null;
   char_count: number;
