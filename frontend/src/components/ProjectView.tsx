@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, FileText, CheckCircle, Clock, AlertTriangle, Edit3, Trash2, GripVertical, Zap, Image as ImageIcon, ArrowUpDown, CheckSquare, Square, MoreVertical, RefreshCw, Download, Video, Loader2 } from 'lucide-react';
+import { ArrowLeft, Plus, FileText, CheckCircle, Clock, Edit3, Trash2, GripVertical, Zap, Image as ImageIcon, ArrowUpDown, CheckSquare, Square, RefreshCw, Download, Video, Loader2 } from 'lucide-react';
 import { motion, Reorder } from 'framer-motion';
 import { api } from '../api';
 import type { Project, Chapter, Job, Audiobook, SpeakerProfile } from '../types';
@@ -9,6 +9,7 @@ import { PredictiveProgressBar } from './PredictiveProgressBar';
 import { CharactersTab } from './CharactersTab';
 import { ConfirmModal } from './ConfirmModal';
 import { ActionMenu } from './ActionMenu';
+import { StatusOrb } from './StatusOrb';
 
 interface ProjectViewProps {
   jobs: Record<string, Job>;
@@ -22,6 +23,7 @@ function sanitizeFilename(name: string): string {
   return name.replace(/[^a-z0-9]/gi, '_').replace(/_{2,}/g, '_').toLowerCase();
 }
 
+// Removed legacy RendersPill
 export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles, speakers, refreshTrigger = 0, segmentUpdate }) => {
   const { projectId } = useParams() as { projectId: string };
   const navigate = useNavigate();
@@ -39,7 +41,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
   const [isAssemblyMode, setIsAssemblyMode] = useState(false);
   const [selectedChapters, setSelectedChapters] = useState<Set<string>>(new Set());
   const [selectedVoice, setSelectedVoice] = useState<string>('');
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+
   const [isExporting, setIsExporting] = useState<string | null>(null); // Stores chapterId
   
   // Modals
@@ -787,7 +789,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
           </div>
       </div>
 
-      <div style={{ background: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
+      <div style={{ background: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--border)' /* overflow: hidden removed to prevent menu clipping */ }}>
         {isAssemblyMode && chapters.length > 0 && (
           <div style={{ 
             padding: '0.75rem 1.25rem', 
@@ -832,7 +834,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
             <p style={{ color: 'var(--text-muted)' }}>No chapters yet. Add one to get started.</p>
           </div>
         ) : (
-          <Reorder.Group axis="y" values={chapters} onReorder={handleReorder} style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column' }}>
+          <Reorder.Group axis="y" values={chapters} onReorder={handleReorder} style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', overflow: 'visible' }}>
             {chapters.map((chap, idx) => {
                 const relevantJobs = Object.values(jobs).filter(j => 
                     j.project_id === projectId && 
@@ -846,14 +848,16 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
                 value={chap}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                style={{
+                  style={{
                   padding: '0.4rem 1.25rem',
                   borderBottom: idx === chapters.length - 1 ? 'none' : '1px solid var(--border)',
                   display: 'flex',
                   gap: '1.25rem',
                   alignItems: 'center',
                   cursor: 'grab',
-                  background: 'var(--surface)'
+                  background: 'var(--surface)',
+                  position: 'relative',
+                  zIndex: activeJob ? 5 : 1
                 }}
                 whileDrag={{ background: 'var(--surface-alt)', boxShadow: 'var(--shadow-lg)', zIndex: 50, cursor: 'grabbing' }}
                 dragListener={!isAssemblyMode}
@@ -872,7 +876,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
                             {selectedChapters.has(chap.id) && chap.audio_status === 'done' ? <CheckSquare size={18} /> : <Square size={18} />}
                         </div>
                     ) : (
-                        <div style={{ cursor: 'grab', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }} title="Drag to reorder">
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200" style={{ cursor: 'grab', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }} title="Drag to reorder">
                             <GripVertical size={14} />
                         </div>
                     )}
@@ -882,6 +886,32 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
                     }}>
                         {idx + 1}
                     </div>
+
+                    {!isAssemblyMode && (
+                        <ActionMenu 
+                            trigger={
+                                <StatusOrb 
+                                    chap={chap} 
+                                    activeJob={activeJob} 
+                                    doneSegments={chap.done_segments_count} 
+                                    totalSegments={chap.total_segments_count} 
+                                />
+                            }
+                            items={[
+                                { 
+                                    label: 'Rebuild Chapter', 
+                                    icon: RefreshCw, 
+                                    disabled: chap.audio_status === 'processing',
+                                    onClick: () => handleQueueChapter(chap) 
+                                },
+                                { 
+                                    label: 'View Queue', 
+                                    icon: Clock, 
+                                    onClick: () => navigate('/queue') 
+                                }
+                            ]}
+                        />
+                    )}
                 </div>
 
                 <div 
@@ -974,31 +1004,6 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
                             {chap.title}
                         </h4>
                     )}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
-                        {(() => {
-                           if (activeJob) {
-                               return <span title="Generating Audio..."><Clock size={14} color="var(--warning)" /></span>;
-                           }
-                           if (chap.audio_status === 'done') {
-                               return (
-                                   <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                                       {chap.has_wav && <span style={{ fontSize: '0.6rem', padding: '2px 4px', borderRadius: '4px', background: 'var(--accent)', color: 'var(--text-primary)', fontWeight: 'bold' }} title="WAV available">WAV</span>}
-                                       {chap.has_mp3 && <span style={{ fontSize: '0.6rem', padding: '2px 4px', borderRadius: '4px', background: 'var(--accent)', color: 'var(--text-primary)', fontWeight: 'bold' }} title="MP3 available">MP3</span>}
-                                       {chap.has_m4a && <span style={{ fontSize: '0.6rem', padding: '2px 4px', borderRadius: '4px', background: 'var(--accent)', color: 'var(--text-primary)', fontWeight: 'bold' }} title="M4A available">M4A</span>}
-                                       {(!chap.has_wav && !chap.has_mp3 && !chap.has_m4a) && <span title="Audio Generated"><CheckCircle size={14} color="var(--success)" /></span>}
-                                   </div>
-                               );
-                           }
-                           if (chap.audio_status === 'processing') return <span title="Generating Audio..."><Clock size={14} color="var(--warning)" /></span>;
-                           if (chap.audio_status === 'error') return <span title="Generation Failed"><AlertTriangle size={14} color="var(--error)" /></span>;
-                           return null;
-                        })()}
-                        {chap.text_last_modified && chap.audio_generated_at && chap.audio_generated_at > 0 && (chap.text_last_modified > chap.audio_generated_at) && (
-                        <span title="Text modified since last audio generation" style={{ display: 'flex', alignItems: 'center' }}>
-                            <AlertTriangle size={14} color="var(--warning)" />
-                        </span>
-                        )}
-                    </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '1rem', flex: '2 1 0', minWidth: 0 }}>
@@ -1083,78 +1088,40 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
                       </button>
                   </div>
                   
-                  <div style={{ position: 'relative' }}>
-                    <button 
-                      onClick={(e) => { 
-                        e.stopPropagation(); 
-                        setOpenMenuId(openMenuId === chap.id ? null : chap.id); 
-                      }} 
-                      className="btn-ghost" 
-                      style={{ padding: '0.4rem', color: 'var(--text-muted)' }}
-                    >
-                      <MoreVertical size={16} />
-                    </button>
-                    
-                    {openMenuId === chap.id && (
-                      <div 
-                        className="glass-panel"
-                        style={{
-                          position: 'absolute',
-                          top: '100%',
-                          right: 0,
-                          zIndex: 1000,
-                          minWidth: '160px',
-                          padding: '0.5rem',
-                          background: 'var(--surface)',
-                          boxShadow: '0 8px 30px rgba(0,0,0,0.5)'
-                        }}
-                        onClick={e => e.stopPropagation()}
-                      >
-                        <button 
-                          className="btn-ghost" 
-                          disabled={chap.audio_status !== 'done' || isExporting !== null}
-                          style={{ 
-                            width: '100%', 
-                            justifyContent: 'flex-start', 
-                            padding: '0.5rem', 
-                            fontSize: '0.8rem',
-                            opacity: (chap.audio_status !== 'done' || isExporting !== null) ? 0.5 : 1
-                          }}
-                          onClick={() => { setOpenMenuId(null); handleExportSample(chap); }}
-                        >
-                          {isExporting === chap.id ? <Loader2 size={14} className="animate-spin" /> : <Video size={14} />}
-                          {isExporting === chap.id ? 'Generating...' : 'Export Video Sample'}
-                        </button>
-                        {chap.audio_status === 'done' && chap.audio_file_path && (
-                          <a 
-                            href={`/projects/${projectId}/audio/${chap.audio_file_path}`}
-                            download={`${sanitizeFilename(chap.title)}${chap.audio_file_path.substring(chap.audio_file_path.lastIndexOf('.'))}`}
-                            className="btn-ghost" 
-                            style={{ width: '100%', justifyContent: 'flex-start', padding: '0.5rem', fontSize: '0.8rem', textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center', gap: '8px' }}
-                            onClick={() => setOpenMenuId(null)}
-                          >
-                            <Download size={14} /> Download Audio
-                          </a>
-                        )}
-                        <div style={{ height: '1px', background: 'var(--border)', margin: '4px 0' }} />
-                        <button 
-                          className="btn-ghost" 
-                          style={{ width: '100%', justifyContent: 'flex-start', padding: '0.5rem', fontSize: '0.8rem' }}
-                          onClick={() => { setOpenMenuId(null); handleResetChapterAudio(chap.id); }}
-                        >
-                          <RefreshCw size={14} /> Reset Audio
-                        </button>
-                        <button 
-                          className="btn-ghost" 
-                          style={{ width: '100%', justifyContent: 'flex-start', padding: '0.5rem', fontSize: '0.8rem', color: 'var(--error)' }}
-                          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--error-glow)'}
-                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                          onClick={() => { setOpenMenuId(null); handleDeleteChapter(chap.id); }}
-                        >
-                          <Trash2 size={14} /> Delete Chapter
-                        </button>
-                      </div>
-                    )}
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <ActionMenu 
+                      items={[
+                        {
+                          label: isExporting === chap.id ? 'Generating...' : 'Export Video Sample',
+                          icon: isExporting === chap.id ? Loader2 : Video,
+                          disabled: chap.audio_status !== 'done' || isExporting !== null,
+                          onClick: () => handleExportSample(chap)
+                        },
+                        ...(chap.audio_status === 'done' && chap.audio_file_path ? [{
+                          label: 'Download Audio',
+                          icon: Download,
+                          onClick: () => {
+                            if (!chap.audio_file_path) return;
+                            const link = document.createElement('a');
+                            link.href = `/projects/${projectId}/audio/${chap.audio_file_path}`;
+                            link.download = `${sanitizeFilename(chap.title)}${chap.audio_file_path.substring(chap.audio_file_path.lastIndexOf('.'))}`;
+                            link.click();
+                          }
+                        }] : []),
+                        { isDivider: true },
+                        {
+                          label: 'Reset Audio',
+                          icon: RefreshCw,
+                          onClick: () => handleResetChapterAudio(chap.id)
+                        },
+                        {
+                          label: 'Delete Chapter',
+                          icon: Trash2,
+                          isDestructive: true,
+                          onClick: () => handleDeleteChapter(chap.id)
+                        }
+                      ]}
+                    />
                   </div>
                 </div>
                 </Reorder.Item>

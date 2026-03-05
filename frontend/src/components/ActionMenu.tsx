@@ -5,9 +5,9 @@ import { MoreVertical } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 interface ActionMenuItem {
-    label: string;
+    label?: string;
     icon?: LucideIcon;
-    onClick: () => void;
+    onClick?: () => void;
     isDestructive?: boolean;
     isDivider?: boolean;
     disabled?: boolean;
@@ -16,9 +16,10 @@ interface ActionMenuItem {
 interface ActionMenuProps {
     items?: ActionMenuItem[];
     onDelete?: () => void; // Maintain backward compatibility for now
+    trigger?: React.ReactNode;
 }
 
-export const ActionMenu: React.FC<ActionMenuProps> = ({ items, onDelete }) => {
+export const ActionMenu: React.FC<ActionMenuProps> = ({ items, onDelete, trigger }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
     const triggerRef = useRef<HTMLButtonElement>(null);
@@ -34,17 +35,19 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({ items, onDelete }) => {
         if (!triggerRef.current) return;
         const rect = triggerRef.current.getBoundingClientRect();
         const menuWidth = 180; // Min-width
-        const menuHeight = menuItems.length * 40 + 12; // Estimate height
 
-        let top = rect.bottom + window.scrollY;
+
+        const top = rect.bottom + window.scrollY;
         let left = rect.right + window.scrollX - menuWidth;
-        let above = false;
+        const above = false;
 
-        // Flip if near bottom
+        // Flip logic removed to keep menu below the trigger as requested
+        /*
         if (rect.bottom + menuHeight > window.innerHeight) {
             top = rect.top + window.scrollY - menuHeight - 8;
             above = true;
         }
+        */
 
         // Clamp horizontal
         if (left < 10) left = 10;
@@ -98,9 +101,17 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({ items, onDelete }) => {
                     setIsOpen(!isOpen);
                 }}
                 aria-label="More actions"
-                whileHover={{ backgroundColor: 'rgba(15, 23, 42, 0.08)', color: 'var(--accent)' }}
+                whileHover={trigger ? { scale: 1.05 } : { backgroundColor: 'rgba(15, 23, 42, 0.08)', color: 'var(--accent)' }}
                 whileTap={{ scale: 0.92 }}
-                style={{
+                style={trigger ? {
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                } : {
                     width: '32px',
                     height: '32px',
                     borderRadius: '8px',
@@ -115,9 +126,9 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({ items, onDelete }) => {
                     padding: 0,
                     transition: 'all 0.2s ease'
                 }}
-                className="kebab-trigger"
+                className={trigger ? "" : "kebab-trigger"}
             >
-                <MoreVertical size={18} style={{ width: '18px', height: '18px', flexShrink: 0 }} />
+                {trigger ? trigger : <MoreVertical size={18} style={{ width: '18px', height: '18px', flexShrink: 0 }} />}
             </motion.button>
 
             {isOpen && createPortal(
@@ -151,10 +162,10 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({ items, onDelete }) => {
                                     disabled={item.disabled}
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        if (item.disabled) return;
+                                        if (item.disabled || item.isDivider) return;
                                         setHoveredIndex(null);
                                         setIsOpen(false);
-                                        item.onClick();
+                                        item.onClick?.();
                                     }}
                                     onMouseEnter={() => !item.disabled && setHoveredIndex(idx)}
                                     onMouseLeave={() => setHoveredIndex(null)}

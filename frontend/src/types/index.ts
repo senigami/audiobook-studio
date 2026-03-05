@@ -51,6 +51,8 @@ export interface Chapter {
   sent_count: number;
   predicted_audio_length: number;
   audio_length_seconds: number;
+  total_segments_count?: number;
+  done_segments_count?: number;
 }
 
 export interface ProcessingQueueItem {

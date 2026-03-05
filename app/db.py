@@ -339,7 +339,15 @@ def list_chapters(project_id: str) -> List[Dict[str, Any]]:
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM chapters WHERE project_id = ? ORDER BY sort_order ASC", (project_id,))
+            cursor.execute("""
+                SELECT 
+                    c.*,
+                    (SELECT COUNT(*) FROM chapter_segments WHERE chapter_id = c.id) as total_segments_count,
+                    (SELECT COUNT(*) FROM chapter_segments WHERE chapter_id = c.id AND audio_status = 'done') as done_segments_count
+                FROM chapters c 
+                WHERE c.project_id = ? 
+                ORDER BY c.sort_order ASC
+            """, (project_id,))
             chapters = [dict(row) for row in cursor.fetchall()]
 
             # Decorate chapters with audio format flags
@@ -503,6 +511,14 @@ def update_segment(segment_id: str, broadcast: bool = True, **updates) -> bool:
             conn.commit()
             changed = cursor.rowcount > 0
 
+            # If character or voice changed, update chapter timestamp for stale detection
+            if changed and ("character_id" in updates or "speaker_profile_name" in updates):
+                cursor.execute("SELECT chapter_id FROM chapter_segments WHERE id = ?", (segment_id,))
+                row = cursor.fetchone()
+                if row:
+                    cursor.execute("UPDATE chapters SET text_last_modified = ? WHERE id = ?", (time.time(), row[0]))
+                    conn.commit()
+
     # Broadcast via WebSocket if audio_status changed (outside the lock to avoid deadlock)
     if broadcast and changed and "audio_status" in updates:
         try:
@@ -534,6 +550,14 @@ def update_segments_bulk(segment_ids: List[str], **updates) -> bool:
             cursor.execute(sql, (*values, *segment_ids))
             conn.commit()
             changed = cursor.rowcount > 0
+
+            # If character or voice changed, update chapter timestamp for stale detection
+            if changed and ("character_id" in updates or "speaker_profile_name" in updates):
+                cursor.execute("SELECT DISTINCT chapter_id FROM chapter_segments WHERE id = ?", (segment_ids[0],))
+                row = cursor.fetchone()
+                if row:
+                    cursor.execute("UPDATE chapters SET text_last_modified = ? WHERE id = ?", (time.time(), row[0]))
+                    conn.commit()
 
     # Broadcast via WebSocket if audio_status changed
     if changed:
