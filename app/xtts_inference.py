@@ -162,20 +162,34 @@ def main():
                         # Handle semicolons: split around them, synthesize each part,
                         # and insert a silence tensor where each semicolon was.
                         if PAUSE_CHAR in sentence:
-                            sub_parts = sentence.split(PAUSE_CHAR)
-                            for sp_idx, sub_part in enumerate(sub_parts):
-                                sub_text = sub_part.strip()
-                                if sub_text and any(c.isalnum() for c in sub_text):
-                                    wav_chunk = _synthesize_one(sub_text, latents, sw)
-                                    chunk_tensor = torch.FloatTensor(wav_chunk)
-                                    all_wav_chunks.append(chunk_tensor)
-                                    segment_wav_chunks.append(chunk_tensor)
-                                if sp_idx < len(sub_parts) - 1:
-                                    pause_samples = int(SAMPLE_RATE * PAUSE_CHAR_MS / 1000)
-                                    silence = torch.zeros(pause_samples)
-                                    all_wav_chunks.append(silence)
-                                    segment_wav_chunks.append(silence)
-                                    pause_indices.add(len(all_wav_chunks) - 1)
+                            sub_parts = [p.strip() for p in sentence.split(PAUSE_CHAR) if p.strip()]
+
+                            def is_safe(t):
+                                words = [w for w in t.split() if any(c.isalnum() for c in w)]
+                                return len(words) >= 3
+
+                            # Only perform a manual split-pause if every resulting segment is safe (>= 3 words).
+                            # This prevents XTTS from hallucinating on tiny fragments like "Effie."
+                            if all(is_safe(p) for p in sub_parts):
+                                for sp_idx, sub_part in enumerate(sub_parts):
+                                    sub_text = sub_part.strip()
+                                    if sub_text and any(c.isalnum() for c in sub_text):
+                                        wav_chunk = _synthesize_one(sub_text, latents, sw)
+                                        chunk_tensor = torch.FloatTensor(wav_chunk)
+                                        all_wav_chunks.append(chunk_tensor)
+                                        segment_wav_chunks.append(chunk_tensor)
+                                    if sp_idx < len(sub_parts) - 1:
+                                        pause_samples = int(SAMPLE_RATE * PAUSE_CHAR_MS / 1000)
+                                        silence = torch.zeros(pause_samples)
+                                        all_wav_chunks.append(silence)
+                                        segment_wav_chunks.append(silence)
+                                        pause_indices.add(len(all_wav_chunks) - 1)
+                            else:
+                                # Combined chunk is safer for the model
+                                wav_chunk = _synthesize_one(sentence, latents, sw)
+                                chunk_tensor = torch.FloatTensor(wav_chunk)
+                                all_wav_chunks.append(chunk_tensor)
+                                segment_wav_chunks.append(chunk_tensor)
                         else:
                             wav_chunk = _synthesize_one(sentence, latents, sw)
                             chunk_tensor = torch.FloatTensor(wav_chunk)

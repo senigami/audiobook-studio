@@ -354,40 +354,32 @@ def consolidate_single_word_sentences(text: str) -> str:
         return text
 
     consolidated = []
-    skip_next = False
+    i = 0
+    while i < len(all_sentences_with_meta):
+        curr = all_sentences_with_meta[i]
 
-    for i, curr in enumerate(all_sentences_with_meta):
-        if skip_next:
-            skip_next = False
-            continue
+        # Calculate current word count
+        def count_words(t):
+            return len([w for w in t.split() if re.search(r'\w', w)])
 
-        word_count = len([w for w in curr['text'].split() if re.search(r'\w', w)])
+        current_text = curr['text']
+        current_line_idx = curr['line_idx']
 
-        if word_count <= 2:
-            if i < len(all_sentences_with_meta) - 1:
-                # Merge with NEXT
-                next_sent = all_sentences_with_meta[i+1]
-                # Use ;; if they were on different lines
-                sep = "; "
+        # Greedy merge forward until we hit the safety threshold (4 words)
+        while count_words(current_text) < 4 and i < len(all_sentences_with_meta) - 1:
+            i += 1
+            next_sent = all_sentences_with_meta[i]
+            # Use single semicolon for all merges now
+            sep = "; "
+            current_text = current_text.rstrip(".!?; ") + sep + next_sent['text']
+            # Update line_idx to the latest consumed sentence to keep paragraph flow
+            current_line_idx = next_sent['line_idx']
 
-                merged_text = curr['text'].rstrip(".!?") + sep + next_sent['text']
-                consolidated.append({
-                    "text": merged_text,
-                    "line_idx": next_sent['line_idx']
-                })
-                skip_next = True
-            elif consolidated:
-                # Last resort: merge with PREVIOUS
-                prev = consolidated.pop()
-                sep = "; "
-                consolidated.append({
-                    "text": prev['text'].rstrip(".!?;") + sep + curr['text'],
-                    "line_idx": curr['line_idx']
-                })
-            else:
-                consolidated.append(curr)
-        else:
-            consolidated.append(curr)
+        consolidated.append({
+            "text": current_text,
+            "line_idx": current_line_idx
+        })
+        i += 1
 
     # Reconstruct lines based on line_idx changes
     final_output = []
