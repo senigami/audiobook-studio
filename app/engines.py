@@ -276,8 +276,10 @@ def assemble_audiobook(
 
         cover_input = ""
         cover_map = ""
+        if cover_path:
+            on_output(f"Checking cover path: {cover_path}\n")
         if cover_path and Path(cover_path).exists():
-            on_output(f"Adding cover image: {cover_path}\n")
+            on_output(f"Cover image found, adding to ffmpeg: {cover_path}\n")
             cover_input = f"-i {shlex.quote(str(cover_path))} "
             # Map chapter 0 (concat audio) and chapter 1 (metadata) and chapter 2 (cover)
             cover_map = "-map 2:v -c:v copy -disposition:v:0 attached_pic "
