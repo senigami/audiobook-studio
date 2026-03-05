@@ -18,10 +18,21 @@ interface ActionMenuProps {
     onDelete?: () => void; // Maintain backward compatibility for now
     trigger?: React.ReactNode;
     disabled?: boolean;
+    onOpenChange?: (open: boolean) => void;
 }
 
-export const ActionMenu: React.FC<ActionMenuProps> = ({ items, onDelete, trigger, disabled }) => {
+export const ActionMenu: React.FC<ActionMenuProps> = ({ items, onDelete, trigger, disabled, onOpenChange }) => {
     const [isOpen, setIsOpen] = useState(false);
+    const prevOpenRef = useRef(isOpen);
+    
+    // Notify parent ONLY when the open state actually toggles
+    useEffect(() => {
+        if (prevOpenRef.current !== isOpen) {
+            onOpenChange?.(isOpen);
+            prevOpenRef.current = isOpen;
+        }
+    }, [isOpen, onOpenChange]);
+
     const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
     const triggerRef = useRef<HTMLButtonElement>(null);
     const [menuRect, setMenuRect] = useState<{ top: number; left: number; width: number } | null>(null);

@@ -41,6 +41,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
   const [isAssemblyMode, setIsAssemblyMode] = useState(false);
   const [selectedChapters, setSelectedChapters] = useState<Set<string>>(new Set());
   const [selectedVoice, setSelectedVoice] = useState<string>('');
+  const [openMenuRowId, setOpenMenuRowId] = useState<string | null>(null);
 
   const [isExporting, setIsExporting] = useState<string | null>(null); // Stores chapterId
   
@@ -841,13 +842,28 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
                     (j.chapter_id === chap.id || (j.chapter_file && j.chapter_file.includes(chap.id)))
                 );
                 const activeJob = relevantJobs.find(j => ['running', 'preparing', 'finalizing', 'queued'].includes(j.status));
+                const isMenuOpen = openMenuRowId === chap.id;
 
                 return (
                   <Reorder.Item 
                 key={chap.id}
                 value={chap}
                 initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
+                animate={{ 
+                    opacity: 1,
+                    backgroundColor: isMenuOpen ? 'var(--as-info-tint)' : 'var(--surface)',
+                    boxShadow: isMenuOpen ? 'inset 0 0 0 1px var(--accent-glow)' : 'none'
+                }}
+                whileHover={{ 
+                    backgroundColor: 'var(--as-info-tint)',
+                    boxShadow: 'inset 0 0 0 1px var(--accent-glow)'
+                }}
+                whileFocus={{
+                    backgroundColor: 'var(--as-info-tint)',
+                    boxShadow: 'inset 0 0 0 2px var(--as-blue)',
+                    outline: 'none'
+                }}
+                tabIndex={0}
                   style={{
                   padding: '0.4rem 1.25rem',
                   borderBottom: idx === chapters.length - 1 ? 'none' : '1px solid var(--border)',
@@ -855,9 +871,8 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
                   gap: '1.25rem',
                   alignItems: 'center',
                   cursor: 'grab',
-                  background: 'var(--surface)',
                   position: 'relative',
-                  zIndex: activeJob ? 5 : 1
+                  zIndex: (activeJob || isMenuOpen) ? 5 : 1
                 }}
                 whileDrag={{ background: 'var(--surface-alt)', boxShadow: 'var(--shadow-lg)', zIndex: 50, cursor: 'grabbing' }}
                 dragListener={!isAssemblyMode}
@@ -907,6 +922,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
                             return (
                                 <ActionMenu 
                                     disabled={orbItems.length === 0}
+                                    onOpenChange={(open) => setOpenMenuRowId(open ? chap.id : null)}
                                     trigger={
                                         <StatusOrb 
                                             chap={chap} 
@@ -1098,6 +1114,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
                   
                   <div style={{ display: 'flex', alignItems: 'center' }}>
                     <ActionMenu 
+                      onOpenChange={(open) => setOpenMenuRowId(open ? chap.id : null)}
                       items={[
                         {
                           label: isExporting === chap.id ? 'Generating...' : 'Export Video Sample',
