@@ -14,7 +14,7 @@
 
 **Audiobook Studio** is a high-performance **AI Voice Production Studio** and **Narration Engine** designed for turning manuscripts into professional audiobooks using local AI speech synthesis.
 
-[**Quick Start**](wiki/Getting-Started.md) | [**Full Documentation (Wiki)**](wiki) | [**Live Showcase**](https://senigami.github.io/audiobook-studio/)
+[**Full Documentation (Wiki)**](https://github.com/senigami/audiobook-studio/wiki) | [**Live Showcase**](https://senigami.github.io/audiobook-studio/)
 
 ---
 
@@ -29,7 +29,7 @@ Audiobook Studio provides a professional production pipeline with granular contr
 - **Hardware-Aware**: Precise ETAs calculated from your actual GPU/CPU throughput.
 
 > [!NOTE]
-> For detailed guides on project management, voice cloning, and production workflows, please visit our **[GitHub Wiki](wiki)**.
+> For detailed guides on project management, voice cloning, and production workflows, please visit our **[GitHub Wiki](https://github.com/senigami/audiobook-studio/wiki)**.
 
 ---
 
