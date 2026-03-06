@@ -1,471 +1,565 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Audiobook Studio | Professional AI Production Pipeline</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap"
+      rel="stylesheet"
+    />
     <style>
-        :root {
-            --bg: #f7f9fc;
-            --surface: #ffffff;
-            --surface-alt: #f1f5f9;
-            --accent: #2b6eff;
-            --accent-hover: #1e4fbc;
-            --accent-secondary: #ff8a1f;
-            --info-tint: #EAF1FF;
-            --text-primary: #0b1220;
-            --text-secondary: #4b5563;
-            --text-muted: #94a3b8;
-            --border: #e2e8f0;
-            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-        }
+      :root {
+        --bg: #f7f9fc;
+        --surface: #ffffff;
+        --surface-alt: #f1f5f9;
+        --accent: #2b6eff;
+        --accent-hover: #1e4fbc;
+        --accent-secondary: #ff8a1f;
+        --info-tint: #eaf1ff;
+        --text-primary: #0b1220;
+        --text-secondary: #4b5563;
+        --text-muted: #94a3b8;
+        --border: #e2e8f0;
+        --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+        --shadow-md:
+          0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        --shadow-lg:
+          0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+      }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
 
-        body {
-            font-family: 'Inter', 'Outfit', -apple-system, sans-serif;
-            background-color: var(--bg);
-            color: var(--text-primary);
-            line-height: 1.6;
-            overflow-x: hidden;
-            -webkit-font-smoothing: antialiased;
-        }
+      body {
+        font-family:
+          "Inter",
+          "Outfit",
+          -apple-system,
+          sans-serif;
+        background-color: var(--bg);
+        color: var(--text-primary);
+        line-height: 1.6;
+        overflow-x: hidden;
+        -webkit-font-smoothing: antialiased;
+      }
 
-        .container {
-            max-width: 1100px;
-            margin: 0 auto;
-            padding: 2rem;
-            position: relative;
-        }
+      .container {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 2rem;
+        position: relative;
+      }
 
-        header {
-            text-align: center;
-            margin-top: 5rem;
-            margin-bottom: 6rem;
-        }
+      header {
+        text-align: center;
+        margin-top: 5rem;
+        margin-bottom: 6rem;
+      }
 
-        /* Branding */
-        .brand-section {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 1rem;
-            margin-bottom: 2rem;
-        }
+      /* Branding */
+      .brand-section {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        margin-bottom: 2rem;
+      }
 
-        .brand-logo {
-            height: 120px;
-            width: auto;
-            object-fit: contain;
-        }
+      .brand-logo {
+        height: 120px;
+        width: auto;
+        object-fit: contain;
+      }
 
-        .brand-wordmark {
-            height: 100px;
-            width: auto;
-            object-fit: contain;
-        }
+      .brand-wordmark {
+        height: 100px;
+        width: auto;
+        object-fit: contain;
+      }
 
-        .brand-tagline {
-            font-size: 1.15rem;
-            color: var(--text-secondary);
-            font-weight: 400;
-            margin-top: 1.5rem;
-            text-align: center;
-            max-width: 700px;
-            margin-left: auto;
-            margin-right: auto;
-        }
+      .brand-tagline {
+        font-size: 1.15rem;
+        color: var(--text-secondary);
+        font-weight: 400;
+        margin-top: 1.5rem;
+        text-align: center;
+        max-width: 700px;
+        margin-left: auto;
+        margin-right: auto;
+      }
 
-        .badge {
-            display: inline-block;
-            padding: 0.5rem 1rem;
-            background: var(--info-tint);
-            color: var(--accent);
-            border-radius: 99px;
-            font-size: 0.85rem;
-            font-weight: 700;
-            margin-bottom: 1.5rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
+      .badge {
+        display: inline-block;
+        padding: 0.5rem 1rem;
+        background: var(--info-tint);
+        color: var(--accent);
+        border-radius: 99px;
+        font-size: 0.85rem;
+        font-weight: 700;
+        margin-bottom: 1.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
 
-        /* Hero Pod */
-        .hero-pod {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 40px;
-            padding: 4rem;
-            box-shadow: var(--shadow-lg);
-            margin-bottom: 6rem;
-            background: linear-gradient(180deg, var(--info-tint) 0%, var(--surface) 100%);
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 4rem;
-            align-items: center;
-        }
+      /* Hero Pod */
+      .hero-pod {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 40px;
+        padding: 4rem;
+        box-shadow: var(--shadow-lg);
+        margin-bottom: 6rem;
+        background: linear-gradient(
+          180deg,
+          var(--info-tint) 0%,
+          var(--surface) 100%
+        );
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4rem;
+        align-items: center;
+      }
 
-        .hero-content {
-            text-align: left;
-        }
+      .hero-content {
+        text-align: left;
+      }
 
-        .hero-h2 {
-            font-size: 2.5rem;
-            font-weight: 800;
-            margin-bottom: 1.5rem;
-            line-height: 1.2;
-        }
+      .hero-h2 {
+        font-size: 2.5rem;
+        font-weight: 800;
+        margin-bottom: 1.5rem;
+        line-height: 1.2;
+      }
 
-        .hero-p {
-            font-size: 1.15rem;
+      .hero-p {
+        font-size: 1.15rem;
+        color: var(--text-secondary);
+        margin-bottom: 2.5rem;
+      }
+
+      .audio-demo {
+        background: rgba(255, 255, 255, 0.5);
+        padding: 2rem;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+        backdrop-filter: blur(10px);
+      }
+
+      .audio-label {
+        display: block;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        font-weight: 800;
+        color: var(--text-muted);
+        margin-bottom: 1rem;
+        letter-spacing: 0.1em;
+      }
+
+      audio {
+        width: 100%;
+      }
+
+      /* Feature Cards */
+      .tour-section {
+        margin-top: 8rem;
+      }
+
+      .section-header {
+        text-align: center;
+        margin-bottom: 4rem;
+      }
+
+      .section-header h2 {
+        font-size: 2.25rem;
+        font-weight: 800;
+        margin-bottom: 1rem;
+      }
+
+      .tour-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 8rem;
+      }
+
+      .tour-item {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 5rem;
+        align-items: center;
+      }
+
+      .tour-item:nth-child(even) {
+        direction: rtl;
+      }
+
+      .tour-item:nth-child(even) .tour-text {
+        direction: ltr;
+      }
+
+      .tour-text h3 {
+        font-size: 1.75rem;
+        font-weight: 800;
+        margin-bottom: 1rem;
+        color: var(--accent);
+      }
+
+      .tour-text p {
+        font-size: 1.1rem;
+        color: var(--text-secondary);
+        margin-bottom: 1.5rem;
+      }
+
+      .tour-list {
+        list-style: none;
+      }
+
+      .tour-list li {
+        position: relative;
+        padding-left: 1.5rem;
+        margin-bottom: 0.75rem;
+        color: var(--text-secondary);
+      }
+
+      .tour-list li::before {
+        content: "→";
+        position: absolute;
+        left: 0;
+        color: var(--accent-secondary);
+        font-weight: 800;
+      }
+
+      /* Screenshot Placeholders */
+      .placeholder {
+        background: #eef2f7;
+        border: 2px dashed #cbd5e1;
+        border-radius: 24px;
+        aspect-ratio: 16/10;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+        text-align: center;
+        color: var(--text-muted);
+        transition: all 0.3s ease;
+        box-shadow: var(--shadow-md);
+      }
+
+      .placeholder:hover {
+        border-color: var(--accent);
+        background: var(--info-tint);
+      }
+
+      .placeholder-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        opacity: 0.3;
+      }
+
+      .placeholder-label {
+        font-weight: 700;
+        color: var(--text-secondary);
+        margin-bottom: 0.5rem;
+      }
+
+      .placeholder-desc {
+        font-size: 0.9rem;
+      }
+
+      /* CTA */
+      .cta-box {
+        text-align: center;
+        margin-top: 10rem;
+        margin-bottom: 10rem;
+        padding: 5rem;
+        background: var(--surface);
+        border-radius: 40px;
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-lg);
+      }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        padding: 1rem 2.5rem;
+        background: var(--accent);
+        color: white;
+        text-decoration: none;
+        border-radius: 12px;
+        font-weight: 700;
+        font-size: 1.1rem;
+        transition: all 0.2s ease;
+      }
+
+      .button:hover {
+        transform: translateY(-2px);
+        background: var(--accent-hover);
+        box-shadow: 0 10px 15px -3px rgba(43, 110, 255, 0.4);
+      }
+
+      footer {
+        text-align: center;
+        padding: 4rem 0;
+        border-top: 1px solid var(--border);
+        color: var(--text-muted);
+        font-size: 0.9rem;
+      }
+
+      @media (max-width: 900px) {
+        .hero-pod,
+        .tour-item {
+          grid-template-columns: 1fr;
+          gap: 2rem;
+          padding: 2rem;
+          text-align: center;
+        }
+        .hero-content,
+        .tour-text {
+          text-align: center;
+        }
+        .brand-h1 {
+          font-size: 2.5rem;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="container">
+      <header>
+        <div class="brand-section">
+          <img src="assets/logo.png" alt="Logo" class="brand-logo" />
+          <img
+            src="assets/audiobook-studio.png"
+            alt="Audiobook Studio"
+            class="brand-wordmark"
+          />
+        </div>
+        <p class="brand-tagline">
+          Professional AI Production Pipeline for Long-Form Narration
+        </p>
+        <span class="badge" style="margin-top: 2rem"
+          >Local AI Narration Lab</span
+        >
+      </header>
+
+      <section class="hero-pod">
+        <div class="hero-content">
+          <h2 class="hero-h2">Hear the Machine Walk You Through</h2>
+          <p class="hero-p">
+            This isn't just a static demo. Every word of the audio preview was
+            synthesized using <strong>Audiobook Studio</strong>. Listen to a
+            live showcase of our narration engine explaining its own
+            architecture.
+          </p>
+          <div class="audio-demo">
+            <span class="audio-label"
+              >Production Preview: "The Soul of the Machine"</span
+            >
+            <audio controls>
+              <source src="assets/Overview.mp3" type="audio/mpeg" />
+              Your browser does not support the audio element.
+            </audio>
+          </div>
+        </div>
+        <div class="hero-visual">
+          <!-- Screenshot Placeholder: Hero Dashboard -->
+          <div class="placeholder">
+            <div class="placeholder-icon">🖥️</div>
+            <div class="placeholder-label">The Central Dashboard</div>
+            <div class="placeholder-desc">
+              Show the new Hero Section with the blue wash background, the
+              "Create Natural-Sounding..." headline, and the book mockup on the
+              right.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="tour-section">
+        <div class="section-header">
+          <span
+            class="badge"
+            style="background: #fff8eb; color: var(--accent-secondary)"
+            >The Studio Tour</span
+          >
+          <h2>Complete Control Over Every Word</h2>
+        </div>
+
+        <div class="tour-grid">
+          <!-- Step 1: Library -->
+          <div class="tour-item">
+            <div class="tour-text">
+              <h3>01. Multi-Project Library</h3>
+              <p>
+                Manage multiple audiobook productions from a single unified hub.
+                Track Word counts, processing ETAs, and asset locations for an
+                unlimited number of concurrent projects.
+              </p>
+              <ul class="tour-list">
+                <li>Centralized project management</li>
+                <li>At-a-glance production status</li>
+                <li>Deep metadata tracking</li>
+              </ul>
+            </div>
+            <div class="placeholder">
+              <div class="placeholder-icon">📚</div>
+              <div class="placeholder-label">Project Library View</div>
+              <div class="placeholder-desc">
+                Screenshot of the project library showing multiple book cards
+                with cover art and word count tags.
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 2: Narrator Studio -->
+          <div class="tour-item">
+            <div class="tour-text">
+              <h3>02. The Narrator Studio</h3>
+              <p>
+                Clone high-fidelity voices from just 60 seconds of reference
+                audio. Build a cast of unique narrators that live locally on
+                your machine.
+              </p>
+              <ul class="tour-list">
+                <li>Instant XTTS-v2 Voice Cloning</li>
+                <li>Zero-cloud privacy</li>
+                <li>Managed speaker profiles</li>
+              </ul>
+            </div>
+            <div class="placeholder">
+              <div class="placeholder-icon">🎙️</div>
+              <div class="placeholder-label">Narrator Studio</div>
+              <div class="placeholder-desc">
+                Screenshot of the Voices page showing several custom profiles
+                and the "Clone New Voice" interface.
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 3: Granular Production -->
+          <div class="tour-item">
+            <div class="tour-text">
+              <h3>03. Granular Production</h3>
+              <p>
+                Go beyond "all-or-nothing" synthesis. Our production workspace
+                allows you to assign different voices to specific characters or
+                paragraphs, and regenerate audio at the segment level.
+              </p>
+              <ul class="tour-list">
+                <li>Multi-voice character scripting</li>
+                <li>Paragraph-level regeneration</li>
+                <li>Text normalization preview</li>
+              </ul>
+            </div>
+            <div class="placeholder">
+              <div class="placeholder-icon">🎛️</div>
+              <div class="placeholder-label">Production Workspace</div>
+              <div class="placeholder-desc">
+                Screenshot of the Chapter Editor in 'Performance' mode, showing
+                segments with character tags and 'Listen/Regenerate' buttons.
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 4: Auto-Tuning Pipeline -->
+          <div class="tour-item">
+            <div class="tour-text">
+              <h3>04. Auto-Tuning Pipeline</h3>
+              <p>
+                Never guess when your audio will be ready. Our processing engine
+                learns from your hardware's actual performance to provide
+                dead-accurate progress bars and ETAs.
+              </p>
+              <ul class="tour-list">
+                <li>Hardware-aware ETA logic</li>
+                <li>Batch processing with live logs</li>
+                <li>Integrated system console</li>
+              </ul>
+            </div>
+            <div class="placeholder">
+              <div class="placeholder-icon">📊</div>
+              <div class="placeholder-label">Smart Queue</div>
+              <div class="placeholder-desc">
+                Screenshot of the Processing Queue showing active progress bars,
+                "Finishing..." labels, and the log console.
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 5: Smart Assembly -->
+          <div class="tour-item">
+            <div class="tour-text">
+              <h3>05. Zero-Re-Encode Assembly</h3>
+              <p>
+                Once narrations are perfect, stitch them into a professional M4B
+                file. Our engine uses an incremental M4A cache to make
+                compilation nearly instantaneous.
+              </p>
+              <ul class="tour-list">
+                <li>Receipt-style assembly timeline</li>
+                <li>Lossless M4B containerization</li>
+                <li>Duration & size metadata extraction</li>
+              </ul>
+            </div>
+            <div class="placeholder">
+              <div class="placeholder-icon">📦</div>
+              <div class="placeholder-label">Assembly Timeline</div>
+              <div class="placeholder-desc">
+                Screenshot of the new neutral timeline view showing assembly
+                history with durations and latest badges.
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="cta-box">
+        <h2>Ready to Start Narration?</h2>
+        <p
+          style="
             color: var(--text-secondary);
             margin-bottom: 2.5rem;
-        }
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+          "
+        >
+          Join authors and content creators who are using
+          <strong>Audiobook Studio</strong> to turn manuscripts into immersive
+          audio experiences without the cloud.
+        </p>
+        <div style="display: flex; gap: 1rem; justify-content: center">
+          <a href="https://github.com/senigami/audiobook-studio" class="button"
+            >View on GitHub</a
+          >
+          <a
+            href="https://github.com/senigami/audiobook-studio/wiki"
+            class="button"
+            style="
+              background: var(--surface);
+              color: var(--accent);
+              border: 1px solid var(--accent);
+            "
+            >Read the Wiki</a
+          >
+        </div>
+      </section>
 
-        .audio-demo {
-            background: rgba(255, 255, 255, 0.5);
-            padding: 2rem;
-            border-radius: 20px;
-            border: 1px solid var(--border);
-            backdrop-filter: blur(10px);
-        }
-
-        .audio-label {
-            display: block;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            font-weight: 800;
-            color: var(--text-muted);
-            margin-bottom: 1rem;
-            letter-spacing: 0.1em;
-        }
-
-        audio {
-            width: 100%;
-        }
-
-        /* Feature Cards */
-        .tour-section {
-            margin-top: 8rem;
-        }
-
-        .section-header {
-            text-align: center;
-            margin-bottom: 4rem;
-        }
-
-        .section-header h2 {
-            font-size: 2.25rem;
-            font-weight: 800;
-            margin-bottom: 1rem;
-        }
-
-        .tour-grid {
-            display: flex;
-            flex-direction: column;
-            gap: 8rem;
-        }
-
-        .tour-item {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 5rem;
-            align-items: center;
-        }
-
-        .tour-item:nth-child(even) {
-            direction: rtl;
-        }
-
-        .tour-item:nth-child(even) .tour-text {
-            direction: ltr;
-        }
-
-        .tour-text h3 {
-            font-size: 1.75rem;
-            font-weight: 800;
-            margin-bottom: 1rem;
-            color: var(--accent);
-        }
-
-        .tour-text p {
-            font-size: 1.1rem;
-            color: var(--text-secondary);
-            margin-bottom: 1.5rem;
-        }
-
-        .tour-list {
-            list-style: none;
-        }
-
-        .tour-list li {
-            position: relative;
-            padding-left: 1.5rem;
-            margin-bottom: 0.75rem;
-            color: var(--text-secondary);
-        }
-
-        .tour-list li::before {
-            content: '→';
-            position: absolute;
-            left: 0;
-            color: var(--accent-secondary);
-            font-weight: 800;
-        }
-
-        /* Screenshot Placeholders */
-        .placeholder {
-            background: #eef2f7;
-            border: 2px dashed #cbd5e1;
-            border-radius: 24px;
-            aspect-ratio: 16/10;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 2rem;
-            text-align: center;
-            color: var(--text-muted);
-            transition: all 0.3s ease;
-            box-shadow: var(--shadow-md);
-        }
-
-        .placeholder:hover {
-            border-color: var(--accent);
-            background: var(--info-tint);
-        }
-
-        .placeholder-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            opacity: 0.3;
-        }
-
-        .placeholder-label {
-            font-weight: 700;
-            color: var(--text-secondary);
-            margin-bottom: 0.5rem;
-        }
-
-        .placeholder-desc {
-            font-size: 0.9rem;
-        }
-
-        /* CTA */
-        .cta-box {
-            text-align: center;
-            margin-top: 10rem;
-            margin-bottom: 10rem;
-            padding: 5rem;
-            background: var(--surface);
-            border-radius: 40px;
-            border: 1px solid var(--border);
-            box-shadow: var(--shadow-lg);
-        }
-
-        .button {
-            display: inline-flex;
-            align-items: center;
-            padding: 1rem 2.5rem;
-            background: var(--accent);
-            color: white;
-            text-decoration: none;
-            border-radius: 12px;
-            font-weight: 700;
-            font-size: 1.1rem;
-            transition: all 0.2s ease;
-        }
-
-        .button:hover {
-            transform: translateY(-2px);
-            background: var(--accent-hover);
-            box-shadow: 0 10px 15px -3px rgba(43, 110, 255, 0.4);
-        }
-
-        footer {
-            text-align: center;
-            padding: 4rem 0;
-            border-top: 1px solid var(--border);
-            color: var(--text-muted);
-            font-size: 0.9rem;
-        }
-
-        @media (max-width: 900px) {
-            .hero-pod, .tour-item {
-                grid-template-columns: 1fr;
-                gap: 2rem;
-                padding: 2rem;
-                text-align: center;
-            }
-            .hero-content, .tour-text {
-                text-align: center;
-            }
-            .brand-h1 {
-                font-size: 2.5rem;
-            }
-        }
-    </style>
-</head>
-
-<body>
-
-    <div class="container">
-        <header>
-            <div class="brand-section">
-                <img src="assets/logo.png" alt="Logo" class="brand-logo">
-                <img src="assets/audiobook-studio.png" alt="Audiobook Studio" class="brand-wordmark">
-            </div>
-            <p class="brand-tagline">Professional AI Production Pipeline for Long-Form Narration</p>
-            <span class="badge" style="margin-top: 2rem;">Local AI Narration Lab</span>
-        </header>
-
-        <section class="hero-pod">
-            <div class="hero-content">
-                <h2 class="hero-h2">Hear the Machine Walk You Through</h2>
-                <p class="hero-p">
-                    This isn't just a static demo. Every word of the audio preview was synthesized using <strong>Audiobook Studio</strong>. 
-                    Listen to a live showcase of our narration engine explaining its own architecture.
-                </p>
-                <div class="audio-demo">
-                    <span class="audio-label">Production Preview: "The Soul of the Machine"</span>
-                    <audio controls>
-                        <source src="assets/Overview.mp3" type="audio/mpeg">
-                        Your browser does not support the audio element.
-                    </audio>
-                </div>
-            </div>
-            <div class="hero-visual">
-                <!-- Screenshot Placeholder: Hero Dashboard -->
-                <div class="placeholder">
-                    <div class="placeholder-icon">🖥️</div>
-                    <div class="placeholder-label">The Central Dashboard</div>
-                    <div class="placeholder-desc">Show the new Hero Section with the blue wash background, the "Create Natural-Sounding..." headline, and the book mockup on the right.</div>
-                </div>
-            </div>
-        </section>
-
-        <section class="tour-section">
-            <div class="section-header">
-                <span class="badge" style="background: #fff8eb; color: var(--accent-secondary);">The Studio Tour</span>
-                <h2>Complete Control Over Every Word</h2>
-            </div>
-
-            <div class="tour-grid">
-                <!-- Step 1: Library -->
-                <div class="tour-item">
-                    <div class="tour-text">
-                        <h3>01. Multi-Project Library</h3>
-                        <p>Manage multiple audiobook productions from a single unified hub. Track Word counts, processing ETAs, and asset locations for an unlimited number of concurrent projects.</p>
-                        <ul class="tour-list">
-                            <li>Centralized project management</li>
-                            <li>At-a-glance production status</li>
-                            <li>Deep metadata tracking</li>
-                        </ul>
-                    </div>
-                    <div class="placeholder">
-                        <div class="placeholder-icon">📚</div>
-                        <div class="placeholder-label">Project Library View</div>
-                        <div class="placeholder-desc">Screenshot of the project library showing multiple book cards with cover art and word count tags.</div>
-                    </div>
-                </div>
-
-                <!-- Step 2: Narrator Studio -->
-                <div class="tour-item">
-                    <div class="tour-text">
-                        <h3>02. The Narrator Studio</h3>
-                        <p>Clone high-fidelity voices from just 60 seconds of reference audio. Build a cast of unique narrators that live locally on your machine.</p>
-                        <ul class="tour-list">
-                            <li>Instant XTTS-v2 Voice Cloning</li>
-                            <li>Zero-cloud privacy</li>
-                            <li>Managed speaker profiles</li>
-                        </ul>
-                    </div>
-                    <div class="placeholder">
-                        <div class="placeholder-icon">🎙️</div>
-                        <div class="placeholder-label">Narrator Studio</div>
-                        <div class="placeholder-desc">Screenshot of the Voices page showing several custom profiles and the "Clone New Voice" interface.</div>
-                    </div>
-                </div>
-
-                <!-- Step 3: Granular Production -->
-                <div class="tour-item">
-                    <div class="tour-text">
-                        <h3>03. Granular Production</h3>
-                        <p>Go beyond "all-or-nothing" synthesis. Our production workspace allows you to assign different voices to specific characters or paragraphs, and regenerate audio at the segment level.</p>
-                        <ul class="tour-list">
-                            <li>Multi-voice character scripting</li>
-                            <li>Paragraph-level regeneration</li>
-                            <li>Text normalization preview</li>
-                        </ul>
-                    </div>
-                    <div class="placeholder">
-                        <div class="placeholder-icon">🎛️</div>
-                        <div class="placeholder-label">Production Workspace</div>
-                        <div class="placeholder-desc">Screenshot of the Chapter Editor in 'Performance' mode, showing segments with character tags and 'Listen/Regenerate' buttons.</div>
-                    </div>
-                </div>
-
-                <!-- Step 4: Auto-Tuning Pipeline -->
-                <div class="tour-item">
-                    <div class="tour-text">
-                        <h3>04. Auto-Tuning Pipeline</h3>
-                        <p>Never guess when your audio will be ready. Our processing engine learns from your hardware's actual performance to provide dead-accurate progress bars and ETAs.</p>
-                        <ul class="tour-list">
-                            <li>Hardware-aware ETA logic</li>
-                            <li>Batch processing with live logs</li>
-                            <li>Integrated system console</li>
-                        </ul>
-                    </div>
-                    <div class="placeholder">
-                        <div class="placeholder-icon">📊</div>
-                        <div class="placeholder-label">Smart Queue</div>
-                        <div class="placeholder-desc">Screenshot of the Processing Queue showing active progress bars, "Finishing..." labels, and the log console.</div>
-                    </div>
-                </div>
-
-                <!-- Step 5: Smart Assembly -->
-                <div class="tour-item">
-                    <div class="tour-text">
-                        <h3>05. Smart Assembly</h3>
-                        <p>Once narrations are perfect, stitch them into a professional M4B file. Finalize metadata, add cover art, and export your finished masterpiece.</p>
-                        <ul class="tour-list">
-                            <li>Chapter reordering and skipping</li>
-                            <li>Automatic M4B containerization</li>
-                            <li>Standard metadata embedding</li>
-                        </ul>
-                    </div>
-                    <div class="placeholder">
-                        <div class="placeholder-icon">📦</div>
-                        <div class="placeholder-label">Assembly Hub</div>
-                        <div class="placeholder-desc">Screenshot of the Export/Assembly view showing chapter drag-and-drop and metadata input.</div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section class="cta-box">
-            <h2>Ready to Start Narration?</h2>
-            <p style="color: var(--text-secondary); margin-bottom: 2.5rem; max-width: 600px; margin-left: auto; margin-right: auto;">
-                Join authors and content creators who are using <strong>Audiobook Studio</strong> to turn manuscripts into immersive audio experiences without the cloud.
-            </p>
-            <a href="https://github.com/senigami/audiobook-studio" class="button">View on GitHub</a>
-        </section>
-
-        <footer>
-            &copy; 2026 Audiobook Studio. Designed for local-first professional production.
-        </footer>
+      <footer>
+        &copy; 2026 Audiobook Studio. Designed for local-first professional
+        production.
+      </footer>
     </div>
-
-</body>
-
+  </body>
 </html>

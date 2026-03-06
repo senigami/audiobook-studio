@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, FileText, CheckCircle, Clock, AlertTriangle, Edit3, Trash2, GripVertical, Zap, Image as ImageIcon, ArrowUpDown, CheckSquare, Square, MoreVertical, RefreshCw, Download, Video, Loader2 } from 'lucide-react';
+import { ArrowLeft, Plus, FileText, CheckCircle, Clock, Edit3, Trash2, GripVertical, Zap, Image as ImageIcon, ArrowUpDown, CheckSquare, Square, RefreshCw, Download, Video, Loader2 } from 'lucide-react';
 import { motion, Reorder } from 'framer-motion';
 import { api } from '../api';
 import type { Project, Chapter, Job, Audiobook, SpeakerProfile } from '../types';
@@ -8,6 +8,8 @@ import { ChapterEditor } from './ChapterEditor';
 import { PredictiveProgressBar } from './PredictiveProgressBar';
 import { CharactersTab } from './CharactersTab';
 import { ConfirmModal } from './ConfirmModal';
+import { ActionMenu, type ActionMenuItem } from './ActionMenu';
+import { StatusOrb } from './StatusOrb';
 
 interface ProjectViewProps {
   jobs: Record<string, Job>;
@@ -17,6 +19,11 @@ interface ProjectViewProps {
   segmentUpdate?: { chapterId: string; tick: number };
 }
 
+function sanitizeFilename(name: string): string {
+  return name.replace(/[^a-z0-9]/gi, '_').replace(/_{2,}/g, '_').toLowerCase();
+}
+
+// Removed legacy RendersPill
 export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles, speakers, refreshTrigger = 0, segmentUpdate }) => {
   const { projectId } = useParams() as { projectId: string };
   const navigate = useNavigate();
@@ -34,7 +41,8 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
   const [isAssemblyMode, setIsAssemblyMode] = useState(false);
   const [selectedChapters, setSelectedChapters] = useState<Set<string>>(new Set());
   const [selectedVoice, setSelectedVoice] = useState<string>('');
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [openMenuRowId, setOpenMenuRowId] = useState<string | null>(null);
+
   const [isExporting, setIsExporting] = useState<string | null>(null); // Stores chapterId
   
   // Modals
@@ -70,18 +78,21 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
 
   const loadData = async () => {
     try {
-      const [projData, chapsData, audiobooksData] = await Promise.all([
+      // Load project and chapters first (critical)
+      const [projData, chapsData] = await Promise.all([
         api.fetchProject(projectId),
-        api.fetchChapters(projectId),
-        api.fetchAudiobooks()
+        api.fetchChapters(projectId)
       ]);
       setProject(projData);
       setChapters(chapsData);
       
-      // Look for assembled audiobooks matching this project's name
-      if (projData && audiobooksData) {
-          const projectM4bs = audiobooksData.filter((a: Audiobook) => a.filename.includes(projData.name));
-          setAvailableAudiobooks(projectM4bs);
+      // Load history independently (non-critical)
+      try {
+        const audiobooksData = await api.fetchProjectAudiobooks(projectId);
+        setAvailableAudiobooks(audiobooksData || []);
+      } catch (err) {
+        console.error("Failed to load assembly history", err);
+        setAvailableAudiobooks([]);
       }
     } catch (e) {
       console.error(e);
@@ -201,6 +212,31 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
     const hrs = Math.floor(mins / 60);
     const remMins = mins % 60;
     return `${hrs}h ${remMins}m`;
+  };
+
+  const formatRelativeTime = (timestamp?: number) => {
+    if (!timestamp) return 'Unknown date';
+    const date = new Date(timestamp * 1000);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+    
+    if (diffInSeconds < 60) return 'just now';
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+    if (diffInSeconds < 259200) return `${Math.floor(diffInSeconds / 3600)}h ago`; // Max 72 hours
+    
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric'
+    });
+  };
+
+  const formatFileSize = (bytes?: number) => {
+    if (!bytes) return '';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
   };
 
   // Use a ref to store pending reorder timeout so we can debounce
@@ -356,11 +392,44 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
       await handleReorder(sorted);
   };
 
+  const handleSelectAll = () => {
+    const allDoneIds = chapters.filter(c => c.audio_status === 'done').map(c => c.id);
+    if (selectedChapters.size === allDoneIds.length) {
+      setSelectedChapters(new Set());
+    } else {
+      setSelectedChapters(new Set(allDoneIds));
+    }
+  };
+
+  const handleDeleteAudiobook = async (filename: string) => {
+    setConfirmConfig({
+      title: 'Delete Audiobook',
+      message: `Are you sure you want to delete "${filename}"?`,
+      isDestructive: true,
+      onConfirm: async () => {
+        try {
+          await api.deleteAudiobook(filename);
+          loadData();
+        } catch (e) {
+          console.error("Delete failed", e);
+        }
+      }
+    });
+  };
+
   if (loading) return <div style={{ padding: '2rem' }}>Loading project...</div>;
   if (!project) return <div style={{ padding: '2rem' }}>Project not found.</div>;
 
-  const activeAssemblyJob = Object.values(jobs).find(j => j.engine === 'audiobook' && j.chapter_file === project.name && j.status === 'running');
-  const finishedAssemblyJob = Object.values(jobs).find(j => j.engine === 'audiobook' && j.chapter_file === project.name && j.status === 'done');
+  const activeAssemblyJob = Object.values(jobs).find(j => 
+    j.engine === 'audiobook' && 
+    j.project_id === projectId && 
+    ['running', 'preparing', 'finalizing', 'queued'].includes(j.status)
+  );
+  const finishedAssemblyJob = Object.values(jobs).find(j => 
+    j.engine === 'audiobook' && 
+    j.project_id === projectId && 
+    j.status === 'done'
+  );
 
   if (editingChapterId) {
       const activeIdx = chapters.findIndex(c => c.id === editingChapterId);
@@ -394,8 +463,6 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
   }, 0);
   
   const totalPredicted = chapters.reduce((acc, chap) => acc + (chap.predicted_audio_length || 0), 0);
-
-  const bestM4b = availableAudiobooks.length > 0 ? availableAudiobooks[0] : null;
 
   return (
     <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '2rem', minHeight: '100%', paddingBottom: '4rem' }}>
@@ -482,44 +549,133 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
 
         {/* Action Buttons */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: '220px' }}>
-            {bestM4b ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <a 
-                        href={bestM4b.url || `/out/audiobook/${bestM4b.filename}`} 
-                        download 
-                        className="btn-primary" 
-                        style={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'center', 
-                            gap: '8px', 
-                            padding: '1rem', 
-                            width: '100%', 
-                            fontSize: '1rem', 
-                            textDecoration: 'none',
-                            background: 'var(--accent)',
-                            boxShadow: 'var(--shadow-md)',
-                            borderRadius: '12px'
-                        }}
-                    >
-                      <Download size={20} />
-                      Download Latest M4B
-                    </a>
-                    {availableAudiobooks.length > 1 && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
-                            <span style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>EXPORT HISTORY</span>
-                            {availableAudiobooks.slice(1, 4).map((a, i) => (
-                                <a key={i} href={a.url || `/out/audiobook/${a.filename}`} download style={{ fontSize: '0.75rem', color: 'var(--accent)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    <Clock size={10} /> {a.filename.split('_').pop()?.replace('.m4b', '') || 'Previous'}
-                                </a>
-                            ))}
+            {availableAudiobooks.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '-0.25rem' }}>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                            Assemblies ({availableAudiobooks.length})
                         </div>
-                    )}
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }} title="Total storage used by these local exports">
+                            Total: {formatFileSize(availableAudiobooks.reduce((acc, a) => acc + (a.size_bytes || 0), 0))}
+                        </div>
+                    </div>
+                    <div style={{ 
+                        maxHeight: '240px', 
+                        overflowY: 'auto', 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        gap: '0.5rem',
+                        paddingRight: '4px',
+                        scrollbarWidth: 'thin'
+                    }}>
+                        {availableAudiobooks.map((a, i) => (
+                            <div key={i} className="hover-bg-subtle" style={{ 
+                                background: 'var(--surface)',
+                                border: '1px solid var(--border)',
+                                borderRadius: '8px',
+                                padding: '0.6rem 0.8rem',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                gap: '1rem',
+                                position: 'relative',
+                                transition: 'all 0.2s ease'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', minWidth: 0, flex: 1 }}>
+                                    {/* Thumbnail */}
+                                    <div style={{ 
+                                        width: '40px', 
+                                        height: '40px', 
+                                        borderRadius: '4px', 
+                                        overflow: 'hidden', 
+                                        background: 'rgba(0,0,0,0.05)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        flexShrink: 0,
+                                        border: '1px solid var(--border)'
+                                    }}>
+                                        {a.cover_url ? (
+                                            <img src={a.cover_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                                        ) : (
+                                            <ImageIcon size={16} style={{ opacity: 0.3 }} />
+                                        )}
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            <span style={{ 
+                                                fontSize: '0.8rem', 
+                                                fontWeight: 600, 
+                                                color: 'var(--text-primary)',
+                                                whiteSpace: 'nowrap',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis'
+                                            }}>
+                                                {a.title || a.filename}
+                                            </span>
+                                            {i === 0 && (
+                                                <span style={{ 
+                                                    fontSize: '0.65rem', 
+                                                    fontWeight: 600, 
+                                                    padding: '2px 6px', 
+                                                    borderRadius: '4px', 
+                                                    background: 'var(--surface-light)', 
+                                                    color: 'var(--text-secondary)',
+                                                    border: '1px solid var(--border)'
+                                                }}>
+                                                    Latest
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                            <span>{formatRelativeTime(a.created_at)}</span>
+                                            {a.duration_seconds && <span>• {formatLength(a.duration_seconds)}</span>}
+                                            {a.size_bytes && <span>• {formatFileSize(a.size_bytes)}</span>}
+                                        </div>
+                                    </div>
+                                </div>
+                                <ActionMenu 
+                                    items={[
+                                        { label: 'Download', icon: Download, onClick: () => {
+                                            const link = document.createElement('a');
+                                            link.href = a.url || `/out/audiobook/${a.filename}`;
+                                            link.download = a.filename;
+                                            link.click();
+                                        }},
+                                        { label: 'Delete', icon: Trash2, isDestructive: true, onClick: () => {
+                                            setConfirmConfig({
+                                                title: 'Delete Assembly',
+                                                message: `Delete '${a.title || a.filename}' export from ${a.created_at ? new Date(a.created_at * 1000).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Unknown Date'}? This cannot be undone.`,
+                                                confirmText: 'Delete',
+                                                isDestructive: true,
+                                                onConfirm: () => {
+                                                    setConfirmConfig(null);
+                                                    handleDeleteAudiobook(a.filename);
+                                                }
+                                            });
+                                        }}
+                                    ]}
+                                />
+                            </div>
+                        ))}
+                    </div>
                 </div>
             ) : (
-                <button className="btn-primary" disabled style={{ padding: '1rem', opacity: 0.5, cursor: 'not-allowed', width: '100%', borderRadius: '12px' }}>
-                    No Assembly Yet
-                </button>
+                <div style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    padding: '2rem 1rem', 
+                    background: 'var(--surface-light)', 
+                    borderRadius: '12px', 
+                    border: '1px dashed var(--border)',
+                    textAlign: 'center',
+                    gap: '0.5rem'
+                }}>
+                    <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>No assemblies yet</span>
+                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', padding: '0 1rem' }}>Export an audiobook to see it here.</span>
+                </div>
             )}
 
             <button
@@ -616,9 +772,11 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
           <>
       {/* Chapters List */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem', marginBottom: '1rem' }}>
-          <h3 style={{ fontSize: '1.25rem', fontWeight: 600 }}>
-              {isAssemblyMode ? 'Select Chapters for Assembly' : 'Chapters'}
-          </h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 600 }}>
+                  {isAssemblyMode ? 'Select Chapters for Assembly' : 'Chapters'}
+              </h3>
+          </div>
           <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
               {isAssemblyMode ? (
                   <>
@@ -676,35 +834,90 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
           </div>
       </div>
 
-      <div style={{ background: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--border)' }}>
+      <div style={{ background: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--border)' /* overflow: hidden removed to prevent menu clipping */ }}>
+        {isAssemblyMode && chapters.length > 0 && (
+          <div style={{ 
+            padding: '0.75rem 1.25rem', 
+            borderBottom: '1px solid var(--border)', 
+            background: 'var(--surface-light)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '1.25rem'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: '70px' }}>
+              <button 
+                onClick={handleSelectAll}
+                style={{ 
+                  background: 'none', 
+                  border: 'none', 
+                  color: 'var(--accent)', 
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: 0,
+                  transition: 'transform 0.1s'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+                onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                title={selectedChapters.size === chapters.filter(c => c.audio_status === 'done').length ? "Deselect All" : "Select All"}
+              >
+                {selectedChapters.size === chapters.filter(c => c.audio_status === 'done').length ? (
+                  <CheckSquare size={20} />
+                ) : (
+                  <Square size={20} />
+                )}
+              </button>
+            </div>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Select All Chapters
+            </span>
+          </div>
+        )}
         {chapters.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '4rem' }}>
             <FileText size={48} style={{ margin: '0 auto 1rem', opacity: 0.3 }} />
             <p style={{ color: 'var(--text-muted)' }}>No chapters yet. Add one to get started.</p>
           </div>
         ) : (
-          <Reorder.Group axis="y" values={chapters} onReorder={handleReorder} style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column' }}>
+          <Reorder.Group axis="y" values={chapters} onReorder={handleReorder} style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', overflow: 'visible' }}>
             {chapters.map((chap, idx) => {
                 const relevantJobs = Object.values(jobs).filter(j => 
                     j.project_id === projectId && 
                     (j.chapter_id === chap.id || (j.chapter_file && j.chapter_file.includes(chap.id)))
                 );
                 const activeJob = relevantJobs.find(j => ['running', 'preparing', 'finalizing', 'queued'].includes(j.status));
+                const isMenuOpen = openMenuRowId === chap.id;
 
                 return (
                   <Reorder.Item 
                 key={chap.id}
                 value={chap}
+                className={`chapter-row ${isMenuOpen ? 'is-menu-open' : ''}`}
                 initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                style={{
+                animate={{ 
+                    opacity: 1,
+                    backgroundColor: isMenuOpen ? 'var(--as-info-tint)' : 'var(--surface)',
+                    boxShadow: isMenuOpen ? 'inset 0 0 0 1px var(--accent-glow)' : 'none'
+                }}
+                whileHover={{ 
+                    backgroundColor: 'var(--as-info-tint)',
+                    boxShadow: 'inset 0 0 0 1px var(--accent-glow)'
+                }}
+                whileFocus={{
+                    backgroundColor: 'var(--as-info-tint)',
+                    boxShadow: 'inset 0 0 0 2px var(--as-blue)',
+                    outline: 'none'
+                }}
+                tabIndex={0}
+                  style={{
                   padding: '0.4rem 1.25rem',
                   borderBottom: idx === chapters.length - 1 ? 'none' : '1px solid var(--border)',
                   display: 'flex',
-                  gap: '1.25rem',
+                  gap: '1rem',
                   alignItems: 'center',
                   cursor: 'grab',
-                  background: 'var(--surface)'
+                  position: 'relative',
+                  zIndex: (activeJob || isMenuOpen) ? 5 : 1
                 }}
                 whileDrag={{ background: 'var(--surface-alt)', boxShadow: 'var(--shadow-lg)', zIndex: 50, cursor: 'grabbing' }}
                 dragListener={!isAssemblyMode}
@@ -717,23 +930,78 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
                     }
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: '70px', flexShrink: 0 }}>
-                    {isAssemblyMode ? (
+                {!isAssemblyMode && (
+                    <div 
+                        className="drag-handle" 
+                        style={{ 
+                            position: 'absolute', 
+                            left: '-7px', 
+                            top: '50%', 
+                            transform: 'translateY(-50%)', 
+                            cursor: 'grab', 
+                            color: 'var(--text-muted)',
+                            background: 'var(--surface)',
+                            borderRadius: '4px',
+                            padding: '4px 0',
+                            border: '1px solid var(--border)',
+                            boxShadow: 'var(--shadow-sm)',
+                            zIndex: 10
+                        }} 
+                        title="Drag to reorder"
+                    >
+                        <GripVertical size={14} />
+                    </div>
+                )}
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: '30px', flexShrink: 0 }}>
+                    {isAssemblyMode && (
                         <div style={{ color: chap.audio_status === 'done' ? 'var(--accent)' : 'var(--border)', cursor: chap.audio_status === 'done' ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center' }}>
                             {selectedChapters.has(chap.id) && chap.audio_status === 'done' ? <CheckSquare size={18} /> : <Square size={18} />}
                         </div>
-                    ) : (
-                        <div style={{ cursor: 'grab', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }} title="Drag to reorder">
-                            <GripVertical size={14} />
-                        </div>
                     )}
                     <div style={{
-                        width: '20px', height: '20px', borderRadius: '50%', background: 'var(--surface-light)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '600', fontSize: '0.7rem', color: 'var(--text-muted)'
+                        width: '24px', height: '24px', borderRadius: '50%', background: 'var(--surface-light)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '600', fontSize: '0.75rem', color: 'var(--text-muted)',
+                        border: '1px solid var(--border)'
                     }}>
                         {idx + 1}
                     </div>
                 </div>
+
+                {!isAssemblyMode && (
+                    (() => {
+                        const isStale = !!(chap.text_last_modified && chap.audio_generated_at && (chap.text_last_modified > chap.audio_generated_at));
+                        const isProcessing = chap.audio_status === 'processing' || !!activeJob;
+                        const isComplete = chap.audio_status === 'done' && chap.has_wav;
+                        const isPartial = !isStale && !isProcessing && (chap.done_segments_count || 0) > 0 && (chap.done_segments_count || 0) < (chap.total_segments_count || 0) && !chap.has_wav;
+                        
+                        let orbItems: ActionMenuItem[] = [];
+                        if (isStale) {
+                            orbItems = [{ label: 'Queue rebuild for this chapter', icon: RefreshCw, onClick: () => handleQueueChapter(chap) }];
+                        } else if (isPartial) {
+                            orbItems = [{ label: 'Queue remaining', icon: RefreshCw, onClick: () => handleQueueChapter(chap) }];
+                        } else if (!isProcessing && !isComplete) {
+                            // Grey 0% or Error
+                            orbItems = [{ label: 'Queue chapter', icon: RefreshCw, onClick: () => handleQueueChapter(chap) }];
+                        }
+
+                        return (
+                            <ActionMenu 
+                                disabled={orbItems.length === 0}
+                                onOpenChange={(open) => setOpenMenuRowId(open ? chap.id : null)}
+                                trigger={
+                                    <StatusOrb 
+                                        chap={chap} 
+                                        activeJob={activeJob} 
+                                        doneSegments={chap.done_segments_count} 
+                                        totalSegments={chap.total_segments_count} 
+                                    />
+                                }
+                                items={orbItems}
+                            />
+                        );
+                    })()
+                )}
 
                 <div 
                   style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', opacity: isAssemblyMode && chap.audio_status !== 'done' ? 0.4 : 1, cursor: isAssemblyMode ? 'default' : 'pointer', minWidth: '150px', flex: '1 1 0' }}
@@ -825,22 +1093,6 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
                             {chap.title}
                         </h4>
                     )}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
-                        {(() => {
-                           if (activeJob) {
-                               return <span title="Generating Audio..."><Clock size={14} color="var(--warning)" /></span>;
-                           }
-                           if (chap.audio_status === 'done') return <span title="Audio Generated"><CheckCircle size={14} color="var(--success)" /></span>;
-                           if (chap.audio_status === 'processing') return <span title="Generating Audio..."><Clock size={14} color="var(--warning)" /></span>;
-                           if (chap.audio_status === 'error') return <span title="Generation Failed"><AlertTriangle size={14} color="var(--error)" /></span>;
-                           return null;
-                        })()}
-                        {chap.text_last_modified && chap.audio_generated_at && chap.audio_generated_at > 0 && (chap.text_last_modified > chap.audio_generated_at) && (
-                        <span title="Text modified since last audio generation" style={{ display: 'flex', alignItems: 'center' }}>
-                            <AlertTriangle size={14} color="var(--warning)" />
-                        </span>
-                        )}
-                    </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '1rem', flex: '2 1 0', minWidth: 0 }}>
@@ -925,78 +1177,41 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
                       </button>
                   </div>
                   
-                  <div style={{ position: 'relative' }}>
-                    <button 
-                      onClick={(e) => { 
-                        e.stopPropagation(); 
-                        setOpenMenuId(openMenuId === chap.id ? null : chap.id); 
-                      }} 
-                      className="btn-ghost" 
-                      style={{ padding: '0.4rem', color: 'var(--text-muted)' }}
-                    >
-                      <MoreVertical size={16} />
-                    </button>
-                    
-                    {openMenuId === chap.id && (
-                      <div 
-                        className="glass-panel"
-                        style={{
-                          position: 'absolute',
-                          top: '100%',
-                          right: 0,
-                          zIndex: 1000,
-                          minWidth: '160px',
-                          padding: '0.5rem',
-                          background: 'var(--surface)',
-                          boxShadow: '0 8px 30px rgba(0,0,0,0.5)'
-                        }}
-                        onClick={e => e.stopPropagation()}
-                      >
-                        <button 
-                          className="btn-ghost" 
-                          disabled={chap.audio_status !== 'done' || isExporting !== null}
-                          style={{ 
-                            width: '100%', 
-                            justifyContent: 'flex-start', 
-                            padding: '0.5rem', 
-                            fontSize: '0.8rem',
-                            opacity: (chap.audio_status !== 'done' || isExporting !== null) ? 0.5 : 1
-                          }}
-                          onClick={() => { setOpenMenuId(null); handleExportSample(chap); }}
-                        >
-                          {isExporting === chap.id ? <Loader2 size={14} className="animate-spin" /> : <Video size={14} />}
-                          {isExporting === chap.id ? 'Generating...' : 'Export Video Sample'}
-                        </button>
-                        {chap.audio_status === 'done' && chap.audio_file_path && (
-                          <a 
-                            href={`/projects/${projectId}/audio/${chap.audio_file_path}`}
-                            download={chap.audio_file_path}
-                            className="btn-ghost" 
-                            style={{ width: '100%', justifyContent: 'flex-start', padding: '0.5rem', fontSize: '0.8rem', textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center', gap: '8px' }}
-                            onClick={() => setOpenMenuId(null)}
-                          >
-                            <Download size={14} /> Download Audio
-                          </a>
-                        )}
-                        <div style={{ height: '1px', background: 'var(--border)', margin: '4px 0' }} />
-                        <button 
-                          className="btn-ghost" 
-                          style={{ width: '100%', justifyContent: 'flex-start', padding: '0.5rem', fontSize: '0.8rem' }}
-                          onClick={() => { setOpenMenuId(null); handleResetChapterAudio(chap.id); }}
-                        >
-                          <RefreshCw size={14} /> Reset Audio
-                        </button>
-                        <button 
-                          className="btn-ghost" 
-                          style={{ width: '100%', justifyContent: 'flex-start', padding: '0.5rem', fontSize: '0.8rem', color: 'var(--error)' }}
-                          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--error-glow)'}
-                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                          onClick={() => { setOpenMenuId(null); handleDeleteChapter(chap.id); }}
-                        >
-                          <Trash2 size={14} /> Delete Chapter
-                        </button>
-                      </div>
-                    )}
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <ActionMenu 
+                      onOpenChange={(open) => setOpenMenuRowId(open ? chap.id : null)}
+                      items={[
+                        {
+                          label: isExporting === chap.id ? 'Generating...' : 'Export Video Sample',
+                          icon: isExporting === chap.id ? Loader2 : Video,
+                          disabled: chap.audio_status !== 'done' || isExporting !== null,
+                          onClick: () => handleExportSample(chap)
+                        },
+                        ...(chap.audio_status === 'done' && chap.audio_file_path ? [{
+                          label: 'Download Audio',
+                          icon: Download,
+                          onClick: () => {
+                            if (!chap.audio_file_path) return;
+                            const link = document.createElement('a');
+                            link.href = `/projects/${projectId}/audio/${chap.audio_file_path}`;
+                            link.download = `${sanitizeFilename(chap.title)}${chap.audio_file_path.substring(chap.audio_file_path.lastIndexOf('.'))}`;
+                            link.click();
+                          }
+                        }] : []),
+                        { isDivider: true },
+                        {
+                          label: 'Reset Audio',
+                          icon: RefreshCw,
+                          onClick: () => handleResetChapterAudio(chap.id)
+                        },
+                        {
+                          label: 'Delete Chapter',
+                          icon: Trash2,
+                          isDestructive: true,
+                          onClick: () => handleDeleteChapter(chap.id)
+                        }
+                      ]}
+                    />
                   </div>
                 </div>
                 </Reorder.Item>

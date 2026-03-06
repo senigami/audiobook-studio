@@ -41,6 +41,9 @@ export interface Chapter {
   sort_order: number;
   audio_status: 'unprocessed' | 'processing' | 'done' | 'error';
   audio_file_path: string | null;
+  has_wav?: boolean;
+  has_mp3?: boolean;
+  has_m4a?: boolean;
   text_last_modified: number | null;
   audio_generated_at: number | null;
   char_count: number;
@@ -48,6 +51,8 @@ export interface Chapter {
   sent_count: number;
   predicted_audio_length: number;
   audio_length_seconds: number;
+  total_segments_count?: number;
+  done_segments_count?: number;
 }
 
 export interface ProcessingQueueItem {
@@ -125,6 +130,9 @@ export interface Audiobook {
   title: string;
   cover_url: string | null;
   url?: string;
+  created_at?: number;
+  size_bytes?: number;
+  duration_seconds?: number;
 }
 
 export interface AssemblyChapter {

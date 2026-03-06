@@ -332,11 +332,42 @@ def get_chapter(chapter_id: str) -> Optional[Dict[str, Any]]:
             return dict(row) if row else None
 
 def list_chapters(project_id: str) -> List[Dict[str, Any]]:
+    from .config import get_project_audio_dir
+    import os
+    audio_dir = get_project_audio_dir(project_id)
+
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM chapters WHERE project_id = ? ORDER BY sort_order ASC", (project_id,))
-            return [dict(row) for row in cursor.fetchall()]
+            cursor.execute("""
+                SELECT 
+                    c.*,
+                    (SELECT COUNT(*) FROM chapter_segments WHERE chapter_id = c.id) as total_segments_count,
+                    (SELECT COUNT(*) FROM chapter_segments WHERE chapter_id = c.id AND audio_status = 'done') as done_segments_count
+                FROM chapters c 
+                WHERE c.project_id = ? 
+                ORDER BY c.sort_order ASC
+            """, (project_id,))
+            chapters = [dict(row) for row in cursor.fetchall()]
+
+            # Decorate chapters with audio format flags
+            for ch in chapters:
+                ch['has_wav'] = False
+                ch['has_mp3'] = False
+                ch['has_m4a'] = False
+
+                # Check based on UUID stem if no explicit audio_file_path exists yet
+                # Most generated files follow the pattern {chapter_id}.wav or {chapter_id}_{split}.wav
+                stem = Path(ch["audio_file_path"]).stem if ch.get("audio_file_path") else ch["id"]
+
+                if (audio_dir / f"{stem}.wav").exists():
+                    ch['has_wav'] = True
+                if (audio_dir / f"{stem}.mp3").exists():
+                    ch['has_mp3'] = True
+                if (audio_dir / f"{stem}.m4a").exists():
+                    ch['has_m4a'] = True
+
+            return chapters
 
 def update_chapter(chapter_id: str, **updates) -> bool:
     if not updates: return False
@@ -480,6 +511,14 @@ def update_segment(segment_id: str, broadcast: bool = True, **updates) -> bool:
             conn.commit()
             changed = cursor.rowcount > 0
 
+            # If character or voice changed, update chapter timestamp for stale detection
+            if changed and ("character_id" in updates or "speaker_profile_name" in updates):
+                cursor.execute("SELECT chapter_id FROM chapter_segments WHERE id = ?", (segment_id,))
+                row = cursor.fetchone()
+                if row:
+                    cursor.execute("UPDATE chapters SET text_last_modified = ? WHERE id = ?", (time.time(), row[0]))
+                    conn.commit()
+
     # Broadcast via WebSocket if audio_status changed (outside the lock to avoid deadlock)
     if broadcast and changed and "audio_status" in updates:
         try:
@@ -511,6 +550,14 @@ def update_segments_bulk(segment_ids: List[str], **updates) -> bool:
             cursor.execute(sql, (*values, *segment_ids))
             conn.commit()
             changed = cursor.rowcount > 0
+
+            # If character or voice changed, update chapter timestamp for stale detection
+            if changed and ("character_id" in updates or "speaker_profile_name" in updates):
+                cursor.execute("SELECT DISTINCT chapter_id FROM chapter_segments WHERE id = ?", (segment_ids[0],))
+                row = cursor.fetchone()
+                if row:
+                    cursor.execute("UPDATE chapters SET text_last_modified = ? WHERE id = ?", (time.time(), row[0]))
+                    conn.commit()
 
     # Broadcast via WebSocket if audio_status changed
     if changed:

@@ -695,3 +695,19 @@ button {
 .as-rule-left {
   background: color-mix(in srgb, var(--as-blue) 80%, transparent);
 }
+
+/* Chapter row and drag handle hover/active states */
+.chapter-row {
+  position: relative;
+}
+
+.chapter-row .drag-handle {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.chapter-row:hover .drag-handle,
+.chapter-row:focus-within .drag-handle,
+.chapter-row.is-menu-open .drag-handle {
+  opacity: 1;
+}

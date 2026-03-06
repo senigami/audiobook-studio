@@ -12,21 +12,24 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18-green.svg)](https://nodejs.org/)
 
-**Audiobook Studio** is a high-performance **AI Voice Production Studio** and **Narration Engine** designed for turning manuscripts into professional audiobooks using local AI speech synthesis. No cloud subscriptions, no data harvesting—just studio-grade output running entirely on your hardware.
+**Audiobook Studio** is a high-performance **AI Voice Production Studio** and **Narration Engine** designed for turning manuscripts into professional audiobooks using local AI speech synthesis.
 
-[**Get Started**](#-installation) | [**Documentation**](docs/index.html) | [**Live Showcase**](https://senigami.github.io/audiobook-studio/)
+[**Quick Start**](wiki/Getting-Started.md) | [**Full Documentation (Wiki)**](wiki) | [**Live Showcase**](https://senigami.github.io/audiobook-studio/)
 
 ---
 
-## 🎙️ The Narration Engine
+## 🎙️ Overview
 
-Audiobook Studio is more than just a TTS wrapper. It's a professional **Audiobook Production Pipeline** that gives you granular control over every word.
+Audiobook Studio provides a professional production pipeline with granular control over every word:
 
-- **Multi-Voice Scripting**: Go beyond single-narrator books. Assign different studio voices to specific characters or paragraphs to create an immersive, multi-cast experience.
-- **Segment-Level Performance Control**: Don't throw away a 20-minute chapter because of one mispronounced word. Fine-tune and regenerate audio at the **paragraph or segment level** until every inflection is perfect.
-- **XTTS-v2 Native Voice Cloning**: Clone any voice from a 60-second sample with studio-grade accuracy and local privacy.
-- **Multi-Project Studio**: Manage an entire library of concurrent productions. Each project maintains its own manuscript, unique voice cast, and generated assets.
-- **Hardware-Aware Pipeline**: An auto-tuning ETA system that learns from your GPU/CPU throughput to give you dead-accurate completion times.
+- **Multi-Voice Scripting**: Assign unique studio voices to characters or paragraphs.
+- **Segment Regeneration**: Fine-tune specific segments without re-generating entire chapters.
+- **Incremental Assembly**: Fast, lossless M4B compilation using cached chapter encodes.
+- **Local Voice Cloning**: Clone voices locally from 60-second samples via XTTS-v2.
+- **Hardware-Aware**: Precise ETAs calculated from your actual GPU/CPU throughput.
+
+> [!NOTE]
+> For detailed guides on project management, voice cloning, and production workflows, please visit our **[GitHub Wiki](wiki)**.
 
 ---
 

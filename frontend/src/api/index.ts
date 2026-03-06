@@ -213,6 +213,10 @@ export const api = {
     const res = await fetch('/api/audiobooks');
     return res.json();
   },
+  fetchProjectAudiobooks: async (projectId: string): Promise<any> => {
+    const res = await fetch(`/api/projects/${projectId}/audiobooks`);
+    return res.json();
+  },
   reorderProcessingQueue: async (queueIds: string[]): Promise<any> => {
     const formData = new FormData();
     formData.append('queue_ids', queueIds.join(','));

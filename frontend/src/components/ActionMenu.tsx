@@ -4,10 +4,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MoreVertical } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
-interface ActionMenuItem {
-    label: string;
+export interface ActionMenuItem {
+    label?: string;
     icon?: LucideIcon;
-    onClick: () => void;
+    onClick?: () => void;
     isDestructive?: boolean;
     isDivider?: boolean;
     disabled?: boolean;
@@ -16,10 +16,23 @@ interface ActionMenuItem {
 interface ActionMenuProps {
     items?: ActionMenuItem[];
     onDelete?: () => void; // Maintain backward compatibility for now
+    trigger?: React.ReactNode;
+    disabled?: boolean;
+    onOpenChange?: (open: boolean) => void;
 }
 
-export const ActionMenu: React.FC<ActionMenuProps> = ({ items, onDelete }) => {
+export const ActionMenu: React.FC<ActionMenuProps> = ({ items, onDelete, trigger, disabled, onOpenChange }) => {
     const [isOpen, setIsOpen] = useState(false);
+    const prevOpenRef = useRef(isOpen);
+    
+    // Notify parent ONLY when the open state actually toggles
+    useEffect(() => {
+        if (prevOpenRef.current !== isOpen) {
+            onOpenChange?.(isOpen);
+            prevOpenRef.current = isOpen;
+        }
+    }, [isOpen, onOpenChange]);
+
     const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
     const triggerRef = useRef<HTMLButtonElement>(null);
     const [menuRect, setMenuRect] = useState<{ top: number; left: number; width: number } | null>(null);
@@ -34,17 +47,19 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({ items, onDelete }) => {
         if (!triggerRef.current) return;
         const rect = triggerRef.current.getBoundingClientRect();
         const menuWidth = 180; // Min-width
-        const menuHeight = menuItems.length * 40 + 12; // Estimate height
 
-        let top = rect.bottom + window.scrollY;
-        let left = rect.right + window.scrollX - menuWidth;
-        let above = false;
 
-        // Flip if near bottom
+        const top = rect.bottom + window.scrollY;
+        let left = rect.left + (rect.width / 2) + window.scrollX + 8; // Align left edge of menu with center of trigger
+        const above = false;
+
+        // Flip logic removed to keep menu below the trigger as requested
+        /*
         if (rect.bottom + menuHeight > window.innerHeight) {
             top = rect.top + window.scrollY - menuHeight - 8;
             above = true;
         }
+        */
 
         // Clamp horizontal
         if (left < 10) left = 10;
@@ -55,7 +70,7 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({ items, onDelete }) => {
     };
 
     useLayoutEffect(() => {
-        if (isOpen) {
+        if (isOpen && !disabled) {
             updatePosition();
             window.addEventListener('scroll', updatePosition, true);
             window.addEventListener('resize', updatePosition);
@@ -64,7 +79,7 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({ items, onDelete }) => {
             window.removeEventListener('scroll', updatePosition, true);
             window.removeEventListener('resize', updatePosition);
         };
-    }, [isOpen]);
+    }, [isOpen, disabled]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -95,12 +110,20 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({ items, onDelete }) => {
                 ref={triggerRef}
                 onClick={(e) => {
                     e.stopPropagation();
-                    setIsOpen(!isOpen);
+                    if (!disabled) setIsOpen(!isOpen);
                 }}
                 aria-label="More actions"
-                whileHover={{ backgroundColor: 'rgba(15, 23, 42, 0.08)', color: 'var(--accent)' }}
-                whileTap={{ scale: 0.92 }}
-                style={{
+                whileHover={disabled ? {} : (trigger ? { scale: 1.05 } : { backgroundColor: 'rgba(15, 23, 42, 0.08)', color: 'var(--accent)' })}
+                whileTap={disabled ? {} : { scale: 0.92 }}
+                style={trigger ? {
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    cursor: disabled ? 'default' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                } : {
                     width: '32px',
                     height: '32px',
                     borderRadius: '8px',
@@ -111,13 +134,15 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({ items, onDelete }) => {
                     backdropFilter: 'blur(4px)',
                     border: '1px solid var(--border)',
                     color: 'var(--text-muted)',
-                    cursor: 'pointer',
+                    cursor: disabled ? 'default' : 'pointer',
                     padding: 0,
-                    transition: 'all 0.2s ease'
+                    transition: 'all 0.2s ease',
+                    opacity: disabled ? 0.6 : 1
                 }}
-                className="kebab-trigger"
+                className={trigger ? "" : "kebab-trigger"}
+                disabled={disabled}
             >
-                <MoreVertical size={18} style={{ width: '18px', height: '18px', flexShrink: 0 }} />
+                {trigger ? trigger : <MoreVertical size={18} style={{ width: '18px', height: '18px', flexShrink: 0 }} />}
             </motion.button>
 
             {isOpen && createPortal(
@@ -151,10 +176,10 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({ items, onDelete }) => {
                                     disabled={item.disabled}
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        if (item.disabled) return;
+                                        if (item.disabled || item.isDivider) return;
                                         setHoveredIndex(null);
                                         setIsOpen(false);
-                                        item.onClick();
+                                        item.onClick?.();
                                     }}
                                     onMouseEnter={() => !item.disabled && setHoveredIndex(idx)}
                                     onMouseLeave={() => setHoveredIndex(null)}

@@ -20,7 +20,7 @@ class Job:
     finished_at: Optional[float] = None
 
     safe_mode: bool = True
-    make_mp3: bool = True
+    make_mp3: bool = False
 
     speaker_profile: Optional[str] = None
 

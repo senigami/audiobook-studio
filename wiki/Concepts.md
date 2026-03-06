@@ -21,8 +21,8 @@ Understanding how Audiobook Studio organizes data is key to a smooth workflow.
 1. **Analysis**: The system scans your text for long sentences (over 500 characters) and automatically splits them to ensure high-quality TTS.
 2. **Queuing**: When you click "Generate", segments are added to a background queue.
 3. **Synthesis**: The Coqui XTTS engine processes segments one by one.
-4. **Baking**: After all segments in a chapter are generated, they are "stitched" together into a single master audio file for that chapter.
-5. **Assembly**: Finally, all chapter audio files are bundled into a standard `.m4b` audiobook format with chapters and metadata.
+4. **Baking**: After all segments in a chapter are generated, they are "stitched" into a master WAV and simultaneously encoded into a high-quality **M4A chapter cache**.
+5. **Assembly**: Finally, the system performs **Lossless Concatenation** of the M4A chapter files into a standard `.m4b` container. Because the encodes are cached, rebuilding the audiobook is nearly instantaneous.
 
 ---
 

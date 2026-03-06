@@ -284,15 +284,27 @@ def list_audiobooks():
     import subprocess
     import shlex
     for p, url in m4b_files:
-        item = {"filename": p.name, "title": p.name, "cover_url": None, "url": url}
+        st = p.stat()
+        item = {
+            "filename": p.name, 
+            "title": p.name, 
+            "cover_url": None, 
+            "url": url,
+            "created_at": st.st_mtime,
+            "size_bytes": st.st_size
+        }
 
-        # Try to extract embedded title
+        # Try to extract embedded metadata
         try:
-            probe_cmd = f"ffprobe -v error -show_entries format_tags=title -of default=noprint_wrappers=1:nokey=1 {shlex.quote(str(p))}"
-            title_res = subprocess.run(shlex.split(probe_cmd), capture_output=True, text=True, check=True, timeout=3)
-            extracted_title = title_res.stdout.strip()
-            if extracted_title:
-                item["title"] = extracted_title
+            probe_cmd = f"ffprobe -v error -show_entries format=duration:format_tags=title -of json {shlex.quote(str(p))}"
+            probe_res = subprocess.run(shlex.split(probe_cmd), capture_output=True, text=True, check=True, timeout=3)
+            probe_data = json.loads(probe_res.stdout)
+            if "format" in probe_data:
+                fmt = probe_data["format"]
+                if "duration" in fmt:
+                    item["duration_seconds"] = float(fmt["duration"])
+                if "tags" in fmt and "title" in fmt["tags"]:
+                    item["title"] = fmt["tags"]["title"]
         except:
             pass
 
@@ -310,6 +322,82 @@ def list_audiobooks():
             except:
                 # If extraction fails (e.g. no embedded cover), just skip
                 pass
+        res.append(item)
+    return res
+
+@app.get("/api/projects/{project_id}/audiobooks")
+def api_list_project_audiobooks(project_id: str):
+    """Returns a list of audiobooks specifically for a given project."""
+    from .db import get_project
+    project = get_project(project_id)
+    if not project:
+        return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
+
+    # We filter by project's dedicated m4b directory
+    from .config import get_project_m4b_dir
+    m4b_dir = get_project_m4b_dir(project_id)
+
+    m4b_files = []
+    if m4b_dir.exists():
+        for p in m4b_dir.glob("*.m4b"):
+            m4b_files.append((p, f"/projects/{project_id}/m4b/{p.name}"))
+
+    # Also check the legacy folder for files matching the project name
+    if AUDIOBOOK_DIR.exists():
+        for p in AUDIOBOOK_DIR.glob("*.m4b"):
+            # Check if it starts with project name or contains it
+            if p.name.startswith(project['name']):
+                m4b_files.append((p, f"/out/audiobook/{p.name}"))
+
+    # Remove duplicates if any (p is Path object)
+    seen_paths = set()
+    unique_files = []
+    for p, url in m4b_files:
+        if p not in seen_paths:
+            seen_paths.add(p)
+            unique_files.append((p, url))
+
+    # Logic to build response matches list_audiobooks but restricted to these files
+    res = []
+    unique_files.sort(key=lambda x: x[0].stat().st_mtime, reverse=True)
+
+    import subprocess
+    import shlex
+    for p, url in unique_files:
+        st = p.stat()
+        item = {
+            "filename": p.name, 
+            "title": p.name, 
+            "cover_url": None, 
+            "url": url,
+            "created_at": st.st_mtime,
+            "size_bytes": st.st_size
+        }
+
+        # Try to extract embedded metadata
+        try:
+            probe_cmd = f"ffprobe -v error -show_entries format=duration:format_tags=title -of json {shlex.quote(str(p))}"
+            probe_res = subprocess.run(shlex.split(probe_cmd), capture_output=True, text=True, check=True, timeout=3)
+            probe_data = json.loads(probe_res.stdout)
+            if "format" in probe_data:
+                fmt = probe_data["format"]
+                if "duration" in fmt:
+                    item["duration_seconds"] = float(fmt["duration"])
+                if "tags" in fmt and "title" in fmt["tags"]:
+                    item["title"] = fmt["tags"]["title"]
+        except:
+            pass
+
+        target_jpg = AUDIOBOOK_DIR / f"{p.stem}.jpg"
+        if target_jpg.exists() and target_jpg.stat().st_size > 0:
+            item["cover_url"] = f"/out/audiobook/{p.stem}.jpg"
+        else:
+            cmd = f"ffmpeg -y -i {shlex.quote(str(p))} -map 0:v -c copy -frames:v 1 {shlex.quote(str(target_jpg))}"
+            try:
+                subprocess.run(shlex.split(cmd), capture_output=True, check=True, timeout=5)
+                if target_jpg.exists() and target_jpg.stat().st_size > 0:
+                    item["cover_url"] = f"/out/audiobook/{p.stem}.jpg"
+            except: pass
         res.append(item)
     return res
 
@@ -518,6 +606,7 @@ def api_generate_segments(segment_ids: List[str] = Form(...)):
         project_id=project_id,
         chapter_id=chapter_id,
         segment_ids=sids,
+        make_mp3=bool(settings.get("make_mp3", False)),
         speaker_profile=settings.get("default_speaker_profile")
     )
     put_job(job)
@@ -612,6 +701,7 @@ def api_bake_chapter(chapter_id: str):
         project_id=project_id,
         chapter_id=chapter_id,
         is_bake=True,
+        make_mp3=bool(settings.get("make_mp3", False)),
         speaker_profile=settings.get("default_speaker_profile")
     )
     put_job(job)
@@ -1038,7 +1128,7 @@ def start_xtts_queue(speaker_profile: Optional[str] = Form(None)):
             status="queued",
             created_at=time.time(),
             safe_mode=bool(settings.get("safe_mode", True)),
-            make_mp3=True,
+            make_mp3=bool(settings.get("make_mp3", False)),
             custom_title=existing_title,
             speaker_profile=speaker_profile
         )
@@ -1886,6 +1976,10 @@ def delete_audiobook(filename: str):
     path = AUDIOBOOK_DIR / filename
     if path.exists():
         path.unlink()
+        # Also try to delete companion jpg
+        jpg_path = path.with_suffix(".jpg")
+        if jpg_path.exists():
+            jpg_path.unlink()
         return JSONResponse({"status": "ok", "message": f"Deleted {filename}"})
     return JSONResponse({"status": "error", "message": "File not found"}, status_code=404)
 
@@ -1904,7 +1998,7 @@ def reset_chapter(chapter_file: str = Form(...)):
     # 2. Delete files on disk
     count = 0
     for d in [XTTS_OUT_DIR]:
-        for ext in [".wav", ".mp3"]:
+        for ext in [".wav", ".mp3", ".m4a"]:
             f = d / f"{stem}{ext}"
             if f.exists():
                 f.unlink()
@@ -2007,7 +2101,7 @@ def enqueue_single(
         status="queued",
         created_at=time.time(),
         safe_mode=bool(settings.get("safe_mode", True)),
-        make_mp3=True,
+        make_mp3=bool(settings.get("make_mp3", False)),
         bypass_pause=True,
         custom_title=existing_title
     )
@@ -2407,7 +2501,7 @@ def api_add_to_queue(
                 status="queued",
                 created_at=time.time(),
                 safe_mode=bool(settings.get("safe_mode", True)),
-                make_mp3=True,
+                make_mp3=bool(settings.get("make_mp3", False)),
                 bypass_pause=False,
                 custom_title=title, # Ensures frontend shows the chapter title globally
                 speaker_profile=speaker_profile or get_settings().get("default_speaker_profile"),
@@ -2566,15 +2660,24 @@ def assemble_project(project_id: str, chapter_ids: Optional[str] = Form(None)):
             }, status_code=400)
 
     book_title = project['name']
+    timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
+    unique_filename = f"{book_title}_{timestamp}"
 
     # Create the job
     import uuid
     jid = uuid.uuid4().hex[:12]
+    cover_path = project.get('cover_image_path', None)
+    if cover_path and cover_path.startswith('/out/covers/'):
+        from .config import COVER_DIR
+        filename = cover_path.replace('/out/covers/', '')
+        cover_path = str(COVER_DIR / filename)
+
     j = Job(
         id=jid,
         project_id=project_id,
         engine="audiobook",
-        chapter_file=book_title, # For audiobook, chapter_file works as the Book Title
+        chapter_file=unique_filename, # Unique filename
+        custom_title=book_title,      # Metadata title
         status="queued",
         created_at=time.time(),
         safe_mode=False,
@@ -2583,7 +2686,7 @@ def assemble_project(project_id: str, chapter_ids: Optional[str] = Form(None)):
         author_meta=project.get('author', ''),
         narrator_meta="Generated by Audiobook Studio",
         chapter_list=chapter_list,
-        cover_path=project.get('cover_image_path', None)
+        cover_path=cover_path
     )
 
     put_job(j)

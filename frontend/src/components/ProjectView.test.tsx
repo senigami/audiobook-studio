@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { ProjectView } from './ProjectView'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -9,6 +9,7 @@ vi.mock('../api')
 describe('ProjectView', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        vi.mocked(api.fetchProjectAudiobooks).mockResolvedValue([])
     })
 
     const defaultProject = {
@@ -52,13 +53,57 @@ describe('ProjectView', () => {
             </MemoryRouter>
         )
 
-        await waitFor(() => {
-            expect(screen.getByText('Test Project')).toBeTruthy()
-        })
+        expect(await screen.findByText('Test Project')).toBeTruthy()
+        expect(await screen.findByText('Chapter 1')).toBeTruthy()
+    })
 
+    it('renders assembly history with duration and relative time', async () => {
+        vi.mocked(api.fetchProject).mockResolvedValue(defaultProject)
+        vi.mocked(api.fetchChapters).mockResolvedValue([])
+        vi.mocked(api.fetchProjectAudiobooks).mockResolvedValue([
+            {
+                filename: 'test.m4b',
+                title: 'Test Audiobook',
+                created_at: Math.floor(Date.now() / 1000) - 3600, // 1h ago
+                size_bytes: 1024 * 1024 * 10, // 10MB
+                duration_seconds: 7200, // 2h
+                cover_url: null
+            }
+        ])
 
-        await waitFor(() => {
-            expect(screen.getByText('Chapter 1')).toBeTruthy()
-        })
+        render(
+            <MemoryRouter initialEntries={['/project/1']}>
+                <Routes>
+                    <Route path="/project/:projectId" element={
+                        <ProjectView jobs={{}} speakerProfiles={[]} speakers={[]} />
+                    } />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        // screen.debug()
+        expect(await screen.findByText('Assemblies (1)')).toBeTruthy()
+        expect(await screen.findByText('Test Audiobook')).toBeTruthy()
+        expect(await screen.findByText(/1h ago/)).toBeTruthy()
+        expect(await screen.findByText(/2h 0m/)).toBeTruthy()
+        expect((await screen.findAllByText(/MB/)).length).toBeGreaterThan(0)
+    })
+
+    it('renders empty state for assembly history', async () => {
+        vi.mocked(api.fetchProject).mockResolvedValue(defaultProject)
+        vi.mocked(api.fetchChapters).mockResolvedValue([])
+        vi.mocked(api.fetchProjectAudiobooks).mockResolvedValue([])
+
+        render(
+            <MemoryRouter initialEntries={['/project/1']}>
+                <Routes>
+                    <Route path="/project/:projectId" element={
+                        <ProjectView jobs={{}} speakerProfiles={[]} speakers={[]} />
+                    } />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        expect(await screen.findByText('No assemblies yet')).toBeTruthy()
     })
 })
