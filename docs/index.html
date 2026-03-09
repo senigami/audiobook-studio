@@ -116,7 +116,7 @@
         background: var(--surface);
         border: 1px solid var(--border);
         border-radius: 40px;
-        padding: 4rem;
+        padding: 5rem 4rem 4rem 4rem;
         box-shadow: var(--shadow-lg);
         margin-bottom: 6rem;
         background: linear-gradient(
@@ -124,27 +124,30 @@
           var(--info-tint) 0%,
           var(--surface) 100%
         );
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 4rem;
+        display: flex;
+        flex-direction: column;
         align-items: center;
+        text-align: center;
+        gap: 5rem;
+        overflow: hidden;
       }
 
       .hero-content {
-        text-align: left;
+        max-width: 800px;
       }
 
       .hero-h2 {
-        font-size: 2.5rem;
+        font-size: 3rem;
         font-weight: 800;
         margin-bottom: 1.5rem;
-        line-height: 1.2;
+        line-height: 1.1;
+        letter-spacing: -0.02em;
       }
 
       .hero-p {
-        font-size: 1.15rem;
+        font-size: 1.25rem;
         color: var(--text-secondary);
-        margin-bottom: 2.5rem;
+        margin-bottom: 3rem;
       }
 
       .audio-demo {
@@ -276,6 +279,40 @@
         font-size: 0.9rem;
       }
 
+      .tour-screenshot {
+        width: 100%;
+        height: auto;
+        padding: 1.5rem;
+        background: var(--surface);
+        border-radius: 24px;
+        box-shadow: var(--shadow-lg);
+        border: 1px solid var(--border);
+        transition: transform 0.3s ease;
+      }
+
+      .hero-visual {
+        width: 100%;
+        max-width: 1000px;
+      }
+
+      .hero-visual img {
+        width: 100%;
+        height: auto;
+        display: block;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-lg);
+        transition: transform 0.5s ease;
+      }
+
+      .hero-pod:hover .hero-visual img {
+        transform: translateY(-5px);
+      }
+
+      .tour-screenshot:hover {
+        transform: translateY(-5px);
+      }
+
       /* CTA */
       .cta-box {
         text-align: center;
@@ -373,16 +410,10 @@
           </div>
         </div>
         <div class="hero-visual">
-          <!-- Screenshot Placeholder: Hero Dashboard -->
-          <div class="placeholder">
-            <div class="placeholder-icon">🖥️</div>
-            <div class="placeholder-label">The Central Dashboard</div>
-            <div class="placeholder-desc">
-              Show the new Hero Section with the blue wash background, the
-              "Create Natural-Sounding..." headline, and the book mockup on the
-              right.
-            </div>
-          </div>
+          <img
+            src="assets/home.png"
+            alt="Audiobook Studio Central Dashboard showing the Hero Section and book mockup"
+          />
         </div>
       </section>
 
