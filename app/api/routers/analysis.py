@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import List, Optional
 from fastapi import APIRouter, Form
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from ...config import CHAPTER_DIR, REPORT_DIR, SENT_CHAR_LIMIT
 from ...db import get_chapter, get_chapter_segments, get_characters
 from ...textops import (
