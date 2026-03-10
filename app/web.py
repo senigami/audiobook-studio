@@ -902,10 +902,40 @@ async def api_analyze_chapter(chapter_id: str):
                 "sent_count": len(current_batch)
             })
 
+    # Also compute full stats from the chapter text (matches _run_analysis and api_analyze_text)
+    from .jobs import BASELINE_XTTS_CPS
+    from .textops import find_long_sentences, clean_text_for_tts
+
+    full_text = chap.get('text_content') or ''
+    char_count = len(full_text)
+    word_count = len(full_text.split())
+    sent_count = full_text.count('.') + full_text.count('?') + full_text.count('!')
+    pred_seconds = int(char_count / BASELINE_XTTS_CPS)
+
+    raw_hits = find_long_sentences(full_text)
+    cleaned_text = clean_text_for_tts(full_text)
+    split_text_full = safe_split_long_sentences(cleaned_text)
+    cleaned_hits = find_long_sentences(split_text_full)
+    uncleanable = len(cleaned_hits)
+    auto_fixed = len(raw_hits) - uncleanable
+
+    uncleanable_sentences = []
+    for idx, clen, start, end, s in cleaned_hits:
+        uncleanable_sentences.append({"length": clen, "text": s})
+
     return JSONResponse({
         "status": "success",
         "voice_chunks": voice_chunks,
-        "threshold": SENT_CHAR_LIMIT
+        "threshold": SENT_CHAR_LIMIT,
+        # Stats (same fields as /api/analyze_text)
+        "char_count": char_count,
+        "word_count": word_count,
+        "sent_count": sent_count,
+        "predicted_seconds": pred_seconds,
+        "raw_long_sentences": len(raw_hits),
+        "auto_fixed": auto_fixed,
+        "uncleanable": uncleanable,
+        "uncleanable_sentences": uncleanable_sentences,
     })
 # --------------------
 
