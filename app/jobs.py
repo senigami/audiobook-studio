@@ -558,7 +558,11 @@ def worker_loop(q: "queue.Queue[str]"):
                 # 2. Extract Progress from tqdm if present
                 progress_match = re.search(r'(\d+)%', s)
                 is_progress_line = progress_match and "|" in s
-                if is_progress_line and getattr(j, 'synthesis_started_at', None):
+
+                # Check if this job tracks progress based on discrete steps rather than pure generation time
+                is_segment_job = getattr(j, 'is_bake', False) or getattr(j, 'segment_ids', False)
+
+                if is_progress_line and getattr(j, 'synthesis_started_at', None) and not is_segment_job:
                     try:
                         p_val = round(int(progress_match.group(1)) / 100.0, 2)
                         current_p = getattr(j, 'progress', 0.0)
@@ -595,13 +599,16 @@ def worker_loop(q: "queue.Queue[str]"):
                 # Decide if we SHOULD include progress in this update
                 broadcast_p = getattr(j, '_last_broadcast_p', 0.0)
 
-                # Update calculation for prediction (prediction floor)
-                if new_progress is None:
+                # Update calculation for prediction (prediction floor) - skip if it's a segmented job to avoid overriding the accurate segment counts
+                if new_progress is None and not is_segment_job:
                     new_val = calculate_predicted_progress(j, now, start, eta, limit=0.85, prepare_limit=0.05, prepare_step=0.005)
                     new_progress = round(new_val, 2)
 
                 # Check threshold against last broadcast
-                include_progress = (abs(new_progress - broadcast_p) >= 0.01) or (broadcast_p == 0 and new_progress > 0)
+                if new_progress is not None:
+                    include_progress = (abs(new_progress - broadcast_p) >= 0.01) or (broadcast_p == 0 and new_progress > 0)
+                else:
+                    include_progress = False
 
                 if new_log is not None or include_progress:
                     j._last_broadcast_time = now
@@ -918,8 +925,8 @@ def worker_loop(q: "queue.Queue[str]"):
                             if group:
                                 seg_filename = Path(saved_path).name
                                 for s in group:
-                                    # batch: no broadcast per-segment, we'll broadcast once at the end
-                                    update_segment(s['id'], broadcast=False, audio_status='done', audio_file_path=seg_filename, audio_generated_at=time.time())
+                                    # batch: re-enabled broadcast so UI updates segment UI smoothly
+                                    update_segment(s['id'], broadcast=True, audio_status='done', audio_file_path=seg_filename, audio_generated_at=time.time())
                                 groups_completed[0] += 1
                                 prog = (groups_completed[0] / len(gen_groups))
                                 update_job(jid, progress=prog)
