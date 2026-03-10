@@ -169,8 +169,8 @@ export const api = {
     const res = await fetch('/api/job/update_title', { method: 'POST', body: formData });
     return res.json();
   },
-  deleteAudiobook: async (filename: string): Promise<any> => {
-    const res = await fetch(`/api/audiobook/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+  deleteAudiobook: async (filename: string, projectId?: string): Promise<any> => {
+    const res = await fetch(`/api/audiobook/${encodeURIComponent(filename)}${projectId ? `?project_id=${projectId}` : ''}`, { method: 'DELETE' });
     return res.json();
   },
   resetChapter: async (chapterId: string): Promise<any> => {

@@ -85,23 +85,25 @@ def test_backfill_surgical_logic(temp_chapter, monkeypatch):
     wav_path.write_text("fake wav content", encoding="utf-8")
     if mp3_path.exists(): mp3_path.unlink()
 
-    # 3. Call backfill endpoint
-    # Note: we might need to mock wav_to_mp3 if we don't want real ffmpeg in CI,
-    # but for local dev it's better to test it really works if ffmpeg is there.
+    # 3. Call backfill endpoint (now starts a background thread)
     response = client.post("/queue/backfill_mp3")
     assert response.status_code == 200
     data = response.json()
+    assert data["status"] == "success"
 
-    # If ffmpeg is present, 'converted' should be 1.
-    # If not, it might be 0 but we can check if it attempted.
-    assert "converted" in data
+    # 4. Wait for the background process to finish surgical backfill
+    # Since it's in a thread, we poll until the job status becomes 'done'
+    max_wait = 5.0
+    start_wait = time.time()
+    while time.time() - start_wait < max_wait:
+        job = get_jobs().get(jid)
+        if job and job.status == "done":
+            break
+        time.sleep(0.1)
 
-    # 4. Check that the job status is 'done' and not 'queued'
+    # 5. Check that the job status is indeed 'done'
     job = get_jobs().get(jid)
     assert job is not None
-    # If it was Fixed surgically, it should be 'done'
-    # If it failed surgical and went to reconciliation, it might be 'queued'
-    # but the goal of the fix is to make it 'done'
     assert job.status == "done"
 
     # Cleanup files

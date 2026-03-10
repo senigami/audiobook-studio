@@ -7,7 +7,7 @@ import sys
 import threading
 from typing import Optional, List
 from pathlib import Path
-from fastapi import FastAPI, UploadFile, File, Form, WebSocket, WebSocketDisconnect, Request
+from fastapi import FastAPI, UploadFile, File, Form, WebSocket, WebSocketDisconnect, Request, Query
 from fastapi.responses import JSONResponse, PlainTextResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from .engines import wav_to_mp3, terminate_all_subprocesses, xtts_generate, get_audio_duration, generate_video_sample, convert_to_wav
@@ -1974,15 +1974,45 @@ def cancel(job_id: str = Form(...)):
     return JSONResponse({"status": "ok", "message": f"Job {job_id} cancelled"})
 
 @app.delete("/api/audiobook/{filename}")
-def delete_audiobook(filename: str):
-    path = AUDIOBOOK_DIR / filename
-    if path.exists():
+def delete_audiobook(filename: str, project_id: Optional[str] = Query(None)):
+    from .config import get_project_m4b_dir
+    print(f"DEBUG: delete_audiobook called for {filename}, project_id={project_id}")
+
+    path = None
+    # 1. Try project-specific path if ID provided
+    if project_id:
+        p_path = get_project_m4b_dir(project_id) / filename
+        print(f"DEBUG: Checking project path: {p_path}")
+        if p_path.exists():
+            path = p_path
+
+    # 2. Try global legacy path
+    if not path:
+        l_path = AUDIOBOOK_DIR / filename
+        print(f"DEBUG: Checking global path: {l_path}")
+        if l_path.exists():
+            path = l_path
+
+    # 3. Last ditch: If filename is unique across project folders, we can find it
+    if not path and not project_id:
+        from .config import PROJECTS_DIR
+        for p_dir in PROJECTS_DIR.iterdir():
+            if p_dir.is_dir():
+                possible = p_dir / "m4b" / filename
+                if possible.exists():
+                    path = possible
+                    break
+
+    if path and path.exists():
+        print(f"DEBUG: Found path: {path}. Deleting...")
         path.unlink()
-        # Also try to delete companion jpg
+        # Also try to delete companion jpg in same dir
         jpg_path = path.with_suffix(".jpg")
         if jpg_path.exists():
             jpg_path.unlink()
         return JSONResponse({"status": "ok", "message": f"Deleted {filename}"})
+
+    print(f"DEBUG: File not found for deletion: {filename}")
     return JSONResponse({"status": "error", "message": "File not found"}, status_code=404)
 
 @app.post("/api/chapter/reset")

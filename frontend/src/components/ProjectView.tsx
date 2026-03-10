@@ -408,7 +408,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
       isDestructive: true,
       onConfirm: async () => {
         try {
-          await api.deleteAudiobook(filename);
+          await api.deleteAudiobook(filename, projectId);
           loadData();
         } catch (e) {
           console.error("Delete failed", e);

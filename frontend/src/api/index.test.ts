@@ -49,6 +49,9 @@ describe('api methods', () => {
         await api.deleteAudiobook('ab1')
         expect(global.fetch).toHaveBeenCalledWith('/api/audiobook/ab1', expect.objectContaining({ method: 'DELETE' }))
 
+        await api.deleteAudiobook('ab1', 'p1')
+        expect(global.fetch).toHaveBeenCalledWith('/api/audiobook/ab1?project_id=p1', expect.objectContaining({ method: 'DELETE' }))
+
         await api.resetChapter('c1.txt')
         expect(global.fetch).toHaveBeenCalledWith('/api/chapters/c1.txt/reset', expect.objectContaining({ method: 'POST' }))
 
