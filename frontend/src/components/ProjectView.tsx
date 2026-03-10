@@ -402,19 +402,12 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
   };
 
   const handleDeleteAudiobook = async (filename: string) => {
-    setConfirmConfig({
-      title: 'Delete Audiobook',
-      message: `Are you sure you want to delete "${filename}"?`,
-      isDestructive: true,
-      onConfirm: async () => {
-        try {
-          await api.deleteAudiobook(filename, projectId);
-          loadData();
-        } catch (e) {
-          console.error("Delete failed", e);
-        }
-      }
-    });
+    try {
+      await api.deleteAudiobook(filename, projectId);
+      loadData();
+    } catch (e) {
+      console.error("Delete failed", e);
+    }
   };
 
   if (loading) return <div style={{ padding: '2rem' }}>Loading project...</div>;
