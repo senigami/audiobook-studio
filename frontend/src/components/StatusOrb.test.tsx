@@ -31,7 +31,12 @@ describe('StatusOrb', () => {
   })
 
   it('renders arcs with correct opacity based on presence', () => {
-    const chap = { ...baseChapter, has_m4a: true, has_mp3: false }
+    const chap = { 
+      ...baseChapter, 
+      has_m4a: true, 
+      has_mp3: false,
+      audio_generated_at: Date.now() + 1000 // Ensure not stale
+    }
     const { container } = render(<StatusOrb chap={chap} />)
     
     // Find circles with ringRadius 10.2 in SVG
