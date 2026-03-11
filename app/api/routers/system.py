@@ -136,3 +136,9 @@ async def create_audiobook(
     enqueue(j)
     update_job(jid, force_broadcast=True, status="queued")
     return JSONResponse({"status": "success", "job_id": jid})
+
+@router.get("/audiobook/prepare")
+def api_audiobook_prepare():
+    from ..utils import legacy_list_chapters
+    chapters = [p.name for p in legacy_list_chapters()]
+    return JSONResponse({"status": "success", "chapters": chapters})

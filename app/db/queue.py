@@ -86,7 +86,7 @@ def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 
             updates = ["status = ?"]
             params = [status]
 
-            if status == 'running':
+            if status in ('running', 'preparing'):
                 updates.append("started_at = ?")
                 params.append(now)
             elif status in ('done', 'failed', 'cancelled'):

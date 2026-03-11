@@ -35,7 +35,7 @@ async def api_create_chapter(
 
     metrics = compute_chapter_metrics(text)
     cid = create_chapter(project_id, title, text, sort_order, **metrics)
-    return JSONResponse({"status": "success", "chapter_id": cid, "chapter": {"id": cid}})
+    return JSONResponse({"status": "success", "chapter": get_chapter(cid)})
 
 @router.get("/chapters/{chapter_id}")
 def api_get_chapter_details(chapter_id: str):
@@ -60,7 +60,7 @@ async def api_update_chapter_details(
     if updates:
         update_chapter(chapter_id, **updates)
 
-    return JSONResponse({"status": "success"})
+    return JSONResponse({"status": "success", "chapter": get_chapter(chapter_id)})
 
 @router.delete("/chapters/{chapter_id}")
 def api_delete_chapter_route(chapter_id: str):
@@ -196,3 +196,15 @@ def api_preview(chapter_file: str, processed: bool = False):
         text = pack_text_to_limit(text, pad=True)
 
     return JSONResponse({"text": text, "analysis": analysis})
+@router.post("/chapter/{chapter_id}/export-sample")
+async def api_export_chapter_sample(chapter_id: str, project_id: Optional[str] = None):
+    from ...config import XTTS_OUT_DIR, get_project_audio_dir
+    from ..utils import output_exists
+
+    pdir = get_project_audio_dir(project_id) if project_id else XTTS_OUT_DIR
+    wav_path = pdir / f"{chapter_id}.wav"
+
+    if not wav_path.exists():
+        return JSONResponse({"status": "error", "message": "Audio not found"}, status_code=404)
+
+    return FileResponse(wav_path, media_type="audio/wav", filename=f"{chapter_id}.wav")

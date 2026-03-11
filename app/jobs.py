@@ -112,8 +112,10 @@ def _output_exists(engine: str, chapter_file: str, project_id: Optional[str] = N
         if project_id:
             from .config import get_project_audio_dir
             pdir = get_project_audio_dir(project_id)
-            mp3 = (pdir / f"{stem}.mp3").exists() or (XTTS_OUT_DIR / f"{stem}.mp3").exists()
-            wav = (pdir / f"{stem}.wav").exists() or (XTTS_OUT_DIR / f"{stem}.wav").exists()
+            # If a project is specified, we should ONLY trust the project directory,
+            # not a potentially stale shared global directory.
+            mp3 = (pdir / f"{stem}.mp3").exists()
+            wav = (pdir / f"{stem}.wav").exists()
         else:
             pdir = XTTS_OUT_DIR
             mp3 = (pdir / f"{stem}.mp3").exists()
@@ -468,7 +470,7 @@ def worker_loop(q: "queue.Queue[str]"):
 
             # Trigger immediate UI update with status, ETA, and Log Header
             initial_status = "running" if j.engine == "audiobook" else "preparing"
-            initial_start = time.time() if j.engine == "audiobook" else None
+            initial_start = time.time()
             update_job(jid,
                        status=initial_status,
                        project_id=j.project_id,
@@ -688,6 +690,11 @@ def worker_loop(q: "queue.Queue[str]"):
                 default_sw = get_speaker_wavs(j.speaker_profile)
                 spk_settings = get_speaker_settings(j.speaker_profile)
                 speed = spk_settings["speed"]
+
+                # Ensure status is 'running' if we got here
+                if j.status != "running":
+                    j.status = "running"
+                    update_job(jid, status="running")
 
                 # NEW: Handle Chapter Baking (Stitching existing segments)
                 if j.is_bake and j.chapter_id:

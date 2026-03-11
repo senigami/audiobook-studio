@@ -29,7 +29,11 @@ def api_add_to_queue(
 
         qid = db_add_to_queue(project_id, chapter_id, split_part)
         if not qid:
-            # Already in queue? 
+            # Already in queue? Return existing ID if possible
+            from ...db import get_queue
+            existing = [item for item in get_queue() if item['chapter_id'] == chapter_id and item['status'] not in ('done', 'failed', 'cancelled')]
+            if existing:
+                return JSONResponse({"status": "success", "queue_id": existing[0]['id']})
             return JSONResponse({"status": "error", "message": "Chapter already in queue"}, status_code=400)
 
         # Sync with legacy worker

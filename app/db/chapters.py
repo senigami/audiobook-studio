@@ -9,9 +9,9 @@ def create_chapter(project_id: str, title: str, text_content: Optional[str] = No
             cursor = conn.cursor()
             chapter_id = str(uuid.uuid4())
             cursor.execute("""
-                INSERT INTO chapters (id, project_id, title, text_content, sort_order, predicted_audio_length, char_count, word_count)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (chapter_id, project_id, title, text_content, sort_order, predicted_audio_length, char_count, word_count))
+                INSERT INTO chapters (id, project_id, title, text_content, sort_order, predicted_audio_length, char_count, word_count, text_last_modified)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (chapter_id, project_id, title, text_content, sort_order, predicted_audio_length, char_count, word_count, time.time()))
             conn.commit()
             return chapter_id
 
@@ -47,6 +47,11 @@ def update_chapter(chapter_id: str, **updates) -> bool:
             for k, v in updates.items():
                 fields.append(f"{k} = ?")
                 values.append(v)
+
+            if "text_content" in updates:
+                fields.append("text_last_modified = ?")
+                values.append(time.time())
+
             values.append(chapter_id)
             cursor.execute(f"UPDATE chapters SET {', '.join(fields)} WHERE id = ?", values)
             conn.commit()

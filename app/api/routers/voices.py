@@ -139,18 +139,18 @@ def api_rename_voice_profile(old_name: str = Form(...), new_name: str = Form(...
     if old_dir.exists() and not new_dir.exists():
         os.rename(old_dir, new_dir)
         update_voice_profile_references(old_name, new_name)
-        return JSONResponse({"status": "success"})
+        return JSONResponse({"status": "success", "new_name": new_name})
     return JSONResponse({"status": "error", "message": "Directory rename failed"}, status_code=400)
 
 @router.post("/speaker-profiles/{name}/test-text")
 def update_speaker_test_text(name: str, text: str = Form(...)):
     update_speaker_settings(name, test_text=text)
-    return JSONResponse({"status": "success"})
+    return JSONResponse({"status": "success", "test_text": text})
 
 @router.post("/speaker-profiles/{name}/speed")
 def update_speaker_speed(name: str, speed: float = Form(...)):
     update_speaker_settings(name, speed=speed)
-    return JSONResponse({"status": "success"})
+    return JSONResponse({"status": "success", "speed": speed})
 
 @router.post("/speaker-profiles/{name}/build")
 async def build_speaker_profile(
@@ -180,6 +180,17 @@ async def build_speaker_profile(
     put_job(j)
     enqueue(j)
     return JSONResponse({"status": "success", "job_id": jid})
+
+@router.post("/speaker-profiles/build")
+async def legacy_build_speaker_profile(
+    name: str = Form(...),
+    files: List[UploadFile] = File(default=[])
+):
+    return await build_speaker_profile(name, files)
+
+@router.post("/speaker-profiles/test")
+def legacy_test_speaker_profile(name: str = Form(...)):
+    return test_speaker_profile(name)
 
 @router.delete("/speaker-profiles/{name}")
 def delete_speaker_profile(name: str):
