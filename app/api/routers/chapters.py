@@ -185,11 +185,6 @@ def api_delete_legacy_chapter(filename: str):
 
     return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
 
-@router.delete("/chapters/{chapter_id}")
-def api_delete_chapter_route(chapter_id: str):
-    delete_chapter(chapter_id)
-    return JSONResponse({"status": "ok"})
-
 @router.get("/preview/{chapter_file}")
 def api_preview(chapter_file: str, processed: bool = False):
     from ...state import get_settings

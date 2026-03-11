@@ -246,7 +246,7 @@ def cleanup_and_reconcile():
                 try:
                     from .db import update_queue_item
                     audio_length = 0.0
-                    from .config import get_project_audio_dir
+                    from .config import get_project_audio_dir, XTTS_OUT_DIR
                     pdir = get_project_audio_dir(j.project_id) if j.project_id else XTTS_OUT_DIR
                     output_file = j.output_mp3 or j.output_wav
                     if output_file:
