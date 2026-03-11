@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
-import { Panel } from './components/Panel';
 import { PreviewModal } from './components/PreviewModal';
 import { VoicesTab } from './components/VoicesTab';
 import { ProjectLibrary } from './components/ProjectLibrary';
@@ -12,7 +11,6 @@ import { useInitialData } from './hooks/useInitialData';
 import { SettingsTray } from './components/SettingsTray';
 import { ConfirmModal } from './components/ConfirmModal';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { Job } from './types';
 
 function App() {
   const navigate = useNavigate();
@@ -38,7 +36,6 @@ function App() {
   );
   
   const [previewFilename, setPreviewFilename] = useState<string | null>(null);
-  const [showLogs, setShowLogs] = useState(false);
   
   const [confirmConfig, setConfirmConfig] = useState<{
     title: string;
@@ -65,9 +62,6 @@ function App() {
     await Promise.all([refetchHome(), refreshJobs()]);
   };
 
-  const runningJobs = Object.values(jobs).filter(j => j.status === 'running' || j.status === 'preparing' || j.status === 'finalizing' || j.status === 'queued') as Job[];
-  const activeJob = runningJobs.find(j => j.engine === 'audiobook') || runningJobs[0];
-  const viewingJob = activeJob;
 
 
   if (initialLoading) return null;
@@ -81,8 +75,6 @@ function App() {
           <SettingsTray 
             settings={initialData?.settings}
             onRefresh={handleRefresh}
-            showLogs={showLogs}
-            onToggleLogs={() => setShowLogs(!showLogs)}
             onShowNotification={showToast}
           />
         }
@@ -125,20 +117,7 @@ function App() {
             </Routes>
           </div>
 
-          {showLogs && (
-            <Panel
-              title={viewingJob ? `Logs: ${viewingJob.chapter_file}` : 'System Console'}
-              subtitle={viewingJob?.status === 'running' ? `ETA: ${viewingJob.eta_seconds || '...'}s` : ''}
-              logs={viewingJob?.log}
-              filename={activeJob ? activeJob.chapter_file : null}
-              progress={viewingJob?.progress}
-              status={viewingJob?.status}
-              startedAt={viewingJob?.started_at}
-              etaSeconds={viewingJob?.eta_seconds}
-              onClose={() => setShowLogs(false)}
-            />
-          )}
-        </div>
+          </div>
       </Layout>
 
 

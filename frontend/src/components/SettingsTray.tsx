@@ -1,21 +1,17 @@
 import React, { useState } from 'react';
-import { Settings, RefreshCw, Loader2, Terminal, ShieldCheck, Music } from 'lucide-react';
+import { Settings, RefreshCw, Loader2, ShieldCheck, Music } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GhostButton } from './GhostButton';
 
 interface SettingsTrayProps {
     settings: any;
     onRefresh: () => void;
-    showLogs: boolean;
-    onToggleLogs: () => void;
     onShowNotification?: (message: string) => void;
 }
 
 export const SettingsTray: React.FC<SettingsTrayProps> = ({ 
     settings, 
     onRefresh, 
-    showLogs, 
-    onToggleLogs,
     onShowNotification
 }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -176,36 +172,9 @@ export const SettingsTray: React.FC<SettingsTrayProps> = ({
                                         </button>
                                     </div>
                                 )}
-
-                                {/* Advanced Section */}
-                                <div style={{ height: '1px', background: 'var(--border)', margin: '12px 0 4px', opacity: 0.5 }} />
-                                <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em', padding: '0 4px 4px' }}>ADVANCED</div>
-                                </div>
-
-                                {/* System Console */}
-                                <div 
-                                    style={rowStyle('console')}
-                                    onMouseEnter={() => setHoveredItem('console')}
-                                    onMouseLeave={() => setHoveredItem(null)}
-                                    onClick={onToggleLogs}
-                                >
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                        <Terminal size={18} color={hoveredItem === 'console' ? 'var(--accent)' : 'var(--text-muted)'} />
-                                        <div>
-                                            <div style={{ fontSize: '0.85rem', fontWeight: 500 }}>System Console</div>
-                                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Show/Hide Logs</div>
-                                        </div>
-                                    </div>
-                                    <button 
-                                        onClick={(e) => { e.stopPropagation(); onToggleLogs(); }}
-                                        className={showLogs ? 'btn-primary' : 'btn-glass'} 
-                                        style={{ fontSize: '0.65rem', padding: '4px 10px', borderRadius: '6px', minWidth: '42px' }}
-                                    >
-                                        {showLogs ? 'ON' : 'OFF'}
-                                    </button>
-                                </div>
                             </div>
-                        </motion.div>
+                        </div>
+                    </motion.div>
                     </>
                 )}
             </AnimatePresence>
