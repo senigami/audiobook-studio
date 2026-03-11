@@ -173,6 +173,8 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
 
             # 2. Progress regression protection
             if k == "progress":
+                if v is not None:
+                    v = round(float(v), 2)
                 if not force_broadcast:
                     current_status = j.get("status")
                     if current_status not in ("queued", "preparing"):

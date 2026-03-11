@@ -29,7 +29,23 @@ def get_chapter_segments(chapter_id: str) -> List[Dict[str, Any]]:
                 WHERE s.chapter_id = ? 
                 ORDER BY s.segment_order ASC
             """, (chapter_id,))
-            return [dict(row) for row in cursor.fetchall()]
+            rows = [dict(row) for row in cursor.fetchall()]
+
+            # Rule 3: Disk as Source of Truth - Verify segment audio exists
+            from .. import config
+            # We need project_id to find the right directory. 
+            # We can get it from the chapter.
+            cursor.execute("SELECT project_id FROM chapters WHERE id = ?", (chapter_id,))
+            crow = cursor.fetchone()
+            project_id = crow['project_id'] if crow else None
+            pdir = config.get_project_audio_dir(project_id) if project_id else config.XTTS_OUT_DIR
+
+            for s in rows:
+                if s['audio_status'] == 'done' and s['audio_file_path']:
+                    if not (pdir / s['audio_file_path']).exists():
+                        s['audio_status'] = 'unprocessed'
+                        s['audio_file_path'] = None
+            return rows
 
 def update_segment(segment_id: str, broadcast: bool = True, **updates) -> bool:
     if not updates: return False

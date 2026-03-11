@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { Speaker, SpeakerProfile } from '../../types';
-import { User, RefreshCw, ChevronUp, Star, FileEdit, Trash2 } from 'lucide-react';
+import { User, RefreshCw, ChevronUp, Star, FileEdit, Trash2, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ActionMenu } from '../ActionMenu';
 import { VariantEditor } from './VariantEditor';

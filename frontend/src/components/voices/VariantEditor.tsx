@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import type { SpeakerProfile } from '../../types';
 import { 
     Music, Trash2, Play, Loader2, RefreshCw, FileEdit, X, 
-    Pause, Upload, AlertTriangle 
+    Pause, Upload, AlertTriangle, Plus, ChevronUp, Sliders
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SpeedPopover } from './VoiceUtils';

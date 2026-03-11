@@ -12,8 +12,8 @@ describe('StatusOrb', () => {
     sort_order: 1,
     audio_status: 'unprocessed',
     audio_file_path: null,
-    text_last_modified: Date.now(),
-    audio_generated_at: Date.now() - 1000,
+    text_last_modified: 1000,
+    audio_generated_at: 500,
     char_count: 100,
     word_count: 20,
     sent_count: 2,
@@ -35,7 +35,7 @@ describe('StatusOrb', () => {
       ...baseChapter, 
       has_m4a: true, 
       has_mp3: false,
-      audio_generated_at: Date.now() + 1000 // Ensure not stale
+      audio_generated_at: 2000 // Ensure not stale (2000 > 1000)
     }
     const { container } = render(<StatusOrb chap={chap} />)
     
@@ -55,7 +55,7 @@ describe('StatusOrb', () => {
   })
 
   it('renders success fill when complete', () => {
-    const chap: Chapter = { ...baseChapter, audio_status: 'done', has_wav: true, audio_generated_at: Date.now() + 1000 }
+    const chap: Chapter = { ...baseChapter, audio_status: 'done', has_wav: true, audio_generated_at: 2000 }
     const { container } = render(<StatusOrb chap={chap} />)
     const baseOrb = container.querySelector('circle[r="8"]')
     

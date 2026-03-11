@@ -23,6 +23,21 @@ def enqueue(job):
 def requeue(job_id):
     j = get_jobs().get(job_id)
     if not j: return
+
+    # Rule 3: Clean Slate Protocol - Wipe metadata
+    update_job(
+        job_id, 
+        status='queued', 
+        progress=0.0, 
+        log="", 
+        started_at=None, 
+        finished_at=None, 
+        error=None, 
+        warning_count=0,
+        synthesis_started_at=None,
+        force_broadcast=True
+    )
+
     if j.engine == "audiobook": assembly_queue.put(job_id)
     else: job_queue.put(job_id)
 
