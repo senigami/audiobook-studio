@@ -64,7 +64,7 @@ def save_settings(
 
     if updates:
         update_settings(updates)
-    return JSONResponse({"status": "ok"})
+    return JSONResponse({"status": "ok", "settings": get_settings()})
 
 @router.post("/speakers/default")
 def set_default_speaker(name: str = Form(...)):

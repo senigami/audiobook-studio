@@ -4,6 +4,7 @@ from .core import _db_lock, get_connection
 
 def create_chapter(project_id: str, title: str, text_content: Optional[str] = None, sort_order: int = 0, predicted_audio_length: float = 0.0, char_count: int = 0, word_count: int = 0) -> str:
     import uuid
+    from .segments import split_chapter_into_segments
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
@@ -15,6 +16,11 @@ def create_chapter(project_id: str, title: str, text_content: Optional[str] = No
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (chapter_id, project_id, title, text_content, sort_order, predicted_audio_length, char_count, word_count, time.time()))
             conn.commit()
+
+            if text_content:
+                from .segments import sync_chapter_segments
+                sync_chapter_segments(chapter_id, text_content)
+
             return chapter_id
 
 def get_chapter(chapter_id: str) -> Optional[Dict[str, Any]]:
@@ -47,6 +53,8 @@ def update_chapter(chapter_id: str, **updates) -> bool:
             fields = []
             values = []
             for k, v in updates.items():
+                if k == "text_content" and v is not None:
+                    v = v.replace("\r\n", "\n")
                 fields.append(f"{k} = ?")
                 values.append(v)
 

@@ -134,11 +134,30 @@ def api_delete_speaker_route(speaker_id: str):
 
 @router.post("/voices/rename-profile")
 def api_rename_voice_profile(old_name: str = Form(...), new_name: str = Form(...)):
+    import json
     old_dir = config.VOICES_DIR / old_name
     new_dir = config.VOICES_DIR / new_name
     if old_dir.exists() and not new_dir.exists():
         os.rename(old_dir, new_dir)
         update_voice_profile_references(old_name, new_name)
+
+        # Sync settings
+        settings = get_settings()
+        if settings.get("default_speaker_profile") == old_name:
+            update_settings({"default_speaker_profile": new_name})
+
+        # Update profile.json if it exists
+        meta_path = new_dir / "profile.json"
+        if meta_path.exists():
+            try:
+                meta = json.loads(meta_path.read_text())
+                # If renaming a variant profile (e.g. "Sally - Happy" -> "Sally - Excited")
+                # find the dash and update variant_name
+                if " - " in new_name:
+                    meta["variant_name"] = new_name.split(" - ", 1)[1]
+                meta_path.write_text(json.dumps(meta, indent=2))
+            except: pass
+
         return JSONResponse({"status": "ok", "new_name": new_name})
     return JSONResponse({"status": "error", "message": "Directory rename failed"}, status_code=400)
 

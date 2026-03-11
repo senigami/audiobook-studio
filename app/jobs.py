@@ -271,9 +271,21 @@ def cleanup_and_reconcile():
                     update_queue_item(jid, "done", audio_length_seconds=audio_length)
                     # If this was a project job with a chapter_id, ensure the chapters table is synced
                     # even if the processing_queue entry was missing.
-                    if j.chapter_id:
+                    cid = j.chapter_id
+                    if not cid and j.project_id:
+                        # Fallback: find chapter by filename if missing from job metadata
+                        try:
+                            from .db import list_chapters
+                            chaps = list_chapters(j.project_id)
+                            for c in chaps:
+                                if c.get("id") and j.chapter_file.startswith(c["id"]):
+                                    cid = c["id"]
+                                    break
+                        except: pass
+
+                    if cid:
                         from .db import update_chapter
-                        update_chapter(j.chapter_id, audio_status='done', audio_file_path=output_file, audio_generated_at=time.time())
+                        update_chapter(cid, audio_status='done', audio_file_path=output_file, audio_generated_at=time.time())
                 except Exception as e:
                     print(f"Warning: Failed to forward-sync job {jid} to SQLite: {e}")
 

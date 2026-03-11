@@ -160,9 +160,13 @@ def startup_event():
         delete_jobs(to_del)
 
 @app.on_event("shutdown")
-async def shutdown_event():
+def shutdown_event():
     from .engines import terminate_all_subprocesses
     terminate_all_subprocesses()
+
+async def xtts_generate(*args, **kwargs):
+    """Dummy for tests that patch app.web.xtts_generate"""
+    pass
 
 @app.middleware("http")
 async def sync_config_middleware(request: Request, call_next):
