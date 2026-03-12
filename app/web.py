@@ -177,6 +177,12 @@ def startup_event():
     except Exception as e:
         print(f"Startup Warning: Database reconciliation failed: {e}")
 
+    # 3. Register job listener for WebSocket updates
+    from .state import add_job_listener
+    from .api.ws import broadcast_job_updated
+    add_job_listener(broadcast_job_updated)
+    print("Startup: Job listeners registered.")
+
 @app.on_event("shutdown")
 def shutdown_event():
     from .engines import terminate_all_subprocesses

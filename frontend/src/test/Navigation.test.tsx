@@ -51,20 +51,10 @@ describe('Navigation Regression', () => {
         });
 
         // Click the project card
-        // We need to find the element with the onClick, which is the motion.div in ProjectCard
-        // In the test, we'll try to find the text and click it.
         fireEvent.click(screen.getByText('Test Project'));
 
-        // Check if navigation happened. 
-        // Since we are inside MemoryRouter, we can't easily see the URL change 
-        // unless we render specific routes or use a hook.
-        // But App.tsx renders <ProjectView> at /project/:projectId.
-        // So we should see ProjectView content if navigation worked.
-        
+        // Check if navigation happened
         await waitFor(() => {
-            // ProjectView usually has a 'Chapters' heading or something similar
-            // Let's assume there's a back button or specific text.
-            // ProjectHeader has the title.
             const projectHeaders = screen.getAllByText('Test Project');
             expect(projectHeaders.length).toBeGreaterThan(0);
         });

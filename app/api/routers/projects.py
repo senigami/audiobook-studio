@@ -109,11 +109,6 @@ def api_list_project_audiobooks(project_id: str):
         for p in m4b_dir.glob("*.m4b"):
             m4b_files.append((p, f"/projects/{project_id}/m4b/{p.name}"))
 
-    if AUDIOBOOK_DIR.exists():
-        for p in AUDIOBOOK_DIR.glob("*.m4b"):
-            if p.name.startswith(project['name']):
-                m4b_files.append((p, f"/out/audiobook/{p.name}"))
-
     seen_paths = set()
     unique_files = []
     for p, url in m4b_files:
@@ -153,10 +148,7 @@ def api_list_project_audiobooks(project_id: str):
         for ext in [".jpg", ".png", ".jpeg", ".webp"]:
             target_img = p.with_suffix(ext)
             if target_img.exists() and target_img.stat().st_size > 0:
-                if "/out/audiobook/" in url:
-                    item["cover_url"] = f"/out/audiobook/{target_img.name}"
-                else:
-                    item["cover_url"] = url.replace(".m4b", ext)
+                item["cover_url"] = url.replace(".m4b", ext)
                 break
         res.append(item)
     return res
@@ -199,7 +191,8 @@ def assemble_project(project_id: str, chapter_ids: Optional[str] = Form(None)):
 
     book_title = project['name']
     timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
-    unique_filename = f"{book_title}_{timestamp}"
+    # Include project_id for better uniqueness and filtering
+    unique_filename = f"{book_title}_{project_id[:8]}_{timestamp}"
 
     jid = uuid.uuid4().hex[:12]
     cover_path = project.get('cover_image_path', None)
@@ -224,7 +217,7 @@ def assemble_project(project_id: str, chapter_ids: Optional[str] = Form(None)):
         cover_path=cover_path
     )
     put_job(j)
-    update_job(jid, force_broadcast=True, status="queued")
+    update_job(jid, force_broadcast=True, status="queued", project_id=project_id, custom_title=book_title)
     enqueue(j)
     return JSONResponse({"status": "ok", "job_id": jid})
 

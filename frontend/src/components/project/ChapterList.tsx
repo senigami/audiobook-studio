@@ -133,7 +133,12 @@ export const ChapterList: React.FC<ChapterListProps> = ({
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '1rem', flex: '2 1 0', minWidth: 0 }}>
                 {activeJob ? (
                     <div style={{ width: '100%', maxWidth: '600px' }}>
-                        <PredictiveProgressBar progress={activeJob.progress || 0} startedAt={activeJob.status === 'running' ? activeJob.started_at : undefined} label={activeJob.status} />
+                        <PredictiveProgressBar 
+                          progress={activeJob.progress || 0} 
+                          startedAt={activeJob.status === 'running' ? activeJob.started_at : undefined} 
+                          etaSeconds={activeJob.eta_seconds}
+                          label={activeJob.status} 
+                        />
                     </div>
                 ) : chap.audio_status === 'done' && (chap.has_wav || chap.has_mp3) && !isAssemblyMode ? (
                   <audio controls key={chap.id} style={{ height: '36px', width: '100%', maxWidth: '600px' }} onClick={e => e.stopPropagation()} preload="metadata">

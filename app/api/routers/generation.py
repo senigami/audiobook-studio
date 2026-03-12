@@ -74,7 +74,7 @@ def api_add_to_queue(
                     update_segments_status_bulk(s_ids, chapter_id, "processing")
 
             put_job(j)
-            update_job(qid, force_broadcast=True, status="queued")
+            update_job(qid, force_broadcast=True, status="queued", project_id=project_id, chapter_id=chapter_id, custom_title=title)
             enqueue(j)
             broadcast_queue_update()
 

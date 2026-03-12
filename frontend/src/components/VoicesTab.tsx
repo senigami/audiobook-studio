@@ -131,7 +131,7 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 method: 'POST'
             });
             const result = await resp.json();
-            if (result.status === 'success') {
+            if (result.status === 'ok') {
                 setTestText(result.test_text);
                 onRefresh();
             }

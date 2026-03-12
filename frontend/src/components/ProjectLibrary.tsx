@@ -96,7 +96,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
                                 padding: '0.85rem 2rem', 
                                 fontSize: '1rem', 
                             }}
-                            onClick={() => window.open('/docs', '_blank')}
+                            onClick={() => window.open('https://github.com/senigami/audiobook-studio/wiki/', '_blank')}
                         >
                             View Docs
                         </button>

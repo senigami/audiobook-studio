@@ -43,8 +43,15 @@ def broadcast_segments_updated(chapter_id: str):
 
 def broadcast_pause_state(paused: bool):
     manager.broadcast({
-        "type": "pause_state",
+        "type": "pause_updated",
         "paused": paused
+    })
+
+def broadcast_job_updated(job_id: str, updates: dict):
+    manager.broadcast({
+        "type": "job_updated",
+        "job_id": job_id,
+        "updates": updates
     })
 
 def broadcast_test_progress(name: str, progress: float, started_at: float = None):
