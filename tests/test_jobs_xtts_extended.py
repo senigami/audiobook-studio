@@ -35,11 +35,12 @@ def test_handle_xtts_job_bake(mock_job, tmp_path):
     # Also create the output wav so exists() returns true
     out_wav.write_text("output")
 
-    # Patch where the codes are USED (the xtts module namespace)
-    with patch("app.jobs.handlers.xtts.get_chapter_segments", return_value=segs, create=True), \
-         patch("app.jobs.handlers.xtts.update_segment", create=True) as mock_update_seg, \
-         patch("app.jobs.handlers.xtts.get_connection", create=True), \
-         patch("app.jobs.handlers.xtts.update_queue_item", create=True) as mock_update_queue, \
+    # Local imports in handle_xtts_job: patch the source (app.db)
+    # Module imports in xtts.py: patch the target module (app.jobs.handlers.xtts)
+    with patch("app.db.get_chapter_segments", return_value=segs), \
+         patch("app.db.update_segment") as mock_update_seg, \
+         patch("app.db.get_connection"), \
+         patch("app.db.update_queue_item") as mock_update_queue, \
          patch("app.jobs.handlers.xtts.xtts_generate_script", return_value=0) as mock_gen_script, \
          patch("app.jobs.handlers.xtts.stitch_segments", return_value=0) as mock_stitch, \
          patch("app.jobs.handlers.xtts.get_audio_duration", return_value=10.0) as mock_duration, \
@@ -74,9 +75,9 @@ def test_handle_xtts_job_segments(mock_job, tmp_path):
         {"id": "s1", "character_id": "c1", "text_content": "Text 1", "audio_status": "unprocessed"}
     ]
 
-    with patch("app.jobs.handlers.xtts.get_chapter_segments", return_value=all_segs, create=True), \
-         patch("app.jobs.handlers.xtts.update_segment", create=True) as mock_update_seg, \
-         patch("app.jobs.handlers.xtts.get_connection", create=True), \
+    with patch("app.db.get_chapter_segments", return_value=all_segs), \
+         patch("app.db.update_segment") as mock_update_seg, \
+         patch("app.db.get_connection"), \
          patch("app.jobs.handlers.xtts.xtts_generate_script", return_value=0) as mock_gen_script, \
          patch("app.jobs.handlers.xtts.update_job") as mock_update_job:
 
@@ -97,8 +98,8 @@ def test_handle_xtts_job_standard_with_mp3(mock_job, tmp_path):
     out_wav.write_text("wav")
     out_mp3.write_text("mp3")
 
-    with patch("app.jobs.handlers.xtts.get_connection", create=True), \
-         patch("app.jobs.handlers.xtts.update_segments_status_bulk", create=True), \
+    with patch("app.db.get_connection"), \
+         patch("app.db.update_segments_status_bulk"), \
          patch("app.jobs.handlers.xtts.xtts_generate", return_value=0), \
          patch("app.jobs.handlers.xtts.wav_to_mp3", return_value=0), \
          patch("app.jobs.handlers.xtts.update_job") as mock_update_job:
