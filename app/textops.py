@@ -50,7 +50,7 @@ from .config import SAFE_SPLIT_TARGET, SENT_CHAR_LIMIT
 # merges short sentences with ";" which naturally becomes a pause in the audio.
 
 CHAPTER_RE = re.compile(r"^(Chapter\s+(\d+)\s*:\s*.+)$", re.MULTILINE)
-SENT_SPLIT_RE = re.compile(r'(.+?(?:[.!?]["\'”’]*|[\n\r]))(\s+|$)', re.DOTALL)
+SENT_SPLIT_RE = re.compile(r'(.+?(?:[.!?]["\'”’]*(?=\s|$)|\n+))(\s*)', re.DOTALL)
 
 def normalize_newlines(text: str) -> str:
     """
@@ -67,8 +67,8 @@ def normalize_newlines(text: str) -> str:
     # First, handle 3 or more newlines as a deliberate pause
     text = re.sub(r'\n{3,}', ';\n', text)
 
-    # Then collapse remaining 2+ newlines to a single newline
-    text = re.sub(r'\n{2,}', '\n', text)
+    # Then ensure at least double newlines are preserved for paragraphs
+    text = re.sub(r'\n{2,}', '\n\n', text)
 
     return text.strip()
 
@@ -174,9 +174,12 @@ def split_sentences(text: str, preserve_gap: bool = False):
             s = m.group(0)
             yield s, m.start(0), m.end(0)
         else:
-            s = m.group(1).strip()
+            s = m.group(1)
+            # Strip leading space and trailing horizontal space, 
+            # but keep the newline if it's the paragraph marker for the frontend.
+            s = s.strip(" \t\r")
             if s:
-                yield s, m.start(1), m.end(1)
+                yield s, m.start(1), m.start(1) + len(s)
         last_end = m.end()
 
     remainder = text[last_end:]
