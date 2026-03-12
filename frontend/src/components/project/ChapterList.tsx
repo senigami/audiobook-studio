@@ -154,7 +154,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                       onOpenChange={open => setOpenMenuRowId(open ? chap.id : null)}
                       items={[
                         { label: isExporting === chap.id ? 'Generating...' : 'Export Video Sample', icon: isExporting === chap.id ? Loader2 : Video, disabled: chap.audio_status !== 'done' || isExporting !== null, onClick: () => onExportSample(chap) },
-                        ...(chap.audio_status === 'done' && chap.audio_file_path ? [{ label: 'Download Audio', icon: Download, onClick: () => { const link = document.createElement('a'); link.href = `/projects/${projectId}/audio/${chap.audio_file_path}`; link.download = `${chap.title}${chap.audio_file_path.substring(chap.audio_file_path.lastIndexOf('.'))}`; link.click(); } }] : []),
+                        ...(chap.audio_status === 'done' && chap.audio_file_path ? [{ label: 'Download Audio', icon: Download, onClick: () => { const path = chap.audio_file_path; if (!path) return; const link = document.createElement('a'); link.href = `/projects/${projectId}/audio/${path}`; link.download = `${chap.title}${path.substring(path.lastIndexOf('.'))}`; link.click(); } }] : []),
                         { isDivider: true },
                         { label: 'Reset Audio', icon: RefreshCw, onClick: () => onResetAudio(chap.id) },
                         { label: 'Delete Chapter', icon: Trash2, isDestructive: true, onClick: () => onDeleteChapter(chap.id) }

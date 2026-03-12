@@ -1,6 +1,6 @@
 import React from 'react';
 import { ArrowLeft, RefreshCw, Zap, CheckCircle, AlertTriangle } from 'lucide-react';
-import type { Chapter, Job, SpeakerProfile } from '../../types';
+import type { Chapter, Job } from '../../types';
 
 interface ChapterHeaderProps {
   chapter: Chapter;

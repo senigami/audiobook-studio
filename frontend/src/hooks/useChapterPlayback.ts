@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from 'react';
-import { api } from '../api';
 import type { ChapterSegment } from '../types';
 
 export function useChapterPlayback(

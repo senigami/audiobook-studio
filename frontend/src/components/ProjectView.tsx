@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Plus, Zap, ArrowUpDown, ChevronRight } from 'lucide-react';
+import { Plus, Zap, ArrowUpDown } from 'lucide-react';
 import { api } from '../api';
 import type { Project, Chapter, Job, Audiobook, SpeakerProfile } from '../types';
 

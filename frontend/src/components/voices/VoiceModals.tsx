@@ -1,5 +1,4 @@
 import React from 'react';
-import type { Speaker, SpeakerProfile } from '../../types';
 import { motion } from 'framer-motion';
 import { GlassInput } from '../GlassInput';
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, FileEdit, Sliders } from 'lucide-react';
+import { X, FileEdit } from 'lucide-react';
 
 // --- Drawer ---
 
