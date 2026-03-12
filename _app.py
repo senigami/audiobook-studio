@@ -14,6 +14,16 @@ from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse,
 from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, BaseLoader
 
+from app.utils.text_processing import (
+    split_sentences_with_spans,
+    approx_line_col,
+    make_context,
+    safe_split_long_sentences,
+    sanitize_for_xtts,
+    pack_text_to_limit
+)
+from app.dashboard_templates import INDEX_HTML, JOB_HTML
+
 # =======================
 # CONFIG (edit these once)
 # =======================
@@ -21,13 +31,10 @@ BASE_DIR = Path(__file__).parent.resolve()
 CHAPTER_DIR = BASE_DIR / "chapters_out"
 REPORTS_DIR = BASE_DIR / "reports"
 XTTS_OUT_DIR = BASE_DIR / "xtts_audio"
-XTTS_OUT_DIR = BASE_DIR / "xtts_audio"
 VOICES_DIR = BASE_DIR / "voices"
 
 NARRATOR_WAV = BASE_DIR / "narrator_clean.wav"  # your reference voice for XTTS
 XTTS_ENV_ACTIVATE = Path.home() / "xtts-env" / "bin" / "activate"  # your existing env
-# XTTS “sentence too long” safety
-
 # XTTS “sentence too long” safety
 SENT_CHAR_LIMIT = 250
 SAFE_SPLIT_TARGET = 200  # auto-split long sentences to be <= this when safe_mode enabled
@@ -89,15 +96,6 @@ def update_settings(**updates) -> None:
     state["settings"].update(updates)
     save_state(state)
 
-from app.utils.text_processing import (
-    split_sentences_with_spans,
-    approx_line_col,
-    make_context,
-    safe_split_long_sentences,
-    sanitize_for_xtts,
-    pack_text_to_limit
-)
-from app.dashboard_templates import INDEX_HTML, JOB_HTML
 
 # ----------------
 # Chapter handling
