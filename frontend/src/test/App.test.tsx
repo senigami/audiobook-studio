@@ -75,7 +75,7 @@ describe('App', () => {
     fireEvent.click(voicesTab)
 
     await waitFor(() => {
-        expect(screen.getByText(/Voices/i, { selector: 'h2' })).toBeTruthy()
+        expect(screen.getByText(/AI Voice Lab/i, { selector: 'h2' })).toBeTruthy()
     })
   })
 })
