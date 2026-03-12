@@ -71,3 +71,8 @@ These rules apply to all development activities in this repository.
 
 - **User Preference**: The user prefers to perform manual verification themselves to save tokens and maintain control over the verification process.
 - **No Browser Autonomy**: Do NOT open a browser or use browser subagents to verify UI/UX changes unless specifically requested by the user. Rely on the user's feedback after they have had a chance to test the changes locally.
+
+## 12. Code Modularization
+
+- **File Size Limit**: If a file exceeds 500 lines, it must be carefully refactored into smaller components, hooks, or utility modules to reduce complexity and improve maintainability.
+- **Structural Integrity**: When refactoring, ensure that logical boundaries are respected (e.g., extracting state into hooks, UI into sub-components) and that the split doesn't introduce circular dependencies.

@@ -1,134 +1,42 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Book, Plus, Clock, User, Image as ImageIcon, Loader2 } from 'lucide-react';
+import React from 'react';
+import { Plus, Book, ImageIcon, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { ActionMenu } from './ActionMenu';
+import { useProjectLibrary } from '../hooks/useProjectLibrary';
+import { ProjectCard } from './project/ProjectCard';
 import { ConfirmModal } from './ConfirmModal';
-import type { Project } from '../types';
-import { api } from '../api';
 
 interface ProjectLibraryProps {
     onSelectProject?: (projectId: string) => void;
 }
 
 export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject }) => {
-    const navigate = useNavigate();
-    const [projects, setProjects] = useState<Project[]>([]);
-    const [loading, setLoading] = useState(true);
-    
-    // Modal state
-    const [showModal, setShowModal] = useState(false);
-    const [title, setTitle] = useState('');
-    const [series, setSeries] = useState('');
-    const [author, setAuthor] = useState('');
-    const [coverFile, setCoverFile] = useState<File | null>(null);
-    const [coverPreview, setCoverPreview] = useState<string | null>(null);
-    const [hoveredProjectId, setHoveredProjectId] = useState<string | null>(null)
-    const [submitting, setSubmitting] = useState(false);
-    const [isDragging, setIsDragging] = useState(false);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-
-    // Delete Confirmation State
-    const [deleteModal, setDeleteModal] = useState<{
-        isOpen: boolean;
-        projectId: string | null;
-        projectName: string | null;
-    }>({
-        isOpen: false,
-        projectId: null,
-        projectName: null
-    });
-
-    const loadProjects = async () => {
-        try {
-            const data = await api.fetchProjects();
-            setProjects(data);
-        } catch (e) {
-            console.error("Failed to load projects", e);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        loadProjects();
-    }, []);
-
-    const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) handleFileSelection(file);
-    };
-
-    const handleFileSelection = (file: File) => {
-        setCoverFile(file);
-        const reader = new FileReader();
-        reader.onloadend = () => setCoverPreview(reader.result as string);
-        reader.readAsDataURL(file);
-    };
-
-    const handleDragOver = (e: React.DragEvent) => {
-        e.preventDefault();
-        setIsDragging(true);
-    };
-
-    const handleDragLeave = (e: React.DragEvent) => {
-        e.preventDefault();
-        setIsDragging(false);
-    };
-
-    const handleDrop = (e: React.DragEvent) => {
-        e.preventDefault();
-        setIsDragging(false);
-        const file = e.dataTransfer.files?.[0];
-        if (file && file.type.startsWith('image/')) {
-            handleFileSelection(file);
-        }
-    };
-
-    const handleCreateProject = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!title) return;
-        setSubmitting(true);
-        try {
-            const res = await api.createProject({ name: title, series, author, cover: coverFile || undefined });
-            if (res.status === 'success') {
-                setShowModal(false);
-                setTitle('');
-                setSeries('');
-                setAuthor('');
-                setCoverFile(null);
-                setCoverPreview(null);
-                loadProjects();
-                onSelectProject?.(res.project_id);
-                navigate(`/project/${res.project_id}`);
-            }
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setSubmitting(false);
-        }
-    };
-
-    const handleDeleteClick = (id: string, name: string) => {
-        setDeleteModal({
-            isOpen: true,
-            projectId: id,
-            projectName: name
-        });
-    };
-
-    const confirmDelete = async () => {
-        if (!deleteModal.projectId) return;
-        try {
-            await api.deleteProject(deleteModal.projectId);
-            loadProjects();
-        } catch (err) {
-            console.error("Delete failed", err);
-        } finally {
-            setDeleteModal({ isOpen: false, projectId: null, projectName: null });
-        }
-    };
-
+    const {
+        projects,
+        loading,
+        showModal,
+        setShowModal,
+        title,
+        setTitle,
+        series,
+        setSeries,
+        author,
+        setAuthor,
+        coverPreview,
+        submitting,
+        isDragging,
+        fileInputRef,
+        hoveredProjectId,
+        setHoveredProjectId,
+        deleteModal,
+        setDeleteModal,
+        handleCoverChange,
+        handleDragOver,
+        handleDragLeave,
+        handleDrop,
+        handleCreateProject,
+        handleDeleteClick,
+        confirmDelete
+    } = useProjectLibrary(onSelectProject);
 
     const formatDate = (timestamp: number) => {
         return new Date(timestamp * 1000).toLocaleDateString(undefined, {
@@ -223,7 +131,6 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
                                 zIndex: 1 
                             }} 
                         />
-                        {/* Status Tags / Decoration */}
                         <div style={{
                             position: 'absolute',
                             top: '10%',
@@ -262,7 +169,6 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
                 </div>
             </header>
 
-
             {projects.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '5rem', color: 'var(--text-muted)' }}>
                     <Book size={48} style={{ margin: '0 auto 1rem auto', opacity: 0.3 }} />
@@ -276,161 +182,15 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
                     gap: '1.5rem'
                 }}>
                     {projects.map(project => (
-                        <motion.div
+                        <ProjectCard
                             key={project.id}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            onMouseEnter={() => setHoveredProjectId(project.id)}
-                            onMouseLeave={() => setHoveredProjectId(null)}
-                            whileHover={{ y: -4, boxShadow: '0 12px 24px -10px rgba(0,0,0,0.15)' }}
-                            onClick={() => {
-                                onSelectProject?.(project.id);
-                                navigate(`/project/${project.id}`);
-                            }}
-                            style={{ 
-                                cursor: 'pointer',
-                                display: 'flex', 
-                                flexDirection: 'column',
-                                overflow: 'hidden',
-                                padding: 0,
-                                position: 'relative',
-                                background: 'var(--surface)',
-                                border: '1px solid var(--border)',
-                                borderRadius: 'var(--radius-card)',
-                                boxShadow: 'var(--shadow-sm)'
-                            }}
-                        >
-                            <div style={{ 
-                                aspectRatio: '2/3', 
-                                background: 'linear-gradient(135deg, var(--surface-alt) 0%, var(--surface) 100%)', 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                justifyContent: 'center',
-                                borderBottom: '1px solid var(--border)',
-                                position: 'relative',
-                                overflow: 'hidden'
-                            }}>
-                                {project.cover_image_path ? (
-                                    <>
-                                        {/* Background Layer (Blurred Bleed) */}
-                                        <img 
-                                            src={project.cover_image_path} 
-                                            alt="" 
-                                            style={{ 
-                                                position: 'absolute',
-                                                width: '120%', 
-                                                height: '120%', 
-                                                objectFit: 'cover',
-                                                filter: 'blur(15px) saturate(2) brightness(1.1) contrast(1.5)',
-                                                opacity: 0.22,
-                                                zIndex: 0
-                                            }} 
-                                        />
-                                        
-                                        {/* Glass Highlight Overlay */}
-                                        <div style={{
-                                            position: 'absolute',
-                                            inset: 0,
-                                            background: 'linear-gradient(to bottom, rgba(255,255,255,0.15) 0%, transparent 40%)',
-                                            zIndex: 1
-                                        }} />
- 
-                                        {/* Gradient Overlay for Vignette Effect */}
-                                        <div style={{
-                                            position: 'absolute',
-                                            inset: 0,
-                                            background: 'radial-gradient(circle at center, transparent 30%, rgba(0,0,0,0.1) 100%)',
-                                            zIndex: 2
-                                        }} />
- 
-                                        {/* Foreground Layer (Contain) */}
-                                        <div style={{
-                                            position: 'absolute',
-                                            inset: 0,
-                                            padding: '12px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            zIndex: 3
-                                        }}>
-                                            <img 
-                                                src={project.cover_image_path} 
-                                                alt={project.name} 
-                                                style={{ 
-                                                    maxWidth: '100%', 
-                                                    maxHeight: '100%', 
-                                                    objectFit: 'contain',
-                                                    filter: 'drop-shadow(0 12px 24px rgba(0,0,0,0.2))',
-                                                    borderRadius: '4px',
-                                                    border: '1px solid rgba(255,255,255,0.2)'
-                                                }} 
-                                            />
-                                        </div>
-                                    </>
-                                ) : (
-                                    <div style={{ 
-                                        width: '100%', 
-                                        height: '100%', 
-                                        display: 'flex', 
-                                        flexDirection: 'column',
-                                        alignItems: 'center', 
-                                        justifyContent: 'center',
-                                        gap: '12px',
-                                        background: 'linear-gradient(135deg, var(--as-info-tint) 0%, var(--surface) 100%)'
-                                    }}>
-                                        <div style={{
-                                            position: 'absolute',
-                                            inset: 0,
-                                            opacity: 0.08,
-                                            background: `repeating-linear-gradient(45deg, var(--accent) 0, var(--accent) 1px, transparent 0, transparent 4px)`,
-                                            backgroundSize: '8px 8px'
-                                        }} />
-                                        <Book size={48} color="var(--accent)" style={{ opacity: 0.25, position: 'relative', zIndex: 1 }} />
-                                        <div style={{ position: 'relative', zIndex: 1, fontSize: '0.7rem', color: 'var(--accent)', fontWeight: 700, opacity: 0.6, letterSpacing: '0.05em' }}>
-                                            ADD COVER
-                                        </div>
-                                    </div>
-                                )}
-                                
-                                <motion.div 
-                                    initial={{ opacity: 0, y: -20, scale: 0.9 }}
-                                    animate={{ 
-                                        opacity: hoveredProjectId === project.id ? 1 : 0,
-                                        y: hoveredProjectId === project.id ? 0 : -20,
-                                        scale: hoveredProjectId === project.id ? 1 : 0.9
-                                    }}
-                                    transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-                                    style={{ 
-                                        position: 'absolute', 
-                                        top: '12px', 
-                                        right: '12px', 
-                                        zIndex: 20,
-                                        pointerEvents: hoveredProjectId === project.id ? 'auto' : 'none'
-                                    }}
-                                >
-                                    <ActionMenu onDelete={() => handleDeleteClick(project.id, project.name)} />
-                                </motion.div>
-                            </div>
-                            <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '4px', background: 'var(--surface)', zIndex: 11 }}>
-                                <h3 style={{ fontSize: '1rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-primary)' }} title={project.name}>
-                                    {project.name}
-                                </h3>
-                                {project.author ? (
-                                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500 }}>
-                                        <User size={14} opacity={0.7} /> {project.author}
-                                    </p>
-                                ) : (
-                                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                        No author specified
-                                    </p>
-                                )}
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border)' }}>
-                                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500 }}>
-                                        <Clock size={14} opacity={0.7} /> {formatDate(project.updated_at)}
-                                    </p>
-                                </div>
-                            </div>
-                        </motion.div>
+                            project={project}
+                            isHovered={hoveredProjectId === project.id}
+                            onHover={setHoveredProjectId}
+                            onClick={(id) => onSelectProject?.(id)}
+                            onDelete={handleDeleteClick}
+                            formatDate={formatDate}
+                        />
                     ))}
                 </div>
             )}

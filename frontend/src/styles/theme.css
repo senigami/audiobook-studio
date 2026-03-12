@@ -1,0 +1,50 @@
+:root {
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --surface-alt: #f1f5f9;
+  --accent: #2b6eff;
+  --accent-secondary: #ff8a1f;
+  --accent-hover: #1d54da;
+  --accent-active: #1642b5;
+  --accent-glow: rgba(43, 110, 255, 0.1);
+  --success: #10b981;
+  --success-muted: #d1fae5;
+  --success-text: #065f46;
+  --error: #ef4444;
+  --error-text: #991b1b;
+  --warning: #f59e0b;
+  --warning-text: #92400e;
+  --glass-hover: rgba(0, 0, 0, 0.04);
+  --error-glow: rgba(239, 68, 68, 0.1);
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --border: #e6eaf2;
+  --glass: rgba(255, 255, 255, 0.8);
+  --glass-border: rgba(255, 255, 255, 0.5);
+  --surface-light: #f8fafc;
+  --background: var(--bg);
+  --text: var(--text-primary);
+  --header-height: 72px;
+
+  /* Unified Design Tokens */
+  --radius-button: 10px;
+  --radius-card: 12px;
+  --radius-panel: 16px;
+  --radius-round: 9999px;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg:
+    0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl:
+    0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+
+  /* Brand tokens */
+  --as-ink: #0f172a; /* sleek slate-dark */
+  --as-muted: #64748b; /* soft-slate */
+  --as-blue: #2b6eff; /* brand-blue */
+  --as-amber: #f97316; /* brand-orange */
+  --as-info-tint: #f0f7ff; /* very soft blue tint */
+}
