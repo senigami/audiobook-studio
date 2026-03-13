@@ -22,6 +22,21 @@ def create_chapter(project_id: str, title: str, text_content: Optional[str] = No
 
             return chapter_id
 
+def get_chapter_segments_counts(chapter_id: str) -> tuple[int, int]:
+    """Returns (done_count, total_count) for a chapter."""
+    with _db_lock:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT 
+                    (SELECT COUNT(*) FROM chapter_segments WHERE chapter_id = ? AND audio_status = 'done') as done_count,
+                    (SELECT COUNT(*) FROM chapter_segments WHERE chapter_id = ?) as total_count
+            """, (chapter_id, chapter_id))
+            row = cursor.fetchone()
+            if row:
+                return row['done_count'], row['total_count']
+            return 0, 0
+
 def get_chapter(chapter_id: str) -> Optional[Dict[str, Any]]:
     with _db_lock:
         with get_connection() as conn:

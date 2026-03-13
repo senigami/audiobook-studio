@@ -106,13 +106,27 @@ def worker_loop(q):
 
             initial_status = "running" if j.engine == "audiobook" else "preparing"
             initial_start = time.time()
-            update_job(jid, status=initial_status, started_at=initial_start, eta_seconds=eta, log="".join(header))
+
+            # Accurate Resumption: Initialize progress from DB if resuming
+            initial_progress = 0.0
+            if j.chapter_id:
+                try:
+                    from ..db.chapters import get_chapter_segments_counts
+                    done_c, total_c = get_chapter_segments_counts(j.chapter_id)
+                    if total_c > 0:
+                        initial_progress = round(done_c / total_c, 2)
+                except: pass
+
+            # ETA Fix: Adjust started_at to account for past work
+            adjusted_start = initial_start - (initial_progress * eta) if eta > 0 else initial_start
+
+            update_job(jid, status=initial_status, started_at=adjusted_start, eta_seconds=eta, log="".join(header), progress=initial_progress)
 
             j.status = initial_status
-            j.progress = 0.0
+            j.progress = initial_progress
             j.log = "".join(header)
-            j.started_at = initial_start
-            j._last_broadcast_p = 0.0
+            j.started_at = adjusted_start
+            j._last_broadcast_p = initial_progress
 
             if j.engine != "audiobook" and not (text_path.exists() or j.segment_ids or j.is_bake):
                 update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error=f"Chapter file not found: {j.chapter_file}")
@@ -123,7 +137,7 @@ def worker_loop(q):
                 continue
 
             logs = header.copy()
-            start = time.time()
+            start = adjusted_start
 
             def on_output(line):
                 s = line.strip()
@@ -145,9 +159,16 @@ def worker_loop(q):
 
                 if "[START_SYNTHESIS]" in s:
                     j.synthesis_started_at = now
-                    j.started_at = now
                     j.status = "running"
-                    update_job(jid, status="running", started_at=now, progress=0.01)
+                    # Preserve progress or use 0.01 as floor
+                    prog = max(j.progress, 0.01)
+                    j.progress = prog
+                    # Sync started_at to new synthesis start (or adjust for progress)
+                    # For XTTS, calculate_predicted_progress uses synthesis_started_at if available.
+                    # So we don't strictly NEED to adjust j.started_at here if synthesis_started_at is used.
+                    # But it's safer for other logic.
+                    j.started_at = now - (prog * eta) if eta > 0 else now
+                    update_job(jid, status="running", started_at=j.started_at, progress=prog)
                     on_output("Model prepared. Starting synthesis...\n")
                     return
                 # Filter noise

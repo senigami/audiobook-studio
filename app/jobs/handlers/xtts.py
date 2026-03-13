@@ -77,7 +77,13 @@ def handle_xtts_job(jid, j, start, logs, on_output, cancel_check, default_sw, sp
                         for s in group:
                             update_segment(s['id'], audio_status='done', audio_file_path=seg_filename, audio_generated_at=time.time())
                         groups_completed[0] += 1
-                        prog = (groups_completed[0] / len(missing_groups)) * 0.9
+                        try:
+                            from ...db.chapters import get_chapter_segments_counts
+                            done_at_end, total_c = get_chapter_segments_counts(j.chapter_id)
+                            # Partial progress: done_at_end / total_c * 0.9 (since stitching is next)
+                            prog = (done_at_end / total_c) * 0.9 if total_c > 0 else (groups_completed[0] / len(missing_groups)) * 0.9
+                        except:
+                            prog = (groups_completed[0] / len(missing_groups)) * 0.9
                         update_job(jid, progress=prog)
 
             try:
@@ -165,7 +171,13 @@ def handle_xtts_job(jid, j, start, logs, on_output, cancel_check, default_sw, sp
                     for s in group:
                         update_segment(s['id'], broadcast=True, audio_status='done', audio_file_path=seg_filename, audio_generated_at=time.time())
                     groups_completed[0] += 1
-                    update_job(jid, progress=(groups_completed[0] / len(gen_groups)))
+                    try:
+                        from ...db.chapters import get_chapter_segments_counts
+                        done_at_end, total_c = get_chapter_segments_counts(j.chapter_id)
+                        prog = (done_at_end / total_c) if total_c > 0 else (groups_completed[0] / len(gen_groups))
+                    except:
+                        prog = (groups_completed[0] / len(gen_groups))
+                    update_job(jid, progress=prog)
 
         try:
             xtts_generate_script(script_json_path=script_path, out_wav=pdir / f"output_{j.id}.wav", on_output=gen_on_output, cancel_check=cancel_check, speed=speed)
@@ -174,12 +186,19 @@ def handle_xtts_job(jid, j, start, logs, on_output, cancel_check, default_sw, sp
             scratch = pdir / f"output_{j.id}.wav"
             if scratch.exists(): scratch.unlink()
 
-        if j.chapter_id:
             try:
                 from ...api.ws import broadcast_segments_updated
                 broadcast_segments_updated(j.chapter_id)
             except: pass
-        update_job(jid, status="done", progress=1.0, finished_at=time.time())
+
+        # Accurate Resumption: Update progress based on total segments
+        try:
+            from ...db.chapters import get_chapter_segments_counts
+            done_c, total_c = get_chapter_segments_counts(j.chapter_id)
+            final_p = round(done_c / total_c, 2) if total_c > 0 else 1.0
+            update_job(jid, status="done", progress=final_p, finished_at=time.time())
+        except:
+            update_job(jid, status="done", progress=1.0, finished_at=time.time())
         return
 
     else:
