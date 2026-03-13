@@ -88,6 +88,7 @@ def api_bake_chapter(chapter_id: str):
     j = Job(
         id=jid,
         chapter_id=chapter_id,
+        chapter_file="", # Required by model
         engine="bake",
         status="queued",
         created_at=time.time(),
