@@ -192,7 +192,9 @@ def safe_split_long_sentences(text: str, target: int = SAFE_SPLIT_TARGET) -> str
     def split_one(s: str) -> List[str]:
         if len(s) <= target:
             return [s]
-        seps = ["; ", " - ", ", ", ": ", " and ", " but ", " so ", " because "]
+        seps = [
+            "; ", " - ", ", ", ": ", " and ", " but ", " so ", " because "
+        ]
         for sep in seps:
             if sep in s:
                 parts = s.split(sep)
@@ -369,7 +371,8 @@ def consolidate_single_word_sentences(text: str) -> str:
         current_line_idx = curr['line_idx']
 
         # Greedy merge forward until we hit the safety threshold (4 words)
-        while count_words(current_text) < 4 and i < len(all_sentences_with_meta) - 1:
+        while (count_words(current_text) < 4 and
+               i < len(all_sentences_with_meta) - 1):
             i += 1
             next_sent = all_sentences_with_meta[i]
             # Use single semicolon for all merges now
@@ -422,35 +425,44 @@ def consolidate_single_word_sentences(text: str) -> str:
 
     return "\n".join(final_output)
 
+
 def sanitize_for_xtts(text: str) -> str:
     """
     Advanced sanitization specifically tuned for Coqui XTTS v2.
     It builds on the base cleaning plus specific hallucination prevention.
     """
-    # 1. Perform base TTS cleaning (includes bracket stripping and consolidation)
+    """
+    # 1. Perform base TTS cleaning
+    # (includes bracket stripping and consolidation)
     text = clean_text_for_tts(text)
 
     # Preserve newlines but normalize other whitespace
     text = text.replace("\r", " ").replace("\t", " ")
 
-    # 2. Remove any remaining non-ASCII characters that might cause hallucinations
+    # 2. Remove any remaining non-ASCII characters
+    # that might cause hallucinations
     text = re.sub(r'[^\x00-\x7F\n]+', '', text)
     # Collapse multiple horizontal spaces and trim
     text = re.sub(r'[ \t]+', ' ', text).strip()
     # Normalize multiple newlines to maximum of 1
     text = re.sub(r'\n{2,}', '\n', text)
 
-    # 3. Ensure terminal punctuation (XTTS v2 can fail on short strings without it)
+    # 3. Ensure terminal punctuation
+    # (XTTS v2 can fail on short strings without it)
     if text and not re.search(r'[.!?]["\')\]\s]*$', text):
         text += "."
 
     return text
 
-def pack_text_to_limit(text: str, limit: int = SENT_CHAR_LIMIT, pad: bool = False) -> str:
+
+def pack_text_to_limit(
+    text: str, limit: int = SENT_CHAR_LIMIT, pad: bool = False
+) -> str:
     """
-    Greedily packs sentences into larger chunks as close to the limit as possible.
-    This gives XTTS the maximum context and prevents choppiness from short lines.
-    If pad is True, each chunk is padded with spaces up to the limit.
+    Greedily packs sentences into larger chunks as close to the limit
+    as possible. This gives XTTS the maximum context and prevents
+    choppiness from short lines. If pad is True, each chunk is padded
+    with spaces up to the limit.
     """
     if not text:
         return ""
@@ -461,12 +473,13 @@ def pack_text_to_limit(text: str, limit: int = SENT_CHAR_LIMIT, pad: bool = Fals
     current_chunk = ""
 
     for line in raw_lines:
-        line_content = line.strip()
-        # If it's an empty line (paragraph break), we treat it as part of the previous or next chunk
-        # But we must ensure it doesn't break the chunking greedy logic too much.
+        # If it's an empty line (paragraph break),
+        # we treat it as part of the previous or next chunk
+        # But we must ensure it doesn't break the chunking greedy logic.
         separator = "\n" if current_chunk else ""
 
-        if current_chunk and len(current_chunk) + len(separator) + len(line_content) <= limit:
+        if (current_chunk and
+            len(current_chunk) + len(separator) + len(line_content) <= limit):
             current_chunk += separator + line_content
         elif not current_chunk and len(line_content) <= limit:
             current_chunk = line_content
@@ -483,6 +496,7 @@ def pack_text_to_limit(text: str, limit: int = SENT_CHAR_LIMIT, pad: bool = Fals
         packed.append(current_chunk)
 
     return '\n'.join(packed)
+
 
 def get_text_stats(text: str) -> dict:
     """Centralized stats for analysis and DB."""
@@ -505,6 +519,7 @@ def get_text_stats(text: str) -> dict:
         "formatted_duration": format_duration(pred_seconds)
     }
 
+
 def format_duration(seconds: int) -> str:
     """Formats seconds into readable string (e.g. 1h 2m or 2m 5s or 45s)."""
     if seconds < 60:
@@ -514,6 +529,7 @@ def format_duration(seconds: int) -> str:
         return f"{minutes}m {seconds % 60}s"
     hours = minutes // 60
     return f"{hours}h {minutes % 60}m"
+
 
 def compute_chapter_metrics(text: str) -> dict:
     """Legacy wrapper for DB updates, now uses centralized helper."""

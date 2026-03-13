@@ -5,9 +5,10 @@ from fastapi.responses import JSONResponse, FileResponse
 from ...config import CHAPTER_DIR, REPORT_DIR, SENT_CHAR_LIMIT, BASELINE_XTTS_CPS
 from ...db import get_chapter, get_chapter_segments, get_characters
 from ...textops import (
-    find_long_sentences, clean_text_for_tts, safe_split_long_sentences, 
+    find_long_sentences, clean_text_for_tts, safe_split_long_sentences,
     pack_text_to_limit, sanitize_for_xtts, get_text_stats, format_duration
 )
+
 
 router = APIRouter(prefix="/api", tags=["analysis"])
 
@@ -95,8 +96,12 @@ async def api_analyze_chapter(chapter_id: str):
         "raw_long_sentences": len(raw_hits),
         "auto_fixed": auto_fixed,
         "uncleanable": uncleanable,
-        "uncleanable_sentences": [{"length": clen, "text": s} for idx, clen, start, end, s in cleaned_hits]
+        "uncleanable_sentences": [
+            {"length": clen, "text": s}
+            for idx, clen, start, end, s in cleaned_hits
+        ]
     })
+
 
 class AnalyzeTextRequest(BaseModel):
     text_content: str
@@ -124,16 +129,23 @@ async def api_analyze_text(req: AnalyzeTextRequest):
         "raw_long_sentences": len(raw_hits),
         "auto_fixed": auto_fixed,
         "uncleanable": uncleanable,
-        "uncleanable_sentences": [{"length": clen, "text": s} for idx, clen, start, end, s in cleaned_hits],
+        "uncleanable_sentences": [
+            {"length": clen, "text": s}
+            for idx, clen, start, end, s in cleaned_hits
+        ],
         "threshold": SENT_CHAR_LIMIT,
         "safe_text": packed_text,
         "split_sentences": split_text.split('\n')
     })
 
+
 def _run_analysis(chapter_file: str):
     p = CHAPTER_DIR / chapter_file
     if not p.exists():
-        raise HTTPException(status_code=404, detail=f"Chapter file '{chapter_file}' not found.")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Chapter file '{chapter_file}' not found."
+        )
     text = p.read_text(encoding="utf-8", errors="replace")
     stats = get_text_stats(text)
     raw_hits = find_long_sentences(text)
@@ -151,7 +163,8 @@ def _run_analysis(chapter_file: str):
         f"Character Count   : {stats['char_count']:,}",
         f"Word Count        : {stats['word_count']:,}",
         f"Sentence Count    : {stats['sent_count']:,} (approx)",
-        f"Predicted Time    : {stats['formatted_duration']} (@ {BASELINE_XTTS_CPS} cps)",
+        f"Predicted Time    : {stats['formatted_duration']} "
+        f"(@ {BASELINE_XTTS_CPS} cps)",
     ]
     if len(raw_hits) > 0:
         lines.extend([
@@ -175,6 +188,7 @@ def _run_analysis(chapter_file: str):
     report_text = "\n".join(lines)
     report_path.write_text(report_text, encoding="utf-8")
     return report_path, report_text
+
 
 @router.get("/report/{name}")
 def report(name: str):
