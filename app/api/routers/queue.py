@@ -52,6 +52,8 @@ def api_clear_history():
 @router.post("/processing_queue/reorder")
 def api_reorder_queue_route(queue_ids: List[str]):
     reorder_queue(queue_ids)
+    from ...jobs import sync_memory_queue
+    sync_memory_queue()
     return JSONResponse({"status": "ok"})
 
 @router.delete("/processing_queue/{queue_id}")

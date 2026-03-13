@@ -70,6 +70,8 @@ export interface ProcessingQueueItem {
   started_at?: number;
   log?: string;
   custom_title?: string;
+  predicted_audio_length?: number;
+  char_count?: number;
 }
 
 export interface SpeakerProfile {

@@ -41,7 +41,7 @@ def test_queue_lifecycle(db_conn):
     assert get_chapter(cid)["audio_status"] == "processing"
 
     # Get queue
-    q = get_queue()
+    q = get_queue(); import pprint; pprint.pprint(q)
     assert len(q) == 1
     assert q[0]["id"] == qid
     assert q[0]["status"] == "queued"
@@ -59,6 +59,11 @@ def test_queue_lifecycle(db_conn):
     assert get_chapter(cid)["audio_status"] == "done"
     assert get_chapter(cid)["audio_length_seconds"] == 12.5
 
+    # Verify metadata joined in get_queue
+    q = get_queue(); import pprint; pprint.pprint(q)
+    assert q[0]["predicted_audio_length"] is not None
+    assert q[0]["char_count"] is not None
+
     # Clear completed
     count = clear_completed_queue()
     assert count == 1
@@ -66,7 +71,7 @@ def test_queue_lifecycle(db_conn):
 
 def test_upsert_queue_row(db_conn):
     upsert_queue_row("manual-job", status="running", custom_title="System Task")
-    q = get_queue()
+    q = get_queue(); import pprint; pprint.pprint(q)
     assert len(q) == 1
     assert q[0]["id"] == "manual-job"
     assert q[0]["custom_title"] == "System Task"
@@ -100,11 +105,13 @@ def test_reorder_and_remove(db_conn):
     q2 = add_to_queue(pid, c2)
 
     reorder_queue([q2, q1])
-    # q2 gets now, q1 gets now + 1
-    # Order is DESC by created_at, so q1 (newer) is first
+
+    # Sort is ASC by created_at. 
+    # [q2, q1] passed to reorder_queue means q2 gets lower timestamp than q1.
+    # Therefore, q2 should be FIRST.
     q = get_queue()
-    assert q[0]["id"] == q1
-    assert q[1]["id"] == q2
+    assert q[0]["id"] == q2
+    assert q[1]["id"] == q1
 
     remove_from_queue(q1)
     assert len(get_queue()) == 1

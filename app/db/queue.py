@@ -49,13 +49,16 @@ def get_queue() -> List[Dict[str, Any]]:
             cursor = conn.cursor()
             # Return active jobs sorted by created_at, then history items
             cursor.execute("""
-                SELECT q.*, p.name as project_name, c.title as chapter_title
+                SELECT q.*, p.name as project_name, c.title as chapter_title, 
+                       c.predicted_audio_length, c.char_count
                 FROM processing_queue q
                 LEFT JOIN projects p ON q.project_id = p.id
                 LEFT JOIN chapters c ON q.chapter_id = c.id
                 ORDER BY 
-                   CASE WHEN status IN ('queued', 'running', 'preparing') THEN 0 ELSE 1 END,
-                   created_at DESC
+                   CASE WHEN q.status IN ('queued', 'running', 'preparing', 'finalizing') THEN 0 ELSE 1 END,
+                   CASE WHEN q.status IN ('queued', 'running', 'preparing', 'finalizing') THEN q.created_at END ASC,
+                   q.completed_at DESC,
+                   q.created_at DESC
             """)
             return [dict(row) for row in cursor.fetchall()]
 
@@ -149,16 +152,12 @@ def reorder_queue(queue_ids: List[str]) -> bool:
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("BEGIN TRANSACTION")
-            try:
-                now = time.time()
-                for idx, qid in enumerate(queue_ids):
-                    cursor.execute("UPDATE processing_queue SET created_at = ? WHERE id = ?", (now + idx, qid))
-                conn.commit()
-                return True
-            except:
-                conn.rollback()
-                return False
+            # SQLite driver implicit transactions conflict with BEGIN
+            now = time.time()
+            for idx, qid in enumerate(queue_ids):
+                cursor.execute("UPDATE processing_queue SET created_at = ? WHERE id = ?", (now + idx, qid))
+            conn.commit()
+            return True
 
 def clear_completed_queue() -> int:
     """Deletes all 'done' and 'cancelled' items from the processing queue."""

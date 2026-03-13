@@ -59,7 +59,52 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({ paused = false, jobs =
                     <h2 style={{ fontSize: '1.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <Layers size={24} strokeWidth={2} color="var(--accent)" /> Global Processing Queue
                     </h2>
-                    <p style={{ color: 'var(--text-muted)' }}>Manage your batch audio generation tasks</p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px' }}>
+                        <p style={{ color: 'var(--text-muted)', margin: 0 }}>Manage your batch audio generation tasks</p>
+                        {queue.filter(q => ['queued', 'preparing', 'running', 'finalizing'].includes(q.status)).length > 0 && (
+                            <>
+                                <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--border)' }} />
+                                <div style={{ 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    gap: '6px', 
+                                    color: 'var(--accent)', 
+                                    fontSize: '0.85rem', 
+                                    fontWeight: 600,
+                                    background: 'var(--accent-tint)',
+                                    padding: '2px 10px',
+                                    borderRadius: '12px'
+                                }}>
+                                    <Clock size={14} />
+                                    <span>
+                                        Approx. {(() => {
+                                            const active = queue.filter(q => ['queued', 'preparing', 'running', 'finalizing'].includes(q.status));
+                                            let totalSeconds = 0;
+                                            active.forEach(q => {
+                                                const liveJob = Object.values(jobs).find(j => j.id === q.id);
+                                                if (liveJob && liveJob.status !== 'queued') {
+                                                    // Use live ETA if available, otherwise progress-based estimate
+                                                    if (liveJob.eta_seconds) {
+                                                        totalSeconds += liveJob.eta_seconds;
+                                                    } else {
+                                                        const p = liveJob.progress || 0;
+                                                        const pred = q.predicted_audio_length || ((q.char_count || 0) / 16.7);
+                                                        if (pred > 0) {
+                                                            totalSeconds += pred * (1 - p);
+                                                        }
+                                                    }
+                                                } else {
+                                                    // Queued items use full predicted length
+                                                    totalSeconds += q.predicted_audio_length || ((q.char_count || 0) / 16.7);
+                                                }
+                                            });
+                                            return Math.ceil(totalSeconds / 60);
+                                        })()} minutes remaining
+                                    </span>
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </div>
                 <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                     <button

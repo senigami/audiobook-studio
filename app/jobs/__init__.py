@@ -53,6 +53,24 @@ def clear_job_queue():
                 q.task_done()
             except: break
 
+def sync_memory_queue():
+    """
+    Synchronizes the in-memory job_queue and assembly_queue with the DB's current 
+    queued items. Useful after reordering.
+    """
+    clear_job_queue()
+    from ..db import get_queue
+    # Get all queued items from DB (they are sorted by created_at DESC)
+    db_queue = [item for item in get_queue() if item['status'] == 'queued']
+    # Refill the FIFO queue in order of priority (first in list = first out)
+    for item in db_queue:
+        jid = item['id']
+        engine = item.get('engine')
+        if engine == "audiobook": 
+            assembly_queue.put(jid)
+        else: 
+            job_queue.put(jid)
+
 def start_workers():
     threading.Thread(target=worker_loop, args=(job_queue,), name="SynthesisWorker", daemon=True).start()
     threading.Thread(target=worker_loop, args=(assembly_queue,), name="AssemblyWorker", daemon=True).start()

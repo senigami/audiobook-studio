@@ -117,7 +117,7 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
                                             duration: 1.5,
                                             repeat: Infinity,
                                             ease: "easeInOut"
-                                        } : { duration: 1, ease: "linear" }}
+                                        } : { duration: 2, ease: "easeInOut" }}
                                         style={{ 
                                             height: '100%', 
                                             background: 'var(--accent)',

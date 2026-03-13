@@ -13,6 +13,12 @@ All notable changes to this project will be documented in this file.
 - **Robust Analysis**: Integrated `sanitize_for_xtts` directly into the analysis pipeline to ensure "What You See Is What You Get" metrics for audiobook generation.
 - **Structured Response Models**: Implemented Pydantic models for all major routes to provide a strict and documented API contract.
 
+### New Features & Fixes
+- **Global Queue ETA**: Added an "Approx. X minutes remaining" badge to the processing queue header that tracks cumulative work across all active and queued tasks.
+- **Reliable Queue Reordering**: Fixed a timestamp inversion bug and implemented in-memory synchronization, ensuring the background worker strictly follows the UI priority.
+- **Enhanced Progress Visuals**: Smoothed progress transitions to 2s ease-in-out for a more fluid and premium interface experience.
+- **Locked-in Test Suite**: Added 11 regression tests covering ETA calculations, database joins, and in-memory queue synchronization logic.
+
 ### Security
 - **Path Sanitization**: Implemented robust path traversal protection using `Path.resolve()` and `is_relative_to()` to prevent unauthorized file access.
 - **Input Hardening**: Added stricter validation for text inputs and chapter file paths to prevent resource exhaustion.

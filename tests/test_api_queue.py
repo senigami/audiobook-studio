@@ -43,7 +43,10 @@ def test_list_and_add_to_queue(clean_db, tmp_path):
     # List - In queue.py, GET /api/processing_queue
     response = client.get("/api/processing_queue")
     assert response.status_code == 200
-    assert len(response.json()) == 1
+    data = response.json()
+    assert len(data) == 1
+    assert "predicted_audio_length" in data[0]
+    assert "char_count" in data[0]
 
 def test_queue_item_manipulation(clean_db):
     from app.db.projects import create_project

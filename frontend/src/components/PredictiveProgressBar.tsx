@@ -101,7 +101,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                         height: '100%',
                         width: `${localProgress * 100}%`,
                         background: 'var(--accent)',
-                        transition: 'width 0.5s linear'
+                        transition: 'width 1s easeOut'
                     }}
                 />
             </div>
