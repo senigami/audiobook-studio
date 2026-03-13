@@ -7,7 +7,7 @@ import anyio
 import logging
 from pathlib import Path
 from typing import Optional, List, Any
-from fastapi import APIRouter, Form, UploadFile, File, Request, Depends
+from fastapi import APIRouter, Form, UploadFile, File, Request, Depends, HTTPException
 from fastapi.responses import JSONResponse, FileResponse
 from ... import config
 from ...state import get_settings, update_settings, get_jobs, put_job, update_job
