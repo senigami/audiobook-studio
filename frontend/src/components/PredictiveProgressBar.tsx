@@ -41,10 +41,13 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         // ETA seconds or startedAt would be undefined.
         // It should drop into the if block above.
         const currentProgress = Math.max(progress, timeProgress);
-
-        const blend = Math.min(1.0, currentProgress / 0.25);
+        
+        // Use a 5% threshold before relying on actual job rate math to avoid noise/spikes
         const estimatedRemaining = Math.max(0, etaSeconds - elapsed);
-        const actualRemaining = (currentProgress > 0.01) ? (elapsed / currentProgress) - elapsed : estimatedRemaining;
+        const actualRemaining = (currentProgress > 0.05) ? (elapsed / currentProgress) - elapsed : estimatedRemaining;
+        
+        // Blend between estimated (stable) and actual (real) over the first 30% of the job
+        const blend = Math.min(1.0, currentProgress / 0.3);
         const refinedRemaining = (estimatedRemaining * (1 - blend)) + (actualRemaining * blend);
 
         return {
@@ -59,7 +62,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         if (calculatedRemaining === null) {
             setDisplayedRemaining(null);
         } else {
-            if (displayedRemaining === null || Math.abs(displayedRemaining - calculatedRemaining) > 1) {
+            if (displayedRemaining === null || Math.abs(displayedRemaining - calculatedRemaining) > 5) {
                 setDisplayedRemaining(calculatedRemaining);
             } else if (displayedRemaining > 0) {
                 setDisplayedRemaining(displayedRemaining - 1);

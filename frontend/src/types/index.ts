@@ -117,6 +117,8 @@ export interface Job {
   output_wav?: string | null;
   output_mp3?: string | null;
   speaker_profile?: string | null;
+  active_segment_id?: string | null;
+  active_segment_progress?: number;
 }
 
 export interface Settings {

@@ -60,7 +60,7 @@ def handle_xtts_job(jid, j, start, logs, on_output, cancel_check, default_sw, sp
                 sid = group[0]['id']
                 seg_out = pdir / f"seg_{sid}.wav"
                 save_path_str = str(seg_out.absolute())
-                full_script.append({"text": combined_text, "speaker_wav": sw, "save_path": save_path_str})
+                full_script.append({"text": combined_text, "speaker_wav": sw, "save_path": save_path_str, "id": group[0]['id']})
                 path_to_group[save_path_str] = group
 
             script_path = pdir / f"bake_{j.id}_script.json"
@@ -84,7 +84,7 @@ def handle_xtts_job(jid, j, start, logs, on_output, cancel_check, default_sw, sp
                             prog = (done_at_end / total_c) * 0.9 if total_c > 0 else (groups_completed[0] / len(missing_groups)) * 0.9
                         except:
                             prog = (groups_completed[0] / len(missing_groups)) * 0.9
-                        update_job(jid, progress=prog)
+                        update_job(jid, progress=prog, active_segment_id=None, active_segment_progress=0.0)
 
             try:
                 xtts_generate_script(script_json_path=script_path, out_wav=out_wav, on_output=bake_on_output, cancel_check=cancel_check, speed=speed)
@@ -155,7 +155,7 @@ def handle_xtts_job(jid, j, start, logs, on_output, cancel_check, default_sw, sp
             first_sid = group[0]['id']
             seg_out = pdir / f"seg_{first_sid}.wav"
             save_path_str = str(seg_out.absolute())
-            full_script.append({"text": combined_text, "speaker_wav": sw, "save_path": save_path_str})
+            full_script.append({"text": combined_text, "speaker_wav": sw, "save_path": save_path_str, "id": group[0]['id']})
             path_to_group[save_path_str] = group
 
         script_path = pdir / f"gen_{j.id}_script.json"
@@ -177,7 +177,7 @@ def handle_xtts_job(jid, j, start, logs, on_output, cancel_check, default_sw, sp
                         prog = (done_at_end / total_c) if total_c > 0 else (groups_completed[0] / len(gen_groups))
                     except:
                         prog = (groups_completed[0] / len(gen_groups))
-                    update_job(jid, progress=prog)
+                    update_job(jid, progress=prog, active_segment_id=None, active_segment_progress=0.0)
 
         try:
             xtts_generate_script(script_json_path=script_path, out_wav=pdir / f"output_{j.id}.wav", on_output=gen_on_output, cancel_check=cancel_check, speed=speed)
@@ -208,7 +208,7 @@ def handle_xtts_job(jid, j, start, logs, on_output, cancel_check, default_sw, sp
             with get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
-                    SELECT s.text_content, s.character_id, c.speaker_profile_name
+                    SELECT s.text_content, s.character_id, s.id, c.speaker_profile_name
                     FROM chapter_segments s
                     LEFT JOIN characters c ON s.character_id = c.id
                     WHERE s.chapter_id = ?
@@ -220,6 +220,7 @@ def handle_xtts_job(jid, j, start, logs, on_output, cancel_check, default_sw, sp
 
         if has_custom:
             script = []
+            current_id = None
             current_sw = None
             current_text = ""
             for s in segments_data:
@@ -233,15 +234,16 @@ def handle_xtts_job(jid, j, start, logs, on_output, cancel_check, default_sw, sp
                         if j.safe_mode:
                             processed = sanitize_for_xtts(processed)
                             processed = safe_split_long_sentences(processed, target=SENT_CHAR_LIMIT)
-                        script.append({"text": processed, "speaker_wav": current_sw})
+                        script.append({"text": processed, "speaker_wav": current_sw, "id": current_id})
                     current_sw = sw
+                    current_id = s['id']
                     current_text = s['text_content'].strip()
             if current_sw is not None:
                 processed = current_text.strip()
                 if j.safe_mode:
                     processed = sanitize_for_xtts(processed)
                     processed = safe_split_long_sentences(processed, target=SENT_CHAR_LIMIT)
-                script.append({"text": processed, "speaker_wav": current_sw})
+                script.append({"text": processed, "speaker_wav": current_sw, "id": current_id})
 
             script_path = pdir / f"{j.id}_script.json"
             script_path.write_text(json.dumps(script), encoding="utf-8")
@@ -250,7 +252,15 @@ def handle_xtts_job(jid, j, start, logs, on_output, cancel_check, default_sw, sp
             finally:
                 if script_path.exists(): script_path.unlink()
         else:
-            rc = xtts_generate(text=text, out_wav=out_wav, safe_mode=j.safe_mode, on_output=on_output, cancel_check=cancel_check, speaker_wav=default_sw, speed=speed)
+            if j.chapter_id:
+                script_path = pdir / f"{j.id}_chapter_script.json"
+                script_path.write_text(json.dumps([{"text": text, "speaker_wav": default_sw}]), encoding="utf-8")
+                try:
+                    rc = xtts_generate_script(script_json_path=script_path, out_wav=out_wav, on_output=on_output, cancel_check=cancel_check, speed=speed)
+                finally:
+                    if script_path.exists(): script_path.unlink()
+            else:
+                rc = xtts_generate(text=text, out_wav=out_wav, safe_mode=j.safe_mode, on_output=on_output, cancel_check=cancel_check, speaker_wav=default_sw, speed=speed)
 
     if cancel_check():
         update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
@@ -269,7 +279,7 @@ def handle_xtts_job(jid, j, start, logs, on_output, cancel_check, default_sw, sp
                 with get_connection() as conn:
                     cursor = conn.cursor()
                     cursor.execute("SELECT id FROM chapter_segments WHERE chapter_id = ?", (j.chapter_id,))
-                    sids = [r[0] for r in cursor.fetchall()]
+                    sids = [r['id'] for r in cursor.fetchall()]
                     update_segments_status_bulk(sids, j.chapter_id, "done")
             update_job(jid, status="done", finished_at=time.time(), progress=1.0, output_wav=out_wav.name, output_mp3=out_mp3.name)
         else:
@@ -277,7 +287,7 @@ def handle_xtts_job(jid, j, start, logs, on_output, cancel_check, default_sw, sp
                 with get_connection() as conn:
                     cursor = conn.cursor()
                     cursor.execute("SELECT id FROM chapter_segments WHERE chapter_id = ?", (j.chapter_id,))
-                    sids = [r[0] for r in cursor.fetchall()]
+                    sids = [r['id'] for r in cursor.fetchall()]
                     update_segments_status_bulk(sids, j.chapter_id, "done")
             update_job(jid, status="done", finished_at=time.time(), progress=1.0, output_wav=out_wav.name, error="MP3 conversion failed (using WAV fallback)")
     else:
@@ -285,6 +295,6 @@ def handle_xtts_job(jid, j, start, logs, on_output, cancel_check, default_sw, sp
             with get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("SELECT id FROM chapter_segments WHERE chapter_id = ?", (j.chapter_id,))
-                sids = [r[0] for r in cursor.fetchall()]
+                sids = [r['id'] for r in cursor.fetchall()]
                 update_segments_status_bulk(sids, j.chapter_id, "done")
         update_job(jid, status="done", finished_at=time.time(), progress=1.0, output_wav=out_wav.name)

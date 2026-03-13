@@ -48,13 +48,13 @@ def calculate_predicted_progress(job, now: float, start_time: float, eta: int, l
     if getattr(job, 'status', None) == 'finalizing':
         return current_p
 
-    # If synthesis hasn't started yet, cap progress (Preparing)
-    synthesis_started = getattr(job, 'synthesis_started_at', None)
+    # Use the provided start_time (which is already adjusted for resumption/progress in the worker)
+    actual_elapsed = now - start_time
+    predicted = actual_elapsed / max(1, eta)
 
-    if not synthesis_started and getattr(job, 'engine', None) != "audiobook":
-        return min(prepare_limit, current_p + prepare_step)
+    # If synthesis hasn't started yet, cap progress (Preparing phase)
+    # UNLESS we are already resuming from a point past the cap.
+    if not getattr(job, 'synthesis_started_at', None) and getattr(job, 'engine', None) != "audiobook":
+        return max(current_p, min(prepare_limit, predicted))
 
-    # Use synthesis_started if available (for XTTS), else fallback to worker start time (for audiobook)
-    effective_start = synthesis_started or start_time
-    actual_elapsed = now - effective_start
-    return max(current_p, min(limit, actual_elapsed / max(1, eta)))
+    return max(current_p, min(limit, predicted))

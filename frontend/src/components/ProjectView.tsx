@@ -113,7 +113,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
       return (
           <ChapterEditor 
               chapterId={editingChapterId} projectId={projectId} speakerProfiles={speakerProfiles} speakers={speakers}
-              job={Object.values(jobs).find(j => j.project_id === projectId && j.chapter_file?.includes(editingChapterId))}
+              job={Object.values(jobs).find(j => j.project_id === projectId && (j.chapter_id === editingChapterId || j.chapter_file?.includes(editingChapterId)))}
               onBack={() => { setEditingChapterId(null); loadData(); }}
               onNavigateToQueue={() => navigate('/queue')}
               selectedVoice={selectedVoice} onVoiceChange={setSelectedVoice}

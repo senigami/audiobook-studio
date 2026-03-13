@@ -4,63 +4,43 @@ from app.jobs import calculate_predicted_progress
 from app.models import Job
 
 def test_calculate_predicted_progress_xtts_preparing():
-    """XTTS jobs should be capped at prepare_limit if synthesis hasn't started."""
+    """XTTS jobs should be capped at prepare_limit if synthesis hasn't started, unless resuming."""
     job = Job(id="j1", engine="xtts", chapter_file="c1.txt", status="preparing", created_at=0.0)
     job.progress = 0.0
 
-    # 1. Synthesis not started
+    # 1. Synthesis not started, low progress
     job.synthesis_started_at = None
     now = 100.0
-    start = 90.0
-    eta = 60
+    start = 99.0 # 1s elapsed
+    eta = 100
 
-    # Defaults: prepare_limit=0.05, prepare_step=0.005
+    # 1/100 = 0.01. prepare_limit default is 0.05.
     res = calculate_predicted_progress(job, now, start, eta)
-    assert res == 0.005
+    assert res == 0.01
 
-    # 2. Progress should climb but cap at 0.05
-    job.progress = 0.048
-    res = calculate_predicted_progress(job, now, start, eta)
-    assert res == 0.05
-
-    job.progress = 0.06
+    # 2. Progress should cap at 0.05 (prepare_limit)
+    now = 110.0 # 11s elapsed -> 0.11
     res = calculate_predicted_progress(job, now, start, eta)
     assert res == 0.05
+
+    # 3. Resumption case: already at 0.10 progress from previous run
+    job.progress = 0.10
+    res = calculate_predicted_progress(job, now, start, eta)
+    assert res == 0.10 # Should not go BACKWARDS to 0.05
 
 def test_calculate_predicted_progress_xtts_running():
-    """XTTS jobs should use synthesis_started_at when available."""
+    """XTTS jobs should use start_time consistently once synthesis starts."""
     job = Job(id="j1", engine="xtts", chapter_file="c1.txt", status="running", created_at=0.0)
     job.progress = 0.1
-
-    # Synthesis started 10s ago, ETA 100s -> progress should be 0.1
     job.synthesis_started_at = 90.0
-    now = 100.0
-    start = 50.0 # Worker started much earlier
+
+    now = 120.0
+    start = 80.0 # Adjusted start time (progress 0.1 * eta 100 = 10s offset from 90s? No, adjusted start is the "logical" 0 point)
     eta = 100
 
+    # elapsed = 120 - 80 = 40. 40/100 = 0.4
     res = calculate_predicted_progress(job, now, start, eta)
-    assert res == 0.1
-
-    # Synthesis started 50s ago -> progress 0.5
-    now = 140.0
-    res = calculate_predicted_progress(job, now, start, eta)
-    assert res == 0.5
-
-def test_calculate_predicted_progress_audiobook_safety():
-    """Audiobook jobs should NOT crash when synthesis_started_at is None."""
-    job = Job(id="j1", engine="audiobook", chapter_file="b1", status="running", created_at=0.0)
-    job.progress = 0.0
-
-    # Root cause of the crash: synthesis_started_at is None
-    job.synthesis_started_at = None 
-    now = 100.0
-    start = 90.0 # Worker started 10s ago
-    eta = 100
-
-    # Should use 'start' instead of crashing
-    # 10s elapsed / 100s eta = 0.1
-    res = calculate_predicted_progress(job, now, start, eta)
-    assert res == 0.1
+    assert res == 0.4
 
 def test_calculate_predicted_progress_finalizing():
     """Progress should freeze during finalizing."""

@@ -139,14 +139,19 @@ def main():
 
         with tqdm(total=len(script), unit="seg", desc="Synthesizing", file=sys.stderr) as pbar:
             for i, segment in enumerate(script):
+                if 'id' in segment:
+                    print(f"[START_SEGMENT] {segment['id']}", file=sys.stderr, flush=True)
+                elif 'save_path' in segment:
+                    print(f"[START_SEGMENT] {segment['save_path']}", file=sys.stderr, flush=True)
+
                 text = segment['text']
                 sw = segment['speaker_wav']
                 latents = speaker_latents.get(sw)
 
-                # Split by newline to preserve paragraph breaks within a single script entry
+                # Pre-calculate total sentences for progress reporting
+                total_sentences = 0
                 paragraphs = [p.strip() for p in text.split('\n') if p.strip()]
-                segment_wav_chunks = []
-
+                all_sentences = []
                 for p_idx, paragraph in enumerate(paragraphs):
                     if hasattr(tts, 'synthesizer') and hasattr(tts.synthesizer, 'split_into_sentences'):
                         sentences = tts.synthesizer.split_into_sentences(paragraph)
@@ -154,11 +159,16 @@ def main():
                         sentences = tts.tts_tokenizer.split_sentences(paragraph)
                     else:
                         sentences = [paragraph]
+                    # Filter empty/noise sentences immediately
+                    sentences = [s for s in sentences if s and s.strip() and any(c.isalnum() for c in s)]
+                    all_sentences.append(sentences)
+                    total_sentences += len(sentences)
 
+                segment_wav_chunks = []
+                sentences_done = 0
+
+                for p_idx, sentences in enumerate(all_sentences):
                     for s_idx, sentence in enumerate(sentences):
-                        if not sentence or not sentence.strip() or not any(c.isalnum() for c in sentence):
-                            continue
-
                         # Handle semicolons: split around them, synthesize each part,
                         # and insert a silence tensor where each semicolon was.
                         if PAUSE_CHAR in sentence:
@@ -195,6 +205,13 @@ def main():
                             chunk_tensor = torch.FloatTensor(wav_chunk)
                             all_wav_chunks.append(chunk_tensor)
                             segment_wav_chunks.append(chunk_tensor)
+
+                        sentences_done += 1
+                        if total_sentences > 0:
+                            perc = int((sentences_done / total_sentences) * 100)
+                            print(f"[PROGRESS] {perc}%", file=sys.stderr, flush=True)
+
+                        # Add sentence or paragraph pause
 
                         # Add sentence or paragraph pause
                         is_last_sentence = (s_idx == len(sentences) - 1)

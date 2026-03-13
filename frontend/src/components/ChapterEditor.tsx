@@ -310,6 +310,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                         finally { setSubmitting(false); }
                     }}
                     submitting={submitting}
+                    generatingJob={job}
                   />
                 )}
                 {editorTab === 'preview' && <PreviewTab analysis={analysis} analyzing={analyzing} />}
