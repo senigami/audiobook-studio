@@ -176,7 +176,7 @@ def handle_xtts_job(jid, j, start, logs, on_output, cancel_check, default_sw, sp
 
         if j.chapter_id:
             try:
-                from ...web import broadcast_segments_updated
+                from ...api.ws import broadcast_segments_updated
                 broadcast_segments_updated(j.chapter_id)
             except: pass
         update_job(jid, status="done", progress=1.0, finished_at=time.time())

@@ -13,7 +13,7 @@ def update_segments_status_bulk(segment_ids: List[str], chapter_id: str, status:
 
     if broadcast:
         try:
-            from .web import broadcast_segments_updated
+            from ..api.ws import broadcast_segments_updated
             broadcast_segments_updated(chapter_id)
         except Exception as e:
             print(f"Warning: Failed to broadcast bulk segment update: {e}")
@@ -79,7 +79,7 @@ def update_segment(segment_id: str, broadcast: bool = True, **updates) -> bool:
                 cursor.execute("SELECT chapter_id FROM chapter_segments WHERE id = ?", (segment_id,))
                 row = cursor.fetchone()
                 if row:
-                    from .web import broadcast_segments_updated
+                    from ..api.ws import broadcast_segments_updated
                     broadcast_segments_updated(row["chapter_id"])
         except Exception as e:
             print(f"Warning: Failed to broadcast segment update: {e}")

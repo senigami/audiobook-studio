@@ -235,7 +235,7 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
                 update_queue_item(job_id, new_status, audio_length_seconds=audio_length, force_chapter_id=j.get("chapter_id"), output_file=output_file)
 
                 try:
-                    from .web import broadcast_queue_update
+                    from .api.ws import broadcast_queue_update
                     broadcast_queue_update()
                 except ImportError:
                     pass
