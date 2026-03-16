@@ -70,6 +70,9 @@ export interface ProcessingQueueItem {
   started_at?: number;
   log?: string;
   custom_title?: string;
+  predicted_audio_length?: number;
+  char_count?: number;
+  engine?: Engine;
 }
 
 export interface SpeakerProfile {
@@ -117,6 +120,8 @@ export interface Job {
   output_wav?: string | null;
   output_mp3?: string | null;
   speaker_profile?: string | null;
+  active_segment_id?: string | null;
+  active_segment_progress?: number;
 }
 
 export interface Settings {

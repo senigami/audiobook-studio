@@ -1,5 +1,6 @@
 import React from 'react';
 import { List, RefreshCw, Volume2, Zap } from 'lucide-react';
+import { motion } from 'framer-motion';
 import type { ChapterSegment, Character } from '../../types';
 
 interface PerformanceTabProps {
@@ -15,6 +16,7 @@ interface PerformanceTabProps {
   onGenerate: (sids: string[]) => void;
   onBake: () => void;
   submitting: boolean;
+  generatingJob?: import('../../types').Job;
 }
 
 export const PerformanceTab: React.FC<PerformanceTabProps> = ({
@@ -29,8 +31,11 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
   onStop,
   onGenerate,
   onBake,
-  submitting
+  submitting,
+  generatingJob
 }) => {
+  const uniqueSegmentIds = Array.from(new Set(allSegmentIds));
+  
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', padding: '1.5rem', minHeight: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
@@ -48,11 +53,17 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
             </button>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                 {chunkGroups.map((group, gidx) => {
                     const char = characters.find(c => c.id === group.characterId);
                     const allDone = group.segments.every(s => s.audio_status === 'done');
                     const anyProcessing = group.segments.some(s => s.audio_status === 'processing' || generatingSegmentIds.has(s.id));
+                    
+                    // Track if this specific group is "active" in the current job
+                    const activeSegmentId = generatingJob?.active_segment_id;
+                    const isAnySegmentActive = group.segments.some(s => s.id === activeSegmentId);
+                    const activeProgress = isAnySegmentActive ? (generatingJob?.active_segment_progress || 0) : 0;
+
                     const isPlaying = playingSegmentId && group.segments.some(s => s.id === playingSegmentId);
                     const nextId = (() => {
                         if (!playingSegmentId || playbackQueue.length === 0) return null;
@@ -81,9 +92,45 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
                             borderRadius: '16px', border: '1px solid var(--border)',
                             transition: 'all 0.2s ease',
                             boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-                            borderLeft: `4px solid ${char?.color || 'var(--text-muted)'}`
+                            borderLeft: `4px solid ${char?.color || 'var(--text-muted)'}`,
+                            position: 'relative',
+                            overflow: 'hidden'
                         }}>
-                            <div style={{ width: '130px', flexShrink: 0 }}>
+                            {/* Inner Progress Bar Overlay */}
+                            {isAnySegmentActive && (
+                                <div style={{ 
+                                    position: 'absolute', 
+                                    bottom: 0, 
+                                    left: 0, 
+                                    right: 0, 
+                                    height: '6px', 
+                                    background: 'rgba(255,255,255,0.05)',
+                                    overflow: 'hidden',
+                                    borderBottomLeftRadius: '12px',
+                                    borderBottomRightRadius: '12px'
+                                }}>
+                                    <motion.div 
+                                        initial={false}
+                                        animate={{ 
+                                            width: `${Math.max(activeProgress * 100, 2)}%`,
+                                            opacity: activeProgress === 0 ? [0.4, 0.7, 0.4] : 1
+                                        }}
+                                        transition={activeProgress === 0 ? {
+                                            duration: 1.5,
+                                            repeat: Infinity,
+                                            ease: "easeInOut"
+                                        } : { duration: 2, ease: "easeInOut" }}
+                                        style={{ 
+                                            height: '100%', 
+                                            background: 'var(--accent)',
+                                            boxShadow: '0 0 15px var(--accent)',
+                                            borderRadius: '3px'
+                                        }}
+                                    />
+                                </div>
+                            )}
+
+                            <div style={{ width: '130px', flexShrink: 0, position: 'relative', zIndex: 2 }}>
                                 <div style={{ 
                                     display: 'flex', alignItems: 'center', gap: '0.5rem', 
                                     color: char?.color || 'var(--text-muted)', 
@@ -103,7 +150,7 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
                                         </button>
                                     ) : (
                                         <button 
-                                            onClick={() => onPlay(group.segments[0].id, allSegmentIds)} 
+                                            onClick={() => onPlay(group.segments[0].id, uniqueSegmentIds)} 
                                             className="btn-ghost" 
                                             style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center', fontSize: '0.8rem', padding: '0.5rem', background: 'rgba(255,255,255,0.1)' }}
                                         >
@@ -111,7 +158,7 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
                                         </button>
                                     )}
                                     <button 
-                                        onClick={() => onGenerate(group.segments.map(s => s.id))}
+                                        onClick={() => onGenerate(Array.from(new Set(group.segments.map(s => s.id))))}
                                         className="btn-ghost" 
                                         style={{ 
                                             display: 'flex', alignItems: 'center', gap: '0.5rem', 
@@ -123,13 +170,13 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
                                         disabled={anyProcessing}
                                     >
                                         <RefreshCw size={14} className={anyProcessing ? 'animate-spin' : ''} /> 
-                                        {anyProcessing ? 'Working...' : (allDone ? 'Regenerate' : 'Generate')}
+                                        {anyProcessing ? (isAnySegmentActive ? `${Math.round(activeProgress * 100)}%` : 'Working...') : (allDone ? 'Regenerate' : 'Generate')}
                                     </button>
                                 </div>
                             </div>
                             <div 
                                 onClick={() => {
-                                    const queueFromHere = allSegmentIds.slice(allSegmentIds.indexOf(group.segments[0].id));
+                                    const queueFromHere = uniqueSegmentIds.slice(uniqueSegmentIds.indexOf(group.segments[0].id));
                                     onPlay(group.segments[0].id, queueFromHere);
                                 }}
                                 style={{ 
@@ -151,7 +198,8 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
                                             : 'transparent',
                                     borderBottom: isPlaying ? '3px solid #fbc02d' : (anyProcessing || isNext) ? '2px dashed #9c27b0' : '2px solid transparent',
                                     position: 'relative',
-                                    whiteSpace: 'pre-wrap'
+                                    whiteSpace: 'pre-wrap',
+                                    zIndex: 2
                                 }}
                             >
                                 {group.segments.map(s => s.sanitized_text || s.text_content).join(' ')}

@@ -22,6 +22,21 @@ def create_chapter(project_id: str, title: str, text_content: Optional[str] = No
 
             return chapter_id
 
+def get_chapter_segments_counts(chapter_id: str) -> tuple[int, int]:
+    """Returns (done_count, total_count) for a chapter."""
+    with _db_lock:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT 
+                    (SELECT COUNT(*) FROM chapter_segments WHERE chapter_id = ? AND audio_status = 'done') as done_count,
+                    (SELECT COUNT(*) FROM chapter_segments WHERE chapter_id = ?) as total_count
+            """, (chapter_id, chapter_id))
+            row = cursor.fetchone()
+            if row:
+                return row['done_count'], row['total_count']
+            return 0, 0
+
 def get_chapter(chapter_id: str) -> Optional[Dict[str, Any]]:
     with _db_lock:
         with get_connection() as conn:
@@ -31,31 +46,31 @@ def get_chapter(chapter_id: str) -> Optional[Dict[str, Any]]:
             if not row: return None
             chap = dict(row)
 
-            # Rule 3: Disk as Source of Truth
-            from .. import config
-            pdir = config.get_project_audio_dir(chap["project_id"]) if chap["project_id"] else config.XTTS_OUT_DIR
-            path = chap.get("audio_file_path")
-            chap["has_wav"] = False
-            chap["has_mp3"] = False
-            chap["has_m4a"] = False
+    # Rule 3: Disk as Source of Truth - Outside Lock
+    from .. import config
+    pdir = config.get_project_audio_dir(chap["project_id"]) if chap["project_id"] else config.XTTS_OUT_DIR
+    path = chap.get("audio_file_path")
+    chap["has_wav"] = False
+    chap["has_mp3"] = False
+    chap["has_m4a"] = False
 
-            if path:
-                full_path = pdir / path
-                if full_path.exists():
-                    if path.endswith(".wav"): chap["has_wav"] = True
-                    elif path.endswith(".mp3"): chap["has_mp3"] = True
-                    elif path.endswith(".m4a"): chap["has_m4a"] = True
+    if path:
+        full_path = pdir / path
+        if full_path.exists():
+            if path.endswith(".wav"): chap["has_wav"] = True
+            elif path.endswith(".mp3"): chap["has_mp3"] = True
+            elif path.endswith(".m4a"): chap["has_m4a"] = True
 
-            stem = chap["id"]
-            if not chap["has_wav"] and (pdir / f"{stem}.wav").exists(): chap["has_wav"] = True
-            if not chap["has_mp3"] and (pdir / f"{stem}.mp3").exists(): chap["has_mp3"] = True
-            if not chap["has_m4a"] and (pdir / f"{stem}.m4a").exists(): chap["has_m4a"] = True
+    stem = chap["id"]
+    if not chap["has_wav"] and (pdir / f"{stem}.wav").exists(): chap["has_wav"] = True
+    if not chap["has_mp3"] and (pdir / f"{stem}.mp3").exists(): chap["has_mp3"] = True
+    if not chap["has_m4a"] and (pdir / f"{stem}.m4a").exists(): chap["has_m4a"] = True
 
-            if chap["audio_status"] == "done" and not chap["has_wav"]:
-                if chap["has_mp3"] or chap["has_m4a"]:
-                    chap["has_wav"] = True
+    if chap["audio_status"] == "done" and not chap["has_wav"]:
+        if chap["has_mp3"] or chap["has_m4a"]:
+            chap["has_wav"] = True
 
-            return chap
+    return chap
 
 def list_chapters(project_id: str) -> List[Dict[str, Any]]:
     with _db_lock:
@@ -71,38 +86,32 @@ def list_chapters(project_id: str) -> List[Dict[str, Any]]:
             """, (project_id,))
             rows = [dict(row) for row in cursor.fetchall()]
 
-            from .. import config
-            for chap in rows:
-                path = chap.get("audio_file_path")
-                chap["has_wav"] = False
-                chap["has_mp3"] = False
-                chap["has_m4a"] = False
+    from .. import config
+    pdir = config.get_project_audio_dir(project_id) if project_id else config.XTTS_OUT_DIR
 
-                # Rule 3: Disk as Source of Truth - Perform actual disk checks
-                pdir = config.get_project_audio_dir(project_id) if project_id else config.XTTS_OUT_DIR
+    for chap in rows:
+        path = chap.get("audio_file_path")
+        chap["has_wav"] = False
+        chap["has_mp3"] = False
+        chap["has_m4a"] = False
 
-                # Check specific path in DB
-                if path:
-                    full_path = pdir / path
-                    if full_path.exists():
-                        if path.endswith(".wav"): chap["has_wav"] = True
-                        elif path.endswith(".mp3"): chap["has_mp3"] = True
-                        elif path.endswith(".m4a"): chap["has_m4a"] = True
+        if path:
+            full_path = pdir / path
+            if full_path.exists():
+                if path.endswith(".wav"): chap["has_wav"] = True
+                elif path.endswith(".mp3"): chap["has_mp3"] = True
+                elif path.endswith(".m4a"): chap["has_m4a"] = True
 
-                # Also fallback to standard filenames if DB is stale
-                stem = chap["id"]
-                if not chap["has_wav"] and (pdir / f"{stem}.wav").exists(): chap["has_wav"] = True
-                if not chap["has_mp3"] and (pdir / f"{stem}.mp3").exists(): chap["has_mp3"] = True
-                if not chap["has_m4a"] and (pdir / f"{stem}.m4a").exists(): chap["has_m4a"] = True
+        stem = chap["id"]
+        if not chap["has_wav"] and (pdir / f"{stem}.wav").exists(): chap["has_wav"] = True
+        if not chap["has_mp3"] and (pdir / f"{stem}.mp3").exists(): chap["has_mp3"] = True
+        if not chap["has_m4a"] and (pdir / f"{stem}.m4a").exists(): chap["has_m4a"] = True
 
-                # Compatibility: if audio_status is 'done', ensure the UI shows it as complete
-                if chap["audio_status"] == "done" and not chap["has_wav"]:
-                    # If we only have an MP3, the UI's 'isComplete' check (which looks for has_wav) 
-                    # should still be satisfied.
-                    if chap["has_mp3"] or chap["has_m4a"]:
-                         chap["has_wav"] = True
+        if chap["audio_status"] == "done" and not chap["has_wav"]:
+            if chap["has_mp3"] or chap["has_m4a"]:
+                 chap["has_wav"] = True
 
-            return rows
+    return rows
 
 def update_chapter(chapter_id: str, **updates) -> bool:
     if not updates: return False

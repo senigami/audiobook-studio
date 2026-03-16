@@ -96,8 +96,8 @@ async def legacy_clear():
 
 @app.post("/api/processing_queue/clear_completed")
 async def legacy_clear_completed():
-    from .api.routers.queue import api_clear_history
-    return api_clear_history()
+    from .api.routers.queue import api_clear_completed
+    return api_clear_completed()
 
 @app.post("/api/chapter/reset")
 async def legacy_chapter_reset(request: Request):
@@ -204,6 +204,14 @@ def startup_event():
     from .api.ws import broadcast_job_updated
     add_job_listener(broadcast_job_updated)
     logger.info("Startup: Job listeners registered.")
+
+    # 4. Restore Pause State
+    from .state import get_settings
+    from .jobs import set_paused
+    settings = get_settings()
+    if settings.get("is_paused"):
+        set_paused(True)
+        logger.info("Startup: Queue restored to PAUSED state.")
 
 @app.on_event("shutdown")
 def shutdown_event():

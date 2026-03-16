@@ -1,11 +1,13 @@
 import React from 'react';
 import { Reorder, motion, AnimatePresence } from 'framer-motion';
-import { Trash2, GripVertical, CheckCircle, Clock, Layers, Play, Pause, XCircle, ChevronDown, ChevronRight } from 'lucide-react';
+import { Trash2, CheckCircle, Layers, Play, Pause, XCircle, ChevronDown, ChevronRight } from 'lucide-react';
 import { ActionMenu } from './ActionMenu';
 import { ConfirmModal } from './ConfirmModal';
 import { useGlobalQueue } from '../hooks/useGlobalQueue';
 import { QueueItem } from './queue/QueueItem';
-import type { Job } from '../types';
+import { ReorderableQueueItem } from './queue/ReorderableQueueItem';
+import { QueueStats } from './queue/QueueStats';
+import type { Job, ProcessingQueueItem } from '../types';
 
 interface GlobalQueueProps {
     paused?: boolean;
@@ -29,26 +31,28 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({ paused = false, jobs =
         handleReorder,
         handleRemove,
         handleClearCompleted,
-        handleClearAll
+        handleClearAll,
+        handleDragStart,
+        handleDragEnd
     } = useGlobalQueue(paused, jobs, refreshTrigger, onRefresh);
 
-    const formatTime = (ts: number | null | undefined) => {
+    const formatTime = React.useCallback((ts: number | null | undefined) => {
         if (!ts) return "";
         const d = new Date(ts * 1000);
         return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    };
+    }, []);
 
-    const formatJobTitle = (job: any) => {
+    const formatJobTitle = React.useCallback((job: ProcessingQueueItem) => {
         const base = job.chapter_title || job.custom_title || "System Task";
         if (job.engine === 'audiobook') {
             return `Assembling m4b for: ${base}`;
         }
         return base;
-    };
+    }, []);
 
-    const activeJobs = queue.filter(q => q.status === 'running' || q.status === 'preparing' || q.status === 'finalizing');
-    const pendingJobs = queue.filter(q => q.status === 'queued');
-    const pastJobs = queue.filter(q => q.status === 'done' || q.status === 'failed' || q.status === 'cancelled');
+    const activeJobs = React.useMemo(() => queue.filter(q => q.status === 'running' || q.status === 'preparing' || q.status === 'finalizing'), [queue]);
+    const pendingJobs = React.useMemo(() => queue.filter(q => q.status === 'queued'), [queue]);
+    const pastJobs = React.useMemo(() => queue.filter(q => q.status === 'done' || q.status === 'failed' || q.status === 'cancelled'), [queue]);
 
     if (loading) return <div style={{ padding: '2rem' }}>Loading Queue...</div>;
 
@@ -59,7 +63,12 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({ paused = false, jobs =
                     <h2 style={{ fontSize: '1.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <Layers size={24} strokeWidth={2} color="var(--accent)" /> Global Processing Queue
                     </h2>
-                    <p style={{ color: 'var(--text-muted)' }}>Manage your batch audio generation tasks</p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px' }}>
+                        <p style={{ color: 'var(--text-muted)', margin: 0 }}>Manage your batch audio generation tasks</p>
+                        {queue.some(q => ['queued', 'preparing', 'running', 'finalizing'].includes(q.status)) && (
+                            <QueueStats queue={queue} jobs={jobs} />
+                        )}
+                    </div>
                 </div>
                 <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                     <button
@@ -132,35 +141,33 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({ paused = false, jobs =
                     )}
 
                     {pendingJobs.length > 0 && (
-                        <div>
+                        <div style={{ position: 'relative' }}>
                             <h3 style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '1rem' }}>Up Next</h3>
-                            <Reorder.Group axis="y" values={pendingJobs} onReorder={handleReorder} style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                {pendingJobs.map(job => (
-                                    <Reorder.Item 
-                                        key={job.id} 
-                                        value={job}
-                                        onMouseEnter={() => setHoveredJobId(job.id)}
-                                        onMouseLeave={() => setHoveredJobId(null)}
-                                        style={{
-                                            background: 'var(--surface)', borderRadius: '12px', padding: '1rem 1.25rem', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '1.25rem', cursor: 'grab',
-                                            boxShadow: hoveredJobId === job.id ? 'var(--shadow-md)' : 'none',
-                                            transition: 'all 0.2s ease'
-                                        }}
-                                        whileDrag={{ scale: 1.02, boxShadow: 'var(--shadow-lg)', zIndex: 50, cursor: 'grabbing' }}
-                                    >
-                                        <div style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }} title="Drag to reorder"><GripVertical size={18} strokeWidth={2} /></div>
-                                        <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'var(--surface-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-                                            <Clock size={18} strokeWidth={2} />
-                                        </div>
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <h4 style={{ fontWeight: 600, fontSize: '0.95rem', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{formatJobTitle(job)}</h4>
-                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 500 }}>{job.project_name ? `${job.project_name} • Part ${job.split_part + 1}` : "Internal Process"}</div>
-                                        </div>
-                                        <button onClick={() => handleRemove(job.id)} className="hover-bg-destructive" style={{ background: 'none', border: 'none', padding: '8px', borderRadius: '8px', cursor: 'pointer', color: hoveredJobId === job.id ? 'var(--error)' : 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s ease' }}>
-                                            <Trash2 size={16} strokeWidth={2} />
-                                        </button>
-                                    </Reorder.Item>
-                                ))}
+                            <Reorder.Group 
+                                axis="y" 
+                                values={pendingJobs} 
+                                onReorder={handleReorder} 
+                                style={{ 
+                                    listStyle: 'none', 
+                                    margin: 0, 
+                                    padding: 0, 
+                                    display: 'flex', 
+                                    flexDirection: 'column', 
+                                    gap: '1rem',
+                                    position: 'relative', // Ensure coordinate space is local
+                                    minHeight: '50px' // Prevent collapse if empty during drag
+                                }}
+                            >
+                    {pendingJobs.map(job => (
+                        <ReorderableQueueItem 
+                            key={job.id}
+                            job={job}
+                            formatJobTitle={formatJobTitle}
+                            handleRemove={handleRemove}
+                            handleDragStart={handleDragStart}
+                            handleDragEnd={handleDragEnd}
+                        />
+                    ))}
                             </Reorder.Group>
                         </div>
                     )}

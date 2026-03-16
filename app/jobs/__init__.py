@@ -15,7 +15,9 @@ def enqueue(job):
             job_id=job.id, project_id=job.project_id, chapter_id=job.chapter_id,
             status='queued', custom_title=job.custom_title, engine=job.engine
         )
-    except: pass
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Failed to upsert queue row for job {job.id}: {e}")
 
     if job.engine == "audiobook": assembly_queue.put(job.id)
     else: job_queue.put(job.id)
@@ -51,7 +53,26 @@ def clear_job_queue():
             try:
                 q.get_nowait()
                 q.task_done()
-            except: break
+            except Exception: 
+                break
+
+def sync_memory_queue():
+    """
+    Synchronizes the in-memory job_queue and assembly_queue with the DB's current 
+    queued items. Useful after reordering.
+    """
+    clear_job_queue()
+    from ..db import get_queue
+    # Get all queued items from DB (they are sorted by created_at DESC)
+    db_queue = [item for item in get_queue() if item['status'] == 'queued']
+    # Refill the FIFO queue in order of priority (first in list = first out)
+    for item in db_queue:
+        jid = item['id']
+        engine = item.get('engine')
+        if engine == "audiobook": 
+            assembly_queue.put(jid)
+        else: 
+            job_queue.put(jid)
 
 def start_workers():
     threading.Thread(target=worker_loop, args=(job_queue,), name="SynthesisWorker", daemon=True).start()

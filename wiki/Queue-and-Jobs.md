@@ -12,12 +12,22 @@ The **Global Queue** is usually visible on the right sidebar or via a dedicated 
 
 ![Global Queue sidebar showing job progress and ETA](images/queue-sidebar.jpg)
 
+## ↕️ Reordering Tasks
+
+You can drag and drop items in the **Up Next** section to re-prioritize your work. The system will immediately synchronize the background worker to follow your new order as soon as the current job finishes.
+
 ## 📊 Performance Metrics
 
 The system tracks **Characters Per Second (CPS)** and uses it to provide:
 
-- **ETA**: Estimated time remaining for the current job.
+- **ETA**: Estimated time remaining for the current job. Now includes a **total queue estimate** at the top of the Global Queue page, summing up all pending and active work in minutes.
 - **Predicted Length**: How long the final audio chapter will likely be based on character count.
+
+### New Features & Fixes
+- **Global Queue ETA**: Added an "Approx. X minutes remaining" badge to the processing queue header that tracks cumulative work across all active and queued tasks.
+- **Reliable Queue Reordering**: Fixed a timestamp inversion bug and implemented in-memory synchronization, ensuring the background worker strictly follows the UI priority.
+- **Enhanced Progress Visuals**: Smoothed progress transitions to 2s ease-in-out for a more fluid and premium interface experience.
+- **Locked-in Test Suite**: Added 11 regression tests covering ETA calculations, database joins, and in-memory queue synchronization logic.
 
 ## 🛠️ Job Types
 

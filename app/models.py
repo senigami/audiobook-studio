@@ -41,3 +41,5 @@ class Job:
     cover_path: Optional[str] = None
     segment_ids: Optional[List[str]] = None
     is_bake: bool = False
+    active_segment_id: Optional[str] = None
+    active_segment_progress: float = 0.0

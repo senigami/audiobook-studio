@@ -195,8 +195,8 @@ def reset_chapter_legacy(
     chapter_file: str = Form(...),
     xtts_out_dir: Path = Depends(get_xtts_out_dir)
 ):
-    existing = get_jobs()
     try:
+        existing = get_jobs()
         # Construct and resolve path
         safe_base = os.path.basename(chapter_file)
         # Cancel any active jobs for this chapter file

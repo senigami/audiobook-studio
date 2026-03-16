@@ -201,7 +201,7 @@ def assemble_audiobook(
         files = [c['filename'] for c in chapters]
         final_titles = {c['filename']: c['title'] for c in chapters}
     else:
-        all_files = [f for f in os.listdir(input_folder) if f.endswith(('.wav', '.mp3'))]
+        all_files = [f for f in os.listdir(input_folder) if f.endswith(('.wav', '.mp3')) and not f.startswith('seg_')]
         # Group by stem, prioritizing mp3
         chapters_found = {}
         for f in all_files:
@@ -216,7 +216,9 @@ def assemble_audiobook(
                     chapters_found[stem] = f
 
         def extract_number(filename):
-            match = re.search(r'(\d+)', filename)
+            # Only match digits followed by dot (e.g., chapter 1.wav) or alone if it's the whole stem
+            # to avoid picking up UUID hashes
+            match = re.search(r'(?:part_)?(\d+)(?:\.|$|_)', filename, re.IGNORECASE)
             return int(match.group(1)) if match else 0
 
         sorted_stems = sorted(chapters_found.keys(), key=lambda x: extract_number(x))

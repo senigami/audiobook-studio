@@ -218,9 +218,11 @@ export const api = {
     return res.json();
   },
   reorderProcessingQueue: async (queueIds: string[]): Promise<any> => {
-    const formData = new FormData();
-    formData.append('queue_ids', queueIds.join(','));
-    const res = await fetch('/api/processing_queue/reorder', { method: 'PUT', body: formData });
+    const res = await fetch('/api/processing_queue/reorder', { 
+        method: 'PUT', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ queue_ids: queueIds }) 
+    });
     return res.json();
   },
   removeProcessingQueue: async (queueId: string): Promise<any> => {

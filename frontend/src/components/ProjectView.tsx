@@ -113,7 +113,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
       return (
           <ChapterEditor 
               chapterId={editingChapterId} projectId={projectId} speakerProfiles={speakerProfiles} speakers={speakers}
-              job={Object.values(jobs).find(j => j.project_id === projectId && j.chapter_file?.includes(editingChapterId))}
+              job={Object.values(jobs).find(j => j.project_id === projectId && (j.chapter_id === editingChapterId || j.chapter_file?.includes(editingChapterId)))}
               onBack={() => { setEditingChapterId(null); loadData(); }}
               onNavigateToQueue={() => navigate('/queue')}
               selectedVoice={selectedVoice} onVoiceChange={setSelectedVoice}
@@ -178,7 +178,8 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
                 chapters={chapters} projectId={projectId} jobs={jobs} isAssemblyMode={isAssemblyMode} selectedChapters={selectedChapters}
                 onSelectChapter={id => setSelectedChapters(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; })}
                 onSelectAll={() => { const allDone = chapters.filter(c => c.audio_status === 'done').map(c => c.id); setSelectedChapters(selectedChapters.size === allDone.length ? new Set() : new Set(allDone)); }}
-                onReorder={handleReorderChapters} onEditChapter={setEditingChapterId} 
+                onReorder={(newOrder) => { setChapters(newOrder); handleReorderChapters(newOrder); }}
+                onEditChapter={setEditingChapterId} 
                 onRenameChapter={async (id, title) => { await api.updateChapter(id, { title }); await loadData(); }}
                 onQueueChapter={chap => { if (chap.char_count > 50000) setConfirmConfig({ title: 'Large Chapter', message: 'Chapter is long. Queue anyway?', onConfirm: () => handleQueueChapter(chap.id, selectedVoice) }); else handleQueueChapter(chap.id, selectedVoice); }}
                 onResetAudio={id => setConfirmConfig({ title: 'Reset Audio', message: 'Delete all audio for this chapter?', isDestructive: true, onConfirm: () => handleResetChapterAudio(id) })}
