@@ -98,11 +98,17 @@ def test_handle_xtts_job_standard_with_mp3(mock_job, tmp_path):
     out_wav.write_text("wav")
     out_mp3.write_text("mp3")
 
-    with patch("app.db.get_connection"), \
+    with patch("app.db.get_connection") as mock_conn, \
          patch("app.db.update_segments_status_bulk"), \
-         patch("app.jobs.handlers.xtts.xtts_generate", return_value=0), \
+         patch("app.jobs.handlers.xtts.xtts_generate_script", return_value=0), \
          patch("app.jobs.handlers.xtts.wav_to_mp3", return_value=0), \
          patch("app.jobs.handlers.xtts.update_job") as mock_update_job:
+
+        cursor = mock_conn.return_value.__enter__.return_value.cursor.return_value
+        cursor.fetchall.side_effect = [
+            [], # segments_data
+            [{"id": "s1"}] # sids
+        ]
 
         handle_xtts_job(
             "test_job", mock_job, time.time(), [], 
@@ -119,7 +125,7 @@ def test_handle_xtts_job_cancel(mock_job, tmp_path):
     out_wav = pdir / "output.wav"
     out_mp3 = pdir / "output.mp3"
 
-    with patch("app.jobs.handlers.xtts.xtts_generate", return_value=0), \
+    with patch("app.jobs.handlers.xtts.xtts_generate_script", return_value=0), \
          patch("app.jobs.handlers.xtts.update_job") as mock_update_job:
 
         handle_xtts_job(

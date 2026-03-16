@@ -6,6 +6,9 @@ These rules apply to all development activities in this repository.
 
 - **Mandatory Verification**: Every code update must be verified by running the existing test suite.
 - **Continuous Alignment**: When writing new code or modifying existing logic, you MUST update or create tests to reflect these changes.
+- **Test Behavior, Not Implementation**: Tests should assert the expected business logic or user outcome (e.g., "oldest item processes first"), NOT simply assert whatever the current code happens to output (e.g., "asserting the query returns DESC order because that's what the query does").
+- **True TDD**: Aim to write failing tests before implementing the fix. If a test passes on a broken implementation, it is a bad test.
+- **End-to-End Coverage**: Do not rely solely on siloed unit tests if a feature involves coordinating layers (e.g., DB to Memory to UI). Write integration tests that cover the hand-off.
 - **No Compromise**: If a test fails, do NOT modify the test to match a broken or incorrect frontend implementation just to make it pass.
 - **Logic First**: Always ensure the underlying business logic is correct first. If there is a discrepancy between the logic and the frontend, the frontend should be updated to align with the correct logic, never the other way around.
 

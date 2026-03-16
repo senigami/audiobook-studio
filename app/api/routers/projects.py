@@ -235,7 +235,7 @@ def prepare_audiobook():
     if not src_dir.exists():
         return JSONResponse({"title": "", "chapters": []})
 
-    all_files = [f for f in os.listdir(src_dir) if f.endswith(('.wav', '.mp3'))]
+    all_files = [f for f in os.listdir(src_dir) if f.endswith(('.wav', '.mp3')) and not f.startswith('seg_')]
     chapters_found = {}
     for f in all_files:
         stem = Path(f).stem
@@ -244,7 +244,8 @@ def prepare_audiobook():
              chapters_found[stem] = f
 
     def extract_number(filename):
-        match = re.search(r'(\d+)', filename)
+        # Match part numbers or the whole stem to avoid UUID hashes
+        match = re.search(r'(?:part_)?(\d+)(?:\.|$|_)', filename, re.IGNORECASE)
         return int(match.group(1)) if match else 0
 
     sorted_stems = sorted(chapters_found.keys(), key=lambda x: extract_number(x))

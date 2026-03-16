@@ -31,21 +31,21 @@ def get_chapter_segments(chapter_id: str) -> List[Dict[str, Any]]:
             """, (chapter_id,))
             rows = [dict(row) for row in cursor.fetchall()]
 
-            # Rule 3: Disk as Source of Truth - Verify segment audio exists
-            from .. import config
             # We need project_id to find the right directory. 
-            # We can get it from the chapter.
             cursor.execute("SELECT project_id FROM chapters WHERE id = ?", (chapter_id,))
             crow = cursor.fetchone()
             project_id = crow['project_id'] if crow else None
-            pdir = config.get_project_audio_dir(project_id) if project_id else config.XTTS_OUT_DIR
 
-            for s in rows:
-                if s['audio_status'] == 'done' and s['audio_file_path']:
-                    if not (pdir / s['audio_file_path']).exists():
-                        s['audio_status'] = 'unprocessed'
-                        s['audio_file_path'] = None
-            return rows
+    # Rule 3: Disk as Source of Truth - Outside Lock
+    from .. import config
+    pdir = config.get_project_audio_dir(project_id) if project_id else config.XTTS_OUT_DIR
+
+    for s in rows:
+        if s['audio_status'] == 'done' and s['audio_file_path']:
+            if not (pdir / s['audio_file_path']).exists():
+                s['audio_status'] = 'unprocessed'
+                s['audio_file_path'] = None
+    return rows
 
 def update_segment(segment_id: str, broadcast: bool = True, **updates) -> bool:
     if not updates: return False
@@ -103,11 +103,50 @@ def update_segments_bulk(segment_ids: List[str], **updates) -> bool:
             conn.commit()
             return cursor.rowcount > 0
 
+def cleanup_orphaned_segments(chapter_id: str):
+    """
+    Finds and deletes any seg_*.wav or seg_*.mp3 files in the chapter's audio directory
+    that do not correspond to an existing segment in the database.
+    """
+    with _db_lock:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            # CRITICAL FIX: Fetch ALL valid segment IDs across all chapters. 
+            # Otherwise we delete valid segments from other chapters sharing the same output directory.
+            cursor.execute("SELECT id FROM chapter_segments")
+            valid_ids = set(row['id'] for row in cursor.fetchall())
+
+            cursor.execute("SELECT project_id FROM chapters WHERE id = ?", (chapter_id,))
+            crow = cursor.fetchone()
+            project_id = crow['project_id'] if crow else None
+
+    from .. import config
+    pdir = config.get_project_audio_dir(project_id) if project_id else config.XTTS_OUT_DIR
+
+    if not pdir.exists():
+        return
+
+    for p in pdir.glob("seg_*.*"):
+        if p.suffix in ('.wav', '.mp3'):
+            stem = p.stem
+            if stem.startswith("seg_"):
+                seg_id = stem[4:]
+                if seg_id not in valid_ids:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.info(f"Deleting orphaned segment audio file: {p.name}")
+                    try:
+                        p.unlink()
+                    except Exception as e:
+                        logger.warning(f"Failed to delete orphaned segment {p.name}: {e}")
+
 def sync_chapter_segments(chapter_id: str, text_content: str):
     """
     Parses the text into sentences (segments) and syncs the chapter_segments table.
     Attempts to preserve IDs and assignments for sentences that haven't changed.
     """
+    import logging
+    logger = logging.getLogger(__name__)
     from .nlp import split_into_sentences
     sentences = split_into_sentences(text_content)
 
@@ -135,6 +174,11 @@ def sync_chapter_segments(chapter_id: str, text_content: str):
                         matched_char = ex['character_id']
                         break
 
+                if matched_id:
+                    logger.debug(f"sync_chapter_segments: Matched existing segment {matched_id} for sentence: '{sent[:30]}...'")
+                else:
+                    logger.debug(f"sync_chapter_segments: Generated new segment ID for sentence: '{sent[:30]}...'")
+
                 seg_id = matched_id or str(time.time_ns()) + f"_{i}"
                 new_segments.append({
                     'id': seg_id,
@@ -155,4 +199,9 @@ def sync_chapter_segments(chapter_id: str, text_content: str):
                 """, (seg['id'], seg['chapter_id'], seg['segment_order'], seg['text_content'], seg['character_id'], seg['speaker_profile_name'], seg['audio_status']))
 
             conn.commit()
+
+            # Now that database is synced, trigger a cleanup of any newly orphaned audio files (if any were lost during edit)
+            import threading
+            threading.Thread(target=cleanup_orphaned_segments, args=(chapter_id,), daemon=True).start()
+
             return True
