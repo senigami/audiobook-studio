@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api } from '../api';
 import type { ProcessingQueueItem, Job } from '../types';
 
@@ -7,6 +7,7 @@ export const useGlobalQueue = (paused: boolean, jobs: Record<string, Job>, refre
     const [loading, setLoading] = useState(true);
     const [localPaused, setLocalPaused] = useState(paused);
     const [hoveredJobId, setHoveredJobId] = useState<string | null>(null);
+    const isDraggingRef = useRef(false);
     const [showHistory, setShowHistory] = useState(false);
     const [confirmConfig, setConfirmConfig] = useState<{
         title: string;
@@ -21,9 +22,12 @@ export const useGlobalQueue = (paused: boolean, jobs: Record<string, Job>, refre
     }, [paused]);
 
     const fetchQueue = async () => {
+        if (isDraggingRef.current) return;
         try {
             const data = await api.getProcessingQueue();
-            setQueue(data);
+            if (!isDraggingRef.current) {
+                setQueue(data);
+            }
         } catch (e) {
             console.error("Failed to fetch queue", e);
         } finally {
@@ -33,6 +37,29 @@ export const useGlobalQueue = (paused: boolean, jobs: Record<string, Job>, refre
 
     useEffect(() => {
         fetchQueue();
+        const interval = setInterval(fetchQueue, 3000);
+        return () => clearInterval(interval);
+    }, [refreshTrigger]);
+
+    useEffect(() => {
+        if (isDraggingRef.current) return;
+        setQueue(prev => {
+            let changed = false;
+            const updated = prev.map(q => {
+                const liveJob = Object.values(jobs).find(j => j.id === q.id);
+                if (liveJob && liveJob.status !== q.status) {
+                    changed = true;
+                    return { ...q, status: liveJob.status };
+                }
+                return q;
+            });
+            return changed ? updated : prev;
+        });
+    }, [jobs]);
+
+    useEffect(() => {
+        const timer = setInterval(fetchQueue, 30000);
+        return () => clearInterval(timer);
     }, []);
 
     const handlePauseToggle = async () => {
@@ -51,20 +78,75 @@ export const useGlobalQueue = (paused: boolean, jobs: Record<string, Job>, refre
     };
 
     const handleReorder = (newOrder: ProcessingQueueItem[]) => {
-        // Extreme simplicity for skeleton
+        // newOrder comes from Reorder.Group values={pendingJobs}
+        // pendingJobs is already filtered for 'queued' status
         setQueue(prev => {
-            const active = prev.filter(q => q.status !== 'queued');
-            return [...active, ...newOrder];
+            const nonQueued = prev.filter(q => q.status !== 'queued');
+            return [...nonQueued, ...newOrder];
         });
+    };
+
+    const handleDragStart = () => {
+        isDraggingRef.current = true;
+    };
+
+    const handleDragEnd = async () => {
+        try {
+            const queuedIds = queue.filter(q => q.status === 'queued').map(q => q.id);
+            await api.reorderProcessingQueue(queuedIds);
+            
+            // Explicitly sync after save
+            const data = await api.getProcessingQueue();
+            setQueue(data);
+        } catch (e) {
+            console.error('Failed to commit reorder:', e);
+            fetchQueue();
+        } finally {
+            // Delay releasing the lock slightly to ensure all animations settle
+            setTimeout(() => {
+                isDraggingRef.current = false;
+            }, 100);
+        }
     };
 
     const handleRemove = async (id: string) => {
         try {
+            const job = queue.find(q => q.id === id);
+            if (job?.chapter_id && job.status !== 'done' && job.status !== 'failed' && job.status !== 'cancelled') {
+                try {
+                    await fetch(`/api/chapters/${job.chapter_id}/cancel`, { method: 'POST' });
+                } catch (e) {
+                    console.warn('Could not cancel chapter job, removing from queue anyway', e);
+                }
+            }
             await api.removeProcessingQueue(id);
             fetchQueue();
         } catch (e) {
             console.error(e);
         }
+    };
+
+    const handleClearCompleted = async () => {
+        try {
+            await api.clearCompletedJobs();
+            fetchQueue();
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    const handleClearAll = () => {
+        setConfirmConfig({
+            title: 'Clear Queue',
+            message: 'Are you sure you want to clear all items from the queue? This will cancel any running jobs.',
+            isDestructive: true,
+            confirmText: 'Clear All',
+            onConfirm: async () => {
+                await api.clearProcessingQueue(); 
+                fetchQueue(); 
+                setConfirmConfig(null);
+            }
+        });
     };
 
     return {
@@ -80,10 +162,10 @@ export const useGlobalQueue = (paused: boolean, jobs: Record<string, Job>, refre
         handlePauseToggle,
         handleReorder,
         handleRemove,
-        handleClearCompleted: async () => { await api.clearCompletedJobs(); fetchQueue(); },
-        handleClearAll: () => { /* ... simplified ... */ },
+        handleClearCompleted,
+        handleClearAll,
         fetchQueue,
-        handleDragStart: () => {},
-        handleDragEnd: () => {}
+        handleDragStart,
+        handleDragEnd
     };
 };

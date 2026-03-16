@@ -186,6 +186,8 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({ paused = false, jobs =
                                     <Reorder.Item 
                                         key={job.id} 
                                         value={job}
+                                        onMouseEnter={() => setHoveredJobId(job.id)}
+                                        onMouseLeave={() => setHoveredJobId(null)}
                                         style={{
                                             background: 'var(--surface)', 
                                             borderRadius: '12px', 
@@ -194,8 +196,12 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({ paused = false, jobs =
                                             display: 'flex', 
                                             alignItems: 'center', 
                                             gap: '1.25rem', 
-                                            cursor: 'grab'
+                                            cursor: 'grab',
+                                            boxShadow: hoveredJobId === job.id ? 'var(--shadow-md)' : 'none'
                                         }}
+                                        whileDrag={{ scale: 1.02, boxShadow: 'var(--shadow-lg)', zIndex: 50, cursor: 'grabbing' }}
+                                        onDragStart={handleDragStart}
+                                        onDragEnd={handleDragEnd}
                                     >
                                          <div style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }} title="Drag to reorder"><GripVertical size={18} strokeWidth={2} /></div>
                                          <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'var(--surface-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
@@ -205,7 +211,7 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({ paused = false, jobs =
                                              <h4 style={{ fontWeight: 600, fontSize: '0.95rem', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{formatJobTitle(job)}</h4>
                                              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 500 }}>{job.project_name ? `${job.project_name} • Part ${job.split_part + 1}` : "Internal Process"}</div>
                                          </div>
-                                         <button onClick={(e) => { e.stopPropagation(); handleRemove(job.id); }} style={{ background: 'none', border: 'none', padding: '8px', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                         <button onClick={(e) => { e.stopPropagation(); handleRemove(job.id); }} className="hover-bg-destructive" style={{ background: 'none', border: 'none', padding: '8px', borderRadius: '8px', cursor: 'pointer', color: hoveredJobId === job.id ? 'var(--error)' : 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s ease' }}>
                                              <Trash2 size={16} strokeWidth={2} />
                                          </button>
                                      </Reorder.Item>
