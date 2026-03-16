@@ -41,7 +41,9 @@ def test_queue_lifecycle(db_conn):
     assert get_chapter(cid)["audio_status"] == "processing"
 
     # Get queue
-    q = get_queue(); import pprint; pprint.pprint(q)
+    q = get_queue()
+    import pprint
+    pprint.pprint(q)
     assert len(q) == 1
     assert q[0]["id"] == qid
     assert q[0]["status"] == "queued"
@@ -60,7 +62,9 @@ def test_queue_lifecycle(db_conn):
     assert get_chapter(cid)["audio_length_seconds"] == 12.5
 
     # Verify metadata joined in get_queue
-    q = get_queue(); import pprint; pprint.pprint(q)
+    q = get_queue()
+    import pprint
+    pprint.pprint(q)
     assert q[0]["predicted_audio_length"] is not None
     assert q[0]["char_count"] is not None
 
@@ -71,7 +75,9 @@ def test_queue_lifecycle(db_conn):
 
 def test_upsert_queue_row(db_conn):
     upsert_queue_row("manual-job", status="running", custom_title="System Task")
-    q = get_queue(); import pprint; pprint.pprint(q)
+    q = get_queue()
+    import pprint
+    pprint.pprint(q)
     assert len(q) == 1
     assert q[0]["id"] == "manual-job"
     assert q[0]["custom_title"] == "System Task"

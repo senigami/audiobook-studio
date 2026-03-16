@@ -128,7 +128,7 @@ def test_pack_text_to_limit():
 
     # Test with padding
     packed_pad = pack_text_to_limit(text, limit=20, pad=True)
-    assert all(len(l) == 20 for l in packed_pad.split('\n'))
+    assert all(len(line) == 20 for line in packed_pad.split('\n'))
 
 def test_get_text_stats():
     # "Hello world. Testing 123!"

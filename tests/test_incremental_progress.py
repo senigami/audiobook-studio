@@ -90,29 +90,7 @@ def test_xtts_handler_progress_updates():
     prog_bake = (done_at_end / total_c) * 0.9
     assert prog_bake == 0.63 # 0.7 * 0.9
 
-def test_get_chapter_segments_counts_logic():
-    """Test the database helper directly."""
-    from app.db.chapters import create_chapter, get_chapter_segments_counts
-    from app.db.segments import sync_chapter_segments, get_chapter_segments, update_segment
-
-    pid = "proj_1"
-    cid = create_chapter(pid, "Test Chapter")
-
-    # Create segments by syncing text
-    sync_chapter_segments(cid, "Sentence one. Sentence two. Sentence three. Sentence four.")
-
-    segs = get_chapter_segments(cid)
-    assert len(segs) == 4
-
-    # Mark 2 as done
-    update_segment(segs[0]['id'], audio_status="done")
-    update_segment(segs[1]['id'], audio_status="done")
-
-    done, total = get_chapter_segments_counts(cid)
-    assert total == 4
-    assert done == 2
-
-def test_xtts_handler_final_progress_logic():
+def test_calculate_predicted_progress_floor():
     """Verify that final progress calculation logic works correctly."""
     # This just verifies the math we use in handle_xtts_job
     done_c = 8

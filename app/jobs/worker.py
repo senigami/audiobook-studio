@@ -3,17 +3,21 @@ import os
 import re
 import threading
 import traceback
+import logging
 from pathlib import Path
 from .core import (
     job_queue, assembly_queue, cancel_flags, pause_flag,
     BASELINE_XTTS_CPS, _estimate_seconds, format_seconds, calculate_predicted_progress
 )
+
+from .handlers.xtts import handle_xtts_job
 from ..state import get_jobs, update_job, get_performance_metrics, update_performance_metrics
 from ..config import CHAPTER_DIR, XTTS_OUT_DIR, AUDIOBOOK_DIR, SAMPLES_DIR
 from .reconcile import _output_exists
 from .speaker import get_speaker_wavs, get_speaker_settings
 from .handlers.audiobook import handle_audiobook_job
-from .handlers.xtts import handle_xtts_job
+
+logger = logging.getLogger(__name__)
 
 def worker_loop(q):
     while True:

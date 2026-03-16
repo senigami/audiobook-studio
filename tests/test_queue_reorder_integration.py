@@ -20,8 +20,12 @@ def clean_db():
     init_db()
 
     # Clear memory queues
-    while not job_queue.empty(): job_queue.get(); job_queue.task_done()
-    while not assembly_queue.empty(): assembly_queue.get(); assembly_queue.task_done()
+    while not job_queue.empty():
+        job_queue.get()
+        job_queue.task_done()
+    while not assembly_queue.empty():
+        assembly_queue.get()
+        assembly_queue.task_done()
 
     yield
 
