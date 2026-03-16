@@ -1,5 +1,6 @@
 import time
 from typing import List, Optional
+from pydantic import BaseModel
 from fastapi import APIRouter, Form
 from fastapi.responses import JSONResponse
 from ...db import get_queue, clear_queue, clear_completed_queue, reorder_queue, remove_from_queue
@@ -48,8 +49,6 @@ def api_clear_completed():
     to_del = [jid for jid, j in jobs.items() if j.status in ('done', 'failed', 'cancelled')]
     delete_jobs(to_del)
     return JSONResponse({"status": "ok", "cleared": count})
-
-from pydantic import BaseModel
 
 class ReorderRequest(BaseModel):
     queue_ids: List[str]
