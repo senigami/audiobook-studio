@@ -111,7 +111,9 @@ def cleanup_orphaned_segments(chapter_id: str):
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT id FROM chapter_segments WHERE chapter_id = ?", (chapter_id,))
+            # CRITICAL FIX: Fetch ALL valid segment IDs across all chapters. 
+            # Otherwise we delete valid segments from other chapters sharing the same output directory.
+            cursor.execute("SELECT id FROM chapter_segments")
             valid_ids = set(row['id'] for row in cursor.fetchall())
 
             cursor.execute("SELECT project_id FROM chapters WHERE id = ?", (chapter_id,))
