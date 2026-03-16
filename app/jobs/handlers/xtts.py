@@ -9,11 +9,15 @@ from ..speaker import get_speaker_wavs
 
 def handle_xtts_job(jid, j, start, logs, on_output, cancel_check, default_sw, speed, pdir, out_wav, out_mp3, text=None):
     from ...db import get_connection, update_segment, get_chapter_segments, update_segments_status_bulk, update_queue_item
+    from ...db.segments import cleanup_orphaned_segments
 
     # Ensure status is 'running' if we got here
     if j.status != "running":
         j.status = "running"
         update_job(jid, status="running")
+
+    if j.chapter_id:
+        cleanup_orphaned_segments(j.chapter_id)
 
     # NEW: Handle Chapter Baking (Stitching existing segments)
     if j.is_bake and j.chapter_id:

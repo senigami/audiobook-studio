@@ -34,6 +34,8 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
   submitting,
   generatingJob
 }) => {
+  const uniqueSegmentIds = Array.from(new Set(allSegmentIds));
+  
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', padding: '1.5rem', minHeight: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
@@ -148,7 +150,7 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
                                         </button>
                                     ) : (
                                         <button 
-                                            onClick={() => onPlay(group.segments[0].id, allSegmentIds)} 
+                                            onClick={() => onPlay(group.segments[0].id, uniqueSegmentIds)} 
                                             className="btn-ghost" 
                                             style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center', fontSize: '0.8rem', padding: '0.5rem', background: 'rgba(255,255,255,0.1)' }}
                                         >
@@ -156,7 +158,7 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
                                         </button>
                                     )}
                                     <button 
-                                        onClick={() => onGenerate(group.segments.map(s => s.id))}
+                                        onClick={() => onGenerate(Array.from(new Set(group.segments.map(s => s.id))))}
                                         className="btn-ghost" 
                                         style={{ 
                                             display: 'flex', alignItems: 'center', gap: '0.5rem', 
@@ -174,7 +176,7 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
                             </div>
                             <div 
                                 onClick={() => {
-                                    const queueFromHere = allSegmentIds.slice(allSegmentIds.indexOf(group.segments[0].id));
+                                    const queueFromHere = uniqueSegmentIds.slice(uniqueSegmentIds.indexOf(group.segments[0].id));
                                     onPlay(group.segments[0].id, queueFromHere);
                                 }}
                                 style={{ 
