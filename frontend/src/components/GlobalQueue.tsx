@@ -48,9 +48,9 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({ paused = false, jobs =
         return base;
     };
 
-    const activeJobs = queue.filter(q => q.status === 'running' || q.status === 'preparing' || q.status === 'finalizing');
-    const pendingJobs = queue.filter(q => q.status === 'queued');
-    const pastJobs = queue.filter(q => q.status === 'done' || q.status === 'failed' || q.status === 'cancelled');
+    const activeJobs = React.useMemo(() => queue.filter(q => q.status === 'running' || q.status === 'preparing' || q.status === 'finalizing'), [queue]);
+    const pendingJobs = React.useMemo(() => queue.filter(q => q.status === 'queued'), [queue]);
+    const pastJobs = React.useMemo(() => queue.filter(q => q.status === 'done' || q.status === 'failed' || q.status === 'cancelled'), [queue]);
 
     if (loading) return <div style={{ padding: '2rem' }}>Loading Queue...</div>;
 
@@ -186,29 +186,29 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({ paused = false, jobs =
                                     <Reorder.Item 
                                         key={job.id} 
                                         value={job}
-                                        onMouseEnter={() => setHoveredJobId(job.id)}
-                                        onMouseLeave={() => setHoveredJobId(null)}
                                         style={{
-                                            background: 'var(--surface)', borderRadius: '12px', padding: '1rem 1.25rem', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '1.25rem', cursor: 'grab',
-                                            boxShadow: hoveredJobId === job.id ? 'var(--shadow-md)' : 'none',
-                                            transition: 'all 0.2s ease'
+                                            background: 'var(--surface)', 
+                                            borderRadius: '12px', 
+                                            padding: '1rem 1.25rem', 
+                                            border: '1px solid var(--border)', 
+                                            display: 'flex', 
+                                            alignItems: 'center', 
+                                            gap: '1.25rem', 
+                                            cursor: 'grab'
                                         }}
-                                        whileDrag={{ scale: 1.02, boxShadow: 'var(--shadow-lg)', zIndex: 50, cursor: 'grabbing' }}
-                                        onDragStart={handleDragStart}
-                                        onDragEnd={handleDragEnd}
                                     >
-                                        <div style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }} title="Drag to reorder"><GripVertical size={18} strokeWidth={2} /></div>
-                                        <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'var(--surface-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-                                            <Clock size={18} strokeWidth={2} />
-                                        </div>
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <h4 style={{ fontWeight: 600, fontSize: '0.95rem', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{formatJobTitle(job)}</h4>
-                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 500 }}>{job.project_name ? `${job.project_name} • Part ${job.split_part + 1}` : "Internal Process"}</div>
-                                        </div>
-                                        <button onClick={() => handleRemove(job.id)} className="hover-bg-destructive" style={{ background: 'none', border: 'none', padding: '8px', borderRadius: '8px', cursor: 'pointer', color: hoveredJobId === job.id ? 'var(--error)' : 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s ease' }}>
-                                            <Trash2 size={16} strokeWidth={2} />
-                                        </button>
-                                    </Reorder.Item>
+                                         <div style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }} title="Drag to reorder"><GripVertical size={18} strokeWidth={2} /></div>
+                                         <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'var(--surface-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+                                             <Clock size={18} strokeWidth={2} />
+                                         </div>
+                                         <div style={{ flex: 1, minWidth: 0 }}>
+                                             <h4 style={{ fontWeight: 600, fontSize: '0.95rem', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{formatJobTitle(job)}</h4>
+                                             <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 500 }}>{job.project_name ? `${job.project_name} • Part ${job.split_part + 1}` : "Internal Process"}</div>
+                                         </div>
+                                         <button onClick={(e) => { e.stopPropagation(); handleRemove(job.id); }} style={{ background: 'none', border: 'none', padding: '8px', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                             <Trash2 size={16} strokeWidth={2} />
+                                         </button>
+                                     </Reorder.Item>
                                 ))}
                             </Reorder.Group>
                         </div>
