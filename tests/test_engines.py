@@ -74,7 +74,8 @@ def test_generate_video_sample(mock_on_output, mock_cancel_check):
 
 def test_run_cmd_stream_cancel(mock_on_output, mock_cancel_check):
     mock_cancel_check.return_value = True
-    with patch("subprocess.Popen") as mock_popen:
+    with patch("subprocess.Popen") as mock_popen, \
+         patch("selectors.DefaultSelector"):
         mock_proc = MagicMock()
         mock_popen.return_value = mock_proc
 
