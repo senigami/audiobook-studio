@@ -1,5 +1,8 @@
 import ast
 import re
+import sys
+import subprocess
+import glob
 
 def get_routes_from_file(filepath):
     routes = set()
@@ -27,10 +30,6 @@ def get_routes_from_file(filepath):
 
         routes.add((method, full_path, filepath))
     return set((m, p) for m, p, f in routes)  # Return just (method, path) pairs
-
-import sys
-import subprocess
-import glob
 
 # 1. Get old web.py from git
 print("Fetching old web.py...")
