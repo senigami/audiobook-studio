@@ -10,6 +10,12 @@ assembly_queue: "queue.Queue[str]" = queue.Queue()
 cancel_flags: Dict[str, threading.Event] = {}
 pause_flag = threading.Event()
 
+# Progress Calculation Constants
+PROGRESS_PREPARE_LIMIT = 0.05
+PROGRESS_PREPARE_STEP = 0.005
+PROGRESS_MAX_PREDICTED = 0.85
+PROGRESS_STITCH_LIMIT = 0.98
+
 # Default fallbacks
 # BASELINE_XTTS_CPS moved to config.py
 
@@ -47,7 +53,7 @@ def format_seconds(seconds: int) -> str:
     hours, mins = divmod(minutes, 60)
     return f"{hours}h {mins}m {secs}s"
 
-def calculate_predicted_progress(job, now: float, start_time: float, eta: int, limit: float = 0.85, prepare_limit: float = 0.05, prepare_step: float = 0.005) -> float:
+def calculate_predicted_progress(job, now: float, start_time: float, eta: int, limit: float = PROGRESS_MAX_PREDICTED, prepare_limit: float = PROGRESS_PREPARE_LIMIT, prepare_step: float = PROGRESS_PREPARE_STEP) -> float:
     """Safely calculates the predicted progress floor for a job."""
     current_p = getattr(job, 'progress', 0.0)
 

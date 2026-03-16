@@ -96,8 +96,8 @@ async def legacy_clear():
 
 @app.post("/api/processing_queue/clear_completed")
 async def legacy_clear_completed():
-    from .api.routers.queue import api_clear_history
-    return api_clear_history()
+    from .api.routers.queue import api_clear_completed
+    return api_clear_completed()
 
 @app.post("/api/chapter/reset")
 async def legacy_chapter_reset(request: Request):

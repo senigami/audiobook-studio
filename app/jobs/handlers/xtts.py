@@ -82,7 +82,7 @@ def handle_xtts_job(jid, j, start, logs, on_output, cancel_check, default_sw, sp
                             done_at_end, total_c = get_chapter_segments_counts(j.chapter_id)
                             # Partial progress: done_at_end / total_c * 0.9 (since stitching is next)
                             prog = (done_at_end / total_c) * 0.9 if total_c > 0 else (groups_completed[0] / len(missing_groups)) * 0.9
-                        except:
+                        except Exception:
                             prog = (groups_completed[0] / len(missing_groups)) * 0.9
                         update_job(jid, progress=prog, active_segment_id=None, active_segment_progress=0.0)
 
@@ -103,12 +103,15 @@ def handle_xtts_job(jid, j, start, logs, on_output, cancel_check, default_sw, sp
                 if spath.exists() and spath != last_path:
                     segment_paths.append(spath)
                     last_path = spath
+
         if not segment_paths:
             update_job(jid, status="failed", error="No valid audio segments found to stitch.")
             return
+
         rc = stitch_segments(pdir, segment_paths, out_wav, on_output, cancel_check)
         if rc == 0 and out_wav.exists():
             duration = get_audio_duration(out_wav)
+            from ...db import update_queue_item
             update_queue_item(jid, "done", audio_length_seconds=duration)
         else:
             update_job(jid, status="failed", error=f"Stitching failed (rc={rc})")
@@ -175,7 +178,7 @@ def handle_xtts_job(jid, j, start, logs, on_output, cancel_check, default_sw, sp
                         from ...db.chapters import get_chapter_segments_counts
                         done_at_end, total_c = get_chapter_segments_counts(j.chapter_id)
                         prog = (done_at_end / total_c) if total_c > 0 else (groups_completed[0] / len(gen_groups))
-                    except:
+                    except Exception:
                         prog = (groups_completed[0] / len(gen_groups))
                     update_job(jid, progress=prog, active_segment_id=None, active_segment_progress=0.0)
 
@@ -189,7 +192,8 @@ def handle_xtts_job(jid, j, start, logs, on_output, cancel_check, default_sw, sp
             try:
                 from ...api.ws import broadcast_segments_updated
                 broadcast_segments_updated(j.chapter_id)
-            except: pass
+            except Exception: 
+                pass
 
         # Accurate Resumption: Update progress based on total segments
         try:
@@ -197,7 +201,7 @@ def handle_xtts_job(jid, j, start, logs, on_output, cancel_check, default_sw, sp
             done_c, total_c = get_chapter_segments_counts(j.chapter_id)
             final_p = round(done_c / total_c, 2) if total_c > 0 else 1.0
             update_job(jid, status="done", progress=final_p, finished_at=time.time())
-        except:
+        except Exception:
             update_job(jid, status="done", progress=1.0, finished_at=time.time())
         return
 

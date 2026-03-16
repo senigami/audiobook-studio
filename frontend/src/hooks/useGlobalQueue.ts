@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { api } from '../api';
 import type { ProcessingQueueItem, Job } from '../types';
 
@@ -7,7 +7,6 @@ export const useGlobalQueue = (paused: boolean, jobs: Record<string, Job>, refre
     const [loading, setLoading] = useState(true);
     const [localPaused, setLocalPaused] = useState(paused);
     const [hoveredJobId, setHoveredJobId] = useState<string | null>(null);
-    const isDraggingRef = useRef(false);
     const [showHistory, setShowHistory] = useState(false);
     const [confirmConfig, setConfirmConfig] = useState<{
         title: string;
@@ -17,11 +16,16 @@ export const useGlobalQueue = (paused: boolean, jobs: Record<string, Job>, refre
         confirmText?: string;
     } | null>(null);
 
-    useEffect(() => {
-        setLocalPaused(paused);
-    }, [paused]);
+    const isDraggingRef = useRef(false);
+    const dragTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const queueRef = useRef(queue);
 
-    const fetchQueue = async () => {
+    useEffect(() => {
+        queueRef.current = queue;
+    }, [queue]);
+
+    // Define fetchQueue first to avoid hosting/initialization errors in effects
+    const fetchQueue = useCallback(async () => {
         if (isDraggingRef.current) return;
         try {
             const data = await api.getProcessingQueue();
@@ -33,13 +37,41 @@ export const useGlobalQueue = (paused: boolean, jobs: Record<string, Job>, refre
         } finally {
             setLoading(false);
         }
+    }, []);
+
+    // Safer hover handling that prevents re-renders during drag
+    const handleSetHoveredJobId = (id: string | null) => {
+        if (!isDraggingRef.current) {
+            setHoveredJobId(id);
+        }
     };
+
+    // Global fallback to release drag lock if Framer Motion misses an event
+    useEffect(() => {
+        const handleGlobalMouseUp = () => {
+            if (isDraggingRef.current) {
+                // We give Framer Motion a moment to fire its own handleDragEnd
+                setTimeout(() => {
+                    if (isDraggingRef.current && !dragTimeoutRef.current) {
+                        isDraggingRef.current = false;
+                        fetchQueue();
+                    }
+                }, 200);
+            }
+        };
+        window.addEventListener('pointerup', handleGlobalMouseUp);
+        return () => window.removeEventListener('pointerup', handleGlobalMouseUp);
+    }, [fetchQueue]);
+
+    useEffect(() => {
+        setLocalPaused(paused);
+    }, [paused]);
 
     useEffect(() => {
         fetchQueue();
         const interval = setInterval(fetchQueue, 3000);
         return () => clearInterval(interval);
-    }, [refreshTrigger]);
+    }, [refreshTrigger, fetchQueue]);
 
     useEffect(() => {
         if (isDraggingRef.current) return;
@@ -60,9 +92,9 @@ export const useGlobalQueue = (paused: boolean, jobs: Record<string, Job>, refre
     useEffect(() => {
         const timer = setInterval(fetchQueue, 30000);
         return () => clearInterval(timer);
-    }, []);
+    }, [fetchQueue]);
 
-    const handlePauseToggle = async () => {
+    const handlePauseToggle = useCallback(async () => {
         const targetState = !localPaused;
         setLocalPaused(targetState);
         try {
@@ -75,43 +107,60 @@ export const useGlobalQueue = (paused: boolean, jobs: Record<string, Job>, refre
             console.error('Failed to toggle pause', e);
             setLocalPaused(!targetState);
         }
-    };
+    }, [localPaused, onRefresh, fetchQueue]);
 
-    const handleReorder = (newOrder: ProcessingQueueItem[]) => {
+    const handleReorder = useCallback((newOrder: ProcessingQueueItem[]) => {
         // newOrder comes from Reorder.Group values={pendingJobs}
         // pendingJobs is already filtered for 'queued' status
         setQueue(prev => {
             const nonQueued = prev.filter(q => q.status !== 'queued');
             return [...nonQueued, ...newOrder];
         });
-    };
+    }, []);
 
-    const handleDragStart = () => {
+    const handleDragStart = useCallback(() => {
         isDraggingRef.current = true;
-    };
+        // Safety timeout: if drag ends in an unexpected way, release the lock after 10s
+        if (dragTimeoutRef.current) clearTimeout(dragTimeoutRef.current);
+        dragTimeoutRef.current = setTimeout(() => {
+            isDraggingRef.current = false;
+        }, 10000);
+    }, []);
 
-    const handleDragEnd = async () => {
+    const handleDragEnd = useCallback(async () => {
+        if (dragTimeoutRef.current) {
+            clearTimeout(dragTimeoutRef.current);
+            dragTimeoutRef.current = null;
+        }
+        
         try {
-            const queuedIds = queue.filter(q => q.status === 'queued').map(q => q.id);
+            const currentQueue = queueRef.current;
+            const queuedIds = currentQueue.filter(q => q.status === 'queued').map(q => q.id);
             await api.reorderProcessingQueue(queuedIds);
             
-            // Explicitly sync after save
+            // Wait for snap-back animation to finish completely
+            await new Promise(resolve => setTimeout(resolve, 300));
+            
             const data = await api.getProcessingQueue();
-            setQueue(data);
+            // Only update if we aren't starting another drag
+            if (!isDraggingRef.current) {
+                setQueue(data);
+            }
         } catch (e) {
             console.error('Failed to commit reorder:', e);
             fetchQueue();
         } finally {
-            // Delay releasing the lock slightly to ensure all animations settle
+            // Delay releasing the lock to prevent background fetch from interfering with the final snap
             setTimeout(() => {
                 isDraggingRef.current = false;
             }, 100);
         }
-    };
+    }, [fetchQueue]);
 
-    const handleRemove = async (id: string) => {
+    const handleRemove = useCallback(async (id: string) => {
         try {
-            const job = queue.find(q => q.id === id);
+            const currentQueue = queueRef.current;
+            const job = currentQueue.find(q => q.id === id);
             if (job?.chapter_id && job.status !== 'done' && job.status !== 'failed' && job.status !== 'cancelled') {
                 try {
                     await fetch(`/api/chapters/${job.chapter_id}/cancel`, { method: 'POST' });
@@ -124,7 +173,7 @@ export const useGlobalQueue = (paused: boolean, jobs: Record<string, Job>, refre
         } catch (e) {
             console.error(e);
         }
-    };
+    }, [fetchQueue]);
 
     const handleClearCompleted = async () => {
         try {
@@ -154,7 +203,7 @@ export const useGlobalQueue = (paused: boolean, jobs: Record<string, Job>, refre
         loading,
         localPaused,
         hoveredJobId,
-        setHoveredJobId,
+        setHoveredJobId: handleSetHoveredJobId,
         showHistory,
         setShowHistory,
         confirmConfig,

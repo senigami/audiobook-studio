@@ -57,7 +57,7 @@ def test_queue_item_manipulation(clean_db):
     qid = add_to_queue(pid, cid)
 
     # Reorder - In queue.py, PUT /api/processing_queue/reorder
-    response = client.put("/api/processing_queue/reorder", data={"queue_ids": [qid]})
+    response = client.put("/api/processing_queue/reorder", json={"queue_ids": [qid]})
     assert response.status_code == 200
 
     # Delete single - In queue.py, DELETE /api/processing_queue/{queue_id}
@@ -74,8 +74,8 @@ def test_queue_bulk_actions(clean_db):
     qid = add_to_queue(pid, cid)
     update_queue_item(qid, "done")
 
-    # Clear completed (history) - In queue.py, POST /api/processing_queue/clear-history
-    response = client.post("/api/processing_queue/clear-history")
+    # Clear completed (history) - In queue.py, POST /api/processing_queue/clear_completed
+    response = client.post("/api/processing_queue/clear_completed")
     assert response.status_code == 200
 
     # Clear all - In queue.py, POST /api/processing_queue/clear

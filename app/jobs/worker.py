@@ -7,7 +7,8 @@ import logging
 from pathlib import Path
 from .core import (
     job_queue, assembly_queue, cancel_flags, pause_flag,
-    BASELINE_XTTS_CPS, _estimate_seconds, format_seconds, calculate_predicted_progress
+    BASELINE_XTTS_CPS, _estimate_seconds, format_seconds, calculate_predicted_progress,
+    PROGRESS_PREPARE_LIMIT, PROGRESS_PREPARE_STEP, PROGRESS_MAX_PREDICTED, PROGRESS_STITCH_LIMIT
 )
 
 from .handlers.xtts import handle_xtts_job
@@ -119,7 +120,8 @@ def worker_loop(q):
                     done_c, total_c = get_chapter_segments_counts(j.chapter_id)
                     if total_c > 0:
                         initial_progress = round(done_c / total_c, 2)
-                except: pass
+                except Exception:
+                    logger.error("Failed to get chapter segment counts for progress initialization", exc_info=True)
 
             # ETA Fix: Adjust started_at to account for past work
             adjusted_start = initial_start - (initial_progress * eta) if eta > 0 else initial_start
@@ -150,7 +152,7 @@ def worker_loop(q):
                 new_log = None
 
                 if not s:
-                    prog = calculate_predicted_progress(j, now, j.started_at, eta, limit=0.98, prepare_limit=0.01, prepare_step=0.001)
+                    prog = calculate_predicted_progress(j, now, j.started_at, eta, limit=PROGRESS_STITCH_LIMIT, prepare_limit=PROGRESS_PREPARE_LIMIT, prepare_step=PROGRESS_PREPARE_STEP)
                     last_b = getattr(j, '_last_broadcast_time', 0)
                     last_p = getattr(j, '_last_broadcast_p', 0.0)
                     if (prog - last_p >= 0.01) or (now - last_b >= 30.0):
@@ -164,7 +166,7 @@ def worker_loop(q):
                 if "[START_SYNTHESIS]" in s:
                     j.synthesis_started_at = now
                     j.status = "running"
-                    prog = max(j.progress, 0.01)
+                    prog = max(j.progress, PROGRESS_PREPARE_LIMIT)
                     j.progress = prog
                     j.started_at = now - (prog * eta) if eta > 0 else now
                     update_job(jid, status="running", started_at=j.started_at, progress=prog)
@@ -223,7 +225,7 @@ def worker_loop(q):
 
                 broadcast_p = getattr(j, '_last_broadcast_p', 0.0)
                 if new_progress is None:
-                    new_progress = round(calculate_predicted_progress(j, now, j.started_at, eta, limit=0.85, prepare_limit=0.05, prepare_step=0.005), 2)
+                    new_progress = round(calculate_predicted_progress(j, now, j.started_at, eta), 2)
 
                 include_p = new_progress is not None and ((abs(new_progress - broadcast_p) >= 0.01) or (broadcast_p == 0 and new_progress > 0))
                 if new_log or include_p or broadcast_args:
@@ -263,7 +265,9 @@ def worker_loop(q):
 
         except Exception:
             tb = traceback.format_exc()
-            try: update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error="Worker crashed.", log=tb[-20000:])
-            except: print(f"FATAL: could not update job {jid}\n{tb}")
+            try: 
+                update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error="Worker crashed.", log=tb[-20000:])
+            except Exception:
+                logger.critical(f"FATAL: could not update job {jid} failure state\n{tb}")
         finally:
             q.task_done()

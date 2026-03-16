@@ -15,7 +15,9 @@ def enqueue(job):
             job_id=job.id, project_id=job.project_id, chapter_id=job.chapter_id,
             status='queued', custom_title=job.custom_title, engine=job.engine
         )
-    except: pass
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Failed to upsert queue row for job {job.id}: {e}")
 
     if job.engine == "audiobook": assembly_queue.put(job.id)
     else: job_queue.put(job.id)
@@ -51,7 +53,8 @@ def clear_job_queue():
             try:
                 q.get_nowait()
                 q.task_done()
-            except: break
+            except Exception: 
+                break
 
 def sync_memory_queue():
     """
