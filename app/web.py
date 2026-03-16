@@ -205,6 +205,14 @@ def startup_event():
     add_job_listener(broadcast_job_updated)
     logger.info("Startup: Job listeners registered.")
 
+    # 4. Restore Pause State
+    from .state import get_settings
+    from .jobs import set_paused
+    settings = get_settings()
+    if settings.get("is_paused"):
+        set_paused(True)
+        logger.info("Startup: Queue restored to PAUSED state.")
+
 @app.on_event("shutdown")
 def shutdown_event():
     from .engines import terminate_all_subprocesses

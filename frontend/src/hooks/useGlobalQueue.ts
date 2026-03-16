@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api } from '../api';
 import type { ProcessingQueueItem, Job } from '../types';
 
@@ -7,6 +7,7 @@ export const useGlobalQueue = (paused: boolean, jobs: Record<string, Job>, refre
     const [loading, setLoading] = useState(true);
     const [localPaused, setLocalPaused] = useState(paused);
     const [hoveredJobId, setHoveredJobId] = useState<string | null>(null);
+    const isDraggingRef = useRef(false);
     const [showHistory, setShowHistory] = useState(false);
     const [confirmConfig, setConfirmConfig] = useState<{
         title: string;
@@ -21,9 +22,12 @@ export const useGlobalQueue = (paused: boolean, jobs: Record<string, Job>, refre
     }, [paused]);
 
     const fetchQueue = async () => {
+        if (isDraggingRef.current) return;
         try {
             const data = await api.getProcessingQueue();
-            setQueue(data);
+            if (!isDraggingRef.current) {
+                setQueue(data);
+            }
         } catch (e) {
             console.error("Failed to fetch queue", e);
         } finally {
@@ -54,6 +58,7 @@ export const useGlobalQueue = (paused: boolean, jobs: Record<string, Job>, refre
     }, [refreshTrigger]);
 
     useEffect(() => {
+        if (isDraggingRef.current) return;
         setQueue(prev => {
             let changed = false;
             const updated = prev.map(q => {
@@ -73,15 +78,22 @@ export const useGlobalQueue = (paused: boolean, jobs: Record<string, Job>, refre
         return () => clearInterval(timer);
     }, []);
 
-    const handleReorder = async (newOrder: ProcessingQueueItem[]) => {
+    const handleReorder = (newOrder: ProcessingQueueItem[]) => {
         const nonQueued = queue.filter(q => q.status !== 'queued');
         const correctlyOrdered = [...nonQueued, ...newOrder.filter(q => q.status === 'queued')];
         setQueue(correctlyOrdered);
-        
+    };
+
+    const handleDragStart = () => {
+        isDraggingRef.current = true;
+    };
+
+    const handleDragEnd = async () => {
+        isDraggingRef.current = false;
         try {
-            await api.reorderProcessingQueue(newOrder.filter(q => q.status === 'queued').map(q => q.id));
+            await api.reorderProcessingQueue(queue.filter(q => q.status === 'queued').map(q => q.id));
         } catch (e) {
-            console.error(e);
+            console.error('Failed to commit reorder:', e);
             fetchQueue();
         }
     };
@@ -140,6 +152,8 @@ export const useGlobalQueue = (paused: boolean, jobs: Record<string, Job>, refre
         handleRemove,
         handleClearCompleted,
         handleClearAll,
-        fetchQueue
+        fetchQueue,
+        handleDragStart,
+        handleDragEnd
     };
 };

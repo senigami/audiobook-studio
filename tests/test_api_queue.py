@@ -56,8 +56,8 @@ def test_queue_item_manipulation(clean_db):
     cid = create_chapter(pid, "C1")
     qid = add_to_queue(pid, cid)
 
-    # Reorder - In queue.py, POST /api/processing_queue/reorder
-    response = client.post("/api/processing_queue/reorder", json=[qid])
+    # Reorder - In queue.py, PUT /api/processing_queue/reorder
+    response = client.put("/api/processing_queue/reorder", data={"queue_ids": [qid]})
     assert response.status_code == 200
 
     # Delete single - In queue.py, DELETE /api/processing_queue/{queue_id}

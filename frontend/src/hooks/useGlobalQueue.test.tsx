@@ -93,11 +93,20 @@ describe('useGlobalQueue', () => {
     await waitFor(() => expect(result.current.queue).toHaveLength(2));
 
     const newOrder = [mockQueue[1], mockQueue[0]];
-    await act(async () => {
-      await result.current.handleReorder(newOrder);
+    
+    // Simulate drag and drop flow
+    act(() => {
+      result.current.handleDragStart();
+      result.current.handleReorder(newOrder);
     });
 
     expect(result.current.queue).toEqual(newOrder);
+    expect(api.reorderProcessingQueue).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await result.current.handleDragEnd();
+    });
+
     expect(api.reorderProcessingQueue).toHaveBeenCalledWith(['job2', 'job1']);
   });
 

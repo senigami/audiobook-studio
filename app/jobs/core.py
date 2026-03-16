@@ -17,16 +17,22 @@ def paused() -> bool:
     return pause_flag.is_set()
 
 def toggle_pause():
+    from ..state import update_settings
     if pause_flag.is_set():
         pause_flag.clear()
+        update_settings({"is_paused": False})
     else:
         pause_flag.set()
+        update_settings({"is_paused": True})
 
 def set_paused(value: bool):
+    from ..state import update_settings
     if value:
         pause_flag.set()
+        update_settings({"is_paused": True})
     else:
         pause_flag.clear()
+        update_settings({"is_paused": False})
 
 def _estimate_seconds(text_chars: int, cps: float) -> int:
     return max(5, int(text_chars / max(1.0, cps)))

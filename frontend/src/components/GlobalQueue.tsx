@@ -29,7 +29,9 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({ paused = false, jobs =
         handleReorder,
         handleRemove,
         handleClearCompleted,
-        handleClearAll
+        handleClearAll,
+        handleDragStart,
+        handleDragEnd
     } = useGlobalQueue(paused, jobs, refreshTrigger, onRefresh);
 
     const formatTime = (ts: number | null | undefined) => {
@@ -192,6 +194,8 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({ paused = false, jobs =
                                             transition: 'all 0.2s ease'
                                         }}
                                         whileDrag={{ scale: 1.02, boxShadow: 'var(--shadow-lg)', zIndex: 50, cursor: 'grabbing' }}
+                                        onDragStart={handleDragStart}
+                                        onDragEnd={handleDragEnd}
                                     >
                                         <div style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }} title="Drag to reorder"><GripVertical size={18} strokeWidth={2} /></div>
                                         <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'var(--surface-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>

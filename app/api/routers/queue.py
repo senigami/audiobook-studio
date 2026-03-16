@@ -49,9 +49,14 @@ def api_clear_history():
     delete_jobs(to_del)
     return JSONResponse({"status": "ok", "cleared": count})
 
-@router.post("/processing_queue/reorder")
-def api_reorder_queue_route(queue_ids: List[str]):
-    reorder_queue(queue_ids)
+@router.put("/processing_queue/reorder")
+def api_reorder_queue_route(queue_ids: List[str] = Form(...)):
+    # Note: queue_ids is a single comma-separated string from FormData, 
+    # but FastAPI Form might need parsing if sent as a raw string. 
+    # Current frontend sends: formData.append('queue_ids', queueIds.join(','));
+    ids = queue_ids[0].split(',') if (len(queue_ids) == 1 and ',' in queue_ids[0]) else queue_ids
+
+    reorder_queue(ids)
     from ...jobs import sync_memory_queue
     sync_memory_queue()
     return JSONResponse({"status": "ok"})
