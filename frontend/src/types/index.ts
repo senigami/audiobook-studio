@@ -72,6 +72,7 @@ export interface ProcessingQueueItem {
   custom_title?: string;
   predicted_audio_length?: number;
   char_count?: number;
+  engine?: Engine;
 }
 
 export interface SpeakerProfile {

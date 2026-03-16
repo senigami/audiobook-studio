@@ -7,7 +7,7 @@ import { useGlobalQueue } from '../hooks/useGlobalQueue';
 import { QueueItem } from './queue/QueueItem';
 import { ReorderableQueueItem } from './queue/ReorderableQueueItem';
 import { QueueStats } from './queue/QueueStats';
-import type { Job } from '../types';
+import type { Job, ProcessingQueueItem } from '../types';
 
 interface GlobalQueueProps {
     paused?: boolean;
@@ -42,7 +42,7 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({ paused = false, jobs =
         return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     }, []);
 
-    const formatJobTitle = React.useCallback((job: any) => {
+    const formatJobTitle = React.useCallback((job: ProcessingQueueItem) => {
         const base = job.chapter_title || job.custom_title || "System Task";
         if (job.engine === 'audiobook') {
             return `Assembling m4b for: ${base}`;
@@ -170,7 +170,7 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({ paused = false, jobs =
                     ))}
                             </Reorder.Group>
                         </div>
-        )}
+                    )}
 
                     {pastJobs.length > 0 && (
                         <div style={{ borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>
