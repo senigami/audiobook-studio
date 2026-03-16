@@ -1,8 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
 import { QueueStats } from './QueueStats';
-import React from 'react';
-
 describe('QueueStats', () => {
     beforeEach(() => {
         vi.useFakeTimers();
@@ -53,9 +51,8 @@ describe('QueueStats', () => {
                 eta_seconds: 150 // 150 seconds remaining at 50%
             } as any
         };
+        render(<QueueStats queue={queue} jobs={jobs} />);
 
-        const { rerender } = render(<QueueStats queue={queue} jobs={jobs} />);
-        
         // 150s = 2.5 minutes -> 3m (due to Math.ceil)
         expect(screen.getByText('3m remaining')).toBeDefined();
 
