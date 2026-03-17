@@ -409,7 +409,7 @@ async def upload_speaker_samples(
         return JSONResponse({"status": "ok"})
     except Exception as e:
         logger.error(f"Upload failed for {name}: {e}")
-        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+        return JSONResponse({"status": "error", "message": "Upload failed"}, status_code=500)
 
 @router.delete("/api/speaker-profiles/{name}/samples/{sample_name}")
 def delete_speaker_sample(
