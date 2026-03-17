@@ -1,7 +1,7 @@
 import threading
 from .core import job_queue, assembly_queue, cancel_flags, pause_flag, paused, toggle_pause, set_paused, _estimate_seconds, calculate_predicted_progress, BASELINE_XTTS_CPS, format_seconds
 from .reconcile import cleanup_and_reconcile, _output_exists
-from .speaker import get_speaker_wavs, get_speaker_settings, update_speaker_settings
+from .speaker import get_speaker_wavs, get_speaker_settings, update_speaker_settings, DEFAULT_SPEAKER_TEST_TEXT
 from .worker import worker_loop
 from ..state import put_job, get_jobs, update_job, get_settings, get_performance_metrics, update_performance_metrics
 from ..config import CHAPTER_DIR, XTTS_OUT_DIR, AUDIOBOOK_DIR, VOICES_DIR, SAMPLES_DIR, SENT_CHAR_LIMIT
@@ -60,15 +60,23 @@ def sync_memory_queue():
     """
     Synchronizes the in-memory job_queue and assembly_queue with the DB's current 
     queued items. Useful after reordering.
+    Voice jobs (voice_build, voice_test) are one-shot and must NOT be re-enqueued on restart.
     """
     clear_job_queue()
-    from ..db import get_queue
+    from ..db import get_queue, update_queue_item
     # Get all queued items from DB (they are sorted by created_at DESC)
     db_queue = [item for item in get_queue() if item['status'] == 'queued']
     # Refill the FIFO queue in order of priority (first in list = first out)
     for item in db_queue:
         jid = item['id']
         engine = item.get('engine')
+        # Voice jobs are one-shot synthesis — skip and mark done in DB to prevent future re-queue
+        if engine in ('voice_build', 'voice_test'):
+            try:
+                update_queue_item(jid, 'done')
+            except Exception:
+                pass
+            continue
         if engine == "audiobook": 
             assembly_queue.put(jid)
         else: 
@@ -85,7 +93,7 @@ start_workers()
 __all__ = [
     "enqueue", "requeue", "cancel", "clear_job_queue",
     "paused", "toggle_pause", "set_paused", "cleanup_and_reconcile", "_output_exists",
-    "get_speaker_wavs", "get_speaker_settings", "update_speaker_settings",
+    "get_speaker_wavs", "get_speaker_settings", "update_speaker_settings", "DEFAULT_SPEAKER_TEST_TEXT",
     "get_jobs", "put_job", "update_job", "get_settings", "get_performance_metrics", "update_performance_metrics",
     "CHAPTER_DIR", "XTTS_OUT_DIR", "AUDIOBOOK_DIR", "VOICES_DIR", "SAMPLES_DIR", "SENT_CHAR_LIMIT",
     "_estimate_seconds", "calculate_predicted_progress", "BASELINE_XTTS_CPS", "format_seconds"

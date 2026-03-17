@@ -102,7 +102,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
                 >
                     <Music size={14} className="text-accent" />
                     <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>Samples ({profile.samples?.length || 0})</span>
-                    {isRebuildRequired && <AlertTriangle size={12} className="text-warning" />}
+                    {isRebuildRequired && <span title="Rebuild required to reflect recent sample changes"><AlertTriangle size={12} className="text-warning" /></span>}
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

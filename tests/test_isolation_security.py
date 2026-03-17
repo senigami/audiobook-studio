@@ -193,7 +193,6 @@ def test_legacy_path_and_forward_sync(client):
     from app.db import init_db, create_project, create_chapter, get_connection
     from app.state import put_job
     from app.models import Job
-    from app.config import CHAPTER_DIR, XTTS_OUT_DIR
     import uuid
 
     pid = create_project("Legacy Migration Test")
@@ -226,12 +225,14 @@ def test_legacy_path_and_forward_sync(client):
     put_job(j)
 
     # 1. Create text file in LEGACY folder (CHAPTER_DIR), NOT project folder
-    legacy_text = CHAPTER_DIR / f"{cid}_0.txt"
+    chapter_dir = Path(os.environ["CHAPTER_DIR"])
+    xtts_out_dir = Path(os.environ["XTTS_OUT_DIR"])
+    legacy_text = chapter_dir / f"{cid}_0.txt"
     legacy_text.parent.mkdir(parents=True, exist_ok=True)
     legacy_text.write_text("legacy chapter text")
 
     # 2. Create audio file in LEGACY folder (XTTS_OUT_DIR), NOT project folder
-    legacy_mp3 = XTTS_OUT_DIR / f"{cid}_0.mp3"
+    legacy_mp3 = xtts_out_dir / f"{cid}_0.mp3"
     legacy_mp3.parent.mkdir(parents=True, exist_ok=True)
     legacy_mp3.write_text("legacy audio data")
 

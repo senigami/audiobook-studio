@@ -6,18 +6,20 @@ import anyio
 import logging
 from pathlib import Path
 from typing import Optional, List
-from fastapi import APIRouter, Form, File, UploadFile
+from fastapi import APIRouter, Depends, Form, File, UploadFile, HTTPException
 from fastapi.responses import JSONResponse
 from ...db import (
     get_characters, create_character, update_character, delete_character,
     list_speakers, create_speaker, get_speaker, update_speaker, delete_speaker,
     update_voice_profile_references
 )
+from ...jobs import (
+    enqueue, get_speaker_settings, update_speaker_settings, 
+    DEFAULT_SPEAKER_TEST_TEXT
+)
 from ... import config
 from ...state import get_settings, update_settings, get_jobs, put_job, update_job
-from ...jobs import get_speaker_settings, update_speaker_settings, enqueue
 from ...models import Job
-from fastapi import Depends
 
 # Compatibility for tests that monkeypatch these
 VOICES_DIR = config.VOICES_DIR
@@ -28,9 +30,9 @@ logger = logging.getLogger(__name__)
 def get_voices_dir() -> Path:
     return VOICES_DIR
 
-router = APIRouter(prefix="/api", tags=["voices"])
+router = APIRouter(tags=["voices"])
 
-@router.get("/speaker-profiles")
+@router.get("/api/speaker-profiles")
 def list_speaker_profiles(voices_dir: Path = Depends(get_voices_dir)):
     if not voices_dir.exists():
         return []
@@ -84,14 +86,18 @@ def list_speaker_profiles(voices_dir: Path = Depends(get_voices_dir)):
         })
     return profiles
 
-@router.post("/speaker-profiles")
+@router.post("/api/speaker-profiles")
 def api_create_speaker_profile(
     speaker_id: str = Form(...),
     variant_name: str = Form(...),
     voices_dir: Path = Depends(get_voices_dir)
 ):
+    logger.info(f"Creating profile for speaker_id='{speaker_id}', variant_name='{variant_name}'")
     try:
-        name = f"{speaker_id}_{variant_name}"
+        # Try to use speaker name instead of ID if possible for folder name
+        spk = get_speaker(speaker_id)
+        spk_name = spk["name"] if spk else speaker_id
+        name = f"{spk_name} - {variant_name}"
         # Constructed path
         path = (voices_dir / name).resolve()
 
@@ -104,22 +110,28 @@ def api_create_speaker_profile(
             return JSONResponse({"status": "error", "message": "Profile already exists"}, status_code=400)
 
         path.mkdir(parents=True, exist_ok=True)
+        # Record speaker_id (could be a UUID or a name for unassigned)
         update_speaker_settings(name, speaker_id=speaker_id, variant_name=variant_name)
         return JSONResponse({"status": "ok", "name": name})
     except Exception as e:
         logger.error(f"Error creating profile {speaker_id}/{variant_name}: {e}")
         return JSONResponse({"status": "error", "message": "Creation failed"}, status_code=500)
 
-@router.get("/projects/{project_id}/characters")
+@router.get("/api/projects/{project_id}/characters")
 def api_list_characters(project_id: str):
-    return JSONResponse(get_characters(project_id))
+    return JSONResponse({"status": "ok", "characters": get_characters(project_id)})
 
-@router.post("/projects/{project_id}/characters")
-def api_create_character_route(project_id: str, name: str = Form(...), speaker_profile_name: Optional[str] = Form(None)):
-    cid = create_character(project_id, name, speaker_profile_name)
+@router.post("/api/projects/{project_id}/characters")
+def api_create_character_route(
+    project_id: str, 
+    name: str = Form(...), 
+    speaker_profile_name: Optional[str] = Form(None),
+    color: Optional[str] = Form(None)
+):
+    cid = create_character(project_id, name, speaker_profile_name, color=color)
     return JSONResponse({"status": "ok", "id": cid, "character_id": cid})
 
-@router.put("/characters/{character_id}")
+@router.put("/api/characters/{character_id}")
 def api_update_character_route(character_id: str, name: Optional[str] = Form(None), speaker_profile_name: Optional[str] = Form(None), color: Optional[str] = Form(None)):
     updates = {}
     if name is not None: updates["name"] = name
@@ -128,91 +140,206 @@ def api_update_character_route(character_id: str, name: Optional[str] = Form(Non
     update_character(character_id, **updates)
     return JSONResponse({"status": "ok"})
 
-@router.delete("/characters/{character_id}")
+@router.delete("/api/characters/{character_id}")
 def api_delete_character_route(character_id: str):
     delete_character(character_id)
     return JSONResponse({"status": "ok"})
 
-@router.get("/speakers")
+@router.get("/api/speakers")
 def api_list_speakers_route():
     return JSONResponse(list_speakers())
 
-@router.post("/speakers")
+@router.post("/api/speakers")
 def api_create_speaker_route(name: str = Form(...), default_profile_name: Optional[str] = Form(None)):
     sid = create_speaker(name, default_profile_name)
     return JSONResponse({"status": "ok", "id": sid, "speaker_id": sid})
 
-@router.put("/speakers/{speaker_id}")
-def api_update_speaker_route(speaker_id: str, name: Optional[str] = Form(None), default_profile_name: Optional[str] = Form(None)):
+def _rename_profile_folders(old_name: str, new_name: str, voices_dir: Path):
+    """Helper to rename all profile folders on disk starting with a speaker name."""
+    old_dir = (voices_dir / old_name).resolve()
+    new_dir = (voices_dir / new_name).resolve()
+
+    # Traversal check
+    if not old_dir.is_relative_to(voices_dir.resolve()) or not new_dir.is_relative_to(voices_dir.resolve()):
+        logger.warning(f"Blocking profile rename traversal attempt: {old_name} -> {new_name}")
+        raise HTTPException(status_code=403, detail="Invalid profile name")
+
+    # 1. Exact match (unassigned profile or narrator-identical name)
+    if old_dir.exists() and not new_dir.exists():
+        os.rename(old_dir, new_dir)
+        update_voice_profile_references(old_name, new_name)
+        # Update meta if exists
+        meta_path = new_dir / "profile.json"
+        if meta_path.exists():
+            try:
+                import json
+                meta = json.loads(meta_path.read_text())
+                if " - " in new_name:
+                    meta["variant_name"] = new_name.split(" - ", 1)[1]
+                # Only update speaker_id if it was the old name (unassigned case)
+                if meta.get("speaker_id") == old_name:
+                    meta["speaker_id"] = new_name
+                meta_path.write_text(json.dumps(meta, indent=2))
+            except: pass
+
+    # 2. Variants (Narrator - Variant)
+    variants = [d for d in voices_dir.iterdir() if d.is_dir() and d.name.startswith(old_name + " - ")]
+    for vdir in variants:
+        suffix = vdir.name[len(old_name):]
+        new_vname = new_name + suffix
+        new_vpath = voices_dir / new_vname
+        if not new_vpath.exists():
+            os.rename(vdir, new_vpath)
+            update_voice_profile_references(vdir.name, new_vname)
+            # Update meta
+            meta_path = new_vpath / "profile.json"
+            if meta_path.exists():
+                try:
+                    import json
+                    meta = json.loads(meta_path.read_text())
+                    # Ensure metadata speaker_id stays correct if it was a UUID, or updates to new name if unassigned
+                    if meta.get("speaker_id") == old_name:
+                        meta["speaker_id"] = new_name
+                    meta_path.write_text(json.dumps(meta, indent=2))
+                except: pass
+
+@router.put("/api/speakers/{speaker_id}")
+@router.post("/api/speakers/{speaker_id}")
+@router.patch("/api/speakers/{speaker_id}")
+def api_update_speaker_route(
+    speaker_id: str, 
+    name: Optional[str] = Form(None), 
+    new_name: Optional[str] = Form(None), # Alias for name
+    default_profile_name: Optional[str] = Form(None),
+    voices_dir: Path = Depends(get_voices_dir)
+):
+    from ...db.speakers import get_speaker
+    old_spk = get_speaker(speaker_id)
+    if not old_spk:
+        return JSONResponse({"status": "error", "message": "Speaker not found"}, status_code=404)
+
     updates = {}
-    if name is not None: updates["name"] = name
+    target_name = name or new_name
+    if target_name is not None: updates["name"] = target_name
     if default_profile_name is not None: updates["default_profile_name"] = default_profile_name
+
     update_speaker(speaker_id, **updates)
+
+    if target_name and target_name != old_spk["name"]:
+        # Renaming narrator: rename all profile directories on disk
+        _rename_profile_folders(old_spk["name"], target_name, voices_dir)
+
     return JSONResponse({"status": "ok"})
 
-@router.delete("/speakers/{speaker_id}")
+@router.delete("/api/speakers/{speaker_id}")
 def api_delete_speaker_route(speaker_id: str):
     delete_speaker(speaker_id)
     return JSONResponse({"status": "ok"})
 
-@router.post("/voices/rename-profile")
+@router.post("/api/speaker-profiles/{profile_name}/assign")
+def api_assign_profile_to_speaker(
+    profile_name: str,
+    speaker_id: Optional[str] = Form(None),
+    voices_dir: Path = Depends(get_voices_dir)
+):
+    """Reassign a variant profile to a different speaker (or unassign it).
+    This renames the folder to match the new speaker's naming, and updates profile.json.
+    """
+    import json as _json
+    try:
+        old_dir = (voices_dir / profile_name).resolve()
+        if not old_dir.is_relative_to(voices_dir.resolve()):
+            return JSONResponse({"status": "error", "message": "Invalid profile name"}, status_code=403)
+        if not old_dir.exists():
+            return JSONResponse({"status": "error", "message": "Profile not found"}, status_code=404)
+
+        # Determine the variant name from existing metadata or folder name
+        variant_name = None
+        meta_path = old_dir / "profile.json"
+        meta = {}
+        if meta_path.exists():
+            try:
+                meta = _json.loads(meta_path.read_text())
+                variant_name = meta.get("variant_name")
+            except Exception:
+                pass
+
+        if not variant_name:
+            # Try to infer from folder name (e.g. "Speaker - Variant" -> "Variant")
+            if " - " in profile_name:
+                variant_name = profile_name.split(" - ", 1)[1]
+            else:
+                variant_name = profile_name
+
+        # Determine the new folder name
+        if speaker_id:
+            # Get the speaker name if it's a UUID
+            spk = get_speaker(speaker_id)
+            spk_name = spk["name"] if spk else speaker_id
+            new_profile_name = f"{spk_name} - {variant_name}"
+        else:
+            # Unassigning: keep variant name as the folder
+            new_profile_name = variant_name
+
+        new_dir = (voices_dir / new_profile_name).resolve()
+        if not new_dir.is_relative_to(voices_dir.resolve()):
+            return JSONResponse({"status": "error", "message": "Invalid target profile name"}, status_code=403)
+
+        if new_dir.exists() and new_dir != old_dir:
+            return JSONResponse({"status": "error", "message": "Target profile already exists"}, status_code=400)
+
+        # Rename the folder
+        if new_dir != old_dir:
+            os.rename(old_dir, new_dir)
+            update_voice_profile_references(profile_name, new_profile_name)
+
+        # Update profile.json with new speaker_id and variant_name
+        new_meta_path = new_dir / "profile.json"
+        meta.update({"speaker_id": speaker_id, "variant_name": variant_name})
+        new_meta_path.write_text(_json.dumps(meta, indent=2))
+
+        return JSONResponse({"status": "ok", "new_profile_name": new_profile_name})
+    except Exception as e:
+        logger.error(f"Error assigning profile {profile_name}: {e}")
+        return JSONResponse({"status": "error", "message": "Assign failed"}, status_code=500)
+
+@router.post("/api/voices/rename-profile")
 def api_rename_voice_profile(
     old_name: str = Form(...),
     new_name: str = Form(...),
     voices_dir: Path = Depends(get_voices_dir)
 ):
-    import json
     try:
-        # Construct and resolve paths
-        old_dir = (voices_dir / old_name).resolve()
-        new_dir = (voices_dir / new_name).resolve()
+        _rename_profile_folders(old_name, new_name, voices_dir)
 
-        # Security: verify they are within voices_dir
-        if not old_dir.is_relative_to(voices_dir.resolve()) or \
-           not new_dir.is_relative_to(voices_dir.resolve()):
-            logger.warning(f"Blocking profile rename traversal attempt: {old_name} -> {new_name}")
-            return JSONResponse({"status": "error", "message": "Invalid path"}, status_code=403)
+        # Sync global settings
+        settings = get_settings()
+        if settings.get("default_speaker_profile") == old_name:
+            update_settings({"default_speaker_profile": new_name})
 
-        if old_dir.exists() and not new_dir.exists():
-            os.rename(old_dir, new_dir)
-            update_voice_profile_references(old_name, new_name)
-
-            # Sync settings
-            settings = get_settings()
-            if settings.get("default_speaker_profile") == old_name:
-                update_settings({"default_speaker_profile": new_name})
-
-            # Update profile.json if it exists
-            meta_path = new_dir / "profile.json"
-            if meta_path.exists():
-                try:
-                    meta = json.loads(meta_path.read_text())
-                    # If renaming a variant profile (e.g. "Sally - Happy" -> "Sally - Excited")
-                    # find the dash and update variant_name
-                    if " - " in new_name:
-                        meta["variant_name"] = new_name.split(" - ", 1)[1]
-                    meta_path.write_text(json.dumps(meta, indent=2))
-                except Exception as e:
-                    logger.error(f"Error updating metadata during rename: {e}")
-                    pass
-
-            return JSONResponse({"status": "ok", "new_name": new_name})
+        return JSONResponse({"status": "ok", "new_name": new_name})
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error during directory rename: {e}")
+        return JSONResponse({"status": "error", "message": "Directory rename failed"}, status_code=400)
 
-    return JSONResponse({"status": "error", "message": "Directory rename failed"}, status_code=400)
-
-@router.post("/speaker-profiles/{name}/test-text")
+@router.post("/api/speaker-profiles/{name}/test-text")
 def update_speaker_test_text(name: str, text: str = Form(...)):
     update_speaker_settings(name, test_text=text)
     return JSONResponse({"status": "ok", "test_text": text})
 
-@router.post("/speaker-profiles/{name}/speed")
+@router.post("/api/speaker-profiles/{name}/reset-test-text")
+def reset_speaker_test_text(name: str):
+    update_speaker_settings(name, test_text=None)
+    return JSONResponse({"status": "ok", "test_text": DEFAULT_SPEAKER_TEST_TEXT})
+
+@router.post("/api/speaker-profiles/{name}/speed")
 def update_speaker_speed(name: str, speed: float = Form(...)):
     update_speaker_settings(name, speed=speed)
     return JSONResponse({"status": "ok", "speed": speed})
 
-@router.post("/speaker-profiles/{name}/build")
+@router.post("/api/speaker-profiles/{name}/build")
 async def build_speaker_profile(
     name: str,
     files: List[UploadFile] = File(default=[]),
@@ -225,6 +352,11 @@ async def build_speaker_profile(
             return JSONResponse({"status": "error", "message": "Invalid profile name"}, status_code=403)
 
         path.mkdir(parents=True, exist_ok=True)
+
+        # Clear existing sample if it exists to ensure accurate building status
+        sample_path = path / "sample.wav"
+        if sample_path.exists():
+            sample_path.unlink()
     except Exception as e:
         logger.error(f"Error preparing path for profile {name}: {e}")
         return JSONResponse({"status": "error", "message": "Build failed"}, status_code=500)
@@ -256,7 +388,49 @@ async def build_speaker_profile(
     enqueue(j)
     return JSONResponse({"status": "ok", "job_id": jid})
 
-@router.post("/speaker-profiles/{name}/rename")
+@router.post("/api/speaker-profiles/{name}/samples/upload")
+async def upload_speaker_samples(
+    name: str,
+    files: List[UploadFile] = File(...),
+    voices_dir: Path = Depends(get_voices_dir)
+):
+    try:
+        path = (voices_dir / name).resolve()
+        if not path.is_relative_to(voices_dir.resolve()):
+            return JSONResponse({"status": "error", "message": "Invalid profile"}, status_code=403)
+
+        path.mkdir(parents=True, exist_ok=True)
+
+        for f in files:
+            if not f.filename: continue
+            content = await f.read()
+            (path / f.filename).write_bytes(content)
+
+        return JSONResponse({"status": "ok"})
+    except Exception as e:
+        logger.error(f"Upload failed for {name}: {e}")
+        return JSONResponse({"status": "error", "message": "Upload failed"}, status_code=500)
+
+@router.delete("/api/speaker-profiles/{name}/samples/{sample_name}")
+def delete_speaker_sample(
+    name: str,
+    sample_name: str,
+    voices_dir: Path = Depends(get_voices_dir)
+):
+    try:
+        path = (voices_dir / name / sample_name).resolve()
+        if not path.is_relative_to(voices_dir.resolve()):
+            return JSONResponse({"status": "error", "message": "Invalid path"}, status_code=403)
+
+        if path.exists():
+            path.unlink()
+            return JSONResponse({"status": "ok"})
+        return JSONResponse({"status": "error", "message": "File not found"}, status_code=404)
+    except Exception as e:
+        logger.error(f"Delete failed for {name}/{sample_name}: {e}")
+        return JSONResponse({"status": "error", "message": "Delete failed"}, status_code=500)
+
+@router.post("/api/speaker-profiles/{name}/rename")
 def api_rename_voice_profile_path(
     name: str,
     new_name: str = Form(...),
@@ -268,7 +442,7 @@ def api_rename_voice_profile_path(
         voices_dir=voices_dir
     )
 
-@router.post("/speaker-profiles/build")
+@router.post("/api/speaker-profiles/build")
 async def legacy_build_speaker_profile(
     name: str = Form(...),
     files: List[UploadFile] = File(default=[]),
@@ -276,11 +450,11 @@ async def legacy_build_speaker_profile(
 ):
     return await build_speaker_profile(name, files, voices_dir=voices_dir)
 
-@router.post("/speaker-profiles/test")
+@router.post("/api/speaker-profiles/test")
 def legacy_test_speaker_profile(name: str = Form(...)):
     return test_speaker_profile(name)
 
-@router.delete("/speaker-profiles/{name}")
+@router.delete("/api/speaker-profiles/{name}")
 def delete_speaker_profile(
     name: str,
     voices_dir: Path = Depends(get_voices_dir)
@@ -300,7 +474,7 @@ def delete_speaker_profile(
 
     return JSONResponse({"status": "error", "message": "Not found"}, status_code=404)
 
-@router.post("/speaker-profiles/{name}/test")
+@router.post("/api/speaker-profiles/{name}/test")
 def test_speaker_profile(name: str):
     jid = f"test-{uuid.uuid4().hex[:8]}"
     j = Job(

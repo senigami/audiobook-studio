@@ -111,6 +111,7 @@ function App() {
                   speakerProfiles={initialData?.speaker_profiles || []}
                   onRefresh={handleRefresh}
                   testProgress={testProgress}
+                  jobs={jobs}
                 />
               } />
               <Route path="*" element={<Navigate to="/" replace />} />

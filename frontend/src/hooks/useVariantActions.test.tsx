@@ -87,10 +87,16 @@ describe('useVariantActions', () => {
   });
 
   it('handles speed change', async () => {
+    vi.useFakeTimers();
     const { result } = renderHook(() => useVariantActions(mockProfile, onRefresh, onTest, requestConfirm));
 
     await act(async () => {
-      await result.current.handleSpeedChange(1.2);
+      result.current.handleSpeedChange(1.2);
+    });
+
+    // Advance effectively triggers the setTimeout in handleSpeedChange
+    await act(async () => {
+      vi.advanceTimersByTime(300);
     });
 
     expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/speed'), expect.objectContaining({
@@ -98,6 +104,7 @@ describe('useVariantActions', () => {
       body: expect.any(URLSearchParams),
     }));
     expect(onRefresh).toHaveBeenCalled();
+    vi.useRealTimers();
   });
 
   it('handles sample deletion with confirmation', async () => {

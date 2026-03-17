@@ -71,7 +71,7 @@ def clear_queue() -> bool:
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
-            # 1. Reset chapter status for all pending/preparing jobs (NOT running)
+            # 1. Reset chapter status for all pending/preparing jobs (NOT running or failed)
             cursor.execute("""
                 UPDATE chapters 
                 SET audio_status = 'unprocessed' 
@@ -80,8 +80,8 @@ def clear_queue() -> bool:
                     WHERE status IN ('queued', 'preparing')
                 )
             """)
-            # 2. Delete all pending/preparing queue items
-            cursor.execute("DELETE FROM processing_queue WHERE status IN ('queued', 'preparing')")
+            # 2. Delete all non-running queue items (including done, failed and cancelled)
+            cursor.execute("DELETE FROM processing_queue WHERE status IN ('queued', 'preparing', 'done', 'failed', 'cancelled')")
             conn.commit()
             return True
 
@@ -169,11 +169,11 @@ def reorder_queue(queue_ids: List[str]) -> bool:
             return True
 
 def clear_completed_queue() -> int:
-    """Deletes all 'done' and 'cancelled' items from the processing queue."""
+    """Deletes all 'done', 'failed', and 'cancelled' items from the processing queue."""
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("DELETE FROM processing_queue WHERE status IN ('done', 'cancelled')")
+            cursor.execute("DELETE FROM processing_queue WHERE status IN ('done', 'failed', 'cancelled')")
             conn.commit()
             return cursor.rowcount
 

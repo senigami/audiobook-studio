@@ -37,7 +37,7 @@ def test_api_surgical_chapters_hits():
     client.put("/api/segments/s1", json={"character_id": ""})
 
     # 169-170: Bulk status success
-    client.post("/api/chapters/c1/segments/bulk-status", json=["s1"], params={"status": "done"})
+    client.post("/api/chapters/c1/segments/bulk-status", json={"segment_ids": ["s1"], "status": "done"})
 
     # 174-177: Bulk update
     client.post("/api/segments/bulk-update", json={"segment_ids": ["s1"], "updates": {"audio_status": "done"}})

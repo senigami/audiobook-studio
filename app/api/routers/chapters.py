@@ -2,8 +2,9 @@ import anyio
 import logging
 import os
 from pathlib import Path
-from typing import Optional, List
-from fastapi import APIRouter, Form, File, UploadFile, Request, Depends
+from typing import Optional, List, Literal
+from pydantic import BaseModel, Field
+from fastapi import APIRouter, Form, File, UploadFile, Request, Depends, Body
 from fastapi.responses import JSONResponse, FileResponse
 from ...db import (
     list_chapters, reconcile_project_audio, create_chapter, update_chapter, 
@@ -177,15 +178,23 @@ async def api_legacy_bulk_update_segments_put(request: Request):
     )
     return JSONResponse({"status": "ok"})
 
+class BulkStatusUpdate(BaseModel):
+    segment_ids: List[str]
+    status: Literal["unprocessed", "processing", "done", "failed", "cancelled", "error"]
+
 @router.post("/chapters/{chapter_id}/segments/bulk-status")
-def api_bulk_update_segment_status(chapter_id: str, segment_ids: List[str], status: str):
-    update_segments_status_bulk(segment_ids, chapter_id, status)
+def api_bulk_update_segment_status(chapter_id: str, req: BulkStatusUpdate):
+    update_segments_status_bulk(req.segment_ids, chapter_id, req.status)
     return JSONResponse({"status": "ok"})
 
+class BulkSegmentsUpdate(BaseModel):
+    segment_ids: List[str]
+    updates: dict
+
 @router.post("/segments/bulk-update")
-async def api_bulk_update_segments(segment_ids: List[str], updates: dict):
+async def api_bulk_update_segments(req: BulkSegmentsUpdate):
     await anyio.to_thread.run_sync(
-        lambda: update_segments_bulk(segment_ids, **updates)
+        lambda: update_segments_bulk(req.segment_ids, **req.updates)
     )
     return JSONResponse({"status": "ok"})
 

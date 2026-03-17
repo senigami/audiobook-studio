@@ -8,7 +8,6 @@ import { VariantEditor } from './VariantEditor';
 interface NarratorCardProps {
     speaker: Speaker;
     profiles: SpeakerProfile[];
-    isTestingProfileId: string | null;
     testProgress: Record<string, any>;
     onTest: (name: string) => void;
     onDelete: (name: string) => void;
@@ -26,7 +25,7 @@ interface NarratorCardProps {
 }
 
 export const NarratorCard: React.FC<NarratorCardProps> = ({
-    speaker, profiles, isTestingProfileId, testProgress, 
+    speaker, profiles, testProgress, 
     onTest, onDelete, onRefresh,
     onEditTestText, onBuildNow, requestConfirm,
     onAddVariantClick, onRenameClick, onSetDefaultClick, isExpanded, onToggleExpand, onMoveVariant,
@@ -36,14 +35,35 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
     const [activeProfileId, setActiveProfileId] = useState(defaultProfile?.name || '');
     const [hoveredProfileId, setHoveredProfileId] = useState<string | null>(null);
 
+    // Auto-select newly added variants
+    const prevProfileNames = React.useRef(new Set(profiles.map(p => p.name)));
+    React.useEffect(() => {
+        const currentNames = new Set(profiles.map(p => p.name));
+        if (currentNames.size > prevProfileNames.current.size) {
+            const addedName = Array.from(currentNames).find(name => !prevProfileNames.current.has(name));
+            if (addedName) {
+                setActiveProfileId(addedName);
+            }
+        }
+        prevProfileNames.current = currentNames;
+    }, [profiles]);
+
+    React.useEffect(() => {
+        if (activeProfileId && !profiles.some(p => p.name === activeProfileId)) {
+            setActiveProfileId(defaultProfile?.name || '');
+        }
+    }, [profiles, activeProfileId, defaultProfile]);
+
     const activeProfile = profiles.find(p => p.name === activeProfileId) || defaultProfile;
 
     const handleAddVariant = () => onAddVariantClick(speaker, profiles.length);
 
     const getStatusInfo = (p: SpeakerProfile | undefined) => {
         if (!p) return { label: 'NO SAMPLES', color: 'var(--text-muted)', bg: 'var(--surface-alt)' };
-        if (buildingProfiles[p.name] || isTestingProfileId === p.name) return { label: 'BUILDING...', color: 'var(--accent)', bg: 'rgba(var(--accent-rgb), 0.1)' };
+        if (buildingProfiles[p.name]) return { label: 'BUILDING...', color: 'var(--accent)', bg: 'rgba(var(--accent-rgb), 0.1)' };
         if (p.wav_count === 0) return { label: 'NO SAMPLES', color: 'var(--text-muted)', bg: 'var(--surface-alt)' };
+        if (p.is_rebuild_required) return { label: 'REBUILD REQUIRED', color: 'var(--warning-text)', bg: 'rgba(var(--warning-rgb), 0.1)' };
+        if (!p.preview_url) return { label: 'BUILD TO TEST', color: 'var(--accent)', bg: 'rgba(var(--accent-rgb), 0.1)' };
         return { label: 'BUILT', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' };
     };
 
@@ -163,7 +183,11 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
                                     message: `Delete voice '${speaker.name}' and all ${profiles.length} variants? This cannot be undone.`,
                                     isDestructive: true,
                                     onConfirm: () => {
-                                        fetch(`/api/speakers/${speaker.id}`, { method: 'DELETE' })
+                                        const deleteUrl = speaker.id 
+                                            ? `/api/speakers/${speaker.id}` 
+                                            : `/api/speaker-profiles/${encodeURIComponent(profiles[0]?.name)}`;
+                                        
+                                        fetch(deleteUrl, { method: 'DELETE' })
                                             .then(resp => {
                                                 if (resp.ok) onRefresh();
                                             });
@@ -246,7 +270,7 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
                         <div key={activeProfileId} className="animate-in" style={{ background: 'var(--surface-light)' }}>
                                 <VariantEditor
                                     profile={activeProfile as SpeakerProfile}
-                                    isTesting={isTestingProfileId === activeProfile?.name}
+                                    isTesting={!!buildingProfiles[activeProfile?.name || '']}
                                     testStatus={testProgress[activeProfile?.name || '']}
                                     onTest={onTest}
                                     onDeleteVariant={onDelete}

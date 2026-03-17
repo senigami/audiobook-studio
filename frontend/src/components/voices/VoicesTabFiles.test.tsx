@@ -79,7 +79,6 @@ describe('Voices Tab Components', () => {
                     onMoveVariant={vi.fn()}
                     onEditTestText={vi.fn()}
                     onBuildNow={vi.fn()}
-                    isTestingProfileId={null}
                     testProgress={{}}
                     requestConfirm={vi.fn()}
                     buildingProfiles={{}}

@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import type { Speaker, SpeakerProfile } from '../types';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import type { Speaker, SpeakerProfile, Job } from '../types';
 
 export function useVoiceManagement(
     onRefresh: () => void, 
@@ -10,11 +10,81 @@ export function useVoiceManagement(
         onConfirm: () => void; 
         isDestructive?: boolean; 
         isAlert?: boolean; 
-    }) => void
+    }) => void,
+    jobs: Record<string, Job> = {}
 ) {
     const [speakers, setSpeakers] = useState<Speaker[]>([]);
-    const [testingProfile, setTestingProfile] = useState<string | null>(null);
-    const [buildingProfiles, setBuildingProfiles] = useState<Record<string, boolean>>({});
+    // Map of profileName -> jobId for in-flight build jobs
+    const [buildingProfiles, setBuildingProfiles] = useState<Record<string, string | true>>({});
+    const hasSeenJobSnapshot = useRef(false);
+
+    // Keep the local "building" map in sync with the authoritative jobs snapshot.
+    // We preserve optimistic local entries until the server confirms completion,
+    // but clear everything once an established job snapshot goes empty.
+    useEffect(() => {
+        const jobValues = Object.values(jobs);
+        const snapshotIsEmpty = jobValues.length === 0;
+
+        setBuildingProfiles(prev => {
+            if (snapshotIsEmpty) {
+                if (hasSeenJobSnapshot.current && Object.keys(prev).length > 0) {
+                    return {};
+                }
+                return prev;
+            }
+
+            hasSeenJobSnapshot.current = true;
+
+            const updated = { ...prev };
+            let changed = false;
+
+            for (const job of jobValues) {
+                if (
+                    job.engine === 'voice_build' &&
+                    job.speaker_profile &&
+                    (job.status === 'queued' || job.status === 'preparing' || job.status === 'running')
+                ) {
+                    if (updated[job.speaker_profile] !== job.id) {
+                        updated[job.speaker_profile] = job.id;
+                        changed = true;
+                    }
+                }
+            }
+
+            for (const [profileName, jobId] of Object.entries(prev)) {
+                if (typeof jobId !== 'string') continue;
+
+                const job = jobs[jobId];
+                if (job && (job.status === 'done' || job.status === 'failed' || job.status === 'cancelled' || job.status === 'error')) {
+                    delete updated[profileName];
+                    changed = true;
+                }
+            }
+
+            return changed ? updated : prev;
+        });
+    }, [jobs]);
+
+    // Watch jobs map: when a tracked build job completes, clear the buildingProfiles entry
+    useEffect(() => {
+        setBuildingProfiles(prev => {
+            const updated = { ...prev };
+            let changed = false;
+            for (const [profileName, jobId] of Object.entries(prev)) {
+                if (typeof jobId === 'string') {
+                    const job = jobs[jobId];
+                    if (job && (job.status === 'done' || job.status === 'failed')) {
+                        delete updated[profileName];
+                        changed = true;
+                        // Refresh profile list so rebuilt status is shown
+                        onRefresh();
+                    }
+                }
+            }
+            return changed ? updated : prev;
+        });
+
+    }, [jobs, onRefresh]);
 
     const fetchSpeakers = useCallback(async () => {
         try {
@@ -64,15 +134,15 @@ export function useVoiceManagement(
     };
 
     const handleTest = useCallback(async (name: string) => {
-        setTestingProfile(name);
         try {
-            const resp = await fetch('/api/speaker-profiles/test', {
+            const resp = await fetch(`/api/speaker-profiles/${encodeURIComponent(name)}/test`, {
                 method: 'POST',
-                body: new URLSearchParams({ name }),
             });
             const result = await resp.json();
             if (result.status === 'ok' || result.status === 'success') {
-                onRefresh();
+                if (result.job_id) {
+                    setBuildingProfiles(prev => ({ ...prev, [name]: result.job_id }));
+                }
             } else {
                 requestConfirm({
                     title: 'Test Failed',
@@ -83,10 +153,8 @@ export function useVoiceManagement(
             }
         } catch (err) {
             console.error('Test failed', err);
-        } finally {
-            setTestingProfile(null);
         }
-    }, [onRefresh, requestConfirm]);
+    }, [requestConfirm]);
 
     const handleBuildNow = useCallback(async (
         name: string, 
@@ -94,7 +162,6 @@ export function useVoiceManagement(
         speakerId?: string, 
         variantName?: string
     ) => {
-        setBuildingProfiles(prev => ({ ...prev, [name]: true }));
         const formData = new FormData();
         formData.append('name', name);
         if (speakerId) formData.append('speaker_id', speakerId);
@@ -102,14 +169,17 @@ export function useVoiceManagement(
         newFiles.forEach(f => formData.append('files', f));
         
         try {
-            const resp = await fetch('/api/speaker-profiles/build', {
+            const resp = await fetch(`/api/speaker-profiles/${encodeURIComponent(name)}/build`, {
                 method: 'POST',
                 body: formData
             });
             if (resp.ok) {
-                onRefresh();
+                const result = await resp.json();
+                const jobId = result.job_id;
+                // Track the build job by ID — buildingProfiles will be cleared when the
+                // WebSocket signals that job_id is done/failed (watched in the useEffect above)
+                setBuildingProfiles(prev => ({ ...prev, [name]: jobId || true }));
                 fetchSpeakers();
-                await handleTest(name);
                 return true;
             } else {
                 let errorMsg = 'An unknown error occurred during the rebuild process.';
@@ -131,14 +201,8 @@ export function useVoiceManagement(
         } catch (e) {
             console.error('Rebuild failed', e);
             return false;
-        } finally {
-            setBuildingProfiles(prev => {
-                const updated = { ...prev };
-                delete updated[name];
-                return updated;
-            });
         }
-    }, [onRefresh, fetchSpeakers, handleTest, requestConfirm]);
+    }, [fetchSpeakers, requestConfirm]);
 
     const handleDelete = async (name: string) => {
         try {
@@ -151,10 +215,14 @@ export function useVoiceManagement(
         }
     };
 
+    // Expose a boolean-compatible version of buildingProfiles for consumers
+    const buildingProfilesBool: Record<string, boolean> = Object.fromEntries(
+        Object.keys(buildingProfiles).map(k => [k, true])
+    );
+
     return {
         speakers,
-        testingProfile,
-        buildingProfiles,
+        buildingProfiles: buildingProfilesBool,
         fetchSpeakers,
         handleSetDefault,
         handleTest,

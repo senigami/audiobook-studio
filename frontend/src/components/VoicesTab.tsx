@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
     Search, Plus, User, Info
 } from 'lucide-react';
-import type { Speaker, SpeakerProfile } from '../types';
+import type { Speaker, SpeakerProfile, Job } from '../types';
 import { GlassInput } from './GlassInput';
 import { GhostButton } from './GhostButton';
 import { NarratorCard } from './voices/NarratorCard';
@@ -13,9 +13,10 @@ interface VoicesTabProps {
     onRefresh: () => void;
     speakerProfiles: SpeakerProfile[];
     testProgress: Record<string, { progress: number; started_at?: number }>;
+    jobs?: Record<string, Job>;
 }
 
-export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles, testProgress }) => {
+export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles, testProgress, jobs = {} }) => {
     const [confirmConfig, setConfirmConfig] = useState<{
         title: string;
         message: string;
@@ -26,7 +27,6 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
 
     const {
         speakers,
-        testingProfile,
         buildingProfiles,
         fetchSpeakers,
         handleSetDefault,
@@ -34,7 +34,7 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
         handleBuildNow,
         handleDelete,
         formatError
-    } = useVoiceManagement(onRefresh, speakerProfiles, (config) => setConfirmConfig(config));
+    } = useVoiceManagement(onRefresh, speakerProfiles, (config) => setConfirmConfig(config), jobs);
 
     // --- Component Local State ---
     const [editingProfile, setEditingProfile] = useState<SpeakerProfile | null>(null);
@@ -128,6 +128,7 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
             const result = await resp.json();
             if (result.status === 'ok' || result.status === 'success') {
                 setTestText(result.test_text);
+                setEditingProfile(null);
                 onRefresh();
             }
         } catch (e) {
@@ -158,14 +159,18 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
     };
 
     const handleRenameSpeaker = async () => {
-        if (!renameSpeakerId) return;
+        if (!renameSpeakerId && !originalSpeakerName) return;
         setIsRenamingSpeaker(true);
         try {
             const formData = new URLSearchParams();
-            formData.append('id', renameSpeakerId);
-            formData.append('name', newSpeakerName.trim());
-            const resp = await fetch('/api/speakers', {
-                method: 'POST',
+            formData.append('id', renameSpeakerId || '');
+            formData.append('new_name', newSpeakerName.trim());
+            const url = renameSpeakerId 
+                ? `/api/speakers/${renameSpeakerId}` 
+                : `/api/speaker-profiles/${encodeURIComponent(originalSpeakerName)}/rename`;
+            
+            const resp = await fetch(url, {
+                method: 'POST', // Backend rename profile is POST
                 body: formData
             });
             if (resp.ok) {
@@ -186,12 +191,23 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
     };
 
     const handleAddVariant = async () => {
-        if (!addVariantSpeaker) return;
+        if (!addVariantSpeaker || (!addVariantSpeaker.speaker.id && !addVariantSpeaker.speaker.name)) return;
+        const vName = newVariantNameModal.trim();
+        if (!vName) {
+            handleRequestConfirm({
+                title: 'Invalid Name',
+                message: 'Please enter a name for the variant.',
+                onConfirm: () => {},
+                isAlert: true
+            });
+            return;
+        }
         setIsAddingVariantModal(true);
         try {
             const formData = new URLSearchParams();
-            formData.append('speaker_id', addVariantSpeaker.speaker.id);
-            formData.append('variant_name', newVariantNameModal.trim());
+            const sid = addVariantSpeaker.speaker.id || addVariantSpeaker.speaker.name;
+            formData.append('speaker_id', sid);
+            formData.append('variant_name', vName);
             const resp = await fetch('/api/speaker-profiles', {
                 method: 'POST',
                 body: formData
@@ -200,6 +216,8 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 setIsAddVariantModalOpen(false);
                 setAddVariantSpeaker(null);
                 setNewVariantNameModal('');
+                const expandedId = (sid.includes('-') && sid.length === 36) ? sid : `unassigned-${sid}`;
+                setExpandedVoiceId(expandedId);
                 onRefresh();
             } else {
                 const err = await resp.json();
@@ -295,10 +313,22 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
     });
 
     const unassigned = speakerProfiles.filter(p => !p.speaker_id || !speakers.some(s => s.id === p.speaker_id));
-    const unassignedVoices = unassigned.map(p => ({
-        id: `unassigned-${p.name}`,
-        name: p.name,
-        profiles: [p],
+    const unassignedGroups: Record<string, SpeakerProfile[]> = {};
+    unassigned.forEach(p => {
+        // Use speaker_id as grouping key if it looks like a name (not a UUID)
+        let groupKey = p.speaker_id;
+        if (!groupKey || (groupKey.length === 36 && groupKey.includes('-'))) {
+            // Fallback: use base name before first underscore
+            groupKey = p.name.split('_')[0];
+        }
+        if (!unassignedGroups[groupKey]) unassignedGroups[groupKey] = [];
+        unassignedGroups[groupKey].push(p);
+    });
+
+    const unassignedVoices = Object.entries(unassignedGroups).map(([groupKey, profiles]) => ({
+        id: `unassigned-${groupKey}`,
+        name: groupKey,
+        profiles: profiles,
         isUnassigned: true
     }));
 
@@ -422,7 +452,6 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                                     }}
                                     onEditTestText={setEditingProfile}
                                     onBuildNow={handleBuildNow}
-                                    isTestingProfileId={testingProfile}
                                     testProgress={testProgress}
                                     requestConfirm={handleRequestConfirm}
                                     buildingProfiles={buildingProfiles}

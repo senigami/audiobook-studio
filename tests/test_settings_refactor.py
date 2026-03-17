@@ -1,12 +1,14 @@
 import pytest
-from fastapi.testclient import TestClient
 from unittest.mock import patch
 
-# Import the app
-from app.web import app
-from app.state import get_settings
+# NOTE: Do NOT import TestClient or app at the top level in these isolation tests.
+# This ensures conftest.py env vars take effect before app.config is loaded.
 
-client = TestClient(app)
+@pytest.fixture
+def client():
+    from fastapi.testclient import TestClient
+    from app.web import app
+    return TestClient(app)
 
 @pytest.fixture
 def clean_state(tmp_path):
@@ -14,12 +16,13 @@ def clean_state(tmp_path):
     with patch("app.state.STATE_FILE", test_state_file):
         yield test_state_file
 
-def test_default_settings_refactor(clean_state):
+def test_default_settings_refactor(client, clean_state):
+    from app.state import get_settings
     # Verify defaults match the new requirement (MP3 False)
     settings = get_settings()
     assert "safe_mode" in settings
 
-def test_save_settings_ignores_deprecated_speed(clean_state):
+def test_save_settings_ignores_deprecated_speed(client, clean_state):
     # 1. Update settings with deprecated field
     response = client.post("/settings", data={
         "safe_mode": "false",
@@ -44,7 +47,7 @@ def test_get_speaker_settings_uses_hardcoded_fallback(clean_state):
     res = get_speaker_settings("NonExistentProfile")
     assert res["speed"] == 1.0
 
-def test_api_home_reflects_new_state_structure(clean_state):
+def test_api_home_reflects_new_state_structure(client, clean_state):
     response = client.get("/api/home")
     assert response.status_code == 200
     settings = response.json()["settings"]

@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## [1.4.1] - 2026-03-17
 
+### Compatibility & Security
+- **Legacy Route Restoration**: Reintroduced compatibility wrappers for the legacy API surface, including settings, chapter reset, preview, and delete flows, so older integrations and tests continue to work against the refactored routers.
+- **Path Traversal Hardening**: Added filesystem boundary checks to legacy file-handling endpoints so chapter and voice-related operations stay inside their intended directories.
+- **Schema Tightening**: Constrained the bulk segment-status update payload to valid chapter audio states to prevent invalid transitions from entering the database.
+
+### Test Infrastructure
+- **Test Isolation**: Switched API test modules to delayed client fixture initialization so environment setup completes before application imports resolve configuration.
+- **Monkeypatch Hygiene**: Updated path-sensitive tests to use `monkeypatch`-driven overrides, preventing cross-test leakage from global directory changes.
+- **Queue Contract Alignment**: Corrected queue tests to target the modern `/api/processing_queue` endpoints and use the proper reorder method.
+
 ### Performance & Stability
 - **Status-Aware Progress**: Fixed a bug where the progress bar would animate prematurely during the model preparation phase; it now holds at zero until rendering actually begins.
 - **Startup Resilience**: Enhanced queue reconciliation on server startup to correctly recover jobs stuck in 'preparing' or 'finalizing' states.
@@ -12,6 +22,9 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - **API Reliability**: Corrected the response contract for the queue mass-delete endpoint to return the `cleared` count expected by the test suite.
 - **WebSocket Optimization**: Removed obsolete `log` fields from background broadcasts to reduce network overhead and improve UI responsiveness.
+- **Cleanup Visibility**: Replaced silent cleanup failures with structured warnings, hardened UUID profile resolution, and made the voice-building UI clear stale state once the server job snapshot goes empty.
+- **Surgical Audio Invalidation**: Changed segment-edit and segment-reset flows to clear only the affected chapter outputs and edited segment files instead of wiping every segment in the chapter.
+- **Coverage Goal Met**: Raised backend test coverage to clear the project’s 80% threshold again after the API refactor work.
 
 ## [1.4.0] - 2026-03-13
 

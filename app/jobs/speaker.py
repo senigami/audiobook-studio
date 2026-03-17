@@ -1,21 +1,40 @@
 import json
+import logging
+import uuid
 from typing import Optional
 from ..config import VOICES_DIR
 from ..state import get_settings
 
+logger = logging.getLogger(__name__)
+
+
+def _is_uuid(value: str) -> bool:
+    try:
+        uuid.UUID(value)
+        return True
+    except (ValueError, TypeError, AttributeError):
+        return False
+
 def get_speaker_wavs(profile_name_or_id: str) -> Optional[str]:
     """Returns a comma-separated string of absolute paths for the given profile or speaker ID."""
-    from ..db import get_speaker
+    from ..db import get_speaker, list_speakers
 
     target_profile = profile_name_or_id
     if not target_profile:
         target_profile = get_settings().get("default_speaker_profile") or "Dark Fantasy"
 
-    # Heuristic: if it looks like a UUID, check if it's a speaker ID
-    if len(target_profile) == 36 and "-" in target_profile:
+    # Resolve speaker ID or Name to a profile folder
+    # 1. If it's a UUID, it's a speaker ID
+    if _is_uuid(target_profile):
         spk = get_speaker(target_profile)
         if spk and spk["default_profile_name"]:
             target_profile = spk["default_profile_name"]
+    # 2. If it's a speaker name (not a profile folder name yet), find its default
+    else:
+        all_spks = list_speakers()
+        spk_match = next((s for s in all_spks if s['name'] == target_profile), None)
+        if spk_match and spk_match.get("default_profile_name"):
+            target_profile = spk_match["default_profile_name"]
 
     p = VOICES_DIR / target_profile
 
@@ -34,6 +53,15 @@ def get_speaker_wavs(profile_name_or_id: str) -> Optional[str]:
     return ",".join([str(w.absolute()) for w in wavs])
 
 
+DEFAULT_SPEAKER_TEST_TEXT = (
+    "The mysterious traveler, bathed in the soft glow of the azure twilight, "
+    "whispered of ancient treasures buried beneath the jagged mountains. "
+    "'Zephyr,' he exclaimed, his voice a mixture of awe and trepidation, "
+    "'the path is treacherous, yet the reward is beyond measure.' "
+    "Around them, the vibrant forest hummed with rhythmic sounds while a "
+    "cold breeze carried the scent of wet earth and weathered stone."
+)
+
 def get_speaker_settings(profile_name_or_id: str) -> dict:
     """Returns metadata (like speed and test text) for a profile or speaker ID, falling back to global settings."""
     defaults = get_settings()
@@ -42,26 +70,28 @@ def get_speaker_settings(profile_name_or_id: str) -> dict:
     if not target_profile:
         target_profile = defaults.get("default_speaker_profile") or "Dark Fantasy"
 
-    # Resolve speaker ID to profile name if necessary
-    if len(target_profile) == 36 and "-" in target_profile:
+    # Resolve speaker ID or Name to a profile folder
+    if _is_uuid(target_profile):
         from ..db import get_speaker
         spk = get_speaker(target_profile)
         if spk and spk["default_profile_name"]:
             target_profile = spk["default_profile_name"]
-    p = VOICES_DIR / target_profile
+    else:
+        from ..db import list_speakers
+        all_spks = list_speakers()
+        spk_match = next((s for s in all_spks if s['name'] == target_profile), None)
+        if spk_match and spk_match.get("default_profile_name"):
+            target_profile = spk_match["default_profile_name"]
+        elif spk_match:
+            subs = sorted([d.name for d in VOICES_DIR.iterdir() if d.is_dir() and d.name.startswith(target_profile + " -")])
+            if subs:
+                target_profile = subs[0]
 
-    default_test_text = (
-        "The mysterious traveler, bathed in the soft glow of the azure twilight, "
-        "whispered of ancient treasures buried beneath the jagged mountains. "
-        "'Zephyr,' he exclaimed, his voice a mixture of awe and trepidation, "
-        "'the path is treacherous, yet the reward is beyond measure.' "
-        "Around them, the vibrant forest hummed with rhythmic sounds while a "
-        "cold breeze carried the scent of wet earth and weathered stone."
-    )
+    p = VOICES_DIR / target_profile
 
     res = {
         "speed": float(defaults.get("xtts_speed", 1.0)),
-        "test_text": default_test_text,
+        "test_text": DEFAULT_SPEAKER_TEST_TEXT,
         "speaker_id": None,
         "variant_name": None,
         "built_samples": []
@@ -81,7 +111,8 @@ def get_speaker_settings(profile_name_or_id: str) -> dict:
                 res["variant_name"] = meta["variant_name"]
             if "built_samples" in meta:
                 res["built_samples"] = meta["built_samples"]
-        except: pass
+        except Exception:
+            logger.warning("Failed to read speaker metadata from %s", meta_path, exc_info=True)
 
     return res
 
@@ -96,8 +127,15 @@ def update_speaker_settings(profile_name: str, **updates):
     if meta_path.exists():
         try:
             meta = json.loads(meta_path.read_text())
-        except: pass
+        except Exception:
+            logger.warning("Failed to read speaker metadata from %s", meta_path, exc_info=True)
 
-    meta.update(updates)
+    for k, v in updates.items():
+        if v is None:
+            if k in meta:
+                del meta[k]
+        else:
+            meta[k] = v
+
     meta_path.write_text(json.dumps(meta, indent=2))
     return True

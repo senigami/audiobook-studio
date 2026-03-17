@@ -42,3 +42,21 @@ def test_speaker_helpers():
 
     with patch('app.jobs.get_settings', return_value={"default_speaker_profile": "v2"}):
         get_speaker_settings("default")
+
+
+def test_speaker_helpers_resolve_uuid_profile(tmp_path):
+    from app.jobs.speaker import get_speaker_wavs
+
+    voices_dir = tmp_path / "voices"
+    profile_dir = voices_dir / "v2"
+    profile_dir.mkdir(parents=True)
+    (profile_dir / "sample.wav").write_text("audio")
+
+    with patch("app.db.get_speaker", return_value={"default_profile_name": "v2"}) as mock_get_speaker, \
+         patch("app.db.list_speakers", return_value=[]), \
+         patch("app.jobs.speaker.VOICES_DIR", voices_dir):
+        result = get_speaker_wavs("123e4567-e89b-12d3-a456-426614174000")
+
+    assert result is not None
+    assert "sample.wav" in result
+    mock_get_speaker.assert_called_once_with("123e4567-e89b-12d3-a456-426614174000")
