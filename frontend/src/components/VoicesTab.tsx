@@ -27,7 +27,6 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
 
     const {
         speakers,
-        testingProfile,
         buildingProfiles,
         fetchSpeakers,
         handleSetDefault,
@@ -453,7 +452,6 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                                     }}
                                     onEditTestText={setEditingProfile}
                                     onBuildNow={handleBuildNow}
-                                    isTestingProfileId={testingProfile}
                                     testProgress={testProgress}
                                     requestConfirm={handleRequestConfirm}
                                     buildingProfiles={buildingProfiles}

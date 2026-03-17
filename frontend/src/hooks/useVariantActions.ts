@@ -29,9 +29,52 @@ export function useVariantActions(
         }
     }, [profile.speed, localSpeed]);
 
+    const [pendingPlay, setPendingPlay] = useState(false);
+
+    useEffect(() => {
+        if (pendingPlay && profile.preview_url && audioRef.current) {
+            setPendingPlay(false);
+            
+            // Wait a tiny bit for the browser to register the new audio source if needed
+            const playAudio = async () => {
+                try {
+                    if (audioRef.current) {
+                        audioRef.current.load(); // Force load new source
+                        // Small delay helps browser stabilize the new source before playing
+                        setTimeout(async () => {
+                            try {
+                                if (audioRef.current) {
+                                    await audioRef.current.play();
+                                    setIsPlaying(true);
+                                }
+                            } catch (err) {
+                                console.error("Delayed auto-play failed", err);
+                            }
+                        }, 200);
+                    }
+                } catch (err) {
+                    console.error("Auto-play setup failed", err);
+                }
+            };
+            playAudio();
+        }
+    }, [profile.preview_url, pendingPlay, audioRef, setIsPlaying]);
+
     const handlePlayClick = useCallback((e: React.MouseEvent) => {
         e.stopPropagation();
         if (!profile.preview_url) {
+            setPendingPlay(true);
+            
+            // "Warm up" the audio element to capture the user gesture.
+            // This makes the browser more likely to allow the auto-play later 
+            // even after the 10-20s build time.
+            if (audioRef.current) {
+                audioRef.current.play().catch(() => {
+                    // Expect failure since src is likely empty/invalid, 
+                    // but the click event is now linked to this element.
+                });
+            }
+
             onTest(profile.name);
             return;
         }
@@ -44,11 +87,13 @@ export function useVariantActions(
         if (audioRef.current) {
             if (isPlaying) {
                 audioRef.current.pause();
+                setIsPlaying(false);
             } else {
                 audioRef.current.play();
+                setIsPlaying(true);
             }
         }
-    }, [profile.preview_url, profile.name, onTest, playingSample, isPlaying]);
+    }, [profile.preview_url, profile.name, onTest, playingSample, isPlaying, setIsPlaying]);
 
     const handlePlaySample = useCallback((s: string) => {
         if (playingSample === s) {

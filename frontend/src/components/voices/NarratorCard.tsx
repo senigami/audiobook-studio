@@ -8,7 +8,6 @@ import { VariantEditor } from './VariantEditor';
 interface NarratorCardProps {
     speaker: Speaker;
     profiles: SpeakerProfile[];
-    isTestingProfileId: string | null;
     testProgress: Record<string, any>;
     onTest: (name: string) => void;
     onDelete: (name: string) => void;
@@ -26,7 +25,7 @@ interface NarratorCardProps {
 }
 
 export const NarratorCard: React.FC<NarratorCardProps> = ({
-    speaker, profiles, isTestingProfileId, testProgress, 
+    speaker, profiles, testProgress, 
     onTest, onDelete, onRefresh,
     onEditTestText, onBuildNow, requestConfirm,
     onAddVariantClick, onRenameClick, onSetDefaultClick, isExpanded, onToggleExpand, onMoveVariant,
@@ -61,7 +60,7 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
 
     const getStatusInfo = (p: SpeakerProfile | undefined) => {
         if (!p) return { label: 'NO SAMPLES', color: 'var(--text-muted)', bg: 'var(--surface-alt)' };
-        if (buildingProfiles[p.name] || isTestingProfileId === p.name) return { label: 'BUILDING...', color: 'var(--accent)', bg: 'rgba(var(--accent-rgb), 0.1)' };
+        if (buildingProfiles[p.name]) return { label: 'BUILDING...', color: 'var(--accent)', bg: 'rgba(var(--accent-rgb), 0.1)' };
         if (p.wav_count === 0) return { label: 'NO SAMPLES', color: 'var(--text-muted)', bg: 'var(--surface-alt)' };
         if (p.is_rebuild_required) return { label: 'REBUILD REQUIRED', color: 'var(--warning-text)', bg: 'rgba(var(--warning-rgb), 0.1)' };
         if (!p.preview_url) return { label: 'BUILD TO TEST', color: 'var(--accent)', bg: 'rgba(var(--accent-rgb), 0.1)' };
@@ -271,7 +270,7 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
                         <div key={activeProfileId} className="animate-in" style={{ background: 'var(--surface-light)' }}>
                                 <VariantEditor
                                     profile={activeProfile as SpeakerProfile}
-                                    isTesting={isTestingProfileId === activeProfile?.name}
+                                    isTesting={!!buildingProfiles[activeProfile?.name || '']}
                                     testStatus={testProgress[activeProfile?.name || '']}
                                     onTest={onTest}
                                     onDeleteVariant={onDelete}

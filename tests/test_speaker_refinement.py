@@ -147,10 +147,10 @@ def test_voice_output_exists_for_voice_engine():
     """_output_exists must return True for voice_build/voice_test to prevent reconcile loop."""
     from app.jobs.reconcile import _output_exists
     # These should return True so reconcile does NOT re-queue done voice jobs
-    assert _output_exists("voice_build", "") == True
-    assert _output_exists("voice_test", "") == True
+    assert _output_exists("voice_build", "")
+    assert _output_exists("voice_test", "")
     # xtts with no file still returns False (existing behavior)
-    assert _output_exists("xtts", "") == False
+    assert not _output_exists("xtts", "")
 
 
 def test_reconcile_does_not_requeue_voice_jobs(clean_db, tmp_path):
@@ -223,3 +223,24 @@ def test_worker_does_not_skip_voice_builds():
     src = inspect.getsource(w_mod.worker_loop)
     assert 'j.engine not in ("voice_build", "voice_test")' in src, \
         "worker_loop must exclude voice engines from the output-exists skip check"
+
+
+def test_build_clears_sample_wav(clean_db, tmp_path):
+    """Calling the build endpoint should delete an existing sample.wav."""
+    voices_dir = tmp_path / "voices"
+    voices_dir.mkdir(parents=True, exist_ok=True)
+    fastapi_app.dependency_overrides[get_voices_dir] = lambda: voices_dir
+
+    # 1. Create a profile and a sample.wav
+    profile_path = voices_dir / "TestBuilder"
+    profile_path.mkdir()
+    sample_path = profile_path / "sample.wav"
+    sample_path.write_text("old content")
+    assert sample_path.exists()
+
+    # 2. Call build
+    response = client.post("/api/speaker-profiles/TestBuilder/build")
+    assert response.status_code == 200
+
+    # 3. Verify sample.wav is GONE
+    assert not sample_path.exists(), "sample.wav should have been deleted by the build endpoint"

@@ -14,7 +14,6 @@ export function useVoiceManagement(
     jobs: Record<string, Job> = {}
 ) {
     const [speakers, setSpeakers] = useState<Speaker[]>([]);
-    const [testingProfile, setTestingProfile] = useState<string | null>(null);
     // Map of profileName -> jobId for in-flight build jobs
     const [buildingProfiles, setBuildingProfiles] = useState<Record<string, string | true>>({});
     const [restoredFromJobs, setRestoredFromJobs] = useState(false);
@@ -108,13 +107,16 @@ export function useVoiceManagement(
     };
 
     const handleTest = useCallback(async (name: string) => {
-        setTestingProfile(name);
         try {
             const resp = await fetch(`/api/speaker-profiles/${encodeURIComponent(name)}/test`, {
                 method: 'POST',
             });
             const result = await resp.json();
-            if (result.status !== 'ok' && result.status !== 'success') {
+            if (result.status === 'ok' || result.status === 'success') {
+                if (result.job_id) {
+                    setBuildingProfiles(prev => ({ ...prev, [name]: result.job_id }));
+                }
+            } else {
                 requestConfirm({
                     title: 'Test Failed',
                     message: formatError(result, 'An unknown error occurred during the test.'),
@@ -124,8 +126,6 @@ export function useVoiceManagement(
             }
         } catch (err) {
             console.error('Test failed', err);
-        } finally {
-            setTestingProfile(null);
         }
     }, [requestConfirm]);
 
@@ -195,7 +195,6 @@ export function useVoiceManagement(
 
     return {
         speakers,
-        testingProfile,
         buildingProfiles: buildingProfilesBool,
         fetchSpeakers,
         handleSetDefault,

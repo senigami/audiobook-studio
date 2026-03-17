@@ -30,9 +30,9 @@ logger = logging.getLogger(__name__)
 def get_voices_dir() -> Path:
     return VOICES_DIR
 
-router = APIRouter(prefix="/api", tags=["voices"])
+router = APIRouter(tags=["voices"])
 
-@router.get("/speaker-profiles")
+@router.get("/api/speaker-profiles")
 def list_speaker_profiles(voices_dir: Path = Depends(get_voices_dir)):
     if not voices_dir.exists():
         return []
@@ -86,7 +86,7 @@ def list_speaker_profiles(voices_dir: Path = Depends(get_voices_dir)):
         })
     return profiles
 
-@router.post("/speaker-profiles")
+@router.post("/api/speaker-profiles")
 def api_create_speaker_profile(
     speaker_id: str = Form(...),
     variant_name: str = Form(...),
@@ -117,11 +117,11 @@ def api_create_speaker_profile(
         logger.error(f"Error creating profile {speaker_id}/{variant_name}: {e}")
         return JSONResponse({"status": "error", "message": "Creation failed"}, status_code=500)
 
-@router.get("/projects/{project_id}/characters")
+@router.get("/api/projects/{project_id}/characters")
 def api_list_characters(project_id: str):
     return JSONResponse({"status": "ok", "characters": get_characters(project_id)})
 
-@router.post("/projects/{project_id}/characters")
+@router.post("/api/projects/{project_id}/characters")
 def api_create_character_route(
     project_id: str, 
     name: str = Form(...), 
@@ -131,7 +131,7 @@ def api_create_character_route(
     cid = create_character(project_id, name, speaker_profile_name, color=color)
     return JSONResponse({"status": "ok", "id": cid, "character_id": cid})
 
-@router.put("/characters/{character_id}")
+@router.put("/api/characters/{character_id}")
 def api_update_character_route(character_id: str, name: Optional[str] = Form(None), speaker_profile_name: Optional[str] = Form(None), color: Optional[str] = Form(None)):
     updates = {}
     if name is not None: updates["name"] = name
@@ -140,16 +140,16 @@ def api_update_character_route(character_id: str, name: Optional[str] = Form(Non
     update_character(character_id, **updates)
     return JSONResponse({"status": "ok"})
 
-@router.delete("/characters/{character_id}")
+@router.delete("/api/characters/{character_id}")
 def api_delete_character_route(character_id: str):
     delete_character(character_id)
     return JSONResponse({"status": "ok"})
 
-@router.get("/speakers")
+@router.get("/api/speakers")
 def api_list_speakers_route():
     return JSONResponse(list_speakers())
 
-@router.post("/speakers")
+@router.post("/api/speakers")
 def api_create_speaker_route(name: str = Form(...), default_profile_name: Optional[str] = Form(None)):
     sid = create_speaker(name, default_profile_name)
     return JSONResponse({"status": "ok", "id": sid, "speaker_id": sid})
@@ -202,8 +202,9 @@ def _rename_profile_folders(old_name: str, new_name: str, voices_dir: Path):
                     meta_path.write_text(json.dumps(meta, indent=2))
                 except: pass
 
-@router.put("/speakers/{speaker_id}")
-@router.post("/speakers/{speaker_id}")
+@router.put("/api/speakers/{speaker_id}")
+@router.post("/api/speakers/{speaker_id}")
+@router.patch("/api/speakers/{speaker_id}")
 def api_update_speaker_route(
     speaker_id: str, 
     name: Optional[str] = Form(None), 
@@ -229,12 +230,12 @@ def api_update_speaker_route(
 
     return JSONResponse({"status": "ok"})
 
-@router.delete("/speakers/{speaker_id}")
+@router.delete("/api/speakers/{speaker_id}")
 def api_delete_speaker_route(speaker_id: str):
     delete_speaker(speaker_id)
     return JSONResponse({"status": "ok"})
 
-@router.post("/speaker-profiles/{profile_name}/assign")
+@router.post("/api/speaker-profiles/{profile_name}/assign")
 def api_assign_profile_to_speaker(
     profile_name: str,
     speaker_id: Optional[str] = Form(None),
@@ -301,7 +302,7 @@ def api_assign_profile_to_speaker(
         logger.error(f"Error assigning profile {profile_name}: {e}")
         return JSONResponse({"status": "error", "message": "Assign failed"}, status_code=500)
 
-@router.post("/voices/rename-profile")
+@router.post("/api/voices/rename-profile")
 def api_rename_voice_profile(
     old_name: str = Form(...),
     new_name: str = Form(...),
@@ -322,22 +323,22 @@ def api_rename_voice_profile(
         logger.error(f"Error during directory rename: {e}")
         return JSONResponse({"status": "error", "message": "Directory rename failed"}, status_code=400)
 
-@router.post("/speaker-profiles/{name}/test-text")
+@router.post("/api/speaker-profiles/{name}/test-text")
 def update_speaker_test_text(name: str, text: str = Form(...)):
     update_speaker_settings(name, test_text=text)
     return JSONResponse({"status": "ok", "test_text": text})
 
-@router.post("/speaker-profiles/{name}/reset-test-text")
+@router.post("/api/speaker-profiles/{name}/reset-test-text")
 def reset_speaker_test_text(name: str):
     update_speaker_settings(name, test_text=None)
     return JSONResponse({"status": "ok", "test_text": DEFAULT_SPEAKER_TEST_TEXT})
 
-@router.post("/speaker-profiles/{name}/speed")
+@router.post("/api/speaker-profiles/{name}/speed")
 def update_speaker_speed(name: str, speed: float = Form(...)):
     update_speaker_settings(name, speed=speed)
     return JSONResponse({"status": "ok", "speed": speed})
 
-@router.post("/speaker-profiles/{name}/build")
+@router.post("/api/speaker-profiles/{name}/build")
 async def build_speaker_profile(
     name: str,
     files: List[UploadFile] = File(default=[]),
@@ -350,6 +351,11 @@ async def build_speaker_profile(
             return JSONResponse({"status": "error", "message": "Invalid profile name"}, status_code=403)
 
         path.mkdir(parents=True, exist_ok=True)
+
+        # Clear existing sample if it exists to ensure accurate building status
+        sample_path = path / "sample.wav"
+        if sample_path.exists():
+            sample_path.unlink()
     except Exception as e:
         logger.error(f"Error preparing path for profile {name}: {e}")
         return JSONResponse({"status": "error", "message": "Build failed"}, status_code=500)
@@ -381,7 +387,7 @@ async def build_speaker_profile(
     enqueue(j)
     return JSONResponse({"status": "ok", "job_id": jid})
 
-@router.post("/speaker-profiles/{name}/samples/upload")
+@router.post("/api/speaker-profiles/{name}/samples/upload")
 async def upload_speaker_samples(
     name: str,
     files: List[UploadFile] = File(...),
@@ -404,7 +410,7 @@ async def upload_speaker_samples(
         logger.error(f"Upload failed for {name}: {e}")
         return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 
-@router.delete("/speaker-profiles/{name}/samples/{sample_name}")
+@router.delete("/api/speaker-profiles/{name}/samples/{sample_name}")
 def delete_speaker_sample(
     name: str,
     sample_name: str,
@@ -423,7 +429,7 @@ def delete_speaker_sample(
         logger.error(f"Delete failed for {name}/{sample_name}: {e}")
         return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 
-@router.post("/speaker-profiles/{name}/rename")
+@router.post("/api/speaker-profiles/{name}/rename")
 def api_rename_voice_profile_path(
     name: str,
     new_name: str = Form(...),
@@ -435,7 +441,7 @@ def api_rename_voice_profile_path(
         voices_dir=voices_dir
     )
 
-@router.post("/speaker-profiles/build")
+@router.post("/api/speaker-profiles/build")
 async def legacy_build_speaker_profile(
     name: str = Form(...),
     files: List[UploadFile] = File(default=[]),
@@ -443,11 +449,11 @@ async def legacy_build_speaker_profile(
 ):
     return await build_speaker_profile(name, files, voices_dir=voices_dir)
 
-@router.post("/speaker-profiles/test")
+@router.post("/api/speaker-profiles/test")
 def legacy_test_speaker_profile(name: str = Form(...)):
     return test_speaker_profile(name)
 
-@router.delete("/speaker-profiles/{name}")
+@router.delete("/api/speaker-profiles/{name}")
 def delete_speaker_profile(
     name: str,
     voices_dir: Path = Depends(get_voices_dir)
@@ -467,7 +473,7 @@ def delete_speaker_profile(
 
     return JSONResponse({"status": "error", "message": "Not found"}, status_code=404)
 
-@router.post("/speaker-profiles/{name}/test")
+@router.post("/api/speaker-profiles/{name}/test")
 def test_speaker_profile(name: str):
     jid = f"test-{uuid.uuid4().hex[:8]}"
     j = Job(
