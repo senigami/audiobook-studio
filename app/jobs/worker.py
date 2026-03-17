@@ -103,9 +103,10 @@ def worker_loop(q):
                     logger.error("Failed to get chapter segment counts for progress initialization", exc_info=True)
 
             # ETA Fix: Adjust started_at to account for past work
-            adjusted_start = initial_start - (initial_progress * eta) if eta > 0 else initial_start
+            adjusted_start = initial_start - (initial_progress * eta) if (eta > 0 and initial_progress > 0) else initial_start
 
-            update_job(jid, status=initial_status, started_at=adjusted_start, eta_seconds=eta, progress=initial_progress)
+            # Only send started_at if we are actually resuming (p > 0)
+            update_job(jid, status=initial_status, started_at=adjusted_start if initial_progress > 0 else None, eta_seconds=eta, progress=initial_progress)
 
             j.status = initial_status
             j.progress = initial_progress

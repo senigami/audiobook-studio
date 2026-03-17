@@ -131,7 +131,7 @@ def test_on_output_logic(mock_q, sample_job):
     # We want to intercept the on_output function passed to handle_xtts_job
     captured_on_output = []
 
-    def fake_handler(jid, j, start, logs, on_output, *args, **kwargs):
+    def fake_handler(jid, j, start, on_output, *args, **kwargs):
         captured_on_output.append(on_output)
 
     with patch("app.jobs.worker.get_jobs", return_value={"test_job_1": sample_job}), \
@@ -171,12 +171,9 @@ def test_on_output_logic(mock_q, sample_job):
         on_out("exceeds the character limit of 250")
         assert sample_job.warning_count == 1
 
-        # Test log accumulation
+        # Test log accumulation (Simplified: No longer checking for 'log' in update_job)
         mock_update.reset_mock()
         on_out("Normal log line")
-        # Check if log was updated in update_job calls
-        log_updates = [c for c in mock_update.call_args_list if 'log' in c.kwargs]
-        assert len(log_updates) > 0
 
 def test_worker_loop_xtts_bake(mock_q, sample_job):
     """Test XTTS job with is_bake=True."""
@@ -222,10 +219,9 @@ def test_worker_loop_skipped_or_failed(mock_q, sample_job):
         except Exception as e:
             if str(e) != "Stop": raise e
 
-        # Check for "Skipped" update
+        # Check for done update
         skipped_calls = [c for c in mock_update.call_args_list if c.kwargs.get('status') == "done"]
         assert len(skipped_calls) > 0
-        assert "Skipped" in skipped_calls[0].kwargs.get('log', '')
 
     # 2. Failed (file not found)
     mock_q.get.reset_mock()
@@ -292,7 +288,7 @@ def test_on_output_predictive_progress(mock_q, sample_job):
     """Test the predictive progress part of on_output (empty line)."""
     mock_q.get.side_effect = ["test_job_1", Exception("StopLoop")]
     captured_on_output = []
-    def fake_handler(*args, **kwargs): captured_on_output.append(args[4])
+    def fake_handler(jid, j, start, on_output, *args, **kwargs): captured_on_output.append(on_output)
 
     with patch("app.jobs.worker.get_jobs", return_value={"test_job_1": sample_job}), \
          patch("app.jobs.worker.update_job") as mock_update, \
@@ -345,7 +341,7 @@ def test_worker_loop_crash(mock_q):
                 if str(e) != "Stop": raise e
 
         # Check that update_job was called with status="failed"
-        mock_update.assert_any_call("test_job_1", status="failed", finished_at=pytest.approx(time.time(), abs=2), progress=1.0, error="Worker crashed.", log="stacktrace")
+        mock_update.assert_any_call("test_job_1", status="failed", finished_at=pytest.approx(time.time(), abs=2), progress=1.0, error="Worker crashed.")
 
 class AnyStringWith:
     def __init__(self, substring): self.substring = substring

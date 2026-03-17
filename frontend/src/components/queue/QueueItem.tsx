@@ -98,6 +98,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                     progress={prog}
                     startedAt={started}
                     etaSeconds={eta}
+                    status={job.status}
                     label={job.status === 'preparing' ? "Preparing..." : (job.status === 'finalizing' ? "Finalizing..." : "Processing...")}
                 />
             </div>

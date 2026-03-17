@@ -142,7 +142,7 @@ def reconcile_queue_status(active_ids: List[str]):
             cursor.execute(f"""
                 UPDATE processing_queue 
                 SET status = 'cancelled', completed_at = ? 
-                WHERE status IN ('running', 'queued') AND id NOT IN ({placeholders})
+                WHERE status IN ('running', 'queued', 'preparing', 'finalizing') AND id NOT IN ({placeholders})
             """, (now, *active_ids))
 
             # Also sync chapter status

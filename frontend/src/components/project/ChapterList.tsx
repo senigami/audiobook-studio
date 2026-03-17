@@ -137,6 +137,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                           progress={activeJob.progress || 0} 
                           startedAt={activeJob.status !== 'queued' ? activeJob.started_at : undefined} 
                           etaSeconds={activeJob.eta_seconds}
+                          status={activeJob.status}
                           label={activeJob.status} 
                         />
                     </div>
