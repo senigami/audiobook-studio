@@ -1,11 +1,12 @@
 import pytest
 import os
-from fastapi.testclient import TestClient
-from unittest.mock import patch
-from app.web import app as fastapi_app
 from app.db.core import init_db
 
-client = TestClient(fastapi_app)
+@pytest.fixture
+def client():
+    from fastapi.testclient import TestClient
+    from app.web import app as fastapi_app
+    return TestClient(fastapi_app)
 
 @pytest.fixture
 def clean_db():
@@ -21,7 +22,7 @@ def clean_db():
     if os.path.exists(db_path):
         os.unlink(db_path)
 
-def test_analyze_chapter(clean_db):
+def test_analyze_chapter(clean_db, client):
     from app.db.projects import create_project
     from app.db.chapters import create_chapter
     pid = create_project("P1")
@@ -38,7 +39,7 @@ def test_analyze_chapter(clean_db):
     data = response.json()
     assert "char_count" in data
 
-def test_analyze_text(clean_db):
+def test_analyze_text(clean_db, client):
     payload = {"text_content": "Hello world. This is a sample sentence for testing."}
     response = client.post("/api/analyze_text", json=payload)
     assert response.status_code == 200
@@ -47,7 +48,8 @@ def test_analyze_text(clean_db):
     assert "word_count" in data
     assert "safe_text" in data
 
-def test_report_not_found(clean_db, tmp_path):
+def test_report_not_found(clean_db, tmp_path, client):
+    from app.web import app as fastapi_app
     from app.api.routers.analysis import get_report_dir
     fastapi_app.dependency_overrides[get_report_dir] = lambda: tmp_path
     response = client.get("/api/report/nonexistent")

@@ -2,12 +2,14 @@ import pytest
 import os
 import time
 from pathlib import Path
-from fastapi.testclient import TestClient
-from app.web import app as fastapi_app
 from app.db.core import init_db
 from app.models import Job
 
-client = TestClient(fastapi_app)
+@pytest.fixture
+def client():
+    from fastapi.testclient import TestClient
+    from app.web import app as fastapi_app
+    return TestClient(fastapi_app)
 
 @pytest.fixture
 def clean_db():
@@ -23,14 +25,14 @@ def clean_db():
     if os.path.exists(db_path):
         os.unlink(db_path)
 
-def test_jobs_api(clean_db, tmp_path):
+def test_jobs_api(clean_db, tmp_path, client, monkeypatch):
     from app.state import put_job, get_jobs
 
-    # Mock CHAPTER_DIR so cleanup_and_reconcile finds the text file
+    # Use monkeypatch so it's restored after the test!
     from app.api.routers import chapters
-    chapters.CHAPTER_DIR = tmp_path
+    monkeypatch.setattr(chapters, "CHAPTER_DIR", tmp_path)
     from app.jobs import reconcile
-    reconcile.CHAPTER_DIR = tmp_path
+    monkeypatch.setattr(reconcile, "CHAPTER_DIR", tmp_path)
 
     chapter_file = "test.txt"
     (tmp_path / chapter_file).write_text("dummy content")
@@ -43,7 +45,6 @@ def test_jobs_api(clean_db, tmp_path):
     # List jobs
     response = client.get("/api/jobs")
     assert response.status_code == 200
-    # response is a list of job dicts. Grouped by chapter_file.
     assert any(j["id"] == jid for j in response.json())
 
     # Get job details

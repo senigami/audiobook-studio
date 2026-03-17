@@ -1,11 +1,13 @@
 import pytest
 import os
 import json
-from fastapi.testclient import TestClient
-from app.web import app as fastapi_app
 from app.db.core import init_db
 
-client = TestClient(fastapi_app)
+@pytest.fixture
+def client():
+    from fastapi.testclient import TestClient
+    from app.web import app as fastapi_app
+    return TestClient(fastapi_app)
 
 @pytest.fixture
 def clean_db():
@@ -21,7 +23,7 @@ def clean_db():
     if os.path.exists(db_path):
         os.unlink(db_path)
 
-def test_project_crud(clean_db):
+def test_project_crud(clean_db, client):
     # Create
     response = client.post("/api/projects", data={"name": "New Project"})
     assert response.status_code == 200
@@ -45,7 +47,7 @@ def test_project_crud(clean_db):
     response = client.delete(f"/api/projects/{pid}")
     assert response.status_code == 200
 
-def test_project_chapters(clean_db):
+def test_project_chapters(clean_db, client):
     pid = client.post("/api/projects", data={"name": "P1"}).json()["project_id"]
 
     # Create chapter
@@ -64,7 +66,7 @@ def test_project_chapters(clean_db):
     r = client.post(f"/api/projects/{pid}/reorder_chapters", data={"chapter_ids": json.dumps([cid])})
     assert r.status_code == 200
 
-def test_project_audiobooks_and_assemble(clean_db):
+def test_project_audiobooks_and_assemble(clean_db, client):
     pid = client.post("/api/projects", data={"name": "P1"}).json()["project_id"]
     # Create a chapter and mark it as done
     from app.db.chapters import create_chapter, update_chapter
@@ -83,7 +85,6 @@ def test_project_audiobooks_and_assemble(clean_db):
     from unittest.mock import patch
     with patch("app.api.routers.projects.put_job"), patch("app.api.routers.projects.enqueue"):
         # We don't send 'chapters' list explicitly if we want it to use all chapters from project
-        # In the router: it lists chapters for the project.
         response = client.post(f"/api/projects/{pid}/assemble", 
                                data={"title": "Book", "author": "Me", "narrator": "V1"})
         assert response.status_code == 200

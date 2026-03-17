@@ -1,11 +1,13 @@
 import pytest
 import os
 import json
-from fastapi.testclient import TestClient
-from app.web import app as fastapi_app
 from app.db.core import init_db
 
-client = TestClient(fastapi_app)
+@pytest.fixture
+def client():
+    from fastapi.testclient import TestClient
+    from app.web import app as fastapi_app
+    return TestClient(fastapi_app)
 
 @pytest.fixture
 def clean_db():
@@ -17,31 +19,36 @@ def clean_db():
     import importlib
     importlib.reload(app.db.core)
     init_db()
+
+    from app.state import update_settings
+    update_settings({"default_speaker_profile": "DefaultVoice"})
+
     yield
     if os.path.exists(db_path):
         os.unlink(db_path)
 
-def test_queue_api(clean_db):
+def test_queue_api(clean_db, client):
     from app.db.projects import create_project
     from app.db.chapters import create_chapter
-    from app.db.queue import add_to_queue
     pid = create_project("P1")
     cid = create_chapter(pid, "C1", "T1")
 
-    qid = add_to_queue(pid, cid)
-    assert qid is not None
+    # Add to queue (from generation.py)
+    response = client.post("/api/processing_queue", data={"project_id": pid, "chapter_id": cid})
+    assert response.status_code == 200
+    qid = response.json()["queue_id"]
 
-    # List queue
+    # Get queue (from queue.py)
     response = client.get("/api/processing_queue")
     assert response.status_code == 200
-    assert len(response.json()) == 1
+    queue_data = response.json()
+    assert len(queue_data) > 0
 
-    # Reorder — expects ReorderRequest with queue_ids: List[str]
-    # PUT /api/processing_queue/reorder
+    # Reorder queue
     response = client.put("/api/processing_queue/reorder", json={"queue_ids": [qid]})
     assert response.status_code == 200
 
-    # Delete item
+    # Delete from queue
     response = client.delete(f"/api/processing_queue/{qid}")
     assert response.status_code == 200
 

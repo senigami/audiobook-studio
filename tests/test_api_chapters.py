@@ -4,11 +4,13 @@ import io
 import json
 from pathlib import Path
 from unittest.mock import patch, MagicMock
-from fastapi.testclient import TestClient
-from app.web import app as fastapi_app
 from app.db.core import init_db
 
-client = TestClient(fastapi_app)
+@pytest.fixture
+def client():
+    from fastapi.testclient import TestClient
+    from app.web import app as fastapi_app
+    return TestClient(fastapi_app)
 
 @pytest.fixture
 def clean_db():
@@ -28,7 +30,7 @@ def clean_db():
     if os.path.exists(db_path):
         os.unlink(db_path)
 
-def test_chapter_list_and_create(clean_db):
+def test_chapter_list_and_create(clean_db, client):
     from app.db.projects import create_project
     pid = create_project("TestProj")
 
@@ -42,7 +44,7 @@ def test_chapter_list_and_create(clean_db):
     assert len(data) == 1
     assert data[0]["title"] == "Chapter 1"
 
-def test_chapter_crud(clean_db):
+def test_chapter_crud(clean_db, client):
     from app.db.projects import create_project
     pid = create_project("TestProj")
     cid = client.post(f"/api/projects/{pid}/chapters", data={"title": "C1", "text_content": "T1"}).json()["chapter"]["id"]
@@ -60,7 +62,7 @@ def test_chapter_crud(clean_db):
     response = client.delete(f"/api/chapters/{cid}")
     assert response.status_code == 200
 
-def test_chapter_segments_sync_and_update(clean_db):
+def test_chapter_segments_sync_and_update(clean_db, client):
     from app.db.projects import create_project
     from app.db.chapters import create_chapter
     pid = create_project("P1")
@@ -85,7 +87,7 @@ def test_chapter_segments_sync_and_update(clean_db):
     response = client.post(f"/api/chapters/{cid}/segments/bulk-status", json={"segment_ids": [sid], "status": "done"})
     assert response.status_code == 200
 
-def test_chapter_cancel_and_reset(clean_db):
+def test_chapter_cancel_and_reset(clean_db, client):
     from app.db.projects import create_project
     from app.db.chapters import create_chapter
     pid = create_project("P1")
@@ -99,7 +101,8 @@ def test_chapter_cancel_and_reset(clean_db):
     response = client.post(f"/api/chapters/{cid}/reset")
     assert response.status_code == 200
 
-def test_legacy_endpoints(clean_db, tmp_path):
+def test_legacy_endpoints(clean_db, tmp_path, client):
+    from app.web import app as fastapi_app
     from app.api.routers.chapters import get_chapter_dir, get_xtts_out_dir
     fastapi_app.dependency_overrides[get_chapter_dir] = lambda: tmp_path
     fastapi_app.dependency_overrides[get_xtts_out_dir] = lambda: tmp_path
@@ -122,7 +125,8 @@ def test_legacy_endpoints(clean_db, tmp_path):
     # Reset overrides
     fastapi_app.dependency_overrides = {}
 
-def test_export_and_stream(clean_db, tmp_path):
+def test_export_and_stream(clean_db, tmp_path, client):
+    from app.web import app as fastapi_app
     from app.db.projects import create_project
     from app.db.chapters import create_chapter, update_chapter
     from app.api.routers.chapters import get_xtts_out_dir

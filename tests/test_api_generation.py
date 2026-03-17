@@ -1,12 +1,14 @@
 import pytest
 import os
 import uuid
-from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock
-from app.web import app as fastapi_app
 from app.db.core import init_db
 
-client = TestClient(fastapi_app)
+@pytest.fixture
+def client():
+    from fastapi.testclient import TestClient
+    from app.web import app as fastapi_app
+    return TestClient(fastapi_app)
 
 @pytest.fixture
 def clean_db():
@@ -26,7 +28,7 @@ def clean_db():
     if os.path.exists(db_path):
         os.unlink(db_path)
 
-def test_queue_and_bake(clean_db):
+def test_queue_and_bake(clean_db, client):
     from app.db.projects import create_project
     from app.db.chapters import create_chapter
     pid = create_project("P1")
@@ -44,14 +46,14 @@ def test_queue_and_bake(clean_db):
         assert response.status_code == 200
         assert "job_id" in response.json()
 
-def test_pause_resume(clean_db):
+def test_pause_resume(clean_db, client):
     response = client.post("/api/generation/pause")
     assert response.status_code == 200
 
     response = client.post("/api/generation/resume")
     assert response.status_code == 200
 
-def test_generate_segments(clean_db):
+def test_generate_segments(clean_db, client):
     from app.db.projects import create_project
     from app.db.chapters import create_chapter
     from app.db.segments import sync_chapter_segments, get_chapter_segments
