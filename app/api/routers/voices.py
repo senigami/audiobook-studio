@@ -198,7 +198,8 @@ def _rename_profile_folders(old_name: str, new_name: str, voices_dir: Path):
                     import json
                     meta = json.loads(meta_path.read_text())
                     # Ensure metadata speaker_id stays correct if it was a UUID, or updates to new name if unassigned
-                    # Assuming narrated profiles have speaker_id meta
+                    if meta.get("speaker_id") == old_name:
+                        meta["speaker_id"] = new_name
                     meta_path.write_text(json.dumps(meta, indent=2))
                 except: pass
 

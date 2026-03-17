@@ -184,3 +184,88 @@ def test_profile_creation_errors(clean_db, tmp_path):
     with patch("app.api.routers.voices.Path.mkdir", side_effect=Exception("boom")):
         response = client.post("/api/speaker-profiles", data={"speaker_id": "Err", "variant_name": "V1"})
         assert response.status_code == 500
+
+
+def test_rename_speaker_with_variants(clean_db, tmp_path):
+    voices_dir = (tmp_path / "voices").resolve()
+    voices_dir.mkdir()
+    (voices_dir / "Narrator").mkdir()
+    (voices_dir / "Narrator - Calm").mkdir()
+    (voices_dir / "Narrator - Calm" / "profile.json").write_text(json.dumps({"speaker_id": "Narrator"}))
+    (voices_dir / "Narrator - Excited").mkdir()
+
+    fastapi_app.dependency_overrides[get_voices_dir] = lambda: voices_dir
+
+    # Rename Negotiator to Dracula
+    response = client.post("/api/voices/rename-profile", data={"old_name": "Narrator", "new_name": "Dracula"})
+    assert response.status_code == 200
+
+    # Verify both main and variants are renamed
+    assert (voices_dir / "Dracula").exists()
+    assert (voices_dir / "Dracula - Calm").exists()
+    assert (voices_dir / "Dracula - Excited").exists()
+    assert not (voices_dir / "Narrator").exists()
+    assert not (voices_dir / "Narrator - Calm").exists()
+
+    # Verify metadata update
+    meta = json.loads((voices_dir / "Dracula - Calm" / "profile.json").read_text())
+    assert meta["speaker_id"] == "Dracula"
+
+
+def test_rename_profile_default_sync(clean_db, tmp_path):
+    from app.state import update_settings, get_settings
+    update_settings({"default_speaker_profile": "OldProfile"})
+
+    voices_dir = (tmp_path / "voices").resolve()
+    voices_dir.mkdir()
+    (voices_dir / "OldProfile").mkdir()
+    fastapi_app.dependency_overrides[get_voices_dir] = lambda: voices_dir
+
+    response = client.post("/api/voices/rename-profile", data={"old_name": "OldProfile", "new_name": "NewProfile"})
+    assert response.status_code == 200
+    assert get_settings()["default_speaker_profile"] == "NewProfile"
+
+
+def test_upload_samples_security_and_failure(clean_db, tmp_path):
+    voices_dir = (tmp_path / "voices").resolve()
+    voices_dir.mkdir()
+    fastapi_app.dependency_overrides[get_voices_dir] = lambda: voices_dir
+
+    # Define files for the test
+    files = {"files": ("sample.wav", io.BytesIO(b"data"), "audio/wav")}
+
+    # Exception during upload
+    with patch("app.api.routers.voices.Path.mkdir", side_effect=Exception("makedirs failed")):
+        response = client.post("/api/speaker-profiles/SpeakerA/samples/upload", files=files)
+        assert response.status_code == 500
+
+
+def test_delete_sample_errors(clean_db, tmp_path):
+    voices_dir = (tmp_path / "voices").resolve()
+    voices_dir.mkdir()
+    (voices_dir / "SpeakerA").mkdir()
+    (voices_dir / "SpeakerA" / "sample1.wav").write_text("audio")
+    fastapi_app.dependency_overrides[get_voices_dir] = lambda: voices_dir
+
+    # Success
+    response = client.delete("/api/speaker-profiles/SpeakerA/samples/sample1.wav")
+    assert response.status_code == 200
+    assert not (voices_dir / "SpeakerA" / "sample1.wav").exists()
+
+    # Exception
+    with patch("app.api.routers.voices.os.unlink", side_effect=Exception("unlink failed")):
+        (voices_dir / "SpeakerA" / "bad.wav").write_text("trash")
+        response = client.delete("/api/speaker-profiles/SpeakerA/samples/bad.wav")
+        assert response.status_code == 500
+
+
+def test_assign_profile_to_speaker_errors(clean_db, tmp_path):
+    voices_dir = (tmp_path / "voices").resolve()
+    voices_dir.mkdir()
+    (voices_dir / "SomeProf").mkdir() # MUST EXIST TO NOT 404 EARLY
+    fastapi_app.dependency_overrides[get_voices_dir] = lambda: voices_dir
+
+    # Generic error
+    with patch("app.api.routers.voices.get_speaker", side_effect=Exception("db crash")):
+        response = client.post("/api/speaker-profiles/SomeProf/assign", data={"speaker_id": "sid"})
+        assert response.status_code == 500
