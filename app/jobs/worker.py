@@ -34,10 +34,8 @@ def worker_loop(q):
             cancel_ev = cancel_flags.get(jid) or threading.Event()
             cancel_flags[jid] = cancel_ev
 
-            start_dt = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()))
             chars = 0
             eta = 0
-            header = []
             text = None
 
             if j.engine != "audiobook":
@@ -70,15 +68,6 @@ def worker_loop(q):
                     perf = get_performance_metrics()
                     cps = perf.get("xtts_cps", BASELINE_XTTS_CPS)
                     eta = _estimate_seconds(chars, cps)
-
-                header = [
-                    f"Job Started: {j.chapter_file}\n",
-                    f"Started At:  {start_dt}\n",
-                    f"Engine: {j.engine.upper()}\n",
-                    f"Character Count: {chars:,}\n",
-                    f"Predicted Duration: {format_seconds(eta)}\n",
-                    "-" * 40 + "\n\n"
-                ]
             else:
                 if j.project_id:
                     from ..config import get_project_audio_dir
@@ -99,16 +88,6 @@ def worker_loop(q):
                 base_eta = (num_files * 0.02) + (total_size_mb / 10)
                 eta = max(15, int(base_eta * mult))
 
-                header = [
-                    f"Job Started: Audiobook {j.chapter_file}\n",
-                    f"Started At:  {start_dt}\n",
-                    "Engine: AUDIOBOOK ASSEMBLY\n",
-                    f"Chapter Files: {num_files}\n",
-                    f"Total Source Size: {total_size_mb:.1f} MB\n",
-                    f"Predicted Duration: {format_seconds(eta)}\n",
-                    "-" * 40 + "\n\n"
-                ]
-
             initial_status = "running" if j.engine == "audiobook" else "preparing"
             initial_start = time.time()
 
@@ -124,13 +103,13 @@ def worker_loop(q):
                     logger.error("Failed to get chapter segment counts for progress initialization", exc_info=True)
 
             # ETA Fix: Adjust started_at to account for past work
-            adjusted_start = initial_start - (initial_progress * eta) if eta > 0 else initial_start
+            adjusted_start = initial_start - (initial_progress * eta) if (eta > 0 and initial_progress > 0) else initial_start
 
-            update_job(jid, status=initial_status, started_at=adjusted_start, eta_seconds=eta, log="".join(header), progress=initial_progress)
+            # Only send started_at if we are actually resuming (p > 0)
+            update_job(jid, status=initial_status, started_at=adjusted_start if initial_progress > 0 else None, eta_seconds=eta, progress=initial_progress)
 
             j.status = initial_status
             j.progress = initial_progress
-            j.log = "".join(header)
             j.started_at = adjusted_start
             j._last_broadcast_p = initial_progress
 
@@ -139,17 +118,16 @@ def worker_loop(q):
                 continue
 
             if _output_exists(j.engine, j.chapter_file, project_id=j.project_id, make_mp3=j.make_mp3):
-                update_job(jid, status="done", finished_at=time.time(), progress=1.0, log="Skipped: output already exists.")
+                update_job(jid, status="done", finished_at=time.time(), progress=1.0)
                 continue
 
-            logs = header.copy()
             start = adjusted_start
 
             def on_output(line):
                 s = line.strip()
                 now = time.time()
                 new_progress = None
-                new_log = None
+                new_progress = None
 
                 if not s:
                     prog = calculate_predicted_progress(j, now, j.started_at, eta, limit=PROGRESS_STITCH_LIMIT, prepare_limit=PROGRESS_PREPARE_LIMIT, prepare_step=PROGRESS_PREPARE_STEP)
@@ -170,19 +148,16 @@ def worker_loop(q):
                     j.progress = prog
                     j.started_at = now - (prog * eta) if eta > 0 else now
                     update_job(jid, status="running", started_at=j.started_at, progress=prog)
-                    on_output("Model prepared. Starting synthesis...\n")
+                    # We still call on_output for internal tracking, but it's simplified
                     return
 
                 if "[START_SEGMENT]" in s:
                     try:
                         raw = s.split("[START_SEGMENT]")[1].strip()
                         seg_id = raw
-                        # Robustly extract ID from paths or filenames
                         if "/" in raw or "\\" in raw or "." in raw:
                             name = Path(raw).name
-                            # Strip .wav, .mp3 etc
                             seg_id = Path(name).stem
-                            # If it still has "seg_" prefix (some legacy parts might), strip it
                             if seg_id.startswith("seg_"):
                                 seg_id = seg_id[4:]
 
@@ -199,7 +174,6 @@ def worker_loop(q):
 
                 progress_match = re.search(r'(\d+)%', s)
                 is_progress = False
-                is_segment = getattr(j, 'active_segment_id', None) is not None
                 broadcast_args = {}
 
                 if progress_match:
@@ -219,30 +193,24 @@ def worker_loop(q):
                     if "exceeds the character limit" in s:
                         j.warning_count = getattr(j, 'warning_count', 0) + 1
                         update_job(jid, warning_count=j.warning_count)
-                    if not (s.startswith(("[", ">")) and len(s) > 20):
-                        logs.append(line)
-                        new_log = "".join(logs)[-20000:]
 
                 broadcast_p = getattr(j, '_last_broadcast_p', 0.0)
                 if new_progress is None:
                     new_progress = round(calculate_predicted_progress(j, now, j.started_at, eta), 2)
 
                 include_p = new_progress is not None and ((abs(new_progress - broadcast_p) >= 0.01) or (broadcast_p == 0 and new_progress > 0))
-                if new_log or include_p or broadcast_args:
+                if include_p or broadcast_args:
                     j._last_broadcast_time = now
                     if include_p:
                         j.progress = new_progress
                         j._last_broadcast_p = new_progress
                         broadcast_args['progress'] = new_progress
-                    if new_log: broadcast_args['log'] = new_log
                     update_job(jid, **broadcast_args)
 
             def cancel_check(): return cancel_ev.is_set()
 
             if j.engine == "audiobook":
-                handle_audiobook_job(jid, j, start, logs, on_output, cancel_check)
-                # Auto-tuning handled inside handle_audiobook_job in original code? 
-                # (Actually it was split in my implementation plan, let's ensure it's here or there)
+                handle_audiobook_job(jid, j, start, on_output, cancel_check)
             elif j.engine == "xtts":
                 from ..config import get_project_audio_dir
                 pdir = get_project_audio_dir(j.project_id) if j.project_id else XTTS_OUT_DIR
@@ -252,7 +220,7 @@ def worker_loop(q):
                 sw = get_speaker_wavs(j.speaker_profile)
                 spk = get_speaker_settings(j.speaker_profile)
 
-                handle_xtts_job(jid, j, start, logs, on_output, cancel_check, sw, spk["speed"], pdir, out_wav, out_mp3, text=text)
+                handle_xtts_job(jid, j, start, on_output, cancel_check, sw, spk["speed"], pdir, out_wav, out_mp3, text=text)
 
                 # Auto-tuning
                 if not getattr(j, 'is_bake', False):
@@ -265,9 +233,10 @@ def worker_loop(q):
 
         except Exception:
             tb = traceback.format_exc()
+            logger.error(f"Worker crashed for job {jid}:\n{tb}")
             try: 
-                update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error="Worker crashed.", log=tb[-20000:])
+                update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error="Worker crashed.")
             except Exception:
-                logger.critical(f"FATAL: could not update job {jid} failure state\n{tb}")
+                logger.critical(f"FATAL: could not update job {jid} failure state")
         finally:
             q.task_done()

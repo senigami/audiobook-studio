@@ -21,6 +21,7 @@ describe('PredictiveProgressBar', () => {
                 startedAt={(now / 1000) - 10} 
                 etaSeconds={100} 
                 label="Proc" 
+                status="running"
             />
         )
         // calculatedRemaining should be ~90 seconds (1:30)

@@ -172,18 +172,29 @@ def reset_chapter_audio(chapter_id: str):
 
             # 2. Cleanup physical files if they exist
             from .. import config
+            import glob
+            from pathlib import Path
             pdir = config.get_project_audio_dir(project_id) if project_id else config.XTTS_OUT_DIR
-            audio_file = row['audio_file_path']
-            if audio_file:
-                audio_path = pdir / audio_file
-                if audio_path.exists():
-                    audio_path.unlink()
 
-            # Also check for .wav if audio_file_path was .mp3 and vice versa
-            stem = chapter_id
-            for ext in ['.wav', '.mp3']:
-                p = pdir / f"{stem}{ext}"
-                if p.exists(): p.unlink()
+            # 2a. Delete Chapter-level files
+            pattern = str(pdir / f"{chapter_id}*")
+            for p_str in glob.glob(pattern):
+                p = Path(p_str)
+                if p.is_file() and p.suffix.lower() in ('.wav', '.mp3', '.m4a'):
+                    try:
+                        p.unlink()
+                    except Exception: pass
+
+            # 2b. Delete Segment-level files
+            cursor.execute("SELECT id FROM chapter_segments WHERE chapter_id = ?", (chapter_id,))
+            seg_rows = cursor.fetchall()
+            for s_row in seg_rows:
+                sid = s_row['id']
+                seg_pattern = str(pdir / f"seg_{sid}*")
+                for s_path_str in glob.glob(seg_pattern):
+                    try:
+                        Path(s_path_str).unlink()
+                    except Exception: pass
 
             # 3. Reset database fields for chapter
             cursor.execute("""

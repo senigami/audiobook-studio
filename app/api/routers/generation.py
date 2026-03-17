@@ -1,5 +1,6 @@
 import time
 import uuid
+from pathlib import Path
 from typing import List, Optional
 from fastapi import APIRouter, Form
 from fastapi.responses import JSONResponse
@@ -33,6 +34,7 @@ def api_add_to_queue(
             from ...db import get_queue
             existing = [item for item in get_queue() if item['chapter_id'] == chapter_id and item['status'] not in ('done', 'failed', 'cancelled')]
             if existing:
+                broadcast_queue_update()
                 return JSONResponse({"status": "ok", "queue_id": existing[0]['id']})
             return JSONResponse({"status": "error", "message": "Chapter already in queue"}, status_code=400)
 
@@ -112,10 +114,21 @@ def resume_queue():
 @router.post("/generation/cancel-all")
 def cancel_pending():
     from ...state import get_jobs, delete_jobs
+    from ...db import clear_queue
+
+    # 1. Clear worker memory
     clear_job_queue()
-    # Also clear from state.json
+
+    # 2. Clear state.json
     jobs = get_jobs()
     delete_jobs(list(jobs.keys()))
+
+    # 3. Clear DB processing_queue
+    clear_queue()
+
+    # 4. Notify UI
+    broadcast_queue_update()
+
     return JSONResponse({"status": "ok", "message": "processes stopped"})
 
 @router.post("/chapters/{chapter_id}/cancel")
@@ -182,6 +195,26 @@ def api_generate_segments(segment_ids: str = Form(...)):
         segment_ids=sids,
         speaker_profile=get_settings().get("default_speaker_profile")
     )
+
+    # Physical Cleanup: Delete existing full-chapter audio files to prevent reconciliation "blink"
+    from ... import config
+    import glob
+    pdir = config.get_project_audio_dir(project_id) if project_id else config.XTTS_OUT_DIR
+    pattern = str(pdir / f"{chapter_id}*")
+    for p_str in glob.glob(pattern):
+        p = Path(p_str)
+        if p.is_file() and p.suffix.lower() in ('.wav', '.mp3', '.m4a'):
+            try:
+                p.unlink()
+            except Exception: pass
+
+    # Update chapter status to processing to ensure UI reflects the work
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE chapters SET audio_status = 'processing', audio_file_path = NULL WHERE id = ?", (chapter_id,))
+        conn.commit()
+
     put_job(job)
     enqueue(job)
+    broadcast_queue_update()
     return JSONResponse({"status": "success", "job_id": job.id})

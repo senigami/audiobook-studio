@@ -1,5 +1,7 @@
 import time
-from typing import List, Dict, Any, Optional
+import uuid
+from typing import List, Dict, Any
+from pathlib import Path
 from .core import _db_lock, get_connection
 
 def upsert_queue_row(job_id: str, project_id: str = None, chapter_id: str = None, 
@@ -20,7 +22,6 @@ def upsert_queue_row(job_id: str, project_id: str = None, chapter_id: str = None
             conn.commit()
 
 def add_to_queue(project_id: str, chapter_id: str, split_part: int = 0):
-    import uuid
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
@@ -30,6 +31,10 @@ def add_to_queue(project_id: str, chapter_id: str, split_part: int = 0):
             if cursor.fetchone():
                 return None
 
+            # 1. Reset everything (files and DB) to a clean state first
+            from .chapters import reset_chapter_audio
+            reset_chapter_audio(chapter_id)
+
             queue_id = f"job-{uuid.uuid4()}"
             now = time.time()
             cursor.execute("""
@@ -38,7 +43,7 @@ def add_to_queue(project_id: str, chapter_id: str, split_part: int = 0):
             """, (queue_id, project_id, chapter_id, split_part, now))
 
             # Also update chapter status to 'processing'
-            cursor.execute("UPDATE chapters SET audio_status = 'processing' WHERE id = ?", (chapter_id,))
+            cursor.execute("UPDATE chapters SET audio_status = 'processing', audio_file_path = NULL WHERE id = ?", (chapter_id,))
 
             conn.commit()
             return queue_id
@@ -102,9 +107,9 @@ def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 
             # If it's a chapter job, sync the chapters table
             cursor.execute("SELECT chapter_id, project_id FROM processing_queue WHERE id = ?", (queue_id,))
             row = cursor.fetchone()
-            cid = row['chapter_id'] if row else force_chapter_id
 
-            if cid:
+            if row:
+                cid = row['chapter_id']
                 if status == 'done':
                     cursor.execute("""
                         UPDATE chapters 
@@ -118,6 +123,10 @@ def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 
                     cursor.execute("UPDATE chapters SET audio_status = 'unprocessed' WHERE id = ?", (cid,))
                 elif status == 'running':
                     cursor.execute("UPDATE chapters SET audio_status = 'processing' WHERE id = ?", (cid,))
+            elif force_chapter_id:
+                # Still check if we SHOULD update even if queue row is gone (usually no if we want to stay reset)
+                # For now, if the queue row is gone, we assume it was a reset/cancel and we SHOULD NOT update chapters.
+                pass
 
             conn.commit()
 
@@ -133,7 +142,7 @@ def reconcile_queue_status(active_ids: List[str]):
             cursor.execute(f"""
                 UPDATE processing_queue 
                 SET status = 'cancelled', completed_at = ? 
-                WHERE status IN ('running', 'queued') AND id NOT IN ({placeholders})
+                WHERE status IN ('running', 'queued', 'preparing', 'finalizing') AND id NOT IN ({placeholders})
             """, (now, *active_ids))
 
             # Also sync chapter status

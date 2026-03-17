@@ -5,7 +5,7 @@ from ...state import get_jobs, update_job, update_performance_metrics, get_perfo
 from ...engines import assemble_audiobook
 from ..core import format_seconds
 
-def handle_audiobook_job(jid, j, start, logs, on_output, cancel_check):
+def handle_audiobook_job(jid, j, start, on_output, cancel_check):
     from ...config import get_project_audio_dir, get_project_m4b_dir
     if j.project_id:
         src_dir = get_project_audio_dir(j.project_id)
@@ -38,6 +38,6 @@ def handle_audiobook_job(jid, j, start, logs, on_output, cancel_check):
 
         # We need the base_eta for tuning, but let's keep it simple for now or pass it in
         # For now, just mark done.
-        update_job(jid, status="done", project_id=j.project_id, chapter_id=j.chapter_id, finished_at=time.time(), progress=1.0, output_mp3=out_file.name, log="".join(logs))
+        update_job(jid, status="done", project_id=j.project_id, chapter_id=j.chapter_id, finished_at=time.time(), progress=1.0, output_mp3=out_file.name)
     else:
-        update_job(jid, status="failed", project_id=j.project_id, chapter_id=j.chapter_id, finished_at=time.time(), progress=1.0, error=f"Audiobook assembly failed (rc={rc})", log="".join(logs))
+        update_job(jid, status="failed", project_id=j.project_id, chapter_id=j.chapter_id, finished_at=time.time(), progress=1.0, error=f"Audiobook assembly failed (rc={rc})")

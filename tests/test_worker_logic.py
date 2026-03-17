@@ -41,11 +41,10 @@ def test_worker_progress_update():
     add_job_listener(listener)
 
     # Simulate what on_output does
-    update_job(jid, progress=0.25, log="Test log")
+    update_job(jid, progress=0.25)
 
     assert len(updates_received) > 0
     assert updates_received[0]["progress"] == 0.25
-    assert "log" in updates_received[0]
 
 def test_prediction_logic():
     # Test the calculation in jobs.py if we can

@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from ...db import get_queue, clear_queue, clear_completed_queue, reorder_queue, remove_from_queue
 from ...state import get_jobs
 from ...jobs import cancel as cancel_job
+from ..ws import broadcast_queue_update
 
 router = APIRouter(prefix="/api", tags=["queue"])
 
@@ -33,11 +34,13 @@ def api_mass_delete_queue():
     from ...db import get_queue
     count = len([item for item in get_queue() if item['status'] != 'running'])
     clear_queue()
-    return JSONResponse({"status": "ok", "cleared": count})
+    broadcast_queue_update()
+    return JSONResponse({"status": "ok", "message": "processes stopped", "cleared": count})
 
 @router.post("/processing_queue/clear")
 def api_clear_queue_route():
     clear_queue()
+    broadcast_queue_update()
     return JSONResponse({"status": "ok"})
 
 @router.post("/processing_queue/clear_completed")
@@ -48,6 +51,7 @@ def api_clear_completed():
     jobs = get_jobs()
     to_del = [jid for jid, j in jobs.items() if j.status in ('done', 'failed', 'cancelled')]
     delete_jobs(to_del)
+    broadcast_queue_update()
     return JSONResponse({"status": "ok", "cleared": count})
 
 class ReorderRequest(BaseModel):
@@ -58,6 +62,7 @@ def api_reorder_queue_route(request: ReorderRequest):
     reorder_queue(request.queue_ids)
     from ...jobs import sync_memory_queue
     sync_memory_queue()
+    broadcast_queue_update()
     return JSONResponse({"status": "ok"})
 
 @router.delete("/processing_queue/{queue_id}")
@@ -69,4 +74,5 @@ def api_delete_queue_item(queue_id: str):
     # Remove from live state memory
     from ...state import delete_jobs
     delete_jobs([queue_id])
+    broadcast_queue_update()
     return JSONResponse({"status": "ok"})
