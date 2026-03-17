@@ -196,9 +196,9 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
         # Optimization: Strip the potentially large 'log' field from broadcasts since the UI doesn't use it.
         broadcast_dict = {k: v for k, v in updates.items() if k != "log"}
         if broadcast_dict or force_broadcast:
-            for l in _JOB_LISTENERS:
+            for listener in _JOB_LISTENERS:
                 try:
-                    l(job_id, broadcast_dict)
+                    listener(job_id, broadcast_dict)
                 except:
                     pass
 
