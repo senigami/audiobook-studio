@@ -7,7 +7,7 @@ from ...engines import xtts_generate, xtts_generate_script, wav_to_mp3, get_audi
 from ...textops import sanitize_for_xtts, safe_split_long_sentences
 from ..speaker import get_speaker_wavs
 
-def handle_xtts_job(jid, j, start, logs, on_output, cancel_check, default_sw, speed, pdir, out_wav, out_mp3, text=None):
+def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, pdir, out_wav, out_mp3, text=None):
     from ...db import get_connection, update_segment, get_chapter_segments, update_segments_status_bulk, update_queue_item
     from ...db.segments import cleanup_orphaned_segments
 
@@ -91,6 +91,11 @@ def handle_xtts_job(jid, j, start, logs, on_output, cancel_check, default_sw, sp
                         update_job(jid, progress=prog, active_segment_id=None, active_segment_progress=0.0)
 
             try:
+                # Set synthesis_started_at for accurate progress/performance timing
+                now = time.time()
+                j.synthesis_started_at = now
+                update_job(jid, synthesis_started_at=now)
+
                 xtts_generate_script(script_json_path=script_path, out_wav=out_wav, on_output=bake_on_output, cancel_check=cancel_check, speed=speed)
             finally:
                 if script_path.exists(): script_path.unlink()
@@ -187,6 +192,11 @@ def handle_xtts_job(jid, j, start, logs, on_output, cancel_check, default_sw, sp
                     update_job(jid, progress=prog, active_segment_id=None, active_segment_progress=0.0)
 
         try:
+            # Set synthesis_started_at for accurate progress/performance timing
+            now = time.time()
+            j.synthesis_started_at = now
+            update_job(jid, synthesis_started_at=now)
+
             xtts_generate_script(script_json_path=script_path, out_wav=pdir / f"output_{j.id}.wav", on_output=gen_on_output, cancel_check=cancel_check, speed=speed)
         finally:
             if script_path.exists(): script_path.unlink()
@@ -256,6 +266,11 @@ def handle_xtts_job(jid, j, start, logs, on_output, cancel_check, default_sw, sp
             script_path = pdir / f"{j.id}_script.json"
             script_path.write_text(json.dumps(script), encoding="utf-8")
             try:
+                # Set synthesis_started_at for accurate progress/performance timing
+                now = time.time()
+                j.synthesis_started_at = now
+                update_job(jid, synthesis_started_at=now)
+
                 rc = xtts_generate_script(script_json_path=script_path, out_wav=out_wav, on_output=on_output, cancel_check=cancel_check, speed=speed)
             finally:
                 if script_path.exists(): script_path.unlink()
@@ -264,10 +279,20 @@ def handle_xtts_job(jid, j, start, logs, on_output, cancel_check, default_sw, sp
                 script_path = pdir / f"{j.id}_chapter_script.json"
                 script_path.write_text(json.dumps([{"text": text, "speaker_wav": default_sw}]), encoding="utf-8")
                 try:
+                    # Set synthesis_started_at for accurate progress/performance timing
+                    now = time.time()
+                    j.synthesis_started_at = now
+                    update_job(jid, synthesis_started_at=now)
+
                     rc = xtts_generate_script(script_json_path=script_path, out_wav=out_wav, on_output=on_output, cancel_check=cancel_check, speed=speed)
                 finally:
                     if script_path.exists(): script_path.unlink()
             else:
+                # Set synthesis_started_at for accurate progress/performance timing
+                now = time.time()
+                j.synthesis_started_at = now
+                update_job(jid, synthesis_started_at=now)
+
                 rc = xtts_generate(text=text, out_wav=out_wav, safe_mode=j.safe_mode, on_output=on_output, cancel_check=cancel_check, speaker_wav=default_sw, speed=speed)
 
     if cancel_check():

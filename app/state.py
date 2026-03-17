@@ -192,10 +192,19 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
             jobs[job_id] = j
             _atomic_write_text(STATE_FILE, json.dumps(state, indent=2))
 
+        # 3. Broadcast updates to listeners (e.g. WebSockets)
+        # Optimization: Strip the potentially large 'log' field from broadcasts since the UI doesn't use it.
+        broadcast_dict = {k: v for k, v in updates.items() if k != "log"}
+        if broadcast_dict or force_broadcast:
+            for l in _JOB_LISTENERS:
+                try:
+                    l(job_id, broadcast_dict)
+                except:
+                    pass
+
         # Sync with SQLite DB when status or timestamps change, or when explicitly broadcast
         # Note: force_broadcast=True is used right after enqueue() to register the initial status.
         if "status" in changed_fields or "started_at" in changed_fields or force_broadcast:
-
             try:
                 from .db import update_queue_item
                 from .config import XTTS_OUT_DIR
@@ -204,6 +213,7 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
                 audio_length = 0.0
                 output_file = None
                 new_status = updates.get("status", j.get("status"))
+
                 if new_status == "done":
                     # Try to extract the true duration using ffprobe for the synchronized database record
                     output_file = updates.get("output_mp3", j.get("output_mp3"))
@@ -211,28 +221,35 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
                         output_file = updates.get("output_wav", j.get("output_wav"))
 
                     if output_file:
-                        project_id = updates.get("project_id", j.get("project_id"))
+                        project_id = updates.get("project_id") or j.get("project_id")
                         if project_id:
                             from .config import get_project_audio_dir
                             pdir = get_project_audio_dir(project_id)
                         else:
                             pdir = XTTS_OUT_DIR
 
-                        mp3_path = pdir / output_file
-                        if mp3_path.exists():
+                        full_audio_path = pdir / output_file
+                        if full_audio_path.exists():
                             try:
                                 result = subprocess.run(
-                                    ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", str(mp3_path)],
+                                    ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", str(full_audio_path)],
                                     stdout=subprocess.PIPE,
                                     stderr=subprocess.STDOUT,
                                     text=True,
                                     timeout=2
                                 )
-                                audio_length = float(result.stdout.strip())
+                                if result.returncode == 0:
+                                    audio_length = float(result.stdout.strip())
                             except Exception as e:
                                 print(f"Warning: Could not get duration for {output_file}: {e}")
 
-                update_queue_item(job_id, new_status, audio_length_seconds=audio_length, force_chapter_id=j.get("chapter_id"), output_file=output_file)
+                update_queue_item(
+                    job_id, 
+                    new_status, 
+                    audio_length_seconds=audio_length, 
+                    force_chapter_id=j.get("chapter_id"), 
+                    output_file=output_file
+                )
 
                 try:
                     from .api.ws import broadcast_queue_update
@@ -242,14 +259,6 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
 
             except Exception as e:
                 print(f"Warning: Failed to sync job status to SQLite for {job_id}: {e}")
-
-
-        # Notify listeners
-        for callback in _JOB_LISTENERS:
-            try:
-                callback(job_id, updates)
-            except Exception as e:
-                print(f"Error in job listener: {e}")
 
         # PRUNING: If job is done/failed/cancelled, we can remove it from state.json
         # because the historical record is now in SQLite's processing_queue table.

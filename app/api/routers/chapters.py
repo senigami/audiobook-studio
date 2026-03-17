@@ -19,6 +19,7 @@ from ...textops import (
 )
 from ...jobs import cancel as cancel_job, get_jobs
 from ...state import update_job, delete_jobs, get_settings
+from ..ws import broadcast_queue_update
 
 # Compatibility for tests that monkeypatch these
 CHAPTER_DIR = config.CHAPTER_DIR
@@ -102,7 +103,19 @@ def api_delete_chapter_record(chapter_id: str):
 
 @router.post("/chapters/{chapter_id}/reset")
 def api_reset_chapter_audio_route(chapter_id: str):
+    # 1. Cancel any active jobs for this chapter
+    existing = get_jobs()
+    for jid, j in existing.items():
+        if getattr(j, 'chapter_id', None) == chapter_id or j.chapter_file == chapter_id:
+            cancel_job(jid)
+            update_job(jid, status="cancelled", log="Cancelled by chapter reset.")
+
+    # 2. Reset in DB (and delete queue item)
     reset_chapter_audio(chapter_id)
+
+    # 3. Notify UI
+    broadcast_queue_update()
+
     return JSONResponse({"status": "ok"})
 
 @router.post("/chapters/{chapter_id}/cancel")
@@ -184,11 +197,6 @@ async def api_sync_segments(chapter_id: str, request: Request):
         await anyio.to_thread.run_sync(sync_chapter_segments, chapter_id, text)
     return JSONResponse({"status": "ok"})
 
-@router.post("/chapters/{chapter_id}/reset")
-def api_reset_chapter_id(chapter_id: str):
-    from ...db import reset_chapter_audio
-    reset_chapter_audio(chapter_id)
-    return JSONResponse({"status": "ok"})
 
 @router.post("/chapter/reset")
 def reset_chapter_legacy(

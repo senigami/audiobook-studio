@@ -19,24 +19,50 @@ def reconcile_project_audio(project_id: str):
             cursor.execute("SELECT id, audio_status, audio_length_seconds FROM chapters WHERE project_id = ?", (project_id,))
             chapters = cursor.fetchall()
 
-            for chap in chapters:
-                cid, status, length = chap
-                stem = cid
-                wav_file = audio_dir / f"{stem}.wav"
-                mp3_file = audio_dir / f"{stem}.mp3"
+            # Get list of all files to avoid redundant filesystem calls
+            all_files = os.listdir(audio_dir)
 
-                found_path = None
-                if mp3_file.exists():
-                    found_path = mp3_file.name
-                elif wav_file.exists():
-                    found_path = wav_file.name
+            for cid, status, length in chapters:
+                if status not in ('done', 'unprocessed'):
+                    continue # Never reconcile while a job is active or failed
 
-                if found_path:
+                # Find candidate files matching the chapter ID prefix
+                # We filter for common audio extensions and ensure it's not a segment
+                candidates = [
+                    f for f in all_files 
+                    if f.startswith(cid) and f.lower().endswith(('.wav', '.mp3', '.m4a'))
+                ]
+
+                if not candidates:
+                    if status == 'done':
+                        cursor.execute(
+                            "UPDATE chapters SET audio_status = 'unprocessed', audio_file_path = NULL, audio_length_seconds = NULL WHERE id = ?", 
+                            (cid,)
+                        )
+                    continue
+
+                # Prioritize: mp3 > m4a > wav
+                best_file = None
+                for ext in ['.mp3', '.m4a', '.wav']:
+                    for f in candidates:
+                        if f.lower().endswith(ext):
+                            best_file = f
+                            break
+                    if best_file: break
+
+                if not best_file:
+                    best_file = candidates[0]
+
+                cursor.execute("SELECT audio_file_path FROM chapters WHERE id = ?", (cid,))
+                current_path_row = cursor.fetchone()
+                current_path = current_path_row[0] if current_path_row else None
+
+                if status != 'done' or current_path != best_file:
                     duration = length or 0.0
-                    if duration == 0.0:
+                    if duration == 0.0 or current_path != best_file:
                         try:
                             result = subprocess.run(
-                                ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", str(audio_dir / found_path)],
+                                ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", str(audio_dir / best_file)],
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT,
                                 text=True,
@@ -48,62 +74,8 @@ def reconcile_project_audio(project_id: str):
 
                     cursor.execute(
                         "UPDATE chapters SET audio_status = 'done', audio_file_path = ?, audio_length_seconds = ? WHERE id = ?", 
-                        (found_path, duration, cid)
+                        (best_file, duration, cid)
                     )
-                elif status == 'done':
-                    if not wav_file.exists() and not mp3_file.exists():
-                        cursor.execute(
-                            "UPDATE chapters SET audio_status = 'unprocessed', audio_file_path = NULL, audio_length_seconds = NULL WHERE id = ?", 
-                            (cid,)
-                        )
-            conn.commit()
-
-            # Revised approach: Scan the directory and map files to chapters
-            files = os.listdir(audio_dir)
-            chapter_files = {} # cid -> list of files
-
-            for f in files:
-                if not f.endswith(('.mp3', '.wav', '.m4a')):
-                    continue
-                stem = Path(f).stem
-                cid = stem.split('_')[0]
-                if cid not in chapter_files:
-                    chapter_files[cid] = []
-                chapter_files[cid].append(f)
-
-            for cid, f_list in chapter_files.items():
-                best_file = f_list[0]
-                for f in f_list:
-                    if f.endswith('.mp3'):
-                        best_file = f
-                        break
-
-                cursor.execute("SELECT audio_status, audio_file_path FROM chapters WHERE id = ?", (cid,))
-                row = cursor.fetchone()
-                if not row:
-                    continue
-
-                status, current_path = row
-                if status != 'done' or current_path != best_file:
-                    audio_path = audio_dir / best_file
-                    duration = 0.0
-                    try:
-                        result = subprocess.run(
-                            ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", str(audio_path)],
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.STDOUT,
-                            text=True,
-                            timeout=2
-                        )
-                        duration = float(result.stdout.strip())
-                    except: pass
-
-                    cursor.execute("""
-                        UPDATE chapters 
-                        SET audio_status = 'done', audio_file_path = ?, audio_length_seconds = ? 
-                        WHERE id = ?
-                    """, (best_file, duration, cid))
-
             conn.commit()
 
 
