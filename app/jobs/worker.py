@@ -38,18 +38,8 @@ def worker_loop(q):
             eta = 0
             text = None
 
-            if j.engine != "audiobook":
-                if j.chapter_file:
-                    if j.project_id:
-                        from ..config import get_project_text_dir
-                        text_path = get_project_text_dir(j.project_id) / j.chapter_file
-                    else:
-                        text_path = CHAPTER_DIR / j.chapter_file
-
-                    if text_path.is_file():
-                        text = text_path.read_text(encoding="utf-8", errors="replace")
-                        chars = len(text)
-                elif j.segment_ids:
+            if j.engine not in ("audiobook", "voice_build", "voice_test"):
+                if j.segment_ids:
                     from ..db import get_connection
                     with get_connection() as conn:
                         cursor = conn.cursor()
@@ -64,6 +54,16 @@ def worker_loop(q):
                         cursor.execute("SELECT SUM(LENGTH(text_content)) FROM chapter_segments WHERE chapter_id = ?", (j.chapter_id,))
                         row = cursor.fetchone()
                         chars = row[0] if row and row[0] else 0
+                elif j.chapter_file:
+                    if j.project_id:
+                        from ..config import get_project_text_dir
+                        text_path = get_project_text_dir(j.project_id) / j.chapter_file
+                    else:
+                        text_path = CHAPTER_DIR / j.chapter_file
+
+                    if text_path.exists():
+                        text = text_path.read_text(encoding="utf-8", errors="replace")
+                        chars = len(text)
 
                 if chars > 0:
                     perf = get_performance_metrics()
@@ -114,14 +114,14 @@ def worker_loop(q):
             j.started_at = adjusted_start
             j._last_broadcast_p = initial_progress
 
-            if j.engine not in ("audiobook", "voice_build", "voice_test") and not (j.chapter_file or j.segment_ids or j.is_bake):
-                update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error=f"Chapter file not found: {j.chapter_file}")
-                continue
-
             # Skip output check if we are doing a segment rebuild or a bake, to ensure we don't skip due to a stale full-chapter wav
             # Never skip voice_build/voice_test — they must always run synthesis
             if j.engine not in ("voice_build", "voice_test") and not j.segment_ids and not j.is_bake and _output_exists(j.engine, j.chapter_file, project_id=j.project_id, make_mp3=j.make_mp3):
                 update_job(jid, status="done", finished_at=time.time(), progress=1.0)
+                continue
+
+            if j.engine not in ("audiobook", "voice_build", "voice_test") and not (text or j.segment_ids or j.is_bake):
+                update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error=f"Chapter file not found: {j.chapter_file}")
                 continue
 
             start = adjusted_start
