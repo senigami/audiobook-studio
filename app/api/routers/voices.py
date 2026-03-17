@@ -6,7 +6,7 @@ import anyio
 import logging
 from pathlib import Path
 from typing import Optional, List
-from fastapi import APIRouter, Form, File, UploadFile
+from fastapi import APIRouter, Depends, Form, File, UploadFile, HTTPException
 from fastapi.responses import JSONResponse
 from ...db import (
     get_characters, create_character, update_character, delete_character,
@@ -17,7 +17,6 @@ from ... import config
 from ...state import get_settings, update_settings, get_jobs, put_job, update_job
 from ...jobs import get_speaker_settings, update_speaker_settings, enqueue
 from ...models import Job
-from fastapi import Depends
 
 # Compatibility for tests that monkeypatch these
 VOICES_DIR = config.VOICES_DIR
@@ -152,13 +151,79 @@ def api_create_speaker_route(name: str = Form(...), default_profile_name: Option
     sid = create_speaker(name, default_profile_name)
     return JSONResponse({"status": "ok", "id": sid, "speaker_id": sid})
 
+def _rename_profile_folders(old_name: str, new_name: str, voices_dir: Path):
+    """Helper to rename all profile folders on disk starting with a speaker name."""
+    old_dir = (voices_dir / old_name).resolve()
+    new_dir = (voices_dir / new_name).resolve()
+
+    # Traversal check
+    if not old_dir.is_relative_to(voices_dir.resolve()) or not new_dir.is_relative_to(voices_dir.resolve()):
+        logger.warning(f"Blocking profile rename traversal attempt: {old_name} -> {new_name}")
+        raise HTTPException(status_code=403, detail="Invalid profile name")
+
+    # 1. Exact match (unassigned profile or narrator-identical name)
+    if old_dir.exists() and not new_dir.exists():
+        os.rename(old_dir, new_dir)
+        update_voice_profile_references(old_name, new_name)
+        # Update meta if exists
+        meta_path = new_dir / "profile.json"
+        if meta_path.exists():
+            try:
+                import json
+                meta = json.loads(meta_path.read_text())
+                if " - " in new_name:
+                    meta["variant_name"] = new_name.split(" - ", 1)[1]
+                # Only update speaker_id if it was the old name (unassigned case)
+                if meta.get("speaker_id") == old_name:
+                    meta["speaker_id"] = new_name
+                meta_path.write_text(json.dumps(meta, indent=2))
+            except: pass
+
+    # 2. Variants (Narrator - Variant)
+    variants = [d for d in voices_dir.iterdir() if d.is_dir() and d.name.startswith(old_name + " - ")]
+    for vdir in variants:
+        suffix = vdir.name[len(old_name):]
+        new_vname = new_name + suffix
+        new_vpath = voices_dir / new_vname
+        if not new_vpath.exists():
+            os.rename(vdir, new_vpath)
+            update_voice_profile_references(vdir.name, new_vname)
+            # Update meta
+            meta_path = new_vpath / "profile.json"
+            if meta_path.exists():
+                try:
+                    import json
+                    meta = json.loads(meta_path.read_text())
+                    # Ensure metadata speaker_id stays correct if it was a UUID, or updates to new name if unassigned
+                    # Assuming narrated profiles have speaker_id meta
+                    meta_path.write_text(json.dumps(meta, indent=2))
+                except: pass
+
 @router.put("/speakers/{speaker_id}")
 @router.post("/speakers/{speaker_id}")
-def api_update_speaker_route(speaker_id: str, name: Optional[str] = Form(None), default_profile_name: Optional[str] = Form(None)):
+def api_update_speaker_route(
+    speaker_id: str, 
+    name: Optional[str] = Form(None), 
+    new_name: Optional[str] = Form(None), # Alias for name
+    default_profile_name: Optional[str] = Form(None),
+    voices_dir: Path = Depends(get_voices_dir)
+):
+    from ...db.speakers import get_speaker
+    old_spk = get_speaker(speaker_id)
+    if not old_spk:
+        return JSONResponse({"status": "error", "message": "Speaker not found"}, status_code=404)
+
     updates = {}
-    if name is not None: updates["name"] = name
+    target_name = name or new_name
+    if target_name is not None: updates["name"] = target_name
     if default_profile_name is not None: updates["default_profile_name"] = default_profile_name
+
     update_speaker(speaker_id, **updates)
+
+    if target_name and target_name != old_spk["name"]:
+        # Renaming narrator: rename all profile directories on disk
+        _rename_profile_folders(old_spk["name"], target_name, voices_dir)
+
     return JSONResponse({"status": "ok"})
 
 @router.delete("/speakers/{speaker_id}")
@@ -239,58 +304,20 @@ def api_rename_voice_profile(
     new_name: str = Form(...),
     voices_dir: Path = Depends(get_voices_dir)
 ):
-    import json
     try:
-        # Construct and resolve paths
-        old_dir = (voices_dir / old_name).resolve()
-        new_dir = (voices_dir / new_name).resolve()
+        _rename_profile_folders(old_name, new_name, voices_dir)
 
-        # Security: verify they are within voices_dir
-        if not old_dir.is_relative_to(voices_dir.resolve()) or \
-           not new_dir.is_relative_to(voices_dir.resolve()):
-            logger.warning(f"Blocking profile rename traversal attempt: {old_name} -> {new_name}")
-            return JSONResponse({"status": "error", "message": "Invalid path"}, status_code=403)
+        # Sync global settings
+        settings = get_settings()
+        if settings.get("default_speaker_profile") == old_name:
+            update_settings({"default_speaker_profile": new_name})
 
-        if old_dir.exists() and not new_dir.exists():
-            os.rename(old_dir, new_dir)
-            update_voice_profile_references(old_name, new_name)
-
-            # Sync settings
-            settings = get_settings()
-            if settings.get("default_speaker_profile") == old_name:
-                update_settings({"default_speaker_profile": new_name})
-
-            # Update profile.json if it exists (in the NEW location)
-            meta_path = new_dir / "profile.json"
-            if meta_path.exists():
-                try:
-                    meta = json.loads(meta_path.read_text())
-                    if " - " in new_name:
-                        meta["variant_name"] = new_name.split(" - ", 1)[1]
-                    meta_path.write_text(json.dumps(meta, indent=2))
-                except Exception as e:
-                    logger.error(f"Error updating metadata during rename: {e}")
-
-            return JSONResponse({"status": "ok", "new_name": new_name})
-
-        elif not old_dir.exists():
-            # Try to find if this is a speaker base name that has variants
-            variants = [d for d in voices_dir.iterdir() if d.is_dir() and d.name.startswith(old_name + " - ")]
-            if variants:
-                for vdir in variants:
-                    suffix = vdir.name[len(old_name):]
-                    new_vname = new_name + suffix
-                    os.rename(vdir, voices_dir / new_vname)
-                    update_voice_profile_references(vdir.name, new_vname)
-                # If we renamed variants, we consider it a success
-                return JSONResponse({"status": "ok", "new_name": new_name})
-            else:
-                logger.warning(f"Profile rename failed: {old_name} not found")
-                return JSONResponse({"status": "error", "message": "Source profile not found"}, status_code=404)
+        return JSONResponse({"status": "ok", "new_name": new_name})
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error during directory rename: {e}")
-
-    return JSONResponse({"status": "error", "message": "Directory rename failed"}, status_code=400)
+        return JSONResponse({"status": "error", "message": "Directory rename failed"}, status_code=400)
 
 @router.post("/speaker-profiles/{name}/test-text")
 def update_speaker_test_text(name: str, text: str = Form(...)):

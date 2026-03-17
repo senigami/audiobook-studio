@@ -227,9 +227,9 @@ def worker_loop(q):
                 pdir = VOICES_DIR / j.speaker_profile
                 pdir.mkdir(parents=True, exist_ok=True)
 
-                # For voice_test or missing sample.wav, generate one
+                # For voice_test or missing sample.wav, generate one. voice_build always rebuilds.
                 sample_path = pdir / "sample.wav"
-                if j.engine == "voice_test" or not sample_path.exists():
+                if j.engine in ("voice_build", "voice_test") or not sample_path.exists():
                     on_output(f"Generating test sample for {j.speaker_profile}...\n")
                     spk = get_speaker_settings(j.speaker_profile)
                     sw = get_speaker_wavs(j.speaker_profile)
@@ -246,6 +246,16 @@ def worker_loop(q):
                     if rc != 0:
                         update_job(jid, status="failed", error="Voice synthesis failed.")
                         return
+
+                    # After success: mark samples as built if this was a build job
+                    if j.engine == "voice_build" or j.engine == "voice_test":
+                        try:
+                            from .speaker import update_speaker_settings
+                            raw_wavs = sorted([f.name for f in pdir.glob("*.wav") if f.name != "sample.wav"])
+                            update_speaker_settings(j.speaker_profile, built_samples=raw_wavs)
+                            on_output(f"Updated build samples for {j.speaker_profile}.\n")
+                        except Exception as e:
+                            logger.error(f"Error updating build samples for {j.speaker_profile}: {e}")
 
                 update_job(jid, status="done", progress=1.0, finished_at=time.time())
                 # Mark done in the DB queue so sync_memory_queue doesn't re-enqueue on server restart
