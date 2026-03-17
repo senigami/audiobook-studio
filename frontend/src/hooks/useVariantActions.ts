@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import type { SpeakerProfile } from '../types';
 
 export function useVariantActions(
@@ -14,6 +14,20 @@ export function useVariantActions(
     
     const audioRef = useRef<HTMLAudioElement>(null);
     const sampleAudioRef = useRef<HTMLAudioElement>(null);
+
+    const speedTimeoutRef = useRef<any>(null);
+
+    useEffect(() => {
+        return () => {
+            if (speedTimeoutRef.current) clearTimeout(speedTimeoutRef.current);
+        };
+    }, []);
+
+    useEffect(() => {
+        if (localSpeed !== null && Math.abs(profile.speed - localSpeed) < 0.005) {
+            setLocalSpeed(null);
+        }
+    }, [profile.speed, localSpeed]);
 
     const handlePlayClick = useCallback((e: React.MouseEvent) => {
         e.stopPropagation();
@@ -58,20 +72,25 @@ export function useVariantActions(
         }
     }, [profile.name, playingSample, isPlaying]);
 
-    const handleSpeedChange = useCallback(async (val: number) => {
-        try {
-            const formData = new URLSearchParams();
-            formData.append('speed', val.toString());
-            await fetch(`/api/speaker-profiles/${encodeURIComponent(profile.name)}/speed`, {
-                method: 'POST',
-                body: formData
-            });
-            onRefresh();
-        } catch (e) {
-            console.error('Failed to update profile speed', e);
-        } finally {
-            setLocalSpeed(null);
-        }
+    const handleSpeedChange = useCallback((val: number) => {
+        if (speedTimeoutRef.current) clearTimeout(speedTimeoutRef.current);
+        
+        speedTimeoutRef.current = setTimeout(async () => {
+            try {
+                const formData = new URLSearchParams();
+                formData.append('speed', val.toString());
+                const resp = await fetch(`/api/speaker-profiles/${encodeURIComponent(profile.name)}/speed`, {
+                    method: 'POST',
+                    body: formData
+                });
+                if (resp.ok) {
+                    onRefresh();
+                }
+            } catch (e) {
+                console.error('Failed to update profile speed', e);
+                setLocalSpeed(null);
+            }
+        }, 300);
     }, [profile.name, onRefresh]);
 
     const handleDeleteSample = useCallback((sampleName: string) => {
