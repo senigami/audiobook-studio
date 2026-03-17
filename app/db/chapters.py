@@ -1,6 +1,9 @@
+import logging
 import time
 from typing import List, Dict, Any, Optional
 from .core import _db_lock, get_connection
+
+logger = logging.getLogger(__name__)
 
 def create_chapter(project_id: str, title: str, text_content: Optional[str] = None, sort_order: int = 0, predicted_audio_length: float = 0.0, char_count: int = 0, word_count: int = 0) -> str:
     import uuid
@@ -183,7 +186,8 @@ def reset_chapter_audio(chapter_id: str):
                 if p.is_file() and p.suffix.lower() in ('.wav', '.mp3', '.m4a'):
                     try:
                         p.unlink()
-                    except Exception: pass
+                    except Exception:
+                        logger.warning("Failed to delete chapter audio file %s", p, exc_info=True)
 
             # 2b. Delete Segment-level files
             cursor.execute("SELECT id FROM chapter_segments WHERE chapter_id = ?", (chapter_id,))
@@ -194,7 +198,12 @@ def reset_chapter_audio(chapter_id: str):
                 for s_path_str in glob.glob(seg_pattern):
                     try:
                         Path(s_path_str).unlink()
-                    except Exception: pass
+                    except Exception:
+                        logger.warning(
+                            "Failed to delete segment audio file %s",
+                            s_path_str,
+                            exc_info=True,
+                        )
 
             # 3. Reset database fields for chapter
             cursor.execute("""

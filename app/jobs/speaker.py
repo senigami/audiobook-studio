@@ -1,7 +1,19 @@
 import json
+import logging
+import uuid
 from typing import Optional
 from ..config import VOICES_DIR
 from ..state import get_settings
+
+logger = logging.getLogger(__name__)
+
+
+def _is_uuid(value: str) -> bool:
+    try:
+        uuid.UUID(value)
+        return True
+    except (ValueError, TypeError, AttributeError):
+        return False
 
 def get_speaker_wavs(profile_name_or_id: str) -> Optional[str]:
     """Returns a comma-separated string of absolute paths for the given profile or speaker ID."""
@@ -13,7 +25,7 @@ def get_speaker_wavs(profile_name_or_id: str) -> Optional[str]:
 
     # Resolve speaker ID or Name to a profile folder
     # 1. If it's a UUID, it's a speaker ID
-    if len(target_profile) == 36 and "-" in target_profile:
+    if _is_uuid(target_profile):
         spk = get_speaker(target_profile)
         if spk and spk["default_profile_name"]:
             target_profile = spk["default_profile_name"]
@@ -59,7 +71,7 @@ def get_speaker_settings(profile_name_or_id: str) -> dict:
         target_profile = defaults.get("default_speaker_profile") or "Dark Fantasy"
 
     # Resolve speaker ID or Name to a profile folder
-    if len(target_profile) == 36 and "-" in target_profile:
+    if _is_uuid(target_profile):
         from ..db import get_speaker
         spk = get_speaker(target_profile)
         if spk and spk["default_profile_name"]:
@@ -99,7 +111,8 @@ def get_speaker_settings(profile_name_or_id: str) -> dict:
                 res["variant_name"] = meta["variant_name"]
             if "built_samples" in meta:
                 res["built_samples"] = meta["built_samples"]
-        except: pass
+        except Exception:
+            logger.warning("Failed to read speaker metadata from %s", meta_path, exc_info=True)
 
     return res
 
@@ -114,7 +127,8 @@ def update_speaker_settings(profile_name: str, **updates):
     if meta_path.exists():
         try:
             meta = json.loads(meta_path.read_text())
-        except: pass
+        except Exception:
+            logger.warning("Failed to read speaker metadata from %s", meta_path, exc_info=True)
 
     for k, v in updates.items():
         if v is None:

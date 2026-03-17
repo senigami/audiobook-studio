@@ -1,6 +1,9 @@
+import logging
 import time
 from typing import List, Dict, Any, Optional
 from .core import _db_lock, get_connection
+
+logger = logging.getLogger(__name__)
 
 def update_segments_status_bulk(segment_ids: List[str], chapter_id: str, status: str, broadcast: bool = True):
     if not segment_ids: return
@@ -27,7 +30,8 @@ def update_segments_status_bulk(segment_ids: List[str], chapter_id: str, status:
             # To avoid redundant DB updates, we could just call the cleanup part, 
             # but reset_chapter_audio is safe and thorough.
             reset_chapter_audio(chapter_id)
-        except Exception: pass
+        except Exception:
+            logger.warning("Failed to clean up chapter audio after bulk segment reset", exc_info=True)
 
 def get_chapter_segments(chapter_id: str) -> List[Dict[str, Any]]:
     with _db_lock:
@@ -61,6 +65,8 @@ def get_chapter_segments(chapter_id: str) -> List[Dict[str, Any]]:
 def update_segment(segment_id: str, broadcast: bool = True, **updates) -> bool:
     if not updates: return False
     changed = False
+    cleanup_chapter_id = None
+
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
@@ -85,16 +91,21 @@ def update_segment(segment_id: str, broadcast: bool = True, **updates) -> bool:
                         cursor.execute("UPDATE chapters SET text_last_modified = ? WHERE id = ?", (time.time(), chapter_id))
                         cursor.execute("UPDATE chapters SET audio_status = 'unprocessed' WHERE id = ?", (chapter_id,))
                         conn.commit()
-
-                        # Physical Cleanup
-                        try:
-                            from .chapters import reset_chapter_audio
-                            # This is a bit heavy as it resets ALL segments, but it's the safest way to ensure
-                            # consistency when the chapter audio is no longer valid.
-                            reset_chapter_audio(chapter_id)
-                        except Exception: pass
+                        cleanup_chapter_id = chapter_id
 
     # Broadcast via WebSocket if audio_status changed (outside the lock to avoid deadlock)
+    if cleanup_chapter_id:
+        try:
+            from .chapters import reset_chapter_audio
+            # This is a bit heavy as it resets ALL segments, but it's the safest way to ensure
+            # consistency when the chapter audio is no longer valid.
+            reset_chapter_audio(cleanup_chapter_id)
+        except Exception:
+            logger.warning(
+                "Failed to clean up chapter audio after segment update",
+                exc_info=True,
+            )
+
     if broadcast and changed and "audio_status" in updates:
         try:
             with get_connection() as conn:

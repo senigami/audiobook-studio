@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Speaker, SpeakerProfile, Job } from '../types';
 
 export function useVoiceManagement(
@@ -16,27 +16,54 @@ export function useVoiceManagement(
     const [speakers, setSpeakers] = useState<Speaker[]>([]);
     // Map of profileName -> jobId for in-flight build jobs
     const [buildingProfiles, setBuildingProfiles] = useState<Record<string, string | true>>({});
-    const [restoredFromJobs, setRestoredFromJobs] = useState(false);
+    const hasSeenJobSnapshot = useRef(false);
 
-    // On mount (or when jobs first arrives), restore buildingProfiles from any in-flight voice build jobs
-    // This handles the page-reload case where React state is lost but the server still has active jobs
+    // Keep the local "building" map in sync with the authoritative jobs snapshot.
+    // We preserve optimistic local entries until the server confirms completion,
+    // but clear everything once an established job snapshot goes empty.
     useEffect(() => {
-        if (restoredFromJobs || Object.keys(jobs).length === 0) return;
-        const restored: Record<string, string | true> = {};
-        for (const job of Object.values(jobs)) {
-            if (
-                job.engine === 'voice_build' &&
-                job.speaker_profile &&
-                (job.status === 'queued' || job.status === 'preparing' || job.status === 'running')
-            ) {
-                restored[job.speaker_profile] = job.id;
+        const jobValues = Object.values(jobs);
+        const snapshotIsEmpty = jobValues.length === 0;
+
+        setBuildingProfiles(prev => {
+            if (snapshotIsEmpty) {
+                if (hasSeenJobSnapshot.current && Object.keys(prev).length > 0) {
+                    return {};
+                }
+                return prev;
             }
-        }
-        if (Object.keys(restored).length > 0) {
-            setBuildingProfiles(restored);
-        }
-        setRestoredFromJobs(true);
-    }, [jobs, restoredFromJobs]);
+
+            hasSeenJobSnapshot.current = true;
+
+            const updated = { ...prev };
+            let changed = false;
+
+            for (const job of jobValues) {
+                if (
+                    job.engine === 'voice_build' &&
+                    job.speaker_profile &&
+                    (job.status === 'queued' || job.status === 'preparing' || job.status === 'running')
+                ) {
+                    if (updated[job.speaker_profile] !== job.id) {
+                        updated[job.speaker_profile] = job.id;
+                        changed = true;
+                    }
+                }
+            }
+
+            for (const [profileName, jobId] of Object.entries(prev)) {
+                if (typeof jobId !== 'string') continue;
+
+                const job = jobs[jobId];
+                if (job && (job.status === 'done' || job.status === 'failed' || job.status === 'cancelled' || job.status === 'error')) {
+                    delete updated[profileName];
+                    changed = true;
+                }
+            }
+
+            return changed ? updated : prev;
+        });
+    }, [jobs]);
 
     // Watch jobs map: when a tracked build job completes, clear the buildingProfiles entry
     useEffect(() => {

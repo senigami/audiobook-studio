@@ -65,6 +65,35 @@ describe('useVoiceManagement', () => {
     // handleTest only updates buildingProfiles.
   });
 
+  it('clears restored building profiles when the job snapshot goes empty', async () => {
+    const activeJobs = {
+      'job-1': {
+        id: 'job-1',
+        engine: 'voice_build',
+        speaker_profile: 'Voice 1',
+        status: 'running',
+      } as any,
+    };
+
+    const initialProps: { jobs: Record<string, any> } = { jobs: activeJobs };
+    const { result, rerender } = renderHook(
+      ({ jobs }: { jobs: Record<string, any> }) => useVoiceManagement(onRefresh, speakerProfiles, requestConfirm, jobs),
+      {
+        initialProps,
+      }
+    );
+
+    await waitFor(() => {
+      expect(result.current.buildingProfiles['Voice 1']).toBe(true);
+    });
+
+    rerender({ jobs: {} });
+
+    await waitFor(() => {
+      expect(result.current.buildingProfiles['Voice 1']).toBeUndefined();
+    });
+  });
+
   it('handles buildNow failure with error formatting', async () => {
     const errorResponse = { detail: [{ msg: 'Rebuild failed' }] };
     (global.fetch as any).mockResolvedValue({
