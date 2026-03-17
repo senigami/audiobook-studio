@@ -1,9 +1,37 @@
 import logging
+import glob
 import time
 from typing import List, Dict, Any, Optional
 from .core import _db_lock, get_connection
 
 logger = logging.getLogger(__name__)
+
+
+def cleanup_chapter_audio_files(project_id: Optional[str], chapter_id: str, segment_ids: Optional[List[str]] = None) -> bool:
+    """Delete chapter-level and selected segment audio files without touching DB state."""
+    from .. import config
+    from pathlib import Path
+
+    pdir = config.get_project_audio_dir(project_id) if project_id else config.XTTS_OUT_DIR
+
+    pattern = str(pdir / f"{chapter_id}*")
+    for p_str in glob.glob(pattern):
+        p = Path(p_str)
+        if p.is_file() and p.suffix.lower() in (".wav", ".mp3", ".m4a"):
+            try:
+                p.unlink()
+            except Exception:
+                logger.warning("Failed to delete chapter audio file %s", p, exc_info=True)
+
+    for sid in segment_ids or []:
+        seg_pattern = str(pdir / f"seg_{sid}*")
+        for s_path_str in glob.glob(seg_pattern):
+            try:
+                Path(s_path_str).unlink()
+            except Exception:
+                logger.warning("Failed to delete segment audio file %s", s_path_str, exc_info=True)
+
+    return True
 
 def create_chapter(project_id: str, title: str, text_content: Optional[str] = None, sort_order: int = 0, predicted_audio_length: float = 0.0, char_count: int = 0, word_count: int = 0) -> str:
     import uuid
@@ -173,37 +201,12 @@ def reset_chapter_audio(chapter_id: str):
             if not row: return False
             project_id = row['project_id']
 
-            # 2. Cleanup physical files if they exist
-            from .. import config
-            import glob
-            from pathlib import Path
-            pdir = config.get_project_audio_dir(project_id) if project_id else config.XTTS_OUT_DIR
-
-            # 2a. Delete Chapter-level files
-            pattern = str(pdir / f"{chapter_id}*")
-            for p_str in glob.glob(pattern):
-                p = Path(p_str)
-                if p.is_file() and p.suffix.lower() in ('.wav', '.mp3', '.m4a'):
-                    try:
-                        p.unlink()
-                    except Exception:
-                        logger.warning("Failed to delete chapter audio file %s", p, exc_info=True)
-
-            # 2b. Delete Segment-level files
             cursor.execute("SELECT id FROM chapter_segments WHERE chapter_id = ?", (chapter_id,))
             seg_rows = cursor.fetchall()
-            for s_row in seg_rows:
-                sid = s_row['id']
-                seg_pattern = str(pdir / f"seg_{sid}*")
-                for s_path_str in glob.glob(seg_pattern):
-                    try:
-                        Path(s_path_str).unlink()
-                    except Exception:
-                        logger.warning(
-                            "Failed to delete segment audio file %s",
-                            s_path_str,
-                            exc_info=True,
-                        )
+            seg_ids = [s_row["id"] for s_row in seg_rows]
+
+            # 2. Cleanup physical files if they exist
+            cleanup_chapter_audio_files(project_id, chapter_id, seg_ids)
 
             # 3. Reset database fields for chapter
             cursor.execute("""

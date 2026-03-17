@@ -105,3 +105,43 @@ def test_reset_chapter_audio(db_conn):
         chapter = get_chapter(cid)
         assert chapter["audio_status"] == "unprocessed"
         assert chapter["audio_file_path"] is None
+
+def test_update_segment_only_cleans_edited_segment_files(db_conn, tmp_path):
+    from unittest.mock import patch
+    from app.db.segments import sync_chapter_segments, get_chapter_segments, update_segment
+
+    pid = create_project("P3", "/tmp")
+    cid = create_chapter(pid, "C3", "One. Two.")
+
+    with patch("app.config.get_project_audio_dir", return_value=tmp_path):
+        sync_chapter_segments(cid, "One. Two.")
+        segs = get_chapter_segments(cid)
+        sid1 = segs[0]["id"]
+        sid2 = segs[1]["id"]
+
+        chapter_wav = tmp_path / f"{cid}.wav"
+        seg1_wav = tmp_path / f"seg_{sid1}.wav"
+        seg2_wav = tmp_path / f"seg_{sid2}.wav"
+        chapter_wav.write_text("chapter")
+        seg1_wav.write_text("seg1")
+        seg2_wav.write_text("seg2")
+
+        update_chapter(cid, audio_status="done", audio_file_path=f"{cid}.wav")
+        update_segment(sid1, audio_status="done", audio_file_path=seg1_wav.name)
+        update_segment(sid2, audio_status="done", audio_file_path=seg2_wav.name)
+        update_segment(sid1, text_content="Updated one.")
+
+        assert not chapter_wav.exists()
+        assert not seg1_wav.exists()
+        assert seg2_wav.exists()
+
+        chapter = get_chapter(cid)
+        assert chapter["audio_status"] == "unprocessed"
+        assert chapter["audio_file_path"] is None
+
+        segs_after = get_chapter_segments(cid)
+        seg1_after = next(s for s in segs_after if s["id"] == sid1)
+        seg2_after = next(s for s in segs_after if s["id"] == sid2)
+        assert seg1_after["audio_status"] == "unprocessed"
+        assert seg1_after["audio_file_path"] is None
+        assert seg2_after["audio_status"] == "done"

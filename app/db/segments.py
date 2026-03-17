@@ -7,11 +7,25 @@ logger = logging.getLogger(__name__)
 
 def update_segments_status_bulk(segment_ids: List[str], chapter_id: str, status: str, broadcast: bool = True):
     if not segment_ids: return
+    project_id = None
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
+            cursor.execute("SELECT project_id FROM chapters WHERE id = ?", (chapter_id,))
+            row = cursor.fetchone()
+            project_id = row["project_id"] if row else None
             placeholders = ",".join(["?"] * len(segment_ids))
-            cursor.execute(f"UPDATE chapter_segments SET audio_status = ? WHERE id IN ({placeholders})", [status] + segment_ids)
+            if status == "unprocessed":
+                cursor.execute(
+                    f"UPDATE chapter_segments SET audio_status = ?, audio_file_path = NULL, audio_generated_at = NULL WHERE id IN ({placeholders})",
+                    [status] + segment_ids
+                )
+                cursor.execute(
+                    "UPDATE chapters SET audio_status = 'unprocessed', audio_file_path = NULL, audio_generated_at = NULL, audio_length_seconds = NULL WHERE id = ?",
+                    (chapter_id,)
+                )
+            else:
+                cursor.execute(f"UPDATE chapter_segments SET audio_status = ? WHERE id IN ({placeholders})", [status] + segment_ids)
             conn.commit()
 
     if broadcast:
@@ -24,12 +38,8 @@ def update_segments_status_bulk(segment_ids: List[str], chapter_id: str, status:
     # Cache Invalidation: If segments are being reset, delete chapter-level files
     if status == 'unprocessed':
         try:
-            from .chapters import reset_chapter_audio
-            # Note: reset_chapter_audio also resets segments, but here they are already updated.
-            # We mostly want it for the physical file cleanup.
-            # To avoid redundant DB updates, we could just call the cleanup part, 
-            # but reset_chapter_audio is safe and thorough.
-            reset_chapter_audio(chapter_id)
+            from .chapters import cleanup_chapter_audio_files
+            cleanup_chapter_audio_files(project_id, chapter_id, segment_ids)
         except Exception:
             logger.warning("Failed to clean up chapter audio after bulk segment reset", exc_info=True)
 
@@ -66,6 +76,7 @@ def update_segment(segment_id: str, broadcast: bool = True, **updates) -> bool:
     if not updates: return False
     changed = False
     cleanup_chapter_id = None
+    cleanup_project_id = None
 
     with _db_lock:
         with get_connection() as conn:
@@ -84,22 +95,33 @@ def update_segment(segment_id: str, broadcast: bool = True, **updates) -> bool:
             if changed:
                 keys = updates.keys()
                 if "character_id" in keys or "speaker_profile_name" in keys or "text_content" in keys or ("audio_status" in keys and updates["audio_status"] == 'unprocessed'):
-                    cursor.execute("SELECT chapter_id FROM chapter_segments WHERE id = ?", (segment_id,))
+                    cursor.execute("""
+                        SELECT c.chapter_id, ch.project_id
+                        FROM chapter_segments c
+                        JOIN chapters ch ON ch.id = c.chapter_id
+                        WHERE c.id = ?
+                    """, (segment_id,))
                     row = cursor.fetchone()
                     if row:
-                        chapter_id = row[0]
-                        cursor.execute("UPDATE chapters SET text_last_modified = ? WHERE id = ?", (time.time(), chapter_id))
-                        cursor.execute("UPDATE chapters SET audio_status = 'unprocessed' WHERE id = ?", (chapter_id,))
+                        chapter_id = row["chapter_id"]
+                        cleanup_project_id = row["project_id"]
+                        cursor.execute(
+                            "UPDATE chapter_segments SET audio_status = 'unprocessed', audio_file_path = NULL, audio_generated_at = NULL WHERE id = ?",
+                            (segment_id,)
+                        )
+                        cursor.execute(
+                            "UPDATE chapters SET text_last_modified = ?, audio_status = 'unprocessed', audio_file_path = NULL, audio_generated_at = NULL, audio_length_seconds = NULL WHERE id = ?",
+                            (time.time(), chapter_id)
+                        )
                         conn.commit()
                         cleanup_chapter_id = chapter_id
 
     # Broadcast via WebSocket if audio_status changed (outside the lock to avoid deadlock)
     if cleanup_chapter_id:
         try:
-            from .chapters import reset_chapter_audio
-            # This is a bit heavy as it resets ALL segments, but it's the safest way to ensure
-            # consistency when the chapter audio is no longer valid.
-            reset_chapter_audio(cleanup_chapter_id)
+            from .chapters import cleanup_chapter_audio_files
+            # Only remove the chapter-level outputs and the edited segment's audio files.
+            cleanup_chapter_audio_files(cleanup_project_id, cleanup_chapter_id, [segment_id])
         except Exception:
             logger.warning(
                 "Failed to clean up chapter audio after segment update",

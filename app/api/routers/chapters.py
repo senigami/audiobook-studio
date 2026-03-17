@@ -2,7 +2,7 @@ import anyio
 import logging
 import os
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Literal
 from pydantic import BaseModel, Field
 from fastapi import APIRouter, Form, File, UploadFile, Request, Depends, Body
 from fastapi.responses import JSONResponse, FileResponse
@@ -180,7 +180,7 @@ async def api_legacy_bulk_update_segments_put(request: Request):
 
 class BulkStatusUpdate(BaseModel):
     segment_ids: List[str]
-    status: str
+    status: Literal["unprocessed", "processing", "done", "failed", "cancelled", "error"]
 
 @router.post("/chapters/{chapter_id}/segments/bulk-status")
 def api_bulk_update_segment_status(chapter_id: str, req: BulkStatusUpdate):
