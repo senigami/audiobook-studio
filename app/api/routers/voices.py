@@ -428,7 +428,7 @@ def delete_speaker_sample(
         return JSONResponse({"status": "error", "message": "File not found"}, status_code=404)
     except Exception as e:
         logger.error(f"Delete failed for {name}/{sample_name}: {e}")
-        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+        return JSONResponse({"status": "error", "message": "Delete failed"}, status_code=500)
 
 @router.post("/api/speaker-profiles/{name}/rename")
 def api_rename_voice_profile_path(
