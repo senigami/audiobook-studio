@@ -3,7 +3,8 @@ import logging
 import os
 from pathlib import Path
 from typing import Optional, List
-from fastapi import APIRouter, Form, File, UploadFile, Request, Depends
+from pydantic import BaseModel, Field
+from fastapi import APIRouter, Form, File, UploadFile, Request, Depends, Body
 from fastapi.responses import JSONResponse, FileResponse
 from ...db import (
     list_chapters, reconcile_project_audio, create_chapter, update_chapter, 
@@ -177,9 +178,13 @@ async def api_legacy_bulk_update_segments_put(request: Request):
     )
     return JSONResponse({"status": "ok"})
 
+class BulkStatusUpdate(BaseModel):
+    segment_ids: List[str]
+    status: str
+
 @router.post("/chapters/{chapter_id}/segments/bulk-status")
-def api_bulk_update_segment_status(chapter_id: str, segment_ids: List[str], status: str):
-    update_segments_status_bulk(segment_ids, chapter_id, status)
+def api_bulk_update_segment_status(chapter_id: str, req: BulkStatusUpdate):
+    update_segments_status_bulk(req.segment_ids, chapter_id, req.status)
     return JSONResponse({"status": "ok"})
 
 @router.post("/segments/bulk-update")
