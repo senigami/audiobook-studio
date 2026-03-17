@@ -5,7 +5,7 @@ import threading
 import logging
 from typing import Optional, List
 from pathlib import Path
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, Depends
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -62,7 +62,12 @@ async def legacy_create_audiobook(request: Request):
         audiobook_dir=AUDIOBOOK_DIR
     )
 
-# Legacy settings routes moved to routers or handled via app.include_router
+@app.post("/settings")
+@app.post("/api/settings")
+async def legacy_save_settings(request: Request):
+    from .api.routers.system import save_settings
+    form = await request.form()
+    return await save_settings(request, safe_mode=form.get("safe_mode"), make_mp3=form.get("make_mp3"))
 
 @app.post("/api/settings/default-speaker")
 async def legacy_set_default_speaker(request: Request):
@@ -90,7 +95,30 @@ async def legacy_clear_completed():
     from .api.routers.queue import api_clear_completed
     return api_clear_completed()
 
-# Legacy chapter routes moved to chapters.py router
+@app.post("/api/chapter/reset")
+async def legacy_chapter_reset(
+    request: Request,
+    xtts_out_dir: Path = Depends(chapters.get_xtts_out_dir)
+):
+    from .api.routers.chapters import reset_chapter_legacy
+    form = await request.form()
+    return reset_chapter_legacy(
+        chapter_file=form.get("chapter_file"),
+        xtts_out_dir=xtts_out_dir
+    )
+
+@app.delete("/api/chapter/{filename}")
+async def legacy_delete_chapter(
+    filename: str,
+    chapter_dir: Path = Depends(chapters.get_chapter_dir),
+    xtts_out_dir: Path = Depends(chapters.get_xtts_out_dir)
+):
+    from .api.routers.chapters import api_delete_legacy_chapter
+    return api_delete_legacy_chapter(
+        filename,
+        chapter_dir=chapter_dir,
+        xtts_out_dir=xtts_out_dir
+    )
 
 @app.post("/queue/start_xtts")
 async def legacy_start_xtts():

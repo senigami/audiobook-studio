@@ -390,3 +390,39 @@ def api_stream_chapter(
          return JSONResponse({"status": "error", "message": "Audio not found"}, status_code=404)
 
     return FileResponse(wav_path)
+
+# --- Legacy Compatibility Functions (called from web.py) ---
+
+def reset_chapter_legacy(chapter_file: str, xtts_out_dir: Path):
+    if not chapter_file:
+         return JSONResponse({"status": "error", "message": "No chapter_file"}, status_code=400)
+    stem = Path(chapter_file).stem
+    for ext in (".wav", ".mp3"):
+        p = xtts_out_dir / f"{stem}{ext}"
+        if p.exists(): p.unlink()
+
+    # Also find jobs in state and reset them
+    jobs = get_jobs()
+    for jid, j in jobs.items():
+        if j.chapter_file == chapter_file:
+            update_job(jid, status="queued", progress=0.0)
+
+    return JSONResponse({"status": "ok"})
+
+def api_delete_legacy_chapter(filename: str, chapter_dir: Path, xtts_out_dir: Path):
+    path = chapter_dir / filename
+    if path.exists():
+        path.unlink()
+        # Clean audio
+        stem = path.stem
+        for ext in (".wav", ".mp3"):
+            ap = xtts_out_dir / f"{stem}{ext}"
+            if ap.exists(): ap.unlink()
+
+        # Clean jobs
+        jobs = get_jobs()
+        to_del = [jid for jid, j in jobs.items() if j.chapter_file == filename]
+        if to_del: delete_jobs(to_del)
+
+        return JSONResponse({"status": "ok"})
+    return JSONResponse({"status": "error", "message": "File not found"}, status_code=404)
