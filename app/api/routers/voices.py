@@ -13,9 +13,12 @@ from ...db import (
     list_speakers, create_speaker, get_speaker, update_speaker, delete_speaker,
     update_voice_profile_references
 )
+from ...jobs import (
+    enqueue, get_speaker_settings, update_speaker_settings, 
+    DEFAULT_SPEAKER_TEST_TEXT
+)
 from ... import config
 from ...state import get_settings, update_settings, get_jobs, put_job, update_job
-from ...jobs import get_speaker_settings, update_speaker_settings, enqueue
 from ...models import Job
 
 # Compatibility for tests that monkeypatch these
@@ -323,6 +326,11 @@ def api_rename_voice_profile(
 def update_speaker_test_text(name: str, text: str = Form(...)):
     update_speaker_settings(name, test_text=text)
     return JSONResponse({"status": "ok", "test_text": text})
+
+@router.post("/speaker-profiles/{name}/reset-test-text")
+def reset_speaker_test_text(name: str):
+    update_speaker_settings(name, test_text=None)
+    return JSONResponse({"status": "ok", "test_text": DEFAULT_SPEAKER_TEST_TEXT})
 
 @router.post("/speaker-profiles/{name}/speed")
 def update_speaker_speed(name: str, speed: float = Form(...)):

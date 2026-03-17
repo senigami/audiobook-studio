@@ -129,6 +129,7 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
             const result = await resp.json();
             if (result.status === 'ok' || result.status === 'success') {
                 setTestText(result.test_text);
+                setEditingProfile(null);
                 onRefresh();
             }
         } catch (e) {

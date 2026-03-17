@@ -41,6 +41,15 @@ def get_speaker_wavs(profile_name_or_id: str) -> Optional[str]:
     return ",".join([str(w.absolute()) for w in wavs])
 
 
+DEFAULT_SPEAKER_TEST_TEXT = (
+    "The mysterious traveler, bathed in the soft glow of the azure twilight, "
+    "whispered of ancient treasures buried beneath the jagged mountains. "
+    "'Zephyr,' he exclaimed, his voice a mixture of awe and trepidation, "
+    "'the path is treacherous, yet the reward is beyond measure.' "
+    "Around them, the vibrant forest hummed with rhythmic sounds while a "
+    "cold breeze carried the scent of wet earth and weathered stone."
+)
+
 def get_speaker_settings(profile_name_or_id: str) -> dict:
     """Returns metadata (like speed and test text) for a profile or speaker ID, falling back to global settings."""
     defaults = get_settings()
@@ -68,18 +77,9 @@ def get_speaker_settings(profile_name_or_id: str) -> dict:
 
     p = VOICES_DIR / target_profile
 
-    default_test_text = (
-        "The mysterious traveler, bathed in the soft glow of the azure twilight, "
-        "whispered of ancient treasures buried beneath the jagged mountains. "
-        "'Zephyr,' he exclaimed, his voice a mixture of awe and trepidation, "
-        "'the path is treacherous, yet the reward is beyond measure.' "
-        "Around them, the vibrant forest hummed with rhythmic sounds while a "
-        "cold breeze carried the scent of wet earth and weathered stone."
-    )
-
     res = {
         "speed": float(defaults.get("xtts_speed", 1.0)),
-        "test_text": default_test_text,
+        "test_text": DEFAULT_SPEAKER_TEST_TEXT,
         "speaker_id": None,
         "variant_name": None,
         "built_samples": []
@@ -116,6 +116,12 @@ def update_speaker_settings(profile_name: str, **updates):
             meta = json.loads(meta_path.read_text())
         except: pass
 
-    meta.update(updates)
+    for k, v in updates.items():
+        if v is None:
+            if k in meta:
+                del meta[k]
+        else:
+            meta[k] = v
+
     meta_path.write_text(json.dumps(meta, indent=2))
     return True

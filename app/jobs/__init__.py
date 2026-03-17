@@ -1,7 +1,7 @@
 import threading
 from .core import job_queue, assembly_queue, cancel_flags, pause_flag, paused, toggle_pause, set_paused, _estimate_seconds, calculate_predicted_progress, BASELINE_XTTS_CPS, format_seconds
 from .reconcile import cleanup_and_reconcile, _output_exists
-from .speaker import get_speaker_wavs, get_speaker_settings, update_speaker_settings
+from .speaker import get_speaker_wavs, get_speaker_settings, update_speaker_settings, DEFAULT_SPEAKER_TEST_TEXT
 from .worker import worker_loop
 from ..state import put_job, get_jobs, update_job, get_settings, get_performance_metrics, update_performance_metrics
 from ..config import CHAPTER_DIR, XTTS_OUT_DIR, AUDIOBOOK_DIR, VOICES_DIR, SAMPLES_DIR, SENT_CHAR_LIMIT
@@ -93,7 +93,7 @@ start_workers()
 __all__ = [
     "enqueue", "requeue", "cancel", "clear_job_queue",
     "paused", "toggle_pause", "set_paused", "cleanup_and_reconcile", "_output_exists",
-    "get_speaker_wavs", "get_speaker_settings", "update_speaker_settings",
+    "get_speaker_wavs", "get_speaker_settings", "update_speaker_settings", "DEFAULT_SPEAKER_TEST_TEXT",
     "get_jobs", "put_job", "update_job", "get_settings", "get_performance_metrics", "update_performance_metrics",
     "CHAPTER_DIR", "XTTS_OUT_DIR", "AUDIOBOOK_DIR", "VOICES_DIR", "SAMPLES_DIR", "SENT_CHAR_LIMIT",
     "_estimate_seconds", "calculate_predicted_progress", "BASELINE_XTTS_CPS", "format_seconds"
