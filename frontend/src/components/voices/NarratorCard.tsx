@@ -36,6 +36,25 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
     const [activeProfileId, setActiveProfileId] = useState(defaultProfile?.name || '');
     const [hoveredProfileId, setHoveredProfileId] = useState<string | null>(null);
 
+    // Auto-select newly added variants
+    const prevProfileNames = React.useRef(new Set(profiles.map(p => p.name)));
+    React.useEffect(() => {
+        const currentNames = new Set(profiles.map(p => p.name));
+        if (currentNames.size > prevProfileNames.current.size) {
+            const addedName = Array.from(currentNames).find(name => !prevProfileNames.current.has(name));
+            if (addedName) {
+                setActiveProfileId(addedName);
+            }
+        }
+        prevProfileNames.current = currentNames;
+    }, [profiles]);
+
+    React.useEffect(() => {
+        if (activeProfileId && !profiles.some(p => p.name === activeProfileId)) {
+            setActiveProfileId(defaultProfile?.name || '');
+        }
+    }, [profiles, activeProfileId, defaultProfile]);
+
     const activeProfile = profiles.find(p => p.name === activeProfileId) || defaultProfile;
 
     const handleAddVariant = () => onAddVariantClick(speaker, profiles.length);

@@ -217,6 +217,8 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 setIsAddVariantModalOpen(false);
                 setAddVariantSpeaker(null);
                 setNewVariantNameModal('');
+                const expandedId = (sid.includes('-') && sid.length === 36) ? sid : `unassigned-${sid}`;
+                setExpandedVoiceId(expandedId);
                 onRefresh();
             } else {
                 const err = await resp.json();
