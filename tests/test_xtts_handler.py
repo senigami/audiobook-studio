@@ -33,7 +33,6 @@ def mock_params():
     return {
         "jid": "test_jid",
         "start": time.time(),
-        "logs": [],
         "on_output": MagicMock(),
         "cancel_check": MagicMock(return_value=False),
         "default_sw": "default.wav",

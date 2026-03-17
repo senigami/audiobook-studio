@@ -8,20 +8,20 @@ def test_calculate_predicted_progress_xtts_preparing():
     job = Job(id="j1", engine="xtts", chapter_file="c1.txt", status="preparing", created_at=0.0)
     job.progress = 0.0
 
-    # 1. Synthesis not started, low progress
+    # 1. Synthesis not started, should hold at current_p (0.0)
     job.synthesis_started_at = None
     now = 100.0
     start = 99.0 # 1s elapsed
     eta = 100
 
-    # 1/100 = 0.01. prepare_limit default is 0.05.
+    # Logic changed: now returns current_p (0.0) instead of animating
     res = calculate_predicted_progress(job, now, start, eta)
-    assert res == 0.01
+    assert res == 0.0
 
-    # 2. Progress should cap at 0.05 (prepare_limit)
-    now = 110.0 # 11s elapsed -> 0.11
+    # 2. Progress should STILL be 0.0 even after more time
+    now = 110.0 # 11s elapsed
     res = calculate_predicted_progress(job, now, start, eta)
-    assert res == 0.05
+    assert res == 0.0
 
     # 3. Resumption case: already at 0.10 progress from previous run
     job.progress = 0.10

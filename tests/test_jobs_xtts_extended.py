@@ -55,7 +55,7 @@ def test_handle_xtts_job_bake(mock_job, tmp_path):
         mock_gen_script.side_effect = side_effect
 
         handle_xtts_job(
-            "test_job", mock_job, time.time(), [], 
+            "test_job", mock_job, time.time(), 
             print, lambda: False, "default.wav", 1.0, 
             pdir, out_wav, out_mp3
         )
@@ -82,7 +82,7 @@ def test_handle_xtts_job_segments(mock_job, tmp_path):
          patch("app.jobs.handlers.xtts.update_job") as mock_update_job:
 
         handle_xtts_job(
-            "test_job", mock_job, time.time(), [], 
+            "test_job", mock_job, time.time(), 
             print, lambda: False, "default.wav", 1.0, 
             pdir, out_wav, out_mp3
         )
@@ -111,7 +111,7 @@ def test_handle_xtts_job_standard_with_mp3(mock_job, tmp_path):
         ]
 
         handle_xtts_job(
-            "test_job", mock_job, time.time(), [], 
+            "test_job", mock_job, time.time(), 
             print, lambda: False, "default.wav", 1.0, 
             pdir, out_wav, out_mp3, text="Hello"
         )
@@ -129,7 +129,7 @@ def test_handle_xtts_job_cancel(mock_job, tmp_path):
          patch("app.jobs.handlers.xtts.update_job") as mock_update_job:
 
         handle_xtts_job(
-            "test_job", mock_job, time.time(), [], 
+            "test_job", mock_job, time.time(), 
             print, lambda: True, "default.wav", 1.0, 
             pdir, out_wav, out_mp3, text="Hello"
         )

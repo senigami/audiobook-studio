@@ -35,7 +35,7 @@ def api_mass_delete_queue():
     count = len([item for item in get_queue() if item['status'] != 'running'])
     clear_queue()
     broadcast_queue_update()
-    return JSONResponse({"status": "ok", "message": "processes stopped"})
+    return JSONResponse({"status": "ok", "message": "processes stopped", "cleared": count})
 
 @router.post("/processing_queue/clear")
 def api_clear_queue_route():
