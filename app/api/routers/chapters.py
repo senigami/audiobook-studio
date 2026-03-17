@@ -187,10 +187,14 @@ def api_bulk_update_segment_status(chapter_id: str, req: BulkStatusUpdate):
     update_segments_status_bulk(req.segment_ids, chapter_id, req.status)
     return JSONResponse({"status": "ok"})
 
+class BulkSegmentsUpdate(BaseModel):
+    segment_ids: List[str]
+    updates: dict
+
 @router.post("/segments/bulk-update")
-async def api_bulk_update_segments(segment_ids: List[str], updates: dict):
+async def api_bulk_update_segments(req: BulkSegmentsUpdate):
     await anyio.to_thread.run_sync(
-        lambda: update_segments_bulk(segment_ids, **updates)
+        lambda: update_segments_bulk(req.segment_ids, **req.updates)
     )
     return JSONResponse({"status": "ok"})
 

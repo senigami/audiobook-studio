@@ -87,6 +87,10 @@ def test_chapter_segments_sync_and_update(clean_db, client):
     response = client.post(f"/api/chapters/{cid}/segments/bulk-status", json={"segment_ids": [sid], "status": "done"})
     assert response.status_code == 200
 
+    # Bulk update
+    response = client.post("/api/segments/bulk-update", json={"segment_ids": [sid], "updates": {"audio_status": "done"}})
+    assert response.status_code == 200
+
 def test_chapter_cancel_and_reset(clean_db, client):
     from app.db.projects import create_project
     from app.db.chapters import create_chapter
