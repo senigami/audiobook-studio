@@ -98,6 +98,7 @@ def test_worker_loop_resumption(mock_q, sample_job):
         # Find the call to update_job with initial state
         prep_call = [c for c in mock_update.call_args_list if c.kwargs.get('status') == "preparing"][0]
         assert prep_call.kwargs['progress'] == 0.5
+        assert prep_call.kwargs['started_at'] is not None
 
 def test_worker_loop_audiobook_engine(mock_q):
     """Test audiobook assembly job flow."""
