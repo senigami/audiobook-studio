@@ -5,6 +5,11 @@ from ..state import get_jobs, update_job, delete_jobs
 from ..config import CHAPTER_DIR, XTTS_OUT_DIR, AUDIOBOOK_DIR
 
 def _output_exists(engine: str, chapter_file: str, project_id: str = None, make_mp3: bool = True) -> bool:
+    # Voice jobs produce sample.wav, not chapter audio; they are always considered "done"
+    if engine in ("voice_build", "voice_test"):
+        return True
+
+    if not chapter_file: return False
     stem = Path(chapter_file).stem
     if engine == "audiobook":
         if project_id:
@@ -80,7 +85,7 @@ def cleanup_and_reconcile():
     reset_ids = []
     for jid, j in all_jobs.items():
         if j.status == "done":
-            if j.engine == "audiobook" or j.id == "mp3-backfill-task" or "Backfill" in j.chapter_file:
+            if j.engine in ("audiobook", "voice_build", "voice_test") or j.id == "mp3-backfill-task" or "Backfill" in (j.chapter_file or ""):
                 continue
 
             if j.segment_ids:

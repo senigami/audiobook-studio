@@ -29,11 +29,14 @@ def api_get_queue():
 
 @router.delete("/processing_queue")
 def api_mass_delete_queue():
-    # To satisfy test expectations, we return a cleared count. 
-    # clear_queue doesn't currently return count, but we can simulate it or update it.
     from ...db import get_queue
+    from ...state import get_jobs, delete_jobs
     count = len([item for item in get_queue() if item['status'] != 'running'])
     clear_queue()
+    # Clear all non-running jobs from in-memory state too
+    jobs = get_jobs()
+    to_del = [jid for jid, j in jobs.items() if j.status in ('queued', 'done', 'failed', 'cancelled')]
+    delete_jobs(to_del)
     broadcast_queue_update()
     return JSONResponse({"status": "ok", "message": "processes stopped", "cleared": count})
 

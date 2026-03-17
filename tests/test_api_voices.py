@@ -72,7 +72,7 @@ def test_character_crud(clean_db):
     # List
     response = client.get(f"/api/projects/{pid}/characters")
     assert response.status_code == 200
-    assert len(response.json()) == 1
+    assert len(response.json()["characters"]) == 1
 
     # Update
     response = client.put(f"/api/characters/{cid}", data={"name": "Alice Updated", "color": "#123456"})
@@ -170,7 +170,7 @@ def test_profile_creation_errors(clean_db, tmp_path):
     fastapi_app.dependency_overrides[get_voices_dir] = lambda: voices_dir
 
     # Already exists
-    (voices_dir / "S1_V1").mkdir()
+    (voices_dir / "S1 - V1").mkdir()
     response = client.post("/api/speaker-profiles", data={"speaker_id": "S1", "variant_name": "V1"})
     assert response.status_code == 400
 

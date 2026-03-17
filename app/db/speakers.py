@@ -90,9 +90,27 @@ def update_speaker(speaker_id: str, **updates) -> bool:
             return cursor.rowcount > 0
 
 def delete_speaker(speaker_id: str) -> bool:
+    from .. import config
+    import shutil
+    import json
+
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
+
+            # Find and delete associated profile directories
+            # We look for any directory in VOICES_DIR containing a profile.json with matching speaker_id
+            if config.VOICES_DIR.exists():
+                for d in config.VOICES_DIR.iterdir():
+                    if d.is_dir():
+                        meta_path = d / "profile.json"
+                        if meta_path.exists():
+                            try:
+                                meta = json.loads(meta_path.read_text())
+                                if meta.get("speaker_id") == speaker_id:
+                                    shutil.rmtree(d)
+                            except: pass
+
             cursor.execute("DELETE FROM speakers WHERE id = ?", (speaker_id,))
             conn.commit()
             return cursor.rowcount > 0

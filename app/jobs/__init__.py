@@ -60,15 +60,23 @@ def sync_memory_queue():
     """
     Synchronizes the in-memory job_queue and assembly_queue with the DB's current 
     queued items. Useful after reordering.
+    Voice jobs (voice_build, voice_test) are one-shot and must NOT be re-enqueued on restart.
     """
     clear_job_queue()
-    from ..db import get_queue
+    from ..db import get_queue, update_queue_item
     # Get all queued items from DB (they are sorted by created_at DESC)
     db_queue = [item for item in get_queue() if item['status'] == 'queued']
     # Refill the FIFO queue in order of priority (first in list = first out)
     for item in db_queue:
         jid = item['id']
         engine = item.get('engine')
+        # Voice jobs are one-shot synthesis — skip and mark done in DB to prevent future re-queue
+        if engine in ('voice_build', 'voice_test'):
+            try:
+                update_queue_item(jid, 'done')
+            except Exception:
+                pass
+            continue
         if engine == "audiobook": 
             assembly_queue.put(jid)
         else: 

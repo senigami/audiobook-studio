@@ -39,15 +39,16 @@ def worker_loop(q):
             text = None
 
             if j.engine != "audiobook":
-                if j.project_id:
-                    from ..config import get_project_text_dir
-                    text_path = get_project_text_dir(j.project_id) / j.chapter_file
-                else:
-                    text_path = CHAPTER_DIR / j.chapter_file
+                if j.chapter_file:
+                    if j.project_id:
+                        from ..config import get_project_text_dir
+                        text_path = get_project_text_dir(j.project_id) / j.chapter_file
+                    else:
+                        text_path = CHAPTER_DIR / j.chapter_file
 
-                if text_path.exists():
-                    text = text_path.read_text(encoding="utf-8", errors="replace")
-                    chars = len(text)
+                    if text_path.is_file():
+                        text = text_path.read_text(encoding="utf-8", errors="replace")
+                        chars = len(text)
                 elif j.segment_ids:
                     from ..db import get_connection
                     with get_connection() as conn:
@@ -113,11 +114,13 @@ def worker_loop(q):
             j.started_at = adjusted_start
             j._last_broadcast_p = initial_progress
 
-            if j.engine != "audiobook" and not (text_path.exists() or j.segment_ids or j.is_bake):
+            if j.engine not in ("audiobook", "voice_build", "voice_test") and not (j.chapter_file or j.segment_ids or j.is_bake):
                 update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error=f"Chapter file not found: {j.chapter_file}")
                 continue
 
-            if _output_exists(j.engine, j.chapter_file, project_id=j.project_id, make_mp3=j.make_mp3):
+            # Skip output check if we are doing a segment rebuild or a bake, to ensure we don't skip due to a stale full-chapter wav
+            # Never skip voice_build/voice_test — they must always run synthesis
+            if j.engine not in ("voice_build", "voice_test") and not j.segment_ids and not j.is_bake and _output_exists(j.engine, j.chapter_file, project_id=j.project_id, make_mp3=j.make_mp3):
                 update_job(jid, status="done", finished_at=time.time(), progress=1.0)
                 continue
 
@@ -126,7 +129,6 @@ def worker_loop(q):
             def on_output(line):
                 s = line.strip()
                 now = time.time()
-                new_progress = None
                 new_progress = None
 
                 if not s:
@@ -148,7 +150,6 @@ def worker_loop(q):
                     j.progress = prog
                     j.started_at = now - (prog * eta) if eta > 0 else now
                     update_job(jid, status="running", started_at=j.started_at, progress=prog)
-                    # We still call on_output for internal tracking, but it's simplified
                     return
 
                 if "[START_SEGMENT]" in s:
@@ -221,6 +222,38 @@ def worker_loop(q):
                 spk = get_speaker_settings(j.speaker_profile)
 
                 handle_xtts_job(jid, j, start, on_output, cancel_check, sw, spk["speed"], pdir, out_wav, out_mp3, text=text)
+            elif j.engine in ("voice_build", "voice_test"):
+                from ..config import VOICES_DIR
+                pdir = VOICES_DIR / j.speaker_profile
+                pdir.mkdir(parents=True, exist_ok=True)
+
+                # For voice_test or missing sample.wav, generate one
+                sample_path = pdir / "sample.wav"
+                if j.engine == "voice_test" or not sample_path.exists():
+                    on_output(f"Generating test sample for {j.speaker_profile}...\n")
+                    spk = get_speaker_settings(j.speaker_profile)
+                    sw = get_speaker_wavs(j.speaker_profile)
+                    from ..engines import xtts_generate
+                    rc = xtts_generate(
+                        text=spk["test_text"],
+                        out_wav=sample_path,
+                        safe_mode=True,
+                        on_output=on_output,
+                        cancel_check=cancel_check,
+                        speaker_wav=sw,
+                        speed=spk["speed"]
+                    )
+                    if rc != 0:
+                        update_job(jid, status="failed", error="Voice synthesis failed.")
+                        return
+
+                update_job(jid, status="done", progress=1.0, finished_at=time.time())
+                # Mark done in the DB queue so sync_memory_queue doesn't re-enqueue on server restart
+                try:
+                    from ..db import update_queue_item
+                    update_queue_item(jid, "done")
+                except Exception as _qe:
+                    logger.warning(f"Could not mark voice job {jid} done in DB queue: {_qe}")
 
                 # Auto-tuning
                 if not getattr(j, 'is_bake', False):

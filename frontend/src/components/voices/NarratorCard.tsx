@@ -44,6 +44,8 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
         if (!p) return { label: 'NO SAMPLES', color: 'var(--text-muted)', bg: 'var(--surface-alt)' };
         if (buildingProfiles[p.name] || isTestingProfileId === p.name) return { label: 'BUILDING...', color: 'var(--accent)', bg: 'rgba(var(--accent-rgb), 0.1)' };
         if (p.wav_count === 0) return { label: 'NO SAMPLES', color: 'var(--text-muted)', bg: 'var(--surface-alt)' };
+        if (p.is_rebuild_required) return { label: 'REBUILD REQUIRED', color: 'var(--warning-text)', bg: 'rgba(var(--warning-rgb), 0.1)' };
+        if (!p.preview_url) return { label: 'BUILD TO TEST', color: 'var(--accent)', bg: 'rgba(var(--accent-rgb), 0.1)' };
         return { label: 'BUILT', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' };
     };
 
@@ -163,7 +165,11 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
                                     message: `Delete voice '${speaker.name}' and all ${profiles.length} variants? This cannot be undone.`,
                                     isDestructive: true,
                                     onConfirm: () => {
-                                        fetch(`/api/speakers/${speaker.id}`, { method: 'DELETE' })
+                                        const deleteUrl = speaker.id 
+                                            ? `/api/speakers/${speaker.id}` 
+                                            : `/api/speaker-profiles/${encodeURIComponent(profiles[0]?.name)}`;
+                                        
+                                        fetch(deleteUrl, { method: 'DELETE' })
                                             .then(resp => {
                                                 if (resp.ok) onRefresh();
                                             });

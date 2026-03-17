@@ -5,17 +5,24 @@ from ..state import get_settings
 
 def get_speaker_wavs(profile_name_or_id: str) -> Optional[str]:
     """Returns a comma-separated string of absolute paths for the given profile or speaker ID."""
-    from ..db import get_speaker
+    from ..db import get_speaker, list_speakers
 
     target_profile = profile_name_or_id
     if not target_profile:
         target_profile = get_settings().get("default_speaker_profile") or "Dark Fantasy"
 
-    # Heuristic: if it looks like a UUID, check if it's a speaker ID
+    # Resolve speaker ID or Name to a profile folder
+    # 1. If it's a UUID, it's a speaker ID
     if len(target_profile) == 36 and "-" in target_profile:
         spk = get_speaker(target_profile)
         if spk and spk["default_profile_name"]:
             target_profile = spk["default_profile_name"]
+    # 2. If it's a speaker name (not a profile folder name yet), find its default
+    else:
+        all_spks = list_speakers()
+        spk_match = next((s for s in all_spks if s['name'] == target_profile), None)
+        if spk_match and spk_match.get("default_profile_name"):
+            target_profile = spk_match["default_profile_name"]
 
     p = VOICES_DIR / target_profile
 
@@ -42,12 +49,23 @@ def get_speaker_settings(profile_name_or_id: str) -> dict:
     if not target_profile:
         target_profile = defaults.get("default_speaker_profile") or "Dark Fantasy"
 
-    # Resolve speaker ID to profile name if necessary
+    # Resolve speaker ID or Name to a profile folder
     if len(target_profile) == 36 and "-" in target_profile:
         from ..db import get_speaker
         spk = get_speaker(target_profile)
         if spk and spk["default_profile_name"]:
             target_profile = spk["default_profile_name"]
+    else:
+        from ..db import list_speakers
+        all_spks = list_speakers()
+        spk_match = next((s for s in all_spks if s['name'] == target_profile), None)
+        if spk_match and spk_match.get("default_profile_name"):
+            target_profile = spk_match["default_profile_name"]
+        elif spk_match:
+            subs = sorted([d.name for d in VOICES_DIR.iterdir() if d.is_dir() and d.name.startswith(target_profile + " -")])
+            if subs:
+                target_profile = subs[0]
+
     p = VOICES_DIR / target_profile
 
     default_test_text = (

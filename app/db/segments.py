@@ -18,6 +18,17 @@ def update_segments_status_bulk(segment_ids: List[str], chapter_id: str, status:
         except Exception as e:
             print(f"Warning: Failed to broadcast bulk segment update: {e}")
 
+    # Cache Invalidation: If segments are being reset, delete chapter-level files
+    if status == 'unprocessed':
+        try:
+            from .chapters import reset_chapter_audio
+            # Note: reset_chapter_audio also resets segments, but here they are already updated.
+            # We mostly want it for the physical file cleanup.
+            # To avoid redundant DB updates, we could just call the cleanup part, 
+            # but reset_chapter_audio is safe and thorough.
+            reset_chapter_audio(chapter_id)
+        except Exception: pass
+
 def get_chapter_segments(chapter_id: str) -> List[Dict[str, Any]]:
     with _db_lock:
         with get_connection() as conn:
@@ -64,12 +75,24 @@ def update_segment(segment_id: str, broadcast: bool = True, **updates) -> bool:
             changed = cursor.rowcount > 0
 
             # If character or voice changed, update chapter timestamp for stale detection
-            if changed and ("character_id" in updates or "speaker_profile_name" in updates):
-                cursor.execute("SELECT chapter_id FROM chapter_segments WHERE id = ?", (segment_id,))
-                row = cursor.fetchone()
-                if row:
-                    cursor.execute("UPDATE chapters SET text_last_modified = ? WHERE id = ?", (time.time(), row[0]))
-                    conn.commit()
+            if changed:
+                keys = updates.keys()
+                if "character_id" in keys or "speaker_profile_name" in keys or "text_content" in keys or ("audio_status" in keys and updates["audio_status"] == 'unprocessed'):
+                    cursor.execute("SELECT chapter_id FROM chapter_segments WHERE id = ?", (segment_id,))
+                    row = cursor.fetchone()
+                    if row:
+                        chapter_id = row[0]
+                        cursor.execute("UPDATE chapters SET text_last_modified = ? WHERE id = ?", (time.time(), chapter_id))
+                        cursor.execute("UPDATE chapters SET audio_status = 'unprocessed' WHERE id = ?", (chapter_id,))
+                        conn.commit()
+
+                        # Physical Cleanup
+                        try:
+                            from .chapters import reset_chapter_audio
+                            # This is a bit heavy as it resets ALL segments, but it's the safest way to ensure
+                            # consistency when the chapter audio is no longer valid.
+                            reset_chapter_audio(chapter_id)
+                        except Exception: pass
 
     # Broadcast via WebSocket if audio_status changed (outside the lock to avoid deadlock)
     if broadcast and changed and "audio_status" in updates:

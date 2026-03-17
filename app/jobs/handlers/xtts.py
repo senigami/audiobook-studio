@@ -85,6 +85,18 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
                             prog = (groups_completed[0] / len(missing_groups)) * 0.9
                         update_job(jid, progress=prog, active_segment_id=None, active_segment_progress=0.0)
 
+                if "[START_SEGMENT]" in line:
+                    asid = line.split("[START_SEGMENT]")[1].strip()
+                    # If it's a path, just take the filename stem or similar if possible, 
+                    # but inference script sends segment['id'] if available.
+                    update_job(jid, active_segment_id=asid, active_segment_progress=0.0)
+
+                if "[PROGRESS]" in line:
+                    try:
+                        p_str = line.split("[PROGRESS]")[1].split("%")[0].strip()
+                        update_job(jid, active_segment_progress=float(p_str)/100.0)
+                    except: pass
+
             try:
                 xtts_generate_script(script_json_path=script_path, out_wav=out_wav, on_output=bake_on_output, cancel_check=cancel_check, speed=speed)
             finally:
@@ -180,6 +192,16 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
                     except Exception:
                         prog = (groups_completed[0] / len(gen_groups))
                     update_job(jid, progress=prog, active_segment_id=None, active_segment_progress=0.0)
+
+            if "[START_SEGMENT]" in line:
+                asid = line.split("[START_SEGMENT]")[1].strip()
+                update_job(jid, active_segment_id=asid, active_segment_progress=0.0)
+
+            if "[PROGRESS]" in line:
+                try:
+                    p_str = line.split("[PROGRESS]")[1].split("%")[0].strip()
+                    update_job(jid, active_segment_progress=float(p_str)/100.0)
+                except: pass
 
         try:
             xtts_generate_script(script_json_path=script_path, out_wav=pdir / f"output_{j.id}.wav", on_output=gen_on_output, cancel_check=cancel_check, speed=speed)
