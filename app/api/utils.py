@@ -21,26 +21,30 @@ def read_preview(path: Path, max_chars: int = 8000) -> str:
         return ""
 
 def output_exists(engine: str, chapter_file: str):
-    chapter_name = safe_basename(chapter_file)
+    if safe_basename(chapter_file) != chapter_file:
+        return False
+    chapter_name = safe_stem(chapter_file)
     if engine == "xtts":
         try:
-            return safe_join(config.XTTS_OUT_DIR, f"{chapter_file}.wav").exists() or safe_join(config.XTTS_OUT_DIR, f"{chapter_file}.mp3").exists()
+            return safe_join(config.XTTS_OUT_DIR, f"{chapter_name}.wav").exists() or safe_join(config.XTTS_OUT_DIR, f"{chapter_name}.mp3").exists()
         except ValueError:
             return False
     elif engine == "audiobook":
         try:
-            return safe_join(config.AUDIOBOOK_DIR, f"{chapter_file}.m4b").exists()
+            return safe_join(config.AUDIOBOOK_DIR, f"{chapter_name}.m4b").exists()
         except ValueError:
             return False
     return False
 
 def xtts_outputs_for(chapter_file: str, project_id: Optional[str] = None):
+    if safe_basename(chapter_file) != chapter_file:
+        return []
     outputs = []
     chapter_name = safe_basename(chapter_file)
     # Check global
     for ext in [".wav", ".mp3"]:
         try:
-            p = safe_join(config.XTTS_OUT_DIR, f"{chapter_file}{ext}")
+            p = safe_join(config.XTTS_OUT_DIR, f"{chapter_name}{ext}")
             if p.exists():
                 outputs.append(f"/out/xtts/{chapter_name}{ext}")
         except ValueError:
@@ -51,7 +55,7 @@ def xtts_outputs_for(chapter_file: str, project_id: Optional[str] = None):
         proj_audio = config.get_project_audio_dir(project_id)
         for ext in [".wav", ".mp3"]:
             try:
-                p = safe_join(proj_audio, f"{chapter_file}{ext}")
+                p = safe_join(proj_audio, f"{chapter_name}{ext}")
                 if p.exists():
                     outputs.append(f"/out/projects/{project_id}/audio/{chapter_name}{ext}")
             except ValueError:

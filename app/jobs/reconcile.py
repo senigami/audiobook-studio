@@ -2,7 +2,7 @@ import time
 from .core import job_queue, assembly_queue, cancel_flags
 from ..state import get_jobs, update_job, delete_jobs
 from ..config import CHAPTER_DIR, XTTS_OUT_DIR, AUDIOBOOK_DIR
-from ..pathing import safe_basename, safe_join
+from ..pathing import safe_basename, safe_join, safe_stem
 
 def _output_exists(engine: str, chapter_file: str, project_id: str = None, make_mp3: bool = True) -> bool:
     # Voice jobs produce sample.wav, not chapter audio; they are always considered "done"
@@ -10,15 +10,18 @@ def _output_exists(engine: str, chapter_file: str, project_id: str = None, make_
         return True
 
     if not chapter_file: return False
+    if safe_basename(chapter_file) != chapter_file:
+        return False
+    chapter_stem = safe_stem(chapter_file)
     if engine == "audiobook":
         if project_id:
             from ..config import get_project_m4b_dir
             try:
-                return safe_join(get_project_m4b_dir(project_id), f"{chapter_file}.m4b").exists()
+                return safe_join(get_project_m4b_dir(project_id), f"{chapter_stem}.m4b").exists()
             except ValueError:
                 return False
         try:
-            return safe_join(AUDIOBOOK_DIR, f"{chapter_file}.m4b").exists()
+            return safe_join(AUDIOBOOK_DIR, f"{chapter_stem}.m4b").exists()
         except ValueError:
             return False
 
@@ -27,19 +30,19 @@ def _output_exists(engine: str, chapter_file: str, project_id: str = None, make_
             from ..config import get_project_audio_dir
             pdir = get_project_audio_dir(project_id)
             try:
-                mp3 = safe_join(pdir, f"{chapter_file}.mp3").exists()
+                mp3 = safe_join(pdir, f"{chapter_stem}.mp3").exists()
                 if not mp3:
-                    mp3 = safe_join(XTTS_OUT_DIR, f"{chapter_file}.mp3").exists()
-                wav = safe_join(pdir, f"{chapter_file}.wav").exists()
+                    mp3 = safe_join(XTTS_OUT_DIR, f"{chapter_stem}.mp3").exists()
+                wav = safe_join(pdir, f"{chapter_stem}.wav").exists()
                 if not wav:
-                    wav = safe_join(XTTS_OUT_DIR, f"{chapter_file}.wav").exists()
+                    wav = safe_join(XTTS_OUT_DIR, f"{chapter_stem}.wav").exists()
             except ValueError:
                 return False
         else:
             pdir = XTTS_OUT_DIR
             try:
-                mp3 = safe_join(pdir, f"{chapter_file}.mp3").exists()
-                wav = safe_join(pdir, f"{chapter_file}.wav").exists()
+                mp3 = safe_join(pdir, f"{chapter_stem}.mp3").exists()
+                wav = safe_join(pdir, f"{chapter_stem}.wav").exists()
             except ValueError:
                 return False
     else:
