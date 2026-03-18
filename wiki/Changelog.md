@@ -9,6 +9,10 @@ All notable changes to this project will be documented in this file.
 - **Path Sinks Scoped to Trusted Roots**: Hardened audiobook, voice-profile, and analysis-report file handling so user-controlled names are resolved inside their intended project or voice directories before any disk access occurs.
 - **Traversal Regression Coverage**: Added tests that exercise the new containment checks for audiobook deletion, voice sample deletion, and analysis reports.
 
+### Fixed
+
+- **Reconciliation Filename Normalization**: Corrected job reconciliation so chapter text names are normalized to their stem before output lookup, preserving legacy/project-aware sync behavior while still rejecting traversal-style inputs.
+
 ## [1.4.1] - 2026-03-17
 
 ### Compatibility & Security
