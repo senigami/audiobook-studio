@@ -51,6 +51,17 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
     confirmText?: string;
   } | null>(null);
 
+  useEffect(() => {
+    if (speakerProfiles.length === 0) return;
+    const voiceStillAvailable = selectedVoice && speakerProfiles.some(p => p.name === selectedVoice);
+    if (voiceStillAvailable) return;
+
+    const defaultProfile = speakerProfiles.find(p => p.is_default)?.name || speakerProfiles[0]?.name || '';
+    if (defaultProfile) {
+      setSelectedVoice(defaultProfile);
+    }
+  }, [speakerProfiles, selectedVoice]);
+
   const loadData = async () => {
     try {
       const [projData, chapsData] = await Promise.all([

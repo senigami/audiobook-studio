@@ -79,17 +79,37 @@ def main():
             h.update(b"\0")
         return h.hexdigest()
 
-    def get_latents(speaker_wav_paths, device, tts_model, voice_profile_dir=None):
+    def _normalize_speaker_wav_paths(speaker_wav_paths, voice_profile_dir=None):
         if isinstance(speaker_wav_paths, list):
-            combined_paths = "|".join(sorted([os.path.abspath(p) for p in speaker_wav_paths]))
-            wav_input = speaker_wav_paths
-        elif "," in speaker_wav_paths:
-            wavs = [s.strip() for s in speaker_wav_paths.split(",") if s.strip()]
-            combined_paths = "|".join(sorted([os.path.abspath(p) for p in wavs]))
-            wav_input = wavs
-        else:
-            combined_paths = os.path.abspath(speaker_wav_paths)
-            wav_input = speaker_wav_paths
+            wavs = [os.path.abspath(p) for p in speaker_wav_paths if p]
+            return wavs, "|".join(sorted(wavs))
+
+        if isinstance(speaker_wav_paths, str) and "," in speaker_wav_paths:
+            wavs = [os.path.abspath(s.strip()) for s in speaker_wav_paths.split(",") if s.strip()]
+            return wavs, "|".join(sorted(wavs))
+
+        if isinstance(speaker_wav_paths, str) and speaker_wav_paths.strip():
+            wav = os.path.abspath(speaker_wav_paths)
+            return wav, wav
+
+        if voice_profile_dir:
+            profile_path = Path(voice_profile_dir)
+            profile_wavs = sorted(
+                str(p.resolve())
+                for p in profile_path.glob("*.wav")
+                if p.name != "latent.pth"
+            )
+            if profile_wavs:
+                return profile_wavs, "|".join(sorted(profile_wavs))
+            return None, str(profile_path.resolve())
+
+        return None, None
+
+    def get_latents(speaker_wav_paths, device, tts_model, voice_profile_dir=None):
+        wav_input, combined_paths = _normalize_speaker_wav_paths(speaker_wav_paths, voice_profile_dir)
+
+        if wav_input is None and not voice_profile_dir:
+            raise ValueError("No speaker WAVs or voice profile directory available")
 
         speaker_id = hashlib.md5(combined_paths.encode()).hexdigest()
         migrated = False

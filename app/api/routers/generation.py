@@ -6,13 +6,14 @@ from typing import List, Optional
 from fastapi import APIRouter, Form
 from fastapi.responses import JSONResponse
 from ...db import (
-    add_to_queue as db_add_to_queue, get_chapter_segments, 
-    update_segments_status_bulk, get_connection
+    add_to_queue as db_add_to_queue, get_chapter_segments,
+    get_connection
 )
 from ...jobs import enqueue, cancel as cancel_job_worker, set_paused, clear_job_queue
 from ...models import Job
 from ...state import put_job, update_job, get_settings, get_jobs
 from ...config import get_project_text_dir
+from ...config import get_project_audio_dir, XTTS_OUT_DIR
 from ..ws import broadcast_queue_update
 
 router = APIRouter(prefix="/api", tags=["generation"])
@@ -54,7 +55,16 @@ def api_add_to_queue(
             temp_path.write_text(text_content or "", encoding="utf-8", errors="replace")
 
             segs = get_chapter_segments(chapter_id)
-            has_segments = len(segs) > 0
+            pdir = get_project_audio_dir(project_id)
+            has_bakeable_segments = any(
+                s.get("audio_status") == "done"
+                and s.get("audio_file_path")
+                and (
+                    (pdir / s["audio_file_path"]).exists()
+                    or (XTTS_OUT_DIR / s["audio_file_path"]).exists()
+                )
+                for s in segs
+            )
 
             j = Job(
                 id=qid, 
@@ -69,13 +79,8 @@ def api_add_to_queue(
                 bypass_pause=False,
                 custom_title=title,
                 speaker_profile=active_profile,
-                is_bake=has_segments
+                is_bake=has_bakeable_segments
             )
-
-            if has_segments:
-                s_ids = [s['id'] for s in segs if s.get('audio_status') != 'done']
-                if s_ids:
-                    update_segments_status_bulk(s_ids, chapter_id, "processing")
 
             put_job(j)
             update_job(qid, force_broadcast=True, status="queued", project_id=project_id, chapter_id=chapter_id, custom_title=title)

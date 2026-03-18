@@ -127,10 +127,9 @@ def xtts_generate(
         on_output(f"[error] XTTS activate not found: {XTTS_ENV_ACTIVATE}\n")
         return 1
 
-    # Use provided speaker_wav
     sw = speaker_wav
 
-    if not sw:
+    if not sw and voice_profile_dir is None:
         on_output("[error] No speaker profile or reference WAV provided\n")
         return 1
 
@@ -148,12 +147,13 @@ def xtts_generate(
         f"export PYTHONUNBUFFERED=1 && . {shlex.quote(str(XTTS_ENV_ACTIVATE))} && "
         f"python3 {shlex.quote(str(BASE_DIR / 'app' / 'xtts_inference.py'))} "
         f"--text {shlex.quote(text)} "
-        f"--speaker_wav {shlex.quote(sw)} "
         f"--language en "
         f"--repetition_penalty 2.0 "
         f"--speed {speed} "
         f"--out_path {shlex.quote(str(out_wav))}"
     )
+    if sw:
+        cmd += f" --speaker_wav {shlex.quote(sw)}"
     if voice_profile_dir is not None:
         cmd += f" --voice_profile_dir {shlex.quote(str(voice_profile_dir))}"
     return run_cmd_stream(cmd, on_output, cancel_check)

@@ -35,6 +35,8 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
   generatingJob
 }) => {
   const uniqueSegmentIds = Array.from(new Set(allSegmentIds));
+  const activeJobIsLive = !!generatingJob && ['queued', 'preparing', 'running', 'finalizing'].includes(generatingJob.status);
+  const activeSegmentId = activeJobIsLive ? generatingJob?.active_segment_id : null;
   
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', padding: '1.5rem', minHeight: 0 }}>
@@ -57,11 +59,11 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
                 {chunkGroups.map((group, gidx) => {
                     const char = characters.find(c => c.id === group.characterId);
                     const allDone = group.segments.every(s => s.audio_status === 'done');
-                    const anyProcessing = group.segments.some(s => s.audio_status === 'processing' || generatingSegmentIds.has(s.id));
+                    const isActiveGroup = !!activeSegmentId && group.segments.some(s => s.id === activeSegmentId);
+                    const anyProcessing = isActiveGroup || group.segments.some(s => s.audio_status === 'processing' || generatingSegmentIds.has(s.id));
                     
                     // Track if this specific group is "active" in the current job
-                    const activeSegmentId = generatingJob?.active_segment_id;
-                    const isAnySegmentActive = group.segments.some(s => s.id === activeSegmentId);
+                    const isAnySegmentActive = isActiveGroup;
                     const activeProgress = isAnySegmentActive ? (generatingJob?.active_segment_progress || 0) : 0;
 
                     const isPlaying = playingSegmentId && group.segments.some(s => s.id === playingSegmentId);

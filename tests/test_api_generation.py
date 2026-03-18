@@ -67,3 +67,50 @@ def test_generate_segments(clean_db, client):
         response = client.post("/api/segments/generate", data={"segment_ids": sid})
         assert response.status_code == 200
         assert "job_id" in response.json()
+
+
+def test_queue_chapter_without_bakeable_segments_uses_standard_xtts(clean_db, client):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.segments import sync_chapter_segments
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "Hello world.")
+    sync_chapter_segments(cid, "Hello world.")
+
+    with patch("app.api.routers.generation.put_job") as mock_put_job, patch("app.api.routers.generation.enqueue"):
+        response = client.post("/api/processing_queue", data={"project_id": pid, "chapter_id": cid})
+        assert response.status_code == 200
+        job = mock_put_job.call_args.args[0]
+        assert job.is_bake is False
+
+
+def test_queue_chapter_preserves_rendered_segment_history(clean_db, client, tmp_path):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.segments import sync_chapter_segments, get_chapter_segments, update_segment
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "Hello world. Another line.")
+    sync_chapter_segments(cid, "Hello world. Another line.")
+    segs = get_chapter_segments(cid)
+
+    audio_dir = tmp_path / "audio"
+    audio_dir.mkdir()
+    rendered_name = f"seg_{segs[0]['id']}.wav"
+    (audio_dir / rendered_name).write_bytes(b"fake wav")
+    update_segment(segs[0]["id"], audio_status="done", audio_file_path=rendered_name)
+    update_segment(segs[1]["id"], audio_status="unprocessed", audio_file_path=None)
+
+    with patch("app.api.routers.generation.get_project_audio_dir", return_value=audio_dir), \
+         patch("app.config.get_project_audio_dir", return_value=audio_dir), \
+         patch("app.api.routers.generation.put_job") as mock_put_job, \
+         patch("app.api.routers.generation.enqueue"):
+        response = client.post("/api/processing_queue", data={"project_id": pid, "chapter_id": cid})
+        assert response.status_code == 200
+        job = mock_put_job.call_args.args[0]
+        assert job.is_bake is True
+        refreshed = get_chapter_segments(cid)
+        assert refreshed[0]["audio_status"] == "done"
+        assert refreshed[0]["audio_file_path"] == rendered_name
+        assert refreshed[1]["audio_status"] == "unprocessed"

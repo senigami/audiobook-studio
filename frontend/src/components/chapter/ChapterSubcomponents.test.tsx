@@ -140,6 +140,41 @@ describe('Chapter Subcomponents', () => {
       fireEvent.click(screen.getByText(/Bake Final Chapter/i));
       expect(onBake).toHaveBeenCalled();
     });
+
+    it('highlights only the active segment group for a live job', () => {
+      const activeJob = {
+        id: 'job-1',
+        status: 'running',
+        active_segment_id: 'seg-2',
+        active_segment_progress: 0.5
+      } as any;
+
+      render(
+        <>
+          <PerformanceTab 
+            chunkGroups={[
+              { characterId: 'char-1', segments: [mockSegments[0]] },
+              { characterId: null, segments: [mockSegments[1]] }
+            ]} 
+            characters={mockCharacters} 
+            playingSegmentId={null} 
+            playbackQueue={['seg-1', 'seg-2']} 
+            generatingSegmentIds={new Set()} 
+            allSegmentIds={['seg-1', 'seg-2']} 
+            segments={mockSegments} 
+            onPlay={vi.fn()} 
+            onStop={vi.fn()} 
+            onGenerate={vi.fn()} 
+            onBake={vi.fn()} 
+            submitting={false} 
+            generatingJob={activeJob}
+          />
+        </>
+      );
+
+      expect(screen.getByText('Generate')).toBeInTheDocument();
+      expect(screen.getByText('50%')).toBeInTheDocument();
+    });
   });
 
   describe('CharacterSidebar', () => {

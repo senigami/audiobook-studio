@@ -100,6 +100,25 @@ def test_xtts_generate_success(mock_on_output, mock_cancel_check):
         assert rc == 0
         assert "--voice_profile_dir" in mock_run.call_args[0][0]
 
+def test_xtts_generate_voice_profile_only(mock_on_output, mock_cancel_check):
+    with patch("app.engines.XTTS_ENV_ACTIVATE") as mock_activate, \
+         patch("app.engines.run_cmd_stream", return_value=0) as mock_run:
+        mock_activate.exists.return_value = True
+
+        rc = xtts_generate(
+            "Hello",
+            Path("out.wav"),
+            True,
+            mock_on_output,
+            mock_cancel_check,
+            speaker_wav=None,
+            voice_profile_dir=Path("/tmp/voices/VoiceA"),
+        )
+        assert rc == 0
+        cmd = mock_run.call_args[0][0]
+        assert "--speaker_wav" not in cmd
+        assert "--voice_profile_dir" in cmd
+
 def test_xtts_generate_no_activate(mock_on_output, mock_cancel_check):
     with patch("app.engines.XTTS_ENV_ACTIVATE") as mock_activate:
         mock_activate.exists.return_value = False

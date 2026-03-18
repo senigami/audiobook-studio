@@ -1,5 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+const mockUseProjectActions = vi.hoisted(() =>
+  vi.fn(() => ({
+    submitting: false,
+    handleCreateChapter: vi.fn(),
+    handleUpdateProject: vi.fn(),
+    handleDeleteChapter: vi.fn(),
+    handleReorderChapters: vi.fn(),
+    handleQueueChapter: vi.fn(),
+    handleResetChapterAudio: vi.fn(),
+    handleQueueAllUnprocessed: vi.fn(),
+    handleAssembleProject: vi.fn(),
+    handleDeleteAudiobook: vi.fn(),
+  }))
+);
+
 // Mock API
 vi.mock('../api', () => ({
   api: {
@@ -15,18 +30,7 @@ vi.mock('../api', () => ({
 
 // Mock hooks
 vi.mock('../hooks/useProjectActions', () => ({
-  useProjectActions: () => ({
-    submitting: false,
-    handleCreateChapter: vi.fn(),
-    handleUpdateProject: vi.fn(),
-    handleDeleteChapter: vi.fn(),
-    handleReorderChapters: vi.fn(),
-    handleQueueChapter: vi.fn(),
-    handleResetChapterAudio: vi.fn(),
-    handleQueueAllUnprocessed: vi.fn(),
-    handleAssembleProject: vi.fn(),
-    handleDeleteAudiobook: vi.fn(),
-  }),
+  useProjectActions: () => mockUseProjectActions(),
 }));
 
 // Mock lucide-react
@@ -114,9 +118,22 @@ const mockChapters = [
   },
 ];
 
+const mockSpeakerProfiles = [
+  {
+    name: 'Voice 1',
+    wav_count: 1,
+    speed: 1,
+    is_default: true,
+    speaker_id: 'speaker-1',
+    variant_name: 'Default',
+    preview_url: '/out/voices/Voice 1/sample.wav',
+  },
+];
+
 describe('ProjectView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseProjectActions.mockClear();
     (api.fetchProject as any).mockResolvedValue(mockProject);
     (api.fetchChapters as any).mockResolvedValue(mockChapters);
     (api.fetchProjectAudiobooks as any).mockResolvedValue([]);
@@ -129,7 +146,7 @@ describe('ProjectView', () => {
           <Route path="/projects/:projectId" element={
             <ProjectView 
               jobs={{}} 
-              speakerProfiles={[]} 
+              speakerProfiles={mockSpeakerProfiles as any} 
               speakers={[]} 
             />
           } />
@@ -191,5 +208,23 @@ describe('ProjectView', () => {
     fireEvent.click(screen.getByText('Assemble Project'));
     expect(screen.getByText('Select Chapters for Assembly')).toBeInTheDocument();
     expect(screen.getByText('Confirm Assembly')).toBeInTheDocument();
+  });
+
+  it('defaults the queue voice to the available profile', async () => {
+    renderProjectView();
+
+    await waitFor(() => screen.findByText('Test Project'));
+
+    expect(screen.getByDisplayValue('Voice 1')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Queue Remaining'));
+    await waitFor(() => {
+      const actions = mockUseProjectActions.mock.results.at(-1)?.value;
+      expect(actions?.handleQueueAllUnprocessed).toHaveBeenCalledWith(
+        expect.any(Array),
+        expect.any(Object),
+        'Voice 1'
+      );
+    });
   });
 });

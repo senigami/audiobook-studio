@@ -10,6 +10,9 @@ All notable changes to this project will be documented in this file.
 - **Shareable Voice Bundles**: Voice profiles can be exported and imported as a single bundle, which makes it easier to move voices between app users.
 - **Faster App Load**: The home, projects, and jobs views now return quickly on first load instead of waiting on cleanup work or background reconciliation.
 - **Consistent Voice Previews**: Voice builds now standardize on `sample.mp3` for smaller, more consistent preview playback.
+- **Voice-Friendly Queueing**: Project pages now preselect an available voice profile so chapter queuing works without requiring extra setup.
+- **Safer Queue Routing**: Chapters now use the segment-bake path only when there is already segment audio to assemble, avoiding immediate stitch failures on unrendered chapters.
+- **Resume-Friendly Requeueing**: Re-queuing a chapter now keeps already-rendered segment progress intact so partial chapters can pick up where they left off.
 - **Stronger Regression Coverage**: The backend test suite now exercises real state changes, queue behavior, and request flow, not just response codes.
 - **Leaner Compatibility Layer**: Removed obsolete route aliases and legacy wrappers while keeping the compatibility shims that the current frontend still uses.
 
