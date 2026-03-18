@@ -56,7 +56,7 @@ def test_progress_simulation():
                 current_p = j.progress
                 if p_val > current_p:
                     new_progress = p_val
-            except:
+            except (TypeError, ValueError):
                 pass
 
         if not is_progress_line:

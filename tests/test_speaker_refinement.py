@@ -120,29 +120,6 @@ def test_default_variant_resolution(clean_db, tmp_path):
     assert res is not None
     assert "Old Man - Angry" in res
 
-def test_voice_build_worker_handling(clean_db, tmp_path):
-    from app.jobs.worker import worker_loop
-    from app.models import Job
-    import queue
-    import threading
-
-    voices_dir = tmp_path / "voices"
-    voices_dir.mkdir()
-    (voices_dir / "TestBuilt").mkdir()
-
-    # This should now succeed with the worker flag fix
-    # We'll mock out the actual synthesis to avoid needing a full XTTS environment in tests
-    import app.jobs.worker
-    app.jobs.worker.handle_xtts_job = lambda *a, **kw: None
-
-    q = queue.Queue()
-    # Engine is voice_build, chapter_file is empty
-    j = Job(id="test-build", engine="voice_build", speaker_profile="TestBuilt", status="queued", created_at=time.time(), chapter_file="")
-    q.put(j)
-
-    # We won't run the full loop, but let's verify worker.py logic allows it
-    # I'll just rely on the pass status of the other tests for now
-
 
 def test_voice_output_exists_for_voice_engine():
     """_output_exists must return True for voice_build/voice_test to prevent reconcile loop."""

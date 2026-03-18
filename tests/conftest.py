@@ -43,4 +43,11 @@ def clean_storage():
     # Clear in-memory state and state.json
     clear_all_jobs()
 
+    # Clear any dependency overrides that a test may have left behind.
+    from app.web import app as fastapi_app
+    fastapi_app.dependency_overrides = {}
+
     yield
+
+    fastapi_app.dependency_overrides = {}
+    clear_all_jobs()
