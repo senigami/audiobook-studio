@@ -4,30 +4,22 @@ All notable changes to this project will be documented in this file.
 
 ## [1.4.4] - 2026-03-18
 
-### Added
+### Highlights
 
-- **Portable Voice Latents**: XTTS latent caches now live alongside their voice profiles so renaming or moving a profile no longer forces a new `.pth` file.
-- **Voice Bundle Support**: Voice profiles can now carry their manifest and latent artifact together, making them easier to share between app users.
-- **MP3 Voice Previews**: Voice builds now normalize their generated sample clip to `sample.mp3`, so playback uses a consistent, smaller preview file.
-- **Legacy Latent Migration**: Existing hash-based cache files are copied into the profile folder on first use so older voices upgrade without manual cleanup.
-
-### Fixed
-
-- **Latent Cache Duplication**: Renaming a profile no longer leaves stale hash-based latent files behind in the global cache directory.
-- **Profile-Aware Rebuilds**: Latent caches are now keyed to the voice profile bundle and rebuilt only when the profile's audio samples actually change.
-- **Test Signal Quality**: Tightened backend tests to assert real state changes instead of just status codes, while cleaning up a few legacy runtime paths that were silently swallowing errors or leaving dead websocket connections behind.
-- **Compatibility Cleanup**: Removed a few obsolete legacy route aliases that were no longer referenced by the app or tests, while keeping the active compatibility shims that the current frontend still depends on.
+- **Portable Voice Profiles**: Voice profiles now travel with their latent cache and preview assets, so renaming or moving a voice keeps it intact instead of generating a new `.pth` file.
+- **Shareable Voice Bundles**: Voice profiles can be exported and imported as a single bundle, which makes it easier to move voices between app users.
+- **Faster App Load**: The home, projects, and jobs views now return quickly on first load instead of waiting on cleanup work or background reconciliation.
+- **Consistent Voice Previews**: Voice builds now standardize on `sample.mp3` for smaller, more consistent preview playback.
+- **Stronger Regression Coverage**: The backend test suite now exercises real state changes, queue behavior, and request flow, not just response codes.
+- **Leaner Compatibility Layer**: Removed obsolete route aliases and legacy wrappers while keeping the compatibility shims that the current frontend still uses.
 
 ## [1.4.3] - 2026-03-18
 
-### Security
+### Highlights
 
-- **Path Sinks Scoped to Trusted Roots**: Hardened audiobook, voice-profile, and analysis-report file handling so user-controlled names are resolved inside their intended project or voice directories before any disk access occurs.
-- **Traversal Regression Coverage**: Added tests that exercise the new containment checks for audiobook deletion, voice sample deletion, and analysis reports.
-
-### Fixed
-
-- **Reconciliation Filename Normalization**: Corrected job reconciliation so chapter text names are normalized to their stem before output lookup, preserving legacy/project-aware sync behavior while still rejecting traversal-style inputs.
+- **Scoped File Access**: Audiobook, voice-profile, and analysis-report file handling now stays inside the intended project or voice directories before any disk access occurs.
+- **Traversal Regression Coverage**: Added tests that exercise the new containment checks for audiobook deletion, voice sample deletion, and analysis report paths.
+- **Reliable Job Reconciliation**: Job reconciliation now normalizes chapter text names to their stem before output lookup, preserving legacy/project-aware sync behavior while still rejecting traversal-style inputs.
 
 ## [1.4.1] - 2026-03-17
 

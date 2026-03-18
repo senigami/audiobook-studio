@@ -62,7 +62,7 @@ async def legacy_create_audiobook(request: Request):
         audiobook_dir=AUDIOBOOK_DIR
     )
 
-@app.post("/api/settings")
+@app.post("/settings")
 async def legacy_save_settings(request: Request):
     from .api.routers.system import save_settings
     form = await request.form()
@@ -88,11 +88,6 @@ async def legacy_resume():
 async def legacy_clear():
     from .api.routers.generation import cancel_pending
     return cancel_pending()
-
-@app.post("/api/processing_queue/clear_completed")
-async def legacy_clear_completed():
-    from .api.routers.queue import api_clear_completed
-    return api_clear_completed()
 
 @app.post("/api/chapter/reset")
 async def legacy_chapter_reset(

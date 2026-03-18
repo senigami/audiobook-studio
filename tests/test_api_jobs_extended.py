@@ -31,16 +31,31 @@ def test_api_jobs_dynamic_progress(clean_jobs):
     )
     put_job(job)
 
-    with patch("app.api.routers.jobs.cleanup_and_reconcile"):
+    with patch("app.jobs.reconcile.cleanup_and_reconcile") as mock_cleanup:
         response = client.get("/api/jobs")
         assert response.status_code == 200
         data = response.json()
+        mock_cleanup.assert_not_called()
 
     # Find our job
     job_data = next((j for j in data if j["id"] == jid), None)
     assert job_data is not None
     # Progress should be around 0.1 (10/100)
     assert 0.09 <= job_data["progress"] <= 0.11
+
+
+def test_api_jobs_does_not_block_on_reconciliation(clean_jobs):
+    poisoned = AssertionError("cleanup_and_reconcile should not run inside /api/jobs")
+
+    with (
+        patch("app.api.routers.jobs.cleanup_and_reconcile", side_effect=poisoned, create=True),
+        patch("app.jobs.cleanup_and_reconcile", side_effect=poisoned),
+        patch("app.jobs.reconcile.cleanup_and_reconcile", side_effect=poisoned),
+    ):
+        response = client.get("/api/jobs")
+
+    assert response.status_code == 200
+    assert response.elapsed.total_seconds() < 1.0
 
 def test_api_jobs_auto_discovery(clean_jobs, tmp_path, monkeypatch):
     # Mock XTTS_OUT_DIR to a temp path

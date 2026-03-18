@@ -64,9 +64,6 @@ function App() {
 
 
 
-  if (initialLoading) return null;
-
-
   return (
     <div className="app-container">
       <Layout
@@ -120,6 +117,48 @@ function App() {
 
           </div>
       </Layout>
+
+      {initialLoading && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 2000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(248, 249, 252, 0.78)',
+            backdropFilter: 'blur(10px)',
+          }}
+        >
+          <div
+            style={{
+              padding: '1.25rem 1.5rem',
+              borderRadius: '16px',
+              border: '1px solid var(--border)',
+              background: 'var(--surface)',
+              boxShadow: 'var(--shadow-lg)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.9rem',
+              color: 'var(--text-primary)',
+              fontWeight: 700,
+            }}
+          >
+            <div
+              className="animate-spin"
+              style={{
+                width: 18,
+                height: 18,
+                borderRadius: '50%',
+                border: '2px solid var(--accent-glow)',
+                borderTopColor: 'var(--accent)',
+              }}
+            />
+            Loading Audiobook Studio...
+          </div>
+        </div>
+      )}
 
 
       <PreviewModal
