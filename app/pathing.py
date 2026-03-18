@@ -11,14 +11,18 @@ def safe_stem(value: str) -> str:
 
 def safe_join(root: Path, value: str) -> Path:
     """
-    Join a user-controlled filename to a trusted root and keep it contained.
+    Join a user-controlled relative path to a trusted root and keep it contained.
 
-    The basename normalization strips any embedded path segments before the
-    containment check so callers can safely pass values that came from request
-    data or stored job metadata.
+    This preserves legitimate subdirectories under the root, while rejecting any
+    attempt to escape via ".." segments or absolute paths.
     """
     root_resolved = root.resolve()
-    candidate = (root_resolved / safe_basename(value)).resolve()
+    candidate = (root_resolved / Path(value)).resolve()
     if not candidate.is_relative_to(root_resolved):
         raise ValueError(f"Path escapes root: {value}")
     return candidate
+
+
+def safe_join_flat(root: Path, value: str) -> Path:
+    """Join a value as a single filename under a trusted root."""
+    return safe_join(root, safe_basename(value))

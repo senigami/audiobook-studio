@@ -2,7 +2,7 @@ import time
 from .core import job_queue, assembly_queue, cancel_flags
 from ..state import get_jobs, update_job, delete_jobs
 from ..config import CHAPTER_DIR, XTTS_OUT_DIR, AUDIOBOOK_DIR
-from ..pathing import safe_basename, safe_join, safe_stem
+from ..pathing import safe_basename, safe_join
 
 def _output_exists(engine: str, chapter_file: str, project_id: str = None, make_mp3: bool = True) -> bool:
     # Voice jobs produce sample.wav, not chapter audio; they are always considered "done"
@@ -10,28 +10,38 @@ def _output_exists(engine: str, chapter_file: str, project_id: str = None, make_
         return True
 
     if not chapter_file: return False
-    safe_name = safe_basename(chapter_file)
-    stem = safe_stem(safe_name)
     if engine == "audiobook":
         if project_id:
             from ..config import get_project_m4b_dir
-            return safe_join(get_project_m4b_dir(project_id), f"{safe_name}.m4b").exists()
-        return safe_join(AUDIOBOOK_DIR, f"{safe_name}.m4b").exists()
+            try:
+                return safe_join(get_project_m4b_dir(project_id), f"{chapter_file}.m4b").exists()
+            except ValueError:
+                return False
+        try:
+            return safe_join(AUDIOBOOK_DIR, f"{chapter_file}.m4b").exists()
+        except ValueError:
+            return False
 
     if engine == "xtts":
         if project_id:
             from ..config import get_project_audio_dir
             pdir = get_project_audio_dir(project_id)
-            mp3 = (pdir / f"{stem}.mp3").exists()
-            if not mp3:
-                mp3 = (XTTS_OUT_DIR / f"{stem}.mp3").exists()
-            wav = (pdir / f"{stem}.wav").exists()
-            if not wav:
-                wav = (XTTS_OUT_DIR / f"{stem}.wav").exists()
+            try:
+                mp3 = safe_join(pdir, f"{chapter_file}.mp3").exists()
+                if not mp3:
+                    mp3 = safe_join(XTTS_OUT_DIR, f"{chapter_file}.mp3").exists()
+                wav = safe_join(pdir, f"{chapter_file}.wav").exists()
+                if not wav:
+                    wav = safe_join(XTTS_OUT_DIR, f"{chapter_file}.wav").exists()
+            except ValueError:
+                return False
         else:
             pdir = XTTS_OUT_DIR
-            mp3 = (pdir / f"{stem}.mp3").exists()
-            wav = (pdir / f"{stem}.wav").exists()
+            try:
+                mp3 = safe_join(pdir, f"{chapter_file}.mp3").exists()
+                wav = safe_join(pdir, f"{chapter_file}.wav").exists()
+            except ValueError:
+                return False
     else:
         return False
 
@@ -69,7 +79,10 @@ def cleanup_and_reconcile():
                     continue
                 stale_ids.append(jid)
         else:
-            if j.status == "done" and not safe_join(AUDIOBOOK_DIR, f"{safe_basename(j.chapter_file)}.m4b").exists():
+            try:
+                if j.status == "done" and not safe_join(AUDIOBOOK_DIR, f"{j.chapter_file}.m4b").exists():
+                    stale_ids.append(jid)
+            except ValueError:
                 stale_ids.append(jid)
 
         # Prune ANY job that has been finished (done/failed) for more than 5 minutes
@@ -122,11 +135,17 @@ def cleanup_and_reconcile():
                     output_file = j.output_mp3 or j.output_wav
                     if output_file:
                         import subprocess
-                        audio_path = safe_join(pdir, output_file)
-                        if not audio_path.exists():
-                            audio_path = safe_join(XTTS_OUT_DIR, output_file)
+                        try:
+                            audio_path = safe_join(pdir, output_file)
+                        except ValueError:
+                            audio_path = None
+                        if audio_path is None or not audio_path.exists():
+                            try:
+                                audio_path = safe_join(XTTS_OUT_DIR, output_file)
+                            except ValueError:
+                                audio_path = None
 
-                        if audio_path.exists():
+                        if audio_path and audio_path.exists():
                             try:
                                 result = subprocess.run(
                                     ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", str(audio_path)],
@@ -136,7 +155,8 @@ def cleanup_and_reconcile():
                                     timeout=2
                                 )
                                 audio_length = float(result.stdout.strip())
-                            except Exception: pass
+                            except Exception:
+                                pass
                     update_queue_item(jid, "done", audio_length_seconds=audio_length)
 
                     cid = j.chapter_id
@@ -148,12 +168,14 @@ def cleanup_and_reconcile():
                                 if c.get("id") and safe_basename(j.chapter_file).startswith(c["id"]):
                                     cid = c["id"]
                                     break
-                        except: pass
+                        except Exception:
+                            pass
 
                     if cid:
                         from ..db import update_chapter
                         update_chapter(cid, audio_status='done', audio_file_path=output_file, audio_generated_at=time.time())
-                except Exception: pass
+                except Exception:
+                    pass
 
     # 3. Requeue the reset jobs
     from . import requeue

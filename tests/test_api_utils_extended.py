@@ -7,6 +7,7 @@ from app.api.utils import (
     process_and_split_file, list_audiobooks
 )
 from app import config
+from app.pathing import safe_join
 
 def test_read_preview(tmp_path):
     p = tmp_path / "test.txt"
@@ -30,9 +31,8 @@ def test_output_exists(tmp_path, monkeypatch):
     (config.AUDIOBOOK_DIR / "book.m4b").write_text("m4b")
     assert output_exists("audiobook", "book") is True
 
-    # Traversal-style input should be normalized back into the safe root.
-    (config.XTTS_OUT_DIR / "evil.wav").write_text("wav")
-    assert output_exists("xtts", "../../evil") is True
+    # Traversal-style input should be rejected.
+    assert output_exists("xtts", "../../evil") is False
 
     assert output_exists("invalid", "test") is False
 
@@ -44,7 +44,7 @@ def test_xtts_outputs_for(tmp_path, monkeypatch):
     # Global only
     outputs = xtts_outputs_for("c1")
     assert "/out/xtts/c1.mp3" in outputs
-    assert xtts_outputs_for("../../c1") == outputs
+    assert xtts_outputs_for("../../c1") == []
 
     # Project specific
     proj_audio = tmp_path / "proj/audio"
@@ -55,6 +55,18 @@ def test_xtts_outputs_for(tmp_path, monkeypatch):
     outputs = xtts_outputs_for("c1", project_id="p1")
     assert "/out/xtts/c1.mp3" in outputs
     assert "/out/projects/p1/audio/c1.wav" in outputs
+
+
+def test_safe_join_allows_nested_relative_paths(tmp_path):
+    root = tmp_path / "root"
+    nested = root / "a" / "b.txt"
+    nested.parent.mkdir(parents=True)
+    nested.write_text("ok")
+
+    assert safe_join(root, "a/b.txt") == nested.resolve()
+
+    with pytest.raises(ValueError):
+        safe_join(root, "../../escape.txt")
 
 def test_is_react_dev_active():
     with patch("socket.socket") as mock_sock:
