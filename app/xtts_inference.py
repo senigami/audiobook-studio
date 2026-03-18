@@ -1,19 +1,23 @@
 import os
 import sys
+from pathlib import Path
 
 # Silence environment noise before heavy imports
 os.environ["PYTHONWARNINGS"] = "ignore"
 os.environ["COQUI_TOS_AGREED"] = "1"
 
-import torch
-import torchaudio
-import argparse
-import warnings
-import json
-import hashlib
-from pathlib import Path
+ROOT_DIR = Path(__file__).resolve().parents[1]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 
-from app.engines import migrate_speaker_latent_to_profile
+import torch  # noqa: E402
+import torchaudio  # noqa: E402
+import argparse  # noqa: E402
+import warnings  # noqa: E402
+import json  # noqa: E402
+import hashlib  # noqa: E402
+
+from app.engines import migrate_speaker_latent_to_profile  # noqa: E402
 
 # Suppress common XTTS/Torch warnings that clutter logs
 warnings.filterwarnings("ignore", category=FutureWarning)

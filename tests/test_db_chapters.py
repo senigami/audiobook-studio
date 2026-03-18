@@ -145,3 +145,35 @@ def test_update_segment_only_cleans_edited_segment_files(db_conn, tmp_path):
         assert seg1_after["audio_status"] == "unprocessed"
         assert seg1_after["audio_file_path"] is None
         assert seg2_after["audio_status"] == "done"
+
+
+def test_sync_chapter_segments_preserves_rendered_file_links(db_conn, tmp_path):
+    from unittest.mock import patch
+    from app.db.segments import sync_chapter_segments, get_chapter_segments
+
+    pid = create_project("P4", "/tmp")
+    cid = create_chapter(pid, "C4", "One. Two.")
+
+    with patch("app.config.get_project_audio_dir", return_value=tmp_path):
+        sync_chapter_segments(cid, "One. Two.")
+        segs = get_chapter_segments(cid)
+        sid1 = segs[0]["id"]
+        sid2 = segs[1]["id"]
+
+        seg1_wav = tmp_path / f"seg_{sid1}.wav"
+        seg2_wav = tmp_path / f"seg_{sid2}.wav"
+        seg1_wav.write_text("seg1")
+        seg2_wav.write_text("seg2")
+
+        from app.db import update_segment
+        update_segment(sid1, audio_status="done", audio_file_path=seg1_wav.name, audio_generated_at=123.0)
+        update_segment(sid2, audio_status="done", audio_file_path=seg2_wav.name, audio_generated_at=124.0)
+
+        sync_chapter_segments(cid, "One. Two.")
+        refreshed = get_chapter_segments(cid)
+        assert refreshed[0]["audio_status"] == "done"
+        assert refreshed[0]["audio_file_path"] == seg1_wav.name
+        assert refreshed[0]["audio_generated_at"] == 123.0
+        assert refreshed[1]["audio_status"] == "done"
+        assert refreshed[1]["audio_file_path"] == seg2_wav.name
+        assert refreshed[1]["audio_generated_at"] == 124.0

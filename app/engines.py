@@ -29,6 +29,7 @@ def terminate_all_subprocesses():
 def run_cmd_stream(cmd: str, on_output, cancel_check) -> int:
     import time
     import selectors
+    from collections import deque
     logger.debug("Running command: %s", cmd)
     proc = subprocess.Popen(
         cmd, shell=True,
@@ -44,6 +45,7 @@ def run_cmd_stream(cmd: str, on_output, cancel_check) -> int:
 
     buffer = ""
     last_heartbeat = time.time()
+    recent_lines = deque(maxlen=50)
 
     try:
         while True:
@@ -62,6 +64,9 @@ def run_cmd_stream(cmd: str, on_output, cancel_check) -> int:
                 if char:
                     buffer += char
                     if char in ('\n', '\r'):
+                        line = buffer.strip()
+                        if line:
+                            recent_lines.append(line)
                         on_output(buffer)
                         buffer = ""
                         last_heartbeat = time.time() # Activity is a heartbeat
@@ -80,14 +85,29 @@ def run_cmd_stream(cmd: str, on_output, cancel_check) -> int:
 
         # Final flush
         if buffer:
+            line = buffer.strip()
+            if line:
+                recent_lines.append(line)
             on_output(buffer)
 
         # Consume any remaining output
         rest = proc.stdout.read()
         if rest:
+            for line in rest.splitlines():
+                stripped = line.strip()
+                if stripped:
+                    recent_lines.append(stripped)
             on_output(rest)
 
-        return proc.returncode or 0
+        rc = proc.returncode or 0
+        if rc != 0:
+            logger.error(
+                "Command failed (rc=%s): %s\nLast output:\n%s",
+                rc,
+                cmd,
+                "\n".join(recent_lines),
+            )
+        return rc
     finally:
         sel.close()
         if proc in _active_processes:
@@ -172,7 +192,7 @@ def xtts_generate_script(
         return 1
 
     cmd = (
-        f"export PYTHONUNBUFFERED=1 && source {shlex.quote(str(XTTS_ENV_ACTIVATE))} && "
+        f"export PYTHONUNBUFFERED=1 && . {shlex.quote(str(XTTS_ENV_ACTIVATE))} && "
         f"python3 {shlex.quote(str(BASE_DIR / 'app' / 'xtts_inference.py'))} "
         f"--script_json {shlex.quote(str(script_json_path))} "
         f"--language en "

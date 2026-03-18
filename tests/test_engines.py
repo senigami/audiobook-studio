@@ -1,5 +1,7 @@
 import pytest
+import os
 import subprocess
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch, ANY
 from app.engines import (
@@ -216,6 +218,25 @@ def test_xtts_generate_script_includes_voice_profile_dir(mock_on_output, mock_ca
         )
         assert rc == 0
         assert "--voice_profile_dir" in mock_run.call_args[0][0]
+        assert " . " in mock_run.call_args[0][0]
+        assert " source " not in mock_run.call_args[0][0]
+
+
+def test_xtts_inference_can_run_from_outside_repo(tmp_path):
+    script = Path(__file__).resolve().parents[1] / "app" / "xtts_inference.py"
+    env = os.environ.copy()
+    env.pop("PYTHONPATH", None)
+    result = subprocess.run(
+        [sys.executable, str(script), "--help"],
+        cwd=tmp_path,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0
+    assert "XTTS Streaming Inference Script" in result.stdout
 
 def test_get_speaker_latent_path_none():
     assert get_speaker_latent_path(None) is None

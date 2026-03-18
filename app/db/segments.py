@@ -212,6 +212,10 @@ def sync_chapter_segments(chapter_id: str, text_content: str):
             # 1. Get existing segments
             cursor.execute("SELECT * FROM chapter_segments WHERE chapter_id = ? ORDER BY segment_order ASC", (chapter_id,))
             existing = [dict(row) for row in cursor.fetchall()]
+            existing_by_text = {}
+            for ex in existing:
+                if ex.get("text_content") and ex["text_content"] not in existing_by_text:
+                    existing_by_text[ex["text_content"]] = ex
 
             # 2. Simple diff/match logic:
             # For each new sentence, see if it exists in the old list at the same or similar position
@@ -232,8 +236,10 @@ def sync_chapter_segments(chapter_id: str, text_content: str):
 
                 if matched_id:
                     logger.debug(f"sync_chapter_segments: Matched existing segment {matched_id} for sentence: '{sent[:30]}...'")
+                    existing_row = next((ex for ex in existing if ex["id"] == matched_id), None)
                 else:
                     logger.debug(f"sync_chapter_segments: Generated new segment ID for sentence: '{sent[:30]}...'")
+                    existing_row = existing_by_text.get(sent)
 
                 seg_id = matched_id or str(time.time_ns()) + f"_{i}"
                 new_segments.append({
@@ -241,18 +247,20 @@ def sync_chapter_segments(chapter_id: str, text_content: str):
                     'chapter_id': chapter_id,
                     'segment_order': i,
                     'text_content': sent,
-                    'character_id': matched_char,
-                    'speaker_profile_name': matched_speaker,
-                    'audio_status': 'unprocessed' if not matched_id else 'done' 
+                    'character_id': existing_row.get("character_id") if existing_row else matched_char,
+                    'speaker_profile_name': existing_row.get("speaker_profile_name") if existing_row else matched_speaker,
+                    'audio_status': existing_row.get("audio_status", 'unprocessed') if existing_row else 'unprocessed',
+                    'audio_file_path': existing_row.get("audio_file_path") if existing_row else None,
+                    'audio_generated_at': existing_row.get("audio_generated_at") if existing_row else None,
                 })
 
             # 3. Replace all (cleaner than complex sync)
             cursor.execute("DELETE FROM chapter_segments WHERE chapter_id = ?", (chapter_id,))
             for seg in new_segments:
                 cursor.execute("""
-                    INSERT INTO chapter_segments (id, chapter_id, segment_order, text_content, character_id, speaker_profile_name, audio_status)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (seg['id'], seg['chapter_id'], seg['segment_order'], seg['text_content'], seg['character_id'], seg['speaker_profile_name'], seg['audio_status']))
+                    INSERT INTO chapter_segments (id, chapter_id, segment_order, text_content, character_id, speaker_profile_name, audio_status, audio_file_path, audio_generated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (seg['id'], seg['chapter_id'], seg['segment_order'], seg['text_content'], seg['character_id'], seg['speaker_profile_name'], seg['audio_status'], seg['audio_file_path'], seg['audio_generated_at']))
 
             conn.commit()
 
