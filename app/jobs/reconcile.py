@@ -1,8 +1,8 @@
 import time
-from pathlib import Path
 from .core import job_queue, assembly_queue, cancel_flags
 from ..state import get_jobs, update_job, delete_jobs
 from ..config import CHAPTER_DIR, XTTS_OUT_DIR, AUDIOBOOK_DIR
+from ..pathing import safe_basename, safe_join, safe_stem
 
 def _output_exists(engine: str, chapter_file: str, project_id: str = None, make_mp3: bool = True) -> bool:
     # Voice jobs produce sample.wav, not chapter audio; they are always considered "done"
@@ -10,12 +10,13 @@ def _output_exists(engine: str, chapter_file: str, project_id: str = None, make_
         return True
 
     if not chapter_file: return False
-    stem = Path(chapter_file).stem
+    safe_name = safe_basename(chapter_file)
+    stem = safe_stem(safe_name)
     if engine == "audiobook":
         if project_id:
             from ..config import get_project_m4b_dir
-            return (get_project_m4b_dir(project_id) / f"{chapter_file}.m4b").exists()
-        return (AUDIOBOOK_DIR / f"{chapter_file}.m4b").exists()
+            return safe_join(get_project_m4b_dir(project_id), f"{safe_name}.m4b").exists()
+        return safe_join(AUDIOBOOK_DIR, f"{safe_name}.m4b").exists()
 
     if engine == "xtts":
         if project_id:
@@ -57,18 +58,18 @@ def cleanup_and_reconcile():
 
             if j.project_id:
                 from ..config import get_project_text_dir
-                text_path = get_project_text_dir(j.project_id) / j.chapter_file
+                text_path = safe_join(get_project_text_dir(j.project_id), j.chapter_file)
                 if not text_path.exists():
-                    text_path = CHAPTER_DIR / j.chapter_file
+                    text_path = safe_join(CHAPTER_DIR, j.chapter_file)
             else:
-                text_path = CHAPTER_DIR / j.chapter_file
+                text_path = safe_join(CHAPTER_DIR, j.chapter_file)
 
             if not text_path.exists():
                 if j.id == "mp3-backfill-task" or "Backfill" in j.chapter_file:
                     continue
                 stale_ids.append(jid)
         else:
-            if j.status == "done" and not (AUDIOBOOK_DIR / f"{j.chapter_file}.m4b").exists():
+            if j.status == "done" and not safe_join(AUDIOBOOK_DIR, f"{safe_basename(j.chapter_file)}.m4b").exists():
                 stale_ids.append(jid)
 
         # Prune ANY job that has been finished (done/failed) for more than 5 minutes
@@ -121,9 +122,9 @@ def cleanup_and_reconcile():
                     output_file = j.output_mp3 or j.output_wav
                     if output_file:
                         import subprocess
-                        audio_path = pdir / output_file
+                        audio_path = safe_join(pdir, output_file)
                         if not audio_path.exists():
-                            audio_path = XTTS_OUT_DIR / output_file
+                            audio_path = safe_join(XTTS_OUT_DIR, output_file)
 
                         if audio_path.exists():
                             try:
@@ -144,7 +145,7 @@ def cleanup_and_reconcile():
                             from ..db import list_chapters
                             chaps = list_chapters(j.project_id)
                             for c in chaps:
-                                if c.get("id") and j.chapter_file.startswith(c["id"]):
+                                if c.get("id") and safe_basename(j.chapter_file).startswith(c["id"]):
                                     cid = c["id"]
                                     break
                         except: pass

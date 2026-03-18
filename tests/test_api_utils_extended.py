@@ -30,6 +30,10 @@ def test_output_exists(tmp_path, monkeypatch):
     (config.AUDIOBOOK_DIR / "book.m4b").write_text("m4b")
     assert output_exists("audiobook", "book") is True
 
+    # Traversal-style input should be normalized back into the safe root.
+    (config.XTTS_OUT_DIR / "evil.wav").write_text("wav")
+    assert output_exists("xtts", "../../evil") is True
+
     assert output_exists("invalid", "test") is False
 
 def test_xtts_outputs_for(tmp_path, monkeypatch):
@@ -40,6 +44,7 @@ def test_xtts_outputs_for(tmp_path, monkeypatch):
     # Global only
     outputs = xtts_outputs_for("c1")
     assert "/out/xtts/c1.mp3" in outputs
+    assert xtts_outputs_for("../../c1") == outputs
 
     # Project specific
     proj_audio = tmp_path / "proj/audio"
