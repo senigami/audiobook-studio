@@ -21,8 +21,14 @@ def test_estimate_seconds():
 
 def test_queueing():
     job = Job(id="test_job", engine="xtts", chapter_file="none.txt", status="queued", created_at=0.0)
-    enqueue(job)
-    clear_job_queue()
+    with patch("app.jobs.put_job") as mock_put_job, \
+         patch("app.jobs.job_queue") as mock_job_queue, \
+         patch("app.jobs.assembly_queue") as mock_assembly_queue:
+        enqueue(job)
+
+    mock_put_job.assert_called_once_with(job)
+    mock_job_queue.put.assert_called_once_with(job.id)
+    mock_assembly_queue.put.assert_not_called()
 
 def test_output_exists():
     with patch('pathlib.Path.exists', return_value=True), patch('pathlib.Path.stat'):
@@ -38,10 +44,13 @@ def test_speaker_helpers():
         mock_dir.exists.return_value = True
         mock_dir.is_dir.return_value = True
         mock_dir.glob.return_value = []
-        get_speaker_wavs("default")
+        assert get_speaker_wavs("default") is None
 
     with patch('app.jobs.get_settings', return_value={"default_speaker_profile": "v2"}):
-        get_speaker_settings("default")
+        settings = get_speaker_settings("default")
+
+    assert settings["speed"] == 1.0
+    assert settings["test_text"]
 
 
 def test_speaker_helpers_resolve_uuid_profile(tmp_path):

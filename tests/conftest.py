@@ -30,6 +30,7 @@ for d in ["chapters_out", "uploads", "reports", "xtts_audio", "audiobooks", "voi
 # 2. NOW import modules that rely on these env vars
 from app.db import init_db  # noqa: E402
 from app.state import clear_all_jobs  # noqa: E402
+from app.jobs import clear_job_queue  # noqa: E402
 
 @pytest.fixture(autouse=True)
 def clean_storage():
@@ -42,6 +43,7 @@ def clean_storage():
 
     # Clear in-memory state and state.json
     clear_all_jobs()
+    clear_job_queue()
 
     # Clear any dependency overrides that a test may have left behind.
     from app.web import app as fastapi_app
@@ -51,3 +53,4 @@ def clean_storage():
 
     fastapi_app.dependency_overrides = {}
     clear_all_jobs()
+    clear_job_queue()

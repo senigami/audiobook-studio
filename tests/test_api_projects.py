@@ -42,29 +42,37 @@ def test_project_crud(clean_db, client):
     # Update
     response = client.put(f"/api/projects/{pid}", data={"name": "Updated Project"})
     assert response.status_code == 200
+    assert client.get(f"/api/projects/{pid}").json()["name"] == "Updated Project"
 
     # Delete
     response = client.delete(f"/api/projects/{pid}")
     assert response.status_code == 200
+    assert client.get(f"/api/projects/{pid}").status_code == 404
 
 def test_project_chapters(clean_db, client):
     pid = client.post("/api/projects", data={"name": "P1"}).json()["project_id"]
 
-    # Create chapter
-    r = client.post(f"/api/projects/{pid}/chapters",
-                    data={"title": "Chapter 1", "text_content": "Hello world."})
-    assert r.status_code == 200
-    cid = r.json()["chapter"]["id"]
+    # Create chapters
+    r1 = client.post(f"/api/projects/{pid}/chapters",
+                     data={"title": "Chapter 1", "text_content": "Hello world."})
+    r2 = client.post(f"/api/projects/{pid}/chapters",
+                     data={"title": "Chapter 2", "text_content": "Second chapter."})
+    assert r1.status_code == 200
+    assert r2.status_code == 200
+    cid1 = r1.json()["chapter"]["id"]
+    cid2 = r2.json()["chapter"]["id"]
 
     # List chapters
     r = client.get(f"/api/projects/{pid}/chapters")
     assert r.status_code == 200
-    assert len(r.json()) == 1
-    assert r.json()[0]["title"] == "Chapter 1"
+    assert [c["title"] for c in r.json()] == ["Chapter 1", "Chapter 2"]
 
-    # Reorder
-    r = client.post(f"/api/projects/{pid}/reorder_chapters", data={"chapter_ids": json.dumps([cid])})
+    # Reorder and verify the order changes
+    r = client.post(f"/api/projects/{pid}/reorder_chapters", data={"chapter_ids": json.dumps([cid2, cid1])})
     assert r.status_code == 200
+
+    r = client.get(f"/api/projects/{pid}/chapters")
+    assert [c["id"] for c in r.json()] == [cid2, cid1]
 
 def test_project_audiobooks_and_assemble(clean_db, client):
     pid = client.post("/api/projects", data={"name": "P1"}).json()["project_id"]
@@ -83,8 +91,12 @@ def test_project_audiobooks_and_assemble(clean_db, client):
 
     # Assemble
     from unittest.mock import patch
-    with patch("app.api.routers.projects.put_job"), patch("app.api.routers.projects.enqueue"):
+    with patch("app.api.routers.projects.put_job") as mock_put_job, patch("app.api.routers.projects.enqueue") as mock_enqueue:
         # We don't send 'chapters' list explicitly if we want it to use all chapters from project
         response = client.post(f"/api/projects/{pid}/assemble", 
                                data={"title": "Book", "author": "Me", "narrator": "V1"})
         assert response.status_code == 200
+        assert response.json()["status"] == "ok"
+        assert "job_id" in response.json()
+        mock_put_job.assert_called_once()
+        mock_enqueue.assert_called_once()
