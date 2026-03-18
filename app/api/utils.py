@@ -6,6 +6,7 @@ import shlex
 from pathlib import Path
 from typing import Optional, List
 from .. import config
+from ..pathing import safe_basename, safe_join, safe_join_flat, safe_stem
 from ..textops import split_by_chapter_markers, write_chapters_to_folder, split_into_parts
 
 def read_preview(path: Path, max_chars: int = 8000) -> str:
@@ -20,27 +21,45 @@ def read_preview(path: Path, max_chars: int = 8000) -> str:
         return ""
 
 def output_exists(engine: str, chapter_file: str):
+    if safe_basename(chapter_file) != chapter_file:
+        return False
+    chapter_name = safe_stem(chapter_file)
     if engine == "xtts":
-        return (config.XTTS_OUT_DIR / f"{chapter_file}.wav").exists() or (config.XTTS_OUT_DIR / f"{chapter_file}.mp3").exists()
+        try:
+            return safe_join(config.XTTS_OUT_DIR, f"{chapter_name}.wav").exists() or safe_join(config.XTTS_OUT_DIR, f"{chapter_name}.mp3").exists()
+        except ValueError:
+            return False
     elif engine == "audiobook":
-        return (config.AUDIOBOOK_DIR / f"{chapter_file}.m4b").exists()
+        try:
+            return safe_join(config.AUDIOBOOK_DIR, f"{chapter_name}.m4b").exists()
+        except ValueError:
+            return False
     return False
 
 def xtts_outputs_for(chapter_file: str, project_id: Optional[str] = None):
+    if safe_basename(chapter_file) != chapter_file:
+        return []
     outputs = []
+    chapter_name = safe_basename(chapter_file)
     # Check global
     for ext in [".wav", ".mp3"]:
-        p = config.XTTS_OUT_DIR / f"{chapter_file}{ext}"
-        if p.exists():
-            outputs.append(f"/out/xtts/{chapter_file}{ext}")
+        try:
+            p = safe_join(config.XTTS_OUT_DIR, f"{chapter_name}{ext}")
+            if p.exists():
+                outputs.append(f"/out/xtts/{chapter_name}{ext}")
+        except ValueError:
+            return []
 
     # Check project
     if project_id:
         proj_audio = config.get_project_audio_dir(project_id)
         for ext in [".wav", ".mp3"]:
-            p = proj_audio / f"{chapter_file}{ext}"
-            if p.exists():
-                outputs.append(f"/out/projects/{project_id}/audio/{chapter_file}{ext}")
+            try:
+                p = safe_join(proj_audio, f"{chapter_name}{ext}")
+                if p.exists():
+                    outputs.append(f"/out/projects/{project_id}/audio/{chapter_name}{ext}")
+            except ValueError:
+                return []
 
     return outputs
 
@@ -64,9 +83,10 @@ def process_and_split_file(filename: str, mode: str = "parts", max_chars: int = 
     if max_chars is None:
         max_chars = config.PART_CHAR_LIMIT
 
-    path = config.UPLOAD_DIR / filename
+    safe_filename = safe_basename(filename)
+    path = safe_join_flat(config.UPLOAD_DIR, safe_filename)
     if not path.exists():
-        raise FileNotFoundError(f"Upload not found: {filename}")
+        raise FileNotFoundError(f"Upload not found: {safe_filename}")
 
     full_text = path.read_text(encoding="utf-8", errors="replace")
     mode_clean = str(mode).strip().lower()
@@ -77,7 +97,7 @@ def process_and_split_file(filename: str, mode: str = "parts", max_chars: int = 
             raise ValueError("No chapter markers found. Expected: Chapter 1: Title")
         return write_chapters_to_folder(chapters, config.CHAPTER_DIR, prefix="chapter", include_heading=True)
     else:
-        stem = Path(filename).stem
+        stem = safe_stem(safe_filename)
         chapters = split_into_parts(full_text, max_chars, start_index=1)
         return write_chapters_to_folder(chapters, config.CHAPTER_DIR, prefix=stem, include_heading=False)
 

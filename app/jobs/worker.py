@@ -14,6 +14,7 @@ from .core import (
 from .handlers.xtts import handle_xtts_job
 from ..state import get_jobs, update_job, get_performance_metrics, update_performance_metrics
 from ..config import CHAPTER_DIR, XTTS_OUT_DIR, AUDIOBOOK_DIR, SAMPLES_DIR
+from ..pathing import safe_join
 from .reconcile import _output_exists
 from .speaker import get_speaker_wavs, get_speaker_settings
 from .handlers.audiobook import handle_audiobook_job
@@ -55,15 +56,17 @@ def worker_loop(q):
                         row = cursor.fetchone()
                         chars = row[0] if row and row[0] else 0
                 elif j.chapter_file:
-                    if j.project_id:
-                        from ..config import get_project_text_dir
-                        text_path = get_project_text_dir(j.project_id) / j.chapter_file
-                    else:
-                        text_path = CHAPTER_DIR / j.chapter_file
+                    try:
+                        if j.project_id:
+                            from ..config import get_project_text_dir
+                            text_path = safe_join(get_project_text_dir(j.project_id), j.chapter_file)
+                        else:
+                            text_path = safe_join(CHAPTER_DIR, j.chapter_file)
 
-                    if text_path.exists():
                         text = text_path.read_text(encoding="utf-8", errors="replace")
                         chars = len(text)
+                    except (FileNotFoundError, ValueError):
+                        pass
 
                 if chars > 0:
                     perf = get_performance_metrics()
@@ -82,7 +85,14 @@ def worker_loop(q):
                     audio_files = [f for f in os.listdir(src_dir) if f.endswith(('.wav', '.mp3'))] if src_dir.exists() else []
 
                 num_files = len(audio_files)
-                total_size_mb = sum((src_dir / f).stat().st_size for f in audio_files if (src_dir / f).exists()) / (1024 * 1024) if src_dir.exists() else 0
+                total_size_mb = 0
+                if src_dir.exists():
+                    for f in audio_files:
+                        try:
+                            total_size_mb += safe_join(src_dir, f).stat().st_size
+                        except FileNotFoundError:
+                            continue
+                total_size_mb /= (1024 * 1024)
 
                 perf = get_performance_metrics()
                 mult = perf.get("audiobook_speed_multiplier", 1.0)

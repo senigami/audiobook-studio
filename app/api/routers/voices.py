@@ -20,6 +20,7 @@ from ...jobs import (
 from ... import config
 from ...state import get_settings, update_settings, get_jobs, put_job, update_job
 from ...models import Job
+from ...pathing import safe_join
 
 # Compatibility for tests that monkeypatch these
 VOICES_DIR = config.VOICES_DIR
@@ -29,6 +30,14 @@ logger = logging.getLogger(__name__)
 
 def get_voices_dir() -> Path:
     return VOICES_DIR
+
+
+def _voice_profile_dir(voices_dir: Path, name: str) -> Path:
+    return safe_join(voices_dir, name)
+
+
+def _voice_sample_path(voices_dir: Path, name: str, sample_name: str) -> Path:
+    return safe_join(_voice_profile_dir(voices_dir, name), sample_name)
 
 router = APIRouter(tags=["voices"])
 
@@ -99,10 +108,9 @@ def api_create_speaker_profile(
         spk_name = spk["name"] if spk else speaker_id
         name = f"{spk_name} - {variant_name}"
         # Constructed path
-        path = (voices_dir / name).resolve()
-
-        # Security: verify it's within voices_dir
-        if not path.is_relative_to(voices_dir.resolve()):
+        try:
+            path = _voice_profile_dir(voices_dir, name)
+        except ValueError:
             logger.warning(f"Blocking profile creation traversal attempt: {name}")
             return JSONResponse({"status": "error", "message": "Invalid profile name"}, status_code=403)
 
@@ -156,11 +164,10 @@ def api_create_speaker_route(name: str = Form(...), default_profile_name: Option
 
 def _rename_profile_folders(old_name: str, new_name: str, voices_dir: Path):
     """Helper to rename all profile folders on disk starting with a speaker name."""
-    old_dir = (voices_dir / old_name).resolve()
-    new_dir = (voices_dir / new_name).resolve()
-
-    # Traversal check
-    if not old_dir.is_relative_to(voices_dir.resolve()) or not new_dir.is_relative_to(voices_dir.resolve()):
+    try:
+        old_dir = _voice_profile_dir(voices_dir, old_name)
+        new_dir = _voice_profile_dir(voices_dir, new_name)
+    except ValueError:
         logger.warning(f"Blocking profile rename traversal attempt: {old_name} -> {new_name}")
         raise HTTPException(status_code=403, detail="Invalid profile name")
 
@@ -247,8 +254,9 @@ def api_assign_profile_to_speaker(
     """
     import json as _json
     try:
-        old_dir = (voices_dir / profile_name).resolve()
-        if not old_dir.is_relative_to(voices_dir.resolve()):
+        try:
+            old_dir = _voice_profile_dir(voices_dir, profile_name)
+        except ValueError:
             return JSONResponse({"status": "error", "message": "Invalid profile name"}, status_code=403)
         if not old_dir.exists():
             return JSONResponse({"status": "error", "message": "Profile not found"}, status_code=404)
@@ -281,8 +289,9 @@ def api_assign_profile_to_speaker(
             # Unassigning: keep variant name as the folder
             new_profile_name = variant_name
 
-        new_dir = (voices_dir / new_profile_name).resolve()
-        if not new_dir.is_relative_to(voices_dir.resolve()):
+        try:
+            new_dir = _voice_profile_dir(voices_dir, new_profile_name)
+        except ValueError:
             return JSONResponse({"status": "error", "message": "Invalid target profile name"}, status_code=403)
 
         if new_dir.exists() and new_dir != old_dir:
@@ -346,8 +355,9 @@ async def build_speaker_profile(
     voices_dir: Path = Depends(get_voices_dir)
 ):
     try:
-        path = (voices_dir / name).resolve()
-        if not path.is_relative_to(voices_dir.resolve()):
+        try:
+            path = _voice_profile_dir(voices_dir, name)
+        except ValueError:
             logger.warning(f"Blocking profile build traversal attempt: {name}")
             return JSONResponse({"status": "error", "message": "Invalid profile name"}, status_code=403)
 
@@ -395,8 +405,9 @@ async def upload_speaker_samples(
     voices_dir: Path = Depends(get_voices_dir)
 ):
     try:
-        path = (voices_dir / name).resolve()
-        if not path.is_relative_to(voices_dir.resolve()):
+        try:
+            path = _voice_profile_dir(voices_dir, name)
+        except ValueError:
             return JSONResponse({"status": "error", "message": "Invalid profile"}, status_code=403)
 
         path.mkdir(parents=True, exist_ok=True)
@@ -418,8 +429,9 @@ def delete_speaker_sample(
     voices_dir: Path = Depends(get_voices_dir)
 ):
     try:
-        path = (voices_dir / name / sample_name).resolve()
-        if not path.is_relative_to(voices_dir.resolve()):
+        try:
+            path = _voice_sample_path(voices_dir, name, sample_name)
+        except ValueError:
             return JSONResponse({"status": "error", "message": "Invalid path"}, status_code=403)
 
         if path.exists():
@@ -460,8 +472,9 @@ def delete_speaker_profile(
     voices_dir: Path = Depends(get_voices_dir)
 ):
     try:
-        path = (voices_dir / name).resolve()
-        if not path.is_relative_to(voices_dir.resolve()):
+        try:
+            path = _voice_profile_dir(voices_dir, name)
+        except ValueError:
             logger.warning(f"Blocking profile delete traversal attempt: {name}")
             return JSONResponse({"status": "error", "message": "Invalid profile name"}, status_code=403)
 

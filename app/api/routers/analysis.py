@@ -13,6 +13,7 @@ from ...textops import (
     pack_text_to_limit, sanitize_for_xtts, get_text_stats, format_duration
 )
 from ...config import SENT_CHAR_LIMIT, BASELINE_XTTS_CPS
+from ...pathing import safe_join_flat
 
 logger = logging.getLogger(__name__)
 
@@ -259,13 +260,7 @@ def _run_analysis(
 ):
     # Path Traversal Safety
     try:
-        # Construct and resolve path
-        safe_path = (chapter_dir / chapter_file).resolve()
-        # Verify it's within the intended directory
-        if not safe_path.is_relative_to(chapter_dir.resolve()):
-            logger.warning(f"Blocking path traversal attempt: {chapter_file}")
-            raise AnalysisError("Invalid chapter path", 403)
-
+        safe_path = safe_join_flat(chapter_dir, chapter_file)
         if not safe_path.exists():
             raise AnalysisError(f"Chapter file '{chapter_file}' not found.", 404)
 
@@ -335,14 +330,7 @@ def report(
 ):
     # Path Traversal Safety
     try:
-        report_path = (report_dir / f"long_sentences_{name}.txt").resolve()
-        if not report_path.is_relative_to(report_dir.resolve()):
-            logger.warning(f"Blocking report traversal attempt: {name}")
-            return JSONResponse(
-                {"status": "error", "message": "Invalid report name"},
-                status_code=403
-            )
-
+        report_path = safe_join_flat(report_dir, f"long_sentences_{name}.txt")
         if not report_path.exists():
             return JSONResponse(
                 {"status": "error", "message": "Report not found"},

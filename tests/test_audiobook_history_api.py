@@ -68,3 +68,18 @@ def test_delete_audiobook(tmp_path):
 def test_delete_audiobook_not_found():
     response = client.delete("/api/audiobook/non-existent.m4b")
     assert response.status_code == 404
+
+
+def test_delete_audiobook_rejects_traversal(tmp_path, monkeypatch):
+    from app.api.routers import settings as settings_router
+
+    audiobook_dir = tmp_path / "audiobooks"
+    audiobook_dir.mkdir()
+    outside = tmp_path / "escape.m4b"
+    outside.write_text("escape")
+
+    monkeypatch.setattr(settings_router, "AUDIOBOOK_DIR", audiobook_dir)
+
+    response = settings_router.delete_audiobook("../../escape.m4b", project_id=None)
+    assert response.status_code == 403
+    assert outside.exists()

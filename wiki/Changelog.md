@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.3] - 2026-03-18
+
+### Security
+
+- **Path Sinks Scoped to Trusted Roots**: Hardened audiobook, voice-profile, and analysis-report file handling so user-controlled names are resolved inside their intended project or voice directories before any disk access occurs.
+- **Traversal Regression Coverage**: Added tests that exercise the new containment checks for audiobook deletion, voice sample deletion, and analysis reports.
+
+### Fixed
+
+- **Reconciliation Filename Normalization**: Corrected job reconciliation so chapter text names are normalized to their stem before output lookup, preserving legacy/project-aware sync behavior while still rejecting traversal-style inputs.
+
 ## [1.4.1] - 2026-03-17
 
 ### Compatibility & Security
@@ -47,6 +58,7 @@ All notable changes to this project will be documented in this file.
 - **Path Sanitization**: Implemented robust path traversal protection using `Path.resolve()` and `is_relative_to()` to prevent unauthorized file access.
 - **Input Hardening**: Added stricter validation for text inputs and chapter file paths to prevent resource exhaustion.
 - **Granular Exception Handling**: Refined the error handling logic to provide more descriptive feedback with specific HTTP status codes (403, 404, 422).
+- **Safe Roots for File Lookups**: Scoped chapter, upload, and audio-path helpers to trusted root folders so user-controlled paths are normalized before disk access while preserving legitimate subdirectories inside those roots.
 
 ### Quality Assurance
 - **Expanded Test Suite**: Added `test_api_analysis_extended.py` and front-end unit tests for the `StatusOrb` and `ScriptEditor` components.
