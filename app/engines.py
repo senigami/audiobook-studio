@@ -3,6 +3,7 @@ import subprocess
 import os
 import re
 import hashlib
+import shutil
 from pathlib import Path
 from typing import List, Optional
 
@@ -188,7 +189,7 @@ def get_audio_duration(file_path: Path) -> float:
     except Exception:
         return 0.0
 
-def get_speaker_latent_path(speaker_wavs_str: str, voice_profile_dir: Path = None) -> Optional[Path]:
+def get_speaker_latent_path(speaker_wavs_str, voice_profile_dir: Path = None) -> Optional[Path]:
     """Computes the same latent path as xtts_inference.py."""
     if voice_profile_dir is not None:
         return Path(voice_profile_dir) / "latent.pth"
@@ -196,7 +197,9 @@ def get_speaker_latent_path(speaker_wavs_str: str, voice_profile_dir: Path = Non
     if not speaker_wavs_str:
         return None
 
-    if "," in speaker_wavs_str:
+    if isinstance(speaker_wavs_str, list):
+        combined_paths = "|".join(sorted([os.path.abspath(p) for p in speaker_wavs_str]))
+    elif "," in speaker_wavs_str:
         wavs = [s.strip() for s in speaker_wavs_str.split(",") if s.strip()]
         combined_paths = "|".join(sorted([os.path.abspath(p) for p in wavs]))
     else:
@@ -205,6 +208,21 @@ def get_speaker_latent_path(speaker_wavs_str: str, voice_profile_dir: Path = Non
     speaker_id = hashlib.md5(combined_paths.encode()).hexdigest()
     voice_dir = Path(os.path.expanduser("~/.cache/audiobook-studio/voices"))
     return voice_dir / f"{speaker_id}.pth"
+
+
+def migrate_speaker_latent_to_profile(speaker_wavs_str, voice_profile_dir: Path) -> Optional[Path]:
+    """Copies a legacy cache latent into a profile-owned latent path if needed."""
+    profile_latent = Path(voice_profile_dir) / "latent.pth"
+    if profile_latent.exists():
+        return profile_latent
+
+    legacy_latent = get_speaker_latent_path(speaker_wavs_str)
+    if legacy_latent and legacy_latent.exists():
+        profile_latent.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(legacy_latent, profile_latent)
+        return profile_latent
+
+    return None
 
 def assemble_audiobook(
     input_folder: Path,

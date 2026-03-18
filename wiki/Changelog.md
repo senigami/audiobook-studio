@@ -8,6 +8,8 @@ All notable changes to this project will be documented in this file.
 
 - **Portable Voice Latents**: XTTS latent caches now live alongside their voice profiles so renaming or moving a profile no longer forces a new `.pth` file.
 - **Voice Bundle Support**: Voice profiles can now carry their manifest and latent artifact together, making them easier to share between app users.
+- **MP3 Voice Previews**: Voice builds now normalize their generated sample clip to `sample.mp3`, so playback uses a consistent, smaller preview file.
+- **Legacy Latent Migration**: Existing hash-based cache files are copied into the profile folder on first use so older voices upgrade without manual cleanup.
 
 ### Fixed
 

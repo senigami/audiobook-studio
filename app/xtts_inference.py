@@ -13,6 +13,8 @@ import json
 import hashlib
 from pathlib import Path
 
+from app.engines import migrate_speaker_latent_to_profile
+
 # Suppress common XTTS/Torch warnings that clutter logs
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -90,9 +92,12 @@ def main():
             wav_input = speaker_wav_paths
 
         speaker_id = hashlib.md5(combined_paths.encode()).hexdigest()
+        migrated = False
         if voice_profile_dir:
             latent_file = os.path.join(voice_profile_dir, "latent.pth")
             current_fingerprint = _profile_fingerprint(voice_profile_dir)
+            if not os.path.exists(latent_file):
+                migrated = migrate_speaker_latent_to_profile(speaker_wav_paths, Path(voice_profile_dir)) is not None
         else:
             latent_file = os.path.join(voice_dir, f"{speaker_id}.pth")
             current_fingerprint = None
@@ -100,6 +105,9 @@ def main():
         if os.path.exists(latent_file):
             try:
                 latents = torch.load(latent_file, map_location=device, weights_only=False)
+                if migrated and current_fingerprint and latents.get("profile_fingerprint") != current_fingerprint:
+                    latents["profile_fingerprint"] = current_fingerprint
+                    torch.save(latents, latent_file)
                 if not current_fingerprint or latents.get("profile_fingerprint") == current_fingerprint:
                     print(f"Loading cached latents for {speaker_id}...", file=sys.stderr)
                     return latents["gpt_cond_latent"], latents["speaker_embedding"]

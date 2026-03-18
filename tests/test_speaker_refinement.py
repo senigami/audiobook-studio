@@ -3,6 +3,7 @@ import os
 import json
 import time
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 from fastapi.testclient import TestClient
 from app.web import app as fastapi_app
 from app.db.core import init_db
@@ -244,3 +245,57 @@ def test_build_clears_sample_wav(clean_db, tmp_path):
 
     # 3. Verify sample.wav is GONE
     assert not sample_path.exists(), "sample.wav should have been deleted by the build endpoint"
+
+
+def test_voice_build_worker_exports_mp3_preview(clean_db, tmp_path):
+    """Voice build jobs should leave a reusable sample.mp3 and remove the temp sample.wav."""
+    from app.jobs.worker import worker_loop
+    from app.models import Job
+
+    voices_dir = tmp_path / "voices"
+    profile_dir = voices_dir / "TestBuilt"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    fastapi_app.dependency_overrides[get_voices_dir] = lambda: voices_dir
+
+    sample_wav = profile_dir / "sample.wav"
+    sample_mp3 = profile_dir / "sample.mp3"
+
+    q = MagicMock()
+    q.get.side_effect = ["test-build", Exception("StopLoop")]
+
+    job = Job(
+        id="test-build",
+        engine="voice_build",
+        speaker_profile="TestBuilt",
+        status="queued",
+        created_at=time.time(),
+        chapter_file="",
+    )
+
+    def fake_xtts_generate(*args, **kwargs):
+        out_wav = kwargs["out_wav"]
+        Path(out_wav).write_text("wav preview")
+        return 0
+
+    def fake_wav_to_mp3(in_wav, out_mp3, on_output=None, cancel_check=None):
+        Path(out_mp3).write_text("mp3 preview")
+        return 0
+
+    with patch("app.config.VOICES_DIR", voices_dir), \
+         patch("app.jobs.worker.get_jobs", return_value={"test-build": job}), \
+         patch("app.jobs.worker.update_job"), \
+         patch("app.jobs.worker.get_performance_metrics", return_value={"xtts_cps": 10.0, "audiobook_speed_multiplier": 1.0}), \
+         patch("app.jobs.worker.get_speaker_settings", return_value={"speed": 1.0, "test_text": "Hello"}), \
+         patch("app.jobs.worker.get_speaker_wavs", return_value="ref.wav"), \
+         patch("app.jobs.worker.get_voice_profile_dir", return_value=profile_dir), \
+         patch("app.engines.xtts_generate", side_effect=fake_xtts_generate), \
+         patch("app.jobs.worker.wav_to_mp3", side_effect=fake_wav_to_mp3):
+
+        try:
+            worker_loop(q)
+        except Exception as e:
+            if str(e) != "StopLoop":
+                raise
+
+    assert sample_mp3.exists()
+    assert not sample_wav.exists()

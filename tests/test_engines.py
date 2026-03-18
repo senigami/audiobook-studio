@@ -117,6 +117,21 @@ def test_get_speaker_latent_path_multi():
     p = get_speaker_latent_path("v1.wav, v2.wav")
     assert p is not None
 
+
+def test_migrate_speaker_latent_to_profile(tmp_path, monkeypatch):
+    from app.engines import migrate_speaker_latent_to_profile
+
+    legacy_latent = tmp_path / "legacy.pth"
+    legacy_latent.write_text("legacy latent")
+    profile_dir = tmp_path / "voices" / "VoiceA"
+
+    monkeypatch.setattr("app.engines.get_speaker_latent_path", lambda *_args, **_kwargs: legacy_latent)
+
+    migrated = migrate_speaker_latent_to_profile("ref.wav", profile_dir)
+    assert migrated == profile_dir / "latent.pth"
+    assert migrated.exists()
+    assert migrated.read_text() == "legacy latent"
+
 def test_assemble_audiobook_no_files(mock_on_output, mock_cancel_check):
     with patch("os.listdir", return_value=[]):
         from app.engines import assemble_audiobook

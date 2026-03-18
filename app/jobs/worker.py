@@ -18,6 +18,7 @@ from ..pathing import safe_join
 from .reconcile import _output_exists
 from .speaker import get_speaker_wavs, get_speaker_settings, get_voice_profile_dir
 from .handlers.audiobook import handle_audiobook_job
+from ..engines import wav_to_mp3
 
 logger = logging.getLogger(__name__)
 
@@ -262,11 +263,27 @@ def worker_loop(q):
                         update_job(jid, status="failed", error="Voice synthesis failed.")
                         return
 
+                    sample_mp3 = pdir / "sample.mp3"
+                    mp3_rc = wav_to_mp3(sample_path, sample_mp3, on_output=on_output, cancel_check=cancel_check)
+                    if mp3_rc == 0 and sample_mp3.exists():
+                        try:
+                            sample_path.unlink()
+                        except FileNotFoundError:
+                            pass
+                    else:
+                        logger.warning(
+                            "Failed to convert voice sample for %s to mp3; keeping wav fallback",
+                            j.speaker_profile,
+                        )
+
                     # After success: mark samples as built if this was a build job
                     if j.engine == "voice_build" or j.engine == "voice_test":
                         try:
                             from .speaker import update_speaker_settings
-                            raw_wavs = sorted([f.name for f in pdir.glob("*.wav") if f.name != "sample.wav"])
+                            raw_wavs = sorted([
+                                f.name for f in pdir.glob("*.wav")
+                                if f.name not in {"sample.wav", "sample.mp3"}
+                            ])
                             update_speaker_settings(j.speaker_profile, built_samples=raw_wavs)
                             on_output(f"Updated build samples for {j.speaker_profile}.\n")
                         except Exception as e:

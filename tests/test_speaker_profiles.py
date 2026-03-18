@@ -81,14 +81,14 @@ def test_speaker_profile_test_endpoint(mock_xtts, clean_voices):
     name = "Tester"
     profile_dir = clean_voices / name
     profile_dir.mkdir(parents=True, exist_ok=True)
-    wav_path = profile_dir / "sample.wav"
-    wav_path.write_text("audio")
+    mp3_path = profile_dir / "sample.mp3"
+    mp3_path.write_text("audio")
 
     # Mock successful generation
     mock_xtts.return_value = 0
 
     # We need to make sure the expected output file exists or the endpoint will return 500
-    test_out = clean_voices / name / "sample.wav"
+    test_out = clean_voices / name / "sample.mp3"
     test_out.parent.mkdir(parents=True, exist_ok=True)
     test_out.write_text("output audio")
 
@@ -98,7 +98,7 @@ def test_speaker_profile_test_endpoint(mock_xtts, clean_voices):
     )
 
     assert response.status_code == 200
-    assert response.json()["audio_url"] == f"/out/voices/{name}/sample.wav"
+    assert response.json()["audio_url"] == f"/out/voices/{name}/sample.mp3"
 
     # Cleanup test output
     if test_out.exists():
