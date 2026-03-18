@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.2] - 2026-03-18
+
+### Security
+
+- **Path Sinks Scoped to Trusted Roots**: Hardened audiobook, voice-profile, and analysis-report file handling so user-controlled names are resolved inside their intended project or voice directories before any disk access occurs.
+- **Traversal Regression Coverage**: Added tests that exercise the new containment checks for audiobook deletion, voice sample deletion, and analysis reports.
+
 ## [1.4.1] - 2026-03-17
 
 ### Compatibility & Security

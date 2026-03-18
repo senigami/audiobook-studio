@@ -273,6 +273,21 @@ def test_delete_sample_errors(clean_db, tmp_path, client):
         response = client.delete("/api/speaker-profiles/SpeakerA/samples/bad.wav")
         assert response.status_code == 500
 
+
+def test_delete_sample_rejects_traversal(tmp_path):
+    from app.api.routers.voices import delete_speaker_sample
+
+    voices_dir = (tmp_path / "voices").resolve()
+    voices_dir.mkdir()
+    (voices_dir / "SpeakerA").mkdir()
+
+    response = delete_speaker_sample(
+        name="SpeakerA",
+        sample_name="../../escape.wav",
+        voices_dir=voices_dir,
+    )
+    assert response.status_code == 403
+
 def test_assign_profile_to_speaker_errors(clean_db, tmp_path, client):
     from app.web import app as fastapi_app
     from app.api.routers.voices import get_voices_dir

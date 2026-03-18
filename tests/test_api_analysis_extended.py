@@ -70,3 +70,16 @@ def test_api_report_success(tmp_path, monkeypatch):
     response = client.get("/api/report/test_report")
     assert response.status_code == 200
     assert response.text == "Report content"
+
+
+def test_api_report_traversal_is_contained(tmp_path):
+    from app.api.routers.analysis import report
+
+    report_dir = tmp_path / "reports"
+    report_dir.mkdir()
+    outside = tmp_path / "long_sentences_escape.txt"
+    outside.write_text("escape")
+
+    response = report("../../escape", report_dir=report_dir)
+    assert response.status_code == 404
+    assert outside.exists()
