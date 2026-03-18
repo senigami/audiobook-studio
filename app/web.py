@@ -62,7 +62,6 @@ async def legacy_create_audiobook(request: Request):
         audiobook_dir=AUDIOBOOK_DIR
     )
 
-@app.post("/settings")
 @app.post("/api/settings")
 async def legacy_save_settings(request: Request):
     from .api.routers.system import save_settings

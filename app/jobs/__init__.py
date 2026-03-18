@@ -1,3 +1,5 @@
+import logging
+import queue
 import threading
 from .core import job_queue, assembly_queue, cancel_flags, pause_flag, paused, toggle_pause, set_paused, _estimate_seconds, calculate_predicted_progress, BASELINE_XTTS_CPS, format_seconds
 from .reconcile import cleanup_and_reconcile, _output_exists
@@ -5,6 +7,8 @@ from .speaker import get_speaker_wavs, get_speaker_settings, update_speaker_sett
 from .worker import worker_loop
 from ..state import put_job, get_jobs, update_job, get_settings, get_performance_metrics, update_performance_metrics
 from ..config import CHAPTER_DIR, XTTS_OUT_DIR, AUDIOBOOK_DIR, VOICES_DIR, SAMPLES_DIR, SENT_CHAR_LIMIT
+
+logger = logging.getLogger(__name__)
 
 def enqueue(job):
     put_job(job)
@@ -15,9 +19,8 @@ def enqueue(job):
             job_id=job.id, project_id=job.project_id, chapter_id=job.chapter_id,
             status='queued', custom_title=job.custom_title, engine=job.engine
         )
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).error(f"Failed to upsert queue row for job {job.id}: {e}")
+    except Exception:
+        logger.error("Failed to upsert queue row for job %s", job.id, exc_info=True)
 
     if job.engine == "audiobook": assembly_queue.put(job.id)
     else: job_queue.put(job.id)
@@ -53,7 +56,7 @@ def clear_job_queue():
             try:
                 q.get_nowait()
                 q.task_done()
-            except Exception: 
+            except queue.Empty:
                 break
 
 def sync_memory_queue():
@@ -75,7 +78,7 @@ def sync_memory_queue():
             try:
                 update_queue_item(jid, 'done')
             except Exception:
-                pass
+                logger.warning("Failed to mark voice job %s done while syncing memory queue", jid, exc_info=True)
             continue
         if engine == "audiobook": 
             assembly_queue.put(jid)

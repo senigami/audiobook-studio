@@ -1,7 +1,10 @@
 import time
 import uuid
 import json
+import logging
 from .core import _db_lock, get_connection, init_db
+
+logger = logging.getLogger(__name__)
 
 def migrate_state_json_to_db():
     from ..config import BASE_DIR
@@ -22,8 +25,8 @@ def migrate_state_json_to_db():
                 raw = state_file.read_text(encoding="utf-8", errors="replace").strip()
                 if not raw: return
                 state_data = json.loads(raw)
-            except Exception as e:
-                print(f"Error loading state.json for migration: {e}")
+            except Exception:
+                logger.warning("Error loading state.json for migration", exc_info=True)
                 return
 
             jobs = state_data.get("jobs", {})
@@ -59,4 +62,4 @@ def migrate_state_json_to_db():
                     jdata.get("eta_seconds", 0)
                 ))
             conn.commit()
-            print("Successfully migrated legacy state.json jobs into the database.")
+            logger.info("Successfully migrated legacy state.json jobs into the database")

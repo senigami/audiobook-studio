@@ -66,8 +66,6 @@ def safe_split_long_sentences(text: str, target: int = 200) -> str:
                 ws = s.rfind(" ", start, end)
                 if ws > start + 60:
                     end = ws
-                elif ws == -1: # No whitespace found, fallback to hard split
-                    pass
             out.append(s[start:end].strip().rstrip(" .") + ".")
             start = end
         return out

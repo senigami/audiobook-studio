@@ -1,7 +1,10 @@
 import time
 import uuid
+import logging
 from typing import List, Dict, Any, Optional
 from .core import _db_lock, get_connection
+
+logger = logging.getLogger(__name__)
 
 def create_speaker(name: str, default_profile_name: Optional[str] = None) -> str:
     import json
@@ -36,7 +39,8 @@ def create_speaker(name: str, default_profile_name: Optional[str] = None) -> str
                                 idx += 1
                             pname = f"{pname}_{idx}"
                             profile_dir = config.VOICES_DIR / pname
-                    except: pass
+                    except Exception:
+                        logger.debug("Failed to inspect existing voice profile metadata for %s", profile_dir, exc_info=True)
 
             profile_dir.mkdir(parents=True, exist_ok=True)
 
@@ -45,7 +49,8 @@ def create_speaker(name: str, default_profile_name: Optional[str] = None) -> str
             if meta_path.exists():
                 try:
                     meta = json.loads(meta_path.read_text())
-                except: pass
+                except Exception:
+                    logger.debug("Failed to read existing profile metadata for %s", meta_path, exc_info=True)
 
             meta["speaker_id"] = speaker_id
             if "variant_name" not in meta:
@@ -109,7 +114,8 @@ def delete_speaker(speaker_id: str) -> bool:
                                 meta = json.loads(meta_path.read_text())
                                 if meta.get("speaker_id") == speaker_id:
                                     shutil.rmtree(d)
-                            except: pass
+                            except Exception:
+                                logger.debug("Failed to inspect voice profile metadata for %s", meta_path, exc_info=True)
 
             cursor.execute("DELETE FROM speakers WHERE id = ?", (speaker_id,))
             conn.commit()

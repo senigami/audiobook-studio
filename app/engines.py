@@ -4,6 +4,7 @@ import os
 import re
 import hashlib
 import shutil
+import logging
 from pathlib import Path
 from typing import List, Optional
 
@@ -11,6 +12,7 @@ from .config import XTTS_ENV_ACTIVATE, MP3_QUALITY, BASE_DIR, AUDIOBOOK_BITRATE
 from .textops import safe_split_long_sentences, sanitize_for_xtts, pack_text_to_limit
 
 _active_processes = set()
+logger = logging.getLogger(__name__)
 
 def terminate_all_subprocesses():
     for proc in list(_active_processes):
@@ -21,13 +23,13 @@ def terminate_all_subprocesses():
             try:
                 proc.kill()
             except Exception:
-                pass
-    _active_processes.clear()
+                logger.debug("Failed to force-kill subprocess during termination", exc_info=True)
+        _active_processes.clear()
 
 def run_cmd_stream(cmd: str, on_output, cancel_check) -> int:
     import time
     import selectors
-    print(f"DEBUG: Running command: {cmd}")
+    logger.debug("Running command: %s", cmd)
     proc = subprocess.Popen(
         cmd, shell=True,
         stdout=subprocess.PIPE,
@@ -92,10 +94,16 @@ def run_cmd_stream(cmd: str, on_output, cancel_check) -> int:
             _active_processes.remove(proc)
 
 def wav_to_mp3(in_wav: Path, out_mp3: Path, on_output=None, cancel_check=None) -> int:
-    def noop(*args): pass
-    if on_output is None: on_output = noop
-    def never_cancel(): return False
-    if cancel_check is None: cancel_check = never_cancel
+    def noop(*_args):
+        return None
+
+    def never_cancel():
+        return False
+
+    if on_output is None:
+        on_output = noop
+    if cancel_check is None:
+        cancel_check = never_cancel
 
     cmd = f'ffmpeg -y -i {shlex.quote(str(in_wav))} -codec:a libmp3lame -q:a {shlex.quote(MP3_QUALITY)} {shlex.quote(str(out_mp3))}'
     return run_cmd_stream(cmd, on_output, cancel_check)
@@ -300,7 +308,7 @@ def assemble_audiobook(
                         if m4a_mtime >= source_mtime:
                             needs_encode = False
                     except OSError:
-                        pass
+                        logger.debug("Could not compare timestamps for cached audiobook segment %s", m4a_path, exc_info=True)
 
                 if needs_encode:
                     on_output(f"Pre-encoding {f} to AAC...\n")
@@ -366,8 +374,9 @@ def assemble_audiobook(
                 cover_dest = output_m4b.with_suffix(cover_ext)
                 shutil.copy2(cover_path, cover_dest)
                 on_output(f"Saved cover preview to: {cover_dest.name}\n")
-            except Exception as e:
-                on_output(f"Warning: Failed to copy cover preview: {e}\n")
+            except Exception:
+                logger.warning("Failed to copy cover preview to %s", output_m4b.with_suffix(Path(cover_path).suffix), exc_info=True)
+                on_output("Warning: Failed to copy cover preview.\n")
 
         return rc
     finally:

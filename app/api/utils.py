@@ -1,4 +1,4 @@
-import re
+import logging
 import socket
 import json
 import subprocess
@@ -9,6 +9,8 @@ from .. import config
 from ..pathing import safe_basename, safe_join, safe_join_flat, safe_stem
 from ..textops import split_by_chapter_markers, write_chapters_to_folder, split_into_parts
 
+logger = logging.getLogger(__name__)
+
 def read_preview(path: Path, max_chars: int = 8000) -> str:
     if not path.exists():
         return ""
@@ -17,7 +19,8 @@ def read_preview(path: Path, max_chars: int = 8000) -> str:
         if len(content) > max_chars:
             return content[:max_chars] + ("\n\n...[preview truncated]..." if len(content) > max_chars else "")
         return content
-    except:
+    except Exception:
+        logger.debug("Failed to read preview from %s", path, exc_info=True)
         return ""
 
 def output_exists(engine: str, chapter_file: str):
@@ -75,7 +78,8 @@ def is_react_dev_active():
         result = sock.connect_ex(('127.0.0.1', 5173))
         sock.close()
         return result == 0
-    except:
+    except Exception:
+        logger.debug("React dev server check failed", exc_info=True)
         return False
 
 def process_and_split_file(filename: str, mode: str = "parts", max_chars: int = None) -> List[Path]:
@@ -139,7 +143,8 @@ def list_audiobooks():
                     item["duration_seconds"] = float(fmt["duration"])
                 if "tags" in fmt and "title" in fmt["tags"]:
                     item["title"] = fmt["tags"]["title"]
-        except: pass
+        except Exception:
+            logger.debug("Failed to probe audiobook metadata for %s", p, exc_info=True)
 
         target_jpg = p.with_suffix(".jpg")
         if target_jpg.exists() and target_jpg.stat().st_size > 0:

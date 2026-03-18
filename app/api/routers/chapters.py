@@ -168,16 +168,6 @@ async def api_update_segment_route(segment_id: str, request: Request):
     )
     return JSONResponse({"status": "ok" if success else "error"})
 
-@router.put("/segments")
-async def api_legacy_bulk_update_segments_put(request: Request):
-    form = await request.form()
-    sids = form.get("segment_ids", "").split(",")
-    updates = {k: v for k, v in form.items() if k != "segment_ids"}
-    await anyio.to_thread.run_sync(
-        lambda: update_segments_bulk(sids, **updates)
-    )
-    return JSONResponse({"status": "ok"})
-
 class BulkStatusUpdate(BaseModel):
     segment_ids: List[str]
     status: Literal["unprocessed", "processing", "done", "failed", "cancelled", "error"]

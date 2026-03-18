@@ -1,5 +1,6 @@
 import time
 import uuid
+import logging
 from pathlib import Path
 from typing import List, Optional
 from fastapi import APIRouter, Form
@@ -15,6 +16,7 @@ from ...config import get_project_text_dir
 from ..ws import broadcast_queue_update
 
 router = APIRouter(prefix="/api", tags=["generation"])
+logger = logging.getLogger(__name__)
 
 @router.post("/processing_queue")
 def api_add_to_queue(
@@ -206,7 +208,8 @@ def api_generate_segments(segment_ids: str = Form(...)):
         if p.is_file() and p.suffix.lower() in ('.wav', '.mp3', '.m4a'):
             try:
                 p.unlink()
-            except Exception: pass
+            except Exception:
+                logger.debug("Failed to remove stale chapter audio file %s", p, exc_info=True)
 
     # Update chapter status to processing to ensure UI reflects the work
     with get_connection() as conn:

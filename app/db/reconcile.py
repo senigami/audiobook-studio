@@ -1,7 +1,10 @@
 import os
 import subprocess
+import logging
 from pathlib import Path
 from .core import _db_lock, get_connection
+
+logger = logging.getLogger(__name__)
 
 def reconcile_project_audio(project_id: str):
     """
@@ -70,7 +73,8 @@ def reconcile_project_audio(project_id: str):
                             )
                             if result.returncode == 0:
                                 duration = float(result.stdout.strip())
-                        except: pass
+                        except Exception:
+                            logger.debug("Failed to probe audio duration for %s", audio_dir / best_file, exc_info=True)
 
                     cursor.execute(
                         "UPDATE chapters SET audio_status = 'done', audio_file_path = ?, audio_length_seconds = ? WHERE id = ?", 

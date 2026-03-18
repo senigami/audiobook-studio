@@ -1,6 +1,9 @@
 import asyncio
+import logging
 from typing import List
 from fastapi import WebSocket
+
+logger = logging.getLogger(__name__)
 
 class ConnectionManager:
     def __init__(self):
@@ -24,11 +27,16 @@ class ConnectionManager:
             )
 
     async def _send_to_all(self, message: dict):
-        for connection in self.active_connections:
+        failed = []
+        for connection in list(self.active_connections):
             try:
                 await connection.send_json(message)
-            except:
-                pass
+            except Exception:
+                failed.append(connection)
+
+        for connection in failed:
+            self.disconnect(connection)
+            logger.debug("Dropped dead websocket connection while broadcasting")
 
 manager = ConnectionManager()
 

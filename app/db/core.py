@@ -1,15 +1,13 @@
 import sqlite3
-import time
-import uuid
-import json
 import os
+import logging
 import threading
 from pathlib import Path
-from typing import List, Dict, Any, Optional
 
 # Use a connection pool or a single connection with a lock
 _db_lock = threading.RLock()
 DB_PATH = Path(os.getenv("DB_PATH", "audiobook_studio.db"))
+logger = logging.getLogger(__name__)
 
 def get_connection():
     conn = sqlite3.connect(DB_PATH)
@@ -114,24 +112,19 @@ def init_db():
             """)
 
             # Migrations
-            try:
-                cursor.execute("ALTER TABLE chapter_segments ADD COLUMN speaker_profile_name TEXT")
-            except: pass
-            try:
-                cursor.execute("ALTER TABLE chapter_segments ADD COLUMN sanitized_text TEXT")
-            except: pass
-            try:
-                cursor.execute("ALTER TABLE processing_queue ADD COLUMN started_at REAL")
-            except: pass
-            try:
-                cursor.execute("ALTER TABLE processing_queue ADD COLUMN completed_at REAL")
-            except: pass
-            try:
-                cursor.execute("ALTER TABLE processing_queue ADD COLUMN custom_title TEXT")
-            except: pass
-            try:
-                cursor.execute("ALTER TABLE processing_queue ADD COLUMN engine TEXT")
-            except: pass
+            def add_column_if_missing(sql: str, label: str):
+                try:
+                    cursor.execute(sql)
+                except sqlite3.OperationalError as exc:
+                    if "duplicate column name" not in str(exc).lower():
+                        logger.warning("Failed to apply %s migration", label, exc_info=True)
+
+            add_column_if_missing("ALTER TABLE chapter_segments ADD COLUMN speaker_profile_name TEXT", "chapter_segments.speaker_profile_name")
+            add_column_if_missing("ALTER TABLE chapter_segments ADD COLUMN sanitized_text TEXT", "chapter_segments.sanitized_text")
+            add_column_if_missing("ALTER TABLE processing_queue ADD COLUMN started_at REAL", "processing_queue.started_at")
+            add_column_if_missing("ALTER TABLE processing_queue ADD COLUMN completed_at REAL", "processing_queue.completed_at")
+            add_column_if_missing("ALTER TABLE processing_queue ADD COLUMN custom_title TEXT", "processing_queue.custom_title")
+            add_column_if_missing("ALTER TABLE processing_queue ADD COLUMN engine TEXT", "processing_queue.engine")
 
             # Migration: Ensure project_id and chapter_id allow NULLs for system tasks
             try:
@@ -144,7 +137,7 @@ def init_db():
                         break
 
                 if needs_migration:
-                    print("Migrating processing_queue to remove NOT NULL constraints...")
+                    logger.info("Migrating processing_queue to remove NOT NULL constraints")
                     cursor.execute("BEGIN TRANSACTION")
                     cursor.execute("ALTER TABLE processing_queue RENAME TO _processing_queue_old")
                     cursor.execute("""
@@ -169,7 +162,7 @@ def init_db():
                         FROM _processing_queue_old
                     """)
                     cursor.execute("DROP TABLE _processing_queue_old")
-            except Exception as e:
-                print(f"Failed to migrate processing_queue NULL constraints: {e}")
+            except Exception:
+                logger.warning("Failed to migrate processing_queue NULL constraints", exc_info=True)
 
             conn.commit()

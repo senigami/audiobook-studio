@@ -200,7 +200,8 @@ def _rename_profile_folders(old_name: str, new_name: str, voices_dir: Path):
                 if meta.get("speaker_id") == old_name:
                     meta["speaker_id"] = new_name
                 meta_path.write_text(json.dumps(meta, indent=2))
-            except: pass
+            except Exception:
+                logger.warning("Failed to update profile metadata during rename: %s -> %s", old_name, new_name, exc_info=True)
 
     # 2. Variants (Narrator - Variant)
     variants = [d for d in voices_dir.iterdir() if d.is_dir() and d.name.startswith(old_name + " - ")]
@@ -221,7 +222,8 @@ def _rename_profile_folders(old_name: str, new_name: str, voices_dir: Path):
                     if meta.get("speaker_id") == old_name:
                         meta["speaker_id"] = new_name
                     meta_path.write_text(json.dumps(meta, indent=2))
-                except: pass
+                except Exception:
+                    logger.warning("Failed to update variant metadata during rename: %s -> %s", vdir.name, new_vname, exc_info=True)
 
 @router.put("/api/speakers/{speaker_id}")
 @router.post("/api/speakers/{speaker_id}")
@@ -283,7 +285,7 @@ def api_assign_profile_to_speaker(
                 meta = _json.loads(meta_path.read_text())
                 variant_name = meta.get("variant_name")
             except Exception:
-                pass
+                logger.debug("Failed to read metadata while assigning profile %s", profile_name, exc_info=True)
 
         if not variant_name:
             # Try to infer from folder name (e.g. "Speaker - Variant" -> "Variant")
@@ -466,18 +468,6 @@ def api_rename_voice_profile_path(
         new_name=new_name,
         voices_dir=voices_dir
     )
-
-@router.post("/api/speaker-profiles/build")
-async def legacy_build_speaker_profile(
-    name: str = Form(...),
-    files: List[UploadFile] = File(default=[]),
-    voices_dir: Path = Depends(get_voices_dir)
-):
-    return await build_speaker_profile(name, files, voices_dir=voices_dir)
-
-@router.post("/api/speaker-profiles/test")
-def legacy_test_speaker_profile(name: str = Form(...)):
-    return test_speaker_profile(name)
 
 @router.delete("/api/speaker-profiles/{name}")
 def delete_speaker_profile(

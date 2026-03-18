@@ -15,6 +15,8 @@ All notable changes to this project will be documented in this file.
 
 - **Latent Cache Duplication**: Renaming a profile no longer leaves stale hash-based latent files behind in the global cache directory.
 - **Profile-Aware Rebuilds**: Latent caches are now keyed to the voice profile bundle and rebuilt only when the profile's audio samples actually change.
+- **Test Signal Quality**: Tightened backend tests to assert real state changes instead of just status codes, while cleaning up a few legacy runtime paths that were silently swallowing errors or leaving dead websocket connections behind.
+- **Compatibility Cleanup**: Removed a few obsolete legacy route aliases that were no longer referenced by the app or tests, while keeping the active compatibility shims that the current frontend still depends on.
 
 ## [1.4.3] - 2026-03-18
 

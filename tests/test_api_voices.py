@@ -134,10 +134,31 @@ def test_speaker_settings_updates(clean_db, client):
         # Test text
         response = client.post("/api/speaker-profiles/SpeakerA/test-text", data={"text": "Hello world"})
         assert response.status_code == 200
+        assert response.json()["test_text"] == "Hello world"
 
         # Speed
         response = client.post("/api/speaker-profiles/SpeakerA/speed", data={"speed": 1.2})
         assert response.status_code == 200
+        assert response.json()["speed"] == 1.2
+
+    assert mock_update.call_count == 2
+
+def test_reset_speaker_test_text(clean_db, tmp_path, client):
+    from app.web import app as fastapi_app
+    from app.api.routers.voices import get_voices_dir, DEFAULT_SPEAKER_TEST_TEXT
+
+    voices_dir = (tmp_path / "voices").resolve()
+    profile_dir = voices_dir / "SpeakerA"
+    profile_dir.mkdir(parents=True)
+    (profile_dir / "profile.json").write_text(json.dumps({"test_text": "Custom text"}))
+
+    fastapi_app.dependency_overrides[get_voices_dir] = lambda: voices_dir
+    with patch("app.jobs.speaker.VOICES_DIR", voices_dir):
+        response = client.post("/api/speaker-profiles/SpeakerA/reset-test-text")
+
+    assert response.status_code == 200
+    assert response.json()["test_text"] == DEFAULT_SPEAKER_TEST_TEXT
+    assert "test_text" not in json.loads((profile_dir / "profile.json").read_text())
 
 def test_build_and_test_profiles(clean_db, tmp_path, client):
     from app.web import app as fastapi_app
@@ -168,7 +189,7 @@ def test_legacy_build_and_rename(clean_db, tmp_path, client):
 
     # Legacy Build
     with patch("app.api.routers.voices.put_job"), patch("app.api.routers.voices.enqueue"):
-        response = client.post("/api/speaker-profiles/build", data={"name": "SpeakerL"})
+        response = client.post("/api/speaker-profiles/SpeakerL/build", files={"files": ("sample.wav", io.BytesIO(b"legacy"), "audio/wav")})
         assert response.status_code == 200
 
     # Legacy Rename

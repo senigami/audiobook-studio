@@ -1,5 +1,6 @@
 import json
 import os
+import logging
 import threading
 from dataclasses import asdict
 from pathlib import Path
@@ -10,6 +11,7 @@ from .models import Job
 from .config import BASE_DIR
 
 STATE_FILE = Path(os.getenv("STATE_FILE", str(BASE_DIR / "state.json")))
+logger = logging.getLogger(__name__)
 
 # IMPORTANT: RLock prevents deadlock when a function that holds the lock calls another that also locks.
 _STATE_LOCK = threading.RLock()
@@ -64,7 +66,7 @@ def _load_state_no_lock() -> Dict[str, Any]:
         try:
             os.replace(STATE_FILE, backup)
         except Exception:
-            pass
+            logger.warning("Failed to back up corrupt state file %s", STATE_FILE, exc_info=True)
         state = _default_state()
         _atomic_write_text(STATE_FILE, json.dumps(state, indent=2))
         return state
@@ -165,10 +167,10 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
                     # But if we're in the middle of a run, don't let a stray 'queued' msg win.
                     is_reset = v == "queued" and current_status in ("done", "failed", "cancelled")
                     if not is_reset and (v == "queued" and current_status in ("preparing", "running", "finalizing")):
-                        print(f"DEBUG: Preventing status regression for {job_id}: {current_status} -> {v}")
+                        logger.debug("Preventing status regression for %s: %s -> %s", job_id, current_status, v)
                         continue
                     elif not is_reset:
-                        print(f"DEBUG: Preventing status regression for {job_id}: {current_status} -> {v}")
+                        logger.debug("Preventing status regression for %s: %s -> %s", job_id, current_status, v)
                         continue
 
             # 2. Progress regression protection
@@ -179,7 +181,7 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
                     current_status = j.get("status")
                     if current_status not in ("queued", "preparing"):
                         if v < (j.get("progress") or 0.0):
-                            print(f"DEBUG: Skipping progress regression for {job_id}: {j.get('progress')} -> {v}")
+                            logger.debug("Skipping progress regression for %s: %s -> %s", job_id, j.get("progress"), v)
                             continue
 
             if j.get(k) != v:
@@ -199,8 +201,8 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
             for listener in _JOB_LISTENERS:
                 try:
                     listener(job_id, broadcast_dict)
-                except:
-                    pass
+                except Exception:
+                    logger.warning("Job listener failed for %s", job_id, exc_info=True)
 
         # Sync with SQLite DB when status or timestamps change, or when explicitly broadcast
         # Note: force_broadcast=True is used right after enqueue() to register the initial status.
@@ -240,8 +242,8 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
                                 )
                                 if result.returncode == 0:
                                     audio_length = float(result.stdout.strip())
-                            except Exception as e:
-                                print(f"Warning: Could not get duration for {output_file}: {e}")
+                            except Exception:
+                                logger.warning("Could not get duration for %s", output_file, exc_info=True)
 
                 update_queue_item(
                     job_id, 
@@ -255,10 +257,10 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
                     from .api.ws import broadcast_queue_update
                     broadcast_queue_update()
                 except ImportError:
-                    pass
+                    logger.debug("broadcast_queue_update is unavailable during state sync")
 
-            except Exception as e:
-                print(f"Warning: Failed to sync job status to SQLite for {job_id}: {e}")
+            except Exception:
+                logger.warning("Failed to sync job status to SQLite for %s", job_id, exc_info=True)
 
         # PRUNING: If job is done/failed/cancelled, we can remove it from state.json
         # because the historical record is now in SQLite's processing_queue table.
@@ -291,7 +293,7 @@ def prune_completed_jobs() -> None:
             for jid in to_prune:
                 del jobs[jid]
             _atomic_write_text(STATE_FILE, json.dumps(state, indent=2))
-            print(f"DEBUG: Pruned {len(to_prune)} terminal jobs from state.json")
+            logger.debug("Pruned %s terminal jobs from state.json", len(to_prune))
 
 
 def delete_jobs(job_ids: list[str]) -> None:
@@ -320,4 +322,4 @@ def purge_jobs_for_chapter(chapter_id: str) -> None:
             for jid in to_delete:
                 del jobs[jid]
             _atomic_write_text(STATE_FILE, json.dumps(state, indent=2))
-            print(f"DEBUG: Purged {len(to_delete)} stale jobs for chapter {chapter_id}")
+            logger.debug("Purged %s stale jobs for chapter %s", len(to_delete), chapter_id)

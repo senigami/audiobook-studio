@@ -122,7 +122,7 @@ async def save_settings(
                         if val is not None:
                             updates[k] = val
         except Exception:
-            pass
+            logger.warning("Failed to parse JSON settings payload", exc_info=True)
 
     # 2. Try Form parameters (either from FastAPI's parsing or manual fallback)
     if "safe_mode" not in updates and safe_mode is not None:
@@ -137,11 +137,6 @@ async def save_settings(
         update_settings(updates)
 
     return JSONResponse({"status": "ok", "settings": get_settings()})
-
-@router.post("/speakers/default")
-def set_default_speaker(name: str = Form(...)):
-    update_settings({"default_speaker_profile": name})
-    return JSONResponse({"status": "ok"})
 
 @router.post("/system/import-legacy")
 def api_import_legacy():
@@ -221,7 +216,8 @@ async def create_audiobook(
 ):
     try:
         chapter_list = json.loads(chapters)
-    except:
+    except Exception:
+        logger.warning("Invalid chapters payload for audiobook creation", exc_info=True)
         chapter_list = []
 
     cover_dir.mkdir(parents=True, exist_ok=True)

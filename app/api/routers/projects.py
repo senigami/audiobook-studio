@@ -3,6 +3,7 @@ import os
 import time
 import json
 import re
+import logging
 from pathlib import Path
 from typing import Optional, List
 from fastapi import APIRouter, Form, File, UploadFile, Request, Query
@@ -17,6 +18,8 @@ from ...jobs import enqueue
 from ...engines import get_audio_duration
 from ...state import put_job, update_job, get_jobs
 from ...models import Job
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -143,7 +146,8 @@ def api_list_project_audiobooks(project_id: str):
                     item["duration_seconds"] = float(fmt["duration"])
                 if "tags" in fmt and "title" in fmt["tags"]:
                     item["title"] = fmt["tags"]["title"]
-        except: pass
+        except Exception:
+            logger.warning("Failed to probe audiobook metadata for %s", p, exc_info=True)
 
         # Look for cover image with multiple extensions
         item["cover_url"] = None
@@ -172,7 +176,8 @@ def assemble_project(project_id: str, chapter_ids: Optional[str] = Form(None)):
     if chapter_ids:
         try:
             selected_ids = json.loads(chapter_ids)
-        except: pass
+        except Exception:
+            selected_ids = []
 
     if selected_ids:
         chapters = [c for c in chapters if c['id'] in selected_ids]
