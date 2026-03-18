@@ -11,6 +11,7 @@ import argparse
 import warnings
 import json
 import hashlib
+from pathlib import Path
 
 # Suppress common XTTS/Torch warnings that clutter logs
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -26,6 +27,7 @@ def main():
     parser.add_argument("--temperature", type=float, default=0.75, help="Temperature")
     parser.add_argument("--speed", type=float, default=1.0, help="Speaking speed (1.0 = normal)")
     parser.add_argument("--script_json", help="Path to a JSON file containing segments: list of {'text', 'speaker_wav'}")
+    parser.add_argument("--voice_profile_dir", help="Optional voice profile directory for portable latent caching")
 
     args = parser.parse_args()
 
@@ -55,7 +57,27 @@ def main():
     voice_dir = os.path.expanduser("~/.cache/audiobook-studio/voices")
     os.makedirs(voice_dir, exist_ok=True)
 
-    def get_latents(speaker_wav_paths, device, tts_model):
+    def _profile_fingerprint(voice_profile_dir: str) -> str:
+        profile_path = Path(voice_profile_dir)
+        if not profile_path.exists():
+            return ""
+
+        h = hashlib.sha256()
+        wavs = sorted(
+            p for p in profile_path.glob("*.wav")
+            if p.name != "latent.pth"
+        )
+        for wav in wavs:
+            h.update(wav.name.encode("utf-8"))
+            h.update(b"\0")
+            try:
+                h.update(wav.read_bytes())
+            except Exception:
+                continue
+            h.update(b"\0")
+        return h.hexdigest()
+
+    def get_latents(speaker_wav_paths, device, tts_model, voice_profile_dir=None):
         if isinstance(speaker_wav_paths, list):
             combined_paths = "|".join(sorted([os.path.abspath(p) for p in speaker_wav_paths]))
             wav_input = speaker_wav_paths
@@ -68,20 +90,33 @@ def main():
             wav_input = speaker_wav_paths
 
         speaker_id = hashlib.md5(combined_paths.encode()).hexdigest()
-        latent_file = os.path.join(voice_dir, f"{speaker_id}.pth")
+        if voice_profile_dir:
+            latent_file = os.path.join(voice_profile_dir, "latent.pth")
+            current_fingerprint = _profile_fingerprint(voice_profile_dir)
+        else:
+            latent_file = os.path.join(voice_dir, f"{speaker_id}.pth")
+            current_fingerprint = None
 
         if os.path.exists(latent_file):
-            print(f"Loading cached latents for {speaker_id}...", file=sys.stderr)
-            latents = torch.load(latent_file, map_location=device, weights_only=False)
-            return latents["gpt_cond_latent"], latents["speaker_embedding"]
-        else:
-            print(f"Computing latents for {speaker_id}...", file=sys.stderr)
-            gpt_cond_latent, speaker_embedding = tts_model.get_conditioning_latents(audio_path=wav_input)
-            torch.save({
-                "gpt_cond_latent": gpt_cond_latent,
-                "speaker_embedding": speaker_embedding
-            }, latent_file)
-            return gpt_cond_latent, speaker_embedding
+            try:
+                latents = torch.load(latent_file, map_location=device, weights_only=False)
+                if not current_fingerprint or latents.get("profile_fingerprint") == current_fingerprint:
+                    print(f"Loading cached latents for {speaker_id}...", file=sys.stderr)
+                    return latents["gpt_cond_latent"], latents["speaker_embedding"]
+                print(f"Profile fingerprint changed for {speaker_id}; rebuilding latents...", file=sys.stderr)
+            except Exception as e:
+                print(f"Warning: Failed to load cached latents for {speaker_id}: {e}", file=sys.stderr)
+
+        print(f"Computing latents for {speaker_id}...", file=sys.stderr)
+        gpt_cond_latent, speaker_embedding = tts_model.get_conditioning_latents(audio_path=wav_input)
+        save_payload = {
+            "gpt_cond_latent": gpt_cond_latent,
+            "speaker_embedding": speaker_embedding
+        }
+        if current_fingerprint:
+            save_payload["profile_fingerprint"] = current_fingerprint
+        torch.save(save_payload, latent_file)
+        return gpt_cond_latent, speaker_embedding
 
     # Load model (quietly)
     print("Loading XTTS model...", file=sys.stderr)
@@ -96,14 +131,19 @@ def main():
         sys.stderr = original_stderr
 
     # Pre-load all unique latents
-    unique_speakers = list(set(s['speaker_wav'] for s in script))
+    unique_speakers = {}
+    for s in script:
+        profile_dir = s.get("voice_profile_dir") or args.voice_profile_dir
+        key = (profile_dir or "", s['speaker_wav'])
+        unique_speakers[key] = (s['speaker_wav'], profile_dir)
+
     speaker_latents = {}
-    for sw in unique_speakers:
+    for key, (sw, profile_dir) in unique_speakers.items():
         try:
-            speaker_latents[sw] = get_latents(sw, device, xtts_model)
+            speaker_latents[key] = get_latents(sw, device, xtts_model, voice_profile_dir=profile_dir)
         except Exception as e:
             print(f"Warning: Failed to compute latents for {sw}: {e}", file=sys.stderr)
-            speaker_latents[sw] = None
+            speaker_latents[key] = None
 
     print(f"Synthesizing {len(script)} segments to {args.out_path}...", file=sys.stderr)
     print("[START_SYNTHESIS]", file=sys.stderr, flush=True)
@@ -146,7 +186,8 @@ def main():
 
                 text = segment['text']
                 sw = segment['speaker_wav']
-                latents = speaker_latents.get(sw)
+                profile_dir = segment.get("voice_profile_dir") or args.voice_profile_dir
+                latents = speaker_latents.get((profile_dir or "", sw))
 
                 # Pre-calculate total sentences for progress reporting
                 total_sentences = 0

@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.4] - 2026-03-18
+
+### Added
+
+- **Portable Voice Latents**: XTTS latent caches now live alongside their voice profiles so renaming or moving a profile no longer forces a new `.pth` file.
+- **Voice Bundle Support**: Voice profiles can now carry their manifest and latent artifact together, making them easier to share between app users.
+
+### Fixed
+
+- **Latent Cache Duplication**: Renaming a profile no longer leaves stale hash-based latent files behind in the global cache directory.
+- **Profile-Aware Rebuilds**: Latent caches are now keyed to the voice profile bundle and rebuilt only when the profile's audio samples actually change.
+
 ## [1.4.3] - 2026-03-18
 
 ### Security

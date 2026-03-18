@@ -104,7 +104,16 @@ def convert_to_wav(in_file: Path, out_wav: Path) -> int:
     cmd = f'ffmpeg -y -i {shlex.quote(str(in_file))} -ar 22050 -ac 1 {shlex.quote(str(out_wav))}'
     return subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode
 
-def xtts_generate(text: str, out_wav: Path, safe_mode: bool, on_output, cancel_check, speaker_wav: str = None, speed: float = 1.0) -> int:
+def xtts_generate(
+    text: str,
+    out_wav: Path,
+    safe_mode: bool,
+    on_output,
+    cancel_check,
+    speaker_wav: str = None,
+    speed: float = 1.0,
+    voice_profile_dir: Path = None,
+) -> int:
     if not XTTS_ENV_ACTIVATE.exists():
         on_output(f"[error] XTTS activate not found: {XTTS_ENV_ACTIVATE}\n")
         return 1
@@ -136,10 +145,19 @@ def xtts_generate(text: str, out_wav: Path, safe_mode: bool, on_output, cancel_c
         f"--speed {speed} "
         f"--out_path {shlex.quote(str(out_wav))}"
     )
+    if voice_profile_dir is not None:
+        cmd += f" --voice_profile_dir {shlex.quote(str(voice_profile_dir))}"
     return run_cmd_stream(cmd, on_output, cancel_check)
 
 
-def xtts_generate_script(script_json_path: Path, out_wav: Path, on_output, cancel_check, speed: float = 1.0) -> int:
+def xtts_generate_script(
+    script_json_path: Path,
+    out_wav: Path,
+    on_output,
+    cancel_check,
+    speed: float = 1.0,
+    voice_profile_dir: Path = None,
+) -> int:
     if not XTTS_ENV_ACTIVATE.exists():
         on_output(f"[error] XTTS activate not found: {XTTS_ENV_ACTIVATE}\n")
         return 1
@@ -153,6 +171,8 @@ def xtts_generate_script(script_json_path: Path, out_wav: Path, on_output, cance
         f"--speed {speed} "
         f"--out_path {shlex.quote(str(out_wav))}"
     )
+    if voice_profile_dir is not None:
+        cmd += f" --voice_profile_dir {shlex.quote(str(voice_profile_dir))}"
     return run_cmd_stream(cmd, on_output, cancel_check)
 
 
@@ -168,8 +188,11 @@ def get_audio_duration(file_path: Path) -> float:
     except Exception:
         return 0.0
 
-def get_speaker_latent_path(speaker_wavs_str: str) -> Optional[Path]:
+def get_speaker_latent_path(speaker_wavs_str: str, voice_profile_dir: Path = None) -> Optional[Path]:
     """Computes the same latent path as xtts_inference.py."""
+    if voice_profile_dir is not None:
+        return Path(voice_profile_dir) / "latent.pth"
+
     if not speaker_wavs_str:
         return None
 

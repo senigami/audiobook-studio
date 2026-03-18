@@ -16,7 +16,7 @@ from ..state import get_jobs, update_job, get_performance_metrics, update_perfor
 from ..config import CHAPTER_DIR, XTTS_OUT_DIR, AUDIOBOOK_DIR, SAMPLES_DIR
 from ..pathing import safe_join
 from .reconcile import _output_exists
-from .speaker import get_speaker_wavs, get_speaker_settings
+from .speaker import get_speaker_wavs, get_speaker_settings, get_voice_profile_dir
 from .handlers.audiobook import handle_audiobook_job
 
 logger = logging.getLogger(__name__)
@@ -243,6 +243,10 @@ def worker_loop(q):
                     on_output(f"Generating test sample for {j.speaker_profile}...\n")
                     spk = get_speaker_settings(j.speaker_profile)
                     sw = get_speaker_wavs(j.speaker_profile)
+                    try:
+                        voice_profile_dir = get_voice_profile_dir(j.speaker_profile)
+                    except ValueError:
+                        voice_profile_dir = None
                     from ..engines import xtts_generate
                     rc = xtts_generate(
                         text=spk["test_text"],
@@ -251,7 +255,8 @@ def worker_loop(q):
                         on_output=on_output,
                         cancel_check=cancel_check,
                         speaker_wav=sw,
-                        speed=spk["speed"]
+                        speed=spk["speed"],
+                        voice_profile_dir=voice_profile_dir
                     )
                     if rc != 0:
                         update_job(jid, status="failed", error="Voice synthesis failed.")

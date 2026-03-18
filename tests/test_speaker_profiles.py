@@ -1,6 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 import json
+from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 # Import the app
@@ -120,6 +121,7 @@ def test_rename_profile(clean_voices):
     profile_dir = clean_voices / name
     profile_dir.mkdir(parents=True, exist_ok=True)
     (profile_dir / "sample.wav").write_text("audio")
+    (profile_dir / "latent.pth").write_text("latent")
 
     # Set as default to test settings update
     update_settings(default_speaker_profile=name)
@@ -131,6 +133,7 @@ def test_rename_profile(clean_voices):
     assert not (clean_voices / name).exists()
     assert (clean_voices / new_name).exists()
     assert (clean_voices / new_name / "sample.wav").exists()
+    assert (clean_voices / new_name / "latent.pth").exists()
 
     # Verify settings updated
     assert get_settings()["default_speaker_profile"] == new_name
@@ -144,6 +147,7 @@ def test_rename_variant_profile(clean_voices):
 
     profile_dir = clean_voices / profile_name
     profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "latent.pth").write_text("latent")
 
     meta = {
         "speaker_id": speaker_id,
@@ -163,6 +167,7 @@ def test_rename_variant_profile(clean_voices):
     # 3. Verify folder renamed
     assert not (clean_voices / profile_name).exists()
     assert (clean_voices / new_profile_name).exists()
+    assert (clean_voices / new_profile_name / "latent.pth").exists()
 
     # 4. Verify profile.json updated with new variant_name
     new_meta_path = clean_voices / new_profile_name / "profile.json"
@@ -197,6 +202,10 @@ def test_latent_cache_path():
     path = get_speaker_latent_path("/path/to/test.wav")
     assert str(path).endswith(".pth")
     assert ".cache/audiobook-studio/voices" in str(path)
+
+    profile_dir = Path("/tmp/voices/PortableVoice")
+    path3 = get_speaker_latent_path("/path/to/test.wav", voice_profile_dir=profile_dir)
+    assert path3 == profile_dir / "latent.pth"
 
     # Comma separated
     path2 = get_speaker_latent_path("/path/1.wav, /path/2.wav")

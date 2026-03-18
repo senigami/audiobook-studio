@@ -93,11 +93,12 @@ def test_wav_to_mp3():
 
 def test_xtts_generate_success(mock_on_output, mock_cancel_check):
     with patch("app.engines.XTTS_ENV_ACTIVATE") as mock_activate, \
-         patch("app.engines.run_cmd_stream", return_value=0):
+         patch("app.engines.run_cmd_stream", return_value=0) as mock_run:
         mock_activate.exists.return_value = True
 
-        rc = xtts_generate("Hello", Path("out.wav"), True, mock_on_output, mock_cancel_check, speaker_wav="spk.wav")
+        rc = xtts_generate("Hello", Path("out.wav"), True, mock_on_output, mock_cancel_check, speaker_wav="spk.wav", voice_profile_dir=Path("/tmp/voices/VoiceA"))
         assert rc == 0
+        assert "--voice_profile_dir" in mock_run.call_args[0][0]
 
 def test_xtts_generate_no_activate(mock_on_output, mock_cancel_check):
     with patch("app.engines.XTTS_ENV_ACTIVATE") as mock_activate:
@@ -165,9 +166,33 @@ def test_xtts_generate_raw_mode(mock_on_output, mock_cancel_check):
         rc = xtts_generate("Hello", Path("out.wav"), False, mock_on_output, mock_cancel_check, speaker_wav="spk.wav")
         assert rc == 0
 
+
+def test_xtts_generate_script_includes_voice_profile_dir(mock_on_output, mock_cancel_check):
+    with patch("app.engines.XTTS_ENV_ACTIVATE") as mock_activate, \
+         patch("app.engines.run_cmd_stream", return_value=0) as mock_run:
+        mock_activate.exists.return_value = True
+
+        rc = xtts_generate_script(
+            Path("script.json"),
+            Path("out.wav"),
+            mock_on_output,
+            mock_cancel_check,
+            speed=1.0,
+            voice_profile_dir=Path("/tmp/voices/VoiceA"),
+        )
+        assert rc == 0
+        assert "--voice_profile_dir" in mock_run.call_args[0][0]
+
 def test_get_speaker_latent_path_none():
     assert get_speaker_latent_path(None) is None
     assert get_speaker_latent_path("") is None
+
+
+def test_get_speaker_latent_path_profile_scoped(tmp_path):
+    profile_dir = tmp_path / "voices" / "VoiceA"
+    profile_dir.mkdir(parents=True)
+    path = get_speaker_latent_path("/tmp/reference.wav", voice_profile_dir=profile_dir)
+    assert path == profile_dir / "latent.pth"
 
 def test_get_audio_duration_fail():
     with patch("subprocess.run", side_effect=Exception("fail")):

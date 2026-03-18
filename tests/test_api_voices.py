@@ -114,6 +114,7 @@ def test_rename_profile_and_security(clean_db, tmp_path, client):
     voices_dir.mkdir()
     (voices_dir / "OldName").mkdir()
     (voices_dir / "OldName" / "profile.json").write_text(json.dumps({"variant_name": "Old"}))
+    (voices_dir / "OldName" / "latent.pth").write_text("latent")
 
     fastapi_app.dependency_overrides[get_voices_dir] = lambda: voices_dir
 
@@ -122,6 +123,7 @@ def test_rename_profile_and_security(clean_db, tmp_path, client):
     assert response.status_code == 200
     assert (voices_dir / "NewName - Variant").exists()
     assert not (voices_dir / "OldName").exists()
+    assert (voices_dir / "NewName - Variant" / "latent.pth").exists()
 
     # Security traversal
     response = client.post("/api/voices/rename-profile", data={"old_name": "NewName - Variant", "new_name": "../../traversal"})
@@ -204,6 +206,7 @@ def test_rename_speaker_with_variants(clean_db, tmp_path, client):
     (voices_dir / "Narrator").mkdir()
     (voices_dir / "Narrator - Calm").mkdir()
     (voices_dir / "Narrator - Calm" / "profile.json").write_text(json.dumps({"speaker_id": "Narrator"}))
+    (voices_dir / "Narrator - Calm" / "latent.pth").write_text("latent")
     (voices_dir / "Narrator - Excited").mkdir()
 
     fastapi_app.dependency_overrides[get_voices_dir] = lambda: voices_dir
@@ -218,6 +221,7 @@ def test_rename_speaker_with_variants(clean_db, tmp_path, client):
     assert (voices_dir / "Dracula - Excited").exists()
     assert not (voices_dir / "Narrator").exists()
     assert not (voices_dir / "Narrator - Calm").exists()
+    assert (voices_dir / "Dracula - Calm" / "latent.pth").exists()
 
     # Verify metadata update
     meta = json.loads((voices_dir / "Dracula - Calm" / "profile.json").read_text())

@@ -1,0 +1,12 @@
+{
+  "jobs": {},
+  "settings": {
+    "safe_mode": true,
+    "make_mp3": false,
+    "default_engine": "xtts"
+  },
+  "performance_metrics": {
+    "audiobook_speed_multiplier": 1.0,
+    "xtts_cps": 16.7
+  }
+}
