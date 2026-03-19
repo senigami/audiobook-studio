@@ -196,6 +196,7 @@ describe('Voices Tab Components', () => {
 
             expect(screen.getByRole('button', { name: /Samples \(0\)/ })).toHaveClass('hover-bg-subtle');
             expect(screen.getByTitle('Add Samples Manually')).toHaveClass('hover-bg-subtle');
+            expect(screen.getByRole('button', { name: 'Collapse samples' })).toHaveClass('hover-bg-subtle');
         });
     });
 

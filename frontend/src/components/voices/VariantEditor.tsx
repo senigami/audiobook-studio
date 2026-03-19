@@ -51,6 +51,7 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
     const speedPillRef = useRef<HTMLButtonElement>(null);
     const speed = localSpeed ?? profile.speed;
     const hasSamples = (profile.wav_count || 0) > 0;
+    const playIconColor = isPlaying ? 'var(--surface)' : 'var(--text-primary)';
 
     useEffect(() => {
         if (profile.preview_url) {
@@ -139,7 +140,7 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                                 padding: 0,
                                 borderRadius: '12px',
                                 background: isPlaying ? 'var(--accent)' : 'var(--surface)',
-                                color: isPlaying ? 'white' : 'var(--text-primary)',
+                                color: playIconColor,
                                 border: isPlaying ? '1px solid var(--accent)' : '1px solid var(--border)',
                                 position: 'relative',
                                 overflow: 'hidden',
@@ -163,7 +164,7 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                                     style={{
                                         position: 'absolute',
                                         inset: 0,
-                                        border: '2px solid white',
+                                        border: `2px solid ${playIconColor}`,
                                         borderRadius: '12px',
                                         opacity: 0.3
                                     }}

@@ -143,11 +143,16 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
                         <Plus size={16} />
                     </button>
                     
-                    <div 
+                    <button
+                        type="button"
                         onClick={() => setIsSamplesExpanded(!isSamplesExpanded)}
+                        className="btn-ghost hover-bg-subtle"
+                        aria-label={isSamplesExpanded ? 'Collapse samples' : 'Expand samples'}
                         style={{ 
                             padding: '6px', 
-                            cursor: 'pointer',
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '8px',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -162,7 +167,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
                                 color: 'var(--text-muted)'
                             }} 
                         />
-                    </div>
+                    </button>
                 </div>
             </div>
 

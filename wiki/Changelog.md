@@ -11,7 +11,7 @@ All notable changes to this project will be documented in this file.
 - **Sample Gate for Voice Actions**: Voice preview and rebuild actions now require at least one raw sample, preventing empty voice profiles from enqueueing jobs that fail immediately.
 - **Queue Failure Cleanup**: Voice build/test failures now mark the processing queue entry as failed so a bad voice job cannot leave the queue looking stuck.
 - **Variant Action Styling**: Variant move/delete buttons now share the same neutral base styling, with delete switching to the standard destructive hover treatment. The speed adjustment pill now also uses the shared blue hover treatment.
-- **Voice Control Hover Feedback**: The sample play, speed, script, and move controls now use the same subtle hover treatment as the rest of the app's buttons, while delete keeps its destructive hover state.
+- **Voice Control Hover Feedback**: The sample play, speed, script, move, and samples expander controls now use the same subtle hover treatment as the rest of the app's buttons, while delete keeps its destructive hover state.
 - **Default Variant Assignment**: Production view now picks the first variant for a character automatically when you assign it, so speaking parts use the intended voice profile instead of falling back to narration.
 - **Clear Variant Labels**: Production assignment labels now show the human-friendly variant name instead of the internal voice-profile folder name.
 - **Explicit Default Label**: Base voice profiles without a `- Variant` suffix now display `Default` instead of echoing the folder name back in the UI.
