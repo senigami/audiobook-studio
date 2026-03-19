@@ -234,13 +234,19 @@ def sync_chapter_segments(chapter_id: str, text_content: str):
             crow = cursor.fetchone()
             project_id = crow["project_id"] if crow else None
 
-            # 2. Simple diff/match logic:
-            # Preserve a segment only when the sentence still exists in the same position.
-            # This avoids cross-matching repeated text to the wrong old segment file.
+            # 2. Conservative diff/match logic:
+            # Preserve a segment only while the chapter continues to match exactly from the start.
+            # Once text diverges, rebuild the remainder so shifted content does not keep stale
+            # audio_file_path links from an earlier grouping.
             new_segments = []
             preserved_ids = set()
+            diverged = False
             for i, sent in enumerate(sentences):
-                existing_row = existing[i] if i < len(existing) and (existing[i].get("text_content") or "").strip() == sent.strip() else None
+                existing_row = None
+                if not diverged and i < len(existing) and (existing[i].get("text_content") or "").strip() == sent.strip():
+                    existing_row = existing[i]
+                else:
+                    diverged = True
                 if existing_row:
                     logger.debug(
                         "sync_chapter_segments: Preserving segment %s at position %s for sentence: '%s...'",
