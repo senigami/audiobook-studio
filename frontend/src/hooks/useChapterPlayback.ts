@@ -35,10 +35,6 @@ export function useChapterPlayback(
 
     setPlayingSegmentId(currentId);
 
-    const currentGroup = getGroupSegmentIds(idx, queue);
-    const nextGroupStartIdx = idx + currentGroup.length - (currentGroup.indexOf(currentId));
-    lookAheadGenerate(nextGroupStartIdx, queue);
-
     if (!seg.audio_file_path || seg.audio_status !== 'done') {
       const groupIds = getGroupSegmentIds(idx, queue);
       const missingInGroup = groupIds.filter(id => {
@@ -176,22 +172,6 @@ export function useChapterPlayback(
     const group = groups.find(g => g.includes(segId));
     if (!group) return [segId];
     return queue.filter(qid => group.includes(qid));
-  };
-
-  const lookAheadGenerate = (idx: number, queue: string[]) => {
-    if (idx >= queue.length) return;
-    const groupIds = getGroupSegmentIds(idx, queue);
-    if (groupIds.length === 0) return;
-    if (groupIds.some(id => generatingSegmentIdsRef.current.has(id))) return;
-    
-    const missingIds = groupIds.filter(id => {
-      const s = segmentsRef.current.find(seg => seg.id === id);
-      return s && (!s.audio_file_path || s.audio_status !== 'done') && s.audio_status !== 'processing' && !generatingSegmentIdsRef.current.has(id);
-    });
-    
-    if (missingIds.length > 0) {
-      onGenerate(missingIds);
-    }
   };
 
   const playSegment = async (segmentId: string, fullQueue: string[]) => {

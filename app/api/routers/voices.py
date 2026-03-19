@@ -13,6 +13,7 @@ from ...db import (
     list_speakers, create_speaker, get_speaker, update_speaker, delete_speaker,
     update_voice_profile_references
 )
+from ...db.speakers import infer_variant_name, normalize_profile_metadata
 from ...jobs import (
     enqueue, get_speaker_settings, update_speaker_settings, 
     DEFAULT_SPEAKER_TEST_TEXT
@@ -38,6 +39,16 @@ def _voice_profile_dir(voices_dir: Path, name: str) -> Path:
 
 def _voice_sample_path(voices_dir: Path, name: str, sample_name: str) -> Path:
     return safe_join(_voice_profile_dir(voices_dir, name), sample_name)
+
+
+def _voice_raw_sample_count(voices_dir: Path, name: str) -> int:
+    try:
+        profile_dir = _voice_profile_dir(voices_dir, name)
+    except ValueError:
+        return 0
+    if not profile_dir.exists():
+        return 0
+    return len([f for f in profile_dir.glob("*.wav") if f.name != "sample.wav"])
 
 
 def _voice_preview_url(voices_dir: Path, name: str) -> Optional[str]:
@@ -288,11 +299,7 @@ def api_assign_profile_to_speaker(
                 logger.debug("Failed to read metadata while assigning profile %s", profile_name, exc_info=True)
 
         if not variant_name:
-            # Try to infer from folder name (e.g. "Speaker - Variant" -> "Variant")
-            if " - " in profile_name:
-                variant_name = profile_name.split(" - ", 1)[1]
-            else:
-                variant_name = profile_name
+            variant_name = infer_variant_name(profile_name)
 
         # Determine the new folder name
         if speaker_id:
@@ -320,7 +327,8 @@ def api_assign_profile_to_speaker(
         # Update profile.json with new speaker_id and variant_name
         new_meta_path = new_dir / "profile.json"
         meta.update({"speaker_id": speaker_id, "variant_name": variant_name})
-        new_meta_path.write_text(_json.dumps(meta, indent=2))
+        normalized_meta = normalize_profile_metadata(new_profile_name, meta, persist=False)
+        new_meta_path.write_text(_json.dumps(normalized_meta, indent=2))
 
         return JSONResponse({"status": "ok", "new_profile_name": new_profile_name})
     except Exception as e:
@@ -375,6 +383,13 @@ async def build_speaker_profile(
         except ValueError:
             logger.warning(f"Blocking profile build traversal attempt: {name}")
             return JSONResponse({"status": "error", "message": "Invalid profile name"}, status_code=403)
+
+        existing_raw_samples = _voice_raw_sample_count(voices_dir, name)
+        if existing_raw_samples == 0 and not files:
+            return JSONResponse(
+                {"status": "error", "message": "Add at least one sample before building this voice."},
+                status_code=400
+            )
 
         path.mkdir(parents=True, exist_ok=True)
 
@@ -491,7 +506,13 @@ def delete_speaker_profile(
     return JSONResponse({"status": "error", "message": "Not found"}, status_code=404)
 
 @router.post("/api/speaker-profiles/{name}/test")
-def test_speaker_profile(name: str):
+def test_speaker_profile(name: str, voices_dir: Path = Depends(get_voices_dir)):
+    if _voice_raw_sample_count(voices_dir, name) == 0:
+        return JSONResponse(
+            {"status": "error", "message": "Add at least one sample before testing this voice."},
+            status_code=400
+        )
+
     jid = f"test-{uuid.uuid4().hex[:8]}"
     j = Job(
         id=jid,
@@ -503,7 +524,7 @@ def test_speaker_profile(name: str):
     )
     put_job(j)
     enqueue(j)
-    preview_url = _voice_preview_url(get_voices_dir(), name)
+    preview_url = _voice_preview_url(voices_dir, name)
     return JSONResponse({
         "status": "ok", 
         "job_id": jid,

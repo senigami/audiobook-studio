@@ -5,6 +5,7 @@ from typing import Optional
 from ..config import VOICES_DIR
 from ..state import get_settings
 from ..pathing import safe_join
+from ..db.speakers import infer_variant_name, normalize_profile_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -24,39 +25,72 @@ def get_voice_profile_dir(profile_name: str):
 def get_voice_profile_latent_path(profile_name: str):
     return get_voice_profile_dir(profile_name) / "latent.pth"
 
+
+def _resolve_existing_profile_name(profile_name_or_id: str) -> Optional[str]:
+    """Resolve a speaker name/ID/profile name to the best existing profile folder.
+
+    Preference order:
+    1. The exact requested folder name, if it exists.
+    2. The speaker's base folder name, if it exists.
+    3. The speaker's configured default profile, if it exists.
+    4. Any existing variant folders for that speaker.
+    """
+    default_settings = get_settings()
+    target_profile = profile_name_or_id or default_settings.get("default_speaker_profile") or "Dark Fantasy"
+
+    candidates: list[str] = []
+
+    def add_candidate(name: Optional[str]):
+        if name and name not in candidates:
+            candidates.append(name)
+
+    add_candidate(target_profile)
+
+    speaker_name: Optional[str] = None
+    speaker_default_profile: Optional[str] = None
+    if _is_uuid(target_profile):
+        from ..db import get_speaker
+        spk = get_speaker(target_profile)
+        if spk:
+            speaker_name = spk.get("name")
+            speaker_default_profile = spk.get("default_profile_name")
+    else:
+        from ..db import list_speakers
+        spk_match = next((s for s in list_speakers() if s["name"] == target_profile), None)
+        if spk_match:
+            speaker_name = spk_match.get("name")
+            speaker_default_profile = spk_match.get("default_profile_name")
+
+    if speaker_name:
+        add_candidate(speaker_name)
+    add_candidate(speaker_default_profile)
+
+    prefix_source = speaker_name or (None if _is_uuid(target_profile) else target_profile)
+    if prefix_source:
+        for d in sorted(VOICES_DIR.iterdir(), key=lambda p: p.name):
+            if d.is_dir() and d.name.startswith(prefix_source + " - "):
+                add_candidate(d.name)
+
+    for candidate in candidates:
+        try:
+            p = get_voice_profile_dir(candidate)
+        except ValueError:
+            continue
+        if p.exists() and p.is_dir():
+            return candidate
+
+    return None
+
 def get_speaker_wavs(profile_name_or_id: str) -> Optional[str]:
     """Returns a comma-separated string of absolute paths for the given profile or speaker ID."""
-    from ..db import get_speaker, list_speakers
-
-    target_profile = profile_name_or_id
+    target_profile = _resolve_existing_profile_name(profile_name_or_id)
     if not target_profile:
-        target_profile = get_settings().get("default_speaker_profile") or "Dark Fantasy"
-
-    # Resolve speaker ID or Name to a profile folder
-    # 1. If it's a UUID, it's a speaker ID
-    if _is_uuid(target_profile):
-        spk = get_speaker(target_profile)
-        if spk and spk["default_profile_name"]:
-            target_profile = spk["default_profile_name"]
-    # 2. If it's a speaker name (not a profile folder name yet), find its default
-    else:
-        all_spks = list_speakers()
-        spk_match = next((s for s in all_spks if s['name'] == target_profile), None)
-        if spk_match and spk_match.get("default_profile_name"):
-            target_profile = spk_match["default_profile_name"]
+        return None
 
     try:
         p = get_voice_profile_dir(target_profile)
     except ValueError:
         return None
-
-    if not p.exists() or not p.is_dir():
-        # Fallback to ANY existing profile folder if the requested one is gone
-        subdirs = [d for d in VOICES_DIR.iterdir() if d.is_dir() and not d.name.startswith(".")]
-        if subdirs:
-            p = subdirs[0]
-        else:
-            return None
 
     wavs = sorted(p.glob("*.wav"))
     if not wavs:
@@ -78,10 +112,6 @@ def get_speaker_settings(profile_name_or_id: str) -> dict:
     """Returns metadata (like speed and test text) for a profile or speaker ID, falling back to global settings."""
     defaults = get_settings()
 
-    target_profile = profile_name_or_id
-    if not target_profile:
-        target_profile = defaults.get("default_speaker_profile") or "Dark Fantasy"
-
     res = {
         "speed": float(defaults.get("xtts_speed", 1.0)),
         "test_text": DEFAULT_SPEAKER_TEST_TEXT,
@@ -89,23 +119,9 @@ def get_speaker_settings(profile_name_or_id: str) -> dict:
         "variant_name": None,
         "built_samples": []
     }
-
-    # Resolve speaker ID or Name to a profile folder
-    if _is_uuid(target_profile):
-        from ..db import get_speaker
-        spk = get_speaker(target_profile)
-        if spk and spk["default_profile_name"]:
-            target_profile = spk["default_profile_name"]
-    else:
-        from ..db import list_speakers
-        all_spks = list_speakers()
-        spk_match = next((s for s in all_spks if s['name'] == target_profile), None)
-        if spk_match and spk_match.get("default_profile_name"):
-            target_profile = spk_match["default_profile_name"]
-        elif spk_match:
-            subs = sorted([d.name for d in VOICES_DIR.iterdir() if d.is_dir() and d.name.startswith(target_profile + " -")])
-            if subs:
-                target_profile = subs[0]
+    target_profile = _resolve_existing_profile_name(profile_name_or_id)
+    if not target_profile:
+        return res
 
     try:
         p = get_voice_profile_dir(target_profile)
@@ -126,8 +142,14 @@ def get_speaker_settings(profile_name_or_id: str) -> dict:
                 res["variant_name"] = meta["variant_name"]
             if "built_samples" in meta:
                 res["built_samples"] = meta["built_samples"]
+            meta = normalize_profile_metadata(target_profile, meta, persist=True)
+            if "variant_name" in meta:
+                res["variant_name"] = meta["variant_name"]
         except Exception:
             logger.warning("Failed to read speaker metadata from %s", meta_path, exc_info=True)
+    else:
+        meta = normalize_profile_metadata(target_profile, {}, persist=True)
+        res["variant_name"] = meta.get("variant_name") or infer_variant_name(target_profile)
 
     return res
 

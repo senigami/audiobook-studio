@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.1] - 2026-03-19
+
+### Highlights
+
+- **Queue, Progress, and Resume Flow**: Queueing now gives immediate optimistic feedback, then re-syncs after a short delay so fast-finishing chapters do not get stuck showing `processing`. Chapter and queue progress bars once again animate from live timing data, short segment bars linger long enough to visibly reach 100%, and Listen playback resumes only the segment you clicked instead of automatically prefetching the next group.
+- **Voice Profile Safety and Clarity**: Empty voice profiles can no longer enqueue failing preview/rebuild jobs, failed voice jobs now mark the queue entry as failed, and production voice selection now prefers the intended base/default profile before falling back to variants. Variant labels are also shown more clearly throughout the UI, with base profiles using `Default` and existing drifted speaker metadata being repaired automatically.
+- **Consistent Voice UI Behavior**: The voices screen now uses one hover language across play, speed, script, move, samples, and delete controls, with delete keeping the destructive treatment and the other actions sharing the app’s standard subtle hover state.
+- **Production Editing and Stability**: Production queueing now keeps you in place with a clear queued/rebuild flow, duplicate generate clicks are ignored while segments are already pending, and chapter text edits invalidate stale audio more conservatively so shifted text does not keep old file links alive. The backend also gained stronger regression coverage, safer SQLite migration handling, faster XTTS cache checks, and a leaner compatibility layer.
+
 ## [1.5.0] - 2026-03-18
 
 ### Highlights
@@ -14,6 +23,7 @@ All notable changes to this project will be documented in this file.
 - **Safer Queue Routing**: Chapters now use the segment-bake path only when there is already segment audio to assemble, avoiding immediate stitch failures on unrendered chapters.
 - **Resume-Friendly Requeueing**: Re-queuing a chapter now keeps already-rendered segment progress intact so partial chapters can pick up where they left off.
 - **Immediate Stale-Audio Cleanup**: Editing chapter text now clears old chapter audio and removed segment files right away so the project list and performance views stay in sync.
+- **Shift-Safe Segment Sync**: When chapter text changes in the middle, all later segments now rebuild instead of inheriting stale audio from an earlier grouping.
 - **Listen-and-Resume Playback**: Clicking Listen on a missing segment now shows active generation progress and automatically starts playback as soon as the render finishes.
 - **Live Segment Progress**: Chapter and queue progress bars now reflect the active segment progress reported by the worker, so websocket updates are visible while a chapter is rendering.
 - **Zero-State Progress Bars**: Progress bars now stay at 0% until a job is actually running, so queued/preparing jobs no longer jump ahead before rendering starts.

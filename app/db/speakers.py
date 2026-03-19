@@ -6,6 +6,84 @@ from .core import _db_lock, get_connection
 
 logger = logging.getLogger(__name__)
 
+
+def infer_variant_name(profile_name: str) -> str:
+    if " - " in profile_name:
+        variant = profile_name.split(" - ", 1)[1].strip()
+        return variant or "Default"
+    return "Default"
+
+
+def normalize_profile_metadata(profile_name: str, meta: Optional[Dict[str, Any]] = None, persist: bool = False) -> Dict[str, Any]:
+    from .. import config
+    import json
+
+    meta = dict(meta or {})
+    if "variant_name" not in meta or not meta.get("variant_name"):
+        meta["variant_name"] = infer_variant_name(profile_name)
+
+    if persist:
+        profile_dir = config.VOICES_DIR / profile_name
+        profile_dir.mkdir(parents=True, exist_ok=True)
+        meta_path = profile_dir / "profile.json"
+        try:
+            meta_path.write_text(json.dumps(meta, indent=2))
+        except Exception:
+            logger.warning("Failed to persist normalized profile metadata for %s", profile_name, exc_info=True)
+
+    return meta
+
+
+def normalize_base_profiles() -> None:
+    from .. import config
+    import json
+
+    with _db_lock:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM speakers ORDER BY name ASC")
+            speakers = [dict(row) for row in cursor.fetchall()]
+    pending_updates = []
+
+    for speaker in speakers:
+        base_dir = config.VOICES_DIR / speaker["name"]
+        if not base_dir.exists() or not base_dir.is_dir():
+            continue
+
+        meta_path = base_dir / "profile.json"
+        meta: Dict[str, Any] = {}
+        if meta_path.exists():
+            try:
+                meta = json.loads(meta_path.read_text())
+            except Exception:
+                logger.warning("Failed to read base profile metadata for %s", meta_path, exc_info=True)
+
+        meta = normalize_profile_metadata(speaker["name"], meta, persist=False)
+
+        meta_changed = False
+        if meta.get("speaker_id") != speaker["id"]:
+            meta["speaker_id"] = speaker["id"]
+            meta_changed = True
+
+        if meta_changed or not meta_path.exists():
+            try:
+                meta_path.write_text(json.dumps(meta, indent=2))
+            except Exception:
+                logger.warning("Failed to persist base profile metadata for %s", speaker["name"], exc_info=True)
+
+        if speaker.get("default_profile_name") != speaker["name"]:
+            pending_updates.append((speaker["name"], time.time(), speaker["id"]))
+
+    if pending_updates:
+        with _db_lock:
+            with get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.executemany(
+                    "UPDATE speakers SET default_profile_name = ?, updated_at = ? WHERE id = ?",
+                    pending_updates
+                )
+                conn.commit()
+
 def create_speaker(name: str, default_profile_name: Optional[str] = None) -> str:
     import json
     from .. import config
@@ -53,8 +131,7 @@ def create_speaker(name: str, default_profile_name: Optional[str] = None) -> str
                     logger.debug("Failed to read existing profile metadata for %s", meta_path, exc_info=True)
 
             meta["speaker_id"] = speaker_id
-            if "variant_name" not in meta:
-                meta["variant_name"] = "Default"
+            meta["variant_name"] = infer_variant_name(pname)
             if "speed" not in meta:
                 meta["speed"] = 1.0
 

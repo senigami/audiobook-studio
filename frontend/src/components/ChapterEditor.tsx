@@ -15,6 +15,7 @@ import { CharacterSidebar } from './chapter/CharacterSidebar';
 // Extracted Hooks
 import { useChapterPlayback } from '../hooks/useChapterPlayback';
 import { useChapterAnalysis } from '../hooks/useChapterAnalysis';
+import { getDefaultVoiceProfileName } from '../utils/voiceProfiles';
 
 interface ChapterEditorProps {
   chapterId: string;
@@ -77,7 +78,9 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
 
   const [editorTab, setEditorTab] = useState<'edit' | 'preview' | 'production' | 'performance'>('edit');
   const [generatingSegmentIds, setGeneratingSegmentIds] = useState<Set<string>>(new Set());
+  const pendingGenerationIdsRef = useRef<Set<string>>(new Set());
   const segmentRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const queueSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const availableVoices = React.useMemo(() => {
     const list = (speakers || []).map(s => ({ id: s.id, name: s.name, is_speaker: true }));
@@ -90,18 +93,31 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   const { analysis, setAnalysis, analyzing, loadingVoiceChunks, ensureVoiceChunks, runAnalysis } = useChapterAnalysis(chapterId, text);
 
   const handleGenerate = async (sids: string[]) => {
+    const uniqueIds = Array.from(new Set(sids));
+    const freshIds = uniqueIds.filter(id => {
+        const seg = segments.find(s => s.id === id);
+        return !!seg
+            && seg.audio_status !== 'processing'
+            && !generatingSegmentIds.has(id)
+            && !pendingGenerationIdsRef.current.has(id);
+    });
+
+    if (freshIds.length === 0) return;
+
+    freshIds.forEach(id => pendingGenerationIdsRef.current.add(id));
     setGeneratingSegmentIds(prev => {
         const next = new Set(prev);
-        sids.forEach(id => next.add(id));
+        freshIds.forEach(id => next.add(id));
         return next;
     });
     try {
-        await api.generateSegments(sids);
+        await api.generateSegments(freshIds);
     } catch (e) {
         console.error(e);
+        freshIds.forEach(id => pendingGenerationIdsRef.current.delete(id));
         setGeneratingSegmentIds(prev => {
             const next = new Set(prev);
-            sids.forEach(id => next.delete(id));
+            freshIds.forEach(id => next.delete(id));
             return next;
         });
     }
@@ -169,7 +185,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     if (!segmentUpdate || segmentUpdate.chapterId !== chapterId || segmentUpdate.tick === 0) return;
     if (segmentRefreshTimerRef.current) clearTimeout(segmentRefreshTimerRef.current);
     segmentRefreshTimerRef.current = setTimeout(async () => {
-      try {
+        try {
         const updated = await api.fetchSegments(chapterId);
         setSegments(updated);
         setGeneratingSegmentIds(prev => {
@@ -178,6 +194,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
             const seg = updated.find((s: any) => s.id === id);
             if (seg && (seg.audio_status === 'done' || seg.audio_status === 'error' || seg.audio_status === 'unprocessed')) {
               next.delete(id);
+              pendingGenerationIdsRef.current.delete(id);
             }
           }
           return next.size !== prev.size ? next : prev;
@@ -219,10 +236,20 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     } catch (e) { console.error("Color update failed", e); loadChapter(); }
   };
 
+  const resolveDefaultVariantName = (characterId: string | null) => {
+    if (!characterId || characterId === 'CLEAR_ASSIGNMENT') return null;
+    const character = characters.find(c => c.id === characterId);
+    if (!character?.speaker_profile_name) return null;
+    const speaker = speakers.find(s => s.name === character.speaker_profile_name);
+    if (!speaker) return null;
+    const variants = (speakerProfiles || []).filter(p => p.speaker_id === speaker.id);
+    return getDefaultVoiceProfileName(variants);
+  };
+
   const handleParagraphBulkAssign = async (segmentIds: string[]) => {
     const isClearing = selectedCharacterId === 'CLEAR_ASSIGNMENT';
     const characterId = isClearing ? null : selectedCharacterId;
-    const profileName = isClearing ? null : (selectedCharacterId ? selectedProfileName : null);
+    const profileName = isClearing ? null : (selectedCharacterId ? (selectedProfileName || resolveDefaultVariantName(selectedCharacterId)) : null);
     
     setSegments(prev => prev.map(s => segmentIds.includes(s.id) ? { 
         ...s, character_id: characterId, speaker_profile_name: profileName, 
@@ -256,12 +283,26 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   }, [chapter?.audio_status, job?.status]);
 
   const executeQueue = async () => {
+    if (queueSyncTimerRef.current) {
+      clearTimeout(queueSyncTimerRef.current);
+      queueSyncTimerRef.current = null;
+    }
     setQueuePending(true);
     setSubmitting(true);
     try {
         setQueueNotice('Queued. Keep this page open to watch progress.');
         await api.addProcessingQueue(projectId, chapterId, 0, selectedVoice || undefined);
         await loadChapter();
+        queueSyncTimerRef.current = setTimeout(async () => {
+          queueSyncTimerRef.current = null;
+          try {
+            await loadChapter();
+          } catch (e) {
+            console.error("Delayed queue sync failed", e);
+          } finally {
+            setQueuePending(false);
+          }
+        }, 1000);
     } catch (e) {
         setQueuePending(false);
         setQueueNotice(null);
@@ -274,6 +315,13 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     const timer = setTimeout(() => setQueueNotice(null), 3500);
     return () => clearTimeout(timer);
   }, [queueNotice]);
+
+  useEffect(() => {
+    return () => {
+      if (queueSyncTimerRef.current) clearTimeout(queueSyncTimerRef.current);
+      if (segmentRefreshTimerRef.current) clearTimeout(segmentRefreshTimerRef.current);
+    };
+  }, []);
 
   if (loading) return <div style={{ padding: '2rem' }}>Loading editor...</div>;
   if (!chapter) return <div style={{ padding: '2rem' }}>Chapter not found.</div>;
@@ -341,7 +389,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                 {editorTab === 'preview' && <PreviewTab analysis={analysis} analyzing={analyzing} />}
                 {editorTab === 'production' && (
                   <ProductionTab 
-                    paragraphGroups={paragraphGroups} characters={characters} selectedCharacterId={selectedCharacterId}
+                    paragraphGroups={paragraphGroups} characters={characters} speakerProfiles={speakerProfiles} selectedCharacterId={selectedCharacterId}
                     hoveredSegmentId={hoveredSegmentId} setHoveredSegmentId={setHoveredSegmentId}
                     activeSegmentId={activeSegmentId} setActiveSegmentId={setActiveSegmentId}
                     onBulkAssign={handleParagraphBulkAssign} onBulkReset={handleParagraphBulkReset}

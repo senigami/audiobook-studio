@@ -2,6 +2,7 @@ import React from 'react';
 import { User, Info, ChevronRight, ChevronDown } from 'lucide-react';
 import { ColorSwatchPicker } from '../ColorSwatchPicker';
 import type { Character, SpeakerProfile, Speaker } from '../../types';
+import { getDefaultVoiceProfileName, getVariantDisplayName } from '../../utils/voiceProfiles';
 
 interface CharacterSidebarProps {
   characters: Character[];
@@ -32,6 +33,12 @@ export const CharacterSidebar: React.FC<CharacterSidebarProps> = ({
   segmentsCount,
   wordCount
 }) => {
+  const resolveDefaultProfileName = (char: Character) => {
+    const speakerMatch = (speakers || []).find(s => s.name === char.speaker_profile_name);
+    const variants = speakerMatch ? (speakerProfiles || []).filter(p => p.speaker_id === speakerMatch.id) : [];
+    return getDefaultVoiceProfileName(variants);
+  };
+
   const toggleCharacterExpansion = (characterId: string) => {
     setExpandedCharacterId(expandedCharacterId === characterId ? null : characterId);
   };
@@ -89,7 +96,7 @@ export const CharacterSidebar: React.FC<CharacterSidebarProps> = ({
                     const speakerMatch = (speakers || []).find(s => s.name === char.speaker_profile_name);
                     const variants = speakerMatch ? (speakerProfiles || []).filter(p => p.speaker_id === speakerMatch.id) : [];
                     const isExpanded = expandedCharacterId === char.id;
-                    const isSpeakerSelected = selectedCharacterId === char.id && !selectedProfileName;
+                    const isSpeakerSelected = selectedCharacterId === char.id;
 
                     return (
                         <React.Fragment key={char.id}>
@@ -112,10 +119,10 @@ export const CharacterSidebar: React.FC<CharacterSidebarProps> = ({
                                     <div style={{ width: '28px', minWidth: '28px' }} />
                                 )}
 
-                                <div 
+                                    <div 
                                     onClick={() => {
                                         setSelectedCharacterId(char.id);
-                                        setSelectedProfileName(null);
+                                        setSelectedProfileName(resolveDefaultProfileName(char));
                                     }}
                                     style={{ 
                                         flex: 1, padding: '0.75rem', borderRadius: '8px', 
@@ -133,7 +140,11 @@ export const CharacterSidebar: React.FC<CharacterSidebarProps> = ({
                                     />
                                     <div style={{ flex: 1, overflow: 'hidden' }}>
                                         <div style={{ fontWeight: 600, fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{char.name}</div>
-                                        <div style={{ fontSize: '0.7rem', opacity: 0.6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{char.speaker_profile_name || 'No voice'}</div>
+                                        <div style={{ fontSize: '0.7rem', opacity: 0.6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            {selectedCharacterId === char.id && selectedProfileName
+                                                ? getVariantDisplayName(speakerProfiles.find(p => p.name === selectedProfileName) || { name: selectedProfileName, variant_name: null } as SpeakerProfile)
+                                                : getVariantDisplayName(speakerProfiles.find(p => p.name === char.speaker_profile_name) || { name: char.speaker_profile_name, variant_name: null } as SpeakerProfile) || 'No voice'}
+                                        </div>
                                     </div>
                                     {variants.length > 1 && (
                                         <div style={{ fontSize: '0.65rem', background: 'var(--surface-light)', padding: '2px 6px', borderRadius: '10px', opacity: 0.8, fontWeight: 700, flexShrink: 0 }}>
@@ -169,7 +180,7 @@ export const CharacterSidebar: React.FC<CharacterSidebarProps> = ({
                                             flexShrink: 0
                                         }} />
                                         <div style={{ flex: 1, fontSize: '0.8rem', fontWeight: isVariantSelected ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                            {variant.variant_name || 'Standard'}
+                                            {getVariantDisplayName(variant)}
                                         </div>
                                     </button>
                                 );

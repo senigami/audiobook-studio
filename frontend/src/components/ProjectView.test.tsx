@@ -118,17 +118,38 @@ const mockChapters = [
   },
 ];
 
-const mockSpeakerProfiles = [
-  {
-    name: 'Voice 1',
-    wav_count: 1,
-    speed: 1,
+  const mockSpeakerProfiles = [
+    {
+      name: 'Voice 1',
+      wav_count: 1,
+      speed: 1,
     is_default: true,
     speaker_id: 'speaker-1',
     variant_name: 'Default',
-    preview_url: '/out/voices/Voice 1/sample.wav',
-  },
-];
+      preview_url: '/out/voices/Voice 1/sample.wav',
+    },
+  ];
+
+  const mockSpeakerProfilesWithVariant = [
+    {
+      name: 'Voice 1 - Angry',
+      wav_count: 1,
+      speed: 1.5,
+      is_default: false,
+      speaker_id: 'speaker-1',
+      variant_name: 'Angry',
+      preview_url: '/out/voices/Voice 1 - Angry/sample.wav',
+    },
+    {
+      name: 'Voice 1',
+      wav_count: 1,
+      speed: 1,
+      is_default: false,
+      speaker_id: 'speaker-1',
+      variant_name: 'Default',
+      preview_url: '/out/voices/Voice 1/sample.wav',
+    },
+  ];
 
 describe('ProjectView', () => {
   beforeEach(() => {
@@ -226,5 +247,27 @@ describe('ProjectView', () => {
         'Voice 1'
       );
     });
+  });
+
+  it('prefers the base Default voice when both a base profile and variant exist', async () => {
+    render(
+      <MemoryRouter initialEntries={['/projects/proj-123']}>
+        <Routes>
+          <Route path="/projects/:projectId" element={
+            <ProjectView
+              jobs={{}}
+              speakerProfiles={mockSpeakerProfilesWithVariant as any}
+              speakers={[]}
+            />
+          } />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading project...')).not.toBeInTheDocument();
+    });
+
+    expect(screen.getByDisplayValue('Voice 1')).toBeInTheDocument();
   });
 });

@@ -67,7 +67,8 @@ describe('ChapterEditor', () => {
   ];
 
   const mockSpeakerProfiles = [
-    { name: 'Profile 1', speaker_id: 'speaker-1' }
+    { name: 'Profile 1', speaker_id: 'speaker-1', variant_name: 'Standard' },
+    { name: 'Profile 2', speaker_id: 'speaker-1', variant_name: 'Warm' }
   ];
 
   const mockSegments = [
@@ -75,7 +76,7 @@ describe('ChapterEditor', () => {
   ];
 
   const mockCharacters: Character[] = [
-    { id: 'char-1', project_id: mockProjectId, name: 'Char 1', color: '#ff0000' } as any
+    { id: 'char-1', project_id: mockProjectId, name: 'Char 1', color: '#ff0000', speaker_profile_name: 'Voice 1' } as any
   ];
 
   beforeEach(() => {
@@ -83,6 +84,7 @@ describe('ChapterEditor', () => {
     (api.fetchChapters as any).mockResolvedValue([mockChapter]);
     (api.fetchSegments as any).mockResolvedValue(mockSegments);
     (api.fetchCharacters as any).mockResolvedValue(mockCharacters);
+    (api.updateChapter as any).mockResolvedValue({ chapter: mockChapter });
   });
 
   afterEach(() => {
@@ -204,6 +206,38 @@ describe('ChapterEditor', () => {
     });
   });
 
+  it('resyncs after a short delay so fast jobs do not get stuck in queued state', async () => {
+    (api.addProcessingQueue as any).mockResolvedValue({ status: 'ok' });
+
+    render(
+      <ChapterEditor
+        chapterId={mockChapterId}
+        projectId={mockProjectId}
+        speakerProfiles={mockSpeakerProfiles as any}
+        speakers={mockSpeakers as any}
+        onBack={vi.fn()}
+      />
+    );
+
+    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
+    vi.useFakeTimers();
+
+    await act(async () => {
+      fireEvent.click(screen.getByTitle('Queue Chapter'));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText(/Keep this page open to watch progress/i)).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1100);
+    });
+
+    expect(api.fetchChapters).toHaveBeenCalledTimes(3);
+    expect(api.addProcessingQueue).toHaveBeenCalledTimes(1);
+  });
+
   it('warns before queuing large chapters', async () => {
     const largeChapter = { ...mockChapter, char_count: 60000 };
     (api.fetchChapters as any).mockResolvedValue([largeChapter]);
@@ -273,4 +307,33 @@ describe('ChapterEditor', () => {
       expect(api.addProcessingQueue).toHaveBeenCalled();
     });
   });
+
+  it('ignores duplicate generate clicks while the same segments are already pending', async () => {
+    (api.generateSegments as any).mockResolvedValue(undefined);
+
+    render(
+      <ChapterEditor
+        chapterId={mockChapterId}
+        projectId={mockProjectId}
+        speakerProfiles={mockSpeakerProfiles as any}
+        speakers={mockSpeakers as any}
+        onBack={vi.fn()}
+      />
+    );
+
+    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
+
+    fireEvent.click(screen.getByText('Performance'));
+    await screen.findByText('Performance View');
+
+    const generateBtn = screen.getByRole('button', { name: 'Generate' });
+    fireEvent.click(generateBtn);
+    fireEvent.click(generateBtn);
+
+    await waitFor(() => {
+      expect(api.generateSegments).toHaveBeenCalledTimes(1);
+      expect(api.generateSegments).toHaveBeenCalledWith(['seg-1']);
+    });
+  });
+
 });

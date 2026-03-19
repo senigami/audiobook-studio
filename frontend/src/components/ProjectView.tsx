@@ -15,6 +15,7 @@ import { ConfirmModal } from './ConfirmModal';
 
 // Extracted Hooks
 import { useProjectActions } from '../hooks/useProjectActions';
+import { getDefaultVoiceProfileName } from '../utils/voiceProfiles';
 
 interface ProjectViewProps {
   jobs: Record<string, Job>;
@@ -71,7 +72,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
     const voiceStillAvailable = selectedVoice && speakerProfiles.some(p => p.name === selectedVoice);
     if (voiceStillAvailable) return;
 
-    const defaultProfile = speakerProfiles.find(p => p.is_default)?.name || speakerProfiles[0]?.name || '';
+    const defaultProfile = getDefaultVoiceProfileName(speakerProfiles) || '';
     if (defaultProfile) {
       setSelectedVoice(defaultProfile);
     }

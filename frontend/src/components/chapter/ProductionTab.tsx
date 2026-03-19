@@ -1,10 +1,12 @@
 import React from 'react';
 import { AlertTriangle, CheckCircle } from 'lucide-react';
-import type { ChapterSegment, Character } from '../../types';
+import type { ChapterSegment, Character, SpeakerProfile } from '../../types';
+import { getVariantDisplayName } from '../../utils/voiceProfiles';
 
 interface ProductionTabProps {
   paragraphGroups: { characterId: string | null; segments: ChapterSegment[] }[];
   characters: Character[];
+  speakerProfiles: SpeakerProfile[];
   selectedCharacterId: string | null;
   hoveredSegmentId: string | null;
   setHoveredSegmentId: (id: string | null) => void;
@@ -18,6 +20,7 @@ interface ProductionTabProps {
 export const ProductionTab: React.FC<ProductionTabProps> = ({
   paragraphGroups,
   characters,
+  speakerProfiles,
   selectedCharacterId,
   hoveredSegmentId,
   setHoveredSegmentId,
@@ -96,7 +99,7 @@ export const ProductionTab: React.FC<ProductionTabProps> = ({
                         textTransform: 'none',
                         letterSpacing: 'normal'
                     }}>
-                        {group.segments[0].speaker_profile_name}
+                        {getVariantDisplayName(speakerProfiles.find(p => p.name === group.segments[0].speaker_profile_name) || { name: group.segments[0].speaker_profile_name, variant_name: null } as SpeakerProfile)}
                     </div>
                 )}
             </div>

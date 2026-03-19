@@ -1,7 +1,234 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { List, RefreshCw, Volume2, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { ChapterSegment, Character } from '../../types';
+
+const SEGMENT_PROGRESS_LINGER_MS = 600;
+
+function useSegmentProgressLifecycle(isActive: boolean, activeProgress: number, hasProcessingState: boolean) {
+    const [settledProgress, setSettledProgress] = useState<number | null>(null);
+    const settleTimerRef = useRef<number | null>(null);
+    const wasActiveRef = useRef(false);
+
+    useEffect(() => {
+        if (settleTimerRef.current !== null) {
+            window.clearTimeout(settleTimerRef.current);
+            settleTimerRef.current = null;
+        }
+
+        if (isActive) {
+            wasActiveRef.current = true;
+            setSettledProgress(null);
+            return;
+        }
+
+        if (wasActiveRef.current) {
+            wasActiveRef.current = false;
+            setSettledProgress(1);
+            settleTimerRef.current = window.setTimeout(() => {
+                setSettledProgress(null);
+                settleTimerRef.current = null;
+            }, SEGMENT_PROGRESS_LINGER_MS);
+        }
+    }, [isActive]);
+
+    useEffect(() => () => {
+        if (settleTimerRef.current !== null) {
+            window.clearTimeout(settleTimerRef.current);
+        }
+    }, []);
+
+    return {
+        displayProgress: isActive ? activeProgress : (settledProgress ?? 0),
+        showProgress: isActive || settledProgress !== null || hasProcessingState,
+        isSettling: settledProgress !== null
+    };
+}
+
+interface PerformanceGroupCardProps {
+  group: { characterId: string | null; segments: ChapterSegment[] };
+  gidx: number;
+  character?: Character;
+  uniqueSegmentIds: string[];
+  activeJobIsLive: boolean;
+  isActiveGroup: boolean;
+  groupHasProcessingState: boolean;
+  activeProgress: number;
+  isPlaying: boolean;
+  isNext: boolean;
+  allDone: boolean;
+  onPlay: (segmentId: string, fullQueue: string[]) => void;
+  onStop: () => void;
+  onGenerate: (sids: string[]) => void;
+}
+
+const PerformanceGroupCard: React.FC<PerformanceGroupCardProps> = ({
+  group,
+  gidx,
+  character,
+  uniqueSegmentIds,
+  activeJobIsLive,
+  isActiveGroup,
+  groupHasProcessingState,
+  activeProgress,
+  isPlaying,
+  isNext,
+  allDone,
+  onPlay,
+  onStop,
+  onGenerate
+}) => {
+  const { displayProgress, showProgress, isSettling } = useSegmentProgressLifecycle(
+    isActiveGroup,
+    activeProgress,
+    groupHasProcessingState
+  );
+  const anyProcessing = isActiveGroup || groupHasProcessingState;
+
+  return (
+    <div style={{ 
+      display: 'flex', gap: '1.5rem', 
+      background: 'var(--surface)', padding: '1.25rem', 
+      borderRadius: '16px', border: '1px solid var(--border)',
+      transition: 'all 0.2s ease',
+      boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+      borderLeft: `4px solid ${character?.color || 'var(--text-muted)'}`,
+      position: 'relative',
+      overflow: 'hidden'
+    }}>
+      {showProgress && (
+        <div style={{ 
+          position: 'absolute', 
+          bottom: 0, 
+          left: 0, 
+          right: 0, 
+          height: '6px', 
+          background: 'rgba(255,255,255,0.05)',
+          overflow: 'hidden',
+          borderBottomLeftRadius: '12px',
+          borderBottomRightRadius: '12px'
+        }}>
+          <motion.div 
+            data-testid={`performance-progress-${gidx}`}
+            data-progress={Math.round(displayProgress * 100)}
+            initial={false}
+            animate={{ 
+              width: `${displayProgress * 100}%`,
+              opacity: displayProgress > 0 ? 1 : 0.25
+            }}
+            transition={{ duration: isSettling ? 0.45 : 0.6, ease: "easeInOut" }}
+            style={{ 
+              height: '100%', 
+              background: 'var(--accent)',
+              boxShadow: '0 0 15px var(--accent)',
+              borderRadius: '3px'
+            }}
+          />
+        </div>
+      )}
+
+      <div style={{ width: '130px', flexShrink: 0, position: 'relative', zIndex: 2 }}>
+        <div style={{ 
+          display: 'flex', alignItems: 'center', gap: '0.5rem', 
+          color: character?.color || 'var(--text-muted)', 
+          fontWeight: 700, fontSize: '0.85rem', textTransform: 'uppercase',
+          marginBottom: '0.75rem', letterSpacing: '0.05em'
+        }}>
+          {character?.name || 'Narrator'}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+          {isPlaying ? (
+            <button 
+              onClick={onStop} 
+              className="btn-primary" 
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center', fontSize: '0.8rem', padding: '0.5rem' }}
+            >
+              <Zap size={14} fill="currentColor" /> Stop
+            </button>
+          ) : (
+            <button 
+              onClick={() => onPlay(group.segments[0].id, uniqueSegmentIds)} 
+              className="btn-ghost" 
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center', fontSize: '0.8rem', padding: '0.5rem', background: 'rgba(255,255,255,0.1)' }}
+            >
+              <Volume2 size={14} /> Listen
+            </button>
+          )}
+          <button 
+            onClick={() => onGenerate(Array.from(new Set(group.segments.map(s => s.id))))}
+            className="btn-ghost" 
+            style={{ 
+              display: 'flex', alignItems: 'center', gap: '0.5rem', 
+              justifyContent: 'center', fontSize: '0.8rem', padding: '0.5rem', 
+              background: anyProcessing ? 'rgba(255,165,0,0.1)' : 'rgba(255,255,255,0.05)',
+              color: anyProcessing ? 'var(--accent)' : 'inherit',
+              border: '1px solid var(--border)'
+            }}
+            disabled={anyProcessing}
+          >
+            <RefreshCw size={14} className={anyProcessing ? 'animate-spin' : ''} /> 
+            {anyProcessing ? (activeJobIsLive && isActiveGroup ? `${Math.round(activeProgress * 100)}%` : 'Working...') : (allDone ? 'Regenerate' : 'Generate')}
+          </button>
+        </div>
+      </div>
+
+      <div 
+        onClick={() => {
+          const queueFromHere = uniqueSegmentIds.slice(uniqueSegmentIds.indexOf(group.segments[0].id));
+          onPlay(group.segments[0].id, queueFromHere);
+        }}
+        style={{ 
+          flex: 1, 
+          color: 'var(--text-secondary)', 
+          lineHeight: '1.7', 
+          fontSize: '1.05rem', 
+          marginTop: '0.2rem',
+          padding: '0.5rem',
+          borderRadius: '8px',
+          transition: 'all 0.2s ease',
+          cursor: 'pointer',
+          opacity: (allDone || isPlaying || anyProcessing || isNext) ? 1 : 0.45,
+          filter: (allDone || isPlaying || anyProcessing || isNext) ? 'none' : 'grayscale(1)',
+          background: isPlaying 
+              ? '#ffeb3b44' 
+              : (anyProcessing || isNext)
+                  ? '#e1bee733' 
+                  : 'transparent',
+          borderBottom: isPlaying ? '3px solid #fbc02d' : (anyProcessing || isNext) ? '2px dashed #9c27b0' : '2px solid transparent',
+          position: 'relative',
+          whiteSpace: 'pre-wrap',
+          zIndex: 2
+        }}
+      >
+        {group.segments.map(s => s.sanitized_text || s.text_content).join(' ')}
+
+        {anyProcessing && (
+          <span style={{ 
+            position: 'absolute', 
+            top: '-8px', 
+            right: '-8px',
+            background: 'var(--bg)',
+            borderRadius: '50%',
+            padding: '2px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
+            display: 'flex',
+            zIndex: 10
+          }}>
+            <RefreshCw size={12} className="animate-spin" color="var(--accent)" />
+          </span>
+        )}
+
+        {(() => {
+          const anyMissing = group.segments.some(s => s.audio_status !== 'done' || !s.audio_file_path);
+          if (!anyProcessing && anyMissing) {
+            return <div style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: 'var(--text-muted)', marginLeft: '8px', verticalAlign: 'middle', opacity: 0.4 }} />;
+          }
+          return null;
+        })()}
+      </div>
+    </div>
+  );
+};
 
 interface PerformanceTabProps {
   chunkGroups: { characterId: string | null; segments: ChapterSegment[] }[];
@@ -50,7 +277,7 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
 
     return -1;
   }, [activeJobIsLive, activeSegmentId, chunkGroups, generatingSegmentIds]);
-  
+
     return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', padding: '1.5rem', minHeight: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
@@ -65,12 +292,8 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
                     const char = characters.find(c => c.id === group.characterId);
                     const allDone = group.segments.every(s => s.audio_status === 'done');
                     const isActiveGroup = gidx === activeGroupIndex;
-                    const groupIsGenerating = isActiveGroup || group.segments.some(s => s.audio_status === 'processing' || generatingSegmentIds.has(s.id));
-                    const anyProcessing = groupIsGenerating;
-                    
-                    // Track if this specific group is "active" in the current job
-                    const isAnySegmentActive = groupIsGenerating;
-                    const activeProgress = activeJobIsLive
+                    const groupHasProcessingState = group.segments.some(s => s.audio_status === 'processing' || generatingSegmentIds.has(s.id));
+                    const activeProgress = activeJobIsLive && isActiveGroup
                         ? (generatingJob?.active_segment_progress ?? 0)
                         : 0;
                     const isPlaying = playingSegmentId && group.segments.some(s => s.id === playingSegmentId);
@@ -95,145 +318,23 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
                     const isNext = nextId && group.segments.some(s => s.id === nextId);
 
                     return (
-                        <div key={gidx} style={{ 
-                            display: 'flex', gap: '1.5rem', 
-                            background: 'var(--surface)', padding: '1.25rem', 
-                            borderRadius: '16px', border: '1px solid var(--border)',
-                            transition: 'all 0.2s ease',
-                            boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-                            borderLeft: `4px solid ${char?.color || 'var(--text-muted)'}`,
-                            position: 'relative',
-                            overflow: 'hidden'
-                        }}>
-                            {/* Inner Progress Bar Overlay */}
-                            {isAnySegmentActive && (
-                                <div style={{ 
-                                    position: 'absolute', 
-                                    bottom: 0, 
-                                    left: 0, 
-                                    right: 0, 
-                                    height: '6px', 
-                                    background: 'rgba(255,255,255,0.05)',
-                                    overflow: 'hidden',
-                                    borderBottomLeftRadius: '12px',
-                                    borderBottomRightRadius: '12px'
-                                }}>
-                                    <motion.div 
-                                        initial={false}
-                                        animate={{ 
-                                            width: `${activeProgress * 100}%`,
-                                            opacity: activeProgress > 0 ? 1 : 0.25
-                                        }}
-                                        transition={{ duration: 0.6, ease: "easeInOut" }}
-                                        style={{ 
-                                            height: '100%', 
-                                            background: 'var(--accent)',
-                                            boxShadow: '0 0 15px var(--accent)',
-                                            borderRadius: '3px'
-                                        }}
-                                    />
-                                </div>
-                            )}
-
-                            <div style={{ width: '130px', flexShrink: 0, position: 'relative', zIndex: 2 }}>
-                                <div style={{ 
-                                    display: 'flex', alignItems: 'center', gap: '0.5rem', 
-                                    color: char?.color || 'var(--text-muted)', 
-                                    fontWeight: 700, fontSize: '0.85rem', textTransform: 'uppercase',
-                                    marginBottom: '0.75rem', letterSpacing: '0.05em'
-                                }}>
-                                    {char?.name || 'Narrator'}
-                                </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                                    {isPlaying ? (
-                                        <button 
-                                            onClick={onStop} 
-                                            className="btn-primary" 
-                                            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center', fontSize: '0.8rem', padding: '0.5rem' }}
-                                        >
-                                            <Zap size={14} fill="currentColor" /> Stop
-                                        </button>
-                                    ) : (
-                                        <button 
-                                            onClick={() => onPlay(group.segments[0].id, uniqueSegmentIds)} 
-                                            className="btn-ghost" 
-                                            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center', fontSize: '0.8rem', padding: '0.5rem', background: 'rgba(255,255,255,0.1)' }}
-                                        >
-                                            <Volume2 size={14} /> Listen
-                                        </button>
-                                    )}
-                                    <button 
-                                        onClick={() => onGenerate(Array.from(new Set(group.segments.map(s => s.id))))}
-                                        className="btn-ghost" 
-                                        style={{ 
-                                            display: 'flex', alignItems: 'center', gap: '0.5rem', 
-                                            justifyContent: 'center', fontSize: '0.8rem', padding: '0.5rem', 
-                                            background: anyProcessing ? 'rgba(255,165,0,0.1)' : 'rgba(255,255,255,0.05)',
-                                            color: anyProcessing ? 'var(--accent)' : 'inherit',
-                                            border: '1px solid var(--border)'
-                                        }}
-                                        disabled={anyProcessing}
-                                    >
-                                        <RefreshCw size={14} className={anyProcessing ? 'animate-spin' : ''} /> 
-                                        {anyProcessing ? (activeJobIsLive ? `${Math.round(activeProgress * 100)}%` : 'Working...') : (allDone ? 'Regenerate' : 'Generate')}
-                                    </button>
-                                </div>
-                            </div>
-                            <div 
-                                onClick={() => {
-                                    const queueFromHere = uniqueSegmentIds.slice(uniqueSegmentIds.indexOf(group.segments[0].id));
-                                    onPlay(group.segments[0].id, queueFromHere);
-                                }}
-                                style={{ 
-                                    flex: 1, 
-                                    color: 'var(--text-secondary)', 
-                                    lineHeight: '1.7', 
-                                    fontSize: '1.05rem', 
-                                    marginTop: '0.2rem',
-                                    padding: '0.5rem',
-                                    borderRadius: '8px',
-                                    transition: 'all 0.2s ease',
-                                    cursor: 'pointer',
-                                    opacity: (allDone || isPlaying || anyProcessing || isNext) ? 1 : 0.45,
-                                    filter: (allDone || isPlaying || anyProcessing || isNext) ? 'none' : 'grayscale(1)',
-                                    background: isPlaying 
-                                        ? '#ffeb3b44' 
-                                        : (anyProcessing || isNext)
-                                            ? '#e1bee733' 
-                                            : 'transparent',
-                                    borderBottom: isPlaying ? '3px solid #fbc02d' : (anyProcessing || isNext) ? '2px dashed #9c27b0' : '2px solid transparent',
-                                    position: 'relative',
-                                    whiteSpace: 'pre-wrap',
-                                    zIndex: 2
-                                }}
-                            >
-                                {group.segments.map(s => s.sanitized_text || s.text_content).join(' ')}
-
-                                {anyProcessing && (
-                                    <span style={{ 
-                                        position: 'absolute', 
-                                        top: '-8px', 
-                                        right: '-8px',
-                                        background: 'var(--bg)',
-                                        borderRadius: '50%',
-                                        padding: '2px',
-                                        boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
-                                        display: 'flex',
-                                        zIndex: 10
-                                    }}>
-                                        <RefreshCw size={12} className="animate-spin" color="var(--accent)" />
-                                    </span>
-                                )}
-
-                                {(() => {
-                                    const anyMissing = group.segments.some(s => s.audio_status !== 'done' || !s.audio_file_path);
-                                    if (!anyProcessing && anyMissing) {
-                                        return <div style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: 'var(--text-muted)', marginLeft: '8px', verticalAlign: 'middle', opacity: 0.4 }} />;
-                                    }
-                                    return null;
-                                })()}
-                            </div>
-                        </div>
+                        <PerformanceGroupCard
+                            key={gidx}
+                            group={group}
+                            gidx={gidx}
+                            character={char}
+                            uniqueSegmentIds={uniqueSegmentIds}
+                            activeJobIsLive={activeJobIsLive}
+                            isActiveGroup={isActiveGroup}
+                            groupHasProcessingState={groupHasProcessingState}
+                            activeProgress={activeProgress}
+                            isPlaying={Boolean(isPlaying)}
+                            isNext={Boolean(isNext)}
+                            allDone={allDone}
+                            onPlay={onPlay}
+                            onStop={onStop}
+                            onGenerate={onGenerate}
+                        />
                     );
                 })}
         </div>

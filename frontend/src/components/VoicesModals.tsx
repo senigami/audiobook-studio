@@ -10,6 +10,7 @@ import {
     Drawer,
     ScriptEditor
 } from './voices';
+import { getVariantDisplayName } from '../utils/voiceProfiles';
 
 interface VoicesModalsProps {
     // New Voice Modal
@@ -103,7 +104,7 @@ export const VoicesModals: React.FC<VoicesModalsProps> = (props) => {
             <MoveVariantModal
                 isOpen={props.isMoveVariantModalOpen}
                 onClose={() => props.setIsMoveVariantModalOpen(false)}
-                variantName={props.moveVariantProfile?.variant_name || props.moveVariantProfile?.name || ''}
+                variantName={getVariantDisplayName(props.moveVariantProfile)}
                 speakers={props.allVoices.filter(v => {
                     if (props.moveVariantProfile?.speaker_id && v.id === props.moveVariantProfile.speaker_id) return false;
                     if (!props.moveVariantProfile?.speaker_id && v.id === `unassigned-${props.moveVariantProfile?.name}`) return false;
@@ -126,7 +127,7 @@ export const VoicesModals: React.FC<VoicesModalsProps> = (props) => {
             <Drawer
                 isOpen={!!props.editingProfile}
                 onClose={() => props.setEditingProfile(null)}
-                title={`Edit: ${props.editingProfile?.variant_name || props.editingProfile?.name || ''}`}
+                title={`Edit: ${props.variantName || getVariantDisplayName(props.editingProfile)}`}
             >
                 <ScriptEditor
                     variantName={props.variantName}
