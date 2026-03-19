@@ -8,6 +8,9 @@ All notable changes to this project will be documented in this file.
 
 - **Queue Sync Recovery**: Queueing now shows an immediate optimistic state, then re-syncs after a short delay so fast-finishing chapters do not get stuck showing `processing`.
 - **Smooth Queue Progress**: Chapter and queue progress bars now use the live job timing data again, so websocket updates animate smoothly instead of jumping between discrete segment updates.
+- **Segment Finish Linger**: Performance view segment bars now get a brief finish state so short segments can visibly reach 100% before the next segment takes over.
+- **Duplicate Generate Guard**: The editor now ignores duplicate generate clicks for segments that are already pending, preventing accidental double-enqueue from the performance view.
+- **Playback No Auto-Prefetch**: Listen playback now waits for the segment you clicked instead of automatically queueing the next missing group ahead of time.
 - **Sample Gate for Voice Actions**: Voice preview and rebuild actions now require at least one raw sample, preventing empty voice profiles from enqueueing jobs that fail immediately.
 - **Queue Failure Cleanup**: Voice build/test failures now mark the processing queue entry as failed so a bad voice job cannot leave the queue looking stuck.
 - **Variant Action Styling**: Variant move/delete buttons now share the same neutral base styling, with delete switching to the standard destructive hover treatment. The speed adjustment pill now also uses the shared blue hover treatment.

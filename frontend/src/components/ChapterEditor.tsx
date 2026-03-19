@@ -77,6 +77,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
 
   const [editorTab, setEditorTab] = useState<'edit' | 'preview' | 'production' | 'performance'>('edit');
   const [generatingSegmentIds, setGeneratingSegmentIds] = useState<Set<string>>(new Set());
+  const pendingGenerationIdsRef = useRef<Set<string>>(new Set());
   const segmentRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queueSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -91,18 +92,31 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   const { analysis, setAnalysis, analyzing, loadingVoiceChunks, ensureVoiceChunks, runAnalysis } = useChapterAnalysis(chapterId, text);
 
   const handleGenerate = async (sids: string[]) => {
+    const uniqueIds = Array.from(new Set(sids));
+    const freshIds = uniqueIds.filter(id => {
+        const seg = segments.find(s => s.id === id);
+        return !!seg
+            && seg.audio_status !== 'processing'
+            && !generatingSegmentIds.has(id)
+            && !pendingGenerationIdsRef.current.has(id);
+    });
+
+    if (freshIds.length === 0) return;
+
+    freshIds.forEach(id => pendingGenerationIdsRef.current.add(id));
     setGeneratingSegmentIds(prev => {
         const next = new Set(prev);
-        sids.forEach(id => next.add(id));
+        freshIds.forEach(id => next.add(id));
         return next;
     });
     try {
-        await api.generateSegments(sids);
+        await api.generateSegments(freshIds);
     } catch (e) {
         console.error(e);
+        freshIds.forEach(id => pendingGenerationIdsRef.current.delete(id));
         setGeneratingSegmentIds(prev => {
             const next = new Set(prev);
-            sids.forEach(id => next.delete(id));
+            freshIds.forEach(id => next.delete(id));
             return next;
         });
     }
@@ -170,7 +184,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     if (!segmentUpdate || segmentUpdate.chapterId !== chapterId || segmentUpdate.tick === 0) return;
     if (segmentRefreshTimerRef.current) clearTimeout(segmentRefreshTimerRef.current);
     segmentRefreshTimerRef.current = setTimeout(async () => {
-      try {
+        try {
         const updated = await api.fetchSegments(chapterId);
         setSegments(updated);
         setGeneratingSegmentIds(prev => {
@@ -179,6 +193,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
             const seg = updated.find((s: any) => s.id === id);
             if (seg && (seg.audio_status === 'done' || seg.audio_status === 'error' || seg.audio_status === 'unprocessed')) {
               next.delete(id);
+              pendingGenerationIdsRef.current.delete(id);
             }
           }
           return next.size !== prev.size ? next : prev;

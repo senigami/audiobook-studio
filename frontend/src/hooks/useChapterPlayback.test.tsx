@@ -99,6 +99,23 @@ describe('useChapterPlayback', () => {
     expect(onGenerate).toHaveBeenCalledWith(['s1']);
   });
 
+  it('does not auto-queue the next group while playing a completed segment', async () => {
+    const nextGroupMissing = [
+      { id: 's1', character_id: 'char-1', text_content: 'Hello', audio_status: 'done', audio_file_path: 's1.wav' },
+      { id: 's2', character_id: 'char-2', text_content: 'World', audio_status: 'unprocessed', audio_file_path: null },
+    ] as any;
+
+    const { result } = renderHook(() =>
+      useChapterPlayback('proj1', nextGroupMissing, generatingSegmentIds, onGenerate)
+    );
+
+    await act(async () => {
+      await result.current.playSegment('s1', ['s1', 's2']);
+    });
+
+    expect(onGenerate).not.toHaveBeenCalled();
+  });
+
   it('resumes playback automatically after a missing segment renders', async () => {
     const segmentsMissing = [
       { id: 's1', text_content: 'Hello', audio_status: 'unprocessed', audio_file_path: null },

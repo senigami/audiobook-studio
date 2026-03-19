@@ -308,4 +308,32 @@ describe('ChapterEditor', () => {
     });
   });
 
+  it('ignores duplicate generate clicks while the same segments are already pending', async () => {
+    (api.generateSegments as any).mockResolvedValue(undefined);
+
+    render(
+      <ChapterEditor
+        chapterId={mockChapterId}
+        projectId={mockProjectId}
+        speakerProfiles={mockSpeakerProfiles as any}
+        speakers={mockSpeakers as any}
+        onBack={vi.fn()}
+      />
+    );
+
+    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
+
+    fireEvent.click(screen.getByText('Performance'));
+    await screen.findByText('Performance View');
+
+    const generateBtn = screen.getByRole('button', { name: 'Generate' });
+    fireEvent.click(generateBtn);
+    fireEvent.click(generateBtn);
+
+    await waitFor(() => {
+      expect(api.generateSegments).toHaveBeenCalledTimes(1);
+      expect(api.generateSegments).toHaveBeenCalledWith(['seg-1']);
+    });
+  });
+
 });

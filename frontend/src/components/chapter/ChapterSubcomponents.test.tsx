@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { act, render, screen, fireEvent, within } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { ProductionTab } from './ProductionTab';
 import { PerformanceTab } from './PerformanceTab';
@@ -193,6 +193,71 @@ describe('Chapter Subcomponents', () => {
       const activeCard = screen.getByText('Sentence one.').closest('div[style*="background: var(--surface)"]');
       expect(activeCard).toBeTruthy();
       expect(within(activeCard as HTMLElement).getAllByText('0%').length).toBeGreaterThan(0);
+    });
+
+    it('lets a completed segment linger at 100% before clearing when the job advances', () => {
+      vi.useFakeTimers();
+      try {
+        const { rerender } = render(
+          <PerformanceTab
+            chunkGroups={[
+              { characterId: 'char-1', segments: [{ ...mockSegments[0], audio_status: 'processing' }] },
+              { characterId: null, segments: [mockSegments[1]] }
+            ]}
+            characters={mockCharacters}
+            playingSegmentId={null}
+            playbackQueue={['seg-1', 'seg-2']}
+            generatingSegmentIds={new Set()}
+            allSegmentIds={['seg-1', 'seg-2']}
+            segments={mockSegments}
+            onPlay={vi.fn()}
+            onStop={vi.fn()}
+            onGenerate={vi.fn()}
+            generatingJob={{
+              id: 'job-1',
+              status: 'running',
+              active_segment_id: 'seg-1',
+              active_segment_progress: 0.92
+            } as any}
+          />
+        );
+
+        expect(screen.getByTestId('performance-progress-0')).toHaveAttribute('data-progress', '92');
+
+        rerender(
+          <PerformanceTab
+            chunkGroups={[
+              { characterId: 'char-1', segments: [{ ...mockSegments[0], audio_status: 'done' }] },
+              { characterId: null, segments: [{ ...mockSegments[1], audio_status: 'processing' }] }
+            ]}
+            characters={mockCharacters}
+            playingSegmentId={null}
+            playbackQueue={['seg-1', 'seg-2']}
+            generatingSegmentIds={new Set()}
+            allSegmentIds={['seg-1', 'seg-2']}
+            segments={mockSegments}
+            onPlay={vi.fn()}
+            onStop={vi.fn()}
+            onGenerate={vi.fn()}
+            generatingJob={{
+              id: 'job-1',
+              status: 'running',
+              active_segment_id: 'seg-2',
+              active_segment_progress: 0.08
+            } as any}
+          />
+        );
+
+        expect(screen.getByTestId('performance-progress-0')).toHaveAttribute('data-progress', '100');
+
+        act(() => {
+          vi.advanceTimersByTime(700);
+        });
+
+        expect(screen.queryByTestId('performance-progress-0')).toBeNull();
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 
