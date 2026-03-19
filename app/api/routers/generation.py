@@ -214,7 +214,7 @@ def api_generate_segments(segment_ids: str = Form(...)):
             try:
                 p.unlink()
             except Exception:
-                logger.debug("Failed to remove stale chapter audio file %s", p, exc_info=True)
+                logger.warning("Failed to remove stale chapter audio file %s", p, exc_info=True)
 
     # Update chapter status to processing to ensure UI reflects the work
     with get_connection() as conn:

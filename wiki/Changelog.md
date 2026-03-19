@@ -23,6 +23,7 @@ All notable changes to this project will be documented in this file.
 - **Clear Queue Feedback**: Queue actions now show an immediate inline success hint and synced `Queued` / `Rendering` badges in both the editor and project views.
 - **Simplified Performance Controls**: Removed the redundant chapter bake button from the performance view and kept the queue flow as the single path for rendering missing segments.
 - **Stronger Regression Coverage**: The backend test suite now exercises real state changes, queue behavior, and request flow, not just response codes.
+- **Operational Guardrails**: Cleanup failures now surface as warnings, the SQLite migration path uses a safer transaction flow, and stalled tests fail fast instead of hanging silently.
 - **Leaner Compatibility Layer**: Removed obsolete route aliases and legacy wrappers while keeping the compatibility shims that the current frontend still uses.
 
 ## [1.4.3] - 2026-03-18

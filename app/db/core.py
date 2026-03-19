@@ -138,30 +138,30 @@ def init_db():
 
                 if needs_migration:
                     logger.info("Migrating processing_queue to remove NOT NULL constraints")
-                    cursor.execute("BEGIN TRANSACTION")
-                    cursor.execute("ALTER TABLE processing_queue RENAME TO _processing_queue_old")
-                    cursor.execute("""
-                        CREATE TABLE processing_queue (
-                            id TEXT PRIMARY KEY,
-                            project_id TEXT,
-                            chapter_id TEXT,
-                            split_part INTEGER DEFAULT 0,
-                            status TEXT DEFAULT 'queued',
-                            created_at REAL,
-                            started_at REAL,
-                            completed_at REAL,
-                            custom_title TEXT,
-                            engine TEXT,
-                            FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE,
-                            FOREIGN KEY (chapter_id) REFERENCES chapters (id) ON DELETE CASCADE
-                        )
-                    """)
-                    cursor.execute("""
-                        INSERT INTO processing_queue (id, project_id, chapter_id, split_part, status, created_at, started_at, completed_at, custom_title, engine)
-                        SELECT id, project_id, chapter_id, split_part, status, created_at, started_at, completed_at, custom_title, NULL
-                        FROM _processing_queue_old
-                    """)
-                    cursor.execute("DROP TABLE _processing_queue_old")
+                    with conn:
+                        cursor.execute("ALTER TABLE processing_queue RENAME TO _processing_queue_old")
+                        cursor.execute("""
+                            CREATE TABLE processing_queue (
+                                id TEXT PRIMARY KEY,
+                                project_id TEXT,
+                                chapter_id TEXT,
+                                split_part INTEGER DEFAULT 0,
+                                status TEXT DEFAULT 'queued',
+                                created_at REAL,
+                                started_at REAL,
+                                completed_at REAL,
+                                custom_title TEXT,
+                                engine TEXT,
+                                FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE,
+                                FOREIGN KEY (chapter_id) REFERENCES chapters (id) ON DELETE CASCADE
+                            )
+                        """)
+                        cursor.execute("""
+                            INSERT INTO processing_queue (id, project_id, chapter_id, split_part, status, created_at, started_at, completed_at, custom_title, engine)
+                            SELECT id, project_id, chapter_id, split_part, status, created_at, started_at, completed_at, custom_title, NULL
+                            FROM _processing_queue_old
+                        """)
+                        cursor.execute("DROP TABLE _processing_queue_old")
             except Exception:
                 logger.warning("Failed to migrate processing_queue NULL constraints", exc_info=True)
 
