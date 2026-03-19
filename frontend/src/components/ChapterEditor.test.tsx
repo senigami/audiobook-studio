@@ -263,11 +263,12 @@ describe('ChapterEditor', () => {
 
     await waitFor(() => screen.findByDisplayValue('Test Chapter'));
 
-    const queueBtn = screen.getByTitle('Queue Chapter');
+    const queueBtn = screen.getByTitle('Rebuild Chapter');
     fireEvent.click(queueBtn);
 
     expect(await screen.findByText('Requeue Completed Chapter')).toBeInTheDocument();
-    fireEvent.click(screen.getByText('Yes, Requeue It'));
+    expect(screen.getByTitle('Rebuild Chapter')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Yes, Rebuild It'));
     await waitFor(() => {
       expect(api.addProcessingQueue).toHaveBeenCalled();
     });

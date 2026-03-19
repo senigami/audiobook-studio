@@ -246,6 +246,8 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   const allSegmentsDone = segments.length > 0 && segments.every(s => s.audio_status === 'done');
   const isFullyRendered = allSegmentsDone && (chapter?.audio_status === 'done' || !!chapter?.audio_file_path || !!chapter?.has_wav);
   const isQueueLocked = queuePending || submitting || chapter?.audio_status === 'processing' || ['queued', 'preparing', 'running', 'finalizing'].includes(job?.status || '');
+  const queueButtonLabel = isFullyRendered ? 'Rebuild' : 'Queue';
+  const queueButtonTitle = isFullyRendered ? 'Rebuild Chapter' : 'Queue Chapter';
 
   useEffect(() => {
     if (chapter?.audio_status === 'processing' || ['queued', 'preparing', 'running', 'finalizing'].includes(job?.status || '')) {
@@ -288,13 +290,15 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         onNext={onNext ? async () => { await handleSave(); onNext(); } : undefined}
         selectedVoice={selectedVoice} onVoiceChange={handleVoiceChange} availableVoices={availableVoices}
         submitting={isQueueLocked} queuePending={queuePending} job={job} generatingSegmentIdsCount={generatingSegmentIds.size}
+        queueLabel={queueButtonLabel}
+        queueTitle={queueButtonTitle}
         onQueue={() => {
             if (isFullyRendered) {
                 setConfirmConfig({
                     title: 'Requeue Completed Chapter',
-                    message: 'All audio for this chapter is already complete. Queueing again will clear the existing render and start over. Continue?',
+                    message: 'All audio for this chapter is already complete. Rebuilding will delete the existing final render and regenerate from the current segments. Continue?',
                     onConfirm: async () => { setConfirmConfig(null); await executeQueue(); },
-                    confirmText: 'Yes, Requeue It',
+                    confirmText: 'Yes, Rebuild It',
                     isDestructive: true
                 });
             } else if (chapter?.char_count && chapter.char_count > 50000) {

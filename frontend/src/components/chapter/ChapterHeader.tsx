@@ -18,6 +18,8 @@ interface ChapterHeaderProps {
   queuePending?: boolean;
   job?: Job;
   generatingSegmentIdsCount: number;
+  queueLabel?: string;
+  queueTitle?: string;
   onQueue: () => void;
   onStopAll: () => void;
 }
@@ -38,6 +40,8 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
   queuePending = false,
   job,
   generatingSegmentIdsCount,
+  queueLabel = 'Queue',
+  queueTitle = 'Queue Chapter',
   onQueue,
   onStopAll
 }) => {
@@ -154,10 +158,10 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
                   opacity: (job?.status === 'queued' || job?.status === 'running') || chapter?.audio_status === 'processing' ? 0.3 : 1,
                   cursor: (job?.status === 'queued' || job?.status === 'running') || chapter?.audio_status === 'processing' ? 'not-allowed' : 'pointer'
               }}
-              title={((job?.status === 'queued' || job?.status === 'running') || chapter?.audio_status === 'processing') ? "Already processing" : "Queue Chapter"}
+              title={((job?.status === 'queued' || job?.status === 'running') || chapter?.audio_status === 'processing') ? "Already processing" : queueTitle}
               >
               {submitting ? <RefreshCw size={14} className="animate-spin" /> : <Zap size={14} />}
-              Queue
+              {queueLabel}
           </button>
 
           {queueStatus && (
