@@ -34,8 +34,7 @@ def test_build_profile(clean_voices):
         ("files", ("test2.wav", b"fake wav content 2", "audio/wav")),
     ]
     response = client.post(
-        "/api/speaker-profiles/build",
-        data={"name": "TestSpeaker"},
+        "/api/speaker-profiles/TestSpeaker/build",
         files=files
     )
     assert response.status_code == 200
@@ -93,8 +92,7 @@ def test_speaker_profile_test_endpoint(mock_xtts, clean_voices):
     test_out.write_text("output audio")
 
     response = client.post(
-        "/api/speaker-profiles/test",
-        data={"name": name}
+        f"/api/speaker-profiles/{name}/test"
     )
 
     assert response.status_code == 200

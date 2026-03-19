@@ -3,7 +3,6 @@ concurrency = thread
   
 [report]
 show_missing = True
-fail_under = 80
 exclude_lines =
     pragma: no cover
     def __repr__

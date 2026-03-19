@@ -1,6 +1,5 @@
 import pytest
 from fastapi.testclient import TestClient
-import json
 from app.web import app
 from app.db import get_connection
 
@@ -50,10 +49,12 @@ def test_bulk_update_profile_name(test_project):
     sids = [s["id"] for s in segments]
 
     # 2. Bulk update segments with character and profile name
-    res = client.put("/api/segments", data={
-        "segment_ids": ",".join(sids),
-        "character_id": "char-123",
-        "speaker_profile_name": "Sally - Excited"
+    res = client.post("/api/segments/bulk-update", json={
+        "segment_ids": sids,
+        "updates": {
+            "character_id": "char-123",
+            "speaker_profile_name": "Sally - Excited",
+        },
     })
     assert res.status_code == 200
 
