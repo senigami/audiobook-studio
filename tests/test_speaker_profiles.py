@@ -241,6 +241,38 @@ def test_get_speaker_settings_prefers_base_folder_over_variant(clean_voices):
     assert str(base / "sample.wav") in wavs
     assert str(angry / "sample.wav") not in wavs
 
+def test_speaker_listing_normalizes_base_profile_to_default(clean_voices):
+    from app.db.speakers import create_speaker, update_speaker, delete_speaker
+
+    speaker_id = create_speaker("Dracula Test Normalize")
+    try:
+        update_speaker(speaker_id, default_profile_name="Dracula Test Normalize - Angry")
+
+        base_dir = clean_voices / "Dracula Test Normalize"
+        angry_dir = clean_voices / "Dracula Test Normalize - Angry"
+        base_dir.mkdir(parents=True, exist_ok=True)
+        angry_dir.mkdir(parents=True, exist_ok=True)
+        (base_dir / "profile.json").write_text(json.dumps({"built_samples": []}))
+        (angry_dir / "profile.json").write_text(json.dumps({"speaker_id": speaker_id, "variant_name": "Angry"}))
+
+        response = client.get("/api/speakers")
+        assert response.status_code == 200
+
+        dracula = next(s for s in response.json() if s["id"] == speaker_id)
+        assert dracula["default_profile_name"] == "Dracula Test Normalize"
+
+        profiles_response = client.get("/api/speaker-profiles")
+        assert profiles_response.status_code == 200
+        base_profile = next(p for p in profiles_response.json() if p["name"] == "Dracula Test Normalize")
+        assert base_profile["variant_name"] == "Default"
+        assert base_profile["speaker_id"] == speaker_id
+
+        meta = json.loads((base_dir / "profile.json").read_text())
+        assert meta["variant_name"] == "Default"
+        assert meta["speaker_id"] == speaker_id
+    finally:
+        delete_speaker(speaker_id)
+
 def test_latent_cache_path():
     from app.engines import get_speaker_latent_path
 

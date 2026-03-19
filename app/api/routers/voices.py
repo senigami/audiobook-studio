@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 from ...db import (
     get_characters, create_character, update_character, delete_character,
     list_speakers, create_speaker, get_speaker, update_speaker, delete_speaker,
-    update_voice_profile_references
+    update_voice_profile_references, normalize_base_profiles
 )
 from ...db.speakers import infer_variant_name, normalize_profile_metadata
 from ...jobs import (
@@ -57,6 +57,7 @@ router = APIRouter(tags=["voices"])
 
 @router.get("/api/speaker-profiles")
 def list_speaker_profiles(voices_dir: Path = Depends(get_voices_dir)):
+    normalize_base_profiles()
     if not voices_dir.exists():
         return []
 
@@ -169,6 +170,7 @@ def api_delete_character_route(character_id: str):
 
 @router.get("/api/speakers")
 def api_list_speakers_route():
+    normalize_base_profiles()
     return JSONResponse(list_speakers())
 
 @router.post("/api/speakers")

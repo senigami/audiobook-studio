@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 - **Clear Variant Labels**: Production assignment labels now show the human-friendly variant name instead of the internal voice-profile folder name.
 - **Explicit Default Label**: Base voice profiles without a `- Variant` suffix now display `Default` instead of echoing the folder name back in the UI.
 - **Base Voice Preference**: Voice resolution now prefers the base profile folder and explicit `Default` variant before falling back to sibling variants, so `Dracula` no longer inherits `Dracula - Angry` by accident.
+- **Speaker/Profile Repair**: Existing voice libraries now auto-relink a base folder like `Dracula` to its matching speaker and restore it as the default profile when older metadata had drifted to a variant.
 
 ## [1.5.0] - 2026-03-18
 
