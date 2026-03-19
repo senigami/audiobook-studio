@@ -108,37 +108,12 @@ describe('Chapter Subcomponents', () => {
           onPlay={onPlay} 
           onStop={vi.fn()} 
           onGenerate={vi.fn()} 
-          onBake={vi.fn()} 
-          submitting={false} 
         />
       );
 
       expect(screen.getByText('Sentence one.')).toBeInTheDocument();
       fireEvent.click(screen.getByRole('button', { name: /listen/i }));
       expect(onPlay).toHaveBeenCalledWith('seg-1', ['seg-1']);
-    });
-
-    it('renders baking button', () => {
-      const onBake = vi.fn();
-      render(
-        <PerformanceTab 
-          chunkGroups={mockChunkGroups} 
-          characters={mockCharacters} 
-          playingSegmentId={null} 
-          playbackQueue={['seg-1']} 
-          generatingSegmentIds={new Set()} 
-          allSegmentIds={['seg-1']} 
-          segments={mockSegments} 
-          onPlay={vi.fn()} 
-          onStop={vi.fn()} 
-          onGenerate={vi.fn()} 
-          onBake={onBake} 
-          submitting={false} 
-        />
-      );
-
-      fireEvent.click(screen.getByText(/Bake Final Chapter/i));
-      expect(onBake).toHaveBeenCalled();
     });
 
     it('highlights only the active segment group for a live job', () => {
@@ -165,8 +140,6 @@ describe('Chapter Subcomponents', () => {
             onPlay={vi.fn()} 
             onStop={vi.fn()} 
             onGenerate={vi.fn()} 
-            onBake={vi.fn()} 
-            submitting={false} 
             generatingJob={activeJob}
           />
         </>
@@ -205,8 +178,6 @@ describe('Chapter Subcomponents', () => {
           onPlay={vi.fn()} 
           onStop={vi.fn()} 
           onGenerate={vi.fn()} 
-          onBake={vi.fn()} 
-          submitting={false} 
           generatingJob={activeJob}
         />
       );

@@ -14,8 +14,6 @@ interface PerformanceTabProps {
   onPlay: (segmentId: string, fullQueue: string[]) => void;
   onStop: () => void;
   onGenerate: (sids: string[]) => void;
-  onBake: () => void;
-  submitting: boolean;
   generatingJob?: import('../../types').Job;
 }
 
@@ -30,8 +28,6 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
   onPlay,
   onStop,
   onGenerate,
-  onBake,
-  submitting,
   generatingJob
 }) => {
   const uniqueSegmentIds = Array.from(new Set(allSegmentIds));
@@ -55,21 +51,13 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
     return -1;
   }, [activeJobIsLive, activeSegmentId, chunkGroups, generatingSegmentIds]);
   
-  return (
+    return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', padding: '1.5rem', minHeight: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <List size={20} color="var(--accent)" />
                 <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 600 }}>Performance View</h3>
             </div>
-            <button 
-                onClick={onBake}
-                className="btn-primary"
-                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.2rem', boxShadow: '0 4px 12px var(--accent-glow)' }}
-                title="Stitch all segment audios into the final chapter file"
-            >
-                <RefreshCw size={16} className={submitting ? 'animate-spin' : ''} /> Bake Final Chapter
-            </button>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>

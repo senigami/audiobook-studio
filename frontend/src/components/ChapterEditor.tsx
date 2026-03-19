@@ -25,7 +25,6 @@ interface ChapterEditorProps {
   selectedVoice?: string;
   onVoiceChange?: (voice: string) => void;
   onBack: () => void;
-  onNavigateToQueue: () => void;
   onNext?: () => void;
   onPrev?: () => void;
   segmentUpdate?: { chapterId: string; tick: number };
@@ -40,7 +39,6 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   selectedVoice: externalVoice, 
   onVoiceChange, 
   onBack, 
-  onNavigateToQueue, 
   onNext, 
   onPrev, 
   segmentUpdate 
@@ -243,11 +241,14 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     catch (e) { console.error("Bulk reset failed", e); }
   };
 
+  const allSegmentsDone = segments.length > 0 && segments.every(s => s.audio_status === 'done');
+  const isFullyRendered = allSegmentsDone && (chapter?.audio_status === 'done' || !!chapter?.audio_file_path || !!chapter?.has_wav);
+
   const executeQueue = async () => {
     setSubmitting(true);
     try {
         await api.addProcessingQueue(projectId, chapterId, 0, selectedVoice || undefined);
-        onNavigateToQueue();
+        await loadChapter();
     } catch (e) {
         setConfirmConfig({ title: 'Queue Failed', message: 'Failed to queue chapter.', onConfirm: () => setConfirmConfig(null), confirmText: 'OK' });
     } finally { setSubmitting(false); }
@@ -266,16 +267,24 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         onBack={async () => { await handleSave(); onBack(); }}
         onPrev={onPrev ? async () => { await handleSave(); onPrev(); } : undefined}
         onNext={onNext ? async () => { await handleSave(); onNext(); } : undefined}
-        onNavigateToQueue={onNavigateToQueue}
         selectedVoice={selectedVoice} onVoiceChange={handleVoiceChange} availableVoices={availableVoices}
         submitting={submitting} job={job} generatingSegmentIdsCount={generatingSegmentIds.size}
         onQueue={() => {
-            if (chapter?.char_count && chapter.char_count > 50000) {
+            if (isFullyRendered) {
+                setConfirmConfig({
+                    title: 'Requeue Completed Chapter',
+                    message: 'All audio for this chapter is already complete. Queueing again will clear the existing render and start over. Continue?',
+                    onConfirm: async () => { setConfirmConfig(null); await executeQueue(); },
+                    confirmText: 'Yes, Requeue It',
+                    isDestructive: true
+                });
+            } else if (chapter?.char_count && chapter.char_count > 50000) {
                 setConfirmConfig({
                     title: 'Large Chapter Warning',
                     message: `Chapter is long (${chapter.char_count.toLocaleString()} chars). Queue anyway?`,
                     onConfirm: async () => { setConfirmConfig(null); await executeQueue(); },
-                    confirmText: 'Yes, Queue It'
+                    confirmText: 'Yes, Queue It',
+                    isDestructive: false
                 });
             } else executeQueue();
         }}
@@ -303,13 +312,6 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                     playbackQueue={segments.map(s => s.id)} generatingSegmentIds={generatingSegmentIds}
                     allSegmentIds={segments.map(s => s.id)} segments={segments}
                     onPlay={playSegment} onStop={stopPlayback} onGenerate={handleGenerate}
-                    onBake={async () => {
-                        setSubmitting(true);
-                        try { await api.bakeChapter(chapterId); onNavigateToQueue(); }
-                        catch (e) { console.error(e); }
-                        finally { setSubmitting(false); }
-                    }}
-                    submitting={submitting}
                     generatingJob={job}
                   />
                 )}

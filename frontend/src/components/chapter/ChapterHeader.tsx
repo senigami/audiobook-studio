@@ -11,7 +11,6 @@ interface ChapterHeaderProps {
   onBack: () => void;
   onPrev?: () => void;
   onNext?: () => void;
-  onNavigateToQueue: () => void;
   selectedVoice: string;
   onVoiceChange: (voice: string) => void;
   availableVoices: { id: string; name: string; is_speaker: boolean }[];

@@ -17,6 +17,9 @@ All notable changes to this project will be documented in this file.
 - **Listen-and-Resume Playback**: Clicking Listen on a missing segment now shows active generation progress and automatically starts playback as soon as the render finishes.
 - **Live Segment Progress**: Chapter and queue progress bars now reflect the active segment progress reported by the worker, so websocket updates are visible while a chapter is rendering.
 - **Zero-State Progress Bars**: Progress bars now stay at 0% until a job is actually running, so queued/preparing jobs no longer jump ahead before rendering starts.
+- **In-Page Queueing**: Queueing a chapter now keeps you on the chapter page so you can watch the segments render in place.
+- **Safe Requeue Confirmation**: Fully rendered chapters now ask for confirmation before requeueing so you don’t accidentally wipe complete audio.
+- **Simplified Performance Controls**: Removed the redundant chapter bake button from the performance view and kept the queue flow as the single path for rendering missing segments.
 - **Stronger Regression Coverage**: The backend test suite now exercises real state changes, queue behavior, and request flow, not just response codes.
 - **Leaner Compatibility Layer**: Removed obsolete route aliases and legacy wrappers while keeping the compatibility shims that the current frontend still uses.
 

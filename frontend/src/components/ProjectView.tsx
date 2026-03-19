@@ -137,14 +137,13 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
   if (editingChapterId) {
       const activeIdx = chapters.findIndex(c => c.id === editingChapterId);
       return (
-          <ChapterEditor 
-              chapterId={editingChapterId} projectId={projectId} speakerProfiles={speakerProfiles} speakers={speakers}
-              job={pickLatestJob(j => j.project_id === projectId && (j.chapter_id === editingChapterId || j.chapter_file?.includes(editingChapterId)))}
-              onBack={() => { setEditingChapterId(null); loadData(); }}
-              onNavigateToQueue={() => navigate('/queue')}
-              selectedVoice={selectedVoice} onVoiceChange={setSelectedVoice}
-              onNext={activeIdx < chapters.length - 1 ? () => setEditingChapterId(chapters[activeIdx + 1].id) : undefined}
-              onPrev={activeIdx > 0 ? () => setEditingChapterId(chapters[activeIdx - 1].id) : undefined}
+              <ChapterEditor 
+                  chapterId={editingChapterId} projectId={projectId} speakerProfiles={speakerProfiles} speakers={speakers}
+                  job={pickLatestJob(j => j.project_id === projectId && (j.chapter_id === editingChapterId || j.chapter_file?.includes(editingChapterId)))}
+                  onBack={() => { setEditingChapterId(null); loadData(); }}
+                  selectedVoice={selectedVoice} onVoiceChange={setSelectedVoice}
+                  onNext={activeIdx < chapters.length - 1 ? () => setEditingChapterId(chapters[activeIdx + 1].id) : undefined}
+                  onPrev={activeIdx > 0 ? () => setEditingChapterId(chapters[activeIdx - 1].id) : undefined}
               segmentUpdate={segmentUpdate}
           />
       );
