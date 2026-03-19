@@ -6,20 +6,10 @@ All notable changes to this project will be documented in this file.
 
 ### Highlights
 
-- **Queue Sync Recovery**: Queueing now shows an immediate optimistic state, then re-syncs after a short delay so fast-finishing chapters do not get stuck showing `processing`.
-- **Smooth Queue Progress**: Chapter and queue progress bars now use the live job timing data again, so websocket updates animate smoothly instead of jumping between discrete segment updates.
-- **Segment Finish Linger**: Performance view segment bars now get a brief finish state so short segments can visibly reach 100% before the next segment takes over.
-- **Duplicate Generate Guard**: The editor now ignores duplicate generate clicks for segments that are already pending, preventing accidental double-enqueue from the performance view.
-- **Playback No Auto-Prefetch**: Listen playback now waits for the segment you clicked instead of automatically queueing the next missing group ahead of time.
-- **Sample Gate for Voice Actions**: Voice preview and rebuild actions now require at least one raw sample, preventing empty voice profiles from enqueueing jobs that fail immediately.
-- **Queue Failure Cleanup**: Voice build/test failures now mark the processing queue entry as failed so a bad voice job cannot leave the queue looking stuck.
-- **Variant Action Styling**: Variant move/delete buttons now share the same neutral base styling, with delete switching to the standard destructive hover treatment. The speed adjustment pill now also uses the shared blue hover treatment.
-- **Voice Control Hover Feedback**: The sample play, speed, script, move, and samples expander controls now use the same subtle hover treatment as the rest of the app's buttons, while delete keeps its destructive hover state.
-- **Default Variant Assignment**: Production view now picks the first variant for a character automatically when you assign it, so speaking parts use the intended voice profile instead of falling back to narration.
-- **Clear Variant Labels**: Production assignment labels now show the human-friendly variant name instead of the internal voice-profile folder name.
-- **Explicit Default Label**: Base voice profiles without a `- Variant` suffix now display `Default` instead of echoing the folder name back in the UI.
-- **Base Voice Preference**: Voice resolution now prefers the base profile folder and explicit `Default` variant before falling back to sibling variants, so `Dracula` no longer inherits `Dracula - Angry` by accident.
-- **Speaker/Profile Repair**: Existing voice libraries now auto-relink a base folder like `Dracula` to its matching speaker and restore it as the default profile when older metadata had drifted to a variant.
+- **Queue, Progress, and Resume Flow**: Queueing now gives immediate optimistic feedback, then re-syncs after a short delay so fast-finishing chapters do not get stuck showing `processing`. Chapter and queue progress bars once again animate from live timing data, short segment bars linger long enough to visibly reach 100%, and Listen playback resumes only the segment you clicked instead of automatically prefetching the next group.
+- **Voice Profile Safety and Clarity**: Empty voice profiles can no longer enqueue failing preview/rebuild jobs, failed voice jobs now mark the queue entry as failed, and production voice selection now prefers the intended base/default profile before falling back to variants. Variant labels are also shown more clearly throughout the UI, with base profiles using `Default` and existing drifted speaker metadata being repaired automatically.
+- **Consistent Voice UI Behavior**: The voices screen now uses one hover language across play, speed, script, move, samples, and delete controls, with delete keeping the destructive treatment and the other actions sharing the app’s standard subtle hover state.
+- **Production Editing and Stability**: Production queueing now keeps you in place with a clear queued/rebuild flow, duplicate generate clicks are ignored while segments are already pending, and chapter text edits invalidate stale audio more conservatively so shifted text does not keep old file links alive. The backend also gained stronger regression coverage, safer SQLite migration handling, faster XTTS cache checks, and a leaner compatibility layer.
 
 ## [1.5.0] - 2026-03-18
 
