@@ -1,135 +1,171 @@
-<p align="center">
-  <img src="docs/assets/logo.png" alt="Audiobook Studio Hero Banner" width="50%">
-  <img src="docs/assets/audiobook-studio.png" alt="Audiobook Studio Hero Banner" width="50%">
-</p>
+![Listen to the Audiobook Studio overview](assets/Promo.png)
+
+## Hear It In Action
+
+Listen to the overview demo, explore the interface, and get a better feel for how Audiobook Studio sounds in practice.
+
+[Open the Live Showcase](https://senigami.github.io/audiobook-studio/)
 
 # Audiobook Studio
 
-### Professional AI Production Pipeline for Long-Form Narration
+### Local AI audiobook production with voice cloning, chapter repair, and long-form workflow control
 
 [![Build Status](https://github.com/senigami/audiobook-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/senigami/audiobook-studio/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18-green.svg)](https://nodejs.org/)
 
-**Audiobook Studio** is a high-performance **AI Voice Production Studio** and **Narration Engine** designed for turning manuscripts into professional audiobooks using local AI speech synthesis.
+**Audiobook Studio** is a local-first production app for turning manuscripts into polished audiobooks with AI voices you control.
 
-[**Full Documentation (Wiki)**](https://github.com/senigami/audiobook-studio/wiki) | [**Live Showcase**](https://senigami.github.io/audiobook-studio/)
+It is built for real long-form work, not just one-click text-to-speech. You can assign voices to characters, repair individual segments, requeue partial chapters, build portable voice profiles, and assemble finished books without sending your manuscript or cloned voices to a paid cloud service.
 
----
+## Why People Use It
 
-## 🎙️ Overview
+- **Produce full audiobooks locally** with XTTS-based voice cloning and chapter assembly.
+- **Fix only what changed** instead of regenerating an entire book every time one sentence sounds wrong.
+- **Assign different voices to dialogue and narration** inside the same chapter.
+- **Keep your data private** because manuscripts, voice samples, and outputs stay on your machine.
+- **Avoid recurring usage costs** while still getting a workflow closer to professional narration tools.
 
-Audiobook Studio provides a professional production pipeline with granular control over every word:
+## What Makes It Different
 
-- **Multi-Voice Scripting**: Assign unique studio voices to characters or paragraphs.
-- **Segment Regeneration**: Fine-tune specific segments without re-generating entire chapters.
-- **Incremental Assembly**: Fast, lossless M4B compilation using cached chapter encodes.
-- **Local Voice Cloning**: Clone voices locally from 60-second samples via XTTS-v2.
-- **Hardware-Aware**: Precise ETAs calculated from your actual GPU/CPU throughput.
+Most TTS tools stop at "paste text and generate audio."
 
-> [!NOTE]
-> For detailed guides on project management, voice cloning, and production workflows, please visit our **[GitHub Wiki](https://github.com/senigami/audiobook-studio/wiki)**.
+Audiobook Studio is built around the messy reality of audiobook production:
 
----
+- pronunciations need hand-tuning
+- dialogue needs different voices
+- chapters need partial rebuilds
+- queueing and progress need to stay understandable
+- finished books need real assembly and export
 
-## 🧩 Feature Suite
+This project gives you a production surface for that work, not just a synthesis endpoint.
 
-| 🎙️ Multi-Voice Scripting                                 | 📚 Long-Form Support                                      | ⚙️ Pipeline Automation                            |
-| :------------------------------------------------------- | :-------------------------------------------------------- | :------------------------------------------------ |
-| Assign unique voices to specific dialogue or paragraphs. | Designed for 100k+ word manuscripts with stable batching. | Automatic splitting, normalization, and assembly. |
+## Core Features
 
-| 🧪 Segment Regeneration                                      | 🚀 Batch Processing                                            | 📊 Real-Time Feedback                                         |
-| :----------------------------------------------------------- | :------------------------------------------------------------- | :------------------------------------------------------------ |
-| Fine-tune and regenerate segments without re-doing chapters. | Queue dozens of chapters and track them with auto-tuning ETAs. | Integrated console for live engine logs and hardware metrics. |
+| Feature | What it enables |
+| --- | --- |
+| **Multi-voice production** | Assign speaker voices to characters, narration, or paragraph groups. |
+| **Segment-level repair** | Regenerate only the lines that changed instead of redoing a whole chapter. |
+| **Portable voice profiles** | Keep previews, latent cache, and voice profile assets together. |
+| **Voice variants** | Build multiple styles of the same voice, such as `Default`, `Angry`, or `Calm`. |
+| **Production queue** | Queue chapters, watch progress live, and recover cleanly from interruptions. |
+| **Audiobook assembly** | Export finished chapter audio into long-form outputs with ffmpeg-based tooling. |
+| **Local-first privacy** | No manuscript or cloned voice needs to leave your computer. |
 
----
+## What The Workflow Looks Like
 
-## 🛠️ System Requirements
+1. Import or create a project.
+2. Split the manuscript into chapters.
+3. Build or import voice profiles.
+4. Assign voices to narration and characters.
+5. Generate chapters, inspect the performance view, and repair only the lines that need work.
+6. Assemble the finished project into audiobook outputs.
 
-- **OS**: macOS, Linux, or Windows
-- **Python**: 3.11+ (Strictly required for XTTS)
-- **Node.js**: 18+ (For frontend dashboard)
-- **Hardare**: NVIDIA GPU (8GB+ VRAM) highly recommended for synthesis speed.
-- **System Tools**: `ffmpeg` (Required for MP3 and M4B generation)
+## Screenshots
 
----
+| Project Workflow | Voice Lab |
+| --- | --- |
+| ![Project view](wiki/images/project-view.jpg) | ![Voice lab](wiki/images/voice-lab-list.jpg) |
 
-## 📦 Installation
+| Chapter Production | Queue and Progress |
+| --- | --- |
+| ![Chapter editor](wiki/images/chapter-editor.jpg) | ![Queue sidebar](wiki/images/queue-sidebar.jpg) |
 
-### 1️⃣ Clone the Studio
+## Quick Start
+
+### Requirements
+
+- macOS, Linux, or Windows
+- Python `3.11+`
+- Node.js `18+`
+- `ffmpeg`
+- NVIDIA GPU recommended for faster local synthesis
+
+### Install
 
 ```bash
 git clone https://github.com/senigami/audiobook-studio.git
 cd audiobook-studio
-```
 
-### 2️⃣ Configure the Environment
-
-```bash
-# Setup Backend
 python3.11 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 
-# Setup XTTS Engine
 python3.11 -m venv ~/xtts-env
 source ~/xtts-env/bin/activate
 pip install -r requirements-xtts.txt
 ```
 
-### 3️⃣ Add Voice Profiles
-
-Place 60-second `.wav` samples in `voices/`:
-
-```text
-voices/
-  Narrator-A/
-    speaker.wav
-  Narrator-B/
-    speaker.wav
-```
-
----
-
-## ▶ Running the Studio
-
-1. **Start the Engine**:
+### Run
 
 ```bash
 source venv/bin/activate
 uvicorn run:app --port 8123
 ```
 
-2. **Access the Lab**:
-   Navigate to `http://127.0.0.1:8123` to enter the production dashboard.
+Then open [http://127.0.0.1:8123](http://127.0.0.1:8123).
 
----
+## Voice Profiles
 
-## 🧪 Quality Control
+Audiobook Studio supports local voice cloning and reusable voice variants.
 
-Audiobook Studio maintains a rigorous automated testing suite ensuring every narration is technically perfect.
+- Add raw `.wav` samples to a voice profile
+- Build a preview voice
+- Create variants for different delivery styles
+- Rebuild only when samples change
+- Keep the voice profile and latent cache together for portability
+
+The app now treats voice profiles as production assets, not throwaway cache entries.
+
+## Long-Form Editing and Repair
+
+This is where the app really shines.
+
+- Edit chapter text and invalidate only the audio that should change
+- Watch progress in the chapter view instead of getting thrown into a separate queue screen
+- Resume partially-rendered work instead of starting from zero
+- Rebuild completed chapters intentionally with confirmation
+- Review paragraph groupings, playback, and character assignments inside the production workflow
+
+## Privacy
+
+Audiobook Studio is designed for **local-first production**.
+
+Your manuscript, chapter text, voice samples, latent files, and rendered audio stay under your control on your own machine.
+
+## Documentation
+
+If you want the deeper walkthroughs, they are here:
+
+- [Getting Started](https://github.com/senigami/audiobook-studio/wiki/Getting-Started)
+- [Library and Projects](https://github.com/senigami/audiobook-studio/wiki/Library-and-Projects)
+- [Voices and Voice Profiles](https://github.com/senigami/audiobook-studio/wiki/Voices-and-Voice-Profiles)
+- [Queue and Jobs](https://github.com/senigami/audiobook-studio/wiki/Queue-and-Jobs)
+- [Recording Guide](https://github.com/senigami/audiobook-studio/wiki/Recording-Guide)
+- [Troubleshooting and FAQ](https://github.com/senigami/audiobook-studio/wiki/Troubleshooting-and-FAQ)
+- [Full Wiki](https://github.com/senigami/audiobook-studio/wiki)
+
+## Showcase
+
+If you want a quick visual walkthrough before installing:
+
+- [Live Showcase](https://senigami.github.io/audiobook-studio/)
+
+## Development
 
 ```bash
-# Run full test suite
-pytest -v
-npm test --prefix frontend
+./venv/bin/python -m pytest -q
+npm -C frontend run lint -- --ext .tsx,.ts
+npm -C frontend run build
 ```
 
----
+## License
 
-## 🔐 Privacy & Security
-
-Designed for **local-first production**. Audiobook Studio never uploads your manuscripts or voice clones to external servers. Your creative IP stays on your machine.
-
----
-
-## 📜 License
-
-Distributed under the **MIT License**. See `LICENSE` for more information.
+Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for more information.
 
 ---
 
 <p align="center">
-  <i>"Professional AI Production Pipeline for Long-Form Narration"</i>
+  <strong>Build audiobooks locally. Repair them like a studio. Keep your voices and manuscript under your control.</strong>
 </p>
