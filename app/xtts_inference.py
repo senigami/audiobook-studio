@@ -74,12 +74,15 @@ def main():
             if p.name != "latent.pth"
         )
         for wav in wavs:
-            h.update(wav.name.encode("utf-8"))
-            h.update(b"\0")
             try:
-                h.update(wav.read_bytes())
+                stat = wav.stat()
             except Exception:
                 continue
+            h.update(wav.name.encode("utf-8"))
+            h.update(b"\0")
+            h.update(str(stat.st_size).encode("utf-8"))
+            h.update(b"\0")
+            h.update(str(getattr(stat, "st_mtime_ns", int(stat.st_mtime * 1_000_000_000))).encode("utf-8"))
             h.update(b"\0")
         return h.hexdigest()
 
