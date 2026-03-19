@@ -1,5 +1,7 @@
 import pytest
+import os
 import subprocess
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch, ANY
 from app.engines import (
@@ -93,11 +95,31 @@ def test_wav_to_mp3():
 
 def test_xtts_generate_success(mock_on_output, mock_cancel_check):
     with patch("app.engines.XTTS_ENV_ACTIVATE") as mock_activate, \
-         patch("app.engines.run_cmd_stream", return_value=0):
+         patch("app.engines.run_cmd_stream", return_value=0) as mock_run:
         mock_activate.exists.return_value = True
 
-        rc = xtts_generate("Hello", Path("out.wav"), True, mock_on_output, mock_cancel_check, speaker_wav="spk.wav")
+        rc = xtts_generate("Hello", Path("out.wav"), True, mock_on_output, mock_cancel_check, speaker_wav="spk.wav", voice_profile_dir=Path("/tmp/voices/VoiceA"))
         assert rc == 0
+        assert "--voice_profile_dir" in mock_run.call_args[0][0]
+
+def test_xtts_generate_voice_profile_only(mock_on_output, mock_cancel_check):
+    with patch("app.engines.XTTS_ENV_ACTIVATE") as mock_activate, \
+         patch("app.engines.run_cmd_stream", return_value=0) as mock_run:
+        mock_activate.exists.return_value = True
+
+        rc = xtts_generate(
+            "Hello",
+            Path("out.wav"),
+            True,
+            mock_on_output,
+            mock_cancel_check,
+            speaker_wav=None,
+            voice_profile_dir=Path("/tmp/voices/VoiceA"),
+        )
+        assert rc == 0
+        cmd = mock_run.call_args[0][0]
+        assert "--speaker_wav" not in cmd
+        assert "--voice_profile_dir" in cmd
 
 def test_xtts_generate_no_activate(mock_on_output, mock_cancel_check):
     with patch("app.engines.XTTS_ENV_ACTIVATE") as mock_activate:
@@ -115,6 +137,21 @@ def test_get_audio_duration():
 def test_get_speaker_latent_path_multi():
     p = get_speaker_latent_path("v1.wav, v2.wav")
     assert p is not None
+
+
+def test_migrate_speaker_latent_to_profile(tmp_path, monkeypatch):
+    from app.engines import migrate_speaker_latent_to_profile
+
+    legacy_latent = tmp_path / "legacy.pth"
+    legacy_latent.write_text("legacy latent")
+    profile_dir = tmp_path / "voices" / "VoiceA"
+
+    monkeypatch.setattr("app.engines.get_speaker_latent_path", lambda *_args, **_kwargs: legacy_latent)
+
+    migrated = migrate_speaker_latent_to_profile("ref.wav", profile_dir)
+    assert migrated == profile_dir / "latent.pth"
+    assert migrated.exists()
+    assert migrated.read_text() == "legacy latent"
 
 def test_assemble_audiobook_no_files(mock_on_output, mock_cancel_check):
     with patch("os.listdir", return_value=[]):
@@ -165,9 +202,53 @@ def test_xtts_generate_raw_mode(mock_on_output, mock_cancel_check):
         rc = xtts_generate("Hello", Path("out.wav"), False, mock_on_output, mock_cancel_check, speaker_wav="spk.wav")
         assert rc == 0
 
+
+def test_xtts_generate_script_includes_voice_profile_dir(mock_on_output, mock_cancel_check):
+    with patch("app.engines.XTTS_ENV_ACTIVATE") as mock_activate, \
+         patch("app.engines.run_cmd_stream", return_value=0) as mock_run:
+        mock_activate.exists.return_value = True
+
+        rc = xtts_generate_script(
+            Path("script.json"),
+            Path("out.wav"),
+            mock_on_output,
+            mock_cancel_check,
+            speed=1.0,
+            voice_profile_dir=Path("/tmp/voices/VoiceA"),
+        )
+        assert rc == 0
+        assert "--voice_profile_dir" in mock_run.call_args[0][0]
+        assert " . " in mock_run.call_args[0][0]
+        assert " source " not in mock_run.call_args[0][0]
+
+
+def test_xtts_inference_can_run_from_outside_repo(tmp_path):
+    pytest.importorskip("torch")
+    script = Path(__file__).resolve().parents[1] / "app" / "xtts_inference.py"
+    env = os.environ.copy()
+    env.pop("PYTHONPATH", None)
+    result = subprocess.run(
+        [sys.executable, str(script), "--help"],
+        cwd=tmp_path,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0
+    assert "XTTS Streaming Inference Script" in result.stdout
+
 def test_get_speaker_latent_path_none():
     assert get_speaker_latent_path(None) is None
     assert get_speaker_latent_path("") is None
+
+
+def test_get_speaker_latent_path_profile_scoped(tmp_path):
+    profile_dir = tmp_path / "voices" / "VoiceA"
+    profile_dir.mkdir(parents=True)
+    path = get_speaker_latent_path("/tmp/reference.wav", voice_profile_dir=profile_dir)
+    assert path == profile_dir / "latent.pth"
 
 def test_get_audio_duration_fail():
     with patch("subprocess.run", side_effect=Exception("fail")):

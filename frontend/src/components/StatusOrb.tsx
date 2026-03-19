@@ -25,7 +25,8 @@ export const StatusOrb: React.FC<StatusOrbProps> = ({
   const isStuckProcessing = !activeJob && chap.audio_status === 'processing';
   
   const isComplete = chap.audio_status === 'done' && chap.has_wav;
-  const isPartial = !isStale && !isTrulyProcessing && doneSegments > 0 && doneSegments < totalSegments && !chap.has_wav;
+  const isReadyToStitch = !isStale && !isTrulyProcessing && totalSegments > 0 && doneSegments === totalSegments && !chap.has_wav;
+  const isPartial = !isStale && !isTrulyProcessing && doneSegments > 0 && doneSegments < totalSegments;
 
   // Ornaments
   const hasMp3 = chap.has_mp3;
@@ -62,6 +63,11 @@ export const StatusOrb: React.FC<StatusOrbProps> = ({
     fill = 'var(--success)';
     content = null;
     tooltip = 'WAV rendered (in sync)';
+  } else if (isReadyToStitch) {
+    fill = 'var(--surface)';
+    showArc = true;
+    percent = 100;
+    tooltip = 'All segments rendered. Ready to stitch final audio.';
   } else if (isPartial) {
     fill = 'var(--surface)'; // Light gray interior
     showArc = true;

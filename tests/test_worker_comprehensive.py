@@ -270,7 +270,7 @@ def test_worker_resumption_error_handling(mock_q, sample_job):
     mock_q.get.side_effect = ["test_job_1", Exception("Stop")]
 
     with patch("app.jobs.worker.get_jobs", return_value={"test_job_1": sample_job}), \
-         patch("app.jobs.worker.update_job"), \
+         patch("app.jobs.worker.update_job") as mock_update, \
          patch("app.jobs.worker.get_project_text_dir", create=True, return_value=Path("/tmp")), \
          patch("pathlib.Path.exists", return_value=True), \
          patch("pathlib.Path.read_text", return_value="H"), \
@@ -282,8 +282,8 @@ def test_worker_resumption_error_handling(mock_q, sample_job):
         except Exception as e:
             if str(e) != "Stop": raise e
 
-        # Should continue without crashing despite DB Error in resumption
-        assert True
+        # The worker should continue past the DB error and still emit progress updates.
+        assert mock_update.called
 
 def test_on_output_predictive_progress(mock_q, sample_job):
     """Test the predictive progress part of on_output (empty line)."""
@@ -302,8 +302,11 @@ def test_on_output_predictive_progress(mock_q, sample_job):
          patch("app.jobs.worker.get_speaker_settings", return_value={"speed": 1.0}), \
          patch("app.jobs.worker.calculate_predicted_progress", return_value=0.15):
 
-        try: worker_loop(mock_q)
-        except: pass
+        try:
+            worker_loop(mock_q)
+        except Exception as e:
+            if str(e) != "StopLoop":
+                raise e
 
         on_out = captured_on_output[0]
         # Simulate empty line (predictive update)

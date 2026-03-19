@@ -25,7 +25,6 @@ interface ChapterEditorProps {
   selectedVoice?: string;
   onVoiceChange?: (voice: string) => void;
   onBack: () => void;
-  onNavigateToQueue: () => void;
   onNext?: () => void;
   onPrev?: () => void;
   segmentUpdate?: { chapterId: string; tick: number };
@@ -40,7 +39,6 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   selectedVoice: externalVoice, 
   onVoiceChange, 
   onBack, 
-  onNavigateToQueue, 
   onNext, 
   onPrev, 
   segmentUpdate 
@@ -51,6 +49,8 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [queuePending, setQueuePending] = useState(false);
+  const [queueNotice, setQueueNotice] = useState<string | null>(null);
   const [localVoice, setLocalVoice] = useState<string>('');
   
   const [segments, setSegments] = useState<ChapterSegment[]>([]);
@@ -243,15 +243,37 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     catch (e) { console.error("Bulk reset failed", e); }
   };
 
+  const allSegmentsDone = segments.length > 0 && segments.every(s => s.audio_status === 'done');
+  const isFullyRendered = allSegmentsDone && (chapter?.audio_status === 'done' || !!chapter?.audio_file_path || !!chapter?.has_wav);
+  const isQueueLocked = queuePending || submitting || chapter?.audio_status === 'processing' || ['queued', 'preparing', 'running', 'finalizing'].includes(job?.status || '');
+  const queueButtonLabel = isFullyRendered ? 'Rebuild' : 'Queue';
+  const queueButtonTitle = isFullyRendered ? 'Rebuild Chapter' : 'Queue Chapter';
+
+  useEffect(() => {
+    if (chapter?.audio_status === 'processing' || ['queued', 'preparing', 'running', 'finalizing'].includes(job?.status || '')) {
+      setQueuePending(false);
+    }
+  }, [chapter?.audio_status, job?.status]);
+
   const executeQueue = async () => {
+    setQueuePending(true);
     setSubmitting(true);
     try {
+        setQueueNotice('Queued. Keep this page open to watch progress.');
         await api.addProcessingQueue(projectId, chapterId, 0, selectedVoice || undefined);
-        onNavigateToQueue();
+        await loadChapter();
     } catch (e) {
+        setQueuePending(false);
+        setQueueNotice(null);
         setConfirmConfig({ title: 'Queue Failed', message: 'Failed to queue chapter.', onConfirm: () => setConfirmConfig(null), confirmText: 'OK' });
     } finally { setSubmitting(false); }
   };
+
+  useEffect(() => {
+    if (!queueNotice) return;
+    const timer = setTimeout(() => setQueueNotice(null), 3500);
+    return () => clearTimeout(timer);
+  }, [queueNotice]);
 
   if (loading) return <div style={{ padding: '2rem' }}>Loading editor...</div>;
   if (!chapter) return <div style={{ padding: '2rem' }}>Chapter not found.</div>;
@@ -266,16 +288,26 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         onBack={async () => { await handleSave(); onBack(); }}
         onPrev={onPrev ? async () => { await handleSave(); onPrev(); } : undefined}
         onNext={onNext ? async () => { await handleSave(); onNext(); } : undefined}
-        onNavigateToQueue={onNavigateToQueue}
         selectedVoice={selectedVoice} onVoiceChange={handleVoiceChange} availableVoices={availableVoices}
-        submitting={submitting} job={job} generatingSegmentIdsCount={generatingSegmentIds.size}
+        submitting={isQueueLocked} queuePending={queuePending} job={job} generatingSegmentIdsCount={generatingSegmentIds.size}
+        queueLabel={queueButtonLabel}
+        queueTitle={queueButtonTitle}
         onQueue={() => {
-            if (chapter?.char_count && chapter.char_count > 50000) {
+            if (isFullyRendered) {
+                setConfirmConfig({
+                    title: 'Requeue Completed Chapter',
+                    message: 'All audio for this chapter is already complete. Rebuilding will delete the existing final render and regenerate from the current segments. Continue?',
+                    onConfirm: async () => { setConfirmConfig(null); await executeQueue(); },
+                    confirmText: 'Yes, Rebuild It',
+                    isDestructive: true
+                });
+            } else if (chapter?.char_count && chapter.char_count > 50000) {
                 setConfirmConfig({
                     title: 'Large Chapter Warning',
                     message: `Chapter is long (${chapter.char_count.toLocaleString()} chars). Queue anyway?`,
                     onConfirm: async () => { setConfirmConfig(null); await executeQueue(); },
-                    confirmText: 'Yes, Queue It'
+                    confirmText: 'Yes, Queue It',
+                    isDestructive: false
                 });
             } else executeQueue();
         }}
@@ -303,13 +335,6 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                     playbackQueue={segments.map(s => s.id)} generatingSegmentIds={generatingSegmentIds}
                     allSegmentIds={segments.map(s => s.id)} segments={segments}
                     onPlay={playSegment} onStop={stopPlayback} onGenerate={handleGenerate}
-                    onBake={async () => {
-                        setSubmitting(true);
-                        try { await api.bakeChapter(chapterId); onNavigateToQueue(); }
-                        catch (e) { console.error(e); }
-                        finally { setSubmitting(false); }
-                    }}
-                    submitting={submitting}
                     generatingJob={job}
                   />
                 )}
@@ -345,6 +370,44 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         isDestructive={confirmConfig?.isDestructive}
         confirmText={confirmConfig?.confirmText}
       />
+
+      {queueNotice && (
+        <div style={{
+          position: 'fixed',
+          right: '1.5rem',
+          bottom: '1.5rem',
+          zIndex: 1500,
+          background: 'var(--surface)',
+          color: 'var(--text-primary)',
+          border: '1px solid var(--accent)',
+          boxShadow: 'var(--shadow-lg)',
+          borderRadius: '14px',
+          padding: '0.85rem 1rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.65rem',
+          maxWidth: '360px'
+        }}>
+          <div style={{
+            width: '32px',
+            height: '32px',
+            borderRadius: '50%',
+            background: 'var(--accent-tint)',
+            color: 'var(--accent)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontWeight: 800,
+            flexShrink: 0
+          }}>
+            ✓
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
+            <span style={{ fontWeight: 700 }}>Queued</span>
+            <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>{queueNotice}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

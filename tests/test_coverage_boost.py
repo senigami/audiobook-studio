@@ -87,12 +87,11 @@ def test_web_endpoints_misc(mock_state):
     response = client.post("/queue/backfill_mp3")
     assert response.status_code == 200
 
-    # Home (which calls list_audiobooks)
+    # Audiobook list lives on its own endpoint now
     (mock_state / "audiobooks" / "book.m4b").write_text("data")
-    res = client.get("/api/home")
+    res = client.get("/api/audiobooks")
     assert res.status_code == 200
-    assert "audiobooks" in res.json()
-    assert len(res.json()["audiobooks"]) > 0
+    assert len(res.json()) > 0
 
 def test_web_chapter_ops(mock_state):
     c_path = mock_state / "chapters" / "c1.txt"

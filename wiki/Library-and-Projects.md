@@ -31,7 +31,7 @@ Each chapter features a **Status Orb** that provides instant visual feedback and
   - **Top-Right Arc**: MP3 availability.
 - **Opacity States**: Present formats are bold; missing formats appear as light grey placeholders.
 
-**Pro Tip**: Click any non-rendering Orb to access a contextual action menu (e.g., "Queue rebuild", "Queue remaining").
+**Pro Tip**: Click any non-rendering Orb to access a contextual action menu (e.g., "Rebuild Audio", "Queue Remaining").
 
 ![Project View highlighting the Chapters list and Assembly button](images/project-view.jpg)
 

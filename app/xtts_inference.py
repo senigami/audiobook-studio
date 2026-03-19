@@ -1,16 +1,23 @@
 import os
 import sys
+from pathlib import Path
 
 # Silence environment noise before heavy imports
 os.environ["PYTHONWARNINGS"] = "ignore"
 os.environ["COQUI_TOS_AGREED"] = "1"
 
-import torch
-import torchaudio
-import argparse
-import warnings
-import json
-import hashlib
+ROOT_DIR = Path(__file__).resolve().parents[1]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+import torch  # noqa: E402
+import torchaudio  # noqa: E402
+import argparse  # noqa: E402
+import warnings  # noqa: E402
+import json  # noqa: E402
+import hashlib  # noqa: E402
+
+from app.engines import migrate_speaker_latent_to_profile  # noqa: E402
 
 # Suppress common XTTS/Torch warnings that clutter logs
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -26,6 +33,7 @@ def main():
     parser.add_argument("--temperature", type=float, default=0.75, help="Temperature")
     parser.add_argument("--speed", type=float, default=1.0, help="Speaking speed (1.0 = normal)")
     parser.add_argument("--script_json", help="Path to a JSON file containing segments: list of {'text', 'speaker_wav'}")
+    parser.add_argument("--voice_profile_dir", help="Optional voice profile directory for portable latent caching")
 
     args = parser.parse_args()
 
@@ -55,33 +63,95 @@ def main():
     voice_dir = os.path.expanduser("~/.cache/audiobook-studio/voices")
     os.makedirs(voice_dir, exist_ok=True)
 
-    def get_latents(speaker_wav_paths, device, tts_model):
+    def _profile_fingerprint(voice_profile_dir: str) -> str:
+        profile_path = Path(voice_profile_dir)
+        if not profile_path.exists():
+            return ""
+
+        h = hashlib.sha256()
+        wavs = sorted(
+            p for p in profile_path.glob("*.wav")
+            if p.name != "latent.pth"
+        )
+        for wav in wavs:
+            try:
+                stat = wav.stat()
+            except Exception:
+                continue
+            h.update(wav.name.encode("utf-8"))
+            h.update(b"\0")
+            h.update(str(stat.st_size).encode("utf-8"))
+            h.update(b"\0")
+            h.update(str(getattr(stat, "st_mtime_ns", int(stat.st_mtime * 1_000_000_000))).encode("utf-8"))
+            h.update(b"\0")
+        return h.hexdigest()
+
+    def _normalize_speaker_wav_paths(speaker_wav_paths, voice_profile_dir=None):
         if isinstance(speaker_wav_paths, list):
-            combined_paths = "|".join(sorted([os.path.abspath(p) for p in speaker_wav_paths]))
-            wav_input = speaker_wav_paths
-        elif "," in speaker_wav_paths:
-            wavs = [s.strip() for s in speaker_wav_paths.split(",") if s.strip()]
-            combined_paths = "|".join(sorted([os.path.abspath(p) for p in wavs]))
-            wav_input = wavs
-        else:
-            combined_paths = os.path.abspath(speaker_wav_paths)
-            wav_input = speaker_wav_paths
+            wavs = [os.path.abspath(p) for p in speaker_wav_paths if p]
+            return wavs, "|".join(sorted(wavs))
+
+        if isinstance(speaker_wav_paths, str) and "," in speaker_wav_paths:
+            wavs = [os.path.abspath(s.strip()) for s in speaker_wav_paths.split(",") if s.strip()]
+            return wavs, "|".join(sorted(wavs))
+
+        if isinstance(speaker_wav_paths, str) and speaker_wav_paths.strip():
+            wav = os.path.abspath(speaker_wav_paths)
+            return wav, wav
+
+        if voice_profile_dir:
+            profile_path = Path(voice_profile_dir)
+            profile_wavs = sorted(
+                str(p.resolve())
+                for p in profile_path.glob("*.wav")
+                if p.name != "latent.pth"
+            )
+            if profile_wavs:
+                return profile_wavs, "|".join(sorted(profile_wavs))
+            return None, str(profile_path.resolve())
+
+        return None, None
+
+    def get_latents(speaker_wav_paths, device, tts_model, voice_profile_dir=None):
+        wav_input, combined_paths = _normalize_speaker_wav_paths(speaker_wav_paths, voice_profile_dir)
+
+        if wav_input is None and not voice_profile_dir:
+            raise ValueError("No speaker WAVs or voice profile directory available")
 
         speaker_id = hashlib.md5(combined_paths.encode()).hexdigest()
-        latent_file = os.path.join(voice_dir, f"{speaker_id}.pth")
+        migrated = False
+        if voice_profile_dir:
+            latent_file = os.path.join(voice_profile_dir, "latent.pth")
+            current_fingerprint = _profile_fingerprint(voice_profile_dir)
+            if not os.path.exists(latent_file):
+                migrated = migrate_speaker_latent_to_profile(speaker_wav_paths, Path(voice_profile_dir)) is not None
+        else:
+            latent_file = os.path.join(voice_dir, f"{speaker_id}.pth")
+            current_fingerprint = None
 
         if os.path.exists(latent_file):
-            print(f"Loading cached latents for {speaker_id}...", file=sys.stderr)
-            latents = torch.load(latent_file, map_location=device, weights_only=False)
-            return latents["gpt_cond_latent"], latents["speaker_embedding"]
-        else:
-            print(f"Computing latents for {speaker_id}...", file=sys.stderr)
-            gpt_cond_latent, speaker_embedding = tts_model.get_conditioning_latents(audio_path=wav_input)
-            torch.save({
-                "gpt_cond_latent": gpt_cond_latent,
-                "speaker_embedding": speaker_embedding
-            }, latent_file)
-            return gpt_cond_latent, speaker_embedding
+            try:
+                latents = torch.load(latent_file, map_location=device, weights_only=False)
+                if migrated and current_fingerprint and latents.get("profile_fingerprint") != current_fingerprint:
+                    latents["profile_fingerprint"] = current_fingerprint
+                    torch.save(latents, latent_file)
+                if not current_fingerprint or latents.get("profile_fingerprint") == current_fingerprint:
+                    print(f"Loading cached latents for {speaker_id}...", file=sys.stderr)
+                    return latents["gpt_cond_latent"], latents["speaker_embedding"]
+                print(f"Profile fingerprint changed for {speaker_id}; rebuilding latents...", file=sys.stderr)
+            except Exception as e:
+                print(f"Warning: Failed to load cached latents for {speaker_id}: {e}", file=sys.stderr)
+
+        print(f"Computing latents for {speaker_id}...", file=sys.stderr)
+        gpt_cond_latent, speaker_embedding = tts_model.get_conditioning_latents(audio_path=wav_input)
+        save_payload = {
+            "gpt_cond_latent": gpt_cond_latent,
+            "speaker_embedding": speaker_embedding
+        }
+        if current_fingerprint:
+            save_payload["profile_fingerprint"] = current_fingerprint
+        torch.save(save_payload, latent_file)
+        return gpt_cond_latent, speaker_embedding
 
     # Load model (quietly)
     print("Loading XTTS model...", file=sys.stderr)
@@ -96,14 +166,19 @@ def main():
         sys.stderr = original_stderr
 
     # Pre-load all unique latents
-    unique_speakers = list(set(s['speaker_wav'] for s in script))
+    unique_speakers = {}
+    for s in script:
+        profile_dir = s.get("voice_profile_dir") or args.voice_profile_dir
+        key = (profile_dir or "", s['speaker_wav'])
+        unique_speakers[key] = (s['speaker_wav'], profile_dir)
+
     speaker_latents = {}
-    for sw in unique_speakers:
+    for key, (sw, profile_dir) in unique_speakers.items():
         try:
-            speaker_latents[sw] = get_latents(sw, device, xtts_model)
+            speaker_latents[key] = get_latents(sw, device, xtts_model, voice_profile_dir=profile_dir)
         except Exception as e:
             print(f"Warning: Failed to compute latents for {sw}: {e}", file=sys.stderr)
-            speaker_latents[sw] = None
+            speaker_latents[key] = None
 
     print(f"Synthesizing {len(script)} segments to {args.out_path}...", file=sys.stderr)
     print("[START_SYNTHESIS]", file=sys.stderr, flush=True)
@@ -146,7 +221,8 @@ def main():
 
                 text = segment['text']
                 sw = segment['speaker_wav']
-                latents = speaker_latents.get(sw)
+                profile_dir = segment.get("voice_profile_dir") or args.voice_profile_dir
+                latents = speaker_latents.get((profile_dir or "", sw))
 
                 # Pre-calculate total sentences for progress reporting
                 total_sentences = 0

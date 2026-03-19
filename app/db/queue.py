@@ -31,9 +31,29 @@ def add_to_queue(project_id: str, chapter_id: str, split_part: int = 0):
             if cursor.fetchone():
                 return None
 
-            # 1. Reset everything (files and DB) to a clean state first
-            from .chapters import reset_chapter_audio
-            reset_chapter_audio(chapter_id)
+            # Keep completed segment history intact when queueing a chapter again.
+            # Only clear the chapter-level outputs so the new run can replace them.
+            from .chapters import cleanup_chapter_audio_files
+            cleanup_chapter_audio_files(project_id, chapter_id)
+
+            cursor.execute(
+                "SELECT id FROM chapter_segments WHERE chapter_id = ? AND audio_status = 'processing'",
+                (chapter_id,)
+            )
+            stale_processing_ids = [row["id"] for row in cursor.fetchall()]
+            if stale_processing_ids:
+                placeholders = ",".join(["?"] * len(stale_processing_ids))
+                cursor.execute(
+                    f"""
+                    UPDATE chapter_segments
+                    SET audio_status = 'unprocessed',
+                        audio_file_path = NULL,
+                        audio_generated_at = NULL
+                    WHERE id IN ({placeholders})
+                    """,
+                    stale_processing_ids
+                )
+                cleanup_chapter_audio_files(project_id, chapter_id, stale_processing_ids)
 
             queue_id = f"job-{uuid.uuid4()}"
             now = time.time()
@@ -42,8 +62,15 @@ def add_to_queue(project_id: str, chapter_id: str, split_part: int = 0):
                 VALUES (?, ?, ?, ?, 'queued', ?)
             """, (queue_id, project_id, chapter_id, split_part, now))
 
-            # Also update chapter status to 'processing'
-            cursor.execute("UPDATE chapters SET audio_status = 'processing', audio_file_path = NULL WHERE id = ?", (chapter_id,))
+            # Mark the chapter as actively queued without touching segment-level progress.
+            cursor.execute("""
+                UPDATE chapters
+                SET audio_status = 'processing',
+                    audio_file_path = NULL,
+                    audio_generated_at = NULL,
+                    audio_length_seconds = NULL
+                WHERE id = ?
+            """, (chapter_id,))
 
             conn.commit()
             return queue_id

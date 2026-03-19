@@ -39,6 +39,19 @@ def _voice_profile_dir(voices_dir: Path, name: str) -> Path:
 def _voice_sample_path(voices_dir: Path, name: str, sample_name: str) -> Path:
     return safe_join(_voice_profile_dir(voices_dir, name), sample_name)
 
+
+def _voice_preview_url(voices_dir: Path, name: str) -> Optional[str]:
+    profile_dir = _voice_profile_dir(voices_dir, name)
+    mp3_path = profile_dir / "sample.mp3"
+    if mp3_path.exists():
+        return f"/out/voices/{name}/sample.mp3"
+
+    wav_path = profile_dir / "sample.wav"
+    if wav_path.exists():
+        return f"/out/voices/{name}/sample.wav"
+
+    return None
+
 router = APIRouter(tags=["voices"])
 
 @router.get("/api/speaker-profiles")
@@ -76,8 +89,8 @@ def list_speaker_profiles(voices_dir: Path = Depends(get_voices_dir)):
         if len([b for b in built_samples if (d / b).exists()]) < len(built_samples):
              is_rebuild_required = True
 
-        test_wav = voices_dir / d.name / "sample.wav"
-        if not test_wav.exists() and len(raw_wavs) > 0:
+        preview_url = _voice_preview_url(voices_dir, d.name)
+        if not preview_url and len(raw_wavs) > 0:
             is_rebuild_required = True
 
         profiles.append({
@@ -91,7 +104,7 @@ def list_speaker_profiles(voices_dir: Path = Depends(get_voices_dir)):
             "test_text": spk_settings["test_text"],
             "speaker_id": spk_settings.get("speaker_id"),
             "variant_name": spk_settings.get("variant_name"),
-            "preview_url": f"/out/voices/{d.name}/sample.wav" if test_wav.exists() else None
+            "preview_url": preview_url
         })
     return profiles
 
@@ -187,7 +200,8 @@ def _rename_profile_folders(old_name: str, new_name: str, voices_dir: Path):
                 if meta.get("speaker_id") == old_name:
                     meta["speaker_id"] = new_name
                 meta_path.write_text(json.dumps(meta, indent=2))
-            except: pass
+            except Exception:
+                logger.warning("Failed to update profile metadata during rename: %s -> %s", old_name, new_name, exc_info=True)
 
     # 2. Variants (Narrator - Variant)
     variants = [d for d in voices_dir.iterdir() if d.is_dir() and d.name.startswith(old_name + " - ")]
@@ -208,7 +222,8 @@ def _rename_profile_folders(old_name: str, new_name: str, voices_dir: Path):
                     if meta.get("speaker_id") == old_name:
                         meta["speaker_id"] = new_name
                     meta_path.write_text(json.dumps(meta, indent=2))
-                except: pass
+                except Exception:
+                    logger.warning("Failed to update variant metadata during rename: %s -> %s", vdir.name, new_vname, exc_info=True)
 
 @router.put("/api/speakers/{speaker_id}")
 @router.post("/api/speakers/{speaker_id}")
@@ -270,7 +285,7 @@ def api_assign_profile_to_speaker(
                 meta = _json.loads(meta_path.read_text())
                 variant_name = meta.get("variant_name")
             except Exception:
-                pass
+                logger.debug("Failed to read metadata while assigning profile %s", profile_name, exc_info=True)
 
         if not variant_name:
             # Try to infer from folder name (e.g. "Speaker - Variant" -> "Variant")
@@ -454,18 +469,6 @@ def api_rename_voice_profile_path(
         voices_dir=voices_dir
     )
 
-@router.post("/api/speaker-profiles/build")
-async def legacy_build_speaker_profile(
-    name: str = Form(...),
-    files: List[UploadFile] = File(default=[]),
-    voices_dir: Path = Depends(get_voices_dir)
-):
-    return await build_speaker_profile(name, files, voices_dir=voices_dir)
-
-@router.post("/api/speaker-profiles/test")
-def legacy_test_speaker_profile(name: str = Form(...)):
-    return test_speaker_profile(name)
-
 @router.delete("/api/speaker-profiles/{name}")
 def delete_speaker_profile(
     name: str,
@@ -500,8 +503,9 @@ def test_speaker_profile(name: str):
     )
     put_job(j)
     enqueue(j)
+    preview_url = _voice_preview_url(get_voices_dir(), name)
     return JSONResponse({
         "status": "ok", 
         "job_id": jid,
-        "audio_url": f"/out/voices/{name}/sample.wav"
+        "audio_url": preview_url or f"/out/voices/{name}/sample.wav"
     })

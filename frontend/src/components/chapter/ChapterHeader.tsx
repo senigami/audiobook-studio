@@ -11,13 +11,15 @@ interface ChapterHeaderProps {
   onBack: () => void;
   onPrev?: () => void;
   onNext?: () => void;
-  onNavigateToQueue: () => void;
   selectedVoice: string;
   onVoiceChange: (voice: string) => void;
   availableVoices: { id: string; name: string; is_speaker: boolean }[];
   submitting: boolean;
+  queuePending?: boolean;
   job?: Job;
   generatingSegmentIdsCount: number;
+  queueLabel?: string;
+  queueTitle?: string;
   onQueue: () => void;
   onStopAll: () => void;
 }
@@ -35,11 +37,29 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
   onVoiceChange,
   availableVoices,
   submitting,
+  queuePending = false,
   job,
   generatingSegmentIdsCount,
+  queueLabel = 'Queue',
+  queueTitle = 'Queue Chapter',
   onQueue,
   onStopAll
 }) => {
+  const queueStatus = queuePending
+    ? 'Queued'
+    : job?.status === 'queued'
+      ? 'Queued'
+      : job?.status === 'preparing'
+        ? 'Preparing'
+        : job?.status === 'running'
+          ? 'Rendering'
+          : job?.status === 'finalizing'
+            ? 'Finalizing'
+          : chapter?.audio_status === 'processing'
+              ? 'Processing'
+              : null;
+  const isQueued = queueStatus === 'Queued';
+
   return (
     <header style={{ 
       display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 1.5rem', 
@@ -138,11 +158,31 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
                   opacity: (job?.status === 'queued' || job?.status === 'running') || chapter?.audio_status === 'processing' ? 0.3 : 1,
                   cursor: (job?.status === 'queued' || job?.status === 'running') || chapter?.audio_status === 'processing' ? 'not-allowed' : 'pointer'
               }}
-              title={((job?.status === 'queued' || job?.status === 'running') || chapter?.audio_status === 'processing') ? "Already processing" : "Queue Chapter"}
-          >
+              title={((job?.status === 'queued' || job?.status === 'running') || chapter?.audio_status === 'processing') ? "Already processing" : queueTitle}
+              >
               {submitting ? <RefreshCw size={14} className="animate-spin" /> : <Zap size={14} />}
-              Queue
+              {queueLabel}
           </button>
+
+          {queueStatus && (
+              <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  padding: '0.35rem 0.65rem',
+                  borderRadius: '999px',
+                  background: isQueued ? 'var(--accent)' : 'var(--accent-tint)',
+                  color: isQueued ? 'white' : 'var(--accent)',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                  border: '1px solid var(--accent)',
+                  boxShadow: isQueued ? '0 0 0 1px var(--accent-glow)' : 'none'
+              }}>
+                  {queueStatus}
+              </div>
+          )}
 
           {(generatingSegmentIdsCount > 0 || chapter?.audio_status === 'processing') && (
               <button

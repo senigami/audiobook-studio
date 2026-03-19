@@ -5,7 +5,7 @@ from fastapi import APIRouter, Form
 from fastapi.responses import JSONResponse
 from dataclasses import asdict
 from ...state import get_jobs, update_job as state_update_job
-from ...jobs import cleanup_and_reconcile, cancel as cancel_job_worker
+from ...jobs import cancel as cancel_job_worker
 from ...config import XTTS_OUT_DIR
 from ..utils import legacy_list_chapters
 
@@ -13,8 +13,7 @@ router = APIRouter(prefix="/api", tags=["jobs"])
 
 @router.get("/jobs")
 def api_jobs():
-    """Returns jobs from state, augmented with file-based auto-discovery and pruning."""
-    cleanup_and_reconcile()
+    """Returns jobs from state, augmented with file-based auto-discovery and progress."""
     all_jobs = get_jobs()
 
     # Group by chapter_file, prioritizing running/queued over others

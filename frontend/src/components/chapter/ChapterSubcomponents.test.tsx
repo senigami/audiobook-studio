@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { ProductionTab } from './ProductionTab';
 import { PerformanceTab } from './PerformanceTab';
@@ -108,8 +108,6 @@ describe('Chapter Subcomponents', () => {
           onPlay={onPlay} 
           onStop={vi.fn()} 
           onGenerate={vi.fn()} 
-          onBake={vi.fn()} 
-          submitting={false} 
         />
       );
 
@@ -118,27 +116,75 @@ describe('Chapter Subcomponents', () => {
       expect(onPlay).toHaveBeenCalledWith('seg-1', ['seg-1']);
     });
 
-    it('renders baking button', () => {
-      const onBake = vi.fn();
+    it('highlights only the active segment group for a live job', () => {
+      const activeJob = {
+        id: 'job-1',
+        status: 'running',
+        active_segment_id: 'seg-2',
+        active_segment_progress: 0.5
+      } as any;
+
+      render(
+        <>
+          <PerformanceTab 
+            chunkGroups={[
+              { characterId: 'char-1', segments: [mockSegments[0]] },
+              { characterId: null, segments: [mockSegments[1]] }
+            ]} 
+            characters={mockCharacters} 
+            playingSegmentId={null} 
+            playbackQueue={['seg-1', 'seg-2']} 
+            generatingSegmentIds={new Set()} 
+            allSegmentIds={['seg-1', 'seg-2']} 
+            segments={mockSegments} 
+            onPlay={vi.fn()} 
+            onStop={vi.fn()} 
+            onGenerate={vi.fn()} 
+            generatingJob={activeJob}
+          />
+        </>
+      );
+
+      const activeCard = screen.getByText('Sentence two.').closest('div[style*="background: var(--surface)"]');
+      const inactiveCard = screen.getByText('Sentence one.').closest('div[style*="background: var(--surface)"]');
+
+      expect(activeCard).toBeTruthy();
+      expect(inactiveCard).toBeTruthy();
+      expect(within(activeCard as HTMLElement).getAllByText('50%').length).toBeGreaterThan(0);
+      expect(within(inactiveCard as HTMLElement).queryByText('50%')).toBeNull();
+    });
+
+    it('stays at zero until active segment progress arrives', () => {
+      const activeJob = {
+        id: 'job-1',
+        status: 'running',
+        active_segment_id: null,
+        active_segment_progress: undefined,
+        progress: 0.72
+      } as any;
+
       render(
         <PerformanceTab 
-          chunkGroups={mockChunkGroups} 
+          chunkGroups={[
+            { characterId: 'char-1', segments: [{ ...mockSegments[0], audio_status: 'unprocessed' }] },
+            { characterId: null, segments: [mockSegments[1]] }
+          ]} 
           characters={mockCharacters} 
           playingSegmentId={null} 
-          playbackQueue={['seg-1']} 
+          playbackQueue={['seg-1', 'seg-2']} 
           generatingSegmentIds={new Set()} 
-          allSegmentIds={['seg-1']} 
+          allSegmentIds={['seg-1', 'seg-2']} 
           segments={mockSegments} 
           onPlay={vi.fn()} 
           onStop={vi.fn()} 
           onGenerate={vi.fn()} 
-          onBake={onBake} 
-          submitting={false} 
+          generatingJob={activeJob}
         />
       );
 
-      fireEvent.click(screen.getByText(/Bake Final Chapter/i));
-      expect(onBake).toHaveBeenCalled();
+      const activeCard = screen.getByText('Sentence one.').closest('div[style*="background: var(--surface)"]');
+      expect(activeCard).toBeTruthy();
+      expect(within(activeCard as HTMLElement).getAllByText('0%').length).toBeGreaterThan(0);
     });
   });
 

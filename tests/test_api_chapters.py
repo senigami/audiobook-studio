@@ -65,6 +65,7 @@ def test_chapter_crud(clean_db, client):
 def test_chapter_segments_sync_and_update(clean_db, client):
     from app.db.projects import create_project
     from app.db.chapters import create_chapter
+    from app.db.segments import get_chapter_segments
     pid = create_project("P1")
     cid = create_chapter(pid, "C1", "Hello world.")
 
@@ -82,10 +83,12 @@ def test_chapter_segments_sync_and_update(clean_db, client):
     # Update segment
     response = client.put(f"/api/segments/{sid}", json={"text_content": "Updated segment text"})
     assert response.status_code == 200
+    assert get_chapter_segments(cid)[0]["text_content"] == "Updated segment text"
 
     # Bulk status update
     response = client.post(f"/api/chapters/{cid}/segments/bulk-status", json={"segment_ids": [sid], "status": "done"})
     assert response.status_code == 200
+    assert get_chapter_segments(cid)[0]["audio_status"] == "done"
 
     # Bulk update
     response = client.post("/api/segments/bulk-update", json={"segment_ids": [sid], "updates": {"audio_status": "done"}})
@@ -117,6 +120,8 @@ def test_legacy_endpoints(clean_db, tmp_path, client):
     # Reset legacy
     response = client.post("/api/chapter/reset", data={"chapter_file": "test.txt"})
     assert response.status_code == 200
+    assert not (tmp_path / "test.wav").exists()
+    assert not (tmp_path / "test.mp3").exists()
 
     # Preview
     response = client.get("/api/preview/test.txt")
@@ -125,6 +130,7 @@ def test_legacy_endpoints(clean_db, tmp_path, client):
     # Delete legacy
     response = client.delete("/api/chapter/test.txt")
     assert response.status_code == 200
+    assert not (tmp_path / "test.txt").exists()
 
     # Reset overrides
     fastapi_app.dependency_overrides = {}
@@ -150,5 +156,6 @@ def test_export_and_stream(clean_db, tmp_path, client):
     # Export sample
     response = client.post(f"/api/chapter/{cid}/export-sample")
     assert response.status_code == 200
+    assert response.json()["url"] == f"/api/chapters/{cid}/stream"
 
     fastapi_app.dependency_overrides = {}

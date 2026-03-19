@@ -4,6 +4,7 @@ import uuid
 from typing import Optional
 from ..config import VOICES_DIR
 from ..state import get_settings
+from ..pathing import safe_join
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +15,14 @@ def _is_uuid(value: str) -> bool:
         return True
     except (ValueError, TypeError, AttributeError):
         return False
+
+
+def get_voice_profile_dir(profile_name: str):
+    return safe_join(VOICES_DIR, profile_name)
+
+
+def get_voice_profile_latent_path(profile_name: str):
+    return get_voice_profile_dir(profile_name) / "latent.pth"
 
 def get_speaker_wavs(profile_name_or_id: str) -> Optional[str]:
     """Returns a comma-separated string of absolute paths for the given profile or speaker ID."""
@@ -36,7 +45,10 @@ def get_speaker_wavs(profile_name_or_id: str) -> Optional[str]:
         if spk_match and spk_match.get("default_profile_name"):
             target_profile = spk_match["default_profile_name"]
 
-    p = VOICES_DIR / target_profile
+    try:
+        p = get_voice_profile_dir(target_profile)
+    except ValueError:
+        return None
 
     if not p.exists() or not p.is_dir():
         # Fallback to ANY existing profile folder if the requested one is gone
@@ -70,6 +82,14 @@ def get_speaker_settings(profile_name_or_id: str) -> dict:
     if not target_profile:
         target_profile = defaults.get("default_speaker_profile") or "Dark Fantasy"
 
+    res = {
+        "speed": float(defaults.get("xtts_speed", 1.0)),
+        "test_text": DEFAULT_SPEAKER_TEST_TEXT,
+        "speaker_id": None,
+        "variant_name": None,
+        "built_samples": []
+    }
+
     # Resolve speaker ID or Name to a profile folder
     if _is_uuid(target_profile):
         from ..db import get_speaker
@@ -87,15 +107,10 @@ def get_speaker_settings(profile_name_or_id: str) -> dict:
             if subs:
                 target_profile = subs[0]
 
-    p = VOICES_DIR / target_profile
-
-    res = {
-        "speed": float(defaults.get("xtts_speed", 1.0)),
-        "test_text": DEFAULT_SPEAKER_TEST_TEXT,
-        "speaker_id": None,
-        "variant_name": None,
-        "built_samples": []
-    }
+    try:
+        p = get_voice_profile_dir(target_profile)
+    except ValueError:
+        return res
 
     meta_path = p / "profile.json"
     if meta_path.exists():

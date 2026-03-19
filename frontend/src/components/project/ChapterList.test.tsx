@@ -95,4 +95,36 @@ describe('ChapterList', () => {
     const spinner = container.querySelector('.animate-spin');
     expect(spinner).toBeFalsy();
   });
+
+  it('uses live segment progress when available', () => {
+    const liveJob = {
+      id: 'job-1',
+      project_id: 'proj-1',
+      chapter_id: 'chap-123',
+      status: 'running',
+      progress: 0.1,
+      active_segment_progress: 0.65,
+      started_at: Date.now() / 1000 - 30,
+      eta_seconds: 120,
+    } as any;
+
+    render(<ChapterList {...defaultProps} jobs={{ [liveJob.id]: liveJob }} />);
+
+    expect(screen.getByText('65%')).toBeInTheDocument();
+  });
+
+  it('shows a queued badge for chapters awaiting rendering', () => {
+    const queuedJob = {
+      id: 'job-queued',
+      project_id: 'proj-1',
+      chapter_id: 'chap-123',
+      status: 'queued',
+      progress: 0,
+      created_at: Date.now() / 1000,
+    } as any;
+
+    render(<ChapterList {...defaultProps} jobs={{ [queuedJob.id]: queuedJob }} />);
+
+    expect(screen.getByText('Queued')).toBeInTheDocument();
+  });
 });

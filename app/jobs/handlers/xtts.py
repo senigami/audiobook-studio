@@ -5,7 +5,7 @@ from ...config import XTTS_OUT_DIR, SENT_CHAR_LIMIT
 from ...state import update_job
 from ...engines import xtts_generate, xtts_generate_script, wav_to_mp3, get_audio_duration, stitch_segments
 from ...textops import sanitize_for_xtts, safe_split_long_sentences
-from ..speaker import get_speaker_wavs
+from ..speaker import get_speaker_wavs, get_voice_profile_dir
 
 def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, pdir, out_wav, out_mp3, text=None):
     from ...db import get_connection, update_segment, get_chapter_segments, update_segments_status_bulk, update_queue_item
@@ -59,7 +59,10 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
                 sid = group[0]['id']
                 seg_out = pdir / f"seg_{sid}.wav"
                 save_path_str = str(seg_out.absolute())
-                full_script.append({"text": combined_text, "speaker_wav": sw, "save_path": save_path_str, "id": group[0]['id']})
+                script_entry = {"text": combined_text, "speaker_wav": sw, "save_path": save_path_str, "id": group[0]['id']}
+                if char_profile:
+                    script_entry["voice_profile_dir"] = str(get_voice_profile_dir(char_profile))
+                full_script.append(script_entry)
                 path_to_group[save_path_str] = group
 
             script_path = pdir / f"bake_{j.id}_script.json"
@@ -169,7 +172,13 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
             first_sid = group[0]['id']
             seg_out = pdir / f"seg_{first_sid}.wav"
             save_path_str = str(seg_out.absolute())
-            full_script.append({"text": combined_text, "speaker_wav": sw, "save_path": save_path_str, "id": group[0]['id']})
+            script_entry = {"text": combined_text, "speaker_wav": sw, "save_path": save_path_str, "id": group[0]['id']}
+            if char_profile:
+                try:
+                    script_entry["voice_profile_dir"] = str(get_voice_profile_dir(char_profile))
+                except ValueError:
+                    pass
+            full_script.append(script_entry)
             path_to_group[save_path_str] = group
 
         script_path = pdir / f"gen_{j.id}_script.json"
@@ -247,10 +256,15 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
             script = []
             current_id = None
             current_sw = None
+            current_voice_profile_dir = None
             current_text = ""
             for s in segments_data:
                 if not s['text_content'] or not s['text_content'].strip(): continue
                 sw = get_speaker_wavs(s['speaker_profile_name']) if (s['character_id'] and s['speaker_profile_name']) else default_sw
+                try:
+                    voice_profile_dir = str(get_voice_profile_dir(s['speaker_profile_name'])) if (s['character_id'] and s['speaker_profile_name']) else None
+                except ValueError:
+                    voice_profile_dir = None
                 if current_sw is not None and sw == current_sw:
                     current_text += " " + s['text_content'].strip()
                 else:
@@ -259,8 +273,12 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
                         if j.safe_mode:
                             processed = sanitize_for_xtts(processed)
                             processed = safe_split_long_sentences(processed, target=SENT_CHAR_LIMIT)
-                        script.append({"text": processed, "speaker_wav": current_sw, "id": current_id})
+                        script_entry = {"text": processed, "speaker_wav": current_sw, "id": current_id}
+                        if current_voice_profile_dir:
+                            script_entry["voice_profile_dir"] = current_voice_profile_dir
+                        script.append(script_entry)
                     current_sw = sw
+                    current_voice_profile_dir = voice_profile_dir
                     current_id = s['id']
                     current_text = s['text_content'].strip()
             if current_sw is not None:
@@ -268,7 +286,10 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
                 if j.safe_mode:
                     processed = sanitize_for_xtts(processed)
                     processed = safe_split_long_sentences(processed, target=SENT_CHAR_LIMIT)
-                script.append({"text": processed, "speaker_wav": current_sw, "id": current_id})
+                script_entry = {"text": processed, "speaker_wav": current_sw, "id": current_id}
+                if current_voice_profile_dir:
+                    script_entry["voice_profile_dir"] = current_voice_profile_dir
+                script.append(script_entry)
 
             script_path = pdir / f"{j.id}_script.json"
             script_path.write_text(json.dumps(script), encoding="utf-8")
@@ -279,13 +300,23 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
         else:
             if j.chapter_id:
                 script_path = pdir / f"{j.id}_chapter_script.json"
-                script_path.write_text(json.dumps([{"text": text, "speaker_wav": default_sw}]), encoding="utf-8")
+                script_entry = {"text": text, "speaker_wav": default_sw}
+                if j.speaker_profile:
+                    try:
+                        script_entry["voice_profile_dir"] = str(get_voice_profile_dir(j.speaker_profile))
+                    except ValueError:
+                        pass
+                script_path.write_text(json.dumps([script_entry]), encoding="utf-8")
                 try:
                     rc = xtts_generate_script(script_json_path=script_path, out_wav=out_wav, on_output=on_output, cancel_check=cancel_check, speed=speed)
                 finally:
                     if script_path.exists(): script_path.unlink()
             else:
-                rc = xtts_generate(text=text, out_wav=out_wav, safe_mode=j.safe_mode, on_output=on_output, cancel_check=cancel_check, speaker_wav=default_sw, speed=speed)
+                try:
+                    voice_profile_dir = str(get_voice_profile_dir(j.speaker_profile)) if j.speaker_profile else None
+                except ValueError:
+                    voice_profile_dir = None
+                rc = xtts_generate(text=text, out_wav=out_wav, safe_mode=j.safe_mode, on_output=on_output, cancel_check=cancel_check, speaker_wav=default_sw, speed=speed, voice_profile_dir=voice_profile_dir)
 
     if cancel_check():
         update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")

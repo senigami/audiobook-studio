@@ -14,10 +14,7 @@ from ...state import get_settings, update_settings, get_jobs, put_job, update_jo
 from ...jobs import paused, set_paused, cleanup_and_reconcile, enqueue
 from ...db import list_speakers
 from ...models import Job
-from ..utils import (
-    read_preview, output_exists, xtts_outputs_for,
-    legacy_list_chapters, list_audiobooks
-)
+from ..utils import read_preview
 
 # Compatibility for tests that monkeypatch these
 UPLOAD_DIR = config.UPLOAD_DIR
@@ -58,38 +55,24 @@ router = APIRouter(prefix="/api", tags=["system"])
 @router.get("/home")
 def api_home(
     voices_dir: Path = Depends(get_voices_dir),
-    xtts_out_dir: Path = Depends(get_xtts_out_dir)
 ):
     """Returns initial data for the React SPA."""
-    cleanup_and_reconcile()
-
     from .voices import list_speaker_profiles
 
     profiles = list_speaker_profiles(voices_dir=voices_dir)
     speakers = list_speakers()
     settings = get_settings()
-
     jobs = {j_id: job for j_id, job in get_jobs().items()}
-    chapters = [p.name for p in legacy_list_chapters()]
-
-    xtts_wav_only = []
-    xtts_mp3 = []
-    for c in chapters:
-        stem = Path(c).stem
-        if (xtts_out_dir / f"{stem}.mp3").exists():
-            xtts_mp3.append(c)
-        if (xtts_out_dir / f"{stem}.wav").exists():
-            xtts_wav_only.append(c)
 
     return {
-        "chapters": chapters,
+        "chapters": [],
         "jobs": jobs,
         "settings": settings,
         "paused": paused(),
         "narrator_ok": (voices_dir / "Default").exists(),
-        "xtts_mp3": xtts_mp3,
-        "xtts_wav_only": xtts_wav_only,
-        "audiobooks": list_audiobooks(),
+        "xtts_mp3": [],
+        "xtts_wav_only": [],
+        "audiobooks": [],
         "speaker_profiles": profiles,
         "speakers": speakers,
     }
@@ -122,7 +105,7 @@ async def save_settings(
                         if val is not None:
                             updates[k] = val
         except Exception:
-            pass
+            logger.warning("Failed to parse JSON settings payload", exc_info=True)
 
     # 2. Try Form parameters (either from FastAPI's parsing or manual fallback)
     if "safe_mode" not in updates and safe_mode is not None:
@@ -137,11 +120,6 @@ async def save_settings(
         update_settings(updates)
 
     return JSONResponse({"status": "ok", "settings": get_settings()})
-
-@router.post("/speakers/default")
-def set_default_speaker(name: str = Form(...)):
-    update_settings({"default_speaker_profile": name})
-    return JSONResponse({"status": "ok"})
 
 @router.post("/system/import-legacy")
 def api_import_legacy():
@@ -221,7 +199,8 @@ async def create_audiobook(
 ):
     try:
         chapter_list = json.loads(chapters)
-    except:
+    except Exception:
+        logger.warning("Invalid chapters payload for audiobook creation", exc_info=True)
         chapter_list = []
 
     cover_dir.mkdir(parents=True, exist_ok=True)

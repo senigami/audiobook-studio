@@ -48,6 +48,23 @@ export const ChapterList: React.FC<ChapterListProps> = ({
   const [openMenuRowId, setOpenMenuRowId] = React.useState<string | null>(null);
   const skipBlurSaveId = React.useRef<string | null>(null);
 
+  const pickActiveJob = React.useCallback((chapterId: string) => {
+    const liveStatuses = new Set(['running', 'preparing', 'finalizing', 'queued']);
+    const relevantJobs = Object.values(jobs).filter(j => j.project_id === projectId && (j.chapter_id === chapterId || (j.chapter_file && j.chapter_file.includes(chapterId))));
+    const ranked = relevantJobs
+      .filter(j => liveStatuses.has(j.status))
+      .sort((a, b) => {
+        const statusRank: Record<string, number> = { running: 4, finalizing: 3, preparing: 2, queued: 1 };
+        const aRank = statusRank[a.status] || 0;
+        const bRank = statusRank[b.status] || 0;
+        if (aRank !== bRank) return bRank - aRank;
+        const aTime = a.started_at ?? a.created_at ?? 0;
+        const bTime = b.started_at ?? b.created_at ?? 0;
+        return bTime - aTime;
+      });
+    return ranked[0] || null;
+  }, [jobs, projectId]);
+
   if (chapters.length === 0) {
     return (
       <div style={{ textAlign: 'center', padding: '4rem', background: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--border)' }}>
@@ -73,9 +90,29 @@ export const ChapterList: React.FC<ChapterListProps> = ({
       
       <Reorder.Group axis="y" values={chapters} onReorder={onReorder} style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column' }}>
         {chapters.map((chap, idx) => {
-          const relevantJobs = Object.values(jobs).filter(j => j.project_id === projectId && (j.chapter_id === chap.id || (j.chapter_file && j.chapter_file.includes(chap.id))));
-          const activeJob = relevantJobs.find(j => ['running', 'preparing', 'finalizing', 'queued'].includes(j.status));
+          const activeJob = pickActiveJob(chap.id);
+          const progressValue = activeJob ? (activeJob.active_segment_progress ?? 0) : 0;
           const isMenuOpen = openMenuRowId === chap.id;
+          const isFullyRendered = chap.audio_status === 'done' && !!chap.audio_file_path;
+          const queueActionLabel = isFullyRendered
+            ? 'Rebuild Audio'
+            : (chap.done_segments_count || 0) > 0 && (chap.done_segments_count || 0) < (chap.total_segments_count || 0)
+              ? 'Queue Remaining'
+              : 'Queue Chapter';
+          const queueStatus = activeJob
+            ? (activeJob.status === 'queued'
+              ? 'Queued'
+              : activeJob.status === 'preparing'
+                ? 'Preparing'
+                : activeJob.status === 'running'
+                  ? 'Rendering'
+                  : activeJob.status === 'finalizing'
+                    ? 'Finalizing'
+                    : null)
+            : chap.audio_status === 'processing'
+              ? 'Processing'
+              : null;
+          const isQueued = queueStatus === 'Queued';
 
           return (
             <Reorder.Item 
@@ -106,7 +143,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                   onOpenChange={(open) => setOpenMenuRowId(open ? chap.id : null)}
                   trigger={<StatusOrb chap={chap} activeJob={activeJob} doneSegments={chap.done_segments_count} totalSegments={chap.total_segments_count} />}
                   items={[
-                    { label: 'Queue rebuild', icon: RefreshCw, onClick: () => onQueueChapter(chap) }
+                    { label: queueActionLabel, icon: RefreshCw, onClick: () => onQueueChapter(chap) }
                   ].filter(() => {
                     const isStale = chap.text_last_modified && chap.audio_generated_at && (chap.text_last_modified > chap.audio_generated_at);
                     const isPartial = (chap.done_segments_count || 0) > 0 && (chap.done_segments_count || 0) < (chap.total_segments_count || 0) && !chap.has_wav;
@@ -126,7 +163,29 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                     style={{ fontWeight: 500, fontSize: '0.95rem', background: 'var(--surface-light)', border: '1px solid var(--accent)', borderRadius: '4px', color: 'var(--text-primary)', padding: '0 4px', width: '100%', maxWidth: '200px' }}
                   />
                 ) : (
-                  <h4 onClick={e => { if (!isAssemblyMode) { e.stopPropagation(); setEditingTitleId(chap.id); setTempTitle(chap.title); } }} style={{ fontWeight: 500, fontSize: '0.95rem', cursor: 'text' }}>{chap.title}</h4>
+                  <>
+                    <h4 onClick={e => { if (!isAssemblyMode) { e.stopPropagation(); setEditingTitleId(chap.id); setTempTitle(chap.title); } }} style={{ fontWeight: 500, fontSize: '0.95rem', cursor: 'text' }}>{chap.title}</h4>
+                    {queueStatus && (
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        padding: '0.2rem 0.55rem',
+                        borderRadius: '999px',
+                        background: isQueued ? 'var(--accent)' : 'var(--accent-tint)',
+                        color: isQueued ? 'white' : 'var(--accent)',
+                        fontSize: '0.7rem',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
+                        border: '1px solid var(--accent)',
+                        whiteSpace: 'nowrap',
+                        boxShadow: isQueued ? '0 0 0 1px var(--accent-glow)' : 'none'
+                      }}>
+                        {queueStatus}
+                      </span>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -134,11 +193,12 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                 {activeJob ? (
                     <div style={{ width: '100%', maxWidth: '600px' }}>
                         <PredictiveProgressBar 
-                          progress={activeJob.progress || 0} 
-                          startedAt={activeJob.status !== 'queued' ? activeJob.started_at : undefined} 
-                          etaSeconds={activeJob.eta_seconds}
+                          progress={progressValue} 
+                          startedAt={undefined}
+                          etaSeconds={undefined}
                           status={activeJob.status}
                           label={activeJob.status} 
+                          predictive={false}
                         />
                     </div>
                 ) : chap.audio_status === 'done' && (chap.has_wav || chap.has_mp3) && !isAssemblyMode ? (

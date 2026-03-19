@@ -27,26 +27,36 @@ def test_home_endpoint(clean_db, client):
     """GET /api/home — the main system info/home endpoint."""
     response = client.get("/api/home")
     assert response.status_code == 200
+    data = response.json()
+    assert {"chapters", "jobs", "settings", "speaker_profiles", "speakers"}.issubset(data.keys())
+    assert isinstance(data["speaker_profiles"], list)
 
 def test_settings_get_and_update(clean_db, client):
-    response = client.post("/api/settings", json={"safe_mode": False})
+    response = client.post("/api/settings", json={"safe_mode": True, "make_mp3": False})
     assert response.status_code == 200
+    data = response.json()["settings"]
+    assert data["safe_mode"] is True
+    assert data["make_mp3"] is False
 
 def test_default_speaker_setting(clean_db, client):
     # POST /api/settings/default-speaker
     response = client.post("/api/settings/default-speaker",
                            data={"name": "TestVoice"})
     assert response.status_code == 200
+    home = client.get("/api/home").json()
+    assert home["settings"]["default_speaker_profile"] == "TestVoice"
 
 def test_audiobooks_list(clean_db, client):
     response = client.get("/api/audiobooks")
     assert response.status_code == 200
     assert isinstance(response.json(), list)
+    assert response.json() == []
 
 def test_system_integrations(clean_db, client):
     # Trigger backfill
     response = client.post("/api/trigger_backfill")
     assert response.status_code == 200
+    assert response.json()["status"] == "ok"
 
     # Import legacy - needs some form data
     response = client.post("/api/system/import-legacy", data={"legacy_path": "/tmp/nonexistent"})

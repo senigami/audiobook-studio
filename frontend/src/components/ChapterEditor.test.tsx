@@ -97,7 +97,6 @@ describe('ChapterEditor', () => {
         speakerProfiles={[]} 
         speakers={[]} 
         onBack={vi.fn()} 
-        onNavigateToQueue={vi.fn()} 
       />
     );
     expect(screen.getByText('Loading editor...')).toBeInTheDocument();
@@ -111,7 +110,6 @@ describe('ChapterEditor', () => {
         speakerProfiles={mockSpeakerProfiles as any} 
         speakers={mockSpeakers as any} 
         onBack={vi.fn()} 
-        onNavigateToQueue={vi.fn()} 
       />
     );
 
@@ -131,7 +129,6 @@ describe('ChapterEditor', () => {
         speakerProfiles={mockSpeakerProfiles as any} 
         speakers={mockSpeakers as any} 
         onBack={vi.fn()} 
-        onNavigateToQueue={vi.fn()} 
       />
     );
 
@@ -143,7 +140,7 @@ describe('ChapterEditor', () => {
 
     // Performance Tab
     fireEvent.click(screen.getByText('Performance'));
-    expect(await screen.findByText('Bake Final Chapter')).toBeInTheDocument();
+    expect(await screen.findByText('Performance View')).toBeInTheDocument();
 
     // Preview Tab
     fireEvent.click(screen.getByText('Preview Safe Output'));
@@ -158,7 +155,6 @@ describe('ChapterEditor', () => {
         speakerProfiles={mockSpeakerProfiles as any} 
         speakers={mockSpeakers as any} 
         onBack={vi.fn()} 
-        onNavigateToQueue={vi.fn()} 
       />
     );
 
@@ -185,7 +181,6 @@ describe('ChapterEditor', () => {
   });
 
   it('handles "Add to Queue"', async () => {
-    const onNavigateToQueue = vi.fn();
     (api.addProcessingQueue as any).mockResolvedValue({ status: 'ok' });
 
     render(
@@ -195,7 +190,6 @@ describe('ChapterEditor', () => {
         speakerProfiles={mockSpeakerProfiles as any} 
         speakers={mockSpeakers as any} 
         onBack={vi.fn()} 
-        onNavigateToQueue={onNavigateToQueue} 
       />
     );
 
@@ -204,9 +198,9 @@ describe('ChapterEditor', () => {
     const queueBtn = screen.getByTitle('Queue Chapter');
     fireEvent.click(queueBtn);
     
+    expect(await screen.findByText(/Keep this page open to watch progress/i)).toBeInTheDocument();
     await waitFor(() => {
       expect(api.addProcessingQueue).toHaveBeenCalled();
-      expect(onNavigateToQueue).toHaveBeenCalled();
     });
   });
 
@@ -221,7 +215,6 @@ describe('ChapterEditor', () => {
         speakerProfiles={mockSpeakerProfiles as any} 
         speakers={mockSpeakers as any} 
         onBack={vi.fn()} 
-        onNavigateToQueue={vi.fn()} 
       />
     );
 
@@ -234,6 +227,48 @@ describe('ChapterEditor', () => {
     
     // Confirming
     fireEvent.click(screen.getByText('Yes, Queue It'));
+    await waitFor(() => {
+      expect(api.addProcessingQueue).toHaveBeenCalled();
+    });
+  });
+
+  it('warns before requeueing a fully rendered chapter', async () => {
+    const renderedChapter = {
+      ...mockChapter,
+      audio_status: 'done' as const,
+      audio_file_path: 'chap-456.wav',
+      has_wav: true,
+      total_segments_count: 1,
+      done_segments_count: 1
+    };
+    const renderedSegments = [{
+      ...mockSegments[0],
+      audio_status: 'done' as const,
+      audio_file_path: 'seg-1.wav',
+      audio_generated_at: Date.now() / 1000
+    }];
+
+    (api.fetchChapters as any).mockResolvedValue([renderedChapter]);
+    (api.fetchSegments as any).mockResolvedValue(renderedSegments);
+
+    render(
+      <ChapterEditor 
+        chapterId={mockChapterId} 
+        projectId={mockProjectId} 
+        speakerProfiles={mockSpeakerProfiles as any} 
+        speakers={mockSpeakers as any} 
+        onBack={vi.fn()} 
+      />
+    );
+
+    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
+
+    const queueBtn = screen.getByTitle('Rebuild Chapter');
+    fireEvent.click(queueBtn);
+
+    expect(await screen.findByText('Requeue Completed Chapter')).toBeInTheDocument();
+    expect(screen.getByTitle('Rebuild Chapter')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Yes, Rebuild It'));
     await waitFor(() => {
       expect(api.addProcessingQueue).toHaveBeenCalled();
     });

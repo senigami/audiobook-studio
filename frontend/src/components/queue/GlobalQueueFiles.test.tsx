@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 
 // Mock predictive progress bar
 vi.mock('../PredictiveProgressBar', () => ({
-  PredictiveProgressBar: () => <div data-testid="progress-bar" />
+  PredictiveProgressBar: ({ progress }: { progress: number }) => <div data-testid="progress-bar" data-progress={progress} />
 }));
 
 vi.mock('../../hooks/useGlobalQueue', () => ({
@@ -32,6 +32,7 @@ describe('Global Queue Components', () => {
     const mockJob = {
         id: 'job-1',
         type: 'chapter_generation',
+        engine: 'xtts',
         status: 'processing',
         progress: 45,
         project_name: 'Test Project',
@@ -56,6 +57,21 @@ describe('Global Queue Components', () => {
             expect(screen.getByText('Test Project • Part 1')).toBeInTheDocument();
             expect(screen.getByText('Started Time 1000')).toBeInTheDocument();
             expect(screen.getByTestId('progress-bar')).toBeInTheDocument();
+        });
+
+        it('starts xtts queue progress at zero until live segment progress arrives', () => {
+            render(
+                <QueueItem 
+                    job={{ ...mockJob, progress: 15 } as any}
+                    liveJob={{ id: 'job-1', engine: 'xtts', status: 'running', progress: 15 } as any}
+                    localPaused={false}
+                    formatJobTitle={(j) => `Title for ${j.id}`}
+                    formatTime={(t) => `Time ${t}`}
+                    onRemove={vi.fn()}
+                />
+            );
+
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0');
         });
 
         it('shows pause icon when paused', () => {

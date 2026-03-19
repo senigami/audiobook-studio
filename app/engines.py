@@ -3,6 +3,8 @@ import subprocess
 import os
 import re
 import hashlib
+import shutil
+import logging
 from pathlib import Path
 from typing import List, Optional
 
@@ -10,6 +12,7 @@ from .config import XTTS_ENV_ACTIVATE, MP3_QUALITY, BASE_DIR, AUDIOBOOK_BITRATE
 from .textops import safe_split_long_sentences, sanitize_for_xtts, pack_text_to_limit
 
 _active_processes = set()
+logger = logging.getLogger(__name__)
 
 def terminate_all_subprocesses():
     for proc in list(_active_processes):
@@ -20,13 +23,14 @@ def terminate_all_subprocesses():
             try:
                 proc.kill()
             except Exception:
-                pass
-    _active_processes.clear()
+                logger.debug("Failed to force-kill subprocess during termination", exc_info=True)
+        _active_processes.clear()
 
 def run_cmd_stream(cmd: str, on_output, cancel_check) -> int:
     import time
     import selectors
-    print(f"DEBUG: Running command: {cmd}")
+    from collections import deque
+    logger.debug("Running command: %s", cmd)
     proc = subprocess.Popen(
         cmd, shell=True,
         stdout=subprocess.PIPE,
@@ -41,6 +45,7 @@ def run_cmd_stream(cmd: str, on_output, cancel_check) -> int:
 
     buffer = ""
     last_heartbeat = time.time()
+    recent_lines = deque(maxlen=50)
 
     try:
         while True:
@@ -59,6 +64,9 @@ def run_cmd_stream(cmd: str, on_output, cancel_check) -> int:
                 if char:
                     buffer += char
                     if char in ('\n', '\r'):
+                        line = buffer.strip()
+                        if line:
+                            recent_lines.append(line)
                         on_output(buffer)
                         buffer = ""
                         last_heartbeat = time.time() # Activity is a heartbeat
@@ -77,24 +85,45 @@ def run_cmd_stream(cmd: str, on_output, cancel_check) -> int:
 
         # Final flush
         if buffer:
+            line = buffer.strip()
+            if line:
+                recent_lines.append(line)
             on_output(buffer)
 
         # Consume any remaining output
         rest = proc.stdout.read()
         if rest:
+            for line in rest.splitlines():
+                stripped = line.strip()
+                if stripped:
+                    recent_lines.append(stripped)
             on_output(rest)
 
-        return proc.returncode or 0
+        rc = proc.returncode or 0
+        if rc != 0:
+            logger.error(
+                "Command failed (rc=%s): %s\nLast output:\n%s",
+                rc,
+                cmd,
+                "\n".join(recent_lines),
+            )
+        return rc
     finally:
         sel.close()
         if proc in _active_processes:
             _active_processes.remove(proc)
 
 def wav_to_mp3(in_wav: Path, out_mp3: Path, on_output=None, cancel_check=None) -> int:
-    def noop(*args): pass
-    if on_output is None: on_output = noop
-    def never_cancel(): return False
-    if cancel_check is None: cancel_check = never_cancel
+    def noop(*_args):
+        return None
+
+    def never_cancel():
+        return False
+
+    if on_output is None:
+        on_output = noop
+    if cancel_check is None:
+        cancel_check = never_cancel
 
     cmd = f'ffmpeg -y -i {shlex.quote(str(in_wav))} -codec:a libmp3lame -q:a {shlex.quote(MP3_QUALITY)} {shlex.quote(str(out_mp3))}'
     return run_cmd_stream(cmd, on_output, cancel_check)
@@ -104,15 +133,23 @@ def convert_to_wav(in_file: Path, out_wav: Path) -> int:
     cmd = f'ffmpeg -y -i {shlex.quote(str(in_file))} -ar 22050 -ac 1 {shlex.quote(str(out_wav))}'
     return subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode
 
-def xtts_generate(text: str, out_wav: Path, safe_mode: bool, on_output, cancel_check, speaker_wav: str = None, speed: float = 1.0) -> int:
+def xtts_generate(
+    text: str,
+    out_wav: Path,
+    safe_mode: bool,
+    on_output,
+    cancel_check,
+    speaker_wav: str = None,
+    speed: float = 1.0,
+    voice_profile_dir: Path = None,
+) -> int:
     if not XTTS_ENV_ACTIVATE.exists():
         on_output(f"[error] XTTS activate not found: {XTTS_ENV_ACTIVATE}\n")
         return 1
 
-    # Use provided speaker_wav
     sw = speaker_wav
 
-    if not sw:
+    if not sw and voice_profile_dir is None:
         on_output("[error] No speaker profile or reference WAV provided\n")
         return 1
 
@@ -130,22 +167,32 @@ def xtts_generate(text: str, out_wav: Path, safe_mode: bool, on_output, cancel_c
         f"export PYTHONUNBUFFERED=1 && . {shlex.quote(str(XTTS_ENV_ACTIVATE))} && "
         f"python3 {shlex.quote(str(BASE_DIR / 'app' / 'xtts_inference.py'))} "
         f"--text {shlex.quote(text)} "
-        f"--speaker_wav {shlex.quote(sw)} "
         f"--language en "
         f"--repetition_penalty 2.0 "
         f"--speed {speed} "
         f"--out_path {shlex.quote(str(out_wav))}"
     )
+    if sw:
+        cmd += f" --speaker_wav {shlex.quote(sw)}"
+    if voice_profile_dir is not None:
+        cmd += f" --voice_profile_dir {shlex.quote(str(voice_profile_dir))}"
     return run_cmd_stream(cmd, on_output, cancel_check)
 
 
-def xtts_generate_script(script_json_path: Path, out_wav: Path, on_output, cancel_check, speed: float = 1.0) -> int:
+def xtts_generate_script(
+    script_json_path: Path,
+    out_wav: Path,
+    on_output,
+    cancel_check,
+    speed: float = 1.0,
+    voice_profile_dir: Path = None,
+) -> int:
     if not XTTS_ENV_ACTIVATE.exists():
         on_output(f"[error] XTTS activate not found: {XTTS_ENV_ACTIVATE}\n")
         return 1
 
     cmd = (
-        f"export PYTHONUNBUFFERED=1 && source {shlex.quote(str(XTTS_ENV_ACTIVATE))} && "
+        f"export PYTHONUNBUFFERED=1 && . {shlex.quote(str(XTTS_ENV_ACTIVATE))} && "
         f"python3 {shlex.quote(str(BASE_DIR / 'app' / 'xtts_inference.py'))} "
         f"--script_json {shlex.quote(str(script_json_path))} "
         f"--language en "
@@ -153,6 +200,8 @@ def xtts_generate_script(script_json_path: Path, out_wav: Path, on_output, cance
         f"--speed {speed} "
         f"--out_path {shlex.quote(str(out_wav))}"
     )
+    if voice_profile_dir is not None:
+        cmd += f" --voice_profile_dir {shlex.quote(str(voice_profile_dir))}"
     return run_cmd_stream(cmd, on_output, cancel_check)
 
 
@@ -168,12 +217,17 @@ def get_audio_duration(file_path: Path) -> float:
     except Exception:
         return 0.0
 
-def get_speaker_latent_path(speaker_wavs_str: str) -> Optional[Path]:
+def get_speaker_latent_path(speaker_wavs_str, voice_profile_dir: Path = None) -> Optional[Path]:
     """Computes the same latent path as xtts_inference.py."""
+    if voice_profile_dir is not None:
+        return Path(voice_profile_dir) / "latent.pth"
+
     if not speaker_wavs_str:
         return None
 
-    if "," in speaker_wavs_str:
+    if isinstance(speaker_wavs_str, list):
+        combined_paths = "|".join(sorted([os.path.abspath(p) for p in speaker_wavs_str]))
+    elif "," in speaker_wavs_str:
         wavs = [s.strip() for s in speaker_wavs_str.split(",") if s.strip()]
         combined_paths = "|".join(sorted([os.path.abspath(p) for p in wavs]))
     else:
@@ -182,6 +236,21 @@ def get_speaker_latent_path(speaker_wavs_str: str) -> Optional[Path]:
     speaker_id = hashlib.md5(combined_paths.encode()).hexdigest()
     voice_dir = Path(os.path.expanduser("~/.cache/audiobook-studio/voices"))
     return voice_dir / f"{speaker_id}.pth"
+
+
+def migrate_speaker_latent_to_profile(speaker_wavs_str, voice_profile_dir: Path) -> Optional[Path]:
+    """Copies a legacy cache latent into a profile-owned latent path if needed."""
+    profile_latent = Path(voice_profile_dir) / "latent.pth"
+    if profile_latent.exists():
+        return profile_latent
+
+    legacy_latent = get_speaker_latent_path(speaker_wavs_str)
+    if legacy_latent and legacy_latent.exists():
+        profile_latent.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(legacy_latent, profile_latent)
+        return profile_latent
+
+    return None
 
 def assemble_audiobook(
     input_folder: Path,
@@ -259,7 +328,7 @@ def assemble_audiobook(
                         if m4a_mtime >= source_mtime:
                             needs_encode = False
                     except OSError:
-                        pass
+                        logger.debug("Could not compare timestamps for cached audiobook segment %s", m4a_path, exc_info=True)
 
                 if needs_encode:
                     on_output(f"Pre-encoding {f} to AAC...\n")
@@ -325,8 +394,9 @@ def assemble_audiobook(
                 cover_dest = output_m4b.with_suffix(cover_ext)
                 shutil.copy2(cover_path, cover_dest)
                 on_output(f"Saved cover preview to: {cover_dest.name}\n")
-            except Exception as e:
-                on_output(f"Warning: Failed to copy cover preview: {e}\n")
+            except Exception:
+                logger.warning("Failed to copy cover preview to %s", output_m4b.with_suffix(Path(cover_path).suffix), exc_info=True)
+                on_output("Warning: Failed to copy cover preview.\n")
 
         return rc
     finally:

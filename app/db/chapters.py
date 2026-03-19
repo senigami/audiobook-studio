@@ -7,12 +7,39 @@ from .core import _db_lock, get_connection
 logger = logging.getLogger(__name__)
 
 
-def cleanup_chapter_audio_files(project_id: Optional[str], chapter_id: str, segment_ids: Optional[List[str]] = None) -> bool:
+def cleanup_chapter_audio_files(
+    project_id: Optional[str],
+    chapter_id: str,
+    segment_ids: Optional[List[str]] = None,
+    explicit_files: Optional[List[str]] = None,
+) -> bool:
     """Delete chapter-level and selected segment audio files without touching DB state."""
     from .. import config
     from pathlib import Path
 
     pdir = config.get_project_audio_dir(project_id) if project_id else config.XTTS_OUT_DIR
+
+    for raw_path in explicit_files or []:
+        if not raw_path:
+            continue
+        candidates = []
+        path_obj = Path(raw_path)
+        if path_obj.is_absolute():
+            candidates.append(path_obj)
+        else:
+            candidates.append(pdir / raw_path)
+            candidates.append(pdir / path_obj.name)
+
+        for candidate in candidates:
+            try:
+                resolved = candidate.resolve()
+            except Exception:
+                resolved = candidate
+            if resolved.exists() and resolved.is_file():
+                try:
+                    resolved.unlink()
+                except Exception:
+                    logger.warning("Failed to delete explicit audio file %s", resolved, exc_info=True)
 
     pattern = str(pdir / f"{chapter_id}*")
     for p_str in glob.glob(pattern):
@@ -146,28 +173,51 @@ def list_chapters(project_id: str) -> List[Dict[str, Any]]:
 
 def update_chapter(chapter_id: str, **updates) -> bool:
     if not updates: return False
+    stale_audio_path = None
+    project_id = None
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
+            if "text_content" in updates:
+                cursor.execute("SELECT project_id, audio_file_path FROM chapters WHERE id = ?", (chapter_id,))
+                current = cursor.fetchone()
+                if current:
+                    project_id = current["project_id"]
+                    stale_audio_path = current["audio_file_path"]
             fields = []
             values = []
+            is_text_update = "text_content" in updates
             for k, v in updates.items():
                 if k == "text_content" and v is not None:
                     v = v.replace("\r\n", "\n")
                 fields.append(f"{k} = ?")
                 values.append(v)
 
-            if "text_content" in updates:
+            if is_text_update:
                 fields.append("text_last_modified = ?")
                 values.append(time.time())
+                fields.extend([
+                    "audio_status = ?",
+                    "audio_file_path = ?",
+                    "audio_generated_at = ?",
+                    "audio_length_seconds = ?",
+                ])
+                values.extend([
+                    "unprocessed",
+                    None,
+                    None,
+                    None,
+                ])
 
             values.append(chapter_id)
             cursor.execute(f"UPDATE chapters SET {', '.join(fields)} WHERE id = ?", values)
             conn.commit()
 
-            if "text_content" in updates:
+            if is_text_update:
                 from .segments import sync_chapter_segments
                 sync_chapter_segments(chapter_id, updates["text_content"])
+                if stale_audio_path:
+                    cleanup_chapter_audio_files(project_id, chapter_id, explicit_files=[stale_audio_path])
 
             return cursor.rowcount > 0
 

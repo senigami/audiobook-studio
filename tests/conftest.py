@@ -2,6 +2,7 @@ import os
 import tempfile
 import pytest
 import atexit
+import signal
 from pathlib import Path
 
 # 1. Create a session-wide temp directory for storage isolation
@@ -30,6 +31,48 @@ for d in ["chapters_out", "uploads", "reports", "xtts_audio", "audiobooks", "voi
 # 2. NOW import modules that rely on these env vars
 from app.db import init_db  # noqa: E402
 from app.state import clear_all_jobs  # noqa: E402
+from app.jobs import clear_job_queue, pause_flag  # noqa: E402
+
+
+_TEST_TIMEOUT_SECONDS = int(os.environ.get("PYTEST_TEST_TIMEOUT_SECONDS", "30"))
+
+
+def _timeout_handler(signum, frame):
+    raise TimeoutError(f"pytest test exceeded {_TEST_TIMEOUT_SECONDS} seconds")
+
+
+def pytest_configure(config):
+    """
+    Keep focused local runs from tripping historical coverage gates.
+    """
+    selected_targets = list(getattr(config.option, "file_or_dir", []) or [])
+    focused_run = bool(
+        selected_targets
+        or getattr(config.option, "keyword", "")
+        or getattr(config.option, "markexpr", "")
+    )
+    if focused_run and getattr(config.option, "cov_fail_under", None):
+        config.option.cov_source = []
+        config.option.cov_report = []
+        config.option.cov_fail_under = 0
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_protocol(item, nextitem):
+    """
+    Fail a test if it stalls too long so hangs surface as actionable failures.
+    """
+    if _TEST_TIMEOUT_SECONDS <= 0 or not hasattr(signal, "SIGALRM"):
+        yield
+        return
+
+    previous_handler = signal.signal(signal.SIGALRM, _timeout_handler)
+    signal.setitimer(signal.ITIMER_REAL, _TEST_TIMEOUT_SECONDS)
+    try:
+        yield
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, previous_handler)
 
 @pytest.fixture(autouse=True)
 def clean_storage():
@@ -42,5 +85,16 @@ def clean_storage():
 
     # Clear in-memory state and state.json
     clear_all_jobs()
+    clear_job_queue()
+    pause_flag.clear()
+
+    # Clear any dependency overrides that a test may have left behind.
+    from app.web import app as fastapi_app
+    fastapi_app.dependency_overrides = {}
 
     yield
+
+    fastapi_app.dependency_overrides = {}
+    clear_all_jobs()
+    clear_job_queue()
+    pause_flag.clear()
