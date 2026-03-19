@@ -16,6 +16,7 @@ def clean_voices(tmp_path):
     test_state = tmp_path / "test_state.json"
     # Create empty state if needed, but app.state should handle it
     with patch("app.web.VOICES_DIR", test_voices), \
+         patch("app.api.routers.voices.VOICES_DIR", test_voices), \
          patch("app.jobs.speaker.VOICES_DIR", test_voices), \
          patch("app.config.VOICES_DIR", test_voices), \
          patch("app.state.STATE_FILE", test_state), \
@@ -80,6 +81,8 @@ def test_speaker_profile_test_endpoint(mock_xtts, clean_voices):
     name = "Tester"
     profile_dir = clean_voices / name
     profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "1.wav").write_text("audio")
+    (profile_dir / "sample.wav").write_text("audio")
     mp3_path = profile_dir / "sample.mp3"
     mp3_path.write_text("audio")
 
@@ -192,6 +195,88 @@ def test_get_speaker_settings(clean_voices):
 
     settings = get_speaker_settings(name)
     assert settings["speed"] == 1.75
+
+def test_get_speaker_settings_normalizes_default_variant(clean_voices):
+    from app.jobs import get_speaker_settings
+
+    name = "Dracula"
+    profile_dir = clean_voices / name
+    profile_dir.mkdir(parents=True, exist_ok=True)
+
+    settings = get_speaker_settings(name)
+    assert settings["variant_name"] == "Default"
+
+    meta_path = profile_dir / "profile.json"
+    assert meta_path.exists()
+    meta = json.loads(meta_path.read_text())
+    assert meta["variant_name"] == "Default"
+
+def test_get_speaker_settings_infers_variant_from_folder_name(clean_voices):
+    from app.jobs import get_speaker_settings
+
+    name = "Dracula - Angry"
+    profile_dir = clean_voices / name
+    profile_dir.mkdir(parents=True, exist_ok=True)
+
+    settings = get_speaker_settings(name)
+    assert settings["variant_name"] == "Angry"
+
+    meta_path = profile_dir / "profile.json"
+    assert meta_path.exists()
+    meta = json.loads(meta_path.read_text())
+    assert meta["variant_name"] == "Angry"
+
+def test_get_speaker_settings_prefers_base_folder_over_variant(clean_voices):
+    from app.jobs import get_speaker_settings, get_speaker_wavs
+
+    base = clean_voices / "Dracula"
+    angry = clean_voices / "Dracula - Angry"
+    base.mkdir(parents=True, exist_ok=True)
+    angry.mkdir(parents=True, exist_ok=True)
+    (base / "sample.wav").write_text("base")
+    (angry / "sample.wav").write_text("angry")
+
+    settings = get_speaker_settings("Dracula")
+    assert settings["variant_name"] == "Default"
+
+    wavs = get_speaker_wavs("Dracula")
+    assert wavs is not None
+    assert str(base / "sample.wav") in wavs
+    assert str(angry / "sample.wav") not in wavs
+
+def test_speaker_listing_normalizes_base_profile_to_default(clean_voices):
+    from app.db.speakers import create_speaker, update_speaker, delete_speaker, normalize_base_profiles
+
+    speaker_id = create_speaker("Dracula Test Normalize")
+    try:
+        update_speaker(speaker_id, default_profile_name="Dracula Test Normalize - Angry")
+
+        base_dir = clean_voices / "Dracula Test Normalize"
+        angry_dir = clean_voices / "Dracula Test Normalize - Angry"
+        base_dir.mkdir(parents=True, exist_ok=True)
+        angry_dir.mkdir(parents=True, exist_ok=True)
+        (base_dir / "profile.json").write_text(json.dumps({"built_samples": []}))
+        (angry_dir / "profile.json").write_text(json.dumps({"speaker_id": speaker_id, "variant_name": "Angry"}))
+
+        normalize_base_profiles()
+
+        response = client.get("/api/speakers")
+        assert response.status_code == 200
+
+        dracula = next(s for s in response.json() if s["id"] == speaker_id)
+        assert dracula["default_profile_name"] == "Dracula Test Normalize"
+
+        profiles_response = client.get("/api/speaker-profiles")
+        assert profiles_response.status_code == 200
+        base_profile = next(p for p in profiles_response.json() if p["name"] == "Dracula Test Normalize")
+        assert base_profile["variant_name"] == "Default"
+        assert base_profile["speaker_id"] == speaker_id
+
+        meta = json.loads((base_dir / "profile.json").read_text())
+        assert meta["variant_name"] == "Default"
+        assert meta["speaker_id"] == speaker_id
+    finally:
+        delete_speaker(speaker_id)
 
 def test_latent_cache_path():
     from app.engines import get_speaker_latent_path

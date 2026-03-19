@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { act, render, screen, fireEvent, within } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { ProductionTab } from './ProductionTab';
 import { PerformanceTab } from './PerformanceTab';
@@ -32,11 +32,16 @@ describe('Chapter Subcomponents', () => {
   ];
 
   const mockCharacters: Character[] = [
-    { id: 'char-1', project_id: 'proj-1', name: 'Char 1', color: '#ff0000' } as any
+    { id: 'char-1', project_id: 'proj-1', name: 'Char 1', color: '#ff0000', speaker_profile_name: 'Voice 1' } as any
   ];
 
   const mockProfiles: SpeakerProfile[] = [
-    { name: 'Profile 1', voice_id: 'v1', provider: 'elevenlabs' } as any
+    { name: 'Profile 1', speaker_id: 'speaker-1', variant_name: 'Standard', voice_id: 'v1', provider: 'elevenlabs' } as any,
+    { name: 'Profile 2', speaker_id: 'speaker-1', variant_name: 'Warm', voice_id: 'v2', provider: 'elevenlabs' } as any
+  ];
+
+  const mockSpeakers = [
+    { id: 'speaker-1', name: 'Voice 1' }
   ];
 
   describe('ProductionTab', () => {
@@ -50,6 +55,7 @@ describe('Chapter Subcomponents', () => {
         <ProductionTab 
           paragraphGroups={mockGroups} 
           characters={mockCharacters} 
+          speakerProfiles={mockProfiles} 
           selectedCharacterId={null} 
           hoveredSegmentId={null} 
           setHoveredSegmentId={vi.fn()} 
@@ -65,6 +71,7 @@ describe('Chapter Subcomponents', () => {
       expect(screen.getByText('Sentence two.')).toBeInTheDocument();
       expect(screen.getByText('Char 1')).toBeInTheDocument();
       expect(screen.getByText('NARRATOR')).toBeInTheDocument();
+      expect(screen.getByText('Standard')).toBeInTheDocument();
     });
 
     it('triggers bulk assign when a character is selected', () => {
@@ -73,6 +80,7 @@ describe('Chapter Subcomponents', () => {
         <ProductionTab 
           paragraphGroups={mockGroups} 
           characters={mockCharacters} 
+          speakerProfiles={mockProfiles} 
           selectedCharacterId="char-1" 
           hoveredSegmentId={null} 
           setHoveredSegmentId={vi.fn()} 
@@ -186,6 +194,71 @@ describe('Chapter Subcomponents', () => {
       expect(activeCard).toBeTruthy();
       expect(within(activeCard as HTMLElement).getAllByText('0%').length).toBeGreaterThan(0);
     });
+
+    it('lets a completed segment linger at 100% before clearing when the job advances', () => {
+      vi.useFakeTimers();
+      try {
+        const { rerender } = render(
+          <PerformanceTab
+            chunkGroups={[
+              { characterId: 'char-1', segments: [{ ...mockSegments[0], audio_status: 'processing' }] },
+              { characterId: null, segments: [mockSegments[1]] }
+            ]}
+            characters={mockCharacters}
+            playingSegmentId={null}
+            playbackQueue={['seg-1', 'seg-2']}
+            generatingSegmentIds={new Set()}
+            allSegmentIds={['seg-1', 'seg-2']}
+            segments={mockSegments}
+            onPlay={vi.fn()}
+            onStop={vi.fn()}
+            onGenerate={vi.fn()}
+            generatingJob={{
+              id: 'job-1',
+              status: 'running',
+              active_segment_id: 'seg-1',
+              active_segment_progress: 0.92
+            } as any}
+          />
+        );
+
+        expect(screen.getByTestId('performance-progress-0')).toHaveAttribute('data-progress', '92');
+
+        rerender(
+          <PerformanceTab
+            chunkGroups={[
+              { characterId: 'char-1', segments: [{ ...mockSegments[0], audio_status: 'done' }] },
+              { characterId: null, segments: [{ ...mockSegments[1], audio_status: 'processing' }] }
+            ]}
+            characters={mockCharacters}
+            playingSegmentId={null}
+            playbackQueue={['seg-1', 'seg-2']}
+            generatingSegmentIds={new Set()}
+            allSegmentIds={['seg-1', 'seg-2']}
+            segments={mockSegments}
+            onPlay={vi.fn()}
+            onStop={vi.fn()}
+            onGenerate={vi.fn()}
+            generatingJob={{
+              id: 'job-1',
+              status: 'running',
+              active_segment_id: 'seg-2',
+              active_segment_progress: 0.08
+            } as any}
+          />
+        );
+
+        expect(screen.getByTestId('performance-progress-0')).toHaveAttribute('data-progress', '100');
+
+        act(() => {
+          vi.advanceTimersByTime(700);
+        });
+
+        expect(screen.queryByTestId('performance-progress-0')).toBeNull();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 
   describe('CharacterSidebar', () => {
@@ -194,7 +267,7 @@ describe('Chapter Subcomponents', () => {
       render(
         <CharacterSidebar 
           characters={mockCharacters} 
-          speakers={[]} 
+          speakers={mockSpeakers as any} 
           speakerProfiles={mockProfiles} 
           selectedCharacterId={null} 
           setSelectedCharacterId={setSelectedCharacterId} 
@@ -214,6 +287,116 @@ describe('Chapter Subcomponents', () => {
       // Click the character name - the parent div should handle the click
       fireEvent.click(screen.getByText('Char 1').parentElement!);
       expect(setSelectedCharacterId).toHaveBeenCalledWith('char-1');
+    });
+
+    it('defaults to the first variant when a character is selected', () => {
+      const setSelectedCharacterId = vi.fn();
+      const setSelectedProfileName = vi.fn();
+      render(
+        <CharacterSidebar
+          characters={mockCharacters}
+          speakers={mockSpeakers as any}
+          speakerProfiles={mockProfiles}
+          selectedCharacterId={null}
+          setSelectedCharacterId={setSelectedCharacterId}
+          selectedProfileName={null}
+          setSelectedProfileName={setSelectedProfileName}
+          expandedCharacterId={null}
+          setExpandedCharacterId={vi.fn()}
+          onUpdateCharacterColor={vi.fn()}
+          segmentsCount={2}
+          wordCount={10}
+        />
+      );
+
+      fireEvent.click(screen.getByText('Char 1').parentElement!);
+      expect(setSelectedCharacterId).toHaveBeenCalledWith('char-1');
+      expect(setSelectedProfileName).toHaveBeenCalledWith('Profile 1');
+    });
+
+    it('shows the variant display name when a variant is selected', () => {
+      render(
+        <CharacterSidebar
+          characters={mockCharacters}
+          speakers={mockSpeakers as any}
+          speakerProfiles={mockProfiles}
+          selectedCharacterId="char-1"
+          setSelectedCharacterId={vi.fn()}
+          selectedProfileName="Profile 1"
+          setSelectedProfileName={vi.fn()}
+          expandedCharacterId={null}
+          setExpandedCharacterId={vi.fn()}
+          onUpdateCharacterColor={vi.fn()}
+          segmentsCount={2}
+          wordCount={10}
+        />
+      );
+
+      expect(screen.getByText('Standard')).toBeInTheDocument();
+    });
+
+    it('falls back to the suffix of the folder name when variant metadata is missing', () => {
+      const setSelectedCharacterId = vi.fn();
+      render(
+        <CharacterSidebar
+          characters={mockCharacters}
+          speakers={mockSpeakers as any}
+          speakerProfiles={[{ name: 'Voice 1 - Angry', speaker_id: 'speaker-1', variant_name: null, voice_id: 'v1', provider: 'elevenlabs' } as any]}
+          selectedCharacterId="char-1"
+          setSelectedCharacterId={setSelectedCharacterId}
+          selectedProfileName="Voice 1 - Angry"
+          setSelectedProfileName={vi.fn()}
+          expandedCharacterId={null}
+          setExpandedCharacterId={vi.fn()}
+          onUpdateCharacterColor={vi.fn()}
+          segmentsCount={2}
+          wordCount={10}
+        />
+      );
+
+      expect(screen.getByText('Angry')).toBeInTheDocument();
+    });
+
+    it('shows Default when a profile has no variant suffix', () => {
+      render(
+        <CharacterSidebar
+          characters={mockCharacters}
+          speakers={mockSpeakers as any}
+          speakerProfiles={[{ name: 'Voice 1', speaker_id: 'speaker-1', variant_name: null, voice_id: 'v1', provider: 'elevenlabs' } as any]}
+          selectedCharacterId="char-1"
+          setSelectedCharacterId={vi.fn()}
+          selectedProfileName="Voice 1"
+          setSelectedProfileName={vi.fn()}
+          expandedCharacterId={null}
+          setExpandedCharacterId={vi.fn()}
+          onUpdateCharacterColor={vi.fn()}
+          segmentsCount={2}
+          wordCount={10}
+        />
+      );
+
+      expect(screen.getByText('Default')).toBeInTheDocument();
+    });
+
+    it('shows Default for a base profile without a suffix', () => {
+      render(
+        <CharacterSidebar
+          characters={[{ id: 'char-base', project_id: 'proj-1', name: 'Base Char', color: '#00ff00', speaker_profile_name: 'Voice 1' } as any]}
+          speakers={mockSpeakers as any}
+          speakerProfiles={[{ name: 'Voice 1', speaker_id: 'speaker-1', variant_name: null, voice_id: 'v1', provider: 'elevenlabs' } as any]}
+          selectedCharacterId={null}
+          setSelectedCharacterId={vi.fn()}
+          selectedProfileName={null}
+          setSelectedProfileName={vi.fn()}
+          expandedCharacterId={null}
+          setExpandedCharacterId={vi.fn()}
+          onUpdateCharacterColor={vi.fn()}
+          segmentsCount={1}
+          wordCount={10}
+        />
+      );
+
+      expect(screen.getByText('Default')).toBeInTheDocument();
     });
   });
 });

@@ -3,7 +3,25 @@ import { describe, it, expect, vi } from 'vitest';
 
 // Mock predictive progress bar
 vi.mock('../PredictiveProgressBar', () => ({
-  PredictiveProgressBar: ({ progress }: { progress: number }) => <div data-testid="progress-bar" data-progress={progress} />
+  PredictiveProgressBar: ({
+    progress,
+    predictive,
+    startedAt,
+    etaSeconds
+  }: {
+    progress: number;
+    predictive?: boolean;
+    startedAt?: number;
+    etaSeconds?: number;
+  }) => (
+    <div
+      data-testid="progress-bar"
+      data-progress={progress}
+      data-predictive={String(!!predictive)}
+      data-started-at={startedAt ?? ''}
+      data-eta-seconds={etaSeconds ?? ''}
+    />
+  )
 }));
 
 vi.mock('../../hooks/useGlobalQueue', () => ({
@@ -34,7 +52,7 @@ describe('Global Queue Components', () => {
         type: 'chapter_generation',
         engine: 'xtts',
         status: 'processing',
-        progress: 45,
+        progress: 0.45,
         project_name: 'Test Project',
         split_part: 0,
         started_at: 1000,
@@ -59,11 +77,11 @@ describe('Global Queue Components', () => {
             expect(screen.getByTestId('progress-bar')).toBeInTheDocument();
         });
 
-        it('starts xtts queue progress at zero until live segment progress arrives', () => {
+        it('passes live job timing data to the predictive progress bar', () => {
             render(
                 <QueueItem 
-                    job={{ ...mockJob, progress: 15 } as any}
-                    liveJob={{ id: 'job-1', engine: 'xtts', status: 'running', progress: 15 } as any}
+                    job={{ ...mockJob, progress: 0.15 } as any}
+                    liveJob={{ id: 'job-1', engine: 'xtts', status: 'running', progress: 0.15, started_at: 1000, eta_seconds: 30 } as any}
                     localPaused={false}
                     formatJobTitle={(j) => `Title for ${j.id}`}
                     formatTime={(t) => `Time ${t}`}
@@ -71,7 +89,10 @@ describe('Global Queue Components', () => {
                 />
             );
 
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.15');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'true');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-started-at', '1000');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-eta-seconds', '30');
         });
 
         it('shows pause icon when paused', () => {

@@ -259,3 +259,55 @@ def test_sync_chapter_segments_does_not_cross_match_reordered_duplicates(db_conn
         assert refreshed[2]["text_content"].strip() == "Middle."
         assert refreshed[2]["audio_status"] == "unprocessed"
         assert refreshed[2]["audio_file_path"] is None
+
+
+def test_sync_chapter_segments_invalidates_trailing_segments_after_shift(db_conn, tmp_path):
+    from unittest.mock import patch
+    from app.db.segments import sync_chapter_segments, get_chapter_segments
+    from app.db import update_segment
+
+    pid = create_project("P6", "/tmp")
+    cid = create_chapter(pid, "C6", "Alpha. Bravo. Charlie. Delta.")
+
+    with patch("app.config.get_project_audio_dir", return_value=tmp_path):
+        sync_chapter_segments(cid, "Alpha. Bravo. Charlie. Delta.")
+        segs = get_chapter_segments(cid)
+        sid1, sid2, sid3, sid4 = [s["id"] for s in segs]
+
+        file1 = tmp_path / f"seg_{sid1}.wav"
+        file2 = tmp_path / f"seg_{sid2}.wav"
+        file3 = tmp_path / f"seg_{sid3}.wav"
+        file4 = tmp_path / f"seg_{sid4}.wav"
+        file1.write_text("one")
+        file2.write_text("two")
+        file3.write_text("three")
+        file4.write_text("four")
+
+        update_segment(sid1, audio_status="done", audio_file_path=file1.name, audio_generated_at=1.0)
+        update_segment(sid2, audio_status="done", audio_file_path=file2.name, audio_generated_at=2.0)
+        update_segment(sid3, audio_status="done", audio_file_path=file3.name, audio_generated_at=3.0)
+        update_segment(sid4, audio_status="done", audio_file_path=file4.name, audio_generated_at=4.0)
+
+        sync_chapter_segments(cid, "Alpha. New Bravo. Charlie. Delta.")
+        refreshed = get_chapter_segments(cid)
+
+        assert refreshed[0]["text_content"].strip() == "Alpha."
+        assert refreshed[0]["audio_status"] == "done"
+        assert refreshed[0]["audio_file_path"] == file1.name
+
+        assert refreshed[1]["text_content"].strip() == "New Bravo."
+        assert refreshed[1]["audio_status"] == "unprocessed"
+        assert refreshed[1]["audio_file_path"] is None
+
+        assert refreshed[2]["text_content"].strip() == "Charlie."
+        assert refreshed[2]["audio_status"] == "unprocessed"
+        assert refreshed[2]["audio_file_path"] is None
+
+        assert refreshed[3]["text_content"].strip() == "Delta."
+        assert refreshed[3]["audio_status"] == "unprocessed"
+        assert refreshed[3]["audio_file_path"] is None
+
+        assert file1.exists()
+        assert not file2.exists()
+        assert not file3.exists()
+        assert not file4.exists()

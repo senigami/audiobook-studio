@@ -209,19 +209,23 @@ def test_build_clears_sample_wav(clean_db, tmp_path):
     voices_dir.mkdir(parents=True, exist_ok=True)
     fastapi_app.dependency_overrides[get_voices_dir] = lambda: voices_dir
 
-    # 1. Create a profile and a sample.wav
+    # 1. Create a profile, a raw sample, and a sample.wav preview file
     profile_path = voices_dir / "TestBuilder"
     profile_path.mkdir()
+    raw_sample_path = profile_path / "raw_sample.wav"
+    raw_sample_path.write_text("raw content")
     sample_path = profile_path / "sample.wav"
     sample_path.write_text("old content")
+    assert raw_sample_path.exists()
     assert sample_path.exists()
 
     # 2. Call build
     response = client.post("/api/speaker-profiles/TestBuilder/build")
     assert response.status_code == 200
 
-    # 3. Verify sample.wav is GONE
+    # 3. Verify sample.wav is GONE but the raw training sample remains
     assert not sample_path.exists(), "sample.wav should have been deleted by the build endpoint"
+    assert raw_sample_path.exists(), "raw samples should remain available for the build job"
 
 
 def test_voice_build_worker_exports_mp3_preview(clean_db, tmp_path):

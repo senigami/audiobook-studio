@@ -50,6 +50,8 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
     const isBuilding = buildingProfiles[profile.name];
     const speedPillRef = useRef<HTMLButtonElement>(null);
     const speed = localSpeed ?? profile.speed;
+    const hasSamples = (profile.wav_count || 0) > 0;
+    const playIconColor = isPlaying ? 'var(--surface)' : 'var(--text-primary)';
 
     useEffect(() => {
         if (profile.preview_url) {
@@ -125,15 +127,20 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                     <div style={{ flexShrink: 0 }}>
                         <button 
                             onClick={handlePlayClick}
-                            className="btn-ghost"
-                            title={profile.preview_url ? (isPlaying ? "Pause Sample" : "Play Sample") : "Generate Sample"}
+                            className="btn-ghost hover-bg-subtle"
+                        disabled={!hasSamples || isTesting}
+                        title={!hasSamples
+                            ? "Add at least one sample before generating a preview"
+                            : profile.preview_url
+                                ? (isPlaying ? "Pause Sample" : "Play Sample")
+                                : "Generate Sample"}
                             style={{ 
                                 width: '40px', 
                                 height: '40px', 
                                 padding: 0,
                                 borderRadius: '12px',
                                 background: isPlaying ? 'var(--accent)' : 'var(--surface)',
-                                color: isPlaying ? 'white' : 'var(--text-primary)',
+                                color: playIconColor,
                                 border: isPlaying ? '1px solid var(--accent)' : '1px solid var(--border)',
                                 position: 'relative',
                                 overflow: 'hidden',
@@ -157,7 +164,7 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                                     style={{
                                         position: 'absolute',
                                         inset: 0,
-                                        border: '2px solid white',
+                                        border: `2px solid ${playIconColor}`,
                                         borderRadius: '12px',
                                         opacity: 0.3
                                     }}
@@ -173,7 +180,7 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                     <button
                         ref={speedPillRef}
                         onClick={() => setShowSpeedPopover(!showSpeedPopover)}
-                        className="btn-ghost"
+                        className="btn-ghost hover-bg-subtle"
                         style={{
                             padding: '4px 10px',
                             height: '32px',
@@ -209,7 +216,7 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
 
                     <button 
                         onClick={() => onEditTestText(profile)}
-                        className="btn-ghost"
+                        className="btn-ghost hover-bg-subtle"
                         title="Edit Preview Script"
                         style={{ padding: '8px 12px', height: '36px', borderRadius: '10px', background: 'var(--surface)', border: '1px solid var(--border)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}
                     >
@@ -218,10 +225,10 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                     </button>
                     
                     <button 
-                        disabled={isBuilding || isTesting}
-                        className={isRebuildRequired ? "btn-primary" : "btn-ghost"}
+                        disabled={!hasSamples || isBuilding || isTesting}
+                        className={isRebuildRequired ? "btn-primary" : "btn-ghost hover-bg-subtle"}
                         onClick={(e) => { e.stopPropagation(); handleRebuild(); }} 
-                        title="Rebuild Voice Model"
+                        title={!hasSamples ? "Add at least one sample before rebuilding this voice" : "Rebuild Voice Model"}
                         style={{ 
                             padding: '8px 12px', 
                             height: '36px', 
@@ -281,7 +288,7 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                 <div style={{ display: 'flex', gap: '10px' }}>
                     <button 
                         onClick={() => onMoveVariant(profile)}
-                        className="btn-ghost"
+                        className="btn-ghost hover-bg-subtle"
                         style={{ gap: '6px', fontSize: '0.8rem', padding: '0 12px', height: '32px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--surface)' }}
                     >
                         <RefreshCw size={14} />
@@ -296,8 +303,8 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                                 onConfirm: () => onDeleteVariant(profile.name)
                             });
                         }}
-                        className="btn-ghost"
-                        style={{ color: 'var(--text-muted)', gap: '6px', fontSize: '0.8rem', padding: '0 12px', height: '32px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--surface)' }}
+                        className="btn-ghost hover-bg-destructive"
+                        style={{ gap: '6px', fontSize: '0.8rem', padding: '0 12px', height: '32px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--surface)' }}
                     >
                         <Trash2 size={14} />
                         Delete Variant

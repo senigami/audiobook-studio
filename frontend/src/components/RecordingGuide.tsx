@@ -97,6 +97,7 @@ export const RecordingGuide: React.FC = () => {
                             <li style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Maintain consistent distance (about 6 inches)</li>
                             <li style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Enunciate clearly but without over-acting</li>
                             <li style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Record 10–15 total samples for best quality</li>
+                            <li style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Try mixing a few different delivery styles. The first sample usually anchors the voice, and later samples nudge the tone.</li>
                         </ul>
                     </div>
                 </div>
