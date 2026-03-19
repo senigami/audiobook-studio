@@ -223,6 +223,7 @@ def test_xtts_generate_script_includes_voice_profile_dir(mock_on_output, mock_ca
 
 
 def test_xtts_inference_can_run_from_outside_repo(tmp_path):
+    pytest.importorskip("torch")
     script = Path(__file__).resolve().parents[1] / "app" / "xtts_inference.py"
     env = os.environ.copy()
     env.pop("PYTHONPATH", None)
