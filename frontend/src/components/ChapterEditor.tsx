@@ -78,6 +78,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   const [editorTab, setEditorTab] = useState<'edit' | 'preview' | 'production' | 'performance'>('edit');
   const [generatingSegmentIds, setGeneratingSegmentIds] = useState<Set<string>>(new Set());
   const segmentRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const queueSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const availableVoices = React.useMemo(() => {
     const list = (speakers || []).map(s => ({ id: s.id, name: s.name, is_speaker: true }));
@@ -219,10 +220,20 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     } catch (e) { console.error("Color update failed", e); loadChapter(); }
   };
 
+  const resolveDefaultVariantName = (characterId: string | null) => {
+    if (!characterId || characterId === 'CLEAR_ASSIGNMENT') return null;
+    const character = characters.find(c => c.id === characterId);
+    if (!character?.speaker_profile_name) return null;
+    const speaker = speakers.find(s => s.name === character.speaker_profile_name);
+    if (!speaker) return null;
+    const variants = (speakerProfiles || []).filter(p => p.speaker_id === speaker.id);
+    return variants[0]?.name || null;
+  };
+
   const handleParagraphBulkAssign = async (segmentIds: string[]) => {
     const isClearing = selectedCharacterId === 'CLEAR_ASSIGNMENT';
     const characterId = isClearing ? null : selectedCharacterId;
-    const profileName = isClearing ? null : (selectedCharacterId ? selectedProfileName : null);
+    const profileName = isClearing ? null : (selectedCharacterId ? (selectedProfileName || resolveDefaultVariantName(selectedCharacterId)) : null);
     
     setSegments(prev => prev.map(s => segmentIds.includes(s.id) ? { 
         ...s, character_id: characterId, speaker_profile_name: profileName, 
@@ -256,12 +267,26 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   }, [chapter?.audio_status, job?.status]);
 
   const executeQueue = async () => {
+    if (queueSyncTimerRef.current) {
+      clearTimeout(queueSyncTimerRef.current);
+      queueSyncTimerRef.current = null;
+    }
     setQueuePending(true);
     setSubmitting(true);
     try {
         setQueueNotice('Queued. Keep this page open to watch progress.');
         await api.addProcessingQueue(projectId, chapterId, 0, selectedVoice || undefined);
         await loadChapter();
+        queueSyncTimerRef.current = setTimeout(async () => {
+          queueSyncTimerRef.current = null;
+          try {
+            await loadChapter();
+          } catch (e) {
+            console.error("Delayed queue sync failed", e);
+          } finally {
+            setQueuePending(false);
+          }
+        }, 1000);
     } catch (e) {
         setQueuePending(false);
         setQueueNotice(null);
@@ -274,6 +299,13 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     const timer = setTimeout(() => setQueueNotice(null), 3500);
     return () => clearTimeout(timer);
   }, [queueNotice]);
+
+  useEffect(() => {
+    return () => {
+      if (queueSyncTimerRef.current) clearTimeout(queueSyncTimerRef.current);
+      if (segmentRefreshTimerRef.current) clearTimeout(segmentRefreshTimerRef.current);
+    };
+  }, []);
 
   if (loading) return <div style={{ padding: '2rem' }}>Loading editor...</div>;
   if (!chapter) return <div style={{ padding: '2rem' }}>Chapter not found.</div>;
