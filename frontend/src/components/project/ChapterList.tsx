@@ -93,6 +93,19 @@ export const ChapterList: React.FC<ChapterListProps> = ({
           const activeJob = pickActiveJob(chap.id);
           const progressValue = activeJob ? (activeJob.active_segment_progress ?? 0) : 0;
           const isMenuOpen = openMenuRowId === chap.id;
+          const queueStatus = activeJob
+            ? (activeJob.status === 'queued'
+              ? 'Queued'
+              : activeJob.status === 'preparing'
+                ? 'Preparing'
+                : activeJob.status === 'running'
+                  ? 'Rendering'
+                  : activeJob.status === 'finalizing'
+                    ? 'Finalizing'
+                    : null)
+            : chap.audio_status === 'processing'
+              ? 'Processing'
+              : null;
 
           return (
             <Reorder.Item 
@@ -143,7 +156,28 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                     style={{ fontWeight: 500, fontSize: '0.95rem', background: 'var(--surface-light)', border: '1px solid var(--accent)', borderRadius: '4px', color: 'var(--text-primary)', padding: '0 4px', width: '100%', maxWidth: '200px' }}
                   />
                 ) : (
-                  <h4 onClick={e => { if (!isAssemblyMode) { e.stopPropagation(); setEditingTitleId(chap.id); setTempTitle(chap.title); } }} style={{ fontWeight: 500, fontSize: '0.95rem', cursor: 'text' }}>{chap.title}</h4>
+                  <>
+                    <h4 onClick={e => { if (!isAssemblyMode) { e.stopPropagation(); setEditingTitleId(chap.id); setTempTitle(chap.title); } }} style={{ fontWeight: 500, fontSize: '0.95rem', cursor: 'text' }}>{chap.title}</h4>
+                    {queueStatus && (
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        padding: '0.2rem 0.55rem',
+                        borderRadius: '999px',
+                        background: 'var(--accent-tint)',
+                        color: 'var(--accent)',
+                        fontSize: '0.7rem',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
+                        border: '1px solid var(--accent)',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {queueStatus}
+                      </span>
+                    )}
+                  </>
                 )}
               </div>
 

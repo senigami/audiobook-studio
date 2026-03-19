@@ -15,6 +15,7 @@ interface ChapterHeaderProps {
   onVoiceChange: (voice: string) => void;
   availableVoices: { id: string; name: string; is_speaker: boolean }[];
   submitting: boolean;
+  queuePending?: boolean;
   job?: Job;
   generatingSegmentIdsCount: number;
   onQueue: () => void;
@@ -34,11 +35,26 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
   onVoiceChange,
   availableVoices,
   submitting,
+  queuePending = false,
   job,
   generatingSegmentIdsCount,
   onQueue,
   onStopAll
 }) => {
+  const queueStatus = queuePending
+    ? 'Queued'
+    : job?.status === 'queued'
+      ? 'Queued'
+      : job?.status === 'preparing'
+        ? 'Preparing'
+        : job?.status === 'running'
+          ? 'Rendering'
+          : job?.status === 'finalizing'
+            ? 'Finalizing'
+            : chapter?.audio_status === 'processing'
+              ? 'Processing'
+              : null;
+
   return (
     <header style={{ 
       display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 1.5rem', 
@@ -138,10 +154,29 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
                   cursor: (job?.status === 'queued' || job?.status === 'running') || chapter?.audio_status === 'processing' ? 'not-allowed' : 'pointer'
               }}
               title={((job?.status === 'queued' || job?.status === 'running') || chapter?.audio_status === 'processing') ? "Already processing" : "Queue Chapter"}
-          >
+              >
               {submitting ? <RefreshCw size={14} className="animate-spin" /> : <Zap size={14} />}
               Queue
           </button>
+
+          {queueStatus && (
+              <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  padding: '0.35rem 0.65rem',
+                  borderRadius: '999px',
+                  background: 'var(--accent-tint)',
+                  color: 'var(--accent)',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                  border: '1px solid var(--accent)'
+              }}>
+                  {queueStatus}
+              </div>
+          )}
 
           {(generatingSegmentIdsCount > 0 || chapter?.audio_status === 'processing') && (
               <button

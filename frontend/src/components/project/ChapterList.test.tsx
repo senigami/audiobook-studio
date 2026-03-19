@@ -112,4 +112,19 @@ describe('ChapterList', () => {
 
     expect(screen.getByText('65%')).toBeInTheDocument();
   });
+
+  it('shows a queued badge for chapters awaiting rendering', () => {
+    const queuedJob = {
+      id: 'job-queued',
+      project_id: 'proj-1',
+      chapter_id: 'chap-123',
+      status: 'queued',
+      progress: 0,
+      created_at: Date.now() / 1000,
+    } as any;
+
+    render(<ChapterList {...defaultProps} jobs={{ [queuedJob.id]: queuedJob }} />);
+
+    expect(screen.getByText('Queued')).toBeInTheDocument();
+  });
 });
