@@ -9,6 +9,7 @@ High-quality audio starts with high-quality source recordings. Follow these tips
 - **Length**: Aim for 6–10 seconds per clip. Extremely short or long clips can produce inconsistent results.
 - **Clean Audio**: Avoid background noise, music, or heavy breathing.
 - **Natural Delivery**: Speak clearly and naturally, as if you’re reading to a friend.
+- **Style Blending**: If you want to shape a profile, try mixing deliveries on purpose. The first sample usually anchors the voice, and later samples can nudge the tone, age, or emotion in subtle ways.
 
 ## 📜 Prompt Packs (Suggested Prompts)
 

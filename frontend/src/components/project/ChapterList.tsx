@@ -91,7 +91,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
       <Reorder.Group axis="y" values={chapters} onReorder={onReorder} style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column' }}>
         {chapters.map((chap, idx) => {
           const activeJob = pickActiveJob(chap.id);
-          const progressValue = activeJob ? (activeJob.active_segment_progress ?? 0) : 0;
+          const progressValue = activeJob ? (activeJob.progress ?? 0) : 0;
           const isMenuOpen = openMenuRowId === chap.id;
           const isFullyRendered = chap.audio_status === 'done' && !!chap.audio_file_path;
           const queueActionLabel = isFullyRendered
@@ -194,11 +194,11 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                     <div style={{ width: '100%', maxWidth: '600px' }}>
                         <PredictiveProgressBar 
                           progress={progressValue} 
-                          startedAt={undefined}
-                          etaSeconds={undefined}
+                          startedAt={activeJob.started_at}
+                          etaSeconds={activeJob.eta_seconds}
                           status={activeJob.status}
                           label={activeJob.status} 
-                          predictive={false}
+                          predictive={true}
                         />
                     </div>
                 ) : chap.audio_status === 'done' && (chap.has_wav || chap.has_mp3) && !isAssemblyMode ? (

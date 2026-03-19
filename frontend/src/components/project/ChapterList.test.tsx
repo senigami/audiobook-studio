@@ -96,14 +96,13 @@ describe('ChapterList', () => {
     expect(spinner).toBeFalsy();
   });
 
-  it('uses live segment progress when available', () => {
+  it('uses live job progress when available', () => {
     const liveJob = {
       id: 'job-1',
       project_id: 'proj-1',
       chapter_id: 'chap-123',
       status: 'running',
-      progress: 0.1,
-      active_segment_progress: 0.65,
+      progress: 0.65,
       started_at: Date.now() / 1000 - 30,
       eta_seconds: 120,
     } as any;

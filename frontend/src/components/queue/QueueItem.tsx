@@ -21,9 +21,9 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     onRemove
 }) => {
     const started = liveJob?.started_at ?? job.started_at;
-    const prog = job.engine === 'xtts'
-        ? (liveJob?.active_segment_progress ?? 0)
-        : (liveJob?.progress ?? job.progress ?? 0);
+    const etaSeconds = liveJob?.eta_seconds ?? job.eta_seconds;
+    const progress = liveJob?.progress ?? job.progress ?? 0;
+    const status = liveJob?.status ?? job.status;
 
     return (
         <div style={{
@@ -96,12 +96,12 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                     </div>
                 </div>
                 <PredictiveProgressBar 
-                    progress={prog}
-                    startedAt={undefined}
-                    etaSeconds={undefined}
-                    status={job.status}
-                    label={job.status === 'preparing' ? "Preparing..." : (job.status === 'finalizing' ? "Finalizing..." : "Processing...")}
-                    predictive={false}
+                    progress={progress}
+                    startedAt={started}
+                    etaSeconds={etaSeconds}
+                    status={status}
+                    label={status === 'preparing' ? "Preparing..." : (status === 'finalizing' ? "Finalizing..." : "Processing...")}
+                    predictive={true}
                 />
             </div>
         </div>

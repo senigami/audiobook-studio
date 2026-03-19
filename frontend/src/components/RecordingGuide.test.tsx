@@ -26,6 +26,7 @@ describe('RecordingGuide', () => {
         render(<RecordingGuide />);
         expect(screen.getByText('Neutral / Calm')).toBeInTheDocument();
         expect(screen.getByText('Happy / Upbeat')).toBeInTheDocument();
+        expect(screen.getByText(/Try mixing a few different delivery styles/i)).toBeInTheDocument();
     });
 
     it('expands a category on click', () => {

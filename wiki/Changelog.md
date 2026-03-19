@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Highlights
 
 - **Queue Sync Recovery**: Queueing now shows an immediate optimistic state, then re-syncs after a short delay so fast-finishing chapters do not get stuck showing `processing`.
+- **Smooth Queue Progress**: Chapter and queue progress bars now use the live job timing data again, so websocket updates animate smoothly instead of jumping between discrete segment updates.
 - **Default Variant Assignment**: Production view now picks the first variant for a character automatically when you assign it, so speaking parts use the intended voice profile instead of falling back to narration.
 - **Clear Variant Labels**: Production assignment labels now show the human-friendly variant name instead of the internal voice-profile folder name.
 - **Explicit Default Label**: Base voice profiles without a `- Variant` suffix now display `Default` instead of echoing the folder name back in the UI.

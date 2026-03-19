@@ -40,6 +40,7 @@ Each **Voice** always has at least one variant (usually the "Default" variant). 
 - **Build Progress**: Real-time progress indicators and a **"BUILDING..."** status label show you exactly where the voice is in the cloning process, persisting until the new sample is ready.
 - **Contextual Management**: In the samples list, the **Delete (X)** button is hidden by default and only appears when hovering over a specific row to keep the interface clean while managing audio.
 - **Portable Latent Cache**: Each voice profile now keeps its own `latent.pth` alongside `profile.json` and `sample.wav`, which makes renaming, moving, and sharing a voice bundle much safer.
+- **Sample Styling Tip**: The first sample tends to anchor the voice most strongly, while later samples add nuance. Mixing clean examples with different delivery styles can help shape a more interesting profile.
 
 ---
 
