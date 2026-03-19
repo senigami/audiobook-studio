@@ -32,6 +32,17 @@ export const CharacterSidebar: React.FC<CharacterSidebarProps> = ({
   segmentsCount,
   wordCount
 }) => {
+  const resolveVariantDisplay = (profileName: string | null) => {
+    if (!profileName) return null;
+    const profile = speakerProfiles.find(p => p.name === profileName);
+    if (profile?.variant_name) return profile.variant_name;
+    const fromProfileName = profile?.name || profileName;
+    if (fromProfileName.includes(' - ')) {
+      return fromProfileName.split(' - ').slice(1).join(' - ').trim() || fromProfileName;
+    }
+    return 'Default';
+  };
+
   const toggleCharacterExpansion = (characterId: string) => {
     setExpandedCharacterId(expandedCharacterId === characterId ? null : characterId);
   };
@@ -135,7 +146,7 @@ export const CharacterSidebar: React.FC<CharacterSidebarProps> = ({
                                         <div style={{ fontWeight: 600, fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{char.name}</div>
                                         <div style={{ fontSize: '0.7rem', opacity: 0.6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                             {selectedCharacterId === char.id && selectedProfileName
-                                                ? selectedProfileName
+                                                ? resolveVariantDisplay(selectedProfileName)
                                                 : (char.speaker_profile_name || 'No voice')}
                                         </div>
                                     </div>

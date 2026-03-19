@@ -373,7 +373,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                 {editorTab === 'preview' && <PreviewTab analysis={analysis} analyzing={analyzing} />}
                 {editorTab === 'production' && (
                   <ProductionTab 
-                    paragraphGroups={paragraphGroups} characters={characters} selectedCharacterId={selectedCharacterId}
+                    paragraphGroups={paragraphGroups} characters={characters} speakerProfiles={speakerProfiles} selectedCharacterId={selectedCharacterId}
                     hoveredSegmentId={hoveredSegmentId} setHoveredSegmentId={setHoveredSegmentId}
                     activeSegmentId={activeSegmentId} setActiveSegmentId={setActiveSegmentId}
                     onBulkAssign={handleParagraphBulkAssign} onBulkReset={handleParagraphBulkReset}

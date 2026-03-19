@@ -55,6 +55,7 @@ describe('Chapter Subcomponents', () => {
         <ProductionTab 
           paragraphGroups={mockGroups} 
           characters={mockCharacters} 
+          speakerProfiles={mockProfiles} 
           selectedCharacterId={null} 
           hoveredSegmentId={null} 
           setHoveredSegmentId={vi.fn()} 
@@ -70,6 +71,7 @@ describe('Chapter Subcomponents', () => {
       expect(screen.getByText('Sentence two.')).toBeInTheDocument();
       expect(screen.getByText('Char 1')).toBeInTheDocument();
       expect(screen.getByText('NARRATOR')).toBeInTheDocument();
+      expect(screen.getByText('Standard')).toBeInTheDocument();
     });
 
     it('triggers bulk assign when a character is selected', () => {
@@ -78,6 +80,7 @@ describe('Chapter Subcomponents', () => {
         <ProductionTab 
           paragraphGroups={mockGroups} 
           characters={mockCharacters} 
+          speakerProfiles={mockProfiles} 
           selectedCharacterId="char-1" 
           hoveredSegmentId={null} 
           setHoveredSegmentId={vi.fn()} 
@@ -244,6 +247,70 @@ describe('Chapter Subcomponents', () => {
       fireEvent.click(screen.getByText('Char 1').parentElement!);
       expect(setSelectedCharacterId).toHaveBeenCalledWith('char-1');
       expect(setSelectedProfileName).toHaveBeenCalledWith('Profile 1');
+    });
+
+    it('shows the variant display name when a variant is selected', () => {
+      render(
+        <CharacterSidebar
+          characters={mockCharacters}
+          speakers={mockSpeakers as any}
+          speakerProfiles={mockProfiles}
+          selectedCharacterId="char-1"
+          setSelectedCharacterId={vi.fn()}
+          selectedProfileName="Profile 1"
+          setSelectedProfileName={vi.fn()}
+          expandedCharacterId={null}
+          setExpandedCharacterId={vi.fn()}
+          onUpdateCharacterColor={vi.fn()}
+          segmentsCount={2}
+          wordCount={10}
+        />
+      );
+
+      expect(screen.getByText('Standard')).toBeInTheDocument();
+    });
+
+    it('falls back to the suffix of the folder name when variant metadata is missing', () => {
+      const setSelectedCharacterId = vi.fn();
+      render(
+        <CharacterSidebar
+          characters={mockCharacters}
+          speakers={mockSpeakers as any}
+          speakerProfiles={[{ name: 'Voice 1 - Angry', speaker_id: 'speaker-1', variant_name: null, voice_id: 'v1', provider: 'elevenlabs' } as any]}
+          selectedCharacterId="char-1"
+          setSelectedCharacterId={setSelectedCharacterId}
+          selectedProfileName="Voice 1 - Angry"
+          setSelectedProfileName={vi.fn()}
+          expandedCharacterId={null}
+          setExpandedCharacterId={vi.fn()}
+          onUpdateCharacterColor={vi.fn()}
+          segmentsCount={2}
+          wordCount={10}
+        />
+      );
+
+      expect(screen.getByText('Angry')).toBeInTheDocument();
+    });
+
+    it('shows Default when a profile has no variant suffix', () => {
+      render(
+        <CharacterSidebar
+          characters={mockCharacters}
+          speakers={mockSpeakers as any}
+          speakerProfiles={[{ name: 'Voice 1', speaker_id: 'speaker-1', variant_name: null, voice_id: 'v1', provider: 'elevenlabs' } as any]}
+          selectedCharacterId="char-1"
+          setSelectedCharacterId={vi.fn()}
+          selectedProfileName="Voice 1"
+          setSelectedProfileName={vi.fn()}
+          expandedCharacterId={null}
+          setExpandedCharacterId={vi.fn()}
+          onUpdateCharacterColor={vi.fn()}
+          segmentsCount={2}
+          wordCount={10}
+        />
+      );
+
+      expect(screen.getByText('Default')).toBeInTheDocument();
     });
   });
 });

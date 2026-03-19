@@ -1,10 +1,11 @@
 import React from 'react';
 import { AlertTriangle, CheckCircle } from 'lucide-react';
-import type { ChapterSegment, Character } from '../../types';
+import type { ChapterSegment, Character, SpeakerProfile } from '../../types';
 
 interface ProductionTabProps {
   paragraphGroups: { characterId: string | null; segments: ChapterSegment[] }[];
   characters: Character[];
+  speakerProfiles: SpeakerProfile[];
   selectedCharacterId: string | null;
   hoveredSegmentId: string | null;
   setHoveredSegmentId: (id: string | null) => void;
@@ -18,6 +19,7 @@ interface ProductionTabProps {
 export const ProductionTab: React.FC<ProductionTabProps> = ({
   paragraphGroups,
   characters,
+  speakerProfiles,
   selectedCharacterId,
   hoveredSegmentId,
   setHoveredSegmentId,
@@ -27,6 +29,17 @@ export const ProductionTab: React.FC<ProductionTabProps> = ({
   onBulkReset,
   segmentsCount
 }) => {
+  const resolveVariantDisplay = (profileName: string | null) => {
+    if (!profileName) return null;
+    const profile = speakerProfiles.find(p => p.name === profileName);
+    if (profile?.variant_name) return profile.variant_name;
+    const fromProfileName = profile?.name || profileName;
+    if (fromProfileName.includes(' - ')) {
+      return fromProfileName.split(' - ').slice(1).join(' - ').trim() || fromProfileName;
+    }
+    return 'Default';
+  };
+
   return (
     <div style={{ 
       flex: 1, 
@@ -96,7 +109,7 @@ export const ProductionTab: React.FC<ProductionTabProps> = ({
                         textTransform: 'none',
                         letterSpacing: 'normal'
                     }}>
-                        {group.segments[0].speaker_profile_name}
+                        {resolveVariantDisplay(group.segments[0].speaker_profile_name)}
                     </div>
                 )}
             </div>
