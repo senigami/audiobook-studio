@@ -8,6 +8,7 @@ import { GhostButton } from './GhostButton';
 import { NarratorCard } from './voices/NarratorCard';
 import { useVoiceManagement } from '../hooks/useVoiceManagement';
 import { VoicesModals } from './VoicesModals';
+import { getVariantDisplayName } from '../utils/voiceProfiles';
 
 interface VoicesTabProps {
     onRefresh: () => void;
@@ -73,15 +74,6 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
     const [moveVariantProfile, setMoveVariantProfile] = useState<SpeakerProfile | null>(null);
     const [selectedMoveSpeakerId, setSelectedMoveSpeakerId] = useState<string>('');
     const [isMovingVariant, setIsMovingVariant] = useState(false);
-
-    const getVariantDisplayName = (profile: SpeakerProfile | null) => {
-        if (!profile) return 'Default';
-        if (profile.variant_name) return profile.variant_name;
-        if (profile.name.includes(' - ')) {
-            return profile.name.split(' - ').slice(1).join(' - ').trim() || 'Default';
-        }
-        return 'Default';
-    };
 
     const handleRequestConfirm = (config: { title: string; message: string; onConfirm: () => void; isDestructive?: boolean; isAlert?: boolean }) => {
         setConfirmConfig(config);

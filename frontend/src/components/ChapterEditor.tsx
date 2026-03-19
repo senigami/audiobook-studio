@@ -15,6 +15,7 @@ import { CharacterSidebar } from './chapter/CharacterSidebar';
 // Extracted Hooks
 import { useChapterPlayback } from '../hooks/useChapterPlayback';
 import { useChapterAnalysis } from '../hooks/useChapterAnalysis';
+import { getDefaultVoiceProfileName } from '../utils/voiceProfiles';
 
 interface ChapterEditorProps {
   chapterId: string;
@@ -242,8 +243,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     const speaker = speakers.find(s => s.name === character.speaker_profile_name);
     if (!speaker) return null;
     const variants = (speakerProfiles || []).filter(p => p.speaker_id === speaker.id);
-    const defaultVariant = variants.find(p => p.variant_name === 'Default' || !p.name.includes(' - '));
-    return defaultVariant?.name || variants.find(p => p.is_default)?.name || variants[0]?.name || null;
+    return getDefaultVoiceProfileName(variants);
   };
 
   const handleParagraphBulkAssign = async (segmentIds: string[]) => {

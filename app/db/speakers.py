@@ -43,42 +43,45 @@ def normalize_base_profiles() -> None:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM speakers ORDER BY name ASC")
             speakers = [dict(row) for row in cursor.fetchall()]
-            updates_made = False
+    pending_updates = []
 
-            for speaker in speakers:
-                base_dir = config.VOICES_DIR / speaker["name"]
-                if not base_dir.exists() or not base_dir.is_dir():
-                    continue
+    for speaker in speakers:
+        base_dir = config.VOICES_DIR / speaker["name"]
+        if not base_dir.exists() or not base_dir.is_dir():
+            continue
 
-                meta_path = base_dir / "profile.json"
-                meta: Dict[str, Any] = {}
-                if meta_path.exists():
-                    try:
-                        meta = json.loads(meta_path.read_text())
-                    except Exception:
-                        logger.warning("Failed to read base profile metadata for %s", meta_path, exc_info=True)
+        meta_path = base_dir / "profile.json"
+        meta: Dict[str, Any] = {}
+        if meta_path.exists():
+            try:
+                meta = json.loads(meta_path.read_text())
+            except Exception:
+                logger.warning("Failed to read base profile metadata for %s", meta_path, exc_info=True)
 
-                meta = normalize_profile_metadata(speaker["name"], meta, persist=False)
+        meta = normalize_profile_metadata(speaker["name"], meta, persist=False)
 
-                meta_changed = False
-                if meta.get("speaker_id") != speaker["id"]:
-                    meta["speaker_id"] = speaker["id"]
-                    meta_changed = True
+        meta_changed = False
+        if meta.get("speaker_id") != speaker["id"]:
+            meta["speaker_id"] = speaker["id"]
+            meta_changed = True
 
-                if meta_changed or not meta_path.exists():
-                    try:
-                        meta_path.write_text(json.dumps(meta, indent=2))
-                    except Exception:
-                        logger.warning("Failed to persist base profile metadata for %s", speaker["name"], exc_info=True)
+        if meta_changed or not meta_path.exists():
+            try:
+                meta_path.write_text(json.dumps(meta, indent=2))
+            except Exception:
+                logger.warning("Failed to persist base profile metadata for %s", speaker["name"], exc_info=True)
 
-                if speaker.get("default_profile_name") != speaker["name"]:
-                    cursor.execute(
-                        "UPDATE speakers SET default_profile_name = ?, updated_at = ? WHERE id = ?",
-                        (speaker["name"], time.time(), speaker["id"])
-                    )
-                    updates_made = True
+        if speaker.get("default_profile_name") != speaker["name"]:
+            pending_updates.append((speaker["name"], time.time(), speaker["id"]))
 
-            if updates_made:
+    if pending_updates:
+        with _db_lock:
+            with get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.executemany(
+                    "UPDATE speakers SET default_profile_name = ?, updated_at = ? WHERE id = ?",
+                    pending_updates
+                )
                 conn.commit()
 
 def create_speaker(name: str, default_profile_name: Optional[str] = None) -> str:

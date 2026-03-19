@@ -26,14 +26,14 @@ def _mark_queue_failed(jid: str, error_message: str | None = None):
     try:
         from ..db import update_queue_item
         update_queue_item(jid, "failed")
-    except Exception:
-        logger.warning("Could not mark queue item %s failed", jid, exc_info=True)
+    except Exception as e:
+        logger.warning("Could not mark queue item %s failed: %s", jid, e, exc_info=True)
 
     if error_message:
         try:
             update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error=error_message)
-        except Exception:
-            logger.warning("Could not update failed job state for %s", jid, exc_info=True)
+        except Exception as e:
+            logger.warning("Could not update failed job state for %s: %s", jid, e, exc_info=True)
 
 def worker_loop(q):
     while True:

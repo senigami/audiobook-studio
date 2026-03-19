@@ -245,7 +245,7 @@ def test_get_speaker_settings_prefers_base_folder_over_variant(clean_voices):
     assert str(angry / "sample.wav") not in wavs
 
 def test_speaker_listing_normalizes_base_profile_to_default(clean_voices):
-    from app.db.speakers import create_speaker, update_speaker, delete_speaker
+    from app.db.speakers import create_speaker, update_speaker, delete_speaker, normalize_base_profiles
 
     speaker_id = create_speaker("Dracula Test Normalize")
     try:
@@ -257,6 +257,8 @@ def test_speaker_listing_normalizes_base_profile_to_default(clean_voices):
         angry_dir.mkdir(parents=True, exist_ok=True)
         (base_dir / "profile.json").write_text(json.dumps({"built_samples": []}))
         (angry_dir / "profile.json").write_text(json.dumps({"speaker_id": speaker_id, "variant_name": "Angry"}))
+
+        normalize_base_profiles()
 
         response = client.get("/api/speakers")
         assert response.status_code == 200

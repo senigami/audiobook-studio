@@ -168,6 +168,13 @@ def startup_event():
     # Initialize DB
     init_db()
 
+    # Normalize base voice profiles once at startup so list endpoints stay read-only.
+    try:
+        from .db.speakers import normalize_base_profiles
+        normalize_base_profiles()
+    except Exception as e:
+        logger.warning(f"Startup Warning: Base voice normalization failed: {e}")
+
     # Ensure directories exist
     for d in [XTTS_OUT_DIR, AUDIOBOOK_DIR, VOICES_DIR, SAMPLES_DIR, UPLOAD_DIR, CHAPTER_DIR, REPORT_DIR, COVER_DIR, ASSETS_DIR, PROJECTS_DIR]:
         d.mkdir(parents=True, exist_ok=True)

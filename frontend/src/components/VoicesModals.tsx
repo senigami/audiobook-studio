@@ -10,6 +10,7 @@ import {
     Drawer,
     ScriptEditor
 } from './voices';
+import { getVariantDisplayName } from '../utils/voiceProfiles';
 
 interface VoicesModalsProps {
     // New Voice Modal
@@ -69,15 +70,6 @@ interface VoicesModalsProps {
 }
 
 export const VoicesModals: React.FC<VoicesModalsProps> = (props) => {
-    const getVariantDisplayName = (profile: SpeakerProfile | null) => {
-        if (!profile) return 'Default';
-        if (profile.variant_name) return profile.variant_name;
-        if (profile.name.includes(' - ')) {
-            return profile.name.split(' - ').slice(1).join(' - ').trim() || 'Default';
-        }
-        return 'Default';
-    };
-
     return (
         <>
             <NewVoiceModal

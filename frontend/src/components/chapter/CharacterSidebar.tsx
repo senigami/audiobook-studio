@@ -2,6 +2,7 @@ import React from 'react';
 import { User, Info, ChevronRight, ChevronDown } from 'lucide-react';
 import { ColorSwatchPicker } from '../ColorSwatchPicker';
 import type { Character, SpeakerProfile, Speaker } from '../../types';
+import { getDefaultVoiceProfileName, getVariantDisplayName } from '../../utils/voiceProfiles';
 
 interface CharacterSidebarProps {
   characters: Character[];
@@ -32,22 +33,10 @@ export const CharacterSidebar: React.FC<CharacterSidebarProps> = ({
   segmentsCount,
   wordCount
 }) => {
-  const resolveVariantDisplay = (profileName: string | null) => {
-    if (!profileName) return null;
-    const profile = speakerProfiles.find(p => p.name === profileName);
-    if (profile?.variant_name) return profile.variant_name;
-    const fromProfileName = profile?.name || profileName;
-    if (fromProfileName.includes(' - ')) {
-      return fromProfileName.split(' - ').slice(1).join(' - ').trim() || fromProfileName;
-    }
-    return 'Default';
-  };
-
   const resolveDefaultProfileName = (char: Character) => {
     const speakerMatch = (speakers || []).find(s => s.name === char.speaker_profile_name);
     const variants = speakerMatch ? (speakerProfiles || []).filter(p => p.speaker_id === speakerMatch.id) : [];
-    const defaultVariant = variants.find(p => p.variant_name === 'Default' || !p.name.includes(' - '));
-    return defaultVariant?.name || variants.find(p => p.is_default)?.name || variants[0]?.name || null;
+    return getDefaultVoiceProfileName(variants);
   };
 
   const toggleCharacterExpansion = (characterId: string) => {
@@ -153,8 +142,8 @@ export const CharacterSidebar: React.FC<CharacterSidebarProps> = ({
                                         <div style={{ fontWeight: 600, fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{char.name}</div>
                                         <div style={{ fontSize: '0.7rem', opacity: 0.6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                             {selectedCharacterId === char.id && selectedProfileName
-                                                ? resolveVariantDisplay(selectedProfileName)
-                                                : resolveVariantDisplay(char.speaker_profile_name) || 'No voice'}
+                                                ? getVariantDisplayName(speakerProfiles.find(p => p.name === selectedProfileName) || { name: selectedProfileName, variant_name: null } as SpeakerProfile)
+                                                : getVariantDisplayName(speakerProfiles.find(p => p.name === char.speaker_profile_name) || { name: char.speaker_profile_name, variant_name: null } as SpeakerProfile) || 'No voice'}
                                         </div>
                                     </div>
                                     {variants.length > 1 && (
@@ -191,7 +180,7 @@ export const CharacterSidebar: React.FC<CharacterSidebarProps> = ({
                                             flexShrink: 0
                                         }} />
                                         <div style={{ flex: 1, fontSize: '0.8rem', fontWeight: isVariantSelected ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                            {variant.variant_name || 'Standard'}
+                                            {getVariantDisplayName(variant)}
                                         </div>
                                     </button>
                                 );

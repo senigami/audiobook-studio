@@ -4,6 +4,7 @@ import { User, RefreshCw, ChevronUp, Star, FileEdit, Trash2, Plus } from 'lucide
 import { motion, AnimatePresence } from 'framer-motion';
 import { ActionMenu } from '../ActionMenu';
 import { VariantEditor } from './VariantEditor';
+import { getDefaultVoiceProfileName } from '../../utils/voiceProfiles';
 
 interface NarratorCardProps {
     speaker: Speaker;
@@ -31,10 +32,9 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
     onAddVariantClick, onRenameClick, onSetDefaultClick, isExpanded, onToggleExpand, onMoveVariant,
     buildingProfiles
 }) => {
+    const defaultProfileName = getDefaultVoiceProfileName(profiles);
     const defaultProfile =
-        profiles.find(p => p.variant_name === 'Default' || !p.name.includes(' - ')) ||
-        profiles.find(p => p.is_default) ||
-        profiles[0] ||
+        profiles.find(p => p.name === defaultProfileName) ||
         { name: '', speed: 1.0, wav_count: 0 } as SpeakerProfile;
     const [activeProfileId, setActiveProfileId] = useState(defaultProfile?.name || '');
     const [hoveredProfileId, setHoveredProfileId] = useState<string | null>(null);
