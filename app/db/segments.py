@@ -77,10 +77,23 @@ def update_segment(segment_id: str, broadcast: bool = True, **updates) -> bool:
     changed = False
     cleanup_chapter_id = None
     cleanup_project_id = None
+    stale_audio_path = None
 
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
+            if "text_content" in updates or ("audio_status" in updates and updates["audio_status"] == "unprocessed") or "character_id" in updates or "speaker_profile_name" in updates:
+                cursor.execute("""
+                    SELECT c.chapter_id, ch.project_id, c.audio_file_path
+                    FROM chapter_segments c
+                    JOIN chapters ch ON ch.id = c.chapter_id
+                    WHERE c.id = ?
+                """, (segment_id,))
+                current = cursor.fetchone()
+                if current:
+                    cleanup_chapter_id = current["chapter_id"]
+                    cleanup_project_id = current["project_id"]
+                    stale_audio_path = current["audio_file_path"]
             fields = []
             values = []
             for k, v in updates.items():
@@ -121,7 +134,12 @@ def update_segment(segment_id: str, broadcast: bool = True, **updates) -> bool:
         try:
             from .chapters import cleanup_chapter_audio_files
             # Only remove the chapter-level outputs and the edited segment's audio files.
-            cleanup_chapter_audio_files(cleanup_project_id, cleanup_chapter_id, [segment_id])
+            cleanup_chapter_audio_files(
+                cleanup_project_id,
+                cleanup_chapter_id,
+                [segment_id],
+                explicit_files=[stale_audio_path] if stale_audio_path else None,
+            )
         except Exception:
             logger.warning(
                 "Failed to clean up chapter audio after segment update",
@@ -212,43 +230,37 @@ def sync_chapter_segments(chapter_id: str, text_content: str):
             # 1. Get existing segments
             cursor.execute("SELECT * FROM chapter_segments WHERE chapter_id = ? ORDER BY segment_order ASC", (chapter_id,))
             existing = [dict(row) for row in cursor.fetchall()]
-            existing_by_text = {}
-            for ex in existing:
-                if ex.get("text_content") and ex["text_content"] not in existing_by_text:
-                    existing_by_text[ex["text_content"]] = ex
+            cursor.execute("SELECT project_id FROM chapters WHERE id = ?", (chapter_id,))
+            crow = cursor.fetchone()
+            project_id = crow["project_id"] if crow else None
 
             # 2. Simple diff/match logic:
-            # For each new sentence, see if it exists in the old list at the same or similar position
-            # This is a naive implementation; a more robust one would use fuzzy matching or trackers.
+            # Preserve a segment only when the sentence still exists in the same position.
+            # This avoids cross-matching repeated text to the wrong old segment file.
             new_segments = []
+            preserved_ids = set()
             for i, sent in enumerate(sentences):
-                matched_id = None
-                matched_speaker = None
-                matched_char = None
-
-                # Check if this sentence text exactly matches an existing one
-                for ex in existing:
-                    if ex['text_content'] == sent and not any(ns['id'] == ex['id'] for ns in new_segments):
-                        matched_id = ex['id']
-                        matched_speaker = ex['speaker_profile_name']
-                        matched_char = ex['character_id']
-                        break
-
-                if matched_id:
-                    logger.debug(f"sync_chapter_segments: Matched existing segment {matched_id} for sentence: '{sent[:30]}...'")
-                    existing_row = next((ex for ex in existing if ex["id"] == matched_id), None)
+                existing_row = existing[i] if i < len(existing) and (existing[i].get("text_content") or "").strip() == sent.strip() else None
+                if existing_row:
+                    logger.debug(
+                        "sync_chapter_segments: Preserving segment %s at position %s for sentence: '%s...'",
+                        existing_row["id"],
+                        i,
+                        sent[:30],
+                    )
                 else:
                     logger.debug(f"sync_chapter_segments: Generated new segment ID for sentence: '{sent[:30]}...'")
-                    existing_row = existing_by_text.get(sent)
 
-                seg_id = matched_id or str(time.time_ns()) + f"_{i}"
+                seg_id = existing_row["id"] if existing_row else str(time.time_ns()) + f"_{i}"
+                if existing_row:
+                    preserved_ids.add(existing_row["id"])
                 new_segments.append({
                     'id': seg_id,
                     'chapter_id': chapter_id,
                     'segment_order': i,
                     'text_content': sent,
-                    'character_id': existing_row.get("character_id") if existing_row else matched_char,
-                    'speaker_profile_name': existing_row.get("speaker_profile_name") if existing_row else matched_speaker,
+                    'character_id': existing_row.get("character_id") if existing_row else None,
+                    'speaker_profile_name': existing_row.get("speaker_profile_name") if existing_row else None,
                     'audio_status': existing_row.get("audio_status", 'unprocessed') if existing_row else 'unprocessed',
                     'audio_file_path': existing_row.get("audio_file_path") if existing_row else None,
                     'audio_generated_at': existing_row.get("audio_generated_at") if existing_row else None,
@@ -264,8 +276,16 @@ def sync_chapter_segments(chapter_id: str, text_content: str):
 
             conn.commit()
 
-            # Now that database is synced, trigger a cleanup of any newly orphaned audio files (if any were lost during edit)
-            import threading
-            threading.Thread(target=cleanup_orphaned_segments, args=(chapter_id,), daemon=True).start()
+    removed_rows = [row for row in existing if row["id"] not in preserved_ids]
+    removed_ids = [row["id"] for row in removed_rows]
+    removed_files = [row.get("audio_file_path") for row in removed_rows if row.get("audio_file_path")]
+    try:
+        from .chapters import cleanup_chapter_audio_files
+        cleanup_chapter_audio_files(project_id, chapter_id, removed_ids, explicit_files=removed_files)
+    except Exception:
+        logger.warning(
+            "Failed to clean up stale chapter audio after segment sync",
+            exc_info=True,
+        )
 
-            return True
+    return True

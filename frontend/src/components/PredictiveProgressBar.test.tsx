@@ -4,7 +4,7 @@ import { describe, it, expect, vi } from 'vitest'
 
 describe('PredictiveProgressBar', () => {
     it('renders correctly with given progress', () => {
-        render(<PredictiveProgressBar progress={0.5} label="Testing..." showEta={false} />)
+        render(<PredictiveProgressBar progress={0.5} label="Testing..." showEta={false} status="running" />)
         expect(screen.getByText('Testing...')).toBeTruthy()
         expect(screen.getByText('50%')).toBeTruthy()
     })
@@ -28,5 +28,36 @@ describe('PredictiveProgressBar', () => {
         expect(screen.getByText(/ETA: 1:30/i)).toBeTruthy()
         
         vi.restoreAllMocks()
+    })
+
+    it('stays at zero while queued or preparing', () => {
+        render(
+            <PredictiveProgressBar
+                progress={0.5}
+                startedAt={undefined}
+                etaSeconds={120}
+                label="Proc"
+                status="preparing"
+                showEta={false}
+            />
+        )
+
+        expect(screen.getByText('0%')).toBeTruthy()
+    })
+
+    it('can render raw live progress without ETA prediction', () => {
+        render(
+            <PredictiveProgressBar
+                progress={0.16}
+                startedAt={undefined}
+                etaSeconds={undefined}
+                label="Live"
+                status="running"
+                showEta={false}
+                predictive={false}
+            />
+        )
+
+        expect(screen.getByText('16%')).toBeTruthy()
     })
 })

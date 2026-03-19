@@ -39,6 +39,21 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
   const [selectedVoice, setSelectedVoice] = useState<string>('');
   const [isExporting, setIsExporting] = useState<string | null>(null);
 
+  const pickLatestJob = React.useCallback((predicate: (job: Job) => boolean, includeDone = false) => {
+    const ranked = Object.values(jobs)
+      .filter(job => predicate(job) && (includeDone || ['queued', 'preparing', 'running', 'finalizing'].includes(job.status)))
+      .sort((a, b) => {
+        const statusRank: Record<string, number> = { running: 4, finalizing: 3, preparing: 2, queued: 1, done: 0, failed: 0, cancelled: 0, error: 0 };
+        const aRank = statusRank[a.status] || 0;
+        const bRank = statusRank[b.status] || 0;
+        if (aRank !== bRank) return bRank - aRank;
+        const aTime = a.started_at ?? a.created_at ?? 0;
+        const bTime = b.started_at ?? b.created_at ?? 0;
+        return bTime - aTime;
+      });
+    return ranked[0];
+  }, [jobs]);
+
   // Modal visibility
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditProjectModal, setShowEditProjectModal] = useState(false);
@@ -124,7 +139,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
       return (
           <ChapterEditor 
               chapterId={editingChapterId} projectId={projectId} speakerProfiles={speakerProfiles} speakers={speakers}
-              job={Object.values(jobs).find(j => j.project_id === projectId && (j.chapter_id === editingChapterId || j.chapter_file?.includes(editingChapterId)))}
+              job={pickLatestJob(j => j.project_id === projectId && (j.chapter_id === editingChapterId || j.chapter_file?.includes(editingChapterId)))}
               onBack={() => { setEditingChapterId(null); loadData(); }}
               onNavigateToQueue={() => navigate('/queue')}
               selectedVoice={selectedVoice} onVoiceChange={setSelectedVoice}
@@ -151,8 +166,8 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
         onDeleteAudiobook={handleDeleteAudiobook} formatLength={formatLength} formatFileSize={formatFileSize} formatRelativeTime={formatRelativeTime}
       />
 
-      <AssemblyProgress project={project} activeAssemblyJob={Object.values(jobs).find(j => j.engine === 'audiobook' && j.project_id === projectId && j.status !== 'done')} 
-                        finishedAssemblyJob={Object.values(jobs).find(j => j.engine === 'audiobook' && j.project_id === projectId && j.status === 'done')} />
+      <AssemblyProgress project={project} activeAssemblyJob={pickLatestJob(j => j.engine === 'audiobook' && j.project_id === projectId, false)} 
+                        finishedAssemblyJob={pickLatestJob(j => j.engine === 'audiobook' && j.project_id === projectId, true)} />
 
       <div style={{ display: 'flex', gap: '0.75rem', padding: '0 0.5rem' }}>
           <button onClick={() => setCurrentTab('chapters')} className={currentTab === 'chapters' ? 'btn-primary' : 'btn-ghost'} style={{ fontWeight: 700, fontSize: '0.9rem' }}>Chapters</button>

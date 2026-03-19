@@ -61,4 +61,20 @@ describe('StatusOrb', () => {
     
     expect(baseOrb?.getAttribute('fill')).toBe('var(--success)')
   })
+
+  it('renders partial progress even when a wav already exists during rebuild', () => {
+    const chap = { ...baseChapter, has_wav: true, audio_status: 'unprocessed' as const, audio_generated_at: 2000 }
+    const { container } = render(<StatusOrb chap={chap} doneSegments={9} totalSegments={10} />)
+
+    expect(container.querySelector('circle[r="8"][stroke="var(--accent)"]')).toBeTruthy()
+  })
+
+  it('renders a full ring when all segments are rendered but no wav exists yet', () => {
+    const chap = { ...baseChapter, has_wav: false, audio_status: 'unprocessed' as const, audio_generated_at: 2000 }
+    const { container } = render(<StatusOrb chap={chap} doneSegments={10} totalSegments={10} />)
+
+    const progressArc = container.querySelector('circle[r="8"][stroke="var(--accent)"]')
+    expect(progressArc).toBeTruthy()
+    expect(progressArc?.getAttribute('stroke-dashoffset')).toBe('0')
+  })
 })

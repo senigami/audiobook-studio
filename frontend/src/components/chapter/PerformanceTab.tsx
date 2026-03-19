@@ -37,6 +37,23 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
   const uniqueSegmentIds = Array.from(new Set(allSegmentIds));
   const activeJobIsLive = !!generatingJob && ['queued', 'preparing', 'running', 'finalizing'].includes(generatingJob.status);
   const activeSegmentId = activeJobIsLive ? generatingJob?.active_segment_id : null;
+  const activeGroupIndex = React.useMemo(() => {
+    if (activeSegmentId) {
+      const byActiveSegment = chunkGroups.findIndex(group => group.segments.some(segment => segment.id === activeSegmentId));
+      if (byActiveSegment !== -1) return byActiveSegment;
+    }
+
+    const byProcessingSegment = chunkGroups.findIndex(group =>
+      group.segments.some(segment => segment.audio_status === 'processing' || generatingSegmentIds.has(segment.id))
+    );
+    if (byProcessingSegment !== -1) return byProcessingSegment;
+
+    if (activeJobIsLive) {
+      return chunkGroups.findIndex(group => group.segments.some(segment => segment.audio_status !== 'done'));
+    }
+
+    return -1;
+  }, [activeJobIsLive, activeSegmentId, chunkGroups, generatingSegmentIds]);
   
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', padding: '1.5rem', minHeight: 0 }}>
@@ -59,13 +76,15 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
                 {chunkGroups.map((group, gidx) => {
                     const char = characters.find(c => c.id === group.characterId);
                     const allDone = group.segments.every(s => s.audio_status === 'done');
-                    const isActiveGroup = !!activeSegmentId && group.segments.some(s => s.id === activeSegmentId);
-                    const anyProcessing = isActiveGroup || group.segments.some(s => s.audio_status === 'processing' || generatingSegmentIds.has(s.id));
+                    const isActiveGroup = gidx === activeGroupIndex;
+                    const groupIsGenerating = isActiveGroup || group.segments.some(s => s.audio_status === 'processing' || generatingSegmentIds.has(s.id));
+                    const anyProcessing = groupIsGenerating;
                     
                     // Track if this specific group is "active" in the current job
-                    const isAnySegmentActive = isActiveGroup;
-                    const activeProgress = isAnySegmentActive ? (generatingJob?.active_segment_progress || 0) : 0;
-
+                    const isAnySegmentActive = groupIsGenerating;
+                    const activeProgress = activeJobIsLive
+                        ? (generatingJob?.active_segment_progress ?? 0)
+                        : 0;
                     const isPlaying = playingSegmentId && group.segments.some(s => s.id === playingSegmentId);
                     const nextId = (() => {
                         if (!playingSegmentId || playbackQueue.length === 0) return null;
@@ -114,14 +133,10 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
                                     <motion.div 
                                         initial={false}
                                         animate={{ 
-                                            width: `${Math.max(activeProgress * 100, 2)}%`,
-                                            opacity: activeProgress === 0 ? [0.4, 0.7, 0.4] : 1
+                                            width: `${activeProgress * 100}%`,
+                                            opacity: activeProgress > 0 ? 1 : 0.25
                                         }}
-                                        transition={activeProgress === 0 ? {
-                                            duration: 1.5,
-                                            repeat: Infinity,
-                                            ease: "easeInOut"
-                                        } : { duration: 2, ease: "easeInOut" }}
+                                        transition={{ duration: 0.6, ease: "easeInOut" }}
                                         style={{ 
                                             height: '100%', 
                                             background: 'var(--accent)',
@@ -172,7 +187,7 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
                                         disabled={anyProcessing}
                                     >
                                         <RefreshCw size={14} className={anyProcessing ? 'animate-spin' : ''} /> 
-                                        {anyProcessing ? (isAnySegmentActive ? `${Math.round(activeProgress * 100)}%` : 'Working...') : (allDone ? 'Regenerate' : 'Generate')}
+                                        {anyProcessing ? (activeJobIsLive ? `${Math.round(activeProgress * 100)}%` : 'Working...') : (allDone ? 'Regenerate' : 'Generate')}
                                     </button>
                                 </div>
                             </div>

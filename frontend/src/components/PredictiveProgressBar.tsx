@@ -7,6 +7,7 @@ interface PredictiveProgressBarProps {
     label?: string;
     showEta?: boolean;
     status?: string;
+    predictive?: boolean;
 }
 
 const formatTime = (seconds: number) => {
@@ -23,7 +24,8 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     etaSeconds,
     label = "Progress",
     showEta = true,
-    status
+    status,
+    predictive = true
 }) => {
     const [now, setNow] = useState(Date.now());
     const [displayedRemaining, setDisplayedRemaining] = useState<number | null>(null);
@@ -34,7 +36,13 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     }, []);
 
     const getProgressInfo = () => {
-        if (!startedAt || !etaSeconds || status !== 'running') {
+        if (status !== 'running' && status !== 'finalizing') {
+            return { remaining: null, localProgress: 0 };
+        }
+        if (!predictive) {
+            return { remaining: null, localProgress: Math.max(0, Math.min(1, progress)) };
+        }
+        if (!startedAt || !etaSeconds) {
             return { remaining: null, localProgress: progress };
         }
         const elapsed = (now / 1000) - startedAt;

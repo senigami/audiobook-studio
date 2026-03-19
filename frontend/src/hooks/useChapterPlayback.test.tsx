@@ -99,6 +99,48 @@ describe('useChapterPlayback', () => {
     expect(onGenerate).toHaveBeenCalledWith(['s1']);
   });
 
+  it('resumes playback automatically after a missing segment renders', async () => {
+    const segmentsMissing = [
+      { id: 's1', text_content: 'Hello', audio_status: 'unprocessed', audio_file_path: null },
+      { id: 's2', text_content: 'World', audio_status: 'done', audio_file_path: 's2.wav' },
+    ] as any;
+    const completedSegments = [
+      { id: 's1', text_content: 'Hello', audio_status: 'done', audio_file_path: 's1.wav' },
+      { id: 's2', text_content: 'World', audio_status: 'done', audio_file_path: 's2.wav' },
+    ] as any;
+
+    const { result, rerender } = renderHook(
+      ({ segs, generating }) => useChapterPlayback('proj1', segs, generating, onGenerate),
+      { initialProps: { segs: segmentsMissing, generating: new Set<string>() } }
+    );
+
+    let mockAudioInstance: any;
+    (global.Audio as any).mockImplementation((src: string) => {
+      mockAudioInstance = {
+        play: vi.fn().mockResolvedValue(undefined),
+        pause: vi.fn(),
+        src,
+      };
+      return mockAudioInstance;
+    });
+
+    await act(async () => {
+      await result.current.playSegment('s1', ['s1', 's2']);
+    });
+
+    expect(onGenerate).toHaveBeenCalledWith(['s1']);
+    expect(mockAudioInstance).toBeUndefined();
+
+    rerender({ segs: completedSegments, generating: new Set<string>() });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(result.current.playingSegmentId).toBe('s1');
+    expect(mockAudioInstance?.play).toHaveBeenCalled();
+  });
+
   it('handles playback error with fallback', async () => {
     const { result } = renderHook(() => 
       useChapterPlayback('proj1', segments, generatingSegmentIds, onGenerate)

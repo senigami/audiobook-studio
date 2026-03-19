@@ -48,6 +48,23 @@ export const ChapterList: React.FC<ChapterListProps> = ({
   const [openMenuRowId, setOpenMenuRowId] = React.useState<string | null>(null);
   const skipBlurSaveId = React.useRef<string | null>(null);
 
+  const pickActiveJob = React.useCallback((chapterId: string) => {
+    const liveStatuses = new Set(['running', 'preparing', 'finalizing', 'queued']);
+    const relevantJobs = Object.values(jobs).filter(j => j.project_id === projectId && (j.chapter_id === chapterId || (j.chapter_file && j.chapter_file.includes(chapterId))));
+    const ranked = relevantJobs
+      .filter(j => liveStatuses.has(j.status))
+      .sort((a, b) => {
+        const statusRank: Record<string, number> = { running: 4, finalizing: 3, preparing: 2, queued: 1 };
+        const aRank = statusRank[a.status] || 0;
+        const bRank = statusRank[b.status] || 0;
+        if (aRank !== bRank) return bRank - aRank;
+        const aTime = a.started_at ?? a.created_at ?? 0;
+        const bTime = b.started_at ?? b.created_at ?? 0;
+        return bTime - aTime;
+      });
+    return ranked[0] || null;
+  }, [jobs, projectId]);
+
   if (chapters.length === 0) {
     return (
       <div style={{ textAlign: 'center', padding: '4rem', background: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--border)' }}>
@@ -73,8 +90,8 @@ export const ChapterList: React.FC<ChapterListProps> = ({
       
       <Reorder.Group axis="y" values={chapters} onReorder={onReorder} style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column' }}>
         {chapters.map((chap, idx) => {
-          const relevantJobs = Object.values(jobs).filter(j => j.project_id === projectId && (j.chapter_id === chap.id || (j.chapter_file && j.chapter_file.includes(chap.id))));
-          const activeJob = relevantJobs.find(j => ['running', 'preparing', 'finalizing', 'queued'].includes(j.status));
+          const activeJob = pickActiveJob(chap.id);
+          const progressValue = activeJob ? (activeJob.active_segment_progress ?? 0) : 0;
           const isMenuOpen = openMenuRowId === chap.id;
 
           return (
@@ -134,11 +151,12 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                 {activeJob ? (
                     <div style={{ width: '100%', maxWidth: '600px' }}>
                         <PredictiveProgressBar 
-                          progress={activeJob.progress || 0} 
-                          startedAt={activeJob.status !== 'queued' ? activeJob.started_at : undefined} 
-                          etaSeconds={activeJob.eta_seconds}
+                          progress={progressValue} 
+                          startedAt={undefined}
+                          etaSeconds={undefined}
                           status={activeJob.status}
                           label={activeJob.status} 
+                          predictive={false}
                         />
                     </div>
                 ) : chap.audio_status === 'done' && (chap.has_wav || chap.has_mp3) && !isAssemblyMode ? (
