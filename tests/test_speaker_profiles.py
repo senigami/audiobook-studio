@@ -16,6 +16,7 @@ def clean_voices(tmp_path):
     test_state = tmp_path / "test_state.json"
     # Create empty state if needed, but app.state should handle it
     with patch("app.web.VOICES_DIR", test_voices), \
+         patch("app.api.routers.voices.VOICES_DIR", test_voices), \
          patch("app.jobs.speaker.VOICES_DIR", test_voices), \
          patch("app.config.VOICES_DIR", test_voices), \
          patch("app.state.STATE_FILE", test_state), \
@@ -80,6 +81,8 @@ def test_speaker_profile_test_endpoint(mock_xtts, clean_voices):
     name = "Tester"
     profile_dir = clean_voices / name
     profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "1.wav").write_text("audio")
+    (profile_dir / "sample.wav").write_text("audio")
     mp3_path = profile_dir / "sample.mp3"
     mp3_path.write_text("audio")
 

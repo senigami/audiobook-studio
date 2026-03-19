@@ -41,6 +41,16 @@ def _voice_sample_path(voices_dir: Path, name: str, sample_name: str) -> Path:
     return safe_join(_voice_profile_dir(voices_dir, name), sample_name)
 
 
+def _voice_raw_sample_count(voices_dir: Path, name: str) -> int:
+    try:
+        profile_dir = _voice_profile_dir(voices_dir, name)
+    except ValueError:
+        return 0
+    if not profile_dir.exists():
+        return 0
+    return len([f for f in profile_dir.glob("*.wav") if f.name != "sample.wav"])
+
+
 def _voice_preview_url(voices_dir: Path, name: str) -> Optional[str]:
     profile_dir = _voice_profile_dir(voices_dir, name)
     mp3_path = profile_dir / "sample.mp3"
@@ -376,6 +386,13 @@ async def build_speaker_profile(
             logger.warning(f"Blocking profile build traversal attempt: {name}")
             return JSONResponse({"status": "error", "message": "Invalid profile name"}, status_code=403)
 
+        existing_raw_samples = _voice_raw_sample_count(voices_dir, name)
+        if existing_raw_samples == 0 and not files:
+            return JSONResponse(
+                {"status": "error", "message": "Add at least one sample before building this voice."},
+                status_code=400
+            )
+
         path.mkdir(parents=True, exist_ok=True)
 
         # Clear existing sample if it exists to ensure accurate building status
@@ -491,7 +508,13 @@ def delete_speaker_profile(
     return JSONResponse({"status": "error", "message": "Not found"}, status_code=404)
 
 @router.post("/api/speaker-profiles/{name}/test")
-def test_speaker_profile(name: str):
+def test_speaker_profile(name: str, voices_dir: Path = Depends(get_voices_dir)):
+    if _voice_raw_sample_count(voices_dir, name) == 0:
+        return JSONResponse(
+            {"status": "error", "message": "Add at least one sample before testing this voice."},
+            status_code=400
+        )
+
     jid = f"test-{uuid.uuid4().hex[:8]}"
     j = Job(
         id=jid,
@@ -503,7 +526,7 @@ def test_speaker_profile(name: str):
     )
     put_job(j)
     enqueue(j)
-    preview_url = _voice_preview_url(get_voices_dir(), name)
+    preview_url = _voice_preview_url(voices_dir, name)
     return JSONResponse({
         "status": "ok", 
         "job_id": jid,

@@ -22,6 +22,19 @@ from ..engines import wav_to_mp3
 
 logger = logging.getLogger(__name__)
 
+def _mark_queue_failed(jid: str, error_message: str | None = None):
+    try:
+        from ..db import update_queue_item
+        update_queue_item(jid, "failed")
+    except Exception:
+        logger.warning("Could not mark queue item %s failed", jid, exc_info=True)
+
+    if error_message:
+        try:
+            update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error=error_message)
+        except Exception:
+            logger.warning("Could not update failed job state for %s", jid, exc_info=True)
+
 def worker_loop(q):
     while True:
         jid = q.get()
@@ -260,7 +273,7 @@ def worker_loop(q):
                         voice_profile_dir=voice_profile_dir
                     )
                     if rc != 0:
-                        update_job(jid, status="failed", error="Voice synthesis failed.")
+                        _mark_queue_failed(jid, "Voice synthesis failed.")
                         return
 
                     sample_mp3 = pdir / "sample.mp3"
@@ -310,7 +323,7 @@ def worker_loop(q):
             tb = traceback.format_exc()
             logger.error(f"Worker crashed for job {jid}:\n{tb}")
             try: 
-                update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error="Worker crashed.")
+                _mark_queue_failed(jid, "Worker crashed.")
             except Exception:
                 logger.critical(f"FATAL: could not update job {jid} failure state")
         finally:

@@ -39,6 +39,15 @@ describe('Voices Tab Components', () => {
         is_rebuild_required: false,
         test_text: 'Test script'
     } as any;
+    const emptyProfile: SpeakerProfile = {
+        ...mockProfile,
+        name: 'Profile Empty',
+        wav_count: 0,
+        preview_url: null,
+        is_rebuild_required: false,
+        samples: [],
+        samples_detailed: []
+    } as any;
 
     const mockSpeaker: Speaker = { 
         id: 'speaker-1', 
@@ -94,6 +103,33 @@ describe('Voices Tab Components', () => {
             expect(screen.getByText('Default')).toBeInTheDocument();
         });
 
+        it('disables play and rebuild actions when no samples exist', () => {
+            render(
+                <NarratorCard
+                    speaker={mockSpeaker}
+                    profiles={[emptyProfile]}
+                    onRefresh={vi.fn()}
+                    onTest={vi.fn()}
+                    onDelete={vi.fn()}
+                    onMoveVariant={vi.fn()}
+                    onEditTestText={vi.fn()}
+                    onBuildNow={vi.fn()}
+                    testProgress={{}}
+                    requestConfirm={vi.fn()}
+                    buildingProfiles={{}}
+                    onAddVariantClick={vi.fn()}
+                    onSetDefaultClick={vi.fn()}
+                    onRenameClick={vi.fn()}
+                    isExpanded={true}
+                    onToggleExpand={vi.fn()}
+                />
+            );
+
+            const buttons = screen.getAllByRole('button');
+            expect(buttons.some(btn => btn.getAttribute('title') === 'Add at least one sample before generating a preview')).toBe(true);
+            expect(buttons.some(btn => btn.getAttribute('title') === 'Add at least one sample before rebuilding this voice')).toBe(true);
+        });
+
         it('prefers the base Default profile over a sibling variant', () => {
             render(
                 <NarratorCard
@@ -143,6 +179,24 @@ describe('Voices Tab Components', () => {
 
             expect(screen.getByText('Sample 1')).toBeInTheDocument();
         });
+
+        it('highlights the samples expander and add button on hover class', () => {
+            render(
+                <SampleManager
+                    profile={{ ...mockProfile, samples_detailed: [] }}
+                    isSamplesExpanded={true}
+                    setIsSamplesExpanded={vi.fn()}
+                    isRebuildRequired={false}
+                    uploadFiles={vi.fn()}
+                    playingSample={null}
+                    handlePlaySample={vi.fn()}
+                    handleDeleteSample={vi.fn()}
+                />
+            );
+
+            expect(screen.getByRole('button', { name: /Samples \(0\)/ })).toHaveClass('hover-bg-subtle');
+            expect(screen.getByTitle('Add Samples Manually')).toHaveClass('hover-bg-subtle');
+        });
     });
 
     describe('VariantEditor', () => {
@@ -165,6 +219,11 @@ describe('Voices Tab Components', () => {
 
             expect(screen.getByText('1.00x')).toBeInTheDocument();
             expect(screen.getByText('Script')).toBeInTheDocument();
+            expect(screen.getByTitle('Play Sample')).toHaveClass('hover-bg-subtle');
+            expect(screen.getByRole('button', { name: 'Delete Variant' })).toHaveClass('hover-bg-destructive');
+            expect(screen.getByRole('button', { name: '1.00x' })).toHaveClass('hover-bg-subtle');
+            expect(screen.getByRole('button', { name: 'Script' })).toHaveClass('hover-bg-subtle');
+            expect(screen.getByRole('button', { name: 'Move Variant' })).toHaveClass('hover-bg-subtle');
         });
     });
 });

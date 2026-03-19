@@ -87,23 +87,25 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
                     gap: '12px'
                 }}
             >
-                <div 
+                <button
+                    type="button"
                     onClick={() => setIsSamplesExpanded(!isSamplesExpanded)}
+                    className="btn-ghost hover-bg-subtle"
                     style={{ 
                         display: 'flex', 
                         alignItems: 'center', 
                         gap: '10px', 
                         color: 'var(--text-secondary)', 
                         flex: 1,
-                        cursor: 'pointer',
                         height: '100%',
-                        padding: '4px 0'
+                        padding: '4px 0',
+                        textAlign: 'left'
                     }}
                 >
                     <Music size={14} className="text-accent" />
                     <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>Samples ({profile.samples?.length || 0})</span>
                     {isRebuildRequired && <span title="Rebuild required to reflect recent sample changes"><AlertTriangle size={12} className="text-warning" /></span>}
-                </div>
+                </button>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <input 
@@ -122,14 +124,14 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
                             e.preventDefault();
                             document.getElementById(`file-input-${profile.name.replace(/\s+/g, '-')}`)?.click();
                         }}
-                        className="btn-ghost" 
+                        className="btn-ghost hover-bg-subtle" 
                         title="Add Samples Manually" 
                         style={{ 
                             padding: '4px', 
                             height: '28px', 
                             width: '28px', 
                             borderRadius: '8px', 
-                            background: 'rgba(255,255,255,0.08)',
+                            background: 'var(--surface)',
                             border: '1px solid var(--border)',
                             display: 'flex',
                             alignItems: 'center',

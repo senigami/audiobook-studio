@@ -167,18 +167,41 @@ def test_build_and_test_profiles(clean_db, tmp_path, client):
     voices_dir.mkdir()
     fastapi_app.dependency_overrides[get_voices_dir] = lambda: voices_dir
 
-    # Build
-    file_content = b"fake wav"
-    files = {"files": ("sample.wav", io.BytesIO(file_content), "audio/wav")}
-    with patch("app.api.routers.voices.put_job"), patch("app.api.routers.voices.enqueue"):
-        response = client.post("/api/speaker-profiles/SpeakerA/build", files=files)
-        assert response.status_code == 200
-        assert (voices_dir / "SpeakerA" / "sample.wav").exists()
+    with patch("app.api.routers.voices.VOICES_DIR", voices_dir):
+        # Build
+        file_content = b"fake wav"
+        files = {"files": ("input1.wav", io.BytesIO(file_content), "audio/wav")}
+        with patch("app.api.routers.voices.put_job"), patch("app.api.routers.voices.enqueue"):
+            response = client.post("/api/speaker-profiles/SpeakerA/build", files=files)
+            assert response.status_code == 200
+            assert (voices_dir / "SpeakerA" / "input1.wav").exists()
 
-    # Test
-    with patch("app.api.routers.voices.put_job"), patch("app.api.routers.voices.enqueue"):
-        response = client.post("/api/speaker-profiles/SpeakerA/test")
-        assert response.status_code == 200
+        (voices_dir / "SpeakerA" / "1.wav").write_text("fake wav content 2")
+
+        # Test
+        with patch("app.api.routers.voices.put_job"), patch("app.api.routers.voices.enqueue"):
+            response = client.post("/api/speaker-profiles/SpeakerA/test")
+            assert response.status_code == 200
+
+def test_build_and_test_require_samples(clean_db, tmp_path, client):
+    from app.web import app as fastapi_app
+    from app.api.routers.voices import get_voices_dir
+    voices_dir = (tmp_path / "voices").resolve()
+    voices_dir.mkdir()
+    fastapi_app.dependency_overrides[get_voices_dir] = lambda: voices_dir
+
+    with patch("app.api.routers.voices.VOICES_DIR", voices_dir):
+        profile_dir = voices_dir / "SpeakerA"
+        profile_dir.mkdir(parents=True, exist_ok=True)
+
+        with patch("app.api.routers.voices.put_job"), patch("app.api.routers.voices.enqueue"):
+            response = client.post("/api/speaker-profiles/SpeakerA/test")
+            assert response.status_code == 400
+            assert "sample" in response.json()["message"].lower()
+
+            response = client.post("/api/speaker-profiles/SpeakerA/build")
+            assert response.status_code == 400
+            assert "sample" in response.json()["message"].lower()
 
 def test_legacy_build_and_rename(clean_db, tmp_path, client):
     from app.web import app as fastapi_app
