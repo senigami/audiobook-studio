@@ -47,12 +47,12 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
     useEffect(() => {
         if (editingProfile) {
             setTestText(editingProfile.test_text || '');
-            setVariantName(editingProfile.variant_name || editingProfile.name);
+            setVariantName(getVariantDisplayName(editingProfile));
         } else {
             setTestText('');
             setVariantName('');
         }
-    }, [editingProfile]);
+    }, [editingProfile, speakerProfiles]);
 
     // --- Voice Management Modals State ---
     const [searchQuery, setSearchQuery] = useState('');
@@ -74,6 +74,15 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
     const [selectedMoveSpeakerId, setSelectedMoveSpeakerId] = useState<string>('');
     const [isMovingVariant, setIsMovingVariant] = useState(false);
 
+    const getVariantDisplayName = (profile: SpeakerProfile | null) => {
+        if (!profile) return 'Default';
+        if (profile.variant_name) return profile.variant_name;
+        if (profile.name.includes(' - ')) {
+            return profile.name.split(' - ').slice(1).join(' - ').trim() || 'Default';
+        }
+        return 'Default';
+    };
+
     const handleRequestConfirm = (config: { title: string; message: string; onConfirm: () => void; isDestructive?: boolean; isAlert?: boolean }) => {
         setConfirmConfig(config);
     };
@@ -91,7 +100,7 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
 
             if (resp.ok) {
                 // Also handle name change if different
-                const currentVariantDisplay = editingProfile.variant_name || editingProfile.name;
+                const currentVariantDisplay = getVariantDisplayName(editingProfile);
                 if (variantName && variantName !== currentVariantDisplay) {
                     let newFullName = variantName;
                     if (editingProfile.speaker_id) {
@@ -337,7 +346,7 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
     const filteredVoices = allVoices.filter(v => {
         const query = searchQuery.toLowerCase();
         return v.name.toLowerCase().includes(query) || 
-               v.profiles.some(p => (p.variant_name || p.name).toLowerCase().includes(query));
+               v.profiles.some(p => getVariantDisplayName(p).toLowerCase().includes(query));
     }).sort((a, b) => a.name.localeCompare(b.name));
 
     return (

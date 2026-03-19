@@ -43,6 +43,13 @@ export const CharacterSidebar: React.FC<CharacterSidebarProps> = ({
     return 'Default';
   };
 
+  const resolveDefaultProfileName = (char: Character) => {
+    const speakerMatch = (speakers || []).find(s => s.name === char.speaker_profile_name);
+    const variants = speakerMatch ? (speakerProfiles || []).filter(p => p.speaker_id === speakerMatch.id) : [];
+    const defaultVariant = variants.find(p => p.variant_name === 'Default' || !p.name.includes(' - '));
+    return defaultVariant?.name || variants.find(p => p.is_default)?.name || variants[0]?.name || null;
+  };
+
   const toggleCharacterExpansion = (characterId: string) => {
     setExpandedCharacterId(expandedCharacterId === characterId ? null : characterId);
   };
@@ -123,10 +130,10 @@ export const CharacterSidebar: React.FC<CharacterSidebarProps> = ({
                                     <div style={{ width: '28px', minWidth: '28px' }} />
                                 )}
 
-                                <div 
+                                    <div 
                                     onClick={() => {
                                         setSelectedCharacterId(char.id);
-                                        setSelectedProfileName(variants[0]?.name || null);
+                                        setSelectedProfileName(resolveDefaultProfileName(char));
                                     }}
                                     style={{ 
                                         flex: 1, padding: '0.75rem', borderRadius: '8px', 
@@ -142,12 +149,12 @@ export const CharacterSidebar: React.FC<CharacterSidebarProps> = ({
                                         onChange={(color) => onUpdateCharacterColor(char.id, color)} 
                                         size="sm" 
                                     />
-                    <div style={{ flex: 1, overflow: 'hidden' }}>
+                                    <div style={{ flex: 1, overflow: 'hidden' }}>
                                         <div style={{ fontWeight: 600, fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{char.name}</div>
                                         <div style={{ fontSize: '0.7rem', opacity: 0.6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                             {selectedCharacterId === char.id && selectedProfileName
                                                 ? resolveVariantDisplay(selectedProfileName)
-                                                : (char.speaker_profile_name || 'No voice')}
+                                                : resolveVariantDisplay(char.speaker_profile_name) || 'No voice'}
                                         </div>
                                     </div>
                                     {variants.length > 1 && (

@@ -109,7 +109,7 @@ export const ProductionTab: React.FC<ProductionTabProps> = ({
                         textTransform: 'none',
                         letterSpacing: 'normal'
                     }}>
-                        {resolveVariantDisplay(group.segments[0].speaker_profile_name)}
+                        {resolveVariantDisplay(group.segments[0].speaker_profile_name) || 'Default'}
                     </div>
                 )}
             </div>

@@ -71,7 +71,11 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
     const voiceStillAvailable = selectedVoice && speakerProfiles.some(p => p.name === selectedVoice);
     if (voiceStillAvailable) return;
 
-    const defaultProfile = speakerProfiles.find(p => p.is_default)?.name || speakerProfiles[0]?.name || '';
+    const defaultProfile =
+      speakerProfiles.find(p => p.variant_name === 'Default' || !p.name.includes(' - '))?.name ||
+      speakerProfiles.find(p => p.is_default)?.name ||
+      speakerProfiles[0]?.name ||
+      '';
     if (defaultProfile) {
       setSelectedVoice(defaultProfile);
     }

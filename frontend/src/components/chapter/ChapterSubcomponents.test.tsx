@@ -312,5 +312,26 @@ describe('Chapter Subcomponents', () => {
 
       expect(screen.getByText('Default')).toBeInTheDocument();
     });
+
+    it('shows Default for a base profile without a suffix', () => {
+      render(
+        <CharacterSidebar
+          characters={[{ id: 'char-base', project_id: 'proj-1', name: 'Base Char', color: '#00ff00', speaker_profile_name: 'Voice 1' } as any]}
+          speakers={mockSpeakers as any}
+          speakerProfiles={[{ name: 'Voice 1', speaker_id: 'speaker-1', variant_name: null, voice_id: 'v1', provider: 'elevenlabs' } as any]}
+          selectedCharacterId={null}
+          setSelectedCharacterId={vi.fn()}
+          selectedProfileName={null}
+          setSelectedProfileName={vi.fn()}
+          expandedCharacterId={null}
+          setExpandedCharacterId={vi.fn()}
+          onUpdateCharacterColor={vi.fn()}
+          segmentsCount={1}
+          wordCount={10}
+        />
+      );
+
+      expect(screen.getByText('Default')).toBeInTheDocument();
+    });
   });
 });

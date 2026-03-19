@@ -227,7 +227,8 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     const speaker = speakers.find(s => s.name === character.speaker_profile_name);
     if (!speaker) return null;
     const variants = (speakerProfiles || []).filter(p => p.speaker_id === speaker.id);
-    return variants[0]?.name || null;
+    const defaultVariant = variants.find(p => p.variant_name === 'Default' || !p.name.includes(' - '));
+    return defaultVariant?.name || variants.find(p => p.is_default)?.name || variants[0]?.name || null;
   };
 
   const handleParagraphBulkAssign = async (segmentIds: string[]) => {

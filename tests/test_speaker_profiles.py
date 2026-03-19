@@ -193,6 +193,54 @@ def test_get_speaker_settings(clean_voices):
     settings = get_speaker_settings(name)
     assert settings["speed"] == 1.75
 
+def test_get_speaker_settings_normalizes_default_variant(clean_voices):
+    from app.jobs import get_speaker_settings
+
+    name = "Dracula"
+    profile_dir = clean_voices / name
+    profile_dir.mkdir(parents=True, exist_ok=True)
+
+    settings = get_speaker_settings(name)
+    assert settings["variant_name"] == "Default"
+
+    meta_path = profile_dir / "profile.json"
+    assert meta_path.exists()
+    meta = json.loads(meta_path.read_text())
+    assert meta["variant_name"] == "Default"
+
+def test_get_speaker_settings_infers_variant_from_folder_name(clean_voices):
+    from app.jobs import get_speaker_settings
+
+    name = "Dracula - Angry"
+    profile_dir = clean_voices / name
+    profile_dir.mkdir(parents=True, exist_ok=True)
+
+    settings = get_speaker_settings(name)
+    assert settings["variant_name"] == "Angry"
+
+    meta_path = profile_dir / "profile.json"
+    assert meta_path.exists()
+    meta = json.loads(meta_path.read_text())
+    assert meta["variant_name"] == "Angry"
+
+def test_get_speaker_settings_prefers_base_folder_over_variant(clean_voices):
+    from app.jobs import get_speaker_settings, get_speaker_wavs
+
+    base = clean_voices / "Dracula"
+    angry = clean_voices / "Dracula - Angry"
+    base.mkdir(parents=True, exist_ok=True)
+    angry.mkdir(parents=True, exist_ok=True)
+    (base / "sample.wav").write_text("base")
+    (angry / "sample.wav").write_text("angry")
+
+    settings = get_speaker_settings("Dracula")
+    assert settings["variant_name"] == "Default"
+
+    wavs = get_speaker_wavs("Dracula")
+    assert wavs is not None
+    assert str(base / "sample.wav") in wavs
+    assert str(angry / "sample.wav") not in wavs
+
 def test_latent_cache_path():
     from app.engines import get_speaker_latent_path
 

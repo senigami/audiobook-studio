@@ -13,6 +13,7 @@ from ...db import (
     list_speakers, create_speaker, get_speaker, update_speaker, delete_speaker,
     update_voice_profile_references
 )
+from ...db.speakers import infer_variant_name, normalize_profile_metadata
 from ...jobs import (
     enqueue, get_speaker_settings, update_speaker_settings, 
     DEFAULT_SPEAKER_TEST_TEXT
@@ -288,11 +289,7 @@ def api_assign_profile_to_speaker(
                 logger.debug("Failed to read metadata while assigning profile %s", profile_name, exc_info=True)
 
         if not variant_name:
-            # Try to infer from folder name (e.g. "Speaker - Variant" -> "Variant")
-            if " - " in profile_name:
-                variant_name = profile_name.split(" - ", 1)[1]
-            else:
-                variant_name = profile_name
+            variant_name = infer_variant_name(profile_name)
 
         # Determine the new folder name
         if speaker_id:
@@ -320,7 +317,8 @@ def api_assign_profile_to_speaker(
         # Update profile.json with new speaker_id and variant_name
         new_meta_path = new_dir / "profile.json"
         meta.update({"speaker_id": speaker_id, "variant_name": variant_name})
-        new_meta_path.write_text(_json.dumps(meta, indent=2))
+        normalized_meta = normalize_profile_metadata(new_profile_name, meta, persist=False)
+        new_meta_path.write_text(_json.dumps(normalized_meta, indent=2))
 
         return JSONResponse({"status": "ok", "new_profile_name": new_profile_name})
     except Exception as e:

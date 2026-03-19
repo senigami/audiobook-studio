@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 - **Default Variant Assignment**: Production view now picks the first variant for a character automatically when you assign it, so speaking parts use the intended voice profile instead of falling back to narration.
 - **Clear Variant Labels**: Production assignment labels now show the human-friendly variant name instead of the internal voice-profile folder name.
 - **Explicit Default Label**: Base voice profiles without a `- Variant` suffix now display `Default` instead of echoing the folder name back in the UI.
+- **Base Voice Preference**: Voice resolution now prefers the base profile folder and explicit `Default` variant before falling back to sibling variants, so `Dracula` no longer inherits `Dracula - Angry` by accident.
 
 ## [1.5.0] - 2026-03-18
 

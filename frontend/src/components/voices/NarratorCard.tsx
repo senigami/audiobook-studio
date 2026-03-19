@@ -31,7 +31,11 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
     onAddVariantClick, onRenameClick, onSetDefaultClick, isExpanded, onToggleExpand, onMoveVariant,
     buildingProfiles
 }) => {
-    const defaultProfile = profiles.find(p => p.is_default) || profiles[0] || { name: '', speed: 1.0, wav_count: 0 } as SpeakerProfile;
+    const defaultProfile =
+        profiles.find(p => p.variant_name === 'Default' || !p.name.includes(' - ')) ||
+        profiles.find(p => p.is_default) ||
+        profiles[0] ||
+        { name: '', speed: 1.0, wav_count: 0 } as SpeakerProfile;
     const [activeProfileId, setActiveProfileId] = useState(defaultProfile?.name || '');
     const [hoveredProfileId, setHoveredProfileId] = useState<string | null>(null);
 

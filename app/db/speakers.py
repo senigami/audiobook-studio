@@ -6,6 +6,33 @@ from .core import _db_lock, get_connection
 
 logger = logging.getLogger(__name__)
 
+
+def infer_variant_name(profile_name: str) -> str:
+    if " - " in profile_name:
+        variant = profile_name.split(" - ", 1)[1].strip()
+        return variant or "Default"
+    return "Default"
+
+
+def normalize_profile_metadata(profile_name: str, meta: Optional[Dict[str, Any]] = None, persist: bool = False) -> Dict[str, Any]:
+    from .. import config
+    import json
+
+    meta = dict(meta or {})
+    if "variant_name" not in meta or not meta.get("variant_name"):
+        meta["variant_name"] = infer_variant_name(profile_name)
+
+    if persist:
+        profile_dir = config.VOICES_DIR / profile_name
+        profile_dir.mkdir(parents=True, exist_ok=True)
+        meta_path = profile_dir / "profile.json"
+        try:
+            meta_path.write_text(json.dumps(meta, indent=2))
+        except Exception:
+            logger.warning("Failed to persist normalized profile metadata for %s", profile_name, exc_info=True)
+
+    return meta
+
 def create_speaker(name: str, default_profile_name: Optional[str] = None) -> str:
     import json
     from .. import config
@@ -53,8 +80,7 @@ def create_speaker(name: str, default_profile_name: Optional[str] = None) -> str
                     logger.debug("Failed to read existing profile metadata for %s", meta_path, exc_info=True)
 
             meta["speaker_id"] = speaker_id
-            if "variant_name" not in meta:
-                meta["variant_name"] = "Default"
+            meta["variant_name"] = infer_variant_name(pname)
             if "speed" not in meta:
                 meta["speed"] = 1.0
 

@@ -93,6 +93,34 @@ describe('Voices Tab Components', () => {
             expect(screen.getByText('Speaker One')).toBeInTheDocument();
             expect(screen.getByText('Default')).toBeInTheDocument();
         });
+
+        it('prefers the base Default profile over a sibling variant', () => {
+            render(
+                <NarratorCard
+                    speaker={mockSpeaker}
+                    profiles={[
+                        { ...mockProfile, name: 'Profile 1 - Angry', variant_name: 'Angry', speed: 1.5, is_default: false },
+                        { ...mockProfile, name: 'Profile 1', variant_name: 'Default', speed: 1.0, is_default: false }
+                    ]}
+                    onRefresh={vi.fn()}
+                    onTest={vi.fn()}
+                    onDelete={vi.fn()}
+                    onMoveVariant={vi.fn()}
+                    onEditTestText={vi.fn()}
+                    onBuildNow={vi.fn()}
+                    testProgress={{}}
+                    requestConfirm={vi.fn()}
+                    buildingProfiles={{}}
+                    onAddVariantClick={vi.fn()}
+                    onSetDefaultClick={vi.fn()}
+                    onRenameClick={vi.fn()}
+                    isExpanded={true}
+                    onToggleExpand={vi.fn()}
+                />
+            );
+
+            expect(screen.getByText('1.00x')).toBeInTheDocument();
+        });
     });
 
     describe('SampleManager', () => {
