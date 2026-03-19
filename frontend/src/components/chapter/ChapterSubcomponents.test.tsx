@@ -32,11 +32,16 @@ describe('Chapter Subcomponents', () => {
   ];
 
   const mockCharacters: Character[] = [
-    { id: 'char-1', project_id: 'proj-1', name: 'Char 1', color: '#ff0000' } as any
+    { id: 'char-1', project_id: 'proj-1', name: 'Char 1', color: '#ff0000', speaker_profile_name: 'Voice 1' } as any
   ];
 
   const mockProfiles: SpeakerProfile[] = [
-    { name: 'Profile 1', voice_id: 'v1', provider: 'elevenlabs' } as any
+    { name: 'Profile 1', speaker_id: 'speaker-1', variant_name: 'Standard', voice_id: 'v1', provider: 'elevenlabs' } as any,
+    { name: 'Profile 2', speaker_id: 'speaker-1', variant_name: 'Warm', voice_id: 'v2', provider: 'elevenlabs' } as any
+  ];
+
+  const mockSpeakers = [
+    { id: 'speaker-1', name: 'Voice 1' }
   ];
 
   describe('ProductionTab', () => {
@@ -194,7 +199,7 @@ describe('Chapter Subcomponents', () => {
       render(
         <CharacterSidebar 
           characters={mockCharacters} 
-          speakers={[]} 
+          speakers={mockSpeakers as any} 
           speakerProfiles={mockProfiles} 
           selectedCharacterId={null} 
           setSelectedCharacterId={setSelectedCharacterId} 
@@ -214,6 +219,31 @@ describe('Chapter Subcomponents', () => {
       // Click the character name - the parent div should handle the click
       fireEvent.click(screen.getByText('Char 1').parentElement!);
       expect(setSelectedCharacterId).toHaveBeenCalledWith('char-1');
+    });
+
+    it('defaults to the first variant when a character is selected', () => {
+      const setSelectedCharacterId = vi.fn();
+      const setSelectedProfileName = vi.fn();
+      render(
+        <CharacterSidebar
+          characters={mockCharacters}
+          speakers={mockSpeakers as any}
+          speakerProfiles={mockProfiles}
+          selectedCharacterId={null}
+          setSelectedCharacterId={setSelectedCharacterId}
+          selectedProfileName={null}
+          setSelectedProfileName={setSelectedProfileName}
+          expandedCharacterId={null}
+          setExpandedCharacterId={vi.fn()}
+          onUpdateCharacterColor={vi.fn()}
+          segmentsCount={2}
+          wordCount={10}
+        />
+      );
+
+      fireEvent.click(screen.getByText('Char 1').parentElement!);
+      expect(setSelectedCharacterId).toHaveBeenCalledWith('char-1');
+      expect(setSelectedProfileName).toHaveBeenCalledWith('Profile 1');
     });
   });
 });
