@@ -51,9 +51,10 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
           ? 'Rendering'
           : job?.status === 'finalizing'
             ? 'Finalizing'
-            : chapter?.audio_status === 'processing'
+          : chapter?.audio_status === 'processing'
               ? 'Processing'
               : null;
+  const isQueued = queueStatus === 'Queued';
 
   return (
     <header style={{ 
@@ -166,13 +167,14 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
                   gap: '0.35rem',
                   padding: '0.35rem 0.65rem',
                   borderRadius: '999px',
-                  background: 'var(--accent-tint)',
-                  color: 'var(--accent)',
+                  background: isQueued ? 'var(--accent)' : 'var(--accent-tint)',
+                  color: isQueued ? 'white' : 'var(--accent)',
                   fontSize: '0.75rem',
                   fontWeight: 700,
                   textTransform: 'uppercase',
                   letterSpacing: '0.04em',
-                  border: '1px solid var(--accent)'
+                  border: '1px solid var(--accent)',
+                  boxShadow: isQueued ? '0 0 0 1px var(--accent-glow)' : 'none'
               }}>
                   {queueStatus}
               </div>

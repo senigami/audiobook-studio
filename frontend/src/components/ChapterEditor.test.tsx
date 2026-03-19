@@ -198,7 +198,7 @@ describe('ChapterEditor', () => {
     const queueBtn = screen.getByTitle('Queue Chapter');
     fireEvent.click(queueBtn);
     
-    expect(await screen.findByText('Queued')).toBeInTheDocument();
+    expect(await screen.findByText(/Keep this page open to watch progress/i)).toBeInTheDocument();
     await waitFor(() => {
       expect(api.addProcessingQueue).toHaveBeenCalled();
     });

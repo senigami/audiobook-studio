@@ -106,6 +106,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
             : chap.audio_status === 'processing'
               ? 'Processing'
               : null;
+          const isQueued = queueStatus === 'Queued';
 
           return (
             <Reorder.Item 
@@ -165,14 +166,15 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                         gap: '0.35rem',
                         padding: '0.2rem 0.55rem',
                         borderRadius: '999px',
-                        background: 'var(--accent-tint)',
-                        color: 'var(--accent)',
+                        background: isQueued ? 'var(--accent)' : 'var(--accent-tint)',
+                        color: isQueued ? 'white' : 'var(--accent)',
                         fontSize: '0.7rem',
                         fontWeight: 700,
                         textTransform: 'uppercase',
                         letterSpacing: '0.04em',
                         border: '1px solid var(--accent)',
-                        whiteSpace: 'nowrap'
+                        whiteSpace: 'nowrap',
+                        boxShadow: isQueued ? '0 0 0 1px var(--accent-glow)' : 'none'
                       }}>
                         {queueStatus}
                       </span>

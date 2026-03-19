@@ -257,11 +257,12 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     setQueuePending(true);
     setSubmitting(true);
     try {
+        setQueueNotice('Queued. Keep this page open to watch progress.');
         await api.addProcessingQueue(projectId, chapterId, 0, selectedVoice || undefined);
         await loadChapter();
-        setQueueNotice('Queued. Keep this page open to watch progress.');
     } catch (e) {
         setQueuePending(false);
+        setQueueNotice(null);
         setConfirmConfig({ title: 'Queue Failed', message: 'Failed to queue chapter.', onConfirm: () => setConfirmConfig(null), confirmText: 'OK' });
     } finally { setSubmitting(false); }
   };
