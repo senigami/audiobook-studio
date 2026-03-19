@@ -93,6 +93,12 @@ export const ChapterList: React.FC<ChapterListProps> = ({
           const activeJob = pickActiveJob(chap.id);
           const progressValue = activeJob ? (activeJob.active_segment_progress ?? 0) : 0;
           const isMenuOpen = openMenuRowId === chap.id;
+          const isFullyRendered = chap.audio_status === 'done' && !!chap.audio_file_path;
+          const queueActionLabel = isFullyRendered
+            ? 'Rebuild Audio'
+            : (chap.done_segments_count || 0) > 0 && (chap.done_segments_count || 0) < (chap.total_segments_count || 0)
+              ? 'Queue Remaining'
+              : 'Queue Chapter';
           const queueStatus = activeJob
             ? (activeJob.status === 'queued'
               ? 'Queued'
@@ -137,7 +143,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                   onOpenChange={(open) => setOpenMenuRowId(open ? chap.id : null)}
                   trigger={<StatusOrb chap={chap} activeJob={activeJob} doneSegments={chap.done_segments_count} totalSegments={chap.total_segments_count} />}
                   items={[
-                    { label: 'Queue rebuild', icon: RefreshCw, onClick: () => onQueueChapter(chap) }
+                    { label: queueActionLabel, icon: RefreshCw, onClick: () => onQueueChapter(chap) }
                   ].filter(() => {
                     const isStale = chap.text_last_modified && chap.audio_generated_at && (chap.text_last_modified > chap.audio_generated_at);
                     const isPartial = (chap.done_segments_count || 0) > 0 && (chap.done_segments_count || 0) < (chap.total_segments_count || 0) && !chap.has_wav;
