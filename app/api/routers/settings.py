@@ -11,7 +11,7 @@ from ...state import get_jobs, put_job, update_job
 from ...jobs import enqueue
 from ...models import Job
 from ..utils import list_audiobooks
-from ...pathing import safe_join
+from ...pathing import safe_join_flat
 
 router = APIRouter(prefix="/api", tags=["settings"])
 
@@ -25,7 +25,7 @@ def delete_audiobook(filename: str, project_id: Optional[str] = Query(None)):
     path = None
     if project_id:
         try:
-            p_path = safe_join(get_project_m4b_dir(project_id), filename)
+            p_path = safe_join_flat(get_project_m4b_dir(project_id), filename)
             if p_path.exists():
                 path = p_path
         except ValueError:
@@ -33,7 +33,7 @@ def delete_audiobook(filename: str, project_id: Optional[str] = Query(None)):
 
     if not path:
         try:
-            l_path = safe_join(AUDIOBOOK_DIR, filename)
+            l_path = safe_join_flat(AUDIOBOOK_DIR, filename)
             if l_path.exists():
                 path = l_path
         except ValueError:
@@ -43,7 +43,7 @@ def delete_audiobook(filename: str, project_id: Optional[str] = Query(None)):
         for p_dir in PROJECTS_DIR.iterdir():
             if p_dir.is_dir():
                 try:
-                    possible = safe_join(p_dir / "m4b", filename)
+                    possible = safe_join_flat(p_dir / "m4b", filename)
                     if possible.exists():
                         path = possible
                         break

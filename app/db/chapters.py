@@ -1,8 +1,10 @@
 import logging
 import glob
 import time
+from pathlib import Path
 from typing import List, Dict, Any, Optional
 from .core import _db_lock, get_connection
+from ..pathing import safe_join, safe_join_flat
 
 logger = logging.getLogger(__name__)
 
@@ -15,35 +17,42 @@ def cleanup_chapter_audio_files(
 ) -> bool:
     """Delete chapter-level and selected segment audio files without touching DB state."""
     from .. import config
-    from pathlib import Path
 
     pdir = config.get_project_audio_dir(project_id) if project_id else config.XTTS_OUT_DIR
+    resolved_root = pdir.resolve()
 
     for raw_path in explicit_files or []:
         if not raw_path:
             continue
-        candidates = []
+        candidate_names = []
         path_obj = Path(raw_path)
-        if path_obj.is_absolute():
-            candidates.append(path_obj)
-        else:
-            candidates.append(pdir / raw_path)
-            candidates.append(pdir / path_obj.name)
+        if path_obj.name:
+            candidate_names.append(path_obj.name)
+        if raw_path == path_obj.name and raw_path not in candidate_names:
+            candidate_names.append(raw_path)
 
-        for candidate in candidates:
+        for candidate_name in candidate_names:
             try:
-                resolved = candidate.resolve()
-            except Exception:
-                resolved = candidate
+                resolved = safe_join_flat(pdir, candidate_name)
+            except ValueError:
+                logger.warning("Skipping invalid explicit audio file %s", raw_path)
+                continue
             if resolved.exists() and resolved.is_file():
                 try:
                     resolved.unlink()
                 except Exception:
                     logger.warning("Failed to delete explicit audio file %s", resolved, exc_info=True)
 
-    pattern = str(pdir / f"{chapter_id}*")
+    pattern = str(safe_join_flat(pdir, f"{chapter_id}*"))
     for p_str in glob.glob(pattern):
-        p = Path(p_str)
+        try:
+            p = Path(p_str).resolve()
+        except Exception:
+            logger.warning("Skipping unresolved chapter audio path %s", p_str, exc_info=True)
+            continue
+        if not p.is_relative_to(resolved_root):
+            logger.warning("Skipping chapter audio file outside root %s", p)
+            continue
         if p.is_file() and p.suffix.lower() in (".wav", ".mp3", ".m4a"):
             try:
                 p.unlink()
@@ -51,10 +60,14 @@ def cleanup_chapter_audio_files(
                 logger.warning("Failed to delete chapter audio file %s", p, exc_info=True)
 
     for sid in segment_ids or []:
-        seg_pattern = str(pdir / f"seg_{sid}*")
+        seg_pattern = str(safe_join_flat(pdir, f"seg_{sid}*"))
         for s_path_str in glob.glob(seg_pattern):
             try:
-                Path(s_path_str).unlink()
+                s_path = Path(s_path_str).resolve()
+                if not s_path.is_relative_to(resolved_root):
+                    logger.warning("Skipping segment audio file outside root %s", s_path)
+                    continue
+                s_path.unlink()
             except Exception:
                 logger.warning("Failed to delete segment audio file %s", s_path_str, exc_info=True)
 
@@ -113,16 +126,19 @@ def get_chapter(chapter_id: str) -> Optional[Dict[str, Any]]:
     chap["has_m4a"] = False
 
     if path:
-        full_path = pdir / path
-        if full_path.exists():
+        try:
+            full_path = safe_join_flat(pdir, path)
+        except ValueError:
+            full_path = None
+        if full_path and full_path.exists():
             if path.endswith(".wav"): chap["has_wav"] = True
             elif path.endswith(".mp3"): chap["has_mp3"] = True
             elif path.endswith(".m4a"): chap["has_m4a"] = True
 
     stem = chap["id"]
-    if not chap["has_wav"] and (pdir / f"{stem}.wav").exists(): chap["has_wav"] = True
-    if not chap["has_mp3"] and (pdir / f"{stem}.mp3").exists(): chap["has_mp3"] = True
-    if not chap["has_m4a"] and (pdir / f"{stem}.m4a").exists(): chap["has_m4a"] = True
+    if not chap["has_wav"] and safe_join_flat(pdir, f"{stem}.wav").exists(): chap["has_wav"] = True
+    if not chap["has_mp3"] and safe_join_flat(pdir, f"{stem}.mp3").exists(): chap["has_mp3"] = True
+    if not chap["has_m4a"] and safe_join_flat(pdir, f"{stem}.m4a").exists(): chap["has_m4a"] = True
 
     if chap["audio_status"] == "done" and not chap["has_wav"]:
         if chap["has_mp3"] or chap["has_m4a"]:
@@ -154,16 +170,19 @@ def list_chapters(project_id: str) -> List[Dict[str, Any]]:
         chap["has_m4a"] = False
 
         if path:
-            full_path = pdir / path
-            if full_path.exists():
+            try:
+                full_path = safe_join_flat(pdir, path)
+            except ValueError:
+                full_path = None
+            if full_path and full_path.exists():
                 if path.endswith(".wav"): chap["has_wav"] = True
                 elif path.endswith(".mp3"): chap["has_mp3"] = True
                 elif path.endswith(".m4a"): chap["has_m4a"] = True
 
         stem = chap["id"]
-        if not chap["has_wav"] and (pdir / f"{stem}.wav").exists(): chap["has_wav"] = True
-        if not chap["has_mp3"] and (pdir / f"{stem}.mp3").exists(): chap["has_mp3"] = True
-        if not chap["has_m4a"] and (pdir / f"{stem}.m4a").exists(): chap["has_m4a"] = True
+        if not chap["has_wav"] and safe_join_flat(pdir, f"{stem}.wav").exists(): chap["has_wav"] = True
+        if not chap["has_mp3"] and safe_join_flat(pdir, f"{stem}.mp3").exists(): chap["has_mp3"] = True
+        if not chap["has_m4a"] and safe_join_flat(pdir, f"{stem}.m4a").exists(): chap["has_m4a"] = True
 
         if chap["audio_status"] == "done" and not chap["has_wav"]:
             if chap["has_mp3"] or chap["has_m4a"]:

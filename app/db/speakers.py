@@ -3,6 +3,7 @@ import uuid
 import logging
 from typing import List, Dict, Any, Optional
 from .core import _db_lock, get_connection
+from ..pathing import safe_join
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,7 @@ def normalize_profile_metadata(profile_name: str, meta: Optional[Dict[str, Any]]
         meta["variant_name"] = infer_variant_name(profile_name)
 
     if persist:
-        profile_dir = config.VOICES_DIR / profile_name
+        profile_dir = safe_join(config.VOICES_DIR, profile_name)
         profile_dir.mkdir(parents=True, exist_ok=True)
         meta_path = profile_dir / "profile.json"
         try:
@@ -46,7 +47,11 @@ def normalize_base_profiles() -> None:
     pending_updates = []
 
     for speaker in speakers:
-        base_dir = config.VOICES_DIR / speaker["name"]
+        try:
+            base_dir = safe_join(config.VOICES_DIR, speaker["name"])
+        except ValueError:
+            logger.warning("Skipping invalid speaker path for %s", speaker["name"])
+            continue
         if not base_dir.exists() or not base_dir.is_dir():
             continue
 
@@ -87,7 +92,6 @@ def normalize_base_profiles() -> None:
 def create_speaker(name: str, default_profile_name: Optional[str] = None) -> str:
     import json
     from .. import config
-    from pathlib import Path
 
     with _db_lock:
         with get_connection() as conn:
@@ -102,7 +106,11 @@ def create_speaker(name: str, default_profile_name: Optional[str] = None) -> str
 
             # Legacy sync: ensure profile directory exists and linked
             pname = default_profile_name or name
-            profile_dir = config.VOICES_DIR / pname
+            try:
+                profile_dir = safe_join(config.VOICES_DIR, pname)
+            except ValueError:
+                pname = f"speaker-{speaker_id}"
+                profile_dir = safe_join(config.VOICES_DIR, pname)
 
             # Collision handling: if directory belongs to ANOTHER speaker, use a suffix
             if profile_dir.exists():
@@ -113,10 +121,10 @@ def create_speaker(name: str, default_profile_name: Optional[str] = None) -> str
                         if "speaker_id" in existing_meta and existing_meta["speaker_id"] != speaker_id:
                             # Suffix logic
                             idx = 1
-                            while (config.VOICES_DIR / f"{pname}_{idx}").exists():
+                            while safe_join(config.VOICES_DIR, f"{pname}_{idx}").exists():
                                 idx += 1
                             pname = f"{pname}_{idx}"
-                            profile_dir = config.VOICES_DIR / pname
+                            profile_dir = safe_join(config.VOICES_DIR, pname)
                     except Exception:
                         logger.debug("Failed to inspect existing voice profile metadata for %s", profile_dir, exc_info=True)
 
@@ -185,12 +193,17 @@ def delete_speaker(speaker_id: str) -> bool:
             if config.VOICES_DIR.exists():
                 for d in config.VOICES_DIR.iterdir():
                     if d.is_dir():
-                        meta_path = d / "profile.json"
+                        try:
+                            safe_dir = safe_join(config.VOICES_DIR, d.name)
+                        except ValueError:
+                            logger.warning("Skipping invalid voice profile directory %s", d, exc_info=True)
+                            continue
+                        meta_path = safe_dir / "profile.json"
                         if meta_path.exists():
                             try:
                                 meta = json.loads(meta_path.read_text())
                                 if meta.get("speaker_id") == speaker_id:
-                                    shutil.rmtree(d)
+                                    shutil.rmtree(safe_dir)
                             except Exception:
                                 logger.debug("Failed to inspect voice profile metadata for %s", meta_path, exc_info=True)
 

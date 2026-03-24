@@ -1,6 +1,5 @@
 import anyio
 import logging
-import os
 from pathlib import Path
 from typing import Optional, List, Literal
 from pydantic import BaseModel, Field
@@ -21,6 +20,7 @@ from ...textops import (
 from ...jobs import cancel as cancel_job, get_jobs
 from ...state import update_job, delete_jobs, get_settings
 from ..ws import broadcast_queue_update
+from ...pathing import safe_basename, safe_join_flat
 
 # Compatibility for tests that monkeypatch these
 CHAPTER_DIR = config.CHAPTER_DIR
@@ -205,7 +205,7 @@ def reset_chapter_legacy(
     try:
         existing = get_jobs()
         # Construct and resolve path
-        safe_base = os.path.basename(chapter_file)
+        safe_base = safe_basename(chapter_file)
         # Cancel any active jobs for this chapter file
         for jid, j in existing.items():
             if j.chapter_file == safe_base:
@@ -218,14 +218,15 @@ def reset_chapter_legacy(
 
         # Security: ensure we aren't leaking out
         for ext in [".wav", ".mp3", ".m4a"]:
-            f = (xtts_out_dir / f"{stem}{ext}").resolve()
-            if not f.is_relative_to(xtts_out_dir.resolve()):
+            try:
+                safe_join_flat(xtts_out_dir, f"{stem}{ext}")
+            except ValueError:
                 logger.warning(f"Blocking reset traversal attempt: {chapter_file}")
                 return JSONResponse({"status": "error", "message": "Invalid chapter file"}, status_code=403)
 
         count = 0
         for ext in [".wav", ".mp3", ".m4a"]:
-            f = xtts_out_dir / f"{stem}{ext}"
+            f = safe_join_flat(xtts_out_dir, f"{stem}{ext}")
             if f.exists():
                 f.unlink()
                 count += 1
@@ -233,9 +234,9 @@ def reset_chapter_legacy(
             "status": "ok",
             "message": f"Reset {safe_base}, deleted {count} files"
         })
-    except Exception as e:
-        logger.error(f"Error resetting chapter {chapter_file}: {e}")
-        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+    except Exception:
+        logger.error("Error resetting chapter %s", chapter_file, exc_info=True)
+        return JSONResponse({"status": "error", "message": "Reset failed"}, status_code=500)
 
 @router.delete("/chapter/{filename}")
 def api_delete_legacy_chapter(
@@ -244,17 +245,17 @@ def api_delete_legacy_chapter(
     xtts_out_dir: Path = Depends(get_xtts_out_dir)
 ):
     try:
-        safe_filename = os.path.basename(filename)
-        path = (chapter_dir / safe_filename).resolve()
-
-        if not path.is_relative_to(chapter_dir.resolve()):
+        safe_filename = safe_basename(filename)
+        try:
+            path = safe_join_flat(chapter_dir, safe_filename)
+        except ValueError:
             logger.warning(f"Blocking delete traversal attempt: {filename}")
             return JSONResponse({"status": "error", "message": "Invalid filename"}, status_code=403)
 
         stem = path.stem
         for ext in [".wav", ".mp3"]:
-            f = (xtts_out_dir / f"{stem}{ext}").resolve()
-            if f.is_relative_to(xtts_out_dir.resolve()) and f.exists():
+            f = safe_join_flat(xtts_out_dir, f"{stem}{ext}")
+            if f.exists():
                 f.unlink()
 
         existing = get_jobs()
@@ -293,10 +294,10 @@ def api_preview(
     import re
 
     try:
-        safe_filename = os.path.basename(chapter_file)
-        p = (chapter_dir / safe_filename).resolve()
-
-        if not p.is_relative_to(chapter_dir.resolve()):
+        safe_filename = safe_basename(chapter_file)
+        try:
+            p = safe_join_flat(chapter_dir, safe_filename)
+        except ValueError:
             logger.warning(f"Blocking preview traversal attempt: {chapter_file}")
             return JSONResponse({"error": "invalid path"}, status_code=403)
 
@@ -334,17 +335,20 @@ async def api_export_chapter_sample(
 
     wav_path = None
     if chapter and chapter.get("audio_file_path"):
-        wav_path = pdir / chapter["audio_file_path"]
+        try:
+            wav_path = safe_join_flat(pdir, chapter["audio_file_path"])
+        except ValueError:
+            wav_path = None
 
     if not wav_path or not wav_path.exists():
         # Fallbacks
-        wav_path = pdir / f"{chapter_id}.wav"
+        wav_path = safe_join_flat(pdir, f"{chapter_id}.wav")
         if not wav_path.exists():
-            wav_path = pdir / f"{chapter_id}.mp3"
+            wav_path = safe_join_flat(pdir, f"{chapter_id}.mp3")
         if not wav_path.exists():
-            wav_path = pdir / f"{chapter_id}_0.wav"
+            wav_path = safe_join_flat(pdir, f"{chapter_id}_0.wav")
         if not wav_path.exists():
-            wav_path = pdir / f"{chapter_id}_0.mp3"
+            wav_path = safe_join_flat(pdir, f"{chapter_id}_0.mp3")
 
     if not wav_path or not wav_path.exists():
         return JSONResponse({"status": "error", "message": "Audio not found"}, status_code=404)
@@ -368,17 +372,20 @@ def api_stream_chapter(
 
     wav_path = None
     if chapter and chapter.get("audio_file_path"):
-        wav_path = pdir / chapter["audio_file_path"]
+        try:
+            wav_path = safe_join_flat(pdir, chapter["audio_file_path"])
+        except ValueError:
+            wav_path = None
 
     if not wav_path or not wav_path.exists():
         # Fallbacks
-        wav_path = pdir / f"{chapter_id}.wav"
+        wav_path = safe_join_flat(pdir, f"{chapter_id}.wav")
         if not wav_path.exists():
-            wav_path = pdir / f"{chapter_id}.mp3"
+            wav_path = safe_join_flat(pdir, f"{chapter_id}.mp3")
         if not wav_path.exists():
-            wav_path = pdir / f"{chapter_id}_0.wav"
+            wav_path = safe_join_flat(pdir, f"{chapter_id}_0.wav")
         if not wav_path.exists():
-            wav_path = pdir / f"{chapter_id}_0.mp3"
+            wav_path = safe_join_flat(pdir, f"{chapter_id}_0.mp3")
 
     if not wav_path or not wav_path.exists():
          return JSONResponse({"status": "error", "message": "Audio not found"}, status_code=404)

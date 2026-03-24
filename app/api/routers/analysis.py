@@ -336,8 +336,8 @@ def report(
                 {"status": "error", "message": "Report not found"},
                 status_code=404
             )
-    except Exception as e:
-        logger.error(f"Error resolving report path {name}: {e}")
+    except Exception:
+        logger.error("Error resolving report path %s", name, exc_info=True)
         return JSONResponse(
             {"status": "error", "message": "Invalid report name"},
             status_code=403

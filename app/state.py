@@ -9,6 +9,7 @@ from json import JSONDecodeError
 
 from .models import Job
 from .config import BASE_DIR
+from .pathing import safe_join_flat
 
 STATE_FILE = Path(os.getenv("STATE_FILE", str(BASE_DIR / "state.json")))
 logger = logging.getLogger(__name__)
@@ -230,8 +231,11 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
                         else:
                             pdir = XTTS_OUT_DIR
 
-                        full_audio_path = pdir / output_file
-                        if full_audio_path.exists():
+                        try:
+                            full_audio_path = safe_join_flat(pdir, output_file)
+                        except ValueError:
+                            full_audio_path = None
+                        if full_audio_path and full_audio_path.exists():
                             try:
                                 result = subprocess.run(
                                     ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", str(full_audio_path)],

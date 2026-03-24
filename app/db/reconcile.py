@@ -1,8 +1,8 @@
 import os
 import subprocess
 import logging
-from pathlib import Path
 from .core import _db_lock, get_connection
+from ..pathing import safe_join_flat
 
 logger = logging.getLogger(__name__)
 
@@ -64,8 +64,9 @@ def reconcile_project_audio(project_id: str):
                     duration = length or 0.0
                     if duration == 0.0 or current_path != best_file:
                         try:
+                            audio_path = safe_join_flat(audio_dir, best_file)
                             result = subprocess.run(
-                                ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", str(audio_dir / best_file)],
+                                ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", str(audio_path)],
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT,
                                 text=True,
@@ -74,7 +75,7 @@ def reconcile_project_audio(project_id: str):
                             if result.returncode == 0:
                                 duration = float(result.stdout.strip())
                         except Exception:
-                            logger.debug("Failed to probe audio duration for %s", audio_dir / best_file, exc_info=True)
+                            logger.debug("Failed to probe audio duration for %s", best_file, exc_info=True)
 
                     cursor.execute(
                         "UPDATE chapters SET audio_status = 'done', audio_file_path = ?, audio_length_seconds = ? WHERE id = ?", 

@@ -4,7 +4,7 @@ import uuid
 from typing import Optional
 from ..config import VOICES_DIR
 from ..state import get_settings
-from ..pathing import safe_join
+from ..pathing import safe_join, safe_join_flat
 from ..db.speakers import infer_variant_name, normalize_profile_metadata
 
 logger = logging.getLogger(__name__)
@@ -128,7 +128,7 @@ def get_speaker_settings(profile_name_or_id: str) -> dict:
     except ValueError:
         return res
 
-    meta_path = p / "profile.json"
+    meta_path = safe_join_flat(p, "profile.json")
     if meta_path.exists():
         try:
             meta = json.loads(meta_path.read_text())
@@ -155,11 +155,14 @@ def get_speaker_settings(profile_name_or_id: str) -> dict:
 
 def update_speaker_settings(profile_name: str, **updates):
     """Updates metadata for a profile in its profile.json."""
-    p = VOICES_DIR / profile_name
+    try:
+        p = get_voice_profile_dir(profile_name)
+    except ValueError:
+        return False
     if not p.exists():
         return False
 
-    meta_path = p / "profile.json"
+    meta_path = safe_join_flat(p, "profile.json")
     meta = {}
     if meta_path.exists():
         try:

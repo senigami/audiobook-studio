@@ -53,9 +53,10 @@ def test_project_crud(db_conn):
     # Delete (mocking physical cleanup)
     with patch("app.config.get_project_dir") as mock_dir, \
          patch("shutil.rmtree") as mock_rm:
-        mock_dir.return_value = Path("/tmp/mock_project")
+        mock_dir.return_value = Path("/tmp/mock_project").resolve()
         # Ensure exists returns False initially or mock it
-        with patch("pathlib.Path.exists", return_value=True):
+        with patch("pathlib.Path.exists", return_value=True), \
+             patch("app.config.PROJECTS_DIR", Path("/tmp").resolve()):
             success = delete_project(pid)
             assert success is True
             mock_rm.assert_called_once()

@@ -1,7 +1,10 @@
 import time
 import uuid
+import logging
 from typing import List, Dict, Any, Optional
 from .core import _db_lock, get_connection
+
+logger = logging.getLogger(__name__)
 
 def create_project(name: str, series: Optional[str] = None, author: Optional[str] = None, cover_image_path: Optional[str] = None) -> str:
     with _db_lock:
@@ -69,10 +72,10 @@ def delete_project(project_id: str) -> bool:
             conn.commit()
 
             # 3. Physical cleanup
-            if pdir.exists():
+            if pdir.exists() and pdir.is_relative_to(config.PROJECTS_DIR.resolve()):
                 try:
                     shutil.rmtree(pdir)
-                except Exception as e:
-                    print(f"Warning: Failed to remove project directory {pdir}: {e}")
+                except Exception:
+                    logger.warning("Failed to remove project directory %s", pdir, exc_info=True)
 
             return cursor.rowcount > 0

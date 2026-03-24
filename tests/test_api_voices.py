@@ -316,7 +316,7 @@ def test_delete_sample_errors(clean_db, tmp_path, client):
     assert not (voices_dir / "SpeakerA" / "sample1.wav").exists()
 
     # Exception
-    with patch("app.api.routers.voices.os.unlink", side_effect=Exception("unlink failed")):
+    with patch("pathlib.Path.unlink", side_effect=Exception("unlink failed")):
         (voices_dir / "SpeakerA" / "bad.wav").write_text("trash")
         response = client.delete("/api/speaker-profiles/SpeakerA/samples/bad.wav")
         assert response.status_code == 500
