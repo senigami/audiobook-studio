@@ -25,4 +25,7 @@ def safe_join(root: Path, value: str) -> Path:
 
 def safe_join_flat(root: Path, value: str) -> Path:
     """Join a value as a single filename under a trusted root."""
-    return safe_join(root, safe_basename(value))
+    safe_name = safe_basename(value)
+    if value != safe_name or "/" in value or "\\" in value:
+        raise ValueError(f"Path must be a single filename: {value}")
+    return safe_join(root, safe_name)

@@ -81,5 +81,5 @@ def test_api_report_traversal_is_contained(tmp_path):
     outside.write_text("escape")
 
     response = report("../../escape", report_dir=report_dir)
-    assert response.status_code == 404
+    assert response.status_code == 403
     assert outside.exists()

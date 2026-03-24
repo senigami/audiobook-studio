@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from .pathing import safe_join_flat
 
 BASE_DIR = Path(os.getenv("AUDIOBOOK_BASE_DIR", str(Path(__file__).resolve().parents[1])))
 
@@ -16,22 +17,22 @@ PROJECTS_DIR = Path(os.getenv("PROJECTS_DIR", str(BASE_DIR / "projects")))
 FRONTEND_DIST = BASE_DIR / "frontend" / "dist"
 
 def get_project_dir(project_id: str) -> Path:
-    d = PROJECTS_DIR / project_id
+    d = safe_join_flat(PROJECTS_DIR, project_id)
     d.mkdir(parents=True, exist_ok=True)
     return d
 
 def get_project_audio_dir(project_id: str) -> Path:
-    d = get_project_dir(project_id) / "audio"
+    d = safe_join_flat(get_project_dir(project_id), "audio")
     d.mkdir(parents=True, exist_ok=True)
     return d
 
 def get_project_text_dir(project_id: str) -> Path:
-    d = get_project_dir(project_id) / "text"
+    d = safe_join_flat(get_project_dir(project_id), "text")
     d.mkdir(parents=True, exist_ok=True)
     return d
 
 def get_project_m4b_dir(project_id: str) -> Path:
-    d = get_project_dir(project_id) / "m4b"
+    d = safe_join_flat(get_project_dir(project_id), "m4b")
     d.mkdir(parents=True, exist_ok=True)
     return d
 

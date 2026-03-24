@@ -1,5 +1,4 @@
 import uuid
-import os
 import time
 import json
 import re
@@ -12,12 +11,13 @@ from ...db import (
     create_project, get_project, list_projects, update_project, 
     delete_project, list_chapters as db_list_chapters, reorder_chapters
 )
-from ...config import COVER_DIR, PROJECTS_DIR, XTTS_OUT_DIR, get_project_m4b_dir
+from ...config import COVER_DIR, XTTS_OUT_DIR, get_project_dir, get_project_m4b_dir
 import urllib.parse
 from ...jobs import enqueue
 from ...engines import get_audio_duration
 from ...state import put_job, update_job, get_jobs
 from ...models import Job
+from ...pathing import safe_basename, safe_join, safe_join_flat
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +33,9 @@ def api_reorder_chapters_route(project_id: str, chapter_ids: str = Form(...)):
         ids_list = json.loads(chapter_ids)
         reorder_chapters(ids_list)
         return JSONResponse({"status": "ok"})
-    except Exception as e:
-        return JSONResponse({"status": "error", "message": str(e)}, status_code=400)
+    except Exception:
+        logger.warning("Failed to reorder chapters for project %s", project_id, exc_info=True)
+        return JSONResponse({"status": "error", "message": "Invalid chapter order"}, status_code=400)
 
 @router.get("/{project_id}")
 def api_get_project(project_id: str):
@@ -53,9 +54,10 @@ async def api_create_project(
     COVER_DIR.mkdir(parents=True, exist_ok=True)
     cover_path = None
     if cover:
-        ext = Path(cover.filename).suffix
+        safe_cover_name = safe_basename(cover.filename)
+        ext = Path(safe_cover_name).suffix
         cover_filename = f"{uuid.uuid4().hex}{ext}"
-        cover_p = COVER_DIR / cover_filename
+        cover_p = safe_join_flat(COVER_DIR, cover_filename)
         content = await cover.read()
         cover_p.write_bytes(content)
         cover_path = f"/out/covers/{cover_filename}"
@@ -82,9 +84,10 @@ async def api_update_project(
 
     if cover:
         COVER_DIR.mkdir(parents=True, exist_ok=True)
-        ext = Path(cover.filename).suffix
+        safe_cover_name = safe_basename(cover.filename)
+        ext = Path(safe_cover_name).suffix
         cover_filename = f"{uuid.uuid4().hex}{ext}"
-        cover_p = COVER_DIR / cover_filename
+        cover_p = safe_join_flat(COVER_DIR, cover_filename)
         content = await cover.read()
         cover_p.write_bytes(content)
         updates["cover_image_path"] = f"/out/covers/{cover_filename}"
@@ -207,10 +210,10 @@ def assemble_project(project_id: str, chapter_ids: Optional[str] = Form(None)):
     if cover_path:
         if cover_path.startswith('/out/covers/'):
             filename = cover_path.replace('/out/covers/', '')
-            cover_path = str(COVER_DIR / filename)
+            cover_path = str(safe_join_flat(COVER_DIR, filename))
         elif cover_path.startswith(f'/projects/{project_id}/'):
             filename = cover_path.replace(f'/projects/{project_id}/', '')
-            cover_path = str(PROJECTS_DIR / project_id / filename)
+            cover_path = str(safe_join(get_project_dir(project_id), filename))
 
     j = Job(
         id=jid,
@@ -240,7 +243,7 @@ def prepare_audiobook():
     if not src_dir.exists():
         return JSONResponse({"title": "", "chapters": []})
 
-    all_files = [f for f in os.listdir(src_dir) if f.endswith(('.wav', '.mp3')) and not f.startswith('seg_')]
+    all_files = [p.name for p in src_dir.iterdir() if p.is_file() and p.suffix.lower() in ('.wav', '.mp3') and not p.name.startswith('seg_')]
     chapters_found = {}
     for f in all_files:
         stem = Path(f).stem
@@ -261,7 +264,7 @@ def prepare_audiobook():
 
     for stem in sorted_stems:
         fname = chapters_found[stem]
-        dur = get_audio_duration(src_dir / fname)
+        dur = get_audio_duration(safe_join_flat(src_dir, fname))
         display_name = job_titles.get(stem + ".txt") or job_titles.get(stem) or stem
         preview.append({
             "filename": fname,

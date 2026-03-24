@@ -14,6 +14,7 @@ from ...models import Job
 from ...state import put_job, update_job, get_settings, get_jobs
 from ...config import get_project_text_dir
 from ...config import get_project_audio_dir, XTTS_OUT_DIR
+from ...pathing import safe_join_flat
 from ..ws import broadcast_queue_update
 
 router = APIRouter(prefix="/api", tags=["generation"])
@@ -51,7 +52,7 @@ def api_add_to_queue(
             title, text_content = c_item
             text_dir = get_project_text_dir(project_id)
             temp_filename = f"{chapter_id}_{split_part}.txt"
-            temp_path = text_dir / temp_filename
+            temp_path = safe_join_flat(text_dir, temp_filename)
             temp_path.write_text(text_content or "", encoding="utf-8", errors="replace")
 
             segs = get_chapter_segments(chapter_id)
@@ -60,8 +61,8 @@ def api_add_to_queue(
                 s.get("audio_status") == "done"
                 and s.get("audio_file_path")
                 and (
-                    (pdir / s["audio_file_path"]).exists()
-                    or (XTTS_OUT_DIR / s["audio_file_path"]).exists()
+                    safe_join_flat(pdir, s["audio_file_path"]).exists()
+                    or safe_join_flat(XTTS_OUT_DIR, s["audio_file_path"]).exists()
                 )
                 for s in segs
             )
@@ -88,8 +89,14 @@ def api_add_to_queue(
             broadcast_queue_update()
 
         return JSONResponse({"status": "ok", "queue_id": qid})
-    except Exception as e:
-        return JSONResponse({"status": "error", "message": str(e)}, status_code=400)
+    except Exception:
+        logger.warning(
+            "Failed to queue chapter %s for project %s",
+            chapter_id,
+            project_id,
+            exc_info=True,
+        )
+        return JSONResponse({"status": "error", "message": "Failed to queue chapter"}, status_code=400)
 
 @router.post("/generation/bake/{chapter_id}")
 def api_bake_chapter(chapter_id: str):
@@ -205,14 +212,15 @@ def api_generate_segments(segment_ids: str = Form(...)):
 
     # Physical Cleanup: Delete existing full-chapter audio files to prevent reconciliation "blink"
     from ... import config
-    import glob
     pdir = config.get_project_audio_dir(project_id) if project_id else config.XTTS_OUT_DIR
-    pattern = str(pdir / f"{chapter_id}*")
-    for p_str in glob.glob(pattern):
-        p = Path(p_str)
-        if p.is_file() and p.suffix.lower() in ('.wav', '.mp3', '.m4a'):
+    for p in pdir.iterdir():
+        if (
+            p.is_file()
+            and p.name.startswith(chapter_id)
+            and p.suffix.lower() in ('.wav', '.mp3', '.m4a')
+        ):
             try:
-                p.unlink()
+                safe_join_flat(pdir, p.name).unlink()
             except Exception:
                 logger.warning("Failed to remove stale chapter audio file %s", p, exc_info=True)
 

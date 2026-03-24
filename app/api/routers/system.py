@@ -1,4 +1,3 @@
-import os
 import uuid
 import time
 import json
@@ -14,6 +13,7 @@ from ...state import get_settings, update_settings, get_jobs, put_job, update_jo
 from ...jobs import paused, set_paused, cleanup_and_reconcile, enqueue
 from ...db import list_speakers
 from ...models import Job
+from ...pathing import safe_basename, safe_join_flat
 from ..utils import read_preview
 
 # Compatibility for tests that monkeypatch these
@@ -69,7 +69,7 @@ def api_home(
         "jobs": jobs,
         "settings": settings,
         "paused": paused(),
-        "narrator_ok": (voices_dir / "Default").exists(),
+        "narrator_ok": safe_join_flat(voices_dir, "Default").exists(),
         "xtts_mp3": [],
         "xtts_wav_only": [],
         "audiobooks": [],
@@ -137,18 +137,12 @@ async def upload(
 ):
     file_content = await file.read()
     # Safe basename for protection
-    safe_filename = os.path.basename(file.filename)
+    safe_filename = safe_basename(file.filename)
 
     def process_file():
         try:
             upload_dir.mkdir(parents=True, exist_ok=True)
-            safe_filename = os.path.basename(file.filename)
-            temp_path = (upload_dir / safe_filename).resolve()
-
-            if not temp_path.is_relative_to(upload_dir.resolve()):
-                logger.warning(f"Blocking upload traversal attempt: {file.filename}")
-                raise HTTPException(status_code=403, detail="Invalid filename")
-
+            temp_path = safe_join_flat(upload_dir, safe_filename)
             temp_path.write_bytes(file_content)
         except Exception as e:
             if isinstance(e, HTTPException): raise
@@ -169,13 +163,13 @@ async def upload(
                 header = parts[i]
                 body = parts[i+1] if i+1 < len(parts) else ""
                 fname = f"part_{len(chapter_filenames)+1:04d}.txt"
-                (chapter_dir / fname).write_text(
+                safe_join_flat(chapter_dir, fname).write_text(
                     header + body, encoding="utf-8"
                 )
                 chapter_filenames.append(fname)
         else:
             fname = "part_0001.txt"
-            (chapter_dir / fname).write_text(content, encoding="utf-8")
+            safe_join_flat(chapter_dir, fname).write_text(content, encoding="utf-8")
             chapter_filenames.append(fname)
         return chapter_filenames
 
@@ -210,21 +204,15 @@ async def create_audiobook(
     if cover:
         try:
             # Use safe basename for filename
-            safe_cover_filename = os.path.basename(cover.filename)
+            safe_cover_filename = safe_basename(cover.filename)
             ext = Path(safe_cover_filename).suffix
             cover_filename = f"{uuid.uuid4().hex}{ext}"
-
-            # Target path
-            dest = (cover_dir / cover_filename).resolve()
-            if not dest.is_relative_to(cover_dir.resolve()):
-                 raise HTTPException(status_code=403, detail="Invalid cover path")
-
+            dest = safe_join_flat(cover_dir, cover_filename)
             cover_path = str(dest)
             cover_content = await cover.read()
 
             def save_cover():
-                with open(cover_path, "wb") as f:
-                    f.write(cover_content)
+                dest.write_bytes(cover_content)
 
             await anyio.to_thread.run_sync(save_cover)
         except Exception as e:

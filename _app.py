@@ -23,6 +23,7 @@ from app.utils.text_processing import (
     pack_text_to_limit
 )
 from app.dashboard_templates import INDEX_HTML, JOB_HTML
+from app.pathing import safe_join_flat
 
 # =======================
 # CONFIG (edit these once)
@@ -344,7 +345,11 @@ def settings_save(safe_mode: Optional[str] = Form(None), make_mp3: Optional[str]
 
 @app.post("/enqueue")
 def enqueue(chapter_file: str = Form(...), engine: str = Form(...)):
-    if not (CHAPTER_DIR / chapter_file).exists():
+    try:
+        chapter_path = safe_join_flat(CHAPTER_DIR, chapter_file)
+    except ValueError:
+        return JSONResponse({"error": "chapter not found"}, status_code=404)
+    if not chapter_path.exists():
         return JSONResponse({"error": "chapter not found"}, status_code=404)
 
     settings = get_settings()
@@ -422,7 +427,10 @@ def analyze():
 
 @app.get("/report/{name}", response_class=PlainTextResponse)
 def report(name: str):
-    p = REPORTS_DIR / name
+    try:
+        p = safe_join_flat(REPORTS_DIR, name)
+    except ValueError:
+        return PlainTextResponse("Report not found.", status_code=404)
     if not p.exists():
         return PlainTextResponse("Report not found.", status_code=404)
     return PlainTextResponse(p.read_text(encoding="utf-8", errors="replace"))
