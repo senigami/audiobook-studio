@@ -351,12 +351,12 @@ def settings_save(safe_mode: Optional[str] = Form(None), make_mp3: Optional[str]
 @app.post("/enqueue")
 def enqueue(chapter_file: str = Form(...), engine: str = Form(...)):
     available_chapters = {p.name: p for p in list_chapters()}
-    safe_chapter_file = Path(chapter_file).name
-    if chapter_file != safe_chapter_file:
+    if chapter_file not in available_chapters:
         return JSONResponse({"error": "chapter not found"}, status_code=404)
-    chapter_path = available_chapters.get(safe_chapter_file)
-    if not chapter_path or not chapter_path.exists():
+    chapter_path = available_chapters[chapter_file]
+    if not chapter_path.exists():
         return JSONResponse({"error": "chapter not found"}, status_code=404)
+    safe_chapter_file = chapter_path.name
 
     settings = get_settings()
     jid = uuid.uuid4().hex[:12]
