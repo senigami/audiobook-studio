@@ -354,8 +354,6 @@ def enqueue(chapter_file: str = Form(...), engine: str = Form(...)):
     if chapter_file not in available_chapters:
         return JSONResponse({"error": "chapter not found"}, status_code=404)
     chapter_path = available_chapters[chapter_file]
-    if not chapter_path.exists():
-        return JSONResponse({"error": "chapter not found"}, status_code=404)
     safe_chapter_file = chapter_path.name
 
     settings = get_settings()
