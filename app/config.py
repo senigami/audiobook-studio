@@ -29,17 +29,29 @@ def get_project_dir(project_id: str) -> Path:
     return d
 
 def get_project_audio_dir(project_id: str) -> Path:
-    d = (get_project_dir(project_id) / "audio").resolve()
+    base_dir = os.path.abspath(os.path.normpath(os.fspath(get_project_dir(project_id))))
+    fullpath = os.path.abspath(os.path.normpath(os.path.join(base_dir, "audio")))
+    if not fullpath.startswith(base_dir + os.sep) and fullpath != base_dir:
+        raise ValueError(f"Invalid audio directory for project id: {project_id}")
+    d = Path(fullpath)
     d.mkdir(parents=True, exist_ok=True)
     return d
 
 def get_project_text_dir(project_id: str) -> Path:
-    d = (get_project_dir(project_id) / "text").resolve()
+    base_dir = os.path.abspath(os.path.normpath(os.fspath(get_project_dir(project_id))))
+    fullpath = os.path.abspath(os.path.normpath(os.path.join(base_dir, "text")))
+    if not fullpath.startswith(base_dir + os.sep) and fullpath != base_dir:
+        raise ValueError(f"Invalid text directory for project id: {project_id}")
+    d = Path(fullpath)
     d.mkdir(parents=True, exist_ok=True)
     return d
 
 def get_project_m4b_dir(project_id: str) -> Path:
-    d = (get_project_dir(project_id) / "m4b").resolve()
+    base_dir = os.path.abspath(os.path.normpath(os.fspath(get_project_dir(project_id))))
+    fullpath = os.path.abspath(os.path.normpath(os.path.join(base_dir, "m4b")))
+    if not fullpath.startswith(base_dir + os.sep) and fullpath != base_dir:
+        raise ValueError(f"Invalid m4b directory for project id: {project_id}")
+    d = Path(fullpath)
     d.mkdir(parents=True, exist_ok=True)
     return d
 
