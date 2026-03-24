@@ -20,7 +20,11 @@ SAFE_PROJECT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
 def get_project_dir(project_id: str) -> Path:
     if not SAFE_PROJECT_ID_RE.fullmatch(project_id):
         raise ValueError(f"Invalid project id: {project_id}")
-    d = (PROJECTS_DIR / project_id).resolve()
+    base_dir = os.path.abspath(os.path.normpath(os.fspath(PROJECTS_DIR)))
+    fullpath = os.path.abspath(os.path.normpath(os.path.join(base_dir, project_id)))
+    if not fullpath.startswith(base_dir + os.sep) and fullpath != base_dir:
+        raise ValueError(f"Invalid project id: {project_id}")
+    d = Path(fullpath)
     d.mkdir(parents=True, exist_ok=True)
     return d
 
