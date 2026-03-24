@@ -1,6 +1,7 @@
 import json
 import os
 import logging
+import re
 import threading
 from dataclasses import asdict
 from pathlib import Path
@@ -9,7 +10,7 @@ from json import JSONDecodeError
 
 from .models import Job
 from .config import BASE_DIR
-from .pathing import safe_join_flat
+SAFE_OUTPUT_FILE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
 
 STATE_FILE = Path(os.getenv("STATE_FILE", str(BASE_DIR / "state.json")))
 logger = logging.getLogger(__name__)
@@ -231,10 +232,9 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
                         else:
                             pdir = XTTS_OUT_DIR
 
-                        try:
-                            full_audio_path = safe_join_flat(pdir, output_file)
-                        except ValueError:
-                            full_audio_path = None
+                        full_audio_path = None
+                        if isinstance(output_file, str) and SAFE_OUTPUT_FILE_RE.fullmatch(output_file):
+                            full_audio_path = pdir / output_file
                         if full_audio_path and full_audio_path.exists():
                             try:
                                 result = subprocess.run(

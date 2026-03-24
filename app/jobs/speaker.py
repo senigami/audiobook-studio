@@ -1,13 +1,16 @@
 import json
 import logging
+import os
+import re
 import uuid
+from pathlib import Path
 from typing import Optional
 from ..config import VOICES_DIR
 from ..state import get_settings
-from ..pathing import safe_join, safe_join_flat
 from ..db.speakers import infer_variant_name, normalize_profile_metadata
 
 logger = logging.getLogger(__name__)
+SAFE_PROFILE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
 
 
 def _is_uuid(value: str) -> bool:
@@ -19,7 +22,13 @@ def _is_uuid(value: str) -> bool:
 
 
 def get_voice_profile_dir(profile_name: str):
-    return safe_join(VOICES_DIR, profile_name)
+    if not SAFE_PROFILE_NAME_RE.fullmatch(profile_name):
+        raise ValueError(f"Invalid profile name: {profile_name}")
+    base_dir = os.path.abspath(os.path.normpath(os.fspath(VOICES_DIR)))
+    fullpath = os.path.abspath(os.path.normpath(os.path.join(base_dir, profile_name)))
+    if not fullpath.startswith(base_dir + os.sep) and fullpath != base_dir:
+        raise ValueError(f"Invalid profile path: {profile_name}")
+    return Path(fullpath)
 
 
 def get_voice_profile_latent_path(profile_name: str):
@@ -128,7 +137,7 @@ def get_speaker_settings(profile_name_or_id: str) -> dict:
     except ValueError:
         return res
 
-    meta_path = safe_join_flat(p, "profile.json")
+    meta_path = p / "profile.json"
     if meta_path.exists():
         try:
             meta = json.loads(meta_path.read_text())
@@ -162,7 +171,7 @@ def update_speaker_settings(profile_name: str, **updates):
     if not p.exists():
         return False
 
-    meta_path = safe_join_flat(p, "profile.json")
+    meta_path = p / "profile.json"
     meta = {}
     if meta_path.exists():
         try:

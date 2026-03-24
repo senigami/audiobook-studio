@@ -1,11 +1,24 @@
 import time
 import uuid
 import logging
+import os
+import re
+from pathlib import Path
 from typing import List, Dict, Any, Optional
 from .core import _db_lock, get_connection
-from ..pathing import safe_join
 
 logger = logging.getLogger(__name__)
+SAFE_PROFILE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
+
+
+def _voice_profile_dir(voices_dir, profile_name: str):
+    if not SAFE_PROFILE_NAME_RE.fullmatch(profile_name):
+        raise ValueError(f"Invalid profile name: {profile_name}")
+    base_dir = os.path.abspath(os.path.normpath(os.fspath(voices_dir)))
+    fullpath = os.path.abspath(os.path.normpath(os.path.join(base_dir, profile_name)))
+    if not fullpath.startswith(base_dir + os.sep) and fullpath != base_dir:
+        raise ValueError(f"Invalid profile path: {profile_name}")
+    return fullpath
 
 
 def infer_variant_name(profile_name: str) -> str:
@@ -24,7 +37,7 @@ def normalize_profile_metadata(profile_name: str, meta: Optional[Dict[str, Any]]
         meta["variant_name"] = infer_variant_name(profile_name)
 
     if persist:
-        profile_dir = safe_join(config.VOICES_DIR, profile_name)
+        profile_dir = Path(_voice_profile_dir(config.VOICES_DIR, profile_name))
         profile_dir.mkdir(parents=True, exist_ok=True)
         meta_path = profile_dir / "profile.json"
         try:
@@ -48,7 +61,7 @@ def normalize_base_profiles() -> None:
 
     for speaker in speakers:
         try:
-            base_dir = safe_join(config.VOICES_DIR, speaker["name"])
+            base_dir = Path(_voice_profile_dir(config.VOICES_DIR, speaker["name"]))
         except ValueError:
             logger.warning("Skipping invalid speaker path for %s", speaker["name"])
             continue
@@ -107,10 +120,10 @@ def create_speaker(name: str, default_profile_name: Optional[str] = None) -> str
             # Legacy sync: ensure profile directory exists and linked
             pname = default_profile_name or name
             try:
-                profile_dir = safe_join(config.VOICES_DIR, pname)
+                profile_dir = Path(_voice_profile_dir(config.VOICES_DIR, pname))
             except ValueError:
                 pname = f"speaker-{speaker_id}"
-                profile_dir = safe_join(config.VOICES_DIR, pname)
+                profile_dir = Path(_voice_profile_dir(config.VOICES_DIR, pname))
 
             # Collision handling: if directory belongs to ANOTHER speaker, use a suffix
             if profile_dir.exists():
@@ -121,10 +134,10 @@ def create_speaker(name: str, default_profile_name: Optional[str] = None) -> str
                         if "speaker_id" in existing_meta and existing_meta["speaker_id"] != speaker_id:
                             # Suffix logic
                             idx = 1
-                            while safe_join(config.VOICES_DIR, f"{pname}_{idx}").exists():
+                            while Path(_voice_profile_dir(config.VOICES_DIR, f"{pname}_{idx}")).exists():
                                 idx += 1
                             pname = f"{pname}_{idx}"
-                            profile_dir = safe_join(config.VOICES_DIR, pname)
+                            profile_dir = Path(_voice_profile_dir(config.VOICES_DIR, pname))
                     except Exception:
                         logger.debug("Failed to inspect existing voice profile metadata for %s", profile_dir, exc_info=True)
 
@@ -194,7 +207,7 @@ def delete_speaker(speaker_id: str) -> bool:
                 for d in config.VOICES_DIR.iterdir():
                     if d.is_dir():
                         try:
-                            safe_dir = safe_join(config.VOICES_DIR, d.name)
+                            safe_dir = Path(_voice_profile_dir(config.VOICES_DIR, d.name))
                         except ValueError:
                             logger.warning("Skipping invalid voice profile directory %s", d, exc_info=True)
                             continue

@@ -116,7 +116,7 @@ def test_queue_uniqueness():
     """
     from app.db import create_project, create_chapter, get_queue
     from app.state import clear_all_jobs
-    import uuid
+    from unittest.mock import patch
 
     # 1. Setup clean environment
     clear_all_jobs()
@@ -125,26 +125,28 @@ def test_queue_uniqueness():
     pid = create_project("Queue Uniqueness Test")
     cid = create_chapter(project_id=pid, title="Unique Chapter")
 
-    # 3. Add to queue first time
-    res1 = client.post("/api/processing_queue", data={
-        "project_id": pid,
-        "chapter_id": cid,
-        "split_part": 0,
-        "speaker_profile": "test_profile"
-    })
-    assert res1.status_code == 200
+    with patch("app.api.routers.generation.enqueue") as mock_enqueue:
+        # 3. Add to queue first time
+        res1 = client.post("/api/processing_queue", data={
+            "project_id": pid,
+            "chapter_id": cid,
+            "split_part": 0,
+            "speaker_profile": "test_profile"
+        })
+        assert res1.status_code == 200
 
-    # 4. Attempt to add to queue second time
-    res2 = client.post("/api/processing_queue", data={
-        "project_id": pid,
-        "chapter_id": cid,
-        "split_part": 0,
-        "speaker_profile": "test_profile"
-    })
+        # 4. Attempt to add to queue second time
+        res2 = client.post("/api/processing_queue", data={
+            "project_id": pid,
+            "chapter_id": cid,
+            "split_part": 0,
+            "speaker_profile": "test_profile"
+        })
 
-    # Should succeed, but return the exact same queue_id instead of a new one
-    assert res2.status_code == 200
-    assert res1.json()["queue_id"] == res2.json()["queue_id"]
+        # Should succeed, but return the exact same queue_id instead of a new one
+        assert res2.status_code == 200
+        assert res1.json()["queue_id"] == res2.json()["queue_id"]
+        assert mock_enqueue.call_count == 1
 
     # 5. Verify the actual queue only has 1 physical row
     q = get_queue()
@@ -217,4 +219,3 @@ def test_chapter_text_last_modified():
     chap3 = get_chapter(cid)
     assert chap3['text_content'] == "New text"
     assert chap3['text_last_modified'] > original_time # SHOULD have changed
-
