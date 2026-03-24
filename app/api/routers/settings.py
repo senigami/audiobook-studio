@@ -2,6 +2,7 @@ import json
 import subprocess
 import shlex
 import time
+import re
 from pathlib import Path
 from typing import Optional, List
 from fastapi import APIRouter, Query
@@ -11,9 +12,8 @@ from ...state import get_jobs, put_job, update_job
 from ...jobs import enqueue
 from ...models import Job
 from ..utils import list_audiobooks
-from ...pathing import safe_join_flat
-
 router = APIRouter(prefix="/api", tags=["settings"])
+SAFE_AUDIOBOOK_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
 
 @router.get("/audiobooks")
 def api_list_audiobooks():
@@ -22,32 +22,34 @@ def api_list_audiobooks():
 @router.delete("/audiobook/{filename}")
 def delete_audiobook(filename: str, project_id: Optional[str] = Query(None)):
     from ...config import get_project_m4b_dir
+    if not SAFE_AUDIOBOOK_NAME_RE.fullmatch(filename):
+        return JSONResponse({"status": "error", "message": "Invalid filename"}, status_code=403)
     path = None
     if project_id:
         try:
-            p_path = safe_join_flat(get_project_m4b_dir(project_id), filename)
+            p_path = get_project_m4b_dir(project_id) / filename
             if p_path.exists():
                 path = p_path
-        except ValueError:
+        except (ValueError, TypeError):
             return JSONResponse({"status": "error", "message": "Invalid filename"}, status_code=403)
 
     if not path:
         try:
-            l_path = safe_join_flat(AUDIOBOOK_DIR, filename)
+            l_path = AUDIOBOOK_DIR / filename
             if l_path.exists():
                 path = l_path
-        except ValueError:
+        except (ValueError, TypeError):
             return JSONResponse({"status": "error", "message": "Invalid filename"}, status_code=403)
 
     if not path and not project_id:
         for p_dir in PROJECTS_DIR.iterdir():
             if p_dir.is_dir():
                 try:
-                    possible = safe_join_flat(p_dir / "m4b", filename)
+                    possible = (p_dir / "m4b" / filename).resolve()
                     if possible.exists():
                         path = possible
                         break
-                except ValueError:
+                except (ValueError, TypeError):
                     continue
 
     if path and path.exists():

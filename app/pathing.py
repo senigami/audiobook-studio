@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 
@@ -16,11 +17,11 @@ def safe_join(root: Path, value: str) -> Path:
     This preserves legitimate subdirectories under the root, while rejecting any
     attempt to escape via ".." segments or absolute paths.
     """
-    root_resolved = root.resolve()
-    candidate = (root_resolved / Path(value)).resolve()
-    if not candidate.is_relative_to(root_resolved):
+    base_dir = os.path.abspath(os.path.normpath(os.fspath(root)))
+    fullpath = os.path.abspath(os.path.normpath(os.path.join(base_dir, value)))
+    if not fullpath.startswith(base_dir + os.sep) and fullpath != base_dir:
         raise ValueError(f"Path escapes root: {value}")
-    return candidate
+    return Path(fullpath)
 
 
 def safe_join_flat(root: Path, value: str) -> Path:

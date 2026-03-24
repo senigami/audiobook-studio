@@ -46,7 +46,12 @@ def test_default_speaker_setting(clean_db, client):
     home = client.get("/api/home").json()
     assert home["settings"]["default_speaker_profile"] == "TestVoice"
 
-def test_audiobooks_list(clean_db, client):
+def test_audiobooks_list(clean_db, client, tmp_path, monkeypatch):
+    from app.api import utils as api_utils
+    monkeypatch.setattr(api_utils.config, "AUDIOBOOK_DIR", tmp_path / "audiobooks")
+    monkeypatch.setattr(api_utils.config, "PROJECTS_DIR", tmp_path / "projects")
+    api_utils.config.AUDIOBOOK_DIR.mkdir()
+    api_utils.config.PROJECTS_DIR.mkdir()
     response = client.get("/api/audiobooks")
     assert response.status_code == 200
     assert isinstance(response.json(), list)

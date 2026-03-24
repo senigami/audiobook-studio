@@ -43,7 +43,7 @@ def test_assemble_project_cover_path_resolution(tmp_path):
     # Clean title check
     assert job_data["custom_title"] == project_name
 
-    expected_absolute_path = str((COVER_DIR / cover_filename).resolve())
+    expected_absolute_path = os.path.abspath(str(COVER_DIR / cover_filename))
     assert job_data["cover_path"] == expected_absolute_path
     assert os.path.isabs(job_data["cover_path"])
     assert "out/covers" not in job_data["cover_path"]
