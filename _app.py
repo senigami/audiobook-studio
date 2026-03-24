@@ -262,8 +262,13 @@ def worker_loop():
         stop_flags[jid] = cancel_event
         update_job(jid, status="running", started_at=time.time())
 
-        chapter_path = CHAPTER_DIR / j["chapter_file"]
-        stem = Path(j["chapter_file"]).stem
+        try:
+            chapter_path = safe_join_flat(CHAPTER_DIR, j["chapter_file"])
+        except ValueError:
+            update_job(jid, status="failed", finished_at=time.time(), log="", error="Invalid chapter path.")
+            job_queue.task_done()
+            continue
+        stem = Path(chapter_path.name).stem
         settings = get_settings()
         make_mp3 = bool(j.get("make_mp3", settings.get("make_mp3", DEFAULT_MAKE_MP3)))
         safe_mode = bool(j.get("safe_mode", settings.get("safe_mode", True)))
@@ -351,12 +356,13 @@ def enqueue(chapter_file: str = Form(...), engine: str = Form(...)):
         return JSONResponse({"error": "chapter not found"}, status_code=404)
     if not chapter_path.exists():
         return JSONResponse({"error": "chapter not found"}, status_code=404)
+    safe_chapter_file = chapter_path.name
 
     settings = get_settings()
     jid = uuid.uuid4().hex[:12]
     job = {
         "id": jid,
-        "chapter_file": chapter_file,
+        "chapter_file": safe_chapter_file,
         "engine": engine,
         "status": "queued",
         "created_at": time.time(),
