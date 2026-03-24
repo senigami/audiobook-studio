@@ -1,32 +1,26 @@
 import pytest
 import os
-import uuid
+import importlib
 from unittest.mock import patch, MagicMock
-from app.db.core import init_db
 
 @pytest.fixture
-def client():
+def client(clean_db):
     from fastapi.testclient import TestClient
     from app.web import app as fastapi_app
     return TestClient(fastapi_app)
 
 @pytest.fixture
-def clean_db():
-    db_path = "/tmp/test_api_gen.db"
-    if os.path.exists(db_path):
-        os.unlink(db_path)
-    os.environ["DB_PATH"] = db_path
+def clean_db(tmp_path):
+    db_path = tmp_path / "test_api_gen.db"
+    os.environ["DB_PATH"] = str(db_path)
     import app.db.core
-    import importlib
     importlib.reload(app.db.core)
-    init_db()
+    app.db.core.init_db()
 
     from app.state import update_settings
     update_settings({"default_speaker_profile": "Voice1"})
 
     yield
-    if os.path.exists(db_path):
-        os.unlink(db_path)
 
 def test_queue_and_bake(clean_db, client):
     from app.db.projects import create_project

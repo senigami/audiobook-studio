@@ -9,6 +9,7 @@ Welcome to the Audiobook Studio internal documentation. This Wiki is designed to
 - [[Library and Projects]] - Managing your books.
 - [[Voices and Voice Profiles]] - AI Voice Lab guide.
 - [[Queue and Jobs]] - Monitoring generation.
+- [[Comparison and Cost]] - Honest comparison with hosted TTS pricing.
 - [[Recording Guide]] - Best practices for clean audio.
 - [[Troubleshooting and FAQ]] - Solutions to common issues.
 

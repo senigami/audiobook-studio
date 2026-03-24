@@ -53,6 +53,10 @@
         -webkit-font-smoothing: antialiased;
       }
 
+      p {
+        text-wrap: pretty;
+      }
+
       .container {
         max-width: 1240px;
         margin: 0 auto;
@@ -92,6 +96,8 @@
         color: var(--text-secondary);
         font-weight: 400;
         margin-top: 1.5rem;
+        line-height: 1.75;
+        letter-spacing: -0.01em;
         text-align: center;
         max-width: 700px;
         margin-left: auto;
@@ -148,6 +154,8 @@
         font-size: 1.25rem;
         color: var(--text-secondary);
         margin-bottom: 3rem;
+        line-height: 1.75;
+        letter-spacing: -0.01em;
       }
 
       .audio-demo {
@@ -186,12 +194,295 @@
         font-size: 2.25rem;
         font-weight: 800;
         margin-bottom: 1rem;
+        line-height: 1.15;
+        letter-spacing: -0.02em;
       }
 
       .tour-grid {
         display: flex;
         flex-direction: column;
         gap: 8rem;
+      }
+
+      .compare-section {
+        margin-top: 9rem;
+        margin-bottom: 4rem;
+      }
+
+      .compare-panel,
+      .cost-panel {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 28px;
+        box-shadow: var(--shadow-lg);
+        padding: 2rem;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .compare-panel h3,
+      .cost-panel h3 {
+        font-size: 1.5rem;
+        font-weight: 800;
+        margin-bottom: 0.75rem;
+      }
+
+      .compare-panel > p,
+      .cost-panel > p {
+        color: var(--text-secondary);
+        margin-bottom: 1.5rem;
+        line-height: 1.75;
+      }
+
+      .compare-table,
+      .cost-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 640px;
+      }
+
+      .compare-table th,
+      .compare-table td,
+      .cost-table th,
+      .cost-table td {
+        text-align: left;
+        padding: 0.85rem 0.9rem;
+        border-bottom: 1px solid var(--border);
+        vertical-align: top;
+      }
+
+      .compare-table th,
+      .cost-table th {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+      }
+
+      .compare-table td,
+      .cost-table td {
+        color: var(--text-secondary);
+      }
+
+      .compare-table td:first-child,
+      .cost-table td:first-child {
+        color: var(--text-primary);
+        font-weight: 700;
+      }
+
+      .cost-highlight {
+        background: linear-gradient(
+          135deg,
+          var(--accent) 0%,
+          #3f8cff 100%
+        );
+        color: white;
+        border-radius: 24px;
+        padding: 1.75rem;
+        margin-bottom: 1.5rem;
+        box-shadow: var(--shadow-md);
+      }
+
+      .cost-highlight-label {
+        display: block;
+        font-size: 0.8rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        opacity: 0.8;
+        margin-bottom: 0.75rem;
+      }
+
+      .cost-highlight-figure {
+        font-size: 2.5rem;
+        font-weight: 800;
+        line-height: 1;
+        margin-bottom: 0.75rem;
+      }
+
+      .cost-highlight p {
+        color: rgba(255, 255, 255, 0.9);
+        margin: 0;
+      }
+
+      .cost-notes {
+        list-style: none;
+        display: grid;
+        gap: 0.9rem;
+        margin-top: 1.25rem;
+      }
+
+      .cost-notes li {
+        position: relative;
+        padding-left: 1.3rem;
+        color: var(--text-secondary);
+      }
+
+      .cost-notes li::before {
+        content: "•";
+        position: absolute;
+        left: 0;
+        top: 0;
+        color: var(--accent-secondary);
+        font-weight: 800;
+      }
+
+      .source-note {
+        margin-top: 1.25rem;
+        font-size: 0.9rem;
+        color: var(--text-muted);
+      }
+
+      .source-note a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      .source-note a:hover {
+        text-decoration: underline;
+      }
+
+      .compare-panel {
+        margin-bottom: 2rem;
+      }
+
+      .cost-section {
+        margin-top: 2rem;
+      }
+
+      .cost-ladder {
+        display: grid;
+        gap: 0.9rem;
+        margin-top: 1.5rem;
+      }
+
+      .ladder-step {
+        display: grid;
+        grid-template-columns: 1.35fr 0.9fr 0.75fr;
+        gap: 1rem;
+        align-items: center;
+        padding: 1rem 1.1rem;
+        border-radius: 18px;
+        border: 1px solid var(--border);
+        background: linear-gradient(180deg, #fff 0%, #f8fbff 100%);
+      }
+
+      .ladder-step-name {
+        font-weight: 700;
+        color: var(--text-primary);
+      }
+
+      .ladder-step-note {
+        font-size: 0.92rem;
+        color: var(--text-secondary);
+        line-height: 1.65;
+      }
+
+      .ladder-step-cost {
+        text-align: right;
+        font-weight: 800;
+        color: var(--accent-secondary);
+        font-size: 1.05rem;
+      }
+
+      .ladder-step-free {
+        text-align: right;
+        font-weight: 800;
+        color: var(--accent);
+        font-size: 1.05rem;
+      }
+
+      .breakdown-toggle {
+        margin-top: 1.75rem;
+        border: 1px solid var(--border);
+        border-radius: 22px;
+        background: linear-gradient(180deg, #fff 0%, #f8fbff 100%);
+        overflow: hidden;
+      }
+
+      .breakdown-toggle summary {
+        list-style: none;
+        cursor: pointer;
+        padding: 1.25rem 1.4rem;
+        font-weight: 800;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+      }
+
+      .breakdown-toggle summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .breakdown-toggle summary span {
+        color: var(--text-secondary);
+        font-weight: 500;
+      }
+
+      .breakdown-toggle summary::after {
+        content: "+";
+        font-size: 1.3rem;
+        line-height: 1;
+        color: var(--accent);
+      }
+
+      .breakdown-toggle[open] summary::after {
+        content: "−";
+      }
+
+      .breakdown-content {
+        padding: 0 1.4rem 1.4rem 1.4rem;
+      }
+
+      .breakdown-copy {
+        color: var(--text-secondary);
+        margin-bottom: 1.25rem;
+        line-height: 1.7;
+      }
+
+      .table-stack {
+        display: grid;
+        gap: 1.25rem;
+      }
+
+      .table-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 1rem;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .table-card h4 {
+        font-size: 1rem;
+        font-weight: 800;
+        margin-bottom: 0.8rem;
+      }
+
+      .compact-summary {
+        min-width: 0 !important;
+        width: 100%;
+        table-layout: fixed;
+      }
+
+      .compact-summary td,
+      .compact-summary th {
+        white-space: normal;
+        overflow-wrap: anywhere;
+        word-break: normal;
+      }
+
+      .compact-summary td:first-child,
+      .compact-summary th:first-child {
+        width: 68%;
+      }
+
+      .compact-summary td:nth-child(2),
+      .compact-summary th:nth-child(2) {
+        width: 32%;
       }
 
       .tour-item {
@@ -214,12 +505,15 @@
         font-weight: 800;
         margin-bottom: 1rem;
         color: var(--accent);
+        line-height: 1.15;
+        letter-spacing: -0.02em;
       }
 
       .tour-text p {
         font-size: 1.1rem;
         color: var(--text-secondary);
         margin-bottom: 1.5rem;
+        line-height: 1.75;
       }
 
       .tour-list {
@@ -291,6 +585,16 @@
         overflow: hidden;
       }
 
+      .tour-screenshot.square-crop {
+        width: 100%;
+        max-width: 500px;
+        aspect-ratio: 1 / 1;
+        object-fit: cover;
+        object-position: center center;
+        margin: 0 auto;
+        display: block;
+      }
+
       .hero-visual {
         width: 100%;
         max-width: 1000px;
@@ -354,19 +658,363 @@
       }
 
       @media (max-width: 900px) {
-        .hero-pod,
+        .container {
+          padding: 1.25rem;
+        }
+
+        header {
+          margin-top: 2rem;
+          margin-bottom: 3rem;
+        }
+
+        .brand-section {
+          flex-direction: column;
+          gap: 0.75rem;
+        }
+
+        .brand-logo {
+          height: 88px;
+        }
+
+        .brand-wordmark {
+          height: 72px;
+          max-width: min(100%, 320px);
+        }
+
+        .brand-tagline {
+          font-size: 1.02rem;
+          margin-top: 1rem;
+          max-width: 32rem;
+          line-height: 1.8;
+        }
+
+        .badge {
+          font-size: 0.74rem;
+          padding: 0.45rem 0.85rem;
+        }
+
+        .hero-pod {
+          padding: 2rem 1.25rem 1.5rem 1.25rem;
+          border-radius: 28px;
+          gap: 2rem;
+          margin-bottom: 3.5rem;
+        }
+
+        .hero-content,
+        .tour-text,
+        .section-header {
+          text-align: center;
+        }
+
+        .hero-h2 {
+          font-size: clamp(2rem, 8vw, 2.6rem);
+          margin-bottom: 1rem;
+          max-width: 13ch;
+          margin-left: auto;
+          margin-right: auto;
+        }
+
+        .hero-p {
+          font-size: 1.05rem;
+          margin-bottom: 1.5rem;
+          max-width: 34rem;
+          margin-left: auto;
+          margin-right: auto;
+          line-height: 1.8;
+        }
+
+        .audio-demo {
+          padding: 1.2rem;
+          border-radius: 18px;
+        }
+
+        .hero-visual img {
+          border-radius: 16px;
+        }
+
+        .tour-section {
+          margin-top: 4rem;
+        }
+
+        .compare-section {
+          margin-top: 5rem;
+          margin-bottom: 2rem;
+        }
+
+        .section-header {
+          margin-bottom: 2rem;
+        }
+
+        .section-header h2 {
+          font-size: clamp(1.85rem, 6vw, 2.2rem);
+          line-height: 1.15;
+          max-width: 15ch;
+          margin-left: auto;
+          margin-right: auto;
+        }
+
+        .tour-grid {
+          gap: 3.5rem;
+        }
+
         .tour-item {
           grid-template-columns: 1fr;
-          gap: 2rem;
-          padding: 2rem;
+          gap: 1.5rem;
           text-align: center;
         }
-        .hero-content,
-        .tour-text {
-          text-align: center;
+
+        .tour-item:nth-child(even) {
+          direction: ltr;
         }
-        .brand-h1 {
-          font-size: 2.5rem;
+
+        .tour-text h3 {
+          font-size: 1.45rem;
+          margin-bottom: 0.75rem;
+        }
+
+        .tour-text p {
+          font-size: 1rem;
+          margin-bottom: 1rem;
+          line-height: 1.8;
+        }
+
+        .tour-list {
+          display: grid;
+          gap: 0.6rem;
+        }
+
+        .tour-list li {
+          padding-left: 1.25rem;
+          text-align: left;
+        }
+
+        .tour-screenshot {
+          border-radius: 18px;
+        }
+
+        .tour-screenshot.square-crop {
+          max-width: 100%;
+          object-position: center center;
+        }
+
+        .compare-panel,
+        .cost-panel {
+          padding: 1.25rem;
+          border-radius: 22px;
+          box-shadow: var(--shadow-md);
+        }
+
+        .compare-panel h3,
+        .cost-panel h3 {
+          font-size: 1.25rem;
+          line-height: 1.2;
+        }
+
+        .compare-table,
+        .cost-table {
+          min-width: 560px;
+        }
+
+        .compact-summary {
+          min-width: 0;
+        }
+
+        .compare-table th,
+        .compare-table td,
+        .cost-table th,
+        .cost-table td {
+          padding: 0.75rem 0.7rem;
+        }
+
+        .cost-highlight {
+          padding: 1.3rem;
+          border-radius: 18px;
+        }
+
+        .cost-highlight-figure {
+          font-size: 2rem;
+        }
+
+        .cost-highlight p,
+        .source-note,
+        .ladder-step-note,
+        .compare-panel > p,
+        .cost-panel > p,
+        .breakdown-copy {
+          line-height: 1.75;
+        }
+
+        .ladder-step {
+          grid-template-columns: 1fr;
+          text-align: left;
+          padding: 0.95rem 1rem;
+        }
+
+        .ladder-step-cost,
+        .ladder-step-free {
+          text-align: left;
+        }
+
+        .breakdown-toggle summary {
+          align-items: flex-start;
+          flex-direction: column;
+          padding: 1rem 2.75rem 0.95rem 1rem;
+          position: relative;
+        }
+
+        .breakdown-content {
+          padding: 0 1rem 1rem 1rem;
+        }
+
+        .table-card {
+          padding: 0.85rem;
+        }
+
+        .breakdown-toggle summary::after {
+          position: absolute;
+          right: 1rem;
+          top: 1rem;
+        }
+
+        .cta-box {
+          margin-top: 5rem;
+          margin-bottom: 5rem;
+          padding: 2rem 1.25rem;
+          border-radius: 28px;
+        }
+
+        .cta-box div[style*="display: flex"] {
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        .button {
+          justify-content: center;
+          width: 100%;
+          padding: 0.95rem 1.2rem;
+        }
+
+        footer {
+          padding: 2.5rem 0 1rem 0;
+        }
+      }
+
+      @media (max-width: 560px) {
+        .container {
+          padding: 0.9rem;
+        }
+
+        .brand-logo {
+          height: 74px;
+        }
+
+        .brand-wordmark {
+          height: 58px;
+        }
+
+        .hero-pod {
+          padding: 1.35rem 1rem 1.2rem 1rem;
+          border-radius: 22px;
+        }
+
+        .hero-h2 {
+          font-size: 1.8rem;
+          max-width: 11ch;
+        }
+
+        .hero-p,
+        .tour-text p,
+        .compare-panel > p,
+        .cost-panel > p,
+        .breakdown-copy {
+          font-size: 0.96rem;
+          line-height: 1.78;
+        }
+
+        .section-header h2 {
+          font-size: 1.65rem;
+          max-width: 14ch;
+        }
+
+        .section-header p,
+        .brand-tagline {
+          max-width: 28rem;
+        }
+
+        .compare-table,
+        .cost-table {
+          min-width: 500px;
+        }
+
+        .compact-summary {
+          min-width: 0;
+        }
+
+        .compare-panel,
+        .cost-panel {
+          background: transparent;
+          border: none;
+          box-shadow: none;
+          padding: 0;
+          border-radius: 0;
+        }
+
+        .cost-highlight {
+          box-shadow: var(--shadow-md);
+        }
+
+        .breakdown-toggle {
+          background: transparent;
+          box-shadow: none;
+          border-radius: 18px;
+        }
+
+        .breakdown-toggle summary {
+          padding: 1rem 0;
+          position: relative;
+          padding-right: 2.75rem;
+          padding-left: 0.85rem;
+        }
+
+        .breakdown-content {
+          padding: 0 0.85rem 0.5rem 0.85rem;
+        }
+
+        .table-stack {
+          gap: 1rem;
+        }
+
+        .table-card {
+          background: transparent;
+          border: none;
+          border-top: 1px solid var(--border);
+          border-radius: 0;
+          padding: 0.85rem 0 0 0;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .table-card h4 {
+          margin-bottom: 0.65rem;
+          padding: 0 0.85rem;
+        }
+
+        .breakdown-toggle summary::after {
+          position: absolute;
+          right: 0.85rem;
+          top: 1rem;
+        }
+
+        .tour-screenshot.square-crop {
+          object-position: center center;
+        }
+
+        .cost-highlight-figure {
+          font-size: 1.8rem;
+        }
+
+        .source-note {
+          font-size: 0.82rem;
         }
       }
     </style>
@@ -536,10 +1184,290 @@
             <img
               src="assets/narrator_studio_visual.jpg"
               alt="Professional microphone in a moody studio setting"
-              class="tour-screenshot"
-              style="width: auto; height: 500px; aspect-ratio: 1/1; object-fit: cover; object-position: center -90px; margin: 0 auto"
+              class="tour-screenshot square-crop"
             />
           </div>
+        </div>
+      </section>
+
+      <section class="compare-section">
+        <div class="section-header">
+          <span class="badge">Honest Comparison</span>
+          <h2>Why a Local Audiobook Workflow Matters</h2>
+          <p
+            style="
+              color: var(--text-secondary);
+              max-width: 760px;
+              margin: 0 auto;
+            "
+          >
+            ElevenLabs is polished and easy to start with. Audiobook Studio is
+            strongest in different places: privacy, ownership, and the freedom
+            to keep fixing a book without watching credits disappear.
+          </p>
+        </div>
+
+        <div class="compare-panel">
+          <h3>Audiobook Studio vs. ElevenLabs</h3>
+          <p>
+            This is not a "we beat them at everything" comparison. It is a
+            practical look at what matters when you are producing a full
+            audiobook.
+          </p>
+          <table class="compare-table">
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Audiobook Studio</th>
+                <th>ElevenLabs Studio</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Cost over time</td>
+                <td>Free after setup, local hardware cost only</td>
+                <td>Subscription and credit based</td>
+              </tr>
+              <tr>
+                <td>Privacy</td>
+                <td>Local-first, files stay on your machine</td>
+                <td>Cloud workflow</td>
+              </tr>
+              <tr>
+                <td>Ownership</td>
+                <td>Local project files and local voice assets</td>
+                <td>Platform account workflow</td>
+              </tr>
+              <tr>
+                <td>Voice assignment</td>
+                <td>Character and segment based editing inside your project</td>
+                <td>Section, paragraph, and character assignment in Studio</td>
+              </tr>
+              <tr>
+                <td>Repair workflow</td>
+                <td>Local segment repair and partial chapter requeue</td>
+                <td>Paragraph or word regeneration in the cloud</td>
+              </tr>
+              <tr>
+                <td>Setup</td>
+                <td>More involved</td>
+                <td>Easier to start</td>
+              </tr>
+              <tr>
+                <td>Baseline polish</td>
+                <td>Good with careful samples and tuning</td>
+                <td>Usually stronger out of the box</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="cost-panel cost-section">
+          <div class="cost-highlight">
+            <span class="cost-highlight-label">Full-Length Book Example</span>
+            <div class="cost-highlight-figure">$99-$330+</div>
+            <p>
+              A 600,000-character book can push hosted voice generation into
+              Pro or Scale territory once normal revisions begin.
+            </p>
+          </div>
+
+          <h3>What the credits turn into</h3>
+          <p>
+            Using public ElevenLabs pricing as of March 24, 2026, here is what
+            a realistic 600,000-character production cycle can look like.
+          </p>
+          <table class="cost-table compact-summary">
+            <thead>
+              <tr>
+                <th>Scenario</th>
+                <th>Likely spend</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Single voice, clean Flash/Turbo pass</td>
+                <td>$99</td>
+              </tr>
+              <tr>
+                <td>Single voice with moderate corrections</td>
+                <td>$99</td>
+              </tr>
+              <tr>
+                <td>Heavy custom voice iteration</td>
+                <td>$330 or multiple months</td>
+              </tr>
+              <tr>
+                <td>Higher-cost models, clean pass</td>
+                <td>$330 or multiple months</td>
+              </tr>
+              <tr>
+                <td>Higher-cost models with revisions</td>
+                <td>$330+</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <ul class="cost-notes">
+            <li>Every pronunciation fix can consume more credits.</li>
+            <li>Every alternate take makes the final book more expensive.</li>
+            <li>
+              With Audiobook Studio, those corrections stop affecting your bill
+              after setup.
+            </li>
+          </ul>
+
+          <div class="cost-ladder">
+            <div class="ladder-step">
+              <div>
+                <div class="ladder-step-name">Clean first pass</div>
+                <div class="ladder-step-note">
+                  The manuscript generates cleanly with minimal repair work.
+                </div>
+              </div>
+              <div class="ladder-step-cost">$99 hosted</div>
+              <div class="ladder-step-free">Local after setup</div>
+            </div>
+            <div class="ladder-step">
+              <div>
+                <div class="ladder-step-name">Normal revisions</div>
+                <div class="ladder-step-note">
+                  Pronunciations, pacing, and small fixes start to pile up.
+                </div>
+              </div>
+              <div class="ladder-step-cost">$99 hosted</div>
+              <div class="ladder-step-free">Still local</div>
+            </div>
+            <div class="ladder-step">
+              <div>
+                <div class="ladder-step-name">Heavy iteration</div>
+                <div class="ladder-step-note">
+                  Alternate takes and repeated correction passes raise the
+                  hosted cost quickly.
+                </div>
+              </div>
+              <div class="ladder-step-cost">$330+ hosted</div>
+              <div class="ladder-step-free">Still local</div>
+            </div>
+            <div class="ladder-step">
+              <div>
+                <div class="ladder-step-name">Custom voice workflow</div>
+                <div class="ladder-step-note">
+                  Testing cloned voices and retries is where subscription
+                  pressure really starts to show.
+                </div>
+              </div>
+              <div class="ladder-step-cost">$330+ hosted</div>
+              <div class="ladder-step-free">Still local</div>
+            </div>
+          </div>
+
+          <details class="breakdown-toggle">
+            <summary>
+              See the detailed cost breakdown
+              <span>Effective usage rates, credits, and plan tiers</span>
+            </summary>
+            <div class="breakdown-content">
+              <p class="breakdown-copy">
+                These tables use the same 600,000-character example and the
+                current public ElevenLabs pricing assumptions listed below.
+              </p>
+              <div class="table-stack">
+                <div class="table-card">
+                  <h4>Production type and effective cost</h4>
+                  <table class="cost-table">
+                    <thead>
+                      <tr>
+                        <th>Production type</th>
+                        <th>Credit rule</th>
+                        <th>Cost / 1k chars</th>
+                        <th>Clean pass</th>
+                        <th>1.5x revisions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>Standard single voice</td>
+                        <td>0.5 credits / char</td>
+                        <td>$0.08</td>
+                        <td>$50</td>
+                        <td>$75</td>
+                      </tr>
+                      <tr>
+                        <td>Custom cloned voice</td>
+                        <td>0.5 credits / char</td>
+                        <td>$0.11</td>
+                        <td>$66</td>
+                        <td>$99</td>
+                      </tr>
+                      <tr>
+                        <td>Higher-cost models</td>
+                        <td>1 credit / char</td>
+                        <td>$0.22</td>
+                        <td>$132</td>
+                        <td>$198</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="table-card">
+                  <h4>Scenario, credits, and plan needed</h4>
+                  <table class="cost-table compact-breakdown">
+                    <thead>
+                      <tr>
+                        <th>Scenario</th>
+                        <th>Credits needed</th>
+                        <th>Likely plan</th>
+                        <th>Monthly spend</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>Single voice, clean Flash/Turbo pass</td>
+                        <td>300k</td>
+                        <td>Pro</td>
+                        <td>$99</td>
+                      </tr>
+                      <tr>
+                        <td>Single voice with moderate corrections</td>
+                        <td>450k</td>
+                        <td>Pro</td>
+                        <td>$99</td>
+                      </tr>
+                      <tr>
+                        <td>Heavy custom voice iteration</td>
+                        <td>600k</td>
+                        <td>Scale or multiple months</td>
+                        <td>$330 or multiple months</td>
+                      </tr>
+                      <tr>
+                        <td>Higher-cost models, clean pass</td>
+                        <td>600k</td>
+                        <td>Scale or multiple months</td>
+                        <td>$330 or multiple months</td>
+                      </tr>
+                      <tr>
+                        <td>Higher-cost models with revisions</td>
+                        <td>900k</td>
+                        <td>Scale</td>
+                        <td>$330+</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <p class="source-note">
+            Sources:
+            <a href="https://elevenlabs.io/pricing">ElevenLabs Pricing</a>,
+            <a
+              href="https://help.elevenlabs.io/hc/en-us/articles/27562020846481-What-are-credits"
+              >What are credits?</a
+            >,
+            <a href="https://elevenlabs.io/projects">ElevenLabs Studio</a>
+          </p>
         </div>
       </section>
 
