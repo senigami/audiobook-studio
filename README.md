@@ -6,6 +6,8 @@ Listen to the overview demo, explore the interface, and get a better feel for ho
 
 [Open the Live Showcase](https://senigami.github.io/audiobook-studio/)
 
+The live showcase also includes the fuller feature and cost comparison with ElevenLabs.
+
 # Audiobook Studio
 
 ### Local AI audiobook production with voice cloning, chapter repair, and long-form workflow control
@@ -40,6 +42,68 @@ Audiobook Studio is built around the messy reality of audiobook production:
 - finished books need real assembly and export
 
 This project gives you a production surface for that work, not just a synthesis endpoint.
+
+## Audiobook Studio vs. ElevenLabs
+
+ElevenLabs is a strong product. It has polished voices, a fast cloud workflow, and useful Studio tools for multi-voice generation and paragraph-level regeneration.
+
+Audiobook Studio is strongest in different places:
+
+- **No recurring generation subscription**
+- **Private, local-first workflow**
+- **You own the manuscript, voices, and output**
+- **Corrections do not keep charging you**
+
+If you are building a real audiobook instead of a few test clips, those differences matter a lot.
+
+| Category | Audiobook Studio | ElevenLabs Studio |
+| --- | --- | --- |
+| Cost over time | Free to run after setup, local hardware cost only | Subscription and credit based |
+| Privacy | Local-first, files stay on your machine | Cloud workflow |
+| Ownership | Local project files and local voice assets | Platform account workflow |
+| Voice assignment | Character and segment based editing inside your project | Section, paragraph, and character assignment in Studio |
+| Repair workflow | Local segment repair, partial chapter requeue, and production review | Paragraph or word regeneration in the cloud |
+| Setup | More involved | Easier to start |
+| Baseline polish | Good with careful samples and tuning | Usually stronger out of the box |
+
+## Cost Comparison
+
+Hosted voice generation can get expensive fast for full-length books, especially when you factor in corrections and custom voices.
+
+Using ElevenLabs public pricing and credit rules as of **March 24, 2026**:
+
+- **Starter**: `$5/month` for `30k` credits
+- **Creator**: `$22/month` for `100k` credits
+- **Pro**: `$99/month` for `500k` credits
+- **Scale**: `$330/month` for `2M` credits
+- **Flash/Turbo models**: `1 text character = 0.5 credits`
+- **Other models**: `1 text character = 1 credit`
+
+For a fair comparison, this table uses a **600,000 character book** as a full-length example.
+
+| Production type | Minimum realistic plan | Credit rule | Effective cost per 1,000 chars | Clean 600k-char pass | 600k chars with moderate corrections (1.5x) |
+| --- | --- | --- | ---: | ---: | ---: |
+| Standard single voice | Starter | `0.5 credits/char` | about `$0.08` | about `$50` in effective usage | about `$75` in effective usage |
+| Custom cloned voice | Creator | `0.5 credits/char` | about `$0.11` | about `$66` in effective usage | about `$99` in effective usage |
+| Higher-cost models | Creator | `1 credit/char` | about `$0.22` | about `$132` in effective usage | about `$198` in effective usage |
+
+And this is what the **real-world monthly spend** often looks like when you actually need enough credits to finish the book in a normal production cycle:
+
+| Scenario | Credits needed | Likely plan needed in practice | Monthly spend |
+| --- | ---: | --- | ---: |
+| 600k chars, Flash/Turbo clean pass | `300k` | Pro | `$99` |
+| 600k chars, Flash/Turbo with moderate corrections | `450k` | Pro | `$99` |
+| 600k chars, Flash/Turbo with heavy iteration | `600k` | Scale or multiple months | `$330` or multiple months |
+| 600k chars, higher-cost model clean pass | `600k` | Scale or multiple months | `$330` or multiple months |
+| 600k chars, higher-cost model with corrections | `900k` | Scale | `$330` |
+
+That is where Audiobook Studio becomes especially compelling:
+
+- you do not hesitate to fix a pronunciation
+- you do not pay extra to test another take
+- you can iterate freely without watching credits
+
+If you want the longer written breakdown, see the wiki page: [Comparison and Cost](https://github.com/senigami/audiobook-studio/wiki/Comparison-and-Cost). If you want the more visual version, open the [Live Showcase](https://senigami.github.io/audiobook-studio/).
 
 ## Core Features
 
@@ -143,6 +207,7 @@ If you want the deeper walkthroughs, they are here:
 - [Voices and Voice Profiles](https://github.com/senigami/audiobook-studio/wiki/Voices-and-Voice-Profiles)
 - [Queue and Jobs](https://github.com/senigami/audiobook-studio/wiki/Queue-and-Jobs)
 - [Recording Guide](https://github.com/senigami/audiobook-studio/wiki/Recording-Guide)
+- [Comparison and Cost](https://github.com/senigami/audiobook-studio/wiki/Comparison-and-Cost)
 - [Troubleshooting and FAQ](https://github.com/senigami/audiobook-studio/wiki/Troubleshooting-and-FAQ)
 - [Full Wiki](https://github.com/senigami/audiobook-studio/wiki)
 
