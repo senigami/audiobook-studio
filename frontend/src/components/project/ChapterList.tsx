@@ -93,7 +93,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
           const activeJob = pickActiveJob(chap.id);
           const progressValue = activeJob ? (activeJob.progress ?? 0) : 0;
           const isMenuOpen = openMenuRowId === chap.id;
-          const hasChapterAudio = !!chap.audio_file_path && !!(chap.has_wav || chap.has_mp3 || chap.has_m4a);
+          const hasChapterAudio = !!(chap.has_wav || chap.has_mp3 || chap.has_m4a);
           const isFullyRendered = hasChapterAudio;
           const queueActionLabel = isFullyRendered
             ? 'Rebuild Audio'

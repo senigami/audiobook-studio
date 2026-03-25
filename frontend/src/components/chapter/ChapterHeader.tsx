@@ -45,7 +45,7 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
   onQueue,
   onStopAll
 }) => {
-  const hasChapterAudio = !!chapter.audio_file_path && !!(chapter.has_wav || chapter.has_mp3 || chapter.has_m4a);
+  const hasChapterAudio = !!(chapter.has_wav || chapter.has_mp3 || chapter.has_m4a);
   const queueStatus = queuePending
     ? 'Queued'
     : job?.status === 'queued'
@@ -101,11 +101,24 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
               }}
           />
           
-          {hasChapterAudio && chapter.audio_file_path && (
+          {hasChapterAudio && (
               <div style={{ paddingLeft: '1rem', borderLeft: '1px solid var(--border)' }}>
                   {(() => {
                       const audioPath = chapter.audio_file_path;
-                      if (!audioPath) return null;
+                      if (!audioPath) {
+                        return (
+                          <audio
+                              controls
+                              key={chapter.id}
+                              style={{ height: '32px', maxWidth: '300px' }}
+                          >
+                              <source src={`/projects/${chapter.project_id}/audio/${chapter.id}.mp3`} />
+                              <source src={`/projects/${chapter.project_id}/audio/${chapter.id}.wav`} />
+                              <source src={`/out/xtts/${chapter.id}.mp3`} />
+                              <source src={`/out/xtts/${chapter.id}.wav`} />
+                          </audio>
+                        );
+                      }
                       const wavPath = audioPath.replace(/\.[^.]+$/, '.wav');
                       const mp3Path = audioPath.replace(/\.[^.]+$/, '.mp3');
                       
