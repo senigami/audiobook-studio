@@ -49,8 +49,9 @@ def normalize_profile_metadata(profile_name: str, meta: Optional[Dict[str, Any]]
         meta["variant_name"] = infer_variant_name(profile_name)
 
     if persist:
-        profile_dir = _existing_profile_dir(config.VOICES_DIR, profile_name) or _new_profile_dir(config.VOICES_DIR, profile_name)
-        profile_dir.mkdir(parents=True, exist_ok=True)
+        profile_dir = _existing_profile_dir(config.VOICES_DIR, profile_name)
+        if not profile_dir:
+            return meta
         meta_path = profile_dir / "profile.json"
         try:
             meta_path.write_text(json.dumps(meta, indent=2))

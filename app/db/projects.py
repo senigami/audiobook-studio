@@ -59,7 +59,12 @@ def delete_project(project_id: str) -> bool:
             # 1. First, get project info for path cleanup
             from .. import config
             import shutil
-            pdir = config.get_project_dir(project_id)
+            pdir = None
+            if config.PROJECTS_DIR.exists():
+                for entry in config.PROJECTS_DIR.iterdir():
+                    if entry.is_dir() and entry.name == project_id:
+                        pdir = entry.resolve()
+                        break
 
             # 2. Delete from DB
             # Delete related characters
@@ -72,7 +77,7 @@ def delete_project(project_id: str) -> bool:
             conn.commit()
 
             # 3. Physical cleanup
-            if pdir.exists() and pdir.is_relative_to(config.PROJECTS_DIR.resolve()):
+            if pdir and pdir.is_relative_to(config.PROJECTS_DIR.resolve()):
                 try:
                     shutil.rmtree(pdir)
                 except Exception:

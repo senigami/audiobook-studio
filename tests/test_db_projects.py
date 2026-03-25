@@ -26,7 +26,7 @@ def db_conn():
     if os.path.exists(db_path):
         os.unlink(db_path)
 
-def test_project_crud(db_conn):
+def test_project_crud(db_conn, tmp_path):
     # Create
     pid = create_project("Test Project", "Series X", "Author Y", "/path/to/cover.jpg")
     assert pid is not None
@@ -51,15 +51,15 @@ def test_project_crud(db_conn):
     assert project["author"] == "New Author"
 
     # Delete (mocking physical cleanup)
-    with patch("app.config.get_project_dir") as mock_dir, \
-         patch("shutil.rmtree") as mock_rm:
-        mock_dir.return_value = Path("/tmp/mock_project").resolve()
-        # Ensure exists returns False initially or mock it
-        with patch("pathlib.Path.exists", return_value=True), \
-             patch("app.config.PROJECTS_DIR", Path("/tmp").resolve()):
-            success = delete_project(pid)
-            assert success is True
-            mock_rm.assert_called_once()
+    project_root = tmp_path / "projects"
+    project_root.mkdir()
+    project_dir = project_root / pid
+    project_dir.mkdir()
+    with patch("shutil.rmtree") as mock_rm, \
+         patch("app.config.PROJECTS_DIR", project_root.resolve()):
+        success = delete_project(pid)
+        assert success is True
+        mock_rm.assert_called_once_with(project_dir.resolve())
 
     assert get_project(pid) is None
 
@@ -74,9 +74,10 @@ def test_list_projects_order(db_conn):
     assert projects[0]["id"] == pid2
     assert projects[1]["id"] == pid1
 
-def test_delete_project_no_path(db_conn):
+def test_delete_project_no_path(db_conn, tmp_path):
     pid = create_project("NoPath")
-    with patch("app.config.get_project_dir", return_value=Path("/none")), \
-         patch("pathlib.Path.exists", return_value=False):
+    project_root = tmp_path / "projects"
+    project_root.mkdir()
+    with patch("app.config.PROJECTS_DIR", project_root.resolve()):
         success = delete_project(pid)
         assert success is True
