@@ -31,7 +31,7 @@ def cleanup_chapter_audio_files(
     from .. import config
 
     pdir = config.get_project_audio_dir(project_id) if project_id else config.XTTS_OUT_DIR
-    resolved_root = Path(os.path.abspath(os.path.normpath(os.fspath(pdir))))
+    resolved_root = pdir.resolve()
 
     for raw_path in explicit_files or []:
         if not raw_path:
@@ -45,7 +45,7 @@ def cleanup_chapter_audio_files(
 
         for candidate_name in candidate_names:
             try:
-                resolved = _contained_audio_path(pdir, candidate_name)
+                resolved = _contained_audio_path(pdir, candidate_name).resolve()
             except ValueError:
                 logger.warning("Skipping invalid explicit audio file %s", raw_path)
                 continue
