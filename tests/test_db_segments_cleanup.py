@@ -5,7 +5,7 @@ from unittest.mock import patch
 from app.db.core import init_db, get_connection
 from app.db.chapters import create_chapter
 from app.db.projects import create_project
-from app.db.segments import cleanup_orphaned_segments
+from app.db.segments import cleanup_orphaned_segments, get_chapter_segments
 
 @pytest.fixture
 def db_conn():
@@ -63,3 +63,29 @@ def test_cleanup_orphaned_segments_shared_dir(db_conn, tmp_path):
     # Valid files for BOTH chapters must survive
     assert chap1_file.exists(), "Valid segment for Chapter 1 was incorrectly deleted"
     assert chap2_file.exists(), "Valid segment for Chapter 2 was incorrectly deleted"
+
+
+def test_get_chapter_segments_resets_stale_processing_without_active_work(db_conn, tmp_path):
+    pid = create_project("Processing Cleanup Project")
+    cid = create_chapter(pid, "Stale Processing Chapter")
+
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO chapter_segments (id, chapter_id, segment_order, text_content, audio_status) VALUES (?, ?, ?, ?, ?)",
+            ("seg_processing", cid, 0, "stale processing text", "processing"),
+        )
+        conn.commit()
+
+    with patch("app.config.get_project_audio_dir", return_value=tmp_path):
+        rows = get_chapter_segments(cid)
+
+    assert rows[0]["audio_status"] == "unprocessed"
+
+    with get_connection() as conn:
+        refreshed = conn.execute(
+            "SELECT audio_status, audio_file_path FROM chapter_segments WHERE id = ?",
+            ("seg_processing",),
+        ).fetchone()
+        assert refreshed["audio_status"] == "unprocessed"
+        assert refreshed["audio_file_path"] is None

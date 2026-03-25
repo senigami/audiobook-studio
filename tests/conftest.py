@@ -11,6 +11,7 @@ atexit.register(_temp_dir.cleanup)
 SESSION_TEMP = Path(_temp_dir.name)
 
 os.environ["AUDIOBOOK_BASE_DIR"] = str(SESSION_TEMP)
+os.environ["APP_TEST_MODE"] = "1"
 os.environ["DB_PATH"] = str(SESSION_TEMP / "test_audiobook_studio.db")
 os.environ["STATE_FILE"] = str(SESSION_TEMP / "test_state.json")
 os.environ["CHAPTER_DIR"] = str(SESSION_TEMP / "chapters_out")

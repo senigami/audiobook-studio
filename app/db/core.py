@@ -2,6 +2,7 @@ import sqlite3
 import os
 import logging
 import threading
+import sys
 from pathlib import Path
 
 # Use a connection pool or a single connection with a lock
@@ -9,7 +10,30 @@ _db_lock = threading.RLock()
 DB_PATH = Path(os.getenv("DB_PATH", "audiobook_studio.db"))
 logger = logging.getLogger(__name__)
 
+
+def _running_under_test() -> bool:
+    return (
+        os.getenv("APP_TEST_MODE") == "1"
+        or "pytest" in sys.modules
+        or "PYTEST_CURRENT_TEST" in os.environ
+    )
+
+
+def _assert_safe_db_path_for_tests(db_path: Path) -> None:
+    if not _running_under_test():
+        return
+
+    db_name = db_path.name.lower()
+    if "test" in db_name:
+        return
+
+    raise RuntimeError(
+        f"Refusing to use non-test DB path while running tests: {db_path}. "
+        "Set DB_PATH to a test-specific database filename."
+    )
+
 def get_connection():
+    _assert_safe_db_path_for_tests(DB_PATH)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn

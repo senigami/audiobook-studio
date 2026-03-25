@@ -5,6 +5,37 @@ from .core import _db_lock, get_connection
 
 logger = logging.getLogger(__name__)
 
+
+def _chapter_has_active_generation(chapter_id: str) -> bool:
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT 1
+            FROM processing_queue
+            WHERE chapter_id = ?
+              AND status IN ('queued', 'preparing', 'running', 'finalizing')
+            LIMIT 1
+            """,
+            (chapter_id,),
+        )
+        if cursor.fetchone():
+            return True
+
+    try:
+        from ..state import get_jobs
+
+        active_statuses = {"queued", "preparing", "running", "finalizing"}
+        for job in get_jobs().values():
+            if getattr(job, "status", None) not in active_statuses:
+                continue
+            if getattr(job, "chapter_id", None) == chapter_id or getattr(job, "chapter_file", None) == chapter_id:
+                return True
+    except Exception:
+        logger.warning("Failed to inspect in-memory jobs while checking chapter generation state", exc_info=True)
+
+    return False
+
 def update_segments_status_bulk(segment_ids: List[str], chapter_id: str, status: str, broadcast: bool = True):
     if not segment_ids: return
     project_id = None
@@ -60,6 +91,25 @@ def get_chapter_segments(chapter_id: str) -> List[Dict[str, Any]]:
             cursor.execute("SELECT project_id FROM chapters WHERE id = ?", (chapter_id,))
             crow = cursor.fetchone()
             project_id = crow['project_id'] if crow else None
+
+            processing_ids = [row["id"] for row in rows if row["audio_status"] == "processing"]
+            if processing_ids and not _chapter_has_active_generation(chapter_id):
+                placeholders = ",".join(["?"] * len(processing_ids))
+                cursor.execute(
+                    f"""
+                    UPDATE chapter_segments
+                    SET audio_status = 'unprocessed',
+                        audio_file_path = NULL,
+                        audio_generated_at = NULL
+                    WHERE id IN ({placeholders})
+                    """,
+                    processing_ids,
+                )
+                conn.commit()
+                for s in rows:
+                    if s["id"] in processing_ids:
+                        s["audio_status"] = "unprocessed"
+                        s["audio_file_path"] = None
 
     # Rule 3: Disk as Source of Truth - Outside Lock
     from .. import config
@@ -287,7 +337,13 @@ def sync_chapter_segments(chapter_id: str, text_content: str):
     removed_files = [row.get("audio_file_path") for row in removed_rows if row.get("audio_file_path")]
     try:
         from .chapters import cleanup_chapter_audio_files
-        cleanup_chapter_audio_files(project_id, chapter_id, removed_ids, explicit_files=removed_files)
+        cleanup_chapter_audio_files(
+            project_id,
+            chapter_id,
+            removed_ids,
+            explicit_files=removed_files,
+            delete_chapter_outputs=False,
+        )
     except Exception:
         logger.warning(
             "Failed to clean up stale chapter audio after segment sync",

@@ -93,7 +93,8 @@ export const ChapterList: React.FC<ChapterListProps> = ({
           const activeJob = pickActiveJob(chap.id);
           const progressValue = activeJob ? (activeJob.progress ?? 0) : 0;
           const isMenuOpen = openMenuRowId === chap.id;
-          const isFullyRendered = chap.audio_status === 'done' && !!chap.audio_file_path;
+          const hasChapterAudio = !!chap.audio_file_path && !!(chap.has_wav || chap.has_mp3 || chap.has_m4a);
+          const isFullyRendered = hasChapterAudio;
           const queueActionLabel = isFullyRendered
             ? 'Rebuild Audio'
             : (chap.done_segments_count || 0) > 0 && (chap.done_segments_count || 0) < (chap.total_segments_count || 0)
@@ -201,7 +202,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                           predictive={true}
                         />
                     </div>
-                ) : chap.audio_status === 'done' && (chap.has_wav || chap.has_mp3) && !isAssemblyMode ? (
+                ) : hasChapterAudio && !isAssemblyMode ? (
                   <audio controls key={chap.id} style={{ height: '36px', width: '100%', maxWidth: '600px' }} onClick={e => e.stopPropagation()} preload="metadata">
                     {(() => {
                       const audioPath = chap.audio_file_path;
@@ -238,7 +239,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                       onOpenChange={open => setOpenMenuRowId(open ? chap.id : null)}
                       items={[
                         { label: isExporting === chap.id ? 'Generating...' : 'Export Video Sample', icon: isExporting === chap.id ? Loader2 : Video, disabled: chap.audio_status !== 'done' || isExporting !== null, onClick: () => onExportSample(chap) },
-                        ...(chap.audio_status === 'done' && chap.audio_file_path ? [{ label: 'Download Audio', icon: Download, onClick: () => { const path = chap.audio_file_path; if (!path) return; const link = document.createElement('a'); link.href = `/projects/${projectId}/audio/${path}`; link.download = `${chap.title}${path.substring(path.lastIndexOf('.'))}`; link.click(); } }] : []),
+                        ...(hasChapterAudio && chap.audio_file_path ? [{ label: 'Download Audio', icon: Download, onClick: () => { const path = chap.audio_file_path; if (!path) return; const link = document.createElement('a'); link.href = `/projects/${projectId}/audio/${path}`; link.download = `${chap.title}${path.substring(path.lastIndexOf('.'))}`; link.click(); } }] : []),
                         { isDivider: true },
                         { label: 'Reset Audio', icon: RefreshCw, onClick: () => onResetAudio(chap.id) },
                         { label: 'Delete Chapter', icon: Trash2, isDestructive: true, onClick: () => onDeleteChapter(chap.id) }

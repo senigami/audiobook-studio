@@ -45,6 +45,7 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
   onQueue,
   onStopAll
 }) => {
+  const hasChapterAudio = !!chapter.audio_file_path && !!(chapter.has_wav || chapter.has_mp3 || chapter.has_m4a);
   const queueStatus = queuePending
     ? 'Queued'
     : job?.status === 'queued'
@@ -100,7 +101,7 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
               }}
           />
           
-          {chapter.audio_status === 'done' && chapter.audio_file_path && (
+          {hasChapterAudio && chapter.audio_file_path && (
               <div style={{ paddingLeft: '1rem', borderLeft: '1px solid var(--border)' }}>
                   {(() => {
                       const audioPath = chapter.audio_file_path;
