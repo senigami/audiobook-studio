@@ -7,7 +7,7 @@ import re
 import json
 from pathlib import Path
 from typing import Optional, List, Dict
-from fastapi import APIRouter, Depends, Form, File, UploadFile, HTTPException
+from fastapi import APIRouter, Form, File, UploadFile, HTTPException
 from fastapi.responses import JSONResponse
 from ...db import (
     get_characters, create_character, update_character, delete_character,
@@ -48,22 +48,22 @@ def _valid_sample_name(sample_name: str) -> str:
     return sample_name
 
 
-def _voice_dirs_map(voices_dir: Path) -> Dict[str, Path]:
-    if not voices_dir.exists():
+def _voice_dirs_map() -> Dict[str, Path]:
+    if not VOICES_DIR.exists():
         return {}
     dirs: Dict[str, Path] = {}
-    for entry in voices_dir.iterdir():
+    for entry in VOICES_DIR.iterdir():
         if entry.is_dir() and SAFE_PROFILE_NAME_RE.fullmatch(entry.name):
             dirs[entry.name] = entry.resolve()
     return dirs
 
 
-def _existing_voice_profile_dir(voices_dir: Path, name: str) -> Optional[Path]:
-    return _voice_dirs_map(voices_dir).get(_valid_profile_name(name))
+def _existing_voice_profile_dir(name: str) -> Optional[Path]:
+    return _voice_dirs_map().get(_valid_profile_name(name))
 
 
-def _new_voice_profile_dir(voices_dir: Path, name: str) -> Path:
-    return voices_dir / _valid_profile_name(name)
+def _new_voice_profile_dir(name: str) -> Path:
+    return VOICES_DIR / _valid_profile_name(name)
 
 
 def _voice_file_map(profile_dir: Optional[Path]) -> Dict[str, Path]:
@@ -76,17 +76,17 @@ def _voice_file_map(profile_dir: Optional[Path]) -> Dict[str, Path]:
     return files
 
 
-def _existing_voice_sample_path(voices_dir: Path, name: str, sample_name: str) -> Optional[Path]:
-    return _voice_file_map(_existing_voice_profile_dir(voices_dir, name)).get(_valid_sample_name(sample_name))
+def _existing_voice_sample_path(name: str, sample_name: str) -> Optional[Path]:
+    return _voice_file_map(_existing_voice_profile_dir(name)).get(_valid_sample_name(sample_name))
 
 
 def _new_voice_sample_path(profile_dir: Path, sample_name: str) -> Path:
     return profile_dir / _valid_sample_name(sample_name)
 
 
-def _voice_raw_sample_count(voices_dir: Path, name: str) -> int:
+def _voice_raw_sample_count(name: str) -> int:
     try:
-        profile_dir = _existing_voice_profile_dir(voices_dir, name)
+        profile_dir = _existing_voice_profile_dir(name)
     except ValueError:
         return 0
     if not profile_dir:
@@ -97,8 +97,8 @@ def _voice_raw_sample_count(voices_dir: Path, name: str) -> int:
     ])
 
 
-def _voice_preview_url(voices_dir: Path, name: str) -> Optional[str]:
-    profile_dir = _existing_voice_profile_dir(voices_dir, name)
+def _voice_preview_url(name: str) -> Optional[str]:
+    profile_dir = _existing_voice_profile_dir(name)
     if not profile_dir:
         return None
     files = _voice_file_map(profile_dir)
@@ -113,18 +113,18 @@ def _voice_preview_url(voices_dir: Path, name: str) -> Optional[str]:
 router = APIRouter(tags=["voices"])
 
 
-def _ensure_default_speaker_profile(voices_dir: Path, speaker_id: str, speaker_name: str, default_profile_name: Optional[str]) -> str:
+def _ensure_default_speaker_profile(speaker_id: str, speaker_name: str, default_profile_name: Optional[str]) -> str:
     profile_name = default_profile_name or speaker_name
     try:
         profile_name = _valid_profile_name(profile_name)
     except ValueError:
         profile_name = _valid_profile_name(f"speaker-{speaker_id}")
 
-    profile_dir = _existing_voice_profile_dir(voices_dir, profile_name)
+    profile_dir = _existing_voice_profile_dir(profile_name)
     meta: Dict[str, object] = {}
 
     if profile_dir:
-        meta_path = _existing_voice_sample_path(voices_dir, profile_name, "profile.json") or (profile_dir / "profile.json")
+        meta_path = _existing_voice_sample_path(profile_name, "profile.json") or (profile_dir / "profile.json")
         if meta_path.exists():
             try:
                 meta = json.loads(meta_path.read_text())
@@ -134,14 +134,14 @@ def _ensure_default_speaker_profile(voices_dir: Path, speaker_id: str, speaker_n
 
         if meta.get("speaker_id") and meta["speaker_id"] != speaker_id:
             idx = 1
-            while _existing_voice_profile_dir(voices_dir, f"{profile_name}_{idx}"):
+            while _existing_voice_profile_dir(f"{profile_name}_{idx}"):
                 idx += 1
             profile_name = f"{profile_name}_{idx}"
-            profile_dir = _new_voice_profile_dir(voices_dir, profile_name)
+            profile_dir = _new_voice_profile_dir(profile_name)
             meta = {}
             meta_path = profile_dir / "profile.json"
     else:
-        profile_dir = _new_voice_profile_dir(voices_dir, profile_name)
+        profile_dir = _new_voice_profile_dir(profile_name)
         meta_path = profile_dir / "profile.json"
 
     profile_dir.mkdir(parents=True, exist_ok=True)
@@ -154,11 +154,11 @@ def _ensure_default_speaker_profile(voices_dir: Path, speaker_id: str, speaker_n
     return profile_name
 
 @router.get("/api/speaker-profiles")
-def list_speaker_profiles(voices_dir: Path = Depends(get_voices_dir)):
-    if not voices_dir.exists():
+def list_speaker_profiles():
+    if not VOICES_DIR.exists():
         return []
 
-    dirs = [path for _, path in sorted(_voice_dirs_map(voices_dir).items(), key=lambda item: item[0])]
+    dirs = [path for _, path in sorted(_voice_dirs_map().items(), key=lambda item: item[0])]
     settings = get_settings()
     default_speaker = settings.get("default_speaker_profile")
 
@@ -188,7 +188,7 @@ def list_speaker_profiles(voices_dir: Path = Depends(get_voices_dir)):
         if len([b for b in built_samples if SAFE_SAMPLE_NAME_RE.fullmatch(b) and (d / b).exists()]) < len(built_samples):
              is_rebuild_required = True
 
-        preview_url = _voice_preview_url(voices_dir, d.name)
+        preview_url = _voice_preview_url(d.name)
         if not preview_url and len(raw_wavs) > 0:
             is_rebuild_required = True
 
@@ -211,7 +211,6 @@ def list_speaker_profiles(voices_dir: Path = Depends(get_voices_dir)):
 def api_create_speaker_profile(
     speaker_id: str = Form(...),
     variant_name: str = Form(...),
-    voices_dir: Path = Depends(get_voices_dir)
 ):
     logger.info(f"Creating profile for speaker_id='{speaker_id}', variant_name='{variant_name}'")
     try:
@@ -221,7 +220,7 @@ def api_create_speaker_profile(
         name = f"{spk_name} - {variant_name}"
         # Constructed path
         try:
-            path = _existing_voice_profile_dir(voices_dir, name) or _new_voice_profile_dir(voices_dir, name)
+            path = _existing_voice_profile_dir(name) or _new_voice_profile_dir(name)
         except ValueError:
             logger.warning(f"Blocking profile creation traversal attempt: {name}")
             return JSONResponse({"status": "error", "message": "Invalid profile name"}, status_code=403)
@@ -272,17 +271,17 @@ def api_list_speakers_route():
 @router.post("/api/speakers")
 def api_create_speaker_route(name: str = Form(...), default_profile_name: Optional[str] = Form(None)):
     sid = create_speaker(name, default_profile_name)
-    linked_profile_name = _ensure_default_speaker_profile(VOICES_DIR, sid, name, default_profile_name)
+    linked_profile_name = _ensure_default_speaker_profile(sid, name, default_profile_name)
     if linked_profile_name != default_profile_name:
         update_speaker(sid, default_profile_name=linked_profile_name)
     return JSONResponse({"status": "ok", "id": sid, "speaker_id": sid})
 
-def _rename_profile_folders(old_name: str, new_name: str, voices_dir: Path):
+def _rename_profile_folders(old_name: str, new_name: str):
     """Helper to rename all profile folders on disk starting with a speaker name."""
     try:
-        voice_dirs = _voice_dirs_map(voices_dir)
+        voice_dirs = _voice_dirs_map()
         old_dir = voice_dirs.get(_valid_profile_name(old_name))
-        new_dir = voice_dirs.get(_valid_profile_name(new_name)) or _new_voice_profile_dir(voices_dir, new_name)
+        new_dir = voice_dirs.get(_valid_profile_name(new_name)) or _new_voice_profile_dir(new_name)
     except ValueError:
         logger.warning(f"Blocking profile rename traversal attempt: {old_name} -> {new_name}")
         raise HTTPException(status_code=403, detail="Invalid profile name")
@@ -292,7 +291,7 @@ def _rename_profile_folders(old_name: str, new_name: str, voices_dir: Path):
         old_dir.rename(new_dir)
         update_voice_profile_references(old_name, new_name)
         # Update meta if exists
-        meta_path = _existing_voice_sample_path(voices_dir, new_name, "profile.json")
+        meta_path = _existing_voice_sample_path(new_name, "profile.json")
         if meta_path:
             try:
                 import json
@@ -308,18 +307,18 @@ def _rename_profile_folders(old_name: str, new_name: str, voices_dir: Path):
 
     # 2. Variants (Narrator - Variant)
     variants = []
-    for dir_name, d in _voice_dirs_map(voices_dir).items():
+    for dir_name, d in _voice_dirs_map().items():
         if dir_name.startswith(old_name + " - "):
             variants.append(d)
     for vdir in variants:
         suffix = vdir.name[len(old_name):]
         new_vname = new_name + suffix
-        new_vpath = _existing_voice_profile_dir(voices_dir, new_vname) or _new_voice_profile_dir(voices_dir, new_vname)
+        new_vpath = _existing_voice_profile_dir(new_vname) or _new_voice_profile_dir(new_vname)
         if not new_vpath.exists():
             vdir.rename(new_vpath)
             update_voice_profile_references(vdir.name, new_vname)
             # Update meta
-            meta_path = _existing_voice_sample_path(voices_dir, new_vname, "profile.json")
+            meta_path = _existing_voice_sample_path(new_vname, "profile.json")
             if meta_path:
                 try:
                     import json
@@ -339,7 +338,6 @@ def api_update_speaker_route(
     name: Optional[str] = Form(None), 
     new_name: Optional[str] = Form(None), # Alias for name
     default_profile_name: Optional[str] = Form(None),
-    voices_dir: Path = Depends(get_voices_dir)
 ):
     from ...db.speakers import get_speaker
     old_spk = get_speaker(speaker_id)
@@ -355,7 +353,7 @@ def api_update_speaker_route(
 
     if target_name and target_name != old_spk["name"]:
         # Renaming narrator: rename all profile directories on disk
-        _rename_profile_folders(old_spk["name"], target_name, voices_dir)
+        _rename_profile_folders(old_spk["name"], target_name)
 
     return JSONResponse({"status": "ok"})
 
@@ -368,7 +366,6 @@ def api_delete_speaker_route(speaker_id: str):
 def api_assign_profile_to_speaker(
     profile_name: str,
     speaker_id: Optional[str] = Form(None),
-    voices_dir: Path = Depends(get_voices_dir)
 ):
     """Reassign a variant profile to a different speaker (or unassign it).
     This renames the folder to match the new speaker's naming, and updates profile.json.
@@ -376,7 +373,7 @@ def api_assign_profile_to_speaker(
     import json as _json
     try:
         try:
-            old_dir = _existing_voice_profile_dir(voices_dir, profile_name)
+            old_dir = _existing_voice_profile_dir(profile_name)
         except ValueError:
             return JSONResponse({"status": "error", "message": "Invalid profile name"}, status_code=403)
         if not old_dir:
@@ -384,7 +381,7 @@ def api_assign_profile_to_speaker(
 
         # Determine the variant name from existing metadata or folder name
         variant_name = None
-        meta_path = _existing_voice_sample_path(voices_dir, profile_name, "profile.json")
+        meta_path = _existing_voice_sample_path(profile_name, "profile.json")
         meta = {}
         if meta_path:
             try:
@@ -407,7 +404,7 @@ def api_assign_profile_to_speaker(
             new_profile_name = variant_name
 
         try:
-            new_dir = _existing_voice_profile_dir(voices_dir, new_profile_name) or _new_voice_profile_dir(voices_dir, new_profile_name)
+            new_dir = _existing_voice_profile_dir(new_profile_name) or _new_voice_profile_dir(new_profile_name)
         except ValueError:
             return JSONResponse({"status": "error", "message": "Invalid target profile name"}, status_code=403)
 
@@ -420,7 +417,7 @@ def api_assign_profile_to_speaker(
             update_voice_profile_references(profile_name, new_profile_name)
 
         # Update profile.json with new speaker_id and variant_name
-        new_meta_path = _existing_voice_sample_path(voices_dir, new_profile_name, "profile.json") or (new_dir / "profile.json")
+        new_meta_path = _existing_voice_sample_path(new_profile_name, "profile.json") or (new_dir / "profile.json")
         meta.update({"speaker_id": speaker_id, "variant_name": variant_name})
         normalized_meta = normalize_profile_metadata(new_profile_name, meta, persist=False)
         new_meta_path.write_text(_json.dumps(normalized_meta, indent=2))
@@ -434,10 +431,9 @@ def api_assign_profile_to_speaker(
 def api_rename_voice_profile(
     old_name: str = Form(...),
     new_name: str = Form(...),
-    voices_dir: Path = Depends(get_voices_dir)
 ):
     try:
-        _rename_profile_folders(old_name, new_name, voices_dir)
+        _rename_profile_folders(old_name, new_name)
 
         # Sync global settings
         settings = get_settings()
@@ -470,16 +466,15 @@ def update_speaker_speed(name: str, speed: float = Form(...)):
 async def build_speaker_profile(
     name: str,
     files: List[UploadFile] = File(default=[]),
-    voices_dir: Path = Depends(get_voices_dir)
 ):
     try:
         try:
-            path = _existing_voice_profile_dir(voices_dir, name) or _new_voice_profile_dir(voices_dir, name)
+            path = _existing_voice_profile_dir(name) or _new_voice_profile_dir(name)
         except ValueError:
             logger.warning(f"Blocking profile build traversal attempt: {name}")
             return JSONResponse({"status": "error", "message": "Invalid profile name"}, status_code=403)
 
-        existing_raw_samples = _voice_raw_sample_count(voices_dir, name)
+        existing_raw_samples = _voice_raw_sample_count(name)
         if existing_raw_samples == 0 and not files:
             return JSONResponse(
                 {"status": "error", "message": "Add at least one sample before building this voice."},
@@ -489,7 +484,7 @@ async def build_speaker_profile(
         path.mkdir(parents=True, exist_ok=True)
 
         # Clear existing sample if it exists to ensure accurate building status
-        sample_path = _existing_voice_sample_path(voices_dir, name, "sample.wav")
+        sample_path = _existing_voice_sample_path(name, "sample.wav")
         if sample_path:
             sample_path.unlink()
     except Exception as e:
@@ -531,11 +526,10 @@ async def build_speaker_profile(
 async def upload_speaker_samples(
     name: str,
     files: List[UploadFile] = File(...),
-    voices_dir: Path = Depends(get_voices_dir)
 ):
     try:
         try:
-            path = _existing_voice_profile_dir(voices_dir, name) or _new_voice_profile_dir(voices_dir, name)
+            path = _existing_voice_profile_dir(name) or _new_voice_profile_dir(name)
         except ValueError:
             return JSONResponse({"status": "error", "message": "Invalid profile"}, status_code=403)
 
@@ -559,11 +553,10 @@ async def upload_speaker_samples(
 def delete_speaker_sample(
     name: str,
     sample_name: str,
-    voices_dir: Path = Depends(get_voices_dir)
 ):
     try:
         try:
-            path = _existing_voice_sample_path(voices_dir, name, sample_name)
+            path = _existing_voice_sample_path(name, sample_name)
         except ValueError:
             return JSONResponse({"status": "error", "message": "Invalid path"}, status_code=403)
 
@@ -579,28 +572,25 @@ def delete_speaker_sample(
 def api_rename_voice_profile_path(
     name: str,
     new_name: str = Form(...),
-    voices_dir: Path = Depends(get_voices_dir)
 ):
     return api_rename_voice_profile(
         old_name=name,
         new_name=new_name,
-        voices_dir=voices_dir
     )
 
 @router.delete("/api/speaker-profiles/{name}")
 def delete_speaker_profile(
     name: str,
-    voices_dir: Path = Depends(get_voices_dir)
 ):
     try:
         try:
-            path = _existing_voice_profile_dir(voices_dir, name)
+            path = _existing_voice_profile_dir(name)
         except ValueError:
             logger.warning(f"Blocking profile delete traversal attempt: {name}")
             return JSONResponse({"status": "error", "message": "Invalid profile name"}, status_code=403)
 
         if path:
-            if path.is_relative_to(voices_dir.resolve()):
+            if path.is_relative_to(VOICES_DIR.resolve()):
                 shutil.rmtree(path)
             else:
                 logger.warning("Blocking profile delete outside voices root: %s", path)
@@ -613,8 +603,8 @@ def delete_speaker_profile(
     return JSONResponse({"status": "error", "message": "Not found"}, status_code=404)
 
 @router.post("/api/speaker-profiles/{name}/test")
-def test_speaker_profile(name: str, voices_dir: Path = Depends(get_voices_dir)):
-    if _voice_raw_sample_count(voices_dir, name) == 0:
+def test_speaker_profile(name: str):
+    if _voice_raw_sample_count(name) == 0:
         return JSONResponse(
             {"status": "error", "message": "Add at least one sample before testing this voice."},
             status_code=400
@@ -631,7 +621,7 @@ def test_speaker_profile(name: str, voices_dir: Path = Depends(get_voices_dir)):
     )
     put_job(j)
     enqueue(j)
-    preview_url = _voice_preview_url(voices_dir, name)
+    preview_url = _voice_preview_url(name)
     return JSONResponse({
         "status": "ok", 
         "job_id": jid,

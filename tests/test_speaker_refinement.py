@@ -8,19 +8,30 @@ from fastapi.testclient import TestClient
 from app.web import app as fastapi_app
 from app.db.core import init_db
 from app.db.speakers import create_speaker
-from app.api.routers.voices import get_voices_dir
 
 client = TestClient(fastapi_app)
+
+
+@pytest.fixture(autouse=True)
+def voices_root(tmp_path, monkeypatch):
+    import app.config
+    import app.web
+    import app.api.routers.voices
+    import app.jobs.speaker
+
+    voices_dir = (tmp_path / "voices").resolve()
+    monkeypatch.setattr(app.web, "VOICES_DIR", voices_dir)
+    monkeypatch.setattr(app.config, "VOICES_DIR", voices_dir)
+    monkeypatch.setattr(app.api.routers.voices, "VOICES_DIR", voices_dir)
+    monkeypatch.setattr(app.jobs.speaker, "VOICES_DIR", voices_dir)
+    return voices_dir
+
 
 @pytest.fixture
 def clean_db(tmp_path):
     db_path = tmp_path / "test_refinement.db"
     os.environ["DB_PATH"] = str(db_path)
     import app.db.core
-    import app.jobs.speaker
-    import app.api.routers.voices
-    app.jobs.speaker.VOICES_DIR = tmp_path / "voices"
-    app.api.routers.voices.VOICES_DIR = tmp_path / "voices"
     import importlib
     importlib.reload(app.db.core)
     init_db()
@@ -28,10 +39,9 @@ def clean_db(tmp_path):
     if os.path.exists(db_path):
         os.unlink(db_path)
 
-def test_variant_folder_naming(clean_db, tmp_path):
-    voices_dir = tmp_path / "voices"
+def test_variant_folder_naming(clean_db, voices_root):
+    voices_dir = voices_root
     voices_dir.mkdir()
-    fastapi_app.dependency_overrides[get_voices_dir] = lambda: voices_dir
 
     # 1. Create a speaker
     sid = create_speaker("TestSpeaker")
@@ -45,10 +55,9 @@ def test_variant_folder_naming(clean_db, tmp_path):
     assert name == "TestSpeaker - Variant1"
     assert (voices_dir / "TestSpeaker - Variant1").exists()
 
-def test_rename_unassigned_profile(clean_db, tmp_path):
-    voices_dir = tmp_path / "voices"
+def test_rename_unassigned_profile(clean_db, voices_root):
+    voices_dir = voices_root
     voices_dir.mkdir()
-    fastapi_app.dependency_overrides[get_voices_dir] = lambda: voices_dir
 
     # 1. Create a profile folder manually (unassigned)
     profile_path = voices_dir / "OldUnassigned"
@@ -63,10 +72,9 @@ def test_rename_unassigned_profile(clean_db, tmp_path):
     assert (voices_dir / "NewUnassigned").exists()
     assert not (voices_dir / "OldUnassigned").exists()
 
-def test_add_variant_to_unassigned(clean_db, tmp_path):
-    voices_dir = tmp_path / "voices"
+def test_add_variant_to_unassigned(clean_db, voices_root):
+    voices_dir = voices_root
     voices_dir.mkdir()
-    fastapi_app.dependency_overrides[get_voices_dir] = lambda: voices_dir
 
     # 1. Create an unassigned profile base
     (voices_dir / "FreshVoice").mkdir()
@@ -85,10 +93,9 @@ def test_add_variant_to_unassigned(clean_db, tmp_path):
     assert meta["speaker_id"] == "FreshVoice"
     assert meta["variant_name"] == "Variant1"
 
-def test_rename_unassigned_profile_payload(clean_db, tmp_path):
-    voices_dir = tmp_path / "voices"
+def test_rename_unassigned_profile_payload(clean_db, voices_root):
+    voices_dir = voices_root
     voices_dir.mkdir()
-    fastapi_app.dependency_overrides[get_voices_dir] = lambda: voices_dir
 
     profile_path = voices_dir / "OldName"
     profile_path.mkdir()
@@ -99,9 +106,9 @@ def test_rename_unassigned_profile_payload(clean_db, tmp_path):
     assert response.status_code == 200
     assert (voices_dir / "NewName").exists()
 
-def test_default_variant_resolution(clean_db, tmp_path):
+def test_default_variant_resolution(clean_db, voices_root):
     import app.jobs.speaker
-    voices_dir = tmp_path / "voices"
+    voices_dir = voices_root
     voices_dir.mkdir()
     app.jobs.speaker.VOICES_DIR = voices_dir
 
@@ -157,11 +164,10 @@ def test_reconcile_does_not_requeue_voice_jobs(clean_db, tmp_path):
     assert result.status == "done", f"Expected 'done' but got '{result.status}' — reconcile incorrectly requeued a voice job!"
 
 
-def test_assign_profile_to_different_speaker(clean_db, tmp_path):
+def test_assign_profile_to_different_speaker(clean_db, voices_root):
     """Assigning a profile to a different speaker renames the folder correctly."""
-    voices_dir = tmp_path / "voices"
+    voices_dir = voices_root
     voices_dir.mkdir()
-    fastapi_app.dependency_overrides[get_voices_dir] = lambda: voices_dir
 
     # Create two speakers
     sid_dracula = create_speaker("Dracula")
@@ -203,11 +209,10 @@ def test_worker_does_not_skip_voice_builds():
         "worker_loop must exclude voice engines from the output-exists skip check"
 
 
-def test_build_clears_sample_wav(clean_db, tmp_path):
+def test_build_clears_sample_wav(clean_db, voices_root):
     """Calling the build endpoint should delete an existing sample.wav."""
-    voices_dir = tmp_path / "voices"
+    voices_dir = voices_root
     voices_dir.mkdir(parents=True, exist_ok=True)
-    fastapi_app.dependency_overrides[get_voices_dir] = lambda: voices_dir
 
     # 1. Create a profile, a raw sample, and a sample.wav preview file
     profile_path = voices_dir / "TestBuilder"
@@ -228,15 +233,14 @@ def test_build_clears_sample_wav(clean_db, tmp_path):
     assert raw_sample_path.exists(), "raw samples should remain available for the build job"
 
 
-def test_voice_build_worker_exports_mp3_preview(clean_db, tmp_path):
+def test_voice_build_worker_exports_mp3_preview(clean_db, voices_root):
     """Voice build jobs should leave a reusable sample.mp3 and remove the temp sample.wav."""
     from app.jobs.worker import worker_loop
     from app.models import Job
 
-    voices_dir = tmp_path / "voices"
+    voices_dir = voices_root
     profile_dir = voices_dir / "TestBuilt"
     profile_dir.mkdir(parents=True, exist_ok=True)
-    fastapi_app.dependency_overrides[get_voices_dir] = lambda: voices_dir
 
     sample_wav = profile_dir / "sample.wav"
     sample_mp3 = profile_dir / "sample.mp3"
