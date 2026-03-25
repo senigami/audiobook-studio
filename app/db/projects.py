@@ -7,6 +7,8 @@ from .core import _db_lock, get_connection
 logger = logging.getLogger(__name__)
 
 def create_project(name: str, series: Optional[str] = None, author: Optional[str] = None, cover_image_path: Optional[str] = None) -> str:
+    from .. import config
+
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
@@ -17,6 +19,12 @@ def create_project(name: str, series: Optional[str] = None, author: Optional[str
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             """, (project_id, name, series, author, cover_image_path, now, now))
             conn.commit()
+
+            project_dir = config.PROJECTS_DIR / project_id
+            (project_dir / "audio").mkdir(parents=True, exist_ok=True)
+            (project_dir / "text").mkdir(parents=True, exist_ok=True)
+            (project_dir / "m4b").mkdir(parents=True, exist_ok=True)
+
             return project_id
 
 def get_project(project_id: str) -> Optional[Dict[str, Any]]:

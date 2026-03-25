@@ -58,8 +58,6 @@ async def legacy_create_audiobook(request: Request):
         narrator=form.get("narrator"),
         chapters=form.get("chapters", "[]"),
         cover=form.get("cover"),
-        cover_dir=COVER_DIR,
-        audiobook_dir=AUDIOBOOK_DIR
     )
 
 @app.post("/settings")

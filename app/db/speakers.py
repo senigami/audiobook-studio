@@ -1,6 +1,7 @@
 import time
 import uuid
 import logging
+import os
 import re
 from pathlib import Path
 from typing import List, Dict, Any, Optional
@@ -130,13 +131,29 @@ def create_speaker(name: str, default_profile_name: Optional[str] = None) -> str
             """, (speaker_id, name, default_profile_name, now, now))
             conn.commit()
 
+            voices_root = os.path.abspath(os.path.normpath(os.fspath(config.VOICES_DIR.resolve())))
+            existing_dirs: dict[str, Path] = {}
+            if config.VOICES_DIR.exists():
+                try:
+                    for entry in config.VOICES_DIR.iterdir():
+                        if entry.is_dir():
+                            existing_dirs[entry.name] = entry.resolve()
+                except OSError:
+                    existing_dirs = {}
+
             # Legacy sync: ensure profile directory exists and linked
             pname = default_profile_name or name
             try:
-                profile_dir = _existing_profile_dir(config.VOICES_DIR, pname) or _new_profile_dir(config.VOICES_DIR, pname)
+                pname = _profile_name_or_error(pname)
             except ValueError:
                 pname = f"speaker-{speaker_id}"
-                profile_dir = _new_profile_dir(config.VOICES_DIR, pname)
+
+            profile_dir = existing_dirs.get(pname)
+            if not profile_dir:
+                profile_path = os.path.abspath(os.path.normpath(os.path.join(voices_root, pname)))
+                if not profile_path.startswith(voices_root + os.sep) and profile_path != voices_root:
+                    raise ValueError(f"Invalid profile directory for {pname}")
+                profile_dir = Path(profile_path)
 
             # Collision handling: if directory belongs to ANOTHER speaker, use a suffix
             if profile_dir.exists():
@@ -147,10 +164,13 @@ def create_speaker(name: str, default_profile_name: Optional[str] = None) -> str
                         if "speaker_id" in existing_meta and existing_meta["speaker_id"] != speaker_id:
                             # Suffix logic
                             idx = 1
-                            while _existing_profile_dir(config.VOICES_DIR, f"{pname}_{idx}"):
+                            while f"{pname}_{idx}" in existing_dirs:
                                 idx += 1
                             pname = f"{pname}_{idx}"
-                            profile_dir = _new_profile_dir(config.VOICES_DIR, pname)
+                            profile_path = os.path.abspath(os.path.normpath(os.path.join(voices_root, pname)))
+                            if not profile_path.startswith(voices_root + os.sep) and profile_path != voices_root:
+                                raise ValueError(f"Invalid profile directory for {pname}")
+                            profile_dir = Path(profile_path)
                     except Exception:
                         logger.debug("Failed to inspect existing voice profile metadata for %s", profile_dir, exc_info=True)
 

@@ -96,7 +96,8 @@ def test_queue_chapter_preserves_rendered_segment_history(clean_db, client, tmp_
     update_segment(segs[0]["id"], audio_status="done", audio_file_path=rendered_name)
     update_segment(segs[1]["id"], audio_status="unprocessed", audio_file_path=None)
 
-    with patch("app.api.routers.generation.get_project_audio_dir", return_value=audio_dir), \
+    with patch("app.api.routers.generation.find_existing_project_dir", return_value=tmp_path), \
+         patch("app.api.routers.generation.find_existing_project_subdir", side_effect=lambda _project_id, dirname: audio_dir if dirname == "audio" else None), \
          patch("app.config.get_project_audio_dir", return_value=audio_dir), \
          patch("app.api.routers.generation.put_job") as mock_put_job, \
          patch("app.api.routers.generation.enqueue"):

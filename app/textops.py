@@ -50,7 +50,6 @@ from .config import SAFE_SPLIT_TARGET, SENT_CHAR_LIMIT, BASELINE_XTTS_CPS
 # merges short sentences with ";" which naturally becomes a pause in the audio.
 
 CHAPTER_RE = re.compile(r"^(Chapter\s+(\d+)\s*:\s*.+)$", re.MULTILINE)
-SENT_SPLIT_RE = re.compile(r'(.+?(?:[.!?]["\'”’]*(?=\s|$)|\n+))(\s*)', re.DOTALL)
 
 def normalize_newlines(text: str) -> str:
     """
@@ -167,26 +166,62 @@ def split_sentences(text: str, preserve_gap: bool = False):
     Splits text into (sentence, start_idx, end_idx).
     If preserve_gap is True, the sentence will include its trailing whitespace/newlines.
     """
-    last_end = 0
-    for m in SENT_SPLIT_RE.finditer(text):
-        if preserve_gap:
-            # Full match includes the trailing space group
-            s = m.group(0)
-            yield s, m.start(0), m.end(0)
-        else:
-            s = m.group(1)
-            # Strip leading space and trailing horizontal space, 
-            # but keep the newline if it's the paragraph marker for the frontend.
-            s = s.strip(" \t\r")
-            if s:
-                yield s, m.start(1), m.start(1) + len(s)
-        last_end = m.end()
+    if not text:
+        return
 
-    remainder = text[last_end:]
+    start = 0
+    i = 0
+    text_len = len(text)
+    closing_quotes = {'"', "'", "”", "’"}
+
+    while i < text_len:
+        split_end = None
+
+        if text[i] in ".!?":
+            j = i + 1
+            while j < text_len and text[j] in closing_quotes:
+                j += 1
+            if j == text_len or text[j].isspace():
+                split_end = j
+        elif text[i] == "\n":
+            j = i + 1
+            while j < text_len and text[j] == "\n":
+                j += 1
+            split_end = j
+
+        if split_end is None:
+            i += 1
+            continue
+
+        gap_end = split_end
+        while gap_end < text_len and text[gap_end].isspace():
+            gap_end += 1
+
+        if preserve_gap:
+            sentence = text[start:gap_end]
+            if sentence:
+                yield sentence, start, gap_end
+        else:
+            raw_sentence = text[start:split_end]
+            sentence = raw_sentence.strip(" \t\r")
+            if sentence:
+                leading_trim = len(raw_sentence) - len(raw_sentence.lstrip(" \t\r"))
+                sentence_start = start + leading_trim
+                yield sentence, sentence_start, sentence_start + len(sentence)
+
+        start = gap_end
+        i = gap_end
+
+    remainder = text[start:]
     if remainder.strip() or (preserve_gap and remainder):
-        if not preserve_gap:
-            remainder = remainder.strip()
-        yield remainder, last_end, last_end + len(remainder)
+        if preserve_gap:
+            yield remainder, start, start + len(remainder)
+        else:
+            trimmed = remainder.strip()
+            if trimmed:
+                leading_trim = len(remainder) - len(remainder.lstrip())
+                sentence_start = start + leading_trim
+                yield trimmed, sentence_start, sentence_start + len(trimmed)
 
 def safe_split_long_sentences(text: str, target: int = SAFE_SPLIT_TARGET) -> str:
     def split_one(s: str) -> List[str]:
