@@ -5,6 +5,7 @@ import anyio
 import logging
 import re
 import json
+import os
 from pathlib import Path
 from typing import Optional, List, Dict
 from fastapi import APIRouter, Form, File, UploadFile, HTTPException
@@ -63,7 +64,12 @@ def _existing_voice_profile_dir(name: str) -> Optional[Path]:
 
 
 def _new_voice_profile_dir(name: str) -> Path:
-    return VOICES_DIR / _valid_profile_name(name)
+    candidate = _valid_profile_name(name)
+    base_dir = os.path.abspath(os.path.normpath(os.fspath(VOICES_DIR)))
+    fullpath = os.path.abspath(os.path.normpath(os.path.join(base_dir, candidate)))
+    if not fullpath.startswith(base_dir + os.sep):
+        raise ValueError(f"Invalid profile name: {name}")
+    return Path(fullpath)
 
 
 def _voice_file_map(profile_dir: Optional[Path]) -> Dict[str, Path]:
@@ -81,7 +87,12 @@ def _existing_voice_sample_path(name: str, sample_name: str) -> Optional[Path]:
 
 
 def _new_voice_sample_path(profile_dir: Path, sample_name: str) -> Path:
-    return profile_dir / _valid_sample_name(sample_name)
+    candidate = _valid_sample_name(sample_name)
+    base_dir = os.path.abspath(os.path.normpath(os.fspath(profile_dir)))
+    fullpath = os.path.abspath(os.path.normpath(os.path.join(base_dir, candidate)))
+    if not fullpath.startswith(base_dir + os.sep):
+        raise ValueError(f"Invalid sample name: {sample_name}")
+    return Path(fullpath)
 
 
 def _voice_raw_sample_count(name: str) -> int:
@@ -124,7 +135,7 @@ def _ensure_default_speaker_profile(speaker_id: str, speaker_name: str, default_
     meta: Dict[str, object] = {}
 
     if profile_dir:
-        meta_path = _existing_voice_sample_path(profile_name, "profile.json") or (profile_dir / "profile.json")
+        meta_path = _voice_file_map(profile_dir).get("profile.json") or _new_voice_sample_path(profile_dir, "profile.json")
         if meta_path.exists():
             try:
                 meta = json.loads(meta_path.read_text())
@@ -139,10 +150,10 @@ def _ensure_default_speaker_profile(speaker_id: str, speaker_name: str, default_
             profile_name = f"{profile_name}_{idx}"
             profile_dir = _new_voice_profile_dir(profile_name)
             meta = {}
-            meta_path = profile_dir / "profile.json"
+            meta_path = _new_voice_sample_path(profile_dir, "profile.json")
     else:
         profile_dir = _new_voice_profile_dir(profile_name)
-        meta_path = profile_dir / "profile.json"
+        meta_path = _new_voice_sample_path(profile_dir, "profile.json")
 
     profile_dir.mkdir(parents=True, exist_ok=True)
     meta["speaker_id"] = speaker_id
@@ -218,7 +229,6 @@ def api_create_speaker_profile(
         spk = get_speaker(speaker_id)
         spk_name = spk["name"] if spk else speaker_id
         name = f"{spk_name} - {variant_name}"
-        # Constructed path
         try:
             path = _existing_voice_profile_dir(name) or _new_voice_profile_dir(name)
         except ValueError:
@@ -291,7 +301,7 @@ def _rename_profile_folders(old_name: str, new_name: str):
         old_dir.rename(new_dir)
         update_voice_profile_references(old_name, new_name)
         # Update meta if exists
-        meta_path = _existing_voice_sample_path(new_name, "profile.json")
+        meta_path = _voice_file_map(new_dir).get("profile.json")
         if meta_path:
             try:
                 import json
@@ -318,7 +328,7 @@ def _rename_profile_folders(old_name: str, new_name: str):
             vdir.rename(new_vpath)
             update_voice_profile_references(vdir.name, new_vname)
             # Update meta
-            meta_path = _existing_voice_sample_path(new_vname, "profile.json")
+            meta_path = _voice_file_map(new_vpath).get("profile.json")
             if meta_path:
                 try:
                     import json
@@ -417,7 +427,7 @@ def api_assign_profile_to_speaker(
             update_voice_profile_references(profile_name, new_profile_name)
 
         # Update profile.json with new speaker_id and variant_name
-        new_meta_path = _existing_voice_sample_path(new_profile_name, "profile.json") or (new_dir / "profile.json")
+        new_meta_path = _voice_file_map(new_dir).get("profile.json") or _new_voice_sample_path(new_dir, "profile.json")
         meta.update({"speaker_id": speaker_id, "variant_name": variant_name})
         normalized_meta = normalize_profile_metadata(new_profile_name, meta, persist=False)
         new_meta_path.write_text(_json.dumps(normalized_meta, indent=2))
@@ -484,7 +494,7 @@ async def build_speaker_profile(
         path.mkdir(parents=True, exist_ok=True)
 
         # Clear existing sample if it exists to ensure accurate building status
-        sample_path = _existing_voice_sample_path(name, "sample.wav")
+        sample_path = _voice_file_map(path).get("sample.wav")
         if sample_path:
             sample_path.unlink()
     except Exception as e:
@@ -556,7 +566,8 @@ def delete_speaker_sample(
 ):
     try:
         try:
-            path = _existing_voice_sample_path(name, sample_name)
+            profile_dir = _existing_voice_profile_dir(name)
+            path = _voice_file_map(profile_dir).get(_valid_sample_name(sample_name)) if profile_dir else None
         except ValueError:
             return JSONResponse({"status": "error", "message": "Invalid path"}, status_code=403)
 
