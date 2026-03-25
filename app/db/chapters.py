@@ -10,17 +10,6 @@ SAFE_AUDIO_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
 SAFE_SEGMENT_PREFIX_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 
 
-def _audio_file_map(base_dir: Path) -> Dict[str, Path]:
-    if not base_dir.exists():
-        return {}
-
-    files: Dict[str, Path] = {}
-    for entry in base_dir.iterdir():
-        if entry.is_file() and entry.suffix.lower() in (".wav", ".mp3", ".m4a"):
-            files[entry.name] = entry.resolve()
-    return files
-
-
 def cleanup_chapter_audio_files(
     project_id: Optional[str],
     chapter_id: str,
@@ -32,7 +21,11 @@ def cleanup_chapter_audio_files(
 
     pdir = config.get_project_audio_dir(project_id) if project_id else config.XTTS_OUT_DIR
     resolved_root = pdir.resolve()
-    known_files = _audio_file_map(pdir)
+    known_files = {
+        entry.name: entry.resolve()
+        for entry in pdir.iterdir()
+        if entry.is_file() and entry.suffix.lower() in (".wav", ".mp3", ".m4a")
+    } if pdir.exists() else {}
 
     for raw_path in explicit_files or []:
         if not raw_path:
@@ -127,7 +120,11 @@ def get_chapter(chapter_id: str) -> Optional[Dict[str, Any]]:
     # Rule 3: Disk as Source of Truth - Outside Lock
     from .. import config
     pdir = config.get_project_audio_dir(chap["project_id"]) if chap["project_id"] else config.XTTS_OUT_DIR
-    existing_names = set(_audio_file_map(pdir))
+    existing_names = {
+        entry.name
+        for entry in pdir.iterdir()
+        if entry.is_file() and entry.suffix.lower() in (".wav", ".mp3", ".m4a")
+    } if pdir.exists() else set()
     path = chap.get("audio_file_path")
     chap["has_wav"] = False
     chap["has_mp3"] = False
@@ -166,7 +163,11 @@ def list_chapters(project_id: str) -> List[Dict[str, Any]]:
     from .. import config
     pdir = config.get_project_audio_dir(project_id) if project_id else config.XTTS_OUT_DIR
 
-    existing_names = set(_audio_file_map(pdir))
+    existing_names = {
+        entry.name
+        for entry in pdir.iterdir()
+        if entry.is_file() and entry.suffix.lower() in (".wav", ".mp3", ".m4a")
+    } if pdir.exists() else set()
 
     for chap in rows:
         path = chap.get("audio_file_path")

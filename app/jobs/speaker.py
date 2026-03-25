@@ -173,10 +173,17 @@ def get_speaker_settings(profile_name_or_id: str) -> dict:
 def update_speaker_settings(profile_name: str, **updates):
     """Updates metadata for a profile in its profile.json."""
     try:
-        p = get_voice_profile_dir(profile_name)
+        profile_name = _profile_name_or_error(profile_name)
     except ValueError:
         return False
-    if not p.exists():
+
+    p = None
+    if VOICES_DIR.exists():
+        for entry in VOICES_DIR.iterdir():
+            if entry.is_dir() and entry.name == profile_name:
+                p = entry.resolve()
+                break
+    if not p:
         return False
 
     meta_path = p / "profile.json"
