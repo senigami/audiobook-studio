@@ -16,14 +16,12 @@ def test_create_speaker_with_collision():
     sid = create_speaker(collision_name)
     assert sid is not None
 
-    # It should have created a suffix directory
-    suffix_dir = config.VOICES_DIR / f"{collision_name}_1"
-    assert suffix_dir.exists()
-    assert (suffix_dir / "profile.json").exists()
+    # Speaker creation is DB-only; the existing profile directory should remain untouched
+    assert profile_dir.exists()
+    assert json.loads((profile_dir / "profile.json").read_text())["speaker_id"] == "other-id"
 
     # Clean up
     shutil.rmtree(profile_dir)
-    shutil.rmtree(suffix_dir)
 
 def test_get_speaker():
     sid = create_speaker("Get Speaker Test")

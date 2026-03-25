@@ -4,6 +4,7 @@ import time
 import anyio
 import logging
 import re
+import json
 from pathlib import Path
 from typing import Optional, List, Dict
 from fastapi import APIRouter, Depends, Form, File, UploadFile, HTTPException
@@ -110,6 +111,47 @@ def _voice_preview_url(voices_dir: Path, name: str) -> Optional[str]:
     return None
 
 router = APIRouter(tags=["voices"])
+
+
+def _ensure_default_speaker_profile(voices_dir: Path, speaker_id: str, speaker_name: str, default_profile_name: Optional[str]) -> str:
+    profile_name = default_profile_name or speaker_name
+    try:
+        profile_name = _valid_profile_name(profile_name)
+    except ValueError:
+        profile_name = _valid_profile_name(f"speaker-{speaker_id}")
+
+    profile_dir = _existing_voice_profile_dir(voices_dir, profile_name)
+    meta: Dict[str, object] = {}
+
+    if profile_dir:
+        meta_path = _existing_voice_sample_path(voices_dir, profile_name, "profile.json") or (profile_dir / "profile.json")
+        if meta_path.exists():
+            try:
+                meta = json.loads(meta_path.read_text())
+            except Exception:
+                logger.warning("Failed to read existing speaker profile metadata for %s", meta_path, exc_info=True)
+                meta = {}
+
+        if meta.get("speaker_id") and meta["speaker_id"] != speaker_id:
+            idx = 1
+            while _existing_voice_profile_dir(voices_dir, f"{profile_name}_{idx}"):
+                idx += 1
+            profile_name = f"{profile_name}_{idx}"
+            profile_dir = _new_voice_profile_dir(voices_dir, profile_name)
+            meta = {}
+            meta_path = profile_dir / "profile.json"
+    else:
+        profile_dir = _new_voice_profile_dir(voices_dir, profile_name)
+        meta_path = profile_dir / "profile.json"
+
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    meta["speaker_id"] = speaker_id
+    meta["variant_name"] = infer_variant_name(profile_name)
+    if "speed" not in meta:
+        meta["speed"] = 1.0
+    meta_path.write_text(json.dumps(meta, indent=2))
+
+    return profile_name
 
 @router.get("/api/speaker-profiles")
 def list_speaker_profiles(voices_dir: Path = Depends(get_voices_dir)):
@@ -230,6 +272,9 @@ def api_list_speakers_route():
 @router.post("/api/speakers")
 def api_create_speaker_route(name: str = Form(...), default_profile_name: Optional[str] = Form(None)):
     sid = create_speaker(name, default_profile_name)
+    linked_profile_name = _ensure_default_speaker_profile(VOICES_DIR, sid, name, default_profile_name)
+    if linked_profile_name != default_profile_name:
+        update_speaker(sid, default_profile_name=linked_profile_name)
     return JSONResponse({"status": "ok", "id": sid, "speaker_id": sid})
 
 def _rename_profile_folders(old_name: str, new_name: str, voices_dir: Path):
