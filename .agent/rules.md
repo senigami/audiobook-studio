@@ -1,81 +1,35 @@
-# Persistent Coding Rules
+# Agent Rules
 
-These rules apply to all development activities in this repository.
+This is the canonical entry point for repository rules.
 
-## 1. Test-Driven Updates
+Use this file as the quick-reference summary, then consult the focused rule files in `.agent/rules/` for the details that match the task.
 
-- **Mandatory Verification**: Every code update must be verified by running the existing test suite.
-- **Continuous Alignment**: When writing new code or modifying existing logic, you MUST update or create tests to reflect these changes.
-- **Test Behavior, Not Implementation**: Tests should assert the expected business logic or user outcome (e.g., "oldest item processes first"), NOT simply assert whatever the current code happens to output (e.g., "asserting the query returns DESC order because that's what the query does").
-- **True TDD**: Aim to write failing tests before implementing the fix. If a test passes on a broken implementation, it is a bad test.
-- **End-to-End Coverage**: Do not rely solely on siloed unit tests if a feature involves coordinating layers (e.g., DB to Memory to UI). Write integration tests that cover the hand-off.
-- **No Compromise**: If a test fails, do NOT modify the test to match a broken or incorrect frontend implementation just to make it pass.
-- **Logic First**: Always ensure the underlying business logic is correct first. If there is a discrepancy between the logic and the frontend, the frontend should be updated to align with the correct logic, never the other way around.
+## Read First
 
-## 2. Execution Protocol
+- Verify all changes with the appropriate test and lint commands before considering a task done.
+- Use the local `./venv` for backend commands.
+- Update tests when logic changes; do not weaken tests to fit broken behavior.
+- Keep wiki docs and `wiki/Changelog.md` aligned with shipped behavior.
+- Prefer manual verification by the user for UI changes unless they explicitly ask for browser-driven verification.
+- Treat filesystem paths as a security surface; follow the backend security/path rules.
+- Push back when the requested implementation is weaker than the better pattern already available in the repo.
 
-- Run `pytest` after any backend or logic changes.
-- Run frontend build/tests (if applicable) after any UI changes.
-- Document verification results in the task walkthrough.
+## Rule Map
 
-## 3. Progress & State Consistency
+- [`verification.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/verification.md)
+  Test-first expectations, verification commands, and definition of done.
+- [`workflow.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/workflow.md)
+  Ownership, pushback, documentation, and manual verification expectations.
+- [`backend.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/backend.md)
+  Progress/state consistency, worker sync, path safety, and backend structural guidance.
+- [`frontend.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/frontend.md)
+  UI consistency, accessibility, responsiveness, and frontend quality guidance.
 
-- **Rounding Rule**: All progress values sent via WebSocket must be rounded to exactly 2 decimal places (whole percentages).
-- **Milestone Thresholds**: Only broadcast progress updates when the value advances by at least 1% (0.01) to minimize network noise.
-- **Clean Slate Protocol**: When a job is re-queued, reset, or recovered on startup, all metadata (logs, progress, timestamps, warning counts) MUST be wiped to prevent "98% stalls" or stale UI.
-- **Disk as Source of Truth**: The UI (`ChapterCard`) must prioritize actual disk checks (is the file really there?) over potentially stale job status records.
+## Priority Order
 
-## 4. Technical Environment
+When rules overlap, follow them in this order:
 
-- **Virtual Environments**: Always execute backend tools (like `pytest`) using the local `./venv`.
-- **Worker Synchronization**: When updating `j` objects in worker threads, immediately follow up with `update_job` to ensure the WebSocket bridge transmits the change to the frontend.
-
-## 5. Documentation & Wiki
-
-- **Wiki Accuracy**: Whenever a feature is added, modified, or the workflow changes, the corresponding wiki pages in the `wiki/` directory MUST be updated to ensure they remain accurate and helpful guides for users.
-- **Maintain Sync**: Documentation is not an afterthought; it is part of the feature implementation.
-
-## 6. Definition of Done
-
-- **Work Integrity**: A task is NOT considered finished until:
-  1. **Linting Passes**: No ESLint (frontend) or Ruff (backend) errors remain.
-  2. **Backend Tests Pass**: `pytest` returns green for all relevant suites.
-  3. **Frontend Tests Pass**: `npm test` returns green.
-  4. **Wiki is Updated**: Relevant documentation reflects the current state of the app, and `wiki/Changelog.md` contains a **dated** entry for the changes.
-
-## 7. Take Ownership
-
-- **Do not simply agree** with the user. Treat the codebase and product as if you own the outcome.
-- **Propose improvements** when implementing requests: suggest better patterns, clearer naming, or simpler solutions even when the user’s ask could be fulfilled as stated.
-- **Call out trade-offs** when a request has downsides (e.g., performance, maintainability, accessibility) and offer alternatives when there is a clearly better way.
-
-## 8. Best Practices and Quality
-
-- **Enforce best practices** appropriate to the stack (see other rules: React, TypeScript, tRPC, Next.js, Tailwind, etc.). Prefer project conventions over ad-hoc solutions.
-- **Optimal UX and UI**: When building or changing UI, consider accessibility (semantics, focus, screen readers), responsiveness, loading and error states, and consistency with existing patterns in the app. Recommend improvements if something would hurt usability.
-
-## 9. Pushback and Recommendations
-
-- **Offer pushback** when the requested approach is suboptimal: explain why and propose a better option. Be concise and constructive.
-- **Recommend the better way** when you know one: e.g., “We could do X as you said, but Y is simpler and matches our existing pattern—I recommend Y.”
-- **Ask one clarifying question** only when the request is ambiguous and the answer would change the implementation; otherwise make a reasonable choice and state it.
-- Stay respectful and collaborative: frame suggestions as recommendations, not vetoes, so the user can still choose the original approach if they prefer.
-
-## 10. UI Consistency & Styling
-
-- **Standard Interaction Pattern**: All interactive list items, tabs, and menu items must follow a consistent visual hierarchy:
-  - **Selected/Active**: `background: var(--accent)` (Dark Blue), `color: white` or `var(--accent)` border/text if ghost-style.
-  - **Hovered**: `background: var(--accent-glow)` (Light Blue / Tint), `color: var(--text-primary)`.
-  - **Default**: `background: transparent` or `var(--surface)`, `color: var(--text-muted)`.
-- **CSS Variables**: Always prefer theme variables (`--accent`, `--accent-glow`, `--text-primary`) over hardcoded hex codes to ensure theme compatibility.
-- **Component Reuse**: High-level interaction logic (like hover states in `ActionMenu`) should be implemented using React state where possible to ensure reliability during re-renders.
-
-## 11. Manual Verification
-
-- **User Preference**: The user prefers to perform manual verification themselves to save tokens and maintain control over the verification process.
-- **No Browser Autonomy**: Do NOT open a browser or use browser subagents to verify UI/UX changes unless specifically requested by the user. Rely on the user's feedback after they have had a chance to test the changes locally.
-
-## 12. Code Modularization
-
-- **File Size Limit**: If a file exceeds 500 lines, it must be carefully refactored into smaller components, hooks, or utility modules to reduce complexity and improve maintainability.
-- **Structural Integrity**: When refactoring, ensure that logical boundaries are respected (e.g., extracting state into hooks, UI into sub-components) and that the split doesn't introduce circular dependencies.
+1. Verification and correctness
+2. Security and data safety
+3. User-visible behavior and documentation accuracy
+4. Maintainability and consistency
