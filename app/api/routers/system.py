@@ -59,7 +59,7 @@ def api_home(
     """Returns initial data for the React SPA."""
     from .voices import list_speaker_profiles
 
-    profiles = list_speaker_profiles(voices_dir=voices_dir)
+    profiles = list_speaker_profiles()
     speakers = list_speakers()
     settings = get_settings()
     jobs = {j_id: job for j_id, job in get_jobs().items()}

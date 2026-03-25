@@ -7,6 +7,22 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 from app.db.core import init_db
 
+
+@pytest.fixture(autouse=True)
+def voices_root(tmp_path, monkeypatch):
+    import app.config
+    import app.web
+    import app.api.routers.voices
+    import app.jobs.speaker
+
+    voices_dir = (tmp_path / "voices").resolve()
+    monkeypatch.setattr(app.web, "VOICES_DIR", voices_dir)
+    monkeypatch.setattr(app.config, "VOICES_DIR", voices_dir)
+    monkeypatch.setattr(app.api.routers.voices, "VOICES_DIR", voices_dir)
+    monkeypatch.setattr(app.jobs.speaker, "VOICES_DIR", voices_dir)
+    return voices_dir
+
+
 @pytest.fixture
 def client():
     from fastapi.testclient import TestClient
@@ -14,7 +30,7 @@ def client():
     return TestClient(fastapi_app)
 
 @pytest.fixture
-def clean_db():
+def clean_db(tmp_path):
     from app.web import app as fastapi_app
     db_path = "/tmp/test_api_voices.db"
     if os.path.exists(db_path):
@@ -31,15 +47,11 @@ def clean_db():
         os.unlink(db_path)
     fastapi_app.dependency_overrides = {}
 
-def test_list_speaker_profiles(clean_db, tmp_path, client):
-    from app.web import app as fastapi_app
-    from app.api.routers.voices import get_voices_dir
-    voices_dir = tmp_path / "voices"
+def test_list_speaker_profiles(clean_db, voices_root, client):
+    voices_dir = voices_root
     voices_dir.mkdir()
     (voices_dir / "SpeakerA").mkdir()
     (voices_dir / "SpeakerA" / "v1.wav").write_text("audio")
-
-    fastapi_app.dependency_overrides[get_voices_dir] = lambda: voices_dir
 
     with patch("app.api.routers.voices.get_speaker_settings", return_value={"built_samples": [], "speed": 1.0, "test_text": ""}):
         response = client.get("/api/speaker-profiles")
@@ -48,12 +60,9 @@ def test_list_speaker_profiles(clean_db, tmp_path, client):
         assert len(data) == 1
         assert data[0]["name"] == "SpeakerA"
 
-def test_create_and_delete_profile(clean_db, tmp_path, client):
-    from app.web import app as fastapi_app
-    from app.api.routers.voices import get_voices_dir
-    voices_dir = (tmp_path / "voices").resolve()
+def test_create_and_delete_profile(clean_db, voices_root, client):
+    voices_dir = voices_root
     voices_dir.mkdir()
-    fastapi_app.dependency_overrides[get_voices_dir] = lambda: voices_dir
 
     # Create
     response = client.post("/api/speaker-profiles", data={"speaker_id": "S1", "variant_name": "V1"})
@@ -107,16 +116,12 @@ def test_speaker_crud(clean_db, client):
     response = client.delete(f"/api/speakers/{sid}")
     assert response.status_code == 200
 
-def test_rename_profile_and_security(clean_db, tmp_path, client):
-    from app.web import app as fastapi_app
-    from app.api.routers.voices import get_voices_dir
-    voices_dir = (tmp_path / "voices").resolve()
+def test_rename_profile_and_security(clean_db, voices_root, client):
+    voices_dir = voices_root
     voices_dir.mkdir()
     (voices_dir / "OldName").mkdir()
     (voices_dir / "OldName" / "profile.json").write_text(json.dumps({"variant_name": "Old"}))
     (voices_dir / "OldName" / "latent.pth").write_text("latent")
-
-    fastapi_app.dependency_overrides[get_voices_dir] = lambda: voices_dir
 
     # Success
     response = client.post("/api/voices/rename-profile", data={"old_name": "OldName", "new_name": "NewName - Variant"})
@@ -143,16 +148,14 @@ def test_speaker_settings_updates(clean_db, client):
 
     assert mock_update.call_count == 2
 
-def test_reset_speaker_test_text(clean_db, tmp_path, client):
-    from app.web import app as fastapi_app
-    from app.api.routers.voices import get_voices_dir, DEFAULT_SPEAKER_TEST_TEXT
+def test_reset_speaker_test_text(clean_db, voices_root, client):
+    from app.api.routers.voices import DEFAULT_SPEAKER_TEST_TEXT
 
-    voices_dir = (tmp_path / "voices").resolve()
+    voices_dir = voices_root
     profile_dir = voices_dir / "SpeakerA"
     profile_dir.mkdir(parents=True)
     (profile_dir / "profile.json").write_text(json.dumps({"test_text": "Custom text"}))
 
-    fastapi_app.dependency_overrides[get_voices_dir] = lambda: voices_dir
     with patch("app.jobs.speaker.VOICES_DIR", voices_dir):
         response = client.post("/api/speaker-profiles/SpeakerA/reset-test-text")
 
@@ -160,12 +163,9 @@ def test_reset_speaker_test_text(clean_db, tmp_path, client):
     assert response.json()["test_text"] == DEFAULT_SPEAKER_TEST_TEXT
     assert "test_text" not in json.loads((profile_dir / "profile.json").read_text())
 
-def test_build_and_test_profiles(clean_db, tmp_path, client):
-    from app.web import app as fastapi_app
-    from app.api.routers.voices import get_voices_dir
-    voices_dir = (tmp_path / "voices").resolve()
+def test_build_and_test_profiles(clean_db, voices_root, client):
+    voices_dir = voices_root
     voices_dir.mkdir()
-    fastapi_app.dependency_overrides[get_voices_dir] = lambda: voices_dir
 
     with patch("app.api.routers.voices.VOICES_DIR", voices_dir):
         # Build
@@ -183,12 +183,9 @@ def test_build_and_test_profiles(clean_db, tmp_path, client):
             response = client.post("/api/speaker-profiles/SpeakerA/test")
             assert response.status_code == 200
 
-def test_build_and_test_require_samples(clean_db, tmp_path, client):
-    from app.web import app as fastapi_app
-    from app.api.routers.voices import get_voices_dir
-    voices_dir = (tmp_path / "voices").resolve()
+def test_build_and_test_require_samples(clean_db, voices_root, client):
+    voices_dir = voices_root
     voices_dir.mkdir()
-    fastapi_app.dependency_overrides[get_voices_dir] = lambda: voices_dir
 
     with patch("app.api.routers.voices.VOICES_DIR", voices_dir):
         profile_dir = voices_dir / "SpeakerA"
@@ -203,12 +200,9 @@ def test_build_and_test_require_samples(clean_db, tmp_path, client):
             assert response.status_code == 400
             assert "sample" in response.json()["message"].lower()
 
-def test_legacy_build_and_rename(clean_db, tmp_path, client):
-    from app.web import app as fastapi_app
-    from app.api.routers.voices import get_voices_dir
-    voices_dir = (tmp_path / "voices").resolve()
+def test_legacy_build_and_rename(clean_db, voices_root, client):
+    voices_dir = voices_root
     voices_dir.mkdir()
-    fastapi_app.dependency_overrides[get_voices_dir] = lambda: voices_dir
 
     # Legacy Build
     with patch("app.api.routers.voices.put_job"), patch("app.api.routers.voices.enqueue"):
@@ -221,12 +215,9 @@ def test_legacy_build_and_rename(clean_db, tmp_path, client):
     response = client.post("/api/speaker-profiles/SpeakerL/rename", data={"new_name": "SpeakerNew"})
     assert response.status_code == 200
 
-def test_profile_creation_errors(clean_db, tmp_path, client):
-    from app.web import app as fastapi_app
-    from app.api.routers.voices import get_voices_dir
-    voices_dir = (tmp_path / "voices").resolve()
+def test_profile_creation_errors(clean_db, voices_root, client):
+    voices_dir = voices_root
     voices_dir.mkdir()
-    fastapi_app.dependency_overrides[get_voices_dir] = lambda: voices_dir
 
     # Already exists
     (voices_dir / "S1 - V1").mkdir()
@@ -242,18 +233,14 @@ def test_profile_creation_errors(clean_db, tmp_path, client):
         response = client.post("/api/speaker-profiles", data={"speaker_id": "Err", "variant_name": "V1"})
         assert response.status_code == 500
 
-def test_rename_speaker_with_variants(clean_db, tmp_path, client):
-    from app.web import app as fastapi_app
-    from app.api.routers.voices import get_voices_dir
-    voices_dir = (tmp_path / "voices").resolve()
+def test_rename_speaker_with_variants(clean_db, voices_root, client):
+    voices_dir = voices_root
     voices_dir.mkdir()
     (voices_dir / "Narrator").mkdir()
     (voices_dir / "Narrator - Calm").mkdir()
     (voices_dir / "Narrator - Calm" / "profile.json").write_text(json.dumps({"speaker_id": "Narrator"}))
     (voices_dir / "Narrator - Calm" / "latent.pth").write_text("latent")
     (voices_dir / "Narrator - Excited").mkdir()
-
-    fastapi_app.dependency_overrides[get_voices_dir] = lambda: voices_dir
 
     # Rename
     response = client.post("/api/voices/rename-profile", data={"old_name": "Narrator", "new_name": "Dracula"})
@@ -271,27 +258,20 @@ def test_rename_speaker_with_variants(clean_db, tmp_path, client):
     meta = json.loads((voices_dir / "Dracula - Calm" / "profile.json").read_text())
     assert meta["speaker_id"] == "Dracula"
 
-def test_rename_profile_default_sync(clean_db, tmp_path, client):
-    from app.web import app as fastapi_app
-    from app.api.routers.voices import get_voices_dir
+def test_rename_profile_default_sync(clean_db, voices_root, client):
     from app.state import update_settings, get_settings
     update_settings({"default_speaker_profile": "OldProfile"})
 
-    voices_dir = (tmp_path / "voices").resolve()
+    voices_dir = voices_root
     voices_dir.mkdir()
     (voices_dir / "OldProfile").mkdir()
-    fastapi_app.dependency_overrides[get_voices_dir] = lambda: voices_dir
-
     response = client.post("/api/voices/rename-profile", data={"old_name": "OldProfile", "new_name": "NewProfile"})
     assert response.status_code == 200
     assert get_settings()["default_speaker_profile"] == "NewProfile"
 
-def test_upload_samples_security_and_failure(clean_db, tmp_path, client):
-    from app.web import app as fastapi_app
-    from app.api.routers.voices import get_voices_dir
-    voices_dir = (tmp_path / "voices").resolve()
+def test_upload_samples_security_and_failure(clean_db, voices_root, client):
+    voices_dir = voices_root
     voices_dir.mkdir()
-    fastapi_app.dependency_overrides[get_voices_dir] = lambda: voices_dir
 
     # Define files for the test
     files = {"files": ("sample.wav", io.BytesIO(b"data"), "audio/wav")}
@@ -301,14 +281,11 @@ def test_upload_samples_security_and_failure(clean_db, tmp_path, client):
         response = client.post("/api/speaker-profiles/SpeakerA/samples/upload", files=files)
         assert response.status_code == 500
 
-def test_delete_sample_errors(clean_db, tmp_path, client):
-    from app.web import app as fastapi_app
-    from app.api.routers.voices import get_voices_dir
-    voices_dir = (tmp_path / "voices").resolve()
+def test_delete_sample_errors(clean_db, voices_root, client):
+    voices_dir = voices_root
     voices_dir.mkdir()
     (voices_dir / "SpeakerA").mkdir()
     (voices_dir / "SpeakerA" / "sample1.wav").write_text("audio")
-    fastapi_app.dependency_overrides[get_voices_dir] = lambda: voices_dir
 
     # Success
     response = client.delete("/api/speaker-profiles/SpeakerA/samples/sample1.wav")
@@ -322,27 +299,23 @@ def test_delete_sample_errors(clean_db, tmp_path, client):
         assert response.status_code == 500
 
 
-def test_delete_sample_rejects_traversal(tmp_path):
+def test_delete_sample_rejects_traversal(voices_root):
     from app.api.routers.voices import delete_speaker_sample
 
-    voices_dir = (tmp_path / "voices").resolve()
+    voices_dir = voices_root
     voices_dir.mkdir()
     (voices_dir / "SpeakerA").mkdir()
-
-    response = delete_speaker_sample(
-        name="SpeakerA",
-        sample_name="../../escape.wav",
-        voices_dir=voices_dir,
-    )
+    with patch("app.api.routers.voices.VOICES_DIR", voices_dir):
+        response = delete_speaker_sample(
+            name="SpeakerA",
+            sample_name="../../escape.wav",
+        )
     assert response.status_code == 403
 
-def test_assign_profile_to_speaker_errors(clean_db, tmp_path, client):
-    from app.web import app as fastapi_app
-    from app.api.routers.voices import get_voices_dir
-    voices_dir = (tmp_path / "voices").resolve()
+def test_assign_profile_to_speaker_errors(clean_db, voices_root, client):
+    voices_dir = voices_root
     voices_dir.mkdir()
     (voices_dir / "SomeProf").mkdir()
-    fastapi_app.dependency_overrides[get_voices_dir] = lambda: voices_dir
 
     # Generic error
     with patch("app.api.routers.voices.get_speaker", side_effect=Exception("db crash")):
