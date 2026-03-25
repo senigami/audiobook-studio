@@ -1,5 +1,4 @@
 import json
-import os
 import subprocess
 import shlex
 import time
@@ -17,14 +16,15 @@ router = APIRouter(prefix="/api", tags=["settings"])
 SAFE_AUDIOBOOK_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
 
 
-def _contained_file(base_dir: Path, filename: str) -> Path:
+def _find_named_file(base_dir: Path, filename: str) -> Optional[Path]:
     if not SAFE_AUDIOBOOK_NAME_RE.fullmatch(filename):
         raise ValueError(f"Invalid filename: {filename}")
-    base_path = os.path.abspath(os.path.normpath(os.fspath(base_dir)))
-    fullpath = os.path.abspath(os.path.normpath(os.path.join(base_path, filename)))
-    if not fullpath.startswith(base_path + os.sep) and fullpath != base_path:
-        raise ValueError(f"Invalid filename: {filename}")
-    return Path(fullpath)
+    if not base_dir.exists():
+        return None
+    for entry in base_dir.iterdir():
+        if entry.is_file() and entry.name == filename:
+            return entry.resolve()
+    return None
 
 @router.get("/audiobooks")
 def api_list_audiobooks():
@@ -36,17 +36,13 @@ def delete_audiobook(filename: str, project_id: Optional[str] = Query(None)):
     path = None
     if project_id:
         try:
-            p_path = _contained_file(get_project_m4b_dir(project_id), filename)
-            if p_path.exists():
-                path = p_path
+            path = _find_named_file(get_project_m4b_dir(project_id), filename)
         except (ValueError, TypeError):
             return JSONResponse({"status": "error", "message": "Invalid filename"}, status_code=403)
 
     if not path:
         try:
-            l_path = _contained_file(AUDIOBOOK_DIR, filename)
-            if l_path.exists():
-                path = l_path
+            path = _find_named_file(AUDIOBOOK_DIR, filename)
         except (ValueError, TypeError):
             return JSONResponse({"status": "error", "message": "Invalid filename"}, status_code=403)
 
@@ -54,8 +50,8 @@ def delete_audiobook(filename: str, project_id: Optional[str] = Query(None)):
         for p_dir in PROJECTS_DIR.iterdir():
             if p_dir.is_dir():
                 try:
-                    possible = _contained_file(p_dir / "m4b", filename)
-                    if possible.exists():
+                    possible = _find_named_file(p_dir / "m4b", filename)
+                    if possible:
                         path = possible
                         break
                 except (ValueError, TypeError):

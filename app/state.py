@@ -234,7 +234,10 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
 
                         full_audio_path = None
                         if isinstance(output_file, str) and SAFE_OUTPUT_FILE_RE.fullmatch(output_file):
-                            full_audio_path = pdir / output_file
+                            for entry in pdir.iterdir():
+                                if entry.is_file() and entry.name == output_file:
+                                    full_audio_path = entry.resolve()
+                                    break
                         if full_audio_path and full_audio_path.exists():
                             try:
                                 result = subprocess.run(
