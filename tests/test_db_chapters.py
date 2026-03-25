@@ -158,7 +158,7 @@ def test_update_segment_only_cleans_edited_segment_files(db_conn, tmp_path):
         assert seg2_after["audio_status"] == "done"
 
 
-def test_update_chapter_text_change_deletes_stale_chapter_audio(db_conn, tmp_path):
+def test_update_chapter_text_change_preserves_stale_chapter_audio_until_rebuild(db_conn, tmp_path):
     from unittest.mock import patch
     from app.db.segments import sync_chapter_segments, get_chapter_segments
     from app.db import update_segment
@@ -185,15 +185,15 @@ def test_update_chapter_text_change_deletes_stale_chapter_audio(db_conn, tmp_pat
         update_chapter(cid, audio_status="done", audio_file_path=f"{cid}.wav", audio_generated_at=123.0)
         update_chapter(cid, text_content="One. Three.")
 
-        assert not chapter_wav.exists()
+        assert chapter_wav.exists()
         assert seg1_wav.exists()
         assert not seg2_wav.exists()
 
         chapter = get_chapter(cid)
         assert chapter["audio_status"] == "unprocessed"
-        assert chapter["audio_file_path"] is None
-        assert chapter["audio_generated_at"] is None
-        assert chapter["has_wav"] is False
+        assert chapter["audio_file_path"] == f"{cid}.wav"
+        assert chapter["audio_generated_at"] == 123.0
+        assert chapter["has_wav"] is True
 
         segs_after = get_chapter_segments(cid)
         assert len(segs_after) == 2

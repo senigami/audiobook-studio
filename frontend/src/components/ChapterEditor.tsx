@@ -270,11 +270,12 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     catch (e) { console.error("Bulk reset failed", e); }
   };
 
-  const allSegmentsDone = segments.length > 0 && segments.every(s => s.audio_status === 'done');
-  const isFullyRendered = allSegmentsDone && (chapter?.audio_status === 'done' || !!chapter?.audio_file_path || !!chapter?.has_wav);
+  const hasRenderedOutput = chapter?.audio_status === 'done' || !!chapter?.audio_file_path || !!chapter?.has_wav || !!chapter?.has_mp3;
+  const hasRenderedSegments = segments.some(s => s.audio_status === 'done' || !!s.audio_file_path);
+  const shouldWarnBeforeRequeue = hasRenderedOutput || hasRenderedSegments;
   const isQueueLocked = queuePending || submitting || chapter?.audio_status === 'processing' || ['queued', 'preparing', 'running', 'finalizing'].includes(job?.status || '');
-  const queueButtonLabel = isFullyRendered ? 'Rebuild' : 'Queue';
-  const queueButtonTitle = isFullyRendered ? 'Rebuild Chapter' : 'Queue Chapter';
+  const queueButtonLabel = shouldWarnBeforeRequeue ? 'Rebuild' : 'Queue';
+  const queueButtonTitle = shouldWarnBeforeRequeue ? 'Rebuild Chapter' : 'Queue Chapter';
 
   useEffect(() => {
     if (chapter?.audio_status === 'processing' || ['queued', 'preparing', 'running', 'finalizing'].includes(job?.status || '')) {
@@ -341,7 +342,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         queueLabel={queueButtonLabel}
         queueTitle={queueButtonTitle}
         onQueue={() => {
-            if (isFullyRendered) {
+            if (shouldWarnBeforeRequeue) {
                 setConfirmConfig({
                     title: 'Requeue Completed Chapter',
                     message: 'All audio for this chapter is already complete. Rebuilding will delete the existing final render and regenerate from the current segments. Continue?',
