@@ -36,6 +36,28 @@ def get_chapter_dir() -> Path:
 def get_xtts_out_dir() -> Path:
     return XTTS_OUT_DIR
 
+
+def _named_file(base_dir: Path, filename: str, allowed_suffixes: Optional[tuple[str, ...]] = None) -> Optional[Path]:
+    if not base_dir.exists():
+        return None
+    for entry in base_dir.iterdir():
+        if not entry.is_file() or entry.name != filename:
+            continue
+        if allowed_suffixes and entry.suffix.lower() not in allowed_suffixes:
+            continue
+        return entry.resolve()
+    return None
+
+
+def _named_audio_file_map(base_dir: Path) -> dict[str, Path]:
+    if not base_dir.exists():
+        return {}
+    return {
+        entry.name: entry.resolve()
+        for entry in base_dir.iterdir()
+        if entry.is_file() and entry.suffix.lower() in (".wav", ".mp3", ".m4a")
+    }
+
 router = APIRouter(prefix="/api", tags=["chapters"])
 
 @router.get("/projects/{project_id}/chapters")
@@ -225,9 +247,10 @@ def reset_chapter_legacy(
                 return JSONResponse({"status": "error", "message": "Invalid chapter file"}, status_code=403)
 
         count = 0
+        audio_files = _named_audio_file_map(xtts_out_dir)
         for ext in [".wav", ".mp3", ".m4a"]:
-            f = safe_join_flat(xtts_out_dir, f"{stem}{ext}")
-            if f.exists():
+            f = audio_files.get(f"{stem}{ext}")
+            if f:
                 f.unlink()
                 count += 1
         return JSONResponse({
@@ -246,16 +269,16 @@ def api_delete_legacy_chapter(
 ):
     try:
         safe_filename = safe_basename(filename)
-        try:
-            path = safe_join_flat(chapter_dir, safe_filename)
-        except ValueError:
+        path = _named_file(chapter_dir, safe_filename, (".txt",))
+        if safe_filename != filename and not path:
             logger.warning(f"Blocking delete traversal attempt: {filename}")
             return JSONResponse({"status": "error", "message": "Invalid filename"}, status_code=403)
 
-        stem = path.stem
+        stem = Path(safe_filename).stem
+        audio_files = _named_audio_file_map(xtts_out_dir)
         for ext in [".wav", ".mp3"]:
-            f = safe_join_flat(xtts_out_dir, f"{stem}{ext}")
-            if f.exists():
+            f = audio_files.get(f"{stem}{ext}")
+            if f:
                 f.unlink()
 
         existing = get_jobs()
@@ -268,7 +291,7 @@ def api_delete_legacy_chapter(
         if to_del:
             delete_jobs(to_del)
 
-        if path.exists():
+        if path:
             path.unlink()
             return JSONResponse({
                 "status": "ok",
@@ -295,13 +318,11 @@ def api_preview(
 
     try:
         safe_filename = safe_basename(chapter_file)
-        try:
-            p = safe_join_flat(chapter_dir, safe_filename)
-        except ValueError:
+        p = _named_file(chapter_dir, safe_filename, (".txt",))
+        if safe_filename != chapter_file and not p:
             logger.warning(f"Blocking preview traversal attempt: {chapter_file}")
             return JSONResponse({"error": "invalid path"}, status_code=403)
-
-        if not p.exists():
+        if not p:
             return JSONResponse({"error": "not found"}, status_code=404)
     except Exception as e:
         logger.error(f"Error resolving preview path {chapter_file}: {e}")
@@ -334,23 +355,22 @@ async def api_export_chapter_sample(
     )
 
     wav_path = None
+    audio_files = _named_audio_file_map(pdir)
     if chapter and chapter.get("audio_file_path"):
-        try:
-            wav_path = safe_join_flat(pdir, chapter["audio_file_path"])
-        except ValueError:
-            wav_path = None
+        wav_path = audio_files.get(chapter["audio_file_path"])
 
-    if not wav_path or not wav_path.exists():
-        # Fallbacks
-        wav_path = safe_join_flat(pdir, f"{chapter_id}.wav")
-        if not wav_path.exists():
-            wav_path = safe_join_flat(pdir, f"{chapter_id}.mp3")
-        if not wav_path.exists():
-            wav_path = safe_join_flat(pdir, f"{chapter_id}_0.wav")
-        if not wav_path.exists():
-            wav_path = safe_join_flat(pdir, f"{chapter_id}_0.mp3")
+    if not wav_path:
+        for candidate_name in (
+            f"{chapter_id}.wav",
+            f"{chapter_id}.mp3",
+            f"{chapter_id}_0.wav",
+            f"{chapter_id}_0.mp3",
+        ):
+            wav_path = audio_files.get(candidate_name)
+            if wav_path:
+                break
 
-    if not wav_path or not wav_path.exists():
+    if not wav_path:
         return JSONResponse({"status": "error", "message": "Audio not found"}, status_code=404)
 
     rel_path = f"/api/chapters/{chapter_id}/stream"
@@ -371,18 +391,11 @@ def api_stream_chapter(
     )
 
     wav_path = None
+    audio_files = _named_audio_file_map(pdir)
     if chapter and chapter.get("audio_file_path"):
-        try:
-            wav_path = safe_join_flat(pdir, chapter["audio_file_path"])
-        except ValueError:
-            wav_path = None
+        wav_path = audio_files.get(chapter["audio_file_path"])
 
-    if not wav_path or not wav_path.exists():
-        audio_files = {
-            entry.name: entry.resolve()
-            for entry in pdir.iterdir()
-            if entry.is_file() and entry.suffix.lower() in (".wav", ".mp3")
-        }
+    if not wav_path:
         for candidate_name in (
             f"{chapter_id}.wav",
             f"{chapter_id}.mp3",
@@ -393,7 +406,7 @@ def api_stream_chapter(
             if wav_path:
                 break
 
-    if not wav_path or not wav_path.exists():
+    if not wav_path:
          return JSONResponse({"status": "error", "message": "Audio not found"}, status_code=404)
 
     return FileResponse(wav_path)

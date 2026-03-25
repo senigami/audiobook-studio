@@ -52,17 +52,27 @@ def api_add_to_queue(
             title, text_content = c_item
             text_dir = get_project_text_dir(project_id)
             temp_filename = f"{chapter_id}_{split_part}.txt"
-            temp_path = safe_join_flat(text_dir, temp_filename)
+            temp_path = text_dir / temp_filename
             temp_path.write_text(text_content or "", encoding="utf-8", errors="replace")
 
             segs = get_chapter_segments(chapter_id)
             pdir = get_project_audio_dir(project_id)
+            project_audio_files = {
+                entry.name
+                for entry in pdir.iterdir()
+                if entry.is_file()
+            } if pdir.exists() else set()
+            xtts_audio_files = {
+                entry.name
+                for entry in XTTS_OUT_DIR.iterdir()
+                if entry.is_file()
+            } if XTTS_OUT_DIR.exists() else set()
             has_bakeable_segments = any(
                 s.get("audio_status") == "done"
                 and s.get("audio_file_path")
                 and (
-                    safe_join_flat(pdir, s["audio_file_path"]).exists()
-                    or safe_join_flat(XTTS_OUT_DIR, s["audio_file_path"]).exists()
+                    s["audio_file_path"] in project_audio_files
+                    or s["audio_file_path"] in xtts_audio_files
                 )
                 for s in segs
             )
