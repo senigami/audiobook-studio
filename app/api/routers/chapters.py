@@ -12,7 +12,7 @@ from ...db import (
     sync_chapter_segments, reset_chapter_audio, get_connection
 )
 from ... import config
-from ...config import get_project_audio_dir, SENT_CHAR_LIMIT, BASELINE_XTTS_CPS
+from ...config import SENT_CHAR_LIMIT, BASELINE_XTTS_CPS, find_existing_project_subdir
 from ...textops import (
     compute_chapter_metrics, sanitize_for_xtts,
     safe_split_long_sentences, pack_text_to_limit
@@ -49,8 +49,8 @@ def _named_file(base_dir: Path, filename: str, allowed_suffixes: Optional[tuple[
     return None
 
 
-def _named_audio_file_map(base_dir: Path) -> dict[str, Path]:
-    if not base_dir.exists():
+def _named_audio_file_map(base_dir: Optional[Path]) -> dict[str, Path]:
+    if not base_dir or not base_dir.exists():
         return {}
     return {
         entry.name: entry.resolve()
@@ -351,7 +351,7 @@ async def api_export_chapter_sample(
 ):
     chapter = get_chapter(chapter_id)
     pdir = (
-        get_project_audio_dir(project_id) if project_id else xtts_out_dir
+        find_existing_project_subdir(project_id, "audio") if project_id else xtts_out_dir
     )
 
     wav_path = None
@@ -387,7 +387,7 @@ def api_stream_chapter(
 ):
     chapter = get_chapter(chapter_id)
     pdir = (
-        get_project_audio_dir(project_id) if project_id else xtts_out_dir
+        find_existing_project_subdir(project_id, "audio") if project_id else xtts_out_dir
     )
 
     wav_path = None

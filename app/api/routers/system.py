@@ -191,8 +191,6 @@ async def create_audiobook(
     narrator: str = Form(None),
     chapters: str = Form("[]"),
     cover: Optional[UploadFile] = File(None),
-    cover_dir: Path = Depends(get_cover_dir),
-    audiobook_dir: Path = Depends(get_audiobook_dir)
 ):
     try:
         chapter_list = json.loads(chapters)
@@ -200,6 +198,8 @@ async def create_audiobook(
         logger.warning("Invalid chapters payload for audiobook creation", exc_info=True)
         chapter_list = []
 
+    cover_dir = config.COVER_DIR
+    audiobook_dir = config.AUDIOBOOK_DIR
     cover_dir.mkdir(parents=True, exist_ok=True)
     audiobook_dir.mkdir(parents=True, exist_ok=True)
 

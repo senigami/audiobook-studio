@@ -28,21 +28,16 @@ def db_conn():
     if os.path.exists(db_path):
         os.unlink(db_path)
 
-def test_reconcile_project_audio(db_conn):
+def test_reconcile_project_audio(db_conn, tmp_path):
     pid = create_project("P1")
     cid = create_chapter(pid, "C1")
 
     expected_file = f"{cid}.mp3"
+    audio_dir = tmp_path / "audio"
+    audio_dir.mkdir()
+    (audio_dir / expected_file).write_bytes(b"mp3")
 
-    def mock_exists(p_self):
-        s = str(p_self)
-        if expected_file in s or "audio" in s:
-            return True
-        return False
-
-    with patch("app.config.get_project_audio_dir", return_value=Path("/tmp/audio")), \
-         patch("pathlib.Path.exists", side_effect=mock_exists, autospec=True), \
-         patch("os.listdir", return_value=[expected_file]), \
+    with patch("app.config.find_existing_project_subdir", side_effect=lambda _project_id, dirname: audio_dir if dirname == "audio" else None), \
          patch("subprocess.run") as mock_run:
 
         # Mock ffprobe result
@@ -60,20 +55,15 @@ def test_reconcile_project_audio(db_conn):
             assert row["audio_file_path"] == expected_file
             assert row["audio_length_seconds"] == 42.0
 
-def test_reconcile_project_audio_not_found(db_conn):
+def test_reconcile_project_audio_not_found(db_conn, tmp_path):
     pid = create_project("P1")
     cid = create_chapter(pid, "C1")
     update_chapter(cid, audio_status="done", audio_file_path="old.wav")
 
-    def mock_exists(p_self):
-        s = str(p_self)
-        if s.endswith("audio"):
-            return True
-        return False
+    audio_dir = tmp_path / "audio"
+    audio_dir.mkdir()
 
-    with patch("app.config.get_project_audio_dir", return_value=Path("/tmp/audio")), \
-         patch("os.listdir", return_value=[]), \
-         patch("pathlib.Path.exists", side_effect=mock_exists, autospec=True):
+    with patch("app.config.find_existing_project_subdir", side_effect=lambda _project_id, dirname: audio_dir if dirname == "audio" else None):
 
         reconcile_project_audio(pid)
 

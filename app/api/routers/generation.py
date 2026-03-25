@@ -12,9 +12,7 @@ from ...db import (
 from ...jobs import enqueue, cancel as cancel_job_worker, set_paused, clear_job_queue
 from ...models import Job
 from ...state import put_job, update_job, get_settings, get_jobs
-from ...config import get_project_text_dir
-from ...config import get_project_audio_dir, XTTS_OUT_DIR
-from ...pathing import safe_join_flat
+from ...config import XTTS_OUT_DIR, find_existing_project_dir, find_existing_project_subdir
 from ..ws import broadcast_queue_update
 
 router = APIRouter(prefix="/api", tags=["generation"])
@@ -50,13 +48,17 @@ def api_add_to_queue(
 
         if c_item:
             title, text_content = c_item
-            text_dir = get_project_text_dir(project_id)
+            project_dir = find_existing_project_dir(project_id)
+            if not project_dir:
+                raise ValueError(f"Project directory not found for {project_id}")
+            text_dir = find_existing_project_subdir(project_id, "text") or (project_dir / "text")
+            text_dir.mkdir(parents=True, exist_ok=True)
             temp_filename = f"{chapter_id}_{split_part}.txt"
             temp_path = text_dir / temp_filename
             temp_path.write_text(text_content or "", encoding="utf-8", errors="replace")
 
             segs = get_chapter_segments(chapter_id)
-            pdir = get_project_audio_dir(project_id)
+            pdir = find_existing_project_subdir(project_id, "audio") or (project_dir / "audio")
             project_audio_files = {
                 entry.name
                 for entry in pdir.iterdir()
@@ -222,15 +224,17 @@ def api_generate_segments(segment_ids: str = Form(...)):
 
     # Physical Cleanup: Delete existing full-chapter audio files to prevent reconciliation "blink"
     from ... import config
-    pdir = config.get_project_audio_dir(project_id) if project_id else config.XTTS_OUT_DIR
-    for p in pdir.iterdir():
+    project_audio_dir = config.find_existing_project_subdir(project_id, "audio") if project_id else config.XTTS_OUT_DIR
+    if not project_audio_dir:
+        project_audio_dir = config.get_project_dir(project_id) / "audio"
+    for p in project_audio_dir.iterdir() if project_audio_dir.exists() else ():
         if (
             p.is_file()
             and p.name.startswith(chapter_id)
             and p.suffix.lower() in ('.wav', '.mp3', '.m4a')
         ):
             try:
-                safe_join_flat(pdir, p.name).unlink()
+                p.unlink()
             except Exception:
                 logger.warning("Failed to remove stale chapter audio file %s", p, exc_info=True)
 

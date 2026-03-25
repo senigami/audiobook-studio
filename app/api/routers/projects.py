@@ -11,7 +11,7 @@ from ...db import (
     create_project, get_project, list_projects, update_project, 
     delete_project, list_chapters as db_list_chapters, reorder_chapters
 )
-from ...config import COVER_DIR, XTTS_OUT_DIR, get_project_dir, get_project_m4b_dir
+from ...config import COVER_DIR, XTTS_OUT_DIR, get_project_dir, find_existing_project_subdir
 import urllib.parse
 from ...jobs import enqueue
 from ...engines import get_audio_duration
@@ -110,9 +110,9 @@ def api_list_project_audiobooks(project_id: str):
     if not project:
         return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
 
-    m4b_dir = get_project_m4b_dir(project_id)
+    m4b_dir = find_existing_project_subdir(project_id, "m4b")
     m4b_files = []
-    if m4b_dir.exists():
+    if m4b_dir and m4b_dir.exists():
         for p in m4b_dir.iterdir():
             if not p.is_file() or p.suffix.lower() != ".m4b":
                 continue

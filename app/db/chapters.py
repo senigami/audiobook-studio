@@ -19,7 +19,9 @@ def cleanup_chapter_audio_files(
     """Delete chapter-level and selected segment audio files without touching DB state."""
     from .. import config
 
-    pdir = config.get_project_audio_dir(project_id) if project_id else config.XTTS_OUT_DIR
+    pdir = config.find_existing_project_subdir(project_id, "audio") if project_id else config.XTTS_OUT_DIR
+    if project_id and not pdir:
+        return True
     resolved_root = pdir.resolve()
     known_files = {
         entry.name: entry.resolve()
@@ -119,12 +121,12 @@ def get_chapter(chapter_id: str) -> Optional[Dict[str, Any]]:
 
     # Rule 3: Disk as Source of Truth - Outside Lock
     from .. import config
-    pdir = config.get_project_audio_dir(chap["project_id"]) if chap["project_id"] else config.XTTS_OUT_DIR
+    pdir = config.find_existing_project_subdir(chap["project_id"], "audio") if chap["project_id"] else config.XTTS_OUT_DIR
     existing_names = {
         entry.name
         for entry in pdir.iterdir()
         if entry.is_file() and entry.suffix.lower() in (".wav", ".mp3", ".m4a")
-    } if pdir.exists() else set()
+    } if pdir and pdir.exists() else set()
     path = chap.get("audio_file_path")
     chap["has_wav"] = False
     chap["has_mp3"] = False
@@ -161,13 +163,13 @@ def list_chapters(project_id: str) -> List[Dict[str, Any]]:
             rows = [dict(row) for row in cursor.fetchall()]
 
     from .. import config
-    pdir = config.get_project_audio_dir(project_id) if project_id else config.XTTS_OUT_DIR
+    pdir = config.find_existing_project_subdir(project_id, "audio") if project_id else config.XTTS_OUT_DIR
 
     existing_names = {
         entry.name
         for entry in pdir.iterdir()
         if entry.is_file() and entry.suffix.lower() in (".wav", ".mp3", ".m4a")
-    } if pdir.exists() else set()
+    } if pdir and pdir.exists() else set()
 
     for chap in rows:
         path = chap.get("audio_file_path")

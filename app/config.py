@@ -27,49 +27,65 @@ def _canonical_project_id(project_id: str) -> str:
             return project_id
         raise ValueError(f"Invalid project id: {project_id}")
 
-def get_project_dir(project_id: str) -> Path:
-    canonical_project_id = _canonical_project_id(project_id)
 
-    if PROJECTS_DIR.exists():
+def find_existing_project_dir(project_id: str) -> Path | None:
+    canonical_project_id = _canonical_project_id(project_id)
+    if not PROJECTS_DIR.exists():
+        return None
+    try:
         for entry in PROJECTS_DIR.iterdir():
             if entry.is_dir() and entry.name == canonical_project_id:
                 return entry.resolve()
+    except OSError:
+        return None
+    return None
 
-    PROJECTS_DIR.mkdir(parents=True, exist_ok=True)
+
+def find_existing_project_subdir(project_id: str, dirname: str) -> Path | None:
+    project_dir = find_existing_project_dir(project_id)
+    if not project_dir or not project_dir.exists():
+        return None
+    try:
+        for entry in project_dir.iterdir():
+            if entry.is_dir() and entry.name == dirname:
+                return entry.resolve()
+    except OSError:
+        return None
+    return None
+
+
+def get_project_dir(project_id: str) -> Path:
+    canonical_project_id = _canonical_project_id(project_id)
+    existing_dir = find_existing_project_dir(canonical_project_id)
+    if existing_dir:
+        return existing_dir
+
     projects_root = os.fspath(PROJECTS_DIR.resolve())
     fullpath = os.path.abspath(os.path.normpath(os.path.join(projects_root, canonical_project_id)))
     if not fullpath.startswith(projects_root + os.sep) and fullpath != projects_root:
         raise ValueError(f"Invalid project id: {project_id}")
-    d = Path(fullpath)
-    d.mkdir(parents=True, exist_ok=True)
-    return d
+    return Path(fullpath)
 
 def get_project_audio_dir(project_id: str) -> Path:
+    existing_dir = find_existing_project_subdir(project_id, "audio")
+    if existing_dir:
+        return existing_dir
     project_dir = get_project_dir(project_id)
-    for entry in project_dir.iterdir():
-        if entry.is_dir() and entry.name == "audio":
-            return entry.resolve()
-    d = project_dir / "audio"
-    d.mkdir(parents=True, exist_ok=True)
-    return d
+    return project_dir / "audio"
 
 def get_project_text_dir(project_id: str) -> Path:
+    existing_dir = find_existing_project_subdir(project_id, "text")
+    if existing_dir:
+        return existing_dir
     project_dir = get_project_dir(project_id)
-    for entry in project_dir.iterdir():
-        if entry.is_dir() and entry.name == "text":
-            return entry.resolve()
-    d = project_dir / "text"
-    d.mkdir(parents=True, exist_ok=True)
-    return d
+    return project_dir / "text"
 
 def get_project_m4b_dir(project_id: str) -> Path:
+    existing_dir = find_existing_project_subdir(project_id, "m4b")
+    if existing_dir:
+        return existing_dir
     project_dir = get_project_dir(project_id)
-    for entry in project_dir.iterdir():
-        if entry.is_dir() and entry.name == "m4b":
-            return entry.resolve()
-    d = project_dir / "m4b"
-    d.mkdir(parents=True, exist_ok=True)
-    return d
+    return project_dir / "m4b"
 
 
 # Your existing environments (adjust only if different)

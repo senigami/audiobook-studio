@@ -9,6 +9,10 @@ from app.db.chapters import (
 )
 from app.db.projects import create_project
 
+
+def _existing_project_audio_dir(path: Path):
+    return lambda _project_id, dirname: Path(path) if dirname == "audio" else None
+
 @pytest.fixture
 def db_conn():
     db_path = "/tmp/test_audiobook.db"
@@ -75,7 +79,8 @@ def test_get_chapter_disk_checks(db_conn, tmp_path):
     (audio_dir / f"{cid}.mp3").write_text("mp3")
     (audio_dir / f"{cid}.m4a").write_text("m4a")
 
-    with patch("app.config.get_project_audio_dir", return_value=Path(audio_dir)):
+    with patch("app.config.get_project_audio_dir", return_value=Path(audio_dir)), \
+         patch("app.config.find_existing_project_subdir", side_effect=_existing_project_audio_dir(audio_dir)):
 
         chapter = get_chapter(cid)
         assert chapter["has_wav"] is True
@@ -99,7 +104,8 @@ def test_reset_chapter_audio(db_conn):
     pid = create_project("P2", "/tmp")
     # Need to mock config for physical file checks in reset_chapter_audio
     from unittest.mock import patch
-    with patch("app.config.get_project_audio_dir", return_value=Path("/tmp")):
+    with patch("app.config.get_project_audio_dir", return_value=Path("/tmp")), \
+         patch("app.config.find_existing_project_subdir", side_effect=_existing_project_audio_dir(Path("/tmp"))):
         cid = create_chapter(pid, "C1")
         update_chapter(cid, audio_status="done", audio_file_path="c1.wav")
 
@@ -117,7 +123,8 @@ def test_update_segment_only_cleans_edited_segment_files(db_conn, tmp_path):
     pid = create_project("P3", "/tmp")
     cid = create_chapter(pid, "C3", "One. Two.")
 
-    with patch("app.config.get_project_audio_dir", return_value=tmp_path):
+    with patch("app.config.get_project_audio_dir", return_value=tmp_path), \
+         patch("app.config.find_existing_project_subdir", side_effect=_existing_project_audio_dir(tmp_path)):
         sync_chapter_segments(cid, "One. Two.")
         segs = get_chapter_segments(cid)
         sid1 = segs[0]["id"]
@@ -159,7 +166,8 @@ def test_update_chapter_text_change_deletes_stale_chapter_audio(db_conn, tmp_pat
     pid = create_project("P6", "/tmp")
     cid = create_chapter(pid, "C6", "One. Two.")
 
-    with patch("app.config.get_project_audio_dir", return_value=tmp_path):
+    with patch("app.config.get_project_audio_dir", return_value=tmp_path), \
+         patch("app.config.find_existing_project_subdir", side_effect=_existing_project_audio_dir(tmp_path)):
         sync_chapter_segments(cid, "One. Two.")
         segs = get_chapter_segments(cid)
         sid1 = segs[0]["id"]
@@ -202,7 +210,8 @@ def test_sync_chapter_segments_preserves_rendered_file_links(db_conn, tmp_path):
     pid = create_project("P4", "/tmp")
     cid = create_chapter(pid, "C4", "One. Two.")
 
-    with patch("app.config.get_project_audio_dir", return_value=tmp_path):
+    with patch("app.config.get_project_audio_dir", return_value=tmp_path), \
+         patch("app.config.find_existing_project_subdir", side_effect=_existing_project_audio_dir(tmp_path)):
         sync_chapter_segments(cid, "One. Two.")
         segs = get_chapter_segments(cid)
         sid1 = segs[0]["id"]
@@ -235,7 +244,8 @@ def test_sync_chapter_segments_does_not_cross_match_reordered_duplicates(db_conn
     pid = create_project("P5", "/tmp")
     cid = create_chapter(pid, "C5", "Repeat. Middle. Repeat.")
 
-    with patch("app.config.get_project_audio_dir", return_value=tmp_path):
+    with patch("app.config.get_project_audio_dir", return_value=tmp_path), \
+         patch("app.config.find_existing_project_subdir", side_effect=_existing_project_audio_dir(tmp_path)):
         sync_chapter_segments(cid, "Repeat. Middle. Repeat.")
         segs = get_chapter_segments(cid)
         first_id, middle_id, last_id = [s["id"] for s in segs]
@@ -273,7 +283,8 @@ def test_sync_chapter_segments_invalidates_trailing_segments_after_shift(db_conn
     pid = create_project("P6", "/tmp")
     cid = create_chapter(pid, "C6", "Alpha. Bravo. Charlie. Delta.")
 
-    with patch("app.config.get_project_audio_dir", return_value=tmp_path):
+    with patch("app.config.get_project_audio_dir", return_value=tmp_path), \
+         patch("app.config.find_existing_project_subdir", side_effect=_existing_project_audio_dir(tmp_path)):
         sync_chapter_segments(cid, "Alpha. Bravo. Charlie. Delta.")
         segs = get_chapter_segments(cid)
         sid1, sid2, sid3, sid4 = [s["id"] for s in segs]
