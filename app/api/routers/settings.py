@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 import shlex
 import time
@@ -15,6 +16,16 @@ from ..utils import list_audiobooks
 router = APIRouter(prefix="/api", tags=["settings"])
 SAFE_AUDIOBOOK_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
 
+
+def _contained_file(base_dir: Path, filename: str) -> Path:
+    if not SAFE_AUDIOBOOK_NAME_RE.fullmatch(filename):
+        raise ValueError(f"Invalid filename: {filename}")
+    base_path = os.path.abspath(os.path.normpath(os.fspath(base_dir)))
+    fullpath = os.path.abspath(os.path.normpath(os.path.join(base_path, filename)))
+    if not fullpath.startswith(base_path + os.sep) and fullpath != base_path:
+        raise ValueError(f"Invalid filename: {filename}")
+    return Path(fullpath)
+
 @router.get("/audiobooks")
 def api_list_audiobooks():
     return JSONResponse(list_audiobooks())
@@ -22,12 +33,10 @@ def api_list_audiobooks():
 @router.delete("/audiobook/{filename}")
 def delete_audiobook(filename: str, project_id: Optional[str] = Query(None)):
     from ...config import get_project_m4b_dir
-    if not SAFE_AUDIOBOOK_NAME_RE.fullmatch(filename):
-        return JSONResponse({"status": "error", "message": "Invalid filename"}, status_code=403)
     path = None
     if project_id:
         try:
-            p_path = get_project_m4b_dir(project_id) / filename
+            p_path = _contained_file(get_project_m4b_dir(project_id), filename)
             if p_path.exists():
                 path = p_path
         except (ValueError, TypeError):
@@ -35,7 +44,7 @@ def delete_audiobook(filename: str, project_id: Optional[str] = Query(None)):
 
     if not path:
         try:
-            l_path = AUDIOBOOK_DIR / filename
+            l_path = _contained_file(AUDIOBOOK_DIR, filename)
             if l_path.exists():
                 path = l_path
         except (ValueError, TypeError):
@@ -45,7 +54,7 @@ def delete_audiobook(filename: str, project_id: Optional[str] = Query(None)):
         for p_dir in PROJECTS_DIR.iterdir():
             if p_dir.is_dir():
                 try:
-                    possible = (p_dir / "m4b" / filename).resolve()
+                    possible = _contained_file(p_dir / "m4b", filename)
                     if possible.exists():
                         path = possible
                         break

@@ -1,4 +1,5 @@
 import logging
+import os
 import re
 import time
 from pathlib import Path
@@ -8,6 +9,16 @@ from .core import _db_lock, get_connection
 logger = logging.getLogger(__name__)
 SAFE_AUDIO_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
 SAFE_SEGMENT_PREFIX_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+
+
+def _contained_audio_path(base_dir: Path, name: str) -> Path:
+    if not SAFE_AUDIO_NAME_RE.fullmatch(name):
+        raise ValueError(f"Invalid audio name: {name}")
+    base_path = os.path.abspath(os.path.normpath(os.fspath(base_dir)))
+    fullpath = os.path.abspath(os.path.normpath(os.path.join(base_path, name)))
+    if not fullpath.startswith(base_path + os.sep) and fullpath != base_path:
+        raise ValueError(f"Invalid audio path: {name}")
+    return Path(fullpath)
 
 
 def cleanup_chapter_audio_files(
@@ -33,10 +44,11 @@ def cleanup_chapter_audio_files(
             candidate_names.append(raw_path)
 
         for candidate_name in candidate_names:
-            if not SAFE_AUDIO_NAME_RE.fullmatch(candidate_name):
+            try:
+                resolved = _contained_audio_path(pdir, candidate_name).resolve()
+            except ValueError:
                 logger.warning("Skipping invalid explicit audio file %s", raw_path)
                 continue
-            resolved = (pdir / candidate_name).resolve()
             if not resolved.is_relative_to(resolved_root):
                 logger.warning("Skipping explicit audio file outside root %s", resolved)
                 continue
@@ -130,19 +142,19 @@ def get_chapter(chapter_id: str) -> Optional[Dict[str, Any]]:
 
     if path:
         full_path = None
-        if SAFE_AUDIO_NAME_RE.fullmatch(path):
-            full_path = (pdir / path).resolve()
-            if not full_path.is_relative_to(pdir.resolve()):
-                full_path = None
+        try:
+            full_path = _contained_audio_path(pdir, path)
+        except ValueError:
+            full_path = None
         if full_path and full_path.exists():
             if path.endswith(".wav"): chap["has_wav"] = True
             elif path.endswith(".mp3"): chap["has_mp3"] = True
             elif path.endswith(".m4a"): chap["has_m4a"] = True
 
     stem = chap["id"]
-    if not chap["has_wav"] and (pdir / f"{stem}.wav").exists(): chap["has_wav"] = True
-    if not chap["has_mp3"] and (pdir / f"{stem}.mp3").exists(): chap["has_mp3"] = True
-    if not chap["has_m4a"] and (pdir / f"{stem}.m4a").exists(): chap["has_m4a"] = True
+    if not chap["has_wav"] and _contained_audio_path(pdir, f"{stem}.wav").exists(): chap["has_wav"] = True
+    if not chap["has_mp3"] and _contained_audio_path(pdir, f"{stem}.mp3").exists(): chap["has_mp3"] = True
+    if not chap["has_m4a"] and _contained_audio_path(pdir, f"{stem}.m4a").exists(): chap["has_m4a"] = True
 
     if chap["audio_status"] == "done" and not chap["has_wav"]:
         if chap["has_mp3"] or chap["has_m4a"]:
@@ -175,19 +187,19 @@ def list_chapters(project_id: str) -> List[Dict[str, Any]]:
 
         if path:
             full_path = None
-            if SAFE_AUDIO_NAME_RE.fullmatch(path):
-                full_path = (pdir / path).resolve()
-                if not full_path.is_relative_to(pdir.resolve()):
-                    full_path = None
+            try:
+                full_path = _contained_audio_path(pdir, path)
+            except ValueError:
+                full_path = None
             if full_path and full_path.exists():
                 if path.endswith(".wav"): chap["has_wav"] = True
                 elif path.endswith(".mp3"): chap["has_mp3"] = True
                 elif path.endswith(".m4a"): chap["has_m4a"] = True
 
         stem = chap["id"]
-        if not chap["has_wav"] and (pdir / f"{stem}.wav").exists(): chap["has_wav"] = True
-        if not chap["has_mp3"] and (pdir / f"{stem}.mp3").exists(): chap["has_mp3"] = True
-        if not chap["has_m4a"] and (pdir / f"{stem}.m4a").exists(): chap["has_m4a"] = True
+        if not chap["has_wav"] and _contained_audio_path(pdir, f"{stem}.wav").exists(): chap["has_wav"] = True
+        if not chap["has_mp3"] and _contained_audio_path(pdir, f"{stem}.mp3").exists(): chap["has_mp3"] = True
+        if not chap["has_m4a"] and _contained_audio_path(pdir, f"{stem}.m4a").exists(): chap["has_m4a"] = True
 
         if chap["audio_status"] == "done" and not chap["has_wav"]:
             if chap["has_mp3"] or chap["has_m4a"]:
