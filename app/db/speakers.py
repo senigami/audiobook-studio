@@ -117,9 +117,6 @@ def normalize_base_profiles() -> None:
                 conn.commit()
 
 def create_speaker(name: str, default_profile_name: Optional[str] = None) -> str:
-    import json
-    from .. import config
-
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
@@ -130,67 +127,6 @@ def create_speaker(name: str, default_profile_name: Optional[str] = None) -> str
                 VALUES (?, ?, ?, ?, ?)
             """, (speaker_id, name, default_profile_name, now, now))
             conn.commit()
-
-            voices_root = os.path.abspath(os.path.normpath(os.fspath(config.VOICES_DIR.resolve())))
-            existing_dirs: dict[str, Path] = {}
-            if config.VOICES_DIR.exists():
-                try:
-                    for entry in config.VOICES_DIR.iterdir():
-                        if entry.is_dir():
-                            existing_dirs[entry.name] = entry.resolve()
-                except OSError:
-                    existing_dirs = {}
-
-            # Legacy sync: ensure profile directory exists and linked
-            pname = default_profile_name or name
-            try:
-                pname = _profile_name_or_error(pname)
-            except ValueError:
-                pname = f"speaker-{speaker_id}"
-
-            profile_dir = existing_dirs.get(pname)
-            if not profile_dir:
-                profile_path = os.path.abspath(os.path.normpath(os.path.join(voices_root, pname)))
-                if not profile_path.startswith(voices_root + os.sep) and profile_path != voices_root:
-                    raise ValueError(f"Invalid profile directory for {pname}")
-                profile_dir = Path(profile_path)
-
-            # Collision handling: if directory belongs to ANOTHER speaker, use a suffix
-            if profile_dir.exists():
-                meta_path = profile_dir / "profile.json"
-                if meta_path.exists():
-                    try:
-                        existing_meta = json.loads(meta_path.read_text())
-                        if "speaker_id" in existing_meta and existing_meta["speaker_id"] != speaker_id:
-                            # Suffix logic
-                            idx = 1
-                            while f"{pname}_{idx}" in existing_dirs:
-                                idx += 1
-                            pname = f"{pname}_{idx}"
-                            profile_path = os.path.abspath(os.path.normpath(os.path.join(voices_root, pname)))
-                            if not profile_path.startswith(voices_root + os.sep) and profile_path != voices_root:
-                                raise ValueError(f"Invalid profile directory for {pname}")
-                            profile_dir = Path(profile_path)
-                    except Exception:
-                        logger.debug("Failed to inspect existing voice profile metadata for %s", profile_dir, exc_info=True)
-
-            profile_dir.mkdir(parents=True, exist_ok=True)
-
-            meta_path = profile_dir / "profile.json"
-            meta = {}
-            if meta_path.exists():
-                try:
-                    meta = json.loads(meta_path.read_text())
-                except Exception:
-                    logger.debug("Failed to read existing profile metadata for %s", meta_path, exc_info=True)
-
-            meta["speaker_id"] = speaker_id
-            meta["variant_name"] = infer_variant_name(pname)
-            if "speed" not in meta:
-                meta["speed"] = 1.0
-
-            meta_path.write_text(json.dumps(meta, indent=2))
-
             return speaker_id
 
 def get_speaker(speaker_id: str) -> Optional[Dict[str, Any]]:

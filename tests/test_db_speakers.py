@@ -28,51 +28,32 @@ def db_conn():
         os.unlink(db_path)
 
 def test_speaker_crud(db_conn):
-    # Mock filesystem for legacy sync
-    mock_voices_dir = Path("/tmp/mock_voices")
-    with patch("app.config.VOICES_DIR", mock_voices_dir), \
-         patch("pathlib.Path.mkdir"), \
-         patch("pathlib.Path.write_text"), \
-         patch("pathlib.Path.exists", return_value=False):
+    sid = create_speaker("Narrator 1", "narrator_v1")
+    assert sid is not None
 
-        # Create
-        sid = create_speaker("Narrator 1", "narrator_v1")
-        assert sid is not None
+    speaker = get_speaker(sid)
+    assert speaker is not None
+    assert speaker["name"] == "Narrator 1"
+    assert speaker["default_profile_name"] == "narrator_v1"
 
-        # Get
-        speaker = get_speaker(sid)
-        assert speaker is not None
-        assert speaker["name"] == "Narrator 1"
-        assert speaker["default_profile_name"] == "narrator_v1"
+    speakers = list_speakers()
+    assert len(speakers) == 1
+    assert speakers[0]["id"] == sid
 
-        # List
-        speakers = list_speakers()
-        assert len(speakers) == 1
-        assert speakers[0]["id"] == sid
+    success = update_speaker(sid, name="Old Narrator")
+    assert success is True
+    assert get_speaker(sid)["name"] == "Old Narrator"
 
-        # Update
-        success = update_speaker(sid, name="Old Narrator")
-        assert success is True
-        assert get_speaker(sid)["name"] == "Old Narrator"
-
-        # Delete
-        success = delete_speaker(sid)
-        assert success is True
-        assert get_speaker(sid) is None
+    success = delete_speaker(sid)
+    assert success is True
+    assert get_speaker(sid) is None
 
 def test_speaker_collision_handling(db_conn):
-    mock_voices_dir = Path("/tmp/mock_voices")
-    # Simulate existing profile.json with DIFFERENT speaker_id
-    with patch("app.config.VOICES_DIR", mock_voices_dir), \
-         patch("pathlib.Path.mkdir"), \
-         patch("pathlib.Path.write_text"), \
-         patch("pathlib.Path.exists", side_effect=[True, True, False, True, True, True]), \
-         patch("pathlib.Path.read_text", return_value=json.dumps({"speaker_id": "other-id"})):
-
-        sid = create_speaker("Narrator 1")
-        assert sid is not None
-        # Should have handled collision by creating Narrator 1_1 or similar 
-        # (verification here is tricky without checking internal state or mocks)
+    sid = create_speaker("Narrator 1")
+    assert sid is not None
+    speaker = get_speaker(sid)
+    assert speaker is not None
+    assert speaker["name"] == "Narrator 1"
 
 def test_update_voice_profile_references(db_conn):
     from app.db.projects import create_project
