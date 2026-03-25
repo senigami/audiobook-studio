@@ -3,10 +3,9 @@ import shutil
 import time
 import anyio
 import logging
-import os
 import re
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Dict
 from fastapi import APIRouter, Depends, Form, File, UploadFile, HTTPException
 from fastapi.responses import JSONResponse
 from ...db import (
@@ -36,45 +35,76 @@ def get_voices_dir() -> Path:
     return VOICES_DIR
 
 
-def _voice_profile_dir(voices_dir: Path, name: str) -> Path:
+def _valid_profile_name(name: str) -> str:
     if not SAFE_PROFILE_NAME_RE.fullmatch(name):
         raise ValueError(f"Invalid profile name: {name}")
-    base_dir = os.path.abspath(os.path.normpath(os.fspath(voices_dir)))
-    fullpath = os.path.abspath(os.path.normpath(os.path.join(base_dir, name)))
-    if not fullpath.startswith(base_dir + os.sep) and fullpath != base_dir:
-        raise ValueError(f"Invalid profile path: {name}")
-    return Path(fullpath)
+    return name
 
 
-def _voice_sample_path(voices_dir: Path, name: str, sample_name: str) -> Path:
+def _valid_sample_name(sample_name: str) -> str:
     if not SAFE_SAMPLE_NAME_RE.fullmatch(sample_name):
         raise ValueError(f"Invalid sample name: {sample_name}")
-    profile_dir = _voice_profile_dir(voices_dir, name)
-    base_dir = os.path.abspath(os.path.normpath(os.fspath(profile_dir)))
-    fullpath = os.path.abspath(os.path.normpath(os.path.join(base_dir, sample_name)))
-    if not fullpath.startswith(base_dir + os.sep) and fullpath != base_dir:
-        raise ValueError(f"Invalid sample path: {sample_name}")
-    return Path(fullpath)
+    return sample_name
+
+
+def _voice_dirs_map(voices_dir: Path) -> Dict[str, Path]:
+    if not voices_dir.exists():
+        return {}
+    dirs: Dict[str, Path] = {}
+    for entry in voices_dir.iterdir():
+        if entry.is_dir() and SAFE_PROFILE_NAME_RE.fullmatch(entry.name):
+            dirs[entry.name] = entry.resolve()
+    return dirs
+
+
+def _existing_voice_profile_dir(voices_dir: Path, name: str) -> Optional[Path]:
+    return _voice_dirs_map(voices_dir).get(_valid_profile_name(name))
+
+
+def _new_voice_profile_dir(voices_dir: Path, name: str) -> Path:
+    return voices_dir / _valid_profile_name(name)
+
+
+def _voice_file_map(profile_dir: Optional[Path]) -> Dict[str, Path]:
+    if not profile_dir or not profile_dir.exists():
+        return {}
+    files: Dict[str, Path] = {}
+    for entry in profile_dir.iterdir():
+        if entry.is_file():
+            files[entry.name] = entry.resolve()
+    return files
+
+
+def _existing_voice_sample_path(voices_dir: Path, name: str, sample_name: str) -> Optional[Path]:
+    return _voice_file_map(_existing_voice_profile_dir(voices_dir, name)).get(_valid_sample_name(sample_name))
+
+
+def _new_voice_sample_path(profile_dir: Path, sample_name: str) -> Path:
+    return profile_dir / _valid_sample_name(sample_name)
 
 
 def _voice_raw_sample_count(voices_dir: Path, name: str) -> int:
     try:
-        profile_dir = _voice_profile_dir(voices_dir, name)
+        profile_dir = _existing_voice_profile_dir(voices_dir, name)
     except ValueError:
         return 0
-    if not profile_dir.exists():
+    if not profile_dir:
         return 0
-    return len([f for f in profile_dir.glob("*.wav") if f.name != "sample.wav"])
+    return len([
+        f for f in profile_dir.iterdir()
+        if f.is_file() and f.suffix.lower() == ".wav" and f.name != "sample.wav"
+    ])
 
 
 def _voice_preview_url(voices_dir: Path, name: str) -> Optional[str]:
-    profile_dir = _voice_profile_dir(voices_dir, name)
-    mp3_path = _voice_sample_path(voices_dir, name, "sample.mp3")
-    if mp3_path.exists():
+    profile_dir = _existing_voice_profile_dir(voices_dir, name)
+    if not profile_dir:
+        return None
+    files = _voice_file_map(profile_dir)
+    if "sample.mp3" in files:
         return f"/out/voices/{name}/sample.mp3"
 
-    wav_path = _voice_sample_path(voices_dir, name, "sample.wav")
-    if wav_path.exists():
+    if "sample.wav" in files:
         return f"/out/voices/{name}/sample.wav"
 
     return None
@@ -86,15 +116,7 @@ def list_speaker_profiles(voices_dir: Path = Depends(get_voices_dir)):
     if not voices_dir.exists():
         return []
 
-    dirs = []
-    for d in sorted(voices_dir.iterdir(), key=lambda x: x.name):
-        if not d.is_dir():
-            continue
-        try:
-            dirs.append(_voice_profile_dir(voices_dir, d.name))
-        except ValueError:
-            logger.warning("Skipping invalid voice profile directory %s", d, exc_info=True)
-            continue
+    dirs = [path for _, path in sorted(_voice_dirs_map(voices_dir).items(), key=lambda item: item[0])]
     settings = get_settings()
     default_speaker = settings.get("default_speaker_profile")
 
@@ -157,7 +179,7 @@ def api_create_speaker_profile(
         name = f"{spk_name} - {variant_name}"
         # Constructed path
         try:
-            path = _voice_profile_dir(voices_dir, name)
+            path = _existing_voice_profile_dir(voices_dir, name) or _new_voice_profile_dir(voices_dir, name)
         except ValueError:
             logger.warning(f"Blocking profile creation traversal attempt: {name}")
             return JSONResponse({"status": "error", "message": "Invalid profile name"}, status_code=403)
@@ -213,19 +235,20 @@ def api_create_speaker_route(name: str = Form(...), default_profile_name: Option
 def _rename_profile_folders(old_name: str, new_name: str, voices_dir: Path):
     """Helper to rename all profile folders on disk starting with a speaker name."""
     try:
-        old_dir = _voice_profile_dir(voices_dir, old_name)
-        new_dir = _voice_profile_dir(voices_dir, new_name)
+        voice_dirs = _voice_dirs_map(voices_dir)
+        old_dir = voice_dirs.get(_valid_profile_name(old_name))
+        new_dir = voice_dirs.get(_valid_profile_name(new_name)) or _new_voice_profile_dir(voices_dir, new_name)
     except ValueError:
         logger.warning(f"Blocking profile rename traversal attempt: {old_name} -> {new_name}")
         raise HTTPException(status_code=403, detail="Invalid profile name")
 
     # 1. Exact match (unassigned profile or narrator-identical name)
-    if old_dir.exists() and not new_dir.exists():
+    if old_dir and not new_dir.exists():
         old_dir.rename(new_dir)
         update_voice_profile_references(old_name, new_name)
         # Update meta if exists
-        meta_path = _voice_sample_path(voices_dir, new_name, "profile.json")
-        if meta_path.exists():
+        meta_path = _existing_voice_sample_path(voices_dir, new_name, "profile.json")
+        if meta_path:
             try:
                 import json
                 meta = json.loads(meta_path.read_text())
@@ -240,24 +263,19 @@ def _rename_profile_folders(old_name: str, new_name: str, voices_dir: Path):
 
     # 2. Variants (Narrator - Variant)
     variants = []
-    for d in voices_dir.iterdir():
-        if not d.is_dir() or not d.name.startswith(old_name + " - "):
-            continue
-        try:
-            variants.append(_voice_profile_dir(voices_dir, d.name))
-        except ValueError:
-            logger.warning("Skipping invalid variant directory %s", d, exc_info=True)
-            continue
+    for dir_name, d in _voice_dirs_map(voices_dir).items():
+        if dir_name.startswith(old_name + " - "):
+            variants.append(d)
     for vdir in variants:
         suffix = vdir.name[len(old_name):]
         new_vname = new_name + suffix
-        new_vpath = _voice_profile_dir(voices_dir, new_vname)
+        new_vpath = _existing_voice_profile_dir(voices_dir, new_vname) or _new_voice_profile_dir(voices_dir, new_vname)
         if not new_vpath.exists():
             vdir.rename(new_vpath)
             update_voice_profile_references(vdir.name, new_vname)
             # Update meta
-            meta_path = _voice_sample_path(voices_dir, new_vname, "profile.json")
-            if meta_path.exists():
+            meta_path = _existing_voice_sample_path(voices_dir, new_vname, "profile.json")
+            if meta_path:
                 try:
                     import json
                     meta = json.loads(meta_path.read_text())
@@ -313,17 +331,17 @@ def api_assign_profile_to_speaker(
     import json as _json
     try:
         try:
-            old_dir = _voice_profile_dir(voices_dir, profile_name)
+            old_dir = _existing_voice_profile_dir(voices_dir, profile_name)
         except ValueError:
             return JSONResponse({"status": "error", "message": "Invalid profile name"}, status_code=403)
-        if not old_dir.exists():
+        if not old_dir:
             return JSONResponse({"status": "error", "message": "Profile not found"}, status_code=404)
 
         # Determine the variant name from existing metadata or folder name
         variant_name = None
-        meta_path = _voice_sample_path(voices_dir, profile_name, "profile.json")
+        meta_path = _existing_voice_sample_path(voices_dir, profile_name, "profile.json")
         meta = {}
-        if meta_path.exists():
+        if meta_path:
             try:
                 meta = _json.loads(meta_path.read_text())
                 variant_name = meta.get("variant_name")
@@ -344,7 +362,7 @@ def api_assign_profile_to_speaker(
             new_profile_name = variant_name
 
         try:
-            new_dir = _voice_profile_dir(voices_dir, new_profile_name)
+            new_dir = _existing_voice_profile_dir(voices_dir, new_profile_name) or _new_voice_profile_dir(voices_dir, new_profile_name)
         except ValueError:
             return JSONResponse({"status": "error", "message": "Invalid target profile name"}, status_code=403)
 
@@ -357,7 +375,7 @@ def api_assign_profile_to_speaker(
             update_voice_profile_references(profile_name, new_profile_name)
 
         # Update profile.json with new speaker_id and variant_name
-        new_meta_path = _voice_sample_path(voices_dir, new_profile_name, "profile.json")
+        new_meta_path = _existing_voice_sample_path(voices_dir, new_profile_name, "profile.json") or (new_dir / "profile.json")
         meta.update({"speaker_id": speaker_id, "variant_name": variant_name})
         normalized_meta = normalize_profile_metadata(new_profile_name, meta, persist=False)
         new_meta_path.write_text(_json.dumps(normalized_meta, indent=2))
@@ -411,7 +429,7 @@ async def build_speaker_profile(
 ):
     try:
         try:
-            path = _voice_profile_dir(voices_dir, name)
+            path = _existing_voice_profile_dir(voices_dir, name) or _new_voice_profile_dir(voices_dir, name)
         except ValueError:
             logger.warning(f"Blocking profile build traversal attempt: {name}")
             return JSONResponse({"status": "error", "message": "Invalid profile name"}, status_code=403)
@@ -426,8 +444,8 @@ async def build_speaker_profile(
         path.mkdir(parents=True, exist_ok=True)
 
         # Clear existing sample if it exists to ensure accurate building status
-        sample_path = _voice_sample_path(voices_dir, name, "sample.wav")
-        if sample_path.exists():
+        sample_path = _existing_voice_sample_path(voices_dir, name, "sample.wav")
+        if sample_path:
             sample_path.unlink()
     except Exception as e:
         logger.error(f"Error preparing path for profile {name}: {e}")
@@ -439,7 +457,7 @@ async def build_speaker_profile(
             continue
         content = await f.read()
         try:
-            dest = _voice_sample_path(voices_dir, name, f.filename)
+            dest = _new_voice_sample_path(path, f.filename)
         except ValueError:
             logger.warning("Blocking invalid sample filename for profile %s: %s", name, f.filename)
             return JSONResponse({"status": "error", "message": "Invalid sample filename"}, status_code=403)
@@ -472,7 +490,7 @@ async def upload_speaker_samples(
 ):
     try:
         try:
-            path = _voice_profile_dir(voices_dir, name)
+            path = _existing_voice_profile_dir(voices_dir, name) or _new_voice_profile_dir(voices_dir, name)
         except ValueError:
             return JSONResponse({"status": "error", "message": "Invalid profile"}, status_code=403)
 
@@ -482,7 +500,7 @@ async def upload_speaker_samples(
             if not f.filename: continue
             content = await f.read()
             try:
-                sample_path = _voice_sample_path(voices_dir, name, f.filename)
+                sample_path = _new_voice_sample_path(path, f.filename)
             except ValueError:
                 return JSONResponse({"status": "error", "message": "Invalid sample filename"}, status_code=403)
             sample_path.write_bytes(content)
@@ -500,11 +518,11 @@ def delete_speaker_sample(
 ):
     try:
         try:
-            path = _voice_sample_path(voices_dir, name, sample_name)
+            path = _existing_voice_sample_path(voices_dir, name, sample_name)
         except ValueError:
             return JSONResponse({"status": "error", "message": "Invalid path"}, status_code=403)
 
-        if path.exists():
+        if path:
             path.unlink()
             return JSONResponse({"status": "ok"})
         return JSONResponse({"status": "error", "message": "File not found"}, status_code=404)
@@ -531,12 +549,12 @@ def delete_speaker_profile(
 ):
     try:
         try:
-            path = _voice_profile_dir(voices_dir, name)
+            path = _existing_voice_profile_dir(voices_dir, name)
         except ValueError:
             logger.warning(f"Blocking profile delete traversal attempt: {name}")
             return JSONResponse({"status": "error", "message": "Invalid profile name"}, status_code=403)
 
-        if path.exists():
+        if path:
             if path.is_relative_to(voices_dir.resolve()):
                 shutil.rmtree(path)
             else:

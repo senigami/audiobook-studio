@@ -38,8 +38,19 @@ def test_settings_get_and_update(clean_db, client):
     assert data["safe_mode"] is True
     assert data["make_mp3"] is False
 
-def test_default_speaker_setting(clean_db, client):
+def test_default_speaker_setting(clean_db, client, tmp_path, monkeypatch):
     # POST /api/settings/default-speaker
+    voices_dir = tmp_path / "voices"
+    voices_dir.mkdir()
+    from app import config
+    import app.web as web
+    from app.api.routers import system as r_system, voices as r_voices
+    monkeypatch.setenv("VOICES_DIR", str(voices_dir))
+    monkeypatch.setattr(config, "VOICES_DIR", voices_dir)
+    monkeypatch.setattr(web, "VOICES_DIR", voices_dir)
+    monkeypatch.setattr(r_system, "VOICES_DIR", voices_dir)
+    monkeypatch.setattr(r_voices, "VOICES_DIR", voices_dir)
+
     response = client.post("/api/settings/default-speaker",
                            data={"name": "TestVoice"})
     assert response.status_code == 200

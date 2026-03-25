@@ -69,7 +69,10 @@ def api_home(
         "jobs": jobs,
         "settings": settings,
         "paused": paused(),
-        "narrator_ok": safe_join_flat(voices_dir, "Default").exists(),
+        "narrator_ok": any(
+            entry.is_dir() and entry.name == "Default"
+            for entry in voices_dir.iterdir()
+        ) if voices_dir.exists() else False,
         "xtts_mp3": [],
         "xtts_wav_only": [],
         "audiobooks": [],

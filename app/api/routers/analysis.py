@@ -13,7 +13,7 @@ from ...textops import (
     pack_text_to_limit, sanitize_for_xtts, get_text_stats, format_duration
 )
 from ...config import SENT_CHAR_LIMIT, BASELINE_XTTS_CPS
-from ...pathing import safe_join_flat
+from ...pathing import safe_basename, safe_join_flat
 
 logger = logging.getLogger(__name__)
 
@@ -329,18 +329,21 @@ def report(
     report_dir: Path = Depends(get_report_dir)
 ):
     # Path Traversal Safety
-    try:
-        report_path = safe_join_flat(report_dir, f"long_sentences_{name}.txt")
-        if not report_path.exists():
-            return JSONResponse(
-                {"status": "error", "message": "Report not found"},
-                status_code=404
-            )
-    except Exception:
+    report_filename = safe_basename(f"long_sentences_{name}.txt")
+    if report_filename != f"long_sentences_{name}.txt":
         logger.error("Error resolving report path %s", name, exc_info=True)
         return JSONResponse(
             {"status": "error", "message": "Invalid report name"},
             status_code=403
+        )
+    report_path = next(
+        (entry.resolve() for entry in report_dir.iterdir() if entry.is_file() and entry.name == report_filename),
+        None,
+    ) if report_dir.exists() else None
+    if not report_path:
+        return JSONResponse(
+            {"status": "error", "message": "Report not found"},
+            status_code=404
         )
 
     return FileResponse(report_path)

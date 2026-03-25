@@ -22,6 +22,7 @@ from app.utils.text_processing import (
     sanitize_for_xtts,
     pack_text_to_limit
 )
+from app.pathing import safe_basename
 from app.dashboard_templates import INDEX_HTML, JOB_HTML
 from app.pathing import safe_join_flat
 
@@ -431,11 +432,14 @@ def analyze():
 
 @app.get("/report/{name}", response_class=PlainTextResponse)
 def report(name: str):
-    try:
-        p = safe_join_flat(REPORTS_DIR, name)
-    except ValueError:
+    safe_name = safe_basename(name)
+    if safe_name != name:
         return PlainTextResponse("Report not found.", status_code=404)
-    if not p.exists():
+    p = next(
+        (entry.resolve() for entry in REPORTS_DIR.iterdir() if entry.is_file() and entry.name == safe_name),
+        None
+    ) if REPORTS_DIR.exists() else None
+    if not p:
         return PlainTextResponse("Report not found.", status_code=404)
     return PlainTextResponse(p.read_text(encoding="utf-8", errors="replace"))
 
