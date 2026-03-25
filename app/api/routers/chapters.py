@@ -378,14 +378,20 @@ def api_stream_chapter(
             wav_path = None
 
     if not wav_path or not wav_path.exists():
-        # Fallbacks
-        wav_path = safe_join_flat(pdir, f"{chapter_id}.wav")
-        if not wav_path.exists():
-            wav_path = safe_join_flat(pdir, f"{chapter_id}.mp3")
-        if not wav_path.exists():
-            wav_path = safe_join_flat(pdir, f"{chapter_id}_0.wav")
-        if not wav_path.exists():
-            wav_path = safe_join_flat(pdir, f"{chapter_id}_0.mp3")
+        audio_files = {
+            entry.name: entry.resolve()
+            for entry in pdir.iterdir()
+            if entry.is_file() and entry.suffix.lower() in (".wav", ".mp3")
+        }
+        for candidate_name in (
+            f"{chapter_id}.wav",
+            f"{chapter_id}.mp3",
+            f"{chapter_id}_0.wav",
+            f"{chapter_id}_0.mp3",
+        ):
+            wav_path = audio_files.get(candidate_name)
+            if wav_path:
+                break
 
     if not wav_path or not wav_path.exists():
          return JSONResponse({"status": "error", "message": "Audio not found"}, status_code=404)

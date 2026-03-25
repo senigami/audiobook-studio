@@ -62,16 +62,20 @@ def test_get_chapter_segments_counts(db_conn):
     assert done == 1
     assert total == 2
 
-def test_get_chapter_disk_checks(db_conn):
+def test_get_chapter_disk_checks(db_conn, tmp_path):
     pid = create_project("P_DISK", "/tmp")
     cid = create_chapter(pid, "C_DISK")
 
     from pathlib import Path
     from unittest.mock import patch
 
-    # Mock config and Path.exists to simulate files on disk
-    with patch("app.config.get_project_audio_dir", return_value=Path("/tmp")), \
-         patch("pathlib.Path.exists", return_value=True):
+    audio_dir = tmp_path / "audio"
+    audio_dir.mkdir()
+    (audio_dir / f"{cid}.wav").write_text("wav")
+    (audio_dir / f"{cid}.mp3").write_text("mp3")
+    (audio_dir / f"{cid}.m4a").write_text("m4a")
+
+    with patch("app.config.get_project_audio_dir", return_value=Path(audio_dir)):
 
         chapter = get_chapter(cid)
         assert chapter["has_wav"] is True

@@ -1,5 +1,4 @@
 import logging
-import os
 import re
 import time
 from pathlib import Path
@@ -11,14 +10,15 @@ SAFE_AUDIO_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
 SAFE_SEGMENT_PREFIX_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 
 
-def _contained_audio_path(base_dir: Path, name: str) -> Path:
-    if not SAFE_AUDIO_NAME_RE.fullmatch(name):
-        raise ValueError(f"Invalid audio name: {name}")
-    base_path = os.path.abspath(os.path.normpath(os.fspath(base_dir)))
-    fullpath = os.path.abspath(os.path.normpath(os.path.join(base_path, name)))
-    if not fullpath.startswith(base_path + os.sep) and fullpath != base_path:
-        raise ValueError(f"Invalid audio path: {name}")
-    return Path(fullpath)
+def _audio_file_map(base_dir: Path) -> Dict[str, Path]:
+    if not base_dir.exists():
+        return {}
+
+    files: Dict[str, Path] = {}
+    for entry in base_dir.iterdir():
+        if entry.is_file() and entry.suffix.lower() in (".wav", ".mp3", ".m4a"):
+            files[entry.name] = entry.resolve()
+    return files
 
 
 def cleanup_chapter_audio_files(
@@ -32,43 +32,35 @@ def cleanup_chapter_audio_files(
 
     pdir = config.get_project_audio_dir(project_id) if project_id else config.XTTS_OUT_DIR
     resolved_root = pdir.resolve()
+    known_files = _audio_file_map(pdir)
 
     for raw_path in explicit_files or []:
         if not raw_path:
             continue
-        candidate_names = []
         path_obj = Path(raw_path)
-        if path_obj.name:
-            candidate_names.append(path_obj.name)
-        if raw_path == path_obj.name and raw_path not in candidate_names:
-            candidate_names.append(raw_path)
+        if raw_path != path_obj.name or not SAFE_AUDIO_NAME_RE.fullmatch(raw_path):
+            logger.warning("Skipping invalid explicit audio file %s", raw_path)
+            continue
 
-        for candidate_name in candidate_names:
-            try:
-                resolved = _contained_audio_path(pdir, candidate_name).resolve()
-            except ValueError:
-                logger.warning("Skipping invalid explicit audio file %s", raw_path)
-                continue
-            if not resolved.is_relative_to(resolved_root):
-                logger.warning("Skipping explicit audio file outside root %s", resolved)
-                continue
-            if resolved.exists() and resolved.is_file():
-                try:
-                    resolved.unlink()
-                except Exception:
-                    logger.warning("Failed to delete explicit audio file %s", resolved, exc_info=True)
-
-    for p in pdir.iterdir():
+        resolved = known_files.get(raw_path)
+        if not resolved:
+            continue
+        if not resolved.is_relative_to(resolved_root):
+            logger.warning("Skipping explicit audio file outside root %s", resolved)
+            continue
         try:
-            p = p.resolve()
+            resolved.unlink()
+            known_files.pop(raw_path, None)
         except Exception:
-            logger.warning("Skipping unresolved chapter audio path %s", p, exc_info=True)
+            logger.warning("Failed to delete explicit audio file %s", resolved, exc_info=True)
+
+    for name, p in list(known_files.items()):
+        if not p.is_relative_to(resolved_root) or not name.startswith(chapter_id):
             continue
-        if not p.is_relative_to(resolved_root) or not p.name.startswith(chapter_id):
-            continue
-        if p.is_file() and p.suffix.lower() in (".wav", ".mp3", ".m4a"):
+        if p.suffix.lower() in (".wav", ".mp3", ".m4a"):
             try:
                 p.unlink()
+                known_files.pop(name, None)
             except Exception:
                 logger.warning("Failed to delete chapter audio file %s", p, exc_info=True)
 
@@ -77,12 +69,12 @@ def cleanup_chapter_audio_files(
             logger.warning("Skipping invalid segment id %s", sid)
             continue
         prefix = f"seg_{sid}"
-        for s_path in pdir.iterdir():
+        for name, s_path in list(known_files.items()):
             try:
-                s_path = s_path.resolve()
-                if not s_path.is_relative_to(resolved_root) or not s_path.name.startswith(prefix):
+                if not s_path.is_relative_to(resolved_root) or not name.startswith(prefix):
                     continue
                 s_path.unlink()
+                known_files.pop(name, None)
             except Exception:
                 logger.warning("Failed to delete segment audio file %s", s_path, exc_info=True)
 
@@ -135,26 +127,21 @@ def get_chapter(chapter_id: str) -> Optional[Dict[str, Any]]:
     # Rule 3: Disk as Source of Truth - Outside Lock
     from .. import config
     pdir = config.get_project_audio_dir(chap["project_id"]) if chap["project_id"] else config.XTTS_OUT_DIR
+    existing_names = set(_audio_file_map(pdir))
     path = chap.get("audio_file_path")
     chap["has_wav"] = False
     chap["has_mp3"] = False
     chap["has_m4a"] = False
 
-    if path:
-        full_path = None
-        try:
-            full_path = _contained_audio_path(pdir, path)
-        except ValueError:
-            full_path = None
-        if full_path and full_path.exists():
-            if path.endswith(".wav"): chap["has_wav"] = True
-            elif path.endswith(".mp3"): chap["has_mp3"] = True
-            elif path.endswith(".m4a"): chap["has_m4a"] = True
+    if path and path in existing_names:
+        if path.endswith(".wav"): chap["has_wav"] = True
+        elif path.endswith(".mp3"): chap["has_mp3"] = True
+        elif path.endswith(".m4a"): chap["has_m4a"] = True
 
     stem = chap["id"]
-    if not chap["has_wav"] and _contained_audio_path(pdir, f"{stem}.wav").exists(): chap["has_wav"] = True
-    if not chap["has_mp3"] and _contained_audio_path(pdir, f"{stem}.mp3").exists(): chap["has_mp3"] = True
-    if not chap["has_m4a"] and _contained_audio_path(pdir, f"{stem}.m4a").exists(): chap["has_m4a"] = True
+    if not chap["has_wav"] and f"{stem}.wav" in existing_names: chap["has_wav"] = True
+    if not chap["has_mp3"] and f"{stem}.mp3" in existing_names: chap["has_mp3"] = True
+    if not chap["has_m4a"] and f"{stem}.m4a" in existing_names: chap["has_m4a"] = True
 
     if chap["audio_status"] == "done" and not chap["has_wav"]:
         if chap["has_mp3"] or chap["has_m4a"]:
@@ -179,27 +166,23 @@ def list_chapters(project_id: str) -> List[Dict[str, Any]]:
     from .. import config
     pdir = config.get_project_audio_dir(project_id) if project_id else config.XTTS_OUT_DIR
 
+    existing_names = set(_audio_file_map(pdir))
+
     for chap in rows:
         path = chap.get("audio_file_path")
         chap["has_wav"] = False
         chap["has_mp3"] = False
         chap["has_m4a"] = False
 
-        if path:
-            full_path = None
-            try:
-                full_path = _contained_audio_path(pdir, path)
-            except ValueError:
-                full_path = None
-            if full_path and full_path.exists():
-                if path.endswith(".wav"): chap["has_wav"] = True
-                elif path.endswith(".mp3"): chap["has_mp3"] = True
-                elif path.endswith(".m4a"): chap["has_m4a"] = True
+        if path and path in existing_names:
+            if path.endswith(".wav"): chap["has_wav"] = True
+            elif path.endswith(".mp3"): chap["has_mp3"] = True
+            elif path.endswith(".m4a"): chap["has_m4a"] = True
 
         stem = chap["id"]
-        if not chap["has_wav"] and _contained_audio_path(pdir, f"{stem}.wav").exists(): chap["has_wav"] = True
-        if not chap["has_mp3"] and _contained_audio_path(pdir, f"{stem}.mp3").exists(): chap["has_mp3"] = True
-        if not chap["has_m4a"] and _contained_audio_path(pdir, f"{stem}.m4a").exists(): chap["has_m4a"] = True
+        if not chap["has_wav"] and f"{stem}.wav" in existing_names: chap["has_wav"] = True
+        if not chap["has_mp3"] and f"{stem}.mp3" in existing_names: chap["has_mp3"] = True
+        if not chap["has_m4a"] and f"{stem}.m4a" in existing_names: chap["has_m4a"] = True
 
         if chap["audio_status"] == "done" and not chap["has_wav"]:
             if chap["has_mp3"] or chap["has_m4a"]:

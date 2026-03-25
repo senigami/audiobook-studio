@@ -1,6 +1,5 @@
 import json
 import logging
-import os
 import re
 import uuid
 from pathlib import Path
@@ -21,14 +20,23 @@ def _is_uuid(value: str) -> bool:
         return False
 
 
-def get_voice_profile_dir(profile_name: str):
+def _profile_name_or_error(profile_name: str) -> str:
     if not SAFE_PROFILE_NAME_RE.fullmatch(profile_name):
         raise ValueError(f"Invalid profile name: {profile_name}")
-    base_dir = os.path.abspath(os.path.normpath(os.fspath(VOICES_DIR)))
-    fullpath = os.path.abspath(os.path.normpath(os.path.join(base_dir, profile_name)))
-    if not fullpath.startswith(base_dir + os.sep) and fullpath != base_dir:
-        raise ValueError(f"Invalid profile path: {profile_name}")
-    return Path(fullpath)
+    return profile_name
+
+
+def get_voice_profile_dir(profile_name: str):
+    profile_name = _profile_name_or_error(profile_name)
+    if not VOICES_DIR.exists():
+        return VOICES_DIR / profile_name
+    try:
+        for entry in VOICES_DIR.iterdir():
+            if entry.is_dir() and entry.name == profile_name:
+                return entry.resolve()
+    except FileNotFoundError:
+        return VOICES_DIR / profile_name
+    return VOICES_DIR / profile_name
 
 
 def get_voice_profile_latent_path(profile_name: str):

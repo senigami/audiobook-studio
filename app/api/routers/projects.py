@@ -113,7 +113,9 @@ def api_list_project_audiobooks(project_id: str):
     m4b_dir = get_project_m4b_dir(project_id)
     m4b_files = []
     if m4b_dir.exists():
-        for p in m4b_dir.glob("*.m4b"):
+        for p in m4b_dir.iterdir():
+            if not p.is_file() or p.suffix.lower() != ".m4b":
+                continue
             encoded_name = urllib.parse.quote(p.name)
             m4b_files.append((p, f"/projects/{project_id}/m4b/{encoded_name}"))
 
