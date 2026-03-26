@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.6.0] - 2026-03-25
+
+### Highlights
+
+- **Safer Chapter Editing and Rebuild Flow**: Chapters that already have rendered output now use a clearer rebuild flow, including better destructive warnings, a `Rebuild` label when queueing would replace existing audio, and stale chapter audio that remains visible until you intentionally rebuild or reset.
+- **Zero-Issue Security Hardening**: Completed a large CodeQL and filesystem hardening pass that reduced code scanning issues to zero, tightened path and file handling throughout the app, reduced stack-trace exposure in API responses, and improved trusted-root/trusted-enumeration behavior across project, chapter, and voice operations.
+- **More Reliable Queue and Segment Recovery**: Stale segment `processing` states are now cleaned up automatically when no active job or queue item exists, queue/rebuild behavior is more predictable after interruptions, and chapter state recovery is more consistent after edits and partial generation.
+- **Clearer Voice and Variant Handling**: Voice profile normalization and default variant handling are more robust, frontend variant labeling is more consistent, worker-side profile lookup is more resilient, and empty-sample validation now prevents invalid preview or rebuild attempts earlier.
+- **Much Stronger Project Presentation**: The README, wiki, and live showcase were substantially upgraded to better explain Audiobook Studio’s local-first value, including a fair comparison with hosted voice generation, a practical full-length audiobook cost breakdown, and a significantly more polished mobile showcase experience.
+
 ## [1.5.1] - 2026-03-19
 
 ### Highlights
