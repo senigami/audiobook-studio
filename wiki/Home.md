@@ -1,36 +1,64 @@
 # Audiobook Studio Wiki
 
-Welcome to the Audiobook Studio internal documentation. This Wiki is designed to help you understand the concepts, workflows, and technical details of the application.
+Welcome to the Audiobook Studio documentation.
 
-## 📖 Quick Links
+This wiki is meant to help both new users and contributors understand how the app works, how to get started, and what has changed across release lines.
 
-- [[Getting Started]] - Installation and first run.
-- [[Concepts]] - Core architecture and terminology.
-- [[Library and Projects]] - Managing your books.
-- [[Voices and Voice Profiles]] - AI Voice Lab guide.
-- [[Queue and Jobs]] - Monitoring generation.
-- [[Comparison and Cost]] - Honest comparison with hosted TTS pricing.
-- [[Recording Guide]] - Best practices for clean audio.
-- [[Troubleshooting and FAQ]] - Solutions to common issues.
+## Recommended Starting Point
 
-## ⚡ 5-Minute Quick Start
+For brand-new users, the current `1.7.x` release line is the best place to begin. That release family is the first one intended to feel smooth across:
 
-1. **Launch the App**: Run the backend and frontend. Open `localhost:5173`.
-2. **Create a Project**: Go to the **Library** and click **+ New Project**. Enter the title and author.
-3. **Add a Chapter**: Inside your project, click **+ Add Chapter**. Paste your text or upload a `.txt` file.
-4. **Assign Voices**: In the **Performance** tab, highlight text segments and assign a character or narrator.
-5. **Generate Audio**: Click **Queue All** or **Generate** on specific segments. Monitor progress in the **Queue** sidebar.
-6. **Bake & Export**: Once all segments are 'Done', click **Bake Chapter**. Finally, go to the project level and click **Assemble Audiobook** to get your `.m4b` file.
+- first-run setup
+- launcher scripts
+- voice portability
+- chapter generation
+- rebuild and queue UX
+- audiobook download flow
 
-![Launch screen showing character assignments and progress](images/launch-screen.jpg)
+## Quick Links
 
-## 🛠️ Local Preview
+- [[Getting Started]] - Recommended setup and first run
+- [[Changelog]] - Release history and major changes
+- [[Concepts]] - Core architecture and terminology
+- [[Library and Projects]] - Managing books and assemblies
+- [[Voices and Voice Profiles]] - AI Voice Lab guide
+- [[Queue and Jobs]] - Monitoring generation and repair work
+- [[Comparison and Cost]] - Honest comparison with hosted TTS pricing
+- [[Recording Guide]] - Best practices for clean voice samples
+- [[Troubleshooting and FAQ]] - Solutions to common issues
+
+## 5-Minute Quick Start
+
+1. Run `./run.sh` on macOS/Linux or `run.ps1` on Windows.
+2. Open `http://127.0.0.1:8123`.
+3. Create a project from the Library.
+4. Add a chapter and paste or import text.
+5. Build or import a voice profile.
+6. Assign narration and character voices.
+7. Generate chapter audio and assemble the audiobook.
+
+## Suggested First Demo
+
+If you want a simple onboarding project, create a short 2-3 chapter sample and assign:
+
+- one narrator voice
+- one younger dialogue voice
+- one older or contrasting dialogue voice
+
+That gives you the clearest first impression of:
+
+- chapter editing
+- segment repair
+- multi-voice assignment
+- final audiobook export
+
+## Local Preview
 
 To preview these docs locally before pushing to GitHub:
 
 1. Open this folder in VS Code.
 2. Open `Home.md`.
-3. Press `Cmd+Shift+V` (Mac) or `Ctrl+Shift+V` (Windows) to open the Markdown Preview.
+3. Press `Cmd+Shift+V` on Mac or `Ctrl+Shift+V` on Windows to open Markdown Preview.
 
 ---
 

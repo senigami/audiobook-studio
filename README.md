@@ -21,6 +21,10 @@ The live showcase also includes the fuller feature and cost comparison with Elev
 
 It is built for real long-form work, not just one-click text-to-speech. You can assign voices to characters, repair individual segments, requeue partial chapters, build portable voice profiles, and assemble finished books without sending your manuscript or cloned voices to a paid cloud service.
 
+> [!IMPORTANT]
+> **Version 1.7.x is the first release line intended as the clean default starting point for brand-new users.**
+> Earlier versions contain important groundwork, but this is the first release family where startup, voice portability, chapter generation, rebuild behavior, and download flow all line up the way new users should expect.
+
 ## Why People Use It
 
 - **Produce full audiobooks locally** with XTTS-based voice cloning and chapter assembly.
@@ -148,6 +152,8 @@ If you want the longer written breakdown, see the wiki page: [Comparison and Cos
 
 ### One-Command Setup and Run
 
+This is the recommended path for new users.
+
 On macOS or Linux, the easiest way to start is:
 
 ```bash
@@ -172,6 +178,8 @@ The startup scripts will:
 - install frontend dependencies if needed
 - build the frontend if needed
 - start the app on `http://127.0.0.1:8123`
+
+If you are evaluating Audiobook Studio for the first time, this is the path to use. The separate manual backend/frontend flow is still documented below, but the launcher scripts are now the intended onboarding experience.
 
 Useful options:
 
@@ -241,6 +249,14 @@ Audiobook Studio supports local voice cloning and reusable voice variants.
 - Rebuild only when samples change
 - Keep the voice profile and latent cache together for portability
 
+Voice profiles can also now work as lightweight starter assets. A reusable profile can ship with:
+
+- `profile.json`
+- `latent.pth`
+- an optional preview like `sample.mp3`
+
+That means starter voices do not have to bundle every original training wav just to be usable.
+
 The app now treats voice profiles as production assets, not throwaway cache entries.
 
 ## Long-Form Editing and Repair
@@ -258,6 +274,12 @@ This is where the app really shines.
 Audiobook Studio is designed for **local-first production**.
 
 Your manuscript, chapter text, voice samples, latent files, and rendered audio stay under your control on your own machine.
+
+## Release Notes and History
+
+- [Changelog](https://github.com/senigami/audiobook-studio/wiki/Changelog)
+- [Getting Started](https://github.com/senigami/audiobook-studio/wiki/Getting-Started)
+- [Troubleshooting and FAQ](https://github.com/senigami/audiobook-studio/wiki/Troubleshooting-and-FAQ)
 
 ## Documentation
 

@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.7.0] - 2026-03-26
+
+### Highlights
+
+- **Best New-User Starting Point Yet**: This release is the first release line intended to feel clean for brand-new users from clone to first project, with launcher scripts, startup docs, chapter generation, voice portability, and download behavior all aligned.
+- **One-Command Startup on macOS/Linux and Windows**: Added a real `run.sh` bootstrap flow, a Windows `run.ps1` launcher, and startup logic that can repair stale XTTS environments automatically when older conflicting Coqui packages are present.
+- **Starter Voice Support**: Voice profiles with `latent.pth` and preview audio now remain usable without bundling every original sample wav, which makes lightweight starter voices practical to ship with the repo.
+- **Narrator and Mixed-Voice Generation Fixes**: Fixed narrator generation in the chapter Performance tab and full mixed-voice chapter rendering when voices rely on latent-only conditioning instead of raw wav samples.
+- **Clearer Chapter Queue UX**: Chapters with partial segment progress but no final chapter render now use `Complete` instead of `Rebuild`, so users are not warned about deleting audio when they only want to finish missing work.
+- **Cleaner Audiobook Downloads**: Audiobooks can still keep unique internal filenames on disk, but downloads now use a cleaner title-based filename for the user.
+
 ## [1.6.0] - 2026-03-25
 
 ### Highlights
