@@ -27,7 +27,7 @@ describe('useVoiceManagement', () => {
     await waitFor(() => {
       expect(result.current.speakers).toEqual(mockSpeakers);
     });
-    expect(global.fetch).toHaveBeenCalledWith('/api/speakers');
+    expect(global.fetch).toHaveBeenCalledWith('/api/speakers', { cache: 'no-store' });
   });
 
   it('handles setting default voice', async () => {

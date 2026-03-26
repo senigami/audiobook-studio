@@ -23,7 +23,7 @@ describe('useInitialData', () => {
     });
 
     expect(result.current.data).toEqual(mockData);
-    expect(global.fetch).toHaveBeenCalledWith('/api/home');
+    expect(global.fetch).toHaveBeenCalledWith('/api/home', { cache: 'no-store' });
   });
 
   it('handles fetch error', async () => {
