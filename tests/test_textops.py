@@ -100,6 +100,12 @@ def test_clean_text_for_tts():
     assert "1 out of 2" in cleaned
     assert "Dashed" in cleaned
 
+def test_clean_text_for_tts_repairs_quote_adjacent_double_punctuation():
+    assert clean_text_for_tts("Hello,'.") == "Hello.'"
+    assert clean_text_for_tts("Hello',.") == "Hello'."
+    assert clean_text_for_tts("'Hello,.', she said.") == "'Hello.', she said."
+    assert clean_text_for_tts("word '.") == "word.'"
+
 def test_consolidate_single_word_sentences():
     text = "Wait. Stop. We must go now. Run! Go."
     result = consolidate_single_word_sentences(text)

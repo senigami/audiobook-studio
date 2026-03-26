@@ -362,6 +362,14 @@ def clean_text_for_tts(text: str) -> str:
         ln = re.sub(r' +([,;:])', r'\1', ln)
         # Remove redundant punctuation
         ln = re.sub(r'([!?])\.+', r'\1', ln)
+        # Remove comma/semicolon/colon artifacts that end up directly before a
+        # terminal punctuation mark, including quote-adjacent cases like ",."
+        # or ",'." introduced by dialogue splitting.
+        ln = re.sub(r'([,;:])([\'"]?)([.!?])', r'\2\3', ln)
+        # Remove stray spaces before quote+terminal punctuation like "word '."
+        ln = re.sub(r"\s+([\'\"])([.!?])", r"\1\2", ln)
+        # Also handle the inverse ordering produced during cleanup: "word .'"
+        ln = re.sub(r"\s+([.!?])([\'\"])", r"\1\2", ln)
         # Fix ., -> , and ,. -> . and .; -> ; etc
         ln = (
             ln.replace(".,", ",")
