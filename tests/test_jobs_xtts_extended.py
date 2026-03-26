@@ -89,6 +89,48 @@ def test_handle_xtts_job_segments(mock_job, tmp_path):
 
         assert mock_update_job.called
 
+
+def test_handle_xtts_job_segments_uses_default_voice_profile_dir_for_narrator(mock_job, tmp_path):
+    mock_job.segment_ids = ["s1"]
+    mock_job.speaker_profile = "Senigami"
+    pdir = tmp_path / "project"
+    pdir.mkdir()
+    out_wav = pdir / "output.wav"
+    out_mp3 = pdir / "output.mp3"
+    captured = {}
+
+    all_segs = [
+        {
+            "id": "s1",
+            "character_id": None,
+            "speaker_profile_name": None,
+            "text_content": "Narrator text.",
+            "audio_status": "unprocessed",
+        }
+    ]
+
+    def inspect_script(*args, **kwargs):
+        script_path = kwargs["script_json_path"]
+        captured["script"] = json.loads(Path(script_path).read_text())
+        return 0
+
+    with patch("app.db.get_chapter_segments", return_value=all_segs), \
+         patch("app.db.update_segment"), \
+         patch("app.db.get_connection"), \
+         patch("app.jobs.handlers.xtts.xtts_generate_script", side_effect=inspect_script), \
+         patch("app.jobs.handlers.xtts.update_job"), \
+         patch("app.jobs.handlers.xtts.get_speaker_wavs", return_value=None), \
+         patch("app.jobs.handlers.xtts.get_voice_profile_dir", return_value=Path("/tmp/voices/Senigami")):
+
+        handle_xtts_job(
+            "test_job", mock_job, time.time(),
+            print, lambda: False, None, 1.0,
+            pdir, out_wav, out_mp3
+        )
+
+    assert captured["script"][0]["voice_profile_dir"] == "/tmp/voices/Senigami"
+    assert captured["script"][0]["speaker_wav"] is None
+
 def test_handle_xtts_job_standard_with_mp3(mock_job, tmp_path):
     mock_job.make_mp3 = True
     pdir = tmp_path / "project"
