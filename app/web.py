@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .config import (
-    BASE_DIR, XTTS_OUT_DIR, AUDIOBOOK_DIR, VOICES_DIR, SAMPLES_DIR, 
+    XTTS_OUT_DIR, AUDIOBOOK_DIR, VOICES_DIR, SAMPLES_DIR, 
     UPLOAD_DIR, CHAPTER_DIR, REPORT_DIR, COVER_DIR, ASSETS_DIR, PROJECTS_DIR,
     FRONTEND_DIST
 )
@@ -22,15 +22,21 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-# --- Ensure directories exist before mounting ---
-for d in [XTTS_OUT_DIR, AUDIOBOOK_DIR, VOICES_DIR, SAMPLES_DIR, UPLOAD_DIR, CHAPTER_DIR, REPORT_DIR, COVER_DIR, ASSETS_DIR, PROJECTS_DIR]:
+# --- Ensure mounted static roots exist before mounting ---
+# StaticFiles raises at startup if the target directory is missing. These are the
+# only directories that must exist at boot time. Other working directories
+# (uploads, chapter text, reports) are created lazily by the endpoints that use
+# them.
+#
+# XTTS_OUT_DIR and AUDIOBOOK_DIR are still mounted because the app continues to
+# serve legacy/global outputs from those compatibility roots.
+for d in [XTTS_OUT_DIR, AUDIOBOOK_DIR, VOICES_DIR, COVER_DIR, PROJECTS_DIR]:
     d.mkdir(parents=True, exist_ok=True)
 
 # --- Static File Serving ---
 app.mount("/out/xtts", StaticFiles(directory=str(XTTS_OUT_DIR)), name="out_xtts")
 app.mount("/out/audiobook", StaticFiles(directory=str(AUDIOBOOK_DIR)), name="out_audiobook")
 app.mount("/out/voices", StaticFiles(directory=str(VOICES_DIR)), name="out_voices")
-app.mount("/out/samples", StaticFiles(directory=str(SAMPLES_DIR)), name="out_samples")
 app.mount("/out/covers", StaticFiles(directory=str(COVER_DIR)), name="out_covers")
 app.mount("/projects", StaticFiles(directory=str(PROJECTS_DIR)), name="projects")
 

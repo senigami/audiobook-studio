@@ -146,7 +146,33 @@ If you want the longer written breakdown, see the wiki page: [Comparison and Cos
 - `ffmpeg`
 - NVIDIA GPU recommended for faster local synthesis
 
-### Install
+### One-Command Setup and Run
+
+On macOS or Linux, the easiest way to start is:
+
+```bash
+git clone https://github.com/senigami/audiobook-studio.git
+cd audiobook-studio
+./run.sh
+```
+
+The script will:
+
+- create or update the main `venv`
+- create or update the XTTS environment at `~/xtts-env`
+- install frontend dependencies if needed
+- build the frontend if needed
+- start the app on `http://127.0.0.1:8123`
+
+Useful options:
+
+```bash
+./run.sh --setup-only
+./run.sh --no-reload
+./run.sh --port 9000
+```
+
+### Manual Install
 
 1. **Clone and Backend Setup**  
    Create the primary environment for the web server and project management.
@@ -187,8 +213,11 @@ uvicorn run:app --port 8123
 
 Then open [http://127.0.0.1:8123](http://127.0.0.1:8123).
 
+> [!TIP]
+> On Windows, the manual setup steps are still the safest path today. The bundled `run.sh` is intended for macOS/Linux shells.
+
 > [!NOTE]
-> On first run, the application will automatically create required data directories (like `xtts_audio/`, `projects/`, etc.) in the root folder.
+> On first run, the application will create the directories it needs for mounted app data, including `projects/`, `voices/`, cover storage, and compatibility output roots such as `xtts_audio/` and `audiobooks/`. Other working folders like uploads, chapter text, and reports are created on demand when those features are used.
 
 ## Voice Profiles
 
