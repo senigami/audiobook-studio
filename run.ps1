@@ -194,13 +194,13 @@ function Maybe-RestoreDemoBundle($PythonInfo) {
         }
         default {
             if (-not [Environment]::UserInteractive) {
-                Write-Step "Demo bundle available at $DemoZip (set AUDIOBOOK_STUDIO_INSTALL_DEMO=1 to install automatically)"
-                return
-            }
-            $reply = Read-Host "No existing library was found. Install the demo library? [Y/n]"
-            if ($reply -and $reply.Trim() -notmatch '^(y|yes)$') {
-                Write-Step "Starting with an empty library"
-                return
+                Write-Step "No interactive terminal detected; installing demo library by default"
+            } else {
+                $reply = Read-Host "No existing library was found. Install the demo library? [Y/n]"
+                if ($reply -and $reply.Trim() -notmatch '^(y|yes)$') {
+                    Write-Step "Starting with an empty library"
+                    return
+                }
             }
         }
     }

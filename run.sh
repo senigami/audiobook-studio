@@ -184,14 +184,14 @@ maybe_restore_demo_bundle() {
       ;;
     *)
       if [[ ! -t 0 ]]; then
-        log "Demo bundle available at $DEMO_ZIP (set AUDIOBOOK_STUDIO_INSTALL_DEMO=1 to install automatically)"
-        return 0
-      fi
-      printf '\nNo existing library was found. Install the demo library? [Y/n] '
-      read -r reply
-      if [[ -n "$reply" ]] && [[ ! "$reply" =~ ^[Yy]([Ee][Ss])?$ ]]; then
-        log "Starting with an empty library"
-        return 0
+        log "No interactive terminal detected; installing demo library by default"
+      else
+        printf '\nNo existing library was found. Install the demo library? [Y/n] '
+        read -r reply
+        if [[ -n "$reply" ]] && [[ ! "$reply" =~ ^[Yy]([Ee][Ss])?$ ]]; then
+          log "Starting with an empty library"
+          return 0
+        fi
       fi
       ;;
   esac

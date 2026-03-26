@@ -326,6 +326,9 @@ def assemble_audiobook(
         with open(list_file, 'w') as lf:
             for f in files:
                 file_path = input_folder / f
+                if not file_path.exists():
+                    on_output(f"Missing input audio file: {file_path}\n")
+                    return 1
 
                 # Check for cached m4a
                 m4a_path = input_folder / f"{Path(f).stem}.m4a"

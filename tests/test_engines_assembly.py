@@ -66,3 +66,26 @@ def test_assemble_audiobook_ffmpeg_no_cover(tmp_path):
         # map 2:v refers to the 3rd input (cover), which should be missing
         assert "-map 2:v" not in cmd
         assert "disposition:v:0 attached_pic" not in cmd
+
+
+def test_assemble_audiobook_fails_before_ffmpeg_when_input_file_is_missing(tmp_path):
+    input_folder = tmp_path / "test_audio"
+    input_folder.mkdir()
+
+    book_title = "Test Book"
+    output_m4b = tmp_path / "test_book.m4b"
+    on_output = MagicMock()
+
+    with patch("app.engines.run_cmd_stream") as mock_run:
+        rc = assemble_audiobook(
+            input_folder,
+            book_title,
+            output_m4b,
+            on_output,
+            lambda: False,
+            chapters=[{"filename": "chapter1.mp3", "title": "Chapter 1"}],
+        )
+
+    assert rc == 1
+    mock_run.assert_not_called()
+    assert any("Missing input audio file" in call.args[0] for call in on_output.call_args_list)
