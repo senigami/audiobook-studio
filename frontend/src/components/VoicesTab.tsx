@@ -11,7 +11,7 @@ import { VoicesModals } from './VoicesModals';
 import { getVariantDisplayName } from '../utils/voiceProfiles';
 
 interface VoicesTabProps {
-    onRefresh: () => void;
+    onRefresh: () => void | Promise<void>;
     speakerProfiles: SpeakerProfile[];
     testProgress: Record<string, { progress: number; started_at?: number }>;
     jobs?: Record<string, Job>;
@@ -175,8 +175,12 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 body: formData
             });
             if (resp.ok) {
+                const renamedTo = newSpeakerName.trim();
                 setIsRenameModalOpen(false);
-                fetchSpeakers();
+                if (!renameSpeakerId) {
+                    setExpandedVoiceId(prev => prev === `unassigned-${originalSpeakerName}` ? `unassigned-${renamedTo}` : prev);
+                }
+                await Promise.all([Promise.resolve(onRefresh()), fetchSpeakers()]);
             } else {
                 const err = await resp.json();
                 handleRequestConfirm({

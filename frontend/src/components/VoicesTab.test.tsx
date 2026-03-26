@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, act } from '@testing-library/react'
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 import { VoicesTab } from './VoicesTab'
 import { describe, it, expect, vi } from 'vitest'
 
@@ -67,5 +67,36 @@ describe('VoicesTab', () => {
         fireEvent.click(actionMenus[0])
 
         expect(screen.getByText('Delete Voice (all variants)')).toBeInTheDocument()
+    })
+
+    it('refreshes the full voice state after renaming an unassigned voice', async () => {
+        const onRefresh = vi.fn().mockResolvedValue(undefined)
+        global.fetch = vi.fn((url: string) => {
+            if (url === '/api/speakers') {
+                return Promise.resolve({ ok: true, json: () => Promise.resolve([]) })
+            }
+            if (url === '/api/speaker-profiles/Narrator1/rename') {
+                return Promise.resolve({ ok: true, json: () => Promise.resolve({ status: 'ok', new_name: 'Narrator Renamed' }) })
+            }
+            if (url === '/api/home') {
+                return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
+            }
+            return Promise.resolve({ ok: true, json: () => Promise.resolve({ status: 'success' }) })
+        }) as any
+
+        await act(async () => {
+            render(<VoicesTab {...mockProps} onRefresh={onRefresh} />)
+        })
+
+        fireEvent.click((await screen.findAllByRole('button', { name: /more actions/i }))[0])
+        fireEvent.click(await screen.findByText('Rename Voice'))
+
+        const input = screen.getByPlaceholderText('e.g. Victor the Vampire')
+        fireEvent.change(input, { target: { value: 'Narrator Renamed' } })
+        fireEvent.click(screen.getByText('Rename Voice'))
+
+        await waitFor(() => {
+            expect(onRefresh).toHaveBeenCalled()
+        })
     })
 })
