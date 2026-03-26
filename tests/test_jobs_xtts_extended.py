@@ -211,6 +211,42 @@ def test_handle_xtts_job_standard_with_mp3(mock_job, tmp_path):
         # Verify status became 'done'
         mock_update_job.assert_any_call("test_job", status="done", finished_at=ANY, progress=1.0, output_wav="output.wav", output_mp3="output.mp3")
 
+
+def test_handle_xtts_job_creates_missing_project_audio_dir(mock_job, tmp_path):
+    mock_job.speaker_profile = "Senigami"
+    pdir = tmp_path / "missing-project-audio"
+    out_wav = pdir / "output.wav"
+    out_mp3 = pdir / "output.mp3"
+    captured = {}
+
+    def inspect_script(*args, **kwargs):
+        script_path = kwargs["script_json_path"]
+        captured["script_path"] = Path(script_path)
+        out_wav.write_text("wav")
+        return 0
+
+    with patch("app.db.get_connection") as mock_conn, \
+         patch("app.db.update_segments_status_bulk"), \
+         patch("app.jobs.handlers.xtts.xtts_generate_script", side_effect=inspect_script), \
+         patch("app.jobs.handlers.xtts.update_job"), \
+         patch("app.jobs.handlers.xtts.get_speaker_wavs", return_value=None), \
+         patch("app.jobs.handlers.xtts.get_voice_profile_dir", return_value=Path("/tmp/voices/Senigami")):
+
+        cursor = mock_conn.return_value.__enter__.return_value.cursor.return_value
+        cursor.fetchall.side_effect = [
+            [],
+            [{"id": "s1"}],
+        ]
+
+        handle_xtts_job(
+            "test_job", mock_job, time.time(),
+            print, lambda: False, None, 1.0,
+            pdir, out_wav, out_mp3, text="Hello"
+        )
+
+    assert pdir.exists()
+    assert captured["script_path"].parent == pdir
+
 def test_handle_xtts_job_cancel(mock_job, tmp_path):
     pdir = tmp_path / "project"
     pdir.mkdir()
