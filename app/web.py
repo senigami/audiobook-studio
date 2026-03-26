@@ -38,12 +38,29 @@ def _contained_root_file(root: Path, filename: str) -> Optional[Path]:
     return candidate
 
 
+def _contained_file(root: Path, relative_path: str) -> Optional[Path]:
+    if not root.exists() or not relative_path:
+        return None
+
+    normalized_parts = [part for part in Path(relative_path).parts if part not in ("", ".")]
+    if not normalized_parts or any(part == ".." for part in normalized_parts):
+        return None
+
+    try:
+        resolved_root = root.resolve()
+        candidate = (resolved_root / Path(*normalized_parts)).resolve()
+    except FileNotFoundError:
+        return None
+
+    if candidate != resolved_root and resolved_root not in candidate.parents:
+        return None
+    if not candidate.is_file():
+        return None
+    return candidate
+
+
 def _frontend_dist_file(full_path: str) -> Optional[Path]:
-    if not FRONTEND_DIST.exists() or not full_path:
-        return None
-    if "/" in full_path.strip("/"):
-        return None
-    return _contained_root_file(FRONTEND_DIST, full_path)
+    return _contained_file(FRONTEND_DIST, full_path)
 
 # --- Ensure mounted static roots exist before mounting ---
 # StaticFiles raises at startup if the target directory is missing. These are the

@@ -99,7 +99,7 @@ def delete_project(project_id: str) -> bool:
 def migrate_legacy_project_covers() -> int:
     from .. import config
 
-    migrated = 0
+    candidates: list[tuple[str, Path, Path, str]] = []
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
@@ -120,20 +120,30 @@ def migrate_legacy_project_covers() -> int:
                     continue
 
                 project_cover_dir = config.get_project_cover_dir(project_id)
-                project_cover_dir.mkdir(parents=True, exist_ok=True)
                 new_name = f"cover{legacy_path.suffix.lower()}"
                 destination = project_cover_dir / new_name
-                if destination.resolve() != legacy_path.resolve():
-                    shutil.copy2(legacy_path, destination)
-
                 new_virtual_path = f"/projects/{project_id}/cover/{new_name}"
-                cursor.execute(
-                    "UPDATE projects SET cover_image_path = ?, updated_at = ? WHERE id = ?",
-                    (new_virtual_path, time.time(), project_id),
-                )
-                migrated += 1
+                candidates.append((project_id, legacy_path, destination, new_virtual_path))
 
-            if migrated:
+    migrated_updates: list[tuple[str, str]] = []
+    for project_id, legacy_path, destination, new_virtual_path in candidates:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            if destination.resolve() != legacy_path.resolve():
+                shutil.copy2(legacy_path, destination)
+            migrated_updates.append((project_id, new_virtual_path))
+        except Exception:
+            logger.warning("Failed to migrate legacy cover %s for project %s", legacy_path, project_id, exc_info=True)
+
+    if migrated_updates:
+        with _db_lock:
+            with get_connection() as conn:
+                cursor = conn.cursor()
+                for project_id, new_virtual_path in migrated_updates:
+                    cursor.execute(
+                        "UPDATE projects SET cover_image_path = ?, updated_at = ? WHERE id = ?",
+                        (new_virtual_path, time.time(), project_id),
+                    )
                 conn.commit()
 
-    return migrated
+    return len(migrated_updates)

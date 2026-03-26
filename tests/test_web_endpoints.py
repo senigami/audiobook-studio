@@ -142,6 +142,21 @@ def test_serves_top_level_frontend_dist_files(monkeypatch, tmp_path):
     assert res.content == b"fake-image"
 
 
+def test_serves_nested_frontend_dist_files_with_containment(monkeypatch, tmp_path):
+    dist_dir = tmp_path / "dist"
+    nested_dir = dist_dir / "images"
+    nested_dir.mkdir(parents=True)
+    nested_file = nested_dir / "hero.png"
+    nested_file.write_bytes(b"hero-image")
+
+    monkeypatch.setattr("app.web.FRONTEND_DIST", dist_dir)
+
+    res = client.get("/images/hero.png")
+    assert res.status_code == 200
+    assert res.content == b"hero-image"
+    assert client.get("/images/../secret.txt").status_code == 404
+
+
 def test_serves_legacy_output_files_without_precreated_mounts(monkeypatch, tmp_path):
     xtts_dir = tmp_path / "xtts_audio"
     audiobook_dir = tmp_path / "audiobooks"
