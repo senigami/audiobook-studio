@@ -132,6 +132,9 @@ def main():
         if os.path.exists(latent_file):
             try:
                 latents = torch.load(latent_file, map_location=device, weights_only=False)
+                if wav_input is None:
+                    print(f"Loading cached latents for {speaker_id} (no source wavs available)...", file=sys.stderr)
+                    return latents["gpt_cond_latent"], latents["speaker_embedding"]
                 if migrated and current_fingerprint and latents.get("profile_fingerprint") != current_fingerprint:
                     latents["profile_fingerprint"] = current_fingerprint
                     torch.save(latents, latent_file)
@@ -141,6 +144,9 @@ def main():
                 print(f"Profile fingerprint changed for {speaker_id}; rebuilding latents...", file=sys.stderr)
             except Exception as e:
                 print(f"Warning: Failed to load cached latents for {speaker_id}: {e}", file=sys.stderr)
+
+        if wav_input is None:
+            raise ValueError("No speaker WAVs available to compute latents, and no cached latent could be loaded")
 
         print(f"Computing latents for {speaker_id}...", file=sys.stderr)
         gpt_cond_latent, speaker_embedding = tts_model.get_conditioning_latents(audio_path=wav_input)
