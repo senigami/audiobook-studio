@@ -265,17 +265,19 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
         if has_custom:
             script = []
             current_id = None
+            current_profile_key = None
             current_sw = None
             current_voice_profile_dir = None
             current_text = ""
             for s in segments_data:
                 if not s['text_content'] or not s['text_content'].strip(): continue
                 char_profile = s['speaker_profile_name'] if (s['character_id'] and s['speaker_profile_name']) else None
+                profile_key = char_profile or j.speaker_profile or ""
                 sw, voice_profile_dir = _profile_inputs_for_segment(char_profile, j.speaker_profile, default_sw)
-                if current_sw is not None and sw == current_sw:
+                if current_profile_key is not None and profile_key == current_profile_key:
                     current_text += " " + s['text_content'].strip()
                 else:
-                    if current_sw is not None:
+                    if current_profile_key is not None:
                         processed = current_text.strip()
                         if j.safe_mode:
                             processed = sanitize_for_xtts(processed)
@@ -284,11 +286,12 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
                         if current_voice_profile_dir:
                             script_entry["voice_profile_dir"] = current_voice_profile_dir
                         script.append(script_entry)
+                    current_profile_key = profile_key
                     current_sw = sw
                     current_voice_profile_dir = voice_profile_dir
                     current_id = s['id']
                     current_text = s['text_content'].strip()
-            if current_sw is not None:
+            if current_profile_key is not None:
                 processed = current_text.strip()
                 if j.safe_mode:
                     processed = sanitize_for_xtts(processed)

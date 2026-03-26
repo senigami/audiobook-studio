@@ -131,6 +131,56 @@ def test_handle_xtts_job_segments_uses_default_voice_profile_dir_for_narrator(mo
     assert captured["script"][0]["voice_profile_dir"] == "/tmp/voices/Senigami"
     assert captured["script"][0]["speaker_wav"] is None
 
+
+def test_handle_xtts_job_standard_mixed_latent_only_profiles_builds_script(mock_job, tmp_path):
+    mock_job.segment_ids = None
+    mock_job.speaker_profile = "Senigami"
+    pdir = tmp_path / "project"
+    pdir.mkdir()
+    out_wav = pdir / "output.wav"
+    out_mp3 = pdir / "output.mp3"
+    captured = {}
+
+    seg_data = [
+        {"id": "n1", "text_content": "Narrator one.", "character_id": None, "speaker_profile_name": None},
+        {"id": "n2", "text_content": "Narrator two.", "character_id": None, "speaker_profile_name": None},
+        {"id": "c1", "text_content": "Character line.", "character_id": "char1", "speaker_profile_name": "Old Man - Angry"},
+    ]
+
+    def inspect_script(*args, **kwargs):
+        script_path = kwargs["script_json_path"]
+        captured["script"] = json.loads(Path(script_path).read_text())
+        out_wav.write_text("wav")
+        return 0
+
+    with patch("app.db.get_connection") as mock_conn, \
+         patch("app.db.update_segments_status_bulk"), \
+         patch("app.jobs.handlers.xtts.xtts_generate_script", side_effect=inspect_script), \
+         patch("app.jobs.handlers.xtts.update_job"), \
+         patch("app.jobs.handlers.xtts.get_speaker_wavs", return_value=None), \
+         patch("app.jobs.handlers.xtts.get_voice_profile_dir", side_effect=lambda name: Path(f"/tmp/voices/{name}")):
+
+        cursor = mock_conn.return_value.__enter__.return_value.cursor.return_value
+        cursor.fetchall.side_effect = [
+            seg_data,
+            [{"id": "s1"}],
+        ]
+
+        handle_xtts_job(
+            "test_job", mock_job, time.time(),
+            print, lambda: False, None, 1.0,
+            pdir, out_wav, out_mp3, text="Fallback text"
+        )
+
+    assert len(captured["script"]) == 2
+    assert "Narrator one" in captured["script"][0]["text"]
+    assert "Narrator two" in captured["script"][0]["text"]
+    assert captured["script"][0]["voice_profile_dir"] == "/tmp/voices/Senigami"
+    assert captured["script"][0]["speaker_wav"] is None
+    assert captured["script"][1]["text"] == "Character line."
+    assert captured["script"][1]["voice_profile_dir"] == "/tmp/voices/Old Man - Angry"
+    assert captured["script"][1]["speaker_wav"] is None
+
 def test_handle_xtts_job_standard_with_mp3(mock_job, tmp_path):
     mock_job.make_mp3 = True
     pdir = tmp_path / "project"
