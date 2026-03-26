@@ -64,9 +64,38 @@ function Test-SameFileContent($PathA, $PathB) {
     return (Get-FileHash $PathA).Hash -eq (Get-FileHash $PathB).Hash
 }
 
+function Test-XttsEnvConflicts($EnvDir) {
+    $PythonExe = Join-Path $EnvDir "Scripts/python.exe"
+    if (-not (Test-Path $PythonExe)) {
+        return $false
+    }
+
+    & $PythonExe -c @'
+from importlib import metadata
+
+conflicting_dists = []
+for dist_name in ("coqpit", "trainer", "TTS"):
+    try:
+        metadata.distribution(dist_name)
+    except metadata.PackageNotFoundError:
+        continue
+    else:
+        conflicting_dists.append(dist_name)
+
+raise SystemExit(0 if conflicting_dists else 1)
+'@ 2>$null
+
+    return $LASTEXITCODE -eq 0
+}
+
 function Sync-PythonRequirements($PythonInfo, $EnvDir, $RequirementsFile, $Label) {
     $PythonExe = Join-Path $EnvDir "Scripts/python.exe"
     $StampFile = Join-Path $EnvDir ".requirements.stamp"
+
+    if ($Label -eq "XTTS" -and (Test-XttsEnvConflicts $EnvDir)) {
+        Write-Step "Resetting XTTS environment to remove stale Coqui packages"
+        Remove-Item $EnvDir -Recurse -Force
+    }
 
     if (-not (Test-Path $PythonExe)) {
         Write-Step "Creating $Label environment"

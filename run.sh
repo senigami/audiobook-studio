@@ -80,11 +80,38 @@ require_cmd() {
   command -v "$1" >/dev/null 2>&1 || die "Missing required command: $1"
 }
 
+xtts_env_has_conflicts() {
+  local env_dir="$1"
+  local python_exe="$env_dir/bin/python"
+
+  [[ -x "$python_exe" ]] || return 1
+
+  "$python_exe" - <<'PY' >/dev/null 2>&1
+from importlib import metadata
+
+conflicting_dists = []
+for dist_name in ("coqpit", "trainer", "TTS"):
+    try:
+        metadata.distribution(dist_name)
+    except metadata.PackageNotFoundError:
+        continue
+    else:
+        conflicting_dists.append(dist_name)
+
+raise SystemExit(0 if conflicting_dists else 1)
+PY
+}
+
 sync_python_requirements() {
   local env_dir="$1"
   local requirements_file="$2"
   local label="$3"
   local stamp_file="$env_dir/.requirements.stamp"
+
+  if [[ "$label" == "XTTS" ]] && xtts_env_has_conflicts "$env_dir"; then
+    log "Resetting XTTS environment to remove stale Coqui packages"
+    rm -rf "$env_dir"
+  fi
 
   if [[ ! -x "$env_dir/bin/python" ]]; then
     log "Creating ${label} environment"
