@@ -124,5 +124,23 @@ describe('Voice Modals', () => {
       expect(screen.getByDisplayValue('Default')).toBeDisabled();
       expect(screen.getByText(/The base Default profile is tied to the voice name\./i)).toBeInTheDocument();
     });
+
+    it('keeps custom imported base variant labels editable', () => {
+      render(
+        <ScriptEditor
+          variantName="New Zealand"
+          onVariantNameChange={vi.fn()}
+          canRenameVariant={true}
+          testText="Preview script"
+          onTestTextChange={vi.fn()}
+          onResetTestText={vi.fn()}
+          onSave={vi.fn()}
+          isSaving={false}
+        />
+      );
+
+      expect(screen.getByDisplayValue('New Zealand')).not.toBeDisabled();
+      expect(screen.queryByText(/The base Default profile is tied to the voice name\./i)).not.toBeInTheDocument();
+    });
   });
 });

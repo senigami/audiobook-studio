@@ -8,7 +8,7 @@ import { GhostButton } from './GhostButton';
 import { NarratorCard } from './voices/NarratorCard';
 import { useVoiceManagement } from '../hooks/useVoiceManagement';
 import { VoicesModals } from './VoicesModals';
-import { getVariantDisplayName, isDefaultVoiceProfile } from '../utils/voiceProfiles';
+import { getVariantDisplayName, isDefaultVoiceProfile, isLockedBaseDefaultProfile } from '../utils/voiceProfiles';
 
 interface VoicesTabProps {
     onRefresh: () => void | Promise<void>;
@@ -93,7 +93,17 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
             if (resp.ok) {
                 // Also handle name change if different
                 const currentVariantDisplay = getVariantDisplayName(editingProfile);
-                if (!isDefaultVoiceProfile(editingProfile) && variantName && variantName !== currentVariantDisplay) {
+                if (variantName && variantName !== currentVariantDisplay) {
+                    if (isLockedBaseDefaultProfile(editingProfile)) {
+                        // Base Default profiles are tied to the voice name and cannot be renamed as variants.
+                    } else if (isDefaultVoiceProfile(editingProfile)) {
+                        const variantForm = new URLSearchParams();
+                        variantForm.append('variant_name', variantName);
+                        await fetch(`/api/speaker-profiles/${encodeURIComponent(editingProfile.name)}/variant-name`, {
+                            method: 'POST',
+                            body: variantForm
+                        });
+                    } else {
                     let newFullName = variantName;
                     if (editingProfile.speaker_id) {
                         const speaker = speakers.find((s: Speaker) => s.id === editingProfile.speaker_id);
@@ -108,6 +118,7 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                         method: 'POST',
                         body: renameForm
                     });
+                    }
                 }
                 setEditingProfile(null);
                 onRefresh();

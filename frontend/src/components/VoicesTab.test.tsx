@@ -99,4 +99,58 @@ describe('VoicesTab', () => {
             expect(onRefresh).toHaveBeenCalled()
         })
     })
+
+    it('saves imported base variant labels as metadata instead of renaming the whole voice', async () => {
+        const onRefresh = vi.fn().mockResolvedValue(undefined)
+        const fetchMock = vi.fn((url: string) => {
+            if (url === '/api/speakers') {
+                return Promise.resolve({
+                    ok: true,
+                    json: () => Promise.resolve([
+                        { id: 'speaker-1', name: 'Woman', default_profile_name: 'Woman' }
+                    ])
+                })
+            }
+            if (url === '/api/speaker-profiles/Woman/test-text') {
+                return Promise.resolve({ ok: true, json: () => Promise.resolve({ status: 'ok' }) })
+            }
+            if (url === '/api/speaker-profiles/Woman/variant-name') {
+                return Promise.resolve({ ok: true, json: () => Promise.resolve({ status: 'ok', variant_name: 'Kiwi' }) })
+            }
+            if (url === '/api/home') {
+                return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
+            }
+            return Promise.resolve({ ok: true, json: () => Promise.resolve({ status: 'success' }) })
+        })
+        global.fetch = fetchMock as any
+
+        const importedProfiles = [
+            { name: 'Woman', wav_count: 3, speed: 1.0, is_default: true, preview_url: null, speaker_id: 'speaker-1', variant_name: 'New Zealand', test_text: 'Original script' }
+        ]
+
+        await act(async () => {
+            render(<VoicesTab {...mockProps} onRefresh={onRefresh} speakerProfiles={importedProfiles as any} />)
+        })
+
+        fireEvent.click(screen.getByText('Woman'))
+        fireEvent.click(await screen.findByTitle('Edit Preview Script'))
+
+        const input = screen.getByDisplayValue('New Zealand')
+        expect(input).not.toBeDisabled()
+        fireEvent.change(input, { target: { value: 'Kiwi' } })
+        fireEvent.click(screen.getByText('Save Script'))
+
+        await waitFor(() => {
+            expect(fetchMock).toHaveBeenCalledWith(
+                '/api/speaker-profiles/Woman/variant-name',
+                expect.objectContaining({ method: 'POST' })
+            )
+        })
+
+        expect(fetchMock).not.toHaveBeenCalledWith(
+            '/api/speaker-profiles/Woman/rename',
+            expect.anything()
+        )
+        expect(onRefresh).toHaveBeenCalled()
+    })
 })

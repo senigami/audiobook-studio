@@ -472,6 +472,12 @@ def update_speaker_speed(name: str, speed: float = Form(...)):
     update_speaker_settings(name, speed=speed)
     return JSONResponse({"status": "ok", "speed": speed})
 
+@router.post("/api/speaker-profiles/{name}/variant-name")
+def update_speaker_variant_name(name: str, variant_name: str = Form(...)):
+    clean_variant_name = (variant_name or "").strip() or "Default"
+    update_speaker_settings(name, variant_name=None if clean_variant_name == "Default" else clean_variant_name)
+    return JSONResponse({"status": "ok", "variant_name": clean_variant_name})
+
 @router.post("/api/speaker-profiles/{name}/build")
 async def build_speaker_profile(
     name: str,
