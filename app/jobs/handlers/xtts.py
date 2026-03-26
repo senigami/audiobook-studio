@@ -24,6 +24,10 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
     from ...db import get_connection, update_segment, get_chapter_segments, update_segments_status_bulk, update_queue_item
     from ...db.segments import cleanup_orphaned_segments
 
+    if cancel_check():
+        update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
+        return
+
     if j.chapter_id:
         cleanup_orphaned_segments(j.chapter_id)
 
