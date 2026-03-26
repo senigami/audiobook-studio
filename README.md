@@ -168,6 +168,7 @@ The startup scripts will:
 
 - create or update the main `venv`
 - create or update the XTTS environment at `~/xtts-env`
+- automatically recreate the XTTS environment if it detects stale legacy Coqui packages that would break voice builds
 - install frontend dependencies if needed
 - build the frontend if needed
 - start the app on `http://127.0.0.1:8123`
