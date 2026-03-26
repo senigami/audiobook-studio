@@ -272,10 +272,11 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
 
   const hasRenderedOutput = chapter?.audio_status === 'done' || !!chapter?.audio_file_path || !!chapter?.has_wav || !!chapter?.has_mp3;
   const hasRenderedSegments = segments.some(s => s.audio_status === 'done' || !!s.audio_file_path);
-  const shouldWarnBeforeRequeue = hasRenderedOutput || hasRenderedSegments;
+  const hasPartialSegmentProgress = hasRenderedSegments && !hasRenderedOutput;
+  const shouldWarnBeforeRequeue = hasRenderedOutput;
   const isQueueLocked = queuePending || submitting || chapter?.audio_status === 'processing' || ['queued', 'preparing', 'running', 'finalizing'].includes(job?.status || '');
-  const queueButtonLabel = shouldWarnBeforeRequeue ? 'Rebuild' : 'Queue';
-  const queueButtonTitle = shouldWarnBeforeRequeue ? 'Rebuild Chapter' : 'Queue Chapter';
+  const queueButtonLabel = shouldWarnBeforeRequeue ? 'Rebuild' : hasPartialSegmentProgress ? 'Complete' : 'Queue';
+  const queueButtonTitle = shouldWarnBeforeRequeue ? 'Rebuild Chapter' : hasPartialSegmentProgress ? 'Complete Chapter Audio' : 'Queue Chapter';
 
   useEffect(() => {
     if (chapter?.audio_status === 'processing' || ['queued', 'preparing', 'running', 'finalizing'].includes(job?.status || '')) {

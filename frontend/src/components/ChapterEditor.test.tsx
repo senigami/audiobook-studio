@@ -353,6 +353,51 @@ describe('ChapterEditor', () => {
     expect(await screen.findByText('Requeue Completed Chapter')).toBeInTheDocument();
   });
 
+  it('shows complete instead of rebuild when segments exist but no chapter render exists yet', async () => {
+    const partialChapter = {
+      ...mockChapter,
+      audio_status: 'unprocessed' as const,
+      audio_file_path: null,
+      has_wav: false,
+      has_mp3: false,
+    };
+    const partialSegments = [
+      {
+        ...mockSegments[0],
+        audio_status: 'done' as const,
+        audio_file_path: 'seg-1.wav',
+        audio_generated_at: Date.now() / 1000,
+      },
+      {
+        id: 'seg-2',
+        chapter_id: mockChapterId,
+        text_content: 'Another sentence.',
+        character_id: null,
+        audio_status: 'unprocessed' as const,
+        audio_file_path: null,
+      },
+    ];
+
+    (api.fetchChapters as any).mockResolvedValue([partialChapter]);
+    (api.fetchSegments as any).mockResolvedValue(partialSegments);
+
+    render(
+      <ChapterEditor
+        chapterId={mockChapterId}
+        projectId={mockProjectId}
+        speakerProfiles={mockSpeakerProfiles as any}
+        speakers={mockSpeakers as any}
+        onBack={vi.fn()}
+      />
+    );
+
+    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
+
+    expect(screen.getByTitle('Complete Chapter Audio')).toBeInTheDocument();
+    expect(screen.getByText('Complete')).toBeInTheDocument();
+    expect(screen.queryByTitle('Rebuild Chapter')).not.toBeInTheDocument();
+  });
+
   it('ignores duplicate generate clicks while the same segments are already pending', async () => {
     (api.generateSegments as any).mockResolvedValue(undefined);
 
