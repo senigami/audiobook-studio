@@ -1,65 +1,90 @@
 # Getting Started
 
-This guide will walk you through setting up **Audiobook Studio** and creating your first project.
+This guide covers the current recommended first-run path for **Audiobook Studio**.
 
-## 📋 Prerequisites
+## Best Starting Point
 
-- **Python 3.9+**
-- **Node.js 16+**
-- **FFmpeg** (required for audio processing and stitching)
-- **Coqui XTTS v2** (managed automatically by the backend)
+If you are new to the project, start with the current `1.7.x` release line or the latest `main` after that release. Earlier versions contain important groundwork, but this is the first release family intended to feel smooth for brand-new users end to end.
 
-## 🚀 Installation
+## Requirements
 
-### 1. Backend Setup
+- **Python 3.11+**
+- **Node.js 18+**
+- **FFmpeg**
+- macOS, Linux, or Windows
+- NVIDIA GPU recommended for faster local synthesis
 
-```bash
-# Navigate to root
-cd audiobook-factory
+## Recommended Setup
 
-# Create a virtual environment
-python -m venv venv
-source venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-### 2. Frontend Setup
+### macOS / Linux
 
 ```bash
-cd frontend
-npm install
+git clone https://github.com/senigami/audiobook-studio.git
+cd audiobook-studio
+./run.sh
 ```
 
-## 🏃 Running the Application
+### Windows PowerShell
 
-### Start the Backend
+```powershell
+git clone https://github.com/senigami/audiobook-studio.git
+cd audiobook-studio
+powershell -ExecutionPolicy Bypass -File .\run.ps1
+```
+
+The launcher scripts will:
+
+- create or update the main `venv`
+- create or update the XTTS environment at `~/xtts-env`
+- repair stale XTTS environments if older conflicting Coqui packages are detected
+- install frontend dependencies if needed
+- build the frontend if needed
+- start the app on `http://127.0.0.1:8123`
+
+Useful options:
+
+### macOS / Linux
 
 ```bash
-# From root
-python -m app.web
+./run.sh --setup-only
+./run.sh --no-reload
+./run.sh --port 9000
 ```
 
-The API will be available at `http://localhost:8000`.
+### Windows PowerShell
 
-### Start the Frontend
-
-```bash
-# From frontend folder
-npm run dev
+```powershell
+powershell -ExecutionPolicy Bypass -File .\run.ps1 -SetupOnly
+powershell -ExecutionPolicy Bypass -File .\run.ps1 -NoReload
+powershell -ExecutionPolicy Bypass -File .\run.ps1 -Port 9000
 ```
 
-Open your browser to `http://localhost:5173`.
+## First Run
 
-## 📖 Your First Project
+1. Launch the app with `./run.sh` or `run.ps1`.
+2. Open `http://127.0.0.1:8123`.
+3. Create a project from the Library.
+4. Add or import chapter text.
+5. Build or import a voice profile.
+6. Assign narration and dialogue voices.
+7. Generate segments or queue a chapter.
+8. Assemble the finished audiobook once chapter audio is ready.
 
-1. **Navigate to Library**: This is the default screen.
-2. **Create Project**: Click the "New Project" button.
-3. **Fill Details**: Enter a name (e.g., "My First Audiobook") and upload a cover if you have one.
-4. **Enter Project**: Click on the project card to enter the **Project View**.
+## Starter Voices
 
-![Library view with the New Project button highlighted](images/new-project.jpg)
+Audiobook Studio now supports lighter starter voice bundles.
+
+A practical starter voice folder can contain:
+
+- `profile.json`
+- `latent.pth`
+- optional `sample.mp3`
+
+This allows a voice to remain usable for preview and generation without shipping every original source wav in the repository.
+
+## Manual Install
+
+If you need a manual path instead of the launcher script, follow the root `README.md`. The launcher scripts are now the preferred onboarding flow and should be considered the default setup path for new users.
 
 ---
 

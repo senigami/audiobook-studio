@@ -16,10 +16,11 @@ Access settings via the Sidebar menu.
 
 By default, the application stores data in the following folders:
 
-- `/projects/`: All project data, text, and audio.
-- `/xtts_audio/`: Legacy/temporary audio output.
-- `/voices/`: Voice models and profile metadata.
-- `/audiobooks/`: Final assembled `.m4b` files.
+- `/projects/`: Current primary storage for project text, audio, and assembled books.
+- `/voices/`: Current voice models and profile metadata.
+- `/chapters/`: Default loose chapter-text folder for fresh installs when you use legacy text-file flows.
+- `/xtts_audio/`: Legacy/global audio output root kept for compatibility with older non-project workflows.
+- `/audiobooks/`: Legacy/global assembled `.m4b` output root kept for compatibility.
 
 ---
 

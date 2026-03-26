@@ -127,6 +127,9 @@ def test_default_variant_resolution(clean_db, voices_root):
     assert res is not None
     assert "Old Man - Angry" in res
 
+    resolved_dir = app.jobs.speaker.get_voice_profile_dir("Old Man")
+    assert resolved_dir == (voices_dir / "Old Man - Angry").resolve()
+
 
 def test_voice_output_exists_for_voice_engine():
     """_output_exists must return True for voice_build/voice_test to prevent reconcile loop."""

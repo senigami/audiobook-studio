@@ -12,6 +12,19 @@ from ..textops import split_by_chapter_markers, write_chapters_to_folder, split_
 logger = logging.getLogger(__name__)
 SAFE_FILE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
 
+
+def preferred_audiobook_download_filename(title: str, fallback_filename: str) -> str:
+    stem = (title or "").strip()
+    if not stem:
+        return fallback_filename
+    stem = re.sub(r'[\\/:*?"<>|]+', "", stem)
+    stem = re.sub(r"\s+", " ", stem).strip().rstrip(".")
+    if not stem:
+        return fallback_filename
+    if Path(stem).suffix.lower() == ".m4b":
+        return stem
+    return f"{stem}.m4b"
+
 def read_preview(path: Path, max_chars: int = 8000) -> str:
     if not path.exists():
         return ""
@@ -122,7 +135,8 @@ def list_audiobooks():
             "cover_url": None, 
             "url": url,
             "created_at": st.st_mtime,
-            "size_bytes": st.st_size
+            "size_bytes": st.st_size,
+            "download_filename": p.name,
         }
         try:
             probe_cmd = f"ffprobe -v error -show_entries format=duration:format_tags=title -of json {shlex.quote(str(p))}"
@@ -136,6 +150,8 @@ def list_audiobooks():
                     item["title"] = fmt["tags"]["title"]
         except Exception:
             logger.debug("Failed to probe audiobook metadata for %s", p, exc_info=True)
+
+        item["download_filename"] = preferred_audiobook_download_filename(item["title"], p.name)
 
         target_jpg = p.with_suffix(".jpg")
         if target_jpg.exists() and target_jpg.stat().st_size > 0:

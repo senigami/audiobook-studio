@@ -52,6 +52,18 @@ def test_build_profile(clean_voices):
     assert response.json()[0]["wav_count"] == 2
     assert response.json()[0]["speed"] == 1.0
 
+def test_build_profile_allows_latent_without_raw_samples(clean_voices):
+    from unittest.mock import patch
+
+    profile_dir = clean_voices / "LatentOnly"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "latent.pth").write_text("latent")
+
+    with patch("app.api.routers.voices.put_job"), patch("app.api.routers.voices.enqueue"):
+        response = client.post("/api/speaker-profiles/LatentOnly/build")
+
+    assert response.status_code == 200
+
 def test_update_speed(clean_voices):
     # Create a profile first
     profile_dir = clean_voices / "Speedy"
@@ -104,6 +116,17 @@ def test_speaker_profile_test_endpoint(mock_xtts, clean_voices):
     # Cleanup test output
     if test_out.exists():
         test_out.unlink()
+
+def test_speaker_profile_test_endpoint_allows_latent_without_raw_samples(clean_voices):
+    name = "LatentTester"
+    profile_dir = clean_voices / name
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "latent.pth").write_text("latent")
+
+    response = client.post(f"/api/speaker-profiles/{name}/test")
+
+    assert response.status_code == 200
+    assert response.json()["audio_url"] == f"/out/voices/{name}/sample.wav"
 
 def test_delete_profile(clean_voices):
     name = "DeleteMe"

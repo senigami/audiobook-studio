@@ -86,6 +86,7 @@ export interface SpeakerProfile {
   speaker_id: string | null;
   variant_name: string | null;
   preview_url: string | null;
+  has_latent?: boolean;
   is_rebuild_required?: boolean;
   samples_detailed?: Array<{ name: string; is_new: boolean }>;
 }
@@ -135,6 +136,7 @@ export interface Settings {
 export interface Audiobook {
   filename: string;
   title: string;
+  download_filename?: string;
   cover_url: string | null;
   url?: string;
   created_at?: number;

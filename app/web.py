@@ -5,12 +5,12 @@ import threading
 import logging
 from typing import Optional, List
 from pathlib import Path
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, Depends
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, Depends, HTTPException
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .config import (
-    BASE_DIR, XTTS_OUT_DIR, AUDIOBOOK_DIR, VOICES_DIR, SAMPLES_DIR, 
+    XTTS_OUT_DIR, AUDIOBOOK_DIR, VOICES_DIR, SAMPLES_DIR, 
     UPLOAD_DIR, CHAPTER_DIR, REPORT_DIR, COVER_DIR, ASSETS_DIR, PROJECTS_DIR,
     FRONTEND_DIST
 )
@@ -22,18 +22,87 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
+
+def _contained_root_file(root: Path, filename: str) -> Optional[Path]:
+    if not filename or Path(filename).name != filename:
+        return None
+    try:
+        candidate = (root / filename).resolve()
+        resolved_root = root.resolve()
+    except FileNotFoundError:
+        return None
+    if candidate.parent != resolved_root:
+        return None
+    if not candidate.is_file():
+        return None
+    return candidate
+
+
+def _contained_file(root: Path, relative_path: str) -> Optional[Path]:
+    if not root.exists() or not relative_path:
+        return None
+
+    normalized_parts = [part for part in Path(relative_path).parts if part not in ("", ".")]
+    if not normalized_parts or any(part == ".." for part in normalized_parts):
+        return None
+
+    try:
+        resolved_root = root.resolve()
+        candidate = (resolved_root / Path(*normalized_parts)).resolve()
+    except FileNotFoundError:
+        return None
+
+    if candidate != resolved_root and resolved_root not in candidate.parents:
+        return None
+    if not candidate.is_file():
+        return None
+    return candidate
+
+
+def _frontend_dist_file(full_path: str) -> Optional[Path]:
+    return _contained_file(FRONTEND_DIST, full_path)
+
+# --- Ensure mounted static roots exist before mounting ---
+# StaticFiles raises at startup if the target directory is missing. These are the
+# only directories that must exist at boot time. Other working directories
+# (uploads, chapter text, reports) are created lazily by the endpoints that use
+# them.
+#
+# VOICES_DIR and PROJECTS_DIR are mounted directly and must exist at startup.
+for d in [VOICES_DIR, PROJECTS_DIR]:
+    d.mkdir(parents=True, exist_ok=True)
+
 # --- Static File Serving ---
-# --- Static File Serving ---
-app.mount("/out/xtts", StaticFiles(directory=str(XTTS_OUT_DIR)), name="out_xtts")
-app.mount("/out/audiobook", StaticFiles(directory=str(AUDIOBOOK_DIR)), name="out_audiobook")
 app.mount("/out/voices", StaticFiles(directory=str(VOICES_DIR)), name="out_voices")
-app.mount("/out/samples", StaticFiles(directory=str(SAMPLES_DIR)), name="out_samples")
-app.mount("/out/covers", StaticFiles(directory=str(COVER_DIR)), name="out_covers")
 app.mount("/projects", StaticFiles(directory=str(PROJECTS_DIR)), name="projects")
 
 # Serve React build if it exists
 if FRONTEND_DIST.exists():
     app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="assets")
+
+
+@app.get("/out/xtts/{filename}")
+def get_xtts_output(filename: str):
+    file_path = _contained_root_file(XTTS_OUT_DIR, filename)
+    if not file_path:
+        raise HTTPException(status_code=404, detail="Not Found")
+    return FileResponse(file_path)
+
+
+@app.get("/out/audiobook/{filename}")
+def get_audiobook_output(filename: str):
+    file_path = _contained_root_file(AUDIOBOOK_DIR, filename)
+    if not file_path:
+        raise HTTPException(status_code=404, detail="Not Found")
+    return FileResponse(file_path)
+
+
+@app.get("/out/covers/{filename}")
+def get_cover_output(filename: str):
+    file_path = _contained_root_file(COVER_DIR, filename)
+    if not file_path:
+        raise HTTPException(status_code=404, detail="Not Found")
+    return FileResponse(file_path)
 
 # --- Legacy Route Aliases (MUST be before routers to avoid 405 conflicts) ---
 @app.post("/upload")
@@ -173,9 +242,15 @@ def startup_event():
     except Exception as e:
         logger.warning(f"Startup Warning: Base voice normalization failed: {e}")
 
-    # Ensure directories exist
-    for d in [XTTS_OUT_DIR, AUDIOBOOK_DIR, VOICES_DIR, SAMPLES_DIR, UPLOAD_DIR, CHAPTER_DIR, REPORT_DIR, COVER_DIR, ASSETS_DIR, PROJECTS_DIR]:
-        d.mkdir(parents=True, exist_ok=True)
+    # Move any legacy global cover files into project-local storage so demo
+    # content remains self-contained inside projects/.
+    try:
+        from .db.projects import migrate_legacy_project_covers
+        migrated = migrate_legacy_project_covers()
+        if migrated:
+            logger.info("Startup: Migrated %s legacy project cover(s) into project storage.", migrated)
+    except Exception as e:
+        logger.warning(f"Startup Warning: Project cover migration failed: {e}")
 
     # 1. Clear out any stuck jobs from state.json
     from .state import get_jobs, delete_jobs
@@ -270,6 +345,10 @@ app.include_router(migration.router)
 # --- Catch-all for React Router ---
 @app.get("/{full_path:path}")
 def catch_all(full_path: str):
+    static_file = _frontend_dist_file(full_path)
+    if static_file:
+        return FileResponse(static_file)
+
     if full_path.startswith("api/") or "." in full_path.split("/")[-1]:
         return JSONResponse({"detail": "Not Found"}, status_code=404)
 

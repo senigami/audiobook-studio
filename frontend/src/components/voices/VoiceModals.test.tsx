@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { NewVoiceModal, RenameVoiceModal, AddVariantModal, MoveVariantModal } from './VoiceModals';
+import { ScriptEditor } from './ScriptEditor';
 
 // Mock framer-motion
 vi.mock('framer-motion', () => ({
@@ -102,6 +103,42 @@ describe('Voice Modals', () => {
 
         fireEvent.click(screen.getByRole('button', { name: 'Move Variant' }));
         expect(onSubmit).toHaveBeenCalled();
+    });
+  });
+
+  describe('ScriptEditor', () => {
+    it('keeps the variant field editable and explains voice renaming separately', () => {
+      render(
+        <ScriptEditor
+          variantName="Default"
+          onVariantNameChange={vi.fn()}
+          testText="Preview script"
+          onTestTextChange={vi.fn()}
+          onResetTestText={vi.fn()}
+          onSave={vi.fn()}
+          isSaving={false}
+        />
+      );
+
+      expect(screen.getByDisplayValue('Default')).not.toBeDisabled();
+      expect(screen.getByText(/Changing the variant label updates how this profile appears in the app\./i)).toBeInTheDocument();
+    });
+
+    it('keeps custom imported base variant labels editable', () => {
+      render(
+        <ScriptEditor
+          variantName="New Zealand"
+          onVariantNameChange={vi.fn()}
+          testText="Preview script"
+          onTestTextChange={vi.fn()}
+          onResetTestText={vi.fn()}
+          onSave={vi.fn()}
+          isSaving={false}
+        />
+      );
+
+      expect(screen.getByDisplayValue('New Zealand')).not.toBeDisabled();
+      expect(screen.getByText(/Changing the variant label updates how this profile appears in the app\./i)).toBeInTheDocument();
     });
   });
 });

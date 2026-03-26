@@ -217,9 +217,9 @@ def test_xtts_generate_script_includes_voice_profile_dir(mock_on_output, mock_ca
             voice_profile_dir=Path("/tmp/voices/VoiceA"),
         )
         assert rc == 0
-        assert "--voice_profile_dir" in mock_run.call_args[0][0]
-        assert " . " in mock_run.call_args[0][0]
-        assert " source " not in mock_run.call_args[0][0]
+        cmd = mock_run.call_args[0][0]
+        assert "--voice_profile_dir" in cmd
+        assert str(Path("script.json")) in cmd
 
 
 def test_xtts_inference_can_run_from_outside_repo(tmp_path):

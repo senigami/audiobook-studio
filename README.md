@@ -21,6 +21,10 @@ The live showcase also includes the fuller feature and cost comparison with Elev
 
 It is built for real long-form work, not just one-click text-to-speech. You can assign voices to characters, repair individual segments, requeue partial chapters, build portable voice profiles, and assemble finished books without sending your manuscript or cloned voices to a paid cloud service.
 
+> [!IMPORTANT]
+> **Version 1.7.x is the first release line intended as the clean default starting point for brand-new users.**
+> Earlier versions contain important groundwork, but this is the first release family where startup, voice portability, chapter generation, rebuild behavior, and download flow all line up the way new users should expect.
+
 ## Why People Use It
 
 - **Produce full audiobooks locally** with XTTS-based voice cloning and chapter assembly.
@@ -146,22 +150,84 @@ If you want the longer written breakdown, see the wiki page: [Comparison and Cos
 - `ffmpeg`
 - NVIDIA GPU recommended for faster local synthesis
 
-### Install
+### One-Command Setup and Run
+
+This is the recommended path for new users.
+
+On macOS or Linux, the easiest way to start is:
 
 ```bash
 git clone https://github.com/senigami/audiobook-studio.git
 cd audiobook-studio
-
-python3.11 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-
-python3.11 -m venv ~/xtts-env
-source ~/xtts-env/bin/activate
-pip install -r requirements-xtts.txt
+./run.sh
 ```
 
+On Windows PowerShell, use:
+
+```powershell
+git clone https://github.com/senigami/audiobook-studio.git
+cd audiobook-studio
+powershell -ExecutionPolicy Bypass -File .\run.ps1
+```
+
+The startup scripts will:
+
+- create or update the main `venv`
+- create or update the XTTS environment at `~/xtts-env`
+- automatically recreate the XTTS environment if it detects stale legacy Coqui packages that would break voice builds
+- install frontend dependencies if needed
+- build the frontend if needed
+- start the app on `http://127.0.0.1:8123`
+
+If you are evaluating Audiobook Studio for the first time, this is the path to use. The separate manual backend/frontend flow is still documented below, but the launcher scripts are now the intended onboarding experience.
+
+Useful options:
+
+```bash
+./run.sh --setup-only
+./run.sh --no-reload
+./run.sh --port 9000
+```
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\run.ps1 -SetupOnly
+powershell -ExecutionPolicy Bypass -File .\run.ps1 -NoReload
+powershell -ExecutionPolicy Bypass -File .\run.ps1 -Port 9000
+```
+
+### Manual Install
+
+1. **Clone and Backend Setup**  
+   Create the primary environment for the web server and project management.
+   ```bash
+   git clone https://github.com/senigami/audiobook-studio.git
+   cd audiobook-studio
+
+   python3.11 -m venv venv
+   source venv/bin/activate
+   pip install -r requirements.txt
+   ```
+
+2. **XTTS Inference Setup**  
+   XTTS requires a separate environment to avoid dependency conflicts. The app expects this at `~/xtts-env` by default (configurable in `app/config.py`).
+   ```bash
+   python3.11 -m venv ~/xtts-env
+   source ~/xtts-env/bin/activate
+   pip install -r requirements-xtts.txt
+   ```
+
+3. **Frontend Build**  
+   The UI must be built before it can be served by the backend.
+   ```bash
+   cd frontend
+   npm install
+   npm run build
+   cd ..
+   ```
+
 ### Run
+
+You only need to activate the primary `venv` to start the server. The XTTS environment is managed automatically as a subprocess.
 
 ```bash
 source venv/bin/activate
@@ -169,6 +235,9 @@ uvicorn run:app --port 8123
 ```
 
 Then open [http://127.0.0.1:8123](http://127.0.0.1:8123).
+
+> [!NOTE]
+> On first run, the application creates the current app roots it needs immediately, including `projects/` and `voices/`. Other folders are created only when those features are used. On fresh installs, loose chapter text now defaults to `chapters/`. Older workspaces that already use `chapters_out/`, `xtts_audio/`, or `audiobooks/` still continue to work.
 
 ## Voice Profiles
 
@@ -179,6 +248,14 @@ Audiobook Studio supports local voice cloning and reusable voice variants.
 - Create variants for different delivery styles
 - Rebuild only when samples change
 - Keep the voice profile and latent cache together for portability
+
+Voice profiles can also now work as lightweight starter assets. A reusable profile can ship with:
+
+- `profile.json`
+- `latent.pth`
+- an optional preview like `sample.mp3`
+
+That means starter voices do not have to bundle every original training wav just to be usable.
 
 The app now treats voice profiles as production assets, not throwaway cache entries.
 
@@ -197,6 +274,12 @@ This is where the app really shines.
 Audiobook Studio is designed for **local-first production**.
 
 Your manuscript, chapter text, voice samples, latent files, and rendered audio stay under your control on your own machine.
+
+## Release Notes and History
+
+- [Changelog](https://github.com/senigami/audiobook-studio/wiki/Changelog)
+- [Getting Started](https://github.com/senigami/audiobook-studio/wiki/Getting-Started)
+- [Troubleshooting and FAQ](https://github.com/senigami/audiobook-studio/wiki/Troubleshooting-and-FAQ)
 
 ## Documentation
 

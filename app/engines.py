@@ -8,7 +8,7 @@ import logging
 from pathlib import Path
 from typing import List, Optional
 
-from .config import XTTS_ENV_ACTIVATE, MP3_QUALITY, BASE_DIR, AUDIOBOOK_BITRATE
+from .config import XTTS_ENV_ACTIVATE, XTTS_ENV_PYTHON, MP3_QUALITY, BASE_DIR, AUDIOBOOK_BITRATE
 from .textops import safe_split_long_sentences, sanitize_for_xtts, pack_text_to_limit
 
 _active_processes = set()
@@ -26,17 +26,23 @@ def terminate_all_subprocesses():
                 logger.debug("Failed to force-kill subprocess during termination", exc_info=True)
         _active_processes.clear()
 
-def run_cmd_stream(cmd: str, on_output, cancel_check) -> int:
+def run_cmd_stream(cmd, on_output, cancel_check, env=None) -> int:
     import time
     import selectors
     from collections import deque
-    logger.debug("Running command: %s", cmd)
+    if isinstance(cmd, (list, tuple)):
+        display_cmd = " ".join(shlex.quote(str(part)) for part in cmd)
+    else:
+        display_cmd = str(cmd)
+    logger.debug("Running command: %s", display_cmd)
     proc = subprocess.Popen(
-        cmd, shell=True,
+        cmd,
+        shell=isinstance(cmd, str),
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
-        bufsize=0 # Unbuffered
+        bufsize=0, # Unbuffered
+        env=env,
     )
     _active_processes.add(proc)
 
@@ -104,7 +110,7 @@ def run_cmd_stream(cmd: str, on_output, cancel_check) -> int:
             logger.error(
                 "Command failed (rc=%s): %s\nLast output:\n%s",
                 rc,
-                cmd,
+                display_cmd,
                 "\n".join(recent_lines),
             )
         return rc
@@ -163,20 +169,22 @@ def xtts_generate(
 
     text = pack_text_to_limit(text, pad=True) or " "
 
-    cmd = (
-        f"export PYTHONUNBUFFERED=1 && . {shlex.quote(str(XTTS_ENV_ACTIVATE))} && "
-        f"python3 {shlex.quote(str(BASE_DIR / 'app' / 'xtts_inference.py'))} "
-        f"--text {shlex.quote(text)} "
-        f"--language en "
-        f"--repetition_penalty 2.0 "
-        f"--speed {speed} "
-        f"--out_path {shlex.quote(str(out_wav))}"
-    )
+    cmd = [
+        str(XTTS_ENV_PYTHON),
+        str(BASE_DIR / 'app' / 'xtts_inference.py'),
+        "--text", text,
+        "--language", "en",
+        "--repetition_penalty", "2.0",
+        "--speed", str(speed),
+        "--out_path", str(out_wav),
+    ]
     if sw:
-        cmd += f" --speaker_wav {shlex.quote(sw)}"
+        cmd.extend(["--speaker_wav", sw])
     if voice_profile_dir is not None:
-        cmd += f" --voice_profile_dir {shlex.quote(str(voice_profile_dir))}"
-    return run_cmd_stream(cmd, on_output, cancel_check)
+        cmd.extend(["--voice_profile_dir", str(voice_profile_dir)])
+    env = os.environ.copy()
+    env["PYTHONUNBUFFERED"] = "1"
+    return run_cmd_stream(cmd, on_output, cancel_check, env=env)
 
 
 def xtts_generate_script(
@@ -191,18 +199,20 @@ def xtts_generate_script(
         on_output(f"[error] XTTS activate not found: {XTTS_ENV_ACTIVATE}\n")
         return 1
 
-    cmd = (
-        f"export PYTHONUNBUFFERED=1 && . {shlex.quote(str(XTTS_ENV_ACTIVATE))} && "
-        f"python3 {shlex.quote(str(BASE_DIR / 'app' / 'xtts_inference.py'))} "
-        f"--script_json {shlex.quote(str(script_json_path))} "
-        f"--language en "
-        f"--repetition_penalty 2.0 "
-        f"--speed {speed} "
-        f"--out_path {shlex.quote(str(out_wav))}"
-    )
+    cmd = [
+        str(XTTS_ENV_PYTHON),
+        str(BASE_DIR / 'app' / 'xtts_inference.py'),
+        "--script_json", str(script_json_path),
+        "--language", "en",
+        "--repetition_penalty", "2.0",
+        "--speed", str(speed),
+        "--out_path", str(out_wav),
+    ]
     if voice_profile_dir is not None:
-        cmd += f" --voice_profile_dir {shlex.quote(str(voice_profile_dir))}"
-    return run_cmd_stream(cmd, on_output, cancel_check)
+        cmd.extend(["--voice_profile_dir", str(voice_profile_dir)])
+    env = os.environ.copy()
+    env["PYTHONUNBUFFERED"] = "1"
+    return run_cmd_stream(cmd, on_output, cancel_check, env=env)
 
 
 def get_audio_duration(file_path: Path) -> float:

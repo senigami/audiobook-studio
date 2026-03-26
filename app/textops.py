@@ -362,6 +362,14 @@ def clean_text_for_tts(text: str) -> str:
         ln = re.sub(r' +([,;:])', r'\1', ln)
         # Remove redundant punctuation
         ln = re.sub(r'([!?])\.+', r'\1', ln)
+        # Remove comma/semicolon/colon artifacts that end up directly before a
+        # terminal punctuation mark, including quote-adjacent cases like ",."
+        # or ",'." introduced by dialogue splitting.
+        ln = re.sub(r'([,;:])([\'"]?)([.!?])', r'\2\3', ln)
+        # Remove stray spaces before quote+terminal punctuation like "word '."
+        ln = re.sub(r"\s+([\'\"])([.!?])", r"\1\2", ln)
+        # Also handle the inverse ordering produced during cleanup: "word .'"
+        ln = re.sub(r"\s+([.!?])([\'\"])", r"\1\2", ln)
         # Fix ., -> , and ,. -> . and .; -> ; etc
         ln = (
             ln.replace(".,", ",")
@@ -507,6 +515,10 @@ def sanitize_for_xtts(text: str) -> str:
     text = re.sub(r'[ \t]+', ' ', text).strip()
     # Normalize multiple newlines to maximum of 1
     text = re.sub(r'\n{2,}', '\n', text)
+
+    # If cleanup leaves a line ending in a soft punctuation mark like a comma,
+    # promote it to a sentence stop before the terminal punctuation guard runs.
+    text = re.sub(r'([,;:])(["\')\]]*)$', r'.\2', text)
 
     # 3. Ensure terminal punctuation
     # (XTTS v2 can fail on short strings without it)

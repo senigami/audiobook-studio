@@ -31,6 +31,9 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({
                         value={variantName}
                         onChange={(e) => onVariantNameChange(e.target.value)}
                     />
+                    <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                        Changing the variant label updates how this profile appears in the app. Use <strong>Rename Voice</strong> if you want to rename the voice itself.
+                    </p>
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>

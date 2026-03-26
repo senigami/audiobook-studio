@@ -7,9 +7,28 @@ from ...engines import xtts_generate, xtts_generate_script, wav_to_mp3, get_audi
 from ...textops import sanitize_for_xtts, safe_split_long_sentences
 from ..speaker import get_speaker_wavs, get_voice_profile_dir
 
+
+def _profile_inputs_for_segment(char_profile, job_default_profile, default_sw):
+    profile_name = char_profile or job_default_profile
+    sw = get_speaker_wavs(char_profile) if char_profile else default_sw
+    voice_profile_dir = None
+    if profile_name:
+        try:
+            voice_profile_dir = str(get_voice_profile_dir(profile_name))
+        except ValueError:
+            voice_profile_dir = None
+    return sw, voice_profile_dir
+
+
 def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, pdir, out_wav, out_mp3, text=None):
     from ...db import get_connection, update_segment, get_chapter_segments, update_segments_status_bulk, update_queue_item
     from ...db.segments import cleanup_orphaned_segments
+
+    pdir.mkdir(parents=True, exist_ok=True)
+
+    if cancel_check():
+        update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
+        return
 
     if j.chapter_id:
         cleanup_orphaned_segments(j.chapter_id)
@@ -51,7 +70,7 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
             path_to_group = {}
             for group in missing_groups:
                 char_profile = group[0].get('speaker_profile_name')
-                sw = get_speaker_wavs(char_profile) or default_sw
+                sw, voice_profile_dir = _profile_inputs_for_segment(char_profile, j.speaker_profile, default_sw)
                 combined_text = " ".join([s['text_content'] for s in group])
                 if j.safe_mode:
                     combined_text = sanitize_for_xtts(combined_text)
@@ -60,8 +79,8 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
                 seg_out = pdir / f"seg_{sid}.wav"
                 save_path_str = str(seg_out.absolute())
                 script_entry = {"text": combined_text, "speaker_wav": sw, "save_path": save_path_str, "id": group[0]['id']}
-                if char_profile:
-                    script_entry["voice_profile_dir"] = str(get_voice_profile_dir(char_profile))
+                if voice_profile_dir:
+                    script_entry["voice_profile_dir"] = voice_profile_dir
                 full_script.append(script_entry)
                 path_to_group[save_path_str] = group
 
@@ -164,7 +183,7 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
         path_to_group = {}
         for group in gen_groups:
             char_profile = group[0].get('speaker_profile_name')
-            sw = get_speaker_wavs(char_profile) or default_sw
+            sw, voice_profile_dir = _profile_inputs_for_segment(char_profile, j.speaker_profile, default_sw)
             combined_text = "".join([s['text_content'] for s in group])
             if j.safe_mode:
                 combined_text = sanitize_for_xtts(combined_text)
@@ -173,11 +192,8 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
             seg_out = pdir / f"seg_{first_sid}.wav"
             save_path_str = str(seg_out.absolute())
             script_entry = {"text": combined_text, "speaker_wav": sw, "save_path": save_path_str, "id": group[0]['id']}
-            if char_profile:
-                try:
-                    script_entry["voice_profile_dir"] = str(get_voice_profile_dir(char_profile))
-                except ValueError:
-                    pass
+            if voice_profile_dir:
+                script_entry["voice_profile_dir"] = voice_profile_dir
             full_script.append(script_entry)
             path_to_group[save_path_str] = group
 
@@ -255,20 +271,19 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
         if has_custom:
             script = []
             current_id = None
+            current_profile_key = None
             current_sw = None
             current_voice_profile_dir = None
             current_text = ""
             for s in segments_data:
                 if not s['text_content'] or not s['text_content'].strip(): continue
-                sw = get_speaker_wavs(s['speaker_profile_name']) if (s['character_id'] and s['speaker_profile_name']) else default_sw
-                try:
-                    voice_profile_dir = str(get_voice_profile_dir(s['speaker_profile_name'])) if (s['character_id'] and s['speaker_profile_name']) else None
-                except ValueError:
-                    voice_profile_dir = None
-                if current_sw is not None and sw == current_sw:
+                char_profile = s['speaker_profile_name'] if (s['character_id'] and s['speaker_profile_name']) else None
+                profile_key = char_profile or j.speaker_profile or ""
+                sw, voice_profile_dir = _profile_inputs_for_segment(char_profile, j.speaker_profile, default_sw)
+                if current_profile_key is not None and profile_key == current_profile_key:
                     current_text += " " + s['text_content'].strip()
                 else:
-                    if current_sw is not None:
+                    if current_profile_key is not None:
                         processed = current_text.strip()
                         if j.safe_mode:
                             processed = sanitize_for_xtts(processed)
@@ -277,11 +292,12 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
                         if current_voice_profile_dir:
                             script_entry["voice_profile_dir"] = current_voice_profile_dir
                         script.append(script_entry)
+                    current_profile_key = profile_key
                     current_sw = sw
                     current_voice_profile_dir = voice_profile_dir
                     current_id = s['id']
                     current_text = s['text_content'].strip()
-            if current_sw is not None:
+            if current_profile_key is not None:
                 processed = current_text.strip()
                 if j.safe_mode:
                     processed = sanitize_for_xtts(processed)

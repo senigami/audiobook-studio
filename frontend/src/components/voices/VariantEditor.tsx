@@ -51,6 +51,8 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
     const speedPillRef = useRef<HTMLButtonElement>(null);
     const speed = localSpeed ?? profile.speed;
     const hasSamples = (profile.wav_count || 0) > 0;
+    const hasReferenceMaterial = hasSamples || !!profile.has_latent;
+    const canPreviewOrGenerate = !!profile.preview_url || hasReferenceMaterial;
     const playIconColor = isPlaying ? 'var(--surface)' : 'var(--text-primary)';
 
     useEffect(() => {
@@ -128,9 +130,9 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                         <button 
                             onClick={handlePlayClick}
                             className="btn-ghost hover-bg-subtle"
-                        disabled={!hasSamples || isTesting}
-                        title={!hasSamples
-                            ? "Add at least one sample before generating a preview"
+                        disabled={!canPreviewOrGenerate || isTesting}
+                        title={!canPreviewOrGenerate
+                            ? "Add at least one sample or keep a latent before generating a preview"
                             : profile.preview_url
                                 ? (isPlaying ? "Pause Sample" : "Play Sample")
                                 : "Generate Sample"}
@@ -225,10 +227,10 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                     </button>
                     
                     <button 
-                        disabled={!hasSamples || isBuilding || isTesting}
+                        disabled={!hasReferenceMaterial || isBuilding || isTesting}
                         className={isRebuildRequired ? "btn-primary" : "btn-ghost hover-bg-subtle"}
                         onClick={(e) => { e.stopPropagation(); handleRebuild(); }} 
-                        title={!hasSamples ? "Add at least one sample before rebuilding this voice" : "Rebuild Voice Model"}
+                        title={!hasReferenceMaterial ? "Add at least one sample or keep a latent before rebuilding this voice" : "Rebuild Voice Model"}
                         style={{ 
                             padding: '8px 12px', 
                             height: '36px', 

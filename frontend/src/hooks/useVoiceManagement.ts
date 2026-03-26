@@ -88,7 +88,7 @@ export function useVoiceManagement(
 
     const fetchSpeakers = useCallback(async () => {
         try {
-            const resp = await fetch('/api/speakers');
+            const resp = await fetch('/api/speakers', { cache: 'no-store' });
             if (resp.ok) {
                 const data = await resp.json();
                 if (Array.isArray(data)) {

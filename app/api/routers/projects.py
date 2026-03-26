@@ -11,17 +11,35 @@ from ...db import (
     create_project, get_project, list_projects, update_project, 
     delete_project, list_chapters as db_list_chapters, reorder_chapters
 )
-from ...config import COVER_DIR, XTTS_OUT_DIR, get_project_dir, find_existing_project_subdir
+from ...config import COVER_DIR, XTTS_OUT_DIR, get_project_dir, get_project_cover_dir, find_existing_project_subdir
 import urllib.parse
 from ...jobs import enqueue
 from ...engines import get_audio_duration
 from ...state import put_job, update_job, get_jobs
 from ...models import Job
 from ...pathing import safe_basename, safe_join, safe_join_flat
+from ...api.utils import preferred_audiobook_download_filename
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
+
+
+async def _store_project_cover(project_id: str, cover: UploadFile) -> str:
+    safe_cover_name = safe_basename(cover.filename)
+    ext = Path(safe_cover_name).suffix.lower() or ".jpg"
+    cover_dir = get_project_cover_dir(project_id)
+    cover_dir.mkdir(parents=True, exist_ok=True)
+    cover_filename = f"cover{ext}"
+    cover_p = safe_join_flat(cover_dir, cover_filename)
+
+    for existing in cover_dir.iterdir():
+        if existing.is_file() and existing.name != cover_filename:
+            existing.unlink(missing_ok=True)
+
+    content = await cover.read()
+    cover_p.write_bytes(content)
+    return f"/projects/{project_id}/cover/{cover_filename}"
 
 @router.get("")
 def api_list_projects():
@@ -51,18 +69,10 @@ async def api_create_project(
     author: Optional[str] = Form(None),
     cover: Optional[UploadFile] = File(None)
 ):
-    COVER_DIR.mkdir(parents=True, exist_ok=True)
-    cover_path = None
+    pid = create_project(name, series, author, None)
     if cover:
-        safe_cover_name = safe_basename(cover.filename)
-        ext = Path(safe_cover_name).suffix
-        cover_filename = f"{uuid.uuid4().hex}{ext}"
-        cover_p = safe_join_flat(COVER_DIR, cover_filename)
-        content = await cover.read()
-        cover_p.write_bytes(content)
-        cover_path = f"/out/covers/{cover_filename}"
-
-    pid = create_project(name, series, author, cover_path)
+        cover_path = await _store_project_cover(pid, cover)
+        update_project(pid, cover_image_path=cover_path)
     return JSONResponse({"status": "ok", "project_id": pid})
 
 @router.put("/{project_id}")
@@ -83,14 +93,7 @@ async def api_update_project(
     if author is not None: updates["author"] = author
 
     if cover:
-        COVER_DIR.mkdir(parents=True, exist_ok=True)
-        safe_cover_name = safe_basename(cover.filename)
-        ext = Path(safe_cover_name).suffix
-        cover_filename = f"{uuid.uuid4().hex}{ext}"
-        cover_p = safe_join_flat(COVER_DIR, cover_filename)
-        content = await cover.read()
-        cover_p.write_bytes(content)
-        updates["cover_image_path"] = f"/out/covers/{cover_filename}"
+        updates["cover_image_path"] = await _store_project_cover(project_id, cover)
 
     if updates:
         update_project(project_id, **updates)
@@ -139,7 +142,8 @@ def api_list_project_audiobooks(project_id: str):
             "cover_url": None, 
             "url": url,
             "created_at": st.st_mtime,
-            "size_bytes": st.st_size
+            "size_bytes": st.st_size,
+            "download_filename": p.name,
         }
         try:
             probe_cmd = f"ffprobe -v error -show_entries format=duration:format_tags=title -of json {shlex.quote(str(p))}"
@@ -153,6 +157,8 @@ def api_list_project_audiobooks(project_id: str):
                     item["title"] = fmt["tags"]["title"]
         except Exception:
             logger.warning("Failed to probe audiobook metadata for %s", p, exc_info=True)
+
+        item["download_filename"] = preferred_audiobook_download_filename(item["title"], p.name)
 
         # Look for cover image with multiple extensions
         item["cover_url"] = None

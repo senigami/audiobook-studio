@@ -121,6 +121,13 @@ def _voice_preview_url(name: str) -> Optional[str]:
 
     return None
 
+
+def _voice_has_latent(name: str) -> bool:
+    profile_dir = _existing_voice_profile_dir(name)
+    if not profile_dir:
+        return False
+    return (_voice_file_map(profile_dir).get("latent.pth") or _new_voice_sample_path(profile_dir, "latent.pth")).exists()
+
 router = APIRouter(tags=["voices"])
 
 
@@ -214,7 +221,8 @@ def list_speaker_profiles():
             "test_text": spk_settings["test_text"],
             "speaker_id": spk_settings.get("speaker_id"),
             "variant_name": spk_settings.get("variant_name"),
-            "preview_url": preview_url
+            "preview_url": preview_url,
+            "has_latent": _voice_has_latent(d.name),
         })
     return profiles
 
@@ -472,6 +480,12 @@ def update_speaker_speed(name: str, speed: float = Form(...)):
     update_speaker_settings(name, speed=speed)
     return JSONResponse({"status": "ok", "speed": speed})
 
+@router.post("/api/speaker-profiles/{name}/variant-name")
+def update_speaker_variant_name(name: str, variant_name: str = Form(...)):
+    clean_variant_name = (variant_name or "").strip() or "Default"
+    update_speaker_settings(name, variant_name=None if clean_variant_name == "Default" else clean_variant_name)
+    return JSONResponse({"status": "ok", "variant_name": clean_variant_name})
+
 @router.post("/api/speaker-profiles/{name}/build")
 async def build_speaker_profile(
     name: str,
@@ -485,9 +499,10 @@ async def build_speaker_profile(
             return JSONResponse({"status": "error", "message": "Invalid profile name"}, status_code=403)
 
         existing_raw_samples = _voice_raw_sample_count(name)
-        if existing_raw_samples == 0 and not files:
+        has_latent = _voice_has_latent(name)
+        if existing_raw_samples == 0 and not has_latent and not files:
             return JSONResponse(
-                {"status": "error", "message": "Add at least one sample before building this voice."},
+                {"status": "error", "message": "Add at least one sample or keep a latent before building this voice."},
                 status_code=400
             )
 
@@ -615,9 +630,9 @@ def delete_speaker_profile(
 
 @router.post("/api/speaker-profiles/{name}/test")
 def test_speaker_profile(name: str):
-    if _voice_raw_sample_count(name) == 0:
+    if _voice_raw_sample_count(name) == 0 and not _voice_has_latent(name):
         return JSONResponse(
-            {"status": "error", "message": "Add at least one sample before testing this voice."},
+            {"status": "error", "message": "Add at least one sample or keep a latent before testing this voice."},
             status_code=400
         )
 

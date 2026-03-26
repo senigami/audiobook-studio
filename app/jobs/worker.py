@@ -239,6 +239,7 @@ def worker_loop(q):
             elif j.engine == "xtts":
                 from ..config import get_project_audio_dir
                 pdir = get_project_audio_dir(j.project_id) if j.project_id else XTTS_OUT_DIR
+                pdir.mkdir(parents=True, exist_ok=True)
                 out_wav = pdir / f"{Path(j.chapter_file).stem}.wav"
                 out_mp3 = pdir / f"{Path(j.chapter_file).stem}.mp3"
 

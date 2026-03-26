@@ -1,6 +1,8 @@
 import time
 import uuid
 import logging
+import shutil
+from pathlib import Path
 from typing import List, Dict, Any, Optional
 from .core import _db_lock, get_connection
 
@@ -24,6 +26,7 @@ def create_project(name: str, series: Optional[str] = None, author: Optional[str
             (project_dir / "audio").mkdir(parents=True, exist_ok=True)
             (project_dir / "text").mkdir(parents=True, exist_ok=True)
             (project_dir / "m4b").mkdir(parents=True, exist_ok=True)
+            (project_dir / "cover").mkdir(parents=True, exist_ok=True)
 
             return project_id
 
@@ -66,7 +69,6 @@ def delete_project(project_id: str) -> bool:
             cursor = conn.cursor()
             # 1. First, get project info for path cleanup
             from .. import config
-            import shutil
             pdir = None
             if config.PROJECTS_DIR.exists():
                 for entry in config.PROJECTS_DIR.iterdir():
@@ -92,3 +94,56 @@ def delete_project(project_id: str) -> bool:
                     logger.warning("Failed to remove project directory %s", pdir, exc_info=True)
 
             return cursor.rowcount > 0
+
+
+def migrate_legacy_project_covers() -> int:
+    from .. import config
+
+    candidates: list[tuple[str, Path, Path, str]] = []
+    with _db_lock:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, cover_image_path FROM projects WHERE cover_image_path LIKE '/out/covers/%'")
+            rows = cursor.fetchall()
+            for row in rows:
+                project_id = row["id"]
+                cover_image_path = row["cover_image_path"]
+                if not cover_image_path:
+                    continue
+
+                legacy_name = Path(cover_image_path.replace("/out/covers/", "")).name
+                if not legacy_name:
+                    continue
+
+                legacy_path = config.COVER_DIR / legacy_name
+                if not legacy_path.is_file():
+                    continue
+
+                project_cover_dir = config.get_project_cover_dir(project_id)
+                new_name = f"cover{legacy_path.suffix.lower()}"
+                destination = project_cover_dir / new_name
+                new_virtual_path = f"/projects/{project_id}/cover/{new_name}"
+                candidates.append((project_id, legacy_path, destination, new_virtual_path))
+
+    migrated_updates: list[tuple[str, str]] = []
+    for project_id, legacy_path, destination, new_virtual_path in candidates:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            if destination.resolve() != legacy_path.resolve():
+                shutil.copy2(legacy_path, destination)
+            migrated_updates.append((project_id, new_virtual_path))
+        except Exception:
+            logger.warning("Failed to migrate legacy cover %s for project %s", legacy_path, project_id, exc_info=True)
+
+    if migrated_updates:
+        with _db_lock:
+            with get_connection() as conn:
+                cursor = conn.cursor()
+                for project_id, new_virtual_path in migrated_updates:
+                    cursor.execute(
+                        "UPDATE projects SET cover_image_path = ?, updated_at = ? WHERE id = ?",
+                        (new_virtual_path, time.time(), project_id),
+                    )
+                conn.commit()
+
+    return len(migrated_updates)

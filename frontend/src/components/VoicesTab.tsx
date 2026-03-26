@@ -8,10 +8,10 @@ import { GhostButton } from './GhostButton';
 import { NarratorCard } from './voices/NarratorCard';
 import { useVoiceManagement } from '../hooks/useVoiceManagement';
 import { VoicesModals } from './VoicesModals';
-import { getVariantDisplayName } from '../utils/voiceProfiles';
+import { getVariantDisplayName, isDefaultVoiceProfile } from '../utils/voiceProfiles';
 
 interface VoicesTabProps {
-    onRefresh: () => void;
+    onRefresh: () => void | Promise<void>;
     speakerProfiles: SpeakerProfile[];
     testProgress: Record<string, { progress: number; started_at?: number }>;
     jobs?: Record<string, Job>;
@@ -94,6 +94,14 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 // Also handle name change if different
                 const currentVariantDisplay = getVariantDisplayName(editingProfile);
                 if (variantName && variantName !== currentVariantDisplay) {
+                    if (isDefaultVoiceProfile(editingProfile)) {
+                        const variantForm = new URLSearchParams();
+                        variantForm.append('variant_name', variantName);
+                        await fetch(`/api/speaker-profiles/${encodeURIComponent(editingProfile.name)}/variant-name`, {
+                            method: 'POST',
+                            body: variantForm
+                        });
+                    } else {
                     let newFullName = variantName;
                     if (editingProfile.speaker_id) {
                         const speaker = speakers.find((s: Speaker) => s.id === editingProfile.speaker_id);
@@ -108,6 +116,7 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                         method: 'POST',
                         body: renameForm
                     });
+                    }
                 }
                 setEditingProfile(null);
                 onRefresh();
@@ -175,8 +184,12 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 body: formData
             });
             if (resp.ok) {
+                const renamedTo = newSpeakerName.trim();
                 setIsRenameModalOpen(false);
-                fetchSpeakers();
+                if (!renameSpeakerId) {
+                    setExpandedVoiceId(prev => prev === `unassigned-${originalSpeakerName}` ? `unassigned-${renamedTo}` : prev);
+                }
+                await Promise.all([Promise.resolve(onRefresh()), fetchSpeakers()]);
             } else {
                 const err = await resp.json();
                 handleRequestConfirm({

@@ -126,8 +126,36 @@ describe('Voices Tab Components', () => {
             );
 
             const buttons = screen.getAllByRole('button');
-            expect(buttons.some(btn => btn.getAttribute('title') === 'Add at least one sample before generating a preview')).toBe(true);
-            expect(buttons.some(btn => btn.getAttribute('title') === 'Add at least one sample before rebuilding this voice')).toBe(true);
+            expect(buttons.some(btn => btn.getAttribute('title') === 'Add at least one sample or keep a latent before generating a preview')).toBe(true);
+            expect(buttons.some(btn => btn.getAttribute('title') === 'Add at least one sample or keep a latent before rebuilding this voice')).toBe(true);
+        });
+
+        it('allows testing and rebuilding when a latent exists even without raw samples', () => {
+            render(
+                <NarratorCard
+                    speaker={mockSpeaker}
+                    profiles={[{ ...emptyProfile, has_latent: true }]}
+                    onRefresh={vi.fn()}
+                    onTest={vi.fn()}
+                    onDelete={vi.fn()}
+                    onMoveVariant={vi.fn()}
+                    onEditTestText={vi.fn()}
+                    onBuildNow={vi.fn()}
+                    testProgress={{}}
+                    requestConfirm={vi.fn()}
+                    buildingProfiles={{}}
+                    onAddVariantClick={vi.fn()}
+                    onSetDefaultClick={vi.fn()}
+                    onRenameClick={vi.fn()}
+                    isExpanded={true}
+                    onToggleExpand={vi.fn()}
+                />
+            );
+
+            expect(screen.getByText('BUILD TO TEST')).toBeInTheDocument();
+            const buttons = screen.getAllByRole('button');
+            expect(buttons.some(btn => btn.getAttribute('title') === 'Generate Sample' && !btn.hasAttribute('disabled'))).toBe(true);
+            expect(buttons.some(btn => btn.getAttribute('title') === 'Rebuild Voice Model' && !btn.hasAttribute('disabled'))).toBe(true);
         });
 
         it('prefers the base Default profile over a sibling variant', () => {

@@ -26,7 +26,7 @@ def _profile_name_or_error(profile_name: str) -> str:
     return profile_name
 
 
-def get_voice_profile_dir(profile_name: str):
+def _exact_voice_profile_dir(profile_name: str):
     profile_name = _profile_name_or_error(profile_name)
     if not VOICES_DIR.exists():
         return VOICES_DIR / profile_name
@@ -37,6 +37,19 @@ def get_voice_profile_dir(profile_name: str):
     except FileNotFoundError:
         return VOICES_DIR / profile_name
     return VOICES_DIR / profile_name
+
+
+def get_voice_profile_dir(profile_name: str):
+    exact = _exact_voice_profile_dir(profile_name)
+    if exact.exists():
+        return exact
+
+    resolved_name = _resolve_existing_profile_name(profile_name)
+    if resolved_name and resolved_name != profile_name:
+        resolved = _exact_voice_profile_dir(resolved_name)
+        if resolved.exists():
+            return resolved
+    return exact
 
 
 def get_voice_profile_latent_path(profile_name: str):
@@ -90,7 +103,7 @@ def _resolve_existing_profile_name(profile_name_or_id: str) -> Optional[str]:
 
     for candidate in candidates:
         try:
-            p = get_voice_profile_dir(candidate)
+            p = _exact_voice_profile_dir(candidate)
         except ValueError:
             continue
         if p.exists() and p.is_dir():

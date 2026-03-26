@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, act } from '@testing-library/react'
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 import { VoicesTab } from './VoicesTab'
 import { describe, it, expect, vi } from 'vitest'
 
@@ -67,5 +67,90 @@ describe('VoicesTab', () => {
         fireEvent.click(actionMenus[0])
 
         expect(screen.getByText('Delete Voice (all variants)')).toBeInTheDocument()
+    })
+
+    it('refreshes the full voice state after renaming an unassigned voice', async () => {
+        const onRefresh = vi.fn().mockResolvedValue(undefined)
+        global.fetch = vi.fn((url: string) => {
+            if (url === '/api/speakers') {
+                return Promise.resolve({ ok: true, json: () => Promise.resolve([]) })
+            }
+            if (url === '/api/speaker-profiles/Narrator1/rename') {
+                return Promise.resolve({ ok: true, json: () => Promise.resolve({ status: 'ok', new_name: 'Narrator Renamed' }) })
+            }
+            if (url === '/api/home') {
+                return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
+            }
+            return Promise.resolve({ ok: true, json: () => Promise.resolve({ status: 'success' }) })
+        }) as any
+
+        await act(async () => {
+            render(<VoicesTab {...mockProps} onRefresh={onRefresh} />)
+        })
+
+        fireEvent.click((await screen.findAllByRole('button', { name: /more actions/i }))[0])
+        fireEvent.click(await screen.findByText('Rename Voice'))
+
+        const input = screen.getByPlaceholderText('e.g. Victor the Vampire')
+        fireEvent.change(input, { target: { value: 'Narrator Renamed' } })
+        fireEvent.click(screen.getByText('Rename Voice'))
+
+        await waitFor(() => {
+            expect(onRefresh).toHaveBeenCalled()
+        })
+    })
+
+    it('saves imported base variant labels as metadata instead of renaming the whole voice', async () => {
+        const onRefresh = vi.fn().mockResolvedValue(undefined)
+        const fetchMock = vi.fn((url: string) => {
+            if (url === '/api/speakers') {
+                return Promise.resolve({
+                    ok: true,
+                    json: () => Promise.resolve([
+                        { id: 'speaker-1', name: 'Woman', default_profile_name: 'Woman' }
+                    ])
+                })
+            }
+            if (url === '/api/speaker-profiles/Woman/test-text') {
+                return Promise.resolve({ ok: true, json: () => Promise.resolve({ status: 'ok' }) })
+            }
+            if (url === '/api/speaker-profiles/Woman/variant-name') {
+                return Promise.resolve({ ok: true, json: () => Promise.resolve({ status: 'ok', variant_name: 'Kiwi' }) })
+            }
+            if (url === '/api/home') {
+                return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
+            }
+            return Promise.resolve({ ok: true, json: () => Promise.resolve({ status: 'success' }) })
+        })
+        global.fetch = fetchMock as any
+
+        const importedProfiles = [
+            { name: 'Woman', wav_count: 3, speed: 1.0, is_default: true, preview_url: null, speaker_id: 'speaker-1', variant_name: 'New Zealand', test_text: 'Original script' }
+        ]
+
+        await act(async () => {
+            render(<VoicesTab {...mockProps} onRefresh={onRefresh} speakerProfiles={importedProfiles as any} />)
+        })
+
+        fireEvent.click(screen.getByText('Woman'))
+        fireEvent.click(await screen.findByTitle('Edit Preview Script'))
+
+        const input = screen.getByDisplayValue('New Zealand')
+        expect(input).not.toBeDisabled()
+        fireEvent.change(input, { target: { value: 'Kiwi' } })
+        fireEvent.click(screen.getByText('Save Script'))
+
+        await waitFor(() => {
+            expect(fetchMock).toHaveBeenCalledWith(
+                '/api/speaker-profiles/Woman/variant-name',
+                expect.objectContaining({ method: 'POST' })
+            )
+        })
+
+        expect(fetchMock).not.toHaveBeenCalledWith(
+            '/api/speaker-profiles/Woman/rename',
+            expect.anything()
+        )
+        expect(onRefresh).toHaveBeenCalled()
     })
 })

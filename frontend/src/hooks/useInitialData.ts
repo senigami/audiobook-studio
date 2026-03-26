@@ -7,7 +7,7 @@ export const useInitialData = () => {
 
   const fetchHome = useCallback(async () => {
     try {
-      const res = await fetch('/api/home');
+      const res = await fetch('/api/home', { cache: 'no-store' });
       const json = await res.json();
       setData(json);
     } catch (e) {
