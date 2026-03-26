@@ -122,7 +122,7 @@ describe('Voice Modals', () => {
       );
 
       expect(screen.getByDisplayValue('Default')).toBeDisabled();
-      expect(screen.getByText((_, node) => node?.textContent?.includes('Use Rename Voice to rename the voice itself') ?? false)).toBeInTheDocument();
+      expect(screen.getByText(/The base Default profile is tied to the voice name\./i)).toBeInTheDocument();
     });
   });
 });
