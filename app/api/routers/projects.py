@@ -18,6 +18,7 @@ from ...engines import get_audio_duration
 from ...state import put_job, update_job, get_jobs
 from ...models import Job
 from ...pathing import safe_basename, safe_join, safe_join_flat
+from ...api.utils import preferred_audiobook_download_filename
 
 logger = logging.getLogger(__name__)
 
@@ -139,7 +140,8 @@ def api_list_project_audiobooks(project_id: str):
             "cover_url": None, 
             "url": url,
             "created_at": st.st_mtime,
-            "size_bytes": st.st_size
+            "size_bytes": st.st_size,
+            "download_filename": p.name,
         }
         try:
             probe_cmd = f"ffprobe -v error -show_entries format=duration:format_tags=title -of json {shlex.quote(str(p))}"
@@ -153,6 +155,8 @@ def api_list_project_audiobooks(project_id: str):
                     item["title"] = fmt["tags"]["title"]
         except Exception:
             logger.warning("Failed to probe audiobook metadata for %s", p, exc_info=True)
+
+        item["download_filename"] = preferred_audiobook_download_filename(item["title"], p.name)
 
         # Look for cover image with multiple extensions
         item["cover_url"] = None

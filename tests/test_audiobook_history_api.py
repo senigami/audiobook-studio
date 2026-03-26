@@ -38,10 +38,34 @@ def test_project_audiobook_history_endpoint(tmp_path):
     assert "size_bytes" in data[0]
     assert data[0]["size_bytes"] == len("audio v2")
     assert data[0]["url"] == f"/projects/{pid}/m4b/v2.m4b"
+    assert data[0]["download_filename"] == "v2.m4b"
 
 def test_project_audiobook_history_not_found():
     response = client.get("/api/projects/non-existent-pid/audiobooks")
     assert response.status_code == 404
+
+
+def test_project_audiobook_history_prefers_title_for_download_filename(tmp_path, monkeypatch):
+    pid = create_project("Download Name Test")
+    m4b_dir = get_project_m4b_dir(pid)
+    m4b_dir.mkdir(parents=True, exist_ok=True)
+    out = m4b_dir / "The Lantern on Briar Hill_cc00ce37_2026-03-26_12-53-25.m4b"
+    out.write_text("audio")
+
+    class DummyCompleted:
+        def __init__(self, stdout: str):
+            self.stdout = stdout
+
+    def fake_run(*args, **kwargs):
+        return DummyCompleted('{"format":{"duration":"60","tags":{"title":"The Lantern on Briar Hill"}}}')
+
+    monkeypatch.setattr("subprocess.run", fake_run)
+
+    response = client.get(f"/api/projects/{pid}/audiobooks")
+    assert response.status_code == 200
+    data = response.json()
+    assert data[0]["filename"] == "The Lantern on Briar Hill_cc00ce37_2026-03-26_12-53-25.m4b"
+    assert data[0]["download_filename"] == "The Lantern on Briar Hill.m4b"
 
 def test_delete_audiobook(tmp_path):
     from app.config import AUDIOBOOK_DIR

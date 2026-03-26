@@ -136,6 +136,7 @@ export interface Settings {
 export interface Audiobook {
   filename: string;
   title: string;
+  download_filename?: string;
   cover_url: string | null;
   url?: string;
   created_at?: number;

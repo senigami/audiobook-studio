@@ -200,7 +200,7 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({
                                       { label: 'Download', icon: Download, onClick: () => {
                                           const link = document.createElement('a');
                                           link.href = a.url || `/out/audiobook/${a.filename}`;
-                                          link.download = a.filename;
+                                          link.download = a.download_filename || a.filename;
                                           link.click();
                                       }},
                                       { label: 'Delete', icon: Trash2, isDestructive: true, onClick: () => onDeleteAudiobook(a.filename) }
