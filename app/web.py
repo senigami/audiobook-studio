@@ -224,6 +224,17 @@ def startup_event():
         normalize_base_profiles()
     except Exception as e:
         logger.warning(f"Startup Warning: Base voice normalization failed: {e}")
+
+    # Move any legacy global cover files into project-local storage so demo
+    # content remains self-contained inside projects/.
+    try:
+        from .db.projects import migrate_legacy_project_covers
+        migrated = migrate_legacy_project_covers()
+        if migrated:
+            logger.info("Startup: Migrated %s legacy project cover(s) into project storage.", migrated)
+    except Exception as e:
+        logger.warning(f"Startup Warning: Project cover migration failed: {e}")
+
     # 1. Clear out any stuck jobs from state.json
     from .state import get_jobs, delete_jobs
     jobs = get_jobs()

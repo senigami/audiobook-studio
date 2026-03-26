@@ -101,6 +101,13 @@ def get_project_m4b_dir(project_id: str) -> Path:
     project_dir = get_project_dir(project_id)
     return project_dir / "m4b"
 
+def get_project_cover_dir(project_id: str) -> Path:
+    existing_dir = find_existing_project_subdir(project_id, "cover")
+    if existing_dir:
+        return existing_dir
+    project_dir = get_project_dir(project_id)
+    return project_dir / "cover"
+
 # XTTS warning threshold you saw
 SENT_CHAR_LIMIT = 500
 SAFE_SPLIT_TARGET = 450

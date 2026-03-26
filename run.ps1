@@ -10,6 +10,7 @@ $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $AppVenv = Join-Path $Root "venv"
 $XttsVenv = if ($env:XTTS_ENV_DIR) { $env:XTTS_ENV_DIR } else { Join-Path $HOME "xtts-env" }
 $FrontendDir = Join-Path $Root "frontend"
+$DemoZip = if ($env:AUDIOBOOK_STUDIO_DEMO_ZIP) { $env:AUDIOBOOK_STUDIO_DEMO_ZIP } else { Join-Path $Root "demo/demo.zip" }
 
 function Write-Step($Message) {
     Write-Host ""
@@ -174,6 +175,43 @@ function Ensure-FrontendReady() {
     }
 }
 
+function Maybe-RestoreDemoBundle($PythonInfo) {
+    if (-not (Test-Path $DemoZip)) {
+        return
+    }
+
+    & $PythonInfo.Command @($PythonInfo.Prefix + @("-m", "app.demo_bundle", "status", "--base-dir", $Root)) *> $null
+    if ($LASTEXITCODE -ne 0) {
+        return
+    }
+
+    $installDemo = if ($env:AUDIOBOOK_STUDIO_INSTALL_DEMO) { $env:AUDIOBOOK_STUDIO_INSTALL_DEMO } else { "ask" }
+    switch -Regex ($installDemo) {
+        "^(1|true|yes)$" { break }
+        "^(0|false|no)$" {
+            Write-Step "Skipping demo library install"
+            return
+        }
+        default {
+            if (-not [Environment]::UserInteractive) {
+                Write-Step "Demo bundle available at $DemoZip (set AUDIOBOOK_STUDIO_INSTALL_DEMO=1 to install automatically)"
+                return
+            }
+            $reply = Read-Host "No existing library was found. Install the demo library? [Y/n]"
+            if ($reply -and $reply.Trim() -notmatch '^(y|yes)$') {
+                Write-Step "Starting with an empty library"
+                return
+            }
+        }
+    }
+
+    Write-Step "Installing demo library"
+    & $PythonInfo.Command @($PythonInfo.Prefix + @("-m", "app.demo_bundle", "restore", "--base-dir", $Root, "--zip", $DemoZip))
+    if ($LASTEXITCODE -ne 0) {
+        Fail "Failed to restore the demo library"
+    }
+}
+
 Require-Command "npm"
 Require-Command "ffmpeg"
 
@@ -186,6 +224,7 @@ Write-Step "Using Python: $($PythonInfo.Command)"
 Sync-PythonRequirements $PythonInfo $AppVenv (Join-Path $Root "requirements.txt") "app"
 Sync-PythonRequirements $PythonInfo $XttsVenv (Join-Path $Root "requirements-xtts.txt") "XTTS"
 Ensure-FrontendReady
+Maybe-RestoreDemoBundle $PythonInfo
 
 if ($SetupOnly) {
     Write-Step "Setup complete"

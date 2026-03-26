@@ -6,6 +6,7 @@ APP_VENV="$DIR/venv"
 XTTS_VENV="${XTTS_ENV_DIR:-$HOME/xtts-env}"
 FRONTEND_DIR="$DIR/frontend"
 APP_PORT="${AUDIOBOOK_STUDIO_PORT:-8123}"
+DEMO_ZIP="${AUDIOBOOK_STUDIO_DEMO_ZIP:-$DIR/demo/demo.zip}"
 RELOAD=1
 SETUP_ONLY=0
 
@@ -165,6 +166,40 @@ ensure_frontend_ready() {
   fi
 }
 
+maybe_restore_demo_bundle() {
+  local install_demo="${AUDIOBOOK_STUDIO_INSTALL_DEMO:-ask}"
+
+  [[ -f "$DEMO_ZIP" ]] || return 0
+
+  if ! "$PYTHON_BIN" -m app.demo_bundle status --base-dir "$DIR" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  case "$install_demo" in
+    1|true|TRUE|yes|YES)
+      ;;
+    0|false|FALSE|no|NO)
+      log "Skipping demo library install"
+      return 0
+      ;;
+    *)
+      if [[ ! -t 0 ]]; then
+        log "Demo bundle available at $DEMO_ZIP (set AUDIOBOOK_STUDIO_INSTALL_DEMO=1 to install automatically)"
+        return 0
+      fi
+      printf '\nNo existing library was found. Install the demo library? [Y/n] '
+      read -r reply
+      if [[ -n "$reply" ]] && [[ ! "$reply" =~ ^[Yy]([Ee][Ss])?$ ]]; then
+        log "Starting with an empty library"
+        return 0
+      fi
+      ;;
+  esac
+
+  log "Installing demo library"
+  "$PYTHON_BIN" -m app.demo_bundle restore --base-dir "$DIR" --zip "$DEMO_ZIP"
+}
+
 require_cmd bash
 require_cmd npm
 require_cmd ffmpeg
@@ -175,6 +210,7 @@ log "Using Python: $PYTHON_BIN"
 sync_python_requirements "$APP_VENV" "$DIR/requirements.txt" "app"
 sync_python_requirements "$XTTS_VENV" "$DIR/requirements-xtts.txt" "XTTS"
 ensure_frontend_ready
+maybe_restore_demo_bundle
 
 if [[ "$SETUP_ONLY" -eq 1 ]]; then
   log "Setup complete"

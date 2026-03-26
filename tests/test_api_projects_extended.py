@@ -1,17 +1,11 @@
-import pytest
 import io
-import json
-import uuid
 from fastapi.testclient import TestClient
 from app.web import app
 from app.db import create_project, get_project, create_chapter, update_chapter
-from app.config import COVER_DIR, AUDIOBOOK_DIR, PROJECTS_DIR
-from pathlib import Path
 
 client = TestClient(app)
 
 def test_create_project_with_cover():
-    COVER_DIR.mkdir(parents=True, exist_ok=True)
     cover_content = b"fake image content"
     files = {"cover": ("cover.jpg", io.BytesIO(cover_content), "image/jpeg")}
     data = {"name": "Cover Project", "series": "Series 1", "author": "Author 1"}
@@ -21,11 +15,7 @@ def test_create_project_with_cover():
     pid = response.json()["project_id"]
 
     project = get_project(pid)
-    assert project["cover_image_path"].startswith("/out/covers/")
-
-    # Clean up cover
-    cover_filename = project["cover_image_path"].replace("/out/covers/", "")
-    (COVER_DIR / cover_filename).unlink()
+    assert project["cover_image_path"] == f"/projects/{pid}/cover/cover.jpg"
 
 def test_update_project_with_cover():
     pid = create_project("Update Project")
@@ -38,7 +28,7 @@ def test_update_project_with_cover():
 
     project = get_project(pid)
     assert project["name"] == "Updated Name"
-    assert project["cover_image_path"].startswith("/out/covers/")
+    assert project["cover_image_path"] == f"/projects/{pid}/cover/cover.jpg"
 
 def test_list_project_audiobooks():
     pid = create_project("Audiobook List Project")
