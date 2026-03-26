@@ -187,3 +187,5 @@ state.json
 /voices
 audiobook_studio.db
 /uploads
+/xtts_audio
+/chapters_out
