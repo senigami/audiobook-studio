@@ -8,7 +8,7 @@ import { GhostButton } from './GhostButton';
 import { NarratorCard } from './voices/NarratorCard';
 import { useVoiceManagement } from '../hooks/useVoiceManagement';
 import { VoicesModals } from './VoicesModals';
-import { getVariantDisplayName, isDefaultVoiceProfile, isLockedBaseDefaultProfile } from '../utils/voiceProfiles';
+import { getVariantDisplayName, isDefaultVoiceProfile } from '../utils/voiceProfiles';
 
 interface VoicesTabProps {
     onRefresh: () => void | Promise<void>;
@@ -94,9 +94,7 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 // Also handle name change if different
                 const currentVariantDisplay = getVariantDisplayName(editingProfile);
                 if (variantName && variantName !== currentVariantDisplay) {
-                    if (isLockedBaseDefaultProfile(editingProfile)) {
-                        // Base Default profiles are tied to the voice name and cannot be renamed as variants.
-                    } else if (isDefaultVoiceProfile(editingProfile)) {
+                    if (isDefaultVoiceProfile(editingProfile)) {
                         const variantForm = new URLSearchParams();
                         variantForm.append('variant_name', variantName);
                         await fetch(`/api/speaker-profiles/${encodeURIComponent(editingProfile.name)}/variant-name`, {

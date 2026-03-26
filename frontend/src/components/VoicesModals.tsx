@@ -10,7 +10,7 @@ import {
     Drawer,
     ScriptEditor
 } from './voices';
-import { getVariantDisplayName, isLockedBaseDefaultProfile } from '../utils/voiceProfiles';
+import { getVariantDisplayName } from '../utils/voiceProfiles';
 
 interface VoicesModalsProps {
     // New Voice Modal
@@ -132,7 +132,6 @@ export const VoicesModals: React.FC<VoicesModalsProps> = (props) => {
                 <ScriptEditor
                     variantName={props.variantName}
                     onVariantNameChange={props.setVariantName}
-                    canRenameVariant={!isLockedBaseDefaultProfile(props.editingProfile)}
                     testText={props.testText}
                     onTestTextChange={props.setTestText}
                     onResetTestText={props.handleResetTestText}

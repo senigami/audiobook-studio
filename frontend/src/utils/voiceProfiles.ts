@@ -14,11 +14,6 @@ export function isDefaultVoiceProfile(profile?: Pick<SpeakerProfile, 'name' | 'v
     return profile.is_default || profile.variant_name === 'Default' || !profile.name.includes(' - ');
 }
 
-export function isLockedBaseDefaultProfile(profile?: Pick<SpeakerProfile, 'name' | 'variant_name' | 'is_default'> | null): boolean {
-    if (!profile) return false;
-    return isDefaultVoiceProfile(profile) && getVariantDisplayName(profile) === 'Default';
-}
-
 export function getDefaultVoiceProfileName(profiles: SpeakerProfile[]): string | null {
     return (
         profiles.find(isDefaultVoiceProfile)?.name ||

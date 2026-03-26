@@ -107,12 +107,11 @@ describe('Voice Modals', () => {
   });
 
   describe('ScriptEditor', () => {
-    it('disables variant renaming for the base default profile flow', () => {
+    it('keeps the variant field editable and explains voice renaming separately', () => {
       render(
         <ScriptEditor
           variantName="Default"
           onVariantNameChange={vi.fn()}
-          canRenameVariant={false}
           testText="Preview script"
           onTestTextChange={vi.fn()}
           onResetTestText={vi.fn()}
@@ -121,8 +120,8 @@ describe('Voice Modals', () => {
         />
       );
 
-      expect(screen.getByDisplayValue('Default')).toBeDisabled();
-      expect(screen.getByText(/The base Default profile is tied to the voice name\./i)).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Default')).not.toBeDisabled();
+      expect(screen.getByText(/Changing the variant label updates how this profile appears in the app\./i)).toBeInTheDocument();
     });
 
     it('keeps custom imported base variant labels editable', () => {
@@ -130,7 +129,6 @@ describe('Voice Modals', () => {
         <ScriptEditor
           variantName="New Zealand"
           onVariantNameChange={vi.fn()}
-          canRenameVariant={true}
           testText="Preview script"
           onTestTextChange={vi.fn()}
           onResetTestText={vi.fn()}
@@ -140,7 +138,7 @@ describe('Voice Modals', () => {
       );
 
       expect(screen.getByDisplayValue('New Zealand')).not.toBeDisabled();
-      expect(screen.queryByText(/The base Default profile is tied to the voice name\./i)).not.toBeInTheDocument();
+      expect(screen.getByText(/Changing the variant label updates how this profile appears in the app\./i)).toBeInTheDocument();
     });
   });
 });

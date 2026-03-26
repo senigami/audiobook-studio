@@ -5,7 +5,6 @@ import { GlassInput } from '../GlassInput';
 interface ScriptEditorProps {
     variantName: string;
     onVariantNameChange: (val: string) => void;
-    canRenameVariant?: boolean;
     testText: string;
     onTestTextChange: (val: string) => void;
     onResetTestText: () => void;
@@ -16,7 +15,6 @@ interface ScriptEditorProps {
 export const ScriptEditor: React.FC<ScriptEditorProps> = ({
     variantName,
     onVariantNameChange,
-    canRenameVariant = true,
     testText,
     onTestTextChange,
     onResetTestText,
@@ -31,14 +29,11 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({
                     <GlassInput
                         placeholder="Variant name"
                         value={variantName}
-                        disabled={!canRenameVariant}
                         onChange={(e) => onVariantNameChange(e.target.value)}
                     />
-                    {!canRenameVariant && (
-                        <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                            The base Default profile is tied to the voice name. Use <strong>Rename Voice</strong> to rename the voice itself, or add a new variant if you want a non-default style.
-                        </p>
-                    )}
+                    <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                        Changing the variant label updates how this profile appears in the app. Use <strong>Rename Voice</strong> if you want to rename the voice itself.
+                    </p>
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
