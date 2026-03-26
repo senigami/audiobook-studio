@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { NewVoiceModal, RenameVoiceModal, AddVariantModal, MoveVariantModal } from './VoiceModals';
+import { ScriptEditor } from './ScriptEditor';
 
 // Mock framer-motion
 vi.mock('framer-motion', () => ({
@@ -102,6 +103,26 @@ describe('Voice Modals', () => {
 
         fireEvent.click(screen.getByRole('button', { name: 'Move Variant' }));
         expect(onSubmit).toHaveBeenCalled();
+    });
+  });
+
+  describe('ScriptEditor', () => {
+    it('disables variant renaming for the base default profile flow', () => {
+      render(
+        <ScriptEditor
+          variantName="Default"
+          onVariantNameChange={vi.fn()}
+          canRenameVariant={false}
+          testText="Preview script"
+          onTestTextChange={vi.fn()}
+          onResetTestText={vi.fn()}
+          onSave={vi.fn()}
+          isSaving={false}
+        />
+      );
+
+      expect(screen.getByDisplayValue('Default')).toBeDisabled();
+      expect(screen.getByText((_, node) => node?.textContent?.includes('Use Rename Voice to rename the voice itself') ?? false)).toBeInTheDocument();
     });
   });
 });

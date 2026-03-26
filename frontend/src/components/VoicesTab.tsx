@@ -8,7 +8,7 @@ import { GhostButton } from './GhostButton';
 import { NarratorCard } from './voices/NarratorCard';
 import { useVoiceManagement } from '../hooks/useVoiceManagement';
 import { VoicesModals } from './VoicesModals';
-import { getVariantDisplayName } from '../utils/voiceProfiles';
+import { getVariantDisplayName, isDefaultVoiceProfile } from '../utils/voiceProfiles';
 
 interface VoicesTabProps {
     onRefresh: () => void | Promise<void>;
@@ -93,7 +93,7 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
             if (resp.ok) {
                 // Also handle name change if different
                 const currentVariantDisplay = getVariantDisplayName(editingProfile);
-                if (variantName && variantName !== currentVariantDisplay) {
+                if (!isDefaultVoiceProfile(editingProfile) && variantName && variantName !== currentVariantDisplay) {
                     let newFullName = variantName;
                     if (editingProfile.speaker_id) {
                         const speaker = speakers.find((s: Speaker) => s.id === editingProfile.speaker_id);
