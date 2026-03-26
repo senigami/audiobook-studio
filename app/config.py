@@ -16,6 +16,14 @@ SAMPLES_DIR = Path(os.getenv("SAMPLES_DIR", str(BASE_DIR / "samples")))
 ASSETS_DIR = Path(os.getenv("ASSETS_DIR", str(BASE_DIR / "assets")))
 PROJECTS_DIR = Path(os.getenv("PROJECTS_DIR", str(BASE_DIR / "projects")))
 FRONTEND_DIST = BASE_DIR / "frontend" / "dist"
+XTTS_ENV_DIR = Path(os.getenv("XTTS_ENV_DIR", str(Path.home() / "xtts-env")))
+XTTS_ENV_PYTHON = Path(
+    os.getenv(
+        "XTTS_ENV_PYTHON",
+        str(XTTS_ENV_DIR / ("Scripts/python.exe" if os.name == "nt" else "bin/python")),
+    )
+)
+XTTS_ENV_ACTIVATE = XTTS_ENV_DIR / ("Scripts/Activate.ps1" if os.name == "nt" else "bin/activate")
 SAFE_PROJECT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
 
 
@@ -86,10 +94,6 @@ def get_project_m4b_dir(project_id: str) -> Path:
         return existing_dir
     project_dir = get_project_dir(project_id)
     return project_dir / "m4b"
-
-
-# Your existing environments (adjust only if different)
-XTTS_ENV_ACTIVATE = Path.home() / "xtts-env" / "bin" / "activate"
 
 # XTTS warning threshold you saw
 SENT_CHAR_LIMIT = 500

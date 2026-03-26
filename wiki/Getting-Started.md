@@ -33,6 +33,20 @@ If you only want to prepare the environments and not start the server yet:
 ./run.sh --setup-only
 ```
 
+### Fastest Start (Windows PowerShell)
+
+```powershell
+git clone https://github.com/senigami/audiobook-studio.git
+cd audiobook-studio
+powershell -ExecutionPolicy Bypass -File .\run.ps1
+```
+
+If you only want to prepare the environments and not start the server yet:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\run.ps1 -SetupOnly
+```
+
 ### Manual Setup
 
 If you prefer to install everything yourself, or if you are on Windows, use the manual path.

@@ -3,7 +3,7 @@ set -euo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 APP_VENV="$DIR/venv"
-XTTS_VENV="$HOME/xtts-env"
+XTTS_VENV="${XTTS_ENV_DIR:-$HOME/xtts-env}"
 FRONTEND_DIR="$DIR/frontend"
 APP_PORT="${AUDIOBOOK_STUDIO_PORT:-8123}"
 RELOAD=1
