@@ -125,6 +125,7 @@ def test_sanitize_for_xtts():
 
     # Ensure terminals
     assert sanitize_for_xtts("No punctuation") == "No punctuation."
+    assert sanitize_for_xtts("“There,”") == "There."
 
 def test_pack_text_to_limit():
     text = "Sentence one.\nSentence two.\nSentence three."

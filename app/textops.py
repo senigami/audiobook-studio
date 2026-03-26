@@ -516,6 +516,10 @@ def sanitize_for_xtts(text: str) -> str:
     # Normalize multiple newlines to maximum of 1
     text = re.sub(r'\n{2,}', '\n', text)
 
+    # If cleanup leaves a line ending in a soft punctuation mark like a comma,
+    # promote it to a sentence stop before the terminal punctuation guard runs.
+    text = re.sub(r'([,;:])(["\')\]]*)$', r'.\2', text)
+
     # 3. Ensure terminal punctuation
     # (XTTS v2 can fail on short strings without it)
     if text and not re.search(r'[.!?]["\')\]\s]*$', text):
