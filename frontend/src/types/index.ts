@@ -86,6 +86,7 @@ export interface SpeakerProfile {
   speaker_id: string | null;
   variant_name: string | null;
   preview_url: string | null;
+  has_latent?: boolean;
   is_rebuild_required?: boolean;
   samples_detailed?: Array<{ name: string; is_new: boolean }>;
 }

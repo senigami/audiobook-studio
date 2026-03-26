@@ -52,8 +52,8 @@ def main():
         with open(args.script_json, 'r') as f:
             script = json.load(f)
     else:
-        if not args.text or not args.speaker_wav:
-            print("[error] Either --text and --speaker_wav OR --script_json MUST be provided.", file=sys.stderr)
+        if not args.text or (not args.speaker_wav and not args.voice_profile_dir):
+            print("[error] Either --text and --speaker_wav, or --text and --voice_profile_dir, OR --script_json MUST be provided.", file=sys.stderr)
             sys.exit(1)
         # Legacy mode: split by \n to preserve paragraph padding logic
         chunks = [p.strip() for p in args.text.split('\n') if p.strip()]
