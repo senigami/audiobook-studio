@@ -127,3 +127,38 @@ def test_audiobooks_endpoints():
     assert res.status_code == 200
     res = client.delete("/api/audiobook/missing")
     assert res.status_code == 404
+
+
+def test_serves_top_level_frontend_dist_files(monkeypatch, tmp_path):
+    dist_dir = tmp_path / "dist"
+    dist_dir.mkdir()
+    logo_file = dist_dir / "logo.png"
+    logo_file.write_bytes(b"fake-image")
+
+    monkeypatch.setattr("app.web.FRONTEND_DIST", dist_dir)
+
+    res = client.get("/logo.png")
+    assert res.status_code == 200
+    assert res.content == b"fake-image"
+
+
+def test_serves_legacy_output_files_without_precreated_mounts(monkeypatch, tmp_path):
+    xtts_dir = tmp_path / "xtts_audio"
+    audiobook_dir = tmp_path / "audiobooks"
+    cover_dir = tmp_path / "uploads" / "covers"
+    xtts_dir.mkdir(parents=True)
+    audiobook_dir.mkdir(parents=True)
+    cover_dir.mkdir(parents=True)
+
+    (xtts_dir / "clip.wav").write_bytes(b"wav")
+    (audiobook_dir / "book.m4b").write_bytes(b"m4b")
+    (cover_dir / "cover.jpg").write_bytes(b"jpg")
+
+    monkeypatch.setattr("app.web.XTTS_OUT_DIR", xtts_dir)
+    monkeypatch.setattr("app.web.AUDIOBOOK_DIR", audiobook_dir)
+    monkeypatch.setattr("app.web.COVER_DIR", cover_dir)
+
+    assert client.get("/out/xtts/clip.wav").status_code == 200
+    assert client.get("/out/audiobook/book.m4b").status_code == 200
+    assert client.get("/out/covers/cover.jpg").status_code == 200
+    assert client.get("/out/xtts/../secrets.txt").status_code == 404

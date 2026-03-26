@@ -4,81 +4,53 @@ This guide will walk you through setting up **Audiobook Studio** and creating yo
 
 ## 📋 Prerequisites
 
-- **Python 3.11+**
-- **Node.js 18+**
+- **Python 3.9+**
+- **Node.js 16+**
 - **FFmpeg** (required for audio processing and stitching)
-- **XTTS environment** (the provided startup script will create this at `~/xtts-env`)
+- **Coqui XTTS v2** (managed automatically by the backend)
 
 ## 🚀 Installation
 
-### Fastest Start (macOS/Linux)
+### 1. Backend Setup
 
 ```bash
-git clone https://github.com/senigami/audiobook-studio.git
-cd audiobook-studio
-./run.sh
-```
+# Navigate to root
+cd audiobook-factory
 
-This script will:
-
-- create or update the main Python environment
-- create or update the XTTS environment
-- install frontend dependencies
-- build the frontend
-- start the app on `http://127.0.0.1:8123`
-
-If you only want to prepare the environments and not start the server yet:
-
-```bash
-./run.sh --setup-only
-```
-
-### Fastest Start (Windows PowerShell)
-
-```powershell
-git clone https://github.com/senigami/audiobook-studio.git
-cd audiobook-studio
-powershell -ExecutionPolicy Bypass -File .\run.ps1
-```
-
-If you only want to prepare the environments and not start the server yet:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\run.ps1 -SetupOnly
-```
-
-### Manual Setup
-
-If you prefer to install everything yourself, or if you are on Windows, use the manual path.
-
-```bash
-# Backend
-python3.11 -m venv venv
+# Create a virtual environment
+python -m venv venv
 source venv/bin/activate
+
+# Install dependencies
 pip install -r requirements.txt
+```
 
-# XTTS
-python3.11 -m venv ~/xtts-env
-source ~/xtts-env/bin/activate
-pip install -r requirements-xtts.txt
+### 2. Frontend Setup
 
-# Frontend
+```bash
 cd frontend
 npm install
-npm run build
-cd ..
 ```
 
 ## 🏃 Running the Application
 
-### Start the App
+### Start the Backend
 
 ```bash
-source venv/bin/activate
-uvicorn run:app --port 8123
+# From root
+python -m app.web
 ```
 
-Then open `http://127.0.0.1:8123`.
+The API will be available at `http://localhost:8000`.
+
+### Start the Frontend
+
+```bash
+# From frontend folder
+npm run dev
+```
+
+Open your browser to `http://localhost:5173`.
 
 ## 📖 Your First Project
 

@@ -228,7 +228,7 @@ uvicorn run:app --port 8123
 Then open [http://127.0.0.1:8123](http://127.0.0.1:8123).
 
 > [!NOTE]
-> On first run, the application will create the directories it needs for mounted app data, including `projects/`, `voices/`, cover storage, and compatibility output roots such as `xtts_audio/` and `audiobooks/`. Other working folders like uploads, chapter text, and reports are created on demand when those features are used.
+> On first run, the application creates the current app roots it needs immediately, including `projects/` and `voices/`. Other folders are created only when those features are used. On fresh installs, loose chapter text now defaults to `chapters/`. Older workspaces that already use `chapters_out/`, `xtts_audio/`, or `audiobooks/` still continue to work.
 
 ## Voice Profiles
 
