@@ -148,20 +148,37 @@ If you want the longer written breakdown, see the wiki page: [Comparison and Cos
 
 ### Install
 
-```bash
-git clone https://github.com/senigami/audiobook-studio.git
-cd audiobook-studio
+1. **Clone and Backend Setup**  
+   Create the primary environment for the web server and project management.
+   ```bash
+   git clone https://github.com/senigami/audiobook-studio.git
+   cd audiobook-studio
 
-python3.11 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+   python3.11 -m venv venv
+   source venv/bin/activate
+   pip install -r requirements.txt
+   ```
 
-python3.11 -m venv ~/xtts-env
-source ~/xtts-env/bin/activate
-pip install -r requirements-xtts.txt
-```
+2. **XTTS Inference Setup**  
+   XTTS requires a separate environment to avoid dependency conflicts. The app expects this at `~/xtts-env` by default (configurable in `app/config.py`).
+   ```bash
+   python3.11 -m venv ~/xtts-env
+   source ~/xtts-env/bin/activate
+   pip install -r requirements-xtts.txt
+   ```
+
+3. **Frontend Build**  
+   The UI must be built before it can be served by the backend.
+   ```bash
+   cd frontend
+   npm install
+   npm run build
+   cd ..
+   ```
 
 ### Run
+
+You only need to activate the primary `venv` to start the server. The XTTS environment is managed automatically as a subprocess.
 
 ```bash
 source venv/bin/activate
@@ -169,6 +186,9 @@ uvicorn run:app --port 8123
 ```
 
 Then open [http://127.0.0.1:8123](http://127.0.0.1:8123).
+
+> [!NOTE]
+> On first run, the application will automatically create required data directories (like `xtts_audio/`, `projects/`, etc.) in the root folder.
 
 ## Voice Profiles
 

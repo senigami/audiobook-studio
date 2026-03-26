@@ -22,7 +22,10 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-# --- Static File Serving ---
+# --- Ensure directories exist before mounting ---
+for d in [XTTS_OUT_DIR, AUDIOBOOK_DIR, VOICES_DIR, SAMPLES_DIR, UPLOAD_DIR, CHAPTER_DIR, REPORT_DIR, COVER_DIR, ASSETS_DIR, PROJECTS_DIR]:
+    d.mkdir(parents=True, exist_ok=True)
+
 # --- Static File Serving ---
 app.mount("/out/xtts", StaticFiles(directory=str(XTTS_OUT_DIR)), name="out_xtts")
 app.mount("/out/audiobook", StaticFiles(directory=str(AUDIOBOOK_DIR)), name="out_audiobook")
@@ -172,11 +175,6 @@ def startup_event():
         normalize_base_profiles()
     except Exception as e:
         logger.warning(f"Startup Warning: Base voice normalization failed: {e}")
-
-    # Ensure directories exist
-    for d in [XTTS_OUT_DIR, AUDIOBOOK_DIR, VOICES_DIR, SAMPLES_DIR, UPLOAD_DIR, CHAPTER_DIR, REPORT_DIR, COVER_DIR, ASSETS_DIR, PROJECTS_DIR]:
-        d.mkdir(parents=True, exist_ok=True)
-
     # 1. Clear out any stuck jobs from state.json
     from .state import get_jobs, delete_jobs
     jobs = get_jobs()
