@@ -3,6 +3,7 @@ import time
 import json
 import re
 import logging
+import os
 from pathlib import Path
 from typing import Optional, List
 from fastapi import APIRouter, Form, File, UploadFile, Request, Query
@@ -11,7 +12,7 @@ from ...db import (
     create_project, get_project, list_projects, update_project, 
     delete_project, list_chapters as db_list_chapters, reorder_chapters
 )
-from ...config import COVER_DIR, XTTS_OUT_DIR, get_project_dir, get_project_cover_dir, find_existing_project_subdir
+from ...config import COVER_DIR, XTTS_OUT_DIR, get_project_dir, get_project_cover_dir, find_existing_project_dir, find_existing_project_subdir
 import urllib.parse
 from ...jobs import enqueue
 from ...engines import get_audio_duration
@@ -25,13 +26,20 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 
-async def _store_project_cover(project_id: str, cover: UploadFile) -> str:
+async def _store_project_cover(project_id: str, project_dir: Path, cover: UploadFile) -> str:
     safe_cover_name = safe_basename(cover.filename)
     ext = Path(safe_cover_name).suffix.lower() or ".jpg"
-    cover_dir = get_project_cover_dir(project_id)
+    project_root = os.path.abspath(os.path.normpath(os.fspath(project_dir)))
+    cover_dir_path = os.path.abspath(os.path.normpath(os.path.join(project_root, "cover")))
+    if not cover_dir_path.startswith(project_root + os.sep):
+        raise ValueError(f"Invalid project cover directory for id: {project_id}")
+    cover_dir = Path(cover_dir_path)
     cover_dir.mkdir(parents=True, exist_ok=True)
     cover_filename = f"cover{ext}"
-    cover_p = safe_join_flat(cover_dir, cover_filename)
+    cover_path_str = os.path.abspath(os.path.normpath(os.path.join(cover_dir_path, cover_filename)))
+    if not cover_path_str.startswith(cover_dir_path + os.sep):
+        raise ValueError(f"Invalid project cover filename for id: {project_id}")
+    cover_p = Path(cover_path_str)
 
     for existing in cover_dir.iterdir():
         if existing.is_file() and existing.name != cover_filename:
@@ -71,7 +79,7 @@ async def api_create_project(
 ):
     pid = create_project(name, series, author, None)
     if cover:
-        cover_path = await _store_project_cover(pid, cover)
+        cover_path = await _store_project_cover(pid, get_project_dir(pid), cover)
         update_project(pid, cover_image_path=cover_path)
     return JSONResponse({"status": "ok", "project_id": pid})
 
@@ -93,7 +101,8 @@ async def api_update_project(
     if author is not None: updates["author"] = author
 
     if cover:
-        updates["cover_image_path"] = await _store_project_cover(project_id, cover)
+        project_dir = find_existing_project_dir(project_id) or get_project_dir(project_id)
+        updates["cover_image_path"] = await _store_project_cover(project_id, project_dir, cover)
 
     if updates:
         update_project(project_id, **updates)

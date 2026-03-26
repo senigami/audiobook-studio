@@ -26,13 +26,11 @@ app = FastAPI()
 def _contained_root_file(root: Path, filename: str) -> Optional[Path]:
     if not filename or Path(filename).name != filename:
         return None
-    try:
-        candidate = (root / filename).resolve()
-        resolved_root = root.resolve()
-    except FileNotFoundError:
+    base_dir = os.path.abspath(os.path.normpath(os.fspath(root)))
+    fullpath = os.path.abspath(os.path.normpath(os.path.join(base_dir, filename)))
+    if not fullpath.startswith(base_dir + os.sep):
         return None
-    if candidate.parent != resolved_root:
-        return None
+    candidate = Path(fullpath)
     if not candidate.is_file():
         return None
     return candidate
@@ -41,19 +39,14 @@ def _contained_root_file(root: Path, filename: str) -> Optional[Path]:
 def _contained_file(root: Path, relative_path: str) -> Optional[Path]:
     if not root.exists() or not relative_path:
         return None
-
     normalized_parts = [part for part in Path(relative_path).parts if part not in ("", ".")]
     if not normalized_parts or any(part == ".." for part in normalized_parts):
         return None
-
-    try:
-        resolved_root = root.resolve()
-        candidate = (resolved_root / Path(*normalized_parts)).resolve()
-    except FileNotFoundError:
+    base_dir = os.path.abspath(os.path.normpath(os.fspath(root)))
+    fullpath = os.path.abspath(os.path.normpath(os.path.join(base_dir, *normalized_parts)))
+    if not fullpath.startswith(base_dir + os.sep):
         return None
-
-    if candidate != resolved_root and resolved_root not in candidate.parents:
-        return None
+    candidate = Path(fullpath)
     if not candidate.is_file():
         return None
     return candidate
