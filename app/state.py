@@ -32,7 +32,7 @@ def _default_state() -> Dict[str, Any]:
             "safe_mode": True,
             "make_mp3": False,
             "default_engine": "xtts",
-            "voxtral_model": "voxtral-tts",
+            "voxtral_model": "voxtral-mini-tts-2603",
         },
         "performance_metrics": {
             "audiobook_speed_multiplier": 1.0,
@@ -58,6 +58,8 @@ def _normalize_settings(settings: Dict[str, Any] | None) -> Dict[str, Any]:
         normalized.pop("mistral_api_key", None)
 
     voxtral_model = str(normalized.get("voxtral_model") or "").strip() or defaults["voxtral_model"]
+    if voxtral_model == "voxtral-tts":
+        voxtral_model = defaults["voxtral_model"]
     normalized["voxtral_model"] = voxtral_model
 
     if normalized["default_engine"] == "voxtral" and not normalized.get("mistral_api_key"):

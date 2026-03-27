@@ -35,14 +35,14 @@ def test_settings_get_and_update(clean_db, client):
     response = client.post("/api/settings", json={
         "safe_mode": True,
         "make_mp3": False,
-        "voxtral_model": "voxtral-tts",
+        "voxtral_model": "voxtral-mini-tts-2603",
         "mistral_api_key": "abc123",
     })
     assert response.status_code == 200
     data = response.json()["settings"]
     assert data["safe_mode"] is True
     assert data["make_mp3"] is False
-    assert data["voxtral_model"] == "voxtral-tts"
+    assert data["voxtral_model"] == "voxtral-mini-tts-2603"
     assert data["mistral_api_key"] == "abc123"
 
 def test_settings_accept_form_encoded_voxtral_config(clean_db, client):
@@ -51,6 +51,12 @@ def test_settings_accept_form_encoded_voxtral_config(clean_db, client):
     data = response.json()["settings"]
     assert data["mistral_api_key"] == "form-key"
     assert data["voxtral_model"] == "voxtral-custom"
+
+def test_settings_upgrade_legacy_voxtral_model_name(clean_db, client):
+    response = client.post("/api/settings", json={"voxtral_model": "voxtral-tts", "mistral_api_key": "abc123"})
+    assert response.status_code == 200
+    data = response.json()["settings"]
+    assert data["voxtral_model"] == "voxtral-mini-tts-2603"
 
 def test_settings_normalize_default_engine_when_voxtral_disabled(clean_db, client, monkeypatch):
     monkeypatch.delenv("MISTRAL_API_KEY", raising=False)

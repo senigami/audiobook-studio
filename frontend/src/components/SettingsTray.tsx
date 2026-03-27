@@ -19,12 +19,12 @@ export const SettingsTray: React.FC<SettingsTrayProps> = ({
     const [hoveredItem, setHoveredItem] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
     const [mistralApiKey, setMistralApiKey] = useState('');
-    const [voxtralModel, setVoxtralModel] = useState('voxtral-tts');
+    const [voxtralModel, setVoxtralModel] = useState('voxtral-mini-tts-2603');
     const voxtralEnabled = useMemo(() => !!settings?.mistral_api_key?.trim(), [settings?.mistral_api_key]);
 
     useEffect(() => {
         setMistralApiKey(settings?.mistral_api_key || '');
-        setVoxtralModel(settings?.voxtral_model || 'voxtral-tts');
+        setVoxtralModel(settings?.voxtral_model || 'voxtral-mini-tts-2603');
     }, [settings?.mistral_api_key, settings?.voxtral_model]);
 
     const handleToggle = async (key: string, currentValue: boolean) => {
@@ -46,7 +46,7 @@ export const SettingsTray: React.FC<SettingsTrayProps> = ({
         try {
             const formData = new URLSearchParams();
             formData.append('mistral_api_key', mistralApiKey.trim());
-            formData.append('voxtral_model', voxtralModel.trim() || 'voxtral-tts');
+            formData.append('voxtral_model', voxtralModel.trim() || 'voxtral-mini-tts-2603');
             await fetch('/settings', { method: 'POST', body: formData });
             onRefresh();
             onShowNotification?.(mistralApiKey.trim() ? 'Voxtral cloud voices unlocked.' : 'Voxtral hidden until a Mistral API key is added.');
@@ -276,7 +276,7 @@ export const SettingsTray: React.FC<SettingsTrayProps> = ({
                                             <Sparkles size={14} color="var(--text-muted)" />
                                             <input
                                                 type="text"
-                                                placeholder="voxtral-tts"
+                                                placeholder="voxtral-mini-tts-2603"
                                                 value={voxtralModel}
                                                 onChange={(e) => setVoxtralModel(e.target.value)}
                                                 style={{

@@ -219,6 +219,23 @@ def test_get_speaker_settings(clean_voices):
     settings = get_speaker_settings(name)
     assert settings["speed"] == 1.75
 
+
+def test_get_speaker_settings_repairs_blank_profile_metadata(clean_voices):
+    from app.jobs import get_speaker_settings
+
+    name = "BlankMeta"
+    profile_dir = clean_voices / name
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    meta_path = profile_dir / "profile.json"
+    meta_path.write_text("", encoding="utf-8")
+
+    settings = get_speaker_settings(name)
+
+    assert settings["variant_name"] == "Default"
+    repaired = json.loads(meta_path.read_text(encoding="utf-8"))
+    assert repaired["variant_name"] == "Default"
+    assert repaired["engine"] == "xtts"
+
 def test_get_speaker_settings_normalizes_default_variant(clean_voices):
     from app.jobs import get_speaker_settings
 

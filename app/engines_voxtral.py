@@ -12,7 +12,7 @@ from .state import get_settings
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_VOXTRAL_MODEL = "voxtral-tts"
+DEFAULT_VOXTRAL_MODEL = "voxtral-mini-tts-2603"
 DEFAULT_MISTRAL_TTS_URL = "https://api.mistral.ai/v1/audio/speech"
 
 
@@ -38,10 +38,13 @@ def resolve_mistral_api_key() -> Optional[str]:
 
 def resolve_voxtral_model(profile_model: Optional[str] = None) -> str:
     settings = get_settings()
-    return (
+    model = (
         str(profile_model or settings.get("voxtral_model") or os.getenv("VOXTRAL_MODEL") or DEFAULT_VOXTRAL_MODEL)
         .strip()
     ) or DEFAULT_VOXTRAL_MODEL
+    if model == "voxtral-tts":
+        return DEFAULT_VOXTRAL_MODEL
+    return model
 
 
 def resolve_mistral_tts_url() -> str:
@@ -121,7 +124,7 @@ def _extract_audio_bytes(response: httpx.Response) -> bytes:
             raise VoxtralError("Voxtral returned JSON that could not be parsed.") from exc
 
         if isinstance(payload, dict):
-            for key in ("audio_base64", "b64_json", "audio"):
+            for key in ("audio_data", "audio_base64", "b64_json", "audio"):
                 value = payload.get(key)
                 if isinstance(value, str) and value.strip():
                     try:
@@ -134,7 +137,7 @@ def _extract_audio_bytes(response: httpx.Response) -> bytes:
                 for item in data:
                     if not isinstance(item, dict):
                         continue
-                    for key in ("audio_base64", "b64_json", "audio"):
+                    for key in ("audio_data", "audio_base64", "b64_json", "audio"):
                         value = item.get(key)
                         if isinstance(value, str) and value.strip():
                             try:
@@ -151,8 +154,6 @@ def _extract_audio_bytes(response: httpx.Response) -> bytes:
 
 def _request_payload_variants(text: str, model: str) -> list[dict]:
     return [
-        {"model": model, "input": text, "format": "wav"},
-        {"model": model, "text": text, "format": "wav"},
         {"model": model, "input": text, "response_format": "wav"},
         {"model": model, "text": text, "response_format": "wav"},
         {"model": model, "input": text},
@@ -198,7 +199,8 @@ def voxtral_generate(
 
     headers = {
         "Authorization": f"Bearer {api_key}",
-        "Accept": "audio/wav, audio/mpeg, application/json",
+        "Accept": "application/json",
+        "Content-Type": "application/json",
     }
 
     last_error: Optional[VoxtralError] = None
@@ -206,17 +208,15 @@ def voxtral_generate(
         if cancel_check():
             return 1
 
-        files = None
-        ref_handle = None
+        request_payload = dict(payload)
         if clean_voice_id:
-            payload["voice_id"] = clean_voice_id
+            request_payload["voice_id"] = clean_voice_id
         elif ref_audio_path:
-            ref_handle = ref_audio_path.open("rb")
-            files = {"ref_audio": (ref_audio_path.name, ref_handle, _guess_mime_type(ref_audio_path))}
+            request_payload["ref_audio"] = base64.b64encode(ref_audio_path.read_bytes()).decode("ascii")
 
         try:
             with httpx.Client(timeout=httpx.Timeout(180.0, connect=20.0)) as client:
-                response = client.post(endpoint, headers=headers, data=payload, files=files)
+                response = client.post(endpoint, headers=headers, json=request_payload)
             audio_bytes = _extract_audio_bytes(response)
         except VoxtralError as exc:
             last_error = exc
@@ -225,9 +225,6 @@ def voxtral_generate(
             continue
         except httpx.HTTPError as exc:
             raise VoxtralError(f"Could not reach Mistral API: {exc}") from exc
-        finally:
-            if ref_handle is not None:
-                ref_handle.close()
 
         tmp_audio = out_wav.with_suffix(".voxtral.tmp")
         tmp_audio.write_bytes(audio_bytes)

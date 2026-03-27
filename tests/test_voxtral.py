@@ -1,5 +1,6 @@
 from pathlib import Path
 from unittest.mock import patch
+import base64
 
 import pytest
 
@@ -70,6 +71,24 @@ def test_voxtral_generate_writes_wav_response(tmp_path):
 
     assert rc == 0
     assert out_wav.read_bytes() == wav_bytes
+    _, kwargs = client.calls[0]
+    assert kwargs["headers"]["Content-Type"] == "application/json"
+    assert kwargs["json"]["model"] == "voxtral-mini-tts-2603"
+    assert kwargs["json"]["response_format"] == "wav"
+    assert kwargs["json"]["ref_audio"]
+
+
+def test_extract_audio_bytes_supports_audio_data_key():
+    from app.engines_voxtral import _extract_audio_bytes
+
+    wav_bytes = b"RIFF\x24\x00\x00\x00WAVEfmt "
+    response = FakeResponse(
+        status_code=200,
+        headers={"content-type": "application/json"},
+        json_payload={"audio_data": base64.b64encode(wav_bytes).decode("ascii")},
+    )
+
+    assert _extract_audio_bytes(response) == wav_bytes
 
 
 def test_voxtral_generate_converts_non_wav_audio(tmp_path):
@@ -90,3 +109,10 @@ def test_voxtral_generate_converts_non_wav_audio(tmp_path):
 
     assert rc == 0
     assert out_wav.read_bytes() == b"RIFFconvertedWAVE"
+
+
+def test_resolve_voxtral_model_upgrades_legacy_default():
+    from app.engines_voxtral import resolve_voxtral_model
+
+    with patch("app.engines_voxtral.get_settings", return_value={"voxtral_model": "voxtral-tts"}):
+        assert resolve_voxtral_model() == "voxtral-mini-tts-2603"
