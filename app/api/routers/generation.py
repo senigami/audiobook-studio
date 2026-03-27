@@ -20,6 +20,11 @@ router = APIRouter(prefix="/api", tags=["generation"])
 logger = logging.getLogger(__name__)
 
 
+def _voxtral_configured(settings: Optional[dict] = None) -> bool:
+    active_settings = settings or get_settings()
+    return bool(str(active_settings.get("mistral_api_key") or "").strip())
+
+
 def _voxtral_disabled_error():
     return JSONResponse(
         {
@@ -95,7 +100,7 @@ def api_add_to_queue(
                 default_profile=active_profile,
                 fallback_engine=settings.get("default_engine"),
             )
-            if (mixed_engines or resolved_engine == "voxtral") and not str(settings.get("mistral_api_key") or "").strip():
+            if (mixed_engines or resolved_engine == "voxtral") and not _voxtral_configured(settings):
                 return _voxtral_disabled_error()
             queue_engine = "mixed" if mixed_engines else resolved_engine
 
@@ -149,7 +154,7 @@ def api_bake_chapter(chapter_id: str):
         default_profile=active_profile,
         fallback_engine=settings.get("default_engine"),
     )
-    if (mixed_engines or resolved_engine == "voxtral") and not str(settings.get("mistral_api_key") or "").strip():
+    if (mixed_engines or resolved_engine == "voxtral") and not _voxtral_configured(settings):
         return _voxtral_disabled_error()
 
     jid = f"bake-{uuid.uuid4().hex[:8]}"
@@ -256,7 +261,7 @@ def api_generate_segments(segment_ids: str = Form(...)):
         default_profile=settings.get("default_speaker_profile"),
         fallback_engine=settings.get("default_engine"),
     )
-    if (mixed_engines or resolved_engine == "voxtral") and not str(settings.get("mistral_api_key") or "").strip():
+    if (mixed_engines or resolved_engine == "voxtral") and not _voxtral_configured(settings):
         return _voxtral_disabled_error()
     queue_engine = "mixed" if mixed_engines else resolved_engine
 

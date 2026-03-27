@@ -52,6 +52,14 @@ def test_settings_accept_form_encoded_voxtral_config(clean_db, client):
     assert data["mistral_api_key"] == "form-key"
     assert data["voxtral_model"] == "voxtral-custom"
 
+def test_settings_normalize_default_engine_when_voxtral_disabled(clean_db, client, monkeypatch):
+    monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
+    response = client.post("/api/settings", json={"default_engine": "voxtral", "mistral_api_key": ""})
+    assert response.status_code == 200
+    data = response.json()["settings"]
+    assert data["default_engine"] == "xtts"
+    assert "mistral_api_key" not in data
+
 def test_default_speaker_setting(clean_db, client, tmp_path, monkeypatch):
     # POST /api/settings/default-speaker
     voices_dir = tmp_path / "voices"

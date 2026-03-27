@@ -63,7 +63,7 @@ def _normalize_profile_engine(engine: Optional[str]) -> str:
 
 def _voxtral_enabled() -> bool:
     settings = get_settings()
-    return bool(str(settings.get("mistral_api_key") or os.getenv("MISTRAL_API_KEY") or "").strip())
+    return bool(str(settings.get("mistral_api_key") or "").strip())
 
 
 def _voice_dirs_map() -> Dict[str, Path]:

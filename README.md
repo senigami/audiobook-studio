@@ -21,6 +21,8 @@ The live showcase also includes the fuller feature and cost comparison with Elev
 
 It is built for real long-form work, not just one-click text-to-speech. You can assign voices to characters, repair individual segments, requeue partial chapters, build portable voice profiles, and assemble finished books without sending your manuscript or cloned voices to a paid cloud service.
 
+XTTS remains the private local-default engine. Voxtral is available as an optional cloud voice engine after you add your own Mistral API key in Settings.
+
 > [!IMPORTANT]
 > **Version 1.7.x is the first release line intended as the clean default starting point for brand-new users.**
 > Earlier versions contain important groundwork, but this is the first release family where startup, voice portability, chapter generation, rebuild behavior, and download flow all line up the way new users should expect.
@@ -241,13 +243,19 @@ Then open [http://127.0.0.1:8123](http://127.0.0.1:8123).
 
 ## Voice Profiles
 
-Audiobook Studio supports local voice cloning and reusable voice variants.
+Audiobook Studio supports reusable voice profiles across more than one engine.
 
 - Add raw `.wav` samples to a voice profile
 - Build a preview voice
 - Create variants for different delivery styles
 - Rebuild only when samples change
 - Keep the voice profile and latent cache together for portability
+
+Voice profiles now carry their own engine assignment:
+
+- `XTTS (Local)` keeps generation on your machine
+- `Voxtral (Cloud)` appears only after you add a Mistral API key in Settings
+- mixed-engine chapters can use XTTS and Voxtral voices together when segments call for different profiles
 
 Voice profiles can also now work as lightweight starter assets. A reusable profile can ship with:
 
@@ -274,6 +282,8 @@ This is where the app really shines.
 Audiobook Studio is designed for **local-first production**.
 
 Your manuscript, chapter text, voice samples, latent files, and rendered audio stay under your control on your own machine.
+
+If you enable `Voxtral (Cloud)`, preview text, render text, and any selected reference audio for Voxtral requests are sent to Mistral for synthesis. That mode is optional and stays hidden unless you explicitly add your own API key.
 
 ## Release Notes and History
 

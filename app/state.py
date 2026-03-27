@@ -10,6 +10,7 @@ from json import JSONDecodeError
 
 from .models import Job
 from .config import BASE_DIR
+from .voice_engines import normalize_tts_engine
 SAFE_OUTPUT_FILE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
 
 STATE_FILE = Path(os.getenv("STATE_FILE", str(BASE_DIR / "state.json")))
@@ -38,6 +39,37 @@ def _default_state() -> Dict[str, Any]:
             "xtts_cps": 16.7
         }
     }
+
+
+def _normalize_settings(settings: Dict[str, Any] | None) -> Dict[str, Any]:
+    defaults = _default_state()["settings"].copy()
+    normalized = defaults.copy()
+    if settings:
+        normalized.update(settings)
+
+    normalized["safe_mode"] = bool(normalized.get("safe_mode", defaults["safe_mode"]))
+    normalized["make_mp3"] = bool(normalized.get("make_mp3", defaults["make_mp3"]))
+    normalized["default_engine"] = normalize_tts_engine(normalized.get("default_engine"), defaults["default_engine"])
+
+    mistral_api_key = str(normalized.get("mistral_api_key") or "").strip()
+    if mistral_api_key:
+        normalized["mistral_api_key"] = mistral_api_key
+    else:
+        normalized.pop("mistral_api_key", None)
+
+    voxtral_model = str(normalized.get("voxtral_model") or "").strip() or defaults["voxtral_model"]
+    normalized["voxtral_model"] = voxtral_model
+
+    if normalized["default_engine"] == "voxtral" and not normalized.get("mistral_api_key"):
+        normalized["default_engine"] = defaults["default_engine"]
+
+    default_speaker = str(normalized.get("default_speaker_profile") or "").strip()
+    if default_speaker:
+        normalized["default_speaker_profile"] = default_speaker
+    else:
+        normalized.pop("default_speaker_profile", None)
+
+    return normalized
 
 
 def _atomic_write_text(path: Path, text: str) -> None:
@@ -88,7 +120,12 @@ def save_state(state: Dict[str, Any]) -> None:
 def get_settings() -> Dict[str, Any]:
     with _STATE_LOCK:
         state = _load_state_no_lock()
-        return state.get("settings", {})
+        raw_settings = state.get("settings", {})
+        normalized = _normalize_settings(raw_settings)
+        if normalized != raw_settings:
+            state["settings"] = normalized
+            _atomic_write_text(STATE_FILE, json.dumps(state, indent=2))
+        return normalized
 
 
 def update_settings(updates: dict = None, **kwargs) -> None:
@@ -99,6 +136,7 @@ def update_settings(updates: dict = None, **kwargs) -> None:
             state["settings"].update(updates)
         if kwargs:
             state["settings"].update(kwargs)
+        state["settings"] = _normalize_settings(state["settings"])
         _atomic_write_text(STATE_FILE, json.dumps(state, indent=2))
 
 

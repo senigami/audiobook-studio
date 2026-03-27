@@ -54,7 +54,7 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
     const speed = localSpeed ?? profile.speed;
     const hasSamples = (profile.wav_count || 0) > 0;
     const hasReferenceMaterial = hasSamples || !!profile.has_latent || !!profile.voxtral_voice_id;
-    const canPreviewOrGenerate = !!profile.preview_url || (!isVoxtral && hasReferenceMaterial);
+    const canPreviewOrGenerate = !!profile.preview_url || hasReferenceMaterial;
     const playIconColor = isPlaying ? 'var(--surface)' : 'var(--text-primary)';
     const engineBadge = {
         label: isVoxtral ? 'Voxtral' : 'XTTS',
@@ -140,7 +140,7 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                             className="btn-ghost hover-bg-subtle"
                         disabled={!canPreviewOrGenerate || isTesting}
                         title={!canPreviewOrGenerate
-                            ? (isVoxtral ? "Voxtral preview generation is coming in a follow-up issue" : "Add at least one sample or keep a latent before generating a preview")
+                            ? (isVoxtral ? "Add a reference sample or saved voice id before generating a Voxtral preview" : "Add at least one sample or keep a latent before generating a preview")
                             : profile.preview_url
                                 ? (isPlaying ? "Pause Sample" : "Play Sample")
                                 : "Generate Sample"}
@@ -301,7 +301,7 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                     fontSize: '0.82rem',
                     lineHeight: 1.5
                 }}>
-                    Voxtral profiles use reference audio or a saved voice id instead of XTTS rebuild and speed tuning. You can assign those details from the script editor drawer.
+                    Voxtral profiles use reference audio or a saved voice id instead of XTTS rebuild and speed tuning. Add a reference sample or saved voice id in the script editor drawer, then use the play button here to generate a fresh preview.
                 </div>
             )}
 

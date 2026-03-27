@@ -195,7 +195,7 @@ describe('Voices Tab Components', () => {
             render(
                 <NarratorCard
                     speaker={mockSpeaker}
-                    profiles={[{ ...mockProfile, engine: 'voxtral', preview_url: null }]}
+                    profiles={[{ ...mockProfile, engine: 'voxtral', preview_url: null, voxtral_voice_id: 'voice_123' }]}
                     onRefresh={vi.fn()}
                     onTest={vi.fn()}
                     onDelete={vi.fn()}
@@ -216,6 +216,8 @@ describe('Voices Tab Components', () => {
             expect(screen.getAllByText('Voxtral').length).toBeGreaterThan(0);
             expect(screen.queryByText('1.00x')).not.toBeInTheDocument();
             expect(screen.queryByText('Rebuild')).not.toBeInTheDocument();
+            expect(screen.getByText('BUILD TO TEST')).toBeInTheDocument();
+            expect(screen.getByTitle('Generate Sample')).not.toBeDisabled();
         });
     });
 
