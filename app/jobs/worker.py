@@ -13,6 +13,7 @@ from .core import (
 
 from .handlers.xtts import handle_xtts_job
 from .handlers.voxtral import handle_voxtral_job
+from .handlers.mixed import handle_mixed_job
 from ..state import get_jobs, update_job, get_performance_metrics, update_performance_metrics
 from ..config import CHAPTER_DIR, XTTS_OUT_DIR, AUDIOBOOK_DIR, SAMPLES_DIR
 from ..pathing import safe_join
@@ -251,6 +252,11 @@ def worker_loop(q):
                 handle_xtts_job(jid, j, start, on_output, cancel_check, sw, spk["speed"], pdir, out_wav, out_mp3, text=text)
             elif j.engine == "voxtral":
                 result = handle_voxtral_job(jid, j, start, on_output, cancel_check, text=text)
+                if result == "cancelled":
+                    update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
+                return
+            elif j.engine == "mixed":
+                result = handle_mixed_job(jid, j, start, on_output, cancel_check, text=text)
                 if result == "cancelled":
                     update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
                 return

@@ -20,16 +20,6 @@ router = APIRouter(prefix="/api", tags=["generation"])
 logger = logging.getLogger(__name__)
 
 
-def _mixed_engine_error():
-    return JSONResponse(
-        {
-            "status": "error",
-            "message": "This render uses voices from multiple engines. Mixed-engine rendering is planned in a later issue."
-        },
-        status_code=409,
-    )
-
-
 def _voxtral_disabled_error():
     return JSONResponse(
         {
@@ -105,16 +95,15 @@ def api_add_to_queue(
                 default_profile=active_profile,
                 fallback_engine=settings.get("default_engine"),
             )
-            if mixed_engines:
-                return _mixed_engine_error()
-            if resolved_engine == "voxtral" and not str(settings.get("mistral_api_key") or "").strip():
+            if (mixed_engines or resolved_engine == "voxtral") and not str(settings.get("mistral_api_key") or "").strip():
                 return _voxtral_disabled_error()
+            queue_engine = "mixed" if mixed_engines else resolved_engine
 
             j = Job(
                 id=qid, 
                 project_id=project_id,
                 chapter_id=chapter_id,
-                engine=resolved_engine,
+                engine=queue_engine,
                 chapter_file=temp_filename, 
                 status="queued",
                 created_at=time.time(),
@@ -143,16 +132,38 @@ def api_add_to_queue(
 
 @router.post("/generation/bake/{chapter_id}")
 def api_bake_chapter(chapter_id: str):
+    settings = get_settings()
+    active_profile = settings.get("default_speaker_profile")
+
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT project_id FROM chapters WHERE id = ?", (chapter_id,))
+        chapter = cursor.fetchone()
+        if not chapter:
+            return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
+        project_id = chapter["project_id"]
+
+    segs = get_chapter_segments(chapter_id)
+    resolved_engine, mixed_engines = resolve_tts_engine_for_profiles(
+        [s.get("speaker_profile_name") for s in segs],
+        default_profile=active_profile,
+        fallback_engine=settings.get("default_engine"),
+    )
+    if (mixed_engines or resolved_engine == "voxtral") and not str(settings.get("mistral_api_key") or "").strip():
+        return _voxtral_disabled_error()
+
     jid = f"bake-{uuid.uuid4().hex[:8]}"
     j = Job(
         id=jid,
+        project_id=project_id,
         chapter_id=chapter_id,
-        chapter_file="", # Required by model
-        engine="xtts",
+        chapter_file=f"{chapter_id}_0.txt",
+        engine="mixed" if mixed_engines else resolved_engine,
         status="queued",
         created_at=time.time(),
         is_bake=True,
-        bypass_pause=True
+        bypass_pause=True,
+        speaker_profile=active_profile,
     )
     put_job(j)
     update_job(jid, force_broadcast=True, status="queued")
@@ -245,15 +256,14 @@ def api_generate_segments(segment_ids: str = Form(...)):
         default_profile=settings.get("default_speaker_profile"),
         fallback_engine=settings.get("default_engine"),
     )
-    if mixed_engines:
-        return _mixed_engine_error()
-    if resolved_engine == "voxtral" and not str(settings.get("mistral_api_key") or "").strip():
+    if (mixed_engines or resolved_engine == "voxtral") and not str(settings.get("mistral_api_key") or "").strip():
         return _voxtral_disabled_error()
+    queue_engine = "mixed" if mixed_engines else resolved_engine
 
     jid = f"job-{uuid.uuid4().hex[:8]}"
     job = Job(
         id=jid,
-        engine=resolved_engine,
+        engine=queue_engine,
         chapter_file=f"{chapter_title}.txt", # Fallback name
         status="queued",
         created_at=time.time(),

@@ -1,4 +1,4 @@
-export type Engine = 'xtts' | 'voxtral' | 'audiobook' | 'voice_build' | 'voice_test';
+export type Engine = 'xtts' | 'voxtral' | 'mixed' | 'audiobook' | 'voice_build' | 'voice_test';
 export type VoiceEngine = 'xtts' | 'voxtral';
 
 export type Status = 'queued' | 'preparing' | 'running' | 'finalizing' | 'done' | 'failed' | 'cancelled' | 'error';
