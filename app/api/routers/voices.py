@@ -140,6 +140,24 @@ def _voice_has_latent(name: str) -> bool:
         return False
     return (_voice_file_map(profile_dir).get("latent.pth") or _new_voice_sample_path(profile_dir, "latent.pth")).exists()
 
+
+def _voice_has_generation_material(name: str) -> bool:
+    settings = get_speaker_settings(name)
+    engine = settings.get("engine", DEFAULT_PROFILE_ENGINE)
+    if engine == "voxtral":
+        if settings.get("voxtral_voice_id"):
+            return True
+        ref_sample = settings.get("reference_sample")
+        if ref_sample:
+            try:
+                if _existing_voice_sample_path(name, ref_sample):
+                    return True
+            except ValueError:
+                pass
+        return _voice_raw_sample_count(name) > 0
+
+    return _voice_raw_sample_count(name) > 0 or _voice_has_latent(name)
+
 router = APIRouter(tags=["voices"])
 
 
@@ -561,7 +579,8 @@ async def build_speaker_profile(
 
         existing_raw_samples = _voice_raw_sample_count(name)
         has_latent = _voice_has_latent(name)
-        if existing_raw_samples == 0 and not has_latent and not files:
+        has_generation_material = _voice_has_generation_material(name)
+        if existing_raw_samples == 0 and not has_latent and not has_generation_material and not files:
             return JSONResponse(
                 {"status": "error", "message": "Add at least one sample or keep a latent before building this voice."},
                 status_code=400
@@ -691,7 +710,7 @@ def delete_speaker_profile(
 
 @router.post("/api/speaker-profiles/{name}/test")
 def test_speaker_profile(name: str):
-    if _voice_raw_sample_count(name) == 0 and not _voice_has_latent(name):
+    if not _voice_has_generation_material(name):
         return JSONResponse(
             {"status": "error", "message": "Add at least one sample or keep a latent before testing this voice."},
             status_code=400

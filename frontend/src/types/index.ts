@@ -136,6 +136,8 @@ export interface Settings {
   make_mp3: boolean;
   default_engine: Engine;
   default_speaker_profile?: string;
+  voxtral_model?: string;
+  mistral_api_key?: string;
 }
 
 export interface Audiobook {

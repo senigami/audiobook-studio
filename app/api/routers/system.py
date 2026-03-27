@@ -107,8 +107,31 @@ async def save_settings(
                         val = to_bool(body[k])
                         if val is not None:
                             updates[k] = val
+                if "default_engine" in body and str(body["default_engine"]).strip():
+                    updates["default_engine"] = str(body["default_engine"]).strip().lower()
+                if "voxtral_model" in body:
+                    updates["voxtral_model"] = str(body["voxtral_model"] or "").strip()
+                if "mistral_api_key" in body:
+                    updates["mistral_api_key"] = str(body["mistral_api_key"] or "").strip()
         except Exception:
             logger.warning("Failed to parse JSON settings payload", exc_info=True)
+
+    try:
+        form = await request.form()
+    except Exception:
+        form = None
+    if form:
+        for k in ["safe_mode", "make_mp3"]:
+            if k not in updates and form.get(k) is not None:
+                val = to_bool(form.get(k))
+                if val is not None:
+                    updates[k] = val
+        if "default_engine" not in updates and form.get("default_engine") is not None:
+            updates["default_engine"] = str(form.get("default_engine") or "").strip().lower()
+        if "voxtral_model" not in updates and form.get("voxtral_model") is not None:
+            updates["voxtral_model"] = str(form.get("voxtral_model") or "").strip()
+        if "mistral_api_key" not in updates and form.get("mistral_api_key") is not None:
+            updates["mistral_api_key"] = str(form.get("mistral_api_key") or "").strip()
 
     # 2. Try Form parameters (either from FastAPI's parsing or manual fallback)
     if "safe_mode" not in updates and safe_mode is not None:

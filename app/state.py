@@ -30,7 +30,8 @@ def _default_state() -> Dict[str, Any]:
         "settings": {
             "safe_mode": True,
             "make_mp3": False,
-            "default_engine": "xtts"
+            "default_engine": "xtts",
+            "voxtral_model": "voxtral-tts",
         },
         "performance_metrics": {
             "audiobook_speed_multiplier": 1.0,

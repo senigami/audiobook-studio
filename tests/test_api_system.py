@@ -32,11 +32,18 @@ def test_home_endpoint(clean_db, client):
     assert isinstance(data["speaker_profiles"], list)
 
 def test_settings_get_and_update(clean_db, client):
-    response = client.post("/api/settings", json={"safe_mode": True, "make_mp3": False})
+    response = client.post("/api/settings", json={
+        "safe_mode": True,
+        "make_mp3": False,
+        "voxtral_model": "voxtral-tts",
+        "mistral_api_key": "abc123",
+    })
     assert response.status_code == 200
     data = response.json()["settings"]
     assert data["safe_mode"] is True
     assert data["make_mp3"] is False
+    assert data["voxtral_model"] == "voxtral-tts"
+    assert data["mistral_api_key"] == "abc123"
 
 def test_default_speaker_setting(clean_db, client, tmp_path, monkeypatch):
     # POST /api/settings/default-speaker

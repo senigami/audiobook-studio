@@ -200,7 +200,7 @@ def test_worker_loop_xtts_bake(mock_q, sample_job):
         assert mock_conn.called
 
 
-def test_worker_loop_voxtral_dispatches_placeholder_handler(mock_q):
+def test_worker_loop_voxtral_dispatches_handler(mock_q):
     sample_job = Job(
         id="voxtral_job",
         engine="voxtral",
@@ -219,7 +219,7 @@ def test_worker_loop_voxtral_dispatches_placeholder_handler(mock_q):
          patch("app.jobs.worker.get_project_text_dir", create=True) as mock_text_dir, \
          patch("pathlib.Path.exists", return_value=True), \
          patch("pathlib.Path.read_text", return_value="Hello world"), \
-         patch("app.jobs.worker.handle_voxtral_job", return_value="not_implemented") as mock_handle, \
+         patch("app.jobs.worker.handle_voxtral_job", return_value="done") as mock_handle, \
          patch("app.jobs.worker._mark_queue_failed") as mock_failed, \
          patch("app.jobs.worker._output_exists", return_value=False):
 
@@ -232,7 +232,7 @@ def test_worker_loop_voxtral_dispatches_placeholder_handler(mock_q):
                 raise e
 
         assert mock_handle.called
-        mock_failed.assert_called_once()
+        mock_failed.assert_not_called()
 
 def test_worker_loop_skipped_or_failed(mock_q, sample_job):
     """Test skipped and failed scenarios in worker_loop."""

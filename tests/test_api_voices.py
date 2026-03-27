@@ -140,6 +140,21 @@ def test_update_profile_voxtral_voice_id(clean_db, voices_root, client):
     meta = json.loads((profile_dir / "profile.json").read_text())
     assert meta["voxtral_voice_id"] == "voice_123"
 
+
+def test_voxtral_profile_test_accepts_saved_voice_id_without_samples(clean_db, voices_root, client):
+    profile_dir = voices_root / "SpeakerA"
+    profile_dir.mkdir(parents=True)
+    (profile_dir / "profile.json").write_text(json.dumps({
+        "variant_name": "Default",
+        "engine": "voxtral",
+        "voxtral_voice_id": "voice_123",
+    }))
+
+    response = client.post("/api/speaker-profiles/SpeakerA/test")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "ok"
+
 def test_character_crud(clean_db, client):
     from app.db.projects import create_project
     pid = create_project("P1")
