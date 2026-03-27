@@ -61,6 +61,11 @@ def _normalize_profile_engine(engine: Optional[str]) -> str:
     return normalized
 
 
+def _voxtral_enabled() -> bool:
+    settings = get_settings()
+    return bool(str(settings.get("mistral_api_key") or os.getenv("MISTRAL_API_KEY") or "").strip())
+
+
 def _voice_dirs_map() -> Dict[str, Path]:
     if not VOICES_DIR.exists():
         return {}
@@ -145,6 +150,8 @@ def _voice_has_generation_material(name: str) -> bool:
     settings = get_speaker_settings(name)
     engine = settings.get("engine", DEFAULT_PROFILE_ENGINE)
     if engine == "voxtral":
+        if not _voxtral_enabled():
+            return False
         if settings.get("voxtral_voice_id"):
             return True
         ref_sample = settings.get("reference_sample")
@@ -270,6 +277,8 @@ def api_create_speaker_profile(
     logger.info(f"Creating profile for speaker_id='{speaker_id}', variant_name='{variant_name}', engine='{engine}'")
     try:
         normalized_engine = _normalize_profile_engine(engine)
+        if normalized_engine == "voxtral" and not _voxtral_enabled():
+            return JSONResponse({"status": "error", "message": "Add a Mistral API key in Settings to enable Voxtral."}, status_code=400)
         # Try to use speaker name instead of ID if possible for folder name
         spk = get_speaker(speaker_id)
         spk_name = spk["name"] if spk else speaker_id
@@ -533,6 +542,9 @@ def update_speaker_engine(name: str, engine: str = Form(...)):
     except ValueError:
         return JSONResponse({"status": "error", "message": "Invalid profile engine"}, status_code=400)
 
+    if normalized_engine == "voxtral" and not _voxtral_enabled():
+        return JSONResponse({"status": "error", "message": "Add a Mistral API key in Settings to enable Voxtral."}, status_code=400)
+
     if not update_speaker_settings(name, engine=normalized_engine):
         return JSONResponse({"status": "error", "message": "Profile not found"}, status_code=404)
 
@@ -541,6 +553,9 @@ def update_speaker_engine(name: str, engine: str = Form(...)):
 
 @router.post("/api/speaker-profiles/{name}/reference-sample")
 def update_speaker_reference_sample(name: str, sample_name: str = Form("")):
+    if not _voxtral_enabled():
+        return JSONResponse({"status": "error", "message": "Add a Mistral API key in Settings to configure Voxtral metadata."}, status_code=400)
+
     clean_sample = (sample_name or "").strip() or None
 
     if clean_sample:
@@ -559,6 +574,9 @@ def update_speaker_reference_sample(name: str, sample_name: str = Form("")):
 
 @router.post("/api/speaker-profiles/{name}/voxtral-voice-id")
 def update_speaker_voxtral_voice_id(name: str, voice_id: str = Form("")):
+    if not _voxtral_enabled():
+        return JSONResponse({"status": "error", "message": "Add a Mistral API key in Settings to configure Voxtral metadata."}, status_code=400)
+
     clean_voice_id = (voice_id or "").strip() or None
     if not update_speaker_settings(name, voxtral_voice_id=clean_voice_id):
         return JSONResponse({"status": "error", "message": "Profile not found"}, status_code=404)

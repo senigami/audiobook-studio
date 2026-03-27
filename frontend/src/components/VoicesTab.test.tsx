@@ -3,7 +3,7 @@ import { VoicesTab } from './VoicesTab'
 import { describe, it, expect, vi } from 'vitest'
 
 describe('VoicesTab', () => {
-    const mockProfiles = [
+    const mockProfiles: any = [
         { name: 'Narrator1', wav_count: 5, speed: 1.0, is_default: false, preview_url: null, speaker_id: null, variant_name: null, engine: 'xtts' },
         { name: 'Narrator2', wav_count: 3, speed: 1.2, is_default: true, preview_url: '/preview.wav', speaker_id: null, variant_name: null, engine: 'voxtral' }
     ]
@@ -11,7 +11,8 @@ describe('VoicesTab', () => {
     const mockProps = {
         onRefresh: vi.fn(),
         speakerProfiles: mockProfiles,
-        testProgress: {}
+        testProgress: {},
+        settings: { safe_mode: true, make_mp3: false, default_engine: 'xtts', mistral_api_key: 'key' } as any
     }
 
     beforeEach(() => {
@@ -165,5 +166,15 @@ describe('VoicesTab', () => {
 
         expect(screen.queryByText('Narrator1')).not.toBeInTheDocument()
         expect(screen.getByText('Narrator2')).toBeInTheDocument()
+    })
+
+    it('hides Voxtral voices and filters when no API key is configured', async () => {
+        await act(async () => {
+            render(<VoicesTab {...mockProps} settings={{ safe_mode: true, make_mp3: false, default_engine: 'xtts' }} />)
+        })
+
+        expect(screen.getByText('Narrator1')).toBeInTheDocument()
+        expect(screen.queryByText('Narrator2')).not.toBeInTheDocument()
+        expect(screen.queryByText('Voxtral (1)')).not.toBeInTheDocument()
     })
 })

@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { Settings, RefreshCw, Loader2, ShieldCheck, Music } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Settings, RefreshCw, Loader2, ShieldCheck, Music, KeyRound, CircleHelp, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GhostButton } from './GhostButton';
+import type { Settings as AppSettings } from '../types';
 
 interface SettingsTrayProps {
-    settings: any;
+    settings: AppSettings | undefined;
     onRefresh: () => void;
     onShowNotification?: (message: string) => void;
 }
@@ -17,6 +18,14 @@ export const SettingsTray: React.FC<SettingsTrayProps> = ({
     const [isOpen, setIsOpen] = useState(false);
     const [hoveredItem, setHoveredItem] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
+    const [mistralApiKey, setMistralApiKey] = useState('');
+    const [voxtralModel, setVoxtralModel] = useState('voxtral-tts');
+    const voxtralEnabled = useMemo(() => !!settings?.mistral_api_key?.trim(), [settings?.mistral_api_key]);
+
+    useEffect(() => {
+        setMistralApiKey(settings?.mistral_api_key || '');
+        setVoxtralModel(settings?.voxtral_model || 'voxtral-tts');
+    }, [settings?.mistral_api_key, settings?.voxtral_model]);
 
     const handleToggle = async (key: string, currentValue: boolean) => {
         setSaving(true);
@@ -27,6 +36,22 @@ export const SettingsTray: React.FC<SettingsTrayProps> = ({
             onRefresh();
         } catch (e) {
             console.error('Failed to update setting', e);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleSaveVoxtralSettings = async () => {
+        setSaving(true);
+        try {
+            const formData = new URLSearchParams();
+            formData.append('mistral_api_key', mistralApiKey.trim());
+            formData.append('voxtral_model', voxtralModel.trim() || 'voxtral-tts');
+            await fetch('/settings', { method: 'POST', body: formData });
+            onRefresh();
+            onShowNotification?.(mistralApiKey.trim() ? 'Voxtral cloud voices unlocked.' : 'Voxtral hidden until a Mistral API key is added.');
+        } catch (e) {
+            console.error('Failed to save Voxtral settings', e);
         } finally {
             setSaving(false);
         }
@@ -87,7 +112,7 @@ export const SettingsTray: React.FC<SettingsTrayProps> = ({
                                     style={rowStyle('safe-mode')}
                                     onMouseEnter={() => setHoveredItem('safe-mode')}
                                     onMouseLeave={() => setHoveredItem(null)}
-                                    onClick={() => handleToggle('safe_mode', settings?.safe_mode)}
+                                    onClick={() => handleToggle('safe_mode', !!settings?.safe_mode)}
                                 >
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                         <ShieldCheck size={18} color={hoveredItem === 'safe-mode' ? 'var(--accent)' : 'var(--text-muted)'} />
@@ -97,7 +122,7 @@ export const SettingsTray: React.FC<SettingsTrayProps> = ({
                                         </div>
                                     </div>
                                     <button 
-                                        onClick={(e) => { e.stopPropagation(); handleToggle('safe_mode', settings?.safe_mode); }}
+                                        onClick={(e) => { e.stopPropagation(); handleToggle('safe_mode', !!settings?.safe_mode); }}
                                         className={settings?.safe_mode ? 'btn-primary' : 'btn-glass'} 
                                         style={{ fontSize: '0.65rem', padding: '4px 10px', borderRadius: '6px', minWidth: '42px' }}
                                     >
@@ -113,7 +138,7 @@ export const SettingsTray: React.FC<SettingsTrayProps> = ({
                                     <div 
                                         style={rowStyle('make-mp3')}
                                         onMouseEnter={() => setHoveredItem('make-mp3')}
-                                        onClick={() => handleToggle('make_mp3', settings?.make_mp3)}
+                                        onClick={() => handleToggle('make_mp3', !!settings?.make_mp3)}
                                     >
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                             <Music size={18} color={hoveredItem === 'make-mp3' ? 'var(--accent)' : 'var(--text-muted)'} />
@@ -123,7 +148,7 @@ export const SettingsTray: React.FC<SettingsTrayProps> = ({
                                             </div>
                                         </div>
                                         <button 
-                                            onClick={(e) => { e.stopPropagation(); handleToggle('make_mp3', settings?.make_mp3); }}
+                                            onClick={(e) => { e.stopPropagation(); handleToggle('make_mp3', !!settings?.make_mp3); }}
                                             className={settings?.make_mp3 ? 'btn-primary' : 'btn-glass'} 
                                             style={{ fontSize: '0.65rem', padding: '4px 10px', borderRadius: '6px', minWidth: '42px' }}
                                         >
@@ -172,6 +197,109 @@ export const SettingsTray: React.FC<SettingsTrayProps> = ({
                                         </button>
                                     </div>
                                 )}
+
+                                <div
+                                    style={{
+                                        marginTop: '0.5rem',
+                                        padding: '12px',
+                                        borderRadius: '12px',
+                                        border: '1px solid var(--border)',
+                                        background: 'var(--surface-alt)',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '10px'
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                            <KeyRound size={18} color={voxtralEnabled ? '#0ea5e9' : 'var(--text-muted)'} />
+                                            <div>
+                                                <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>Voxtral Cloud Voices</div>
+                                                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                                                    {voxtralEnabled ? 'Enabled in Voices' : 'Hidden until a key is added'}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <span
+                                            style={{
+                                                fontSize: '0.65rem',
+                                                fontWeight: 800,
+                                                letterSpacing: '0.04em',
+                                                color: voxtralEnabled ? '#0ea5e9' : 'var(--text-muted)',
+                                                background: voxtralEnabled ? 'rgba(14, 165, 233, 0.12)' : 'rgba(148, 163, 184, 0.12)',
+                                                borderRadius: '999px',
+                                                padding: '4px 8px'
+                                            }}
+                                        >
+                                            {voxtralEnabled ? 'ON' : 'OFF'}
+                                        </span>
+                                    </div>
+
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.72rem', lineHeight: 1.5 }}>
+                                        <CircleHelp size={14} />
+                                        <span>
+                                            Create a Mistral API key in your workspace settings, then paste it here to unlock Voxtral. Voxtral requests are processed by Mistral instead of staying fully local.
+                                        </span>
+                                    </div>
+
+                                    <a
+                                        href="https://help.mistral.ai/en/articles/347464-how-do-i-create-api-keys-within-a-workspace"
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        style={{ fontSize: '0.72rem', color: 'var(--accent)', textDecoration: 'none', fontWeight: 700 }}
+                                    >
+                                        Open Mistral API key instructions
+                                    </a>
+
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                        <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)' }}>MISTRAL API KEY</label>
+                                        <input
+                                            type="password"
+                                            placeholder="Paste your Mistral API key"
+                                            value={mistralApiKey}
+                                            onChange={(e) => setMistralApiKey(e.target.value)}
+                                            style={{
+                                                width: '100%',
+                                                padding: '10px 12px',
+                                                borderRadius: '10px',
+                                                border: '1px solid var(--border)',
+                                                background: 'var(--surface)',
+                                                color: 'var(--text)',
+                                                fontSize: '0.85rem'
+                                            }}
+                                        />
+                                    </div>
+
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                        <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)' }}>VOXTRAL MODEL</label>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <Sparkles size={14} color="var(--text-muted)" />
+                                            <input
+                                                type="text"
+                                                placeholder="voxtral-tts"
+                                                value={voxtralModel}
+                                                onChange={(e) => setVoxtralModel(e.target.value)}
+                                                style={{
+                                                    flex: 1,
+                                                    padding: '10px 12px',
+                                                    borderRadius: '10px',
+                                                    border: '1px solid var(--border)',
+                                                    background: 'var(--surface)',
+                                                    color: 'var(--text)',
+                                                    fontSize: '0.85rem'
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        onClick={handleSaveVoxtralSettings}
+                                        className="btn-primary"
+                                        style={{ height: '38px', borderRadius: '10px', justifyContent: 'center' }}
+                                    >
+                                        Save API Settings
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </motion.div>

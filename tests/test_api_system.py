@@ -45,6 +45,13 @@ def test_settings_get_and_update(clean_db, client):
     assert data["voxtral_model"] == "voxtral-tts"
     assert data["mistral_api_key"] == "abc123"
 
+def test_settings_accept_form_encoded_voxtral_config(clean_db, client):
+    response = client.post("/api/settings", data={"mistral_api_key": "form-key", "voxtral_model": "voxtral-custom"})
+    assert response.status_code == 200
+    data = response.json()["settings"]
+    assert data["mistral_api_key"] == "form-key"
+    assert data["voxtral_model"] == "voxtral-custom"
+
 def test_default_speaker_setting(clean_db, client, tmp_path, monkeypatch):
     # POST /api/settings/default-speaker
     voices_dir = tmp_path / "voices"

@@ -119,6 +119,7 @@ def test_queue_chapter_resolves_voxtral_engine_from_profile(clean_db, client):
     pid = create_project("P1")
     cid = create_chapter(pid, "C1", "Hello world.")
     sync_chapter_segments(cid, "Hello world.")
+    client.post("/api/settings", data={"mistral_api_key": "abc123"})
 
     with patch("app.api.routers.generation.put_job") as mock_put_job, \
          patch("app.api.routers.generation.enqueue"), \
@@ -157,6 +158,7 @@ def test_generate_segments_resolves_voxtral_engine(clean_db, client):
     sync_chapter_segments(cid, "Hello world.")
     segs = get_chapter_segments(cid)
     sid = segs[0]['id']
+    client.post("/api/settings", data={"mistral_api_key": "abc123"})
 
     with patch("app.api.routers.generation.put_job") as mock_put_job, \
          patch("app.api.routers.generation.enqueue"), \
@@ -165,3 +167,19 @@ def test_generate_segments_resolves_voxtral_engine(clean_db, client):
         assert response.status_code == 200
         job = mock_put_job.call_args.args[0]
         assert job.engine == "voxtral"
+
+
+def test_queue_chapter_rejects_voxtral_without_api_key(clean_db, client):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.segments import sync_chapter_segments
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "Hello world.")
+    sync_chapter_segments(cid, "Hello world.")
+
+    with patch("app.jobs.speaker.get_speaker_settings", return_value={"engine": "voxtral"}), \
+         patch("app.api.routers.generation.get_settings", return_value={"safe_mode": True, "make_mp3": False, "default_engine": "xtts"}):
+        response = client.post("/api/processing_queue", data={"project_id": pid, "chapter_id": cid, "speaker_profile": "Voice1"})
+        assert response.status_code == 400
+        assert "Mistral API key" in response.json()["message"]

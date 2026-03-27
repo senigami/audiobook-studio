@@ -15,6 +15,7 @@ describe('ScriptEditor', () => {
                 onVariantNameChange={onVariantNameChange}
                 engine="xtts"
                 onEngineChange={vi.fn()}
+                voxtralEnabled={false}
                 testText="Sample script"
                 onTestTextChange={onTestTextChange}
                 referenceSample=""
@@ -52,6 +53,7 @@ describe('ScriptEditor', () => {
                 onVariantNameChange={vi.fn()}
                 engine="xtts"
                 onEngineChange={vi.fn()}
+                voxtralEnabled={false}
                 testText=""
                 onTestTextChange={vi.fn()}
                 referenceSample=""
@@ -75,6 +77,7 @@ describe('ScriptEditor', () => {
                 onVariantNameChange={vi.fn()}
                 engine="voxtral"
                 onEngineChange={vi.fn()}
+                voxtralEnabled={true}
                 testText="Preview"
                 onTestTextChange={vi.fn()}
                 referenceSample="sample1.wav"
@@ -91,5 +94,30 @@ describe('ScriptEditor', () => {
         expect(screen.getByLabelText('Engine')).toHaveValue('voxtral');
         expect(screen.getByLabelText('Reference Sample')).toHaveValue('sample1.wav');
         expect(screen.getByDisplayValue('voice-123')).toBeInTheDocument();
+    });
+
+    it('hides Voxtral engine controls when cloud voices are disabled', () => {
+        render(
+            <ScriptEditor
+                variantName="Voice"
+                onVariantNameChange={vi.fn()}
+                engine="xtts"
+                onEngineChange={vi.fn()}
+                voxtralEnabled={false}
+                testText="Preview"
+                onTestTextChange={vi.fn()}
+                referenceSample=""
+                onReferenceSampleChange={vi.fn()}
+                availableSamples={[]}
+                voxtralVoiceId=""
+                onVoxtralVoiceIdChange={vi.fn()}
+                onResetTestText={vi.fn()}
+                onSave={vi.fn()}
+                isSaving={false}
+            />
+        );
+
+        expect(screen.getByLabelText('Engine')).toHaveTextContent('XTTS');
+        expect(screen.queryByText(/Voxtral \(Cloud\)/i)).not.toBeInTheDocument();
     });
 });

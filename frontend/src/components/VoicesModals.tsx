@@ -20,6 +20,7 @@ interface VoicesModalsProps {
     setNewVoiceName: (name: string) => void;
     newVoiceEngine: VoiceEngine;
     setNewVoiceEngine: (engine: VoiceEngine) => void;
+    voxtralEnabled: boolean;
     isCreatingVoice: boolean;
     handleCreateVoice: () => void;
 
@@ -89,6 +90,7 @@ export const VoicesModals: React.FC<VoicesModalsProps> = (props) => {
                 onChange={props.setNewVoiceName}
                 engine={props.newVoiceEngine}
                 onEngineChange={props.setNewVoiceEngine}
+                voxtralEnabled={props.voxtralEnabled}
                 onSubmit={props.handleCreateVoice}
                 isCreating={props.isCreatingVoice}
             />
@@ -111,6 +113,7 @@ export const VoicesModals: React.FC<VoicesModalsProps> = (props) => {
                 onChange={props.setNewVariantNameModal}
                 engine={props.newVariantEngine}
                 onEngineChange={props.setNewVariantEngine}
+                voxtralEnabled={props.voxtralEnabled}
                 isAdding={props.isAddingVariantModal}
                 onSubmit={props.handleAddVariant}
             />
@@ -148,6 +151,7 @@ export const VoicesModals: React.FC<VoicesModalsProps> = (props) => {
                     onVariantNameChange={props.setVariantName}
                     engine={props.editingEngine}
                     onEngineChange={props.setEditingEngine}
+                    voxtralEnabled={props.voxtralEnabled}
                     testText={props.testText}
                     onTestTextChange={props.setTestText}
                     referenceSample={props.referenceSample}

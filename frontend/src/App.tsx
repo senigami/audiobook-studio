@@ -109,6 +109,7 @@ function App() {
                   onRefresh={handleRefresh}
                   testProgress={testProgress}
                   jobs={jobs}
+                  settings={initialData?.settings}
                 />
               } />
               <Route path="*" element={<Navigate to="/" replace />} />

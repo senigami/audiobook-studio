@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
     Search, Plus, User, Info
 } from 'lucide-react';
-import type { Speaker, SpeakerProfile, Job, VoiceEngine } from '../types';
+import type { Speaker, SpeakerProfile, Job, VoiceEngine, Settings } from '../types';
 import { GlassInput } from './GlassInput';
 import { GhostButton } from './GhostButton';
 import { NarratorCard } from './voices/NarratorCard';
@@ -15,9 +15,10 @@ interface VoicesTabProps {
     speakerProfiles: SpeakerProfile[];
     testProgress: Record<string, { progress: number; started_at?: number }>;
     jobs?: Record<string, Job>;
+    settings?: Settings;
 }
 
-export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles, testProgress, jobs = {} }) => {
+export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles, testProgress, jobs = {}, settings }) => {
     const [confirmConfig, setConfirmConfig] = useState<{
         title: string;
         message: string;
@@ -25,6 +26,13 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
         isDestructive?: boolean;
         isAlert?: boolean;
     } | null>(null);
+
+    const voxtralEnabled = !!settings?.mistral_api_key?.trim();
+    const visibleSpeakerProfiles = useMemo(() => (
+        voxtralEnabled
+            ? speakerProfiles
+            : speakerProfiles.filter((profile) => (profile.engine || 'xtts') !== 'voxtral')
+    ), [speakerProfiles, voxtralEnabled]);
 
     const {
         speakers,
@@ -38,7 +46,7 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
         handleUpdateReferenceSample,
         handleUpdateVoxtralVoiceId,
         formatError
-    } = useVoiceManagement(onRefresh, speakerProfiles, (config) => setConfirmConfig(config), jobs);
+    } = useVoiceManagement(onRefresh, visibleSpeakerProfiles, (config) => setConfirmConfig(config), jobs);
 
     // --- Component Local State ---
     const [editingProfile, setEditingProfile] = useState<SpeakerProfile | null>(null);
@@ -89,6 +97,13 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
     const [selectedMoveSpeakerId, setSelectedMoveSpeakerId] = useState<string>('');
     const [isMovingVariant, setIsMovingVariant] = useState(false);
     const [engineFilter, setEngineFilter] = useState<'all' | VoiceEngine>('all');
+
+    useEffect(() => {
+        if (!voxtralEnabled && editingEngine === 'voxtral') setEditingEngine('xtts');
+        if (!voxtralEnabled && newVoiceEngine === 'voxtral') setNewVoiceEngine('xtts');
+        if (!voxtralEnabled && newVariantEngine === 'voxtral') setNewVariantEngine('xtts');
+        if (!voxtralEnabled && engineFilter === 'voxtral') setEngineFilter('all');
+    }, [voxtralEnabled, editingEngine, newVoiceEngine, newVariantEngine, engineFilter]);
 
     const handleRequestConfirm = (config: { title: string; message: string; onConfirm: () => void; isDestructive?: boolean; isAlert?: boolean }) => {
         setConfirmConfig(config);
@@ -341,7 +356,7 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
 
     // --- Data Processing ---
     const voices = (speakers || []).map(speaker => {
-        const pList = speakerProfiles.filter(p => p.speaker_id === speaker.id);
+        const pList = visibleSpeakerProfiles.filter(p => p.speaker_id === speaker.id);
         if (pList.length === 0) {
             pList.push({
                 name: speaker.name,
@@ -362,7 +377,7 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
         };
     });
 
-    const unassigned = speakerProfiles.filter(p => !p.speaker_id || !speakers.some(s => s.id === p.speaker_id));
+    const unassigned = visibleSpeakerProfiles.filter(p => !p.speaker_id || !speakers.some(s => s.id === p.speaker_id));
     const unassignedGroups: Record<string, SpeakerProfile[]> = {};
     unassigned.forEach(p => {
         // Use speaker_id as grouping key if it looks like a name (not a UUID)
@@ -392,7 +407,7 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
         return matchesSearch && matchesEngine;
     }).sort((a, b) => a.name.localeCompare(b.name));
 
-    const engineCounts = speakerProfiles.reduce((acc, profile) => {
+    const engineCounts = visibleSpeakerProfiles.reduce((acc, profile) => {
         const engine = profile.engine || 'xtts';
         acc[engine] = (acc[engine] || 0) + 1;
         return acc;
@@ -435,9 +450,9 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                         {([
-                            { key: 'all', label: `All (${speakerProfiles.length})` },
+                            { key: 'all', label: `All (${visibleSpeakerProfiles.length})` },
                             { key: 'xtts', label: `XTTS (${engineCounts.xtts})` },
-                            { key: 'voxtral', label: `Voxtral (${engineCounts.voxtral})` },
+                            ...(voxtralEnabled ? [{ key: 'voxtral', label: `Voxtral (${engineCounts.voxtral})` }] as const : []),
                         ] as const).map((option) => {
                             const active = engineFilter === option.key;
                             return (
@@ -562,6 +577,7 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 setNewVoiceName={setNewVoiceName}
                 newVoiceEngine={newVoiceEngine}
                 setNewVoiceEngine={setNewVoiceEngine}
+                voxtralEnabled={voxtralEnabled}
                 isCreatingVoice={isCreatingVoice}
                 handleCreateVoice={handleCreateVoice}
                 isRenameModalOpen={isRenameModalOpen}

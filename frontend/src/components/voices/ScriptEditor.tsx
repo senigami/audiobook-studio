@@ -8,6 +8,7 @@ interface ScriptEditorProps {
     onVariantNameChange: (val: string) => void;
     engine: VoiceEngine;
     onEngineChange: (val: VoiceEngine) => void;
+    voxtralEnabled: boolean;
     testText: string;
     onTestTextChange: (val: string) => void;
     referenceSample: string;
@@ -25,6 +26,7 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({
     onVariantNameChange,
     engine,
     onEngineChange,
+    voxtralEnabled,
     testText,
     onTestTextChange,
     referenceSample,
@@ -68,7 +70,7 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({
                         }}
                     >
                         <option value="xtts">XTTS</option>
-                        <option value="voxtral">Voxtral</option>
+                        {voxtralEnabled && <option value="voxtral">Voxtral (Cloud)</option>}
                     </select>
                 </div>
 
@@ -107,7 +109,7 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({
                         </div>
 
                         <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                            Voxtral preview generation and chapter rendering land in follow-up issues. For now, this lets us tag the profile correctly and save Voxtral-specific metadata.
+                            Voxtral sends preview text and reference audio to Mistral when used. Leave this voice on XTTS if you want fully local generation.
                         </p>
                     </div>
                 )}

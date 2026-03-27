@@ -22,11 +22,12 @@ interface NewVoiceModalProps {
     onChange: (val: string) => void;
     engine: VoiceEngine;
     onEngineChange: (val: VoiceEngine) => void;
+    voxtralEnabled: boolean;
     onSubmit: () => void;
     isCreating: boolean;
 }
 
-export const NewVoiceModal: React.FC<NewVoiceModalProps> = ({ isOpen, onClose, value, onChange, engine, onEngineChange, onSubmit, isCreating }) => {
+export const NewVoiceModal: React.FC<NewVoiceModalProps> = ({ isOpen, onClose, value, onChange, engine, onEngineChange, voxtralEnabled, onSubmit, isCreating }) => {
     if (!isOpen) return null;
     return (
         <div style={{
@@ -75,7 +76,7 @@ export const NewVoiceModal: React.FC<NewVoiceModalProps> = ({ isOpen, onClose, v
                     <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>ENGINE</label>
                     <select value={engine} onChange={(e) => onEngineChange(e.target.value as VoiceEngine)} style={engineSelectStyle}>
                         <option value="xtts">XTTS</option>
-                        <option value="voxtral">Voxtral</option>
+                        {voxtralEnabled && <option value="voxtral">Voxtral (Cloud)</option>}
                     </select>
                 </div>
 
@@ -176,11 +177,12 @@ interface AddVariantModalProps {
     onChange: (val: string) => void;
     engine: VoiceEngine;
     onEngineChange: (val: VoiceEngine) => void;
+    voxtralEnabled: boolean;
     onSubmit: () => void;
     isAdding: boolean;
 }
 
-export const AddVariantModal: React.FC<AddVariantModalProps> = ({ isOpen, onClose, speakerName, value, onChange, engine, onEngineChange, onSubmit, isAdding }) => {
+export const AddVariantModal: React.FC<AddVariantModalProps> = ({ isOpen, onClose, speakerName, value, onChange, engine, onEngineChange, voxtralEnabled, onSubmit, isAdding }) => {
     if (!isOpen) return null;
     return (
         <div style={{
@@ -229,7 +231,7 @@ export const AddVariantModal: React.FC<AddVariantModalProps> = ({ isOpen, onClos
                     <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>ENGINE</label>
                     <select value={engine} onChange={(e) => onEngineChange(e.target.value as VoiceEngine)} style={engineSelectStyle}>
                         <option value="xtts">XTTS</option>
-                        <option value="voxtral">Voxtral</option>
+                        {voxtralEnabled && <option value="voxtral">Voxtral (Cloud)</option>}
                     </select>
                 </div>
 

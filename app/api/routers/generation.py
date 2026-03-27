@@ -29,6 +29,16 @@ def _mixed_engine_error():
         status_code=409,
     )
 
+
+def _voxtral_disabled_error():
+    return JSONResponse(
+        {
+            "status": "error",
+            "message": "Add a Mistral API key in Settings to enable Voxtral."
+        },
+        status_code=400,
+    )
+
 @router.post("/processing_queue")
 def api_add_to_queue(
     project_id: str = Form(...), 
@@ -97,6 +107,8 @@ def api_add_to_queue(
             )
             if mixed_engines:
                 return _mixed_engine_error()
+            if resolved_engine == "voxtral" and not str(settings.get("mistral_api_key") or "").strip():
+                return _voxtral_disabled_error()
 
             j = Job(
                 id=qid, 
@@ -235,6 +247,8 @@ def api_generate_segments(segment_ids: str = Form(...)):
     )
     if mixed_engines:
         return _mixed_engine_error()
+    if resolved_engine == "voxtral" and not str(settings.get("mistral_api_key") or "").strip():
+        return _voxtral_disabled_error()
 
     jid = f"job-{uuid.uuid4().hex[:8]}"
     job = Job(
