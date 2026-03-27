@@ -76,7 +76,11 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
             : ((p.wav_count || 0) > 0 || !!p.has_latent);
         if (buildingProfiles[p.name]) return { label: 'BUILDING...', color: 'var(--accent)', bg: 'rgba(var(--accent-rgb), 0.1)' };
         if (!hasPreviewInputs && !p.preview_url) return { label: 'NO SAMPLES', color: 'var(--text-muted)', bg: 'var(--surface-alt)' };
-        if (p.is_rebuild_required) return { label: 'REBUILD REQUIRED', color: 'var(--warning-text)', bg: 'rgba(var(--warning-rgb), 0.1)' };
+        if (p.is_rebuild_required) {
+            return engine === 'voxtral'
+                ? { label: 'PREVIEW OUT OF DATE', color: 'var(--warning-text)', bg: 'rgba(var(--warning-rgb), 0.1)' }
+                : { label: 'REBUILD REQUIRED', color: 'var(--warning-text)', bg: 'rgba(var(--warning-rgb), 0.1)' };
+        }
         if (!p.preview_url) return { label: 'BUILD TO TEST', color: 'var(--accent)', bg: 'rgba(var(--accent-rgb), 0.1)' };
         return { label: 'BUILT', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' };
     };

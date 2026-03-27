@@ -217,7 +217,35 @@ describe('Voices Tab Components', () => {
             expect(screen.queryByText('1.00x')).not.toBeInTheDocument();
             expect(screen.queryByText('Rebuild')).not.toBeInTheDocument();
             expect(screen.getByText('BUILD TO TEST')).toBeInTheDocument();
-            expect(screen.getByTitle('Generate Sample')).not.toBeDisabled();
+            expect(screen.getByText('Generate')).toBeInTheDocument();
+            expect(screen.getAllByTitle('Generate Sample').length).toBe(2);
+        });
+
+        it('shows preview-out-of-date status and regenerate action for stale Voxtral previews', () => {
+            render(
+                <NarratorCard
+                    speaker={mockSpeaker}
+                    profiles={[{ ...mockProfile, engine: 'voxtral', preview_url: '/api/preview/vox', voxtral_voice_id: 'voice_123', is_rebuild_required: true }]}
+                    onRefresh={vi.fn()}
+                    onTest={vi.fn()}
+                    onDelete={vi.fn()}
+                    onMoveVariant={vi.fn()}
+                    onEditTestText={vi.fn()}
+                    onBuildNow={vi.fn()}
+                    testProgress={{}}
+                    requestConfirm={vi.fn()}
+                    buildingProfiles={{}}
+                    onAddVariantClick={vi.fn()}
+                    onSetDefaultClick={vi.fn()}
+                    onRenameClick={vi.fn()}
+                    isExpanded={true}
+                    onToggleExpand={vi.fn()}
+                />
+            );
+
+            expect(screen.getByText('PREVIEW OUT OF DATE')).toBeInTheDocument();
+            expect(screen.getByText('Regenerate')).toBeInTheDocument();
+            expect(screen.getByTitle('Play Sample')).not.toBeDisabled();
         });
     });
 

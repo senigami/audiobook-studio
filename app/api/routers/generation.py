@@ -22,14 +22,14 @@ logger = logging.getLogger(__name__)
 
 def _voxtral_configured(settings: Optional[dict] = None) -> bool:
     active_settings = settings or get_settings()
-    return bool(str(active_settings.get("mistral_api_key") or "").strip())
+    return bool(str(active_settings.get("mistral_api_key") or "").strip()) and bool(active_settings.get("voxtral_enabled"))
 
 
 def _voxtral_disabled_error():
     return JSONResponse(
         {
             "status": "error",
-            "message": "Add a Mistral API key in Settings to enable Voxtral."
+            "message": "Enable Voxtral in Settings and add a Mistral API key to use cloud voices."
         },
         status_code=400,
     )

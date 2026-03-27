@@ -328,7 +328,15 @@ def worker_loop(q):
                                 f.name for f in pdir.glob("*.wav")
                                 if f.name not in {"sample.wav", "sample.mp3"}
                             ])
-                            update_speaker_settings(j.speaker_profile, built_samples=raw_wavs)
+                            update_speaker_settings(
+                                j.speaker_profile,
+                                built_samples=raw_wavs,
+                                preview_test_text=spk["test_text"],
+                                preview_engine=engine,
+                                preview_reference_sample=spk.get("reference_sample"),
+                                preview_voxtral_voice_id=spk.get("voxtral_voice_id"),
+                                preview_voxtral_model=spk.get("voxtral_model"),
+                            )
                             on_output(f"Updated build samples for {j.speaker_profile}.\n")
                         except Exception as e:
                             logger.error(f"Error updating build samples for {j.speaker_profile}: {e}")

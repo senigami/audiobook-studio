@@ -85,7 +85,8 @@ def api_home(
 async def save_settings(
     request: Request,
     safe_mode: Optional[Any] = Form(None),
-    make_mp3: Optional[Any] = Form(None)
+    make_mp3: Optional[Any] = Form(None),
+    voxtral_enabled: Optional[Any] = Form(None)
 ):
     updates = {}
 
@@ -102,7 +103,7 @@ async def save_settings(
         try:
             body = await request.json()
             if isinstance(body, dict):
-                for k in ["safe_mode", "make_mp3"]:
+                for k in ["safe_mode", "make_mp3", "voxtral_enabled"]:
                     if k in body:
                         val = to_bool(body[k])
                         if val is not None:
@@ -121,7 +122,7 @@ async def save_settings(
     except Exception:
         form = None
     if form:
-        for k in ["safe_mode", "make_mp3"]:
+        for k in ["safe_mode", "make_mp3", "voxtral_enabled"]:
             if k not in updates and form.get(k) is not None:
                 val = to_bool(form.get(k))
                 if val is not None:
@@ -141,6 +142,17 @@ async def save_settings(
     if "make_mp3" not in updates and make_mp3 is not None:
         val = to_bool(make_mp3)
         if val is not None: updates["make_mp3"] = val
+
+    if "voxtral_enabled" not in updates and voxtral_enabled is not None:
+        val = to_bool(voxtral_enabled)
+        if val is not None: updates["voxtral_enabled"] = val
+
+    if updates and "voxtral_enabled" not in updates and "mistral_api_key" in updates:
+        current_settings = get_settings()
+        had_api_key = bool(str(current_settings.get("mistral_api_key") or "").strip())
+        incoming_api_key = bool(str(updates.get("mistral_api_key") or "").strip())
+        if incoming_api_key and not had_api_key:
+            updates["voxtral_enabled"] = True
 
     if updates:
         update_settings(updates)

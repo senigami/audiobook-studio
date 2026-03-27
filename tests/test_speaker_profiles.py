@@ -261,10 +261,27 @@ def test_get_speaker_settings_infers_variant_from_folder_name(clean_voices):
     settings = get_speaker_settings(name)
     assert settings["variant_name"] == "Angry"
 
-    meta_path = profile_dir / "profile.json"
-    assert meta_path.exists()
-    meta = json.loads(meta_path.read_text())
-    assert meta["variant_name"] == "Angry"
+def test_list_profiles_marks_preview_out_of_date_when_test_script_changes(clean_voices):
+    name = "Preview Drift"
+    profile_dir = clean_voices / name
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "voice.wav").write_text("audio")
+    (profile_dir / "sample.mp3").write_text("preview")
+    (profile_dir / "profile.json").write_text(json.dumps({
+        "variant_name": "Default",
+        "engine": "voxtral",
+        "test_text": "New preview script",
+        "preview_test_text": "Old preview script",
+        "voxtral_voice_id": "voice_123",
+        "preview_voxtral_voice_id": "voice_123",
+    }))
+
+    response = client.get("/api/speaker-profiles")
+
+    assert response.status_code == 200
+    profiles = response.json()
+    assert profiles[0]["name"] == name
+    assert profiles[0]["is_rebuild_required"] is True
 
 def test_get_speaker_settings_prefers_base_folder_over_variant(clean_voices):
     from app.jobs import get_speaker_settings, get_speaker_wavs

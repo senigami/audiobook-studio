@@ -63,7 +63,7 @@ def _normalize_profile_engine(engine: Optional[str]) -> str:
 
 def _voxtral_enabled() -> bool:
     settings = get_settings()
-    return bool(str(settings.get("mistral_api_key") or "").strip())
+    return bool(str(settings.get("mistral_api_key") or "").strip()) and bool(settings.get("voxtral_enabled"))
 
 
 def _voice_dirs_map() -> Dict[str, Path]:
@@ -245,6 +245,20 @@ def list_speaker_profiles():
              is_rebuild_required = True
 
         preview_url = _voice_preview_url(d.name)
+        preview_signature_stale = False
+        if preview_url:
+            preview_signature_stale = (
+                spk_settings.get("preview_test_text") != spk_settings.get("test_text")
+                or spk_settings.get("preview_engine") != spk_settings.get("engine", DEFAULT_PROFILE_ENGINE)
+            )
+            if spk_settings.get("engine") == "voxtral":
+                preview_signature_stale = preview_signature_stale or (
+                    spk_settings.get("preview_reference_sample") != spk_settings.get("reference_sample")
+                    or spk_settings.get("preview_voxtral_voice_id") != spk_settings.get("voxtral_voice_id")
+                    or spk_settings.get("preview_voxtral_model") != spk_settings.get("voxtral_model")
+                )
+        if preview_signature_stale:
+            is_rebuild_required = True
         if not preview_url and len(raw_wavs) > 0:
             is_rebuild_required = True
 

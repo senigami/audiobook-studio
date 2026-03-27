@@ -217,7 +217,7 @@ def test_worker_loop_voxtral_dispatches_handler(mock_q):
          patch("app.jobs.worker.update_job"), \
          patch("app.jobs.worker.get_performance_metrics", return_value={"xtts_cps": 10.0}), \
          patch("app.jobs.worker.get_project_text_dir", create=True) as mock_text_dir, \
-         patch("pathlib.Path.exists", return_value=True), \
+        patch("pathlib.Path.exists", return_value=True), \
          patch("pathlib.Path.read_text", return_value="Hello world"), \
          patch("app.jobs.worker.handle_voxtral_job", return_value="done") as mock_handle, \
          patch("app.jobs.worker._mark_queue_failed") as mock_failed, \

@@ -182,6 +182,11 @@ def get_speaker_settings(profile_name_or_id: str) -> dict:
         "voxtral_voice_id": None,
         "voxtral_model": None,
         "reference_sample": None,
+        "preview_test_text": None,
+        "preview_engine": None,
+        "preview_reference_sample": None,
+        "preview_voxtral_voice_id": None,
+        "preview_voxtral_model": None,
     }
     target_profile = _resolve_existing_profile_name(profile_name_or_id)
     if not target_profile:
@@ -212,6 +217,16 @@ def get_speaker_settings(profile_name_or_id: str) -> dict:
         res["voxtral_model"] = meta["voxtral_model"]
     if "reference_sample" in meta:
         res["reference_sample"] = meta["reference_sample"]
+    if "preview_test_text" in meta:
+        res["preview_test_text"] = meta["preview_test_text"]
+    if "preview_engine" in meta:
+        res["preview_engine"] = meta["preview_engine"]
+    if "preview_reference_sample" in meta:
+        res["preview_reference_sample"] = meta["preview_reference_sample"]
+    if "preview_voxtral_voice_id" in meta:
+        res["preview_voxtral_voice_id"] = meta["preview_voxtral_voice_id"]
+    if "preview_voxtral_model" in meta:
+        res["preview_voxtral_model"] = meta["preview_voxtral_model"]
 
     return res
 

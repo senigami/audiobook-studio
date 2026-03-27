@@ -12,7 +12,7 @@ describe('VoicesTab', () => {
         onRefresh: vi.fn(),
         speakerProfiles: mockProfiles,
         testProgress: {},
-        settings: { safe_mode: true, make_mp3: false, default_engine: 'xtts', mistral_api_key: 'key' } as any
+        settings: { safe_mode: true, make_mp3: false, default_engine: 'xtts', mistral_api_key: 'key', voxtral_enabled: true } as any
     }
 
     beforeEach(() => {
@@ -170,7 +170,7 @@ describe('VoicesTab', () => {
 
     it('hides Voxtral voices and filters when no API key is configured', async () => {
         await act(async () => {
-            render(<VoicesTab {...mockProps} settings={{ safe_mode: true, make_mp3: false, default_engine: 'xtts' }} />)
+            render(<VoicesTab {...mockProps} settings={{ safe_mode: true, make_mp3: false, default_engine: 'xtts', voxtral_enabled: false }} />)
         })
 
         expect(screen.getByText('Narrator1')).toBeInTheDocument()

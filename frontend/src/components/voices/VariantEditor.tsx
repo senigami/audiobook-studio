@@ -30,6 +30,12 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
     onEditTestText, onBuildNow, requestConfirm, testStatus,
     voiceName, showControlsInline = false, buildingProfiles
 }) => {
+    const engine = profile.engine || 'xtts';
+    const isVoxtral = engine === 'voxtral';
+    const hasSamples = (profile.wav_count || 0) > 0;
+    const hasReferenceMaterial = hasSamples || !!profile.has_latent || !!profile.voxtral_voice_id;
+    const canPreviewOrGenerate = !!profile.preview_url || hasReferenceMaterial;
+
     const {
         localSpeed,
         setLocalSpeed,
@@ -41,6 +47,7 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
         audioRef,
         sampleAudioRef,
         handlePlayClick,
+        handleGeneratePreview,
         handlePlaySample,
         handleSpeedChange,
         handleDeleteSample,
@@ -48,13 +55,8 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
     } = useVariantActions(profile, onRefresh, onTest, requestConfirm);
 
     const isBuilding = buildingProfiles[profile.name];
-    const engine = profile.engine || 'xtts';
-    const isVoxtral = engine === 'voxtral';
     const speedPillRef = useRef<HTMLButtonElement>(null);
     const speed = localSpeed ?? profile.speed;
-    const hasSamples = (profile.wav_count || 0) > 0;
-    const hasReferenceMaterial = hasSamples || !!profile.has_latent || !!profile.voxtral_voice_id;
-    const canPreviewOrGenerate = !!profile.preview_url || hasReferenceMaterial;
     const playIconColor = isPlaying ? 'var(--surface)' : 'var(--text-primary)';
     const engineBadge = {
         label: isVoxtral ? 'Voxtral' : 'XTTS',
@@ -291,6 +293,39 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                             )}
                         </button>
                     )}
+
+                    {isVoxtral && (
+                        <button
+                            disabled={!hasReferenceMaterial || isTesting}
+                            className={isRebuildRequired ? "btn-primary" : "btn-ghost hover-bg-subtle"}
+                            onClick={handleGeneratePreview}
+                            title={!hasReferenceMaterial ? "Add a reference sample or saved voice id before generating a Voxtral preview" : profile.preview_url ? "Regenerate Sample" : "Generate Sample"}
+                            style={{
+                                padding: '8px 12px',
+                                height: '36px',
+                                borderRadius: '10px',
+                                fontSize: '0.85rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                ...(isRebuildRequired ? {} : { background: 'var(--surface)', border: '1px solid var(--border)' }),
+                                minWidth: '128px',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            {isTesting ? (
+                                <>
+                                    <RefreshCw size={16} className="animate-spin" />
+                                    Regenerating...
+                                </>
+                            ) : (
+                                <>
+                                    <RefreshCw size={16} />
+                                    {profile.preview_url ? 'Regenerate' : 'Generate'}
+                                </>
+                            )}
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -301,7 +336,7 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                     fontSize: '0.82rem',
                     lineHeight: 1.5
                 }}>
-                    Voxtral profiles use reference audio or a saved voice id instead of XTTS rebuild and speed tuning. Add a reference sample or saved voice id in the script editor drawer, then use the play button here to generate a fresh preview.
+                    Voxtral profiles use reference audio or a saved voice id instead of XTTS latent rebuilds. Use play to hear the current preview, and use regenerate when you want to refresh that preview after changing the script or reference settings.
                 </div>
             )}
 

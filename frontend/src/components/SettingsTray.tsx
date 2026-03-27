@@ -20,7 +20,8 @@ export const SettingsTray: React.FC<SettingsTrayProps> = ({
     const [saving, setSaving] = useState(false);
     const [mistralApiKey, setMistralApiKey] = useState('');
     const [voxtralModel, setVoxtralModel] = useState('voxtral-mini-tts-2603');
-    const voxtralEnabled = useMemo(() => !!settings?.mistral_api_key?.trim(), [settings?.mistral_api_key]);
+    const voxtralConfigured = useMemo(() => !!settings?.mistral_api_key?.trim(), [settings?.mistral_api_key]);
+    const voxtralEnabled = !!settings?.voxtral_enabled && voxtralConfigured;
 
     useEffect(() => {
         setMistralApiKey(settings?.mistral_api_key || '');
@@ -47,11 +48,30 @@ export const SettingsTray: React.FC<SettingsTrayProps> = ({
             const formData = new URLSearchParams();
             formData.append('mistral_api_key', mistralApiKey.trim());
             formData.append('voxtral_model', voxtralModel.trim() || 'voxtral-mini-tts-2603');
+            formData.append('voxtral_enabled', ((settings?.voxtral_enabled ?? false) && !!mistralApiKey.trim()).toString());
             await fetch('/settings', { method: 'POST', body: formData });
             onRefresh();
-            onShowNotification?.(mistralApiKey.trim() ? 'Voxtral cloud voices unlocked.' : 'Voxtral hidden until a Mistral API key is added.');
+            onShowNotification?.(mistralApiKey.trim() ? 'Mistral API settings saved.' : 'Mistral key cleared. Voxtral is now hidden.');
         } catch (e) {
             console.error('Failed to save Voxtral settings', e);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleToggleVoxtral = async () => {
+        if (!voxtralConfigured) {
+            onShowNotification?.('Add a Mistral API key before turning Voxtral on.');
+            return;
+        }
+        setSaving(true);
+        try {
+            const formData = new URLSearchParams();
+            formData.append('voxtral_enabled', (!settings?.voxtral_enabled).toString());
+            await fetch('/settings', { method: 'POST', body: formData });
+            onRefresh();
+        } catch (e) {
+            console.error('Failed to update Voxtral toggle', e);
         } finally {
             setSaving(false);
         }
@@ -216,29 +236,23 @@ export const SettingsTray: React.FC<SettingsTrayProps> = ({
                                             <div>
                                                 <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>Voxtral Cloud Voices</div>
                                                 <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                                                    {voxtralEnabled ? 'Enabled in Voices' : 'Hidden until a key is added'}
+                                                    {voxtralEnabled ? 'Visible in Voices' : voxtralConfigured ? 'Saved but hidden' : 'Hidden until a key is added'}
                                                 </div>
                                             </div>
                                         </div>
-                                        <span
-                                            style={{
-                                                fontSize: '0.65rem',
-                                                fontWeight: 800,
-                                                letterSpacing: '0.04em',
-                                                color: voxtralEnabled ? '#0ea5e9' : 'var(--text-muted)',
-                                                background: voxtralEnabled ? 'rgba(14, 165, 233, 0.12)' : 'rgba(148, 163, 184, 0.12)',
-                                                borderRadius: '999px',
-                                                padding: '4px 8px'
-                                            }}
+                                        <button
+                                            onClick={handleToggleVoxtral}
+                                            className={voxtralEnabled ? 'btn-primary' : 'btn-glass'}
+                                            style={{ fontSize: '0.65rem', padding: '4px 10px', borderRadius: '6px', minWidth: '42px' }}
                                         >
                                             {voxtralEnabled ? 'ON' : 'OFF'}
-                                        </span>
+                                        </button>
                                     </div>
 
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.72rem', lineHeight: 1.5 }}>
                                         <CircleHelp size={14} />
                                         <span>
-                                            Create a Mistral API key in your workspace settings, then paste it here to unlock Voxtral. Voxtral requests are processed by Mistral instead of staying fully local.
+                                            Create a Mistral API key in your workspace settings, paste it here, then turn Voxtral on when you want cloud voices available. Voxtral requests are processed by Mistral instead of staying fully local.
                                         </span>
                                     </div>
 

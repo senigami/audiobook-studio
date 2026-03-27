@@ -27,7 +27,7 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
         isAlert?: boolean;
     } | null>(null);
 
-    const voxtralEnabled = !!settings?.mistral_api_key?.trim();
+    const voxtralEnabled = !!settings?.mistral_api_key?.trim() && !!settings?.voxtral_enabled;
     const visibleSpeakerProfiles = useMemo(() => (
         voxtralEnabled
             ? speakerProfiles
