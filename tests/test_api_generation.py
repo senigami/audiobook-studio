@@ -109,3 +109,59 @@ def test_queue_chapter_preserves_rendered_segment_history(clean_db, client, tmp_
         assert refreshed[0]["audio_status"] == "done"
         assert refreshed[0]["audio_file_path"] == rendered_name
         assert refreshed[1]["audio_status"] == "unprocessed"
+
+
+def test_queue_chapter_resolves_voxtral_engine_from_profile(clean_db, client):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.segments import sync_chapter_segments
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "Hello world.")
+    sync_chapter_segments(cid, "Hello world.")
+
+    with patch("app.api.routers.generation.put_job") as mock_put_job, \
+         patch("app.api.routers.generation.enqueue"), \
+         patch("app.jobs.speaker.get_speaker_settings", return_value={"engine": "voxtral"}):
+        response = client.post("/api/processing_queue", data={"project_id": pid, "chapter_id": cid, "speaker_profile": "Voice1"})
+        assert response.status_code == 200
+        job = mock_put_job.call_args.args[0]
+        assert job.engine == "voxtral"
+
+
+def test_queue_chapter_rejects_mixed_engines(clean_db, client):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.segments import sync_chapter_segments
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "Hello world. Goodbye world.")
+    sync_chapter_segments(cid, "Hello world. Goodbye world.")
+
+    with patch("app.api.routers.generation.get_chapter_segments", return_value=[
+        {"speaker_profile_name": "XTTS Voice", "audio_status": "unprocessed", "audio_file_path": None},
+        {"speaker_profile_name": "Voxtral Voice", "audio_status": "unprocessed", "audio_file_path": None},
+    ]), \
+         patch("app.jobs.speaker.get_speaker_settings", side_effect=lambda name: {"engine": "voxtral" if "Voxtral" in (name or "") else "xtts"}):
+        response = client.post("/api/processing_queue", data={"project_id": pid, "chapter_id": cid, "speaker_profile": "XTTS Voice"})
+        assert response.status_code == 409
+
+
+def test_generate_segments_resolves_voxtral_engine(clean_db, client):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.segments import sync_chapter_segments, get_chapter_segments
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "Hello world.")
+    sync_chapter_segments(cid, "Hello world.")
+    segs = get_chapter_segments(cid)
+    sid = segs[0]['id']
+
+    with patch("app.api.routers.generation.put_job") as mock_put_job, \
+         patch("app.api.routers.generation.enqueue"), \
+         patch("app.jobs.speaker.get_speaker_settings", return_value={"engine": "voxtral"}):
+        response = client.post("/api/segments/generate", data={"segment_ids": sid})
+        assert response.status_code == 200
+        job = mock_put_job.call_args.args[0]
+        assert job.engine == "voxtral"

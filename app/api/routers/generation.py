@@ -13,10 +13,21 @@ from ...jobs import enqueue, cancel as cancel_job_worker, set_paused, clear_job_
 from ...models import Job
 from ...state import put_job, update_job, get_settings, get_jobs
 from ...config import XTTS_OUT_DIR, find_existing_project_dir, find_existing_project_subdir
+from ...voice_engines import resolve_tts_engine_for_profiles, normalize_tts_engine
 from ..ws import broadcast_queue_update
 
 router = APIRouter(prefix="/api", tags=["generation"])
 logger = logging.getLogger(__name__)
+
+
+def _mixed_engine_error():
+    return JSONResponse(
+        {
+            "status": "error",
+            "message": "This render uses voices from multiple engines. Mixed-engine rendering is planned in a later issue."
+        },
+        status_code=409,
+    )
 
 @router.post("/processing_queue")
 def api_add_to_queue(
@@ -29,6 +40,7 @@ def api_add_to_queue(
         active_profile = speaker_profile or get_settings().get("default_speaker_profile")
         if not active_profile:
             return JSONResponse({"status": "error", "message": "No speaker profile selected and no default set. Please choose a voice first."}, status_code=400)
+        settings = get_settings()
 
         qid = db_add_to_queue(project_id, chapter_id, split_part)
         if not qid:
@@ -78,17 +90,24 @@ def api_add_to_queue(
                 )
                 for s in segs
             )
+            resolved_engine, mixed_engines = resolve_tts_engine_for_profiles(
+                [s.get("speaker_profile_name") for s in segs],
+                default_profile=active_profile,
+                fallback_engine=settings.get("default_engine"),
+            )
+            if mixed_engines:
+                return _mixed_engine_error()
 
             j = Job(
                 id=qid, 
                 project_id=project_id,
                 chapter_id=chapter_id,
-                engine="xtts",
+                engine=resolved_engine,
                 chapter_file=temp_filename, 
                 status="queued",
                 created_at=time.time(),
-                safe_mode=bool(get_settings().get("safe_mode", True)),
-                make_mp3=bool(get_settings().get("make_mp3", False)),
+                safe_mode=bool(settings.get("safe_mode", True)),
+                make_mp3=bool(settings.get("make_mp3", False)),
                 bypass_pause=False,
                 custom_title=title,
                 speaker_profile=active_profile,
@@ -117,9 +136,10 @@ def api_bake_chapter(chapter_id: str):
         id=jid,
         chapter_id=chapter_id,
         chapter_file="", # Required by model
-        engine="bake",
+        engine="xtts",
         status="queued",
         created_at=time.time(),
+        is_bake=True,
         bypass_pause=True
     )
     put_job(j)
@@ -171,7 +191,7 @@ def enqueue_single(chapter_file: str = Form(...), engine: str = Form("xtts")):
     j = Job(
         id=jid,
         chapter_file=chapter_file,
-        engine=engine,
+        engine=normalize_tts_engine(engine, engine),
         status="queued",
         created_at=time.time(),
         speaker_profile=get_settings().get("default_speaker_profile")
@@ -203,23 +223,30 @@ def api_generate_segments(segment_ids: str = Form(...)):
         project_id = chap['project_id']
         chapter_title = chap['title']
 
-    from ...jobs import enqueue
-    from ...models import Job
-    from ...state import put_job, get_settings
     import uuid
     import time
+
+    settings = get_settings()
+    requested_segments = [s for s in get_chapter_segments(chapter_id) if s["id"] in set(sids)]
+    resolved_engine, mixed_engines = resolve_tts_engine_for_profiles(
+        [s.get("speaker_profile_name") for s in requested_segments],
+        default_profile=settings.get("default_speaker_profile"),
+        fallback_engine=settings.get("default_engine"),
+    )
+    if mixed_engines:
+        return _mixed_engine_error()
 
     jid = f"job-{uuid.uuid4().hex[:8]}"
     job = Job(
         id=jid,
-        engine="xtts",
+        engine=resolved_engine,
         chapter_file=f"{chapter_title}.txt", # Fallback name
         status="queued",
         created_at=time.time(),
         project_id=project_id,
         chapter_id=chapter_id,
         segment_ids=sids,
-        speaker_profile=get_settings().get("default_speaker_profile")
+        speaker_profile=settings.get("default_speaker_profile")
     )
 
     # Physical Cleanup: Delete existing full-chapter audio files to prevent reconciliation "blink"

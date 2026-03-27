@@ -199,6 +199,41 @@ def test_worker_loop_xtts_bake(mock_q, sample_job):
 
         assert mock_conn.called
 
+
+def test_worker_loop_voxtral_dispatches_placeholder_handler(mock_q):
+    sample_job = Job(
+        id="voxtral_job",
+        engine="voxtral",
+        chapter_file="chapter1.txt",
+        chapter_id="chap_1",
+        status="queued",
+        created_at=time.time(),
+        project_id="proj_1",
+        speaker_profile="Voice1"
+    )
+    mock_q.get.side_effect = ["voxtral_job", Exception("StopLoop")]
+
+    with patch("app.jobs.worker.get_jobs", return_value={"voxtral_job": sample_job}), \
+         patch("app.jobs.worker.update_job"), \
+         patch("app.jobs.worker.get_performance_metrics", return_value={"xtts_cps": 10.0}), \
+         patch("app.jobs.worker.get_project_text_dir", create=True) as mock_text_dir, \
+         patch("pathlib.Path.exists", return_value=True), \
+         patch("pathlib.Path.read_text", return_value="Hello world"), \
+         patch("app.jobs.worker.handle_voxtral_job", return_value="not_implemented") as mock_handle, \
+         patch("app.jobs.worker._mark_queue_failed") as mock_failed, \
+         patch("app.jobs.worker._output_exists", return_value=False):
+
+        mock_text_dir.return_value = Path("/tmp")
+
+        try:
+            worker_loop(mock_q)
+        except Exception as e:
+            if str(e) != "StopLoop":
+                raise e
+
+        assert mock_handle.called
+        mock_failed.assert_called_once()
+
 def test_worker_loop_skipped_or_failed(mock_q, sample_job):
     """Test skipped and failed scenarios in worker_loop."""
     # 1. Skipped (output exists)

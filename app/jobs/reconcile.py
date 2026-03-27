@@ -25,7 +25,7 @@ def _output_exists(engine: str, chapter_file: str, project_id: str = None, make_
         except ValueError:
             return False
 
-    if engine == "xtts":
+    if engine in ("xtts", "voxtral"):
         if project_id:
             from ..config import get_project_audio_dir
             pdir = get_project_audio_dir(project_id)

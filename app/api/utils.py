@@ -41,7 +41,7 @@ def output_exists(engine: str, chapter_file: str):
     if not SAFE_FILE_RE.fullmatch(chapter_file):
         return False
     chapter_name = Path(chapter_file).stem
-    if engine == "xtts":
+    if engine in ("xtts", "voxtral"):
         return (config.XTTS_OUT_DIR / f"{chapter_name}.wav").exists() or (config.XTTS_OUT_DIR / f"{chapter_name}.mp3").exists()
     elif engine == "audiobook":
         return (config.AUDIOBOOK_DIR / f"{chapter_name}.m4b").exists()
