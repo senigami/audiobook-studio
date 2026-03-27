@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Optional
 from ..config import VOICES_DIR
 from ..state import get_settings
-from ..db.speakers import infer_variant_name, normalize_profile_metadata
+from ..db.speakers import infer_variant_name, normalize_profile_metadata, DEFAULT_PROFILE_ENGINE
 
 logger = logging.getLogger(__name__)
 SAFE_PROFILE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
@@ -147,7 +147,11 @@ def get_speaker_settings(profile_name_or_id: str) -> dict:
         "test_text": DEFAULT_SPEAKER_TEST_TEXT,
         "speaker_id": None,
         "variant_name": None,
-        "built_samples": []
+        "built_samples": [],
+        "engine": DEFAULT_PROFILE_ENGINE,
+        "voxtral_voice_id": None,
+        "voxtral_model": None,
+        "reference_sample": None,
     }
     target_profile = _resolve_existing_profile_name(profile_name_or_id)
     if not target_profile:
@@ -175,11 +179,20 @@ def get_speaker_settings(profile_name_or_id: str) -> dict:
             meta = normalize_profile_metadata(target_profile, meta, persist=True)
             if "variant_name" in meta:
                 res["variant_name"] = meta["variant_name"]
+            if "engine" in meta:
+                res["engine"] = meta["engine"]
+            if "voxtral_voice_id" in meta:
+                res["voxtral_voice_id"] = meta["voxtral_voice_id"]
+            if "voxtral_model" in meta:
+                res["voxtral_model"] = meta["voxtral_model"]
+            if "reference_sample" in meta:
+                res["reference_sample"] = meta["reference_sample"]
         except Exception:
             logger.warning("Failed to read speaker metadata from %s", meta_path, exc_info=True)
     else:
         meta = normalize_profile_metadata(target_profile, {}, persist=True)
         res["variant_name"] = meta.get("variant_name") or infer_variant_name(target_profile)
+        res["engine"] = meta.get("engine", DEFAULT_PROFILE_ENGINE)
 
     return res
 

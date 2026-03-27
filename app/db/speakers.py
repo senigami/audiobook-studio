@@ -9,6 +9,8 @@ from .core import _db_lock, get_connection
 
 logger = logging.getLogger(__name__)
 SAFE_PROFILE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
+DEFAULT_PROFILE_ENGINE = "xtts"
+VALID_PROFILE_ENGINES = {DEFAULT_PROFILE_ENGINE, "voxtral"}
 
 
 def _profile_name_or_error(profile_name: str) -> str:
@@ -48,6 +50,8 @@ def normalize_profile_metadata(profile_name: str, meta: Optional[Dict[str, Any]]
     meta = dict(meta or {})
     if "variant_name" not in meta or not meta.get("variant_name"):
         meta["variant_name"] = infer_variant_name(profile_name)
+    if meta.get("engine") not in VALID_PROFILE_ENGINES:
+        meta["engine"] = DEFAULT_PROFILE_ENGINE
 
     if persist:
         profile_dir = _existing_profile_dir(config.VOICES_DIR, profile_name)

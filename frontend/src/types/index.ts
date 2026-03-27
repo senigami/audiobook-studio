@@ -1,4 +1,5 @@
 export type Engine = 'xtts' | 'audiobook' | 'voice_build' | 'voice_test';
+export type VoiceEngine = 'xtts' | 'voxtral';
 
 export type Status = 'queued' | 'preparing' | 'running' | 'finalizing' | 'done' | 'failed' | 'cancelled' | 'error';
 
@@ -85,6 +86,10 @@ export interface SpeakerProfile {
   test_text?: string;
   speaker_id: string | null;
   variant_name: string | null;
+  engine?: VoiceEngine;
+  voxtral_voice_id?: string | null;
+  voxtral_model?: string | null;
+  reference_sample?: string | null;
   preview_url: string | null;
   has_latent?: boolean;
   is_rebuild_required?: boolean;

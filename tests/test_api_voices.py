@@ -53,12 +53,13 @@ def test_list_speaker_profiles(clean_db, voices_root, client):
     (voices_dir / "SpeakerA").mkdir()
     (voices_dir / "SpeakerA" / "v1.wav").write_text("audio")
 
-    with patch("app.api.routers.voices.get_speaker_settings", return_value={"built_samples": [], "speed": 1.0, "test_text": ""}):
+    with patch("app.api.routers.voices.get_speaker_settings", return_value={"built_samples": [], "speed": 1.0, "test_text": "", "engine": "xtts"}):
         response = client.get("/api/speaker-profiles")
         assert response.status_code == 200
         data = response.json()
         assert len(data) == 1
         assert data[0]["name"] == "SpeakerA"
+        assert data[0]["engine"] == "xtts"
 
 def test_create_and_delete_profile(clean_db, voices_root, client):
     voices_dir = voices_root
@@ -74,6 +75,41 @@ def test_create_and_delete_profile(clean_db, voices_root, client):
     response = client.delete(f"/api/speaker-profiles/{name}")
     assert response.status_code == 200
     assert not (voices_dir / name).exists()
+
+
+def test_create_profile_persists_engine_metadata(clean_db, voices_root, client):
+    voices_root.mkdir()
+
+    response = client.post("/api/speaker-profiles", data={"speaker_id": "S1", "variant_name": "Vox", "engine": "voxtral"})
+    assert response.status_code == 200
+
+    name = response.json()["name"]
+    meta = json.loads((voices_root / name / "profile.json").read_text())
+    assert meta["engine"] == "voxtral"
+
+
+def test_update_profile_engine(clean_db, voices_root, client):
+    voices_root.mkdir()
+    profile_dir = voices_root / "SpeakerA"
+    profile_dir.mkdir()
+    (profile_dir / "profile.json").write_text(json.dumps({"variant_name": "Default"}))
+
+    response = client.post("/api/speaker-profiles/SpeakerA/engine", data={"engine": "voxtral"})
+    assert response.status_code == 200
+    assert response.json()["engine"] == "voxtral"
+
+    meta = json.loads((profile_dir / "profile.json").read_text())
+    assert meta["engine"] == "voxtral"
+
+
+def test_update_profile_engine_rejects_invalid_value(clean_db, voices_root, client):
+    voices_root.mkdir()
+    profile_dir = voices_root / "SpeakerA"
+    profile_dir.mkdir()
+    (profile_dir / "profile.json").write_text(json.dumps({"variant_name": "Default"}))
+
+    response = client.post("/api/speaker-profiles/SpeakerA/engine", data={"engine": "bad-engine"})
+    assert response.status_code == 400
 
 def test_character_crud(clean_db, client):
     from app.db.projects import create_project
@@ -232,6 +268,9 @@ def test_profile_creation_errors(clean_db, voices_root, client):
     with patch("app.api.routers.voices.Path.mkdir", side_effect=Exception("boom")):
         response = client.post("/api/speaker-profiles", data={"speaker_id": "Err", "variant_name": "V1"})
         assert response.status_code == 500
+
+    response = client.post("/api/speaker-profiles", data={"speaker_id": "Err", "variant_name": "V1", "engine": "bad-engine"})
+    assert response.status_code == 400
 
 def test_rename_speaker_with_variants(clean_db, voices_root, client):
     voices_dir = voices_root

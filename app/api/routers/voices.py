@@ -15,7 +15,12 @@ from ...db import (
     list_speakers, create_speaker, get_speaker, update_speaker, delete_speaker,
     update_voice_profile_references
 )
-from ...db.speakers import infer_variant_name, normalize_profile_metadata
+from ...db.speakers import (
+    infer_variant_name,
+    normalize_profile_metadata,
+    DEFAULT_PROFILE_ENGINE,
+    VALID_PROFILE_ENGINES,
+)
 from ...jobs import (
     enqueue, get_speaker_settings, update_speaker_settings, 
     DEFAULT_SPEAKER_TEST_TEXT
@@ -47,6 +52,13 @@ def _valid_sample_name(sample_name: str) -> str:
     if not SAFE_SAMPLE_NAME_RE.fullmatch(sample_name):
         raise ValueError(f"Invalid sample name: {sample_name}")
     return sample_name
+
+
+def _normalize_profile_engine(engine: Optional[str]) -> str:
+    normalized = (engine or DEFAULT_PROFILE_ENGINE).strip().lower()
+    if normalized not in VALID_PROFILE_ENGINES:
+        raise ValueError(f"Invalid profile engine: {engine}")
+    return normalized
 
 
 def _voice_dirs_map() -> Dict[str, Path]:
@@ -167,7 +179,8 @@ def _ensure_default_speaker_profile(speaker_id: str, speaker_name: str, default_
     meta["variant_name"] = infer_variant_name(profile_name)
     if "speed" not in meta:
         meta["speed"] = 1.0
-    meta_path.write_text(json.dumps(meta, indent=2))
+    normalized_meta = normalize_profile_metadata(profile_name, meta, persist=False)
+    meta_path.write_text(json.dumps(normalized_meta, indent=2))
 
     return profile_name
 
@@ -221,6 +234,10 @@ def list_speaker_profiles():
             "test_text": spk_settings["test_text"],
             "speaker_id": spk_settings.get("speaker_id"),
             "variant_name": spk_settings.get("variant_name"),
+            "engine": spk_settings.get("engine", DEFAULT_PROFILE_ENGINE),
+            "voxtral_voice_id": spk_settings.get("voxtral_voice_id"),
+            "voxtral_model": spk_settings.get("voxtral_model"),
+            "reference_sample": spk_settings.get("reference_sample"),
             "preview_url": preview_url,
             "has_latent": _voice_has_latent(d.name),
         })
@@ -230,9 +247,11 @@ def list_speaker_profiles():
 def api_create_speaker_profile(
     speaker_id: str = Form(...),
     variant_name: str = Form(...),
+    engine: str = Form(DEFAULT_PROFILE_ENGINE),
 ):
-    logger.info(f"Creating profile for speaker_id='{speaker_id}', variant_name='{variant_name}'")
+    logger.info(f"Creating profile for speaker_id='{speaker_id}', variant_name='{variant_name}', engine='{engine}'")
     try:
+        normalized_engine = _normalize_profile_engine(engine)
         # Try to use speaker name instead of ID if possible for folder name
         spk = get_speaker(speaker_id)
         spk_name = spk["name"] if spk else speaker_id
@@ -248,8 +267,10 @@ def api_create_speaker_profile(
 
         path.mkdir(parents=True, exist_ok=True)
         # Record speaker_id (could be a UUID or a name for unassigned)
-        update_speaker_settings(name, speaker_id=speaker_id, variant_name=variant_name)
+        update_speaker_settings(name, speaker_id=speaker_id, variant_name=variant_name, engine=normalized_engine)
         return JSONResponse({"status": "ok", "name": name})
+    except ValueError:
+        return JSONResponse({"status": "error", "message": "Invalid profile engine"}, status_code=400)
     except Exception as e:
         logger.error(f"Error creating profile {speaker_id}/{variant_name}: {e}")
         return JSONResponse({"status": "error", "message": "Creation failed"}, status_code=500)
@@ -485,6 +506,19 @@ def update_speaker_variant_name(name: str, variant_name: str = Form(...)):
     clean_variant_name = (variant_name or "").strip() or "Default"
     update_speaker_settings(name, variant_name=None if clean_variant_name == "Default" else clean_variant_name)
     return JSONResponse({"status": "ok", "variant_name": clean_variant_name})
+
+
+@router.post("/api/speaker-profiles/{name}/engine")
+def update_speaker_engine(name: str, engine: str = Form(...)):
+    try:
+        normalized_engine = _normalize_profile_engine(engine)
+    except ValueError:
+        return JSONResponse({"status": "error", "message": "Invalid profile engine"}, status_code=400)
+
+    if not update_speaker_settings(name, engine=normalized_engine):
+        return JSONResponse({"status": "error", "message": "Profile not found"}, status_code=404)
+
+    return JSONResponse({"status": "ok", "engine": normalized_engine})
 
 @router.post("/api/speaker-profiles/{name}/build")
 async def build_speaker_profile(

@@ -294,10 +294,12 @@ def test_speaker_listing_normalizes_base_profile_to_default(clean_voices):
         base_profile = next(p for p in profiles_response.json() if p["name"] == "Dracula Test Normalize")
         assert base_profile["variant_name"] == "Default"
         assert base_profile["speaker_id"] == speaker_id
+        assert base_profile["engine"] == "xtts"
 
         meta = json.loads((base_dir / "profile.json").read_text())
         assert meta["variant_name"] == "Default"
         assert meta["speaker_id"] == speaker_id
+        assert meta["engine"] == "xtts"
     finally:
         delete_speaker(speaker_id)
 
