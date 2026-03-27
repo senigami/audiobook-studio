@@ -19,6 +19,9 @@ vi.mock('../../hooks/useVoiceManagement', () => ({
     handleTest: vi.fn(),
     handleBuildNow: vi.fn(),
     handleDelete: vi.fn(),
+    handleUpdateEngine: vi.fn(),
+    handleUpdateReferenceSample: vi.fn(),
+    handleUpdateVoxtralVoiceId: vi.fn(),
     formatError: (e: any) => e.message,
   }),
 }));
@@ -35,6 +38,7 @@ describe('Voices Tab Components', () => {
         speed: 1.0,
         wav_count: 1,
         is_default: true,
+        engine: 'xtts',
         preview_url: '/api/preview/1',
         is_rebuild_required: false,
         test_text: 'Test script'
@@ -101,6 +105,7 @@ describe('Voices Tab Components', () => {
 
             expect(screen.getByText('Speaker One')).toBeInTheDocument();
             expect(screen.getByText('Default')).toBeInTheDocument();
+            expect(screen.getAllByText('XTTS').length).toBeGreaterThan(0);
         });
 
         it('disables play and rebuild actions when no samples exist', () => {
@@ -184,6 +189,33 @@ describe('Voices Tab Components', () => {
             );
 
             expect(screen.getByText('1.00x')).toBeInTheDocument();
+        });
+
+        it('shows Voxtral badge and hides XTTS-only controls for Voxtral profiles', () => {
+            render(
+                <NarratorCard
+                    speaker={mockSpeaker}
+                    profiles={[{ ...mockProfile, engine: 'voxtral', preview_url: null }]}
+                    onRefresh={vi.fn()}
+                    onTest={vi.fn()}
+                    onDelete={vi.fn()}
+                    onMoveVariant={vi.fn()}
+                    onEditTestText={vi.fn()}
+                    onBuildNow={vi.fn()}
+                    testProgress={{}}
+                    requestConfirm={vi.fn()}
+                    buildingProfiles={{}}
+                    onAddVariantClick={vi.fn()}
+                    onSetDefaultClick={vi.fn()}
+                    onRenameClick={vi.fn()}
+                    isExpanded={true}
+                    onToggleExpand={vi.fn()}
+                />
+            );
+
+            expect(screen.getAllByText('Voxtral').length).toBeGreaterThan(0);
+            expect(screen.queryByText('1.00x')).not.toBeInTheDocument();
+            expect(screen.queryByText('Rebuild')).not.toBeInTheDocument();
         });
     });
 

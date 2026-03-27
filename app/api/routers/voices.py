@@ -520,6 +520,33 @@ def update_speaker_engine(name: str, engine: str = Form(...)):
 
     return JSONResponse({"status": "ok", "engine": normalized_engine})
 
+
+@router.post("/api/speaker-profiles/{name}/reference-sample")
+def update_speaker_reference_sample(name: str, sample_name: str = Form("")):
+    clean_sample = (sample_name or "").strip() or None
+
+    if clean_sample:
+        try:
+            sample_path = _existing_voice_sample_path(name, clean_sample)
+        except ValueError:
+            return JSONResponse({"status": "error", "message": "Invalid sample name"}, status_code=403)
+        if not sample_path:
+            return JSONResponse({"status": "error", "message": "Sample not found"}, status_code=404)
+
+    if not update_speaker_settings(name, reference_sample=clean_sample):
+        return JSONResponse({"status": "error", "message": "Profile not found"}, status_code=404)
+
+    return JSONResponse({"status": "ok", "reference_sample": clean_sample})
+
+
+@router.post("/api/speaker-profiles/{name}/voxtral-voice-id")
+def update_speaker_voxtral_voice_id(name: str, voice_id: str = Form("")):
+    clean_voice_id = (voice_id or "").strip() or None
+    if not update_speaker_settings(name, voxtral_voice_id=clean_voice_id):
+        return JSONResponse({"status": "error", "message": "Profile not found"}, status_code=404)
+
+    return JSONResponse({"status": "ok", "voxtral_voice_id": clean_voice_id})
+
 @router.post("/api/speaker-profiles/{name}/build")
 async def build_speaker_profile(
     name: str,

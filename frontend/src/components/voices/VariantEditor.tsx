@@ -48,12 +48,19 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
     } = useVariantActions(profile, onRefresh, onTest, requestConfirm);
 
     const isBuilding = buildingProfiles[profile.name];
+    const engine = profile.engine || 'xtts';
+    const isVoxtral = engine === 'voxtral';
     const speedPillRef = useRef<HTMLButtonElement>(null);
     const speed = localSpeed ?? profile.speed;
     const hasSamples = (profile.wav_count || 0) > 0;
-    const hasReferenceMaterial = hasSamples || !!profile.has_latent;
-    const canPreviewOrGenerate = !!profile.preview_url || hasReferenceMaterial;
+    const hasReferenceMaterial = hasSamples || !!profile.has_latent || !!profile.voxtral_voice_id;
+    const canPreviewOrGenerate = !!profile.preview_url || (!isVoxtral && hasReferenceMaterial);
     const playIconColor = isPlaying ? 'var(--surface)' : 'var(--text-primary)';
+    const engineBadge = {
+        label: isVoxtral ? 'Voxtral' : 'XTTS',
+        bg: isVoxtral ? 'rgba(14, 165, 233, 0.12)' : 'rgba(var(--accent-rgb), 0.12)',
+        color: isVoxtral ? '#0ea5e9' : 'var(--accent)'
+    };
 
     useEffect(() => {
         if (profile.preview_url) {
@@ -87,6 +94,7 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
         <div style={{ padding: '0 1.25rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <SampleManager
                 profile={profile}
+                title={isVoxtral ? 'Reference Samples' : 'Samples'}
                 isSamplesExpanded={isSamplesExpanded}
                 setIsSamplesExpanded={setIsSamplesExpanded}
                 isRebuildRequired={isRebuildRequired}
@@ -132,7 +140,7 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                             className="btn-ghost hover-bg-subtle"
                         disabled={!canPreviewOrGenerate || isTesting}
                         title={!canPreviewOrGenerate
-                            ? "Add at least one sample or keep a latent before generating a preview"
+                            ? (isVoxtral ? "Voxtral preview generation is coming in a follow-up issue" : "Add at least one sample or keep a latent before generating a preview")
                             : profile.preview_url
                                 ? (isPlaying ? "Pause Sample" : "Play Sample")
                                 : "Generate Sample"}
@@ -179,42 +187,62 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
 
                     <div style={{ width: '1px', height: '24px', background: 'var(--border)', opacity: 0.5, margin: '0 4px' }} />
 
-                    <button
-                        ref={speedPillRef}
-                        onClick={() => setShowSpeedPopover(!showSpeedPopover)}
-                        className="btn-ghost hover-bg-subtle"
-                        style={{
-                            padding: '4px 10px',
-                            height: '32px',
-                            borderRadius: '100px',
-                            background: 'var(--surface)',
-                            border: '1px solid var(--border)',
-                            fontSize: '0.8rem',
-                            fontWeight: 700,
-                            gap: '6px',
-                            color: 'var(--text-primary)',
-                            minWidth: '70px',
-                            justifyContent: 'center',
-                            display: 'flex',
-                            alignItems: 'center',
-                            transition: 'all 0.2s ease'
-                        }}
-                    >
-                        <Sliders size={12} style={{ width: '12px', height: '12px', flexShrink: 0 }} />
-                        {speed.toFixed(2)}x
-                    </button>
+                    {!isVoxtral && (
+                        <>
+                            <button
+                                ref={speedPillRef}
+                                onClick={() => setShowSpeedPopover(!showSpeedPopover)}
+                                className="btn-ghost hover-bg-subtle"
+                                style={{
+                                    padding: '4px 10px',
+                                    height: '32px',
+                                    borderRadius: '100px',
+                                    background: 'var(--surface)',
+                                    border: '1px solid var(--border)',
+                                    fontSize: '0.8rem',
+                                    fontWeight: 700,
+                                    gap: '6px',
+                                    color: 'var(--text-primary)',
+                                    minWidth: '70px',
+                                    justifyContent: 'center',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    transition: 'all 0.2s ease'
+                                }}
+                            >
+                                <Sliders size={12} style={{ width: '12px', height: '12px', flexShrink: 0 }} />
+                                {speed.toFixed(2)}x
+                            </button>
 
-                    {showSpeedPopover && (
-                        <SpeedPopover
-                            value={speed}
-                            onChange={(v: number) => {
-                                setLocalSpeed(v);
-                                handleSpeedChange(v);
-                            }}
-                            triggerRef={speedPillRef}
-                            onClose={() => setShowSpeedPopover(false)}
-                        />
+                            {showSpeedPopover && (
+                                <SpeedPopover
+                                    value={speed}
+                                    onChange={(v: number) => {
+                                        setLocalSpeed(v);
+                                        handleSpeedChange(v);
+                                    }}
+                                    triggerRef={speedPillRef}
+                                    onClose={() => setShowSpeedPopover(false)}
+                                />
+                            )}
+                        </>
                     )}
+
+                    <span style={{
+                        padding: '4px 10px',
+                        height: '32px',
+                        borderRadius: '100px',
+                        background: engineBadge.bg,
+                        color: engineBadge.color,
+                        border: `1px solid ${engineBadge.color}33`,
+                        fontSize: '0.8rem',
+                        fontWeight: 800,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        letterSpacing: '0.02em'
+                    }}>
+                        {engineBadge.label}
+                    </span>
 
                     <button 
                         onClick={() => onEditTestText(profile)}
@@ -226,43 +254,56 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                         Script
                     </button>
                     
-                    <button 
-                        disabled={!hasReferenceMaterial || isBuilding || isTesting}
-                        className={isRebuildRequired ? "btn-primary" : "btn-ghost hover-bg-subtle"}
-                        onClick={(e) => { e.stopPropagation(); handleRebuild(); }} 
-                        title={!hasReferenceMaterial ? "Add at least one sample or keep a latent before rebuilding this voice" : "Rebuild Voice Model"}
-                        style={{ 
-                            padding: '8px 12px', 
-                            height: '36px', 
-                            borderRadius: '10px', 
-                            fontSize: '0.85rem', 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            gap: '8px', 
-                            ...(isRebuildRequired ? {} : {background: 'var(--surface)', border: '1px solid var(--border)'}),
-                            minWidth: '110px',
-                            justifyContent: 'center'
-                        }}
-                    >
-                        {isBuilding ? (
-                            <>
-                                <Loader2 size={16} className="animate-spin" />
-                                Rebuilding...
-                            </>
-                        ) : isTesting ? (
-                            <>
-                                <RefreshCw size={16} className="animate-spin" />
-                                Generating...
-                            </>
-                        ) : (
-                            <>
-                                <RefreshCw size={16} />
-                                Rebuild
-                            </>
-                        )}
-                    </button>
+                    {!isVoxtral && (
+                        <button 
+                            disabled={!hasReferenceMaterial || isBuilding || isTesting}
+                            className={isRebuildRequired ? "btn-primary" : "btn-ghost hover-bg-subtle"}
+                            onClick={(e) => { e.stopPropagation(); handleRebuild(); }} 
+                            title={!hasReferenceMaterial ? "Add at least one sample or keep a latent before rebuilding this voice" : "Rebuild Voice Model"}
+                            style={{ 
+                                padding: '8px 12px', 
+                                height: '36px', 
+                                borderRadius: '10px', 
+                                fontSize: '0.85rem', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '8px', 
+                                ...(isRebuildRequired ? {} : {background: 'var(--surface)', border: '1px solid var(--border)'}),
+                                minWidth: '110px',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            {isBuilding ? (
+                                <>
+                                    <Loader2 size={16} className="animate-spin" />
+                                    Rebuilding...
+                                </>
+                            ) : isTesting ? (
+                                <>
+                                    <RefreshCw size={16} className="animate-spin" />
+                                    Generating...
+                                </>
+                            ) : (
+                                <>
+                                    <RefreshCw size={16} />
+                                    Rebuild
+                                </>
+                            )}
+                        </button>
+                    )}
                 </div>
             </div>
+
+            {isVoxtral && (
+                <div style={{
+                    padding: showControlsInline ? '0 1.25rem 1.25rem' : '1.25rem',
+                    color: 'var(--text-muted)',
+                    fontSize: '0.82rem',
+                    lineHeight: 1.5
+                }}>
+                    Voxtral profiles use reference audio or a saved voice id instead of XTTS rebuild and speed tuning. You can assign those details from the script editor drawer.
+                </div>
+            )}
 
             {isTesting && (
                 <div style={{ padding: showControlsInline ? '0 0 1.25rem' : '1.25rem' }}>

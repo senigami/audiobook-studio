@@ -59,6 +59,12 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
     }, [profiles, activeProfileId, defaultProfile]);
 
     const activeProfile = profiles.find(p => p.name === activeProfileId) || defaultProfile;
+    const activeEngine = activeProfile?.engine || 'xtts';
+    const activeEngineBadge = {
+        label: activeEngine === 'voxtral' ? 'Voxtral' : 'XTTS',
+        bg: activeEngine === 'voxtral' ? 'rgba(14, 165, 233, 0.12)' : 'rgba(var(--accent-rgb), 0.12)',
+        color: activeEngine === 'voxtral' ? '#0ea5e9' : 'var(--accent)'
+    };
 
     const handleAddVariant = () => onAddVariantClick(speaker, profiles.length);
 
@@ -161,6 +167,15 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
                                 fontWeight: 800,
                                 letterSpacing: '0.02em'
                             }}>{status.label}</span>
+                            <span style={{
+                                fontSize: '0.65rem',
+                                padding: '2px 8px',
+                                background: activeEngineBadge.bg,
+                                color: activeEngineBadge.color,
+                                borderRadius: '100px',
+                                fontWeight: 800,
+                                letterSpacing: '0.02em'
+                            }}>{activeEngineBadge.label}</span>
                         </div>
                     </div>
                 </div>
@@ -246,6 +261,20 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
                                         >
                                             {p.is_default && <Star size={12} fill={isActive ? "white" : "var(--accent)"} color={isActive ? "white" : "var(--accent)"} />}
                                             {p.variant_name || 'Default'}
+                                            <span style={{
+                                                padding: '1px 6px',
+                                                borderRadius: '999px',
+                                                fontSize: '0.62rem',
+                                                fontWeight: 800,
+                                                background: isActive
+                                                    ? 'rgba(255,255,255,0.2)'
+                                                    : ((p.engine || 'xtts') === 'voxtral' ? 'rgba(14, 165, 233, 0.12)' : 'rgba(var(--accent-rgb), 0.12)'),
+                                                color: isActive
+                                                    ? 'white'
+                                                    : ((p.engine || 'xtts') === 'voxtral' ? '#0ea5e9' : 'var(--accent)')
+                                            }}>
+                                                {(p.engine || 'xtts') === 'voxtral' ? 'VX' : 'XT'}
+                                            </span>
                                         </button>
                                     );
                                 })}

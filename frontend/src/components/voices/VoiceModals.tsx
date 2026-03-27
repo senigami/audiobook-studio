@@ -1,17 +1,32 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { GlassInput } from '../GlassInput';
+import type { VoiceEngine } from '../../types';
+
+const engineSelectStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '10px 14px',
+    borderRadius: '12px',
+    background: 'var(--surface-alt)',
+    border: '1px solid var(--border)',
+    color: 'var(--text-primary)',
+    fontSize: '0.9rem',
+    outline: 'none',
+    cursor: 'pointer'
+};
 
 interface NewVoiceModalProps {
     isOpen: boolean;
     onClose: () => void;
     value: string;
     onChange: (val: string) => void;
+    engine: VoiceEngine;
+    onEngineChange: (val: VoiceEngine) => void;
     onSubmit: () => void;
     isCreating: boolean;
 }
 
-export const NewVoiceModal: React.FC<NewVoiceModalProps> = ({ isOpen, onClose, value, onChange, onSubmit, isCreating }) => {
+export const NewVoiceModal: React.FC<NewVoiceModalProps> = ({ isOpen, onClose, value, onChange, engine, onEngineChange, onSubmit, isCreating }) => {
     if (!isOpen) return null;
     return (
         <div style={{
@@ -54,6 +69,14 @@ export const NewVoiceModal: React.FC<NewVoiceModalProps> = ({ isOpen, onClose, v
                             }
                         }}
                     />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '24px' }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>ENGINE</label>
+                    <select value={engine} onChange={(e) => onEngineChange(e.target.value as VoiceEngine)} style={engineSelectStyle}>
+                        <option value="xtts">XTTS</option>
+                        <option value="voxtral">Voxtral</option>
+                    </select>
                 </div>
 
                 <div style={{ display: 'flex', gap: '12px' }}>
@@ -151,11 +174,13 @@ interface AddVariantModalProps {
     speakerName: string;
     value: string;
     onChange: (val: string) => void;
+    engine: VoiceEngine;
+    onEngineChange: (val: VoiceEngine) => void;
     onSubmit: () => void;
     isAdding: boolean;
 }
 
-export const AddVariantModal: React.FC<AddVariantModalProps> = ({ isOpen, onClose, speakerName, value, onChange, onSubmit, isAdding }) => {
+export const AddVariantModal: React.FC<AddVariantModalProps> = ({ isOpen, onClose, speakerName, value, onChange, engine, onEngineChange, onSubmit, isAdding }) => {
     if (!isOpen) return null;
     return (
         <div style={{
@@ -198,6 +223,14 @@ export const AddVariantModal: React.FC<AddVariantModalProps> = ({ isOpen, onClos
                             }
                         }}
                     />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '24px' }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>ENGINE</label>
+                    <select value={engine} onChange={(e) => onEngineChange(e.target.value as VoiceEngine)} style={engineSelectStyle}>
+                        <option value="xtts">XTTS</option>
+                        <option value="voxtral">Voxtral</option>
+                    </select>
                 </div>
 
                 <div style={{ display: 'flex', gap: '12px' }}>

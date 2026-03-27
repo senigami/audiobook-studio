@@ -1,12 +1,20 @@
 import React from 'react';
 import { RotateCcw, Loader2 } from 'lucide-react';
 import { GlassInput } from '../GlassInput';
+import type { VoiceEngine } from '../../types';
 
 interface ScriptEditorProps {
     variantName: string;
     onVariantNameChange: (val: string) => void;
+    engine: VoiceEngine;
+    onEngineChange: (val: VoiceEngine) => void;
     testText: string;
     onTestTextChange: (val: string) => void;
+    referenceSample: string;
+    onReferenceSampleChange: (val: string) => void;
+    availableSamples: string[];
+    voxtralVoiceId: string;
+    onVoxtralVoiceIdChange: (val: string) => void;
     onResetTestText: () => void;
     onSave: () => void;
     isSaving: boolean;
@@ -15,8 +23,15 @@ interface ScriptEditorProps {
 export const ScriptEditor: React.FC<ScriptEditorProps> = ({
     variantName,
     onVariantNameChange,
+    engine,
+    onEngineChange,
     testText,
     onTestTextChange,
+    referenceSample,
+    onReferenceSampleChange,
+    availableSamples,
+    voxtralVoiceId,
+    onVoxtralVoiceIdChange,
     onResetTestText,
     onSave,
     isSaving
@@ -35,6 +50,67 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({
                         Changing the variant label updates how this profile appears in the app. Use <strong>Rename Voice</strong> if you want to rename the voice itself.
                     </p>
                 </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '1.5rem' }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>ENGINE</label>
+                    <select
+                        aria-label="Engine"
+                        value={engine}
+                        onChange={(e) => onEngineChange(e.target.value as VoiceEngine)}
+                        style={{
+                            width: '100%',
+                            padding: '10px 14px',
+                            borderRadius: '12px',
+                            border: '1px solid var(--border)',
+                            background: 'var(--surface)',
+                            color: 'var(--text)',
+                            fontSize: '0.95rem',
+                        }}
+                    >
+                        <option value="xtts">XTTS</option>
+                        <option value="voxtral">Voxtral</option>
+                    </select>
+                </div>
+
+                {engine === 'voxtral' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>REFERENCE SAMPLE</label>
+                            <select
+                                aria-label="Reference Sample"
+                                value={referenceSample}
+                                onChange={(e) => onReferenceSampleChange(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px 14px',
+                                    borderRadius: '12px',
+                                    border: '1px solid var(--border)',
+                                    background: 'var(--surface)',
+                                    color: 'var(--text)',
+                                    fontSize: '0.95rem',
+                                }}
+                            >
+                                <option value="">Use profile samples automatically</option>
+                                {availableSamples.map((sample) => (
+                                    <option key={sample} value={sample}>{sample}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>SAVED VOXTRAL VOICE ID</label>
+                            <GlassInput
+                                placeholder="Optional saved voice id"
+                                value={voxtralVoiceId}
+                                onChange={(e) => onVoxtralVoiceIdChange(e.target.value)}
+                            />
+                        </div>
+
+                        <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                            Voxtral preview generation and chapter rendering land in follow-up issues. For now, this lets us tag the profile correctly and save Voxtral-specific metadata.
+                        </p>
+                    </div>
+                )}
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                     <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>PREVIEW TEXT SCRIPT</label>

@@ -111,6 +111,35 @@ def test_update_profile_engine_rejects_invalid_value(clean_db, voices_root, clie
     response = client.post("/api/speaker-profiles/SpeakerA/engine", data={"engine": "bad-engine"})
     assert response.status_code == 400
 
+
+def test_update_profile_reference_sample(clean_db, voices_root, client):
+    voices_root.mkdir()
+    profile_dir = voices_root / "SpeakerA"
+    profile_dir.mkdir()
+    (profile_dir / "profile.json").write_text(json.dumps({"variant_name": "Default", "engine": "voxtral"}))
+    (profile_dir / "sample1.wav").write_text("audio")
+
+    response = client.post("/api/speaker-profiles/SpeakerA/reference-sample", data={"sample_name": "sample1.wav"})
+    assert response.status_code == 200
+    assert response.json()["reference_sample"] == "sample1.wav"
+
+    meta = json.loads((profile_dir / "profile.json").read_text())
+    assert meta["reference_sample"] == "sample1.wav"
+
+
+def test_update_profile_voxtral_voice_id(clean_db, voices_root, client):
+    voices_root.mkdir()
+    profile_dir = voices_root / "SpeakerA"
+    profile_dir.mkdir()
+    (profile_dir / "profile.json").write_text(json.dumps({"variant_name": "Default", "engine": "voxtral"}))
+
+    response = client.post("/api/speaker-profiles/SpeakerA/voxtral-voice-id", data={"voice_id": "voice_123"})
+    assert response.status_code == 200
+    assert response.json()["voxtral_voice_id"] == "voice_123"
+
+    meta = json.loads((profile_dir / "profile.json").read_text())
+    assert meta["voxtral_voice_id"] == "voice_123"
+
 def test_character_crud(clean_db, client):
     from app.db.projects import create_project
     pid = create_project("P1")

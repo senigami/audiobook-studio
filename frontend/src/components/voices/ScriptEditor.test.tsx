@@ -13,8 +13,15 @@ describe('ScriptEditor', () => {
             <ScriptEditor 
                 variantName="Test Variant"
                 onVariantNameChange={onVariantNameChange}
+                engine="xtts"
+                onEngineChange={vi.fn()}
                 testText="Sample script"
                 onTestTextChange={onTestTextChange}
+                referenceSample=""
+                onReferenceSampleChange={vi.fn()}
+                availableSamples={[]}
+                voxtralVoiceId=""
+                onVoxtralVoiceIdChange={vi.fn()}
                 onResetTestText={onResetTestText}
                 onSave={onSave}
                 isSaving={false}
@@ -43,8 +50,15 @@ describe('ScriptEditor', () => {
             <ScriptEditor 
                 variantName=""
                 onVariantNameChange={vi.fn()}
+                engine="xtts"
+                onEngineChange={vi.fn()}
                 testText=""
                 onTestTextChange={vi.fn()}
+                referenceSample=""
+                onReferenceSampleChange={vi.fn()}
+                availableSamples={[]}
+                voxtralVoiceId=""
+                onVoxtralVoiceIdChange={vi.fn()}
                 onResetTestText={vi.fn()}
                 onSave={vi.fn()}
                 isSaving={true}
@@ -52,5 +66,30 @@ describe('ScriptEditor', () => {
         );
         expect(screen.getByText(/Saving Changes/i)).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /Saving Changes/i })).toBeDisabled();
+    });
+
+    it('shows Voxtral metadata controls when engine is voxtral', () => {
+        render(
+            <ScriptEditor
+                variantName="Voice"
+                onVariantNameChange={vi.fn()}
+                engine="voxtral"
+                onEngineChange={vi.fn()}
+                testText="Preview"
+                onTestTextChange={vi.fn()}
+                referenceSample="sample1.wav"
+                onReferenceSampleChange={vi.fn()}
+                availableSamples={['sample1.wav']}
+                voxtralVoiceId="voice-123"
+                onVoxtralVoiceIdChange={vi.fn()}
+                onResetTestText={vi.fn()}
+                onSave={vi.fn()}
+                isSaving={false}
+            />
+        );
+
+        expect(screen.getByLabelText('Engine')).toHaveValue('voxtral');
+        expect(screen.getByLabelText('Reference Sample')).toHaveValue('sample1.wav');
+        expect(screen.getByDisplayValue('voice-123')).toBeInTheDocument();
     });
 });

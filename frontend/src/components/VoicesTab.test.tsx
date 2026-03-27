@@ -4,8 +4,8 @@ import { describe, it, expect, vi } from 'vitest'
 
 describe('VoicesTab', () => {
     const mockProfiles = [
-        { name: 'Narrator1', wav_count: 5, speed: 1.0, is_default: false, preview_url: null, speaker_id: null, variant_name: null },
-        { name: 'Narrator2', wav_count: 3, speed: 1.2, is_default: true, preview_url: '/preview.wav', speaker_id: null, variant_name: null }
+        { name: 'Narrator1', wav_count: 5, speed: 1.0, is_default: false, preview_url: null, speaker_id: null, variant_name: null, engine: 'xtts' },
+        { name: 'Narrator2', wav_count: 3, speed: 1.2, is_default: true, preview_url: '/preview.wav', speaker_id: null, variant_name: null, engine: 'voxtral' }
     ]
 
     const mockProps = {
@@ -31,6 +31,8 @@ describe('VoicesTab', () => {
         })
         expect(screen.getByText('Narrator1')).toBeInTheDocument()
         expect(screen.getByText('Narrator2')).toBeInTheDocument()
+        expect(screen.getByText('XTTS (1)')).toBeInTheDocument()
+        expect(screen.getByText('Voxtral (1)')).toBeInTheDocument()
     })
 
     it('shows the default narrator pill', async () => {
@@ -152,5 +154,16 @@ describe('VoicesTab', () => {
             expect.anything()
         )
         expect(onRefresh).toHaveBeenCalled()
+    })
+
+    it('filters voices by engine', async () => {
+        await act(async () => {
+            render(<VoicesTab {...mockProps} />)
+        })
+
+        fireEvent.click(screen.getByText('Voxtral (1)'))
+
+        expect(screen.queryByText('Narrator1')).not.toBeInTheDocument()
+        expect(screen.getByText('Narrator2')).toBeInTheDocument()
     })
 })
