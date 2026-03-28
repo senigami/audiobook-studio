@@ -42,7 +42,7 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
         # 1. Identify missing segments
         missing_segs = []
         for s in segs:
-            spath = pdir / (s['audio_file_path'] or f"seg_{s['id']}.wav")
+            spath = pdir / (s['audio_file_path'] or f"chunk_{s['id']}.wav")
             if s['audio_status'] != 'done' or not spath.exists():
                 missing_segs.append(s)
 
@@ -77,7 +77,7 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
                     combined_text = sanitize_for_xtts(combined_text)
                     combined_text = safe_split_long_sentences(combined_text, target=SENT_CHAR_LIMIT)
                 sid = group[0]['id']
-                seg_out = pdir / f"seg_{sid}.wav"
+                seg_out = pdir / f"chunk_{sid}.wav"
                 save_path_str = str(seg_out.absolute())
                 script_entry = {"text": combined_text, "speaker_wav": sw, "save_path": save_path_str, "id": group[0]['id']}
                 if voice_profile_dir:
@@ -190,7 +190,7 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
                 combined_text = sanitize_for_xtts(combined_text)
                 combined_text = safe_split_long_sentences(combined_text, target=SENT_CHAR_LIMIT)
             first_sid = group[0]['id']
-            seg_out = pdir / f"seg_{first_sid}.wav"
+            seg_out = pdir / f"chunk_{first_sid}.wav"
             save_path_str = str(seg_out.absolute())
             script_entry = {"text": combined_text, "speaker_wav": sw, "save_path": save_path_str, "id": group[0]['id']}
             if voice_profile_dir:

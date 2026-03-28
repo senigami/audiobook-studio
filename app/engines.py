@@ -15,6 +15,13 @@ from .textops import safe_split_long_sentences, sanitize_for_xtts, pack_text_to_
 _active_processes = set()
 logger = logging.getLogger(__name__)
 
+
+def _create_temp_manifest(prefix: str, suffix: str) -> Path:
+    safe_prefix = re.sub(r"[^A-Za-z0-9._-]+", "_", prefix) or "audiobook"
+    fd, tmp = tempfile.mkstemp(prefix=safe_prefix, suffix=suffix)
+    os.close(fd)
+    return Path(tmp)
+
 def terminate_all_subprocesses():
     for proc in list(_active_processes):
         try:
@@ -310,20 +317,8 @@ def assemble_audiobook(
         return 1
 
     # 2. Build Metadata and Concat List
-    metadata_fd, metadata_tmp = tempfile.mkstemp(
-        prefix=f"{output_m4b.stem}_",
-        suffix=".metadata.txt",
-        dir=str(output_m4b.parent),
-    )
-    os.close(metadata_fd)
-    metadata_file = Path(metadata_tmp)
-    list_fd, list_tmp = tempfile.mkstemp(
-        prefix=f"{output_m4b.stem}_",
-        suffix=".list.txt",
-        dir=str(output_m4b.parent),
-    )
-    os.close(list_fd)
-    list_file = Path(list_tmp)
+    metadata_file = _create_temp_manifest(f"{output_m4b.stem}_", ".metadata.txt")
+    list_file = _create_temp_manifest(f"{output_m4b.stem}_", ".list.txt")
 
     metadata = ";FFMETADATA1\n"
     metadata += f"title={book_title}\n"
@@ -473,13 +468,7 @@ def stitch_segments(
         on_output("No segments to stitch.\n")
         return 1
 
-    list_fd, list_tmp = tempfile.mkstemp(
-        prefix=f"{output_path.stem}_",
-        suffix=".list.txt",
-        dir=str(output_path.parent),
-    )
-    os.close(list_fd)
-    list_file = Path(list_tmp)
+    list_file = _create_temp_manifest(f"{output_path.stem}_", ".list.txt")
     try:
         with open(list_file, 'w') as lf:
             for sw in segment_wavs:

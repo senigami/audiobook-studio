@@ -123,6 +123,25 @@ def test_generate_segments(clean_db, client):
         assert "job_id" in response.json()
 
 
+def test_generate_segments_pure_xtts_use_mixed_worker(clean_db, client):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.segments import sync_chapter_segments, get_chapter_segments
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "Hello world. Goodbye world.")
+    sync_chapter_segments(cid, "Hello world. Goodbye world.")
+    segs = get_chapter_segments(cid)
+
+    with patch("app.api.routers.generation.put_job") as mock_put_job, \
+         patch("app.api.routers.generation.enqueue"), \
+         patch("app.jobs.speaker.get_speaker_settings", return_value={"engine": "xtts"}):
+        response = client.post("/api/segments/generate", data={"segment_ids": f"{segs[0]['id']},{segs[1]['id']}"})
+        assert response.status_code == 200
+        job = mock_put_job.call_args.args[0]
+        assert job.engine == "mixed"
+
+
 def test_queue_chapter_without_bakeable_segments_uses_standard_xtts(clean_db, client):
     from app.db.projects import create_project
     from app.db.chapters import create_chapter

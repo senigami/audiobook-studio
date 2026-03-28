@@ -263,6 +263,115 @@ describe('Chapter Subcomponents', () => {
         vi.useRealTimers();
       }
     });
+
+    it('does not reuse a stale 100% settle state when a new local generate starts', () => {
+      vi.useFakeTimers();
+      try {
+        const { rerender } = render(
+          <PerformanceTab
+            chunkGroups={[
+              { characterId: 'char-1', segments: [{ ...mockSegments[0], audio_status: 'processing' }] },
+              { characterId: null, segments: [mockSegments[1]] }
+            ]}
+            characters={mockCharacters}
+            playingSegmentId={null}
+            playbackQueue={['seg-1', 'seg-2']}
+            generatingSegmentIds={new Set()}
+            allSegmentIds={['seg-1', 'seg-2']}
+            segments={mockSegments}
+            onPlay={vi.fn()}
+            onStop={vi.fn()}
+            onGenerate={vi.fn()}
+            generatingJob={{
+              id: 'job-1',
+              status: 'running',
+              active_segment_id: 'seg-1',
+              active_segment_progress: 0.95
+            } as any}
+          />
+        );
+
+        rerender(
+          <PerformanceTab
+            chunkGroups={[
+              { characterId: 'char-1', segments: [{ ...mockSegments[0], audio_status: 'done', audio_file_path: '/audio/1.wav' }] },
+              { characterId: null, segments: [{ ...mockSegments[1], audio_status: 'processing' }] }
+            ]}
+            characters={mockCharacters}
+            playingSegmentId={null}
+            playbackQueue={['seg-1', 'seg-2']}
+            generatingSegmentIds={new Set()}
+            allSegmentIds={['seg-1', 'seg-2']}
+            segments={mockSegments}
+            onPlay={vi.fn()}
+            onStop={vi.fn()}
+            onGenerate={vi.fn()}
+            generatingJob={{
+              id: 'job-1',
+              status: 'running',
+              active_segment_id: 'seg-2',
+              active_segment_progress: 0.08
+            } as any}
+          />
+        );
+
+        expect(screen.getByTestId('performance-progress-0')).toHaveAttribute('data-progress', '100');
+
+        rerender(
+          <PerformanceTab
+            chunkGroups={[
+              { characterId: 'char-1', segments: [{ ...mockSegments[0], audio_status: 'processing' }] },
+              { characterId: null, segments: [mockSegments[1]] }
+            ]}
+            characters={mockCharacters}
+            playingSegmentId={null}
+            playbackQueue={['seg-1', 'seg-2']}
+            generatingSegmentIds={new Set(['seg-1'])}
+            allSegmentIds={['seg-1', 'seg-2']}
+            segments={mockSegments}
+            onPlay={vi.fn()}
+            onStop={vi.fn()}
+            onGenerate={vi.fn()}
+          />
+        );
+
+        expect(screen.getByTestId('performance-progress-0')).toHaveAttribute('data-progress', '0');
+        expect(screen.getByText('Working...')).toBeInTheDocument();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('shows a moving partial bar during indeterminate work instead of a full-width fill', () => {
+      render(
+        <PerformanceTab
+          chunkGroups={[
+            { characterId: 'char-1', segments: [{ ...mockSegments[0], audio_status: 'processing' }] }
+          ]}
+          characters={mockCharacters}
+          playingSegmentId={null}
+          playbackQueue={['seg-1']}
+          generatingSegmentIds={new Set(['seg-1'])}
+          allSegmentIds={['seg-1']}
+          segments={mockSegments}
+          onPlay={vi.fn()}
+          onStop={vi.fn()}
+          onGenerate={vi.fn()}
+          generatingJob={{
+            id: 'job-queued',
+            status: 'queued',
+            progress: 0,
+            active_segment_id: null,
+            active_segment_progress: 0
+          } as any}
+        />
+      );
+
+      expect(screen.getByText('Working...')).toBeInTheDocument();
+      expect(screen.getByTestId('performance-progress-0')).toHaveAttribute('data-progress', '0');
+      expect(screen.getByTestId('performance-progress-0')).toHaveStyle({ width: '28%' });
+      expect(screen.getByTestId('performance-progress-0')).toHaveClass('progress-bar-pending');
+    });
   });
 
   describe('CharacterSidebar', () => {

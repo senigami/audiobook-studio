@@ -26,12 +26,12 @@ def test_handle_xtts_job_bake(mock_job, tmp_path):
     out_mp3 = pdir / "output.mp3"
 
     segs = [
-        {"id": "s1", "character_id": "c1", "text_content": "Text 1", "audio_status": "done", "audio_file_path": "seg_s1.wav"},
+        {"id": "s1", "character_id": "c1", "text_content": "Text 1", "audio_status": "done", "audio_file_path": "chunk_s1.wav"},
         {"id": "s2", "character_id": "c1", "text_content": "Text 2", "audio_status": "unprocessed", "audio_file_path": None}
     ]
 
     # Create the done segment file
-    (pdir / "seg_s1.wav").write_text("audio")
+    (pdir / "chunk_s1.wav").write_text("audio")
     # Also create the output wav so exists() returns true
     out_wav.write_text("output")
 
@@ -50,7 +50,7 @@ def test_handle_xtts_job_bake(mock_job, tmp_path):
         def side_effect(*args, **kwargs):
             on_output = kwargs.get("on_output")
             if on_output:
-                on_output("[SEGMENT_SAVED] " + str(pdir / "seg_s2.wav"))
+                on_output("[SEGMENT_SAVED] " + str(pdir / "chunk_s2.wav"))
             return 0
         mock_gen_script.side_effect = side_effect
 
@@ -75,10 +75,17 @@ def test_handle_xtts_job_segments(mock_job, tmp_path):
         {"id": "s1", "character_id": "c1", "text_content": "Text 1", "audio_status": "unprocessed"}
     ]
 
+    captured = {}
+
+    def inspect_script(*args, **kwargs):
+        script_path = kwargs["script_json_path"]
+        captured["script"] = json.loads(Path(script_path).read_text())
+        return 0
+
     with patch("app.db.get_chapter_segments", return_value=all_segs), \
          patch("app.db.update_segment") as mock_update_seg, \
          patch("app.db.get_connection"), \
-         patch("app.jobs.handlers.xtts.xtts_generate_script", return_value=0) as mock_gen_script, \
+         patch("app.jobs.handlers.xtts.xtts_generate_script", side_effect=inspect_script) as mock_gen_script, \
          patch("app.jobs.handlers.xtts.update_job") as mock_update_job:
 
         handle_xtts_job(
@@ -88,6 +95,7 @@ def test_handle_xtts_job_segments(mock_job, tmp_path):
         )
 
         assert mock_update_job.called
+        assert captured["script"][0]["save_path"].endswith("/chunk_s1.wav")
 
 
 def test_handle_xtts_job_segments_uses_default_voice_profile_dir_for_narrator(mock_job, tmp_path):

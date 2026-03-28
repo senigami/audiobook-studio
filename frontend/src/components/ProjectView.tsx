@@ -16,6 +16,7 @@ import { ConfirmModal } from './ConfirmModal';
 // Extracted Hooks
 import { useProjectActions } from '../hooks/useProjectActions';
 import { getDefaultVoiceProfileName } from '../utils/voiceProfiles';
+import { pickRelevantJob } from '../utils/jobSelection';
 
 interface ProjectViewProps {
   jobs: Record<string, Job>;
@@ -42,18 +43,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
   const [isExporting, setIsExporting] = useState<string | null>(null);
 
   const pickLatestJob = React.useCallback((predicate: (job: Job) => boolean, includeDone = false) => {
-    const ranked = Object.values(jobs)
-      .filter(job => predicate(job) && (includeDone || ['queued', 'preparing', 'running', 'finalizing'].includes(job.status)))
-      .sort((a, b) => {
-        const statusRank: Record<string, number> = { running: 4, finalizing: 3, preparing: 2, queued: 1, done: 0, failed: 0, cancelled: 0, error: 0 };
-        const aRank = statusRank[a.status] || 0;
-        const bRank = statusRank[b.status] || 0;
-        if (aRank !== bRank) return bRank - aRank;
-        const aTime = a.started_at ?? a.created_at ?? 0;
-        const bTime = b.started_at ?? b.created_at ?? 0;
-        return bTime - aTime;
-      });
-    return ranked[0];
+    return pickRelevantJob(Object.values(jobs).filter(predicate), includeDone);
   }, [jobs]);
 
   // Modal visibility
@@ -140,11 +130,17 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
   if (!project) return <div style={{ padding: '2rem' }}>Project not found.</div>;
 
   if (editingChapterId) {
+      const chapterJobs = Object.values(jobs).filter(j =>
+        j.project_id === projectId &&
+        (j.chapter_id === editingChapterId || j.chapter_file?.includes(editingChapterId)) &&
+        ['queued', 'preparing', 'running', 'finalizing'].includes(j.status)
+      );
       const activeIdx = chapters.findIndex(c => c.id === editingChapterId);
       return (
               <ChapterEditor 
                   chapterId={editingChapterId} projectId={projectId} speakerProfiles={speakerProfiles} speakers={speakers}
                   job={pickLatestJob(j => j.project_id === projectId && (j.chapter_id === editingChapterId || j.chapter_file?.includes(editingChapterId)))}
+                  chapterJobs={chapterJobs}
                   onBack={() => { setEditingChapterId(null); loadData(); }}
                   selectedVoice={selectedVoice} onVoiceChange={setSelectedVoice}
                   onNext={activeIdx < chapters.length - 1 ? () => setEditingChapterId(chapters[activeIdx + 1].id) : undefined}

@@ -65,6 +65,16 @@ function useSegmentProgressLifecycle(
         }
     }, [isActive, allowSettle]);
 
+    useEffect(() => {
+        if (!hasProcessingState || isActive) return;
+        wasActiveRef.current = false;
+        setSettledProgress(null);
+        if (settleTimerRef.current !== null) {
+            window.clearTimeout(settleTimerRef.current);
+            settleTimerRef.current = null;
+        }
+    }, [hasProcessingState, isActive]);
+
     useEffect(() => () => {
         if (settleTimerRef.current !== null) {
             window.clearTimeout(settleTimerRef.current);
@@ -88,6 +98,7 @@ interface PerformanceGroupCardProps {
   groupHasProcessingState: boolean;
   activeProgress: number;
   showIndeterminateProgress: boolean;
+  showPreparingIndeterminate: boolean;
   resetKey?: string;
   allowSettle: boolean;
   isPlaying: boolean;
@@ -108,6 +119,7 @@ const PerformanceGroupCard: React.FC<PerformanceGroupCardProps> = ({
   groupHasProcessingState,
   activeProgress,
   showIndeterminateProgress,
+  showPreparingIndeterminate,
   resetKey,
   allowSettle,
   isPlaying,
@@ -153,18 +165,31 @@ const PerformanceGroupCard: React.FC<PerformanceGroupCardProps> = ({
             data-testid={`performance-progress-${gidx}`}
             data-progress={Math.round(displayProgress * 100)}
             initial={false}
-            animate={{ 
-              width: showIndeterminateProgress ? '100%' : `${displayProgress * 100}%`,
-              opacity: showIndeterminateProgress ? 0.65 : (displayProgress > 0 ? 1 : 0.25)
+            animate={showIndeterminateProgress ? {
+              x: ['-45%', '210%'],
+              opacity: [0.25, 0.7, 0.25]
+            } : {
+              width: `${displayProgress * 100}%`,
+              x: '0%',
+              opacity: displayProgress > 0 ? 1 : 0.25
             }}
-            transition={{ duration: isSettling ? 0.45 : 0.6, ease: "easeInOut" }}
+            transition={showIndeterminateProgress
+              ? { duration: 1.1, ease: 'easeInOut', repeat: Infinity }
+              : { duration: isSettling ? 0.45 : 0.6, ease: "easeInOut" }}
             style={{ 
+              width: showIndeterminateProgress ? (showPreparingIndeterminate ? '28%' : '35%') : `${displayProgress * 100}%`,
               height: '100%', 
-              background: 'var(--accent)',
-              boxShadow: '0 0 15px var(--accent)',
+              background: showPreparingIndeterminate
+                ? 'linear-gradient(90deg, rgba(255,255,255,0.05) 0%, rgba(248,250,252,0.95) 35%, rgba(203,213,225,0.95) 65%, rgba(255,255,255,0.05) 100%)'
+                : 'var(--accent)',
+              boxShadow: showPreparingIndeterminate
+                ? '0 0 10px rgba(226,232,240,0.45)'
+                : '0 0 15px var(--accent)',
               borderRadius: '3px'
             }}
-            className={showIndeterminateProgress ? 'progress-bar-animated' : undefined}
+            className={showIndeterminateProgress
+              ? (showPreparingIndeterminate ? 'progress-bar-pending' : 'progress-bar-animated')
+              : undefined}
           />
         </div>
       )}
@@ -372,6 +397,7 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
                             : getPredictiveJobProgress(generatingJob))
                         : 0;
                     const showIndeterminateProgress = activeJobIsLive && isActiveGroup && activeProgress <= 0;
+                    const showPreparingIndeterminate = showIndeterminateProgress && ['queued', 'preparing'].includes(generatingJob?.status || '');
                     const allowSettle = (generatingJob?.status === 'running' || generatingJob?.status === 'finalizing') && !!generatingJob?.active_segment_id;
                     const resetKey = `${generatingJob?.id || 'none'}:${generatingJob?.status || 'none'}:${generatingJob?.started_at || 0}`;
                     const isPlaying = playingSegmentId && group.segments.some(s => s.id === playingSegmentId);
@@ -407,6 +433,7 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
                             groupHasProcessingState={groupHasProcessingState}
                             activeProgress={activeProgress}
                             showIndeterminateProgress={showIndeterminateProgress}
+                            showPreparingIndeterminate={showPreparingIndeterminate}
                             resetKey={resetKey}
                             allowSettle={allowSettle}
                             isPlaying={Boolean(isPlaying)}

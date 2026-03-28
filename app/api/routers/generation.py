@@ -128,7 +128,19 @@ def api_add_to_queue(
             )
 
             put_job(j)
-            update_job(qid, force_broadcast=True, status="queued", project_id=project_id, chapter_id=chapter_id, custom_title=title)
+            update_job(
+                qid,
+                force_broadcast=True,
+                status="queued",
+                progress=0.0,
+                started_at=None,
+                finished_at=None,
+                active_segment_id=None,
+                active_segment_progress=0.0,
+                project_id=project_id,
+                chapter_id=chapter_id,
+                custom_title=title,
+            )
             enqueue(j)
             broadcast_queue_update()
 
@@ -180,7 +192,16 @@ def api_bake_chapter(chapter_id: str):
         speaker_profile=active_profile,
     )
     put_job(j)
-    update_job(jid, force_broadcast=True, status="queued")
+    update_job(
+        jid,
+        force_broadcast=True,
+        status="queued",
+        progress=0.0,
+        started_at=None,
+        finished_at=None,
+        active_segment_id=None,
+        active_segment_progress=0.0,
+    )
     enqueue(j)
     return JSONResponse({"status": "ok", "job_id": jid})
 
@@ -265,7 +286,6 @@ def api_generate_segments(segment_ids: str = Form(...), speaker_profile: Optiona
 
     settings = get_settings()
     active_profile = speaker_profile or settings.get("default_speaker_profile")
-    requested_segments = [s for s in get_chapter_segments(chapter_id) if s["id"] in set(sids)]
     resolved_engine, mixed_engines = resolve_tts_engine_for_profiles(
         _resolved_segment_profiles(chapter_id, set(sids)),
         default_profile=active_profile,
@@ -273,7 +293,9 @@ def api_generate_segments(segment_ids: str = Form(...), speaker_profile: Optiona
     )
     if (mixed_engines or resolved_engine == "voxtral") and not _voxtral_configured(settings):
         return _voxtral_disabled_error()
-    queue_engine = "mixed" if mixed_engines or resolved_engine == "voxtral" else resolved_engine
+    # Performance-tab segment generation should always use the chunk-aware mixed handler
+    # so displayed groups render as one unit even when they are pure XTTS.
+    queue_engine = "mixed"
 
     jid = f"job-{uuid.uuid4().hex[:8]}"
     job = Job(
@@ -311,6 +333,18 @@ def api_generate_segments(segment_ids: str = Form(...), speaker_profile: Optiona
         conn.commit()
 
     put_job(job)
+    update_job(
+        job.id,
+        force_broadcast=True,
+        status="queued",
+        progress=0.0,
+        started_at=None,
+        finished_at=None,
+        active_segment_id=None,
+        active_segment_progress=0.0,
+        chapter_id=chapter_id,
+        project_id=project_id,
+    )
     enqueue(job)
     broadcast_queue_update()
     return JSONResponse({"status": "success", "job_id": job.id})
