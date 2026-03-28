@@ -24,6 +24,7 @@ interface ChapterEditorProps {
   speakerProfiles: SpeakerProfile[];
   speakers: import('../types').Speaker[];
   job?: Job;
+  chapterJobs?: Job[];
   selectedVoice?: string;
   onVoiceChange?: (voice: string) => void;
   onBack: () => void;
@@ -38,6 +39,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   speakerProfiles, 
   speakers, 
   job, 
+  chapterJobs = [],
   selectedVoice: externalVoice, 
   onVoiceChange, 
   onBack, 
@@ -80,6 +82,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   const [editorTab, setEditorTab] = useState<'edit' | 'preview' | 'production' | 'performance'>('edit');
   const [generatingSegmentIds, setGeneratingSegmentIds] = useState<Set<string>>(new Set());
   const pendingGenerationIdsRef = useRef<Set<string>>(new Set());
+  const pendingGenerationTimesRef = useRef<Map<string, number>>(new Map());
   const segmentRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queueSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -99,13 +102,17 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         const seg = segments.find(s => s.id === id);
         return !!seg
             && seg.audio_status !== 'processing'
-            && !generatingSegmentIds.has(id)
+            && !effectivePendingSegmentIds.has(id)
             && !pendingGenerationIdsRef.current.has(id);
     });
 
     if (freshIds.length === 0) return;
 
-    freshIds.forEach(id => pendingGenerationIdsRef.current.add(id));
+    const now = Date.now();
+    freshIds.forEach(id => {
+      pendingGenerationIdsRef.current.add(id);
+      pendingGenerationTimesRef.current.set(id, now);
+    });
     setGeneratingSegmentIds(prev => {
         const next = new Set(prev);
         freshIds.forEach(id => next.add(id));
@@ -115,7 +122,10 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         await api.generateSegments(freshIds, selectedVoice || undefined);
     } catch (e) {
         console.error(e);
-        freshIds.forEach(id => pendingGenerationIdsRef.current.delete(id));
+        freshIds.forEach(id => {
+            pendingGenerationIdsRef.current.delete(id);
+            pendingGenerationTimesRef.current.delete(id);
+        });
         setGeneratingSegmentIds(prev => {
             const next = new Set(prev);
             freshIds.forEach(id => next.delete(id));
@@ -128,7 +138,34 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     return buildChunkGroups(segments, characters, selectedVoice);
   }, [segments, characters, selectedVoice]);
 
-  const { playingSegmentId, playSegment, stopPlayback } = useChapterPlayback(projectId, segments, chunkGroups, generatingSegmentIds, handleGenerate);
+  const liveSegmentJobIds = React.useMemo(() => {
+    const ids = new Set<string>();
+    for (const chapterJob of chapterJobs) {
+      for (const segmentId of chapterJob.segment_ids || []) {
+        ids.add(segmentId);
+      }
+    }
+    return ids;
+  }, [chapterJobs]);
+
+  const queuedSegmentJobIds = React.useMemo(() => {
+    const ids = new Set<string>();
+    for (const chapterJob of chapterJobs) {
+      if (!['queued', 'preparing'].includes(chapterJob.status)) continue;
+      for (const segmentId of chapterJob.segment_ids || []) {
+        ids.add(segmentId);
+      }
+    }
+    return ids;
+  }, [chapterJobs]);
+
+  const effectivePendingSegmentIds = React.useMemo(() => {
+    const ids = new Set<string>(generatingSegmentIds);
+    for (const segmentId of liveSegmentJobIds) ids.add(segmentId);
+    return ids;
+  }, [generatingSegmentIds, liveSegmentJobIds]);
+
+  const { playingSegmentId, playSegment, stopPlayback } = useChapterPlayback(projectId, segments, chunkGroups, effectivePendingSegmentIds, handleGenerate);
 
   const paragraphGroups = React.useMemo(() => {
     const groups: { characterId: string | null; segments: ChapterSegment[] }[] = [];
@@ -162,15 +199,16 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
       setCharacters(chars);
       setGeneratingSegmentIds(prev => {
         if (prev.size === 0) return prev;
-        const liveJobStatus = job?.status || '';
-        const jobHasStarted = !!job?.started_at || ['running', 'finalizing'].includes(liveJobStatus);
         const next = new Set(
           Array.from(prev).filter(id => {
             const seg = segs.find((s: any) => s.id === id);
             if (!seg) return false;
             if (seg.audio_status === 'processing') return true;
-            if (jobHasStarted && liveJobStatus !== 'queued' && liveJobStatus !== 'preparing') return true;
+            if (liveSegmentJobIds.has(id)) return true;
+            const pendingAt = pendingGenerationTimesRef.current.get(id) || 0;
+            if (pendingGenerationIdsRef.current.has(id) && (Date.now() - pendingAt) < 10000) return true;
             pendingGenerationIdsRef.current.delete(id);
+            pendingGenerationTimesRef.current.delete(id);
             return false;
           })
         );
@@ -194,29 +232,37 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         setSegments(updated);
         setGeneratingSegmentIds(prev => {
           const next = new Set(prev);
-          const liveJobStatus = job?.status || '';
-          const jobHasStarted = !!job?.started_at || ['running', 'finalizing'].includes(liveJobStatus);
           for (const id of prev) {
             const seg = updated.find((s: any) => s.id === id);
             if (!seg) {
               next.delete(id);
               pendingGenerationIdsRef.current.delete(id);
+              pendingGenerationTimesRef.current.delete(id);
+              continue;
+            }
+            if (liveSegmentJobIds.has(id) || seg.audio_status === 'processing') {
+              continue;
+            }
+            const pendingAt = pendingGenerationTimesRef.current.get(id) || 0;
+            if (pendingGenerationIdsRef.current.has(id) && (Date.now() - pendingAt) < 10000) {
               continue;
             }
             const shouldClear = seg.audio_status === 'done'
               || seg.audio_status === 'error'
-              || (!jobHasStarted && (liveJobStatus === 'queued' || liveJobStatus === 'preparing' || !liveJobStatus) && seg.audio_status !== 'processing')
+              || seg.audio_status === 'failed'
+              || seg.audio_status === 'cancelled'
               || seg.audio_status === 'unprocessed';
             if (shouldClear) {
               next.delete(id);
               pendingGenerationIdsRef.current.delete(id);
+              pendingGenerationTimesRef.current.delete(id);
             }
           }
           return next.size !== prev.size ? next : prev;
         });
       } catch (e) { console.error("WS refresh failed", e); }
     }, 300);
-  }, [segmentUpdate, chapterId, job?.status, job?.started_at]);
+  }, [segmentUpdate, chapterId, liveSegmentJobIds]);
 
   const handleSave = async (manualTitle?: string, manualText?: string) => {
     if (!chapter) return false;
@@ -354,7 +400,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         onPrev={onPrev ? async () => { await handleSave(); onPrev(); } : undefined}
         onNext={onNext ? async () => { await handleSave(); onNext(); } : undefined}
         selectedVoice={selectedVoice} onVoiceChange={handleVoiceChange} availableVoices={availableVoices}
-        submitting={submitting} queueLocked={isQueueLocked} queuePending={queuePending} job={job} generatingSegmentIdsCount={generatingSegmentIds.size}
+        submitting={submitting} queueLocked={isQueueLocked} queuePending={queuePending} job={job} generatingSegmentIdsCount={effectivePendingSegmentIds.size}
         queueLabel={queueButtonLabel}
         queueTitle={queueButtonTitle}
         onQueue={() => {
@@ -397,7 +443,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                 {editorTab === 'performance' && (
                   <PerformanceTab 
                     chunkGroups={chunkGroups} characters={characters} playingSegmentId={playingSegmentId} 
-                    playbackQueue={segments.map(s => s.id)} generatingSegmentIds={generatingSegmentIds}
+                    playbackQueue={segments.map(s => s.id)} generatingSegmentIds={generatingSegmentIds} queuedSegmentIds={queuedSegmentJobIds}
                     allSegmentIds={segments.map(s => s.id)} segments={segments}
                     onPlay={playSegment} onStop={stopPlayback} onGenerate={handleGenerate}
                     generatingJob={job}

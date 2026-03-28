@@ -372,6 +372,37 @@ describe('Chapter Subcomponents', () => {
       expect(screen.getByTestId('performance-progress-0')).toHaveStyle({ width: '28%' });
       expect(screen.getByTestId('performance-progress-0')).toHaveClass('progress-bar-pending');
     });
+
+    it('keeps sibling queued groups visibly queued instead of reverting to generate', () => {
+      render(
+        <PerformanceTab
+          chunkGroups={[
+            { characterId: 'char-1', segments: [{ ...mockSegments[0], audio_status: 'unprocessed' }] },
+            { characterId: null, segments: [{ ...mockSegments[1], audio_status: 'processing' }] }
+          ]}
+          characters={mockCharacters}
+          playingSegmentId={null}
+          playbackQueue={['seg-1', 'seg-2']}
+          generatingSegmentIds={new Set()}
+          queuedSegmentIds={new Set(['seg-1'])}
+          allSegmentIds={['seg-1', 'seg-2']}
+          segments={mockSegments}
+          onPlay={vi.fn()}
+          onStop={vi.fn()}
+          onGenerate={vi.fn()}
+          generatingJob={{
+            id: 'job-running',
+            status: 'running',
+            segment_ids: ['seg-2'],
+            active_segment_id: 'seg-2',
+            active_segment_progress: 0.5
+          } as any}
+        />
+      );
+
+      expect(screen.getByText('Queued')).toBeInTheDocument();
+      expect(screen.queryByText('Generate')).toBeNull();
+    });
   });
 
   describe('CharacterSidebar', () => {
