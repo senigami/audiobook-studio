@@ -1,14 +1,44 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { List, RefreshCw, Volume2, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
-import type { ChapterSegment, Character } from '../../types';
+import type { ChapterSegment, Character, Job } from '../../types';
 
 const SEGMENT_PROGRESS_LINGER_MS = 600;
 
-function useSegmentProgressLifecycle(isActive: boolean, activeProgress: number, hasProcessingState: boolean) {
+function getPredictiveJobProgress(job?: Job): number {
+  if (!job || (job.status !== 'running' && job.status !== 'finalizing')) {
+    return 0;
+  }
+
+  const baseProgress = Math.max(0, Math.min(1, job.progress ?? 0));
+  if (!job.started_at || !job.eta_seconds) {
+    return baseProgress;
+  }
+
+  const elapsed = (Date.now() / 1000) - job.started_at;
+  const timeProgress = Math.min(0.99, Math.max(0, elapsed / job.eta_seconds));
+  return Math.max(baseProgress, timeProgress);
+}
+
+function useSegmentProgressLifecycle(
+    isActive: boolean,
+    activeProgress: number,
+    hasProcessingState: boolean,
+    allowSettle: boolean,
+    resetKey?: string
+) {
     const [settledProgress, setSettledProgress] = useState<number | null>(null);
     const settleTimerRef = useRef<number | null>(null);
     const wasActiveRef = useRef(false);
+
+    useEffect(() => {
+        wasActiveRef.current = false;
+        setSettledProgress(null);
+        if (settleTimerRef.current !== null) {
+            window.clearTimeout(settleTimerRef.current);
+            settleTimerRef.current = null;
+        }
+    }, [resetKey]);
 
     useEffect(() => {
         if (settleTimerRef.current !== null) {
@@ -22,15 +52,18 @@ function useSegmentProgressLifecycle(isActive: boolean, activeProgress: number, 
             return;
         }
 
-        if (wasActiveRef.current) {
+        if (wasActiveRef.current && allowSettle) {
             wasActiveRef.current = false;
             setSettledProgress(1);
             settleTimerRef.current = window.setTimeout(() => {
                 setSettledProgress(null);
                 settleTimerRef.current = null;
             }, SEGMENT_PROGRESS_LINGER_MS);
+        } else if (wasActiveRef.current) {
+            wasActiveRef.current = false;
+            setSettledProgress(null);
         }
-    }, [isActive]);
+    }, [isActive, allowSettle]);
 
     useEffect(() => () => {
         if (settleTimerRef.current !== null) {
@@ -54,6 +87,9 @@ interface PerformanceGroupCardProps {
   isActiveGroup: boolean;
   groupHasProcessingState: boolean;
   activeProgress: number;
+  showIndeterminateProgress: boolean;
+  resetKey?: string;
+  allowSettle: boolean;
   isPlaying: boolean;
   isNext: boolean;
   allDone: boolean;
@@ -71,6 +107,9 @@ const PerformanceGroupCard: React.FC<PerformanceGroupCardProps> = ({
   isActiveGroup,
   groupHasProcessingState,
   activeProgress,
+  showIndeterminateProgress,
+  resetKey,
+  allowSettle,
   isPlaying,
   isNext,
   allDone,
@@ -81,7 +120,9 @@ const PerformanceGroupCard: React.FC<PerformanceGroupCardProps> = ({
   const { displayProgress, showProgress, isSettling } = useSegmentProgressLifecycle(
     isActiveGroup,
     activeProgress,
-    groupHasProcessingState
+    groupHasProcessingState,
+    allowSettle,
+    resetKey
   );
   const anyProcessing = isActiveGroup || groupHasProcessingState;
 
@@ -113,8 +154,8 @@ const PerformanceGroupCard: React.FC<PerformanceGroupCardProps> = ({
             data-progress={Math.round(displayProgress * 100)}
             initial={false}
             animate={{ 
-              width: `${displayProgress * 100}%`,
-              opacity: displayProgress > 0 ? 1 : 0.25
+              width: showIndeterminateProgress ? '100%' : `${displayProgress * 100}%`,
+              opacity: showIndeterminateProgress ? 0.65 : (displayProgress > 0 ? 1 : 0.25)
             }}
             transition={{ duration: isSettling ? 0.45 : 0.6, ease: "easeInOut" }}
             style={{ 
@@ -123,6 +164,7 @@ const PerformanceGroupCard: React.FC<PerformanceGroupCardProps> = ({
               boxShadow: '0 0 15px var(--accent)',
               borderRadius: '3px'
             }}
+            className={showIndeterminateProgress ? 'progress-bar-animated' : undefined}
           />
         </div>
       )}
@@ -167,7 +209,13 @@ const PerformanceGroupCard: React.FC<PerformanceGroupCardProps> = ({
             disabled={anyProcessing}
           >
             <RefreshCw size={14} className={anyProcessing ? 'animate-spin' : ''} /> 
-            {anyProcessing ? (activeJobIsLive && isActiveGroup ? `${Math.round(activeProgress * 100)}%` : 'Working...') : (allDone ? 'Regenerate' : 'Generate')}
+            {anyProcessing
+              ? (
+                  activeJobIsLive && isActiveGroup
+                    ? (activeProgress > 0 ? `${Math.round(activeProgress * 100)}%` : 'Working...')
+                    : 'Working...'
+                )
+              : (allDone ? 'Regenerate' : 'Generate')}
           </button>
         </div>
       </div>
@@ -241,7 +289,7 @@ interface PerformanceTabProps {
   onPlay: (segmentId: string, fullQueue: string[]) => void;
   onStop: () => void;
   onGenerate: (sids: string[]) => void;
-  generatingJob?: import('../../types').Job;
+  generatingJob?: Job;
 }
 
 export const PerformanceTab: React.FC<PerformanceTabProps> = ({
@@ -257,9 +305,19 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
   onGenerate,
   generatingJob
 }) => {
+  const [, forceNow] = useState(0);
   const uniqueSegmentIds = Array.from(new Set(allSegmentIds));
   const activeJobIsLive = !!generatingJob && ['queued', 'preparing', 'running', 'finalizing'].includes(generatingJob.status);
   const activeSegmentId = activeJobIsLive ? generatingJob?.active_segment_id : null;
+
+  useEffect(() => {
+    if (!activeJobIsLive || !generatingJob || (generatingJob.active_segment_progress ?? 0) > 0) {
+      return;
+    }
+    const timer = window.setInterval(() => forceNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [activeJobIsLive, generatingJob?.id, generatingJob?.status, generatingJob?.started_at, generatingJob?.eta_seconds, generatingJob?.progress, generatingJob?.active_segment_progress]);
+
   const lastActiveGroupIndexRef = React.useRef(-1);
   const activeGroupIndex = React.useMemo(() => {
     if (activeSegmentId) {
@@ -309,8 +367,13 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
                     const isActiveGroup = gidx === activeGroupIndex;
                     const groupHasProcessingState = group.segments.some(s => s.audio_status === 'processing' || generatingSegmentIds.has(s.id));
                     const activeProgress = activeJobIsLive && isActiveGroup
-                        ? (generatingJob?.active_segment_progress ?? 0)
+                        ? ((generatingJob?.active_segment_progress ?? 0) > 0
+                            ? (generatingJob?.active_segment_progress ?? 0)
+                            : getPredictiveJobProgress(generatingJob))
                         : 0;
+                    const showIndeterminateProgress = activeJobIsLive && isActiveGroup && activeProgress <= 0;
+                    const allowSettle = (generatingJob?.status === 'running' || generatingJob?.status === 'finalizing') && !!generatingJob?.active_segment_id;
+                    const resetKey = `${generatingJob?.id || 'none'}:${generatingJob?.status || 'none'}:${generatingJob?.started_at || 0}`;
                     const isPlaying = playingSegmentId && group.segments.some(s => s.id === playingSegmentId);
                     const nextId = (() => {
                         if (!playingSegmentId || playbackQueue.length === 0) return null;
@@ -343,6 +406,9 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
                             isActiveGroup={isActiveGroup}
                             groupHasProcessingState={groupHasProcessingState}
                             activeProgress={activeProgress}
+                            showIndeterminateProgress={showIndeterminateProgress}
+                            resetKey={resetKey}
+                            allowSettle={allowSettle}
                             isPlaying={Boolean(isPlaying)}
                             isNext={Boolean(isNext)}
                             allDone={allDone}

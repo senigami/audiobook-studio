@@ -162,12 +162,15 @@ describe('Chapter Subcomponents', () => {
       expect(within(inactiveCard as HTMLElement).queryByText('50%')).toBeNull();
     });
 
-    it('stays at zero until active segment progress arrives', () => {
+    it('falls back to learned job progress until active segment progress arrives', () => {
       const activeJob = {
         id: 'job-1',
         status: 'running',
+        engine: 'mixed',
         active_segment_id: null,
         active_segment_progress: undefined,
+        started_at: Date.now() / 1000 - 20,
+        eta_seconds: 100,
         progress: 0.72
       } as any;
 
@@ -192,7 +195,8 @@ describe('Chapter Subcomponents', () => {
 
       const activeCard = screen.getByText('Sentence one.').closest('div[style*="background: var(--surface)"]');
       expect(activeCard).toBeTruthy();
-      expect(within(activeCard as HTMLElement).getAllByText('0%').length).toBeGreaterThan(0);
+      expect(within(activeCard as HTMLElement).getByText('72%')).toBeInTheDocument();
+      expect(screen.getByTestId('performance-progress-0')).toHaveAttribute('data-progress', '72');
     });
 
     it('lets a completed segment linger at 100% before clearing when the job advances', () => {

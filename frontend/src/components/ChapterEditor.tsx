@@ -160,6 +160,22 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
       ]);
       setSegments(segs);
       setCharacters(chars);
+      setGeneratingSegmentIds(prev => {
+        if (prev.size === 0) return prev;
+        const liveJobStatus = job?.status || '';
+        const jobHasStarted = !!job?.started_at || ['running', 'finalizing'].includes(liveJobStatus);
+        const next = new Set(
+          Array.from(prev).filter(id => {
+            const seg = segs.find((s: any) => s.id === id);
+            if (!seg) return false;
+            if (seg.audio_status === 'processing') return true;
+            if (jobHasStarted && liveJobStatus !== 'queued' && liveJobStatus !== 'preparing') return true;
+            pendingGenerationIdsRef.current.delete(id);
+            return false;
+          })
+        );
+        return next.size === prev.size ? prev : next;
+      });
     } catch (e) {
       console.error(e);
     } finally {
@@ -178,9 +194,20 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         setSegments(updated);
         setGeneratingSegmentIds(prev => {
           const next = new Set(prev);
+          const liveJobStatus = job?.status || '';
+          const jobHasStarted = !!job?.started_at || ['running', 'finalizing'].includes(liveJobStatus);
           for (const id of prev) {
             const seg = updated.find((s: any) => s.id === id);
-            if (seg && (seg.audio_status === 'done' || seg.audio_status === 'error' || seg.audio_status === 'unprocessed')) {
+            if (!seg) {
+              next.delete(id);
+              pendingGenerationIdsRef.current.delete(id);
+              continue;
+            }
+            const shouldClear = seg.audio_status === 'done'
+              || seg.audio_status === 'error'
+              || (!jobHasStarted && (liveJobStatus === 'queued' || liveJobStatus === 'preparing' || !liveJobStatus) && seg.audio_status !== 'processing')
+              || seg.audio_status === 'unprocessed';
+            if (shouldClear) {
               next.delete(id);
               pendingGenerationIdsRef.current.delete(id);
             }
@@ -189,7 +216,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         });
       } catch (e) { console.error("WS refresh failed", e); }
     }, 300);
-  }, [segmentUpdate, chapterId]);
+  }, [segmentUpdate, chapterId, job?.status, job?.started_at]);
 
   const handleSave = async (manualTitle?: string, manualText?: string) => {
     if (!chapter) return false;

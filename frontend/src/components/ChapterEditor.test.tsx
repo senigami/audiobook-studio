@@ -422,7 +422,7 @@ describe('ChapterEditor', () => {
 
     await waitFor(() => {
       expect(api.generateSegments).toHaveBeenCalledTimes(1);
-      expect(api.generateSegments).toHaveBeenCalledWith(['seg-1']);
+      expect(api.generateSegments).toHaveBeenCalledWith(['seg-1'], undefined);
     });
   });
 

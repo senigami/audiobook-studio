@@ -9,8 +9,26 @@ from ..state import put_job, get_jobs, update_job, get_settings, get_performance
 from ..config import CHAPTER_DIR, XTTS_OUT_DIR, AUDIOBOOK_DIR, VOICES_DIR, SAMPLES_DIR, SENT_CHAR_LIMIT
 
 logger = logging.getLogger(__name__)
+_worker_threads: dict[str, threading.Thread] = {}
+
+
+def ensure_workers():
+    synthesis = _worker_threads.get("synthesis")
+    if not synthesis or not synthesis.is_alive():
+        synthesis = threading.Thread(target=worker_loop, args=(job_queue,), name="SynthesisWorker", daemon=True)
+        synthesis.start()
+        _worker_threads["synthesis"] = synthesis
+        logger.warning("Started synthesis worker thread.")
+
+    assembly = _worker_threads.get("assembly")
+    if not assembly or not assembly.is_alive():
+        assembly = threading.Thread(target=worker_loop, args=(assembly_queue,), name="AssemblyWorker", daemon=True)
+        assembly.start()
+        _worker_threads["assembly"] = assembly
+        logger.warning("Started assembly worker thread.")
 
 def enqueue(job):
+    ensure_workers()
     put_job(job)
     cancel_flags[job.id] = threading.Event()
     try:
@@ -65,6 +83,7 @@ def sync_memory_queue():
     queued items. Useful after reordering.
     Voice jobs (voice_build, voice_test) are one-shot and must NOT be re-enqueued on restart.
     """
+    ensure_workers()
     clear_job_queue()
     from ..db import get_queue, update_queue_item
     # Get all queued items from DB (they are sorted by created_at DESC)
@@ -86,8 +105,7 @@ def sync_memory_queue():
             job_queue.put(jid)
 
 def start_workers():
-    threading.Thread(target=worker_loop, args=(job_queue,), name="SynthesisWorker", daemon=True).start()
-    threading.Thread(target=worker_loop, args=(assembly_queue,), name="AssemblyWorker", daemon=True).start()
+    ensure_workers()
 
 # Start workers
 start_workers()

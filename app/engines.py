@@ -5,6 +5,7 @@ import re
 import hashlib
 import shutil
 import logging
+import tempfile
 from pathlib import Path
 from typing import List, Optional
 
@@ -309,8 +310,20 @@ def assemble_audiobook(
         return 1
 
     # 2. Build Metadata and Concat List
-    metadata_file = output_m4b.with_suffix(".metadata.txt")
-    list_file = output_m4b.with_suffix(".list.txt")
+    metadata_fd, metadata_tmp = tempfile.mkstemp(
+        prefix=f"{output_m4b.stem}_",
+        suffix=".metadata.txt",
+        dir=str(output_m4b.parent),
+    )
+    os.close(metadata_fd)
+    metadata_file = Path(metadata_tmp)
+    list_fd, list_tmp = tempfile.mkstemp(
+        prefix=f"{output_m4b.stem}_",
+        suffix=".list.txt",
+        dir=str(output_m4b.parent),
+    )
+    os.close(list_fd)
+    list_file = Path(list_tmp)
 
     metadata = ";FFMETADATA1\n"
     metadata += f"title={book_title}\n"
@@ -460,7 +473,13 @@ def stitch_segments(
         on_output("No segments to stitch.\n")
         return 1
 
-    list_file = output_path.with_suffix(".list.txt")
+    list_fd, list_tmp = tempfile.mkstemp(
+        prefix=f"{output_path.stem}_",
+        suffix=".list.txt",
+        dir=str(output_path.parent),
+    )
+    os.close(list_fd)
+    list_file = Path(list_tmp)
     try:
         with open(list_file, 'w') as lf:
             for sw in segment_wavs:

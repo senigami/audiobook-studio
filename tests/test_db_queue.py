@@ -122,3 +122,15 @@ def test_reorder_and_remove(db_conn):
     remove_from_queue(q1)
     assert len(get_queue()) == 1
     assert get_chapter(c1)["audio_status"] == "unprocessed"
+
+
+def test_reconcile_queue_status_cancels_orphaned_queued_rows(db_conn):
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1")
+    qid = add_to_queue(pid, cid)
+
+    reconcile_queue_status([])
+
+    q = {row["id"]: row for row in get_queue()}
+    assert q[qid]["status"] == "cancelled"
+    assert get_chapter(cid)["audio_status"] == "unprocessed"

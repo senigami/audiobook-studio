@@ -169,6 +169,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
         update_segment,
         update_segments_status_bulk,
     )
+    from ...api.ws import broadcast_segments_updated
 
     if cancel_check():
         update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
@@ -208,6 +209,16 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
 
         on_output(f"[START_SEGMENT] {segment_id}\n")
         update_job(jid, active_segment_id=segment_id, active_segment_progress=0.0)
+        for group_segment in group["segments"]:
+            update_segment(
+                group_segment["id"],
+                broadcast=False,
+                audio_status="processing",
+            )
+        try:
+            broadcast_segments_updated(j.chapter_id)
+        except Exception:
+            pass
 
         try:
             if engine == "voxtral":
@@ -245,7 +256,6 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
 
     if j.segment_ids:
         try:
-            from ...api.ws import broadcast_segments_updated
             broadcast_segments_updated(j.chapter_id)
         except Exception:
             pass

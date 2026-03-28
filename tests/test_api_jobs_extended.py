@@ -115,3 +115,29 @@ def test_api_update_job_title(clean_jobs):
     from app.state import get_jobs
     updated_job = get_jobs()[jid]
     assert updated_job.custom_title == "New Awesome Title"
+
+
+def test_api_jobs_returns_multiple_live_jobs_for_same_chapter_file(clean_jobs):
+    now = time.time()
+    put_job(Job(
+        id="job-a",
+        engine="mixed",
+        chapter_file="overview.txt",
+        status="queued",
+        created_at=now,
+    ))
+    put_job(Job(
+        id="job-b",
+        engine="mixed",
+        chapter_file="overview.txt",
+        status="queued",
+        created_at=now + 1,
+    ))
+
+    response = client.get("/api/jobs")
+    assert response.status_code == 200
+    data = response.json()
+
+    returned_ids = {j["id"] for j in data}
+    assert "job-a" in returned_ids
+    assert "job-b" in returned_ids
