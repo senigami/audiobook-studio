@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Plus, Zap, ArrowUpDown } from 'lucide-react';
 import { api } from '../api';
-import type { Project, Chapter, Job, Audiobook, SpeakerProfile } from '../types';
+import type { Project, Chapter, Job, Audiobook, SpeakerProfile, Settings } from '../types';
 
 // Extracted Components
 import { ProjectHeader } from './project/ProjectHeader';
@@ -21,11 +21,12 @@ interface ProjectViewProps {
   jobs: Record<string, Job>;
   speakerProfiles: SpeakerProfile[];
   speakers: import('../types').Speaker[];
+  settings?: Settings;
   refreshTrigger?: number;
   segmentUpdate?: { chapterId: string; tick: number };
 }
 
-export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles, speakers, refreshTrigger = 0, segmentUpdate }) => {
+export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles, speakers, settings, refreshTrigger = 0, segmentUpdate }) => {
   const { projectId } = useParams() as { projectId: string };
   const navigate = useNavigate();
   
@@ -72,11 +73,14 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
     const voiceStillAvailable = selectedVoice && speakerProfiles.some(p => p.name === selectedVoice);
     if (voiceStillAvailable) return;
 
-    const defaultProfile = getDefaultVoiceProfileName(speakerProfiles) || '';
+    const savedDefault = settings?.default_speaker_profile || '';
+    const defaultProfile = (savedDefault && speakerProfiles.some(p => p.name === savedDefault))
+      ? savedDefault
+      : (getDefaultVoiceProfileName(speakerProfiles) || '');
     if (defaultProfile) {
       setSelectedVoice(defaultProfile);
     }
-  }, [speakerProfiles, selectedVoice]);
+  }, [speakerProfiles, selectedVoice, settings?.default_speaker_profile]);
 
   const loadData = async () => {
     try {

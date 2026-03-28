@@ -260,21 +260,36 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
   const uniqueSegmentIds = Array.from(new Set(allSegmentIds));
   const activeJobIsLive = !!generatingJob && ['queued', 'preparing', 'running', 'finalizing'].includes(generatingJob.status);
   const activeSegmentId = activeJobIsLive ? generatingJob?.active_segment_id : null;
+  const lastActiveGroupIndexRef = React.useRef(-1);
   const activeGroupIndex = React.useMemo(() => {
     if (activeSegmentId) {
       const byActiveSegment = chunkGroups.findIndex(group => group.segments.some(segment => segment.id === activeSegmentId));
-      if (byActiveSegment !== -1) return byActiveSegment;
+      if (byActiveSegment !== -1) {
+        lastActiveGroupIndexRef.current = byActiveSegment;
+        return byActiveSegment;
+      }
     }
 
     const byProcessingSegment = chunkGroups.findIndex(group =>
       group.segments.some(segment => segment.audio_status === 'processing' || generatingSegmentIds.has(segment.id))
     );
-    if (byProcessingSegment !== -1) return byProcessingSegment;
-
-    if (activeJobIsLive) {
-      return chunkGroups.findIndex(group => group.segments.some(segment => segment.audio_status !== 'done'));
+    if (byProcessingSegment !== -1) {
+      lastActiveGroupIndexRef.current = byProcessingSegment;
+      return byProcessingSegment;
     }
 
+    if (activeJobIsLive) {
+      if (lastActiveGroupIndexRef.current !== -1) {
+        return lastActiveGroupIndexRef.current;
+      }
+      const firstIncomplete = chunkGroups.findIndex(group => group.segments.some(segment => segment.audio_status !== 'done'));
+      if (firstIncomplete !== -1) {
+        lastActiveGroupIndexRef.current = firstIncomplete;
+      }
+      return firstIncomplete;
+    }
+
+    lastActiveGroupIndexRef.current = -1;
     return -1;
   }, [activeJobIsLive, activeSegmentId, chunkGroups, generatingSegmentIds]);
 

@@ -132,9 +132,10 @@ export const api = {
     });
     return res.json();
   },
-  generateSegments: async (segmentIds: string[]): Promise<any> => {
+  generateSegments: async (segmentIds: string[], speakerProfile?: string): Promise<any> => {
     const formData = new FormData();
     formData.append('segment_ids', segmentIds.join(','));
+    if (speakerProfile) formData.append('speaker_profile', speakerProfile);
     const res = await fetch('/api/segments/generate', { method: 'POST', body: formData });
     return res.json();
   },

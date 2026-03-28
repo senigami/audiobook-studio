@@ -16,6 +16,7 @@ import { CharacterSidebar } from './chapter/CharacterSidebar';
 import { useChapterPlayback } from '../hooks/useChapterPlayback';
 import { useChapterAnalysis } from '../hooks/useChapterAnalysis';
 import { getDefaultVoiceProfileName } from '../utils/voiceProfiles';
+import { buildChunkGroups } from '../utils/chunkGroups';
 
 interface ChapterEditorProps {
   chapterId: string;
@@ -111,7 +112,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         return next;
     });
     try {
-        await api.generateSegments(freshIds);
+        await api.generateSegments(freshIds, selectedVoice || undefined);
     } catch (e) {
         console.error(e);
         freshIds.forEach(id => pendingGenerationIdsRef.current.delete(id));
@@ -123,24 +124,11 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     }
   };
 
-  const { playingSegmentId, playSegment, stopPlayback } = useChapterPlayback(projectId, segments, generatingSegmentIds, handleGenerate);
-
   const chunkGroups = React.useMemo(() => {
-    const limit = 500;
-    const groups: { characterId: string | null; segments: ChapterSegment[] }[] = [];
-    segments.forEach(seg => {
-        const lastGroup = groups[groups.length - 1];
-        if (lastGroup && lastGroup.characterId === seg.character_id) {
-            const currentBatchText = lastGroup.segments.map(s => s.text_content).join(' ');
-            if (currentBatchText.length + seg.text_content.length + 1 <= limit) {
-                lastGroup.segments.push(seg);
-                return;
-            }
-        }
-        groups.push({ characterId: seg.character_id, segments: [seg] });
-    });
-    return groups;
-  }, [segments]);
+    return buildChunkGroups(segments, characters, selectedVoice);
+  }, [segments, characters, selectedVoice]);
+
+  const { playingSegmentId, playSegment, stopPlayback } = useChapterPlayback(projectId, segments, chunkGroups, generatingSegmentIds, handleGenerate);
 
   const paragraphGroups = React.useMemo(() => {
     const groups: { characterId: string | null; segments: ChapterSegment[] }[] = [];
@@ -339,7 +327,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         onPrev={onPrev ? async () => { await handleSave(); onPrev(); } : undefined}
         onNext={onNext ? async () => { await handleSave(); onNext(); } : undefined}
         selectedVoice={selectedVoice} onVoiceChange={handleVoiceChange} availableVoices={availableVoices}
-        submitting={isQueueLocked} queuePending={queuePending} job={job} generatingSegmentIdsCount={generatingSegmentIds.size}
+        submitting={submitting} queueLocked={isQueueLocked} queuePending={queuePending} job={job} generatingSegmentIdsCount={generatingSegmentIds.size}
         queueLabel={queueButtonLabel}
         queueTitle={queueButtonTitle}
         onQueue={() => {

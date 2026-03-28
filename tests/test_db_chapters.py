@@ -116,6 +116,30 @@ def test_reset_chapter_audio(db_conn):
         assert chapter["audio_status"] == "unprocessed"
         assert chapter["audio_file_path"] is None
 
+
+def test_reset_chapter_audio_deletes_chunk_files(db_conn, tmp_path):
+    from unittest.mock import patch
+    from app.db.segments import sync_chapter_segments, get_chapter_segments, update_segment
+
+    pid = create_project("P2B", "/tmp")
+    cid = create_chapter(pid, "C1", "One. Two.")
+
+    with patch("app.config.get_project_audio_dir", return_value=tmp_path), \
+         patch("app.config.find_existing_project_subdir", side_effect=_existing_project_audio_dir(tmp_path)):
+        sync_chapter_segments(cid, "One. Two.")
+        segs = get_chapter_segments(cid)
+        chunk_name = f"chunk_{segs[0]['id']}.wav"
+        chunk_path = tmp_path / chunk_name
+        chunk_path.write_text("chunk")
+
+        update_chapter(cid, audio_status="done", audio_file_path=f"{cid}.wav")
+        update_segment(segs[0]["id"], audio_status="done", audio_file_path=chunk_name)
+        update_segment(segs[1]["id"], audio_status="done", audio_file_path=chunk_name)
+
+        success = reset_chapter_audio(cid)
+        assert success is True
+        assert not chunk_path.exists()
+
 def test_update_segment_only_cleans_edited_segment_files(db_conn, tmp_path):
     from unittest.mock import patch
     from app.db.segments import sync_chapter_segments, get_chapter_segments, update_segment
@@ -156,6 +180,54 @@ def test_update_segment_only_cleans_edited_segment_files(db_conn, tmp_path):
         assert seg1_after["audio_status"] == "unprocessed"
         assert seg1_after["audio_file_path"] is None
         assert seg2_after["audio_status"] == "done"
+
+
+def test_delete_chapter_deletes_chapter_and_chunk_audio_files(db_conn, tmp_path):
+    from unittest.mock import patch
+    from app.db.segments import sync_chapter_segments, get_chapter_segments, update_segment
+
+    pid = create_project("P_DEL", "/tmp")
+    cid = create_chapter(pid, "CDEL", "One. Two.")
+
+    audio_dir = tmp_path / "audio"
+    text_dir = tmp_path / "text"
+    trash_dir = tmp_path / "trash"
+    audio_dir.mkdir()
+    text_dir.mkdir()
+    trash_dir.mkdir()
+
+    def _subdir(_project_id, dirname):
+        mapping = {"audio": audio_dir, "text": text_dir, "trash": trash_dir}
+        return mapping.get(dirname)
+
+    with patch("app.config.get_project_audio_dir", return_value=audio_dir), \
+         patch("app.config.get_project_text_dir", return_value=text_dir), \
+         patch("app.config.get_project_trash_dir", return_value=trash_dir), \
+         patch("app.config.find_existing_project_subdir", side_effect=_subdir):
+        sync_chapter_segments(cid, "One. Two.")
+        segs = get_chapter_segments(cid)
+
+        chapter_wav = audio_dir / f"{cid}.wav"
+        chunk_name = f"chunk_{segs[0]['id']}.wav"
+        chunk_path = audio_dir / chunk_name
+        chapter_text = text_dir / f"{cid}_0.txt"
+        chapter_wav.write_text("chapter")
+        chunk_path.write_text("chunk")
+        chapter_text.write_text("chapter text")
+
+        update_chapter(cid, audio_status="done", audio_file_path=chapter_wav.name)
+        update_segment(segs[0]["id"], audio_status="done", audio_file_path=chunk_name)
+        update_segment(segs[1]["id"], audio_status="done", audio_file_path=chunk_name)
+
+        success = delete_chapter(cid)
+        assert success is True
+        assert not chapter_wav.exists()
+        assert not chunk_path.exists()
+        assert not chapter_text.exists()
+        assert (trash_dir / cid / "audio" / chapter_wav.name).exists()
+        assert (trash_dir / cid / "audio" / chunk_name).exists()
+        assert (trash_dir / cid / "text" / chapter_text.name).exists()
+        assert get_chapter(cid) is None
 
 
 def test_update_chapter_text_change_preserves_stale_chapter_audio_until_rebuild(db_conn, tmp_path):

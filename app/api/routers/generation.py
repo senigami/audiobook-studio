@@ -34,6 +34,13 @@ def _voxtral_disabled_error():
         status_code=400,
     )
 
+
+def _resolved_segment_profiles(chapter_id: str, only_segment_ids: Optional[set[str]] = None) -> list[Optional[str]]:
+    segments = get_chapter_segments(chapter_id)
+    if only_segment_ids:
+        segments = [segment for segment in segments if segment["id"] in only_segment_ids]
+    return [segment.get("speaker_profile_name") for segment in segments]
+
 @router.post("/processing_queue")
 def api_add_to_queue(
     project_id: str = Form(...), 
@@ -96,7 +103,7 @@ def api_add_to_queue(
                 for s in segs
             )
             resolved_engine, mixed_engines = resolve_tts_engine_for_profiles(
-                [s.get("speaker_profile_name") for s in segs],
+                _resolved_segment_profiles(chapter_id),
                 default_profile=active_profile,
                 fallback_engine=settings.get("default_engine"),
             )
@@ -150,12 +157,14 @@ def api_bake_chapter(chapter_id: str):
 
     segs = get_chapter_segments(chapter_id)
     resolved_engine, mixed_engines = resolve_tts_engine_for_profiles(
-        [s.get("speaker_profile_name") for s in segs],
+        _resolved_segment_profiles(chapter_id),
         default_profile=active_profile,
         fallback_engine=settings.get("default_engine"),
     )
     if (mixed_engines or resolved_engine == "voxtral") and not _voxtral_configured(settings):
         return _voxtral_disabled_error()
+
+    queue_engine = "mixed" if mixed_engines or resolved_engine == "voxtral" else resolved_engine
 
     jid = f"bake-{uuid.uuid4().hex[:8]}"
     j = Job(
@@ -163,7 +172,7 @@ def api_bake_chapter(chapter_id: str):
         project_id=project_id,
         chapter_id=chapter_id,
         chapter_file=f"{chapter_id}_0.txt",
-        engine="mixed" if mixed_engines else resolved_engine,
+        engine=queue_engine,
         status="queued",
         created_at=time.time(),
         is_bake=True,
@@ -229,7 +238,7 @@ def enqueue_single(chapter_file: str = Form(...), engine: str = Form("xtts")):
     return JSONResponse({"status": "ok", "job_id": jid})
 
 @router.post("/segments/generate")
-def api_generate_segments(segment_ids: str = Form(...)):
+def api_generate_segments(segment_ids: str = Form(...), speaker_profile: Optional[str] = Form(None)):
     """Queues generation for specific segments."""
     sids = [s.strip() for s in segment_ids.split(",") if s.strip()]
     if not sids:
@@ -255,15 +264,16 @@ def api_generate_segments(segment_ids: str = Form(...)):
     import time
 
     settings = get_settings()
+    active_profile = speaker_profile or settings.get("default_speaker_profile")
     requested_segments = [s for s in get_chapter_segments(chapter_id) if s["id"] in set(sids)]
     resolved_engine, mixed_engines = resolve_tts_engine_for_profiles(
-        [s.get("speaker_profile_name") for s in requested_segments],
-        default_profile=settings.get("default_speaker_profile"),
+        _resolved_segment_profiles(chapter_id, set(sids)),
+        default_profile=active_profile,
         fallback_engine=settings.get("default_engine"),
     )
     if (mixed_engines or resolved_engine == "voxtral") and not _voxtral_configured(settings):
         return _voxtral_disabled_error()
-    queue_engine = "mixed" if mixed_engines else resolved_engine
+    queue_engine = "mixed" if mixed_engines or resolved_engine == "voxtral" else resolved_engine
 
     jid = f"job-{uuid.uuid4().hex[:8]}"
     job = Job(
@@ -275,7 +285,7 @@ def api_generate_segments(segment_ids: str = Form(...)):
         project_id=project_id,
         chapter_id=chapter_id,
         segment_ids=sids,
-        speaker_profile=settings.get("default_speaker_profile")
+        speaker_profile=active_profile
     )
 
     # Physical Cleanup: Delete existing full-chapter audio files to prevent reconciliation "blink"

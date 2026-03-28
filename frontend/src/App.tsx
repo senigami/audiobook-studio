@@ -92,6 +92,7 @@ function App() {
                   jobs={jobs}
                   speakerProfiles={initialData?.speaker_profiles || []}
                   speakers={initialData?.speakers || []}
+                  settings={initialData?.settings}
                   refreshTrigger={queueRefreshTrigger}
                   segmentUpdate={segmentUpdate}
                 />

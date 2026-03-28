@@ -25,6 +25,7 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
     from ...db.segments import cleanup_orphaned_segments
 
     pdir.mkdir(parents=True, exist_ok=True)
+    generated_segment_audio = bool(j.is_bake or j.segment_ids)
 
     if cancel_check():
         update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
@@ -347,7 +348,7 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
         update_job(jid, status="finalizing", progress=0.99)
         frc = wav_to_mp3(out_wav, out_mp3, on_output=on_output, cancel_check=cancel_check)
         if frc == 0 and out_mp3.exists():
-            if j.chapter_id:
+            if j.chapter_id and generated_segment_audio:
                 with get_connection() as conn:
                     cursor = conn.cursor()
                     cursor.execute("SELECT id FROM chapter_segments WHERE chapter_id = ?", (j.chapter_id,))
@@ -355,7 +356,7 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
                     update_segments_status_bulk(sids, j.chapter_id, "done")
             update_job(jid, status="done", finished_at=time.time(), progress=1.0, output_wav=out_wav.name, output_mp3=out_mp3.name)
         else:
-            if j.chapter_id:
+            if j.chapter_id and generated_segment_audio:
                 with get_connection() as conn:
                     cursor = conn.cursor()
                     cursor.execute("SELECT id FROM chapter_segments WHERE chapter_id = ?", (j.chapter_id,))
@@ -363,7 +364,7 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
                     update_segments_status_bulk(sids, j.chapter_id, "done")
             update_job(jid, status="done", finished_at=time.time(), progress=1.0, output_wav=out_wav.name, error="MP3 conversion failed (using WAV fallback)")
     else:
-        if j.chapter_id:
+        if j.chapter_id and generated_segment_audio:
             with get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("SELECT id FROM chapter_segments WHERE chapter_id = ?", (j.chapter_id,))

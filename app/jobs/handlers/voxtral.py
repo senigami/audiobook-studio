@@ -116,24 +116,11 @@ def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
         update_job(jid, status="finalizing", progress=0.99)
         frc = wav_to_mp3(out_wav, out_mp3, on_output=on_output, cancel_check=cancel_check)
         if frc == 0 and out_mp3.exists():
-            if j.chapter_id:
-                with get_connection() as conn:
-                    cursor = conn.cursor()
-                    cursor.execute("SELECT id FROM chapter_segments WHERE chapter_id = ?", (j.chapter_id,))
-                    sids = [r["id"] for r in cursor.fetchall()]
-                    update_segments_status_bulk(sids, j.chapter_id, "done")
             update_job(jid, status="done", finished_at=time.time(), progress=1.0, output_wav=out_wav.name, output_mp3=out_mp3.name)
             return "done"
 
         update_job(jid, status="done", finished_at=time.time(), progress=1.0, output_wav=out_wav.name, error="MP3 conversion failed (using WAV fallback)")
         return "done"
-
-    if j.chapter_id:
-        with get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT id FROM chapter_segments WHERE chapter_id = ?", (j.chapter_id,))
-            sids = [r["id"] for r in cursor.fetchall()]
-            update_segments_status_bulk(sids, j.chapter_id, "done")
 
     update_job(jid, status="done", finished_at=time.time(), progress=1.0, output_wav=out_wav.name)
     return "done"

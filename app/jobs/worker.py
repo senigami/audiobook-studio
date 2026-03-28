@@ -224,7 +224,10 @@ def worker_loop(q):
 
                 broadcast_p = getattr(j, '_last_broadcast_p', 0.0)
                 if new_progress is None:
-                    new_progress = round(calculate_predicted_progress(j, now, j.started_at, eta), 2)
+                    if j.engine == "mixed":
+                        new_progress = getattr(j, "progress", 0.0)
+                    else:
+                        new_progress = round(calculate_predicted_progress(j, now, j.started_at, eta), 2)
 
                 include_p = new_progress is not None and ((abs(new_progress - broadcast_p) >= 0.01) or (broadcast_p == 0 and new_progress > 0))
                 if include_p or broadcast_args:

@@ -2,6 +2,7 @@ import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useChapterPlayback } from './useChapterPlayback';
 import type { ChapterSegment } from '../types';
+import type { ChunkGroup } from '../utils/chunkGroups';
 
 describe('useChapterPlayback', () => {
   const segments: ChapterSegment[] = [
@@ -10,6 +11,10 @@ describe('useChapterPlayback', () => {
   ] as any;
   const generatingSegmentIds = new Set<string>();
   const onGenerate = vi.fn().mockResolvedValue(undefined);
+  const chunkGroups: ChunkGroup[] = [
+    { characterId: null, profileName: null, segments: [segments[0]] },
+    { characterId: null, profileName: null, segments: [segments[1]] },
+  ];
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -38,7 +43,7 @@ describe('useChapterPlayback', () => {
 
   it('starts playback and plays next segment on end', async () => {
     const { result } = renderHook(() => 
-      useChapterPlayback('proj1', segments, generatingSegmentIds, onGenerate)
+      useChapterPlayback('proj1', segments, chunkGroups, generatingSegmentIds, onGenerate)
     );
 
     let mockAudioInstance: any;
@@ -69,7 +74,7 @@ describe('useChapterPlayback', () => {
 
   it('stops playback', async () => {
     const { result } = renderHook(() => 
-      useChapterPlayback('proj1', segments, generatingSegmentIds, onGenerate)
+      useChapterPlayback('proj1', segments, chunkGroups, generatingSegmentIds, onGenerate)
     );
 
     await act(async () => {
@@ -89,7 +94,7 @@ describe('useChapterPlayback', () => {
     ] as any;
 
     const { result } = renderHook(() => 
-      useChapterPlayback('proj1', segmentsMissing, generatingSegmentIds, onGenerate)
+      useChapterPlayback('proj1', segmentsMissing, [{ characterId: null, profileName: null, segments: segmentsMissing as any }], generatingSegmentIds, onGenerate)
     );
 
     await act(async () => {
@@ -106,7 +111,16 @@ describe('useChapterPlayback', () => {
     ] as any;
 
     const { result } = renderHook(() =>
-      useChapterPlayback('proj1', nextGroupMissing, generatingSegmentIds, onGenerate)
+      useChapterPlayback(
+        'proj1',
+        nextGroupMissing as any,
+        [
+          { characterId: 'char-1', profileName: null, segments: [nextGroupMissing[0] as any] },
+          { characterId: 'char-2', profileName: null, segments: [nextGroupMissing[1] as any] },
+        ],
+        generatingSegmentIds,
+        onGenerate
+      )
     );
 
     await act(async () => {
@@ -127,8 +141,14 @@ describe('useChapterPlayback', () => {
     ] as any;
 
     const { result, rerender } = renderHook(
-      ({ segs, generating }) => useChapterPlayback('proj1', segs, generating, onGenerate),
-      { initialProps: { segs: segmentsMissing, generating: new Set<string>() } }
+      ({ segs, chunked, generating }) => useChapterPlayback('proj1', segs, chunked, generating, onGenerate),
+      {
+        initialProps: {
+          segs: segmentsMissing,
+          chunked: [{ characterId: null, profileName: null, segments: segmentsMissing as any }],
+          generating: new Set<string>()
+        }
+      }
     );
 
     let mockAudioInstance: any;
@@ -148,7 +168,11 @@ describe('useChapterPlayback', () => {
     expect(onGenerate).toHaveBeenCalledWith(['s1']);
     expect(mockAudioInstance).toBeUndefined();
 
-    rerender({ segs: completedSegments, generating: new Set<string>() });
+    rerender({
+      segs: completedSegments,
+      chunked: [{ characterId: null, profileName: null, segments: completedSegments as any }],
+      generating: new Set<string>()
+    });
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
@@ -160,7 +184,7 @@ describe('useChapterPlayback', () => {
 
   it('handles playback error with fallback', async () => {
     const { result } = renderHook(() => 
-      useChapterPlayback('proj1', segments, generatingSegmentIds, onGenerate)
+      useChapterPlayback('proj1', segments, chunkGroups, generatingSegmentIds, onGenerate)
     );
 
     let errorTriggered = false;
