@@ -4,6 +4,7 @@ import { api } from './index'
 describe('api methods', () => {
     beforeEach(() => {
         global.fetch = vi.fn().mockResolvedValue({
+            ok: true,
             json: () => Promise.resolve({ success: true })
         }) as any
     })
@@ -96,5 +97,15 @@ describe('api methods', () => {
 
         await api.clearProcessingQueue()
         expect(global.fetch).toHaveBeenCalledWith('/api/processing_queue', expect.objectContaining({ method: 'DELETE' }))
+    })
+
+    it('throws helpful errors for blocked generation requests', async () => {
+        global.fetch = vi.fn().mockResolvedValue({
+            ok: false,
+            json: () => Promise.resolve({ status: 'error', message: 'Enable Voxtral in Settings and add a Mistral API key to use cloud voices.' })
+        }) as any
+
+        await expect(api.generateSegments(['seg-1'], 'Test')).rejects.toThrow(/Enable Voxtral in Settings/i)
+        await expect(api.addProcessingQueue('p1', 'c1', 0, 'Test')).rejects.toThrow(/Enable Voxtral in Settings/i)
     })
 })

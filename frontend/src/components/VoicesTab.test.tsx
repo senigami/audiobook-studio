@@ -168,13 +168,13 @@ describe('VoicesTab', () => {
         expect(screen.getByText('Narrator2')).toBeInTheDocument()
     })
 
-    it('hides Voxtral voices and filters when no API key is configured', async () => {
+    it('keeps existing Voxtral voices visible when cloud voices are disabled', async () => {
         await act(async () => {
             render(<VoicesTab {...mockProps} settings={{ safe_mode: true, make_mp3: false, default_engine: 'xtts', voxtral_enabled: false }} />)
         })
 
         expect(screen.getByText('Narrator1')).toBeInTheDocument()
-        expect(screen.queryByText('Narrator2')).not.toBeInTheDocument()
+        expect(screen.getByText('Narrator2')).toBeInTheDocument()
         expect(screen.queryByText('Voxtral (1)')).not.toBeInTheDocument()
     })
 })

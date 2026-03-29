@@ -122,6 +122,12 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         await api.generateSegments(freshIds, selectedVoice || undefined);
     } catch (e) {
         console.error(e);
+        setConfirmConfig({
+          title: 'Generation Blocked',
+          message: e instanceof Error ? e.message : 'This segment could not be queued.',
+          onConfirm: () => {},
+          confirmText: 'OK'
+        });
         freshIds.forEach(id => {
             pendingGenerationIdsRef.current.delete(id);
             pendingGenerationTimesRef.current.delete(id);
@@ -369,7 +375,12 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     } catch (e) {
         setQueuePending(false);
         setQueueNotice(null);
-        setConfirmConfig({ title: 'Queue Failed', message: 'Failed to queue chapter.', onConfirm: () => setConfirmConfig(null), confirmText: 'OK' });
+        setConfirmConfig({
+          title: 'Queue Blocked',
+          message: e instanceof Error ? e.message : 'Failed to queue chapter.',
+          onConfirm: () => {},
+          confirmText: 'OK'
+        });
     } finally { setSubmitting(false); }
   };
 

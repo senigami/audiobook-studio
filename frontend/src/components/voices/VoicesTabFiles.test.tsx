@@ -247,6 +247,34 @@ describe('Voices Tab Components', () => {
             expect(screen.getByText('Regenerate')).toBeInTheDocument();
             expect(screen.getByTitle('Play Sample')).not.toBeDisabled();
         });
+
+        it('keeps existing Voxtral previews playable but blocks new generation when cloud voices are disabled', () => {
+            render(
+                <NarratorCard
+                    speaker={mockSpeaker}
+                    profiles={[{ ...mockProfile, engine: 'voxtral', preview_url: '/api/preview/vox', voxtral_voice_id: 'voice_123', is_rebuild_required: true }]}
+                    onRefresh={vi.fn()}
+                    onTest={vi.fn()}
+                    onDelete={vi.fn()}
+                    onMoveVariant={vi.fn()}
+                    onEditTestText={vi.fn()}
+                    onBuildNow={vi.fn()}
+                    testProgress={{}}
+                    requestConfirm={vi.fn()}
+                    buildingProfiles={{}}
+                    onAddVariantClick={vi.fn()}
+                    onSetDefaultClick={vi.fn()}
+                    onRenameClick={vi.fn()}
+                    isExpanded={true}
+                    onToggleExpand={vi.fn()}
+                    voxtralAvailable={false}
+                />
+            );
+
+            expect(screen.getByTitle('Play Sample')).not.toBeDisabled();
+            expect(screen.getByRole('button', { name: /Regenerate/i })).toBeDisabled();
+            expect(screen.getByText(/Voxtral is turned off in Settings/i)).toBeInTheDocument();
+        });
     });
 
     describe('SampleManager', () => {

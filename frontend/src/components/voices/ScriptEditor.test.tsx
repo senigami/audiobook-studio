@@ -120,4 +120,29 @@ describe('ScriptEditor', () => {
         expect(screen.getByLabelText('Engine')).toHaveTextContent('XTTS');
         expect(screen.queryByText(/Voxtral \(Cloud\)/i)).not.toBeInTheDocument();
     });
+
+    it('shows an existing Voxtral engine assignment even when cloud voices are disabled', () => {
+        render(
+            <ScriptEditor
+                variantName="Voice"
+                onVariantNameChange={vi.fn()}
+                engine="voxtral"
+                onEngineChange={vi.fn()}
+                voxtralEnabled={false}
+                testText="Preview"
+                onTestTextChange={vi.fn()}
+                referenceSample=""
+                onReferenceSampleChange={vi.fn()}
+                availableSamples={[]}
+                voxtralVoiceId=""
+                onVoxtralVoiceIdChange={vi.fn()}
+                onResetTestText={vi.fn()}
+                onSave={vi.fn()}
+                isSaving={false}
+            />
+        );
+
+        expect(screen.getByLabelText('Engine')).toHaveValue('voxtral');
+        expect(screen.getByText(/still assigned to Voxtral, but cloud voices are currently turned off/i)).toBeInTheDocument();
+    });
 });

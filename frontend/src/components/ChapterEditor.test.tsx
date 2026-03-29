@@ -426,4 +426,49 @@ describe('ChapterEditor', () => {
     });
   });
 
+  it('shows a blocking message when segment generation is rejected', async () => {
+    (api.generateSegments as any).mockRejectedValue(new Error('Enable Voxtral in Settings and add a Mistral API key to use cloud voices.'));
+
+    render(
+      <ChapterEditor
+        chapterId={mockChapterId}
+        projectId={mockProjectId}
+        speakerProfiles={mockSpeakerProfiles as any}
+        speakers={mockSpeakers as any}
+        onBack={vi.fn()}
+      />
+    );
+
+    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
+
+    fireEvent.click(screen.getByText('Performance'));
+    await screen.findByText('Performance View');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Generate' }));
+
+    expect(await screen.findByText('Generation Blocked')).toBeInTheDocument();
+    expect(screen.getByText(/Enable Voxtral in Settings/i)).toBeInTheDocument();
+  });
+
+  it('shows a blocking message when chapter queueing is rejected', async () => {
+    (api.addProcessingQueue as any).mockRejectedValue(new Error('Enable Voxtral in Settings and add a Mistral API key to use cloud voices.'));
+
+    render(
+      <ChapterEditor
+        chapterId={mockChapterId}
+        projectId={mockProjectId}
+        speakerProfiles={mockSpeakerProfiles as any}
+        speakers={mockSpeakers as any}
+        onBack={vi.fn()}
+      />
+    );
+
+    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
+
+    fireEvent.click(screen.getByTitle('Queue Chapter'));
+
+    expect(await screen.findByText('Queue Blocked')).toBeInTheDocument();
+    expect(screen.getByText(/Enable Voxtral in Settings/i)).toBeInTheDocument();
+  });
+
 });

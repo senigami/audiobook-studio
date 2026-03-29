@@ -23,6 +23,7 @@ interface NarratorCardProps {
     isExpanded: boolean;
     onToggleExpand: () => void;
     buildingProfiles: Record<string, boolean>;
+    voxtralAvailable?: boolean;
 }
 
 export const NarratorCard: React.FC<NarratorCardProps> = ({
@@ -30,7 +31,8 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
     onTest, onDelete, onRefresh,
     onEditTestText, onBuildNow, requestConfirm,
     onAddVariantClick, onRenameClick, onSetDefaultClick, isExpanded, onToggleExpand, onMoveVariant,
-    buildingProfiles
+    buildingProfiles,
+    voxtralAvailable = true
 }) => {
     const defaultProfileName = getDefaultVoiceProfileName(profiles);
     const defaultProfile =
@@ -323,6 +325,7 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
                                     voiceName={speaker.name}
                                     showControlsInline={true}
                                     buildingProfiles={buildingProfiles}
+                                    voxtralAvailable={voxtralAvailable}
                                 />
                         </div>
                     </motion.div>

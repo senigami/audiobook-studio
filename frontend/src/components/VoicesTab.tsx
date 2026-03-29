@@ -28,11 +28,7 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
     } | null>(null);
 
     const voxtralEnabled = !!settings?.mistral_api_key?.trim() && !!settings?.voxtral_enabled;
-    const visibleSpeakerProfiles = useMemo(() => (
-        voxtralEnabled
-            ? speakerProfiles
-            : speakerProfiles.filter((profile) => (profile.engine || 'xtts') !== 'voxtral')
-    ), [speakerProfiles, voxtralEnabled]);
+    const visibleSpeakerProfiles = useMemo(() => speakerProfiles, [speakerProfiles]);
 
     const {
         speakers,
@@ -99,11 +95,10 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
     const [engineFilter, setEngineFilter] = useState<'all' | VoiceEngine>('all');
 
     useEffect(() => {
-        if (!voxtralEnabled && editingEngine === 'voxtral') setEditingEngine('xtts');
         if (!voxtralEnabled && newVoiceEngine === 'voxtral') setNewVoiceEngine('xtts');
         if (!voxtralEnabled && newVariantEngine === 'voxtral') setNewVariantEngine('xtts');
         if (!voxtralEnabled && engineFilter === 'voxtral') setEngineFilter('all');
-    }, [voxtralEnabled, editingEngine, newVoiceEngine, newVariantEngine, engineFilter]);
+    }, [voxtralEnabled, newVoiceEngine, newVariantEngine, engineFilter]);
 
     const handleRequestConfirm = (config: { title: string; message: string; onConfirm: () => void; isDestructive?: boolean; isAlert?: boolean }) => {
         setConfirmConfig(config);
@@ -563,6 +558,7 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                                     }}
                                     isExpanded={expandedVoiceId === voice.id}
                                     onToggleExpand={() => setExpandedVoiceId(expandedVoiceId === voice.id ? null : voice.id)}
+                                    voxtralAvailable={voxtralEnabled}
                                 />
                             ))}
                         </>

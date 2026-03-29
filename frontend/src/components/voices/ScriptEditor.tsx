@@ -70,8 +70,17 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({
                         }}
                     >
                         <option value="xtts">XTTS</option>
-                        {voxtralEnabled && <option value="voxtral">Voxtral (Cloud)</option>}
+                        {(voxtralEnabled || engine === 'voxtral') && (
+                            <option value="voxtral">
+                                {voxtralEnabled ? 'Voxtral (Cloud)' : 'Voxtral (Cloud, disabled in Settings)'}
+                            </option>
+                        )}
                     </select>
+                    {!voxtralEnabled && engine === 'voxtral' && (
+                        <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                            This profile is still assigned to Voxtral, but cloud voices are currently turned off in Settings. You can keep it as-is or switch it back to XTTS manually.
+                        </p>
+                    )}
                 </div>
 
                 {engine === 'voxtral' && (

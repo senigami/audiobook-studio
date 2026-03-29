@@ -23,18 +23,21 @@ interface VariantEditorProps {
     voiceName: string;
     showControlsInline?: boolean;
     buildingProfiles: Record<string, boolean>;
+    voxtralAvailable?: boolean;
 }
 
 export const VariantEditor: React.FC<VariantEditorProps> = ({ 
     profile, isTesting, onTest, onDeleteVariant, onMoveVariant, onRefresh, 
     onEditTestText, onBuildNow, requestConfirm, testStatus,
-    voiceName, showControlsInline = false, buildingProfiles
+    voiceName, showControlsInline = false, buildingProfiles, voxtralAvailable = true
 }) => {
     const engine = profile.engine || 'xtts';
     const isVoxtral = engine === 'voxtral';
+    const voxtralUsable = !isVoxtral || voxtralAvailable;
     const hasSamples = (profile.wav_count || 0) > 0;
     const hasReferenceMaterial = hasSamples || !!profile.has_latent || !!profile.voxtral_voice_id;
-    const canPreviewOrGenerate = !!profile.preview_url || hasReferenceMaterial;
+    const canGeneratePreview = hasReferenceMaterial && voxtralUsable;
+    const canPreviewOrGenerate = !!profile.preview_url || canGeneratePreview;
 
     const {
         localSpeed,
@@ -142,7 +145,11 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                             className="btn-ghost hover-bg-subtle"
                         disabled={!canPreviewOrGenerate || isTesting}
                         title={!canPreviewOrGenerate
-                            ? (isVoxtral ? "Add a reference sample or saved voice id before generating a Voxtral preview" : "Add at least one sample or keep a latent before generating a preview")
+                            ? (isVoxtral
+                                ? (voxtralUsable
+                                    ? "Add a reference sample or saved voice id before generating a Voxtral preview"
+                                    : "Turn Voxtral back on in Settings or switch this voice to XTTS before generating a new preview")
+                                : "Add at least one sample or keep a latent before generating a preview")
                             : profile.preview_url
                                 ? (isPlaying ? "Pause Sample" : "Play Sample")
                                 : "Generate Sample"}
@@ -296,10 +303,14 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
 
                     {isVoxtral && (
                         <button
-                            disabled={!hasReferenceMaterial || isTesting}
+                            disabled={!canGeneratePreview || isTesting}
                             className={isRebuildRequired ? "btn-primary" : "btn-ghost hover-bg-subtle"}
                             onClick={handleGeneratePreview}
-                            title={!hasReferenceMaterial ? "Add a reference sample or saved voice id before generating a Voxtral preview" : profile.preview_url ? "Regenerate Sample" : "Generate Sample"}
+                            title={!voxtralUsable
+                                ? "Turn Voxtral back on in Settings or switch this voice to XTTS before generating a new preview"
+                                : !hasReferenceMaterial
+                                    ? "Add a reference sample or saved voice id before generating a Voxtral preview"
+                                    : profile.preview_url ? "Regenerate Sample" : "Generate Sample"}
                             style={{
                                 padding: '8px 12px',
                                 height: '36px',
@@ -336,7 +347,9 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                     fontSize: '0.82rem',
                     lineHeight: 1.5
                 }}>
-                    Voxtral profiles use reference audio or a saved voice id instead of XTTS latent rebuilds. Use play to hear the current preview, and use regenerate when you want to refresh that preview after changing the script or reference settings.
+                    {voxtralUsable
+                        ? 'Voxtral profiles use reference audio or a saved voice id instead of XTTS latent rebuilds. Use play to hear the current preview, and use regenerate when you want to refresh that preview after changing the script or reference settings.'
+                        : 'This voice is still assigned to Voxtral, but Voxtral is turned off in Settings. You can still play any existing preview, but new Voxtral generation is blocked until you turn Voxtral back on or switch this voice to XTTS.'}
                 </div>
             )}
 
