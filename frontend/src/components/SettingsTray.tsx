@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Settings, RefreshCw, Loader2, ShieldCheck, Music, KeyRound, CircleHelp, Sparkles } from 'lucide-react';
+import { Settings, RefreshCw, Loader2, ShieldCheck, Music, KeyRound, CircleHelp, Sparkles, TriangleAlert } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GhostButton } from './GhostButton';
 import type { Settings as AppSettings } from '../types';
@@ -103,7 +103,7 @@ export const SettingsTray: React.FC<SettingsTrayProps> = ({
                 {isOpen && (
                     <>
                         <div 
-                            style={{ position: 'fixed', inset: 0, zIndex: 998 }} 
+                            style={{ position: 'fixed', inset: 0, zIndex: 1998 }} 
                             onClick={() => setIsOpen(false)} 
                         />
                         <motion.div 
@@ -117,7 +117,8 @@ export const SettingsTray: React.FC<SettingsTrayProps> = ({
                                 right: 0,
                                 width: '320px',
                                 overflow: 'hidden',
-                                padding: '16px'
+                                padding: '16px',
+                                zIndex: 1999
                             }}
                         >
                             {saving && (
@@ -253,6 +254,26 @@ export const SettingsTray: React.FC<SettingsTrayProps> = ({
                                         <CircleHelp size={14} />
                                         <span>
                                             Create a Mistral API key in your workspace settings, paste it here, then turn Voxtral on when you want cloud voices available. Voxtral requests are processed by Mistral instead of staying fully local.
+                                        </span>
+                                    </div>
+
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'flex-start',
+                                            gap: '8px',
+                                            padding: '10px 12px',
+                                            borderRadius: '10px',
+                                            border: '1px solid rgba(217, 119, 6, 0.25)',
+                                            background: 'rgba(245, 158, 11, 0.08)',
+                                            color: '#92400e',
+                                            fontSize: '0.72rem',
+                                            lineHeight: 1.5
+                                        }}
+                                    >
+                                        <TriangleAlert size={14} style={{ marginTop: '2px', flexShrink: 0 }} />
+                                        <span>
+                                            Privacy note: turning on Voxtral sends the text you synthesize, and any selected reference audio, to Mistral&apos;s servers. Keep voices on <strong>`XTTS (Local)`</strong> if you want your workflow to stay fully local.
                                         </span>
                                     </div>
 

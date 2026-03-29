@@ -4,7 +4,7 @@ This guide covers the current recommended first-run path for **Audiobook Studio*
 
 ## Best Starting Point
 
-If you are new to the project, start with the current `1.7.x` release line or the latest `main` after that release. Earlier versions contain important groundwork, but this is the first release family intended to feel smooth for brand-new users end to end.
+If you are new to the project, start with the current `1.8.x` release line or the latest `main` after that release. Earlier versions contain important groundwork, but this is the first release family intended to feel smooth for brand-new users end to end across local XTTS production and optional Voxtral support.
 
 ## Requirements
 
@@ -67,6 +67,7 @@ powershell -ExecutionPolicy Bypass -File .\run.ps1 -Port 9000
 4. Add or import chapter text.
 5. Build or import a voice profile.
 6. Assign narration and dialogue voices.
+7. If you want cloud synthesis, add your own Mistral API key in Settings to unlock `Voxtral (Cloud)`.
 7. Generate segments or queue a chapter.
 8. Assemble the finished audiobook once chapter audio is ready.
 
@@ -81,6 +82,12 @@ A practical starter voice folder can contain:
 - optional `sample.mp3`
 
 This allows a voice to remain usable for preview and generation without shipping every original source wav in the repository.
+
+## XTTS And Voxtral
+
+- `XTTS (Local)` is still the default local-first workflow.
+- `Voxtral (Cloud)` stays hidden unless you add your own Mistral API key in Settings.
+- Voices now store their engine per profile, so one chapter can mix XTTS narration and Voxtral character or narrator sections when needed.
 
 ## Manual Install
 

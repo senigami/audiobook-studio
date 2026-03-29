@@ -9,6 +9,7 @@ The **Global Queue** is usually visible on the right sidebar or via a dedicated 
 - **Queued**: Tasks waiting for their turn.
 - **Running**: The current task being processed by the AI engine. You will see a predictive progress bar here.
 - **Done/Failed**: History of recent work.
+- **Chunk Labels**: Segment jobs now use displayed Performance/Production chunk numbers, so the queue can show titles like `overview: segment #7`.
 
 ![Global Queue sidebar showing job progress and ETA](images/queue-sidebar.jpg)
 
@@ -32,8 +33,16 @@ The system tracks **Characters Per Second (CPS)** and uses it to provide:
 ## 🛠️ Job Types
 
 - **XTTS Generation**: Creating audio for a segment.
+- **Voxtral Generation**: Creating preview or render audio through the optional Mistral-backed Voxtral path.
+- **Mixed Generation**: Rendering displayed chunk groups that may contain XTTS or Voxtral sections depending on the assigned voice profiles.
 - **Baking**: Stitching segments into a chapter file.
 - **Assembly**: Creating the final `.m4b` file.
+
+## Chunk-Aware Rendering
+
+- Performance and Production views now work from displayed chunk groups instead of fragile sentence-by-sentence queue items.
+- A chapter can mix XTTS and Voxtral as long as the assigned voices resolve cleanly.
+- Queue refresh also repairs certain stuck or orphaned queue states automatically, so a restart is needed less often than before.
 
 ## ⏸️ Pausing and Controls
 
