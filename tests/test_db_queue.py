@@ -82,6 +82,19 @@ def test_upsert_queue_row(db_conn):
     assert q[0]["id"] == "manual-job"
     assert q[0]["custom_title"] == "System Task"
 
+
+def test_upsert_queue_row_updates_metadata_for_existing_row(db_conn):
+    pid = create_project("P1")
+    cid = create_chapter(pid, "Overview")
+    qid = add_to_queue(pid, cid)
+
+    upsert_queue_row(qid, project_id=pid, chapter_id=cid, custom_title="Overview * Part 5", engine="mixed")
+
+    q = get_queue()
+    assert q[0]["id"] == qid
+    assert q[0]["custom_title"] == "Overview * Part 5"
+    assert q[0]["engine"] == "mixed"
+
 def test_clear_queue(db_conn):
     pid = create_project("P1")
     cid = create_chapter(pid, "C1")

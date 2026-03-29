@@ -1,3 +1,4 @@
+import re
 from typing import Iterable, Optional
 
 from .db.core import get_connection
@@ -106,6 +107,17 @@ def format_chunk_group_label(group_indexes: Iterable[int]) -> Optional[str]:
         return f"segments #{first}-{last}"
 
     return "segments " + ", ".join(f"#{index}" for index in indexes)
+
+
+def build_chapter_queue_title(chapter_title: str, sort_order: Optional[int] = None) -> str:
+    title = (chapter_title or "").strip() or "Untitled Chapter"
+    if sort_order is None or sort_order <= 0:
+        return title
+
+    part_number = sort_order + 1
+    if re.search(rf"\b(?:part|chapter)\s*{part_number}\b", title, re.IGNORECASE):
+        return title
+    return f"{title} • Part {part_number}"
 
 
 def build_segment_job_title(

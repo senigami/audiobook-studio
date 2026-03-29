@@ -43,7 +43,7 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({ paused = false, jobs =
     }, []);
 
     const formatJobTitle = React.useCallback((job: ProcessingQueueItem) => {
-        const base = job.chapter_title || job.custom_title || "System Task";
+        const base = job.custom_title || job.chapter_title || "System Task";
         if (job.engine === 'audiobook') {
             return `Assembling m4b for: ${base}`;
         }

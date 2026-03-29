@@ -9,15 +9,22 @@ def upsert_queue_row(job_id: str, project_id: str = None, chapter_id: str = None
     """
     Insert or update a processing_queue row for any job type.
     Called by enqueue() so EVERY job appears in the global queue.
-    Uses INSERT OR IGNORE so it won't overwrite a row already created.
+    Uses an upsert so rows created earlier by add_to_queue() still receive
+    their final display metadata once the live job object is created.
     """
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
             now = time.time()
             cursor.execute("""
-                INSERT OR IGNORE INTO processing_queue (id, project_id, chapter_id, split_part, status, created_at, custom_title, engine)
+                INSERT INTO processing_queue (id, project_id, chapter_id, split_part, status, created_at, custom_title, engine)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    project_id = COALESCE(excluded.project_id, processing_queue.project_id),
+                    chapter_id = COALESCE(excluded.chapter_id, processing_queue.chapter_id),
+                    split_part = COALESCE(excluded.split_part, processing_queue.split_part),
+                    custom_title = COALESCE(excluded.custom_title, processing_queue.custom_title),
+                    engine = COALESCE(excluded.engine, processing_queue.engine)
             """, (job_id, project_id, chapter_id, split_part, status, now, custom_title, engine))
             conn.commit()
 

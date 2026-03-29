@@ -177,6 +177,22 @@ def test_queue_chapter_without_bakeable_segments_uses_standard_xtts(clean_db, cl
         assert job.is_bake is False
 
 
+def test_queue_chapter_uses_disambiguated_sort_order_title(clean_db, client):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.segments import sync_chapter_segments
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "Overview", "Hello world.", sort_order=4)
+    sync_chapter_segments(cid, "Hello world.")
+
+    with patch("app.api.routers.generation.put_job") as mock_put_job, patch("app.api.routers.generation.enqueue"):
+        response = client.post("/api/processing_queue", data={"project_id": pid, "chapter_id": cid})
+        assert response.status_code == 200
+        job = mock_put_job.call_args.args[0]
+        assert job.custom_title == "Overview • Part 5"
+
+
 def test_queue_chapter_preserves_rendered_segment_history(clean_db, client, tmp_path):
     from app.db.projects import create_project
     from app.db.chapters import create_chapter

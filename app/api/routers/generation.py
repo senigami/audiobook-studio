@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List, Optional
 from fastapi import APIRouter, Form
 from fastapi.responses import JSONResponse
-from ...chunk_groups import build_segment_job_title
+from ...chunk_groups import build_chapter_queue_title, build_segment_job_title
 from ...db import (
     add_to_queue as db_add_to_queue, get_chapter_segments,
     get_connection
@@ -68,11 +68,12 @@ def api_add_to_queue(
         # Sync with legacy worker
         with get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT title, text_content FROM chapters WHERE id = ?", (chapter_id,))
+            cursor.execute("SELECT title, text_content, sort_order FROM chapters WHERE id = ?", (chapter_id,))
             c_item = cursor.fetchone()
 
         if c_item:
-            title, text_content = c_item
+            title, text_content, sort_order = c_item
+            display_title = build_chapter_queue_title(title, sort_order)
             project_dir = find_existing_project_dir(project_id)
             if not project_dir:
                 raise ValueError(f"Project directory not found for {project_id}")
@@ -123,7 +124,7 @@ def api_add_to_queue(
                 safe_mode=bool(settings.get("safe_mode", True)),
                 make_mp3=bool(settings.get("make_mp3", False)),
                 bypass_pause=False,
-                custom_title=title,
+                custom_title=display_title,
                 speaker_profile=active_profile,
                 is_bake=has_bakeable_segments
             )
@@ -140,7 +141,7 @@ def api_add_to_queue(
                 active_segment_progress=0.0,
                 project_id=project_id,
                 chapter_id=chapter_id,
-                custom_title=title,
+                custom_title=display_title,
             )
             enqueue(j)
             broadcast_queue_update()
@@ -162,11 +163,12 @@ def api_bake_chapter(chapter_id: str):
 
     with get_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT project_id FROM chapters WHERE id = ?", (chapter_id,))
+        cursor.execute("SELECT project_id, title, sort_order FROM chapters WHERE id = ?", (chapter_id,))
         chapter = cursor.fetchone()
         if not chapter:
             return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
         project_id = chapter["project_id"]
+        display_title = build_chapter_queue_title(chapter["title"], chapter["sort_order"])
 
     segs = get_chapter_segments(chapter_id)
     resolved_engine, mixed_engines = resolve_tts_engine_for_profiles(
@@ -191,6 +193,7 @@ def api_bake_chapter(chapter_id: str):
         is_bake=True,
         bypass_pause=True,
         speaker_profile=active_profile,
+        custom_title=display_title,
     )
     put_job(j)
     update_job(
@@ -202,6 +205,7 @@ def api_bake_chapter(chapter_id: str):
         finished_at=None,
         active_segment_id=None,
         active_segment_progress=0.0,
+        custom_title=display_title,
     )
     enqueue(j)
     return JSONResponse({"status": "ok", "job_id": jid})
@@ -277,10 +281,11 @@ def api_generate_segments(segment_ids: str = Form(...), speaker_profile: Optiona
         chapter_id = row['chapter_id']
 
         # Get project_id for output paths
-        cursor.execute("SELECT project_id, title FROM chapters WHERE id = ?", (chapter_id,))
+        cursor.execute("SELECT project_id, title, sort_order FROM chapters WHERE id = ?", (chapter_id,))
         chap = cursor.fetchone()
         project_id = chap['project_id']
         chapter_title = chap['title']
+        chapter_display_title = build_chapter_queue_title(chap['title'], chap['sort_order'])
 
     import uuid
     import time
@@ -308,7 +313,7 @@ def api_generate_segments(segment_ids: str = Form(...), speaker_profile: Optiona
     job = Job(
         id=jid,
         engine=queue_engine,
-        chapter_file=f"{chapter_title}.txt", # Fallback name
+        chapter_file=f"{chapter_display_title}.txt", # Fallback name
         status="queued",
         created_at=time.time(),
         project_id=project_id,
