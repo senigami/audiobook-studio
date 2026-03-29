@@ -120,3 +120,39 @@ def test_processing_queue_ensures_workers_before_recovery(clean_db, client):
 
     assert response.status_code == 200
     assert mock_ensure.call_count >= 1
+
+
+def test_processing_queue_reconciles_db_running_row_when_memory_job_is_done(clean_db, client):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter, get_chapter
+    from app.db.queue import add_to_queue, update_queue_item
+    from app.db.core import get_connection
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "T1")
+    jid = add_to_queue(pid, cid)
+    update_queue_item(jid, "running")
+
+    put_job(Job(
+        id=jid,
+        project_id=pid,
+        chapter_id=cid,
+        chapter_file=f"{cid}_0.txt",
+        status="done",
+        created_at=1.0,
+        engine="mixed",
+        custom_title="C1: segment #5",
+    ))
+
+    response = client.get("/api/processing_queue")
+    assert response.status_code == 200
+
+    row = next(item for item in response.json() if item["id"] == jid)
+    assert row["status"] == "done"
+
+    with get_connection() as conn:
+        db_row = conn.execute("SELECT status, completed_at FROM processing_queue WHERE id = ?", (jid,)).fetchone()
+        assert db_row["status"] == "done"
+        assert db_row["completed_at"] is not None
+
+    assert get_chapter(cid)["audio_status"] == "unprocessed"

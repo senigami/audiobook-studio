@@ -147,3 +147,17 @@ def test_reconcile_queue_status_cancels_orphaned_queued_rows(db_conn):
     q = {row["id"]: row for row in get_queue()}
     assert q[qid]["status"] == "cancelled"
     assert get_chapter(cid)["audio_status"] == "unprocessed"
+
+
+def test_reconcile_queue_status_marks_terminal_memory_jobs_done(db_conn):
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1")
+    qid = add_to_queue(pid, cid)
+
+    update_queue_item(qid, "running")
+
+    reconcile_queue_status([], {qid: "done"})
+
+    q = {row["id"]: row for row in get_queue()}
+    assert q[qid]["status"] == "done"
+    assert q[qid]["completed_at"] is not None
