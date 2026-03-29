@@ -283,6 +283,26 @@ def test_list_profiles_marks_preview_out_of_date_when_test_script_changes(clean_
     assert profiles[0]["name"] == name
     assert profiles[0]["is_rebuild_required"] is True
 
+def test_list_profiles_does_not_mark_legacy_preview_out_of_date_without_preview_signature(clean_voices):
+    name = "Legacy Preview"
+    profile_dir = clean_voices / name
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "voice.wav").write_text("audio")
+    (profile_dir / "sample.mp3").write_text("preview")
+    (profile_dir / "profile.json").write_text(json.dumps({
+        "variant_name": "Default",
+        "engine": "xtts",
+        "built_samples": ["voice.wav"],
+        "test_text": "Current script",
+    }))
+
+    response = client.get("/api/speaker-profiles")
+
+    assert response.status_code == 200
+    profiles = response.json()
+    assert profiles[0]["name"] == name
+    assert profiles[0]["is_rebuild_required"] is False
+
 def test_get_speaker_settings_prefers_base_folder_over_variant(clean_voices):
     from app.jobs import get_speaker_settings, get_speaker_wavs
 

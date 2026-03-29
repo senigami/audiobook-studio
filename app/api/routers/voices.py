@@ -247,16 +247,27 @@ def list_speaker_profiles():
         preview_url = _voice_preview_url(d.name)
         preview_signature_stale = False
         if preview_url:
-            preview_signature_stale = (
-                spk_settings.get("preview_test_text") != spk_settings.get("test_text")
-                or spk_settings.get("preview_engine") != spk_settings.get("engine", DEFAULT_PROFILE_ENGINE)
-            )
-            if spk_settings.get("engine") == "voxtral":
-                preview_signature_stale = preview_signature_stale or (
-                    spk_settings.get("preview_reference_sample") != spk_settings.get("reference_sample")
-                    or spk_settings.get("preview_voxtral_voice_id") != spk_settings.get("voxtral_voice_id")
-                    or spk_settings.get("preview_voxtral_model") != spk_settings.get("voxtral_model")
+            has_preview_signature = any(
+                spk_settings.get(key) is not None
+                for key in (
+                    "preview_test_text",
+                    "preview_engine",
+                    "preview_reference_sample",
+                    "preview_voxtral_voice_id",
+                    "preview_voxtral_model",
                 )
+            )
+            if has_preview_signature:
+                preview_signature_stale = (
+                    spk_settings.get("preview_test_text") != spk_settings.get("test_text")
+                    or spk_settings.get("preview_engine") != spk_settings.get("engine", DEFAULT_PROFILE_ENGINE)
+                )
+                if spk_settings.get("engine") == "voxtral":
+                    preview_signature_stale = preview_signature_stale or (
+                        spk_settings.get("preview_reference_sample") != spk_settings.get("reference_sample")
+                        or spk_settings.get("preview_voxtral_voice_id") != spk_settings.get("voxtral_voice_id")
+                        or spk_settings.get("preview_voxtral_model") != spk_settings.get("voxtral_model")
+                    )
         if preview_signature_stale:
             is_rebuild_required = True
         if not preview_url and len(raw_wavs) > 0:
