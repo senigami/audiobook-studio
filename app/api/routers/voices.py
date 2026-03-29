@@ -8,7 +8,7 @@ import json
 import os
 from pathlib import Path
 from typing import Optional, List, Dict
-from fastapi import APIRouter, Form, File, UploadFile, HTTPException
+from fastapi import APIRouter, Form, File, UploadFile, HTTPException, Request
 from fastapi.responses import JSONResponse
 from ...db import (
     get_characters, create_character, update_character, delete_character,
@@ -341,14 +341,23 @@ def api_create_character_route(
     speaker_profile_name: Optional[str] = Form(None),
     color: Optional[str] = Form(None)
 ):
-    cid = create_character(project_id, name, speaker_profile_name, color=color)
+    normalized_profile_name = (speaker_profile_name or "").strip() or None
+    cid = create_character(project_id, name, normalized_profile_name, color=color)
     return JSONResponse({"status": "ok", "id": cid, "character_id": cid})
 
 @router.put("/api/characters/{character_id}")
-def api_update_character_route(character_id: str, name: Optional[str] = Form(None), speaker_profile_name: Optional[str] = Form(None), color: Optional[str] = Form(None)):
+async def api_update_character_route(
+    character_id: str,
+    request: Request,
+    name: Optional[str] = Form(None),
+    speaker_profile_name: Optional[str] = Form(None),
+    color: Optional[str] = Form(None),
+):
     updates = {}
     if name is not None: updates["name"] = name
-    if speaker_profile_name is not None: updates["speaker_profile_name"] = speaker_profile_name
+    form = await request.form()
+    if "speaker_profile_name" in form:
+        updates["speaker_profile_name"] = (str(form.get("speaker_profile_name") or "").strip() or None)
     if color is not None: updates["color"] = color
     update_character(character_id, **updates)
     return JSONResponse({"status": "ok"})

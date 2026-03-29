@@ -40,6 +40,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
   const [isAssemblyMode, setIsAssemblyMode] = useState(false);
   const [selectedChapters, setSelectedChapters] = useState<Set<string>>(new Set());
   const [selectedVoice, setSelectedVoice] = useState<string>('');
+  const [hasResolvedInitialVoice, setHasResolvedInitialVoice] = useState(false);
   const [isExporting, setIsExporting] = useState<string | null>(null);
 
   const pickLatestJob = React.useCallback((predicate: (job: Job) => boolean, includeDone = false) => {
@@ -62,6 +63,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
     if (speakerProfiles.length === 0) return;
     const voiceStillAvailable = selectedVoice && speakerProfiles.some(p => p.name === selectedVoice);
     if (voiceStillAvailable) return;
+    if (hasResolvedInitialVoice && selectedVoice === '') return;
 
     const savedDefault = settings?.default_speaker_profile || '';
     const defaultProfile = (savedDefault && speakerProfiles.some(p => p.name === savedDefault))
@@ -69,8 +71,9 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
       : (getDefaultVoiceProfileName(speakerProfiles) || '');
     if (defaultProfile) {
       setSelectedVoice(defaultProfile);
+      setHasResolvedInitialVoice(true);
     }
-  }, [speakerProfiles, selectedVoice, settings?.default_speaker_profile]);
+  }, [speakerProfiles, selectedVoice, settings?.default_speaker_profile, hasResolvedInitialVoice]);
 
   const loadData = async () => {
     try {
@@ -142,7 +145,10 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
                   job={pickLatestJob(j => j.project_id === projectId && (j.chapter_id === editingChapterId || j.chapter_file?.includes(editingChapterId)))}
                   chapterJobs={chapterJobs}
                   onBack={() => { setEditingChapterId(null); loadData(); }}
-                  selectedVoice={selectedVoice} onVoiceChange={setSelectedVoice}
+                  selectedVoice={selectedVoice} onVoiceChange={(voice) => {
+                    setHasResolvedInitialVoice(true);
+                    setSelectedVoice(voice);
+                  }}
                   onNext={activeIdx < chapters.length - 1 ? () => setEditingChapterId(chapters[activeIdx + 1].id) : undefined}
                   onPrev={activeIdx > 0 ? () => setEditingChapterId(chapters[activeIdx - 1].id) : undefined}
               segmentUpdate={segmentUpdate}
@@ -200,7 +206,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
                       ) : (
                         <>
                           <button onClick={() => handleQueueAllUnprocessed(chapters, jobs, selectedVoice)} className="btn-ghost" style={{ border: '1px solid var(--border)', color: 'var(--accent)', fontSize: '0.85rem' }}><Zap size={16} /> Queue Remaining</button>
-                          <select value={selectedVoice} onChange={e => setSelectedVoice(e.target.value)} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '0.85rem', padding: '0.25rem 0.5rem' }}>
+                          <select value={selectedVoice} onChange={e => { setHasResolvedInitialVoice(true); setSelectedVoice(e.target.value); }} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '0.85rem', padding: '0.25rem 0.5rem' }}>
                               <option value="">Default Speaker</option>
                               {mergedVoices.map(v => <option key={v.id} value={v.value}>{v.name}</option>)}
                           </select>

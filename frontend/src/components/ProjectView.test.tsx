@@ -249,6 +249,41 @@ describe('ProjectView', () => {
     });
   });
 
+  it('allows clearing the chapter voice back to Default Speaker', async () => {
+    render(
+      <MemoryRouter initialEntries={['/projects/proj-123']}>
+        <Routes>
+          <Route path="/projects/:projectId" element={
+            <ProjectView
+              jobs={{}}
+              speakerProfiles={mockSpeakerProfiles as any}
+              speakers={[]}
+              settings={{ default_speaker_profile: 'Voice 1' } as any}
+            />
+          } />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading project...')).not.toBeInTheDocument();
+    });
+
+    const select = screen.getByDisplayValue('Voice 1');
+    fireEvent.change(select, { target: { value: '' } });
+    expect(screen.getByDisplayValue('Default Speaker')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Queue Remaining'));
+    await waitFor(() => {
+      const actions = mockUseProjectActions.mock.results.at(-1)?.value;
+      expect(actions?.handleQueueAllUnprocessed).toHaveBeenCalledWith(
+        expect.any(Array),
+        expect.any(Object),
+        ''
+      );
+    });
+  });
+
   it('prefers the base Default voice when both a base profile and variant exist', async () => {
     render(
       <MemoryRouter initialEntries={['/projects/proj-123']}>

@@ -116,6 +116,40 @@ def test_create_and_delete_profile(clean_db, voices_root, client):
     assert not (voices_dir / name).exists()
 
 
+def test_character_voice_assignment_blank_value_clears_to_default(clean_db, voices_root, client):
+    from app.db.projects import create_project
+
+    voices_root.mkdir()
+    pid = create_project("Character Project", "/tmp")
+
+    create_response = client.post(f"/api/projects/{pid}/characters", data={"name": "Alice", "speaker_profile_name": "Prof1"})
+    assert create_response.status_code == 200
+    character_id = create_response.json()["character_id"]
+
+    update_response = client.put(f"/api/characters/{character_id}", data={"speaker_profile_name": ""})
+    assert update_response.status_code == 200
+
+    chars_response = client.get(f"/api/projects/{pid}/characters")
+    assert chars_response.status_code == 200
+    characters = chars_response.json()["characters"]
+    assert characters[0]["speaker_profile_name"] is None
+
+
+def test_create_character_blank_voice_uses_default(clean_db, voices_root, client):
+    from app.db.projects import create_project
+
+    voices_root.mkdir()
+    pid = create_project("Character Project", "/tmp")
+
+    create_response = client.post(f"/api/projects/{pid}/characters", data={"name": "Bob", "speaker_profile_name": ""})
+    assert create_response.status_code == 200
+
+    chars_response = client.get(f"/api/projects/{pid}/characters")
+    assert chars_response.status_code == 200
+    characters = chars_response.json()["characters"]
+    assert characters[0]["speaker_profile_name"] is None
+
+
 def test_create_profile_persists_engine_metadata(clean_db, voices_root, client):
     voices_root.mkdir()
     client.post("/api/settings", data={"mistral_api_key": "abc123"})
