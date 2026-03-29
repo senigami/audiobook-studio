@@ -1,4 +1,5 @@
 import pytest
+import json
 from unittest.mock import patch
 
 # NOTE: Do NOT import TestClient or app at the top level in these isolation tests.
@@ -55,3 +56,30 @@ def test_api_home_reflects_new_state_structure(client, clean_state):
     assert "make_mp3" in settings
     assert "safe_mode" in settings
     assert "xtts_speed" not in settings
+
+
+def test_get_settings_does_not_persist_normalization_on_read(clean_state):
+    from app.state import get_settings
+
+    raw_state = {
+        "jobs": {},
+        "settings": {
+            "default_engine": "voxtral",
+            "voxtral_enabled": True,
+            "mistral_api_key": "   ",
+        },
+        "performance_metrics": {
+            "audiobook_speed_multiplier": 1.0,
+            "xtts_cps": 16.7,
+        },
+    }
+    clean_state.write_text(json.dumps(raw_state, indent=2), encoding="utf-8")
+    before = clean_state.read_text(encoding="utf-8")
+
+    settings = get_settings()
+    after = clean_state.read_text(encoding="utf-8")
+
+    assert settings["default_engine"] == "xtts"
+    assert settings["voxtral_enabled"] is False
+    assert "mistral_api_key" not in settings
+    assert after == before

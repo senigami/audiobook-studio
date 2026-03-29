@@ -1,12 +1,11 @@
 import type { ChapterSegment, Character } from '../types';
+import { CHUNK_CHAR_LIMIT } from '../constants/audio';
 
 export interface ChunkGroup {
   characterId: string | null;
   profileName: string | null;
   segments: ChapterSegment[];
 }
-
-const CHUNK_CHAR_LIMIT = 500;
 
 export function resolveSegmentProfileName(
   segment: ChapterSegment,

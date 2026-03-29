@@ -1,3 +1,4 @@
+import logging
 import time
 from pathlib import Path
 
@@ -8,6 +9,8 @@ from ...engines_voxtral import VoxtralError, voxtral_generate
 from ...state import update_job
 from ...textops import safe_split_long_sentences, sanitize_for_xtts
 from ..speaker import get_speaker_settings, get_speaker_wavs, get_voice_profile_dir
+
+logger = logging.getLogger(__name__)
 
 
 def _segment_output_path(pdir: Path, segment_id: str) -> Path:
@@ -143,7 +146,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
         try:
             broadcast_segments_updated(j.chapter_id)
         except Exception:
-            pass
+            logger.warning("Failed to broadcast segment update for chapter %s", j.chapter_id, exc_info=True)
 
         try:
             if engine == "voxtral":
@@ -190,6 +193,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
             done_c, total_c = get_chapter_segments_counts(j.chapter_id)
             final_p = round(done_c / total_c, 2) if total_c > 0 else 1.0
         except Exception:
+            logger.warning("Failed to compute final segment progress for chapter %s", j.chapter_id, exc_info=True)
             final_p = 1.0
         update_job(jid, status="done", progress=final_p, finished_at=time.time())
         return "done"
@@ -230,7 +234,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
         from ...db import update_queue_item
         update_queue_item(jid, "done", audio_length_seconds=duration)
     except Exception:
-        pass
+        logger.warning("Failed to synchronize queue item %s completion metadata", jid, exc_info=True)
 
     update_job(jid, status="done", finished_at=time.time(), progress=1.0, output_wav=out_wav.name)
     return "done"

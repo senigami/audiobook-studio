@@ -1,10 +1,9 @@
 import re
 from typing import Iterable, Optional
 
+from .config import SENT_CHAR_LIMIT
 from .db.core import get_connection
 from .voice_engines import resolve_profile_engine
-
-CHUNK_CHAR_LIMIT = 500
 
 
 def load_chunk_segments(chapter_id: str) -> list[dict]:
@@ -56,7 +55,7 @@ def build_chunk_groups(segments: list[dict], default_profile: str | None) -> lis
             and last_group["character_id"] == segment.get("character_id")
             and last_group["profile_name"] == profile_name
             and last_group["engine"] == engine
-            and (last_group["text_length"] + text_length + 1) <= CHUNK_CHAR_LIMIT
+            and (last_group["text_length"] + text_length + 1) <= SENT_CHAR_LIMIT
         ):
             last_group["segments"].append(segment)
             last_group["text_length"] += text_length + 1

@@ -10,22 +10,24 @@ from ..config import CHAPTER_DIR, XTTS_OUT_DIR, AUDIOBOOK_DIR, VOICES_DIR, SAMPL
 
 logger = logging.getLogger(__name__)
 _worker_threads: dict[str, threading.Thread] = {}
+_worker_threads_lock = threading.Lock()
 
 
 def ensure_workers():
-    synthesis = _worker_threads.get("synthesis")
-    if not synthesis or not synthesis.is_alive():
-        synthesis = threading.Thread(target=worker_loop, args=(job_queue,), name="SynthesisWorker", daemon=True)
-        synthesis.start()
-        _worker_threads["synthesis"] = synthesis
-        logger.warning("Started synthesis worker thread.")
+    with _worker_threads_lock:
+        synthesis = _worker_threads.get("synthesis")
+        if not synthesis or not synthesis.is_alive():
+            synthesis = threading.Thread(target=worker_loop, args=(job_queue,), name="SynthesisWorker", daemon=True)
+            synthesis.start()
+            _worker_threads["synthesis"] = synthesis
+            logger.warning("Started synthesis worker thread.")
 
-    assembly = _worker_threads.get("assembly")
-    if not assembly or not assembly.is_alive():
-        assembly = threading.Thread(target=worker_loop, args=(assembly_queue,), name="AssemblyWorker", daemon=True)
-        assembly.start()
-        _worker_threads["assembly"] = assembly
-        logger.warning("Started assembly worker thread.")
+        assembly = _worker_threads.get("assembly")
+        if not assembly or not assembly.is_alive():
+            assembly = threading.Thread(target=worker_loop, args=(assembly_queue,), name="AssemblyWorker", daemon=True)
+            assembly.start()
+            _worker_threads["assembly"] = assembly
+            logger.warning("Started assembly worker thread.")
 
 def enqueue(job):
     ensure_workers()

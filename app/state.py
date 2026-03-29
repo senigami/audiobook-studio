@@ -132,11 +132,7 @@ def get_settings() -> Dict[str, Any]:
     with _STATE_LOCK:
         state = _load_state_no_lock()
         raw_settings = state.get("settings", {})
-        normalized = _normalize_settings(raw_settings)
-        if normalized != raw_settings:
-            state["settings"] = normalized
-            _atomic_write_text(STATE_FILE, json.dumps(state, indent=2))
-        return normalized
+        return _normalize_settings(raw_settings)
 
 
 def update_settings(updates: dict = None, **kwargs) -> None:
