@@ -150,9 +150,20 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
       );
   }
 
-  const mergedVoices = [...(speakers || []).map(s => ({ id: s.id, name: s.name })), 
-                        ...(speakerProfiles || []).filter(p => !p.speaker_id || !speakers.some(s => s.id === p.speaker_id))
-                        .map(p => ({ id: `unassigned-${p.name}`, name: p.name }))];
+  const mergedVoices = [
+    ...(speakers || []).map(speaker => {
+      const matchingProfiles = (speakerProfiles || []).filter(profile => profile.speaker_id === speaker.id);
+      const defaultProfileName =
+        matchingProfiles.find(profile => profile.name === speaker.default_profile_name)?.name ||
+        getDefaultVoiceProfileName(matchingProfiles) ||
+        speaker.default_profile_name ||
+        speaker.name;
+      return { id: speaker.id, name: speaker.name, value: defaultProfileName };
+    }),
+    ...(speakerProfiles || [])
+      .filter(profile => !profile.speaker_id || !speakers.some(speaker => speaker.id === profile.speaker_id))
+      .map(profile => ({ id: `unassigned-${profile.name}`, name: profile.name, value: profile.name })),
+  ];
 
   const totalRuntime = (Array.isArray(chapters) ? chapters : []).reduce((acc, c) => acc + (c.audio_status === 'done' ? (c.audio_length_seconds || c.predicted_audio_length || 0) : 0), 0);
   const totalPredicted = (Array.isArray(chapters) ? chapters : []).reduce((acc, c) => acc + (c.predicted_audio_length || 0), 0);
@@ -191,7 +202,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
                           <button onClick={() => handleQueueAllUnprocessed(chapters, jobs, selectedVoice)} className="btn-ghost" style={{ border: '1px solid var(--border)', color: 'var(--accent)', fontSize: '0.85rem' }}><Zap size={16} /> Queue Remaining</button>
                           <select value={selectedVoice} onChange={e => setSelectedVoice(e.target.value)} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '0.85rem', padding: '0.25rem 0.5rem' }}>
                               <option value="">Default Speaker</option>
-                              {mergedVoices.map(v => <option key={v.id} value={v.name}>{v.name}</option>)}
+                              {mergedVoices.map(v => <option key={v.id} value={v.value}>{v.name}</option>)}
                           </select>
                           <button onClick={() => handleReorderChapters([...chapters].sort((a,b) => a.title.localeCompare(b.title, undefined, {numeric: true})))} className="btn-ghost" style={{ border: '1px solid var(--border)', fontSize: '0.85rem' }}><ArrowUpDown size={16} /> Sort A-Z</button>
                           <button onClick={() => setShowAddModal(true)} className="btn-primary" style={{ fontSize: '0.85rem' }}><Plus size={16} /> Add Chapter</button>

@@ -61,6 +61,45 @@ def test_list_speaker_profiles(clean_db, voices_root, client):
         assert data[0]["name"] == "SpeakerA"
         assert data[0]["engine"] == "xtts"
 
+
+def test_legacy_profile_listing_repairs_missing_speaker_rows_and_preserves_default_switch(clean_db, voices_root, client):
+    voices_root.mkdir()
+    legacy_speaker_id = str(uuid.uuid4())
+
+    for profile_name, variant_name in [
+        ("Dark Fantasy - Default", "Default"),
+        ("Dark Fantasy - Light Narrator", "Light Narrator"),
+    ]:
+        profile_dir = voices_root / profile_name
+        profile_dir.mkdir()
+        (profile_dir / "profile.json").write_text(json.dumps({
+            "speaker_id": legacy_speaker_id,
+            "variant_name": variant_name,
+            "engine": "xtts",
+        }))
+
+    profiles_response = client.get("/api/speaker-profiles")
+    assert profiles_response.status_code == 200
+    profiles = profiles_response.json()
+
+    repaired_default = next(p for p in profiles if p["name"] == "Dark Fantasy - Default")
+    repaired_variant = next(p for p in profiles if p["name"] == "Dark Fantasy - Light Narrator")
+    assert repaired_default["speaker_id"] == legacy_speaker_id
+    assert repaired_variant["speaker_id"] == legacy_speaker_id
+
+    speakers_response = client.get("/api/speakers")
+    assert speakers_response.status_code == 200
+    repaired_speaker = next(s for s in speakers_response.json() if s["id"] == legacy_speaker_id)
+    assert repaired_speaker["name"] == "Dark Fantasy"
+    assert repaired_speaker["default_profile_name"] == "Dark Fantasy - Default"
+
+    set_default_response = client.post("/api/settings/default-speaker", data={"name": "Dark Fantasy - Default"})
+    assert set_default_response.status_code == 200
+
+    refreshed_profiles = client.get("/api/speaker-profiles").json()
+    refreshed_default = next(p for p in refreshed_profiles if p["name"] == "Dark Fantasy - Default")
+    assert refreshed_default["is_default"] is True
+
 def test_create_and_delete_profile(clean_db, voices_root, client):
     voices_dir = voices_root
     voices_dir.mkdir()

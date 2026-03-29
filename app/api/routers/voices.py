@@ -17,6 +17,7 @@ from ...db import (
 )
 from ...db.speakers import (
     infer_variant_name,
+    repair_speakers_from_profiles,
     normalize_profile_metadata,
     DEFAULT_PROFILE_ENGINE,
     VALID_PROFILE_ENGINES,
@@ -211,6 +212,8 @@ def _ensure_default_speaker_profile(speaker_id: str, speaker_name: str, default_
 
 @router.get("/api/speaker-profiles")
 def list_speaker_profiles():
+    repair_speakers_from_profiles()
+
     if not VOICES_DIR.exists():
         return []
 
@@ -357,6 +360,7 @@ def api_delete_character_route(character_id: str):
 
 @router.get("/api/speakers")
 def api_list_speakers_route():
+    repair_speakers_from_profiles()
     return JSONResponse(list_speakers())
 
 @router.post("/api/speakers")

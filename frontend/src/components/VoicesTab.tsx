@@ -375,11 +375,10 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
     const unassigned = visibleSpeakerProfiles.filter(p => !p.speaker_id || !speakers.some(s => s.id === p.speaker_id));
     const unassignedGroups: Record<string, SpeakerProfile[]> = {};
     unassigned.forEach(p => {
-        // Use speaker_id as grouping key if it looks like a name (not a UUID)
-        let groupKey = p.speaker_id;
-        if (!groupKey || (groupKey.length === 36 && groupKey.includes('-'))) {
-            // Fallback: use base name before first underscore
-            groupKey = p.name.split('_')[0];
+        let groupKey = p.speaker_id || '';
+        const looksLikeUuid = groupKey.length === 36 && groupKey.includes('-');
+        if (!groupKey || looksLikeUuid) {
+            groupKey = p.name.includes(' - ') ? p.name.split(' - ')[0] : p.name.split('_')[0];
         }
         if (!unassignedGroups[groupKey]) unassignedGroups[groupKey] = [];
         unassignedGroups[groupKey].push(p);
