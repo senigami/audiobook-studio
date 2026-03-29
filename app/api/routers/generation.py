@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import List, Optional
 from fastapi import APIRouter, Form
 from fastapi.responses import JSONResponse
+from ...chunk_groups import build_segment_job_title
 from ...db import (
     add_to_queue as db_add_to_queue, get_chapter_segments,
     get_connection
@@ -296,6 +297,12 @@ def api_generate_segments(segment_ids: str = Form(...), speaker_profile: Optiona
     # Performance-tab segment generation should always use the chunk-aware mixed handler
     # so displayed groups render as one unit even when they are pure XTTS.
     queue_engine = "mixed"
+    segment_custom_title = build_segment_job_title(
+        chapter_title=chapter_title,
+        chapter_id=chapter_id,
+        segment_ids=sids,
+        default_profile=active_profile,
+    )
 
     jid = f"job-{uuid.uuid4().hex[:8]}"
     job = Job(
@@ -307,7 +314,8 @@ def api_generate_segments(segment_ids: str = Form(...), speaker_profile: Optiona
         project_id=project_id,
         chapter_id=chapter_id,
         segment_ids=sids,
-        speaker_profile=active_profile
+        speaker_profile=active_profile,
+        custom_title=segment_custom_title,
     )
 
     # Physical Cleanup: Delete existing full-chapter audio files to prevent reconciliation "blink"
@@ -344,6 +352,7 @@ def api_generate_segments(segment_ids: str = Form(...), speaker_profile: Optiona
         active_segment_progress=0.0,
         chapter_id=chapter_id,
         project_id=project_id,
+        custom_title=segment_custom_title,
     )
     enqueue(job)
     broadcast_queue_update()

@@ -151,6 +151,24 @@ const PerformanceGroupCard: React.FC<PerformanceGroupCardProps> = ({
       position: 'relative',
       overflow: 'hidden'
     }}>
+      <div style={{
+        position: 'absolute',
+        top: '0.85rem',
+        right: '0.95rem',
+        fontSize: '0.72rem',
+        fontWeight: 700,
+        color: 'var(--text-muted)',
+        opacity: 0.75,
+        background: 'rgba(255,255,255,0.05)',
+        border: '1px solid var(--border)',
+        borderRadius: '999px',
+        padding: '0.15rem 0.45rem',
+        lineHeight: 1,
+        zIndex: 3
+      }}>
+        #{gidx + 1}
+      </div>
+
       {showProgress && (
         <div style={{ 
           position: 'absolute', 
@@ -281,7 +299,7 @@ const PerformanceGroupCard: React.FC<PerformanceGroupCardProps> = ({
           <span style={{ 
             position: 'absolute', 
             top: '-8px', 
-            right: '-8px',
+            right: '28px',
             background: 'var(--bg)',
             borderRadius: '50%',
             padding: '2px',

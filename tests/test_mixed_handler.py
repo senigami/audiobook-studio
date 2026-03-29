@@ -61,7 +61,7 @@ def test_handle_mixed_job_renders_and_stitches(clean_db, tmp_path):
 
     with patch("app.jobs.handlers.mixed.get_project_audio_dir", return_value=audio_dir), \
          patch("app.config.get_project_audio_dir", return_value=audio_dir), \
-         patch("app.jobs.handlers.mixed.resolve_profile_engine", side_effect=lambda name, _fallback=None: "voxtral" if name == "Voxtral Voice" else "xtts"), \
+         patch("app.chunk_groups.resolve_profile_engine", side_effect=lambda name, _fallback=None: "voxtral" if name == "Voxtral Voice" else "xtts"), \
          patch("app.jobs.handlers.mixed.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "voice_123"} if name == "Voxtral Voice" else {"speed": 1.0}), \
          patch("app.jobs.handlers.mixed.get_speaker_wavs", return_value="ref.wav"), \
          patch("app.jobs.handlers.mixed.get_voice_profile_dir", return_value=tmp_path / "voice"), \
@@ -111,7 +111,7 @@ def test_handle_mixed_job_groups_adjacent_segments_into_one_chunk(clean_db, tmp_
 
     with patch("app.jobs.handlers.mixed.get_project_audio_dir", return_value=audio_dir), \
          patch("app.config.get_project_audio_dir", return_value=audio_dir), \
-         patch("app.jobs.handlers.mixed.resolve_profile_engine", return_value="xtts"), \
+         patch("app.chunk_groups.resolve_profile_engine", return_value="xtts"), \
          patch("app.jobs.handlers.mixed.get_speaker_settings", return_value={"speed": 1.0}), \
          patch("app.jobs.handlers.mixed.get_speaker_wavs", return_value="ref.wav"), \
          patch("app.jobs.handlers.mixed.get_voice_profile_dir", return_value=tmp_path / "voice"), \

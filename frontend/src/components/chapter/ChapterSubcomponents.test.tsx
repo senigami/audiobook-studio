@@ -72,6 +72,8 @@ describe('Chapter Subcomponents', () => {
       expect(screen.getByText('Char 1')).toBeInTheDocument();
       expect(screen.getByText('NARRATOR')).toBeInTheDocument();
       expect(screen.getByText('Standard')).toBeInTheDocument();
+      expect(screen.getByText('#1')).toBeInTheDocument();
+      expect(screen.getByText('#2')).toBeInTheDocument();
     });
 
     it('triggers bulk assign when a character is selected', () => {
@@ -120,6 +122,7 @@ describe('Chapter Subcomponents', () => {
       );
 
       expect(screen.getByText('Sentence one.')).toBeInTheDocument();
+      expect(screen.getByText('#1')).toBeInTheDocument();
       fireEvent.click(screen.getByRole('button', { name: /listen/i }));
       expect(onPlay).toHaveBeenCalledWith('seg-1', ['seg-1']);
     });

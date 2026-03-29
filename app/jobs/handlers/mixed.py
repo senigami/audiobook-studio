@@ -1,48 +1,13 @@
 import time
 from pathlib import Path
 
+from ...chunk_groups import build_chunk_groups, load_chunk_segments
 from ...config import XTTS_OUT_DIR, SENT_CHAR_LIMIT, get_project_audio_dir
 from ...engines import get_audio_duration, stitch_segments, wav_to_mp3, xtts_generate
 from ...engines_voxtral import VoxtralError, voxtral_generate
 from ...state import update_job
 from ...textops import safe_split_long_sentences, sanitize_for_xtts
-from ...voice_engines import resolve_profile_engine
 from ..speaker import get_speaker_settings, get_speaker_wavs, get_voice_profile_dir
-
-CHUNK_CHAR_LIMIT = 500
-
-
-def _load_segments(chapter_id: str):
-    from ...db import get_connection
-
-    with get_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            SELECT s.text_content,
-                   s.character_id,
-                   s.id,
-                   s.segment_order,
-                   s.speaker_profile_name,
-                   c.speaker_profile_name AS character_speaker_profile_name,
-                   s.audio_status,
-                   s.audio_file_path
-            FROM chapter_segments s
-            LEFT JOIN characters c ON s.character_id = c.id
-            WHERE s.chapter_id = ?
-            ORDER BY s.segment_order
-            """,
-            (chapter_id,),
-        )
-        return [dict(row) for row in cursor.fetchall()]
-
-
-def _segment_profile_name(segment: dict, default_profile: str | None) -> str | None:
-    return (
-        segment.get("speaker_profile_name")
-        or segment.get("character_speaker_profile_name")
-        or default_profile
-    )
 
 
 def _segment_output_path(pdir: Path, segment_id: str) -> Path:
@@ -99,46 +64,6 @@ def _render_voxtral_segment(text: str, profile_name: str | None, out_wav: Path, 
         reference_sample=spk.get("reference_sample"),
     )
 
-
-def _build_chunk_groups(segments: list[dict], default_profile: str | None) -> list[dict]:
-    groups: list[dict] = []
-
-    for segment in segments:
-        text = (segment.get("text_content") or "").strip()
-        if not text:
-            continue
-
-        profile_name = _segment_profile_name(segment, default_profile)
-        engine = resolve_profile_engine(profile_name, "xtts")
-        text_length = len(text)
-
-        last_group = groups[-1] if groups else None
-        if (
-            last_group
-            and last_group["character_id"] == segment.get("character_id")
-            and last_group["profile_name"] == profile_name
-            and last_group["engine"] == engine
-            and (last_group["text_length"] + text_length + 1) <= CHUNK_CHAR_LIMIT
-        ):
-            last_group["segments"].append(segment)
-            last_group["text_length"] += text_length + 1
-            last_group["text_parts"].append(text)
-            continue
-
-        groups.append(
-            {
-                "character_id": segment.get("character_id"),
-                "profile_name": profile_name,
-                "engine": engine,
-                "segments": [segment],
-                "text_parts": [text],
-                "text_length": text_length,
-            }
-        )
-
-    return groups
-
-
 def _group_needs_render(group: dict, pdir: Path) -> bool:
     expected_name = _chunk_output_path(pdir, group).name
     expected_path = pdir / expected_name
@@ -184,8 +109,8 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
     out_wav = pdir / f"{Path(j.chapter_file).stem}.wav"
     out_mp3 = pdir / f"{Path(j.chapter_file).stem}.mp3"
 
-    all_segments = _load_segments(j.chapter_id)
-    all_groups = _build_chunk_groups(all_segments, j.speaker_profile)
+    all_segments = load_chunk_segments(j.chapter_id)
+    all_groups = build_chunk_groups(all_segments, j.speaker_profile)
     if j.segment_ids:
         target_ids = set(j.segment_ids)
         target_groups = [group for group in all_groups if any(segment["id"] in target_ids for segment in group["segments"])]
@@ -271,7 +196,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
 
     update_job(jid, status="finalizing", progress=max(getattr(j, "progress", 0.0), 0.91))
     segment_paths = []
-    fresh_groups = _build_chunk_groups(get_chapter_segments(j.chapter_id), j.speaker_profile)
+    fresh_groups = build_chunk_groups(get_chapter_segments(j.chapter_id), j.speaker_profile)
     for group in fresh_groups:
         group_path = _group_ready_audio_path(group, pdir)
         if group_path and (not segment_paths or segment_paths[-1] != group_path):

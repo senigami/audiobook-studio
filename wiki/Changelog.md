@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.7.1] - 2026-03-28
+
+### Highlights
+
+- **Engine-Per-Voice Is Now Production-Ready**: XTTS stays local-first, Voxtral remains an optional cloud engine behind Settings, and mixed-engine chapters now render through displayed performance chunks instead of fragile sentence-by-sentence artifacts.
+- **Much Clearer Segment Workflow**: Performance and Production cards now show visible segment numbers, generated blocks render and play by displayed chunk, and queued segment jobs now carry titles like `overview: segment #13` so the global queue points to the exact block being processed.
+- **Queue And Progress Recovery Hardening**: Queue refresh can now recover missing in-memory jobs and orphaned rows without an app restart, chapter-side cards track the active queued/running segment group more reliably, and preparing/running visuals behave more consistently across XTTS and Voxtral jobs.
+- **Safer Cleanup And Chapter Deletion**: Chapter deletes now move associated text and audio artifacts into a project-level trash folder, chunk audio cleanup covers both legacy `seg_*.wav` and modern `chunk_*.wav` outputs, and ffmpeg helper manifests no longer leak stray `out_*.list.txt` or metadata files into the repo root.
+
 ## [1.7.0] - 2026-03-26
 
 ### Highlights
