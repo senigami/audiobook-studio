@@ -145,10 +145,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
                   job={pickLatestJob(j => j.project_id === projectId && (j.chapter_id === editingChapterId || j.chapter_file?.includes(editingChapterId)))}
                   chapterJobs={chapterJobs}
                   onBack={() => { setEditingChapterId(null); loadData(); }}
-                  selectedVoice={selectedVoice} onVoiceChange={(voice) => {
-                    setHasResolvedInitialVoice(true);
-                    setSelectedVoice(voice);
-                  }}
+                  selectedVoice={selectedVoice}
                   onNext={activeIdx < chapters.length - 1 ? () => setEditingChapterId(chapters[activeIdx + 1].id) : undefined}
                   onPrev={activeIdx > 0 ? () => setEditingChapterId(chapters[activeIdx - 1].id) : undefined}
               segmentUpdate={segmentUpdate}

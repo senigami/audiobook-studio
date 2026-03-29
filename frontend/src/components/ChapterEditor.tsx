@@ -26,7 +26,6 @@ interface ChapterEditorProps {
   job?: Job;
   chapterJobs?: Job[];
   selectedVoice?: string;
-  onVoiceChange?: (voice: string) => void;
   onBack: () => void;
   onNext?: () => void;
   onPrev?: () => void;
@@ -41,7 +40,6 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   job, 
   chapterJobs = [],
   selectedVoice: externalVoice, 
-  onVoiceChange, 
   onBack, 
   onNext, 
   onPrev, 
@@ -72,10 +70,11 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     isDestructive?: boolean;
     confirmText?: string;
   } | null>(null);
-  
-  const selectedVoice = externalVoice !== undefined ? externalVoice : localVoice;
+
+  const projectVoice = externalVoice || '';
+  const chapterVoice = localVoice;
+  const effectiveSelectedVoice = chapterVoice || projectVoice;
   const handleVoiceChange = (voice: string) => {
-      if (onVoiceChange) onVoiceChange(voice);
       setLocalVoice(voice);
   };
 
@@ -87,10 +86,18 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   const queueSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const availableVoices = React.useMemo(() => {
-    const list = (speakers || []).map(s => ({ id: s.id, name: s.name, is_speaker: true }));
+    const list = (speakers || []).map(speaker => {
+      const matchingProfiles = (speakerProfiles || []).filter(profile => profile.speaker_id === speaker.id);
+      const defaultProfileName =
+        matchingProfiles.find(profile => profile.name === speaker.default_profile_name)?.name ||
+        getDefaultVoiceProfileName(matchingProfiles) ||
+        speaker.default_profile_name ||
+        speaker.name;
+      return { id: speaker.id, name: speaker.name, value: defaultProfileName, is_speaker: true };
+    });
     const orphans = (speakerProfiles || [])
       .filter(p => !p.speaker_id || !speakers.some(s => s.id === p.speaker_id))
-      .map(p => ({ id: `unassigned-${p.name}`, name: p.name, is_speaker: false }));
+      .map(p => ({ id: `unassigned-${p.name}`, name: p.name, value: p.name, is_speaker: false }));
     return [...list, ...orphans];
   }, [speakers, speakerProfiles]);
 
@@ -119,7 +126,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         return next;
     });
     try {
-        await api.generateSegments(freshIds, selectedVoice || undefined);
+        await api.generateSegments(freshIds, effectiveSelectedVoice || undefined);
     } catch (e) {
         console.error(e);
         setConfirmConfig({
@@ -141,8 +148,8 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   };
 
   const chunkGroups = React.useMemo(() => {
-    return buildChunkGroups(segments, characters, selectedVoice);
-  }, [segments, characters, selectedVoice]);
+    return buildChunkGroups(segments, characters, effectiveSelectedVoice);
+  }, [segments, characters, effectiveSelectedVoice]);
 
   const liveSegmentJobIds = React.useMemo(() => {
     const ids = new Set<string>();
@@ -228,6 +235,10 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   };
 
   useEffect(() => { loadChapter(); }, [chapterId]);
+
+  useEffect(() => {
+    setLocalVoice('');
+  }, [chapterId]);
 
   useEffect(() => {
     if (!segmentUpdate || segmentUpdate.chapterId !== chapterId || segmentUpdate.tick === 0) return;
@@ -360,7 +371,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     setSubmitting(true);
     try {
         setQueueNotice('Queued. Keep this page open to watch progress.');
-        await api.addProcessingQueue(projectId, chapterId, 0, selectedVoice || undefined);
+        await api.addProcessingQueue(projectId, chapterId, 0, effectiveSelectedVoice || undefined);
         await loadChapter();
         queueSyncTimerRef.current = setTimeout(async () => {
           queueSyncTimerRef.current = null;
@@ -410,7 +421,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         onBack={async () => { await handleSave(); onBack(); }}
         onPrev={onPrev ? async () => { await handleSave(); onPrev(); } : undefined}
         onNext={onNext ? async () => { await handleSave(); onNext(); } : undefined}
-        selectedVoice={selectedVoice} onVoiceChange={handleVoiceChange} availableVoices={availableVoices}
+        selectedVoice={chapterVoice} onVoiceChange={handleVoiceChange} availableVoices={availableVoices}
         submitting={submitting} queueLocked={isQueueLocked} queuePending={queuePending} job={job} generatingSegmentIdsCount={effectivePendingSegmentIds.size}
         queueLabel={queueButtonLabel}
         queueTitle={queueButtonTitle}

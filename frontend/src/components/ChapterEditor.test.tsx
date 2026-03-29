@@ -471,4 +471,38 @@ describe('ChapterEditor', () => {
     expect(screen.getByText(/Enable Voxtral in Settings/i)).toBeInTheDocument();
   });
 
+  it('treats a blank chapter voice as a fallback to the project voice', async () => {
+    (api.addProcessingQueue as any).mockResolvedValue({ status: 'ok' });
+
+    render(
+      <ChapterEditor
+        chapterId={mockChapterId}
+        projectId={mockProjectId}
+        speakerProfiles={mockSpeakerProfiles as any}
+        speakers={mockSpeakers as any}
+        selectedVoice="Profile 1"
+        onBack={vi.fn()}
+      />
+    );
+
+    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
+
+    const voiceSelect = screen.getByTitle('Select Voice Profile for this chapter');
+    expect(screen.getByDisplayValue('Use Project Default')).toBeInTheDocument();
+
+    fireEvent.change(voiceSelect, { target: { value: 'Profile 1' } });
+    fireEvent.change(voiceSelect, { target: { value: '' } });
+
+    fireEvent.click(screen.getByTitle('Queue Chapter'));
+
+    await waitFor(() => {
+      expect(api.addProcessingQueue).toHaveBeenCalledWith(
+        mockProjectId,
+        mockChapterId,
+        0,
+        'Profile 1'
+      );
+    });
+  });
+
 });
