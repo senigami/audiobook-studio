@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import re
 import uuid
 from json import JSONDecodeError
@@ -27,30 +28,39 @@ def _profile_name_or_error(profile_name: str) -> str:
     return profile_name
 
 
-def _exact_voice_profile_dir(profile_name: str):
+def _candidate_voice_profile_dir(profile_name: str) -> Path:
+    profile_name = _profile_name_or_error(profile_name)
+    base_dir = os.path.abspath(os.path.normpath(os.fspath(VOICES_DIR)))
+    fullpath = os.path.abspath(os.path.normpath(os.path.join(base_dir, profile_name)))
+    if not fullpath.startswith(base_dir + os.sep):
+        raise ValueError(f"Invalid profile name: {profile_name}")
+    return Path(fullpath)
+
+
+def _find_existing_voice_profile_dir(profile_name: str) -> Optional[Path]:
     profile_name = _profile_name_or_error(profile_name)
     if not VOICES_DIR.exists():
-        return VOICES_DIR / profile_name
+        return None
     try:
         for entry in VOICES_DIR.iterdir():
             if entry.is_dir() and entry.name == profile_name:
                 return entry.resolve()
     except FileNotFoundError:
-        return VOICES_DIR / profile_name
-    return VOICES_DIR / profile_name
+        return None
+    return None
 
 
 def get_voice_profile_dir(profile_name: str):
-    exact = _exact_voice_profile_dir(profile_name)
-    if exact.exists():
+    exact = _find_existing_voice_profile_dir(profile_name)
+    if exact:
         return exact
 
     resolved_name = _resolve_existing_profile_name(profile_name)
     if resolved_name and resolved_name != profile_name:
-        resolved = _exact_voice_profile_dir(resolved_name)
-        if resolved.exists():
+        resolved = _find_existing_voice_profile_dir(resolved_name)
+        if resolved:
             return resolved
-    return exact
+    return _candidate_voice_profile_dir(profile_name)
 
 
 def get_voice_profile_latent_path(profile_name: str):
@@ -97,17 +107,17 @@ def _resolve_existing_profile_name(profile_name_or_id: str) -> Optional[str]:
     add_candidate(speaker_default_profile)
 
     prefix_source = speaker_name or (None if _is_uuid(target_profile) else target_profile)
-    if prefix_source:
+    if prefix_source and VOICES_DIR.exists():
         for d in sorted(VOICES_DIR.iterdir(), key=lambda p: p.name):
             if d.is_dir() and d.name.startswith(prefix_source + " - "):
                 add_candidate(d.name)
 
     for candidate in candidates:
         try:
-            p = _exact_voice_profile_dir(candidate)
+            p = _find_existing_voice_profile_dir(candidate)
         except ValueError:
             continue
-        if p.exists() and p.is_dir():
+        if p and p.exists() and p.is_dir():
             return candidate
 
     return None

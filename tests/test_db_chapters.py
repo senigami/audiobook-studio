@@ -230,6 +230,27 @@ def test_delete_chapter_deletes_chapter_and_chunk_audio_files(db_conn, tmp_path)
         assert get_chapter(cid) is None
 
 
+def test_cleanup_chapter_audio_files_rejects_traversal_names(db_conn, tmp_path):
+    from unittest.mock import patch
+    from app.db.chapters import cleanup_chapter_audio_files
+
+    pid = create_project("P_SAFE", "/tmp")
+    cid = create_chapter(pid, "CSAFE")
+    audio_dir = tmp_path / "audio"
+    audio_dir.mkdir()
+    kept = audio_dir / "safe.wav"
+    kept.write_text("safe")
+    escaped = tmp_path / "escape.wav"
+    escaped.write_text("escape")
+
+    with patch("app.config.get_project_audio_dir", return_value=audio_dir), \
+         patch("app.config.find_existing_project_subdir", side_effect=_existing_project_audio_dir(audio_dir)):
+        cleanup_chapter_audio_files(pid, cid, explicit_files=["../escape.wav"])
+
+    assert kept.exists()
+    assert escaped.exists()
+
+
 def test_update_chapter_text_change_preserves_stale_chapter_audio_until_rebuild(db_conn, tmp_path):
     from unittest.mock import patch
     from app.db.segments import sync_chapter_segments, get_chapter_segments

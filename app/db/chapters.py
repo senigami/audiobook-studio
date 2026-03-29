@@ -1,4 +1,5 @@
 import logging
+import os
 import re
 import shutil
 import time
@@ -10,6 +11,16 @@ logger = logging.getLogger(__name__)
 SAFE_AUDIO_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
 SAFE_SEGMENT_PREFIX_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 SAFE_TEXT_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
+
+
+def _is_safe_flat_name(value: Optional[str], pattern: re.Pattern[str]) -> bool:
+    if not value or not isinstance(value, str):
+        return False
+    if value != os.path.basename(value):
+        return False
+    if "/" in value or "\\" in value:
+        return False
+    return bool(pattern.fullmatch(value))
 
 
 def cleanup_chapter_audio_files(
@@ -35,8 +46,7 @@ def cleanup_chapter_audio_files(
     for raw_path in explicit_files or []:
         if not raw_path:
             continue
-        path_obj = Path(raw_path)
-        if raw_path != path_obj.name or not SAFE_AUDIO_NAME_RE.fullmatch(raw_path):
+        if not _is_safe_flat_name(raw_path, SAFE_AUDIO_NAME_RE):
             logger.warning("Skipping invalid explicit audio file %s", raw_path)
             continue
 
@@ -110,8 +120,7 @@ def move_chapter_artifacts_to_trash(
     for raw_path in explicit_audio_files or []:
         if not raw_path:
             continue
-        path_obj = Path(raw_path)
-        if raw_path != path_obj.name or not SAFE_AUDIO_NAME_RE.fullmatch(raw_path):
+        if not _is_safe_flat_name(raw_path, SAFE_AUDIO_NAME_RE):
             continue
         if raw_path in known_audio:
             audio_names.add(raw_path)

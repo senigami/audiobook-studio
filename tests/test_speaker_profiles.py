@@ -220,6 +220,13 @@ def test_get_speaker_settings(clean_voices):
     assert settings["speed"] == 1.75
 
 
+def test_get_voice_profile_dir_rejects_traversal(clean_voices):
+    from app.jobs.speaker import get_voice_profile_dir
+
+    with pytest.raises(ValueError):
+        get_voice_profile_dir("../escape")
+
+
 def test_get_speaker_settings_repairs_blank_profile_metadata(clean_voices):
     from app.jobs import get_speaker_settings
 
