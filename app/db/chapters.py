@@ -101,9 +101,27 @@ def move_chapter_artifacts_to_trash(
     if not project_id:
         return True
 
-    trash_root = config.get_project_trash_dir(project_id) / chapter_id
-    trash_audio_dir = trash_root / "audio"
-    trash_text_dir = trash_root / "text"
+    if not SAFE_SEGMENT_PREFIX_RE.fullmatch(chapter_id):
+        logger.warning("Skipping trash move for invalid chapter id %s", chapter_id)
+        return False
+
+    trash_root_base = os.path.abspath(os.path.normpath(os.fspath(config.get_project_trash_dir(project_id))))
+    trash_root_str = os.path.abspath(os.path.normpath(os.path.join(trash_root_base, chapter_id)))
+    if not trash_root_str.startswith(trash_root_base + os.sep):
+        logger.warning("Skipping trash move outside trash root for chapter %s", chapter_id)
+        return False
+
+    trash_audio_dir_str = os.path.abspath(os.path.normpath(os.path.join(trash_root_str, "audio")))
+    trash_text_dir_str = os.path.abspath(os.path.normpath(os.path.join(trash_root_str, "text")))
+    if not trash_audio_dir_str.startswith(trash_root_str + os.sep):
+        logger.warning("Skipping invalid trash audio directory for chapter %s", chapter_id)
+        return False
+    if not trash_text_dir_str.startswith(trash_root_str + os.sep):
+        logger.warning("Skipping invalid trash text directory for chapter %s", chapter_id)
+        return False
+
+    trash_audio_dir = Path(trash_audio_dir_str)
+    trash_text_dir = Path(trash_text_dir_str)
     trash_audio_dir.mkdir(parents=True, exist_ok=True)
     trash_text_dir.mkdir(parents=True, exist_ok=True)
 
@@ -142,7 +160,15 @@ def move_chapter_artifacts_to_trash(
         if not src or not src.exists():
             continue
         try:
-            shutil.move(str(src), str(trash_audio_dir / name))
+            if not _is_safe_flat_name(name, SAFE_AUDIO_NAME_RE):
+                logger.warning("Skipping invalid trash audio filename %s", name)
+                continue
+            trash_audio_root = os.path.abspath(os.path.normpath(os.fspath(trash_audio_dir)))
+            dest_audio = os.path.abspath(os.path.normpath(os.path.join(trash_audio_root, name)))
+            if not dest_audio.startswith(trash_audio_root + os.sep):
+                logger.warning("Skipping trash audio move outside root for %s", name)
+                continue
+            shutil.move(str(src), dest_audio)
         except Exception:
             logger.warning("Failed to move chapter audio file %s to trash", src, exc_info=True)
 
@@ -155,7 +181,12 @@ def move_chapter_artifacts_to_trash(
             if not entry.name.startswith(chapter_id):
                 continue
             try:
-                shutil.move(str(entry.resolve()), str(trash_text_dir / entry.name))
+                trash_text_root = os.path.abspath(os.path.normpath(os.fspath(trash_text_dir)))
+                dest_text = os.path.abspath(os.path.normpath(os.path.join(trash_text_root, entry.name)))
+                if not dest_text.startswith(trash_text_root + os.sep):
+                    logger.warning("Skipping trash text move outside root for %s", entry.name)
+                    continue
+                shutil.move(str(entry.resolve()), dest_text)
             except Exception:
                 logger.warning("Failed to move chapter text file %s to trash", entry, exc_info=True)
 

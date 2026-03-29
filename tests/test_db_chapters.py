@@ -230,6 +230,38 @@ def test_delete_chapter_deletes_chapter_and_chunk_audio_files(db_conn, tmp_path)
         assert get_chapter(cid) is None
 
 
+def test_move_chapter_artifacts_to_trash_rejects_invalid_chapter_id(db_conn, tmp_path):
+    from unittest.mock import patch
+    from app.db.chapters import move_chapter_artifacts_to_trash
+
+    pid = create_project("P_TRASH_SAFE", "/tmp")
+    audio_dir = tmp_path / "audio"
+    text_dir = tmp_path / "text"
+    trash_dir = tmp_path / "trash"
+    audio_dir.mkdir()
+    text_dir.mkdir()
+    trash_dir.mkdir()
+
+    kept_audio = audio_dir / "safe.wav"
+    kept_text = text_dir / "safe.txt"
+    kept_audio.write_text("audio")
+    kept_text.write_text("text")
+
+    def _subdir(_project_id, dirname):
+        mapping = {"audio": audio_dir, "text": text_dir, "trash": trash_dir}
+        return mapping.get(dirname)
+
+    with patch("app.config.get_project_audio_dir", return_value=audio_dir), \
+         patch("app.config.get_project_text_dir", return_value=text_dir), \
+         patch("app.config.get_project_trash_dir", return_value=trash_dir), \
+         patch("app.config.find_existing_project_subdir", side_effect=_subdir):
+        success = move_chapter_artifacts_to_trash(pid, "../escape", explicit_audio_files=["safe.wav"])
+
+    assert success is False
+    assert kept_audio.exists()
+    assert kept_text.exists()
+
+
 def test_cleanup_chapter_audio_files_rejects_traversal_names(db_conn, tmp_path):
     from unittest.mock import patch
     from app.db.chapters import cleanup_chapter_audio_files
