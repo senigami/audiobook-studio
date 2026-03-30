@@ -192,6 +192,8 @@ def xtts_generate(
         cmd.extend(["--voice_profile_dir", str(voice_profile_dir)])
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"
+    on_output("Launching XTTS inference...\n")
+    on_output("XTTS may take a while on first use while models load, caches warm, or assets download.\n")
     return run_cmd_stream(cmd, on_output, cancel_check, env=env)
 
 
@@ -220,6 +222,8 @@ def xtts_generate_script(
         cmd.extend(["--voice_profile_dir", str(voice_profile_dir)])
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"
+    on_output("Launching XTTS inference...\n")
+    on_output("XTTS may take a while on first use while models load, caches warm, or assets download.\n")
     return run_cmd_stream(cmd, on_output, cancel_check, env=env)
 
 

@@ -23,6 +23,29 @@ logger = logging.getLogger(__name__)
 app = FastAPI()
 
 
+def _install_windows_disconnect_handler(loop: asyncio.AbstractEventLoop) -> None:
+    previous_handler = loop.get_exception_handler()
+
+    def handle_exception(active_loop: asyncio.AbstractEventLoop, context):
+        exc = context.get("exception")
+        message = str(context.get("message", ""))
+        is_windows_disconnect = (
+            isinstance(exc, ConnectionResetError)
+            and getattr(exc, "winerror", None) == 10054
+        )
+
+        if is_windows_disconnect and "_ProactorBasePipeTransport._call_connection_lost" in message:
+            logger.debug("Suppressed Windows client disconnect during streamed response: %s", exc)
+            return
+
+        if previous_handler is not None:
+            previous_handler(active_loop, context)
+        else:
+            active_loop.default_exception_handler(context)
+
+    loop.set_exception_handler(handle_exception)
+
+
 def _contained_root_file(root: Path, filename: str) -> Optional[Path]:
     if not filename or Path(filename).name != filename:
         return None
@@ -222,6 +245,8 @@ def startup_event():
     # Capture the main event loop
     try:
         _main_loop[0] = asyncio.get_running_loop()
+        if sys.platform.startswith("win"):
+            _install_windows_disconnect_handler(_main_loop[0])
     except RuntimeError:
         pass # Handle case where loop isn't running yet
 
