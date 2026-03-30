@@ -139,8 +139,17 @@ def list_audiobooks():
             "download_filename": p.name,
         }
         try:
-            probe_cmd = f"ffprobe -v error -show_entries format=duration:format_tags=title -of json {shlex.quote(str(p))}"
-            probe_res = subprocess.run(shlex.split(probe_cmd), capture_output=True, text=True, check=True, timeout=3)
+            probe_cmd = [
+                "ffprobe",
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration:format_tags=title",
+                "-of",
+                "json",
+                str(p),
+            ]
+            probe_res = subprocess.run(probe_cmd, capture_output=True, text=True, check=True, timeout=3)
             probe_data = json.loads(probe_res.stdout)
             if "format" in probe_data:
                 fmt = probe_data["format"]
