@@ -50,6 +50,18 @@ def _find_existing_voice_profile_dir(profile_name: str) -> Optional[Path]:
     return None
 
 
+def _existing_profile_metadata_path(profile_name: str) -> Optional[Path]:
+    profile_name = _profile_name_or_error(profile_name)
+    profile_dir = _find_existing_voice_profile_dir(profile_name)
+    if not profile_dir:
+        return None
+    profile_root = os.path.abspath(os.path.normpath(os.fspath(profile_dir)))
+    meta_path = os.path.abspath(os.path.normpath(os.path.join(profile_root, "profile.json")))
+    if not meta_path.startswith(profile_root + os.sep):
+        raise ValueError(f"Invalid profile metadata path for: {profile_name}")
+    return Path(meta_path)
+
+
 def get_voice_profile_dir(profile_name: str):
     exact = _find_existing_voice_profile_dir(profile_name)
     if exact:
@@ -203,11 +215,11 @@ def get_speaker_settings(profile_name_or_id: str) -> dict:
         return res
 
     try:
-        p = get_voice_profile_dir(target_profile)
+        meta_path = _existing_profile_metadata_path(target_profile)
     except ValueError:
         return res
-
-    meta_path = p / "profile.json"
+    if not meta_path:
+        return res
     meta = _read_profile_metadata(target_profile, meta_path, repair=True)
     if "speed" in meta:
         res["speed"] = meta["speed"]
@@ -247,16 +259,12 @@ def update_speaker_settings(profile_name: str, **updates):
     except ValueError:
         return False
 
-    p = None
-    if VOICES_DIR.exists():
-        for entry in VOICES_DIR.iterdir():
-            if entry.is_dir() and entry.name == profile_name:
-                p = entry.resolve()
-                break
-    if not p:
+    try:
+        meta_path = _existing_profile_metadata_path(profile_name)
+    except ValueError:
         return False
-
-    meta_path = p / "profile.json"
+    if not meta_path:
+        return False
     meta = _read_profile_metadata(profile_name, meta_path, repair=False)
 
     for k, v in updates.items():

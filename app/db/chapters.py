@@ -3,6 +3,7 @@ import os
 import re
 import shutil
 import time
+import uuid
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from .core import _db_lock, get_connection
@@ -21,6 +22,13 @@ def _is_safe_flat_name(value: Optional[str], pattern: re.Pattern[str]) -> bool:
     if "/" in value or "\\" in value:
         return False
     return bool(pattern.fullmatch(value))
+
+
+def _canonical_chapter_id(chapter_id: str) -> str:
+    try:
+        return str(uuid.UUID(chapter_id))
+    except (ValueError, TypeError, AttributeError):
+        raise ValueError(f"Invalid chapter id: {chapter_id}")
 
 
 def cleanup_chapter_audio_files(
@@ -101,7 +109,9 @@ def move_chapter_artifacts_to_trash(
     if not project_id:
         return True
 
-    if not SAFE_SEGMENT_PREFIX_RE.fullmatch(chapter_id):
+    try:
+        chapter_id = _canonical_chapter_id(chapter_id)
+    except ValueError:
         logger.warning("Skipping trash move for invalid chapter id %s", chapter_id)
         return False
 
