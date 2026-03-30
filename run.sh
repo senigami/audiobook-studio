@@ -238,7 +238,8 @@ require_cmd bash
 require_cmd npm
 require_cmd ffmpeg
 
-PYTHON_BIN="$(pick_python || bootstrap_conda_python)" || die "Python 3.11+ is required. Please install Python 3.11 or newer, or use Pinokio's AI bundle with conda support."
+PYTHON_BIN="$(pick_python || bootstrap_conda_python)"
+[[ -n "$PYTHON_BIN" ]] || die "Python 3.11+ is required. Please install Python 3.11 or newer, or use Pinokio's AI bundle with conda support."
 
 log "Using Python: $PYTHON_BIN"
 sync_python_requirements "$APP_VENV" "$DIR/requirements.txt" "app"
