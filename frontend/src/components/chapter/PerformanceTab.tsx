@@ -234,7 +234,10 @@ const PerformanceGroupCard: React.FC<PerformanceGroupCardProps> = ({
             </button>
           ) : (
             <button 
-              onClick={() => onPlay(group.segments[0].id, uniqueSegmentIds)} 
+              onClick={() => {
+                const queueFromHere = uniqueSegmentIds.slice(uniqueSegmentIds.indexOf(group.segments[0].id));
+                onPlay(group.segments[0].id, queueFromHere);
+              }} 
               className="btn-ghost" 
               style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center', fontSize: '0.8rem', padding: '0.5rem', background: 'rgba(255,255,255,0.1)' }}
             >
