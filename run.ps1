@@ -114,10 +114,17 @@ function Get-CondaBootstrapPython {
     return @{ Command = $pythonExe; Prefix = @() }
 }
 
-function Invoke-Python($PythonInfo, [string[]]$Args) {
-    & $PythonInfo.Command @($PythonInfo.Prefix + $Args)
+function Invoke-Python($PythonInfo, [string[]]$PythonArgs) {
+    $allArgs = @()
+    if ($PythonInfo.Prefix) {
+        $allArgs += $PythonInfo.Prefix
+    }
+    if ($PythonArgs) {
+        $allArgs += $PythonArgs
+    }
+    & $PythonInfo.Command @allArgs
     if ($LASTEXITCODE -ne 0) {
-        Fail "Python command failed: $($PythonInfo.Command) $($Args -join ' ')"
+        Fail "Python command failed: $($PythonInfo.Command) $($allArgs -join ' ')"
     }
 }
 
