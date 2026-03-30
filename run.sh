@@ -125,7 +125,7 @@ xtts_env_has_conflicts() {
 from importlib import metadata
 
 conflicting_dists = []
-for dist_name in ("coqpit", "trainer"):
+for dist_name in ("coqpit",):
     try:
         metadata.distribution(dist_name)
     except metadata.PackageNotFoundError:
@@ -135,6 +135,19 @@ for dist_name in ("coqpit", "trainer"):
 
 raise SystemExit(0 if conflicting_dists else 1)
 PY
+  local probe_rc=$?
+  case $probe_rc in
+    0)
+      return 0
+      ;;
+    1)
+      return 1
+      ;;
+    *)
+      log "Warning: XTTS conflict probe failed for $env_dir; leaving environment intact"
+      return 1
+      ;;
+  esac
 }
 
 sync_python_requirements() {
