@@ -22,6 +22,12 @@ function Fail($Message) {
     throw $Message
 }
 
+function Remove-BootstrapPythonEnv {
+    if (Test-Path $BootstrapPythonEnv) {
+        Remove-Item $BootstrapPythonEnv -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
 function Test-PythonVersion($Command, [string[]]$Prefix = @()) {
     try {
         $versionOutput = & $Command @($Prefix + @("-c", "import sys; print(f'{sys.version_info[0]}.{sys.version_info[1]}')")) 2>$null
@@ -97,15 +103,11 @@ function Get-CondaBootstrapPython {
     try {
         & $condaExe create -y -p $BootstrapPythonEnv python=3.11 pip
     } catch {
-        if (Test-Path $BootstrapPythonEnv) {
-            Remove-Item $BootstrapPythonEnv -Recurse -Force -ErrorAction SilentlyContinue
-        }
+        Remove-BootstrapPythonEnv
         Fail "Failed to provision Python 3.11 with conda. Please install Python 3.11+ or reset the Pinokio app and try again."
     }
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path $pythonExe)) {
-        if (Test-Path $BootstrapPythonEnv) {
-            Remove-Item $BootstrapPythonEnv -Recurse -Force -ErrorAction SilentlyContinue
-        }
+        Remove-BootstrapPythonEnv
         Fail "Failed to provision Python 3.11 with conda. Please install Python 3.11+ or reset the Pinokio app and try again."
     }
 
