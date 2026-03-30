@@ -425,7 +425,7 @@ def test_sync_chapter_segments_does_not_cross_match_reordered_duplicates(db_conn
         assert refreshed[2]["audio_file_path"] is None
 
 
-def test_sync_chapter_segments_invalidates_trailing_segments_after_shift(db_conn, tmp_path):
+def test_sync_chapter_segments_preserves_unchanged_trailing_segments_after_local_edit(db_conn, tmp_path):
     from unittest.mock import patch
     from app.db.segments import sync_chapter_segments, get_chapter_segments
     from app.db import update_segment
@@ -465,14 +465,51 @@ def test_sync_chapter_segments_invalidates_trailing_segments_after_shift(db_conn
         assert refreshed[1]["audio_file_path"] is None
 
         assert refreshed[2]["text_content"].strip() == "Charlie."
-        assert refreshed[2]["audio_status"] == "unprocessed"
-        assert refreshed[2]["audio_file_path"] is None
+        assert refreshed[2]["audio_status"] == "done"
+        assert refreshed[2]["audio_file_path"] == file3.name
 
         assert refreshed[3]["text_content"].strip() == "Delta."
-        assert refreshed[3]["audio_status"] == "unprocessed"
-        assert refreshed[3]["audio_file_path"] is None
+        assert refreshed[3]["audio_status"] == "done"
+        assert refreshed[3]["audio_file_path"] == file4.name
 
         assert file1.exists()
         assert not file2.exists()
-        assert not file3.exists()
-        assert not file4.exists()
+        assert file3.exists()
+        assert file4.exists()
+
+
+def test_sync_chapter_segments_invalidates_preserved_rows_that_shared_a_chunk_with_a_changed_segment(db_conn, tmp_path):
+    from unittest.mock import patch
+    from app.db.segments import sync_chapter_segments, get_chapter_segments
+    from app.db import update_segment
+
+    pid = create_project("P7", "/tmp")
+    cid = create_chapter(pid, "C7", "Alpha. Bravo. Charlie.")
+
+    with patch("app.config.get_project_audio_dir", return_value=tmp_path), \
+         patch("app.config.find_existing_project_subdir", side_effect=_existing_project_audio_dir(tmp_path)):
+        sync_chapter_segments(cid, "Alpha. Bravo. Charlie.")
+        segs = get_chapter_segments(cid)
+        sid1, sid2, sid3 = [s["id"] for s in segs]
+
+        shared_chunk = tmp_path / f"chunk_{sid1}.wav"
+        final_file = tmp_path / f"seg_{sid3}.wav"
+        shared_chunk.write_text("alpha bravo")
+        final_file.write_text("charlie")
+
+        update_segment(sid1, audio_status="done", audio_file_path=shared_chunk.name, audio_generated_at=1.0)
+        update_segment(sid2, audio_status="done", audio_file_path=shared_chunk.name, audio_generated_at=1.0)
+        update_segment(sid3, audio_status="done", audio_file_path=final_file.name, audio_generated_at=2.0)
+
+        sync_chapter_segments(cid, "Alpha changed. Bravo. Charlie.")
+        refreshed = get_chapter_segments(cid)
+
+        assert refreshed[0]["audio_status"] == "unprocessed"
+        assert refreshed[0]["audio_file_path"] is None
+        assert refreshed[1]["audio_status"] == "unprocessed"
+        assert refreshed[1]["audio_file_path"] is None
+        assert refreshed[2]["audio_status"] == "done"
+        assert refreshed[2]["audio_file_path"] == final_file.name
+
+        assert not shared_chunk.exists()
+        assert final_file.exists()
