@@ -101,11 +101,11 @@ PY
 
   log "Creating bundled Python 3.11 environment"
   if ! "$conda_cmd" create -y -p "$BOOTSTRAP_PYTHON_ENV" python=3.11 pip; then
-    rm -rf "$BOOTSTRAP_PYTHON_ENV"
+    [[ -d "$BOOTSTRAP_PYTHON_ENV" ]] && rm -rf "$BOOTSTRAP_PYTHON_ENV"
     return 1
   fi
   if [[ ! -x "$python_exe" ]]; then
-    rm -rf "$BOOTSTRAP_PYTHON_ENV"
+    [[ -d "$BOOTSTRAP_PYTHON_ENV" ]] && rm -rf "$BOOTSTRAP_PYTHON_ENV"
     return 1
   fi
   printf '%s\n' "$python_exe"

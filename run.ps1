@@ -28,7 +28,8 @@ function Test-PythonVersion($Command, [string[]]$Prefix = @()) {
         if ($LASTEXITCODE -ne 0 -or -not $versionOutput) {
             return $false
         }
-        $versionText = ($versionOutput | Select-Object -First 1).ToString().Trim()
+        $versionText = [string]($versionOutput | Select-Object -First 1)
+        $versionText = $versionText.Trim()
         if (-not $versionText) {
             return $false
         }
