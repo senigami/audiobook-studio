@@ -20,8 +20,7 @@ def mock_cancel_check():
     return MagicMock(return_value=False)
 
 def test_run_cmd_stream_success(mock_on_output, mock_cancel_check):
-    with patch("subprocess.Popen") as mock_popen, \
-         patch("selectors.DefaultSelector") as mock_selector:
+    with patch("subprocess.Popen") as mock_popen:
 
         mock_proc = MagicMock()
         # Return characters then empty strings forever to avoid StopIteration
@@ -30,9 +29,6 @@ def test_run_cmd_stream_success(mock_on_output, mock_cancel_check):
         mock_proc.poll.side_effect = [None] * 6 + [0] * 100
         mock_proc.returncode = 0
         mock_popen.return_value = mock_proc
-
-        mock_selector_inst = mock_selector.return_value
-        mock_selector_inst.select.return_value = [True]
 
         rc = run_cmd_stream("test-cmd", mock_on_output, mock_cancel_check)
 
@@ -77,8 +73,7 @@ def test_generate_video_sample(mock_on_output, mock_cancel_check):
 
 def test_run_cmd_stream_cancel(mock_on_output, mock_cancel_check):
     mock_cancel_check.return_value = True
-    with patch("subprocess.Popen") as mock_popen, \
-         patch("selectors.DefaultSelector"):
+    with patch("subprocess.Popen") as mock_popen:
         mock_proc = MagicMock()
         mock_popen.return_value = mock_proc
 
@@ -288,14 +283,12 @@ def test_assemble_audiobook_chapter_titles(mock_on_output, mock_cancel_check):
 
 def test_run_cmd_stream_heartbeat(mock_on_output, mock_cancel_check):
     with patch("subprocess.Popen") as mock_popen, \
-         patch("selectors.DefaultSelector") as mock_selector, \
          patch("time.time") as mock_time:
 
-        mock_selector_inst = mock_selector.return_value
-        mock_selector_inst.select.return_value = []
         mock_time.side_effect = [1000.0, 1002.0, 1004.0, 1006.0, 1008.0, 1010.0]
 
         mock_proc = MagicMock()
+        mock_proc.stdout.read.side_effect = [""] * 10
         mock_proc.poll.side_effect = [None, 0]
         mock_popen.return_value = mock_proc
 

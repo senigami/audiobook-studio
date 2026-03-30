@@ -6,6 +6,8 @@ import hashlib
 import shutil
 import logging
 import tempfile
+import queue
+import threading
 from pathlib import Path
 from typing import List, Optional
 
@@ -36,7 +38,6 @@ def terminate_all_subprocesses():
 
 def run_cmd_stream(cmd, on_output, cancel_check, env=None) -> int:
     import time
-    import selectors
     from collections import deque
     if isinstance(cmd, (list, tuple)):
         display_cmd = " ".join(shlex.quote(str(part)) for part in cmd)
@@ -53,13 +54,27 @@ def run_cmd_stream(cmd, on_output, cancel_check, env=None) -> int:
         env=env,
     )
     _active_processes.add(proc)
+    output_queue: "queue.Queue[Optional[str]]" = queue.Queue()
 
-    sel = selectors.DefaultSelector()
-    sel.register(proc.stdout, selectors.EVENT_READ)
+    def enqueue_output():
+        try:
+            if proc.stdout is None:
+                return
+            while True:
+                char = proc.stdout.read(1)
+                if not char:
+                    break
+                output_queue.put(char)
+        finally:
+            output_queue.put(None)
+
+    reader_thread = threading.Thread(target=enqueue_output, daemon=True)
+    reader_thread.start()
 
     buffer = ""
     last_heartbeat = time.time()
     recent_lines = deque(maxlen=50)
+    saw_eof = False
 
     try:
         while True:
@@ -71,31 +86,26 @@ def run_cmd_stream(cmd, on_output, cancel_check, env=None) -> int:
                     proc.kill()
                 return 1
 
-            # Check for output with a timeout to allow heartbeats
-            events = sel.select(timeout=0.1)
-            if events:
-                char = proc.stdout.read(1)
-                if char:
-                    buffer += char
-                    if char in ('\n', '\r'):
+            try:
+                item = output_queue.get(timeout=0.1)
+                if item is None:
+                    saw_eof = True
+                else:
+                    buffer += item
+                    if item in ('\n', '\r'):
                         line = buffer.strip()
                         if line:
                             recent_lines.append(line)
                         on_output(buffer)
                         buffer = ""
-                        last_heartbeat = time.time() # Activity is a heartbeat
-                else:
-                    # EOF
-                    if proc.poll() is not None:
-                        break
-            else:
-                # No data: period check for heartbeat or process exit
+                        last_heartbeat = time.time()
+            except queue.Empty:
                 if time.time() - last_heartbeat >= 1.0:
-                    on_output("") # Send empty tick to run_cmd_stream caller
+                    on_output("")
                     last_heartbeat = time.time()
 
-                if proc.poll() is not None:
-                    break
+            if saw_eof and proc.poll() is not None and output_queue.empty():
+                break
 
         # Final flush
         if buffer:
@@ -103,15 +113,6 @@ def run_cmd_stream(cmd, on_output, cancel_check, env=None) -> int:
             if line:
                 recent_lines.append(line)
             on_output(buffer)
-
-        # Consume any remaining output
-        rest = proc.stdout.read()
-        if rest:
-            for line in rest.splitlines():
-                stripped = line.strip()
-                if stripped:
-                    recent_lines.append(stripped)
-            on_output(rest)
 
         rc = proc.returncode or 0
         if rc != 0:
@@ -123,7 +124,6 @@ def run_cmd_stream(cmd, on_output, cancel_check, env=None) -> int:
             )
         return rc
     finally:
-        sel.close()
         if proc in _active_processes:
             _active_processes.remove(proc)
 

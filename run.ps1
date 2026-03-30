@@ -147,11 +147,12 @@ function Test-XttsEnvConflicts($EnvDir) {
         return $false
     }
 
-    & $PythonExe -c @'
+    try {
+        & $PythonExe -c @'
 from importlib import metadata
 
 conflicting_dists = []
-for dist_name in ("coqpit", "trainer", "TTS"):
+for dist_name in ("coqpit", "trainer"):
     try:
         metadata.distribution(dist_name)
     except metadata.PackageNotFoundError:
@@ -161,6 +162,9 @@ for dist_name in ("coqpit", "trainer", "TTS"):
 
 raise SystemExit(0 if conflicting_dists else 1)
 '@ 2>$null
+    } catch {
+        return $true
+    }
 
     return $LASTEXITCODE -eq 0
 }
