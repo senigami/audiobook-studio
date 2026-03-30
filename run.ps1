@@ -11,6 +11,7 @@ $AppVenv = Join-Path $Root "venv"
 $XttsVenv = if ($env:XTTS_ENV_DIR) { $env:XTTS_ENV_DIR } else { Join-Path $HOME "xtts-env" }
 $FrontendDir = Join-Path $Root "frontend"
 $DemoZip = if ($env:AUDIOBOOK_STUDIO_DEMO_ZIP) { $env:AUDIOBOOK_STUDIO_DEMO_ZIP } else { Join-Path $Root "demo/demo.zip" }
+$BootstrapPythonEnv = Join-Path $Root ".pinokio-python311"
 
 function Write-Step($Message) {
     Write-Host ""
@@ -19,6 +20,33 @@ function Write-Step($Message) {
 
 function Fail($Message) {
     throw $Message
+}
+
+function Remove-BootstrapPythonEnv {
+    if (Test-Path $BootstrapPythonEnv) {
+        Remove-Item $BootstrapPythonEnv -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Test-PythonVersion($Command, [string[]]$Prefix = @()) {
+    try {
+        $versionOutput = & $Command @($Prefix + @("-c", "import sys; print(f'{sys.version_info[0]}.{sys.version_info[1]}')")) 2>$null
+        if ($LASTEXITCODE -ne 0 -or -not $versionOutput) {
+            return $false
+        }
+        $versionText = [string]($versionOutput | Select-Object -First 1)
+        $versionText = $versionText.Trim()
+        if (-not $versionText) {
+            return $false
+        }
+        $parsedVersion = $null
+        if (-not [version]::TryParse($versionText, [ref]$parsedVersion)) {
+            return $false
+        }
+        return $parsedVersion -ge [version]"3.11"
+    } catch {
+        return $false
+    }
 }
 
 function Find-Python {
@@ -33,16 +61,57 @@ function Find-Python {
         if (-not (Get-Command $candidate.Command -ErrorAction SilentlyContinue)) {
             continue
         }
-        try {
-            $version = & $candidate.Command @($candidate.Prefix + @("-c", "import sys; print(f'{sys.version_info[0]}.{sys.version_info[1]}')")) 2>$null
-            if ($LASTEXITCODE -eq 0 -and [version]($version.Trim()) -ge [version]"3.11") {
-                return $candidate
-            }
-        } catch {
+        if (Test-PythonVersion $candidate.Command $candidate.Prefix) {
+            return $candidate
         }
     }
 
     return $null
+}
+
+function Get-CondaBootstrapPython {
+    $condaCandidates = @()
+
+    $resolvedMamba = Get-Command "mamba" -ErrorAction SilentlyContinue
+    if ($resolvedMamba) {
+        $condaCandidates += $resolvedMamba.Source
+    }
+
+    if ($env:CONDA_EXE) {
+        $condaCandidates += $env:CONDA_EXE
+    }
+
+    $resolvedConda = Get-Command "conda" -ErrorAction SilentlyContinue
+    if ($resolvedConda) {
+        $condaCandidates += $resolvedConda.Source
+    }
+
+    $condaCandidates = $condaCandidates | Where-Object { $_ } | Select-Object -Unique
+    if (-not $condaCandidates) {
+        return $null
+    }
+
+    $pythonExe = Join-Path $BootstrapPythonEnv "python.exe"
+    if (Test-Path $pythonExe) {
+        if (Test-PythonVersion $pythonExe) {
+            return @{ Command = $pythonExe; Prefix = @() }
+        }
+    }
+
+    $condaExe = $condaCandidates[0]
+    Write-Step "Creating bundled Python 3.11 environment"
+    try {
+        & $condaExe create -y -p $BootstrapPythonEnv python=3.11 pip
+    } catch {
+        Remove-BootstrapPythonEnv
+        Fail "Failed to provision Python 3.11 with conda. Please install Python 3.11+ or reset the Pinokio app and try again."
+    }
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path $pythonExe)) {
+        Remove-BootstrapPythonEnv
+        Fail "Failed to provision Python 3.11 with conda. Please install Python 3.11+ or reset the Pinokio app and try again."
+    }
+
+    return @{ Command = $pythonExe; Prefix = @() }
 }
 
 function Invoke-Python($PythonInfo, [string[]]$Args) {
@@ -217,7 +286,10 @@ Require-Command "ffmpeg"
 
 $PythonInfo = Find-Python
 if (-not $PythonInfo) {
-    Fail "Python 3.11+ is required. Please install Python 3.11 or newer."
+    $PythonInfo = Get-CondaBootstrapPython
+}
+if (-not $PythonInfo) {
+    Fail "Python 3.11+ is required. Please install Python 3.11 or newer, or use Pinokio's AI bundle with conda support."
 }
 
 Write-Step "Using Python: $($PythonInfo.Command)"
