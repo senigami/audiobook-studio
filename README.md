@@ -24,16 +24,17 @@ It is built for real long-form work, not just one-click text-to-speech. You can 
 XTTS remains the private local-default engine. Voxtral is available as an optional cloud voice engine after you add your own Mistral API key in Settings.
 
 > [!IMPORTANT]
-> **Version 1.8.x is the current recommended release line for new users.**
-> It keeps XTTS as the private local-default path, adds optional Voxtral support behind Settings, and makes the mixed-engine queue, chunking, and repair flow feel consistent enough to use as the main production path.
+> **Version 1.8.1 is the current recommended release line for new users.**
+> It keeps XTTS as the private local-default path, adds optional Voxtral support behind Settings, and folds in the first patch round of chunking, playback, and chapter-repair fixes after the 1.8.0 release.
 
-## What's New In 1.8.0
+## What's New In 1.8.1
 
-- **Optional Voxtral support**: Add your own Mistral API key in Settings to unlock `Voxtral (Cloud)` only when you want it.
-- **Engine per voice profile**: XTTS and Voxtral are assigned at the voice level, not forced project-wide.
-- **Mixed-engine chapter rendering**: Narration and character voices can mix XTTS and Voxtral inside the same chapter.
-- **Chunk-aware repair and queue labels**: Performance renders now follow the displayed chunk groups, and queued segment jobs identify the exact segment number.
-- **Stronger queue recovery**: Stuck, invisible, or stale queue items recover much more reliably without restarting the app.
+- **Chunk generation matches the displayed Performance blocks more reliably**: Generating one block no longer tends to pull the wrong neighbor along for the ride or point playback at the wrong audio file.
+- **Project-view chapter renders now feed the Performance tab correctly**: Full XTTS chapter generation produces the chunk audio the chapter view expects, so generated chapters stay playable block-by-block instead of immediately asking to regenerate.
+- **Smarter segment invalidation after text edits**: Editing one sentence no longer wipes later unchanged audio unless those later rows were sharing the same chunk file and would otherwise become stale.
+- **Optional Voxtral support remains intact**: XTTS stays fully local by default, while `Voxtral (Cloud)` remains opt-in behind your own Mistral API key in Settings.
+
+If you want the original feature-release summary for engine-per-voice and Voxtral, see the [1.8.0 changelog entry](https://github.com/senigami/audiobook-studio/wiki/Changelog).
 
 ## Why People Use It
 

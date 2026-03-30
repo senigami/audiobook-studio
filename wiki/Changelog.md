@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.1] - 2026-03-30
+
+### Highlights
+
+- **Segment Repair And Playback Are Much More Trustworthy**: Displayed performance chunks now line up more closely across the frontend, backend, and playback flow, which fixes cases where generating one block could re-render the wrong block or play the wrong audio.
+- **Project Render And Chapter Performance View Stay In Sync**: Full XTTS chapter renders now leave behind the same chunk audio that the chapter Performance tab expects, so opening a rendered chapter no longer immediately asks to regenerate blocks that were already produced.
+- **Chapter Editing Invalidates Less Audio**: A local sentence edit now preserves later unchanged segment audio when it is still valid, while still invalidating shared chunk audio when a changed sentence would make that chunk stale.
+- **Patch-Line Stability Sweep**: This release rolls up the smaller UX, queue, chunking, and segment-state fixes discovered after the 1.8.0 launch into a safer patch release.
+
 ## [1.8.0] - 2026-03-28
 
 ### Highlights
