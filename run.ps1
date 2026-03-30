@@ -204,6 +204,7 @@ function Ensure-FrontendReady() {
     $NeedsBuild = $false
 
     if (-not (Test-Path $NodeModules) -or -not (Test-SameFileContent $Lockfile $InstallStamp)) {
+        Require-Command "npm"
         Write-Step "Installing frontend dependencies"
         Push-Location $FrontendDir
         try {
@@ -243,6 +244,7 @@ function Ensure-FrontendReady() {
     }
 
     if ($NeedsBuild) {
+        Require-Command "npm"
         Write-Step "Building frontend"
         Push-Location $FrontendDir
         try {
@@ -292,9 +294,6 @@ function Maybe-RestoreDemoBundle($PythonInfo) {
         Fail "Failed to restore the demo library"
     }
 }
-
-Require-Command "npm"
-Require-Command "ffmpeg"
 
 $PythonInfo = Find-Python
 if (-not $PythonInfo) {

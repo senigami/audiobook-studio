@@ -183,6 +183,7 @@ ensure_frontend_ready() {
   local needs_build=0
 
   if [[ ! -d "$FRONTEND_DIR/node_modules" ]] || [[ ! -f "$install_stamp" ]] || ! cmp -s "$lockfile" "$install_stamp"; then
+    require_cmd npm
     log "Installing frontend dependencies"
     (
       cd "$FRONTEND_DIR"
@@ -203,6 +204,7 @@ ensure_frontend_ready() {
   fi
 
   if [[ "$needs_build" -eq 1 ]]; then
+    require_cmd npm
     log "Building frontend"
     (
       cd "$FRONTEND_DIR"
@@ -248,8 +250,6 @@ maybe_restore_demo_bundle() {
 }
 
 require_cmd bash
-require_cmd npm
-require_cmd ffmpeg
 
 PYTHON_BIN="$(pick_python || bootstrap_conda_python)"
 [[ -n "$PYTHON_BIN" ]] || die "Python 3.11+ is required. Please install Python 3.11 or newer, or use Pinokio's AI bundle with conda support."
