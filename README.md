@@ -21,9 +21,19 @@ The live showcase also includes the fuller feature and cost comparison with Elev
 
 It is built for real long-form work, not just one-click text-to-speech. You can assign voices to characters, repair individual segments, requeue partial chapters, build portable voice profiles, and assemble finished books without sending your manuscript or cloned voices to a paid cloud service.
 
+XTTS remains the private local-default engine. Voxtral is available as an optional cloud voice engine after you add your own Mistral API key in Settings.
+
 > [!IMPORTANT]
-> **Version 1.7.x is the first release line intended as the clean default starting point for brand-new users.**
-> Earlier versions contain important groundwork, but this is the first release family where startup, voice portability, chapter generation, rebuild behavior, and download flow all line up the way new users should expect.
+> **Version 1.8.x is the current recommended release line for new users.**
+> It keeps XTTS as the private local-default path, adds optional Voxtral support behind Settings, and makes the mixed-engine queue, chunking, and repair flow feel consistent enough to use as the main production path.
+
+## What's New In 1.8.0
+
+- **Optional Voxtral support**: Add your own Mistral API key in Settings to unlock `Voxtral (Cloud)` only when you want it.
+- **Engine per voice profile**: XTTS and Voxtral are assigned at the voice level, not forced project-wide.
+- **Mixed-engine chapter rendering**: Narration and character voices can mix XTTS and Voxtral inside the same chapter.
+- **Chunk-aware repair and queue labels**: Performance renders now follow the displayed chunk groups, and queued segment jobs identify the exact segment number.
+- **Stronger queue recovery**: Stuck, invisible, or stale queue items recover much more reliably without restarting the app.
 
 ## Why People Use It
 
@@ -119,7 +129,8 @@ If you want the longer written breakdown, see the wiki page: [Comparison and Cos
 | **Voice variants** | Build multiple styles of the same voice, such as `Default`, `Angry`, or `Calm`. |
 | **Production queue** | Queue chapters, watch progress live, and recover cleanly from interruptions. |
 | **Audiobook assembly** | Export finished chapter audio into long-form outputs with ffmpeg-based tooling. |
-| **Local-first privacy** | No manuscript or cloned voice needs to leave your computer. |
+| **Optional cloud voices** | Keep XTTS fully local, or unlock Voxtral with your own Mistral API key when you want hosted TTS. |
+| **Local-first privacy** | XTTS stays private by default; Voxtral remains explicit and opt-in. |
 
 ## What The Workflow Looks Like
 
@@ -129,6 +140,8 @@ If you want the longer written breakdown, see the wiki page: [Comparison and Cos
 4. Assign voices to narration and characters.
 5. Generate chapters, inspect the performance view, and repair only the lines that need work.
 6. Assemble the finished project into audiobook outputs.
+
+If you want a fully local workflow, keep your voices on `XTTS (Local)`. If you want to try Voxtral, add a Mistral API key in Settings first and switch only the voices you want to `Voxtral (Cloud)`.
 
 ## Screenshots
 
@@ -241,13 +254,19 @@ Then open [http://127.0.0.1:8123](http://127.0.0.1:8123).
 
 ## Voice Profiles
 
-Audiobook Studio supports local voice cloning and reusable voice variants.
+Audiobook Studio supports reusable voice profiles across more than one engine.
 
 - Add raw `.wav` samples to a voice profile
 - Build a preview voice
 - Create variants for different delivery styles
 - Rebuild only when samples change
 - Keep the voice profile and latent cache together for portability
+
+Voice profiles now carry their own engine assignment:
+
+- `XTTS (Local)` keeps generation on your machine
+- `Voxtral (Cloud)` appears only after you add a Mistral API key in Settings
+- mixed-engine chapters can use XTTS and Voxtral voices together when segments call for different profiles
 
 Voice profiles can also now work as lightweight starter assets. A reusable profile can ship with:
 
@@ -274,6 +293,8 @@ This is where the app really shines.
 Audiobook Studio is designed for **local-first production**.
 
 Your manuscript, chapter text, voice samples, latent files, and rendered audio stay under your control on your own machine.
+
+If you enable `Voxtral (Cloud)`, preview text, render text, and any selected reference audio for Voxtral requests are sent to Mistral for synthesis. That mode is optional and stays hidden unless you explicitly add your own API key.
 
 ## Release Notes and History
 

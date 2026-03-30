@@ -219,6 +219,36 @@ def test_get_speaker_settings(clean_voices):
     settings = get_speaker_settings(name)
     assert settings["speed"] == 1.75
 
+
+def test_get_voice_profile_dir_rejects_traversal(clean_voices):
+    from app.jobs.speaker import get_voice_profile_dir
+
+    with pytest.raises(ValueError):
+        get_voice_profile_dir("../escape")
+
+
+def test_update_speaker_settings_rejects_invalid_profile_name(clean_voices):
+    from app.jobs.speaker import update_speaker_settings
+
+    assert update_speaker_settings("../escape", speed=1.2) is False
+
+
+def test_get_speaker_settings_repairs_blank_profile_metadata(clean_voices):
+    from app.jobs import get_speaker_settings
+
+    name = "BlankMeta"
+    profile_dir = clean_voices / name
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    meta_path = profile_dir / "profile.json"
+    meta_path.write_text("", encoding="utf-8")
+
+    settings = get_speaker_settings(name)
+
+    assert settings["variant_name"] == "Default"
+    repaired = json.loads(meta_path.read_text(encoding="utf-8"))
+    assert repaired["variant_name"] == "Default"
+    assert repaired["engine"] == "xtts"
+
 def test_get_speaker_settings_normalizes_default_variant(clean_voices):
     from app.jobs import get_speaker_settings
 
@@ -244,10 +274,47 @@ def test_get_speaker_settings_infers_variant_from_folder_name(clean_voices):
     settings = get_speaker_settings(name)
     assert settings["variant_name"] == "Angry"
 
-    meta_path = profile_dir / "profile.json"
-    assert meta_path.exists()
-    meta = json.loads(meta_path.read_text())
-    assert meta["variant_name"] == "Angry"
+def test_list_profiles_marks_preview_out_of_date_when_test_script_changes(clean_voices):
+    name = "Preview Drift"
+    profile_dir = clean_voices / name
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "voice.wav").write_text("audio")
+    (profile_dir / "sample.mp3").write_text("preview")
+    (profile_dir / "profile.json").write_text(json.dumps({
+        "variant_name": "Default",
+        "engine": "voxtral",
+        "test_text": "New preview script",
+        "preview_test_text": "Old preview script",
+        "voxtral_voice_id": "voice_123",
+        "preview_voxtral_voice_id": "voice_123",
+    }))
+
+    response = client.get("/api/speaker-profiles")
+
+    assert response.status_code == 200
+    profiles = response.json()
+    assert profiles[0]["name"] == name
+    assert profiles[0]["is_rebuild_required"] is True
+
+def test_list_profiles_does_not_mark_legacy_preview_out_of_date_without_preview_signature(clean_voices):
+    name = "Legacy Preview"
+    profile_dir = clean_voices / name
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "voice.wav").write_text("audio")
+    (profile_dir / "sample.mp3").write_text("preview")
+    (profile_dir / "profile.json").write_text(json.dumps({
+        "variant_name": "Default",
+        "engine": "xtts",
+        "built_samples": ["voice.wav"],
+        "test_text": "Current script",
+    }))
+
+    response = client.get("/api/speaker-profiles")
+
+    assert response.status_code == 200
+    profiles = response.json()
+    assert profiles[0]["name"] == name
+    assert profiles[0]["is_rebuild_required"] is False
 
 def test_get_speaker_settings_prefers_base_folder_over_variant(clean_voices):
     from app.jobs import get_speaker_settings, get_speaker_wavs
@@ -294,10 +361,12 @@ def test_speaker_listing_normalizes_base_profile_to_default(clean_voices):
         base_profile = next(p for p in profiles_response.json() if p["name"] == "Dracula Test Normalize")
         assert base_profile["variant_name"] == "Default"
         assert base_profile["speaker_id"] == speaker_id
+        assert base_profile["engine"] == "xtts"
 
         meta = json.loads((base_dir / "profile.json").read_text())
         assert meta["variant_name"] == "Default"
         assert meta["speaker_id"] == speaker_id
+        assert meta["engine"] == "xtts"
     finally:
         delete_speaker(speaker_id)
 

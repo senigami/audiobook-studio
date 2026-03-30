@@ -9,11 +9,60 @@ from ...jobs import cancel as cancel_job
 from ..ws import broadcast_queue_update
 
 router = APIRouter(prefix="/api", tags=["queue"])
+ACTIVE_JOB_STATUSES = {"queued", "preparing", "running", "finalizing"}
+TERMINAL_JOB_STATUSES = {"done", "failed", "cancelled"}
 
 @router.get("/processing_queue")
 def api_get_queue():
+    from ...db import reconcile_queue_status
+    from ...db.reconcile import reconcile_all_chapter_statuses
+    from ...jobs import sync_memory_queue, ensure_workers
+    from ...jobs.core import job_queue, assembly_queue
+
+    ensure_workers()
     queue_items = get_queue()
     all_jobs = get_jobs()
+    active_jobs = {
+        job_id: job
+        for job_id, job in all_jobs.items()
+        if getattr(job, "status", None) in ACTIVE_JOB_STATUSES
+    }
+    active_ids = list(active_jobs.keys())
+    active_chapter_ids = {
+        job.chapter_id
+        for job in active_jobs.values()
+        if getattr(job, "chapter_id", None)
+    }
+    terminal_job_statuses = {
+        job_id: job.status
+        for job_id, job in all_jobs.items()
+        if getattr(job, "status", None) in TERMINAL_JOB_STATUSES
+    }
+
+    needs_reconcile = any(
+        (
+            item["status"] in ("queued", "preparing", "running", "finalizing")
+            and (
+                item["id"] not in active_ids
+                or item["id"] in terminal_job_statuses
+            )
+        )
+        for item in queue_items
+    )
+    if needs_reconcile:
+        reconcile_queue_status(active_ids, terminal_job_statuses)
+        reconcile_all_chapter_statuses(active_chapter_ids)
+        queue_items = get_queue()
+
+    recoverable_queued_rows = [
+        item for item in queue_items
+        if item["status"] == "queued"
+        and item["id"] in active_jobs
+        and getattr(active_jobs[item["id"]], "status", None) == "queued"
+    ]
+    if recoverable_queued_rows and job_queue.qsize() == 0 and assembly_queue.qsize() == 0:
+        sync_memory_queue()
+        queue_items = get_queue()
 
     # Merge live data from state.json for active jobs
     for item in queue_items:

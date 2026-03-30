@@ -287,3 +287,64 @@ def test_voice_build_worker_exports_mp3_preview(clean_db, voices_root):
 
     assert sample_mp3.exists()
     assert not sample_wav.exists()
+
+
+def test_voice_build_worker_uses_voxtral_for_voxtral_profiles(clean_db, voices_root):
+    from app.jobs.worker import worker_loop
+    from app.models import Job
+
+    voices_dir = voices_root
+    profile_dir = voices_dir / "TestVoxtral"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+
+    sample_wav = profile_dir / "sample.wav"
+    sample_mp3 = profile_dir / "sample.mp3"
+
+    q = MagicMock()
+    q.get.side_effect = ["test-voxtral-build", Exception("StopLoop")]
+
+    job = Job(
+        id="test-voxtral-build",
+        engine="voice_build",
+        speaker_profile="TestVoxtral",
+        status="queued",
+        created_at=time.time(),
+        chapter_file="",
+    )
+
+    def fake_voxtral_generate(*args, **kwargs):
+        out_wav = kwargs["out_wav"]
+        Path(out_wav).write_text("wav preview")
+        return 0
+
+    def fake_wav_to_mp3(in_wav, out_mp3, on_output=None, cancel_check=None):
+        Path(out_mp3).write_text("mp3 preview")
+        return 0
+
+    with patch("app.config.VOICES_DIR", voices_dir), \
+         patch("app.jobs.worker.get_jobs", return_value={"test-voxtral-build": job}), \
+         patch("app.jobs.worker.update_job"), \
+         patch("app.jobs.worker.get_performance_metrics", return_value={"xtts_cps": 10.0, "audiobook_speed_multiplier": 1.0}), \
+         patch(
+             "app.jobs.worker.get_speaker_settings",
+             return_value={
+                 "engine": "voxtral",
+                 "test_text": "Hello",
+                 "voxtral_voice_id": "voice_123",
+                 "voxtral_model": "voxtral-tts",
+                 "reference_sample": None,
+             },
+         ), \
+         patch("app.jobs.worker.get_speaker_wavs", return_value=None), \
+         patch("app.jobs.worker.get_voice_profile_dir", return_value=profile_dir), \
+         patch("app.jobs.worker.voxtral_generate", side_effect=fake_voxtral_generate), \
+         patch("app.jobs.worker.wav_to_mp3", side_effect=fake_wav_to_mp3):
+
+        try:
+            worker_loop(q)
+        except Exception as e:
+            if str(e) != "StopLoop":
+                raise
+
+    assert sample_mp3.exists()
+    assert not sample_wav.exists()

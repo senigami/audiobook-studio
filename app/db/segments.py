@@ -1,9 +1,11 @@
 import logging
+import re
 import time
 from typing import List, Dict, Any, Optional
 from .core import _db_lock, get_connection
 
 logger = logging.getLogger(__name__)
+SEGMENT_AUDIO_RE = re.compile(r"^seg_(?P<segment_id>.+)\.(?:wav|mp3|m4a)$", re.IGNORECASE)
 
 
 def _chapter_has_active_generation(chapter_id: str) -> bool:
@@ -79,7 +81,7 @@ def get_chapter_segments(chapter_id: str) -> List[Dict[str, Any]]:
         with get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT s.*, c.color as character_color, c.name as character_name
+                SELECT s.*, c.color as character_color, c.name as character_name, c.speaker_profile_name as character_speaker_profile_name
                 FROM chapter_segments s
                 LEFT JOIN characters c ON s.character_id = c.id
                 WHERE s.chapter_id = ? 
@@ -115,12 +117,82 @@ def get_chapter_segments(chapter_id: str) -> List[Dict[str, Any]]:
     from .. import config
     pdir = config.get_project_audio_dir(project_id) if project_id else config.XTTS_OUT_DIR
 
+    invalid_done_ids: list[str] = []
     for s in rows:
-        if s['audio_status'] == 'done' and s['audio_file_path']:
-            if not (pdir / s['audio_file_path']).exists():
+        if not s.get('speaker_profile_name') and s.get('character_speaker_profile_name'):
+            s['speaker_profile_name'] = s['character_speaker_profile_name']
+        if s['audio_status'] == 'done':
+            if not s['audio_file_path']:
                 s['audio_status'] = 'unprocessed'
                 s['audio_file_path'] = None
+                invalid_done_ids.append(s['id'])
+            elif not (pdir / s['audio_file_path']).exists():
+                s['audio_status'] = 'unprocessed'
+                s['audio_file_path'] = None
+                invalid_done_ids.append(s['id'])
+            else:
+                match = SEGMENT_AUDIO_RE.match(s['audio_file_path'])
+                if match and match.group("segment_id") != s["id"]:
+                    s['audio_status'] = 'unprocessed'
+                    s['audio_file_path'] = None
+                    invalid_done_ids.append(s['id'])
+
+    if invalid_done_ids:
+        with _db_lock:
+            with get_connection() as conn:
+                cursor = conn.cursor()
+                placeholders = ",".join(["?"] * len(invalid_done_ids))
+                cursor.execute(
+                    f"""
+                    UPDATE chapter_segments
+                    SET audio_status = 'unprocessed',
+                        audio_file_path = NULL,
+                        audio_generated_at = NULL
+                    WHERE id IN ({placeholders})
+                    """,
+                    invalid_done_ids,
+                )
+                conn.commit()
     return rows
+
+
+def clear_duplicate_segment_audio_paths(chapter_id: str, keep_segment_id: str, audio_file_path: Optional[str]) -> List[str]:
+    if not chapter_id or not keep_segment_id or not audio_file_path:
+        return []
+
+    if not SEGMENT_AUDIO_RE.match(audio_file_path):
+        return []
+
+    with _db_lock:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT id
+                FROM chapter_segments
+                WHERE chapter_id = ?
+                  AND id != ?
+                  AND audio_file_path = ?
+                """,
+                (chapter_id, keep_segment_id, audio_file_path),
+            )
+            duplicate_ids = [row["id"] for row in cursor.fetchall()]
+            if not duplicate_ids:
+                return []
+
+            placeholders = ",".join(["?"] * len(duplicate_ids))
+            cursor.execute(
+                f"""
+                UPDATE chapter_segments
+                SET audio_status = 'unprocessed',
+                    audio_file_path = NULL,
+                    audio_generated_at = NULL
+                WHERE id IN ({placeholders})
+                """,
+                duplicate_ids,
+            )
+            conn.commit()
+            return duplicate_ids
 
 def update_segment(segment_id: str, broadcast: bool = True, **updates) -> bool:
     if not updates: return False

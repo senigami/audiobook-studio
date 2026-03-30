@@ -85,10 +85,11 @@ def test_chapter_segments_sync_and_update(clean_db, client):
     assert response.status_code == 200
     assert get_chapter_segments(cid)[0]["text_content"] == "Updated segment text"
 
-    # Bulk status update
+    # Bulk status update without a backing file gets normalized back to
+    # unprocessed when segments are reloaded from the DB/disk view.
     response = client.post(f"/api/chapters/{cid}/segments/bulk-status", json={"segment_ids": [sid], "status": "done"})
     assert response.status_code == 200
-    assert get_chapter_segments(cid)[0]["audio_status"] == "done"
+    assert get_chapter_segments(cid)[0]["audio_status"] == "unprocessed"
 
     # Bulk update
     response = client.post("/api/segments/bulk-update", json={"segment_ids": [sid], "updates": {"audio_status": "done"}})

@@ -5,6 +5,7 @@ import re
 import hashlib
 import shutil
 import logging
+import tempfile
 from pathlib import Path
 from typing import List, Optional
 
@@ -13,6 +14,13 @@ from .textops import safe_split_long_sentences, sanitize_for_xtts, pack_text_to_
 
 _active_processes = set()
 logger = logging.getLogger(__name__)
+
+
+def _create_temp_manifest(prefix: str, suffix: str) -> Path:
+    safe_prefix = re.sub(r"[^A-Za-z0-9._-]+", "_", prefix) or "audiobook"
+    fd, tmp = tempfile.mkstemp(prefix=safe_prefix, suffix=suffix)
+    os.close(fd)
+    return Path(tmp)
 
 def terminate_all_subprocesses():
     for proc in list(_active_processes):
@@ -309,8 +317,8 @@ def assemble_audiobook(
         return 1
 
     # 2. Build Metadata and Concat List
-    metadata_file = output_m4b.with_suffix(".metadata.txt")
-    list_file = output_m4b.with_suffix(".list.txt")
+    metadata_file = _create_temp_manifest(f"{output_m4b.stem}_", ".metadata.txt")
+    list_file = _create_temp_manifest(f"{output_m4b.stem}_", ".list.txt")
 
     metadata = ";FFMETADATA1\n"
     metadata += f"title={book_title}\n"
@@ -460,7 +468,7 @@ def stitch_segments(
         on_output("No segments to stitch.\n")
         return 1
 
-    list_file = output_path.with_suffix(".list.txt")
+    list_file = _create_temp_manifest(f"{output_path.stem}_", ".list.txt")
     try:
         with open(list_file, 'w') as lf:
             for sw in segment_wavs:

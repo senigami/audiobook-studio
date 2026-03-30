@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Speaker, SpeakerProfile } from '../types';
+import type { Speaker, SpeakerProfile, VoiceEngine } from '../types';
 import { ConfirmModal } from './ConfirmModal';
 import { RecordingGuide } from './RecordingGuide';
 import {
@@ -18,6 +18,9 @@ interface VoicesModalsProps {
     setIsCreateModalOpen: (open: boolean) => void;
     newVoiceName: string;
     setNewVoiceName: (name: string) => void;
+    newVoiceEngine: VoiceEngine;
+    setNewVoiceEngine: (engine: VoiceEngine) => void;
+    voxtralEnabled: boolean;
     isCreatingVoice: boolean;
     handleCreateVoice: () => void;
 
@@ -36,6 +39,8 @@ interface VoicesModalsProps {
     addVariantSpeaker: { speaker: Speaker } | null;
     newVariantNameModal: string;
     setNewVariantNameModal: (name: string) => void;
+    newVariantEngine: VoiceEngine;
+    setNewVariantEngine: (engine: VoiceEngine) => void;
     isAddingVariantModal: boolean;
     handleAddVariant: () => void;
 
@@ -58,8 +63,14 @@ interface VoicesModalsProps {
     setEditingProfile: (profile: SpeakerProfile | null) => void;
     variantName: string;
     setVariantName: (name: string) => void;
+    editingEngine: VoiceEngine;
+    setEditingEngine: (engine: VoiceEngine) => void;
     testText: string;
     setTestText: (text: string) => void;
+    referenceSample: string;
+    setReferenceSample: (sample: string) => void;
+    voxtralVoiceId: string;
+    setVoxtralVoiceId: (voiceId: string) => void;
     isSavingText: boolean;
     handleResetTestText: () => void;
     handleSaveTestText: () => void;
@@ -77,6 +88,9 @@ export const VoicesModals: React.FC<VoicesModalsProps> = (props) => {
                 onClose={() => props.setIsCreateModalOpen(false)}
                 value={props.newVoiceName}
                 onChange={props.setNewVoiceName}
+                engine={props.newVoiceEngine}
+                onEngineChange={props.setNewVoiceEngine}
+                voxtralEnabled={props.voxtralEnabled}
                 onSubmit={props.handleCreateVoice}
                 isCreating={props.isCreatingVoice}
             />
@@ -97,6 +111,9 @@ export const VoicesModals: React.FC<VoicesModalsProps> = (props) => {
                 speakerName={props.addVariantSpeaker?.speaker.name || ''}
                 value={props.newVariantNameModal}
                 onChange={props.setNewVariantNameModal}
+                engine={props.newVariantEngine}
+                onEngineChange={props.setNewVariantEngine}
+                voxtralEnabled={props.voxtralEnabled}
                 isAdding={props.isAddingVariantModal}
                 onSubmit={props.handleAddVariant}
             />
@@ -132,8 +149,16 @@ export const VoicesModals: React.FC<VoicesModalsProps> = (props) => {
                 <ScriptEditor
                     variantName={props.variantName}
                     onVariantNameChange={props.setVariantName}
+                    engine={props.editingEngine}
+                    onEngineChange={props.setEditingEngine}
+                    voxtralEnabled={props.voxtralEnabled}
                     testText={props.testText}
                     onTestTextChange={props.setTestText}
+                    referenceSample={props.referenceSample}
+                    onReferenceSampleChange={props.setReferenceSample}
+                    availableSamples={props.editingProfile?.samples || []}
+                    voxtralVoiceId={props.voxtralVoiceId}
+                    onVoxtralVoiceIdChange={props.setVoxtralVoiceId}
                     onResetTestText={props.handleResetTestText}
                     onSave={props.handleSaveTestText}
                     isSaving={props.isSavingText}

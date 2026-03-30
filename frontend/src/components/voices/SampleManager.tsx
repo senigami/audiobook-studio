@@ -5,6 +5,7 @@ import type { SpeakerProfile } from '../../types';
 
 interface SampleManagerProps {
     profile: SpeakerProfile;
+    title?: string;
     isSamplesExpanded: boolean;
     setIsSamplesExpanded: (expanded: boolean) => void;
     isRebuildRequired: boolean;
@@ -16,6 +17,7 @@ interface SampleManagerProps {
 
 export const SampleManager: React.FC<SampleManagerProps> = ({
     profile,
+    title = 'Samples',
     isSamplesExpanded,
     setIsSamplesExpanded,
     isRebuildRequired,
@@ -103,7 +105,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
                     }}
                 >
                     <Music size={14} className="text-accent" />
-                    <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>Samples ({profile.samples?.length || 0})</span>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>{title} ({profile.samples?.length || 0})</span>
                     {isRebuildRequired && <span title="Rebuild required to reflect recent sample changes"><AlertTriangle size={12} className="text-warning" /></span>}
                 </button>
 

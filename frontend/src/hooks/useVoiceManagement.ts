@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { Speaker, SpeakerProfile, Job } from '../types';
+import type { Speaker, SpeakerProfile, Job, VoiceEngine } from '../types';
 
 export function useVoiceManagement(
     onRefresh: () => void, 
@@ -215,6 +215,60 @@ export function useVoiceManagement(
         }
     };
 
+    const handleUpdateEngine = useCallback(async (name: string, engine: VoiceEngine) => {
+        try {
+            const formData = new URLSearchParams();
+            formData.append('engine', engine);
+            const resp = await fetch(`/api/speaker-profiles/${encodeURIComponent(name)}/engine`, {
+                method: 'POST',
+                body: formData
+            });
+            if (resp.ok) {
+                onRefresh();
+                return true;
+            }
+        } catch (err) {
+            console.error('Failed to update profile engine', err);
+        }
+        return false;
+    }, [onRefresh]);
+
+    const handleUpdateReferenceSample = useCallback(async (name: string, sampleName: string | null) => {
+        try {
+            const formData = new URLSearchParams();
+            formData.append('sample_name', sampleName || '');
+            const resp = await fetch(`/api/speaker-profiles/${encodeURIComponent(name)}/reference-sample`, {
+                method: 'POST',
+                body: formData
+            });
+            if (resp.ok) {
+                onRefresh();
+                return true;
+            }
+        } catch (err) {
+            console.error('Failed to update reference sample', err);
+        }
+        return false;
+    }, [onRefresh]);
+
+    const handleUpdateVoxtralVoiceId = useCallback(async (name: string, voiceId: string) => {
+        try {
+            const formData = new URLSearchParams();
+            formData.append('voice_id', voiceId || '');
+            const resp = await fetch(`/api/speaker-profiles/${encodeURIComponent(name)}/voxtral-voice-id`, {
+                method: 'POST',
+                body: formData
+            });
+            if (resp.ok) {
+                onRefresh();
+                return true;
+            }
+        } catch (err) {
+            console.error('Failed to update Voxtral voice id', err);
+        }
+        return false;
+    }, [onRefresh]);
+
     // Expose a boolean-compatible version of buildingProfiles for consumers
     const buildingProfilesBool: Record<string, boolean> = Object.fromEntries(
         Object.keys(buildingProfiles).map(k => [k, true])
@@ -228,6 +282,9 @@ export function useVoiceManagement(
         handleTest,
         handleBuildNow,
         handleDelete,
+        handleUpdateEngine,
+        handleUpdateReferenceSample,
+        handleUpdateVoxtralVoiceId,
         formatError
     };
 }

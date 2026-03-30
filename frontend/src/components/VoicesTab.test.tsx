@@ -3,15 +3,16 @@ import { VoicesTab } from './VoicesTab'
 import { describe, it, expect, vi } from 'vitest'
 
 describe('VoicesTab', () => {
-    const mockProfiles = [
-        { name: 'Narrator1', wav_count: 5, speed: 1.0, is_default: false, preview_url: null, speaker_id: null, variant_name: null },
-        { name: 'Narrator2', wav_count: 3, speed: 1.2, is_default: true, preview_url: '/preview.wav', speaker_id: null, variant_name: null }
+    const mockProfiles: any = [
+        { name: 'Narrator1', wav_count: 5, speed: 1.0, is_default: false, preview_url: null, speaker_id: null, variant_name: null, engine: 'xtts' },
+        { name: 'Narrator2', wav_count: 3, speed: 1.2, is_default: true, preview_url: '/preview.wav', speaker_id: null, variant_name: null, engine: 'voxtral' }
     ]
 
     const mockProps = {
         onRefresh: vi.fn(),
         speakerProfiles: mockProfiles,
-        testProgress: {}
+        testProgress: {},
+        settings: { safe_mode: true, make_mp3: false, default_engine: 'xtts', mistral_api_key: 'key', voxtral_enabled: true } as any
     }
 
     beforeEach(() => {
@@ -31,6 +32,8 @@ describe('VoicesTab', () => {
         })
         expect(screen.getByText('Narrator1')).toBeInTheDocument()
         expect(screen.getByText('Narrator2')).toBeInTheDocument()
+        expect(screen.getByText('XTTS (1)')).toBeInTheDocument()
+        expect(screen.getByText('Voxtral (1)')).toBeInTheDocument()
     })
 
     it('shows the default narrator pill', async () => {
@@ -152,5 +155,26 @@ describe('VoicesTab', () => {
             expect.anything()
         )
         expect(onRefresh).toHaveBeenCalled()
+    })
+
+    it('filters voices by engine', async () => {
+        await act(async () => {
+            render(<VoicesTab {...mockProps} />)
+        })
+
+        fireEvent.click(screen.getByText('Voxtral (1)'))
+
+        expect(screen.queryByText('Narrator1')).not.toBeInTheDocument()
+        expect(screen.getByText('Narrator2')).toBeInTheDocument()
+    })
+
+    it('keeps existing Voxtral voices visible when cloud voices are disabled', async () => {
+        await act(async () => {
+            render(<VoicesTab {...mockProps} settings={{ safe_mode: true, make_mp3: false, default_engine: 'xtts', voxtral_enabled: false }} />)
+        })
+
+        expect(screen.getByText('Narrator1')).toBeInTheDocument()
+        expect(screen.getByText('Narrator2')).toBeInTheDocument()
+        expect(screen.queryByText('Voxtral (1)')).not.toBeInTheDocument()
     })
 })

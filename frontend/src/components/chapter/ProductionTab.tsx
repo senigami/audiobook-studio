@@ -68,9 +68,27 @@ export const ProductionTab: React.FC<ProductionTabProps> = ({
               cursor: (selectedCharacterId && selectedCharacterId !== 'CLEAR_ASSIGNMENT') ? 'copy' : (selectedCharacterId === 'CLEAR_ASSIGNMENT' ? 'crosshair' : 'pointer'),
               transition: 'all 0.1s ease',
               gap: '2rem',
-              boxShadow: isHovered ? '0 2px 8px rgba(0,0,0,0.1)' : 'none'
+              boxShadow: isHovered ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
+              position: 'relative'
             }}
           >
+            <div style={{
+              position: 'absolute',
+              top: '0.55rem',
+              right: '0.7rem',
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              color: 'var(--text-muted)',
+              opacity: 0.75,
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid var(--border)',
+              borderRadius: '999px',
+              padding: '0.15rem 0.45rem',
+              lineHeight: 1
+            }}>
+              #{gidx + 1}
+            </div>
+
             {/* Character/Voice column */}
             <div style={{ 
                 width: '140px', 

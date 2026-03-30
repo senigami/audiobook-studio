@@ -38,6 +38,25 @@ describe('GlobalQueue', () => {
         expect(screen.getByText('Chapter 2')).toBeTruthy()
     })
 
+    it('prefers custom titles over raw chapter titles when present', async () => {
+        vi.mocked(api.getProcessingQueue).mockResolvedValue([
+            {
+                id: 'job-seg',
+                status: 'running',
+                chapter_title: 'overview',
+                custom_title: 'overview * Part 5: segment #7',
+                project_name: 'Project A',
+                split_part: 0,
+                progress: 0.5
+            }
+        ] as any)
+
+        render(<GlobalQueue />)
+
+        expect(await screen.findByText('overview * Part 5: segment #7')).toBeTruthy()
+        expect(screen.queryByText(/^overview$/i)).toBeNull()
+    })
+
     it('toggles pause state', async () => {
         // Mock fetch for the pause/resume endpoints
         global.fetch = vi.fn().mockResolvedValue({

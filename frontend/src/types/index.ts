@@ -1,4 +1,5 @@
-export type Engine = 'xtts' | 'audiobook' | 'voice_build' | 'voice_test';
+export type Engine = 'xtts' | 'voxtral' | 'mixed' | 'audiobook' | 'voice_build' | 'voice_test';
+export type VoiceEngine = 'xtts' | 'voxtral';
 
 export type Status = 'queued' | 'preparing' | 'running' | 'finalizing' | 'done' | 'failed' | 'cancelled' | 'error';
 
@@ -85,6 +86,10 @@ export interface SpeakerProfile {
   test_text?: string;
   speaker_id: string | null;
   variant_name: string | null;
+  engine?: VoiceEngine;
+  voxtral_voice_id?: string | null;
+  voxtral_model?: string | null;
+  reference_sample?: string | null;
   preview_url: string | null;
   has_latent?: boolean;
   is_rebuild_required?: boolean;
@@ -122,6 +127,7 @@ export interface Job {
   output_wav?: string | null;
   output_mp3?: string | null;
   speaker_profile?: string | null;
+  segment_ids?: string[];
   active_segment_id?: string | null;
   active_segment_progress?: number;
 }
@@ -131,6 +137,9 @@ export interface Settings {
   make_mp3: boolean;
   default_engine: Engine;
   default_speaker_profile?: string;
+  voxtral_enabled?: boolean;
+  voxtral_model?: string;
+  mistral_api_key?: string;
 }
 
 export interface Audiobook {

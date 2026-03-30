@@ -2,6 +2,7 @@ import React from 'react';
 import { Play, Pause, XCircle } from 'lucide-react';
 import { PredictiveProgressBar } from '../PredictiveProgressBar';
 import type { ProcessingQueueItem, Job } from '../../types';
+import { formatQueueContext } from '../../utils/queueLabels';
 
 interface QueueItemProps {
     job: ProcessingQueueItem;
@@ -72,7 +73,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                         </h4>
                         <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '8px' }}>
                             {job.project_name ? (
-                                <span>{job.project_name} • Part {job.split_part + 1}</span>
+                                <span>{formatQueueContext(job)}</span>
                             ) : (
                                 <span style={{ color: 'var(--accent)', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Internal Process</span>
                             )}

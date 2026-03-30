@@ -6,6 +6,7 @@ from app.jobs import (
 from app.models import Job
 import time
 from unittest.mock import patch, MagicMock
+import threading
 
 def test_pause_states():
     set_paused(True)
@@ -69,3 +70,41 @@ def test_speaker_helpers_resolve_uuid_profile(tmp_path):
     assert result is not None
     assert "sample.wav" in result
     mock_get_speaker.assert_called_once_with("123e4567-e89b-12d3-a456-426614174000")
+
+
+def test_ensure_workers_is_lock_protected_under_concurrency():
+    from app.jobs import ensure_workers
+    import app.jobs as jobs_module
+
+    created_names: list[str] = []
+    real_thread = threading.Thread
+
+    class FakeThread:
+        def __init__(self, target=None, args=(), name=None, daemon=None):
+            self._alive = False
+            self.name = name
+            created_names.append(name)
+
+        def start(self):
+            self._alive = True
+
+        def is_alive(self):
+            return self._alive
+
+    barrier = threading.Barrier(2)
+
+    def call_ensure():
+        barrier.wait()
+        ensure_workers()
+
+    with patch.object(jobs_module, "_worker_threads", {}), \
+         patch.object(jobs_module.threading, "Thread", FakeThread):
+        t1 = real_thread(target=call_ensure)
+        t2 = real_thread(target=call_ensure)
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+
+    assert created_names.count("SynthesisWorker") == 1
+    assert created_names.count("AssemblyWorker") == 1

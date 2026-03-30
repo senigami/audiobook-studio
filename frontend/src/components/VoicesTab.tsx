@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
     Search, Plus, User, Info
 } from 'lucide-react';
-import type { Speaker, SpeakerProfile, Job } from '../types';
+import type { Speaker, SpeakerProfile, Job, VoiceEngine, Settings } from '../types';
 import { GlassInput } from './GlassInput';
 import { GhostButton } from './GhostButton';
 import { NarratorCard } from './voices/NarratorCard';
@@ -15,9 +15,10 @@ interface VoicesTabProps {
     speakerProfiles: SpeakerProfile[];
     testProgress: Record<string, { progress: number; started_at?: number }>;
     jobs?: Record<string, Job>;
+    settings?: Settings;
 }
 
-export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles, testProgress, jobs = {} }) => {
+export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles, testProgress, jobs = {}, settings }) => {
     const [confirmConfig, setConfirmConfig] = useState<{
         title: string;
         message: string;
@@ -25,6 +26,9 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
         isDestructive?: boolean;
         isAlert?: boolean;
     } | null>(null);
+
+    const voxtralEnabled = !!settings?.mistral_api_key?.trim() && !!settings?.voxtral_enabled;
+    const visibleSpeakerProfiles = useMemo(() => speakerProfiles, [speakerProfiles]);
 
     const {
         speakers,
@@ -34,13 +38,19 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
         handleTest,
         handleBuildNow,
         handleDelete,
+        handleUpdateEngine,
+        handleUpdateReferenceSample,
+        handleUpdateVoxtralVoiceId,
         formatError
-    } = useVoiceManagement(onRefresh, speakerProfiles, (config) => setConfirmConfig(config), jobs);
+    } = useVoiceManagement(onRefresh, visibleSpeakerProfiles, (config) => setConfirmConfig(config), jobs);
 
     // --- Component Local State ---
     const [editingProfile, setEditingProfile] = useState<SpeakerProfile | null>(null);
     const [testText, setTestText] = useState('');
     const [variantName, setVariantName] = useState('');
+    const [editingEngine, setEditingEngine] = useState<VoiceEngine>('xtts');
+    const [referenceSample, setReferenceSample] = useState('');
+    const [voxtralVoiceId, setVoxtralVoiceId] = useState('');
     const [isSavingText, setIsSavingText] = useState(false);
     const [showGuide, setShowGuide] = useState(false);
 
@@ -49,9 +59,15 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
         if (editingProfile) {
             setTestText(editingProfile.test_text || '');
             setVariantName(getVariantDisplayName(editingProfile));
+            setEditingEngine(editingProfile.engine || 'xtts');
+            setReferenceSample(editingProfile.reference_sample || '');
+            setVoxtralVoiceId(editingProfile.voxtral_voice_id || '');
         } else {
             setTestText('');
             setVariantName('');
+            setEditingEngine('xtts');
+            setReferenceSample('');
+            setVoxtralVoiceId('');
         }
     }, [editingProfile, speakerProfiles]);
 
@@ -64,8 +80,10 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
     const [originalSpeakerName, setOriginalSpeakerName] = useState('');
     const [newSpeakerName, setNewSpeakerName] = useState('');
     const [newVoiceName, setNewVoiceName] = useState('');
+    const [newVoiceEngine, setNewVoiceEngine] = useState<VoiceEngine>('xtts');
     const [addVariantSpeaker, setAddVariantSpeaker] = useState<{ speaker: Speaker; nextVariantNum: number } | null>(null);
     const [newVariantNameModal, setNewVariantNameModal] = useState('');
+    const [newVariantEngine, setNewVariantEngine] = useState<VoiceEngine>('xtts');
     const [isCreatingVoice, setIsCreatingVoice] = useState(false);
     const [isAddingVariantModal, setIsAddingVariantModal] = useState(false);
     const [isRenamingSpeaker, setIsRenamingSpeaker] = useState(false);
@@ -74,6 +92,13 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
     const [moveVariantProfile, setMoveVariantProfile] = useState<SpeakerProfile | null>(null);
     const [selectedMoveSpeakerId, setSelectedMoveSpeakerId] = useState<string>('');
     const [isMovingVariant, setIsMovingVariant] = useState(false);
+    const [engineFilter, setEngineFilter] = useState<'all' | VoiceEngine>('all');
+
+    useEffect(() => {
+        if (!voxtralEnabled && newVoiceEngine === 'voxtral') setNewVoiceEngine('xtts');
+        if (!voxtralEnabled && newVariantEngine === 'voxtral') setNewVariantEngine('xtts');
+        if (!voxtralEnabled && engineFilter === 'voxtral') setEngineFilter('all');
+    }, [voxtralEnabled, newVoiceEngine, newVariantEngine, engineFilter]);
 
     const handleRequestConfirm = (config: { title: string; message: string; onConfirm: () => void; isDestructive?: boolean; isAlert?: boolean }) => {
         setConfirmConfig(config);
@@ -91,6 +116,20 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
             });
 
             if (resp.ok) {
+                if (editingEngine !== (editingProfile.engine || 'xtts')) {
+                    await handleUpdateEngine(editingProfile.name, editingEngine);
+                }
+                if (editingEngine === 'voxtral') {
+                    await handleUpdateReferenceSample(editingProfile.name, referenceSample || null);
+                    await handleUpdateVoxtralVoiceId(editingProfile.name, voxtralVoiceId);
+                } else {
+                    if (editingProfile.reference_sample) {
+                        await handleUpdateReferenceSample(editingProfile.name, null);
+                    }
+                    if (editingProfile.voxtral_voice_id) {
+                        await handleUpdateVoxtralVoiceId(editingProfile.name, '');
+                    }
+                }
                 // Also handle name change if different
                 const currentVariantDisplay = getVariantDisplayName(editingProfile);
                 if (variantName && variantName !== currentVariantDisplay) {
@@ -157,9 +196,13 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 body: new URLSearchParams({ name: nameToUse })
             });
             if (resp.ok) {
+                if (newVoiceEngine !== 'xtts') {
+                    await handleUpdateEngine(nameToUse, newVoiceEngine);
+                }
                 const data = await resp.json();
                 setIsCreateModalOpen(false);
                 setNewVoiceName('');
+                setNewVoiceEngine('xtts');
                 await fetchSpeakers();
                 if (data.id) setExpandedVoiceId(data.id);
             }
@@ -222,6 +265,7 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
             const sid = addVariantSpeaker.speaker.id || addVariantSpeaker.speaker.name;
             formData.append('speaker_id', sid);
             formData.append('variant_name', vName);
+            formData.append('engine', newVariantEngine);
             const resp = await fetch('/api/speaker-profiles', {
                 method: 'POST',
                 body: formData
@@ -230,6 +274,7 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 setIsAddVariantModalOpen(false);
                 setAddVariantSpeaker(null);
                 setNewVariantNameModal('');
+                setNewVariantEngine('xtts');
                 const expandedId = (sid.includes('-') && sid.length === 36) ? sid : `unassigned-${sid}`;
                 setExpandedVoiceId(expandedId);
                 onRefresh();
@@ -306,7 +351,7 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
 
     // --- Data Processing ---
     const voices = (speakers || []).map(speaker => {
-        const pList = speakerProfiles.filter(p => p.speaker_id === speaker.id);
+        const pList = visibleSpeakerProfiles.filter(p => p.speaker_id === speaker.id);
         if (pList.length === 0) {
             pList.push({
                 name: speaker.name,
@@ -316,7 +361,8 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 speed: 1.0,
                 is_default: false,
                 preview_url: null,
-                wav_files: []
+                wav_files: [],
+                engine: 'xtts'
             } as SpeakerProfile);
         }
         return {
@@ -326,14 +372,13 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
         };
     });
 
-    const unassigned = speakerProfiles.filter(p => !p.speaker_id || !speakers.some(s => s.id === p.speaker_id));
+    const unassigned = visibleSpeakerProfiles.filter(p => !p.speaker_id || !speakers.some(s => s.id === p.speaker_id));
     const unassignedGroups: Record<string, SpeakerProfile[]> = {};
     unassigned.forEach(p => {
-        // Use speaker_id as grouping key if it looks like a name (not a UUID)
-        let groupKey = p.speaker_id;
-        if (!groupKey || (groupKey.length === 36 && groupKey.includes('-'))) {
-            // Fallback: use base name before first underscore
-            groupKey = p.name.split('_')[0];
+        let groupKey = p.speaker_id || '';
+        const looksLikeUuid = groupKey.length === 36 && groupKey.includes('-');
+        if (!groupKey || looksLikeUuid) {
+            groupKey = p.name.includes(' - ') ? p.name.split(' - ')[0] : p.name.split('_')[0];
         }
         if (!unassignedGroups[groupKey]) unassignedGroups[groupKey] = [];
         unassignedGroups[groupKey].push(p);
@@ -350,9 +395,17 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
 
     const filteredVoices = allVoices.filter(v => {
         const query = searchQuery.toLowerCase();
-        return v.name.toLowerCase().includes(query) || 
+        const matchesSearch = v.name.toLowerCase().includes(query) || 
                v.profiles.some(p => getVariantDisplayName(p).toLowerCase().includes(query));
+        const matchesEngine = engineFilter === 'all' || v.profiles.some(p => (p.engine || 'xtts') === engineFilter);
+        return matchesSearch && matchesEngine;
     }).sort((a, b) => a.name.localeCompare(b.name));
+
+    const engineCounts = visibleSpeakerProfiles.reduce((acc, profile) => {
+        const engine = profile.engine || 'xtts';
+        acc[engine] = (acc[engine] || 0) + 1;
+        return acc;
+    }, { xtts: 0, voxtral: 0 } as Record<VoiceEngine, number>);
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
@@ -387,6 +440,26 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                                 e.currentTarget.style.width = '240px';
                             }}
                         />
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        {([
+                            { key: 'all', label: `All (${visibleSpeakerProfiles.length})` },
+                            { key: 'xtts', label: `XTTS (${engineCounts.xtts})` },
+                            ...(voxtralEnabled ? [{ key: 'voxtral', label: `Voxtral (${engineCounts.voxtral})` }] as const : []),
+                        ] as const).map((option) => {
+                            const active = engineFilter === option.key;
+                            return (
+                                <button
+                                    key={option.key}
+                                    onClick={() => setEngineFilter(option.key)}
+                                    className={active ? 'btn-primary' : 'btn-glass'}
+                                    style={{ height: '34px', borderRadius: '999px', padding: '0 12px', fontSize: '0.75rem', fontWeight: 800 }}
+                                >
+                                    {option.label}
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
 
@@ -472,6 +545,7 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                                     onAddVariantClick={(s, count) => {
                                         setAddVariantSpeaker({ speaker: s, nextVariantNum: count + 1 });
                                         setNewVariantNameModal(`Variant ${count + 1}`);
+                                        setNewVariantEngine((voice.profiles[0]?.engine || 'xtts') as VoiceEngine);
                                         setIsAddVariantModalOpen(true);
                                     }}
                                     onSetDefaultClick={handleSetDefault}
@@ -483,6 +557,7 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                                     }}
                                     isExpanded={expandedVoiceId === voice.id}
                                     onToggleExpand={() => setExpandedVoiceId(expandedVoiceId === voice.id ? null : voice.id)}
+                                    voxtralAvailable={voxtralEnabled}
                                 />
                             ))}
                         </>
@@ -495,6 +570,9 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 setIsCreateModalOpen={setIsCreateModalOpen}
                 newVoiceName={newVoiceName}
                 setNewVoiceName={setNewVoiceName}
+                newVoiceEngine={newVoiceEngine}
+                setNewVoiceEngine={setNewVoiceEngine}
+                voxtralEnabled={voxtralEnabled}
                 isCreatingVoice={isCreatingVoice}
                 handleCreateVoice={handleCreateVoice}
                 isRenameModalOpen={isRenameModalOpen}
@@ -509,6 +587,8 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 addVariantSpeaker={addVariantSpeaker}
                 newVariantNameModal={newVariantNameModal}
                 setNewVariantNameModal={setNewVariantNameModal}
+                newVariantEngine={newVariantEngine}
+                setNewVariantEngine={setNewVariantEngine}
                 isAddingVariantModal={isAddingVariantModal}
                 handleAddVariant={handleAddVariant}
                 isMoveVariantModalOpen={isMoveVariantModalOpen}
@@ -525,8 +605,14 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 setEditingProfile={setEditingProfile}
                 variantName={variantName}
                 setVariantName={setVariantName}
+                editingEngine={editingEngine}
+                setEditingEngine={setEditingEngine}
                 testText={testText}
                 setTestText={setTestText}
+                referenceSample={referenceSample}
+                setReferenceSample={setReferenceSample}
+                voxtralVoiceId={voxtralVoiceId}
+                setVoxtralVoiceId={setVoxtralVoiceId}
                 isSavingText={isSavingText}
                 handleResetTestText={handleResetTestText}
                 handleSaveTestText={handleSaveTestText}

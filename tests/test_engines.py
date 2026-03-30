@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch, ANY
 from app.engines import (
     run_cmd_stream, wav_to_mp3, convert_to_wav, xtts_generate, 
     xtts_generate_script, get_audio_duration, get_speaker_latent_path,
+    _create_temp_manifest,
     stitch_segments, terminate_all_subprocesses
 )
 
@@ -137,6 +138,16 @@ def test_get_audio_duration():
 def test_get_speaker_latent_path_multi():
     p = get_speaker_latent_path("v1.wav, v2.wav")
     assert p is not None
+
+
+def test_create_temp_manifest_uses_system_temp_dir(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    manifest = _create_temp_manifest("out_", ".list.txt")
+    try:
+        assert manifest.exists()
+        assert manifest.parent != tmp_path
+    finally:
+        manifest.unlink(missing_ok=True)
 
 
 def test_migrate_speaker_latent_to_profile(tmp_path, monkeypatch):

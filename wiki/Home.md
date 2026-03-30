@@ -6,11 +6,12 @@ This wiki is meant to help both new users and contributors understand how the ap
 
 ## Recommended Starting Point
 
-For brand-new users, the current `1.7.x` release line is the best place to begin. That release family is the first one intended to feel smooth across:
+For brand-new users, the current `1.8.x` release line is the best place to begin. That release family is the first one intended to feel smooth across local XTTS production and optional Voxtral support:
 
 - first-run setup
 - launcher scripts
 - voice portability
+- engine-per-voice assignment
 - chapter generation
 - rebuild and queue UX
 - audiobook download flow

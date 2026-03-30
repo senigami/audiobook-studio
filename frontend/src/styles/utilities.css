@@ -39,6 +39,11 @@
   to { background-position: 0 0; }
 }
 
+@keyframes barber-pole {
+  from { background-position: 0 0; }
+  to { background-position: 36px 0; }
+}
+
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
@@ -80,6 +85,18 @@
   );
   background-size: 40px 40px;
   animation: progress-stripes 1s linear infinite;
+}
+
+.progress-bar-pending {
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.12) 0px,
+    rgba(255, 255, 255, 0.12) 10px,
+    rgba(148, 163, 184, 0.28) 10px,
+    rgba(148, 163, 184, 0.28) 20px
+  );
+  background-size: 36px 36px;
+  animation: barber-pole 0.7s linear infinite;
 }
 
 /* Layout & Utils */

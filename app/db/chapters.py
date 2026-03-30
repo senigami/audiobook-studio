@@ -1,6 +1,9 @@
 import logging
+import os
 import re
+import shutil
 import time
+import uuid
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from .core import _db_lock, get_connection
@@ -8,6 +11,24 @@ from .core import _db_lock, get_connection
 logger = logging.getLogger(__name__)
 SAFE_AUDIO_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
 SAFE_SEGMENT_PREFIX_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+SAFE_TEXT_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
+
+
+def _is_safe_flat_name(value: Optional[str], pattern: re.Pattern[str]) -> bool:
+    if not value or not isinstance(value, str):
+        return False
+    if value != os.path.basename(value):
+        return False
+    if "/" in value or "\\" in value:
+        return False
+    return bool(pattern.fullmatch(value))
+
+
+def _canonical_chapter_id(chapter_id: str) -> str:
+    try:
+        return str(uuid.UUID(chapter_id))
+    except (ValueError, TypeError, AttributeError):
+        raise ValueError(f"Invalid chapter id: {chapter_id}")
 
 
 def cleanup_chapter_audio_files(
@@ -33,8 +54,7 @@ def cleanup_chapter_audio_files(
     for raw_path in explicit_files or []:
         if not raw_path:
             continue
-        path_obj = Path(raw_path)
-        if raw_path != path_obj.name or not SAFE_AUDIO_NAME_RE.fullmatch(raw_path):
+        if not _is_safe_flat_name(raw_path, SAFE_AUDIO_NAME_RE):
             logger.warning("Skipping invalid explicit audio file %s", raw_path)
             continue
 
@@ -65,15 +85,120 @@ def cleanup_chapter_audio_files(
         if not SAFE_SEGMENT_PREFIX_RE.fullmatch(sid):
             logger.warning("Skipping invalid segment id %s", sid)
             continue
-        prefix = f"seg_{sid}"
+        prefixes = (f"seg_{sid}", f"chunk_{sid}")
         for name, s_path in list(known_files.items()):
             try:
-                if not s_path.is_relative_to(resolved_root) or not name.startswith(prefix):
+                if not s_path.is_relative_to(resolved_root) or not any(name.startswith(prefix) for prefix in prefixes):
                     continue
                 s_path.unlink()
                 known_files.pop(name, None)
             except Exception:
                 logger.warning("Failed to delete segment audio file %s", s_path, exc_info=True)
+
+    return True
+
+
+def move_chapter_artifacts_to_trash(
+    project_id: Optional[str],
+    chapter_id: str,
+    segment_ids: Optional[List[str]] = None,
+    explicit_audio_files: Optional[List[str]] = None,
+) -> bool:
+    from .. import config
+
+    if not project_id:
+        return True
+
+    try:
+        chapter_id = _canonical_chapter_id(chapter_id)
+    except ValueError:
+        logger.warning("Skipping trash move for invalid chapter id %s", chapter_id)
+        return False
+
+    trash_root_base = os.path.abspath(os.path.normpath(os.fspath(config.get_project_trash_dir(project_id))))
+    trash_root_str = os.path.abspath(os.path.normpath(os.path.join(trash_root_base, chapter_id)))
+    if not trash_root_str.startswith(trash_root_base + os.sep):
+        logger.warning("Skipping trash move outside trash root for chapter %s", chapter_id)
+        return False
+
+    trash_audio_dir_str = os.path.abspath(os.path.normpath(os.path.join(trash_root_str, "audio")))
+    trash_text_dir_str = os.path.abspath(os.path.normpath(os.path.join(trash_root_str, "text")))
+    if not trash_audio_dir_str.startswith(trash_root_str + os.sep):
+        logger.warning("Skipping invalid trash audio directory for chapter %s", chapter_id)
+        return False
+    if not trash_text_dir_str.startswith(trash_root_str + os.sep):
+        logger.warning("Skipping invalid trash text directory for chapter %s", chapter_id)
+        return False
+
+    trash_audio_dir = Path(trash_audio_dir_str)
+    trash_text_dir = Path(trash_text_dir_str)
+    trash_audio_dir.mkdir(parents=True, exist_ok=True)
+    trash_text_dir.mkdir(parents=True, exist_ok=True)
+
+    audio_dir = config.find_existing_project_subdir(project_id, "audio") or config.get_project_audio_dir(project_id)
+    text_dir = config.find_existing_project_subdir(project_id, "text") or config.get_project_text_dir(project_id)
+
+    known_audio = {
+        entry.name: entry.resolve()
+        for entry in audio_dir.iterdir()
+        if entry.is_file()
+    } if audio_dir.exists() else {}
+
+    audio_names: set[str] = set()
+    for raw_path in explicit_audio_files or []:
+        if not raw_path:
+            continue
+        if not _is_safe_flat_name(raw_path, SAFE_AUDIO_NAME_RE):
+            continue
+        if raw_path in known_audio:
+            audio_names.add(raw_path)
+
+    for name in known_audio:
+        if name.startswith(chapter_id):
+            audio_names.add(name)
+
+    for sid in segment_ids or []:
+        if not SAFE_SEGMENT_PREFIX_RE.fullmatch(sid):
+            continue
+        prefixes = (f"seg_{sid}", f"chunk_{sid}")
+        for name in known_audio:
+            if any(name.startswith(prefix) for prefix in prefixes):
+                audio_names.add(name)
+
+    for name in sorted(audio_names):
+        src = known_audio.get(name)
+        if not src or not src.exists():
+            continue
+        try:
+            if not _is_safe_flat_name(name, SAFE_AUDIO_NAME_RE):
+                logger.warning("Skipping invalid trash audio filename %s", name)
+                continue
+            trash_audio_root = os.path.abspath(os.path.normpath(os.fspath(trash_audio_dir)))
+            dest_audio = os.path.abspath(os.path.normpath(os.path.join(trash_audio_root, name)))
+            if not dest_audio.startswith(trash_audio_root + os.sep):
+                logger.warning("Skipping trash audio move outside root for %s", name)
+                continue
+            shutil.move(str(src), dest_audio)
+        except Exception:
+            logger.warning("Failed to move chapter audio file %s to trash", src, exc_info=True)
+
+    if text_dir.exists():
+        for entry in text_dir.iterdir():
+            if not entry.is_file():
+                continue
+            if not SAFE_TEXT_NAME_RE.fullmatch(entry.name):
+                continue
+            if not entry.name.startswith(chapter_id):
+                continue
+            try:
+                trash_text_root = os.path.abspath(os.path.normpath(os.fspath(trash_text_dir)))
+                dest_text = os.path.abspath(os.path.normpath(os.path.join(trash_text_root, entry.name)))
+                if not dest_text.startswith(trash_text_root + os.sep):
+                    logger.warning("Skipping trash text move outside root for %s", entry.name)
+                    continue
+                shutil.move(str(entry.resolve()), dest_text)
+            except Exception:
+                logger.warning("Failed to move chapter text file %s to trash", entry, exc_info=True)
 
     return True
 
@@ -229,6 +354,24 @@ def delete_chapter(chapter_id: str) -> bool:
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
+            cursor.execute("SELECT project_id, audio_file_path FROM chapters WHERE id = ?", (chapter_id,))
+            chapter_row = cursor.fetchone()
+            if not chapter_row:
+                return False
+
+            project_id = chapter_row["project_id"]
+            explicit_files = [chapter_row["audio_file_path"]] if chapter_row["audio_file_path"] else []
+
+            cursor.execute(
+                "SELECT id, audio_file_path FROM chapter_segments WHERE chapter_id = ?",
+                (chapter_id,),
+            )
+            segment_rows = cursor.fetchall()
+            seg_ids = [row["id"] for row in segment_rows]
+            explicit_files.extend(row["audio_file_path"] for row in segment_rows if row["audio_file_path"])
+
+            move_chapter_artifacts_to_trash(project_id, chapter_id, seg_ids, explicit_audio_files=explicit_files)
+
             cursor.execute("DELETE FROM chapter_segments WHERE chapter_id = ?", (chapter_id,))
             cursor.execute("DELETE FROM processing_queue WHERE chapter_id = ?", (chapter_id,))
             cursor.execute("DELETE FROM chapters WHERE id = ?", (chapter_id,))
@@ -258,9 +401,16 @@ def reset_chapter_audio(chapter_id: str):
             cursor.execute("SELECT id FROM chapter_segments WHERE chapter_id = ?", (chapter_id,))
             seg_rows = cursor.fetchall()
             seg_ids = [s_row["id"] for s_row in seg_rows]
+            cursor.execute(
+                "SELECT audio_file_path FROM chapter_segments WHERE chapter_id = ? AND audio_file_path IS NOT NULL",
+                (chapter_id,),
+            )
+            explicit_files = [row["audio_file_path"] for row in cursor.fetchall() if row["audio_file_path"]]
+            if row["audio_file_path"]:
+                explicit_files.append(row["audio_file_path"])
 
             # 2. Cleanup physical files if they exist
-            cleanup_chapter_audio_files(project_id, chapter_id, seg_ids)
+            cleanup_chapter_audio_files(project_id, chapter_id, seg_ids, explicit_files=explicit_files)
 
             # 3. Reset database fields for chapter
             cursor.execute("""

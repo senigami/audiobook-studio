@@ -53,12 +53,52 @@ def test_list_speaker_profiles(clean_db, voices_root, client):
     (voices_dir / "SpeakerA").mkdir()
     (voices_dir / "SpeakerA" / "v1.wav").write_text("audio")
 
-    with patch("app.api.routers.voices.get_speaker_settings", return_value={"built_samples": [], "speed": 1.0, "test_text": ""}):
+    with patch("app.api.routers.voices.get_speaker_settings", return_value={"built_samples": [], "speed": 1.0, "test_text": "", "engine": "xtts"}):
         response = client.get("/api/speaker-profiles")
         assert response.status_code == 200
         data = response.json()
         assert len(data) == 1
         assert data[0]["name"] == "SpeakerA"
+        assert data[0]["engine"] == "xtts"
+
+
+def test_legacy_profile_listing_repairs_missing_speaker_rows_and_preserves_default_switch(clean_db, voices_root, client):
+    voices_root.mkdir()
+    legacy_speaker_id = str(uuid.uuid4())
+
+    for profile_name, variant_name in [
+        ("Dark Fantasy - Default", "Default"),
+        ("Dark Fantasy - Light Narrator", "Light Narrator"),
+    ]:
+        profile_dir = voices_root / profile_name
+        profile_dir.mkdir()
+        (profile_dir / "profile.json").write_text(json.dumps({
+            "speaker_id": legacy_speaker_id,
+            "variant_name": variant_name,
+            "engine": "xtts",
+        }))
+
+    profiles_response = client.get("/api/speaker-profiles")
+    assert profiles_response.status_code == 200
+    profiles = profiles_response.json()
+
+    repaired_default = next(p for p in profiles if p["name"] == "Dark Fantasy - Default")
+    repaired_variant = next(p for p in profiles if p["name"] == "Dark Fantasy - Light Narrator")
+    assert repaired_default["speaker_id"] == legacy_speaker_id
+    assert repaired_variant["speaker_id"] == legacy_speaker_id
+
+    speakers_response = client.get("/api/speakers")
+    assert speakers_response.status_code == 200
+    repaired_speaker = next(s for s in speakers_response.json() if s["id"] == legacy_speaker_id)
+    assert repaired_speaker["name"] == "Dark Fantasy"
+    assert repaired_speaker["default_profile_name"] == "Dark Fantasy - Default"
+
+    set_default_response = client.post("/api/settings/default-speaker", data={"name": "Dark Fantasy - Default"})
+    assert set_default_response.status_code == 200
+
+    refreshed_profiles = client.get("/api/speaker-profiles").json()
+    refreshed_default = next(p for p in refreshed_profiles if p["name"] == "Dark Fantasy - Default")
+    assert refreshed_default["is_default"] is True
 
 def test_create_and_delete_profile(clean_db, voices_root, client):
     voices_dir = voices_root
@@ -74,6 +114,145 @@ def test_create_and_delete_profile(clean_db, voices_root, client):
     response = client.delete(f"/api/speaker-profiles/{name}")
     assert response.status_code == 200
     assert not (voices_dir / name).exists()
+
+
+def test_character_voice_assignment_blank_value_clears_to_default(clean_db, voices_root, client):
+    from app.db.projects import create_project
+
+    voices_root.mkdir()
+    pid = create_project("Character Project", "/tmp")
+
+    create_response = client.post(f"/api/projects/{pid}/characters", data={"name": "Alice", "speaker_profile_name": "Prof1"})
+    assert create_response.status_code == 200
+    character_id = create_response.json()["character_id"]
+
+    update_response = client.put(f"/api/characters/{character_id}", data={"speaker_profile_name": ""})
+    assert update_response.status_code == 200
+
+    chars_response = client.get(f"/api/projects/{pid}/characters")
+    assert chars_response.status_code == 200
+    characters = chars_response.json()["characters"]
+    assert characters[0]["speaker_profile_name"] is None
+
+
+def test_create_character_blank_voice_uses_default(clean_db, voices_root, client):
+    from app.db.projects import create_project
+
+    voices_root.mkdir()
+    pid = create_project("Character Project", "/tmp")
+
+    create_response = client.post(f"/api/projects/{pid}/characters", data={"name": "Bob", "speaker_profile_name": ""})
+    assert create_response.status_code == 200
+
+    chars_response = client.get(f"/api/projects/{pid}/characters")
+    assert chars_response.status_code == 200
+    characters = chars_response.json()["characters"]
+    assert characters[0]["speaker_profile_name"] is None
+
+
+def test_create_profile_persists_engine_metadata(clean_db, voices_root, client):
+    voices_root.mkdir()
+    client.post("/api/settings", data={"mistral_api_key": "abc123"})
+
+    response = client.post("/api/speaker-profiles", data={"speaker_id": "S1", "variant_name": "Vox", "engine": "voxtral"})
+    assert response.status_code == 200
+
+    name = response.json()["name"]
+    meta = json.loads((voices_root / name / "profile.json").read_text())
+    assert meta["engine"] == "voxtral"
+
+
+def test_create_voxtral_profile_requires_api_key(clean_db, voices_root, client, monkeypatch):
+    voices_root.mkdir()
+    monkeypatch.setattr("app.api.routers.voices._voxtral_enabled", lambda: False)
+
+    response = client.post("/api/speaker-profiles", data={"speaker_id": "S1", "variant_name": "Vox", "engine": "voxtral"})
+    assert response.status_code == 400
+    assert "Mistral API key" in response.json()["message"]
+
+
+def test_update_profile_engine(clean_db, voices_root, client):
+    voices_root.mkdir()
+    profile_dir = voices_root / "SpeakerA"
+    profile_dir.mkdir()
+    (profile_dir / "profile.json").write_text(json.dumps({"variant_name": "Default"}))
+
+    client.post("/api/settings", data={"mistral_api_key": "abc123"})
+    response = client.post("/api/speaker-profiles/SpeakerA/engine", data={"engine": "voxtral"})
+    assert response.status_code == 200
+    assert response.json()["engine"] == "voxtral"
+
+    meta = json.loads((profile_dir / "profile.json").read_text())
+    assert meta["engine"] == "voxtral"
+
+
+def test_update_voxtral_engine_requires_api_key(clean_db, voices_root, client, monkeypatch):
+    voices_root.mkdir()
+    profile_dir = voices_root / "SpeakerA"
+    profile_dir.mkdir()
+    (profile_dir / "profile.json").write_text(json.dumps({"variant_name": "Default", "engine": "xtts"}))
+    monkeypatch.setattr("app.api.routers.voices._voxtral_enabled", lambda: False)
+
+    response = client.post("/api/speaker-profiles/SpeakerA/engine", data={"engine": "voxtral"})
+    assert response.status_code == 400
+    assert "Mistral API key" in response.json()["message"]
+
+
+def test_update_profile_engine_rejects_invalid_value(clean_db, voices_root, client):
+    voices_root.mkdir()
+    profile_dir = voices_root / "SpeakerA"
+    profile_dir.mkdir()
+    (profile_dir / "profile.json").write_text(json.dumps({"variant_name": "Default"}))
+
+    response = client.post("/api/speaker-profiles/SpeakerA/engine", data={"engine": "bad-engine"})
+    assert response.status_code == 400
+
+
+def test_update_profile_reference_sample(clean_db, voices_root, client):
+    voices_root.mkdir()
+    profile_dir = voices_root / "SpeakerA"
+    profile_dir.mkdir()
+    (profile_dir / "profile.json").write_text(json.dumps({"variant_name": "Default", "engine": "voxtral"}))
+    (profile_dir / "sample1.wav").write_text("audio")
+
+    client.post("/api/settings", data={"mistral_api_key": "abc123"})
+    response = client.post("/api/speaker-profiles/SpeakerA/reference-sample", data={"sample_name": "sample1.wav"})
+    assert response.status_code == 200
+    assert response.json()["reference_sample"] == "sample1.wav"
+
+    meta = json.loads((profile_dir / "profile.json").read_text())
+    assert meta["reference_sample"] == "sample1.wav"
+
+
+def test_update_profile_voxtral_voice_id(clean_db, voices_root, client):
+    voices_root.mkdir()
+    profile_dir = voices_root / "SpeakerA"
+    profile_dir.mkdir()
+    (profile_dir / "profile.json").write_text(json.dumps({"variant_name": "Default", "engine": "voxtral"}))
+
+    client.post("/api/settings", data={"mistral_api_key": "abc123"})
+    response = client.post("/api/speaker-profiles/SpeakerA/voxtral-voice-id", data={"voice_id": "voice_123"})
+    assert response.status_code == 200
+    assert response.json()["voxtral_voice_id"] == "voice_123"
+
+    meta = json.loads((profile_dir / "profile.json").read_text())
+    assert meta["voxtral_voice_id"] == "voice_123"
+
+
+def test_voxtral_profile_test_accepts_saved_voice_id_without_samples(clean_db, voices_root, client):
+    profile_dir = voices_root / "SpeakerA"
+    profile_dir.mkdir(parents=True)
+    (profile_dir / "profile.json").write_text(json.dumps({
+        "variant_name": "Default",
+        "engine": "voxtral",
+        "voxtral_voice_id": "voice_123",
+    }))
+    client.post("/api/settings", data={"mistral_api_key": "abc123"})
+
+    response = client.post("/api/speaker-profiles/SpeakerA/test")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "ok"
 
 def test_character_crud(clean_db, client):
     from app.db.projects import create_project
@@ -232,6 +411,9 @@ def test_profile_creation_errors(clean_db, voices_root, client):
     with patch("app.api.routers.voices.Path.mkdir", side_effect=Exception("boom")):
         response = client.post("/api/speaker-profiles", data={"speaker_id": "Err", "variant_name": "V1"})
         assert response.status_code == 500
+
+    response = client.post("/api/speaker-profiles", data={"speaker_id": "Err", "variant_name": "V1", "engine": "bad-engine"})
+    assert response.status_code == 400
 
 def test_rename_speaker_with_variants(clean_db, voices_root, client):
     voices_dir = voices_root

@@ -2,6 +2,7 @@ import React from 'react';
 import { Reorder, useDragControls } from 'framer-motion';
 import { Trash2, GripVertical, Clock } from 'lucide-react';
 import type { ProcessingQueueItem } from '../../types';
+import { formatQueueContext } from '../../utils/queueLabels';
 
 interface ReorderableQueueItemProps {
     job: ProcessingQueueItem;
@@ -80,7 +81,7 @@ export const ReorderableQueueItem: React.FC<ReorderableQueueItemProps> = React.m
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
                 <h4 style={{ fontWeight: 600, fontSize: '0.95rem', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{formatJobTitle(job)}</h4>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 500 }}>{job.project_name ? `${job.project_name} • Part ${job.split_part + 1}` : "Internal Process"}</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 500 }}>{formatQueueContext(job)}</div>
             </div>
             <button 
                 onClick={(e) => { e.stopPropagation(); handleRemove(job.id); }} 

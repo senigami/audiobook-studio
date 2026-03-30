@@ -249,6 +249,41 @@ describe('ProjectView', () => {
     });
   });
 
+  it('allows clearing the chapter voice back to Default Speaker', async () => {
+    render(
+      <MemoryRouter initialEntries={['/projects/proj-123']}>
+        <Routes>
+          <Route path="/projects/:projectId" element={
+            <ProjectView
+              jobs={{}}
+              speakerProfiles={mockSpeakerProfiles as any}
+              speakers={[]}
+              settings={{ default_speaker_profile: 'Voice 1' } as any}
+            />
+          } />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading project...')).not.toBeInTheDocument();
+    });
+
+    const select = screen.getByDisplayValue('Voice 1');
+    fireEvent.change(select, { target: { value: '' } });
+    expect(screen.getByDisplayValue('Default Speaker')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Queue Remaining'));
+    await waitFor(() => {
+      const actions = mockUseProjectActions.mock.results.at(-1)?.value;
+      expect(actions?.handleQueueAllUnprocessed).toHaveBeenCalledWith(
+        expect.any(Array),
+        expect.any(Object),
+        ''
+      );
+    });
+  });
+
   it('prefers the base Default voice when both a base profile and variant exist', async () => {
     render(
       <MemoryRouter initialEntries={['/projects/proj-123']}>
@@ -269,5 +304,82 @@ describe('ProjectView', () => {
     });
 
     expect(screen.getByDisplayValue('Voice 1')).toBeInTheDocument();
+  });
+
+  it('stores a real default profile name when a speaker label differs from its default profile', async () => {
+    render(
+      <MemoryRouter initialEntries={['/projects/proj-123']}>
+        <Routes>
+          <Route path="/projects/:projectId" element={
+            <ProjectView
+              jobs={{}}
+              speakerProfiles={[
+                {
+                  name: 'Dark Fantasy - Default',
+                  wav_count: 1,
+                  speed: 1,
+                  is_default: false,
+                  speaker_id: 'speaker-dark-fantasy',
+                  variant_name: 'Default',
+                  preview_url: '/out/voices/Dark Fantasy - Default/sample.wav',
+                },
+                {
+                  name: 'Dark Fantasy - Light Narrator',
+                  wav_count: 1,
+                  speed: 1,
+                  is_default: false,
+                  speaker_id: 'speaker-dark-fantasy',
+                  variant_name: 'Light Narrator',
+                  preview_url: '/out/voices/Dark Fantasy - Light Narrator/sample.wav',
+                },
+                {
+                  name: 'Test',
+                  wav_count: 1,
+                  speed: 1,
+                  is_default: true,
+                  speaker_id: 'speaker-test',
+                  variant_name: 'Default',
+                  preview_url: '/out/voices/Test/sample.wav',
+                },
+              ] as any}
+              speakers={[
+                {
+                  id: 'speaker-dark-fantasy',
+                  name: 'Dark Fantasy',
+                  default_profile_name: 'Dark Fantasy - Default',
+                  created_at: 1,
+                  updated_at: 1,
+                },
+                {
+                  id: 'speaker-test',
+                  name: 'Test',
+                  default_profile_name: 'Test',
+                  created_at: 1,
+                  updated_at: 1,
+                },
+              ] as any}
+              settings={{ default_speaker_profile: 'Test' } as any}
+            />
+          } />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading project...')).not.toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByDisplayValue('Test'), { target: { value: 'Dark Fantasy - Default' } });
+    expect(screen.getByDisplayValue('Dark Fantasy')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Queue Remaining'));
+    await waitFor(() => {
+      const actions = mockUseProjectActions.mock.results.at(-1)?.value;
+      expect(actions?.handleQueueAllUnprocessed).toHaveBeenCalledWith(
+        expect.any(Array),
+        expect.any(Object),
+        'Dark Fantasy - Default'
+      );
+    });
   });
 });

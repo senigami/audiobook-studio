@@ -43,7 +43,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, headerRight, queueCoun
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: '0 2rem',
-        zIndex: 100,
+        zIndex: 1200,
         backgroundColor: 'rgba(255, 255, 255, 0.8)',
         backdropFilter: 'blur(20px)',
         borderBottom: '1px solid var(--border)',

@@ -8,14 +8,20 @@ import json
 import os
 from pathlib import Path
 from typing import Optional, List, Dict
-from fastapi import APIRouter, Form, File, UploadFile, HTTPException
+from fastapi import APIRouter, Form, File, UploadFile, HTTPException, Request
 from fastapi.responses import JSONResponse
 from ...db import (
     get_characters, create_character, update_character, delete_character,
     list_speakers, create_speaker, get_speaker, update_speaker, delete_speaker,
     update_voice_profile_references
 )
-from ...db.speakers import infer_variant_name, normalize_profile_metadata
+from ...db.speakers import (
+    infer_variant_name,
+    repair_speakers_from_profiles,
+    normalize_profile_metadata,
+    DEFAULT_PROFILE_ENGINE,
+    VALID_PROFILE_ENGINES,
+)
 from ...jobs import (
     enqueue, get_speaker_settings, update_speaker_settings, 
     DEFAULT_SPEAKER_TEST_TEXT
@@ -47,6 +53,18 @@ def _valid_sample_name(sample_name: str) -> str:
     if not SAFE_SAMPLE_NAME_RE.fullmatch(sample_name):
         raise ValueError(f"Invalid sample name: {sample_name}")
     return sample_name
+
+
+def _normalize_profile_engine(engine: Optional[str]) -> str:
+    normalized = (engine or DEFAULT_PROFILE_ENGINE).strip().lower()
+    if normalized not in VALID_PROFILE_ENGINES:
+        raise ValueError(f"Invalid profile engine: {engine}")
+    return normalized
+
+
+def _voxtral_enabled() -> bool:
+    settings = get_settings()
+    return bool(str(settings.get("mistral_api_key") or "").strip()) and bool(settings.get("voxtral_enabled"))
 
 
 def _voice_dirs_map() -> Dict[str, Path]:
@@ -128,6 +146,26 @@ def _voice_has_latent(name: str) -> bool:
         return False
     return (_voice_file_map(profile_dir).get("latent.pth") or _new_voice_sample_path(profile_dir, "latent.pth")).exists()
 
+
+def _voice_has_generation_material(name: str) -> bool:
+    settings = get_speaker_settings(name)
+    engine = settings.get("engine", DEFAULT_PROFILE_ENGINE)
+    if engine == "voxtral":
+        if not _voxtral_enabled():
+            return False
+        if settings.get("voxtral_voice_id"):
+            return True
+        ref_sample = settings.get("reference_sample")
+        if ref_sample:
+            try:
+                if _existing_voice_sample_path(name, ref_sample):
+                    return True
+            except ValueError:
+                pass
+        return _voice_raw_sample_count(name) > 0
+
+    return _voice_raw_sample_count(name) > 0 or _voice_has_latent(name)
+
 router = APIRouter(tags=["voices"])
 
 
@@ -167,12 +205,15 @@ def _ensure_default_speaker_profile(speaker_id: str, speaker_name: str, default_
     meta["variant_name"] = infer_variant_name(profile_name)
     if "speed" not in meta:
         meta["speed"] = 1.0
-    meta_path.write_text(json.dumps(meta, indent=2))
+    normalized_meta = normalize_profile_metadata(profile_name, meta, persist=False)
+    meta_path.write_text(json.dumps(normalized_meta, indent=2))
 
     return profile_name
 
 @router.get("/api/speaker-profiles")
 def list_speaker_profiles():
+    repair_speakers_from_profiles()
+
     if not VOICES_DIR.exists():
         return []
 
@@ -207,6 +248,31 @@ def list_speaker_profiles():
              is_rebuild_required = True
 
         preview_url = _voice_preview_url(d.name)
+        preview_signature_stale = False
+        if preview_url:
+            has_preview_signature = any(
+                spk_settings.get(key) is not None
+                for key in (
+                    "preview_test_text",
+                    "preview_engine",
+                    "preview_reference_sample",
+                    "preview_voxtral_voice_id",
+                    "preview_voxtral_model",
+                )
+            )
+            if has_preview_signature:
+                preview_signature_stale = (
+                    spk_settings.get("preview_test_text") != spk_settings.get("test_text")
+                    or spk_settings.get("preview_engine") != spk_settings.get("engine", DEFAULT_PROFILE_ENGINE)
+                )
+                if spk_settings.get("engine") == "voxtral":
+                    preview_signature_stale = preview_signature_stale or (
+                        spk_settings.get("preview_reference_sample") != spk_settings.get("reference_sample")
+                        or spk_settings.get("preview_voxtral_voice_id") != spk_settings.get("voxtral_voice_id")
+                        or spk_settings.get("preview_voxtral_model") != spk_settings.get("voxtral_model")
+                    )
+        if preview_signature_stale:
+            is_rebuild_required = True
         if not preview_url and len(raw_wavs) > 0:
             is_rebuild_required = True
 
@@ -221,6 +287,10 @@ def list_speaker_profiles():
             "test_text": spk_settings["test_text"],
             "speaker_id": spk_settings.get("speaker_id"),
             "variant_name": spk_settings.get("variant_name"),
+            "engine": spk_settings.get("engine", DEFAULT_PROFILE_ENGINE),
+            "voxtral_voice_id": spk_settings.get("voxtral_voice_id"),
+            "voxtral_model": spk_settings.get("voxtral_model"),
+            "reference_sample": spk_settings.get("reference_sample"),
             "preview_url": preview_url,
             "has_latent": _voice_has_latent(d.name),
         })
@@ -230,9 +300,13 @@ def list_speaker_profiles():
 def api_create_speaker_profile(
     speaker_id: str = Form(...),
     variant_name: str = Form(...),
+    engine: str = Form(DEFAULT_PROFILE_ENGINE),
 ):
-    logger.info(f"Creating profile for speaker_id='{speaker_id}', variant_name='{variant_name}'")
+    logger.info(f"Creating profile for speaker_id='{speaker_id}', variant_name='{variant_name}', engine='{engine}'")
     try:
+        normalized_engine = _normalize_profile_engine(engine)
+        if normalized_engine == "voxtral" and not _voxtral_enabled():
+            return JSONResponse({"status": "error", "message": "Add a Mistral API key in Settings to enable Voxtral."}, status_code=400)
         # Try to use speaker name instead of ID if possible for folder name
         spk = get_speaker(speaker_id)
         spk_name = spk["name"] if spk else speaker_id
@@ -248,8 +322,10 @@ def api_create_speaker_profile(
 
         path.mkdir(parents=True, exist_ok=True)
         # Record speaker_id (could be a UUID or a name for unassigned)
-        update_speaker_settings(name, speaker_id=speaker_id, variant_name=variant_name)
+        update_speaker_settings(name, speaker_id=speaker_id, variant_name=variant_name, engine=normalized_engine)
         return JSONResponse({"status": "ok", "name": name})
+    except ValueError:
+        return JSONResponse({"status": "error", "message": "Invalid profile engine"}, status_code=400)
     except Exception as e:
         logger.error(f"Error creating profile {speaker_id}/{variant_name}: {e}")
         return JSONResponse({"status": "error", "message": "Creation failed"}, status_code=500)
@@ -265,14 +341,23 @@ def api_create_character_route(
     speaker_profile_name: Optional[str] = Form(None),
     color: Optional[str] = Form(None)
 ):
-    cid = create_character(project_id, name, speaker_profile_name, color=color)
+    normalized_profile_name = (speaker_profile_name or "").strip() or None
+    cid = create_character(project_id, name, normalized_profile_name, color=color)
     return JSONResponse({"status": "ok", "id": cid, "character_id": cid})
 
 @router.put("/api/characters/{character_id}")
-def api_update_character_route(character_id: str, name: Optional[str] = Form(None), speaker_profile_name: Optional[str] = Form(None), color: Optional[str] = Form(None)):
+async def api_update_character_route(
+    character_id: str,
+    request: Request,
+    name: Optional[str] = Form(None),
+    speaker_profile_name: Optional[str] = Form(None),
+    color: Optional[str] = Form(None),
+):
     updates = {}
     if name is not None: updates["name"] = name
-    if speaker_profile_name is not None: updates["speaker_profile_name"] = speaker_profile_name
+    form = await request.form()
+    if "speaker_profile_name" in form:
+        updates["speaker_profile_name"] = (str(form.get("speaker_profile_name") or "").strip() or None)
     if color is not None: updates["color"] = color
     update_character(character_id, **updates)
     return JSONResponse({"status": "ok"})
@@ -284,6 +369,7 @@ def api_delete_character_route(character_id: str):
 
 @router.get("/api/speakers")
 def api_list_speakers_route():
+    repair_speakers_from_profiles()
     return JSONResponse(list_speakers())
 
 @router.post("/api/speakers")
@@ -486,6 +572,55 @@ def update_speaker_variant_name(name: str, variant_name: str = Form(...)):
     update_speaker_settings(name, variant_name=None if clean_variant_name == "Default" else clean_variant_name)
     return JSONResponse({"status": "ok", "variant_name": clean_variant_name})
 
+
+@router.post("/api/speaker-profiles/{name}/engine")
+def update_speaker_engine(name: str, engine: str = Form(...)):
+    try:
+        normalized_engine = _normalize_profile_engine(engine)
+    except ValueError:
+        return JSONResponse({"status": "error", "message": "Invalid profile engine"}, status_code=400)
+
+    if normalized_engine == "voxtral" and not _voxtral_enabled():
+        return JSONResponse({"status": "error", "message": "Add a Mistral API key in Settings to enable Voxtral."}, status_code=400)
+
+    if not update_speaker_settings(name, engine=normalized_engine):
+        return JSONResponse({"status": "error", "message": "Profile not found"}, status_code=404)
+
+    return JSONResponse({"status": "ok", "engine": normalized_engine})
+
+
+@router.post("/api/speaker-profiles/{name}/reference-sample")
+def update_speaker_reference_sample(name: str, sample_name: str = Form("")):
+    if not _voxtral_enabled():
+        return JSONResponse({"status": "error", "message": "Add a Mistral API key in Settings to configure Voxtral metadata."}, status_code=400)
+
+    clean_sample = (sample_name or "").strip() or None
+
+    if clean_sample:
+        try:
+            sample_path = _existing_voice_sample_path(name, clean_sample)
+        except ValueError:
+            return JSONResponse({"status": "error", "message": "Invalid sample name"}, status_code=403)
+        if not sample_path:
+            return JSONResponse({"status": "error", "message": "Sample not found"}, status_code=404)
+
+    if not update_speaker_settings(name, reference_sample=clean_sample):
+        return JSONResponse({"status": "error", "message": "Profile not found"}, status_code=404)
+
+    return JSONResponse({"status": "ok", "reference_sample": clean_sample})
+
+
+@router.post("/api/speaker-profiles/{name}/voxtral-voice-id")
+def update_speaker_voxtral_voice_id(name: str, voice_id: str = Form("")):
+    if not _voxtral_enabled():
+        return JSONResponse({"status": "error", "message": "Add a Mistral API key in Settings to configure Voxtral metadata."}, status_code=400)
+
+    clean_voice_id = (voice_id or "").strip() or None
+    if not update_speaker_settings(name, voxtral_voice_id=clean_voice_id):
+        return JSONResponse({"status": "error", "message": "Profile not found"}, status_code=404)
+
+    return JSONResponse({"status": "ok", "voxtral_voice_id": clean_voice_id})
+
 @router.post("/api/speaker-profiles/{name}/build")
 async def build_speaker_profile(
     name: str,
@@ -500,7 +635,8 @@ async def build_speaker_profile(
 
         existing_raw_samples = _voice_raw_sample_count(name)
         has_latent = _voice_has_latent(name)
-        if existing_raw_samples == 0 and not has_latent and not files:
+        has_generation_material = _voice_has_generation_material(name)
+        if existing_raw_samples == 0 and not has_latent and not has_generation_material and not files:
             return JSONResponse(
                 {"status": "error", "message": "Add at least one sample or keep a latent before building this voice."},
                 status_code=400
@@ -630,7 +766,7 @@ def delete_speaker_profile(
 
 @router.post("/api/speaker-profiles/{name}/test")
 def test_speaker_profile(name: str):
-    if _voice_raw_sample_count(name) == 0 and not _voice_has_latent(name):
+    if not _voice_has_generation_material(name):
         return JSONResponse(
             {"status": "error", "message": "Add at least one sample or keep a latent before testing this voice."},
             status_code=400

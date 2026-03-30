@@ -8,6 +8,7 @@ pytest
 watchdog
 ruff
 pytest-cov
+mistralai
 
 # XTTS requirements (Managed separately for compatibility)
 # See requirements-xtts.txt

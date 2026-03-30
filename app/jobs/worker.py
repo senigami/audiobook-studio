@@ -12,6 +12,8 @@ from .core import (
 )
 
 from .handlers.xtts import handle_xtts_job
+from .handlers.voxtral import handle_voxtral_job
+from .handlers.mixed import handle_mixed_job
 from ..state import get_jobs, update_job, get_performance_metrics, update_performance_metrics
 from ..config import CHAPTER_DIR, XTTS_OUT_DIR, AUDIOBOOK_DIR, SAMPLES_DIR
 from ..pathing import safe_join
@@ -19,6 +21,7 @@ from .reconcile import _output_exists
 from .speaker import get_speaker_wavs, get_speaker_settings, get_voice_profile_dir
 from .handlers.audiobook import handle_audiobook_job
 from ..engines import wav_to_mp3
+from ..engines_voxtral import VoxtralError, voxtral_generate
 
 logger = logging.getLogger(__name__)
 
@@ -221,7 +224,10 @@ def worker_loop(q):
 
                 broadcast_p = getattr(j, '_last_broadcast_p', 0.0)
                 if new_progress is None:
-                    new_progress = round(calculate_predicted_progress(j, now, j.started_at, eta), 2)
+                    if j.engine == "mixed":
+                        new_progress = getattr(j, "progress", 0.0)
+                    else:
+                        new_progress = round(calculate_predicted_progress(j, now, j.started_at, eta), 2)
 
                 include_p = new_progress is not None and ((abs(new_progress - broadcast_p) >= 0.01) or (broadcast_p == 0 and new_progress > 0))
                 if include_p or broadcast_args:
@@ -247,6 +253,16 @@ def worker_loop(q):
                 spk = get_speaker_settings(j.speaker_profile)
 
                 handle_xtts_job(jid, j, start, on_output, cancel_check, sw, spk["speed"], pdir, out_wav, out_mp3, text=text)
+            elif j.engine == "voxtral":
+                result = handle_voxtral_job(jid, j, start, on_output, cancel_check, text=text)
+                if result == "cancelled":
+                    update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
+                return
+            elif j.engine == "mixed":
+                result = handle_mixed_job(jid, j, start, on_output, cancel_check, text=text)
+                if result == "cancelled":
+                    update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
+                return
             elif j.engine in ("voice_build", "voice_test"):
                 from ..config import VOICES_DIR
                 pdir = VOICES_DIR / j.speaker_profile
@@ -262,17 +278,34 @@ def worker_loop(q):
                         voice_profile_dir = get_voice_profile_dir(j.speaker_profile)
                     except ValueError:
                         voice_profile_dir = None
-                    from ..engines import xtts_generate
-                    rc = xtts_generate(
-                        text=spk["test_text"],
-                        out_wav=sample_path,
-                        safe_mode=True,
-                        on_output=on_output,
-                        cancel_check=cancel_check,
-                        speaker_wav=sw,
-                        speed=spk["speed"],
-                        voice_profile_dir=voice_profile_dir
-                    )
+                    engine = spk.get("engine", "xtts")
+                    if engine == "voxtral":
+                        try:
+                            rc = voxtral_generate(
+                                text=spk["test_text"],
+                                out_wav=sample_path,
+                                on_output=on_output,
+                                cancel_check=cancel_check,
+                                profile_name=j.speaker_profile,
+                                voice_id=spk.get("voxtral_voice_id"),
+                                model=spk.get("voxtral_model"),
+                                reference_sample=spk.get("reference_sample"),
+                            )
+                        except VoxtralError as exc:
+                            _mark_queue_failed(jid, str(exc))
+                            return
+                    else:
+                        from ..engines import xtts_generate
+                        rc = xtts_generate(
+                            text=spk["test_text"],
+                            out_wav=sample_path,
+                            safe_mode=True,
+                            on_output=on_output,
+                            cancel_check=cancel_check,
+                            speaker_wav=sw,
+                            speed=spk["speed"],
+                            voice_profile_dir=voice_profile_dir
+                        )
                     if rc != 0:
                         _mark_queue_failed(jid, "Voice synthesis failed.")
                         return
@@ -298,7 +331,15 @@ def worker_loop(q):
                                 f.name for f in pdir.glob("*.wav")
                                 if f.name not in {"sample.wav", "sample.mp3"}
                             ])
-                            update_speaker_settings(j.speaker_profile, built_samples=raw_wavs)
+                            update_speaker_settings(
+                                j.speaker_profile,
+                                built_samples=raw_wavs,
+                                preview_test_text=spk["test_text"],
+                                preview_engine=engine,
+                                preview_reference_sample=spk.get("reference_sample"),
+                                preview_voxtral_voice_id=spk.get("voxtral_voice_id"),
+                                preview_voxtral_model=spk.get("voxtral_model"),
+                            )
                             on_output(f"Updated build samples for {j.speaker_profile}.\n")
                         except Exception as e:
                             logger.error(f"Error updating build samples for {j.speaker_profile}: {e}")

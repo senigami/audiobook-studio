@@ -13,8 +13,9 @@ interface ChapterHeaderProps {
   onNext?: () => void;
   selectedVoice: string;
   onVoiceChange: (voice: string) => void;
-  availableVoices: { id: string; name: string; is_speaker: boolean }[];
+  availableVoices: { id: string; name: string; value: string; is_speaker: boolean }[];
   submitting: boolean;
+  queueLocked?: boolean;
   queuePending?: boolean;
   job?: Job;
   generatingSegmentIdsCount: number;
@@ -37,6 +38,7 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
   onVoiceChange,
   availableVoices,
   submitting,
+  queueLocked = false,
   queuePending = false,
   job,
   generatingSegmentIdsCount,
@@ -156,23 +158,23 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
                   }}
                   title="Select Voice Profile for this chapter"
               >
-                  <option value="">Unassigned (Default Speaker)</option>
+                  <option value="">Use Project Default</option>
                   {availableVoices.map(v => (
-                      <option key={v.id} value={v.name}>{v.name}</option>
+                      <option key={v.id} value={v.value}>{v.name}</option>
                   ))}
               </select>
           )}
 
-          <button
+              <button
               onClick={onQueue}
-              disabled={submitting || (job?.status === 'queued' || job?.status === 'running') || chapter?.audio_status === 'processing'}
+              disabled={queueLocked}
               className="btn-primary"
               style={{
                   padding: '0.4rem 0.8rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem',
-                  opacity: (job?.status === 'queued' || job?.status === 'running') || chapter?.audio_status === 'processing' ? 0.3 : 1,
-                  cursor: (job?.status === 'queued' || job?.status === 'running') || chapter?.audio_status === 'processing' ? 'not-allowed' : 'pointer'
+                  opacity: queueLocked ? 0.3 : 1,
+                  cursor: queueLocked ? 'not-allowed' : 'pointer'
               }}
-              title={((job?.status === 'queued' || job?.status === 'running') || chapter?.audio_status === 'processing') ? "Already processing" : queueTitle}
+              title={queueLocked ? "Already processing" : queueTitle}
               >
               {submitting ? <RefreshCw size={14} className="animate-spin" /> : <Zap size={14} />}
               {queueLabel}

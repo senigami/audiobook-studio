@@ -23,6 +23,7 @@ interface NarratorCardProps {
     isExpanded: boolean;
     onToggleExpand: () => void;
     buildingProfiles: Record<string, boolean>;
+    voxtralAvailable?: boolean;
 }
 
 export const NarratorCard: React.FC<NarratorCardProps> = ({
@@ -30,7 +31,8 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
     onTest, onDelete, onRefresh,
     onEditTestText, onBuildNow, requestConfirm,
     onAddVariantClick, onRenameClick, onSetDefaultClick, isExpanded, onToggleExpand, onMoveVariant,
-    buildingProfiles
+    buildingProfiles,
+    voxtralAvailable = true
 }) => {
     const defaultProfileName = getDefaultVoiceProfileName(profiles);
     const defaultProfile =
@@ -59,14 +61,28 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
     }, [profiles, activeProfileId, defaultProfile]);
 
     const activeProfile = profiles.find(p => p.name === activeProfileId) || defaultProfile;
+    const activeEngine = activeProfile?.engine || 'xtts';
+    const activeEngineBadge = {
+        label: activeEngine === 'voxtral' ? 'Voxtral' : 'XTTS',
+        bg: activeEngine === 'voxtral' ? 'rgba(14, 165, 233, 0.12)' : 'rgba(var(--accent-rgb), 0.12)',
+        color: activeEngine === 'voxtral' ? '#0ea5e9' : 'var(--accent)'
+    };
 
     const handleAddVariant = () => onAddVariantClick(speaker, profiles.length);
 
     const getStatusInfo = (p: SpeakerProfile | undefined) => {
         if (!p) return { label: 'NO SAMPLES', color: 'var(--text-muted)', bg: 'var(--surface-alt)' };
+        const engine = p.engine || 'xtts';
+        const hasPreviewInputs = engine === 'voxtral'
+            ? ((p.wav_count || 0) > 0 || !!p.voxtral_voice_id)
+            : ((p.wav_count || 0) > 0 || !!p.has_latent);
         if (buildingProfiles[p.name]) return { label: 'BUILDING...', color: 'var(--accent)', bg: 'rgba(var(--accent-rgb), 0.1)' };
-        if (p.wav_count === 0 && !p.has_latent && !p.preview_url) return { label: 'NO SAMPLES', color: 'var(--text-muted)', bg: 'var(--surface-alt)' };
-        if (p.is_rebuild_required) return { label: 'REBUILD REQUIRED', color: 'var(--warning-text)', bg: 'rgba(var(--warning-rgb), 0.1)' };
+        if (!hasPreviewInputs && !p.preview_url) return { label: 'NO SAMPLES', color: 'var(--text-muted)', bg: 'var(--surface-alt)' };
+        if (p.is_rebuild_required) {
+            return engine === 'voxtral'
+                ? { label: 'PREVIEW OUT OF DATE', color: 'var(--warning-text)', bg: 'rgba(var(--warning-rgb), 0.1)' }
+                : { label: 'REBUILD REQUIRED', color: 'var(--warning-text)', bg: 'rgba(var(--warning-rgb), 0.1)' };
+        }
         if (!p.preview_url) return { label: 'BUILD TO TEST', color: 'var(--accent)', bg: 'rgba(var(--accent-rgb), 0.1)' };
         return { label: 'BUILT', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' };
     };
@@ -161,6 +177,15 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
                                 fontWeight: 800,
                                 letterSpacing: '0.02em'
                             }}>{status.label}</span>
+                            <span style={{
+                                fontSize: '0.65rem',
+                                padding: '2px 8px',
+                                background: activeEngineBadge.bg,
+                                color: activeEngineBadge.color,
+                                borderRadius: '100px',
+                                fontWeight: 800,
+                                letterSpacing: '0.02em'
+                            }}>{activeEngineBadge.label}</span>
                         </div>
                     </div>
                 </div>
@@ -246,6 +271,20 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
                                         >
                                             {p.is_default && <Star size={12} fill={isActive ? "white" : "var(--accent)"} color={isActive ? "white" : "var(--accent)"} />}
                                             {p.variant_name || 'Default'}
+                                            <span style={{
+                                                padding: '1px 6px',
+                                                borderRadius: '999px',
+                                                fontSize: '0.62rem',
+                                                fontWeight: 800,
+                                                background: isActive
+                                                    ? 'rgba(255,255,255,0.2)'
+                                                    : ((p.engine || 'xtts') === 'voxtral' ? 'rgba(14, 165, 233, 0.12)' : 'rgba(var(--accent-rgb), 0.12)'),
+                                                color: isActive
+                                                    ? 'white'
+                                                    : ((p.engine || 'xtts') === 'voxtral' ? '#0ea5e9' : 'var(--accent)')
+                                            }}>
+                                                {(p.engine || 'xtts') === 'voxtral' ? 'VX' : 'XT'}
+                                            </span>
                                         </button>
                                     );
                                 })}
@@ -286,6 +325,7 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
                                     voiceName={speaker.name}
                                     showControlsInline={true}
                                     buildingProfiles={buildingProfiles}
+                                    voxtralAvailable={voxtralAvailable}
                                 />
                         </div>
                     </motion.div>

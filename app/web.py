@@ -260,11 +260,23 @@ def startup_event():
 
         # Fresh job list after deletion
         remaining_jobs = get_jobs()
-        active_ids = list(remaining_jobs.keys())
-        active_chapter_ids = {j.chapter_id for j in remaining_jobs.values() if j.chapter_id}
+        active_statuses = {"queued", "preparing", "running", "finalizing"}
+        terminal_statuses = {"done", "failed", "cancelled"}
+        active_jobs = {
+            jid: job
+            for jid, job in remaining_jobs.items()
+            if getattr(job, "status", None) in active_statuses
+        }
+        known_job_statuses = {
+            jid: job.status
+            for jid, job in remaining_jobs.items()
+            if getattr(job, "status", None) in terminal_statuses
+        }
+        active_ids = list(active_jobs.keys())
+        active_chapter_ids = {j.chapter_id for j in active_jobs.values() if j.chapter_id}
 
         reconcile_all_chapter_statuses(active_chapter_ids)
-        reconcile_queue_status(active_ids)
+        reconcile_queue_status(active_ids, known_job_statuses)
         logger.info("Startup: Database reconciliation complete.")
     except Exception as e:
         logger.warning(f"Startup Warning: Database reconciliation failed: {e}")

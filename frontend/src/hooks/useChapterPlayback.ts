@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import type { ChapterSegment } from '../types';
+import type { ChunkGroup } from '../utils/chunkGroups';
 
 export function useChapterPlayback(
   projectId: string,
   segments: ChapterSegment[],
+  chunkGroups: ChunkGroup[],
   generatingSegmentIds: Set<string>,
   onGenerate: (sids: string[]) => Promise<void>
 ) {
@@ -13,6 +15,7 @@ export function useChapterPlayback(
   const isPlayingRef = useRef<boolean>(false);
   const segmentsRef = useRef<ChapterSegment[]>(segments);
   const generatingSegmentIdsRef = useRef<Set<string>>(generatingSegmentIds);
+  const chunkGroupsRef = useRef<ChunkGroup[]>(chunkGroups);
   const pendingPlaybackRef = useRef<{ segmentId: string; queue: string[] } | null>(null);
 
   useEffect(() => {
@@ -22,6 +25,10 @@ export function useChapterPlayback(
   useEffect(() => {
     generatingSegmentIdsRef.current = generatingSegmentIds;
   }, [generatingSegmentIds]);
+
+  useEffect(() => {
+    chunkGroupsRef.current = chunkGroups;
+  }, [chunkGroups]);
 
   const playFromIndex = async (idx: number, queue: string[]) => {
     if (!isPlayingRef.current || idx >= queue.length) {
@@ -144,34 +151,11 @@ export function useChapterPlayback(
   const getGroupSegmentIds = (idx: number, queue: string[]): string[] => {
     if (idx >= queue.length) return [];
     const segId = queue[idx];
-    
-    // Simplification: Chunking logic for playback lookahead
-    const limit = 500;
-    const groups: string[][] = [];
-    let currentGroup: string[] = [];
-    let currentLength = 0;
-    let lastCharId: string | null | undefined = undefined;
 
-    segmentsRef.current.forEach(s => {
-        if (lastCharId !== undefined && s.character_id !== lastCharId) {
-            groups.push(currentGroup);
-            currentGroup = [];
-            currentLength = 0;
-        }
-        if (currentLength + s.text_content.length > limit && currentGroup.length > 0) {
-            groups.push(currentGroup);
-            currentGroup = [];
-            currentLength = 0;
-        }
-        currentGroup.push(s.id);
-        currentLength += s.text_content.length;
-        lastCharId = s.character_id;
-    });
-    if (currentGroup.length > 0) groups.push(currentGroup);
-
-    const group = groups.find(g => g.includes(segId));
+    const group = chunkGroupsRef.current.find(g => g.segments.some(segment => segment.id === segId));
     if (!group) return [segId];
-    return queue.filter(qid => group.includes(qid));
+    const groupIds = group.segments.map(segment => segment.id);
+    return queue.filter(qid => groupIds.includes(qid));
   };
 
   const playSegment = async (segmentId: string, fullQueue: string[]) => {

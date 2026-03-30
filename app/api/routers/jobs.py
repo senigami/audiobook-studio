@@ -16,12 +16,7 @@ def api_jobs():
     """Returns jobs from state, augmented with file-based auto-discovery and progress."""
     all_jobs = get_jobs()
 
-    # Group by chapter_file, prioritizing running/queued over others
-    sorted_jobs = sorted(all_jobs.values(), key=lambda j: (1 if j.status in ["running", "queued"] else 0, j.created_at))
-
-    jobs_dict = {}
-    for j in sorted_jobs:
-        jobs_dict[j.chapter_file] = asdict(j)
+    jobs_dict = {j.id: asdict(j) for j in all_jobs.values()}
 
     # Dynamic progress update based on time
     now = time.time()
@@ -34,8 +29,16 @@ def api_jobs():
     # Auto-discovery
     chapters = [p.name for p in legacy_list_chapters()]
     for c in chapters:
-        existing = jobs_dict.get(c)
-        if existing and existing['status'] == 'done' and (existing.get('output_mp3') or existing.get('output_wav')):
+        existing = next(
+            (
+                job for job in jobs_dict.values()
+                if job.get("chapter_file") == c
+                and job.get("status") == "done"
+                and (job.get("output_mp3") or job.get("output_wav"))
+            ),
+            None,
+        )
+        if existing:
             continue
 
         stem = Path(c).stem
@@ -55,7 +58,7 @@ def api_jobs():
             if existing:
                 existing.update(found_job)
             else:
-                jobs_dict[c] = {
+                jobs_dict[f"discovered-{c}"] = {
                     "id": f"discovered-{c}",
                     "chapter_file": c,
                     "progress": 1.0,

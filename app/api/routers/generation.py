@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import List, Optional
 from fastapi import APIRouter, Form
 from fastapi.responses import JSONResponse
+from ...chunk_groups import build_chapter_queue_title, build_segment_job_title
 from ...db import (
     add_to_queue as db_add_to_queue, get_chapter_segments,
     get_connection
@@ -13,10 +14,33 @@ from ...jobs import enqueue, cancel as cancel_job_worker, set_paused, clear_job_
 from ...models import Job
 from ...state import put_job, update_job, get_settings, get_jobs
 from ...config import XTTS_OUT_DIR, find_existing_project_dir, find_existing_project_subdir
+from ...voice_engines import resolve_tts_engine_for_profiles, normalize_tts_engine
 from ..ws import broadcast_queue_update
 
 router = APIRouter(prefix="/api", tags=["generation"])
 logger = logging.getLogger(__name__)
+
+
+def _voxtral_configured(settings: Optional[dict] = None) -> bool:
+    active_settings = settings or get_settings()
+    return bool(str(active_settings.get("mistral_api_key") or "").strip()) and bool(active_settings.get("voxtral_enabled"))
+
+
+def _voxtral_disabled_error():
+    return JSONResponse(
+        {
+            "status": "error",
+            "message": "Enable Voxtral in Settings and add a Mistral API key to use cloud voices."
+        },
+        status_code=400,
+    )
+
+
+def _resolved_segment_profiles(chapter_id: str, only_segment_ids: Optional[set[str]] = None) -> list[Optional[str]]:
+    segments = get_chapter_segments(chapter_id)
+    if only_segment_ids:
+        segments = [segment for segment in segments if segment["id"] in only_segment_ids]
+    return [segment.get("speaker_profile_name") for segment in segments]
 
 @router.post("/processing_queue")
 def api_add_to_queue(
@@ -29,6 +53,7 @@ def api_add_to_queue(
         active_profile = speaker_profile or get_settings().get("default_speaker_profile")
         if not active_profile:
             return JSONResponse({"status": "error", "message": "No speaker profile selected and no default set. Please choose a voice first."}, status_code=400)
+        settings = get_settings()
 
         qid = db_add_to_queue(project_id, chapter_id, split_part)
         if not qid:
@@ -43,11 +68,12 @@ def api_add_to_queue(
         # Sync with legacy worker
         with get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT title, text_content FROM chapters WHERE id = ?", (chapter_id,))
+            cursor.execute("SELECT title, text_content, sort_order FROM chapters WHERE id = ?", (chapter_id,))
             c_item = cursor.fetchone()
 
         if c_item:
-            title, text_content = c_item
+            title, text_content, sort_order = c_item
+            display_title = build_chapter_queue_title(title, sort_order)
             project_dir = find_existing_project_dir(project_id)
             if not project_dir:
                 raise ValueError(f"Project directory not found for {project_id}")
@@ -78,25 +104,45 @@ def api_add_to_queue(
                 )
                 for s in segs
             )
+            resolved_engine, mixed_engines = resolve_tts_engine_for_profiles(
+                _resolved_segment_profiles(chapter_id),
+                default_profile=active_profile,
+                fallback_engine=settings.get("default_engine"),
+            )
+            if (mixed_engines or resolved_engine == "voxtral") and not _voxtral_configured(settings):
+                return _voxtral_disabled_error()
+            queue_engine = "mixed" if mixed_engines else resolved_engine
 
             j = Job(
                 id=qid, 
                 project_id=project_id,
                 chapter_id=chapter_id,
-                engine="xtts",
+                engine=queue_engine,
                 chapter_file=temp_filename, 
                 status="queued",
                 created_at=time.time(),
-                safe_mode=bool(get_settings().get("safe_mode", True)),
-                make_mp3=bool(get_settings().get("make_mp3", False)),
+                safe_mode=bool(settings.get("safe_mode", True)),
+                make_mp3=bool(settings.get("make_mp3", False)),
                 bypass_pause=False,
-                custom_title=title,
+                custom_title=display_title,
                 speaker_profile=active_profile,
                 is_bake=has_bakeable_segments
             )
 
             put_job(j)
-            update_job(qid, force_broadcast=True, status="queued", project_id=project_id, chapter_id=chapter_id, custom_title=title)
+            update_job(
+                qid,
+                force_broadcast=True,
+                status="queued",
+                progress=0.0,
+                started_at=None,
+                finished_at=None,
+                active_segment_id=None,
+                active_segment_progress=0.0,
+                project_id=project_id,
+                chapter_id=chapter_id,
+                custom_title=display_title,
+            )
             enqueue(j)
             broadcast_queue_update()
 
@@ -112,18 +158,55 @@ def api_add_to_queue(
 
 @router.post("/generation/bake/{chapter_id}")
 def api_bake_chapter(chapter_id: str):
+    settings = get_settings()
+    active_profile = settings.get("default_speaker_profile")
+
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT project_id, title, sort_order FROM chapters WHERE id = ?", (chapter_id,))
+        chapter = cursor.fetchone()
+        if not chapter:
+            return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
+        project_id = chapter["project_id"]
+        display_title = build_chapter_queue_title(chapter["title"], chapter["sort_order"])
+
+    segs = get_chapter_segments(chapter_id)
+    resolved_engine, mixed_engines = resolve_tts_engine_for_profiles(
+        _resolved_segment_profiles(chapter_id),
+        default_profile=active_profile,
+        fallback_engine=settings.get("default_engine"),
+    )
+    if (mixed_engines or resolved_engine == "voxtral") and not _voxtral_configured(settings):
+        return _voxtral_disabled_error()
+
+    queue_engine = "mixed" if mixed_engines or resolved_engine == "voxtral" else resolved_engine
+
     jid = f"bake-{uuid.uuid4().hex[:8]}"
     j = Job(
         id=jid,
+        project_id=project_id,
         chapter_id=chapter_id,
-        chapter_file="", # Required by model
-        engine="bake",
+        chapter_file=f"{chapter_id}_0.txt",
+        engine=queue_engine,
         status="queued",
         created_at=time.time(),
-        bypass_pause=True
+        is_bake=True,
+        bypass_pause=True,
+        speaker_profile=active_profile,
+        custom_title=display_title,
     )
     put_job(j)
-    update_job(jid, force_broadcast=True, status="queued")
+    update_job(
+        jid,
+        force_broadcast=True,
+        status="queued",
+        progress=0.0,
+        started_at=None,
+        finished_at=None,
+        active_segment_id=None,
+        active_segment_progress=0.0,
+        custom_title=display_title,
+    )
     enqueue(j)
     return JSONResponse({"status": "ok", "job_id": jid})
 
@@ -171,7 +254,7 @@ def enqueue_single(chapter_file: str = Form(...), engine: str = Form("xtts")):
     j = Job(
         id=jid,
         chapter_file=chapter_file,
-        engine=engine,
+        engine=normalize_tts_engine(engine, engine),
         status="queued",
         created_at=time.time(),
         speaker_profile=get_settings().get("default_speaker_profile")
@@ -181,7 +264,7 @@ def enqueue_single(chapter_file: str = Form(...), engine: str = Form("xtts")):
     return JSONResponse({"status": "ok", "job_id": jid})
 
 @router.post("/segments/generate")
-def api_generate_segments(segment_ids: str = Form(...)):
+def api_generate_segments(segment_ids: str = Form(...), speaker_profile: Optional[str] = Form(None)):
     """Queues generation for specific segments."""
     sids = [s.strip() for s in segment_ids.split(",") if s.strip()]
     if not sids:
@@ -198,28 +281,46 @@ def api_generate_segments(segment_ids: str = Form(...)):
         chapter_id = row['chapter_id']
 
         # Get project_id for output paths
-        cursor.execute("SELECT project_id, title FROM chapters WHERE id = ?", (chapter_id,))
+        cursor.execute("SELECT project_id, title, sort_order FROM chapters WHERE id = ?", (chapter_id,))
         chap = cursor.fetchone()
         project_id = chap['project_id']
         chapter_title = chap['title']
+        chapter_display_title = build_chapter_queue_title(chap['title'], chap['sort_order'])
 
-    from ...jobs import enqueue
-    from ...models import Job
-    from ...state import put_job, get_settings
     import uuid
     import time
+
+    settings = get_settings()
+    active_profile = speaker_profile or settings.get("default_speaker_profile")
+    resolved_engine, mixed_engines = resolve_tts_engine_for_profiles(
+        _resolved_segment_profiles(chapter_id, set(sids)),
+        default_profile=active_profile,
+        fallback_engine=settings.get("default_engine"),
+    )
+    if (mixed_engines or resolved_engine == "voxtral") and not _voxtral_configured(settings):
+        return _voxtral_disabled_error()
+    # Performance-tab segment generation should always use the chunk-aware mixed handler
+    # so displayed groups render as one unit even when they are pure XTTS.
+    queue_engine = "mixed"
+    segment_custom_title = build_segment_job_title(
+        chapter_title=chapter_title,
+        chapter_id=chapter_id,
+        segment_ids=sids,
+        default_profile=active_profile,
+    )
 
     jid = f"job-{uuid.uuid4().hex[:8]}"
     job = Job(
         id=jid,
-        engine="xtts",
-        chapter_file=f"{chapter_title}.txt", # Fallback name
+        engine=queue_engine,
+        chapter_file=f"{chapter_display_title}.txt", # Fallback name
         status="queued",
         created_at=time.time(),
         project_id=project_id,
         chapter_id=chapter_id,
         segment_ids=sids,
-        speaker_profile=get_settings().get("default_speaker_profile")
+        speaker_profile=active_profile,
+        custom_title=segment_custom_title,
     )
 
     # Physical Cleanup: Delete existing full-chapter audio files to prevent reconciliation "blink"
@@ -245,6 +346,19 @@ def api_generate_segments(segment_ids: str = Form(...)):
         conn.commit()
 
     put_job(job)
+    update_job(
+        job.id,
+        force_broadcast=True,
+        status="queued",
+        progress=0.0,
+        started_at=None,
+        finished_at=None,
+        active_segment_id=None,
+        active_segment_progress=0.0,
+        chapter_id=chapter_id,
+        project_id=project_id,
+        custom_title=segment_custom_title,
+    )
     enqueue(job)
     broadcast_queue_update()
     return JSONResponse({"status": "success", "job_id": job.id})

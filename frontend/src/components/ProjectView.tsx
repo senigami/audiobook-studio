@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Plus, Zap, ArrowUpDown } from 'lucide-react';
 import { api } from '../api';
-import type { Project, Chapter, Job, Audiobook, SpeakerProfile } from '../types';
+import type { Project, Chapter, Job, Audiobook, SpeakerProfile, Settings } from '../types';
 
 // Extracted Components
 import { ProjectHeader } from './project/ProjectHeader';
@@ -16,16 +16,18 @@ import { ConfirmModal } from './ConfirmModal';
 // Extracted Hooks
 import { useProjectActions } from '../hooks/useProjectActions';
 import { getDefaultVoiceProfileName } from '../utils/voiceProfiles';
+import { pickRelevantJob } from '../utils/jobSelection';
 
 interface ProjectViewProps {
   jobs: Record<string, Job>;
   speakerProfiles: SpeakerProfile[];
   speakers: import('../types').Speaker[];
+  settings?: Settings;
   refreshTrigger?: number;
   segmentUpdate?: { chapterId: string; tick: number };
 }
 
-export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles, speakers, refreshTrigger = 0, segmentUpdate }) => {
+export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles, speakers, settings, refreshTrigger = 0, segmentUpdate }) => {
   const { projectId } = useParams() as { projectId: string };
   const navigate = useNavigate();
   
@@ -38,21 +40,11 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
   const [isAssemblyMode, setIsAssemblyMode] = useState(false);
   const [selectedChapters, setSelectedChapters] = useState<Set<string>>(new Set());
   const [selectedVoice, setSelectedVoice] = useState<string>('');
+  const [hasResolvedInitialVoice, setHasResolvedInitialVoice] = useState(false);
   const [isExporting, setIsExporting] = useState<string | null>(null);
 
   const pickLatestJob = React.useCallback((predicate: (job: Job) => boolean, includeDone = false) => {
-    const ranked = Object.values(jobs)
-      .filter(job => predicate(job) && (includeDone || ['queued', 'preparing', 'running', 'finalizing'].includes(job.status)))
-      .sort((a, b) => {
-        const statusRank: Record<string, number> = { running: 4, finalizing: 3, preparing: 2, queued: 1, done: 0, failed: 0, cancelled: 0, error: 0 };
-        const aRank = statusRank[a.status] || 0;
-        const bRank = statusRank[b.status] || 0;
-        if (aRank !== bRank) return bRank - aRank;
-        const aTime = a.started_at ?? a.created_at ?? 0;
-        const bTime = b.started_at ?? b.created_at ?? 0;
-        return bTime - aTime;
-      });
-    return ranked[0];
+    return pickRelevantJob(Object.values(jobs).filter(predicate), includeDone);
   }, [jobs]);
 
   // Modal visibility
@@ -71,12 +63,17 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
     if (speakerProfiles.length === 0) return;
     const voiceStillAvailable = selectedVoice && speakerProfiles.some(p => p.name === selectedVoice);
     if (voiceStillAvailable) return;
+    if (hasResolvedInitialVoice && selectedVoice === '') return;
 
-    const defaultProfile = getDefaultVoiceProfileName(speakerProfiles) || '';
+    const savedDefault = settings?.default_speaker_profile || '';
+    const defaultProfile = (savedDefault && speakerProfiles.some(p => p.name === savedDefault))
+      ? savedDefault
+      : (getDefaultVoiceProfileName(speakerProfiles) || '');
     if (defaultProfile) {
       setSelectedVoice(defaultProfile);
+      setHasResolvedInitialVoice(true);
     }
-  }, [speakerProfiles, selectedVoice]);
+  }, [speakerProfiles, selectedVoice, settings?.default_speaker_profile, hasResolvedInitialVoice]);
 
   const loadData = async () => {
     try {
@@ -136,13 +133,19 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
   if (!project) return <div style={{ padding: '2rem' }}>Project not found.</div>;
 
   if (editingChapterId) {
+      const chapterJobs = Object.values(jobs).filter(j =>
+        j.project_id === projectId &&
+        (j.chapter_id === editingChapterId || j.chapter_file?.includes(editingChapterId)) &&
+        ['queued', 'preparing', 'running', 'finalizing'].includes(j.status)
+      );
       const activeIdx = chapters.findIndex(c => c.id === editingChapterId);
       return (
               <ChapterEditor 
                   chapterId={editingChapterId} projectId={projectId} speakerProfiles={speakerProfiles} speakers={speakers}
                   job={pickLatestJob(j => j.project_id === projectId && (j.chapter_id === editingChapterId || j.chapter_file?.includes(editingChapterId)))}
+                  chapterJobs={chapterJobs}
                   onBack={() => { setEditingChapterId(null); loadData(); }}
-                  selectedVoice={selectedVoice} onVoiceChange={setSelectedVoice}
+                  selectedVoice={selectedVoice}
                   onNext={activeIdx < chapters.length - 1 ? () => setEditingChapterId(chapters[activeIdx + 1].id) : undefined}
                   onPrev={activeIdx > 0 ? () => setEditingChapterId(chapters[activeIdx - 1].id) : undefined}
               segmentUpdate={segmentUpdate}
@@ -150,9 +153,20 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
       );
   }
 
-  const mergedVoices = [...(speakers || []).map(s => ({ id: s.id, name: s.name })), 
-                        ...(speakerProfiles || []).filter(p => !p.speaker_id || !speakers.some(s => s.id === p.speaker_id))
-                        .map(p => ({ id: `unassigned-${p.name}`, name: p.name }))];
+  const mergedVoices = [
+    ...(speakers || []).map(speaker => {
+      const matchingProfiles = (speakerProfiles || []).filter(profile => profile.speaker_id === speaker.id);
+      const defaultProfileName =
+        matchingProfiles.find(profile => profile.name === speaker.default_profile_name)?.name ||
+        getDefaultVoiceProfileName(matchingProfiles) ||
+        speaker.default_profile_name ||
+        speaker.name;
+      return { id: speaker.id, name: speaker.name, value: defaultProfileName };
+    }),
+    ...(speakerProfiles || [])
+      .filter(profile => !profile.speaker_id || !speakers.some(speaker => speaker.id === profile.speaker_id))
+      .map(profile => ({ id: `unassigned-${profile.name}`, name: profile.name, value: profile.name })),
+  ];
 
   const totalRuntime = (Array.isArray(chapters) ? chapters : []).reduce((acc, c) => acc + (c.audio_status === 'done' ? (c.audio_length_seconds || c.predicted_audio_length || 0) : 0), 0);
   const totalPredicted = (Array.isArray(chapters) ? chapters : []).reduce((acc, c) => acc + (c.predicted_audio_length || 0), 0);
@@ -189,9 +203,9 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
                       ) : (
                         <>
                           <button onClick={() => handleQueueAllUnprocessed(chapters, jobs, selectedVoice)} className="btn-ghost" style={{ border: '1px solid var(--border)', color: 'var(--accent)', fontSize: '0.85rem' }}><Zap size={16} /> Queue Remaining</button>
-                          <select value={selectedVoice} onChange={e => setSelectedVoice(e.target.value)} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '0.85rem', padding: '0.25rem 0.5rem' }}>
+                          <select value={selectedVoice} onChange={e => { setHasResolvedInitialVoice(true); setSelectedVoice(e.target.value); }} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '0.85rem', padding: '0.25rem 0.5rem' }}>
                               <option value="">Default Speaker</option>
-                              {mergedVoices.map(v => <option key={v.id} value={v.name}>{v.name}</option>)}
+                              {mergedVoices.map(v => <option key={v.id} value={v.value}>{v.name}</option>)}
                           </select>
                           <button onClick={() => handleReorderChapters([...chapters].sort((a,b) => a.title.localeCompare(b.title, undefined, {numeric: true})))} className="btn-ghost" style={{ border: '1px solid var(--border)', fontSize: '0.85rem' }}><ArrowUpDown size={16} /> Sort A-Z</button>
                           <button onClick={() => setShowAddModal(true)} className="btn-primary" style={{ fontSize: '0.85rem' }}><Plus size={16} /> Add Chapter</button>

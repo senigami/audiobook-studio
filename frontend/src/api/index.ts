@@ -1,5 +1,13 @@
 import type { Job, Project, Chapter } from '../types';
 
+const parseApiResponse = async (res: Response) => {
+  const data = await res.json();
+  if (!res.ok || data?.status === 'error') {
+    throw new Error(data?.message || 'Request failed');
+  }
+  return data;
+};
+
 export const api = {
   // --- Projects ---
   fetchProjects: async (): Promise<Project[]> => {
@@ -132,15 +140,16 @@ export const api = {
     });
     return res.json();
   },
-  generateSegments: async (segmentIds: string[]): Promise<any> => {
+  generateSegments: async (segmentIds: string[], speakerProfile?: string): Promise<any> => {
     const formData = new FormData();
     formData.append('segment_ids', segmentIds.join(','));
+    if (speakerProfile) formData.append('speaker_profile', speakerProfile);
     const res = await fetch('/api/segments/generate', { method: 'POST', body: formData });
-    return res.json();
+    return parseApiResponse(res);
   },
   bakeChapter: async (chapterId: string): Promise<any> => {
     const res = await fetch(`/api/chapters/${chapterId}/bake`, { method: 'POST' });
-    return res.json();
+    return parseApiResponse(res);
   },
   cancelChapterGeneration: async (chapterId: string): Promise<any> => {
     const res = await fetch(`/api/chapters/${chapterId}/cancel`, { method: 'POST' });
@@ -209,7 +218,7 @@ export const api = {
     formData.append('split_part', splitPart.toString());
     if (speakerProfile) formData.append('speaker_profile', speakerProfile);
     const res = await fetch('/api/processing_queue', { method: 'POST', body: formData });
-    return res.json();
+    return parseApiResponse(res);
   },
   fetchAudiobooks: async (): Promise<any> => {
     const res = await fetch('/api/audiobooks');

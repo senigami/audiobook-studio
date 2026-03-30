@@ -1,12 +1,14 @@
 import json
 import logging
+import os
 import re
 import uuid
+from json import JSONDecodeError
 from pathlib import Path
 from typing import Optional
 from ..config import VOICES_DIR
 from ..state import get_settings
-from ..db.speakers import infer_variant_name, normalize_profile_metadata
+from ..db.speakers import infer_variant_name, normalize_profile_metadata, DEFAULT_PROFILE_ENGINE
 
 logger = logging.getLogger(__name__)
 SAFE_PROFILE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
@@ -26,30 +28,51 @@ def _profile_name_or_error(profile_name: str) -> str:
     return profile_name
 
 
-def _exact_voice_profile_dir(profile_name: str):
+def _candidate_voice_profile_dir(profile_name: str) -> Path:
+    profile_name = _profile_name_or_error(profile_name)
+    base_dir = os.path.abspath(os.path.normpath(os.fspath(VOICES_DIR)))
+    fullpath = os.path.abspath(os.path.normpath(os.path.join(base_dir, profile_name)))
+    if not fullpath.startswith(base_dir + os.sep):
+        raise ValueError(f"Invalid profile name: {profile_name}")
+    return Path(fullpath)
+
+
+def _find_existing_voice_profile_dir(profile_name: str) -> Optional[Path]:
     profile_name = _profile_name_or_error(profile_name)
     if not VOICES_DIR.exists():
-        return VOICES_DIR / profile_name
+        return None
     try:
         for entry in VOICES_DIR.iterdir():
             if entry.is_dir() and entry.name == profile_name:
                 return entry.resolve()
     except FileNotFoundError:
-        return VOICES_DIR / profile_name
-    return VOICES_DIR / profile_name
+        return None
+    return None
+
+
+def _existing_profile_metadata_path(profile_name: str) -> Optional[Path]:
+    profile_name = _profile_name_or_error(profile_name)
+    profile_dir = _find_existing_voice_profile_dir(profile_name)
+    if not profile_dir:
+        return None
+    profile_root = os.path.abspath(os.path.normpath(os.fspath(profile_dir)))
+    meta_path = os.path.abspath(os.path.normpath(os.path.join(profile_root, "profile.json")))
+    if not meta_path.startswith(profile_root + os.sep):
+        raise ValueError(f"Invalid profile metadata path for: {profile_name}")
+    return Path(meta_path)
 
 
 def get_voice_profile_dir(profile_name: str):
-    exact = _exact_voice_profile_dir(profile_name)
-    if exact.exists():
+    exact = _find_existing_voice_profile_dir(profile_name)
+    if exact:
         return exact
 
     resolved_name = _resolve_existing_profile_name(profile_name)
     if resolved_name and resolved_name != profile_name:
-        resolved = _exact_voice_profile_dir(resolved_name)
-        if resolved.exists():
+        resolved = _find_existing_voice_profile_dir(resolved_name)
+        if resolved:
             return resolved
-    return exact
+    return _candidate_voice_profile_dir(profile_name)
 
 
 def get_voice_profile_latent_path(profile_name: str):
@@ -96,17 +119,17 @@ def _resolve_existing_profile_name(profile_name_or_id: str) -> Optional[str]:
     add_candidate(speaker_default_profile)
 
     prefix_source = speaker_name or (None if _is_uuid(target_profile) else target_profile)
-    if prefix_source:
+    if prefix_source and VOICES_DIR.exists():
         for d in sorted(VOICES_DIR.iterdir(), key=lambda p: p.name):
             if d.is_dir() and d.name.startswith(prefix_source + " - "):
                 add_candidate(d.name)
 
     for candidate in candidates:
         try:
-            p = _exact_voice_profile_dir(candidate)
+            p = _find_existing_voice_profile_dir(candidate)
         except ValueError:
             continue
-        if p.exists() and p.is_dir():
+        if p and p.exists() and p.is_dir():
             return candidate
 
     return None
@@ -138,6 +161,35 @@ DEFAULT_SPEAKER_TEST_TEXT = (
     "cold breeze carried the scent of wet earth and weathered stone."
 )
 
+
+def _read_profile_metadata(profile_name: str, meta_path: Path, *, repair: bool = False) -> dict:
+    if not meta_path.exists():
+        meta = normalize_profile_metadata(profile_name, {}, persist=False)
+        if repair:
+            try:
+                meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
+            except Exception:
+                logger.warning("Failed to create default speaker metadata at %s", meta_path, exc_info=True)
+        return meta
+
+    try:
+        raw = meta_path.read_text(encoding="utf-8", errors="replace").strip()
+        meta = json.loads(raw) if raw else {}
+    except JSONDecodeError:
+        logger.warning("Speaker metadata was blank or invalid JSON at %s; rebuilding defaults.", meta_path, exc_info=True)
+        meta = {}
+    except Exception:
+        logger.warning("Failed to read speaker metadata from %s", meta_path, exc_info=True)
+        meta = {}
+
+    normalized = normalize_profile_metadata(profile_name, meta, persist=False)
+    if repair and normalized != meta:
+        try:
+            meta_path.write_text(json.dumps(normalized, indent=2), encoding="utf-8")
+        except Exception:
+            logger.warning("Failed to repair speaker metadata at %s", meta_path, exc_info=True)
+    return normalized
+
 def get_speaker_settings(profile_name_or_id: str) -> dict:
     """Returns metadata (like speed and test text) for a profile or speaker ID, falling back to global settings."""
     defaults = get_settings()
@@ -147,39 +199,56 @@ def get_speaker_settings(profile_name_or_id: str) -> dict:
         "test_text": DEFAULT_SPEAKER_TEST_TEXT,
         "speaker_id": None,
         "variant_name": None,
-        "built_samples": []
+        "built_samples": [],
+        "engine": DEFAULT_PROFILE_ENGINE,
+        "voxtral_voice_id": None,
+        "voxtral_model": None,
+        "reference_sample": None,
+        "preview_test_text": None,
+        "preview_engine": None,
+        "preview_reference_sample": None,
+        "preview_voxtral_voice_id": None,
+        "preview_voxtral_model": None,
     }
     target_profile = _resolve_existing_profile_name(profile_name_or_id)
     if not target_profile:
         return res
 
     try:
-        p = get_voice_profile_dir(target_profile)
+        meta_path = _existing_profile_metadata_path(target_profile)
     except ValueError:
         return res
-
-    meta_path = p / "profile.json"
-    if meta_path.exists():
-        try:
-            meta = json.loads(meta_path.read_text())
-            if "speed" in meta:
-                res["speed"] = meta["speed"]
-            if "test_text" in meta:
-                res["test_text"] = meta["test_text"]
-            if "speaker_id" in meta:
-                res["speaker_id"] = meta["speaker_id"]
-            if "variant_name" in meta:
-                res["variant_name"] = meta["variant_name"]
-            if "built_samples" in meta:
-                res["built_samples"] = meta["built_samples"]
-            meta = normalize_profile_metadata(target_profile, meta, persist=True)
-            if "variant_name" in meta:
-                res["variant_name"] = meta["variant_name"]
-        except Exception:
-            logger.warning("Failed to read speaker metadata from %s", meta_path, exc_info=True)
-    else:
-        meta = normalize_profile_metadata(target_profile, {}, persist=True)
-        res["variant_name"] = meta.get("variant_name") or infer_variant_name(target_profile)
+    if not meta_path:
+        return res
+    meta = _read_profile_metadata(target_profile, meta_path, repair=True)
+    if "speed" in meta:
+        res["speed"] = meta["speed"]
+    if "test_text" in meta:
+        res["test_text"] = meta["test_text"]
+    if "speaker_id" in meta:
+        res["speaker_id"] = meta["speaker_id"]
+    if "variant_name" in meta:
+        res["variant_name"] = meta["variant_name"]
+    if "built_samples" in meta:
+        res["built_samples"] = meta["built_samples"]
+    if "engine" in meta:
+        res["engine"] = meta["engine"]
+    if "voxtral_voice_id" in meta:
+        res["voxtral_voice_id"] = meta["voxtral_voice_id"]
+    if "voxtral_model" in meta:
+        res["voxtral_model"] = meta["voxtral_model"]
+    if "reference_sample" in meta:
+        res["reference_sample"] = meta["reference_sample"]
+    if "preview_test_text" in meta:
+        res["preview_test_text"] = meta["preview_test_text"]
+    if "preview_engine" in meta:
+        res["preview_engine"] = meta["preview_engine"]
+    if "preview_reference_sample" in meta:
+        res["preview_reference_sample"] = meta["preview_reference_sample"]
+    if "preview_voxtral_voice_id" in meta:
+        res["preview_voxtral_voice_id"] = meta["preview_voxtral_voice_id"]
+    if "preview_voxtral_model" in meta:
+        res["preview_voxtral_model"] = meta["preview_voxtral_model"]
 
     return res
 
@@ -190,22 +259,13 @@ def update_speaker_settings(profile_name: str, **updates):
     except ValueError:
         return False
 
-    p = None
-    if VOICES_DIR.exists():
-        for entry in VOICES_DIR.iterdir():
-            if entry.is_dir() and entry.name == profile_name:
-                p = entry.resolve()
-                break
-    if not p:
+    try:
+        meta_path = _existing_profile_metadata_path(profile_name)
+    except ValueError:
         return False
-
-    meta_path = p / "profile.json"
-    meta = {}
-    if meta_path.exists():
-        try:
-            meta = json.loads(meta_path.read_text())
-        except Exception:
-            logger.warning("Failed to read speaker metadata from %s", meta_path, exc_info=True)
+    if not meta_path:
+        return False
+    meta = _read_profile_metadata(profile_name, meta_path, repair=False)
 
     for k, v in updates.items():
         if v is None:
@@ -214,5 +274,5 @@ def update_speaker_settings(profile_name: str, **updates):
         else:
             meta[k] = v
 
-    meta_path.write_text(json.dumps(meta, indent=2))
+    meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
     return True

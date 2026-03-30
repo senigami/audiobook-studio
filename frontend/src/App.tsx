@@ -92,6 +92,7 @@ function App() {
                   jobs={jobs}
                   speakerProfiles={initialData?.speaker_profiles || []}
                   speakers={initialData?.speakers || []}
+                  settings={initialData?.settings}
                   refreshTrigger={queueRefreshTrigger}
                   segmentUpdate={segmentUpdate}
                 />
@@ -109,6 +110,7 @@ function App() {
                   onRefresh={handleRefresh}
                   testProgress={testProgress}
                   jobs={jobs}
+                  settings={initialData?.settings}
                 />
               } />
               <Route path="*" element={<Navigate to="/" replace />} />

@@ -72,9 +72,23 @@ describe('Global Queue Components', () => {
             );
 
             expect(screen.getByText('Title for job-1')).toBeInTheDocument();
-            expect(screen.getByText('Test Project • Part 1')).toBeInTheDocument();
+            expect(screen.getByText('Test Project')).toBeInTheDocument();
             expect(screen.getByText('Started Time 1000')).toBeInTheDocument();
             expect(screen.getByTestId('progress-bar')).toBeInTheDocument();
+        });
+
+        it('shows part numbering only for continued split jobs', () => {
+            render(
+                <QueueItem
+                    job={{ ...mockJob, split_part: 2 } as any}
+                    localPaused={false}
+                    formatJobTitle={(j) => `Title for ${j.id}`}
+                    formatTime={(t) => `Time ${t}`}
+                    onRemove={vi.fn()}
+                />
+            );
+
+            expect(screen.getByText('Test Project • Part 3')).toBeInTheDocument();
         });
 
         it('passes live job timing data to the predictive progress bar', () => {

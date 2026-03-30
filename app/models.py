@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional, Literal, List
 
-Engine = Literal["xtts", "audiobook"]
+Engine = Literal["xtts", "voxtral", "mixed", "audiobook", "voice_build", "voice_test"]
 Status = Literal["queued", "preparing", "running", "finalizing", "done", "failed", "cancelled"]
 
 @dataclass

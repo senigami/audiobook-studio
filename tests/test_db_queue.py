@@ -82,6 +82,19 @@ def test_upsert_queue_row(db_conn):
     assert q[0]["id"] == "manual-job"
     assert q[0]["custom_title"] == "System Task"
 
+
+def test_upsert_queue_row_updates_metadata_for_existing_row(db_conn):
+    pid = create_project("P1")
+    cid = create_chapter(pid, "Overview")
+    qid = add_to_queue(pid, cid)
+
+    upsert_queue_row(qid, project_id=pid, chapter_id=cid, custom_title="Overview * Part 5", engine="mixed")
+
+    q = get_queue()
+    assert q[0]["id"] == qid
+    assert q[0]["custom_title"] == "Overview * Part 5"
+    assert q[0]["engine"] == "mixed"
+
 def test_clear_queue(db_conn):
     pid = create_project("P1")
     cid = create_chapter(pid, "C1")
@@ -122,3 +135,29 @@ def test_reorder_and_remove(db_conn):
     remove_from_queue(q1)
     assert len(get_queue()) == 1
     assert get_chapter(c1)["audio_status"] == "unprocessed"
+
+
+def test_reconcile_queue_status_cancels_orphaned_queued_rows(db_conn):
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1")
+    qid = add_to_queue(pid, cid)
+
+    reconcile_queue_status([])
+
+    q = {row["id"]: row for row in get_queue()}
+    assert q[qid]["status"] == "cancelled"
+    assert get_chapter(cid)["audio_status"] == "unprocessed"
+
+
+def test_reconcile_queue_status_marks_terminal_memory_jobs_done(db_conn):
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1")
+    qid = add_to_queue(pid, cid)
+
+    update_queue_item(qid, "running")
+
+    reconcile_queue_status([], {qid: "done"})
+
+    q = {row["id"]: row for row in get_queue()}
+    assert q[qid]["status"] == "done"
+    assert q[qid]["completed_at"] is not None

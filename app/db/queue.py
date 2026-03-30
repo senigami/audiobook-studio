@@ -4,20 +4,30 @@ from typing import List, Dict, Any
 from pathlib import Path
 from .core import _db_lock, get_connection
 
+ACTIVE_QUEUE_STATUSES = ("queued", "preparing", "running", "finalizing")
+TERMINAL_QUEUE_STATUSES = ("done", "failed", "cancelled")
+
 def upsert_queue_row(job_id: str, project_id: str = None, chapter_id: str = None, 
                      split_part: int = 0, status: str = 'queued', custom_title: str = None, engine: str = None):
     """
     Insert or update a processing_queue row for any job type.
     Called by enqueue() so EVERY job appears in the global queue.
-    Uses INSERT OR IGNORE so it won't overwrite a row already created.
+    Uses an upsert so rows created earlier by add_to_queue() still receive
+    their final display metadata once the live job object is created.
     """
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
             now = time.time()
             cursor.execute("""
-                INSERT OR IGNORE INTO processing_queue (id, project_id, chapter_id, split_part, status, created_at, custom_title, engine)
+                INSERT INTO processing_queue (id, project_id, chapter_id, split_part, status, created_at, custom_title, engine)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    project_id = COALESCE(excluded.project_id, processing_queue.project_id),
+                    chapter_id = COALESCE(excluded.chapter_id, processing_queue.chapter_id),
+                    split_part = COALESCE(excluded.split_part, processing_queue.split_part),
+                    custom_title = COALESCE(excluded.custom_title, processing_queue.custom_title),
+                    engine = COALESCE(excluded.engine, processing_queue.engine)
             """, (job_id, project_id, chapter_id, split_part, status, now, custom_title, engine))
             conn.commit()
 
@@ -157,20 +167,50 @@ def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 
 
             conn.commit()
 
-def reconcile_queue_status(active_ids: List[str]):
-    """Sets any 'running' or 'queued' jobs to 'cancelled' if their ID is not in the active_ids list."""
+def reconcile_queue_status(active_ids: List[str], known_job_statuses: Dict[str, str] | None = None):
+    """
+    Reconcile active queue rows against the in-memory job map.
+
+    - rows still active in SQLite but terminal in memory are updated to that
+      terminal status
+    - rows active in SQLite and absent from active memory are cancelled
+    """
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
             now = time.time()
             placeholders = ','.join(['?'] * len(active_ids)) if active_ids else "''"
 
+            terminal_ids = []
+            terminal_pairs: list[tuple[str, str]] = []
+            if known_job_statuses:
+                terminal_pairs = [
+                    (job_id, status)
+                    for job_id, status in known_job_statuses.items()
+                    if status in TERMINAL_QUEUE_STATUSES
+                ]
+                terminal_ids = [job_id for job_id, _status in terminal_pairs]
+
+            for job_id, status in terminal_pairs:
+                cursor.execute(
+                    """
+                    UPDATE processing_queue
+                    SET status = ?,
+                        completed_at = COALESCE(completed_at, ?)
+                    WHERE id = ?
+                      AND status IN ('queued', 'preparing', 'running', 'finalizing')
+                    """,
+                    (status, now, job_id),
+                )
+
             # Find jobs that are in processing state but not active in state.json
             cursor.execute(f"""
                 UPDATE processing_queue 
                 SET status = 'cancelled', completed_at = ? 
-                WHERE status IN ('running', 'queued', 'preparing', 'finalizing') AND id NOT IN ({placeholders})
-            """, (now, *active_ids))
+                WHERE status IN ('running', 'queued', 'preparing', 'finalizing')
+                  AND id NOT IN ({placeholders})
+                  AND id NOT IN ({','.join(['?'] * len(terminal_ids)) if terminal_ids else "''"})
+            """, (now, *active_ids, *terminal_ids))
 
             # Also sync chapter status
             cursor.execute(f"""
@@ -178,9 +218,11 @@ def reconcile_queue_status(active_ids: List[str]):
                 SET audio_status = 'unprocessed' 
                 WHERE id IN (
                     SELECT chapter_id FROM processing_queue 
-                    WHERE status = 'cancelled' AND id NOT IN ({placeholders})
+                    WHERE status = 'cancelled'
+                      AND id NOT IN ({placeholders})
+                      AND id NOT IN ({','.join(['?'] * len(terminal_ids)) if terminal_ids else "''"})
                 )
-            """, (*active_ids,))
+            """, (*active_ids, *terminal_ids))
 
             conn.commit()
 

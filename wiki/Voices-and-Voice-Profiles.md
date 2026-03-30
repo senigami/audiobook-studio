@@ -7,6 +7,7 @@ The **AI Voice Lab** is the standard for managing your narrator library. It uses
 - **Voice**: A high-level narrator identity (e.g., "Narrator", "Dracula").
 - **Variants**: Stylistic or emotional variations of that same voice (e.g., "Normal", "Angry", "Whisper").
 - **Samples**: The reference audio files used to "clone" the voice.
+- **Engine**: Each profile now stores its own synthesis engine, usually `XTTS (Local)` or `Voxtral (Cloud)`.
 
 Each **Voice** always has at least one variant (usually the "Default" variant). You can add as many variants as you need to capture different performances.
 
@@ -17,7 +18,7 @@ Each **Voice** always has at least one variant (usually the "Default" variant). 
 3. **Unified Model**: Narrators follow a clear **Voice** (identity) and **Variant** (style) hierarchy. Each Voice always has at least one variant.
 4. **Add Samples**: Drop 3–5 high-quality `.wav` files into the **Samples** section.
    - _Note_: For new variants with no samples, this section auto-expands so you can get to work immediately.
-5. **Build**: Click **Build Voice**. Once built, the Samples section auto-collapses to provide a cleaner view of the performance controls.
+5. **Build / Generate**: XTTS profiles use the familiar build flow. Voxtral profiles use reference audio or a saved `voice_id` and generate previews without creating a local `latent.pth`.
 6. **Add Variants**: Use the **+ Variant** button inside the expanded voice card to create a new stylistic companion for that voice.
 
 ![AI Voice Lab showing the accordion list of narrator profiles](images/voice-lab-list.jpg)
@@ -37,10 +38,17 @@ Each **Voice** always has at least one variant (usually the "Default" variant). 
 
 - **Playback Speed**: Adjust the default speaking rate (0.5x to 2.0x) using the pill-style popover.
 - **Edit Script**: Customize the preview text. Testing a voice generates a private preview clip for that specific variant.
-- **Build Progress**: Real-time progress indicators and a **"BUILDING..."** status label show you exactly where the voice is in the cloning process, persisting until the new sample is ready.
+- **Build Progress**: XTTS profiles build local speaker state. Voxtral profiles regenerate preview audio from reference samples or a saved `voice_id`.
 - **Contextual Management**: In the samples list, the **Delete (X)** button is hidden by default and only appears when hovering over a specific row to keep the interface clean while managing audio.
 - **Portable Latent Cache**: Each voice profile now keeps its own `latent.pth` alongside `profile.json` and `sample.wav`, which makes renaming, moving, and sharing a voice bundle much safer.
 - **Sample Styling Tip**: The first sample tends to anchor the voice most strongly, while later samples add nuance. Mixing clean examples with different delivery styles can help shape a more interesting profile.
+
+## Engine Per Voice
+
+- XTTS and Voxtral appear together in the same Voices tab.
+- The engine is assigned per voice profile, not per project.
+- Mixed-engine chapters are supported, so one section can use XTTS while another uses Voxtral if the assigned profiles differ.
+- Voxtral is hidden entirely unless the user enables it in Settings.
 
 ---
 

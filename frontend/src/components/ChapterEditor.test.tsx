@@ -422,7 +422,86 @@ describe('ChapterEditor', () => {
 
     await waitFor(() => {
       expect(api.generateSegments).toHaveBeenCalledTimes(1);
-      expect(api.generateSegments).toHaveBeenCalledWith(['seg-1']);
+      expect(api.generateSegments).toHaveBeenCalledWith(['seg-1'], undefined);
+    });
+  });
+
+  it('shows a blocking message when segment generation is rejected', async () => {
+    (api.generateSegments as any).mockRejectedValue(new Error('Enable Voxtral in Settings and add a Mistral API key to use cloud voices.'));
+
+    render(
+      <ChapterEditor
+        chapterId={mockChapterId}
+        projectId={mockProjectId}
+        speakerProfiles={mockSpeakerProfiles as any}
+        speakers={mockSpeakers as any}
+        onBack={vi.fn()}
+      />
+    );
+
+    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
+
+    fireEvent.click(screen.getByText('Performance'));
+    await screen.findByText('Performance View');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Generate' }));
+
+    expect(await screen.findByText('Generation Blocked')).toBeInTheDocument();
+    expect(screen.getByText(/Enable Voxtral in Settings/i)).toBeInTheDocument();
+  });
+
+  it('shows a blocking message when chapter queueing is rejected', async () => {
+    (api.addProcessingQueue as any).mockRejectedValue(new Error('Enable Voxtral in Settings and add a Mistral API key to use cloud voices.'));
+
+    render(
+      <ChapterEditor
+        chapterId={mockChapterId}
+        projectId={mockProjectId}
+        speakerProfiles={mockSpeakerProfiles as any}
+        speakers={mockSpeakers as any}
+        onBack={vi.fn()}
+      />
+    );
+
+    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
+
+    fireEvent.click(screen.getByTitle('Queue Chapter'));
+
+    expect(await screen.findByText('Queue Blocked')).toBeInTheDocument();
+    expect(screen.getByText(/Enable Voxtral in Settings/i)).toBeInTheDocument();
+  });
+
+  it('treats a blank chapter voice as a fallback to the project voice', async () => {
+    (api.addProcessingQueue as any).mockResolvedValue({ status: 'ok' });
+
+    render(
+      <ChapterEditor
+        chapterId={mockChapterId}
+        projectId={mockProjectId}
+        speakerProfiles={mockSpeakerProfiles as any}
+        speakers={mockSpeakers as any}
+        selectedVoice="Profile 1"
+        onBack={vi.fn()}
+      />
+    );
+
+    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
+
+    const voiceSelect = screen.getByTitle('Select Voice Profile for this chapter');
+    expect(screen.getByDisplayValue('Use Project Default')).toBeInTheDocument();
+
+    fireEvent.change(voiceSelect, { target: { value: 'Profile 1' } });
+    fireEvent.change(voiceSelect, { target: { value: '' } });
+
+    fireEvent.click(screen.getByTitle('Queue Chapter'));
+
+    await waitFor(() => {
+      expect(api.addProcessingQueue).toHaveBeenCalledWith(
+        mockProjectId,
+        mockChapterId,
+        0,
+        'Profile 1'
+      );
     });
   });
 
