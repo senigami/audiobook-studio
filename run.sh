@@ -82,10 +82,10 @@ bootstrap_conda_python() {
   local conda_cmd=""
   local python_exe="$BOOTSTRAP_PYTHON_ENV/bin/python"
 
-  if command -v conda >/dev/null 2>&1; then
-    conda_cmd="conda"
-  elif command -v mamba >/dev/null 2>&1; then
+  if command -v mamba >/dev/null 2>&1; then
     conda_cmd="mamba"
+  elif command -v conda >/dev/null 2>&1; then
+    conda_cmd="conda"
   else
     return 1
   fi
@@ -100,8 +100,14 @@ PY
   fi
 
   log "Creating bundled Python 3.11 environment"
-  "$conda_cmd" create -y -p "$BOOTSTRAP_PYTHON_ENV" python=3.11
-  [[ -x "$python_exe" ]] || return 1
+  if ! "$conda_cmd" create -y -p "$BOOTSTRAP_PYTHON_ENV" python=3.11 pip; then
+    rm -rf "$BOOTSTRAP_PYTHON_ENV"
+    return 1
+  fi
+  if [[ ! -x "$python_exe" ]]; then
+    rm -rf "$BOOTSTRAP_PYTHON_ENV"
+    return 1
+  fi
   printf '%s\n' "$python_exe"
 }
 

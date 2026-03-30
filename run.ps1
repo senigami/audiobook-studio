@@ -22,6 +22,26 @@ function Fail($Message) {
     throw $Message
 }
 
+function Test-PythonVersion($Command, [string[]]$Prefix = @()) {
+    try {
+        $versionOutput = & $Command @($Prefix + @("-c", "import sys; print(f'{sys.version_info[0]}.{sys.version_info[1]}')")) 2>$null
+        if ($LASTEXITCODE -ne 0 -or -not $versionOutput) {
+            return $false
+        }
+        $versionText = ($versionOutput | Select-Object -First 1).ToString().Trim()
+        if (-not $versionText) {
+            return $false
+        }
+        $parsedVersion = $null
+        if (-not [version]::TryParse($versionText, [ref]$parsedVersion)) {
+            return $false
+        }
+        return $parsedVersion -ge [version]"3.11"
+    } catch {
+        return $false
+    }
+}
+
 function Find-Python {
     $candidates = @(
         @{ Command = "py"; Prefix = @("-3.11") },
@@ -34,12 +54,8 @@ function Find-Python {
         if (-not (Get-Command $candidate.Command -ErrorAction SilentlyContinue)) {
             continue
         }
-        try {
-            $version = & $candidate.Command @($candidate.Prefix + @("-c", "import sys; print(f'{sys.version_info[0]}.{sys.version_info[1]}')")) 2>$null
-            if ($LASTEXITCODE -eq 0 -and [version]($version.Trim()) -ge [version]"3.11") {
-                return $candidate
-            }
-        } catch {
+        if (Test-PythonVersion $candidate.Command $candidate.Prefix) {
+            return $candidate
         }
     }
 
@@ -48,6 +64,11 @@ function Find-Python {
 
 function Get-CondaBootstrapPython {
     $condaCandidates = @()
+
+    $resolvedMamba = Get-Command "mamba" -ErrorAction SilentlyContinue
+    if ($resolvedMamba) {
+        $condaCandidates += $resolvedMamba.Source
+    }
 
     if ($env:CONDA_EXE) {
         $condaCandidates += $env:CONDA_EXE
@@ -65,19 +86,25 @@ function Get-CondaBootstrapPython {
 
     $pythonExe = Join-Path $BootstrapPythonEnv "python.exe"
     if (Test-Path $pythonExe) {
-        try {
-            $version = & $pythonExe -c "import sys; print(f'{sys.version_info[0]}.{sys.version_info[1]}')" 2>$null
-            if ($LASTEXITCODE -eq 0 -and [version]($version.Trim()) -ge [version]"3.11") {
-                return @{ Command = $pythonExe; Prefix = @() }
-            }
-        } catch {
+        if (Test-PythonVersion $pythonExe) {
+            return @{ Command = $pythonExe; Prefix = @() }
         }
     }
 
     $condaExe = $condaCandidates[0]
     Write-Step "Creating bundled Python 3.11 environment"
-    & $condaExe create -y -p $BootstrapPythonEnv python=3.11
+    try {
+        & $condaExe create -y -p $BootstrapPythonEnv python=3.11 pip
+    } catch {
+        if (Test-Path $BootstrapPythonEnv) {
+            Remove-Item $BootstrapPythonEnv -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        Fail "Failed to provision Python 3.11 with conda. Please install Python 3.11+ or reset the Pinokio app and try again."
+    }
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path $pythonExe)) {
+        if (Test-Path $BootstrapPythonEnv) {
+            Remove-Item $BootstrapPythonEnv -Recurse -Force -ErrorAction SilentlyContinue
+        }
         Fail "Failed to provision Python 3.11 with conda. Please install Python 3.11+ or reset the Pinokio app and try again."
     }
 
