@@ -5,6 +5,11 @@ import type { ChapterSegment, Character, Job } from '../../types';
 
 const SEGMENT_PROGRESS_LINGER_MS = 600;
 
+function queueFromGroupStart(uniqueSegmentIds: string[], segmentId: string): string[] {
+  const idx = uniqueSegmentIds.indexOf(segmentId);
+  return idx !== -1 ? uniqueSegmentIds.slice(idx) : [segmentId];
+}
+
 function getPredictiveJobProgress(job?: Job): number {
   if (!job || (job.status !== 'running' && job.status !== 'finalizing')) {
     return 0;
@@ -235,7 +240,7 @@ const PerformanceGroupCard: React.FC<PerformanceGroupCardProps> = ({
           ) : (
             <button 
               onClick={() => {
-                const queueFromHere = uniqueSegmentIds.slice(uniqueSegmentIds.indexOf(group.segments[0].id));
+                const queueFromHere = queueFromGroupStart(uniqueSegmentIds, group.segments[0].id);
                 onPlay(group.segments[0].id, queueFromHere);
               }} 
               className="btn-ghost" 
@@ -270,7 +275,7 @@ const PerformanceGroupCard: React.FC<PerformanceGroupCardProps> = ({
 
       <div 
         onClick={() => {
-          const queueFromHere = uniqueSegmentIds.slice(uniqueSegmentIds.indexOf(group.segments[0].id));
+          const queueFromHere = queueFromGroupStart(uniqueSegmentIds, group.segments[0].id);
           onPlay(group.segments[0].id, queueFromHere);
         }}
         style={{ 

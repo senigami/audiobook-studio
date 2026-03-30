@@ -21,6 +21,23 @@ def _profile_inputs_for_segment(char_profile, job_default_profile, default_sw):
     return sw, voice_profile_dir
 
 
+def _generate_direct_xtts(text, j, out_wav, on_output, cancel_check, default_sw, speed):
+    try:
+        voice_profile_dir = str(get_voice_profile_dir(j.speaker_profile)) if j.speaker_profile else None
+    except ValueError:
+        voice_profile_dir = None
+    return xtts_generate(
+        text=text,
+        out_wav=out_wav,
+        safe_mode=j.safe_mode,
+        on_output=on_output,
+        cancel_check=cancel_check,
+        speaker_wav=default_sw,
+        speed=speed,
+        voice_profile_dir=voice_profile_dir,
+    )
+
+
 def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, pdir, out_wav, out_mp3, text=None):
     from ...db import get_connection, update_segment, get_chapter_segments, update_segments_status_bulk, update_queue_item
     from ...db.segments import cleanup_orphaned_segments
@@ -334,17 +351,9 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
                         return
                     rc = stitch_segments(pdir, segment_paths, out_wav, on_output, cancel_check)
             else:
-                try:
-                    voice_profile_dir = str(get_voice_profile_dir(j.speaker_profile)) if j.speaker_profile else None
-                except ValueError:
-                    voice_profile_dir = None
-                rc = xtts_generate(text=text, out_wav=out_wav, safe_mode=j.safe_mode, on_output=on_output, cancel_check=cancel_check, speaker_wav=default_sw, speed=speed, voice_profile_dir=voice_profile_dir)
+                rc = _generate_direct_xtts(text, j, out_wav, on_output, cancel_check, default_sw, speed)
         else:
-            try:
-                voice_profile_dir = str(get_voice_profile_dir(j.speaker_profile)) if j.speaker_profile else None
-            except ValueError:
-                voice_profile_dir = None
-            rc = xtts_generate(text=text, out_wav=out_wav, safe_mode=j.safe_mode, on_output=on_output, cancel_check=cancel_check, speaker_wav=default_sw, speed=speed, voice_profile_dir=voice_profile_dir)
+            rc = _generate_direct_xtts(text, j, out_wav, on_output, cancel_check, default_sw, speed)
 
     if cancel_check():
         update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
