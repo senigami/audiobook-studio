@@ -7,6 +7,7 @@ XTTS_VENV="${XTTS_ENV_DIR:-$HOME/xtts-env}"
 FRONTEND_DIR="$DIR/frontend"
 APP_PORT="${AUDIOBOOK_STUDIO_PORT:-8123}"
 DEMO_ZIP="${AUDIOBOOK_STUDIO_DEMO_ZIP:-$DIR/demo/demo.zip}"
+BOOTSTRAP_PYTHON_ENV="$DIR/.pinokio-python311"
 RELOAD=1
 SETUP_ONLY=0
 
@@ -75,6 +76,33 @@ PY
     fi
   done
   return 1
+}
+
+bootstrap_conda_python() {
+  local conda_cmd=""
+  local python_exe="$BOOTSTRAP_PYTHON_ENV/bin/python"
+
+  if command -v conda >/dev/null 2>&1; then
+    conda_cmd="conda"
+  elif command -v mamba >/dev/null 2>&1; then
+    conda_cmd="mamba"
+  else
+    return 1
+  fi
+
+  if [[ -x "$python_exe" ]] && "$python_exe" - <<'PY' >/dev/null 2>&1
+import sys
+raise SystemExit(0 if sys.version_info >= (3, 11) else 1)
+PY
+  then
+    printf '%s\n' "$python_exe"
+    return 0
+  fi
+
+  log "Creating bundled Python 3.11 environment"
+  "$conda_cmd" create -y -p "$BOOTSTRAP_PYTHON_ENV" python=3.11
+  [[ -x "$python_exe" ]] || return 1
+  printf '%s\n' "$python_exe"
 }
 
 require_cmd() {
@@ -204,7 +232,7 @@ require_cmd bash
 require_cmd npm
 require_cmd ffmpeg
 
-PYTHON_BIN="$(pick_python)" || die "Python 3.11+ is required. Please install Python 3.11 or newer."
+PYTHON_BIN="$(pick_python || bootstrap_conda_python)" || die "Python 3.11+ is required. Please install Python 3.11 or newer, or use Pinokio's AI bundle with conda support."
 
 log "Using Python: $PYTHON_BIN"
 sync_python_requirements "$APP_VENV" "$DIR/requirements.txt" "app"
