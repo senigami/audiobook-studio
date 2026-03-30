@@ -107,6 +107,7 @@ def test_list_audiobooks(tmp_path, monkeypatch):
     m4b = config.AUDIOBOOK_DIR / "legacy.m4b"
     m4b.write_text("legacy")
     (config.AUDIOBOOK_DIR / "legacy.jpg").write_text("cover")
+    (config.AUDIOBOOK_DIR / "-unsafe.m4b").write_text("unsafe")
 
     # Project m4b
     proj_dir = config.PROJECTS_DIR / "p1"
@@ -115,10 +116,11 @@ def test_list_audiobooks(tmp_path, monkeypatch):
     proj_m4b = m4b_dir / "project.m4b"
     proj_m4b.write_text("project")
 
-    with patch("subprocess.run") as mock_run:
+    with patch("app.api.utils.subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(stdout='{"format": {"duration": "100.5", "tags": {"title": "Test Book"}}}')
         books = list_audiobooks()
         assert len(books) == 2
+        assert all(book["filename"] != "-unsafe.m4b" for book in books)
 
         legacy_book = next(b for b in books if b["filename"] == "legacy.m4b")
         assert legacy_book["duration_seconds"] == 100.5
@@ -126,3 +128,21 @@ def test_list_audiobooks(tmp_path, monkeypatch):
 
         proj_book = next(b for b in books if b["filename"] == "project.m4b")
         assert "/projects/p1/m4b/project.m4b" in proj_book["url"]
+        assert mock_run.call_count == 2
+        first_cmd = mock_run.call_args_list[0].args[0]
+        second_cmd = mock_run.call_args_list[1].args[0]
+        expected_prefix = [
+            "ffprobe",
+            "-v",
+            "error",
+            "-show_entries",
+            "format=duration:format_tags=title",
+            "-of",
+            "json",
+        ]
+        assert first_cmd[:7] == expected_prefix
+        assert second_cmd[:7] == expected_prefix
+        assert {first_cmd[-1], second_cmd[-1]} == {
+            str(config.AUDIOBOOK_DIR / "legacy.m4b"),
+            str(m4b_dir / "project.m4b"),
+        }
