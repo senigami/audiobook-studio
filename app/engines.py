@@ -24,6 +24,12 @@ def _create_temp_manifest(prefix: str, suffix: str) -> Path:
     os.close(fd)
     return Path(tmp)
 
+
+def _ffmpeg_concat_entry(path: Path) -> str:
+    resolved = path.resolve()
+    normalized = resolved.as_posix().replace("'", r"'\''")
+    return f"file '{normalized}'\n"
+
 def terminate_all_subprocesses():
     for proc in list(_active_processes):
         try:
@@ -139,13 +145,23 @@ def wav_to_mp3(in_wav: Path, out_mp3: Path, on_output=None, cancel_check=None) -
     if cancel_check is None:
         cancel_check = never_cancel
 
-    cmd = f'ffmpeg -y -i {shlex.quote(str(in_wav))} -codec:a libmp3lame -q:a {shlex.quote(MP3_QUALITY)} {shlex.quote(str(out_mp3))}'
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        str(in_wav),
+        "-codec:a",
+        "libmp3lame",
+        "-q:a",
+        str(MP3_QUALITY),
+        str(out_mp3),
+    ]
     return run_cmd_stream(cmd, on_output, cancel_check)
 
 def convert_to_wav(in_file: Path, out_wav: Path) -> int:
     """Converts any audio file to a standard 22050Hz mono WAV (best for XTTS references)."""
-    cmd = f'ffmpeg -y -i {shlex.quote(str(in_file))} -ar 22050 -ac 1 {shlex.quote(str(out_wav))}'
-    return subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode
+    cmd = ["ffmpeg", "-y", "-i", str(in_file), "-ar", "22050", "-ac", "1", str(out_wav)]
+    return subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode
 
 def xtts_generate(
     text: str,
@@ -192,6 +208,8 @@ def xtts_generate(
         cmd.extend(["--voice_profile_dir", str(voice_profile_dir)])
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"
+    on_output("Launching XTTS inference...\n")
+    on_output("XTTS may take a while on first use while models load, caches warm, or assets download.\n")
     return run_cmd_stream(cmd, on_output, cancel_check, env=env)
 
 
@@ -220,6 +238,8 @@ def xtts_generate_script(
         cmd.extend(["--voice_profile_dir", str(voice_profile_dir)])
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"
+    on_output("Launching XTTS inference...\n")
+    on_output("XTTS may take a while on first use while models load, caches warm, or assets download.\n")
     return run_cmd_stream(cmd, on_output, cancel_check, env=env)
 
 
@@ -353,7 +373,20 @@ def assemble_audiobook(
 
                 if needs_encode:
                     on_output(f"Pre-encoding {f} to AAC...\n")
-                    encode_cmd = f"ffmpeg -y -i {shlex.quote(str(file_path))} -c:a aac -b:a {shlex.quote(AUDIOBOOK_BITRATE)} -ac 1 -vn {shlex.quote(str(m4a_path))}"
+                    encode_cmd = [
+                        "ffmpeg",
+                        "-y",
+                        "-i",
+                        str(file_path),
+                        "-c:a",
+                        "aac",
+                        "-b:a",
+                        str(AUDIOBOOK_BITRATE),
+                        "-ac",
+                        "1",
+                        "-vn",
+                        str(m4a_path),
+                    ]
                     encode_rc = run_cmd_stream(encode_cmd, on_output, cancel_check)
                     if encode_rc != 0:
                         on_output(f"Failed to encode {f}\n")
@@ -361,7 +394,7 @@ def assemble_audiobook(
 
                 duration = get_audio_duration(m4a_path)
 
-                lf.write(f"file '{m4a_path}'\n")
+                lf.write(_ffmpeg_concat_entry(m4a_path))
 
                 start_ms = int(current_offset * 1000)
                 end_ms = int((current_offset + duration) * 1000)
@@ -388,22 +421,28 @@ def assemble_audiobook(
         on_output(f"Assembling audiobook: {book_title}\n")
         on_output(f"Combining {len(files)} files into {output_m4b.name}...\n")
 
-        cover_input = ""
-        cover_map = ""
+        cmd = [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "concat",
+            "-safe",
+            "0",
+            "-i",
+            str(list_file),
+            "-i",
+            str(metadata_file),
+        ]
         if cover_path:
             on_output(f"Checking cover path: {cover_path}\n")
         if cover_path and Path(cover_path).exists():
             on_output(f"Cover image found, adding to ffmpeg: {cover_path}\n")
-            cover_input = f"-i {shlex.quote(str(cover_path))} "
-            # Map chapter 0 (concat audio) and chapter 1 (metadata) and chapter 2 (cover)
-            cover_map = "-map 2:v -c:v copy -disposition:v:0 attached_pic "
+            cmd.extend(["-i", str(cover_path)])
 
-        cmd = (
-            f"ffmpeg -y -f concat -safe 0 -i {shlex.quote(str(list_file))} "
-            f"-i {shlex.quote(str(metadata_file))} {cover_input} "
-            f"-map 0:a {cover_map} -map_metadata 1 "
-            f"-c:a copy -movflags +faststart {shlex.quote(str(output_m4b))}"
-        )
+        cmd.extend(["-map", "0:a"])
+        if cover_path and Path(cover_path).exists():
+            cmd.extend(["-map", "2:v", "-c:v", "copy", "-disposition:v:0", "attached_pic"])
+        cmd.extend(["-map_metadata", "1", "-c:a", "copy", "-movflags", "+faststart", str(output_m4b)])
 
         rc = run_cmd_stream(cmd, on_output, cancel_check)
 
@@ -453,7 +492,18 @@ def generate_video_sample(
     else:
         logo_filter = '-map 0:v '
 
-    cmd = f"ffmpeg -y {inputs} {logo_filter} -map 1:a -c:v libx264 -c:a copy -t {max_duration} -shortest {shlex.quote(str(output_video))}"
+    cmd = ["ffmpeg", "-y", "-f", "lavfi", "-i", f"color=c=black:s=400x400:d={max_duration}", "-i", str(input_audio)]
+    if logo_path and logo_path.exists():
+        cmd.extend(["-i", str(logo_path)])
+        cmd.extend([
+            "-filter_complex",
+            "[2:v]scale=400:400:force_original_aspect_ratio=decrease[logo];[0:v][logo]overlay=(W-w)/2:(H-h)/2[outv]",
+            "-map",
+            "[outv]",
+        ])
+    else:
+        cmd.extend(["-map", "0:v"])
+    cmd.extend(["-map", "1:a", "-c:v", "libx264", "-c:a", "copy", "-t", str(max_duration), "-shortest", str(output_video)])
     return run_cmd_stream(cmd, on_output, cancel_check)
 
 def stitch_segments(
@@ -473,10 +523,10 @@ def stitch_segments(
         with open(list_file, 'w') as lf:
             for sw in segment_wavs:
                 # Use absolute path for safety with safe 0
-                lf.write(f"file '{sw.absolute()}'\n")
+                lf.write(_ffmpeg_concat_entry(sw))
 
         # Simple concat for segments (they should all be same sample rate/channels from XTTS)
-        cmd = f'ffmpeg -y -f concat -safe 0 -i {shlex.quote(str(list_file))} -c copy {shlex.quote(str(output_path))}'
+        cmd = ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(list_file), "-c", "copy", str(output_path)]
         return run_cmd_stream(cmd, on_output, cancel_check)
     finally:
         if list_file.exists(): list_file.unlink()

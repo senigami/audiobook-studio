@@ -71,6 +71,7 @@ def test_handle_xtts_bake_mode(mock_job, mock_params):
     with patch("app.db.get_chapter_segments", return_value=segs), \
          patch("app.jobs.handlers.xtts.xtts_generate_script", return_value=0), \
          patch("app.jobs.handlers.xtts.stitch_segments", return_value=0), \
+         patch("app.jobs.handlers.xtts.wav_to_mp3", return_value=0), \
          patch("app.jobs.handlers.xtts.get_audio_duration", return_value=10.0), \
          patch("app.db.update_queue_item"), \
          patch("app.jobs.handlers.xtts.update_job"), \
@@ -165,6 +166,7 @@ def test_handle_xtts_no_custom_segments(mock_job, mock_params):
          patch("app.db.update_segment"), \
          patch("app.jobs.handlers.xtts.xtts_generate_script", return_value=0) as mock_gen, \
          patch("app.jobs.handlers.xtts.stitch_segments", side_effect=lambda *_args, **_kwargs: (mock_params["out_wav"].write_text("wav"), 0)[1]), \
+         patch("app.jobs.handlers.xtts.wav_to_mp3", return_value=0), \
          patch("app.jobs.handlers.xtts.update_job"), \
          patch("app.db.update_segments_status_bulk"):
         handle_xtts_job(j=mock_job, **mock_params)

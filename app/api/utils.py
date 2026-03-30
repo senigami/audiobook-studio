@@ -1,8 +1,8 @@
 import logging
 import socket
 import json
+import os
 import subprocess
-import shlex
 import re
 from pathlib import Path
 from typing import Optional, List
@@ -11,6 +11,46 @@ from ..textops import split_by_chapter_markers, write_chapters_to_folder, split_
 
 logger = logging.getLogger(__name__)
 SAFE_FILE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
+FFPROBE_AUDIOBOOK_CMD = (
+    "ffprobe",
+    "-v",
+    "error",
+    "-show_entries",
+    "format=duration:format_tags=title",
+    "-of",
+    "json",
+)
+
+
+def _contained_audiobook_path(root: Path, filename: str) -> Optional[Path]:
+    if not SAFE_FILE_RE.fullmatch(filename):
+        return None
+    if Path(filename).suffix.lower() != ".m4b":
+        return None
+    root_path = os.path.abspath(os.path.normpath(os.fspath(root)))
+    candidate_path = os.path.abspath(os.path.normpath(os.path.join(root_path, filename)))
+    if not candidate_path.startswith(root_path + os.sep):
+        return None
+    if not os.path.isfile(candidate_path):
+        return None
+    return Path(candidate_path)
+
+
+def probe_audiobook_metadata(root: Path, filename: str) -> dict:
+    trusted_path = _contained_audiobook_path(root, filename)
+    if not trusted_path:
+        return {}
+    probe_res = subprocess.run(
+        [*FFPROBE_AUDIOBOOK_CMD, os.fspath(trusted_path)],
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=3,
+    )
+    probe_data = json.loads(probe_res.stdout)
+    if not isinstance(probe_data, dict):
+        return {}
+    return probe_data
 
 
 def preferred_audiobook_download_filename(title: str, fallback_filename: str) -> str:
@@ -115,7 +155,9 @@ def list_audiobooks():
     m4b_files = []
     if config.AUDIOBOOK_DIR.exists():
         for p in config.AUDIOBOOK_DIR.glob("*.m4b"):
-            m4b_files.append((p, f"/out/audiobook/{p.name}"))
+            if not SAFE_FILE_RE.fullmatch(p.name):
+                continue
+            m4b_files.append((p.name, config.AUDIOBOOK_DIR, f"/out/audiobook/{p.name}"))
 
     if config.PROJECTS_DIR.exists():
         for proj_dir in config.PROJECTS_DIR.iterdir():
@@ -123,11 +165,16 @@ def list_audiobooks():
                 m4b_dir = proj_dir / "m4b"
                 if m4b_dir.exists():
                     for p in m4b_dir.glob("*.m4b"):
-                        m4b_files.append((p, f"/projects/{proj_dir.name}/m4b/{p.name}"))
+                        if not SAFE_FILE_RE.fullmatch(p.name):
+                            continue
+                        m4b_files.append((p.name, m4b_dir, f"/projects/{proj_dir.name}/m4b/{p.name}"))
 
-    m4b_files.sort(key=lambda x: x[0].stat().st_mtime, reverse=True)
+    m4b_files.sort(key=lambda x: _contained_audiobook_path(x[1], x[0]).stat().st_mtime, reverse=True)
 
-    for p, url in m4b_files:
+    for filename, root_dir, url in m4b_files:
+        p = _contained_audiobook_path(root_dir, filename)
+        if p is None:
+            continue
         st = p.stat()
         item = {
             "filename": p.name, 
@@ -139,9 +186,7 @@ def list_audiobooks():
             "download_filename": p.name,
         }
         try:
-            probe_cmd = f"ffprobe -v error -show_entries format=duration:format_tags=title -of json {shlex.quote(str(p))}"
-            probe_res = subprocess.run(shlex.split(probe_cmd), capture_output=True, text=True, check=True, timeout=3)
-            probe_data = json.loads(probe_res.stdout)
+            probe_data = probe_audiobook_metadata(root_dir, p.name)
             if "format" in probe_data:
                 fmt = probe_data["format"]
                 if "duration" in fmt:

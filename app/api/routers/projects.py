@@ -19,7 +19,7 @@ from ...engines import get_audio_duration
 from ...state import put_job, update_job, get_jobs
 from ...models import Job
 from ...pathing import safe_basename, safe_join, safe_join_flat
-from ...api.utils import preferred_audiobook_download_filename
+from ...api.utils import SAFE_FILE_RE, preferred_audiobook_download_filename, probe_audiobook_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -126,24 +126,29 @@ def api_list_project_audiobooks(project_id: str):
     m4b_files = []
     if m4b_dir and m4b_dir.exists():
         for p in m4b_dir.iterdir():
-            if not p.is_file() or p.suffix.lower() != ".m4b":
+            if not p.is_file() or p.suffix.lower() != ".m4b" or not SAFE_FILE_RE.fullmatch(p.name):
                 continue
             encoded_name = urllib.parse.quote(p.name)
-            m4b_files.append((p, f"/projects/{project_id}/m4b/{encoded_name}"))
+            m4b_files.append((p.name, f"/projects/{project_id}/m4b/{encoded_name}"))
 
     seen_paths = set()
     unique_files = []
-    for p, url in m4b_files:
-        if p not in seen_paths:
-            seen_paths.add(p)
-            unique_files.append((p, url))
+    for filename, url in m4b_files:
+        if filename not in seen_paths:
+            seen_paths.add(filename)
+            unique_files.append((filename, url))
 
     res = []
-    unique_files.sort(key=lambda x: x[0].stat().st_mtime, reverse=True)
+    unique_files.sort(key=lambda x: (m4b_dir / x[0]).stat().st_mtime, reverse=True)
 
-    import subprocess
-    import shlex
-    for p, url in unique_files:
+    for filename, url in unique_files:
+        if m4b_dir is None:
+            continue
+        probe_target = os.path.abspath(os.path.normpath(os.path.join(os.fspath(m4b_dir), filename)))
+        trusted_root = os.path.abspath(os.path.normpath(os.fspath(m4b_dir)))
+        if not probe_target.startswith(trusted_root + os.sep) or not os.path.isfile(probe_target):
+            continue
+        p = Path(probe_target)
         st = p.stat()
         item = {
             "filename": p.name, 
@@ -155,9 +160,7 @@ def api_list_project_audiobooks(project_id: str):
             "download_filename": p.name,
         }
         try:
-            probe_cmd = f"ffprobe -v error -show_entries format=duration:format_tags=title -of json {shlex.quote(str(p))}"
-            probe_res = subprocess.run(shlex.split(probe_cmd), capture_output=True, text=True, check=True, timeout=3)
-            probe_data = json.loads(probe_res.stdout)
+            probe_data = probe_audiobook_metadata(m4b_dir, p.name)
             if "format" in probe_data:
                 fmt = probe_data["format"]
                 if "duration" in fmt:

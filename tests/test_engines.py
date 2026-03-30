@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch, ANY
 from app.engines import (
     run_cmd_stream, wav_to_mp3, convert_to_wav, xtts_generate, 
     xtts_generate_script, get_audio_duration, get_speaker_latent_path,
-    _create_temp_manifest,
+    _create_temp_manifest, _ffmpeg_concat_entry,
     stitch_segments, terminate_all_subprocesses
 )
 
@@ -143,6 +143,19 @@ def test_create_temp_manifest_uses_system_temp_dir(tmp_path, monkeypatch):
         assert manifest.parent != tmp_path
     finally:
         manifest.unlink(missing_ok=True)
+
+
+def test_ffmpeg_concat_entry_normalizes_windowsish_paths(tmp_path):
+    path = tmp_path / "nested dir" / "clip's test.wav"
+    path.parent.mkdir(parents=True)
+    path.write_text("x")
+
+    entry = _ffmpeg_concat_entry(path)
+
+    assert entry.startswith("file '")
+    assert "\\\\" not in entry
+    assert "nested dir" in entry
+    assert entry.endswith("'\n")
 
 
 def test_migrate_speaker_latent_to_profile(tmp_path, monkeypatch):

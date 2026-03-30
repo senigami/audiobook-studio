@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.3] - 2026-03-30
+
+### Highlights
+
+- **Windows Startup And Pinokio Bootstrap Are Much More Reliable**: Fresh Windows installs now handle Python bootstrap, PowerShell argument passing, and XTTS subprocess output more safely, which fixes several startup and first-render failures that did not show up on macOS/Linux.
+- **XTTS No Longer Rebuilds Its Environment On Every Launch**: The launcher now only resets the XTTS environment when it positively detects a stale legacy conflict instead of treating normal modern XTTS packages or generic probe failures as reasons to reinstall everything again.
+- **Long First-Run XTTS Setup Is Much Easier To Understand**: Worker logging now surfaces more model loading, latent setup, synthesis start, segment start, and throttled render progress into the server terminal, so long prepare phases no longer look like silent hangs.
+- **Direct Local Startup Is Less Fragile**: The launcher no longer hard-fails at startup just because `npm` or `ffmpeg` are missing from PATH when they are not immediately needed, which makes the README startup path work more cleanly outside the full Pinokio shell.
+
+## [1.8.2] - 2026-03-30
+
+### Highlights
+
+- **Windows Startup Reliability Is Stronger**: Fresh Windows installs now handle Python bootstrap and XTTS startup more safely, which fixes several first-run failures that did not show up on macOS/Linux.
+- **XTTS Environment Resets Are Less Disruptive**: XTTS startup is much less likely to thrash its environment on launch, and the path for detecting stale packages is more predictable.
+- **XTTS First-Run Setup Is Easier To Understand**: Better terminal-side visibility now makes it clearer when XTTS is loading models, preparing caches, or beginning synthesis instead of looking like it has silently stalled.
+- **Windows XTTS Subprocess Streaming No Longer Crashes**: XTTS jobs now avoid the Windows-specific subprocess pipe crash that came from Unix-style selector handling.
+
 ## [1.8.1] - 2026-03-30
 
 ### Highlights

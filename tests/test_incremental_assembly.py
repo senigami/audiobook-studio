@@ -47,9 +47,10 @@ def test_incremental_assembly_skips_encoding(tmp_path):
         assert mock_run_cmd.call_count == 1
         concat_cmd = mock_run_cmd.call_args_list[0][0][0]
         assert "ffmpeg" in concat_cmd
-        assert "-f concat" in concat_cmd
-        assert "-c:a copy" in concat_cmd
-        assert str(m4a_chapter1) in concat_cmd or "list.txt" in concat_cmd # it uses a list file
+        assert "-f" in concat_cmd and "concat" in concat_cmd
+        assert "-c:a" in concat_cmd and "copy" in concat_cmd
+        assert str(output_m4b) in concat_cmd
+        assert any(str(arg).endswith(".list.txt") for arg in concat_cmd)
 
 def test_incremental_assembly_performs_encoding_when_missing(tmp_path):
     # Setup test environment
@@ -83,13 +84,13 @@ def test_incremental_assembly_performs_encoding_when_missing(tmp_path):
 
         encode_cmd = mock_run_cmd.call_args_list[0][0][0]
         assert "ffmpeg" in encode_cmd
-        assert "chapter1.wav" in encode_cmd
-        assert "chapter1.m4a" in encode_cmd
-        assert "-c:a aac" in encode_cmd
+        assert str(chapter1) in encode_cmd
+        assert str(input_folder / "chapter1.m4a") in encode_cmd
+        assert "-c:a" in encode_cmd and "aac" in encode_cmd
 
         concat_cmd = mock_run_cmd.call_args_list[1][0][0]
-        assert "-f concat" in concat_cmd
-        assert "-c:a copy" in concat_cmd
+        assert "-f" in concat_cmd and "concat" in concat_cmd
+        assert "-c:a" in concat_cmd and "copy" in concat_cmd
 
 def test_incremental_assembly_performs_encoding_when_outdated(tmp_path):
     # Setup test environment
@@ -129,4 +130,3 @@ def test_incremental_assembly_performs_encoding_when_outdated(tmp_path):
 
         # Should be 2 calls (encode + concat)
         assert mock_run_cmd.call_count == 2
-

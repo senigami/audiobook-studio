@@ -27,6 +27,8 @@ XTTS remains the private local-default engine. Voxtral is available as an option
 > **Version 1.8.1 is the current recommended release line for new users.**
 > It keeps XTTS as the private local-default path, adds optional Voxtral support behind Settings, and folds in the first patch round of chunking, playback, and chapter-repair fixes after the 1.8.0 release.
 
+<details>
+<summary>What's New In 1.8.1</summary>
 ## What's New In 1.8.1
 
 - **Chunk generation matches the displayed Performance blocks more reliably**: Generating one block no longer tends to pull the wrong neighbor along for the ride or point playback at the wrong audio file.
@@ -35,6 +37,7 @@ XTTS remains the private local-default engine. Voxtral is available as an option
 - **Optional Voxtral support remains intact**: XTTS stays fully local by default, while `Voxtral (Cloud)` remains opt-in behind your own Mistral API key in Settings.
 
 If you want the original feature-release summary for engine-per-voice and Voxtral, see the [1.8.0 changelog entry](https://github.com/senigami/audiobook-studio/wiki/Changelog).
+</details>
 
 ## Why People Use It
 
@@ -85,7 +88,11 @@ If you are building a real audiobook instead of a few test clips, those differen
 
 Hosted voice generation can get expensive fast for full-length books, especially when you factor in corrections and custom voices.
 
+<details>
+<summary>Show Details</summary>
+
 Using ElevenLabs public pricing and credit rules as of **March 24, 2026**:
+
 
 - **Starter**: `$5/month` for `30k` credits
 - **Creator**: `$22/month` for `100k` credits
@@ -111,6 +118,7 @@ And this is what the **real-world monthly spend** often looks like when you actu
 | 600k chars, Flash/Turbo with heavy iteration | `600k` | Scale or multiple months | `$330` or multiple months |
 | 600k chars, higher-cost model clean pass | `600k` | Scale or multiple months | `$330` or multiple months |
 | 600k chars, higher-cost model with corrections | `900k` | Scale | `$330` |
+</details>
 
 That is where Audiobook Studio becomes especially compelling:
 
@@ -209,7 +217,9 @@ powershell -ExecutionPolicy Bypass -File .\run.ps1 -NoReload
 powershell -ExecutionPolicy Bypass -File .\run.ps1 -Port 9000
 ```
 
-### Manual Install
+###Manual Install
+<details>
+<summary>Manual Install Steps</summary>
 
 1. **Clone and Backend Setup**  
    Create the primary environment for the web server and project management.
@@ -249,6 +259,8 @@ uvicorn run:app --port 8123
 ```
 
 Then open [http://127.0.0.1:8123](http://127.0.0.1:8123).
+
+</details>
 
 > [!NOTE]
 > On first run, the application creates the current app roots it needs immediately, including `projects/` and `voices/`. Other folders are created only when those features are used. On fresh installs, loose chapter text now defaults to `chapters/`. Older workspaces that already use `chapters_out/`, `xtts_audio/`, or `audiobooks/` still continue to work.

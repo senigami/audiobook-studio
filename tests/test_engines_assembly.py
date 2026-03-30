@@ -36,9 +36,12 @@ def test_assemble_audiobook_ffmpeg_command_structure(tmp_path):
 
         # Check that the command contains the cover path and mapping
         cmd = mock_run.call_args[0][0]
-        assert f"-i {cover_path}" in cmd
-        assert "-map 2:v" in cmd
-        assert "-disposition:v:0 attached_pic" in cmd
+        assert cmd[0] == "ffmpeg"
+        assert cover_path in cmd
+        assert "-map" in cmd
+        assert "2:v" in cmd
+        assert "-disposition:v:0" in cmd
+        assert "attached_pic" in cmd
 
 def test_assemble_audiobook_ffmpeg_no_cover(tmp_path):
     """Verifies that the FFmpeg command does NOT include cover mapping when path is missing."""
@@ -64,8 +67,8 @@ def test_assemble_audiobook_ffmpeg_no_cover(tmp_path):
         assert rc == 0
         cmd = mock_run.call_args[0][0]
         # map 2:v refers to the 3rd input (cover), which should be missing
-        assert "-map 2:v" not in cmd
-        assert "disposition:v:0 attached_pic" not in cmd
+        assert "2:v" not in cmd
+        assert "attached_pic" not in cmd
 
 
 def test_assemble_audiobook_fails_before_ffmpeg_when_input_file_is_missing(tmp_path):
