@@ -148,8 +148,8 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   };
 
   const chunkGroups = React.useMemo(() => {
-    return buildChunkGroups(segments, characters, effectiveSelectedVoice);
-  }, [segments, characters, effectiveSelectedVoice]);
+    return buildChunkGroups(segments, characters, effectiveSelectedVoice, speakerProfiles);
+  }, [segments, characters, effectiveSelectedVoice, speakerProfiles]);
 
   const liveSegmentJobIds = React.useMemo(() => {
     const ids = new Set<string>();

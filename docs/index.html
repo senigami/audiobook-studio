@@ -166,6 +166,74 @@
         backdrop-filter: blur(10px);
       }
 
+      .audio-demo + .audio-demo {
+        margin-top: 1.25rem;
+      }
+
+      .audio-demo-note {
+        margin-top: 0.85rem;
+        font-size: 0.92rem;
+        color: var(--text-secondary);
+        line-height: 1.7;
+      }
+
+      .audio-compare-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+      }
+
+      .audio-compare-card {
+        background: rgba(255, 255, 255, 0.78);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 1rem;
+        text-align: left;
+      }
+
+      .audio-compare-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-bottom: 0.6rem;
+      }
+
+      .audio-compare-title strong {
+        font-size: 1rem;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+      }
+
+      .audio-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.3rem 0.6rem;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+      }
+
+      .audio-pill.local {
+        background: rgba(43, 110, 255, 0.12);
+        color: var(--accent);
+      }
+
+      .audio-pill.cloud {
+        background: rgba(255, 138, 31, 0.14);
+        color: #d66a00;
+      }
+
+      .audio-compare-copy {
+        font-size: 0.92rem;
+        color: var(--text-secondary);
+        line-height: 1.7;
+        margin-bottom: 0.85rem;
+      }
+
       .audio-label {
         display: block;
         font-size: 0.75rem;
@@ -728,6 +796,14 @@
           border-radius: 18px;
         }
 
+        .audio-compare-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .audio-compare-card {
+          padding: 0.95rem;
+        }
+
         .hero-visual img {
           border-radius: 16px;
         }
@@ -1035,7 +1111,7 @@
           Professional AI Production Pipeline for Long-Form Narration
         </p>
         <span class="badge" style="margin-top: 2rem"
-          >Version 1.8.0 • Local-first with optional Voxtral</span
+          >Version 1.8.1 • Local-first with optional Voxtral</span
         >
       </header>
 
@@ -1056,6 +1132,47 @@
               <source src="assets/Overview.mp3" type="audio/mpeg" />
               Your browser does not support the audio element.
             </audio>
+          </div>
+          <div class="audio-demo">
+            <span class="audio-label"
+              >Studio Voice Comparison: XTTS vs Voxtral</span
+            >
+            <div class="audio-compare-grid">
+              <div class="audio-compare-card">
+                <div class="audio-compare-title">
+                  <strong>Studio Voice on XTTS</strong>
+                  <span class="audio-pill local">Local</span>
+                </div>
+                <p class="audio-compare-copy">
+                  The same script rendered through the private local-default
+                  engine.
+                </p>
+                <audio controls>
+                  <source src="assets/studio-xtts.mp3" type="audio/mpeg" />
+                  Your browser does not support the audio element.
+                </audio>
+              </div>
+              <div class="audio-compare-card">
+                <div class="audio-compare-title">
+                  <strong>Studio Voice on Voxtral</strong>
+                  <span class="audio-pill cloud">Cloud</span>
+                </div>
+                <p class="audio-compare-copy">
+                  The same script rendered through the optional Voxtral engine.
+                </p>
+                <audio controls>
+                  <source src="assets/studio-voxtral.mp3" type="audio/mpeg" />
+                  Your browser does not support the audio element.
+                </audio>
+              </div>
+            </div>
+            <p class="audio-demo-note">
+              Same voice. Same script. Different engine. This makes it easier
+              to hear what changes when a profile stays the same but the
+              synthesis path changes. Audiobook Studio is built around a
+              local-first private workflow: XTTS stays fully local, while
+              Voxtral is the optional cloud path.
+            </p>
           </div>
         </div>
         <div class="hero-visual">

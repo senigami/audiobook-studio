@@ -149,30 +149,27 @@ def test_handle_xtts_job_standard_mixed_latent_only_profiles_builds_script(mock_
     out_mp3 = pdir / "output.mp3"
     captured = {}
 
-    seg_data = [
-        {"id": "n1", "text_content": "Narrator one.", "character_id": None, "speaker_profile_name": None},
-        {"id": "n2", "text_content": "Narrator two.", "character_id": None, "speaker_profile_name": None},
-        {"id": "c1", "text_content": "Character line.", "character_id": "char1", "speaker_profile_name": "Old Man - Angry"},
-    ]
-
     def inspect_script(*args, **kwargs):
         script_path = kwargs["script_json_path"]
         captured["script"] = json.loads(Path(script_path).read_text())
-        out_wav.write_text("wav")
+        for entry in captured["script"]:
+            save_path = Path(entry["save_path"])
+            save_path.parent.mkdir(parents=True, exist_ok=True)
+            save_path.write_text("chunk")
         return 0
 
-    with patch("app.db.get_connection") as mock_conn, \
+    with patch("app.jobs.handlers.xtts.load_chunk_segments", return_value=[
+            {"id": "n1", "text_content": "Narrator one.", "character_id": None, "speaker_profile_name": None, "character_speaker_profile_name": None, "audio_status": "unprocessed", "audio_file_path": None},
+            {"id": "n2", "text_content": "Narrator two.", "character_id": None, "speaker_profile_name": None, "character_speaker_profile_name": None, "audio_status": "unprocessed", "audio_file_path": None},
+            {"id": "c1", "text_content": "Character line.", "character_id": "char1", "speaker_profile_name": "Old Man - Angry", "character_speaker_profile_name": "Old Man - Angry", "audio_status": "unprocessed", "audio_file_path": None},
+        ]), \
          patch("app.db.update_segments_status_bulk"), \
+         patch("app.db.update_segment"), \
          patch("app.jobs.handlers.xtts.xtts_generate_script", side_effect=inspect_script), \
+         patch("app.jobs.handlers.xtts.stitch_segments", side_effect=lambda *_args, **_kwargs: (out_wav.write_text("wav"), 0)[1]), \
          patch("app.jobs.handlers.xtts.update_job"), \
          patch("app.jobs.handlers.xtts.get_speaker_wavs", return_value=None), \
          patch("app.jobs.handlers.xtts.get_voice_profile_dir", side_effect=lambda name: Path(f"/tmp/voices/{name}")):
-
-        cursor = mock_conn.return_value.__enter__.return_value.cursor.return_value
-        cursor.fetchall.side_effect = [
-            seg_data,
-            [{"id": "s1"}],
-        ]
 
         handle_xtts_job(
             "test_job", mock_job, time.time(),
@@ -183,9 +180,11 @@ def test_handle_xtts_job_standard_mixed_latent_only_profiles_builds_script(mock_
     assert len(captured["script"]) == 2
     assert "Narrator one" in captured["script"][0]["text"]
     assert "Narrator two" in captured["script"][0]["text"]
+    assert captured["script"][0]["save_path"].endswith("/chunk_n1.wav")
     assert captured["script"][0]["voice_profile_dir"] == "/tmp/voices/Senigami"
     assert captured["script"][0]["speaker_wav"] is None
     assert captured["script"][1]["text"] == "Character line."
+    assert captured["script"][1]["save_path"].endswith("/chunk_c1.wav")
     assert captured["script"][1]["voice_profile_dir"] == "/tmp/voices/Old Man - Angry"
     assert captured["script"][1]["speaker_wav"] is None
 
@@ -198,20 +197,26 @@ def test_handle_xtts_job_standard_with_mp3(mock_job, tmp_path):
     out_wav.write_text("wav")
     out_mp3.write_text("mp3")
 
-    with patch("app.db.get_connection") as mock_conn, \
+    def inspect_script(*args, **kwargs):
+        script_path = kwargs["script_json_path"]
+        script = json.loads(Path(script_path).read_text())
+        for entry in script:
+            Path(entry["save_path"]).write_text("chunk")
+        return 0
+
+    with patch("app.jobs.handlers.xtts.load_chunk_segments", return_value=[
+            {"id": "s1", "text_content": "Hello", "character_id": None, "speaker_profile_name": None, "character_speaker_profile_name": None, "audio_status": "unprocessed", "audio_file_path": None},
+        ]), \
+         patch("app.db.get_connection") as mock_conn, \
          patch("app.db.update_segments_status_bulk"), \
-         patch("app.jobs.handlers.xtts.xtts_generate_script", return_value=0), \
+         patch("app.db.update_segment"), \
+         patch("app.jobs.handlers.xtts.xtts_generate_script", side_effect=inspect_script), \
+         patch("app.jobs.handlers.xtts.stitch_segments", side_effect=lambda *_args, **_kwargs: (out_wav.write_text("wav"), 0)[1]), \
          patch("app.jobs.handlers.xtts.wav_to_mp3", return_value=0), \
          patch("app.jobs.handlers.xtts.update_job") as mock_update_job:
 
-        cursor = mock_conn.return_value.__enter__.return_value.cursor.return_value
-        cursor.fetchall.side_effect = [
-            [], # segments_data
-            [{"id": "s1"}] # sids
-        ]
-
         handle_xtts_job(
-            "test_job", mock_job, time.time(), 
+            "test_job", mock_job, time.time(),
             print, lambda: False, "default.wav", 1.0, 
             pdir, out_wav, out_mp3, text="Hello"
         )
@@ -230,21 +235,22 @@ def test_handle_xtts_job_creates_missing_project_audio_dir(mock_job, tmp_path):
     def inspect_script(*args, **kwargs):
         script_path = kwargs["script_json_path"]
         captured["script_path"] = Path(script_path)
-        out_wav.write_text("wav")
+        script = json.loads(captured["script_path"].read_text())
+        for entry in script:
+            Path(entry["save_path"]).write_text("chunk")
         return 0
 
-    with patch("app.db.get_connection") as mock_conn, \
+    with patch("app.jobs.handlers.xtts.load_chunk_segments", return_value=[
+            {"id": "s1", "text_content": "Hello", "character_id": None, "speaker_profile_name": None, "character_speaker_profile_name": None, "audio_status": "unprocessed", "audio_file_path": None},
+        ]), \
+         patch("app.db.get_connection") as mock_conn, \
          patch("app.db.update_segments_status_bulk"), \
+         patch("app.db.update_segment"), \
          patch("app.jobs.handlers.xtts.xtts_generate_script", side_effect=inspect_script), \
+         patch("app.jobs.handlers.xtts.stitch_segments", side_effect=lambda *_args, **_kwargs: (out_wav.write_text("wav"), 0)[1]), \
          patch("app.jobs.handlers.xtts.update_job"), \
          patch("app.jobs.handlers.xtts.get_speaker_wavs", return_value=None), \
          patch("app.jobs.handlers.xtts.get_voice_profile_dir", return_value=Path("/tmp/voices/Senigami")):
-
-        cursor = mock_conn.return_value.__enter__.return_value.cursor.return_value
-        cursor.fetchall.side_effect = [
-            [],
-            [{"id": "s1"}],
-        ]
 
         handle_xtts_job(
             "test_job", mock_job, time.time(),

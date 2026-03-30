@@ -356,19 +356,16 @@ def sync_chapter_segments(chapter_id: str, text_content: str):
             crow = cursor.fetchone()
             project_id = crow["project_id"] if crow else None
 
-            # 2. Conservative diff/match logic:
-            # Preserve a segment only while the chapter continues to match exactly from the start.
-            # Once text diverges, rebuild the remainder so shifted content does not keep stale
-            # audio_file_path links from an earlier grouping.
+            # 2. Preserve unchanged sentences at the same index when possible.
+            # If a sentence changes, we regenerate that row, but later unchanged rows can keep
+            # their IDs and audio as long as they do not share a rendered artifact with any
+            # changed row.
             new_segments = []
             preserved_ids = set()
-            diverged = False
             for i, sent in enumerate(sentences):
                 existing_row = None
-                if not diverged and i < len(existing) and (existing[i].get("text_content") or "").strip() == sent.strip():
+                if i < len(existing) and (existing[i].get("text_content") or "").strip() == sent.strip():
                     existing_row = existing[i]
-                else:
-                    diverged = True
                 if existing_row:
                     logger.debug(
                         "sync_chapter_segments: Preserving segment %s at position %s for sentence: '%s...'",
@@ -393,6 +390,23 @@ def sync_chapter_segments(chapter_id: str, text_content: str):
                     'audio_file_path': existing_row.get("audio_file_path") if existing_row else None,
                     'audio_generated_at': existing_row.get("audio_generated_at") if existing_row else None,
                 })
+
+            invalidated_audio_paths = {
+                row.get("audio_file_path")
+                for row in existing
+                if row["id"] not in preserved_ids and row.get("audio_file_path")
+            }
+            for seg in new_segments:
+                if seg["id"] not in preserved_ids:
+                    continue
+                if seg.get("audio_file_path") in invalidated_audio_paths:
+                    logger.debug(
+                        "sync_chapter_segments: Invalidating preserved segment %s because it shares audio with a changed segment",
+                        seg["id"],
+                    )
+                    seg["audio_status"] = "unprocessed"
+                    seg["audio_file_path"] = None
+                    seg["audio_generated_at"] = None
 
             # 3. Replace all (cleaner than complex sync)
             cursor.execute("DELETE FROM chapter_segments WHERE chapter_id = ?", (chapter_id,))

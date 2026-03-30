@@ -1,4 +1,5 @@
 import logging
+import os
 import queue
 import threading
 from .core import job_queue, assembly_queue, cancel_flags, pause_flag, paused, toggle_pause, set_paused, _estimate_seconds, calculate_predicted_progress, BASELINE_XTTS_CPS, format_seconds
@@ -11,6 +12,10 @@ from ..config import CHAPTER_DIR, XTTS_OUT_DIR, AUDIOBOOK_DIR, VOICES_DIR, SAMPL
 logger = logging.getLogger(__name__)
 _worker_threads: dict[str, threading.Thread] = {}
 _worker_threads_lock = threading.Lock()
+
+
+def _auto_start_workers_enabled() -> bool:
+    return os.getenv("APP_TEST_MODE") != "1"
 
 
 def ensure_workers():
@@ -109,8 +114,11 @@ def sync_memory_queue():
 def start_workers():
     ensure_workers()
 
-# Start workers
-start_workers()
+# Start workers in normal app mode, but not during pytest/test fixtures.
+# Tests that need workers should call ensure_workers() explicitly after the
+# temporary DB path and schema are ready.
+if _auto_start_workers_enabled():
+    start_workers()
 
 # Re-exports for public API
 __all__ = [

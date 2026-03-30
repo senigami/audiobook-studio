@@ -1,9 +1,10 @@
-import type { ChapterSegment, Character } from '../types';
+import type { ChapterSegment, Character, SpeakerProfile, VoiceEngine } from '../types';
 import { CHUNK_CHAR_LIMIT } from '../constants/audio';
 
 export interface ChunkGroup {
   characterId: string | null;
   profileName: string | null;
+  engine: VoiceEngine;
   segments: ChapterSegment[];
 }
 
@@ -20,28 +21,37 @@ export function resolveSegmentProfileName(
 export function buildChunkGroups(
   segments: ChapterSegment[],
   characters: Character[],
-  defaultProfile: string | null | undefined
+  defaultProfile: string | null | undefined,
+  speakerProfiles: SpeakerProfile[] = []
 ): ChunkGroup[] {
   const groups: ChunkGroup[] = [];
+  const profileEngineMap = new Map<string, VoiceEngine>(
+    speakerProfiles
+      .filter((profile): profile is SpeakerProfile & { name: string } => !!profile?.name)
+      .map(profile => [profile.name, profile.engine || 'xtts'])
+  );
 
   segments.forEach(seg => {
-    const text = seg.text_content || '';
+    const text = (seg.text_content || '').trim();
+    if (!text) return;
     const profileName = resolveSegmentProfileName(seg, characters, defaultProfile);
+    const engine = profileName ? (profileEngineMap.get(profileName) || 'xtts') : 'xtts';
     const lastGroup = groups[groups.length - 1];
 
     if (
       lastGroup &&
       lastGroup.characterId === seg.character_id &&
-      lastGroup.profileName === profileName
+      lastGroup.profileName === profileName &&
+      lastGroup.engine === engine
     ) {
-      const currentBatchText = lastGroup.segments.map(s => s.text_content).join(' ');
+      const currentBatchText = lastGroup.segments.map(s => (s.text_content || '').trim()).filter(Boolean).join(' ');
       if (currentBatchText.length + text.length + 1 <= CHUNK_CHAR_LIMIT) {
         lastGroup.segments.push(seg);
         return;
       }
     }
 
-    groups.push({ characterId: seg.character_id, profileName, segments: [seg] });
+    groups.push({ characterId: seg.character_id, profileName, engine, segments: [seg] });
   });
 
   return groups;

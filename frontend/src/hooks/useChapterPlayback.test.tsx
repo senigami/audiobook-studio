@@ -12,8 +12,8 @@ describe('useChapterPlayback', () => {
   const generatingSegmentIds = new Set<string>();
   const onGenerate = vi.fn().mockResolvedValue(undefined);
   const chunkGroups: ChunkGroup[] = [
-    { characterId: null, profileName: null, segments: [segments[0]] },
-    { characterId: null, profileName: null, segments: [segments[1]] },
+    { characterId: null, profileName: null, engine: 'xtts', segments: [segments[0]] },
+    { characterId: null, profileName: null, engine: 'xtts', segments: [segments[1]] },
   ];
 
   beforeEach(() => {
@@ -94,7 +94,7 @@ describe('useChapterPlayback', () => {
     ] as any;
 
     const { result } = renderHook(() => 
-      useChapterPlayback('proj1', segmentsMissing, [{ characterId: null, profileName: null, segments: segmentsMissing as any }], generatingSegmentIds, onGenerate)
+      useChapterPlayback('proj1', segmentsMissing, [{ characterId: null, profileName: null, engine: 'xtts', segments: segmentsMissing as any }], generatingSegmentIds, onGenerate)
     );
 
     await act(async () => {
@@ -115,8 +115,8 @@ describe('useChapterPlayback', () => {
         'proj1',
         nextGroupMissing as any,
         [
-          { characterId: 'char-1', profileName: null, segments: [nextGroupMissing[0] as any] },
-          { characterId: 'char-2', profileName: null, segments: [nextGroupMissing[1] as any] },
+          { characterId: 'char-1', profileName: null, engine: 'xtts', segments: [nextGroupMissing[0] as any] },
+          { characterId: 'char-2', profileName: null, engine: 'xtts', segments: [nextGroupMissing[1] as any] },
         ],
         generatingSegmentIds,
         onGenerate
@@ -145,7 +145,7 @@ describe('useChapterPlayback', () => {
       {
         initialProps: {
           segs: segmentsMissing,
-          chunked: [{ characterId: null, profileName: null, segments: segmentsMissing as any }],
+          chunked: [{ characterId: null, profileName: null, engine: 'xtts' as const, segments: segmentsMissing as any }],
           generating: new Set<string>()
         }
       }
@@ -170,7 +170,7 @@ describe('useChapterPlayback', () => {
 
     rerender({
       segs: completedSegments,
-      chunked: [{ characterId: null, profileName: null, segments: completedSegments as any }],
+      chunked: [{ characterId: null, profileName: null, engine: 'xtts' as const, segments: completedSegments as any }],
       generating: new Set<string>()
     });
 

@@ -2,6 +2,7 @@ import json
 import time
 from pathlib import Path
 from ...config import XTTS_OUT_DIR, SENT_CHAR_LIMIT
+from ...chunk_groups import build_chunk_groups, load_chunk_segments
 from ...state import update_job
 from ...engines import xtts_generate, xtts_generate_script, wav_to_mp3, get_audio_duration, stitch_segments
 from ...textops import sanitize_for_xtts, safe_split_long_sentences
@@ -18,6 +19,23 @@ def _profile_inputs_for_segment(char_profile, job_default_profile, default_sw):
         except ValueError:
             voice_profile_dir = None
     return sw, voice_profile_dir
+
+
+def _generate_direct_xtts(text, j, out_wav, on_output, cancel_check, default_sw, speed):
+    try:
+        voice_profile_dir = str(get_voice_profile_dir(j.speaker_profile)) if j.speaker_profile else None
+    except ValueError:
+        voice_profile_dir = None
+    return xtts_generate(
+        text=text,
+        out_wav=out_wav,
+        safe_mode=j.safe_mode,
+        on_output=on_output,
+        cancel_check=cancel_check,
+        speaker_wav=default_sw,
+        speed=speed,
+        voice_profile_dir=voice_profile_dir,
+    )
 
 
 def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, pdir, out_wav, out_mp3, text=None):
@@ -254,86 +272,88 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
 
     else:
         # Standard Chapter mode
-        segments_data = []
         if j.chapter_id:
-            with get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT s.text_content, s.character_id, s.id, c.speaker_profile_name
-                    FROM chapter_segments s
-                    LEFT JOIN characters c ON s.character_id = c.id
-                    WHERE s.chapter_id = ?
-                    ORDER BY s.segment_order
-                """, (j.chapter_id,))
-                segments_data = cursor.fetchall()
-
-        has_custom = any(s['character_id'] for s in segments_data) if segments_data else False
-
-        if has_custom:
-            script = []
-            current_id = None
-            current_profile_key = None
-            current_sw = None
-            current_voice_profile_dir = None
-            current_text = ""
-            for s in segments_data:
-                if not s['text_content'] or not s['text_content'].strip(): continue
-                char_profile = s['speaker_profile_name'] if (s['character_id'] and s['speaker_profile_name']) else None
-                profile_key = char_profile or j.speaker_profile or ""
-                sw, voice_profile_dir = _profile_inputs_for_segment(char_profile, j.speaker_profile, default_sw)
-                if current_profile_key is not None and profile_key == current_profile_key:
-                    current_text += " " + s['text_content'].strip()
-                else:
-                    if current_profile_key is not None:
-                        processed = current_text.strip()
-                        if j.safe_mode:
-                            processed = sanitize_for_xtts(processed)
-                            processed = safe_split_long_sentences(processed, target=SENT_CHAR_LIMIT)
-                        script_entry = {"text": processed, "speaker_wav": current_sw, "id": current_id}
-                        if current_voice_profile_dir:
-                            script_entry["voice_profile_dir"] = current_voice_profile_dir
-                        script.append(script_entry)
-                    current_profile_key = profile_key
-                    current_sw = sw
-                    current_voice_profile_dir = voice_profile_dir
-                    current_id = s['id']
-                    current_text = s['text_content'].strip()
-            if current_profile_key is not None:
-                processed = current_text.strip()
-                if j.safe_mode:
-                    processed = sanitize_for_xtts(processed)
-                    processed = safe_split_long_sentences(processed, target=SENT_CHAR_LIMIT)
-                script_entry = {"text": processed, "speaker_wav": current_sw, "id": current_id}
-                if current_voice_profile_dir:
-                    script_entry["voice_profile_dir"] = current_voice_profile_dir
-                script.append(script_entry)
-
-            script_path = pdir / f"{j.id}_script.json"
-            script_path.write_text(json.dumps(script), encoding="utf-8")
-            try:
-                rc = xtts_generate_script(script_json_path=script_path, out_wav=out_wav, on_output=on_output, cancel_check=cancel_check, speed=speed)
-            finally:
-                if script_path.exists(): script_path.unlink()
-        else:
-            if j.chapter_id:
-                script_path = pdir / f"{j.id}_chapter_script.json"
-                script_entry = {"text": text, "speaker_wav": default_sw}
-                if j.speaker_profile:
-                    try:
-                        script_entry["voice_profile_dir"] = str(get_voice_profile_dir(j.speaker_profile))
-                    except ValueError:
-                        pass
-                script_path.write_text(json.dumps([script_entry]), encoding="utf-8")
-                try:
-                    rc = xtts_generate_script(script_json_path=script_path, out_wav=out_wav, on_output=on_output, cancel_check=cancel_check, speed=speed)
-                finally:
-                    if script_path.exists(): script_path.unlink()
-            else:
-                try:
-                    voice_profile_dir = str(get_voice_profile_dir(j.speaker_profile)) if j.speaker_profile else None
-                except ValueError:
+            groups = build_chunk_groups(load_chunk_segments(j.chapter_id), j.speaker_profile)
+            if groups:
+                script = []
+                path_to_group = {}
+                for group in groups:
+                    first = group["segments"][0]
+                    profile_name = group["profile_name"]
+                    sw = get_speaker_wavs(profile_name) if profile_name else default_sw
                     voice_profile_dir = None
-                rc = xtts_generate(text=text, out_wav=out_wav, safe_mode=j.safe_mode, on_output=on_output, cancel_check=cancel_check, speaker_wav=default_sw, speed=speed, voice_profile_dir=voice_profile_dir)
+                    if profile_name:
+                        try:
+                            voice_profile_dir = str(get_voice_profile_dir(profile_name))
+                        except ValueError:
+                            voice_profile_dir = None
+                    processed = " ".join(group["text_parts"]).strip()
+                    if j.safe_mode:
+                        processed = sanitize_for_xtts(processed)
+                        processed = safe_split_long_sentences(processed, target=SENT_CHAR_LIMIT)
+                    seg_out = pdir / f"chunk_{first['id']}.wav"
+                    save_path_str = str(seg_out.absolute())
+                    script_entry = {"text": processed, "speaker_wav": sw, "id": first["id"], "save_path": save_path_str}
+                    if voice_profile_dir:
+                        script_entry["voice_profile_dir"] = voice_profile_dir
+                    script.append(script_entry)
+                    path_to_group[save_path_str] = group
+
+                script_path = pdir / f"{j.id}_script.json"
+                script_path.write_text(json.dumps(script), encoding="utf-8")
+                groups_completed = [0]
+
+                def chapter_on_output(line):
+                    on_output(line)
+                    if "[SEGMENT_SAVED]" in line:
+                        saved_path = line.split("[SEGMENT_SAVED]")[1].strip()
+                        group = path_to_group.get(saved_path)
+                        if group:
+                            seg_filename = Path(saved_path).name
+                            generated_at = time.time()
+                            for s in group["segments"]:
+                                update_segment(s["id"], broadcast=True, audio_status="done", audio_file_path=seg_filename, audio_generated_at=generated_at)
+                            groups_completed[0] += 1
+                            progress = (groups_completed[0] / len(groups)) * 0.9 if groups else 0.9
+                            update_job(jid, progress=progress, active_segment_id=None, active_segment_progress=0.0)
+
+                    if "[START_SEGMENT]" in line:
+                        asid = line.split("[START_SEGMENT]")[1].strip()
+                        update_job(jid, active_segment_id=asid, active_segment_progress=0.0)
+
+                    if "[PROGRESS]" in line:
+                        try:
+                            p_str = line.split("[PROGRESS]")[1].split("%")[0].strip()
+                            update_job(jid, active_segment_progress=float(p_str) / 100.0)
+                        except Exception:
+                            pass
+
+                scratch_wav = pdir / f"output_{j.id}.wav"
+                try:
+                    rc = xtts_generate_script(script_json_path=script_path, out_wav=scratch_wav, on_output=chapter_on_output, cancel_check=cancel_check, speed=speed)
+                finally:
+                    if script_path.exists():
+                        script_path.unlink()
+                    if scratch_wav.exists():
+                        scratch_wav.unlink()
+
+                if rc == 0:
+                    update_job(jid, status="finalizing", progress=0.91)
+                    segment_paths = []
+                    last_path = None
+                    for group in build_chunk_groups(load_chunk_segments(j.chapter_id), j.speaker_profile):
+                        group_path = pdir / f"chunk_{group['segments'][0]['id']}.wav"
+                        if group_path.exists() and group_path != last_path:
+                            segment_paths.append(group_path)
+                            last_path = group_path
+                    if not segment_paths:
+                        update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error="No valid segment audio was available to stitch.")
+                        return
+                    rc = stitch_segments(pdir, segment_paths, out_wav, on_output, cancel_check)
+            else:
+                rc = _generate_direct_xtts(text, j, out_wav, on_output, cancel_check, default_sw, speed)
+        else:
+            rc = _generate_direct_xtts(text, j, out_wav, on_output, cancel_check, default_sw, speed)
 
     if cancel_check():
         update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
