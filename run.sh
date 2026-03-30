@@ -125,7 +125,7 @@ xtts_env_has_conflicts() {
 from importlib import metadata
 
 conflicting_dists = []
-for dist_name in ("coqpit", "trainer", "TTS"):
+for dist_name in ("coqpit", "trainer"):
     try:
         metadata.distribution(dist_name)
     except metadata.PackageNotFoundError:
