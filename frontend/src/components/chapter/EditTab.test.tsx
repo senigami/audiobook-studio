@@ -7,6 +7,7 @@ const mockChapter = {
     project_id: 'p1',
     title: 'Chapter 1',
     text_content: 'Test content',
+    speaker_profile_name: null,
     sort_order: 0,
     audio_status: 'unprocessed' as const,
     audio_file_path: null,
