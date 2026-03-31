@@ -5,13 +5,49 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  backend:
-    name: Backend (Python)
+  backend-quick:
+    name: Backend (Quick)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Lint with ruff
+        run: ruff check .
+
+      - name: Run quick backend tests
+        run: |
+          pytest -q \
+            tests/test_api.py \
+            tests/test_api_generation.py \
+            tests/test_api_projects.py \
+            tests/test_api_projects_extended.py \
+            tests/test_api_queue.py \
+            tests/test_api_utils_extended.py \
+            tests/test_db_chapters.py \
+            tests/test_engines.py \
+            tests/test_incremental_assembly.py \
+            tests/test_xtts_handler.py
+
+  backend-full:
+    name: Backend (Full)
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,8 +68,32 @@ jobs:
       - name: Test with pytest
         run: pytest
 
-  frontend:
-    name: Frontend (React)
+  frontend-quick:
+    name: Frontend (Quick)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: cd frontend && npm ci
+
+      - name: Lint
+        run: cd frontend && npm run lint
+
+      - name: Test
+        run: cd frontend && npm run test -- --run
+
+  frontend-full:
+    name: Frontend (Full)
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
