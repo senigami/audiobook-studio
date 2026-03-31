@@ -137,6 +137,7 @@ def test_on_output_logic(mock_q, sample_job):
 
     with patch("app.jobs.worker.get_jobs", return_value={"test_job_1": sample_job}), \
          patch("app.jobs.worker.update_job") as mock_update, \
+         patch("app.jobs.worker.logger.info") as mock_log, \
          patch("app.jobs.worker.get_performance_metrics", return_value={}), \
          patch("app.jobs.worker.get_project_text_dir", create=True) as mock_text_dir, \
          patch("pathlib.Path.exists", return_value=True), \
@@ -175,6 +176,11 @@ def test_on_output_logic(mock_q, sample_job):
         # Test log accumulation (Simplified: No longer checking for 'log' in update_job)
         mock_update.reset_mock()
         on_out("Normal log line")
+
+        # Hugging Face / tqdm-style download lines should be surfaced verbatim.
+        download_line = "model.safetensors: 71%|###5 | 6.62G/9.36G [05:07<01:03, 42.8MB/s]"
+        on_out(download_line)
+        mock_log.assert_any_call("Job %s: %s", "test_job_1", download_line)
 
 def test_worker_loop_xtts_bake(mock_q, sample_job):
     """Test XTTS job with is_bake=True."""

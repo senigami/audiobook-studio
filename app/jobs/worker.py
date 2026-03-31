@@ -25,6 +25,17 @@ from ..engines_voxtral import VoxtralError, voxtral_generate
 
 logger = logging.getLogger(__name__)
 
+
+def _looks_like_external_download_progress(line: str, lowered: str | None = None) -> bool:
+    lowered = lowered or line.lower()
+    if "%|" not in line or ":" not in line:
+        return False
+    if "[progress]" in lowered or "synthesizing" in lowered:
+        return False
+    if any(token in lowered for token in ["downloading (", "fetching ", "converting "]):
+        return True
+    return bool(re.search(r"[a-z0-9._-]+\.(json|txt|bin|pth|pt|ckpt|onnx|safetensors)(?:\.[a-z0-9]+)*:", lowered))
+
 def _mark_queue_failed(jid: str, error_message: str | None = None):
     try:
         from ..db import update_queue_item
@@ -158,6 +169,7 @@ def worker_loop(q):
                 now = time.time()
                 new_progress = None
                 lowered = s.lower() if s else ""
+                is_download_progress = _looks_like_external_download_progress(s, lowered) if s else False
 
                 def log_terminal(message: str):
                     logger.info("Job %s: %s", jid, message)
@@ -221,7 +233,8 @@ def worker_loop(q):
                     "[critical error]",
                     "[error]",
                     "warning:",
-                ]):
+                    "hf hub",
+                ]) or is_download_progress:
                     log_terminal(s)
 
                 # Filter noise
@@ -244,7 +257,7 @@ def worker_loop(q):
                                 seg_label = getattr(j, 'active_segment_id', 'segment')
                                 log_terminal(f"{seg_label}: {int(p_val * 100)}%")
                                 j._last_segment_log_progress = p_val
-                    elif "|" in s or "Synthesizing" in s:
+                    elif not is_download_progress and ("|" in s or "Synthesizing" in s):
                         is_progress = True
                         if getattr(j, 'synthesis_started_at', None):
                              if p_val > getattr(j, 'progress', 0.0):
@@ -270,6 +283,7 @@ def worker_loop(q):
                         "loading cached latents",
                         "profile fingerprint changed",
                         "synthesizing ",
+                        "hf hub",
                     ]):
                         log_terminal(s)
                     if "exceeds the character limit" in s:
