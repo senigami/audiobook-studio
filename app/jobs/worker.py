@@ -132,7 +132,7 @@ def worker_loop(q):
 
             # Accurate Resumption: Initialize progress from DB if resuming
             initial_progress = 0.0
-            if j.chapter_id:
+            if j.chapter_id and j.engine != "voxtral":
                 try:
                     from ..db.chapters import get_chapter_segments_counts
                     done_c, total_c = get_chapter_segments_counts(j.chapter_id)

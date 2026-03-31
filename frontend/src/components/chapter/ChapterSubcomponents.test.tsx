@@ -454,6 +454,39 @@ describe('Chapter Subcomponents', () => {
       expect(screen.getByText('Queued')).toBeInTheDocument();
       expect(screen.queryByText('Generate')).toBeNull();
     });
+
+    it('keeps a live chapter-level job visibly attached even when all groups were already done', () => {
+      render(
+        <PerformanceTab
+          chunkGroups={[
+            { characterId: 'char-1', segments: [{ ...mockSegments[0], audio_status: 'done', audio_file_path: 'seg-1.wav' }] },
+            { characterId: null, segments: [{ ...mockSegments[1], audio_status: 'done', audio_file_path: 'seg-2.wav' }] }
+          ]}
+          characters={mockCharacters}
+          playingSegmentId={null}
+          playbackQueue={['seg-1', 'seg-2']}
+          generatingSegmentIds={new Set()}
+          allSegmentIds={['seg-1', 'seg-2']}
+          segments={[
+            { ...mockSegments[0], audio_status: 'done', audio_file_path: 'seg-1.wav' } as any,
+            { ...mockSegments[1], audio_status: 'done', audio_file_path: 'seg-2.wav' } as any
+          ]}
+          onPlay={vi.fn()}
+          onStop={vi.fn()}
+          onGenerate={vi.fn()}
+          generatingJob={{
+            id: 'job-voxtral',
+            status: 'preparing',
+            progress: 0,
+            active_segment_id: null,
+            active_segment_progress: 0
+          } as any}
+        />
+      );
+
+      expect(screen.getByText('Working...')).toBeInTheDocument();
+      expect(screen.getByTestId('performance-progress-0')).toBeInTheDocument();
+    });
   });
 
   describe('CharacterSidebar', () => {

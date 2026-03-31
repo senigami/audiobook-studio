@@ -409,8 +409,12 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
       const firstIncomplete = chunkGroups.findIndex(group => group.segments.some(segment => segment.audio_status !== 'done'));
       if (firstIncomplete !== -1) {
         lastActiveGroupIndexRef.current = firstIncomplete;
+        return firstIncomplete;
       }
-      return firstIncomplete;
+      if (chunkGroups.length > 0) {
+        lastActiveGroupIndexRef.current = 0;
+        return 0;
+      }
     }
 
     lastActiveGroupIndexRef.current = -1;
