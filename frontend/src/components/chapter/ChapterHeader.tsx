@@ -14,6 +14,7 @@ interface ChapterHeaderProps {
   selectedVoice: string;
   onVoiceChange: (voice: string) => void;
   availableVoices: { id: string; name: string; value: string; is_speaker: boolean }[];
+  defaultVoiceLabel?: string;
   submitting: boolean;
   queueLocked?: boolean;
   queuePending?: boolean;
@@ -37,6 +38,7 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
   selectedVoice,
   onVoiceChange,
   availableVoices,
+  defaultVoiceLabel = 'Use Project Default',
   submitting,
   queueLocked = false,
   queuePending = false,
@@ -158,7 +160,7 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
                   }}
                   title="Select Voice Profile for this chapter"
               >
-                  <option value="">Use Project Default</option>
+                  <option value="">{defaultVoiceLabel}</option>
                   {availableVoices.map(v => (
                       <option key={v.id} value={v.value}>{v.name}</option>
                   ))}

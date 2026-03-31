@@ -51,6 +51,7 @@ def init_db():
                     name TEXT NOT NULL,
                     series TEXT,
                     author TEXT,
+                    speaker_profile_name TEXT,
                     cover_image_path TEXT,
                     created_at REAL,
                     updated_at REAL
@@ -64,6 +65,7 @@ def init_db():
                     project_id TEXT NOT NULL,
                     title TEXT NOT NULL,
                     text_content TEXT,
+                    speaker_profile_name TEXT,
                     sort_order INTEGER,
                     audio_status TEXT DEFAULT 'unprocessed',
                     audio_file_path TEXT,
@@ -144,6 +146,8 @@ def init_db():
                         logger.warning("Failed to apply %s migration", label, exc_info=True)
 
             add_column_if_missing("ALTER TABLE chapter_segments ADD COLUMN speaker_profile_name TEXT", "chapter_segments.speaker_profile_name")
+            add_column_if_missing("ALTER TABLE chapters ADD COLUMN speaker_profile_name TEXT", "chapters.speaker_profile_name")
+            add_column_if_missing("ALTER TABLE projects ADD COLUMN speaker_profile_name TEXT", "projects.speaker_profile_name")
             add_column_if_missing("ALTER TABLE chapter_segments ADD COLUMN sanitized_text TEXT", "chapter_segments.sanitized_text")
             add_column_if_missing("ALTER TABLE processing_queue ADD COLUMN started_at REAL", "processing_queue.started_at")
             add_column_if_missing("ALTER TABLE processing_queue ADD COLUMN completed_at REAL", "processing_queue.completed_at")

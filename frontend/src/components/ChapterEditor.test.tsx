@@ -57,6 +57,7 @@ describe('ChapterEditor', () => {
     project_id: mockProjectId,
     title: 'Test Chapter',
     text_content: 'Once upon a time.',
+    speaker_profile_name: null,
     char_count: 50,
     word_count: 10,
     audio_status: 'unprocessed' as const,
@@ -488,7 +489,7 @@ describe('ChapterEditor', () => {
     await waitFor(() => screen.findByDisplayValue('Test Chapter'));
 
     const voiceSelect = screen.getByTitle('Select Voice Profile for this chapter');
-    expect(screen.getByDisplayValue('Use Project Default')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Use Project Default (Voice 1 - Standard)')).toBeInTheDocument();
 
     fireEvent.change(voiceSelect, { target: { value: 'Profile 1' } });
     fireEvent.change(voiceSelect, { target: { value: '' } });
@@ -503,6 +504,49 @@ describe('ChapterEditor', () => {
         'Profile 1'
       );
     });
+  });
+
+  it('persists a chapter voice selection immediately', async () => {
+    render(
+      <ChapterEditor
+        chapterId={mockChapterId}
+        projectId={mockProjectId}
+        speakerProfiles={mockSpeakerProfiles as any}
+        speakers={mockSpeakers as any}
+        onBack={vi.fn()}
+      />
+    );
+
+    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
+
+    const voiceSelect = screen.getByTitle('Select Voice Profile for this chapter');
+    fireEvent.change(voiceSelect, { target: { value: 'Profile 1' } });
+
+    await waitFor(() => {
+      expect(api.updateChapter).toHaveBeenCalledWith(mockChapterId, { speaker_profile_name: 'Profile 1' });
+    });
+  });
+
+  it('loads a saved chapter voice instead of falling back to the project voice', async () => {
+    (api.fetchChapters as any).mockResolvedValue([
+      { ...mockChapter, speaker_profile_name: 'Profile 1' }
+    ]);
+
+    render(
+      <ChapterEditor
+        chapterId={mockChapterId}
+        projectId={mockProjectId}
+        speakerProfiles={mockSpeakerProfiles as any}
+        speakers={mockSpeakers as any}
+        selectedVoice="Profile 1"
+        onBack={vi.fn()}
+      />
+    );
+
+    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
+
+    const voiceSelect = screen.getByTitle('Select Voice Profile for this chapter') as HTMLSelectElement;
+    expect(voiceSelect.value).toBe('Profile 1');
   });
 
 });

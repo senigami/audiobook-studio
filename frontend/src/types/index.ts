@@ -8,6 +8,7 @@ export interface Project {
   name: string;
   series: string | null;
   author: string | null;
+  speaker_profile_name: string | null;
   cover_image_path: string | null;
   created_at: number;
   updated_at: number;
@@ -40,6 +41,7 @@ export interface Chapter {
   project_id: string;
   title: string;
   text_content: string;
+  speaker_profile_name: string | null;
   sort_order: number;
   audio_status: 'unprocessed' | 'processing' | 'done' | 'error' | 'failed' | 'cancelled';
   audio_file_path: string | null;

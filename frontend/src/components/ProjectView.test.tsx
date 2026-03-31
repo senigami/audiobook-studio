@@ -24,6 +24,7 @@ vi.mock('../api', () => ({
     fetchCharacters: vi.fn().mockResolvedValue([]),
     fetchSegments: vi.fn().mockResolvedValue([]),
     updateChapter: vi.fn(),
+    updateProject: vi.fn(),
     exportSample: vi.fn(),
   },
 }));
@@ -90,6 +91,7 @@ const mockProject = {
   name: 'Test Project',
   series: 'Test Series',
   author: 'Test Author',
+  speaker_profile_name: null,
   cover_image_path: '',
   created_at: 1000,
   updated_at: 2000,
@@ -151,6 +153,16 @@ const mockChapters = [
     },
   ];
 
+  const mockSpeakers = [
+    {
+      id: 'speaker-1',
+      name: 'Voice 1',
+      default_profile_name: 'Voice 1',
+      created_at: 1,
+      updated_at: 1,
+    },
+  ];
+
 describe('ProjectView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -158,6 +170,7 @@ describe('ProjectView', () => {
     (api.fetchProject as any).mockResolvedValue(mockProject);
     (api.fetchChapters as any).mockResolvedValue(mockChapters);
     (api.fetchProjectAudiobooks as any).mockResolvedValue([]);
+    (api.updateProject as any).mockResolvedValue({ status: 'ok', project_id: mockProject.id });
   });
 
   const renderProjectView = () => {
@@ -168,7 +181,7 @@ describe('ProjectView', () => {
             <ProjectView 
               jobs={{}} 
               speakerProfiles={mockSpeakerProfiles as any} 
-              speakers={[]} 
+              speakers={mockSpeakers as any} 
             />
           } />
         </Routes>
@@ -234,9 +247,10 @@ describe('ProjectView', () => {
   it('defaults the queue voice to the available profile', async () => {
     renderProjectView();
 
-    await waitFor(() => screen.findByText('Test Project'));
-
-    expect(screen.getByDisplayValue('Voice 1')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByText('Loading project...')).not.toBeInTheDocument();
+      expect(screen.getByRole('combobox')).toHaveValue('Voice 1');
+    });
 
     fireEvent.click(screen.getByText('Queue Remaining'));
     await waitFor(() => {
@@ -257,7 +271,7 @@ describe('ProjectView', () => {
             <ProjectView
               jobs={{}}
               speakerProfiles={mockSpeakerProfiles as any}
-              speakers={[]}
+              speakers={mockSpeakers as any}
               settings={{ default_speaker_profile: 'Voice 1' } as any}
             />
           } />
@@ -267,11 +281,12 @@ describe('ProjectView', () => {
 
     await waitFor(() => {
       expect(screen.queryByText('Loading project...')).not.toBeInTheDocument();
+      expect(screen.getByRole('combobox')).toHaveValue('Voice 1');
     });
 
-    const select = screen.getByDisplayValue('Voice 1');
+    const select = screen.getByRole('combobox');
     fireEvent.change(select, { target: { value: '' } });
-    expect(screen.getByDisplayValue('Default Speaker')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Default Speaker (Voice 1)')).toBeInTheDocument();
 
     fireEvent.click(screen.getByText('Queue Remaining'));
     await waitFor(() => {
@@ -292,7 +307,7 @@ describe('ProjectView', () => {
             <ProjectView
               jobs={{}}
               speakerProfiles={mockSpeakerProfilesWithVariant as any}
-              speakers={[]}
+              speakers={mockSpeakers as any}
             />
           } />
         </Routes>
@@ -367,9 +382,10 @@ describe('ProjectView', () => {
 
     await waitFor(() => {
       expect(screen.queryByText('Loading project...')).not.toBeInTheDocument();
+      expect(screen.getByRole('combobox')).toHaveValue('Test');
     });
 
-    fireEvent.change(screen.getByDisplayValue('Test'), { target: { value: 'Dark Fantasy - Default' } });
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'Dark Fantasy - Default' } });
     expect(screen.getByDisplayValue('Dark Fantasy')).toBeInTheDocument();
 
     fireEvent.click(screen.getByText('Queue Remaining'));
@@ -380,6 +396,48 @@ describe('ProjectView', () => {
         expect.any(Object),
         'Dark Fantasy - Default'
       );
+    });
+  });
+
+  it('persists the project voice selection immediately', async () => {
+    renderProjectView();
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading project...')).not.toBeInTheDocument();
+      expect(screen.getByRole('combobox')).toHaveValue('Voice 1');
+    });
+
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: '' } });
+
+    await waitFor(() => {
+      expect(api.updateProject).toHaveBeenCalledWith('proj-123', { speaker_profile_name: null });
+    });
+  });
+
+  it('loads a saved project voice instead of reusing the global default', async () => {
+    (api.fetchProject as any).mockResolvedValue({
+      ...mockProject,
+      speaker_profile_name: 'Voice 1',
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/projects/proj-123']}>
+        <Routes>
+          <Route path="/projects/:projectId" element={
+            <ProjectView
+              jobs={{}}
+              speakerProfiles={mockSpeakerProfiles as any}
+              speakers={mockSpeakers as any}
+              settings={{ default_speaker_profile: 'Some Other Voice' } as any}
+            />
+          } />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading project...')).not.toBeInTheDocument();
+      expect(screen.getByRole('combobox')).toHaveValue('Voice 1');
     });
   });
 });

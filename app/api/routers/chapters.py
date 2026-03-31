@@ -27,6 +27,7 @@ CHAPTER_DIR = config.CHAPTER_DIR
 XTTS_OUT_DIR = config.XTTS_OUT_DIR
 
 logger = logging.getLogger(__name__)
+DEFAULT_VOICE_SENTINEL = "__USE_DEFAULT__"
 
 
 def get_chapter_dir() -> Path:
@@ -97,7 +98,8 @@ def api_get_chapter_details(chapter_id: str):
 def api_update_chapter_details(
     chapter_id: str,
     title: Optional[str] = Form(None),
-    text_content: Optional[str] = Form(None)
+    text_content: Optional[str] = Form(None),
+    speaker_profile_name: Optional[str] = Form(None),
 ):
     updates = {}
     if title is not None:
@@ -106,6 +108,11 @@ def api_update_chapter_details(
         updates["text_content"] = text_content
         metrics = compute_chapter_metrics(text_content)
         updates.update(metrics)
+    if speaker_profile_name is not None:
+        normalized_profile_name = (speaker_profile_name.strip() or None)
+        if normalized_profile_name == DEFAULT_VOICE_SENTINEL:
+            normalized_profile_name = None
+        updates["speaker_profile_name"] = normalized_profile_name
 
     if updates:
         update_chapter(chapter_id, **updates)

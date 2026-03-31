@@ -15,7 +15,7 @@ import { ConfirmModal } from './ConfirmModal';
 
 // Extracted Hooks
 import { useProjectActions } from '../hooks/useProjectActions';
-import { getDefaultVoiceProfileName } from '../utils/voiceProfiles';
+import { buildVoiceOptions, getDefaultVoiceProfileName, getVoiceOptionLabel } from '../utils/voiceProfiles';
 import { pickRelevantJob } from '../utils/jobSelection';
 
 interface ProjectViewProps {
@@ -60,7 +60,17 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
   } | null>(null);
 
   useEffect(() => {
-    if (speakerProfiles.length === 0) return;
+    if (!project || speakerProfiles.length === 0) return;
+
+    const projectProfile = project.speaker_profile_name || '';
+    if (projectProfile && speakerProfiles.some(p => p.name === projectProfile)) {
+      if (selectedVoice !== projectProfile || !hasResolvedInitialVoice) {
+        setSelectedVoice(projectProfile);
+        setHasResolvedInitialVoice(true);
+      }
+      return;
+    }
+
     const voiceStillAvailable = selectedVoice && speakerProfiles.some(p => p.name === selectedVoice);
     if (voiceStillAvailable) return;
     if (hasResolvedInitialVoice && selectedVoice === '') return;
@@ -73,7 +83,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
       setSelectedVoice(defaultProfile);
       setHasResolvedInitialVoice(true);
     }
-  }, [speakerProfiles, selectedVoice, settings?.default_speaker_profile, hasResolvedInitialVoice]);
+  }, [project, speakerProfiles, selectedVoice, settings?.default_speaker_profile, hasResolvedInitialVoice]);
 
   const loadData = async () => {
     try {
@@ -104,6 +114,30 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
   } = useProjectActions(projectId, loadData, navigate);
 
   useEffect(() => { loadData(); }, [projectId, refreshTrigger]);
+
+  const handleProjectVoiceChange = async (voice: string) => {
+    const previousVoice = selectedVoice;
+    const previousProjectVoice = project?.speaker_profile_name ?? null;
+    setHasResolvedInitialVoice(true);
+    setSelectedVoice(voice);
+    setProject(prev => prev ? { ...prev, speaker_profile_name: voice || null } : prev);
+    try {
+      await api.updateProject(projectId, { speaker_profile_name: voice || null });
+    } catch (e) {
+      console.error(e);
+      setSelectedVoice(previousVoice);
+      setProject(prev => prev ? { ...prev, speaker_profile_name: previousProjectVoice } : prev);
+    }
+  };
+
+  const mergedVoices = buildVoiceOptions(speakerProfiles || [], speakers || []);
+  const projectDefaultVoiceLabel = React.useMemo(() => {
+    const fallbackVoiceValue = (settings?.default_speaker_profile && speakerProfiles.some(p => p.name === settings.default_speaker_profile))
+      ? settings.default_speaker_profile
+      : (getDefaultVoiceProfileName(speakerProfiles) || '');
+    const fallbackVoiceLabel = getVoiceOptionLabel(fallbackVoiceValue, speakerProfiles, speakers);
+    return fallbackVoiceLabel ? `Default Speaker (${fallbackVoiceLabel})` : 'Default Speaker';
+  }, [settings?.default_speaker_profile, speakerProfiles, speakers]);
 
   const formatLength = (seconds: number) => {
     if (seconds < 60) return `${Math.round(seconds)}s`;
@@ -153,21 +187,6 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
       );
   }
 
-  const mergedVoices = [
-    ...(speakers || []).map(speaker => {
-      const matchingProfiles = (speakerProfiles || []).filter(profile => profile.speaker_id === speaker.id);
-      const defaultProfileName =
-        matchingProfiles.find(profile => profile.name === speaker.default_profile_name)?.name ||
-        getDefaultVoiceProfileName(matchingProfiles) ||
-        speaker.default_profile_name ||
-        speaker.name;
-      return { id: speaker.id, name: speaker.name, value: defaultProfileName };
-    }),
-    ...(speakerProfiles || [])
-      .filter(profile => !profile.speaker_id || !speakers.some(speaker => speaker.id === profile.speaker_id))
-      .map(profile => ({ id: `unassigned-${profile.name}`, name: profile.name, value: profile.name })),
-  ];
-
   const totalRuntime = (Array.isArray(chapters) ? chapters : []).reduce((acc, c) => acc + (c.audio_status === 'done' ? (c.audio_length_seconds || c.predicted_audio_length || 0) : 0), 0);
   const totalPredicted = (Array.isArray(chapters) ? chapters : []).reduce((acc, c) => acc + (c.predicted_audio_length || 0), 0);
 
@@ -203,8 +222,8 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
                       ) : (
                         <>
                           <button onClick={() => handleQueueAllUnprocessed(chapters, jobs, selectedVoice)} className="btn-ghost" style={{ border: '1px solid var(--border)', color: 'var(--accent)', fontSize: '0.85rem' }}><Zap size={16} /> Queue Remaining</button>
-                          <select value={selectedVoice} onChange={e => { setHasResolvedInitialVoice(true); setSelectedVoice(e.target.value); }} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '0.85rem', padding: '0.25rem 0.5rem' }}>
-                              <option value="">Default Speaker</option>
+                          <select value={selectedVoice} onChange={e => { void handleProjectVoiceChange(e.target.value); }} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '0.85rem', padding: '0.25rem 0.5rem' }}>
+                              <option value="">{projectDefaultVoiceLabel}</option>
                               {mergedVoices.map(v => <option key={v.id} value={v.value}>{v.name}</option>)}
                           </select>
                           <button onClick={() => handleReorderChapters([...chapters].sort((a,b) => a.title.localeCompare(b.title, undefined, {numeric: true})))} className="btn-ghost" style={{ border: '1px solid var(--border)', fontSize: '0.85rem' }}><ArrowUpDown size={16} /> Sort A-Z</button>

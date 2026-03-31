@@ -15,8 +15,9 @@ import { CharacterSidebar } from './chapter/CharacterSidebar';
 // Extracted Hooks
 import { useChapterPlayback } from '../hooks/useChapterPlayback';
 import { useChapterAnalysis } from '../hooks/useChapterAnalysis';
-import { getDefaultVoiceProfileName } from '../utils/voiceProfiles';
+import { buildVoiceOptions } from '../utils/voiceProfiles';
 import { buildChunkGroups } from '../utils/chunkGroups';
+import { getDefaultVoiceProfileName, getVoiceOptionLabel } from '../utils/voiceProfiles';
 
 interface ChapterEditorProps {
   chapterId: string;
@@ -74,8 +75,29 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   const projectVoice = externalVoice || '';
   const chapterVoice = localVoice;
   const effectiveSelectedVoice = chapterVoice || projectVoice;
-  const handleVoiceChange = (voice: string) => {
+  const chapterDefaultVoiceLabel = React.useMemo(() => {
+    const fallbackVoiceValue = projectVoice || getDefaultVoiceProfileName(speakerProfiles || []) || '';
+    const fallbackVoiceLabel = getVoiceOptionLabel(fallbackVoiceValue, speakerProfiles || [], speakers || []);
+    return fallbackVoiceLabel ? `Use Project Default (${fallbackVoiceLabel})` : 'Use Project Default';
+  }, [projectVoice, speakerProfiles, speakers]);
+  const handleVoiceChange = async (voice: string) => {
+      const previousVoice = localVoice;
+      const previousChapterVoice = chapter?.speaker_profile_name ?? null;
       setLocalVoice(voice);
+      setChapter(prev => prev ? { ...prev, speaker_profile_name: voice || null } : prev);
+      try {
+        await api.updateChapter(chapterId, { speaker_profile_name: voice || null });
+      } catch (e) {
+        console.error(e);
+        setLocalVoice(previousVoice);
+        setChapter(prev => prev ? { ...prev, speaker_profile_name: previousChapterVoice } : prev);
+        setConfirmConfig({
+          title: 'Voice Update Failed',
+          message: e instanceof Error ? e.message : 'The chapter voice could not be saved.',
+          onConfirm: () => {},
+          confirmText: 'OK'
+        });
+      }
   };
 
   const [editorTab, setEditorTab] = useState<'edit' | 'preview' | 'production' | 'performance'>('edit');
@@ -86,19 +108,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   const queueSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const availableVoices = React.useMemo(() => {
-    const list = (speakers || []).map(speaker => {
-      const matchingProfiles = (speakerProfiles || []).filter(profile => profile.speaker_id === speaker.id);
-      const defaultProfileName =
-        matchingProfiles.find(profile => profile.name === speaker.default_profile_name)?.name ||
-        getDefaultVoiceProfileName(matchingProfiles) ||
-        speaker.default_profile_name ||
-        speaker.name;
-      return { id: speaker.id, name: speaker.name, value: defaultProfileName, is_speaker: true };
-    });
-    const orphans = (speakerProfiles || [])
-      .filter(p => !p.speaker_id || !speakers.some(s => s.id === p.speaker_id))
-      .map(p => ({ id: `unassigned-${p.name}`, name: p.name, value: p.name, is_speaker: false }));
-    return [...list, ...orphans];
+    return buildVoiceOptions(speakerProfiles || [], speakers || []);
   }, [speakers, speakerProfiles]);
 
   const { analysis, setAnalysis, analyzing, loadingVoiceChunks, ensureVoiceChunks, runAnalysis } = useChapterAnalysis(chapterId, text);
@@ -203,6 +213,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         setChapter(target);
         setTitle(target.title);
         setText(target.text_content || '');
+        setLocalVoice(target.speaker_profile_name || '');
       }
       const [segs, chars] = await Promise.all([
         api.fetchSegments(chapterId),
@@ -235,10 +246,6 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   };
 
   useEffect(() => { loadChapter(); }, [chapterId]);
-
-  useEffect(() => {
-    setLocalVoice('');
-  }, [chapterId]);
 
   useEffect(() => {
     if (!segmentUpdate || segmentUpdate.chapterId !== chapterId || segmentUpdate.tick === 0) return;
@@ -421,7 +428,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         onBack={async () => { await handleSave(); onBack(); }}
         onPrev={onPrev ? async () => { await handleSave(); onPrev(); } : undefined}
         onNext={onNext ? async () => { await handleSave(); onNext(); } : undefined}
-        selectedVoice={chapterVoice} onVoiceChange={handleVoiceChange} availableVoices={availableVoices}
+        selectedVoice={chapterVoice} onVoiceChange={handleVoiceChange} availableVoices={availableVoices} defaultVoiceLabel={chapterDefaultVoiceLabel}
         submitting={submitting} queueLocked={isQueueLocked} queuePending={queuePending} job={job} generatingSegmentIdsCount={effectivePendingSegmentIds.size}
         queueLabel={queueButtonLabel}
         queueTitle={queueButtonTitle}
