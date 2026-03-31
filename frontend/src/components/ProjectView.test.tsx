@@ -292,7 +292,7 @@ describe('ProjectView', () => {
 
     await waitFor(() => {
       expect(screen.queryByText('Loading project...')).not.toBeInTheDocument();
-      expect(screen.getByRole('combobox')).toHaveValue('Voice 1');
+      expect(screen.getByRole('combobox')).toHaveValue('');
     });
 
     fireEvent.click(screen.getByText('Queue Remaining'));
@@ -324,7 +324,7 @@ describe('ProjectView', () => {
 
     await waitFor(() => {
       expect(screen.queryByText('Loading project...')).not.toBeInTheDocument();
-      expect(screen.getByRole('combobox')).toHaveValue('Voice 1');
+      expect(screen.getByRole('combobox')).toHaveValue('');
     });
 
     const select = screen.getByRole('combobox');
@@ -337,7 +337,7 @@ describe('ProjectView', () => {
       expect(actions?.handleQueueAllUnprocessed).toHaveBeenCalledWith(
         expect.any(Array),
         expect.any(Object),
-        ''
+        'Voice 1'
       );
     });
   });
@@ -361,7 +361,7 @@ describe('ProjectView', () => {
       expect(screen.queryByText('Loading project...')).not.toBeInTheDocument();
     });
 
-    expect(screen.getByDisplayValue('Voice 1')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Default Speaker (Voice 1)')).toBeInTheDocument();
   });
 
   it('stores a real default profile name when a speaker label differs from its default profile', async () => {
@@ -425,7 +425,7 @@ describe('ProjectView', () => {
 
     await waitFor(() => {
       expect(screen.queryByText('Loading project...')).not.toBeInTheDocument();
-      expect(screen.getByRole('combobox')).toHaveValue('Test');
+      expect(screen.getByRole('combobox')).toHaveValue('');
     });
 
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'Dark Fantasy - Default' } });
@@ -442,12 +442,33 @@ describe('ProjectView', () => {
     });
   });
 
+  it('keeps the default option selected after reload when no project override is saved', async () => {
+    render(
+      <MemoryRouter initialEntries={['/projects/proj-123']}>
+        <Routes>
+          <Route path="/projects/:projectId" element={
+            <ProjectView
+              jobs={{}}
+              speakerProfiles={mockSpeakerProfiles as any}
+              speakers={mockSpeakers as any}
+              settings={{ default_speaker_profile: 'Voice 1' } as any}
+            />
+          } />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    const select = await screen.findByRole('combobox');
+    expect(select).toHaveValue('');
+    expect(screen.getByDisplayValue('Default Speaker (Voice 1)')).toBeInTheDocument();
+  });
+
   it('persists the project voice selection immediately', async () => {
     renderProjectView();
 
     await waitFor(() => {
       expect(screen.queryByText('Loading project...')).not.toBeInTheDocument();
-      expect(screen.getByRole('combobox')).toHaveValue('Voice 1');
+      expect(screen.getByRole('combobox')).toHaveValue('');
     });
 
     fireEvent.change(screen.getByRole('combobox'), { target: { value: '' } });

@@ -63,24 +63,12 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
     if (!project || speakerProfiles.length === 0) return;
 
     const projectProfile = project.speaker_profile_name || '';
-    if (projectProfile && speakerProfiles.some(p => p.name === projectProfile)) {
-      if (selectedVoice !== projectProfile || !hasResolvedInitialVoice) {
-        setSelectedVoice(projectProfile);
-        setHasResolvedInitialVoice(true);
-      }
-      return;
-    }
+    const normalizedProjectProfile = projectProfile && speakerProfiles.some(p => p.name === projectProfile)
+      ? projectProfile
+      : '';
 
-    const voiceStillAvailable = selectedVoice && speakerProfiles.some(p => p.name === selectedVoice);
-    if (voiceStillAvailable) return;
-    if (hasResolvedInitialVoice && selectedVoice === '') return;
-
-    const savedDefault = settings?.default_speaker_profile || '';
-    const defaultProfile = (savedDefault && speakerProfiles.some(p => p.name === savedDefault))
-      ? savedDefault
-      : (getDefaultVoiceProfileName(speakerProfiles) || '');
-    if (defaultProfile) {
-      setSelectedVoice(defaultProfile);
+    if (selectedVoice !== normalizedProjectProfile || !hasResolvedInitialVoice) {
+      setSelectedVoice(normalizedProjectProfile);
       setHasResolvedInitialVoice(true);
     }
   }, [project, speakerProfiles, selectedVoice, settings?.default_speaker_profile, hasResolvedInitialVoice]);
@@ -131,13 +119,20 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
   };
 
   const mergedVoices = buildVoiceOptions(speakerProfiles || [], speakers || []);
+  const effectiveProjectVoice = React.useMemo(() => {
+    if (project?.speaker_profile_name && speakerProfiles.some(p => p.name === project.speaker_profile_name)) {
+      return project.speaker_profile_name;
+    }
+    const savedDefault = settings?.default_speaker_profile || '';
+    if (savedDefault && speakerProfiles.some(p => p.name === savedDefault)) {
+      return savedDefault;
+    }
+    return getDefaultVoiceProfileName(speakerProfiles) || '';
+  }, [project?.speaker_profile_name, settings?.default_speaker_profile, speakerProfiles]);
   const projectDefaultVoiceLabel = React.useMemo(() => {
-    const fallbackVoiceValue = (settings?.default_speaker_profile && speakerProfiles.some(p => p.name === settings.default_speaker_profile))
-      ? settings.default_speaker_profile
-      : (getDefaultVoiceProfileName(speakerProfiles) || '');
-    const fallbackVoiceLabel = getVoiceOptionLabel(fallbackVoiceValue, speakerProfiles, speakers);
+    const fallbackVoiceLabel = getVoiceOptionLabel(effectiveProjectVoice, speakerProfiles, speakers);
     return fallbackVoiceLabel ? `Default Speaker (${fallbackVoiceLabel})` : 'Default Speaker';
-  }, [settings?.default_speaker_profile, speakerProfiles, speakers]);
+  }, [effectiveProjectVoice, speakerProfiles, speakers]);
 
   const formatLength = (seconds: number) => {
     if (seconds < 60) return `${Math.round(seconds)}s`;
@@ -179,7 +174,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
                   job={pickLatestJob(j => j.project_id === projectId && (j.chapter_id === editingChapterId || j.chapter_file?.includes(editingChapterId)))}
                   chapterJobs={chapterJobs}
                   onBack={() => { setEditingChapterId(null); loadData(); }}
-                  selectedVoice={selectedVoice}
+                  selectedVoice={effectiveProjectVoice}
                   onNext={activeIdx < chapters.length - 1 ? () => setEditingChapterId(chapters[activeIdx + 1].id) : undefined}
                   onPrev={activeIdx > 0 ? () => setEditingChapterId(chapters[activeIdx - 1].id) : undefined}
               segmentUpdate={segmentUpdate}
@@ -221,7 +216,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
                         </>
                       ) : (
                         <>
-                          <button onClick={() => handleQueueAllUnprocessed(chapters, jobs, selectedVoice)} className="btn-ghost" style={{ border: '1px solid var(--border)', color: 'var(--accent)', fontSize: '0.85rem' }}><Zap size={16} /> Queue Remaining</button>
+                          <button onClick={() => handleQueueAllUnprocessed(chapters, jobs, effectiveProjectVoice)} className="btn-ghost" style={{ border: '1px solid var(--border)', color: 'var(--accent)', fontSize: '0.85rem' }}><Zap size={16} /> Queue Remaining</button>
                           <select value={selectedVoice} onChange={e => { void handleProjectVoiceChange(e.target.value); }} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '0.85rem', padding: '0.25rem 0.5rem' }}>
                               <option value="">{projectDefaultVoiceLabel}</option>
                               {mergedVoices.map(v => <option key={v.id} value={v.value}>{v.name}</option>)}
@@ -240,7 +235,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
                 onReorder={(newOrder) => { setChapters(newOrder); handleReorderChapters(newOrder); }}
                 onEditChapter={setEditingChapterId} 
                 onRenameChapter={async (id, title) => { await api.updateChapter(id, { title }); await loadData(); }}
-                onQueueChapter={chap => { if (chap.char_count > 50000) setConfirmConfig({ title: 'Large Chapter', message: 'Chapter is long. Queue anyway?', onConfirm: () => handleQueueChapter(chap.id, selectedVoice) }); else handleQueueChapter(chap.id, selectedVoice); }}
+                onQueueChapter={chap => { if (chap.char_count > 50000) setConfirmConfig({ title: 'Large Chapter', message: 'Chapter is long. Queue anyway?', onConfirm: () => handleQueueChapter(chap.id, effectiveProjectVoice) }); else handleQueueChapter(chap.id, effectiveProjectVoice); }}
                 onResetAudio={id => setConfirmConfig({ title: 'Reset Audio', message: 'Delete all audio for this chapter?', isDestructive: true, onConfirm: () => handleResetChapterAudio(id) })}
                 onDeleteChapter={id => setConfirmConfig({ title: 'Delete Chapter', message: 'Permanently delete this chapter?', isDestructive: true, onConfirm: () => handleDeleteChapter(id) })}
                 onExportSample={async chap => { setIsExporting(chap.id); const res = await api.exportSample(chap.id, projectId); if (res.url) window.open(res.url, '_blank'); setIsExporting(null); }}
