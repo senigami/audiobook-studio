@@ -1,5 +1,36 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+const stripMotionProps = (props: Record<string, unknown>) => {
+  const {
+    initial,
+    animate,
+    exit,
+    transition,
+    whileHover,
+    whileTap,
+    whileDrag,
+    layout,
+    layoutId,
+    drag,
+    dragConstraints,
+    dragElastic,
+    ...domProps
+  } = props;
+  void initial;
+  void animate;
+  void exit;
+  void transition;
+  void whileHover;
+  void whileTap;
+  void whileDrag;
+  void layout;
+  void layoutId;
+  void drag;
+  void dragConstraints;
+  void dragElastic;
+  return domProps;
+};
+
 // Mock API
 vi.mock('../api', () => ({
   api: {
@@ -39,7 +70,7 @@ vi.mock('../hooks/useChapterPlayback', () => ({
 // Mock framer-motion
 vi.mock('framer-motion', () => ({
   motion: {
-    div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+    div: ({ children, ...props }: any) => <div {...stripMotionProps(props)}>{children}</div>,
   },
   AnimatePresence: ({ children }: any) => <>{children}</>,
 }));
@@ -50,6 +81,8 @@ import { api } from '../api';
 import type { Character } from '../types';
 
 describe('ChapterEditor', () => {
+  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
+
   const mockProjectId = 'proj-123';
   const mockChapterId = 'chap-456';
   const mockChapter = {
@@ -82,6 +115,7 @@ describe('ChapterEditor', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     (api.fetchChapters as any).mockResolvedValue([mockChapter]);
     (api.fetchSegments as any).mockResolvedValue(mockSegments);
     (api.fetchCharacters as any).mockResolvedValue(mockCharacters);
@@ -90,9 +124,14 @@ describe('ChapterEditor', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    consoleErrorSpy.mockRestore();
   });
 
   it('renders loading state initially', () => {
+    (api.fetchChapters as any).mockReturnValue(new Promise(() => {}));
+    (api.fetchSegments as any).mockReturnValue(new Promise(() => {}));
+    (api.fetchCharacters as any).mockReturnValue(new Promise(() => {}));
+
     render(
       <ChapterEditor 
         chapterId={mockChapterId} 

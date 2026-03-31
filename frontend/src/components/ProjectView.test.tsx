@@ -1,5 +1,40 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+const stripMotionProps = (props: Record<string, unknown>) => {
+  const {
+    initial,
+    animate,
+    exit,
+    transition,
+    whileHover,
+    whileTap,
+    whileDrag,
+    layout,
+    layoutId,
+    drag,
+    dragListener,
+    dragConstraints,
+    dragElastic,
+    onReorder,
+    ...domProps
+  } = props;
+  void initial;
+  void animate;
+  void exit;
+  void transition;
+  void whileHover;
+  void whileTap;
+  void whileDrag;
+  void layout;
+  void layoutId;
+  void drag;
+  void dragListener;
+  void dragConstraints;
+  void dragElastic;
+  void onReorder;
+  return domProps;
+};
+
 const mockUseProjectActions = vi.hoisted(() =>
   vi.fn(() => ({
     submitting: false,
@@ -32,6 +67,10 @@ vi.mock('../api', () => ({
 // Mock hooks
 vi.mock('../hooks/useProjectActions', () => ({
   useProjectActions: () => mockUseProjectActions(),
+}));
+
+vi.mock('./CharactersTab', () => ({
+  CharactersTab: () => <div>Characters & Voices</div>,
 }));
 
 // Mock lucide-react
@@ -71,13 +110,13 @@ vi.mock('lucide-react', () => ({
 // Mock framer-motion
 vi.mock('framer-motion', () => ({
   motion: {
-    div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
-    button: ({ children, ...props }: any) => <button {...props}>{children}</button>,
+    div: ({ children, ...props }: any) => <div {...stripMotionProps(props)}>{children}</div>,
+    button: ({ children, ...props }: any) => <button {...stripMotionProps(props)}>{children}</button>,
   },
   AnimatePresence: ({ children }: any) => <>{children}</>,
   Reorder: {
-      Group: ({ children }: any) => <div data-testid="reorder-group">{children}</div>,
-      Item: ({ children }: any) => <div data-testid="reorder-item">{children}</div>,
+      Group: ({ children, ...props }: any) => <div data-testid="reorder-group" {...stripMotionProps(props)}>{children}</div>,
+      Item: ({ children, ...props }: any) => <div data-testid="reorder-item" {...stripMotionProps(props)}>{children}</div>,
   }
 }));
 
@@ -190,6 +229,10 @@ describe('ProjectView', () => {
   };
 
   it('renders loading state', () => {
+    (api.fetchProject as any).mockReturnValue(new Promise(() => {}));
+    (api.fetchChapters as any).mockReturnValue(new Promise(() => {}));
+    (api.fetchProjectAudiobooks as any).mockReturnValue(new Promise(() => {}));
+
     renderProjectView();
     expect(screen.getByText('Loading project...')).toBeInTheDocument();
   });
@@ -209,7 +252,7 @@ describe('ProjectView', () => {
   it('switches to characters tab', async () => {
     renderProjectView();
 
-    await waitFor(() => screen.findByText('Test Project'));
+    await screen.findByText('Test Project');
 
     fireEvent.click(screen.getByText('Characters'));
     expect(screen.getByText('Characters & Voices')).toBeInTheDocument();
