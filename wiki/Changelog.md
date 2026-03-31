@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.4] - 2026-03-31
+
+### Highlights
+
+- **Project And Chapter Voice Overrides Now Actually Persist**: Voice selection changes from the project page and chapter editor are now saved through the API, survive refreshes, and correctly clear back to the inherited default when you choose the default option again.
+- **Fallback Voice Labels Are Much Clearer**: Default voice options now show the actual effective fallback voice in parentheses using the same display-name logic as the rest of the voice picker, so users can see what “Default Speaker” or “Use Project Default” will really use.
+- **First-Run XTTS Downloads Are Easier To Understand**: Worker logging now surfaces more Hugging Face and model-download progress into the terminal, which makes long first-run setup look like active work instead of a silent stall.
+- **PR Validation Is Faster Without Removing Main-Branch Protection**: The CI workflow now uses a quicker PR check path while still keeping full-suite backend and frontend validation available for mainline protection.
+- **Frontend Voice-Workflow Tests Are Cleaner**: The focused `ProjectView` and `ChapterEditor` Vitest coverage now avoids React warning noise from test-only motion mocks and async tab loading, so regressions are easier to spot when these tests fail for real.
+
 ## [1.8.3] - 2026-03-30
 
 ### Highlights

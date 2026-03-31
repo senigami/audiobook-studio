@@ -24,19 +24,19 @@ It is built for real long-form work, not just one-click text-to-speech. You can 
 XTTS remains the private local-default engine. Voxtral is available as an optional cloud voice engine after you add your own Mistral API key in Settings.
 
 > [!IMPORTANT]
-> **Version 1.8.1 is the current recommended release line for new users.**
-> It keeps XTTS as the private local-default path, adds optional Voxtral support behind Settings, and folds in the first patch round of chunking, playback, and chapter-repair fixes after the 1.8.0 release.
+> **This is the current recommended release line for new users.**
+> It keeps XTTS as the private local-default path, adds optional Voxtral support behind Settings, and includes the latest patch-line fixes for persisted voice defaults, clearer XTTS startup visibility, and post-1.8.0 workflow stability.
 
 <details>
-<summary>What's New In 1.8.1</summary>
-## What's New In 1.8.1
+<summary>What's New In The Current Release</summary>
+## What's New In The Current Release
 
-- **Chunk generation matches the displayed Performance blocks more reliably**: Generating one block no longer tends to pull the wrong neighbor along for the ride or point playback at the wrong audio file.
-- **Project-view chapter renders now feed the Performance tab correctly**: Full XTTS chapter generation produces the chunk audio the chapter view expects, so generated chapters stay playable block-by-block instead of immediately asking to regenerate.
-- **Smarter segment invalidation after text edits**: Editing one sentence no longer wipes later unchanged audio unless those later rows were sharing the same chunk file and would otherwise become stale.
-- **Optional Voxtral support remains intact**: XTTS stays fully local by default, while `Voxtral (Cloud)` remains opt-in behind your own Mistral API key in Settings.
+- **Project and chapter voice choices now persist correctly**: Voice selections now save through the API, survive refreshes, and properly clear back to inherited defaults when you choose the default option again.
+- **Default voice labels are clearer**: Default options now show the actual effective fallback voice in parentheses using the same display-name logic as the rest of the picker.
+- **XTTS first-run setup is easier to understand**: Worker output now surfaces more Hugging Face and model-download progress so long first-run preparation looks like active work instead of a silent stall.
+- **Patch-line stability work continues**: This release keeps the local-first XTTS path and optional Voxtral support while tightening the voice workflow and speeding up PR validation.
 
-If you want the original feature-release summary for engine-per-voice and Voxtral, see the [1.8.0 changelog entry](https://github.com/senigami/audiobook-studio/wiki/Changelog).
+If you want the earlier patch-release details for chunking, playback, and Windows startup fixes, see the [changelog](https://github.com/senigami/audiobook-studio/wiki/Changelog).
 </details>
 
 ## Why People Use It
