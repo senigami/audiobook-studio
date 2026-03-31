@@ -43,18 +43,20 @@ export const ChapterList: React.FC<ChapterListProps> = ({
   isExporting,
   formatLength
 }) => {
+  const RECENT_COMPLETION_WINDOW_SECONDS = 8;
   const [editingTitleId, setEditingTitleId] = React.useState<string | null>(null);
   const [tempTitle, setTempTitle] = React.useState('');
   const [openMenuRowId, setOpenMenuRowId] = React.useState<string | null>(null);
   const skipBlurSaveId = React.useRef<string | null>(null);
 
-  const pickActiveJob = React.useCallback((chapterId: string) => {
+  const pickActiveJob = React.useCallback((chapterId: string, includeRecentDone = false) => {
     const liveStatuses = new Set(['running', 'preparing', 'finalizing', 'queued']);
+    const now = Date.now() / 1000;
     const relevantJobs = Object.values(jobs).filter(j => j.project_id === projectId && (j.chapter_id === chapterId || (j.chapter_file && j.chapter_file.includes(chapterId))));
     const ranked = relevantJobs
-      .filter(j => liveStatuses.has(j.status))
+      .filter(j => liveStatuses.has(j.status) || (includeRecentDone && j.status === 'done' && !!j.finished_at && (now - j.finished_at) <= RECENT_COMPLETION_WINDOW_SECONDS))
       .sort((a, b) => {
-        const statusRank: Record<string, number> = { running: 4, finalizing: 3, preparing: 2, queued: 1 };
+        const statusRank: Record<string, number> = { running: 5, finalizing: 4, preparing: 3, queued: 2, done: 1 };
         const aRank = statusRank[a.status] || 0;
         const bRank = statusRank[b.status] || 0;
         if (aRank !== bRank) return bRank - aRank;
@@ -90,10 +92,13 @@ export const ChapterList: React.FC<ChapterListProps> = ({
       
       <Reorder.Group axis="y" values={chapters} onReorder={onReorder} style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column' }}>
         {chapters.map((chap, idx) => {
-          const activeJob = pickActiveJob(chap.id);
-          const progressValue = activeJob ? (activeJob.progress ?? 0) : 0;
-          const isMenuOpen = openMenuRowId === chap.id;
           const hasChapterAudio = !!(chap.has_wav || chap.has_mp3 || chap.has_m4a);
+          const activeJob = pickActiveJob(chap.id, !hasChapterAudio && chap.audio_status !== 'processing');
+          const displayStatus = activeJob?.status === 'done' && !hasChapterAudio ? 'finalizing' : activeJob?.status;
+          const progressValue = displayStatus === 'finalizing'
+            ? 1
+            : activeJob ? (activeJob.progress ?? 0) : 0;
+          const isMenuOpen = openMenuRowId === chap.id;
           const isFullyRendered = hasChapterAudio;
           const queueActionLabel = isFullyRendered
             ? 'Rebuild Audio'
@@ -101,13 +106,13 @@ export const ChapterList: React.FC<ChapterListProps> = ({
               ? 'Queue Remaining'
               : 'Queue Chapter';
           const queueStatus = activeJob
-            ? (activeJob.status === 'queued'
+            ? (displayStatus === 'queued'
               ? 'Queued'
-              : activeJob.status === 'preparing'
+              : displayStatus === 'preparing'
                 ? 'Preparing'
-                : activeJob.status === 'running'
+                : displayStatus === 'running'
                   ? 'Rendering'
-                  : activeJob.status === 'finalizing'
+                  : displayStatus === 'finalizing'
                     ? 'Finalizing'
                     : null)
             : chap.audio_status === 'processing'
@@ -197,9 +202,10 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                           progress={progressValue} 
                           startedAt={activeJob.started_at}
                           etaSeconds={activeJob.eta_seconds}
-                          status={activeJob.status}
-                          label={activeJob.status} 
-                          predictive={true}
+                          status={displayStatus}
+                          label={displayStatus} 
+                          predictive={activeJob.engine !== 'voxtral'}
+                          indeterminateRunning={activeJob.engine === 'voxtral'}
                         />
                     </div>
                 ) : hasChapterAudio && !isAssemblyMode ? (

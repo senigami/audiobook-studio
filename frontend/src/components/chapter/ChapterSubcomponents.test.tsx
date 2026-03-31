@@ -250,6 +250,71 @@ describe('Chapter Subcomponents', () => {
       expect(screen.getByTestId('performance-progress-0')).toHaveAttribute('data-progress', '72');
     });
 
+    it('shows Voxtral jobs as indeterminate while running instead of predictive percentages', () => {
+      const activeJob = {
+        id: 'job-vox-1',
+        status: 'running',
+        engine: 'voxtral',
+        active_segment_id: null,
+        active_segment_progress: undefined,
+        started_at: Date.now() / 1000 - 20,
+        eta_seconds: 100,
+        progress: 1
+      } as any;
+
+      render(
+        <PerformanceTab
+          chunkGroups={[
+            { characterId: 'char-1', segments: [{ ...mockSegments[0], audio_status: 'unprocessed' }] }
+          ]}
+          characters={mockCharacters}
+          playingSegmentId={null}
+          playbackQueue={['seg-1']}
+          generatingSegmentIds={new Set()}
+          allSegmentIds={['seg-1']}
+          segments={mockSegments}
+          onPlay={vi.fn()}
+          onStop={vi.fn()}
+          onGenerate={vi.fn()}
+          generatingJob={activeJob}
+        />
+      );
+
+      expect(screen.getByTestId('performance-progress-0')).toHaveAttribute('data-progress', '0');
+      expect(screen.queryByText('100%')).toBeNull();
+    });
+
+    it('pins Voxtral jobs at 100% while finalizing', () => {
+      const activeJob = {
+        id: 'job-vox-2',
+        status: 'finalizing',
+        engine: 'voxtral',
+        active_segment_id: null,
+        active_segment_progress: undefined
+      } as any;
+
+      render(
+        <PerformanceTab
+          chunkGroups={[
+            { characterId: 'char-1', segments: [{ ...mockSegments[0], audio_status: 'unprocessed' }] }
+          ]}
+          characters={mockCharacters}
+          playingSegmentId={null}
+          playbackQueue={['seg-1']}
+          generatingSegmentIds={new Set()}
+          allSegmentIds={['seg-1']}
+          segments={mockSegments}
+          onPlay={vi.fn()}
+          onStop={vi.fn()}
+          onGenerate={vi.fn()}
+          generatingJob={activeJob}
+        />
+      );
+
+      expect(screen.getByTestId('performance-progress-0')).toHaveAttribute('data-progress', '100');
+      expect(screen.getByText('100%')).toBeInTheDocument();
+    });
+
     it('lets a completed segment linger at 100% before clearing when the job advances', () => {
       vi.useFakeTimers();
       try {

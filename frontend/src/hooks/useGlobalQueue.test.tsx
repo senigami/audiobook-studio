@@ -82,6 +82,62 @@ describe('useGlobalQueue', () => {
     expect(result.current.queue[0].status).toBe('running');
   });
 
+  it('holds a completed chapter job in finalizing until chapter audio is visible', async () => {
+    const mockQueue = [{
+      id: 'job1',
+      status: 'running',
+      chapter_id: 'chap1',
+      chapter_audio_status: 'processing',
+      chapter_audio_file_path: null,
+      completed_at: Date.now() / 1000
+    }] as any;
+    (api.getProcessingQueue as any).mockResolvedValue(mockQueue);
+
+    const { result, rerender } = renderHook(({ jobs }) =>
+      useGlobalQueue(false, jobs, 0), {
+      initialProps: { jobs: {} }
+    });
+
+    await waitFor(() => expect(result.current.queue).toHaveLength(1));
+
+    rerender({
+      jobs: { job1: { id: 'job1', status: 'done', progress: 1, engine: 'voxtral' } as any }
+    });
+
+    expect(result.current.queue[0].status).toBe('finalizing');
+    expect(result.current.queue[0].progress).toBe(1);
+  });
+
+  it('keeps an older done Voxtral row in history when a newer run for the same chapter is already queued', async () => {
+    const mockQueue = [
+      {
+        id: 'job-old',
+        status: 'done',
+        chapter_id: 'chap1',
+        engine: 'voxtral',
+        chapter_audio_status: 'processing',
+        chapter_audio_file_path: null,
+        completed_at: Date.now() / 1000,
+      },
+      {
+        id: 'job-new',
+        status: 'queued',
+        chapter_id: 'chap1',
+        engine: 'voxtral',
+        chapter_audio_status: 'processing',
+        chapter_audio_file_path: null,
+        created_at: Date.now() / 1000,
+      }
+    ] as any;
+    (api.getProcessingQueue as any).mockResolvedValue(mockQueue);
+
+    const { result } = renderHook(() => useGlobalQueue(false, {}, 0));
+    await waitFor(() => expect(result.current.queue).toHaveLength(2));
+
+    expect(result.current.queue.find(q => q.id === 'job-old')?.status).toBe('done');
+    expect(result.current.queue.find(q => q.id === 'job-new')?.status).toBe('queued');
+  });
+
   it('handles reordering', async () => {
     const mockQueue = [
       { id: 'job1', status: 'queued' },

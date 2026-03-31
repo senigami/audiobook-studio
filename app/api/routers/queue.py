@@ -64,7 +64,14 @@ def api_get_queue():
         sync_memory_queue()
         queue_items = get_queue()
 
+    active_queue_chapter_ids = {
+        item["chapter_id"]
+        for item in queue_items
+        if item.get("chapter_id") and item.get("status") in ACTIVE_JOB_STATUSES
+    }
+
     # Merge live data from state.json for active jobs
+    now = time.time()
     for item in queue_items:
         jid = item["id"]
         job = all_jobs.get(jid)
@@ -74,6 +81,20 @@ def api_get_queue():
             item["progress"] = job_dict.get("progress", 0.0)
             item["logs"] = job_dict.get("logs", "")
             item["status"] = job_dict.get("status", item["status"])
+        has_chapter_audio = item.get("chapter_audio_status") == "done" or bool(item.get("chapter_audio_file_path"))
+        completed_at = item.get("completed_at") or 0
+        has_active_sibling = bool(item.get("chapter_id")) and item.get("chapter_id") in active_queue_chapter_ids
+        if (
+            item.get("engine") == "voxtral"
+            and item.get("status") == "done"
+            and item.get("chapter_id")
+            and not has_chapter_audio
+            and not has_active_sibling
+            and completed_at
+            and (now - completed_at) <= 12
+        ):
+            item["status"] = "finalizing"
+            item["progress"] = 1.0
     return JSONResponse(queue_items)
 
 @router.delete("/processing_queue")

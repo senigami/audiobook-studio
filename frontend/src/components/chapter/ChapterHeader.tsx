@@ -60,9 +60,11 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
           ? 'Rendering'
           : job?.status === 'finalizing'
             ? 'Finalizing'
-          : chapter?.audio_status === 'processing'
+            : chapter?.audio_status === 'processing'
               ? 'Processing'
-              : null;
+              : job?.status === 'done' && !hasChapterAudio
+                ? 'Finalizing'
+                : null;
   const isQueued = queueStatus === 'Queued';
 
   return (

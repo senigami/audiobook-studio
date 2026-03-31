@@ -25,6 +25,10 @@ function getPredictiveJobProgress(job?: Job): number {
   return Math.max(baseProgress, timeProgress);
 }
 
+function isVoxtralJob(job?: Job): boolean {
+  return job?.engine === 'voxtral';
+}
+
 function useSegmentProgressLifecycle(
     isActive: boolean,
     activeProgress: number,
@@ -363,15 +367,16 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
   const [, forceNow] = useState(0);
   const uniqueSegmentIds = Array.from(new Set(allSegmentIds));
   const activeJobIsLive = !!generatingJob && ['queued', 'preparing', 'running', 'finalizing'].includes(generatingJob.status);
+  const voxtralJob = isVoxtralJob(generatingJob);
   const activeSegmentId = activeJobIsLive ? generatingJob?.active_segment_id : null;
 
   useEffect(() => {
-    if (!activeJobIsLive || !generatingJob || (generatingJob.active_segment_progress ?? 0) > 0) {
+    if (!activeJobIsLive || !generatingJob || voxtralJob || (generatingJob.active_segment_progress ?? 0) > 0) {
       return;
     }
     const timer = window.setInterval(() => forceNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
-  }, [activeJobIsLive, generatingJob?.id, generatingJob?.status, generatingJob?.started_at, generatingJob?.eta_seconds, generatingJob?.progress, generatingJob?.active_segment_progress]);
+  }, [activeJobIsLive, voxtralJob, generatingJob?.id, generatingJob?.status, generatingJob?.started_at, generatingJob?.eta_seconds, generatingJob?.progress, generatingJob?.active_segment_progress]);
 
   const lastActiveGroupIndexRef = React.useRef(-1);
   const activeGroupIndex = React.useMemo(() => {
@@ -438,13 +443,18 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
                     const groupHasProcessingState = group.segments.some(s => s.audio_status === 'processing' || generatingSegmentIds.has(s.id));
                     const groupHasQueuedState = group.segments.some(s => queuedSegmentIds.has(s.id));
                     const activeProgress = activeJobIsLive && isActiveGroup
-                        ? ((generatingJob?.active_segment_progress ?? 0) > 0
-                            ? (generatingJob?.active_segment_progress ?? 0)
-                            : getPredictiveJobProgress(generatingJob))
+                        ? (voxtralJob
+                            ? (generatingJob?.status === 'finalizing' ? 1 : 0)
+                            : ((generatingJob?.active_segment_progress ?? 0) > 0
+                                ? (generatingJob?.active_segment_progress ?? 0)
+                                : getPredictiveJobProgress(generatingJob)))
                         : 0;
-                    const showIndeterminateProgress = activeJobIsLive && isActiveGroup && activeProgress <= 0;
+                    const showIndeterminateProgress = activeJobIsLive
+                      && isActiveGroup
+                      && ((voxtralJob && ['queued', 'preparing', 'running'].includes(generatingJob?.status || ''))
+                        || activeProgress <= 0);
                     const showPreparingIndeterminate = showIndeterminateProgress && ['queued', 'preparing'].includes(generatingJob?.status || '');
-                    const allowSettle = (generatingJob?.status === 'running' || generatingJob?.status === 'finalizing') && !!generatingJob?.active_segment_id;
+                    const allowSettle = !voxtralJob && (generatingJob?.status === 'running' || generatingJob?.status === 'finalizing') && !!generatingJob?.active_segment_id;
                     const resetKey = `${generatingJob?.id || 'none'}:${generatingJob?.status || 'none'}:${generatingJob?.started_at || 0}`;
                     const isPlaying = playingSegmentId && group.segments.some(s => s.id === playingSegmentId);
                     const nextId = (() => {

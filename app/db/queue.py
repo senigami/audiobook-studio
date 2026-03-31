@@ -92,7 +92,9 @@ def get_queue() -> List[Dict[str, Any]]:
             # Return active jobs sorted by created_at, then history items
             cursor.execute("""
                 SELECT q.*, p.name as project_name, c.title as chapter_title, 
-                       c.predicted_audio_length, c.char_count
+                       c.predicted_audio_length, c.char_count,
+                       c.audio_status as chapter_audio_status,
+                       c.audio_file_path as chapter_audio_file_path
                 FROM processing_queue q
                 LEFT JOIN projects p ON q.project_id = p.id
                 LEFT JOIN chapters c ON q.chapter_id = c.id

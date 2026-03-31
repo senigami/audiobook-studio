@@ -60,4 +60,35 @@ describe('PredictiveProgressBar', () => {
 
         expect(screen.getByText('16%')).toBeTruthy()
     })
+
+    it('renders an indeterminate working state for non-predictive running jobs', () => {
+        const { container } = render(
+            <PredictiveProgressBar
+                progress={0}
+                label="Live"
+                status="running"
+                showEta={false}
+                predictive={false}
+                indeterminateRunning={true}
+            />
+        )
+
+        expect(screen.getByText('Working...')).toBeTruthy()
+        const bar = container.querySelector('.progress-bar-animated') as HTMLElement
+        expect(bar).toBeTruthy()
+        expect(bar.style.width).toBe('35%')
+    })
+
+    it('pins finalizing jobs at 100 percent', () => {
+        render(
+            <PredictiveProgressBar
+                progress={0.42}
+                label="Fin"
+                status="finalizing"
+                showEta={false}
+            />
+        )
+
+        expect(screen.getByText('100%')).toBeTruthy()
+    })
 })

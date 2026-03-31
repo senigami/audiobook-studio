@@ -162,6 +162,10 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
   if (!project) return <div style={{ padding: '2rem' }}>Project not found.</div>;
 
   if (editingChapterId) {
+      const editingChapter = chapters.find(c => c.id === editingChapterId) || null;
+      const includeDoneForEditor = !!editingChapter
+        && editingChapter.audio_status !== 'processing'
+        && !(editingChapter.has_wav || editingChapter.has_mp3 || editingChapter.has_m4a);
       const chapterJobs = Object.values(jobs).filter(j =>
         j.project_id === projectId &&
         (j.chapter_id === editingChapterId || j.chapter_file?.includes(editingChapterId)) &&
@@ -171,7 +175,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
       return (
               <ChapterEditor 
                   chapterId={editingChapterId} projectId={projectId} speakerProfiles={speakerProfiles} speakers={speakers}
-                  job={pickLatestJob(j => j.project_id === projectId && (j.chapter_id === editingChapterId || j.chapter_file?.includes(editingChapterId)))}
+                  job={pickLatestJob(j => j.project_id === projectId && (j.chapter_id === editingChapterId || j.chapter_file?.includes(editingChapterId)), includeDoneForEditor)}
                   chapterJobs={chapterJobs}
                   onBack={() => { setEditingChapterId(null); loadData(); }}
                   selectedVoice={effectiveProjectVoice}

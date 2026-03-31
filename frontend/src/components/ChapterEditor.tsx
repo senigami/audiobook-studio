@@ -106,6 +106,8 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   const pendingGenerationTimesRef = useRef<Map<string, number>>(new Map());
   const segmentRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queueSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const completionPollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const completionPollAttemptsRef = useRef(0);
 
   const availableVoices = React.useMemo(() => {
     return buildVoiceOptions(speakerProfiles || [], speakers || []);
@@ -359,15 +361,51 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   const hasRenderedSegments = segments.some(s => s.audio_status === 'done' || !!s.audio_file_path);
   const hasPartialSegmentProgress = hasRenderedSegments && !hasRenderedOutput;
   const shouldWarnBeforeRequeue = hasRenderedOutput;
-  const isQueueLocked = queuePending || submitting || chapter?.audio_status === 'processing' || ['queued', 'preparing', 'running', 'finalizing'].includes(job?.status || '');
+  const hasLiveJob = ['queued', 'preparing', 'running', 'finalizing'].includes(job?.status || '');
+  const jobLooksPendingCompletion = job?.status === 'done' && !hasRenderedOutput && chapter?.audio_status !== 'processing';
+  const needsCompletionRefresh = jobLooksPendingCompletion || (chapter?.audio_status === 'processing' && !hasLiveJob);
+  const isQueueLocked = queuePending || submitting || chapter?.audio_status === 'processing' || hasLiveJob || jobLooksPendingCompletion;
   const queueButtonLabel = shouldWarnBeforeRequeue ? 'Rebuild' : hasPartialSegmentProgress ? 'Complete' : 'Queue';
   const queueButtonTitle = shouldWarnBeforeRequeue ? 'Rebuild Chapter' : hasPartialSegmentProgress ? 'Complete Chapter Audio' : 'Queue Chapter';
 
   useEffect(() => {
-    if (chapter?.audio_status === 'processing' || ['queued', 'preparing', 'running', 'finalizing'].includes(job?.status || '')) {
+    if (chapter?.audio_status === 'processing' || ['queued', 'preparing', 'running', 'finalizing'].includes(job?.status || '') || jobLooksPendingCompletion) {
       setQueuePending(false);
     }
-  }, [chapter?.audio_status, job?.status]);
+  }, [chapter?.audio_status, job?.status, jobLooksPendingCompletion]);
+
+  useEffect(() => {
+    if (completionPollTimerRef.current) {
+      clearTimeout(completionPollTimerRef.current);
+      completionPollTimerRef.current = null;
+    }
+
+    if (!needsCompletionRefresh) {
+      completionPollAttemptsRef.current = 0;
+      return;
+    }
+
+    if (completionPollAttemptsRef.current >= 12) {
+      return;
+    }
+
+    completionPollTimerRef.current = setTimeout(async () => {
+      completionPollTimerRef.current = null;
+      completionPollAttemptsRef.current += 1;
+      try {
+        await loadChapter();
+      } catch (e) {
+        console.error("Completion refresh failed", e);
+      }
+    }, 1000);
+
+    return () => {
+      if (completionPollTimerRef.current) {
+        clearTimeout(completionPollTimerRef.current);
+        completionPollTimerRef.current = null;
+      }
+    };
+  }, [needsCompletionRefresh, chapterId, job?.id, job?.status]);
 
   const executeQueue = async () => {
     if (queueSyncTimerRef.current) {
@@ -412,6 +450,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     return () => {
       if (queueSyncTimerRef.current) clearTimeout(queueSyncTimerRef.current);
       if (segmentRefreshTimerRef.current) clearTimeout(segmentRefreshTimerRef.current);
+      if (completionPollTimerRef.current) clearTimeout(completionPollTimerRef.current);
     };
   }, []);
 

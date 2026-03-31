@@ -7,12 +7,16 @@ vi.mock('../PredictiveProgressBar', () => ({
     progress,
     predictive,
     startedAt,
-    etaSeconds
+    etaSeconds,
+    indeterminateRunning,
+    status
   }: {
     progress: number;
     predictive?: boolean;
     startedAt?: number;
     etaSeconds?: number;
+    indeterminateRunning?: boolean;
+    status?: string;
   }) => (
     <div
       data-testid="progress-bar"
@@ -20,6 +24,8 @@ vi.mock('../PredictiveProgressBar', () => ({
       data-predictive={String(!!predictive)}
       data-started-at={startedAt ?? ''}
       data-eta-seconds={etaSeconds ?? ''}
+      data-indeterminate-running={String(!!indeterminateRunning)}
+      data-status={status ?? ''}
     />
   )
 }));
@@ -107,6 +113,23 @@ describe('Global Queue Components', () => {
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'true');
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-started-at', '1000');
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-eta-seconds', '30');
+        });
+
+        it('uses indeterminate non-predictive progress for voxtral jobs', () => {
+            render(
+                <QueueItem
+                    job={{ ...mockJob, engine: 'voxtral', status: 'running', progress: 0 } as any}
+                    liveJob={{ id: 'job-1', engine: 'voxtral', status: 'running', progress: 0, started_at: 1000, eta_seconds: 30 } as any}
+                    localPaused={false}
+                    formatJobTitle={(j) => `Title for ${j.id}`}
+                    formatTime={(t) => `Time ${t}`}
+                    onRemove={vi.fn()}
+                />
+            );
+
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'false');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-indeterminate-running', 'true');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-status', 'running');
         });
 
         it('shows pause icon when paused', () => {

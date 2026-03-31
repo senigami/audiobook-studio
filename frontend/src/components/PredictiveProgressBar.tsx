@@ -8,6 +8,7 @@ interface PredictiveProgressBarProps {
     showEta?: boolean;
     status?: string;
     predictive?: boolean;
+    indeterminateRunning?: boolean;
 }
 
 const formatTime = (seconds: number) => {
@@ -25,7 +26,8 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     label = "Progress",
     showEta = true,
     status,
-    predictive = true
+    predictive = true,
+    indeterminateRunning = false
 }) => {
     const [now, setNow] = useState(Date.now());
     const [displayedRemaining, setDisplayedRemaining] = useState<number | null>(null);
@@ -36,14 +38,21 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     }, []);
 
     const getProgressInfo = () => {
+        if (status === 'finalizing') {
+            return { remaining: null, localProgress: 1, indeterminate: false };
+        }
         if (status !== 'running' && status !== 'finalizing') {
-            return { remaining: null, localProgress: 0 };
+            return { remaining: null, localProgress: 0, indeterminate: false };
         }
         if (!predictive) {
-            return { remaining: null, localProgress: Math.max(0, Math.min(1, progress)) };
+            return {
+                remaining: null,
+                localProgress: indeterminateRunning && status === 'running' ? 0 : Math.max(0, Math.min(1, progress)),
+                indeterminate: indeterminateRunning && status === 'running',
+            };
         }
         if (!startedAt || !etaSeconds) {
-            return { remaining: null, localProgress: progress };
+            return { remaining: null, localProgress: progress, indeterminate: false };
         }
         const elapsed = (now / 1000) - startedAt;
         const timeProgress = Math.min(0.99, Math.max(0, elapsed / etaSeconds));
@@ -62,11 +71,12 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
 
         return {
             remaining: Math.max(0, Math.floor(refinedRemaining)),
-            localProgress: currentProgress
+            localProgress: currentProgress,
+            indeterminate: false
         };
     };
 
-    const { remaining: calculatedRemaining, localProgress } = getProgressInfo();
+    const { remaining: calculatedRemaining, localProgress, indeterminate } = getProgressInfo();
 
     useEffect(() => {
         if (calculatedRemaining === null) {
@@ -100,18 +110,18 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                     </div>
                 ) : (
                     <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--accent)' }}>
-                        {Math.round(localProgress * 100)}%
+                        {indeterminate ? 'Working...' : `${Math.round(localProgress * 100)}%`}
                     </span>
                 )}
             </div>
             <div style={{ height: '6px', background: 'rgba(0,0,0,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
                 <div
-                    className="progress-bar-animated"
+                    className={indeterminate ? 'progress-bar-animated' : undefined}
                     style={{
                         height: '100%',
-                        width: `${localProgress * 100}%`,
+                        width: indeterminate ? '35%' : `${localProgress * 100}%`,
                         background: 'var(--accent)',
-                        transition: 'width 1s ease-out'
+                        transition: indeterminate ? 'none' : 'width 1s ease-out'
                     }}
                 />
             </div>

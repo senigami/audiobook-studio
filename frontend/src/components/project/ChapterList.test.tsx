@@ -126,4 +126,39 @@ describe('ChapterList', () => {
 
     expect(screen.getByText('Queued')).toBeInTheDocument();
   });
+
+  it('shows Voxtral jobs as working instead of predictive percentages while running', () => {
+    const liveJob = {
+      id: 'job-voxtral',
+      project_id: 'proj-1',
+      chapter_id: 'chap-123',
+      engine: 'voxtral',
+      status: 'running',
+      progress: 0,
+      started_at: Date.now() / 1000 - 10,
+      eta_seconds: 120,
+    } as any;
+
+    render(<ChapterList {...defaultProps} jobs={{ [liveJob.id]: liveJob }} chapters={[{ ...mockChapters[0], has_wav: false, audio_file_path: null, audio_status: 'processing' } as any]} />);
+
+    expect(screen.getByText('Working...')).toBeInTheDocument();
+  });
+
+  it('does not reuse a recent completed job once the chapter has been requeued into processing', () => {
+    const liveJob = {
+      id: 'job-voxtral-done',
+      project_id: 'proj-1',
+      chapter_id: 'chap-123',
+      engine: 'voxtral',
+      status: 'done',
+      progress: 1,
+      finished_at: Date.now() / 1000,
+    } as any;
+
+    render(<ChapterList {...defaultProps} jobs={{ [liveJob.id]: liveJob }} chapters={[{ ...mockChapters[0], has_wav: false, audio_file_path: null, audio_status: 'processing' } as any]} />);
+
+    expect(screen.getByText('Processing')).toBeInTheDocument();
+    expect(screen.queryByText('Finalizing')).toBeNull();
+    expect(screen.queryByText('100%')).toBeNull();
+  });
 });

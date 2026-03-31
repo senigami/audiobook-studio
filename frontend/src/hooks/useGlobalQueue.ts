@@ -2,6 +2,53 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { api } from '../api';
 import type { ProcessingQueueItem, Job } from '../types';
 
+const COMPLETION_HOLD_SECONDS = 12;
+
+function hasChapterAudioReady(item: ProcessingQueueItem): boolean {
+    return item.chapter_audio_status === 'done' || !!item.chapter_audio_file_path;
+}
+
+function shouldHoldCompletedVoxtralItem(item: ProcessingQueueItem, jobs: Record<string, Job>, queue: ProcessingQueueItem[], baseStatus: string): boolean {
+    if ((jobs[item.id]?.engine ?? item.engine) !== 'voxtral') return false;
+    if (baseStatus !== 'done' || !item.chapter_id) return false;
+    if (hasChapterAudioReady(item)) return false;
+    const recentlyCompleted = !!item.completed_at && ((Date.now() / 1000) - item.completed_at) <= COMPLETION_HOLD_SECONDS;
+    if (!recentlyCompleted && !jobs[item.id]) return false;
+    const hasActiveSibling = queue.some(other =>
+        other.id !== item.id &&
+        other.chapter_id === item.chapter_id &&
+        ['queued', 'preparing', 'running', 'finalizing'].includes(other.status)
+    );
+    return !hasActiveSibling;
+}
+
+function reconcileQueueItem(item: ProcessingQueueItem, jobs: Record<string, Job>, queue: ProcessingQueueItem[]): ProcessingQueueItem {
+    const liveJob = jobs[item.id];
+    const baseStatus = liveJob?.status ?? item.status;
+    let nextStatus = baseStatus;
+
+    if (baseStatus === 'done' && shouldHoldCompletedVoxtralItem(item, jobs, queue, baseStatus)) {
+        nextStatus = 'finalizing';
+    }
+
+    if (
+        nextStatus === item.status
+        && (liveJob?.progress ?? item.progress ?? 0) === (item.progress ?? 0)
+        && (liveJob?.started_at ?? item.started_at) === item.started_at
+        && (liveJob?.eta_seconds ?? item.eta_seconds) === item.eta_seconds
+    ) {
+        return item;
+    }
+
+    return {
+        ...item,
+        status: nextStatus,
+        progress: nextStatus === 'finalizing' ? 1.0 : (liveJob?.progress ?? item.progress),
+        started_at: liveJob?.started_at ?? item.started_at,
+        eta_seconds: liveJob?.eta_seconds ?? item.eta_seconds,
+    };
+}
+
 export const useGlobalQueue = (paused: boolean, jobs: Record<string, Job>, refreshTrigger: number, onRefresh?: () => void) => {
     const [queue, setQueue] = useState<ProcessingQueueItem[]>([]);
     const [loading, setLoading] = useState(true);
@@ -19,10 +66,15 @@ export const useGlobalQueue = (paused: boolean, jobs: Record<string, Job>, refre
     const isDraggingRef = useRef(false);
     const dragTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const queueRef = useRef(queue);
+    const jobsRef = useRef(jobs);
 
     useEffect(() => {
         queueRef.current = queue;
     }, [queue]);
+
+    useEffect(() => {
+        jobsRef.current = jobs;
+    }, [jobs]);
 
     // Define fetchQueue first to avoid hosting/initialization errors in effects
     const fetchQueue = useCallback(async () => {
@@ -30,7 +82,7 @@ export const useGlobalQueue = (paused: boolean, jobs: Record<string, Job>, refre
         try {
             const data = await api.getProcessingQueue();
             if (!isDraggingRef.current) {
-                setQueue(data);
+                setQueue(data.map(item => reconcileQueueItem(item, jobsRef.current, data)));
             }
         } catch (e) {
             console.error("Failed to fetch queue", e);
@@ -78,10 +130,18 @@ export const useGlobalQueue = (paused: boolean, jobs: Record<string, Job>, refre
         setQueue(prev => {
             let changed = false;
             const updated = prev.map(q => {
-                const liveJob = Object.values(jobs).find(j => j.id === q.id);
-                if (liveJob && liveJob.status !== q.status) {
+                const next = reconcileQueueItem(q, jobs, prev);
+                if (
+                    next !== q
+                    && (
+                        next.status !== q.status
+                        || next.progress !== q.progress
+                        || next.started_at !== q.started_at
+                        || next.eta_seconds !== q.eta_seconds
+                    )
+                ) {
                     changed = true;
-                    return { ...q, status: liveJob.status };
+                    return next;
                 }
                 return q;
             });

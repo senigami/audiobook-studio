@@ -25,6 +25,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     const etaSeconds = liveJob?.eta_seconds ?? job.eta_seconds;
     const progress = liveJob?.progress ?? job.progress ?? 0;
     const status = liveJob?.status ?? job.status;
+    const displayStatus = liveJob?.engine === 'voxtral' && status === 'finalizing' ? 'finalizing' : status;
 
     return (
         <div style={{
@@ -100,9 +101,10 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                     progress={progress}
                     startedAt={started}
                     etaSeconds={etaSeconds}
-                    status={status}
-                    label={status === 'preparing' ? "Preparing..." : (status === 'finalizing' ? "Finalizing..." : "Processing...")}
-                    predictive={true}
+                    status={displayStatus}
+                    label={displayStatus === 'preparing' ? "Preparing..." : (displayStatus === 'finalizing' ? "Finalizing..." : "Processing...")}
+                    predictive={(liveJob?.engine ?? job.engine) !== 'voxtral'}
+                    indeterminateRunning={(liveJob?.engine ?? job.engine) === 'voxtral'}
                 />
             </div>
         </div>
