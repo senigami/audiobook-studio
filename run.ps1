@@ -22,6 +22,21 @@ function Fail($Message) {
     throw $Message
 }
 
+function Get-NodeInstallHelp() {
+    $lines = @(
+        "Node.js 18+ and npm are required on a fresh clone because the frontend must be built."
+    )
+
+    if (Get-Command "winget" -ErrorAction SilentlyContinue) {
+        $lines += "Install it with: winget install -e --id OpenJS.NodeJS.LTS"
+    } else {
+        $lines += "Install Node.js LTS from: https://nodejs.org/"
+    }
+
+    $lines += "After installing Node.js, close this PowerShell window, open a new one, and rerun: powershell -ExecutionPolicy Bypass -File .\run.ps1"
+    return ($lines -join " ")
+}
+
 function Remove-BootstrapPythonEnv {
     if (Test-Path $BootstrapPythonEnv) {
         Remove-Item $BootstrapPythonEnv -Recurse -Force -ErrorAction SilentlyContinue
@@ -288,7 +303,7 @@ function Ensure-FrontendReady() {
                 Write-Warning "npm is not installed; using the bundled frontend build."
                 return
             }
-            Fail "Missing required command: npm"
+            Fail (Get-NodeInstallHelp)
         }
         Write-Step "Installing frontend dependencies"
         Push-Location $FrontendDir
@@ -334,7 +349,7 @@ function Ensure-FrontendReady() {
                 Write-Warning "npm is not installed; using the bundled frontend build instead of rebuilding."
                 return
             }
-            Fail "Missing required command: npm"
+            Fail (Get-NodeInstallHelp)
         }
         Write-Step "Building frontend"
         Push-Location $FrontendDir
