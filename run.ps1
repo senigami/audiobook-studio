@@ -76,6 +76,37 @@ function Get-WindowsPythonCandidates {
     return $candidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -Unique
 }
 
+function Get-PyLauncherCandidates {
+    if (-not (Get-Command "py" -ErrorAction SilentlyContinue)) {
+        return @()
+    }
+
+    $paths = @()
+    try {
+        $launcherOutput = & py -0p 2>$null
+        if ($LASTEXITCODE -ne 0 -or -not $launcherOutput) {
+            return @()
+        }
+
+        foreach ($line in $launcherOutput) {
+            $text = [string]$line
+            if (-not $text) {
+                continue
+            }
+            if ($text -match '([A-Za-z]:\\[^*\r\n]+python(?:\.exe)?)') {
+                $candidate = $Matches[1].Trim()
+                if ($candidate) {
+                    $paths += $candidate
+                }
+            }
+        }
+    } catch {
+        return @()
+    }
+
+    return $paths | Where-Object { $_ -and (Test-Path $_) } | Select-Object -Unique
+}
+
 function Find-Python {
     $candidates = @(
         @{ Command = "py"; Prefix = @("-3.13") },
@@ -94,6 +125,12 @@ function Find-Python {
         }
         if (Test-PythonVersion $candidate.Command $candidate.Prefix) {
             return $candidate
+        }
+    }
+
+    foreach ($pythonExe in Get-PyLauncherCandidates) {
+        if (Test-PythonVersion $pythonExe) {
+            return @{ Command = $pythonExe; Prefix = @() }
         }
     }
 
