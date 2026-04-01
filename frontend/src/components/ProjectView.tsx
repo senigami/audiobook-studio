@@ -16,7 +16,7 @@ import { ConfirmModal } from './ConfirmModal';
 // Extracted Hooks
 import { useProjectActions } from '../hooks/useProjectActions';
 import { buildVoiceOptions, getDefaultVoiceProfileName, getVoiceOptionLabel } from '../utils/voiceProfiles';
-import { pickRelevantJob } from '../utils/jobSelection';
+import { isChapterScopedJob, isSegmentScopedJob, pickRelevantJob } from '../utils/jobSelection';
 
 interface ProjectViewProps {
   jobs: Record<string, Job>;
@@ -25,9 +25,11 @@ interface ProjectViewProps {
   settings?: Settings;
   refreshTrigger?: number;
   segmentUpdate?: { chapterId: string; tick: number };
+  chapterUpdate?: { chapterId: string; tick: number };
 }
 
-export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles, speakers, settings, refreshTrigger = 0, segmentUpdate }) => {
+export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles, speakers, settings, refreshTrigger = 0, segmentUpdate, chapterUpdate }) => {
+  const RECENT_DONE_WINDOW_SECONDS = 60;
   const { projectId } = useParams() as { projectId: string };
   const navigate = useNavigate();
   
@@ -163,25 +165,35 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
 
   if (editingChapterId) {
       const editingChapter = chapters.find(c => c.id === editingChapterId) || null;
+      const matchingChapterJobs = Object.values(jobs).filter(j =>
+        j.project_id === projectId &&
+        (j.chapter_id === editingChapterId || j.chapter_file?.includes(editingChapterId))
+      );
+      const chapterRenderJobs = matchingChapterJobs.filter(isChapterScopedJob);
+      const segmentGenerationJobs = matchingChapterJobs.filter(isSegmentScopedJob);
       const includeDoneForEditor = !!editingChapter
         && editingChapter.audio_status !== 'processing'
-        && !(editingChapter.has_wav || editingChapter.has_mp3 || editingChapter.has_m4a);
-      const chapterJobs = Object.values(jobs).filter(j =>
-        j.project_id === projectId &&
-        (j.chapter_id === editingChapterId || j.chapter_file?.includes(editingChapterId)) &&
+        && !(editingChapter.has_wav || editingChapter.has_mp3 || editingChapter.has_m4a)
+        && chapterRenderJobs.some(j =>
+          j.status === 'done' &&
+          !!j.finished_at &&
+          ((Date.now() / 1000) - j.finished_at) <= RECENT_DONE_WINDOW_SECONDS
+        );
+      const segmentJobs = segmentGenerationJobs.filter(j =>
         ['queued', 'preparing', 'running', 'finalizing'].includes(j.status)
       );
       const activeIdx = chapters.findIndex(c => c.id === editingChapterId);
       return (
               <ChapterEditor 
                   chapterId={editingChapterId} projectId={projectId} speakerProfiles={speakerProfiles} speakers={speakers}
-                  job={pickLatestJob(j => j.project_id === projectId && (j.chapter_id === editingChapterId || j.chapter_file?.includes(editingChapterId)), includeDoneForEditor)}
-                  chapterJobs={chapterJobs}
+                  job={pickRelevantJob(chapterRenderJobs, includeDoneForEditor)}
+                  chapterJobs={segmentJobs}
                   onBack={() => { setEditingChapterId(null); loadData(); }}
                   selectedVoice={effectiveProjectVoice}
                   onNext={activeIdx < chapters.length - 1 ? () => setEditingChapterId(chapters[activeIdx + 1].id) : undefined}
                   onPrev={activeIdx > 0 ? () => setEditingChapterId(chapters[activeIdx - 1].id) : undefined}
-              segmentUpdate={segmentUpdate}
+                  segmentUpdate={segmentUpdate}
+                  chapterUpdate={chapterUpdate}
           />
       );
   }

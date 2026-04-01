@@ -3,6 +3,7 @@ import os
 import logging
 import re
 import threading
+import time
 from dataclasses import asdict
 from pathlib import Path
 from typing import Dict, Any
@@ -241,17 +242,22 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
         if changed_fields:
             jobs[job_id] = j
             _atomic_write_text(STATE_FILE, json.dumps(state, indent=2))
+            if j.get("engine") == "voxtral":
+                logger.info(
+                    "[voxtral-debug %s] update_job id=%s changed=%s status=%s progress=%s started_at=%s finished_at=%s output_wav=%s output_mp3=%s",
+                    time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
+                    job_id,
+                    changed_fields,
+                    j.get("status"),
+                    j.get("progress"),
+                    j.get("started_at"),
+                    j.get("finished_at"),
+                    j.get("output_wav"),
+                    j.get("output_mp3"),
+                )
 
         # 3. Broadcast updates to listeners (e.g. WebSockets)
         # Optimization: Strip the potentially large 'log' field from broadcasts since the UI doesn't use it.
-        broadcast_dict = {k: v for k, v in updates.items() if k != "log"}
-        if broadcast_dict or force_broadcast:
-            for listener in _JOB_LISTENERS:
-                try:
-                    listener(job_id, broadcast_dict)
-                except Exception:
-                    logger.warning("Job listener failed for %s", job_id, exc_info=True)
-
         # Sync with SQLite DB when status or timestamps change, or when explicitly broadcast
         # Note: force_broadcast=True is used right after enqueue() to register the initial status.
         if "status" in changed_fields or "started_at" in changed_fields or force_broadcast:
@@ -314,6 +320,14 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
 
             except Exception:
                 logger.warning("Failed to sync job status to SQLite for %s", job_id, exc_info=True)
+
+        broadcast_dict = {k: v for k, v in updates.items() if k != "log"}
+        if broadcast_dict or force_broadcast:
+            for listener in _JOB_LISTENERS:
+                try:
+                    listener(job_id, broadcast_dict)
+                except Exception:
+                    logger.warning("Job listener failed for %s", job_id, exc_info=True)
 
         # PRUNING: If job is done/failed/cancelled, we can remove it from state.json
         # because the historical record is now in SQLite's processing_queue table.

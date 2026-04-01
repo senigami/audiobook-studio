@@ -89,6 +89,43 @@ def _group_ready_audio_path(group: dict, pdir: Path) -> Path | None:
     return candidate if candidate.exists() else None
 
 
+def _persist_mixed_chapter_output(jid: str, chapter_id: str, output_path: Path) -> None:
+    from ...db import update_chapter, update_queue_item
+
+    generated_at = time.time()
+    duration = get_audio_duration(output_path)
+
+    try:
+        update_queue_item(
+            jid,
+            "done",
+            audio_length_seconds=duration,
+            force_chapter_id=chapter_id,
+            output_file=output_path.name,
+        )
+    except Exception:
+        logger.warning("Failed to synchronize queue item %s completion metadata", jid, exc_info=True)
+
+    try:
+        update_chapter(
+            chapter_id,
+            audio_status="done",
+            audio_file_path=output_path.name,
+            audio_generated_at=generated_at,
+            audio_length_seconds=duration,
+        )
+        logger.info(
+            "[voxtral-debug %s] mixed-persist job=%s chapter=%s output_file=%s audio_length=%s",
+            time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
+            jid,
+            chapter_id,
+            output_path.name,
+            duration,
+        )
+    except Exception:
+        logger.warning("Failed to persist chapter %s completion metadata for job %s", chapter_id, jid, exc_info=True)
+
+
 def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
     from ...db import (
         clear_duplicate_segment_audio_paths,
@@ -224,17 +261,14 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
     if j.make_mp3:
         frc = wav_to_mp3(out_wav, out_mp3, on_output=on_output, cancel_check=cancel_check)
         if frc == 0 and out_mp3.exists():
+            _persist_mixed_chapter_output(jid, j.chapter_id, out_mp3)
             update_job(jid, status="done", finished_at=time.time(), progress=1.0, output_wav=out_wav.name, output_mp3=out_mp3.name)
             return "done"
+        _persist_mixed_chapter_output(jid, j.chapter_id, out_wav)
         update_job(jid, status="done", finished_at=time.time(), progress=1.0, output_wav=out_wav.name, error="MP3 conversion failed (using WAV fallback)")
         return "done"
 
-    duration = get_audio_duration(out_wav)
-    try:
-        from ...db import update_queue_item
-        update_queue_item(jid, "done", audio_length_seconds=duration)
-    except Exception:
-        logger.warning("Failed to synchronize queue item %s completion metadata", jid, exc_info=True)
+    _persist_mixed_chapter_output(jid, j.chapter_id, out_wav)
 
     update_job(jid, status="done", finished_at=time.time(), progress=1.0, output_wav=out_wav.name)
     return "done"

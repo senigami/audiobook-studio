@@ -49,6 +49,12 @@ def broadcast_segments_updated(chapter_id: str):
         "chapter_id": chapter_id
     })
 
+def broadcast_chapter_updated(chapter_id: str):
+    manager.broadcast({
+        "type": "chapter_updated",
+        "chapter_id": chapter_id
+    })
+
 def broadcast_pause_state(paused: bool):
     manager.broadcast({
         "type": "pause_updated",

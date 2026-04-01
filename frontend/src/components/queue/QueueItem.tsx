@@ -3,6 +3,8 @@ import { Play, Pause, XCircle } from 'lucide-react';
 import { PredictiveProgressBar } from '../PredictiveProgressBar';
 import type { ProcessingQueueItem, Job } from '../../types';
 import { formatQueueContext } from '../../utils/queueLabels';
+import { logVoxtralDebug } from '../../utils/debugVoxtral';
+import { shouldShowIndeterminateProgress } from '../../utils/jobSelection';
 
 interface QueueItemProps {
     job: ProcessingQueueItem;
@@ -25,7 +27,33 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     const etaSeconds = liveJob?.eta_seconds ?? job.eta_seconds;
     const progress = liveJob?.progress ?? job.progress ?? 0;
     const status = liveJob?.status ?? job.status;
-    const displayStatus = liveJob?.engine === 'voxtral' && status === 'finalizing' ? 'finalizing' : status;
+    const isCloudLike = ['voxtral', 'mixed'].includes((liveJob?.engine ?? job.engine) || '');
+    const showIndeterminateProgress = isCloudLike && shouldShowIndeterminateProgress({
+        engine: liveJob?.engine ?? job.engine,
+        segment_ids: liveJob?.segment_ids ?? job.segment_ids,
+        active_segment_id: liveJob?.active_segment_id,
+        custom_title: liveJob?.custom_title ?? job.custom_title,
+    });
+    const displayStatus = isCloudLike && status === 'finalizing' ? 'finalizing' : status;
+    const prevDisplayStatusRef = React.useRef<string | null>(null);
+
+    React.useEffect(() => {
+        if ((liveJob?.engine ?? job.engine) !== 'voxtral') return;
+        if (prevDisplayStatusRef.current !== displayStatus) {
+            logVoxtralDebug('queue-item-status', {
+                id: job.id,
+                chapterId: job.chapter_id ?? null,
+                previous: prevDisplayStatusRef.current,
+                next: displayStatus,
+                rawJobStatus: job.status,
+                liveJobStatus: liveJob?.status ?? null,
+                progress,
+                startedAt: started ?? null,
+                etaSeconds: etaSeconds ?? null,
+            });
+            prevDisplayStatusRef.current = displayStatus;
+        }
+    }, [displayStatus, etaSeconds, job.chapter_id, job.engine, job.id, job.status, liveJob?.engine, liveJob?.status, progress, started]);
 
     return (
         <div style={{
@@ -103,8 +131,8 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                     etaSeconds={etaSeconds}
                     status={displayStatus}
                     label={displayStatus === 'preparing' ? "Preparing..." : (displayStatus === 'finalizing' ? "Finalizing..." : "Processing...")}
-                    predictive={(liveJob?.engine ?? job.engine) !== 'voxtral'}
-                    indeterminateRunning={(liveJob?.engine ?? job.engine) === 'voxtral'}
+                    predictive={!showIndeterminateProgress}
+                    indeterminateRunning={showIndeterminateProgress}
                 />
             </div>
         </div>

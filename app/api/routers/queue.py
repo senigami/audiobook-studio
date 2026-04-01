@@ -81,6 +81,7 @@ def api_get_queue():
             item["progress"] = job_dict.get("progress", 0.0)
             item["logs"] = job_dict.get("logs", "")
             item["status"] = job_dict.get("status", item["status"])
+            item["segment_ids"] = job_dict.get("segment_ids")
         has_chapter_audio = item.get("chapter_audio_status") == "done" or bool(item.get("chapter_audio_file_path"))
         completed_at = item.get("completed_at") or 0
         has_active_sibling = bool(item.get("chapter_id")) and item.get("chapter_id") in active_queue_chapter_ids

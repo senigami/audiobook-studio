@@ -217,7 +217,7 @@ describe('Chapter Subcomponents', () => {
       const activeJob = {
         id: 'job-1',
         status: 'running',
-        engine: 'mixed',
+        engine: 'xtts',
         active_segment_id: null,
         active_segment_progress: undefined,
         started_at: Date.now() / 1000 - 20,
@@ -282,6 +282,43 @@ describe('Chapter Subcomponents', () => {
 
       expect(screen.getByTestId('performance-progress-0')).toHaveAttribute('data-progress', '0');
       expect(screen.queryByText('100%')).toBeNull();
+    });
+
+    it('shows mixed segment jobs as determinate progress while running', () => {
+      const activeJob = {
+        id: 'job-mixed-seg-1',
+        status: 'running',
+        engine: 'mixed',
+        segment_ids: ['seg-1', 'seg-2'],
+        active_segment_id: 'seg-1',
+        active_segment_progress: 0,
+        started_at: Date.now() / 1000 - 20,
+        eta_seconds: 100,
+        progress: 0.05,
+        custom_title: 'Chapter 1: segment #3'
+      } as any;
+
+      render(
+        <PerformanceTab
+          chunkGroups={[
+            { characterId: 'char-1', segments: [{ ...mockSegments[0], audio_status: 'unprocessed' }] }
+          ]}
+          characters={mockCharacters}
+          playingSegmentId={null}
+          playbackQueue={['seg-1']}
+          generatingSegmentIds={new Set(['seg-1'])}
+          allSegmentIds={['seg-1']}
+          segments={mockSegments}
+          onPlay={vi.fn()}
+          onStop={vi.fn()}
+          onGenerate={vi.fn()}
+          generatingJob={activeJob}
+        />
+      );
+
+      expect(screen.getByTestId('performance-progress-0')).toHaveAttribute('data-progress', '20');
+      expect(screen.getByText('20%')).toBeInTheDocument();
+      expect(screen.queryByText('Working...')).toBeNull();
     });
 
     it('pins Voxtral jobs at 100% while finalizing', () => {

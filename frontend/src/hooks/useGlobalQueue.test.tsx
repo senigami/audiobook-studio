@@ -108,6 +108,33 @@ describe('useGlobalQueue', () => {
     expect(result.current.queue[0].progress).toBe(1);
   });
 
+  it('does not hold a completed segment-scoped mixed job in finalizing', async () => {
+    const mockQueue = [{
+      id: 'job-segment',
+      status: 'done',
+      chapter_id: 'chap1',
+      engine: 'mixed',
+      segment_ids: ['seg-1'],
+      chapter_audio_status: 'unprocessed',
+      chapter_audio_file_path: null,
+      completed_at: Date.now() / 1000,
+    }] as any;
+    (api.getProcessingQueue as any).mockResolvedValue(mockQueue);
+
+    const { result, rerender } = renderHook(({ jobs }) =>
+      useGlobalQueue(false, jobs, 0), {
+      initialProps: { jobs: {} }
+    });
+
+    await waitFor(() => expect(result.current.queue).toHaveLength(1));
+
+    rerender({
+      jobs: { job1: { id: 'job-segment', status: 'done', progress: 1, engine: 'mixed', segment_ids: ['seg-1'] } as any }
+    });
+
+    expect(result.current.queue[0].status).toBe('done');
+  });
+
   it('keeps an older done Voxtral row in history when a newer run for the same chapter is already queued', async () => {
     const mockQueue = [
       {

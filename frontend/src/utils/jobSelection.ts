@@ -1,4 +1,10 @@
-import type { Job } from '../types';
+import type { Engine, Job } from '../types';
+
+type SegmentScopedShape = {
+  segment_ids?: string[];
+  active_segment_id?: string | null;
+  custom_title?: string | null;
+};
 
 const STATUS_RANK: Record<string, number> = {
   running: 5,
@@ -10,6 +16,22 @@ const STATUS_RANK: Record<string, number> = {
   cancelled: 0,
   error: 0,
 };
+
+export function isSegmentScopedJob(job: SegmentScopedShape): boolean {
+  if ((job.segment_ids?.length ?? 0) > 0) return true;
+  if (job.active_segment_id) return true;
+  return /segment\s*#/i.test(job.custom_title || '');
+}
+
+export function shouldShowIndeterminateProgress(job: SegmentScopedShape & { engine?: Engine }): boolean {
+  if (job.engine === 'voxtral') return true;
+  if (job.engine !== 'mixed') return false;
+  return !isSegmentScopedJob(job);
+}
+
+export function isChapterScopedJob(job: Job): boolean {
+  return !isSegmentScopedJob(job);
+}
 
 export function pickRelevantJob(candidates: Job[], includeDone = false): Job | undefined {
   return [...candidates]

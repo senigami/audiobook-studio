@@ -1,6 +1,10 @@
 import React from 'react';
 import { ArrowLeft, RefreshCw, Zap, CheckCircle, AlertTriangle } from 'lucide-react';
 import type { Chapter, Job } from '../../types';
+import { logVoxtralDebug } from '../../utils/debugVoxtral';
+import { PredictiveProgressBar } from '../PredictiveProgressBar';
+
+const RECENT_DONE_WINDOW_SECONDS = 60;
 
 interface ChapterHeaderProps {
   chapter: Chapter;
@@ -19,6 +23,7 @@ interface ChapterHeaderProps {
   queueLocked?: boolean;
   queuePending?: boolean;
   job?: Job;
+  generatingJob?: Job;
   generatingSegmentIdsCount: number;
   queueLabel?: string;
   queueTitle?: string;
@@ -43,6 +48,7 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
   queueLocked = false,
   queuePending = false,
   job,
+  generatingJob,
   generatingSegmentIdsCount,
   queueLabel = 'Queue',
   queueTitle = 'Queue Chapter',
@@ -50,7 +56,8 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
   onStopAll
 }) => {
   const hasChapterAudio = !!(chapter.has_wav || chapter.has_mp3 || chapter.has_m4a);
-  const queueStatus = queuePending
+  const recentlyFinishedDoneJob = !!(job?.status === 'done' && job?.finished_at && ((Date.now() / 1000) - job.finished_at) <= RECENT_DONE_WINDOW_SECONDS);
+  const rawQueueStatus = queuePending
     ? 'Queued'
     : job?.status === 'queued'
       ? 'Queued'
@@ -60,12 +67,199 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
           ? 'Rendering'
           : job?.status === 'finalizing'
             ? 'Finalizing'
+            : generatingSegmentIdsCount > 0
+              ? 'Processing'
             : chapter?.audio_status === 'processing'
               ? 'Processing'
-              : job?.status === 'done' && !hasChapterAudio
+              : recentlyFinishedDoneJob && !hasChapterAudio
                 ? 'Finalizing'
                 : null;
+  const [heldQueueStatus, setHeldQueueStatus] = React.useState<string | null>(null);
+  const releaseHoldTimerRef = React.useRef<number | null>(null);
+  const lastActiveQueueStatusRef = React.useRef<string | null>(null);
+  const holdUntilRef = React.useRef<number>(0);
+  const queueStatus = heldQueueStatus ?? rawQueueStatus;
+  const effectiveQueueLocked = queueLocked || !!queueStatus || chapter.audio_status === 'processing';
   const isQueued = queueStatus === 'Queued';
+  const liveSegmentProgressJob = generatingJob && ['preparing', 'running', 'finalizing'].includes(generatingJob.status)
+    ? generatingJob
+    : undefined;
+  const renderedButtonMode = effectiveQueueLocked
+    ? 'working'
+    : queueLabel === 'Rebuild'
+      ? 'rebuild'
+      : queueLabel === 'Complete'
+        ? 'complete'
+        : 'queue';
+
+  const prevQueueStatusRef = React.useRef<string | null>(null);
+  const prevHasAudioRef = React.useRef<boolean>(hasChapterAudio);
+  const prevWorkingRef = React.useRef<boolean>(false);
+  const prevButtonStateRef = React.useRef<string | null>(null);
+  const prevButtonModeRef = React.useRef<string | null>(null);
+
+  React.useEffect(() => {
+    if (releaseHoldTimerRef.current !== null) {
+      window.clearTimeout(releaseHoldTimerRef.current);
+      releaseHoldTimerRef.current = null;
+    }
+
+    if (rawQueueStatus) {
+      lastActiveQueueStatusRef.current = rawQueueStatus;
+      holdUntilRef.current = Date.now() + 400;
+      if (heldQueueStatus !== rawQueueStatus) {
+        setHeldQueueStatus(rawQueueStatus);
+      }
+      return;
+    }
+
+    const shouldBridge = !hasChapterAudio
+      && chapter.audio_status !== 'done'
+      && holdUntilRef.current > Date.now()
+      && !!lastActiveQueueStatusRef.current;
+
+    if (shouldBridge) {
+      const bridged = recentlyFinishedDoneJob ? 'Finalizing' : lastActiveQueueStatusRef.current;
+      if (heldQueueStatus !== bridged) {
+        setHeldQueueStatus(bridged);
+      }
+      const remainingMs = Math.max(0, holdUntilRef.current - Date.now());
+      releaseHoldTimerRef.current = window.setTimeout(() => {
+        setHeldQueueStatus(null);
+        releaseHoldTimerRef.current = null;
+      }, remainingMs);
+      return;
+    }
+
+    if (heldQueueStatus !== null) {
+      setHeldQueueStatus(null);
+    }
+  }, [rawQueueStatus, hasChapterAudio, chapter.audio_status, recentlyFinishedDoneJob, heldQueueStatus]);
+
+  React.useEffect(() => {
+    if (prevQueueStatusRef.current !== queueStatus) {
+      logVoxtralDebug('chapter-header-queue-status', {
+        chapterId: chapter.id,
+        previous: prevQueueStatusRef.current,
+        next: queueStatus,
+        queuePending,
+        generatingSegmentIdsCount,
+        chapterAudioStatus: chapter.audio_status,
+        hasChapterAudio,
+        jobId: job?.id ?? null,
+        jobEngine: job?.engine ?? null,
+        jobStatus: job?.status ?? null,
+        jobProgress: job?.progress ?? null,
+      });
+      prevQueueStatusRef.current = queueStatus;
+    }
+
+    const isWorking = !!queueStatus || chapter.audio_status === 'processing';
+    if (prevWorkingRef.current !== isWorking) {
+      logVoxtralDebug('chapter-header-working', {
+        chapterId: chapter.id,
+        previous: prevWorkingRef.current,
+        next: isWorking,
+        queueStatus,
+        generatingSegmentIdsCount,
+        chapterAudioStatus: chapter.audio_status,
+        jobId: job?.id ?? null,
+        jobStatus: job?.status ?? null,
+      });
+      prevWorkingRef.current = isWorking;
+    }
+
+    if (prevHasAudioRef.current !== hasChapterAudio) {
+      logVoxtralDebug('chapter-header-audio-ready', {
+        chapterId: chapter.id,
+        previous: prevHasAudioRef.current,
+        next: hasChapterAudio,
+        audioFilePath: chapter.audio_file_path ?? null,
+        chapterAudioStatus: chapter.audio_status,
+      });
+      prevHasAudioRef.current = hasChapterAudio;
+    }
+
+    if (prevButtonModeRef.current !== renderedButtonMode) {
+      logVoxtralDebug('chapter-header-button-mode', {
+        chapterId: chapter.id,
+        previous: prevButtonModeRef.current,
+        next: renderedButtonMode,
+        queueStatus,
+        locked: effectiveQueueLocked,
+        requestedLocked: queueLocked,
+        queueLabel,
+        queueTitle,
+        hasChapterAudio,
+        generatingSegmentIdsCount,
+        chapterAudioStatus: chapter.audio_status,
+        jobId: job?.id ?? null,
+        jobStatus: job?.status ?? null,
+      });
+      prevButtonModeRef.current = renderedButtonMode;
+    }
+
+    const buttonState = JSON.stringify({
+      locked: effectiveQueueLocked,
+      requestedLocked: queueLocked,
+      submitting,
+      queueLabel,
+      queueTitle,
+      queueStatus,
+      hasChapterAudio,
+      chapterAudioStatus: chapter.audio_status,
+      renderedButtonMode,
+      jobId: job?.id ?? null,
+      jobStatus: job?.status ?? null,
+      recentlyFinishedDoneJob,
+    });
+    if (prevButtonStateRef.current !== buttonState) {
+      logVoxtralDebug('chapter-header-button-state', {
+        chapterId: chapter.id,
+        locked: effectiveQueueLocked,
+        requestedLocked: queueLocked,
+        submitting,
+        queueLabel,
+        queueTitle,
+        queueStatus,
+        hasChapterAudio,
+        generatingSegmentIdsCount,
+        chapterAudioStatus: chapter.audio_status,
+        jobId: job?.id ?? null,
+        jobStatus: job?.status ?? null,
+        recentlyFinishedDoneJob,
+      });
+      prevButtonStateRef.current = buttonState;
+    }
+  }, [
+    chapter.id,
+    chapter.audio_status,
+    chapter.audio_file_path,
+    hasChapterAudio,
+    heldQueueStatus,
+    job?.engine,
+    job?.finished_at,
+    job?.id,
+    job?.status,
+    job?.progress,
+    generatingSegmentIdsCount,
+    queueLabel,
+    queuePending,
+    effectiveQueueLocked,
+    queueLocked,
+    queueStatus,
+    queueTitle,
+    rawQueueStatus,
+    renderedButtonMode,
+    recentlyFinishedDoneJob,
+    submitting,
+  ]);
+
+  React.useEffect(() => () => {
+    if (releaseHoldTimerRef.current !== null) {
+      window.clearTimeout(releaseHoldTimerRef.current);
+    }
+  }, []);
 
   return (
     <header style={{ 
@@ -171,14 +365,14 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
 
               <button
               onClick={onQueue}
-              disabled={queueLocked}
+              disabled={effectiveQueueLocked}
               className="btn-primary"
               style={{
                   padding: '0.4rem 0.8rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem',
-                  opacity: queueLocked ? 0.3 : 1,
-                  cursor: queueLocked ? 'not-allowed' : 'pointer'
+                  opacity: effectiveQueueLocked ? 0.3 : 1,
+                  cursor: effectiveQueueLocked ? 'not-allowed' : 'pointer'
               }}
-              title={queueLocked ? "Already processing" : queueTitle}
+              title={effectiveQueueLocked ? "Already processing" : queueTitle}
               >
               {submitting ? <RefreshCw size={14} className="animate-spin" /> : <Zap size={14} />}
               {queueLabel}
@@ -201,6 +395,21 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
                   boxShadow: isQueued ? '0 0 0 1px var(--accent-glow)' : 'none'
               }}>
                   {queueStatus}
+              </div>
+          )}
+
+          {liveSegmentProgressJob && (
+              <div style={{ width: '180px', minWidth: '180px' }}>
+                  <PredictiveProgressBar
+                      progress={liveSegmentProgressJob.status === 'finalizing' ? 1 : (liveSegmentProgressJob.progress ?? 0)}
+                      startedAt={liveSegmentProgressJob.started_at}
+                      etaSeconds={liveSegmentProgressJob.eta_seconds}
+                      status={liveSegmentProgressJob.status === 'preparing' ? 'running' : liveSegmentProgressJob.status}
+                      label="Segment Progress"
+                      predictive={true}
+                      indeterminateRunning={false}
+                      showEta={false}
+                  />
               </div>
           )}
 

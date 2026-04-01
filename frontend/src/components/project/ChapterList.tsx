@@ -5,6 +5,8 @@ import { ActionMenu } from '../ActionMenu';
 import { StatusOrb } from '../StatusOrb';
 import { PredictiveProgressBar } from '../PredictiveProgressBar';
 import type { Chapter, Job } from '../../types';
+import { logVoxtralDebug } from '../../utils/debugVoxtral';
+import { isSegmentScopedJob, shouldShowIndeterminateProgress } from '../../utils/jobSelection';
 
 interface ChapterListProps {
   chapters: Chapter[];
@@ -43,7 +45,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
   isExporting,
   formatLength
 }) => {
-  const RECENT_COMPLETION_WINDOW_SECONDS = 8;
+  const RECENT_COMPLETION_WINDOW_SECONDS = 60;
   const [editingTitleId, setEditingTitleId] = React.useState<string | null>(null);
   const [tempTitle, setTempTitle] = React.useState('');
   const [openMenuRowId, setOpenMenuRowId] = React.useState<string | null>(null);
@@ -54,7 +56,12 @@ export const ChapterList: React.FC<ChapterListProps> = ({
     const now = Date.now() / 1000;
     const relevantJobs = Object.values(jobs).filter(j => j.project_id === projectId && (j.chapter_id === chapterId || (j.chapter_file && j.chapter_file.includes(chapterId))));
     const ranked = relevantJobs
-      .filter(j => liveStatuses.has(j.status) || (includeRecentDone && j.status === 'done' && !!j.finished_at && (now - j.finished_at) <= RECENT_COMPLETION_WINDOW_SECONDS))
+      .filter(j => {
+        if (liveStatuses.has(j.status)) return true;
+        if (!includeRecentDone) return false;
+        if (j.status !== 'done' || !j.finished_at || (now - j.finished_at) > RECENT_COMPLETION_WINDOW_SECONDS) return false;
+        return !isSegmentScopedJob(j);
+      })
       .sort((a, b) => {
         const statusRank: Record<string, number> = { running: 5, finalizing: 4, preparing: 3, queued: 2, done: 1 };
         const aRank = statusRank[a.status] || 0;
@@ -79,6 +86,36 @@ export const ChapterList: React.FC<ChapterListProps> = ({
   const allDoneIds = chapters.filter(c => c.audio_status === 'done').map(c => c.id);
   const isAllSelected = selectedChapters.size === allDoneIds.length && allDoneIds.length > 0;
 
+  React.useEffect(() => {
+    const snapshots = chapters.map(chap => {
+      const hasChapterAudio = !!(chap.has_wav || chap.has_mp3 || chap.has_m4a);
+      const activeJob = pickActiveJob(chap.id, !hasChapterAudio && chap.audio_status !== 'processing');
+      if (!activeJob && chap.audio_status !== 'processing') return null;
+      const displayStatus = activeJob?.status === 'done' && !hasChapterAudio ? 'finalizing' : activeJob?.status ?? (chap.audio_status === 'processing' ? 'processing' : null);
+      const isSegmentJob = activeJob ? isSegmentScopedJob(activeJob) : false;
+      const showIndeterminateProgress = !!activeJob && shouldShowIndeterminateProgress(activeJob);
+      return {
+        chapterId: chap.id,
+        chapterAudioStatus: chap.audio_status,
+        hasChapterAudio,
+        activeJobId: activeJob?.id ?? null,
+        activeJobEngine: activeJob?.engine ?? null,
+        activeJobStatus: activeJob?.status ?? null,
+        activeJobProgress: activeJob?.progress ?? null,
+        activeJobCustomTitle: activeJob?.custom_title ?? null,
+        activeJobSegmentIdsCount: activeJob?.segment_ids?.length ?? 0,
+        activeJobActiveSegmentId: activeJob?.active_segment_id ?? null,
+        activeJobError: activeJob?.error ?? null,
+        activeJobSegmentScoped: isSegmentJob,
+        showIndeterminateProgress,
+        displayStatus,
+      };
+    }).filter(Boolean);
+    if (snapshots.length > 0) {
+      logVoxtralDebug('chapter-list', snapshots);
+    }
+  }, [chapters, jobs, pickActiveJob]);
+
   return (
     <div style={{ background: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--border)' }}>
       {isAssemblyMode && (
@@ -94,10 +131,17 @@ export const ChapterList: React.FC<ChapterListProps> = ({
         {chapters.map((chap, idx) => {
           const hasChapterAudio = !!(chap.has_wav || chap.has_mp3 || chap.has_m4a);
           const activeJob = pickActiveJob(chap.id, !hasChapterAudio && chap.audio_status !== 'processing');
-          const displayStatus = activeJob?.status === 'done' && !hasChapterAudio ? 'finalizing' : activeJob?.status;
+          const isRecentDone = activeJob?.status === 'done' && !!activeJob?.finished_at && ((Date.now() / 1000) - activeJob.finished_at) <= RECENT_COMPLETION_WINDOW_SECONDS;
+          const displayStatus = isRecentDone && !hasChapterAudio ? 'finalizing' : activeJob?.status;
           const progressValue = displayStatus === 'finalizing'
             ? 1
             : activeJob ? (activeJob.progress ?? 0) : 0;
+          const showIndeterminateProgress = !!activeJob && shouldShowIndeterminateProgress(activeJob);
+          const renderMode = activeJob
+            ? 'progress'
+            : hasChapterAudio && !isAssemblyMode
+              ? 'audio'
+              : 'runtime';
           const isMenuOpen = openMenuRowId === chap.id;
           const isFullyRendered = hasChapterAudio;
           const queueActionLabel = isFullyRendered
@@ -119,6 +163,22 @@ export const ChapterList: React.FC<ChapterListProps> = ({
               ? 'Processing'
               : null;
           const isQueued = queueStatus === 'Queued';
+
+          if (activeJob) {
+            logVoxtralDebug('chapter-card-render', {
+              chapterId: chap.id,
+              jobId: activeJob.id,
+              jobEngine: activeJob.engine,
+              jobStatus: activeJob.status,
+              jobProgress: activeJob.progress ?? null,
+              segmentIdsCount: activeJob.segment_ids?.length ?? 0,
+              activeSegmentId: activeJob.active_segment_id ?? null,
+              customTitle: activeJob.custom_title ?? null,
+              showIndeterminateProgress,
+              displayStatus,
+              renderMode,
+            });
+          }
 
           return (
             <Reorder.Item 
@@ -204,8 +264,8 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                           etaSeconds={activeJob.eta_seconds}
                           status={displayStatus}
                           label={displayStatus} 
-                          predictive={activeJob.engine !== 'voxtral'}
-                          indeterminateRunning={activeJob.engine === 'voxtral'}
+                          predictive={!showIndeterminateProgress}
+                          indeterminateRunning={showIndeterminateProgress}
                         />
                     </div>
                 ) : hasChapterAudio && !isAssemblyMode ? (

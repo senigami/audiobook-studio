@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { List, RefreshCw, Volume2, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { ChapterSegment, Character, Job } from '../../types';
+import { shouldShowIndeterminateProgress } from '../../utils/jobSelection';
 
 const SEGMENT_PROGRESS_LINGER_MS = 600;
 
@@ -368,6 +369,7 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
   const uniqueSegmentIds = Array.from(new Set(allSegmentIds));
   const activeJobIsLive = !!generatingJob && ['queued', 'preparing', 'running', 'finalizing'].includes(generatingJob.status);
   const voxtralJob = isVoxtralJob(generatingJob);
+  const indeterminateJob = !!generatingJob && shouldShowIndeterminateProgress(generatingJob);
   const activeSegmentId = activeJobIsLive ? generatingJob?.active_segment_id : null;
 
   useEffect(() => {
@@ -451,7 +453,7 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
                         : 0;
                     const showIndeterminateProgress = activeJobIsLive
                       && isActiveGroup
-                      && ((voxtralJob && ['queued', 'preparing', 'running'].includes(generatingJob?.status || ''))
+                      && ((indeterminateJob && ['queued', 'preparing', 'running'].includes(generatingJob?.status || ''))
                         || activeProgress <= 0);
                     const showPreparingIndeterminate = showIndeterminateProgress && ['queued', 'preparing'].includes(generatingJob?.status || '');
                     const allowSettle = !voxtralJob && (generatingJob?.status === 'running' || generatingJob?.status === 'finalizing') && !!generatingJob?.active_segment_id;

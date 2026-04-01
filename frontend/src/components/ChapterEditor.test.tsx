@@ -77,6 +77,7 @@ vi.mock('framer-motion', () => ({
 
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { ChapterEditor } from './ChapterEditor';
+import { ChapterHeader } from './chapter/ChapterHeader';
 import { api } from '../api';
 import type { Character } from '../types';
 
@@ -436,6 +437,149 @@ describe('ChapterEditor', () => {
     expect(screen.getByTitle('Complete Chapter Audio')).toBeInTheDocument();
     expect(screen.getByText('Complete')).toBeInTheDocument();
     expect(screen.queryByTitle('Rebuild Chapter')).not.toBeInTheDocument();
+  });
+
+  it('shows processing for segment generation without entering chapter render states', async () => {
+    const partialChapter = {
+      ...mockChapter,
+      audio_status: 'unprocessed' as const,
+      audio_file_path: null,
+      has_wav: false,
+      has_mp3: false,
+    };
+    const partialSegments = [
+      {
+        ...mockSegments[0],
+        audio_status: 'done' as const,
+        audio_file_path: 'seg-1.wav',
+        audio_generated_at: Date.now() / 1000,
+      },
+      {
+        id: 'seg-2',
+        chapter_id: mockChapterId,
+        text_content: 'Another sentence.',
+        character_id: null,
+        audio_status: 'processing' as const,
+        audio_file_path: null,
+      },
+    ];
+
+    (api.fetchChapters as any).mockResolvedValue([partialChapter]);
+    (api.fetchSegments as any).mockResolvedValue(partialSegments);
+
+    render(
+      <ChapterEditor
+        chapterId={mockChapterId}
+        projectId={mockProjectId}
+        speakerProfiles={mockSpeakerProfiles as any}
+        speakers={mockSpeakers as any}
+        chapterJobs={[
+          {
+            id: 'job-seg-1',
+            engine: 'mixed',
+            chapter_file: 'chapter.txt',
+            status: 'running',
+            created_at: Date.now() / 1000,
+            chapter_id: mockChapterId,
+            safe_mode: false,
+            make_mp3: false,
+            progress: 0.5,
+            segment_ids: ['seg-2'],
+            active_segment_id: 'seg-2',
+          } as any,
+        ]}
+        onBack={vi.fn()}
+      />
+    );
+
+    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
+
+    expect(screen.getByTitle('Already processing')).toBeDisabled();
+    expect(screen.getByText('Processing')).toBeInTheDocument();
+    expect(screen.queryByText('Rendering')).not.toBeInTheDocument();
+    expect(screen.queryByText('Finalizing')).not.toBeInTheDocument();
+  });
+
+  it('keeps the queue button disabled while the header still shows queue status', () => {
+    const { rerender } = render(
+      <ChapterHeader
+        chapter={mockChapter as any}
+        title={mockChapter.title}
+        setTitle={vi.fn()}
+        saving={false}
+        hasUnsavedChanges={false}
+        onBack={vi.fn()}
+        selectedVoice=""
+        onVoiceChange={vi.fn()}
+        availableVoices={[]}
+        submitting={false}
+        queueLocked={false}
+        queuePending={false}
+        job={{ id: 'job-1', engine: 'mixed', status: 'running', progress: 1 } as any}
+        generatingSegmentIdsCount={0}
+        queueLabel="Complete"
+        queueTitle="Complete Chapter Audio"
+        onQueue={vi.fn()}
+        onStopAll={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTitle('Already processing')).toBeDisabled();
+
+    rerender(
+      <ChapterHeader
+        chapter={mockChapter as any}
+        title={mockChapter.title}
+        setTitle={vi.fn()}
+        saving={false}
+        hasUnsavedChanges={false}
+        onBack={vi.fn()}
+        selectedVoice=""
+        onVoiceChange={vi.fn()}
+        availableVoices={[]}
+        submitting={false}
+        queueLocked={false}
+        queuePending={false}
+        job={{ id: 'job-1', engine: 'mixed', status: 'done', finished_at: Date.now() / 1000, progress: 1 } as any}
+        generatingSegmentIdsCount={0}
+        queueLabel="Complete"
+        queueTitle="Complete Chapter Audio"
+        onQueue={vi.fn()}
+        onStopAll={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTitle('Already processing')).toBeDisabled();
+  });
+
+  it('shows working header state for active segment generation without a chapter render job', () => {
+    render(
+      <ChapterHeader
+        chapter={mockChapter as any}
+        title={mockChapter.title}
+        setTitle={vi.fn()}
+        saving={false}
+        hasUnsavedChanges={false}
+        onBack={vi.fn()}
+        selectedVoice=""
+        onVoiceChange={vi.fn()}
+        availableVoices={[]}
+        submitting={false}
+        queueLocked={false}
+        queuePending={false}
+        job={undefined}
+        generatingJob={{ id: 'job-seg', engine: 'mixed', status: 'running', progress: 0.4, started_at: Date.now() / 1000, eta_seconds: 9 } as any}
+        generatingSegmentIdsCount={2}
+        queueLabel="Complete"
+        queueTitle="Complete Chapter Audio"
+        onQueue={vi.fn()}
+        onStopAll={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Processing')).toBeInTheDocument();
+    expect(screen.getByTitle('Already processing')).toBeDisabled();
+    expect(screen.getByText('40%')).toBeInTheDocument();
   });
 
   it('ignores duplicate generate clicks while the same segments are already pending', async () => {

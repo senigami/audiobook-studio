@@ -77,6 +77,7 @@ export interface ProcessingQueueItem {
   predicted_audio_length?: number;
   char_count?: number;
   engine?: Engine;
+  segment_ids?: string[];
   chapter_audio_status?: Chapter['audio_status'];
   chapter_audio_file_path?: string | null;
 }

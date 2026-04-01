@@ -18,6 +18,8 @@ import { useChapterAnalysis } from '../hooks/useChapterAnalysis';
 import { buildVoiceOptions } from '../utils/voiceProfiles';
 import { buildChunkGroups } from '../utils/chunkGroups';
 import { getDefaultVoiceProfileName, getVoiceOptionLabel } from '../utils/voiceProfiles';
+import { logVoxtralDebug } from '../utils/debugVoxtral';
+import { pickRelevantJob } from '../utils/jobSelection';
 
 interface ChapterEditorProps {
   chapterId: string;
@@ -31,6 +33,7 @@ interface ChapterEditorProps {
   onNext?: () => void;
   onPrev?: () => void;
   segmentUpdate?: { chapterId: string; tick: number };
+  chapterUpdate?: { chapterId: string; tick: number };
 }
 
 export const ChapterEditor: React.FC<ChapterEditorProps> = ({ 
@@ -44,7 +47,8 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   onBack, 
   onNext, 
   onPrev, 
-  segmentUpdate 
+  segmentUpdate,
+  chapterUpdate
 }) => {
   const [chapter, setChapter] = useState<Chapter | null>(null);
   const [title, setTitle] = useState('');
@@ -190,6 +194,10 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     return ids;
   }, [generatingSegmentIds, liveSegmentJobIds]);
 
+  const generatingSegmentJob = React.useMemo(() => {
+    return pickRelevantJob(chapterJobs);
+  }, [chapterJobs]);
+
   const { playingSegmentId, playSegment, stopPlayback } = useChapterPlayback(projectId, segments, chunkGroups, effectivePendingSegmentIds, handleGenerate);
 
   const paragraphGroups = React.useMemo(() => {
@@ -207,11 +215,21 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     return groups;
   }, [segments]);
 
-  const loadChapter = async () => {
+  const loadChapter = async (source: string = 'unknown') => {
     try {
       const chapters = await api.fetchChapters(projectId);
       const target = chapters.find(c => c.id === chapterId);
       if (target) {
+        logVoxtralDebug('chapter-editor-load-result', {
+          source,
+          chapterId,
+          chapterAudioStatus: target.audio_status ?? null,
+          chapterAudioFilePath: target.audio_file_path ?? null,
+          hasWav: !!target.has_wav,
+          hasMp3: !!target.has_mp3,
+          hasM4a: !!target.has_m4a,
+          speakerProfileName: target.speaker_profile_name ?? null,
+        });
         setChapter(target);
         setTitle(target.title);
         setText(target.text_content || '');
@@ -247,7 +265,12 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     }
   };
 
-  useEffect(() => { loadChapter(); }, [chapterId]);
+  useEffect(() => { loadChapter('mount'); }, [chapterId]);
+
+  useEffect(() => {
+    if (!chapterUpdate || chapterUpdate.chapterId !== chapterId || chapterUpdate.tick === 0) return;
+    void loadChapter('chapter-update');
+  }, [chapterUpdate, chapterId]);
 
   useEffect(() => {
     if (!segmentUpdate || segmentUpdate.chapterId !== chapterId || segmentUpdate.tick === 0) return;
@@ -269,10 +292,6 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
             if (liveSegmentJobIds.has(id) || seg.audio_status === 'processing') {
               continue;
             }
-            const pendingAt = pendingGenerationTimesRef.current.get(id) || 0;
-            if (pendingGenerationIdsRef.current.has(id) && (Date.now() - pendingAt) < 10000) {
-              continue;
-            }
             const shouldClear = seg.audio_status === 'done'
               || seg.audio_status === 'error'
               || seg.audio_status === 'failed'
@@ -282,6 +301,11 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
               next.delete(id);
               pendingGenerationIdsRef.current.delete(id);
               pendingGenerationTimesRef.current.delete(id);
+              continue;
+            }
+            const pendingAt = pendingGenerationTimesRef.current.get(id) || 0;
+            if (pendingGenerationIdsRef.current.has(id) && (Date.now() - pendingAt) < 10000) {
+              continue;
             }
           }
           return next.size !== prev.size ? next : prev;
@@ -289,6 +313,27 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
       } catch (e) { console.error("WS refresh failed", e); }
     }, 300);
   }, [segmentUpdate, chapterId, liveSegmentJobIds]);
+
+  useEffect(() => {
+    if (chapterJobs.length > 0) return;
+    setGeneratingSegmentIds(prev => {
+      if (prev.size === 0) return prev;
+      const next = new Set(
+        Array.from(prev).filter(id => {
+          const seg = segments.find(s => s.id === id);
+          if (!seg) return false;
+          if (seg.audio_status === 'processing') return true;
+          if (seg.audio_status === 'done' || seg.audio_status === 'error' || seg.audio_status === 'failed' || seg.audio_status === 'cancelled') {
+            pendingGenerationIdsRef.current.delete(id);
+            pendingGenerationTimesRef.current.delete(id);
+            return false;
+          }
+          return true;
+        })
+      );
+      return next.size !== prev.size ? next : prev;
+    });
+  }, [chapterJobs, segments]);
 
   const handleSave = async (manualTitle?: string, manualText?: string) => {
     if (!chapter) return false;
@@ -364,15 +409,132 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   const hasLiveJob = ['queued', 'preparing', 'running', 'finalizing'].includes(job?.status || '');
   const jobLooksPendingCompletion = job?.status === 'done' && !hasRenderedOutput && chapter?.audio_status !== 'processing';
   const needsCompletionRefresh = jobLooksPendingCompletion || (chapter?.audio_status === 'processing' && !hasLiveJob);
-  const isQueueLocked = queuePending || submitting || chapter?.audio_status === 'processing' || hasLiveJob || jobLooksPendingCompletion;
+  const rawQueueLocked = queuePending || submitting || chapter?.audio_status === 'processing' || hasLiveJob || jobLooksPendingCompletion;
+  const [heldQueueLocked, setHeldQueueLocked] = useState(false);
+  const queueLockReleaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isQueueLocked = rawQueueLocked || heldQueueLocked;
   const queueButtonLabel = shouldWarnBeforeRequeue ? 'Rebuild' : hasPartialSegmentProgress ? 'Complete' : 'Queue';
   const queueButtonTitle = shouldWarnBeforeRequeue ? 'Rebuild Chapter' : hasPartialSegmentProgress ? 'Complete Chapter Audio' : 'Queue Chapter';
+
+  const prevQueuePendingRef = useRef(queuePending);
+  const prevNeedsCompletionRefreshRef = useRef(needsCompletionRefresh);
+  const prevRawQueueLockedRef = useRef(rawQueueLocked);
 
   useEffect(() => {
     if (chapter?.audio_status === 'processing' || ['queued', 'preparing', 'running', 'finalizing'].includes(job?.status || '') || jobLooksPendingCompletion) {
       setQueuePending(false);
     }
   }, [chapter?.audio_status, job?.status, jobLooksPendingCompletion]);
+
+  useEffect(() => {
+    const wasRawQueueLocked = prevRawQueueLockedRef.current;
+    prevRawQueueLockedRef.current = rawQueueLocked;
+
+    if (queueLockReleaseTimerRef.current) {
+      clearTimeout(queueLockReleaseTimerRef.current);
+      queueLockReleaseTimerRef.current = null;
+    }
+
+    if (rawQueueLocked) {
+      if (!heldQueueLocked) setHeldQueueLocked(true);
+      return;
+    }
+
+    if (!hasRenderedOutput && wasRawQueueLocked) {
+      if (!heldQueueLocked) setHeldQueueLocked(true);
+      queueLockReleaseTimerRef.current = setTimeout(() => {
+        setHeldQueueLocked(false);
+        queueLockReleaseTimerRef.current = null;
+      }, 500);
+      return;
+    }
+
+    if (heldQueueLocked) {
+      setHeldQueueLocked(false);
+    }
+  }, [rawQueueLocked, hasRenderedOutput, heldQueueLocked]);
+
+  useEffect(() => {
+    logVoxtralDebug('chapter-editor-state', {
+      chapterId,
+      chapterAudioStatus: chapter?.audio_status ?? null,
+      chapterAudioFilePath: chapter?.audio_file_path ?? null,
+      hasWav: !!chapter?.has_wav,
+      hasMp3: !!chapter?.has_mp3,
+      queuePending,
+      rawQueueLocked,
+      heldQueueLocked,
+      hasLiveJob,
+      jobId: job?.id ?? null,
+      jobEngine: job?.engine ?? null,
+      jobStatus: job?.status ?? null,
+      jobProgress: job?.progress ?? null,
+      jobStartedAt: job?.started_at ?? null,
+      hasRenderedOutput,
+      jobLooksPendingCompletion,
+      needsCompletionRefresh,
+    });
+  }, [
+    chapterId,
+    chapter?.audio_status,
+    chapter?.audio_file_path,
+    chapter?.has_wav,
+    chapter?.has_mp3,
+    queuePending,
+    rawQueueLocked,
+    heldQueueLocked,
+    hasLiveJob,
+    job?.id,
+    job?.engine,
+    job?.status,
+    job?.progress,
+    job?.started_at,
+    hasRenderedOutput,
+    jobLooksPendingCompletion,
+    needsCompletionRefresh,
+  ]);
+
+  useEffect(() => {
+    if (prevQueuePendingRef.current !== queuePending) {
+      logVoxtralDebug('chapter-editor-queue-pending', {
+        chapterId,
+        previous: prevQueuePendingRef.current,
+        next: queuePending,
+        jobId: job?.id ?? null,
+        jobStatus: job?.status ?? null,
+        chapterAudioStatus: chapter?.audio_status ?? null,
+      });
+      prevQueuePendingRef.current = queuePending;
+    }
+    if (prevNeedsCompletionRefreshRef.current !== needsCompletionRefresh) {
+      logVoxtralDebug('chapter-editor-needs-completion-refresh', {
+        chapterId,
+        previous: prevNeedsCompletionRefreshRef.current,
+        next: needsCompletionRefresh,
+        jobId: job?.id ?? null,
+        jobStatus: job?.status ?? null,
+        chapterAudioStatus: chapter?.audio_status ?? null,
+        hasRenderedOutput,
+        hasLiveJob,
+      });
+      prevNeedsCompletionRefreshRef.current = needsCompletionRefresh;
+    }
+  }, [
+    chapterId,
+    queuePending,
+    needsCompletionRefresh,
+    job?.id,
+    job?.status,
+    chapter?.audio_status,
+    hasRenderedOutput,
+    hasLiveJob,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      if (queueLockReleaseTimerRef.current) clearTimeout(queueLockReleaseTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (completionPollTimerRef.current) {
@@ -385,21 +547,53 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
       return;
     }
 
-    if (completionPollAttemptsRef.current >= 12) {
+    if (completionPollAttemptsRef.current >= 30) {
       return;
     }
 
-    completionPollTimerRef.current = setTimeout(async () => {
-      completionPollTimerRef.current = null;
-      completionPollAttemptsRef.current += 1;
-      try {
-        await loadChapter();
-      } catch (e) {
-        console.error("Completion refresh failed", e);
+    let cancelled = false;
+
+    const scheduleNextPoll = () => {
+      if (cancelled) return;
+      if (completionPollAttemptsRef.current >= 30) {
+        logVoxtralDebug('chapter-editor-refresh-exhausted', {
+          chapterId,
+          attempts: completionPollAttemptsRef.current,
+          jobId: job?.id ?? null,
+          jobStatus: job?.status ?? null,
+          chapterAudioStatus: chapter?.audio_status ?? null,
+        });
+        return;
       }
-    }, 1000);
+
+      completionPollTimerRef.current = setTimeout(async () => {
+        completionPollTimerRef.current = null;
+        if (cancelled) return;
+
+        completionPollAttemptsRef.current += 1;
+        logVoxtralDebug('chapter-editor-refresh-attempt', {
+          chapterId,
+          attempt: completionPollAttemptsRef.current,
+          jobId: job?.id ?? null,
+          jobStatus: job?.status ?? null,
+          chapterAudioStatus: chapter?.audio_status ?? null,
+        });
+        try {
+          await loadChapter('completion-refresh');
+        } catch (e) {
+          console.error("Completion refresh failed", e);
+        }
+
+        if (!cancelled) {
+          scheduleNextPoll();
+        }
+      }, 1000);
+    };
+
+    scheduleNextPoll();
 
     return () => {
+      cancelled = true;
       if (completionPollTimerRef.current) {
         clearTimeout(completionPollTimerRef.current);
         completionPollTimerRef.current = null;
@@ -417,11 +611,11 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     try {
         setQueueNotice('Queued. Keep this page open to watch progress.');
         await api.addProcessingQueue(projectId, chapterId, 0, effectiveSelectedVoice || undefined);
-        await loadChapter();
+        await loadChapter('queue-submit');
         queueSyncTimerRef.current = setTimeout(async () => {
           queueSyncTimerRef.current = null;
           try {
-            await loadChapter();
+            await loadChapter('queue-sync-delay');
           } catch (e) {
             console.error("Delayed queue sync failed", e);
           } finally {
@@ -468,7 +662,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         onPrev={onPrev ? async () => { await handleSave(); onPrev(); } : undefined}
         onNext={onNext ? async () => { await handleSave(); onNext(); } : undefined}
         selectedVoice={chapterVoice} onVoiceChange={handleVoiceChange} availableVoices={availableVoices} defaultVoiceLabel={chapterDefaultVoiceLabel}
-        submitting={submitting} queueLocked={isQueueLocked} queuePending={queuePending} job={job} generatingSegmentIdsCount={effectivePendingSegmentIds.size}
+        submitting={submitting} queueLocked={isQueueLocked} queuePending={queuePending} job={job} generatingJob={generatingSegmentJob} generatingSegmentIdsCount={effectivePendingSegmentIds.size}
         queueLabel={queueButtonLabel}
         queueTitle={queueButtonTitle}
         onQueue={() => {
@@ -491,7 +685,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
             } else executeQueue();
         }}
         onStopAll={async () => {
-            try { await api.cancelChapterGeneration(chapterId); setGeneratingSegmentIds(new Set()); loadChapter(); }
+            try { await api.cancelChapterGeneration(chapterId); setGeneratingSegmentIds(new Set()); loadChapter('cancel'); }
             catch (e) { console.error("Cancel failed", e); }
         }}
       />
@@ -514,7 +708,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                     playbackQueue={segments.map(s => s.id)} generatingSegmentIds={generatingSegmentIds} queuedSegmentIds={queuedSegmentJobIds}
                     allSegmentIds={segments.map(s => s.id)} segments={segments}
                     onPlay={playSegment} onStop={stopPlayback} onGenerate={handleGenerate}
-                    generatingJob={job}
+                    generatingJob={generatingSegmentJob}
                   />
                 )}
                 {editorTab === 'preview' && <PreviewTab analysis={analysis} analyzing={analyzing} />}

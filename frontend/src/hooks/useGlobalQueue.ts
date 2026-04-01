@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { api } from '../api';
 import type { ProcessingQueueItem, Job } from '../types';
+import { logVoxtralDebug } from '../utils/debugVoxtral';
+import { isSegmentScopedJob } from '../utils/jobSelection';
 
 const COMPLETION_HOLD_SECONDS = 12;
 
@@ -8,8 +10,15 @@ function hasChapterAudioReady(item: ProcessingQueueItem): boolean {
     return item.chapter_audio_status === 'done' || !!item.chapter_audio_file_path;
 }
 
-function shouldHoldCompletedVoxtralItem(item: ProcessingQueueItem, jobs: Record<string, Job>, queue: ProcessingQueueItem[], baseStatus: string): boolean {
-    if ((jobs[item.id]?.engine ?? item.engine) !== 'voxtral') return false;
+function shouldHoldCompletedCloudItem(item: ProcessingQueueItem, jobs: Record<string, Job>, queue: ProcessingQueueItem[], baseStatus: string): boolean {
+    const liveJob = jobs[item.id];
+    const engine = liveJob?.engine ?? item.engine;
+    if (!['voxtral', 'mixed'].includes(engine || '')) return false;
+    if (isSegmentScopedJob({
+        segment_ids: liveJob?.segment_ids ?? item.segment_ids,
+        active_segment_id: liveJob?.active_segment_id,
+        custom_title: liveJob?.custom_title ?? item.custom_title,
+    })) return false;
     if (baseStatus !== 'done' || !item.chapter_id) return false;
     if (hasChapterAudioReady(item)) return false;
     const recentlyCompleted = !!item.completed_at && ((Date.now() / 1000) - item.completed_at) <= COMPLETION_HOLD_SECONDS;
@@ -27,7 +36,7 @@ function reconcileQueueItem(item: ProcessingQueueItem, jobs: Record<string, Job>
     const baseStatus = liveJob?.status ?? item.status;
     let nextStatus = baseStatus;
 
-    if (baseStatus === 'done' && shouldHoldCompletedVoxtralItem(item, jobs, queue, baseStatus)) {
+    if (baseStatus === 'done' && shouldHoldCompletedCloudItem(item, jobs, queue, baseStatus)) {
         nextStatus = 'finalizing';
     }
 
@@ -82,7 +91,31 @@ export const useGlobalQueue = (paused: boolean, jobs: Record<string, Job>, refre
         try {
             const data = await api.getProcessingQueue();
             if (!isDraggingRef.current) {
-                setQueue(data.map(item => reconcileQueueItem(item, jobsRef.current, data)));
+                const reconciled = data.map(item => reconcileQueueItem(item, jobsRef.current, data));
+                const rawVoxtral = data.filter(item => item.engine === 'voxtral');
+                const reconciledVoxtral = reconciled.filter(item => item.engine === 'voxtral');
+                if (rawVoxtral.length > 0 || reconciledVoxtral.length > 0) {
+                    logVoxtralDebug('queue-fetch', {
+                        raw: rawVoxtral.map(item => ({
+                            id: item.id,
+                            chapterId: item.chapter_id,
+                            status: item.status,
+                            progress: item.progress ?? null,
+                            completedAt: item.completed_at ?? null,
+                            chapterAudioStatus: item.chapter_audio_status ?? null,
+                            chapterAudioFilePath: item.chapter_audio_file_path ?? null,
+                        })),
+                        reconciled: reconciledVoxtral.map(item => ({
+                            id: item.id,
+                            chapterId: item.chapter_id,
+                            status: item.status,
+                            progress: item.progress ?? null,
+                            startedAt: item.started_at ?? null,
+                            etaSeconds: item.eta_seconds ?? null,
+                        })),
+                    });
+                }
+                setQueue(reconciled);
             }
         } catch (e) {
             console.error("Failed to fetch queue", e);
@@ -145,6 +178,25 @@ export const useGlobalQueue = (paused: boolean, jobs: Record<string, Job>, refre
                 }
                 return q;
             });
+            const voxtralChanges = updated.filter((item, idx) => {
+                const prevItem = prev[idx];
+                return item.engine === 'voxtral' && prevItem && (
+                    item.status !== prevItem.status
+                    || item.progress !== prevItem.progress
+                    || item.started_at !== prevItem.started_at
+                    || item.eta_seconds !== prevItem.eta_seconds
+                );
+            });
+            if (voxtralChanges.length > 0) {
+                logVoxtralDebug('queue-live-update', voxtralChanges.map(item => ({
+                    id: item.id,
+                    chapterId: item.chapter_id,
+                    status: item.status,
+                    progress: item.progress ?? null,
+                    startedAt: item.started_at ?? null,
+                    etaSeconds: item.eta_seconds ?? null,
+                })));
+            }
             return changed ? updated : prev;
         });
     }, [jobs]);

@@ -16,6 +16,7 @@ function App() {
   const navigate = useNavigate();
   const [queueCount, setQueueCount] = useState(0);
   const [queueRefreshTrigger, setQueueRefreshTrigger] = useState(0);
+  const [chapterUpdate, setChapterUpdate] = useState<{ chapterId: string; tick: number }>({ chapterId: '', tick: 0 });
 
   const fetchQueueCount = async () => {
     try {
@@ -32,7 +33,8 @@ function App() {
     () => { refetchHome(); setQueueRefreshTrigger(prev => prev + 1); }, 
     () => { fetchQueueCount(); setQueueRefreshTrigger(prev => prev + 1); }, 
     () => refetchHome(),
-    (chapterId: string) => { setSegmentUpdate(prev => ({ chapterId, tick: prev.tick + 1 })); }
+    (chapterId: string) => { setSegmentUpdate(prev => ({ chapterId, tick: prev.tick + 1 })); },
+    (chapterId: string) => { setChapterUpdate(prev => ({ chapterId, tick: prev.tick + 1 })); }
   );
   
   const [previewFilename, setPreviewFilename] = useState<string | null>(null);
@@ -95,6 +97,7 @@ function App() {
                   settings={initialData?.settings}
                   refreshTrigger={queueRefreshTrigger}
                   segmentUpdate={segmentUpdate}
+                  chapterUpdate={chapterUpdate}
                 />
               } />
               <Route path="/queue" element={

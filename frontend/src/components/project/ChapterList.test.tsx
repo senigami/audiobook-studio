@@ -161,4 +161,57 @@ describe('ChapterList', () => {
     expect(screen.queryByText('Finalizing')).toBeNull();
     expect(screen.queryByText('100%')).toBeNull();
   });
+
+  it('does not show a stale old done Voxtral job as finalizing on reload', () => {
+    const staleDoneJob = {
+      id: 'job-voxtral-old',
+      project_id: 'proj-1',
+      chapter_id: 'chap-123',
+      engine: 'voxtral',
+      status: 'done',
+      progress: 1,
+      finished_at: (Date.now() / 1000) - 120,
+    } as any;
+
+    render(<ChapterList {...defaultProps} jobs={{ [staleDoneJob.id]: staleDoneJob }} chapters={[{ ...mockChapters[0], has_wav: false, audio_file_path: null, audio_status: 'unprocessed' } as any]} />);
+
+    expect(screen.queryByText('Finalizing')).toBeNull();
+    expect(screen.queryByText('100%')).toBeNull();
+  });
+
+  it('does not treat a recently done segment job as chapter finalizing on reload', () => {
+    const recentDoneSegmentJob = {
+      id: 'job-mixed-segment-done',
+      project_id: 'proj-1',
+      chapter_id: 'chap-123',
+      engine: 'mixed',
+      status: 'done',
+      progress: 1,
+      finished_at: Date.now() / 1000,
+      segment_ids: ['seg-1', 'seg-2'],
+    } as any;
+
+    render(<ChapterList {...defaultProps} jobs={{ [recentDoneSegmentJob.id]: recentDoneSegmentJob }} chapters={[{ ...mockChapters[0], has_wav: false, audio_file_path: null, audio_status: 'unprocessed', done_segments_count: 2, total_segments_count: 2 } as any]} />);
+
+    expect(screen.queryByText('Finalizing')).toBeNull();
+    expect(screen.queryByText('100%')).toBeNull();
+  });
+
+  it('treats mixed segment jobs as determinate even if segment_ids are missing from later updates', () => {
+    const liveSegmentJob = {
+      id: 'job-mixed-segment-running',
+      project_id: 'proj-1',
+      chapter_id: 'chap-123',
+      engine: 'mixed',
+      status: 'running',
+      progress: 0.05,
+      custom_title: 'Chapter 1: segment #3',
+      started_at: Date.now() / 1000 - 2,
+    } as any;
+
+    render(<ChapterList {...defaultProps} jobs={{ [liveSegmentJob.id]: liveSegmentJob }} chapters={[{ ...mockChapters[0], has_wav: false, audio_file_path: null, audio_status: 'unprocessed', done_segments_count: 2, total_segments_count: 4 } as any]} />);
+
+    expect(screen.getByText('5%')).toBeInTheDocument();
+    expect(screen.queryByText('Working...')).toBeNull();
+  });
 });

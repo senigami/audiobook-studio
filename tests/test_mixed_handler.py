@@ -22,7 +22,7 @@ def clean_db(tmp_path):
 
 def test_handle_mixed_job_renders_and_stitches(clean_db, tmp_path):
     from app.db.projects import create_project
-    from app.db.chapters import create_chapter
+    from app.db.chapters import create_chapter, get_chapter
     from app.db.segments import sync_chapter_segments, get_chapter_segments, update_segment
 
     pid = create_project("P1")
@@ -71,11 +71,14 @@ def test_handle_mixed_job_renders_and_stitches(clean_db, tmp_path):
          patch("app.jobs.handlers.mixed.update_job"):
         result = handle_mixed_job("mixed-job", job, time.time(), lambda _line: None, lambda: False)
         refreshed = get_chapter_segments(cid)
+        chapter = get_chapter(cid)
     assert result == "done"
     assert output_wav.exists()
     assert all(segment["audio_status"] == "done" for segment in refreshed)
     assert refreshed[0]["audio_file_path"] == f"chunk_{refreshed[0]['id']}.wav"
     assert refreshed[1]["audio_file_path"] == f"chunk_{refreshed[1]['id']}.wav"
+    assert chapter["audio_status"] == "done"
+    assert chapter["audio_file_path"] == output_wav.name
 
 
 def test_handle_mixed_job_groups_adjacent_segments_into_one_chunk(clean_db, tmp_path):

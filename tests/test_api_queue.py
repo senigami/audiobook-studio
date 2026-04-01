@@ -206,3 +206,36 @@ def test_processing_queue_keeps_old_done_voxtral_row_done_when_new_run_is_alread
     rows = {item["id"]: item for item in response.json()}
     assert rows["job-old"]["status"] == "done"
     assert rows["job-new"]["status"] == "queued"
+
+
+def test_segment_scoped_queue_updates_do_not_mutate_chapter_audio_state(clean_db):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter, get_chapter
+    from app.db.queue import upsert_queue_row, update_queue_item
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "T1")
+    jid = "job-segment"
+
+    put_job(Job(
+        id=jid,
+        project_id=pid,
+        chapter_id=cid,
+        chapter_file=f"{cid}_0.txt",
+        status="queued",
+        created_at=time.time(),
+        engine="mixed",
+        segment_ids=["segment-1", "segment-2"],
+        custom_title="C1: segment #3",
+    ))
+    upsert_queue_row(jid, project_id=pid, chapter_id=cid, status="queued", engine="mixed")
+
+    update_queue_item(jid, "running")
+    chapter = get_chapter(cid)
+    assert chapter["audio_status"] == "unprocessed"
+    assert chapter["audio_file_path"] is None
+
+    update_queue_item(jid, "done", audio_length_seconds=12.3, output_file=f"{cid}.wav")
+    chapter = get_chapter(cid)
+    assert chapter["audio_status"] == "unprocessed"
+    assert chapter["audio_file_path"] is None

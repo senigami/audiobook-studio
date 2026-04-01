@@ -7,6 +7,20 @@ from .core import _db_lock, get_connection
 ACTIVE_QUEUE_STATUSES = ("queued", "preparing", "running", "finalizing")
 TERMINAL_QUEUE_STATUSES = ("done", "failed", "cancelled")
 
+
+def _queue_job_updates_chapter(queue_id: str) -> bool:
+    """Only chapter-scoped jobs should mutate chapter-level audio state."""
+    try:
+        from ..state import get_jobs
+
+        job = get_jobs().get(queue_id)
+        if job and getattr(job, "segment_ids", None):
+            return False
+    except Exception:
+        # Fall back to the legacy behavior if in-memory state is unavailable.
+        return True
+    return True
+
 def upsert_queue_row(job_id: str, project_id: str = None, chapter_id: str = None, 
                      split_part: int = 0, status: str = 'queued', custom_title: str = None, engine: str = None):
     """
@@ -83,6 +97,11 @@ def add_to_queue(project_id: str, chapter_id: str, split_part: int = 0):
             """, (chapter_id,))
 
             conn.commit()
+            try:
+                from ..api.ws import broadcast_chapter_updated
+                broadcast_chapter_updated(chapter_id)
+            except Exception:
+                pass
             return queue_id
 
 def get_queue() -> List[Dict[str, Any]]:
@@ -125,6 +144,9 @@ def clear_queue() -> bool:
             return True
 
 def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 0.0, force_chapter_id: str = None, output_file: str = None):
+    import logging
+
+    logger = logging.getLogger(__name__)
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
@@ -144,30 +166,51 @@ def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 
             cursor.execute(f"UPDATE processing_queue SET {', '.join(updates)} WHERE id = ?", params)
 
             # If it's a chapter job, sync the chapters table
-            cursor.execute("SELECT chapter_id, project_id FROM processing_queue WHERE id = ?", (queue_id,))
+            cursor.execute("SELECT chapter_id, project_id, engine FROM processing_queue WHERE id = ?", (queue_id,))
             row = cursor.fetchone()
 
+            chapter_id_to_broadcast = None
             if row:
                 cid = row['chapter_id']
-                if status == 'done':
-                    cursor.execute("""
-                        UPDATE chapters 
-                        SET audio_status = 'done', 
-                            audio_file_path = ?, 
-                            audio_generated_at = ?, 
-                            audio_length_seconds = ? 
-                        WHERE id = ?
-                    """, (output_file, now, audio_length_seconds, cid))
-                elif status == 'failed':
-                    cursor.execute("UPDATE chapters SET audio_status = 'unprocessed' WHERE id = ?", (cid,))
-                elif status == 'running':
-                    cursor.execute("UPDATE chapters SET audio_status = 'processing' WHERE id = ?", (cid,))
+                engine = row["engine"]
+                if _queue_job_updates_chapter(queue_id):
+                    chapter_id_to_broadcast = cid
+                    if status == 'done':
+                        cursor.execute("""
+                            UPDATE chapters 
+                            SET audio_status = 'done', 
+                                audio_file_path = ?, 
+                                audio_generated_at = ?, 
+                                audio_length_seconds = ? 
+                            WHERE id = ?
+                        """, (output_file, now, audio_length_seconds, cid))
+                        if engine in ("voxtral", "mixed"):
+                            logger.info(
+                                "[voxtral-debug %s] queue-sync id=%s engine=%s status=%s chapter=%s output_file=%s audio_length=%s",
+                                time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
+                                queue_id,
+                                engine,
+                                status,
+                                cid,
+                                output_file,
+                                audio_length_seconds,
+                            )
+                    elif status == 'failed':
+                        cursor.execute("UPDATE chapters SET audio_status = 'unprocessed' WHERE id = ?", (cid,))
+                    elif status == 'running':
+                        cursor.execute("UPDATE chapters SET audio_status = 'processing' WHERE id = ?", (cid,))
             elif force_chapter_id:
                 # Still check if we SHOULD update even if queue row is gone (usually no if we want to stay reset)
                 # For now, if the queue row is gone, we assume it was a reset/cancel and we SHOULD NOT update chapters.
-                pass
+                chapter_id_to_broadcast = force_chapter_id
 
             conn.commit()
+    if chapter_id_to_broadcast:
+        try:
+            from ..api.ws import broadcast_chapter_updated
+            broadcast_chapter_updated(chapter_id_to_broadcast)
+        except Exception:
+            pass
 
 def reconcile_queue_status(active_ids: List[str], known_job_statuses: Dict[str, str] | None = None):
     """
