@@ -51,14 +51,20 @@ def run_cmd_stream(cmd, on_output, cancel_check, env=None) -> int:
     else:
         display_cmd = str(cmd)
     logger.debug("Running command: %s", display_cmd)
-    proc = subprocess.Popen(
-        cmd,
-        shell=isinstance(cmd, str),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        bufsize=0, # Unbuffered
-        env=env,
-    )
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            shell=isinstance(cmd, str),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            bufsize=0, # Unbuffered
+            env=env,
+        )
+    except FileNotFoundError as exc:
+        message = f"[error] Failed to launch command: {exc}\n"
+        on_output(message)
+        logger.error("Command not found while launching: %s", display_cmd, exc_info=True)
+        return 127
     _active_processes.add(proc)
     output_queue: "queue.Queue[Optional[str]]" = queue.Queue()
 
