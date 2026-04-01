@@ -73,10 +73,12 @@ def test_speaker_wavs_listing(mock_state):
     from app.jobs import get_speaker_wavs
     v_dir = mock_state / "voices" / "v1"
     v_dir.mkdir()
+    (v_dir / "voice.wav").write_text("data")
     (v_dir / "sample.wav").write_text("data")
 
     res = get_speaker_wavs("v1")
-    assert "sample.wav" in res
+    assert "voice.wav" in res
+    assert "sample.wav" not in res
 
 def test_web_endpoints_misc(mock_state):
     # Settings (Fix: field is 'name', not 'profile_name')

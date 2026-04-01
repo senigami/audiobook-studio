@@ -12,6 +12,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 import torch  # noqa: E402
+import torch.nn.functional as F  # noqa: E402
 import argparse  # noqa: E402
 import warnings  # noqa: E402
 import json  # noqa: E402
@@ -36,6 +37,61 @@ def _save_wav(path: str, waveform: torch.Tensor, sample_rate: int) -> None:
         wav_file.setsampwidth(2)
         wav_file.setframerate(sample_rate)
         wav_file.writeframes(pcm16.tobytes())
+
+
+def _load_wav_tensor(path: str, sample_rate: int) -> torch.Tensor:
+    with wave.open(path, "rb") as wav_file:
+        if wav_file.getcomptype() != "NONE":
+            raise ValueError(f"Unsupported compressed WAV format: {path}")
+
+        channels = wav_file.getnchannels()
+        sampwidth = wav_file.getsampwidth()
+        source_rate = wav_file.getframerate()
+        frame_count = wav_file.getnframes()
+        raw = wav_file.readframes(frame_count)
+
+    if sampwidth == 1:
+        audio = torch.tensor(list(raw), dtype=torch.float32)
+        audio = (audio - 128.0) / 128.0
+    elif sampwidth == 2:
+        audio = torch.frombuffer(bytearray(raw), dtype=torch.int16).to(torch.float32) / 32768.0
+    elif sampwidth == 3:
+        triplets = torch.tensor(list(raw), dtype=torch.int32).view(-1, 3)
+        audio = triplets[:, 0] | (triplets[:, 1] << 8) | (triplets[:, 2] << 16)
+        audio = torch.where(audio >= 0x800000, audio - 0x1000000, audio).to(torch.float32) / 8388608.0
+    elif sampwidth == 4:
+        audio = torch.frombuffer(bytearray(raw), dtype=torch.int32).to(torch.float32) / 2147483648.0
+    else:
+        raise ValueError(f"Unsupported WAV sample width ({sampwidth} bytes): {path}")
+
+    if channels > 1:
+        audio = audio.view(-1, channels).transpose(0, 1).mean(dim=0)
+
+    audio = audio.unsqueeze(0)
+    if source_rate != sample_rate:
+        target_frames = max(1, int(round(audio.shape[-1] * sample_rate / source_rate)))
+        audio = F.interpolate(audio.unsqueeze(0), size=target_frames, mode="linear", align_corners=False).squeeze(0)
+
+    return audio.contiguous()
+
+
+def _patch_xtts_load_audio() -> None:
+    try:
+        import TTS.tts.models.xtts as xtts_module
+    except Exception:
+        return
+
+    original_load_audio = getattr(xtts_module, "load_audio", None)
+    if not callable(original_load_audio):
+        return
+
+    def _safe_load_audio(audiopath, sampling_rate):
+        path = str(audiopath)
+        if path.lower().endswith(".wav"):
+            return _load_wav_tensor(path, sampling_rate)
+        return original_load_audio(audiopath, sampling_rate)
+
+    xtts_module.load_audio = _safe_load_audio
 
 def main():
     parser = argparse.ArgumentParser(description="XTTS Streaming Inference Script")
@@ -179,6 +235,7 @@ def main():
 
     original_stderr = sys.stderr
     try:
+        _patch_xtts_load_audio()
         from TTS.api import TTS
         tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2", progress_bar=True).to(device)
         xtts_model = tts.synthesizer.tts_model

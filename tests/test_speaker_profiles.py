@@ -323,7 +323,7 @@ def test_get_speaker_settings_prefers_base_folder_over_variant(clean_voices):
     angry = clean_voices / "Dracula - Angry"
     base.mkdir(parents=True, exist_ok=True)
     angry.mkdir(parents=True, exist_ok=True)
-    (base / "sample.wav").write_text("base")
+    (base / "voice.wav").write_text("base")
     (angry / "sample.wav").write_text("angry")
 
     settings = get_speaker_settings("Dracula")
@@ -331,7 +331,7 @@ def test_get_speaker_settings_prefers_base_folder_over_variant(clean_voices):
 
     wavs = get_speaker_wavs("Dracula")
     assert wavs is not None
-    assert str(base / "sample.wav") in wavs
+    assert str(base / "voice.wav") in wavs
     assert str(angry / "sample.wav") not in wavs
 
 def test_speaker_listing_normalizes_base_profile_to_default(clean_voices):
