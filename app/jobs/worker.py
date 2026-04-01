@@ -1,6 +1,7 @@
 import time
 import os
 import re
+import sys
 import threading
 import traceback
 import logging
@@ -172,7 +173,7 @@ def worker_loop(q):
                 is_download_progress = _looks_like_external_download_progress(s, lowered) if s else False
 
                 def log_terminal(message: str):
-                    logger.info("Job %s: %s", jid, message)
+                    return None
 
                 if not s:
                     prog = calculate_predicted_progress(j, now, j.started_at, eta, limit=PROGRESS_STITCH_LIMIT, prepare_limit=PROGRESS_PREPARE_LIMIT, prepare_step=PROGRESS_PREPARE_STEP)
@@ -186,8 +187,10 @@ def worker_loop(q):
                         update_job(jid, progress=prog)
                     return
 
+                sys.stdout.write(s + "\n")
+                sys.stdout.flush()
+
                 if "[START_SYNTHESIS]" in s:
-                    log_terminal("Synthesis started")
                     j.synthesis_started_at = now
                     j.status = "running"
                     prog = max(j.progress, PROGRESS_PREPARE_LIMIT)
@@ -208,34 +211,10 @@ def worker_loop(q):
 
                         j.active_segment_id = seg_id
                         j.active_segment_progress = 0.0
-                        log_terminal(f"Segment started: {seg_id}")
                         update_job(jid, active_segment_id=seg_id, active_segment_progress=0.0)
                     except Exception as e:
                         logger.warning(f"Failed to parse segment ID from '{s}': {e}")
                     return
-
-                if any(x in lowered for x in [
-                    "loading xtts model",
-                    "loading model",
-                    "using model:",
-                    "already downloaded",
-                    "downloading",
-                    "downloaded",
-                    "fetching",
-                    "resolving",
-                    "huggingface",
-                    "cache",
-                    "cloning",
-                    "computing latents",
-                    "loading cached latents",
-                    "profile fingerprint changed",
-                    "synthesizing ",
-                    "[critical error]",
-                    "[error]",
-                    "warning:",
-                    "hf hub",
-                ]) or is_download_progress:
-                    log_terminal(s)
 
                 progress_match = re.search(r'(\d+)%', s)
                 is_progress = False
@@ -248,23 +227,13 @@ def worker_loop(q):
                         if p_val != getattr(j, 'active_segment_progress', -1.0):
                             j.active_segment_progress = p_val
                             broadcast_args['active_segment_progress'] = p_val
-                            last_segment_log = getattr(j, '_last_segment_log_progress', -1.0)
-                            if p_val >= 1.0 or last_segment_log < 0 or (p_val - last_segment_log) >= 0.1:
-                                seg_label = getattr(j, 'active_segment_id', 'segment')
-                                log_terminal(f"{seg_label}: {int(p_val * 100)}%")
-                                j._last_segment_log_progress = p_val
                     elif not is_download_progress and ("|" in s or "Synthesizing" in s):
                         is_progress = True
                         if getattr(j, 'synthesis_started_at', None):
                              if p_val > getattr(j, 'progress', 0.0):
                                  new_progress = p_val
-                                 last_job_log = getattr(j, '_last_job_log_progress', 0.0)
-                                 if p_val >= 1.0 or (p_val - last_job_log) >= 0.1:
-                                     log_terminal(f"Render progress: {int(p_val * 100)}%")
-                                     j._last_job_log_progress = p_val
 
                 if not is_progress:
-                    log_terminal(s)
                     if "exceeds the character limit" in s:
                         j.warning_count = getattr(j, 'warning_count', 0) + 1
                         update_job(jid, warning_count=j.warning_count)
