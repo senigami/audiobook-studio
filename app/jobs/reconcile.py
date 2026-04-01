@@ -1,4 +1,5 @@
 import time
+import sys
 from .core import job_queue, assembly_queue, cancel_flags
 from ..state import get_jobs, update_job, delete_jobs
 from ..config import CHAPTER_DIR, XTTS_OUT_DIR, AUDIOBOOK_DIR
@@ -157,6 +158,9 @@ def cleanup_and_reconcile():
                                     text=True,
                                     timeout=2
                                 )
+                                if result.stdout:
+                                    sys.stdout.write(result.stdout)
+                                    sys.stdout.flush()
                                 audio_length = float(result.stdout.strip())
                             except Exception:
                                 pass

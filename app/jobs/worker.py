@@ -237,10 +237,6 @@ def worker_loop(q):
                 ]) or is_download_progress:
                     log_terminal(s)
 
-                # Filter noise
-                if any(x in lowered for x in ["> text", "> processing sentence", "pkg_resources is deprecated", "using model:", "futurewarning", "tensorboard", "processing time", "real-time factor"]): return
-                if s.startswith(("['", '["', "'", '"')): return
-
                 progress_match = re.search(r'(\d+)%', s)
                 is_progress = False
                 broadcast_args = {}
@@ -268,24 +264,7 @@ def worker_loop(q):
                                      j._last_job_log_progress = p_val
 
                 if not is_progress:
-                    if not any(x in lowered for x in [
-                        "loading xtts model",
-                        "loading model",
-                        "already downloaded",
-                        "downloading",
-                        "downloaded",
-                        "fetching",
-                        "resolving",
-                        "huggingface",
-                        "cache",
-                        "cloning",
-                        "computing latents",
-                        "loading cached latents",
-                        "profile fingerprint changed",
-                        "synthesizing ",
-                        "hf hub",
-                    ]):
-                        log_terminal(s)
+                    log_terminal(s)
                     if "exceeds the character limit" in s:
                         j.warning_count = getattr(j, 'warning_count', 0) + 1
                         update_job(jid, warning_count=j.warning_count)

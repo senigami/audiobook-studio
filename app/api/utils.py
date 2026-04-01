@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import re
+import sys
 from pathlib import Path
 from typing import Optional, List
 from .. import config
@@ -47,6 +48,12 @@ def probe_audiobook_metadata(root: Path, filename: str) -> dict:
         check=True,
         timeout=3,
     )
+    if probe_res.stdout:
+        sys.stdout.write(probe_res.stdout)
+        sys.stdout.flush()
+    if probe_res.stderr:
+        sys.stderr.write(probe_res.stderr)
+        sys.stderr.flush()
     probe_data = json.loads(probe_res.stdout)
     if not isinstance(probe_data, dict):
         return {}

@@ -66,7 +66,7 @@ pick_python() {
     if ! command -v "$candidate" >/dev/null 2>&1; then
       continue
     fi
-    if "$candidate" - <<'PY' >/dev/null 2>&1
+    if "$candidate" - <<'PY'
 import sys
 raise SystemExit(0 if sys.version_info >= (3, 10) else 1)
 PY
@@ -90,7 +90,7 @@ bootstrap_conda_python() {
     return 1
   fi
 
-  if [[ -x "$python_exe" ]] && "$python_exe" - <<'PY' >/dev/null 2>&1
+  if [[ -x "$python_exe" ]] && "$python_exe" - <<'PY'
 import sys
 raise SystemExit(0 if sys.version_info >= (3, 11) else 1)
 PY
@@ -121,7 +121,7 @@ xtts_env_has_conflicts() {
 
   [[ -x "$python_exe" ]] || return 1
 
-  "$python_exe" - <<'PY' >/dev/null 2>&1
+  "$python_exe" - <<'PY'
 from importlib import metadata
 
 conflicting_dists = []
@@ -237,7 +237,7 @@ maybe_restore_demo_bundle() {
 
   [[ -f "$DEMO_ZIP" ]] || return 0
 
-  if ! "$PYTHON_BIN" -m app.demo_bundle status --base-dir "$DIR" >/dev/null 2>&1; then
+  if ! "$PYTHON_BIN" -m app.demo_bundle status --base-dir "$DIR"; then
     return 0
   fi
 

@@ -2,6 +2,7 @@ import json
 import os
 import logging
 import re
+import sys
 import threading
 import time
 from dataclasses import asdict
@@ -299,6 +300,9 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
                                     text=True,
                                     timeout=2
                                 )
+                                if result.stdout:
+                                    sys.stdout.write(result.stdout)
+                                    sys.stdout.flush()
                                 if result.returncode == 0:
                                     audio_length = float(result.stdout.strip())
                             except Exception:

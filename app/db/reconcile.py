@@ -1,6 +1,7 @@
 import os
 import subprocess
 import logging
+import sys
 from .core import _db_lock, get_connection
 
 logger = logging.getLogger(__name__)
@@ -76,6 +77,9 @@ def reconcile_project_audio(project_id: str):
                                 text=True,
                                 timeout=2
                             )
+                            if result.stdout:
+                                sys.stdout.write(result.stdout)
+                                sys.stdout.flush()
                             if result.returncode == 0:
                                 duration = float(result.stdout.strip())
                         except Exception:

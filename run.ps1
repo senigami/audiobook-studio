@@ -68,7 +68,7 @@ function Remove-BootstrapPythonEnv {
 
 function Test-PythonVersion($Command, [string[]]$Prefix = @()) {
     try {
-        $versionOutput = & $Command @($Prefix + @("-c", "import sys; print(f'{sys.version_info[0]}.{sys.version_info[1]}')")) 2>$null
+        $versionOutput = & $Command @($Prefix + @("-c", "import sys; print(f'{sys.version_info[0]}.{sys.version_info[1]}')"))
         if ($LASTEXITCODE -ne 0 -or -not $versionOutput) {
             return $false
         }
@@ -121,7 +121,7 @@ function Get-PyLauncherCandidates {
 
     $paths = @()
     try {
-        $launcherOutput = & py -0p 2>$null
+        $launcherOutput = & py -0p
         if ($LASTEXITCODE -ne 0 -or -not $launcherOutput) {
             return @()
         }
@@ -277,7 +277,7 @@ for dist_name in ("coqpit",):
         conflicting_dists.append(dist_name)
 
 raise SystemExit(0 if conflicting_dists else 1)
-'@ 2>$null
+'@
     } catch {
         Write-Warning ("XTTS conflict probe failed for {0}: {1}" -f $EnvDir, $_.Exception.Message)
         return $false
@@ -392,7 +392,7 @@ function Maybe-RestoreDemoBundle($PythonInfo) {
         return
     }
 
-    & $PythonInfo.Command @($PythonInfo.Prefix + @("-m", "app.demo_bundle", "status", "--base-dir", $Root)) *> $null
+    & $PythonInfo.Command @($PythonInfo.Prefix + @("-m", "app.demo_bundle", "status", "--base-dir", $Root))
     if ($LASTEXITCODE -ne 0) {
         return
     }

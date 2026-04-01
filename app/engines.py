@@ -5,6 +5,7 @@ import re
 import hashlib
 import shutil
 import logging
+import sys
 import tempfile
 import queue
 import threading
@@ -161,7 +162,7 @@ def wav_to_mp3(in_wav: Path, out_mp3: Path, on_output=None, cancel_check=None) -
 def convert_to_wav(in_file: Path, out_wav: Path) -> int:
     """Converts any audio file to a standard 22050Hz mono WAV (best for XTTS references)."""
     cmd = ["ffmpeg", "-y", "-i", str(in_file), "-ar", "22050", "-ac", "1", str(out_wav)]
-    return subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode
+    return subprocess.run(cmd).returncode
 
 def xtts_generate(
     text: str,
@@ -250,7 +251,13 @@ def get_audio_duration(file_path: Path) -> float:
         '-of', 'default=noprint_wrappers=1:nokey=1', str(file_path)
     ]
     try:
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.stdout:
+            sys.stdout.write(result.stdout)
+            sys.stdout.flush()
+        if result.stderr:
+            sys.stderr.write(result.stderr)
+            sys.stderr.flush()
         return float(result.stdout.strip())
     except Exception:
         return 0.0
