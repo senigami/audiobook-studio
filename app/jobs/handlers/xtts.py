@@ -38,6 +38,14 @@ def _generate_direct_xtts(text, j, out_wav, on_output, cancel_check, default_sw,
     )
 
 
+def _group_job_progress(completed_groups: int, total_groups: int, active_segment_progress: float, *, limit: float) -> float:
+    if total_groups <= 0:
+        return round(limit, 2)
+    completed = max(0, min(completed_groups, total_groups))
+    active = max(0.0, min(active_segment_progress, 1.0))
+    return round(((completed + active) / total_groups) * limit, 2)
+
+
 def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, pdir, out_wav, out_mp3, text=None):
     from ...db import get_connection, update_segment, get_chapter_segments, update_segments_status_bulk, update_queue_item
     from ...db.segments import cleanup_orphaned_segments
@@ -130,12 +138,15 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
                     asid = line.split("[START_SEGMENT]")[1].strip()
                     # If it's a path, just take the filename stem or similar if possible, 
                     # but inference script sends segment['id'] if available.
-                    update_job(jid, active_segment_id=asid, active_segment_progress=0.0)
+                    base_progress = _group_job_progress(groups_completed[0], len(missing_groups), 0.0, limit=0.9)
+                    update_job(jid, force_broadcast=True, progress=base_progress, active_segment_id=asid, active_segment_progress=0.0)
 
                 if "[PROGRESS]" in line:
                     try:
                         p_str = line.split("[PROGRESS]")[1].split("%")[0].strip()
-                        update_job(jid, active_segment_progress=float(p_str)/100.0)
+                        segment_progress = float(p_str) / 100.0
+                        overall_progress = _group_job_progress(groups_completed[0], len(missing_groups), segment_progress, limit=0.9)
+                        update_job(jid, force_broadcast=True, progress=overall_progress, active_segment_progress=segment_progress)
                     except: pass
 
             try:
@@ -239,12 +250,15 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
 
             if "[START_SEGMENT]" in line:
                 asid = line.split("[START_SEGMENT]")[1].strip()
-                update_job(jid, active_segment_id=asid, active_segment_progress=0.0)
+                base_progress = _group_job_progress(groups_completed[0], len(gen_groups), 0.0, limit=1.0)
+                update_job(jid, force_broadcast=True, progress=base_progress, active_segment_id=asid, active_segment_progress=0.0)
 
             if "[PROGRESS]" in line:
                 try:
                     p_str = line.split("[PROGRESS]")[1].split("%")[0].strip()
-                    update_job(jid, active_segment_progress=float(p_str)/100.0)
+                    segment_progress = float(p_str) / 100.0
+                    overall_progress = _group_job_progress(groups_completed[0], len(gen_groups), segment_progress, limit=1.0)
+                    update_job(jid, force_broadcast=True, progress=overall_progress, active_segment_progress=segment_progress)
                 except: pass
 
         try:
@@ -319,12 +333,15 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
 
                     if "[START_SEGMENT]" in line:
                         asid = line.split("[START_SEGMENT]")[1].strip()
-                        update_job(jid, active_segment_id=asid, active_segment_progress=0.0)
+                        base_progress = _group_job_progress(groups_completed[0], len(groups), 0.0, limit=0.9)
+                        update_job(jid, force_broadcast=True, progress=base_progress, active_segment_id=asid, active_segment_progress=0.0)
 
                     if "[PROGRESS]" in line:
                         try:
                             p_str = line.split("[PROGRESS]")[1].split("%")[0].strip()
-                            update_job(jid, active_segment_progress=float(p_str) / 100.0)
+                            segment_progress = float(p_str) / 100.0
+                            overall_progress = _group_job_progress(groups_completed[0], len(groups), segment_progress, limit=0.9)
+                            update_job(jid, force_broadcast=True, progress=overall_progress, active_segment_progress=segment_progress)
                         except Exception:
                             pass
 

@@ -156,15 +156,15 @@ describe('Global Queue Components', () => {
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'false');
         });
 
-        it('uses live segment progress for running xtts jobs', () => {
+        it('keeps chapter jobs on overall progress even when segment progress is present', () => {
             render(
                 <QueueItem
-                    job={{ ...mockJob, engine: 'xtts', status: 'running', progress: 0.99 } as any}
+                    job={{ ...mockJob, engine: 'xtts', status: 'running', progress: 0.52 } as any}
                     liveJob={{
                         id: 'job-1',
                         engine: 'xtts',
                         status: 'running',
-                        progress: 0.99,
+                        progress: 0.52,
                         active_segment_progress: 0.75,
                         started_at: 1000,
                         eta_seconds: 30,
@@ -176,8 +176,8 @@ describe('Global Queue Components', () => {
                 />
             );
 
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.75');
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'false');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.52');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'true');
         });
 
         it('shows pause icon when paused', () => {
