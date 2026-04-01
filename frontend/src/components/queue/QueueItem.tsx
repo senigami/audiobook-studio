@@ -81,11 +81,9 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                             {formatJobTitle(job)}
                         </h4>
                         <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            {job.project_name ? (
-                                <span>{formatQueueContext(job)}</span>
-                            ) : (
-                                <span style={{ color: 'var(--accent)', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Internal Process</span>
-                            )}
+                            <span style={!job.project_name ? { color: 'var(--accent)', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' } : undefined}>
+                                {formatQueueContext(job)}
+                            </span>
                             {started && (
                                 <>
                                     <span style={{ width: '3px', height: '3px', borderRadius: '50%', background: 'var(--text-muted)' }} />

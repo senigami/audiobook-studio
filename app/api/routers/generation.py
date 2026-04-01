@@ -36,6 +36,15 @@ def _voxtral_disabled_error():
     )
 
 
+def _single_job_title(chapter_file: str, engine: str) -> str:
+    base_name = Path(chapter_file or "").stem.strip() or Path(chapter_file or "").name.strip() or "Untitled"
+    action = {
+        "voxtral": "Generating Voxtral audio for",
+        "mixed": "Generating mixed audio for",
+    }.get(engine, "Generating audio for")
+    return f"{action} {base_name}"
+
+
 def _resolved_segment_profiles(chapter_id: str, only_segment_ids: Optional[set[str]] = None) -> list[Optional[str]]:
     segments = get_chapter_segments(chapter_id)
     if only_segment_ids:
@@ -255,14 +264,16 @@ def cancel_chapter_generation(chapter_id: str):
 
 @router.post("/generation/enqueue-single")
 def enqueue_single(chapter_file: str = Form(...), engine: str = Form("xtts")):
+    normalized_engine = normalize_tts_engine(engine, engine)
     jid = f"job-{uuid.uuid4().hex[:8]}"
     j = Job(
         id=jid,
         chapter_file=chapter_file,
-        engine=normalize_tts_engine(engine, engine),
+        engine=normalized_engine,
         status="queued",
         created_at=time.time(),
-        speaker_profile=get_settings().get("default_speaker_profile")
+        speaker_profile=get_settings().get("default_speaker_profile"),
+        custom_title=_single_job_title(chapter_file, normalized_engine),
     )
     put_job(j)
     enqueue(j)

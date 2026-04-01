@@ -123,6 +123,15 @@ def test_generate_segments(clean_db, client):
         assert "job_id" in response.json()
 
 
+def test_enqueue_single_sets_descriptive_custom_title(clean_db, client):
+    with patch("app.api.routers.generation.put_job") as mock_put_job, patch("app.api.routers.generation.enqueue"):
+        response = client.post("/api/generation/enqueue-single", data={"chapter_file": "chapter_01.txt", "engine": "xtts"})
+
+    assert response.status_code == 200
+    job = mock_put_job.call_args.args[0]
+    assert job.custom_title == "Generating audio for chapter_01"
+
+
 def test_generate_segments_pure_xtts_use_mixed_worker(clean_db, client):
     from app.db.projects import create_project
     from app.db.chapters import create_chapter

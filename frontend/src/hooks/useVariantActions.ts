@@ -97,16 +97,15 @@ export function useVariantActions(
 
     const handleGeneratePreview = useCallback((e?: React.MouseEvent) => {
         e?.stopPropagation();
-        setPendingPlay(true);
+        setPendingPlay(false);
 
-        if (audioRef.current) {
-            audioRef.current.play().catch(() => {
-                // Expected if there is no current source yet.
-            });
+        if (audioRef.current && !audioRef.current.paused) {
+            audioRef.current.pause();
         }
+        setIsPlaying(false);
 
         onTest(profile.name);
-    }, [onTest, profile.name]);
+    }, [onTest, profile.name, setIsPlaying]);
 
     const handlePlaySample = useCallback((s: string) => {
         if (playingSample === s) {

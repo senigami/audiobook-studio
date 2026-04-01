@@ -16,6 +16,7 @@ from ...db import (
     update_voice_profile_references
 )
 from ...db.speakers import (
+    infer_speaker_name,
     infer_variant_name,
     repair_speakers_from_profiles,
     normalize_profile_metadata,
@@ -165,6 +166,13 @@ def _voice_has_generation_material(name: str) -> bool:
         return _voice_raw_sample_count(name) > 0
 
     return _voice_raw_sample_count(name) > 0 or _voice_has_latent(name)
+
+
+def _voice_job_title(name: str, action: str = "Building voice for") -> str:
+    settings = get_speaker_settings(name)
+    variant_name = str(settings.get("variant_name") or infer_variant_name(name) or "Default").strip() or "Default"
+    speaker_name = infer_speaker_name(name, settings).strip() or name
+    return f"{action} {speaker_name}: {variant_name}"
 
 router = APIRouter(tags=["voices"])
 
@@ -677,7 +685,8 @@ async def build_speaker_profile(
         chapter_file="", # Required by model
         status="queued",
         created_at=time.time(),
-        speaker_profile=name
+        speaker_profile=name,
+        custom_title=_voice_job_title(name),
     )
     put_job(j)
     enqueue(j)
@@ -779,7 +788,8 @@ def test_speaker_profile(name: str):
         chapter_file="", # Required by model
         status="queued",
         created_at=time.time(),
-        speaker_profile=name
+        speaker_profile=name,
+        custom_title=_voice_job_title(name),
     )
     put_job(j)
     enqueue(j)
