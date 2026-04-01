@@ -19,7 +19,9 @@ function Write-Step($Message) {
 }
 
 function Fail($Message) {
-    throw $Message
+    Write-Host ""
+    Write-Host "Error: $Message" -ForegroundColor Red
+    exit 1
 }
 
 function Get-NodeInstallHelp() {
