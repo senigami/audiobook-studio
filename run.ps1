@@ -20,23 +20,44 @@ function Write-Step($Message) {
 
 function Fail($Message) {
     Write-Host ""
-    Write-Host "Error: $Message" -ForegroundColor Red
+    if ($Message -is [System.Array]) {
+        $lines = @($Message | ForEach-Object { [string]$_ })
+        if ($lines.Count -gt 0) {
+            Write-Host "Error: $($lines[0])" -ForegroundColor Red
+            foreach ($line in $lines[1..($lines.Count - 1)]) {
+                if ($line -ne "") {
+                    Write-Host $line -ForegroundColor Red
+                } else {
+                    Write-Host ""
+                }
+            }
+        } else {
+            Write-Host "Error" -ForegroundColor Red
+        }
+    } else {
+        Write-Host "Error: $Message" -ForegroundColor Red
+    }
     exit 1
 }
 
 function Get-NodeInstallHelp() {
-    $lines = @(
-        "Node.js 18+ and npm are required on a fresh clone because the frontend must be built."
-    )
+    $lines = @("Node.js 18+ and npm are required on a fresh clone because the frontend must be built.", "")
 
     if (Get-Command "winget" -ErrorAction SilentlyContinue) {
-        $lines += "Install it with: winget install -e --id OpenJS.NodeJS.LTS"
+        $lines += "Install it with:"
+        $lines += "  winget install -e --id OpenJS.NodeJS.LTS"
     } else {
-        $lines += "Install Node.js LTS from: https://nodejs.org/"
+        $lines += "Install Node.js LTS from:"
+        $lines += "  https://nodejs.org/"
     }
 
-    $lines += "After installing Node.js, close this PowerShell window, open a new one, and rerun: powershell -ExecutionPolicy Bypass -File .\run.ps1"
-    return ($lines -join " ")
+    $lines += ""
+    $lines += "After installing Node.js:"
+    $lines += "  1. Close this PowerShell window"
+    $lines += "  2. Open a new PowerShell window"
+    $lines += "  3. Rerun:"
+    $lines += "     powershell -ExecutionPolicy Bypass -File .\run.ps1"
+    return $lines
 }
 
 function Remove-BootstrapPythonEnv {
