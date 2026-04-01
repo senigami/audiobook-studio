@@ -43,7 +43,7 @@ function Test-PythonVersion($Command, [string[]]$Prefix = @()) {
         if (-not [version]::TryParse($versionText, [ref]$parsedVersion)) {
             return $false
         }
-        return $parsedVersion -ge [version]"3.11"
+        return $parsedVersion -ge [version]"3.10"
     } catch {
         return $false
     }
@@ -112,10 +112,12 @@ function Find-Python {
         @{ Command = "py"; Prefix = @("-3.13") },
         @{ Command = "py"; Prefix = @("-3.12") },
         @{ Command = "py"; Prefix = @("-3.11") },
+        @{ Command = "py"; Prefix = @("-3.10") },
         @{ Command = "py"; Prefix = @("-3") },
         @{ Command = "py"; Prefix = @() },
         @{ Command = "python"; Prefix = @() },
         @{ Command = "python3.11"; Prefix = @() },
+        @{ Command = "python3.10"; Prefix = @() },
         @{ Command = "python3"; Prefix = @() }
     )
 
@@ -376,7 +378,7 @@ if (-not $PythonInfo) {
     $PythonInfo = Get-CondaBootstrapPython
 }
 if (-not $PythonInfo) {
-    Fail "Python 3.11+ is required. Please install Python 3.11 or newer, or use Pinokio's AI bundle with conda support."
+    Fail "Python 3.10+ is required. Please install Python 3.10 or newer, or use Pinokio's AI bundle with conda support."
 }
 
 Write-Step "Using Python: $($PythonInfo.Command)"

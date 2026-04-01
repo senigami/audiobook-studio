@@ -8,7 +8,7 @@ If you are new to the project, start with the current `1.8.x` release line or th
 
 ## Requirements
 
-- **Python 3.11+**
+- **Python 3.10+**
 - **Node.js 18+**
 - **FFmpeg**
 - macOS, Linux, or Windows

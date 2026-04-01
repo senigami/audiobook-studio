@@ -14,7 +14,7 @@ The live showcase also includes the fuller feature and cost comparison with Elev
 
 [![Build Status](https://github.com/senigami/audiobook-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/senigami/audiobook-studio/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18-green.svg)](https://nodejs.org/)
 
 **Audiobook Studio** is a local-first production app for turning manuscripts into polished audiobooks with AI voices you control.
@@ -167,7 +167,7 @@ If you want a fully local workflow, keep your voices on `XTTS (Local)`. If you w
 ### Requirements
 
 - macOS, Linux, or Windows
-- Python `3.11+`
+- Python `3.10+`
 - Node.js `18+`
 - `ffmpeg`
 - NVIDIA GPU recommended for faster local synthesis
@@ -227,7 +227,7 @@ powershell -ExecutionPolicy Bypass -File .\run.ps1 -Port 9000
    git clone https://github.com/senigami/audiobook-studio.git
    cd audiobook-studio
 
-   python3.11 -m venv venv
+   python3 -m venv venv
    source venv/bin/activate
    pip install -r requirements.txt
    ```
@@ -235,7 +235,7 @@ powershell -ExecutionPolicy Bypass -File .\run.ps1 -Port 9000
 2. **XTTS Inference Setup**  
    XTTS requires a separate environment to avoid dependency conflicts. The app expects this at `~/xtts-env` by default (configurable in `app/config.py`).
    ```bash
-   python3.11 -m venv ~/xtts-env
+   python3 -m venv ~/xtts-env
    source ~/xtts-env/bin/activate
    pip install -r requirements-xtts.txt
    ```
