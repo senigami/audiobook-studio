@@ -49,6 +49,33 @@ function Test-PythonVersion($Command, [string[]]$Prefix = @()) {
     }
 }
 
+function Get-WindowsPythonCandidates {
+    $candidates = @()
+    $roots = @(
+        $env:LOCALAPPDATA,
+        $env:ProgramFiles,
+        ${env:ProgramFiles(x86)}
+    ) | Where-Object { $_ }
+
+    foreach ($root in $roots) {
+        $pythonBase = Join-Path $root "Programs/Python"
+        if (Test-Path $pythonBase) {
+            $candidates += Get-ChildItem $pythonBase -Directory -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -match '^Python3\d+$' } |
+                Sort-Object Name -Descending |
+                ForEach-Object { Join-Path $_.FullName "python.exe" }
+        }
+
+        $candidates += @(
+            (Join-Path $root "Python313/python.exe"),
+            (Join-Path $root "Python312/python.exe"),
+            (Join-Path $root "Python311/python.exe")
+        )
+    }
+
+    return $candidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -Unique
+}
+
 function Find-Python {
     $candidates = @(
         @{ Command = "py"; Prefix = @("-3.11") },
@@ -63,6 +90,12 @@ function Find-Python {
         }
         if (Test-PythonVersion $candidate.Command $candidate.Prefix) {
             return $candidate
+        }
+    }
+
+    foreach ($pythonExe in Get-WindowsPythonCandidates) {
+        if (Test-PythonVersion $pythonExe) {
+            return @{ Command = $pythonExe; Prefix = @() }
         }
     }
 
@@ -104,11 +137,13 @@ function Get-CondaBootstrapPython {
         & $condaExe create -y -p $BootstrapPythonEnv python=3.11 pip
     } catch {
         Remove-BootstrapPythonEnv
-        Fail "Failed to provision Python 3.11 with conda. Please install Python 3.11+ or reset the Pinokio app and try again."
+        Write-Warning "Failed to provision Python 3.11 with conda; falling back to standard Python discovery."
+        return $null
     }
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path $pythonExe)) {
         Remove-BootstrapPythonEnv
-        Fail "Failed to provision Python 3.11 with conda. Please install Python 3.11+ or reset the Pinokio app and try again."
+        Write-Warning "Failed to provision Python 3.11 with conda; falling back to standard Python discovery."
+        return $null
     }
 
     return @{ Command = $pythonExe; Prefix = @() }
