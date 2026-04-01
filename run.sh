@@ -20,6 +20,18 @@ die() {
   exit 1
 }
 
+ffmpeg_install_help() {
+  cat <<'EOF'
+FFmpeg is required for audio conversion and audiobook assembly.
+
+Install it with your platform package manager or from:
+  https://ffmpeg.org/download.html
+
+Then open a new shell and rerun:
+  ./run.sh
+EOF
+}
+
 usage() {
   cat <<EOF
 Audiobook Studio bootstrap and startup script
@@ -113,6 +125,12 @@ PY
 
 require_cmd() {
   command -v "$1" >/dev/null 2>&1 || die "Missing required command: $1"
+}
+
+ensure_ffmpeg_ready() {
+  if ! command -v ffmpeg >/dev/null 2>&1; then
+    die "$(ffmpeg_install_help)"
+  fi
 }
 
 xtts_env_has_conflicts() {
@@ -272,6 +290,7 @@ PYTHON_BIN="$(pick_python || bootstrap_conda_python)"
 [[ -n "$PYTHON_BIN" ]] || die "Python 3.10+ is required. Please install Python 3.10 or newer, or use Pinokio's AI bundle with conda support."
 
 log "Using Python: $PYTHON_BIN"
+ensure_ffmpeg_ready
 sync_python_requirements "$APP_VENV" "$DIR/requirements.txt" "app"
 sync_python_requirements "$XTTS_VENV" "$DIR/requirements-xtts.txt" "XTTS"
 ensure_frontend_ready

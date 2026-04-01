@@ -60,6 +60,26 @@ function Get-NodeInstallHelp() {
     return $lines
 }
 
+function Get-FfmpegInstallHelp() {
+    $lines = @("FFmpeg is required for audio conversion and audiobook assembly.", "")
+
+    if (Get-Command "winget" -ErrorAction SilentlyContinue) {
+        $lines += "Install it with:"
+        $lines += "  winget install -e --id Gyan.FFmpeg"
+    } else {
+        $lines += "Install FFmpeg from:"
+        $lines += "  https://ffmpeg.org/download.html"
+    }
+
+    $lines += ""
+    $lines += "After installing FFmpeg:"
+    $lines += "  1. Close this PowerShell window"
+    $lines += "  2. Open a new PowerShell window"
+    $lines += "  3. Rerun:"
+    $lines += "     powershell -ExecutionPolicy Bypass -File .\run.ps1"
+    return $lines
+}
+
 function Remove-BootstrapPythonEnv {
     if (Test-Path $BootstrapPythonEnv) {
         Remove-Item $BootstrapPythonEnv -Recurse -Force -ErrorAction SilentlyContinue
@@ -250,6 +270,12 @@ function Require-Command($Name) {
     }
 }
 
+function Ensure-FfmpegReady() {
+    if (-not (Get-Command "ffmpeg" -ErrorAction SilentlyContinue)) {
+        Fail (Get-FfmpegInstallHelp)
+    }
+}
+
 function Test-SameFileContent($PathA, $PathB) {
     if (-not (Test-Path $PathA) -or -not (Test-Path $PathB)) {
         return $false
@@ -433,6 +459,7 @@ if (-not $PythonInfo) {
 }
 
 Write-Step "Using Python: $($PythonInfo.Command)"
+Ensure-FfmpegReady
 Sync-PythonRequirements $PythonInfo $AppVenv (Join-Path $Root "requirements.txt") "app"
 Sync-PythonRequirements $PythonInfo $XttsVenv (Join-Path $Root "requirements-xtts.txt") "XTTS"
 Ensure-FrontendReady

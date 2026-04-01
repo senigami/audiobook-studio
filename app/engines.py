@@ -63,7 +63,7 @@ def run_cmd_stream(cmd, on_output, cancel_check, env=None) -> int:
     except FileNotFoundError as exc:
         message = f"[error] Failed to launch command: {exc}\n"
         on_output(message)
-        logger.error("Command not found while launching: %s", display_cmd, exc_info=True)
+        logger.warning("Command not found while launching: %s", display_cmd)
         return 127
     _active_processes.add(proc)
     output_queue: "queue.Queue[Optional[str]]" = queue.Queue()
