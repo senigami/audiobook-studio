@@ -132,6 +132,30 @@ describe('Global Queue Components', () => {
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-status', 'running');
         });
 
+        it('uses live segment progress for running voice build jobs', () => {
+            render(
+                <QueueItem
+                    job={{ ...mockJob, engine: 'voice_build', status: 'running', progress: 0.99 } as any}
+                    liveJob={{
+                        id: 'job-1',
+                        engine: 'voice_build',
+                        status: 'running',
+                        progress: 0.99,
+                        active_segment_progress: 0.66,
+                        started_at: 1000,
+                        eta_seconds: 30,
+                    } as any}
+                    localPaused={false}
+                    formatJobTitle={(j) => `Title for ${j.id}`}
+                    formatTime={(t) => `Time ${t}`}
+                    onRemove={vi.fn()}
+                />
+            );
+
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.66');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'false');
+        });
+
         it('shows pause icon when paused', () => {
             const { container } = render(
                 <QueueItem 

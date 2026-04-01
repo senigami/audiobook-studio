@@ -24,8 +24,16 @@ export const QueueItem: React.FC<QueueItemProps> = ({
 }) => {
     const started = liveJob?.started_at ?? job.started_at;
     const etaSeconds = liveJob?.eta_seconds ?? job.eta_seconds;
-    const progress = liveJob?.progress ?? job.progress ?? 0;
     const status = liveJob?.status ?? job.status;
+    const engine = (liveJob?.engine ?? job.engine) || '';
+    const activeSegmentProgress = liveJob?.active_segment_progress;
+    const useLiveVoiceSegmentProgress = ['voice_build', 'voice_test'].includes(engine)
+        && status === 'running'
+        && typeof activeSegmentProgress === 'number'
+        && activeSegmentProgress > 0;
+    const progress = useLiveVoiceSegmentProgress
+        ? activeSegmentProgress
+        : (liveJob?.progress ?? job.progress ?? 0);
     const isCloudLike = ['voxtral', 'mixed'].includes((liveJob?.engine ?? job.engine) || '');
     const showIndeterminateProgress = isCloudLike && shouldShowIndeterminateProgress({
         engine: liveJob?.engine ?? job.engine,
@@ -109,7 +117,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                     etaSeconds={etaSeconds}
                     status={displayStatus}
                     label={displayStatus === 'preparing' ? "Preparing..." : (displayStatus === 'finalizing' ? "Finalizing..." : "Processing...")}
-                    predictive={!showIndeterminateProgress}
+                    predictive={!showIndeterminateProgress && !useLiveVoiceSegmentProgress}
                     indeterminateRunning={showIndeterminateProgress}
                 />
             </div>

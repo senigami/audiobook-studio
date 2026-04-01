@@ -66,8 +66,18 @@ def worker_loop(q):
             chars = 0
             eta = 0
             text = None
+            voice_job_settings = None
 
-            if j.engine not in ("audiobook", "voice_build", "voice_test"):
+            if j.engine in ("voice_build", "voice_test"):
+                voice_job_settings = get_speaker_settings(j.speaker_profile)
+                chars = len((voice_job_settings.get("test_text") or "").strip())
+                if chars > 0 and voice_job_settings.get("engine", "xtts") == "xtts":
+                    perf = get_performance_metrics()
+                    cps = perf.get("xtts_cps", BASELINE_XTTS_CPS)
+                    eta = _estimate_seconds(chars, cps)
+                else:
+                    eta = max(15, eta)
+            elif j.engine != "audiobook":
                 if j.segment_ids:
                     from ..db import get_connection
                     with get_connection() as conn:
@@ -285,7 +295,7 @@ def worker_loop(q):
                 sample_path = pdir / "sample.wav"
                 if j.engine in ("voice_build", "voice_test") or not sample_path.exists():
                     on_output(f"Generating test sample for {j.speaker_profile}...\n")
-                    spk = get_speaker_settings(j.speaker_profile)
+                    spk = voice_job_settings or get_speaker_settings(j.speaker_profile)
                     sw = get_speaker_wavs(j.speaker_profile)
                     try:
                         voice_profile_dir = get_voice_profile_dir(j.speaker_profile)
@@ -369,7 +379,7 @@ def worker_loop(q):
                 if not getattr(j, 'is_bake', False):
                     eff_start = getattr(j, 'synthesis_started_at', None) or start
                     dur = time.time() - eff_start
-                    if dur > 0 and chars > 0:
+                    if dur > 0 and chars > 0 and engine == "xtts":
                         new_cps = chars / dur
                         updated = (perf.get("xtts_cps", BASELINE_XTTS_CPS) * 0.8) + (new_cps * 0.2)
                         update_performance_metrics(xtts_cps=updated)
