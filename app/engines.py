@@ -56,7 +56,6 @@ def run_cmd_stream(cmd, on_output, cancel_check, env=None) -> int:
         shell=isinstance(cmd, str),
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
-        text=True,
         bufsize=0, # Unbuffered
         env=env,
     )
@@ -71,7 +70,7 @@ def run_cmd_stream(cmd, on_output, cancel_check, env=None) -> int:
                 char = proc.stdout.read(1)
                 if not char:
                     break
-                output_queue.put(char)
+                output_queue.put(char.decode("utf-8", errors="replace"))
         finally:
             output_queue.put(None)
 
