@@ -181,9 +181,20 @@ ensure_frontend_ready() {
   local install_stamp="$FRONTEND_DIR/node_modules/.install.stamp"
   local dist_index="$FRONTEND_DIR/dist/index.html"
   local needs_build=0
+  local has_npm=0
+
+  if command -v npm >/dev/null 2>&1; then
+    has_npm=1
+  fi
 
   if [[ ! -d "$FRONTEND_DIR/node_modules" ]] || [[ ! -f "$install_stamp" ]] || ! cmp -s "$lockfile" "$install_stamp"; then
-    require_cmd npm
+    if [[ "$has_npm" -eq 0 ]]; then
+      if [[ -f "$dist_index" ]]; then
+        log "npm is not installed; using the bundled frontend build"
+        return 0
+      fi
+      die "Missing required command: npm"
+    fi
     log "Installing frontend dependencies"
     (
       cd "$FRONTEND_DIR"
@@ -204,7 +215,13 @@ ensure_frontend_ready() {
   fi
 
   if [[ "$needs_build" -eq 1 ]]; then
-    require_cmd npm
+    if [[ "$has_npm" -eq 0 ]]; then
+      if [[ -f "$dist_index" ]]; then
+        log "npm is not installed; using the bundled frontend build instead of rebuilding"
+        return 0
+      fi
+      die "Missing required command: npm"
+    fi
     log "Building frontend"
     (
       cd "$FRONTEND_DIR"

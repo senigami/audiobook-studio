@@ -280,9 +280,16 @@ function Ensure-FrontendReady() {
     $InstallStamp = Join-Path $NodeModules ".install.stamp"
     $DistIndex = Join-Path $FrontendDir "dist/index.html"
     $NeedsBuild = $false
+    $HasNpm = [bool](Get-Command "npm" -ErrorAction SilentlyContinue)
 
     if (-not (Test-Path $NodeModules) -or -not (Test-SameFileContent $Lockfile $InstallStamp)) {
-        Require-Command "npm"
+        if (-not $HasNpm) {
+            if (Test-Path $DistIndex) {
+                Write-Warning "npm is not installed; using the bundled frontend build."
+                return
+            }
+            Fail "Missing required command: npm"
+        }
         Write-Step "Installing frontend dependencies"
         Push-Location $FrontendDir
         try {
@@ -322,7 +329,13 @@ function Ensure-FrontendReady() {
     }
 
     if ($NeedsBuild) {
-        Require-Command "npm"
+        if (-not $HasNpm) {
+            if (Test-Path $DistIndex) {
+                Write-Warning "npm is not installed; using the bundled frontend build instead of rebuilding."
+                return
+            }
+            Fail "Missing required command: npm"
+        }
         Write-Step "Building frontend"
         Push-Location $FrontendDir
         try {
