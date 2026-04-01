@@ -1,5 +1,6 @@
 import os
 import sys
+import wave
 from pathlib import Path
 
 # Silence environment noise before heavy imports
@@ -11,7 +12,6 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 import torch  # noqa: E402
-import torchaudio  # noqa: E402
 import argparse  # noqa: E402
 import warnings  # noqa: E402
 import json  # noqa: E402
@@ -22,6 +22,20 @@ from app.engines import migrate_speaker_latent_to_profile  # noqa: E402
 # Suppress common XTTS/Torch warnings that clutter logs
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
+
+
+def _save_wav(path: str, waveform: torch.Tensor, sample_rate: int) -> None:
+    wav = waveform.detach().cpu()
+    if wav.dim() == 2:
+        wav = wav.squeeze(0)
+    wav = torch.clamp(wav, -1.0, 1.0)
+    pcm16 = (wav * 32767.0).to(torch.int16).numpy()
+
+    with wave.open(path, "wb") as wav_file:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(sample_rate)
+        wav_file.writeframes(pcm16.tobytes())
 
 def main():
     parser = argparse.ArgumentParser(description="XTTS Streaming Inference Script")
@@ -316,7 +330,7 @@ def main():
                 # Save this segment individually if requested (for Performance tab playback)
                 if 'save_path' in segment and segment_wav_chunks:
                     seg_wav = torch.cat(segment_wav_chunks, dim=0)
-                    torchaudio.save(segment['save_path'], seg_wav.unsqueeze(0), SAMPLE_RATE)
+                    _save_wav(segment['save_path'], seg_wav, SAMPLE_RATE)
                     # Signal to parent process that this segment's audio is ready
                     print(f"[SEGMENT_SAVED] {segment['save_path']}", file=sys.stderr)
 
@@ -324,7 +338,7 @@ def main():
 
         if all_wav_chunks:
             final_wav = torch.cat(all_wav_chunks, dim=0)
-            torchaudio.save(args.out_path, final_wav.unsqueeze(0), SAMPLE_RATE)
+            _save_wav(args.out_path, final_wav, SAMPLE_RATE)
             print(f"Successfully synthesized {len(all_wav_chunks)} audio chunks.", file=sys.stderr)
 
     except Exception as e:
