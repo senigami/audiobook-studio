@@ -166,6 +166,7 @@ def worker_loop(q):
             start = adjusted_start
 
             def on_output(line):
+                raw_line = line
                 s = line.strip()
                 now = time.time()
                 new_progress = None
@@ -187,8 +188,9 @@ def worker_loop(q):
                         update_job(jid, progress=prog)
                     return
 
-                sys.stdout.write(s + "\n")
-                sys.stdout.flush()
+                if raw_line:
+                    sys.stdout.write(raw_line)
+                    sys.stdout.flush()
 
                 if "[START_SYNTHESIS]" in s:
                     j.synthesis_started_at = now
