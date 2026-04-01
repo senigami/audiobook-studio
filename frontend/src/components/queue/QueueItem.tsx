@@ -27,11 +27,11 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     const status = liveJob?.status ?? job.status;
     const engine = (liveJob?.engine ?? job.engine) || '';
     const activeSegmentProgress = liveJob?.active_segment_progress;
-    const useLiveVoiceSegmentProgress = ['voice_build', 'voice_test'].includes(engine)
+    const useLiveSegmentProgress = !['voxtral'].includes(engine)
         && status === 'running'
         && typeof activeSegmentProgress === 'number'
         && activeSegmentProgress > 0;
-    const progress = useLiveVoiceSegmentProgress
+    const progress = useLiveSegmentProgress
         ? activeSegmentProgress
         : (liveJob?.progress ?? job.progress ?? 0);
     const isCloudLike = ['voxtral', 'mixed'].includes((liveJob?.engine ?? job.engine) || '');
@@ -117,7 +117,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                     etaSeconds={etaSeconds}
                     status={displayStatus}
                     label={displayStatus === 'preparing' ? "Preparing..." : (displayStatus === 'finalizing' ? "Finalizing..." : "Processing...")}
-                    predictive={!showIndeterminateProgress && !useLiveVoiceSegmentProgress}
+                    predictive={!showIndeterminateProgress && !useLiveSegmentProgress}
                     indeterminateRunning={showIndeterminateProgress}
                 />
             </div>

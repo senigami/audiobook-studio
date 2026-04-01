@@ -156,6 +156,30 @@ describe('Global Queue Components', () => {
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'false');
         });
 
+        it('uses live segment progress for running xtts jobs', () => {
+            render(
+                <QueueItem
+                    job={{ ...mockJob, engine: 'xtts', status: 'running', progress: 0.99 } as any}
+                    liveJob={{
+                        id: 'job-1',
+                        engine: 'xtts',
+                        status: 'running',
+                        progress: 0.99,
+                        active_segment_progress: 0.75,
+                        started_at: 1000,
+                        eta_seconds: 30,
+                    } as any}
+                    localPaused={false}
+                    formatJobTitle={(j) => `Title for ${j.id}`}
+                    formatTime={(t) => `Time ${t}`}
+                    onRemove={vi.fn()}
+                />
+            );
+
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.75');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'false');
+        });
+
         it('shows pause icon when paused', () => {
             const { container } = render(
                 <QueueItem 
