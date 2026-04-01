@@ -70,7 +70,10 @@ def run_cmd_stream(cmd, on_output, cancel_check, env=None) -> int:
                 char = proc.stdout.read(1)
                 if not char:
                     break
-                output_queue.put(char.decode("utf-8", errors="replace"))
+                decoded = char.decode("utf-8", errors="replace")
+                sys.stdout.write(decoded)
+                sys.stdout.flush()
+                output_queue.put(decoded)
         finally:
             output_queue.put(None)
 

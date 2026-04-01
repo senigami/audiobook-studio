@@ -1,7 +1,6 @@
 import time
 import os
 import re
-import sys
 import threading
 import traceback
 import logging
@@ -187,10 +186,6 @@ def worker_loop(q):
                         j._last_broadcast_p = prog
                         update_job(jid, progress=prog)
                     return
-
-                if raw_line:
-                    sys.stdout.write(raw_line)
-                    sys.stdout.flush()
 
                 if "[START_SYNTHESIS]" in s:
                     j.synthesis_started_at = now
