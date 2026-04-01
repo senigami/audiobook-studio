@@ -5,7 +5,6 @@ import { ActionMenu } from '../ActionMenu';
 import { StatusOrb } from '../StatusOrb';
 import { PredictiveProgressBar } from '../PredictiveProgressBar';
 import type { Chapter, Job } from '../../types';
-import { logVoxtralDebug } from '../../utils/debugVoxtral';
 import { isSegmentScopedJob, shouldShowIndeterminateProgress } from '../../utils/jobSelection';
 
 interface ChapterListProps {
@@ -86,36 +85,6 @@ export const ChapterList: React.FC<ChapterListProps> = ({
   const allDoneIds = chapters.filter(c => c.audio_status === 'done').map(c => c.id);
   const isAllSelected = selectedChapters.size === allDoneIds.length && allDoneIds.length > 0;
 
-  React.useEffect(() => {
-    const snapshots = chapters.map(chap => {
-      const hasChapterAudio = !!(chap.has_wav || chap.has_mp3 || chap.has_m4a);
-      const activeJob = pickActiveJob(chap.id, !hasChapterAudio && chap.audio_status !== 'processing');
-      if (!activeJob && chap.audio_status !== 'processing') return null;
-      const displayStatus = activeJob?.status === 'done' && !hasChapterAudio ? 'finalizing' : activeJob?.status ?? (chap.audio_status === 'processing' ? 'processing' : null);
-      const isSegmentJob = activeJob ? isSegmentScopedJob(activeJob) : false;
-      const showIndeterminateProgress = !!activeJob && shouldShowIndeterminateProgress(activeJob);
-      return {
-        chapterId: chap.id,
-        chapterAudioStatus: chap.audio_status,
-        hasChapterAudio,
-        activeJobId: activeJob?.id ?? null,
-        activeJobEngine: activeJob?.engine ?? null,
-        activeJobStatus: activeJob?.status ?? null,
-        activeJobProgress: activeJob?.progress ?? null,
-        activeJobCustomTitle: activeJob?.custom_title ?? null,
-        activeJobSegmentIdsCount: activeJob?.segment_ids?.length ?? 0,
-        activeJobActiveSegmentId: activeJob?.active_segment_id ?? null,
-        activeJobError: activeJob?.error ?? null,
-        activeJobSegmentScoped: isSegmentJob,
-        showIndeterminateProgress,
-        displayStatus,
-      };
-    }).filter(Boolean);
-    if (snapshots.length > 0) {
-      logVoxtralDebug('chapter-list', snapshots);
-    }
-  }, [chapters, jobs, pickActiveJob]);
-
   return (
     <div style={{ background: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--border)' }}>
       {isAssemblyMode && (
@@ -137,11 +106,6 @@ export const ChapterList: React.FC<ChapterListProps> = ({
             ? 1
             : activeJob ? (activeJob.progress ?? 0) : 0;
           const showIndeterminateProgress = !!activeJob && shouldShowIndeterminateProgress(activeJob);
-          const renderMode = activeJob
-            ? 'progress'
-            : hasChapterAudio && !isAssemblyMode
-              ? 'audio'
-              : 'runtime';
           const isMenuOpen = openMenuRowId === chap.id;
           const isFullyRendered = hasChapterAudio;
           const queueActionLabel = isFullyRendered
@@ -163,22 +127,6 @@ export const ChapterList: React.FC<ChapterListProps> = ({
               ? 'Processing'
               : null;
           const isQueued = queueStatus === 'Queued';
-
-          if (activeJob) {
-            logVoxtralDebug('chapter-card-render', {
-              chapterId: chap.id,
-              jobId: activeJob.id,
-              jobEngine: activeJob.engine,
-              jobStatus: activeJob.status,
-              jobProgress: activeJob.progress ?? null,
-              segmentIdsCount: activeJob.segment_ids?.length ?? 0,
-              activeSegmentId: activeJob.active_segment_id ?? null,
-              customTitle: activeJob.custom_title ?? null,
-              showIndeterminateProgress,
-              displayStatus,
-              renderMode,
-            });
-          }
 
           return (
             <Reorder.Item 

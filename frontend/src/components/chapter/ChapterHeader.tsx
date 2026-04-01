@@ -1,7 +1,6 @@
 import React from 'react';
 import { ArrowLeft, RefreshCw, Zap, CheckCircle, AlertTriangle } from 'lucide-react';
 import type { Chapter, Job } from '../../types';
-import { logVoxtralDebug } from '../../utils/debugVoxtral';
 import { PredictiveProgressBar } from '../PredictiveProgressBar';
 
 const RECENT_DONE_WINDOW_SECONDS = 60;
@@ -84,19 +83,6 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
   const liveSegmentProgressJob = generatingJob && ['preparing', 'running', 'finalizing'].includes(generatingJob.status)
     ? generatingJob
     : undefined;
-  const renderedButtonMode = effectiveQueueLocked
-    ? 'working'
-    : queueLabel === 'Rebuild'
-      ? 'rebuild'
-      : queueLabel === 'Complete'
-        ? 'complete'
-        : 'queue';
-
-  const prevQueueStatusRef = React.useRef<string | null>(null);
-  const prevHasAudioRef = React.useRef<boolean>(hasChapterAudio);
-  const prevWorkingRef = React.useRef<boolean>(false);
-  const prevButtonStateRef = React.useRef<string | null>(null);
-  const prevButtonModeRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
     if (releaseHoldTimerRef.current !== null) {
@@ -135,125 +121,6 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
       setHeldQueueStatus(null);
     }
   }, [rawQueueStatus, hasChapterAudio, chapter.audio_status, recentlyFinishedDoneJob, heldQueueStatus]);
-
-  React.useEffect(() => {
-    if (prevQueueStatusRef.current !== queueStatus) {
-      logVoxtralDebug('chapter-header-queue-status', {
-        chapterId: chapter.id,
-        previous: prevQueueStatusRef.current,
-        next: queueStatus,
-        queuePending,
-        generatingSegmentIdsCount,
-        chapterAudioStatus: chapter.audio_status,
-        hasChapterAudio,
-        jobId: job?.id ?? null,
-        jobEngine: job?.engine ?? null,
-        jobStatus: job?.status ?? null,
-        jobProgress: job?.progress ?? null,
-      });
-      prevQueueStatusRef.current = queueStatus;
-    }
-
-    const isWorking = !!queueStatus || chapter.audio_status === 'processing';
-    if (prevWorkingRef.current !== isWorking) {
-      logVoxtralDebug('chapter-header-working', {
-        chapterId: chapter.id,
-        previous: prevWorkingRef.current,
-        next: isWorking,
-        queueStatus,
-        generatingSegmentIdsCount,
-        chapterAudioStatus: chapter.audio_status,
-        jobId: job?.id ?? null,
-        jobStatus: job?.status ?? null,
-      });
-      prevWorkingRef.current = isWorking;
-    }
-
-    if (prevHasAudioRef.current !== hasChapterAudio) {
-      logVoxtralDebug('chapter-header-audio-ready', {
-        chapterId: chapter.id,
-        previous: prevHasAudioRef.current,
-        next: hasChapterAudio,
-        audioFilePath: chapter.audio_file_path ?? null,
-        chapterAudioStatus: chapter.audio_status,
-      });
-      prevHasAudioRef.current = hasChapterAudio;
-    }
-
-    if (prevButtonModeRef.current !== renderedButtonMode) {
-      logVoxtralDebug('chapter-header-button-mode', {
-        chapterId: chapter.id,
-        previous: prevButtonModeRef.current,
-        next: renderedButtonMode,
-        queueStatus,
-        locked: effectiveQueueLocked,
-        requestedLocked: queueLocked,
-        queueLabel,
-        queueTitle,
-        hasChapterAudio,
-        generatingSegmentIdsCount,
-        chapterAudioStatus: chapter.audio_status,
-        jobId: job?.id ?? null,
-        jobStatus: job?.status ?? null,
-      });
-      prevButtonModeRef.current = renderedButtonMode;
-    }
-
-    const buttonState = JSON.stringify({
-      locked: effectiveQueueLocked,
-      requestedLocked: queueLocked,
-      submitting,
-      queueLabel,
-      queueTitle,
-      queueStatus,
-      hasChapterAudio,
-      chapterAudioStatus: chapter.audio_status,
-      renderedButtonMode,
-      jobId: job?.id ?? null,
-      jobStatus: job?.status ?? null,
-      recentlyFinishedDoneJob,
-    });
-    if (prevButtonStateRef.current !== buttonState) {
-      logVoxtralDebug('chapter-header-button-state', {
-        chapterId: chapter.id,
-        locked: effectiveQueueLocked,
-        requestedLocked: queueLocked,
-        submitting,
-        queueLabel,
-        queueTitle,
-        queueStatus,
-        hasChapterAudio,
-        generatingSegmentIdsCount,
-        chapterAudioStatus: chapter.audio_status,
-        jobId: job?.id ?? null,
-        jobStatus: job?.status ?? null,
-        recentlyFinishedDoneJob,
-      });
-      prevButtonStateRef.current = buttonState;
-    }
-  }, [
-    chapter.id,
-    chapter.audio_status,
-    chapter.audio_file_path,
-    hasChapterAudio,
-    heldQueueStatus,
-    job?.engine,
-    job?.finished_at,
-    job?.id,
-    job?.status,
-    job?.progress,
-    generatingSegmentIdsCount,
-    queueLabel,
-    queuePending,
-    effectiveQueueLocked,
-    queueLocked,
-    queueStatus,
-    queueTitle,
-    rawQueueStatus,
-    renderedButtonMode,
-    recentlyFinishedDoneJob,
-    submitting,
-  ]);
 
   React.useEffect(() => () => {
     if (releaseHoldTimerRef.current !== null) {

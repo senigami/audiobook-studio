@@ -18,7 +18,6 @@ import { useChapterAnalysis } from '../hooks/useChapterAnalysis';
 import { buildVoiceOptions } from '../utils/voiceProfiles';
 import { buildChunkGroups } from '../utils/chunkGroups';
 import { getDefaultVoiceProfileName, getVoiceOptionLabel } from '../utils/voiceProfiles';
-import { logVoxtralDebug } from '../utils/debugVoxtral';
 import { pickRelevantJob } from '../utils/jobSelection';
 
 interface ChapterEditorProps {
@@ -215,21 +214,11 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     return groups;
   }, [segments]);
 
-  const loadChapter = async (source: string = 'unknown') => {
+  const loadChapter = async (_source: string = 'unknown') => {
     try {
       const chapters = await api.fetchChapters(projectId);
       const target = chapters.find(c => c.id === chapterId);
       if (target) {
-        logVoxtralDebug('chapter-editor-load-result', {
-          source,
-          chapterId,
-          chapterAudioStatus: target.audio_status ?? null,
-          chapterAudioFilePath: target.audio_file_path ?? null,
-          hasWav: !!target.has_wav,
-          hasMp3: !!target.has_mp3,
-          hasM4a: !!target.has_m4a,
-          speakerProfileName: target.speaker_profile_name ?? null,
-        });
         setChapter(target);
         setTitle(target.title);
         setText(target.text_content || '');
@@ -416,8 +405,6 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   const queueButtonLabel = shouldWarnBeforeRequeue ? 'Rebuild' : hasPartialSegmentProgress ? 'Complete' : 'Queue';
   const queueButtonTitle = shouldWarnBeforeRequeue ? 'Rebuild Chapter' : hasPartialSegmentProgress ? 'Complete Chapter Audio' : 'Queue Chapter';
 
-  const prevQueuePendingRef = useRef(queuePending);
-  const prevNeedsCompletionRefreshRef = useRef(needsCompletionRefresh);
   const prevRawQueueLockedRef = useRef(rawQueueLocked);
 
   useEffect(() => {
@@ -455,82 +442,6 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   }, [rawQueueLocked, hasRenderedOutput, heldQueueLocked]);
 
   useEffect(() => {
-    logVoxtralDebug('chapter-editor-state', {
-      chapterId,
-      chapterAudioStatus: chapter?.audio_status ?? null,
-      chapterAudioFilePath: chapter?.audio_file_path ?? null,
-      hasWav: !!chapter?.has_wav,
-      hasMp3: !!chapter?.has_mp3,
-      queuePending,
-      rawQueueLocked,
-      heldQueueLocked,
-      hasLiveJob,
-      jobId: job?.id ?? null,
-      jobEngine: job?.engine ?? null,
-      jobStatus: job?.status ?? null,
-      jobProgress: job?.progress ?? null,
-      jobStartedAt: job?.started_at ?? null,
-      hasRenderedOutput,
-      jobLooksPendingCompletion,
-      needsCompletionRefresh,
-    });
-  }, [
-    chapterId,
-    chapter?.audio_status,
-    chapter?.audio_file_path,
-    chapter?.has_wav,
-    chapter?.has_mp3,
-    queuePending,
-    rawQueueLocked,
-    heldQueueLocked,
-    hasLiveJob,
-    job?.id,
-    job?.engine,
-    job?.status,
-    job?.progress,
-    job?.started_at,
-    hasRenderedOutput,
-    jobLooksPendingCompletion,
-    needsCompletionRefresh,
-  ]);
-
-  useEffect(() => {
-    if (prevQueuePendingRef.current !== queuePending) {
-      logVoxtralDebug('chapter-editor-queue-pending', {
-        chapterId,
-        previous: prevQueuePendingRef.current,
-        next: queuePending,
-        jobId: job?.id ?? null,
-        jobStatus: job?.status ?? null,
-        chapterAudioStatus: chapter?.audio_status ?? null,
-      });
-      prevQueuePendingRef.current = queuePending;
-    }
-    if (prevNeedsCompletionRefreshRef.current !== needsCompletionRefresh) {
-      logVoxtralDebug('chapter-editor-needs-completion-refresh', {
-        chapterId,
-        previous: prevNeedsCompletionRefreshRef.current,
-        next: needsCompletionRefresh,
-        jobId: job?.id ?? null,
-        jobStatus: job?.status ?? null,
-        chapterAudioStatus: chapter?.audio_status ?? null,
-        hasRenderedOutput,
-        hasLiveJob,
-      });
-      prevNeedsCompletionRefreshRef.current = needsCompletionRefresh;
-    }
-  }, [
-    chapterId,
-    queuePending,
-    needsCompletionRefresh,
-    job?.id,
-    job?.status,
-    chapter?.audio_status,
-    hasRenderedOutput,
-    hasLiveJob,
-  ]);
-
-  useEffect(() => {
     return () => {
       if (queueLockReleaseTimerRef.current) clearTimeout(queueLockReleaseTimerRef.current);
     };
@@ -556,13 +467,6 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     const scheduleNextPoll = () => {
       if (cancelled) return;
       if (completionPollAttemptsRef.current >= 30) {
-        logVoxtralDebug('chapter-editor-refresh-exhausted', {
-          chapterId,
-          attempts: completionPollAttemptsRef.current,
-          jobId: job?.id ?? null,
-          jobStatus: job?.status ?? null,
-          chapterAudioStatus: chapter?.audio_status ?? null,
-        });
         return;
       }
 
@@ -571,13 +475,6 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         if (cancelled) return;
 
         completionPollAttemptsRef.current += 1;
-        logVoxtralDebug('chapter-editor-refresh-attempt', {
-          chapterId,
-          attempt: completionPollAttemptsRef.current,
-          jobId: job?.id ?? null,
-          jobStatus: job?.status ?? null,
-          chapterAudioStatus: chapter?.audio_status ?? null,
-        });
         try {
           await loadChapter('completion-refresh');
         } catch (e) {

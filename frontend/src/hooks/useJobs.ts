@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Job } from '../types';
 import { api } from '../api';
 import { useWebSocket } from './useWebSocket';
-import { logVoxtralDebug } from '../utils/debugVoxtral';
 
 const STATUS_PRIORITY: Record<string, number> = {
   done: 5,
@@ -40,9 +39,6 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
   const handleUpdate = useCallback((data: any) => {
     if (data.type === 'job_updated') {
       const { job_id, updates } = data;
-      if ((updates?.engine === 'voxtral') || ['queued', 'preparing', 'running', 'finalizing', 'done'].includes(updates?.status || '') || (job_id && String(job_id).startsWith('job-'))) {
-        logVoxtralDebug('ws-job-updated', { jobId: job_id, updates });
-      }
       setJobs(prev => {
         const oldJob = prev[job_id];
         if (!oldJob) {
@@ -75,7 +71,6 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
         return { ...prev, [job_id]: newJob };
       });
     } else if (data.type === 'queue_updated') {
-        logVoxtralDebug('ws-queue-updated', data);
         if (onQueueUpdate) onQueueUpdate();
     } else if (data.type === 'pause_updated') {
         if (onPauseUpdate) onPauseUpdate(data.paused);
@@ -85,10 +80,9 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
     } else if (data.type === 'segments_updated') {
       if (onSegmentsUpdate) onSegmentsUpdate(data.chapter_id);
     } else if (data.type === 'chapter_updated') {
-      logVoxtralDebug('ws-chapter-updated', data);
       if (onChapterUpdate) onChapterUpdate(data.chapter_id);
     }
-  }, [refreshJobs, onQueueUpdate, onPauseUpdate, onSegmentsUpdate, onChapterUpdate]);
+  }, [onQueueUpdate, onPauseUpdate, onSegmentsUpdate, onChapterUpdate]);
 
   const { connected } = useWebSocket('/ws', handleUpdate);
 

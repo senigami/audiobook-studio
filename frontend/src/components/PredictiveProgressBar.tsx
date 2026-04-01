@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { logVoxtralDebug } from '../utils/debugVoxtral';
 
 interface PredictiveProgressBarProps {
     progress: number;
@@ -78,33 +77,6 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     };
 
     const { remaining: calculatedRemaining, localProgress, indeterminate } = getProgressInfo();
-
-    useEffect(() => {
-        if (!indeterminateRunning && predictive) return;
-        logVoxtralDebug('progress-bar', {
-            label,
-            status: status ?? null,
-            predictive,
-            indeterminateRunning,
-            progress,
-            startedAt: startedAt ?? null,
-            etaSeconds: etaSeconds ?? null,
-            localProgress,
-            displayedRemaining,
-            indeterminate,
-        });
-    }, [
-        label,
-        status,
-        predictive,
-        indeterminateRunning,
-        progress,
-        startedAt,
-        etaSeconds,
-        localProgress,
-        displayedRemaining,
-        indeterminate,
-    ]);
 
     useEffect(() => {
         if (calculatedRemaining === null) {

@@ -8,7 +8,6 @@ import { QueueItem } from './queue/QueueItem';
 import { ReorderableQueueItem } from './queue/ReorderableQueueItem';
 import { QueueStats } from './queue/QueueStats';
 import type { Job, ProcessingQueueItem } from '../types';
-import { logVoxtralDebug } from '../utils/debugVoxtral';
 
 interface GlobalQueueProps {
     paused?: boolean;
@@ -54,28 +53,6 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({ paused = false, jobs =
     const activeJobs = React.useMemo(() => queue.filter(q => q.status === 'running' || q.status === 'preparing' || q.status === 'finalizing'), [queue]);
     const pendingJobs = React.useMemo(() => queue.filter(q => q.status === 'queued'), [queue]);
     const pastJobs = React.useMemo(() => queue.filter(q => q.status === 'done' || q.status === 'failed' || q.status === 'cancelled'), [queue]);
-    const prevVisibleIdsRef = React.useRef<string>('');
-
-    React.useEffect(() => {
-        const voxtralVisible = queue
-            .filter(q => q.engine === 'voxtral')
-            .map(q => `${q.id}:${q.status}`)
-            .join('|');
-        if (voxtralVisible !== prevVisibleIdsRef.current) {
-            logVoxtralDebug('global-queue-visible', queue
-                .filter(q => q.engine === 'voxtral')
-                .map(q => ({
-                    id: q.id,
-                    chapterId: q.chapter_id ?? null,
-                    status: q.status,
-                    progress: q.progress ?? null,
-                    startedAt: q.started_at ?? null,
-                    completedAt: q.completed_at ?? null,
-                })));
-            prevVisibleIdsRef.current = voxtralVisible;
-        }
-    }, [queue]);
-
     if (loading) return <div style={{ padding: '2rem' }}>Loading Queue...</div>;
 
     return (
