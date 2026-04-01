@@ -78,7 +78,11 @@ function Get-WindowsPythonCandidates {
 
 function Find-Python {
     $candidates = @(
+        @{ Command = "py"; Prefix = @("-3.13") },
+        @{ Command = "py"; Prefix = @("-3.12") },
         @{ Command = "py"; Prefix = @("-3.11") },
+        @{ Command = "py"; Prefix = @("-3") },
+        @{ Command = "py"; Prefix = @() },
         @{ Command = "python"; Prefix = @() },
         @{ Command = "python3.11"; Prefix = @() },
         @{ Command = "python3"; Prefix = @() }
