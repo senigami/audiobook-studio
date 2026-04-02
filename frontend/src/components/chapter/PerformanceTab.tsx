@@ -3,7 +3,6 @@ import { List, RefreshCw, Volume2, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { ChapterSegment, Character, Job, SegmentProgress } from '../../types';
 import { shouldShowIndeterminateProgress } from '../../utils/jobSelection';
-import { progressDebug } from '../../utils/progressDebug';
 
 const SEGMENT_PROGRESS_LINGER_MS = 600;
 const MIN_VISIBLE_SEGMENT_PROGRESS = 0.015;
@@ -549,22 +548,6 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
                       && activeGroupIndex > 0
                       && gidx === activeGroupIndex - 1
                       && allowSettle;
-                    if (activeJobIsLive && isActiveGroup) {
-                        progressDebug('chapter:performance-group', {
-                            groupIndex: gidx,
-                            jobId: generatingJob?.id,
-                            engine: generatingJob?.engine,
-                            status: generatingJob?.status,
-                            activeSegmentId: generatingJob?.active_segment_id,
-                            activeSegmentProgress: generatingJob?.active_segment_progress,
-                            liveSegmentEntryProgress: liveSegmentEntry?.progress,
-                            hasActiveSegmentSignal,
-                            chosenActiveProgress: activeProgress,
-                            allowSettle,
-                            initialSettled,
-                            groupSegmentIds: group.segments.map(s => s.id),
-                        });
-                    }
                     const resetKey = `${generatingJob?.id || 'none'}:${generatingJob?.status || 'none'}:${generatingJob?.started_at || 0}`;
                     const isPlaying = playingSegmentId && group.segments.some(s => s.id === playingSegmentId);
                     const nextId = (() => {

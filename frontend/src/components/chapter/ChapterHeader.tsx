@@ -2,7 +2,6 @@ import React from 'react';
 import { ArrowLeft, RefreshCw, Zap, CheckCircle, AlertTriangle } from 'lucide-react';
 import type { Chapter, Job } from '../../types';
 import { PredictiveProgressBar } from '../PredictiveProgressBar';
-import { progressDebug } from '../../utils/progressDebug';
 
 const RECENT_DONE_WINDOW_SECONDS = 60;
 
@@ -91,21 +90,6 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
             ? (liveSegmentProgressJob.active_segment_progress ?? 0)
             : (liveSegmentProgressJob.progress ?? 0)))
     : 0;
-  if (liveSegmentProgressJob) {
-    progressDebug('chapter:header-segment', {
-      chapterId: chapter.id,
-      jobId: liveSegmentProgressJob.id,
-      engine: liveSegmentProgressJob.engine,
-      status: liveSegmentProgressJob.status,
-      jobProgress: liveSegmentProgressJob.progress,
-      activeSegmentId: liveSegmentProgressJob.active_segment_id,
-      activeSegmentProgress: liveSegmentProgressJob.active_segment_progress,
-      chosenProgress: liveSegmentProgressValue,
-      startedAt: liveSegmentProgressJob.started_at,
-      etaSeconds: liveSegmentProgressJob.eta_seconds,
-    });
-  }
-
   React.useEffect(() => {
     if (releaseHoldTimerRef.current !== null) {
       window.clearTimeout(releaseHoldTimerRef.current);

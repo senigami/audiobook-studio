@@ -68,6 +68,28 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
           }
         }
 
+        const effectiveStatus = (nextUpdates.status as string | undefined) ?? currentStatus;
+        if (
+          typeof oldJob.started_at === 'number'
+          && typeof nextUpdates.started_at === 'number'
+          && ['running', 'processing', 'finalizing', 'done'].includes(effectiveStatus || '')
+          && nextUpdates.started_at !== oldJob.started_at
+        ) {
+          delete nextUpdates.started_at;
+        }
+
+        if (
+          typeof oldJob.eta_seconds === 'number'
+          && typeof nextUpdates.eta_seconds === 'number'
+          && ['running', 'processing', 'finalizing'].includes(effectiveStatus || '')
+        ) {
+          const currentEta = oldJob.eta_seconds;
+          const nextEta = nextUpdates.eta_seconds;
+          if (Math.abs(nextEta - currentEta) < 1) {
+            delete nextUpdates.eta_seconds;
+          }
+        }
+
         const newJob = { ...oldJob, ...nextUpdates };
         return { ...prev, [job_id]: newJob };
       });

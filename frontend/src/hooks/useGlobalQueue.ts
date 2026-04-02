@@ -34,6 +34,26 @@ function reconcileQueueItem(item: ProcessingQueueItem, jobs: Record<string, Job>
     const liveJob = jobs[item.id];
     const baseStatus = liveJob?.status ?? item.status;
     let nextStatus = baseStatus;
+    const liveStartedAt = liveJob?.started_at;
+    const itemStartedAt = item.started_at;
+    const stableStartedAt = (
+        ['running', 'preparing', 'finalizing', 'done'].includes(baseStatus)
+        && typeof itemStartedAt === 'number'
+        && typeof liveStartedAt === 'number'
+    )
+        ? itemStartedAt
+        : (liveStartedAt ?? itemStartedAt);
+
+    const liveEta = liveJob?.eta_seconds;
+    const itemEta = item.eta_seconds;
+    const stableEta = (
+        typeof liveEta === 'number'
+        && typeof itemEta === 'number'
+        && ['running', 'preparing', 'finalizing'].includes(baseStatus)
+        && Math.abs(liveEta - itemEta) < 1
+    )
+        ? itemEta
+        : (liveEta ?? itemEta);
 
     if (baseStatus === 'done' && shouldHoldCompletedCloudItem(item, jobs, queue, baseStatus)) {
         nextStatus = 'finalizing';
@@ -42,8 +62,8 @@ function reconcileQueueItem(item: ProcessingQueueItem, jobs: Record<string, Job>
     if (
         nextStatus === item.status
         && (liveJob?.progress ?? item.progress ?? 0) === (item.progress ?? 0)
-        && (liveJob?.started_at ?? item.started_at) === item.started_at
-        && (liveJob?.eta_seconds ?? item.eta_seconds) === item.eta_seconds
+        && stableStartedAt === item.started_at
+        && stableEta === item.eta_seconds
     ) {
         return item;
     }
@@ -52,8 +72,8 @@ function reconcileQueueItem(item: ProcessingQueueItem, jobs: Record<string, Job>
         ...item,
         status: nextStatus,
         progress: nextStatus === 'finalizing' ? 1.0 : (liveJob?.progress ?? item.progress),
-        started_at: liveJob?.started_at ?? item.started_at,
-        eta_seconds: liveJob?.eta_seconds ?? item.eta_seconds,
+        started_at: stableStartedAt,
+        eta_seconds: stableEta,
     };
 }
 

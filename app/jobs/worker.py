@@ -26,6 +26,31 @@ from ..engines_voxtral import VoxtralError, voxtral_generate
 logger = logging.getLogger(__name__)
 
 
+def _calculate_group_resume_progress(job) -> float:
+    if not getattr(job, "chapter_id", None):
+        return 0.0
+
+    try:
+        from ..chunk_groups import build_chunk_groups, load_chunk_segments
+
+        groups = build_chunk_groups(load_chunk_segments(job.chapter_id), job.speaker_profile)
+        if not groups:
+            return 0.0
+
+        completed_groups = 0
+        for group in groups:
+            segments = group.get("segments", [])
+            if not segments:
+                continue
+            if all(segment.get("audio_status") == "done" and segment.get("audio_file_path") for segment in segments):
+                completed_groups += 1
+
+        return round(completed_groups / len(groups), 2)
+    except Exception:
+        logger.error("Failed to get grouped chapter progress for resume initialization", exc_info=True)
+        return 0.0
+
+
 def _broadcast_segment_progress(j, jid: str, progress: float):
     segment_id = getattr(j, "active_segment_id", None)
     if not segment_id:
@@ -158,13 +183,7 @@ def worker_loop(q):
             # Accurate Resumption: Initialize progress from DB if resuming
             initial_progress = 0.0
             if j.chapter_id and j.engine != "voxtral" and not j.segment_ids:
-                try:
-                    from ..db.chapters import get_chapter_segments_counts
-                    done_c, total_c = get_chapter_segments_counts(j.chapter_id)
-                    if total_c > 0:
-                        initial_progress = round(done_c / total_c, 2)
-                except Exception:
-                    logger.error("Failed to get chapter segment counts for progress initialization", exc_info=True)
+                initial_progress = _calculate_group_resume_progress(j)
 
             # ETA Fix: Adjust started_at to account for past work
             adjusted_start = initial_start - (initial_progress * eta) if (eta > 0 and initial_progress > 0) else initial_start

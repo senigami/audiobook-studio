@@ -84,7 +84,7 @@ def test_worker_loop_resumption(mock_q, sample_job):
          patch("app.jobs.worker.get_project_text_dir", create=True) as mock_text_dir, \
          patch("pathlib.Path.exists", return_value=True), \
          patch("pathlib.Path.read_text", return_value="A" * 1000), \
-         patch("app.db.chapters.get_chapter_segments_counts", return_value=(5, 10)), \
+         patch("app.jobs.worker._calculate_group_resume_progress", return_value=0.67), \
          patch("app.jobs.worker.handle_xtts_job"), \
          patch("app.jobs.worker._output_exists", return_value=False):
 
@@ -97,7 +97,7 @@ def test_worker_loop_resumption(mock_q, sample_job):
 
         # Find the call to update_job with initial state
         prep_call = [c for c in mock_update.call_args_list if c.kwargs.get('status') == "preparing"][0]
-        assert prep_call.kwargs['progress'] == 0.5
+        assert prep_call.kwargs['progress'] == 0.67
         assert prep_call.kwargs['started_at'] is not None
 
 def test_worker_loop_audiobook_engine(mock_q):

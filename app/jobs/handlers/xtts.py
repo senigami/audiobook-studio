@@ -44,13 +44,12 @@ def _group_job_progress(
     active_segment_progress: float,
     *,
     limit: float,
-    active_units: int = 1,
 ) -> float:
     if total_units <= 0:
         return round(limit, 2)
     completed = max(0, min(completed_units, total_units))
     active = max(0.0, min(active_segment_progress, 1.0))
-    weighted_active = max(0, min(active_units, total_units - completed)) * active
+    weighted_active = active if completed < total_units else 0.0
     return round(((completed + weighted_active) / total_units) * limit, 2)
 
 
@@ -122,8 +121,8 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
             script_path = pdir / f"bake_{j.id}_script.json"
             script_path.write_text(json.dumps(full_script), encoding="utf-8")
 
-            completed_segments = [0]
-            total_missing_segments = sum(len(group) for group in missing_groups)
+            completed_groups = [0]
+            total_missing_groups = len(missing_groups)
             def bake_on_output(line):
                 on_output(line)
                 if "[SEGMENT_SAVED]" in line:
@@ -133,28 +132,19 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
                         seg_filename = Path(saved_path).name
                         for s in group:
                             update_segment(s['id'], audio_status='done', audio_file_path=seg_filename, audio_generated_at=time.time())
-                        completed_segments[0] += len(group)
-                        try:
-                            from ...db.chapters import get_chapter_segments_counts
-                            done_at_end, total_c = get_chapter_segments_counts(j.chapter_id)
-                            # Partial progress: done_at_end / total_c * 0.9 (since stitching is next)
-                            prog = (done_at_end / total_c) * 0.9 if total_c > 0 else (completed_segments[0] / total_missing_segments) * 0.9
-                        except Exception:
-                            prog = (completed_segments[0] / total_missing_segments) * 0.9
+                        completed_groups[0] += 1
+                        prog = (completed_groups[0] / total_missing_groups) * 0.9 if total_missing_groups > 0 else 0.9
                         update_job(jid, progress=prog, active_segment_id=None, active_segment_progress=0.0)
 
                 if "[START_SEGMENT]" in line:
                     asid = line.split("[START_SEGMENT]")[1].strip()
                     # If it's a path, just take the filename stem or similar if possible, 
                     # but inference script sends segment['id'] if available.
-                    active_group = next((group for group in missing_groups if group and group[0]["id"] == asid), None)
-                    active_units = len(active_group) if active_group else 1
                     base_progress = _group_job_progress(
-                        completed_segments[0],
-                        total_missing_segments,
+                        completed_groups[0],
+                        total_missing_groups,
                         0.0,
                         limit=0.9,
-                        active_units=active_units,
                     )
                     update_job(jid, force_broadcast=True, progress=base_progress, active_segment_id=asid, active_segment_progress=0.0)
 
@@ -162,14 +152,11 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
                     try:
                         p_str = line.split("[PROGRESS]")[1].split("%")[0].strip()
                         segment_progress = float(p_str) / 100.0
-                        active_group = next((group for group in missing_groups if group and group[0]["id"] == getattr(j, "active_segment_id", None)), None)
-                        active_units = len(active_group) if active_group else 1
                         overall_progress = _group_job_progress(
-                            completed_segments[0],
-                            total_missing_segments,
+                            completed_groups[0],
+                            total_missing_groups,
                             segment_progress,
                             limit=0.9,
-                            active_units=active_units,
                         )
                         update_job(jid, force_broadcast=True, progress=overall_progress, active_segment_progress=segment_progress)
                     except: pass
@@ -254,8 +241,8 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
 
         script_path = pdir / f"gen_{j.id}_script.json"
         script_path.write_text(json.dumps(full_script), encoding="utf-8")
-        completed_segments = [0]
-        total_requested_segments = sum(len(group) for group in gen_groups)
+        completed_groups = [0]
+        total_requested_groups = len(gen_groups)
         def gen_on_output(line):
             on_output(line)
             if "[SEGMENT_SAVED]" in line:
@@ -265,25 +252,17 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
                     seg_filename = Path(saved_path).name
                     for s in group:
                         update_segment(s['id'], broadcast=True, audio_status='done', audio_file_path=seg_filename, audio_generated_at=time.time())
-                    completed_segments[0] += len(group)
-                    try:
-                        from ...db.chapters import get_chapter_segments_counts
-                        done_at_end, total_c = get_chapter_segments_counts(j.chapter_id)
-                        prog = (done_at_end / total_c) if total_c > 0 else (completed_segments[0] / total_requested_segments)
-                    except Exception:
-                        prog = (completed_segments[0] / total_requested_segments)
+                    completed_groups[0] += 1
+                    prog = (completed_groups[0] / total_requested_groups) if total_requested_groups > 0 else 1.0
                     update_job(jid, progress=prog, active_segment_id=None, active_segment_progress=0.0)
 
             if "[START_SEGMENT]" in line:
                 asid = line.split("[START_SEGMENT]")[1].strip()
-                active_group = next((group for group in gen_groups if group and group[0]["id"] == asid), None)
-                active_units = len(active_group) if active_group else 1
                 base_progress = _group_job_progress(
-                    completed_segments[0],
-                    total_requested_segments,
+                    completed_groups[0],
+                    total_requested_groups,
                     0.0,
                     limit=1.0,
-                    active_units=active_units,
                 )
                 update_job(jid, force_broadcast=True, progress=base_progress, active_segment_id=asid, active_segment_progress=0.0)
 
@@ -291,14 +270,11 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
                 try:
                     p_str = line.split("[PROGRESS]")[1].split("%")[0].strip()
                     segment_progress = float(p_str) / 100.0
-                    active_group = next((group for group in gen_groups if group and group[0]["id"] == getattr(j, "active_segment_id", None)), None)
-                    active_units = len(active_group) if active_group else 1
                     overall_progress = _group_job_progress(
-                        completed_segments[0],
-                        total_requested_segments,
+                        completed_groups[0],
+                        total_requested_groups,
                         segment_progress,
                         limit=1.0,
-                        active_units=active_units,
                     )
                     update_job(jid, force_broadcast=True, progress=overall_progress, active_segment_progress=segment_progress)
                 except: pass
@@ -357,8 +333,8 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
 
                 script_path = pdir / f"{j.id}_script.json"
                 script_path.write_text(json.dumps(script), encoding="utf-8")
-                completed_segments = [0]
-                total_segments = sum(len(group["segments"]) for group in groups)
+                completed_groups = [0]
+                total_groups = len(groups)
 
                 def chapter_on_output(line):
                     on_output(line)
@@ -370,20 +346,17 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
                             generated_at = time.time()
                             for s in group["segments"]:
                                 update_segment(s["id"], broadcast=True, audio_status="done", audio_file_path=seg_filename, audio_generated_at=generated_at)
-                            completed_segments[0] += len(group["segments"])
-                            progress = (completed_segments[0] / total_segments) * 0.9 if total_segments > 0 else 0.9
+                            completed_groups[0] += 1
+                            progress = (completed_groups[0] / total_groups) * 0.9 if total_groups > 0 else 0.9
                             update_job(jid, progress=progress, active_segment_id=None, active_segment_progress=0.0)
 
                     if "[START_SEGMENT]" in line:
                         asid = line.split("[START_SEGMENT]")[1].strip()
-                        active_group = next((group for group in groups if group["segments"] and group["segments"][0]["id"] == asid), None)
-                        active_units = len(active_group["segments"]) if active_group else 1
                         base_progress = _group_job_progress(
-                            completed_segments[0],
-                            total_segments,
+                            completed_groups[0],
+                            total_groups,
                             0.0,
                             limit=0.9,
-                            active_units=active_units,
                         )
                         update_job(jid, force_broadcast=True, progress=base_progress, active_segment_id=asid, active_segment_progress=0.0)
 
@@ -391,14 +364,11 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
                         try:
                             p_str = line.split("[PROGRESS]")[1].split("%")[0].strip()
                             segment_progress = float(p_str) / 100.0
-                            active_group = next((group for group in groups if group["segments"] and group["segments"][0]["id"] == getattr(j, "active_segment_id", None)), None)
-                            active_units = len(active_group["segments"]) if active_group else 1
                             overall_progress = _group_job_progress(
-                                completed_segments[0],
-                                total_segments,
+                                completed_groups[0],
+                                total_groups,
                                 segment_progress,
                                 limit=0.9,
-                                active_units=active_units,
                             )
                             update_job(jid, force_broadcast=True, progress=overall_progress, active_segment_progress=segment_progress)
                         except Exception:

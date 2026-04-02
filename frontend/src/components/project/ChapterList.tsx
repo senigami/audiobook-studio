@@ -6,7 +6,6 @@ import { StatusOrb } from '../StatusOrb';
 import { PredictiveProgressBar } from '../PredictiveProgressBar';
 import type { Chapter, Job } from '../../types';
 import { isSegmentScopedJob, shouldShowIndeterminateProgress } from '../../utils/jobSelection';
-import { progressDebug } from '../../utils/progressDebug';
 
 interface ChapterListProps {
   chapters: Chapter[];
@@ -107,23 +106,6 @@ export const ChapterList: React.FC<ChapterListProps> = ({
             ? 1
             : activeJob ? (activeJob.progress ?? 0) : 0;
           const showIndeterminateProgress = !!activeJob && shouldShowIndeterminateProgress(activeJob);
-          if (activeJob) {
-            progressDebug('chapter:list-row', {
-              chapterId: chap.id,
-              jobId: activeJob.id,
-              engine: activeJob.engine,
-              status: activeJob.status,
-              displayStatus,
-              progressValue,
-              activeSegmentId: activeJob.active_segment_id,
-              activeSegmentProgress: activeJob.active_segment_progress,
-              startedAt: activeJob.started_at,
-              etaSeconds: activeJob.eta_seconds,
-              doneSegmentsCount: chap.done_segments_count,
-              totalSegmentsCount: chap.total_segments_count,
-              showIndeterminateProgress,
-            });
-          }
           const isMenuOpen = openMenuRowId === chap.id;
           const isFullyRendered = hasChapterAudio;
           const queueActionLabel = isFullyRendered

@@ -179,6 +179,6 @@ def test_group_job_progress_blends_active_segment_into_total_progress():
     assert _group_job_progress(1, 2, 1.0, limit=1.0) == 1.0
 
 
-def test_group_job_progress_weights_active_group_by_segment_count():
-    assert _group_job_progress(0, 4, 1.0, limit=0.9, active_units=2) == 0.45
-    assert _group_job_progress(2, 4, 0.5, limit=0.9, active_units=2) == 0.68
+def test_group_job_progress_tracks_render_group_units():
+    assert _group_job_progress(0, 2, 0.5, limit=0.9) == 0.23
+    assert _group_job_progress(1, 2, 0.5, limit=0.9) == 0.68

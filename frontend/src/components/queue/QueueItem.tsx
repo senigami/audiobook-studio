@@ -4,7 +4,6 @@ import { PredictiveProgressBar } from '../PredictiveProgressBar';
 import type { ProcessingQueueItem, Job } from '../../types';
 import { formatQueueContext } from '../../utils/queueLabels';
 import { shouldShowIndeterminateProgress } from '../../utils/jobSelection';
-import { progressDebug } from '../../utils/progressDebug';
 
 interface QueueItemProps {
     job: ProcessingQueueItem;
@@ -36,31 +35,15 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     const progress = useLiveSegmentProgress
         ? Math.max(jobProgress, activeSegmentProgress)
         : jobProgress;
-    const isCloudLike = ['voxtral', 'mixed'].includes((liveJob?.engine ?? job.engine) || '');
-    const showIndeterminateProgress = isCloudLike && shouldShowIndeterminateProgress({
+    const engineType = (liveJob?.engine ?? job.engine) || '';
+    const isCloudLike = ['voxtral', 'mixed'].includes(engineType);
+    const showIndeterminateProgress = engineType === 'voxtral' && shouldShowIndeterminateProgress({
         engine: liveJob?.engine ?? job.engine,
         segment_ids: liveJob?.segment_ids ?? job.segment_ids,
         active_segment_id: liveJob?.active_segment_id,
         custom_title: liveJob?.custom_title ?? job.custom_title,
     });
     const displayStatus = isCloudLike && status === 'finalizing' ? 'finalizing' : status;
-
-    React.useEffect(() => {
-        progressDebug('queue:item', {
-            jobId: job.id,
-            engine,
-            queueProgress: job.progress,
-            liveProgress: liveJob?.progress,
-            activeSegmentProgress,
-            chosenProgress: progress,
-            status,
-            displayStatus,
-            started,
-            etaSeconds,
-            showIndeterminateProgress,
-            runAnchor: `${job.id}:${started ?? 0}`,
-        });
-    }, [job.id, engine, job.progress, liveJob?.progress, activeSegmentProgress, progress, status, displayStatus, started, etaSeconds, showIndeterminateProgress]);
 
     return (
         <div style={{

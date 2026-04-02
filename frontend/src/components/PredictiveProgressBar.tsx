@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { progressDebug } from '../utils/progressDebug';
 import { advancePredictiveProgress, buildPredictiveProgressModel } from '../utils/predictiveProgress';
 
 interface PredictiveProgressBarProps {
@@ -16,6 +15,7 @@ interface PredictiveProgressBarProps {
 }
 
 const progressMemory = new Map<string, number>();
+const endTimeMemory = new Map<string, number>();
 
 const getProgressMemoryKey = (persistenceKey?: string, startedAt?: number) =>
     persistenceKey ? `${persistenceKey}:${startedAt ?? 0}` : undefined;
@@ -32,6 +32,7 @@ const formatTime = (seconds: number) => {
 
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
 const getMaxVisualStep = (dtSeconds: number) => Math.max(0.006, Math.min(0.012, dtSeconds * 0.012));
+const ETA_END_TIME_NUDGE_MS = 150;
 
 const getInitialDisplayProgress = (
     progress: number,
@@ -76,31 +77,29 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
 }) => {
     const memoryKey = getProgressMemoryKey(persistenceKey, startedAt);
     const [now, setNow] = useState(Date.now());
-    const [displayedRemaining, setDisplayedRemaining] = useState<number | null>(null);
+    const [currentEndTime, setCurrentEndTime] = useState<number | null>(null);
     const [displayProgress, setDisplayProgress] = useState(() => getInitialDisplayProgress(progress, startedAt, etaSeconds, persistenceKey, predictive, status, indeterminateRunning));
+    const [lastVisualProgress, setLastVisualProgress] = useState(() => getInitialDisplayProgress(progress, startedAt, etaSeconds, persistenceKey, predictive, status, indeterminateRunning));
     const lastTickRef = useRef(Date.now());
-    const lastRenderedProgressRef = useRef<number | null>(null);
+    const displayProgressRef = useRef(getInitialDisplayProgress(progress, startedAt, etaSeconds, persistenceKey, predictive, status, indeterminateRunning));
+    const currentEndTimeRef = useRef<number | null>(null);
+    const targetEndTimeRef = useRef<number | null>(null);
     const lastRunAnchorRef = useRef<string | null>(null);
     const pendingRunAnchorRef = useRef<string | null>(null);
-
-    useEffect(() => {
-        progressDebug('bar:init', {
-            persistenceKey,
-            label,
-            status,
-            progress,
-            startedAt,
-            etaSeconds,
-            predictive,
-            indeterminateRunning,
-            initialDisplayProgress: getInitialDisplayProgress(progress, startedAt, etaSeconds, persistenceKey, predictive, status, indeterminateRunning),
-        });
-    }, [persistenceKey, label, status, progress, startedAt, etaSeconds, predictive, indeterminateRunning]);
 
     useEffect(() => {
         if (!memoryKey) return;
         progressMemory.set(memoryKey, Math.max(progressMemory.get(memoryKey) ?? 0, displayProgress));
     }, [memoryKey, displayProgress]);
+
+    useEffect(() => {
+        if (!memoryKey || currentEndTime === null) return;
+        endTimeMemory.set(memoryKey, currentEndTime);
+    }, [memoryKey, currentEndTime]);
+
+    useEffect(() => {
+        displayProgressRef.current = displayProgress;
+    }, [displayProgress]);
 
     useEffect(() => {
         const runAnchor = `${persistenceKey ?? 'none'}:${startedAt ?? 0}`;
@@ -110,6 +109,14 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         lastRunAnchorRef.current = runAnchor;
         pendingRunAnchorRef.current = runAnchor;
         lastTickRef.current = Date.now();
+        const initialEndTime = etaSeconds
+            ? (startedAt ? (startedAt * 1000) + (etaSeconds * 1000) : Date.now() + (etaSeconds * 1000))
+            : null;
+        const rememberedEndTime = memoryKey ? endTimeMemory.get(memoryKey) ?? null : null;
+        const seededEndTime = rememberedEndTime ?? initialEndTime;
+        currentEndTimeRef.current = seededEndTime;
+        targetEndTimeRef.current = initialEndTime;
+        setCurrentEndTime(seededEndTime);
         setDisplayProgress(getInitialDisplayProgress(
             progress,
             startedAt,
@@ -230,36 +237,6 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             return Math.max(prev, memoryFloor, cappedNext)
         });
 
-        const elapsed = Math.max(0, (tickNow / 1000) - startedAt);
-        const renderedProgress = Math.max(memoryFloor, clamp01(displayProgress));
-        const model = buildPredictiveProgressModel({
-            authoritativeProgress: progress,
-            displayedProgress: renderedProgress,
-            elapsedSeconds: elapsed,
-            etaSeconds,
-        });
-        const previousRendered = lastRenderedProgressRef.current;
-        const deltaRendered = previousRendered === null ? null : (renderedProgress - previousRendered);
-        lastRenderedProgressRef.current = renderedProgress;
-        progressDebug('bar:tick', {
-            persistenceKey,
-            label,
-            status,
-            progress,
-            displayProgress,
-            renderedProgress,
-            previousRendered,
-            deltaRendered,
-            memoryFloor,
-            startedAt,
-            etaSeconds,
-            elapsed,
-            estimatedRemaining: model.estimatedRemainingSeconds,
-            actualRemaining: model.actualRemainingSeconds,
-            refinedRemaining: model.refinedRemainingSeconds,
-            velocityPerSecond: model.velocityPerSecond,
-            dt,
-        });
     }, [now, progress, startedAt, etaSeconds, predictive, indeterminateRunning, status, authoritativeFloor]);
 
     const getProgressInfo = () => {
@@ -300,19 +277,68 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         };
     };
 
-    const { remaining: calculatedRemaining, localProgress, indeterminate } = getProgressInfo();
+    const { localProgress, indeterminate } = getProgressInfo();
+    const visualDelta = Math.abs(localProgress - lastVisualProgress);
+    const shouldAnimateWidth = !indeterminate && visualDelta <= 0.03;
 
     useEffect(() => {
-        if (calculatedRemaining === null) {
-            setDisplayedRemaining(null);
-        } else {
-            if (displayedRemaining === null || Math.abs(displayedRemaining - calculatedRemaining) > 5) {
-                setDisplayedRemaining(calculatedRemaining);
-            } else if (displayedRemaining > 0) {
-                setDisplayedRemaining(displayedRemaining - 1);
-            }
+        setLastVisualProgress(localProgress);
+    }, [localProgress]);
+
+    useEffect(() => {
+        if (!predictive || !startedAt || !etaSeconds || !isActiveStatus(status) || indeterminateRunning) {
+            currentEndTimeRef.current = null;
+            targetEndTimeRef.current = null;
+            setCurrentEndTime(null);
+            return;
         }
-    }, [now, calculatedRemaining]);
+        const elapsed = Math.max(0, (Date.now() / 1000) - startedAt);
+        const model = buildPredictiveProgressModel({
+            authoritativeProgress: progress,
+            displayedProgress: displayProgressRef.current,
+            elapsedSeconds: elapsed,
+            etaSeconds,
+        });
+        const nextTargetEndTime = Date.now() + (model.refinedRemainingSeconds * 1000);
+        targetEndTimeRef.current = nextTargetEndTime;
+        if (currentEndTimeRef.current === null) {
+            currentEndTimeRef.current = nextTargetEndTime;
+            setCurrentEndTime(nextTargetEndTime);
+        }
+    }, [progress, startedAt, etaSeconds, predictive, status, indeterminateRunning]);
+
+    useEffect(() => {
+        if (!predictive || !startedAt || !etaSeconds || !isActiveStatus(status) || indeterminateRunning) {
+            setCurrentEndTime(null);
+            return;
+        }
+        const targetEndTime = targetEndTimeRef.current;
+        const currentEndTime = currentEndTimeRef.current;
+
+        if (targetEndTime === null) {
+            setCurrentEndTime(null);
+            return;
+        }
+
+        if (currentEndTime === null) {
+            currentEndTimeRef.current = targetEndTime;
+            setCurrentEndTime(targetEndTime);
+            return;
+        }
+
+        const deltaMs = targetEndTime - currentEndTime;
+        const nudgeMs = deltaMs > 0
+            ? Math.min(deltaMs, ETA_END_TIME_NUDGE_MS)
+            : Math.max(deltaMs, -ETA_END_TIME_NUDGE_MS);
+        const nextEndTime = currentEndTime + nudgeMs;
+
+        currentEndTimeRef.current = nextEndTime;
+        setCurrentEndTime(nextEndTime);
+    }, [now, predictive, startedAt, etaSeconds, status, indeterminateRunning]);
+
+    const displayedRemaining = currentEndTime === null
+        ? null
+        : Math.max(0, Math.ceil((currentEndTime - now) / 1000));
 
     return (
         <div style={{ width: '100%' }} data-testid="progress-bar">
@@ -348,7 +374,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                         // This bar updates on a ~250ms loop, so any width transition
                         // needs to stay at or below that cadence or the browser will
                         // visually fight the JS-driven progress engine.
-                        transition: indeterminate ? 'none' : 'width 0.2s linear'
+                        transition: shouldAnimateWidth ? 'width 0.18s linear' : 'none'
                     }}
                 />
             </div>
