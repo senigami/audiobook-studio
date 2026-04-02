@@ -514,6 +514,55 @@ describe('PredictiveProgressBar', () => {
         vi.useRealTimers()
     })
 
+    it('preserves the smoothed ETA during transient missing timing props in the same active run', () => {
+        vi.useFakeTimers()
+        vi.setSystemTime(10_000)
+
+        const { rerender } = render(
+            <PredictiveProgressBar
+                progress={0.3}
+                startedAt={1}
+                etaSeconds={57}
+                persistenceKey="job-eta"
+                label="Proc"
+                status="running"
+            />
+        )
+
+        act(() => {
+            vi.advanceTimersByTime(4000)
+        })
+
+        const beforeDrop = screen.getByText(/ETA:/).textContent
+
+        rerender(
+            <PredictiveProgressBar
+                progress={0.3}
+                startedAt={undefined}
+                etaSeconds={undefined}
+                persistenceKey="job-eta"
+                label="Proc"
+                status="running"
+            />
+        )
+
+        rerender(
+            <PredictiveProgressBar
+                progress={0.6}
+                startedAt={1}
+                etaSeconds={57}
+                persistenceKey="job-eta"
+                label="Proc"
+                status="running"
+            />
+        )
+
+        const afterRestore = screen.getByText(/ETA:/).textContent
+        expect(afterRestore).toBe(beforeDrop)
+
+        vi.useRealTimers()
+    })
+
     it('caps the first predictive queue advance so it does not lurch forward', () => {
         vi.useFakeTimers()
         vi.setSystemTime(10_000)

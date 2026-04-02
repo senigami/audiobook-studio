@@ -160,6 +160,15 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
         target_groups = all_groups
 
     total_groups = len(target_groups)
+    j.render_group_count = total_groups
+    j.completed_render_groups = 0
+    j.active_render_group_index = 0
+    update_job(
+        jid,
+        render_group_count=total_groups,
+        completed_render_groups=0,
+        active_render_group_index=0,
+    )
 
     for index, group in enumerate(target_groups, start=1):
         if cancel_check():
@@ -173,7 +182,16 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
         seg_out = _chunk_output_path(pdir, group)
 
         on_output(f"[START_SEGMENT] {segment_id}\n")
-        update_job(jid, active_segment_id=segment_id, active_segment_progress=0.0)
+        j.completed_render_groups = index - 1
+        j.active_render_group_index = index
+        update_job(
+            jid,
+            active_segment_id=segment_id,
+            active_segment_progress=0.0,
+            completed_render_groups=index - 1,
+            render_group_count=total_groups,
+            active_render_group_index=index,
+        )
         for group_segment in group["segments"]:
             update_segment(
                 group_segment["id"],
@@ -217,7 +235,17 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
 
         progress_limit = 1.0 if j.segment_ids else 0.9
         progress = (index / total_groups) * progress_limit if total_groups else progress_limit
-        update_job(jid, progress=progress, active_segment_id=None, active_segment_progress=0.0)
+        j.completed_render_groups = index
+        j.active_render_group_index = 0
+        update_job(
+            jid,
+            progress=progress,
+            active_segment_id=None,
+            active_segment_progress=0.0,
+            completed_render_groups=index,
+            render_group_count=total_groups,
+            active_render_group_index=0,
+        )
 
     if j.segment_ids:
         try:
@@ -232,10 +260,27 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
         except Exception:
             logger.warning("Failed to compute final segment progress for chapter %s", j.chapter_id, exc_info=True)
             final_p = 1.0
-        update_job(jid, status="done", progress=final_p, finished_at=time.time())
+        j.completed_render_groups = total_groups
+        update_job(
+            jid,
+            status="done",
+            progress=final_p,
+            finished_at=time.time(),
+            completed_render_groups=total_groups,
+            render_group_count=total_groups,
+            active_render_group_index=0,
+        )
         return "done"
 
-    update_job(jid, status="finalizing", progress=max(getattr(j, "progress", 0.0), 0.91))
+    j.completed_render_groups = total_groups
+    update_job(
+        jid,
+        status="finalizing",
+        progress=max(getattr(j, "progress", 0.0), 0.91),
+        completed_render_groups=total_groups,
+        render_group_count=total_groups,
+        active_render_group_index=0,
+    )
     segment_paths = []
     fresh_groups = build_chunk_groups(get_chapter_segments(j.chapter_id), j.speaker_profile)
     for group in fresh_groups:
@@ -262,13 +307,45 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
         frc = wav_to_mp3(out_wav, out_mp3, on_output=on_output, cancel_check=cancel_check)
         if frc == 0 and out_mp3.exists():
             _persist_mixed_chapter_output(jid, j.chapter_id, out_mp3)
-            update_job(jid, status="done", finished_at=time.time(), progress=1.0, output_wav=out_wav.name, output_mp3=out_mp3.name)
+            j.completed_render_groups = total_groups
+            update_job(
+                jid,
+                status="done",
+                finished_at=time.time(),
+                progress=1.0,
+                output_wav=out_wav.name,
+                output_mp3=out_mp3.name,
+                completed_render_groups=total_groups,
+                render_group_count=total_groups,
+                active_render_group_index=0,
+            )
             return "done"
         _persist_mixed_chapter_output(jid, j.chapter_id, out_wav)
-        update_job(jid, status="done", finished_at=time.time(), progress=1.0, output_wav=out_wav.name, error="MP3 conversion failed (using WAV fallback)")
+        j.completed_render_groups = total_groups
+        update_job(
+            jid,
+            status="done",
+            finished_at=time.time(),
+            progress=1.0,
+            output_wav=out_wav.name,
+            error="MP3 conversion failed (using WAV fallback)",
+            completed_render_groups=total_groups,
+            render_group_count=total_groups,
+            active_render_group_index=0,
+        )
         return "done"
 
     _persist_mixed_chapter_output(jid, j.chapter_id, out_wav)
 
-    update_job(jid, status="done", finished_at=time.time(), progress=1.0, output_wav=out_wav.name)
+    j.completed_render_groups = total_groups
+    update_job(
+        jid,
+        status="done",
+        finished_at=time.time(),
+        progress=1.0,
+        output_wav=out_wav.name,
+        completed_render_groups=total_groups,
+        render_group_count=total_groups,
+        active_render_group_index=0,
+    )
     return "done"

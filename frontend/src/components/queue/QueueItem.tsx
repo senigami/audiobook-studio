@@ -4,6 +4,7 @@ import { PredictiveProgressBar } from '../PredictiveProgressBar';
 import type { ProcessingQueueItem, Job } from '../../types';
 import { formatQueueContext } from '../../utils/queueLabels';
 import { shouldShowIndeterminateProgress } from '../../utils/jobSelection';
+import { logProgress } from '../../utils/progressDebug';
 
 interface QueueItemProps {
     job: ProcessingQueueItem;
@@ -44,6 +45,31 @@ export const QueueItem: React.FC<QueueItemProps> = ({
         custom_title: liveJob?.custom_title ?? job.custom_title,
     });
     const displayStatus = isCloudLike && status === 'finalizing' ? 'finalizing' : status;
+    const renderGroupCount = liveJob?.render_group_count ?? 0;
+    const completedRenderGroups = liveJob?.completed_render_groups ?? 0;
+    const activeRenderGroupIndex = liveJob?.active_render_group_index ?? 0;
+
+    React.useEffect(() => {
+        logProgress('queue:item', {
+            jobId: job.id,
+            status,
+            displayStatus,
+            engine,
+            jobProgress,
+            activeSegmentProgress,
+            chosenProgress: progress,
+            started,
+            etaSeconds,
+            persistenceKey: job.id,
+            partCountHint: renderGroupCount || (liveJob?.segment_ids?.length ?? job.segment_ids?.length ?? null),
+            renderGroupCount,
+            completedRenderGroups,
+            activeRenderGroupIndex,
+            activeSegmentId: liveJob?.active_segment_id ?? null,
+            queueProgress: job.progress ?? null,
+            liveProgress: liveJob?.progress ?? null,
+        });
+    }, [job.id, status, displayStatus, engine, jobProgress, activeSegmentProgress, progress, started, etaSeconds, renderGroupCount, completedRenderGroups, activeRenderGroupIndex, liveJob?.segment_ids, job.segment_ids, liveJob?.active_segment_id, job.progress, liveJob?.progress]);
 
     return (
         <div style={{

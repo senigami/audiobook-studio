@@ -135,6 +135,9 @@ export interface Job {
   segment_ids?: string[];
   active_segment_id?: string | null;
   active_segment_progress?: number;
+  render_group_count?: number;
+  completed_render_groups?: number;
+  active_render_group_index?: number;
 }
 
 export interface SegmentProgress {

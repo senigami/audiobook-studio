@@ -26,16 +26,16 @@ from ..engines_voxtral import VoxtralError, voxtral_generate
 logger = logging.getLogger(__name__)
 
 
-def _calculate_group_resume_progress(job) -> float:
+def _calculate_group_resume_state(job) -> tuple[float, int, int]:
     if not getattr(job, "chapter_id", None):
-        return 0.0
+        return 0.0, 0, 0
 
     try:
         from ..chunk_groups import build_chunk_groups, load_chunk_segments
 
         groups = build_chunk_groups(load_chunk_segments(job.chapter_id), job.speaker_profile)
         if not groups:
-            return 0.0
+            return 0.0, 0, 0
 
         completed_groups = 0
         for group in groups:
@@ -45,10 +45,15 @@ def _calculate_group_resume_progress(job) -> float:
             if all(segment.get("audio_status") == "done" and segment.get("audio_file_path") for segment in segments):
                 completed_groups += 1
 
-        return round(completed_groups / len(groups), 2)
+        return round(completed_groups / len(groups), 2), completed_groups, len(groups)
     except Exception:
         logger.error("Failed to get grouped chapter progress for resume initialization", exc_info=True)
-        return 0.0
+        return 0.0, 0, 0
+
+
+def _calculate_group_resume_progress(job) -> float:
+    progress, _, _ = _calculate_group_resume_state(job)
+    return progress
 
 
 def _broadcast_segment_progress(j, jid: str, progress: float):
@@ -182,19 +187,34 @@ def worker_loop(q):
 
             # Accurate Resumption: Initialize progress from DB if resuming
             initial_progress = 0.0
+            completed_render_groups = 0
+            render_group_count = 0
             if j.chapter_id and j.engine != "voxtral" and not j.segment_ids:
-                initial_progress = _calculate_group_resume_progress(j)
+                initial_progress, completed_render_groups, render_group_count = _calculate_group_resume_state(j)
 
             # ETA Fix: Adjust started_at to account for past work
             adjusted_start = initial_start - (initial_progress * eta) if (eta > 0 and initial_progress > 0) else initial_start
 
             # Only send started_at if we are actually resuming (p > 0)
-            update_job(jid, status=initial_status, started_at=adjusted_start if initial_progress > 0 else None, eta_seconds=eta, progress=initial_progress)
+            update_job(
+                jid,
+                status=initial_status,
+                started_at=adjusted_start if initial_progress > 0 else None,
+                eta_seconds=eta,
+                progress=initial_progress,
+                completed_render_groups=completed_render_groups,
+                render_group_count=render_group_count,
+                active_render_group_index=0,
+            )
 
             j.status = initial_status
             j.progress = initial_progress
             j.started_at = adjusted_start
             j._last_broadcast_p = initial_progress
+            j._synthesis_started_once = False
+            j.completed_render_groups = completed_render_groups
+            j.render_group_count = render_group_count
+            j.active_render_group_index = 0
 
             # Skip output check if we are doing a segment rebuild or a bake, to ensure we don't skip due to a stale full-chapter wav
             # Never skip voice_build/voice_test — they must always run synthesis
@@ -233,12 +253,23 @@ def worker_loop(q):
                     return
 
                 if "[START_SYNTHESIS]" in s:
+                    if getattr(j, "_synthesis_started_once", False):
+                        return
+
+                    previous_progress = getattr(j, "progress", 0.0) or 0.0
+                    previous_started_at = getattr(j, "started_at", None)
+                    j._synthesis_started_once = True
                     j.synthesis_started_at = now
                     j.status = "running"
-                    prog = max(j.progress, PROGRESS_PREPARE_LIMIT)
+                    prog = max(previous_progress, PROGRESS_PREPARE_LIMIT)
                     j.progress = prog
-                    j.started_at = now - (prog * eta) if eta > 0 else now
-                    update_job(jid, status="running", started_at=j.started_at, progress=prog)
+
+                    update_args = {"status": "running", "progress": prog}
+                    if previous_started_at is None or previous_progress <= 0:
+                        j.started_at = now - (prog * eta) if eta > 0 else now
+                        update_args["started_at"] = j.started_at
+
+                    update_job(jid, **update_args)
                     return
 
                 if "[START_SEGMENT]" in s:

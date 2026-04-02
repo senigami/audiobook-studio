@@ -84,7 +84,7 @@ def test_worker_loop_resumption(mock_q, sample_job):
          patch("app.jobs.worker.get_project_text_dir", create=True) as mock_text_dir, \
          patch("pathlib.Path.exists", return_value=True), \
          patch("pathlib.Path.read_text", return_value="A" * 1000), \
-         patch("app.jobs.worker._calculate_group_resume_progress", return_value=0.67), \
+         patch("app.jobs.worker._calculate_group_resume_state", return_value=(0.67, 2, 3)), \
          patch("app.jobs.worker.handle_xtts_job"), \
          patch("app.jobs.worker._output_exists", return_value=False):
 
@@ -99,6 +99,9 @@ def test_worker_loop_resumption(mock_q, sample_job):
         prep_call = [c for c in mock_update.call_args_list if c.kwargs.get('status') == "preparing"][0]
         assert prep_call.kwargs['progress'] == 0.67
         assert prep_call.kwargs['started_at'] is not None
+        assert prep_call.kwargs['completed_render_groups'] == 2
+        assert prep_call.kwargs['render_group_count'] == 3
+        assert prep_call.kwargs['active_render_group_index'] == 0
 
 def test_worker_loop_audiobook_engine(mock_q):
     """Test audiobook assembly job flow."""
@@ -160,6 +163,16 @@ def test_on_output_logic(mock_q, sample_job):
         mock_update.reset_mock()
         on_out("[START_SYNTHESIS]")
         assert sample_job.status == "running"
+        start_synthesis_call = mock_update.call_args_list[-1]
+        assert start_synthesis_call.kwargs["status"] == "running"
+        assert start_synthesis_call.kwargs["progress"] == 0.05
+
+        # Repeated group starts must not reseed the chapter run.
+        mock_update.reset_mock()
+        previous_started_at = sample_job.started_at
+        on_out("[START_SYNTHESIS]")
+        mock_update.assert_not_called()
+        assert sample_job.started_at == previous_started_at
 
         # Generic tqdm-style percentages should not be treated as authoritative job progress.
         mock_update.reset_mock()

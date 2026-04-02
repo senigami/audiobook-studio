@@ -82,6 +82,25 @@ describe('useGlobalQueue', () => {
     expect(result.current.queue[0].status).toBe('running');
   });
 
+  it('does not visually regress an active row to preparing from a stale queue poll', async () => {
+    (api.getProcessingQueue as any)
+      .mockResolvedValueOnce([{ id: 'job1', status: 'running', progress: 0.3, started_at: 1000, eta_seconds: 40 }] as any)
+      .mockResolvedValueOnce([{ id: 'job1', status: 'preparing', progress: 0, started_at: null, eta_seconds: 57 }] as any);
+
+    const { result, rerender } = renderHook(({ refreshTrigger }) => useGlobalQueue(false, {}, refreshTrigger), {
+      initialProps: { refreshTrigger: 0 }
+    });
+
+    await waitFor(() => expect(result.current.queue[0]?.status).toBe('running'));
+
+    rerender({ refreshTrigger: 1 });
+    await waitFor(() => expect((api.getProcessingQueue as any).mock.calls.length).toBeGreaterThanOrEqual(2));
+
+    expect(result.current.queue[0].status).toBe('running');
+    expect(result.current.queue[0].started_at).toBe(1000);
+    expect(result.current.queue[0].eta_seconds).toBe(40);
+  });
+
   it('holds a completed chapter job in finalizing until chapter audio is visible', async () => {
     const mockQueue = [{
       id: 'job1',

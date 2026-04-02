@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Job, SegmentProgress } from '../types';
 import { api } from '../api';
 import { useWebSocket } from './useWebSocket';
+import { logProgress } from '../utils/progressDebug';
 
 const STATUS_PRIORITY: Record<string, number> = {
   done: 5,
@@ -40,6 +41,10 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
   const handleUpdate = useCallback((data: any) => {
     if (data.type === 'job_updated') {
       const { job_id, updates } = data;
+      logProgress('ws:job_updated', {
+        jobId: job_id,
+        updates,
+      });
       setJobs(prev => {
         const oldJob = prev[job_id];
         if (!oldJob) {
@@ -101,6 +106,12 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
       const { name, progress, started_at } = data;
       setTestProgress(prev => ({ ...prev, [name]: { progress, started_at } }));
     } else if (data.type === 'segment_progress') {
+      logProgress('ws:segment_progress', {
+        jobId: data.job_id,
+        chapterId: data.chapter_id,
+        segmentId: data.segment_id,
+        progress: data.progress,
+      });
       const next: SegmentProgress = {
         job_id: data.job_id,
         chapter_id: data.chapter_id,

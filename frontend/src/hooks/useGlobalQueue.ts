@@ -4,6 +4,15 @@ import type { ProcessingQueueItem, Job } from '../types';
 import { isSegmentScopedJob } from '../utils/jobSelection';
 
 const COMPLETION_HOLD_SECONDS = 12;
+const STATUS_PRIORITY: Record<string, number> = {
+    done: 5,
+    failed: 5,
+    cancelled: 5,
+    finalizing: 4,
+    running: 3,
+    preparing: 2,
+    queued: 1,
+};
 
 function hasChapterAudioReady(item: ProcessingQueueItem): boolean {
     return item.chapter_audio_status === 'done' || !!item.chapter_audio_file_path;
@@ -30,30 +39,51 @@ function shouldHoldCompletedCloudItem(item: ProcessingQueueItem, jobs: Record<st
     return !hasActiveSibling;
 }
 
-function reconcileQueueItem(item: ProcessingQueueItem, jobs: Record<string, Job>, queue: ProcessingQueueItem[]): ProcessingQueueItem {
+function reconcileQueueItem(
+    item: ProcessingQueueItem,
+    jobs: Record<string, Job>,
+    queue: ProcessingQueueItem[],
+    previousItem?: ProcessingQueueItem,
+): ProcessingQueueItem {
     const liveJob = jobs[item.id];
-    const baseStatus = liveJob?.status ?? item.status;
+    const liveStatus = liveJob?.status;
+    let baseStatus = liveStatus ?? item.status;
+    if (
+        !liveStatus
+        && previousItem?.status
+        && (STATUS_PRIORITY[previousItem.status] ?? 0) > (STATUS_PRIORITY[baseStatus] ?? 0)
+        && ['running', 'finalizing'].includes(previousItem.status)
+        && ['queued', 'preparing'].includes(baseStatus)
+    ) {
+        baseStatus = previousItem.status;
+    }
     let nextStatus = baseStatus;
     const liveStartedAt = liveJob?.started_at;
     const itemStartedAt = item.started_at;
+    const previousStartedAt = previousItem?.started_at;
     const stableStartedAt = (
         ['running', 'preparing', 'finalizing', 'done'].includes(baseStatus)
-        && typeof itemStartedAt === 'number'
-        && typeof liveStartedAt === 'number'
+        && typeof (previousStartedAt ?? itemStartedAt) === 'number'
+        && typeof (liveStartedAt ?? previousStartedAt) === 'number'
     )
-        ? itemStartedAt
-        : (liveStartedAt ?? itemStartedAt);
+        ? (previousStartedAt ?? itemStartedAt)
+        : (liveStartedAt ?? previousStartedAt ?? itemStartedAt);
 
     const liveEta = liveJob?.eta_seconds;
     const itemEta = item.eta_seconds;
+    const previousEta = previousItem?.eta_seconds;
     const stableEta = (
         typeof liveEta === 'number'
-        && typeof itemEta === 'number'
+        && typeof (previousEta ?? itemEta) === 'number'
         && ['running', 'preparing', 'finalizing'].includes(baseStatus)
-        && Math.abs(liveEta - itemEta) < 1
+        && Math.abs(liveEta - (previousEta ?? itemEta ?? liveEta)) < 1
     )
-        ? itemEta
-        : (liveEta ?? itemEta);
+        ? (previousEta ?? itemEta)
+        : (liveEta ?? previousEta ?? itemEta);
+
+    const stableProgress = nextStatus === 'finalizing'
+        ? 1.0
+        : (liveJob?.progress ?? previousItem?.progress ?? item.progress);
 
     if (baseStatus === 'done' && shouldHoldCompletedCloudItem(item, jobs, queue, baseStatus)) {
         nextStatus = 'finalizing';
@@ -61,7 +91,7 @@ function reconcileQueueItem(item: ProcessingQueueItem, jobs: Record<string, Job>
 
     if (
         nextStatus === item.status
-        && (liveJob?.progress ?? item.progress ?? 0) === (item.progress ?? 0)
+        && stableProgress === (item.progress ?? 0)
         && stableStartedAt === item.started_at
         && stableEta === item.eta_seconds
     ) {
@@ -71,7 +101,7 @@ function reconcileQueueItem(item: ProcessingQueueItem, jobs: Record<string, Job>
     return {
         ...item,
         status: nextStatus,
-        progress: nextStatus === 'finalizing' ? 1.0 : (liveJob?.progress ?? item.progress),
+        progress: stableProgress,
         started_at: stableStartedAt,
         eta_seconds: stableEta,
     };
@@ -110,7 +140,8 @@ export const useGlobalQueue = (paused: boolean, jobs: Record<string, Job>, refre
         try {
             const data = await api.getProcessingQueue();
             if (!isDraggingRef.current) {
-                const reconciled = data.map(item => reconcileQueueItem(item, jobsRef.current, data));
+                const previousById = new Map(queueRef.current.map(item => [item.id, item]));
+                const reconciled = data.map(item => reconcileQueueItem(item, jobsRef.current, data, previousById.get(item.id)));
                 setQueue(reconciled);
             }
         } catch (e) {
@@ -159,7 +190,7 @@ export const useGlobalQueue = (paused: boolean, jobs: Record<string, Job>, refre
         setQueue(prev => {
             let changed = false;
             const updated = prev.map(q => {
-                const next = reconcileQueueItem(q, jobs, prev);
+                const next = reconcileQueueItem(q, jobs, prev, q);
                 if (
                     next !== q
                     && (
