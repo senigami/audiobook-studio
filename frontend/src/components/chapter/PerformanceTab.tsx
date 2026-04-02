@@ -27,6 +27,32 @@ function getPredictiveJobProgress(job?: Job): number {
   return Math.max(baseProgress, timeProgress);
 }
 
+function getWeightedActiveGroupProgress(job?: Job): number | null {
+  if (!job || (job.status !== 'running' && job.status !== 'finalizing')) {
+    return null;
+  }
+
+  const totalRenderWeight = job.total_render_weight ?? 0;
+  const activeRenderGroupWeight = job.active_render_group_weight ?? 0;
+  const completedRenderWeight = job.completed_render_weight ?? 0;
+
+  if (!job.started_at || !job.eta_seconds || totalRenderWeight <= 0 || activeRenderGroupWeight <= 0) {
+    return null;
+  }
+
+  const elapsedSeconds = Math.max(0, (Date.now() / 1000) - job.started_at);
+  const expectedTotalSeconds = Math.max(job.eta_seconds, 1);
+  const expectedSecondsBeforeGroup = expectedTotalSeconds * (completedRenderWeight / totalRenderWeight);
+  const expectedActiveGroupSeconds = expectedTotalSeconds * (activeRenderGroupWeight / totalRenderWeight);
+
+  if (expectedActiveGroupSeconds <= 0) {
+    return null;
+  }
+
+  const elapsedWithinGroup = Math.max(0, elapsedSeconds - expectedSecondsBeforeGroup);
+  return Math.max(0, Math.min(1, elapsedWithinGroup / expectedActiveGroupSeconds));
+}
+
 function isVoxtralJob(job?: Job): boolean {
   return job?.engine === 'voxtral';
 }
@@ -525,6 +551,11 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
                     const liveSegmentValue = hasActiveSegmentSignal
                       ? (liveSegmentEntry?.progress ?? (generatingJob?.active_segment_progress ?? 0))
                       : 0;
+                    const weightedActiveGroupProgress = getWeightedActiveGroupProgress(generatingJob);
+                    const useWeightedMixedSegmentProgress = !!generatingJob
+                      && generatingJob.engine === 'mixed'
+                      && (generatingJob.total_render_weight ?? 0) > 0
+                      && (generatingJob.active_render_group_weight ?? 0) > 0;
                     const activeProgress = (() => {
                         if (!(activeJobIsLive && isActiveGroup)) {
                             return 0;
@@ -533,6 +564,21 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
                             return generatingJob?.status === 'finalizing' ? 1 : 0;
                         }
                         if (hasActiveSegmentSignal) {
+                            // Mixed grouped renders already expose character-length weighting from the
+                            // backend. For the active segment card we use that weighting to predict
+                            // how far through the current render group we should be, then clamp that
+                            // against the live backend segment checkpoint as a floor. This keeps the
+                            // card moving between sparse websocket updates without letting progress
+                            // appear to backslide when the next checkpoint is late or coarse.
+                            if (useWeightedMixedSegmentProgress) {
+                                return Math.max(
+                                  0,
+                                  Math.min(
+                                    1,
+                                    Math.max(liveSegmentValue, weightedActiveGroupProgress ?? 0)
+                                  )
+                                );
+                            }
                             return liveSegmentValue;
                         }
                         return getPredictiveJobProgress(generatingJob);

@@ -406,6 +406,92 @@ describe('Chapter Subcomponents', () => {
       expect(screen.queryByText('Working...')).toBeNull();
     });
 
+    it('uses render-group weights to predict active mixed segment progress between sparse checkpoints', () => {
+      vi.useFakeTimers();
+      try {
+        const activeJob = {
+          id: 'job-mixed-weighted-1',
+          status: 'running',
+          engine: 'mixed',
+          active_segment_id: 'seg-1',
+          active_segment_progress: 0.1,
+          started_at: Date.now() / 1000 - 40,
+          eta_seconds: 100,
+          progress: 0.37,
+          total_render_weight: 100,
+          completed_render_weight: 20,
+          active_render_group_weight: 40
+        } as any;
+
+        render(
+          <PerformanceTab
+            chunkGroups={[
+              { characterId: 'char-1', segments: [{ ...mockSegments[0], audio_status: 'processing' }] }
+            ]}
+            characters={mockCharacters}
+            playingSegmentId={null}
+            playbackQueue={['seg-1']}
+            generatingSegmentIds={new Set(['seg-1'])}
+            allSegmentIds={['seg-1']}
+            segments={mockSegments}
+            onPlay={vi.fn()}
+            onStop={vi.fn()}
+            onGenerate={vi.fn()}
+            generatingJob={activeJob}
+            segmentProgress={{} as any}
+          />
+        );
+
+        expect(screen.getByTestId('performance-progress-0')).toHaveAttribute('data-progress', '50');
+        expect(screen.getByText('50%')).toBeInTheDocument();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('treats backend mixed segment checkpoints as a floor over weighted prediction', () => {
+      vi.useFakeTimers();
+      try {
+        const activeJob = {
+          id: 'job-mixed-weighted-floor',
+          status: 'running',
+          engine: 'mixed',
+          active_segment_id: 'seg-1',
+          active_segment_progress: 0.75,
+          started_at: Date.now() / 1000 - 25,
+          eta_seconds: 100,
+          progress: 0.37,
+          total_render_weight: 100,
+          completed_render_weight: 20,
+          active_render_group_weight: 40
+        } as any;
+
+        render(
+          <PerformanceTab
+            chunkGroups={[
+              { characterId: 'char-1', segments: [{ ...mockSegments[0], audio_status: 'processing' }] }
+            ]}
+            characters={mockCharacters}
+            playingSegmentId={null}
+            playbackQueue={['seg-1']}
+            generatingSegmentIds={new Set(['seg-1'])}
+            allSegmentIds={['seg-1']}
+            segments={mockSegments}
+            onPlay={vi.fn()}
+            onStop={vi.fn()}
+            onGenerate={vi.fn()}
+            generatingJob={activeJob}
+            segmentProgress={{} as any}
+          />
+        );
+
+        expect(screen.getByTestId('performance-progress-0')).toHaveAttribute('data-progress', '75');
+        expect(screen.getByText('75%')).toBeInTheDocument();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it('pins Voxtral jobs at 100% while finalizing', () => {
       const activeJob = {
         id: 'job-vox-2',
