@@ -95,4 +95,36 @@ describe('predictiveProgress', () => {
 
         expect(advanced.nextProgress).toBeGreaterThanOrEqual(0.6)
     })
+
+    it('uses the learned queue ETA as a strong prior and only bends it gently at coarse checkpoints', () => {
+        const model = buildPredictiveProgressModel({
+            authoritativeProgress: 0.6,
+            displayedProgress: 0.55,
+            elapsedSeconds: 42,
+            etaSeconds: 61,
+            priorProgressBasis: 0.55,
+            correctionWeightMode: 'queue',
+        })
+
+        expect(model.estimatedRemainingSeconds).toBeCloseTo(19, 0)
+        expect(model.actualRemainingSeconds).toBeCloseTo(28, 0)
+        expect(model.refinedRemainingSeconds).toBeGreaterThan(20)
+        expect(model.refinedRemainingSeconds).toBeLessThan(23)
+    })
+
+    it('does not let a late short-group checkpoint yank the queue ETA far away from the learned finish', () => {
+        const model = buildPredictiveProgressModel({
+            authoritativeProgress: 0.56,
+            displayedProgress: 0.62,
+            elapsedSeconds: 56,
+            etaSeconds: 63,
+            priorProgressBasis: 0.62,
+            correctionWeightMode: 'queue',
+        })
+
+        expect(model.estimatedRemainingSeconds).toBe(7)
+        expect(model.actualRemainingSeconds).toBeGreaterThan(40)
+        expect(model.refinedRemainingSeconds).toBeGreaterThan(15)
+        expect(model.refinedRemainingSeconds).toBeLessThan(25)
+    })
 })

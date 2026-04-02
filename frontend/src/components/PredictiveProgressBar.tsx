@@ -251,6 +251,8 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                     elapsedSeconds: elapsed,
                     etaSeconds,
                     deltaSeconds: dt,
+                    priorProgressBasis: base,
+                    correctionWeightMode: 'queue',
                 });
                 const gapToTarget = Math.max(0, targetFloor - prev);
                 const minimumCatchupStep = gapToTarget / PROGRESS_MAX_SMOOTHING_TICKS;
@@ -301,6 +303,8 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             displayedProgress: visibleProgress,
             elapsedSeconds: elapsed,
             etaSeconds,
+            priorProgressBasis: authoritativeFloor ? visibleProgress : undefined,
+            correctionWeightMode: authoritativeFloor ? 'queue' : 'default',
         });
 
         return {
@@ -346,6 +350,8 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             displayedProgress: effectiveDisplayedProgress,
             elapsedSeconds: elapsed,
             etaSeconds,
+            priorProgressBasis: authoritativeFloor ? effectiveDisplayedProgress : undefined,
+            correctionWeightMode: authoritativeFloor ? 'queue' : 'default',
         });
         const nextTargetEndTime = Date.now() + (model.refinedRemainingSeconds * 1000);
         const rememberedEndTime = memoryKey ? (endTimeMemory.get(memoryKey) ?? null) : null;
@@ -419,21 +425,27 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     const displayedRemaining = currentEndTime === null
         ? null
         : Math.max(0, Math.ceil((currentEndTime - now) / 1000));
+    const queueRemainingFloor = authoritativeFloor && startedAt && etaSeconds
+        ? Math.max(0, Math.ceil(Math.max(0, 1 - localProgress) * etaSeconds))
+        : null;
+    const syncedDisplayedRemaining = queueRemainingFloor === null
+        ? displayedRemaining
+        : (displayedRemaining === null ? queueRemainingFloor : Math.max(displayedRemaining, queueRemainingFloor));
 
     useEffect(() => {
         const previous = displayedRemainingRef.current;
-        if (displayedRemaining !== previous) {
+        if (syncedDisplayedRemaining !== previous) {
             if (
                 previous !== null
-                && displayedRemaining !== null
-                && Math.abs(displayedRemaining - previous) >= 2
+                && syncedDisplayedRemaining !== null
+                && Math.abs(syncedDisplayedRemaining - previous) >= 2
             ) {
                 logProgress('bar:eta-jump', {
                     label,
                     persistenceKey,
                     memoryKey,
                     previousDisplayedRemaining: previous,
-                    displayedRemaining,
+                    displayedRemaining: syncedDisplayedRemaining,
                     currentEndTime,
                     targetEndTime: targetEndTimeRef.current,
                     startedAt,
@@ -442,15 +454,15 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                     displayProgress,
                 });
             }
-            displayedRemainingRef.current = displayedRemaining;
+            displayedRemainingRef.current = syncedDisplayedRemaining;
         }
-    }, [displayedRemaining, currentEndTime, label, persistenceKey, memoryKey, startedAt, etaSeconds, progress, displayProgress]);
+    }, [syncedDisplayedRemaining, currentEndTime, label, persistenceKey, memoryKey, startedAt, etaSeconds, progress, displayProgress]);
 
     return (
         <div style={{ width: '100%' }} data-testid="progress-bar">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                 <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600 }}>{label}</span>
-                {showEta && displayedRemaining !== null ? (
+                {showEta && syncedDisplayedRemaining !== null ? (
                     <div style={{ display: 'flex', gap: '8px' }}>
                         <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
                             {Math.round(localProgress * 100)}%
@@ -461,7 +473,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                             fontWeight: 700,
                             fontVariantNumeric: 'tabular-nums'
                         }}>
-                            ETA: {formatTime(displayedRemaining)}
+                            ETA: {formatTime(syncedDisplayedRemaining)}
                         </span>
                     </div>
                 ) : (

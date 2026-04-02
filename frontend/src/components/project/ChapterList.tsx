@@ -102,9 +102,22 @@ export const ChapterList: React.FC<ChapterListProps> = ({
           const activeJob = pickActiveJob(chap.id, !hasChapterAudio && chap.audio_status !== 'processing');
           const isRecentDone = activeJob?.status === 'done' && !!activeJob?.finished_at && ((Date.now() / 1000) - activeJob.finished_at) <= RECENT_COMPLETION_WINDOW_SECONDS;
           const displayStatus = isRecentDone && !hasChapterAudio ? 'finalizing' : activeJob?.status;
+          const renderGroupCount = activeJob?.render_group_count ?? 0;
+          const completedRenderGroups = activeJob?.completed_render_groups ?? 0;
+          const activeRenderGroupIndex = activeJob?.active_render_group_index ?? 0;
+          const totalRenderWeight = activeJob?.total_render_weight ?? 0;
+          const completedRenderWeight = activeJob?.completed_render_weight ?? 0;
+          const activeRenderGroupWeight = activeJob?.active_render_group_weight ?? 0;
+          const activeGroupProgress = activeRenderGroupIndex > completedRenderGroups
+            ? Math.max(0, Math.min(activeJob?.active_segment_progress ?? 0, 1))
+            : 0;
+          const isGroupedChapterJob = !!activeJob && renderGroupCount > 0 && !isSegmentScopedJob(activeJob);
+          const weightedGroupedProgress = totalRenderWeight > 0
+            ? (((completedRenderWeight + (activeRenderGroupWeight * activeGroupProgress)) / totalRenderWeight) * 0.9)
+            : 0;
           const progressValue = displayStatus === 'finalizing'
             ? 1
-            : activeJob ? (activeJob.progress ?? 0) : 0;
+            : activeJob ? Math.max(activeJob.progress ?? 0, weightedGroupedProgress) : 0;
           const showIndeterminateProgress = !!activeJob && shouldShowIndeterminateProgress(activeJob);
           const isMenuOpen = openMenuRowId === chap.id;
           const isFullyRendered = hasChapterAudio;
@@ -215,6 +228,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                           label={displayStatus} 
                           predictive={true}
                           indeterminateRunning={showIndeterminateProgress}
+                          authoritativeFloor={isGroupedChapterJob}
                         />
                     </div>
                 ) : hasChapterAudio && !isAssemblyMode ? (

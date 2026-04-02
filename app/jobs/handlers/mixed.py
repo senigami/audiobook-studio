@@ -13,6 +13,58 @@ from ..speaker import get_speaker_settings, get_speaker_wavs, get_voice_profile_
 logger = logging.getLogger(__name__)
 
 
+def _group_weight(group: dict) -> int:
+    return max(1, int(group.get("text_length") or 0))
+
+
+def _weighted_group_progress(
+    groups: list[dict],
+    completed_groups: int,
+    active_group_progress: float,
+    *,
+    limit: float,
+) -> float:
+    if not groups:
+        return round(limit, 2)
+
+    weights = [_group_weight(group) for group in groups]
+    total_weight = sum(weights)
+    if total_weight <= 0:
+        return round(limit, 2)
+
+    completed = max(0, min(completed_groups, len(groups)))
+    active = max(0.0, min(active_group_progress, 1.0))
+    completed_weight = sum(weights[:completed])
+    active_weight = weights[completed] if completed < len(groups) else 0
+    weighted_progress = (completed_weight + (active_weight * active)) / total_weight
+    return round(weighted_progress * limit, 2)
+
+
+def _group_weight_updates(
+    groups: list[dict],
+    completed_groups: int,
+    *,
+    active_index: int = 0,
+) -> dict:
+    weights = [_group_weight(group) for group in groups]
+    total_weight = sum(weights)
+    completed = max(0, min(completed_groups, len(weights)))
+    active_weight = 0
+    if active_index > 0:
+        active_position = min(active_index - 1, len(weights) - 1)
+        if active_position >= 0:
+            active_weight = weights[active_position]
+
+    return {
+        "render_group_count": len(groups),
+        "completed_render_groups": completed,
+        "active_render_group_index": active_index,
+        "total_render_weight": total_weight,
+        "completed_render_weight": sum(weights[:completed]),
+        "active_render_group_weight": active_weight,
+    }
+
+
 def _segment_output_path(pdir: Path, segment_id: str) -> Path:
     return pdir / f"seg_{segment_id}.wav"
 
@@ -163,12 +215,11 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
     j.render_group_count = total_groups
     j.completed_render_groups = 0
     j.active_render_group_index = 0
-    update_job(
-        jid,
-        render_group_count=total_groups,
-        completed_render_groups=0,
-        active_render_group_index=0,
-    )
+    weight_updates = _group_weight_updates(target_groups, 0, active_index=0)
+    j.total_render_weight = weight_updates["total_render_weight"]
+    j.completed_render_weight = 0
+    j.active_render_group_weight = 0
+    update_job(jid, **weight_updates)
 
     for index, group in enumerate(target_groups, start=1):
         if cancel_check():
@@ -188,9 +239,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
             jid,
             active_segment_id=segment_id,
             active_segment_progress=0.0,
-            completed_render_groups=index - 1,
-            render_group_count=total_groups,
-            active_render_group_index=index,
+            **_group_weight_updates(target_groups, index - 1, active_index=index),
         )
         for group_segment in group["segments"]:
             update_segment(
@@ -234,7 +283,12 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
             clear_duplicate_segment_audio_paths(j.chapter_id, group_segment["id"], seg_out.name)
 
         progress_limit = 1.0 if j.segment_ids else 0.9
-        progress = (index / total_groups) * progress_limit if total_groups else progress_limit
+        progress = _weighted_group_progress(
+            target_groups,
+            index,
+            0.0,
+            limit=progress_limit,
+        )
         j.completed_render_groups = index
         j.active_render_group_index = 0
         update_job(
@@ -242,9 +296,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
             progress=progress,
             active_segment_id=None,
             active_segment_progress=0.0,
-            completed_render_groups=index,
-            render_group_count=total_groups,
-            active_render_group_index=0,
+            **_group_weight_updates(target_groups, index, active_index=0),
         )
 
     if j.segment_ids:
@@ -266,9 +318,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
             status="done",
             progress=final_p,
             finished_at=time.time(),
-            completed_render_groups=total_groups,
-            render_group_count=total_groups,
-            active_render_group_index=0,
+            **_group_weight_updates(target_groups, total_groups, active_index=0),
         )
         return "done"
 
@@ -277,9 +327,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
         jid,
         status="finalizing",
         progress=max(getattr(j, "progress", 0.0), 0.91),
-        completed_render_groups=total_groups,
-        render_group_count=total_groups,
-        active_render_group_index=0,
+        **_group_weight_updates(target_groups, total_groups, active_index=0),
     )
     segment_paths = []
     fresh_groups = build_chunk_groups(get_chapter_segments(j.chapter_id), j.speaker_profile)
@@ -315,9 +363,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
                 progress=1.0,
                 output_wav=out_wav.name,
                 output_mp3=out_mp3.name,
-                completed_render_groups=total_groups,
-                render_group_count=total_groups,
-                active_render_group_index=0,
+                **_group_weight_updates(target_groups, total_groups, active_index=0),
             )
             return "done"
         _persist_mixed_chapter_output(jid, j.chapter_id, out_wav)
@@ -329,9 +375,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
             progress=1.0,
             output_wav=out_wav.name,
             error="MP3 conversion failed (using WAV fallback)",
-            completed_render_groups=total_groups,
-            render_group_count=total_groups,
-            active_render_group_index=0,
+            **_group_weight_updates(target_groups, total_groups, active_index=0),
         )
         return "done"
 
@@ -344,8 +388,6 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
         finished_at=time.time(),
         progress=1.0,
         output_wav=out_wav.name,
-        completed_render_groups=total_groups,
-        render_group_count=total_groups,
-        active_render_group_index=0,
+        **_group_weight_updates(target_groups, total_groups, active_index=0),
     )
     return "done"

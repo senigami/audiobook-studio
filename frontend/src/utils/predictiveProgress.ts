@@ -5,6 +5,8 @@ export interface PredictiveProgressInput {
     displayedProgress: number
     elapsedSeconds: number
     etaSeconds: number
+    priorProgressBasis?: number
+    correctionWeightMode?: 'default' | 'queue'
 }
 
 export interface PredictiveProgressModel {
@@ -25,14 +27,18 @@ export const buildPredictiveProgressModel = ({
     displayedProgress,
     elapsedSeconds,
     etaSeconds,
+    priorProgressBasis,
+    correctionWeightMode = 'default',
 }: PredictiveProgressInput): PredictiveProgressModel => {
     const safeAuthoritative = clamp01(authoritativeProgress)
     const safeDisplayed = clamp01(displayedProgress)
     const safeElapsed = Math.max(0, elapsedSeconds)
+    const safePriorBasis = clamp01(priorProgressBasis ?? safeAuthoritative)
     const estimatedRemainingSeconds = Math.max(1, etaSeconds - safeElapsed)
-    const actualRemainingSeconds = safeAuthoritative > 0.001
+    const rawActualRemainingSeconds = safeAuthoritative > 0.001
         ? Math.max(1, (safeElapsed / safeAuthoritative) - safeElapsed)
         : estimatedRemainingSeconds
+    const actualRemainingSeconds = rawActualRemainingSeconds
 
     // Queue/progress contract:
     // 1. The backend may correct the authoritative progress value, but the
@@ -43,7 +49,16 @@ export const buildPredictiveProgressModel = ({
     // 5. The visible bar never moves backward while a job is active.
     // 6. Chapter bars and segment bars can share this engine as long as they
     //    feed it the correct scoped progress source.
-    const confidence = Math.min(1, safeAuthoritative / 0.35)
+    const expectedProgressFromPrior = etaSeconds > 0 ? clamp01(safeElapsed / etaSeconds) : safeAuthoritative
+    const confidence = correctionWeightMode === 'queue'
+        ? Math.min(
+            0.35,
+            0.08
+            + Math.min(0.18, Math.abs(safeAuthoritative - expectedProgressFromPrior) * 0.45)
+            + Math.min(0.08, Math.abs(safeAuthoritative - safePriorBasis) * 0.2)
+            + (safeAuthoritative >= 0.75 ? 0.04 : 0),
+        )
+        : Math.min(1, safeAuthoritative / 0.35)
     const refinedRemainingSeconds = Math.max(
         1,
         (estimatedRemainingSeconds * (1 - confidence)) + (actualRemainingSeconds * confidence),
@@ -66,12 +81,16 @@ export const advancePredictiveProgress = ({
     elapsedSeconds,
     etaSeconds,
     deltaSeconds,
+    priorProgressBasis,
+    correctionWeightMode,
 }: PredictiveAdvanceInput) => {
     const model = buildPredictiveProgressModel({
         authoritativeProgress,
         displayedProgress,
         elapsedSeconds,
         etaSeconds,
+        priorProgressBasis,
+        correctionWeightMode,
     })
     const safeDelta = Math.max(0, deltaSeconds)
     const nextProgress = clamp01(

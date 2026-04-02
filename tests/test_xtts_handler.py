@@ -182,3 +182,9 @@ def test_group_job_progress_blends_active_segment_into_total_progress():
 def test_group_job_progress_tracks_render_group_units():
     assert _group_job_progress(0, 2, 0.5, limit=0.9) == 0.23
     assert _group_job_progress(1, 2, 0.5, limit=0.9) == 0.68
+
+
+def test_group_job_progress_weights_short_groups_less():
+    assert _group_job_progress(1, 3, 0.0, limit=0.9, group_weights=[500, 450, 50]) == 0.45
+    assert _group_job_progress(2, 3, 0.0, limit=0.9, group_weights=[500, 450, 50]) == 0.85
+    assert _group_job_progress(2, 3, 0.5, limit=0.9, group_weights=[500, 450, 50]) == 0.88

@@ -92,6 +92,27 @@ describe('PredictiveProgressBar', () => {
         expect(screen.getByText('16%')).toBeTruthy()
     })
 
+    it('keeps grouped queue ETA consistent with the visible progress floor', () => {
+        vi.useFakeTimers()
+        vi.setSystemTime(60_000)
+
+        render(
+            <PredictiveProgressBar
+                progress={0.75}
+                startedAt={1}
+                etaSeconds={63}
+                label="Queue"
+                status="running"
+                authoritativeFloor={true}
+            />
+        )
+
+        expect(screen.getByText('75%')).toBeTruthy()
+        expect(screen.getByText(/ETA: 0:1[5-6]/i)).toBeTruthy()
+
+        vi.useRealTimers()
+    })
+
     it('renders an indeterminate working state for non-predictive running jobs', () => {
         const { container } = render(
             <PredictiveProgressBar

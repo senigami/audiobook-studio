@@ -46,3 +46,6 @@ class Job:
     render_group_count: int = 0
     completed_render_groups: int = 0
     active_render_group_index: int = 0
+    total_render_weight: int = 0
+    completed_render_weight: int = 0
+    active_render_group_weight: int = 0

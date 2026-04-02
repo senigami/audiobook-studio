@@ -32,12 +32,18 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     const renderGroupCount = liveJob?.render_group_count ?? 0;
     const completedRenderGroups = liveJob?.completed_render_groups ?? 0;
     const activeRenderGroupIndex = liveJob?.active_render_group_index ?? 0;
+    const totalRenderWeight = liveJob?.total_render_weight ?? 0;
+    const completedRenderWeight = liveJob?.completed_render_weight ?? 0;
+    const activeRenderGroupWeight = liveJob?.active_render_group_weight ?? 0;
     const isGroupedChapterJob = renderGroupCount > 0 && !job.segment_ids?.length && !liveJob?.segment_ids?.length;
     const activeGroupProgress = activeRenderGroupIndex > completedRenderGroups
         ? Math.max(0, Math.min(activeSegmentProgress ?? 0, 1))
         : 0;
+    const weightedProgress = totalRenderWeight > 0
+        ? (((completedRenderWeight + (activeRenderGroupWeight * activeGroupProgress)) / totalRenderWeight) * 0.9)
+        : 0;
     const groupedProgress = isGroupedChapterJob
-        ? (((completedRenderGroups + activeGroupProgress) / renderGroupCount) * 0.9)
+        ? Math.max(weightedProgress, (((completedRenderGroups + activeGroupProgress) / Math.max(1, renderGroupCount)) * 0.9))
         : 0;
     const useLiveSegmentProgress = ['voice_build', 'voice_test'].includes(engine)
         && status === 'running'
@@ -99,13 +105,16 @@ export const QueueItem: React.FC<QueueItemProps> = ({
             renderGroupCount,
             completedRenderGroups,
             activeRenderGroupIndex,
+            totalRenderWeight,
+            completedRenderWeight,
+            activeRenderGroupWeight,
             activeSegmentId: liveJob?.active_segment_id ?? null,
             queueProgress: job.progress ?? null,
             liveProgress: liveJob?.progress ?? null,
             rawStarted,
             rawEtaSeconds,
         });
-    }, [job.id, status, displayStatus, engine, jobProgress, activeSegmentProgress, progress, started, etaSeconds, renderGroupCount, completedRenderGroups, activeRenderGroupIndex, liveJob?.segment_ids, job.segment_ids, liveJob?.active_segment_id, job.progress, liveJob?.progress, rawStarted, rawEtaSeconds]);
+    }, [job.id, status, displayStatus, engine, jobProgress, activeSegmentProgress, progress, started, etaSeconds, renderGroupCount, completedRenderGroups, activeRenderGroupIndex, totalRenderWeight, completedRenderWeight, activeRenderGroupWeight, liveJob?.segment_ids, job.segment_ids, liveJob?.active_segment_id, job.progress, liveJob?.progress, rawStarted, rawEtaSeconds]);
 
     return (
         <div style={{
