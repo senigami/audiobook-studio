@@ -83,6 +83,13 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
   const liveSegmentProgressJob = generatingJob && ['preparing', 'running', 'finalizing'].includes(generatingJob.status)
     ? generatingJob
     : undefined;
+  const liveSegmentProgressValue = liveSegmentProgressJob
+    ? (liveSegmentProgressJob.status === 'finalizing'
+        ? 1
+        : (liveSegmentProgressJob.active_segment_id
+            ? (liveSegmentProgressJob.active_segment_progress ?? 0)
+            : (liveSegmentProgressJob.progress ?? 0)))
+    : 0;
 
   React.useEffect(() => {
     if (releaseHoldTimerRef.current !== null) {
@@ -268,12 +275,12 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
           {liveSegmentProgressJob && (
               <div style={{ width: '180px', minWidth: '180px' }}>
                   <PredictiveProgressBar
-                      progress={liveSegmentProgressJob.status === 'finalizing' ? 1 : (liveSegmentProgressJob.progress ?? 0)}
+                      progress={liveSegmentProgressValue}
                       startedAt={liveSegmentProgressJob.started_at}
                       etaSeconds={liveSegmentProgressJob.eta_seconds}
                       status={liveSegmentProgressJob.status === 'preparing' ? 'running' : liveSegmentProgressJob.status}
                       label="Segment Progress"
-                      predictive={false}
+                      predictive={true}
                       indeterminateRunning={false}
                       showEta={false}
                   />

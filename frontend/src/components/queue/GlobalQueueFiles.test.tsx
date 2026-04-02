@@ -110,12 +110,12 @@ describe('Global Queue Components', () => {
             );
 
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.15');
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'false');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'true');
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-started-at', '1000');
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-eta-seconds', '30');
         });
 
-        it('uses indeterminate non-predictive progress for voxtral jobs', () => {
+        it('uses indeterminate working state for voxtral jobs while keeping predictive mode enabled', () => {
             render(
                 <QueueItem
                     job={{ ...mockJob, engine: 'voxtral', status: 'running', progress: 0 } as any}

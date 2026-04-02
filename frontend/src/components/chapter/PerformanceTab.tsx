@@ -35,23 +35,46 @@ function useSegmentProgressLifecycle(
     activeProgress: number,
     hasProcessingState: boolean,
     allowSettle: boolean,
+    initialSettled: boolean,
     resetKey?: string
 ) {
     const [settledProgress, setSettledProgress] = useState<number | null>(null);
+    const [smoothedProgress, setSmoothedProgress] = useState(0);
     const settleTimerRef = useRef<number | null>(null);
     const wasActiveRef = useRef(false);
 
     useEffect(() => {
         wasActiveRef.current = false;
-        setSettledProgress(null);
+        const nextSettled = initialSettled ? 1 : null;
+        setSettledProgress(nextSettled);
+        setSmoothedProgress(nextSettled ?? Math.max(0, Math.min(1, activeProgress)));
         if (settleTimerRef.current !== null) {
             window.clearTimeout(settleTimerRef.current);
             settleTimerRef.current = null;
         }
-    }, [resetKey]);
+    }, [resetKey, activeProgress, initialSettled]);
 
     useEffect(() => {
+        if (!initialSettled || isActive) {
+            return;
+        }
         if (settleTimerRef.current !== null) {
+            window.clearTimeout(settleTimerRef.current);
+        }
+        settleTimerRef.current = window.setTimeout(() => {
+            setSettledProgress(null);
+            settleTimerRef.current = null;
+        }, SEGMENT_PROGRESS_LINGER_MS);
+        return () => {
+            if (settleTimerRef.current !== null) {
+                window.clearTimeout(settleTimerRef.current);
+                settleTimerRef.current = null;
+            }
+        };
+    }, [initialSettled, isActive]);
+
+    useEffect(() => {
+        if (settleTimerRef.current !== null && !(initialSettled && !wasActiveRef.current && !isActive)) {
             window.clearTimeout(settleTimerRef.current);
             settleTimerRef.current = null;
         }
@@ -73,7 +96,7 @@ function useSegmentProgressLifecycle(
             wasActiveRef.current = false;
             setSettledProgress(null);
         }
-    }, [isActive, allowSettle]);
+    }, [isActive, allowSettle, initialSettled]);
 
     useEffect(() => {
         if (!hasProcessingState || isActive) return;
@@ -91,8 +114,22 @@ function useSegmentProgressLifecycle(
         }
     }, []);
 
+    useEffect(() => {
+        const timer = window.setInterval(() => {
+            setSmoothedProgress(prev => {
+                const target = isActive ? activeProgress : (settledProgress ?? 0);
+                const gap = target - prev;
+                if (Math.abs(gap) <= 0.002) return target;
+                const correctionWindow = gap > 0 ? 0.45 : 0.65;
+                const correctionFraction = Math.min(1, 0.25 / correctionWindow);
+                return Math.max(0, Math.min(1, prev + (gap * correctionFraction)));
+            });
+        }, 250);
+        return () => window.clearInterval(timer);
+    }, [isActive, activeProgress, settledProgress]);
+
     return {
-        displayProgress: isActive ? activeProgress : (settledProgress ?? 0),
+        displayProgress: smoothedProgress,
         showProgress: isActive || settledProgress !== null || hasProcessingState,
         isSettling: settledProgress !== null
     };
@@ -112,6 +149,7 @@ interface PerformanceGroupCardProps {
   showPreparingIndeterminate: boolean;
   resetKey?: string;
   allowSettle: boolean;
+  initialSettled: boolean;
   isPlaying: boolean;
   isNext: boolean;
   allDone: boolean;
@@ -134,6 +172,7 @@ const PerformanceGroupCard: React.FC<PerformanceGroupCardProps> = ({
   showPreparingIndeterminate,
   resetKey,
   allowSettle,
+  initialSettled,
   isPlaying,
   isNext,
   allDone,
@@ -146,6 +185,7 @@ const PerformanceGroupCard: React.FC<PerformanceGroupCardProps> = ({
     activeProgress,
     groupHasProcessingState,
     allowSettle,
+    initialSettled,
     resetKey
   );
   const anyPending = isActiveGroup || groupHasProcessingState || groupHasQueuedState;
@@ -452,20 +492,41 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
                     const liveSegmentEntry = group.segments
                         .map(segment => segmentProgress[segment.id])
                         .find(entry => entry && entry.job_id === generatingJob?.id);
-                    const liveSegmentValue = liveSegmentEntry?.progress ?? (generatingJob?.active_segment_progress ?? 0);
-                    const activeProgress = activeJobIsLive && isActiveGroup
-                        ? (voxtralJob
-                            ? (generatingJob?.status === 'finalizing' ? 1 : 0)
-                            : (liveSegmentValue > 0
-                                ? liveSegmentValue
-                                : getPredictiveJobProgress(generatingJob)))
-                        : 0;
+                    const hasDirectSegmentProgress = typeof generatingJob?.active_segment_progress === 'number'
+                      && (generatingJob?.active_segment_progress ?? 0) > 0;
+                    const hasActiveSegmentSignal = isActiveGroup
+                      && (!!generatingJob?.active_segment_id
+                        || !!liveSegmentEntry
+                        || (generatingJob?.engine === 'mixed' && hasDirectSegmentProgress));
+                    const liveSegmentValue = hasActiveSegmentSignal
+                      ? (liveSegmentEntry?.progress ?? (generatingJob?.active_segment_progress ?? 0))
+                      : 0;
+                    const activeProgress = (() => {
+                        if (!(activeJobIsLive && isActiveGroup)) {
+                            return 0;
+                        }
+                        if (voxtralJob) {
+                            return generatingJob?.status === 'finalizing' ? 1 : 0;
+                        }
+                        if (generatingJob?.engine === 'mixed' && hasActiveSegmentSignal) {
+                            return liveSegmentValue > 0 ? liveSegmentValue : getPredictiveJobProgress(generatingJob);
+                        }
+                        if (hasActiveSegmentSignal) {
+                            return liveSegmentValue;
+                        }
+                        return getPredictiveJobProgress(generatingJob);
+                    })();
                     const showIndeterminateProgress = activeJobIsLive
                       && isActiveGroup
                       && ((indeterminateJob && ['queued', 'preparing', 'running'].includes(generatingJob?.status || ''))
                         || activeProgress <= 0);
                     const showPreparingIndeterminate = showIndeterminateProgress && ['queued', 'preparing'].includes(generatingJob?.status || '');
                     const allowSettle = !voxtralJob && (generatingJob?.status === 'running' || generatingJob?.status === 'finalizing') && !!generatingJob?.active_segment_id;
+                    const initialSettled = !isActiveGroup
+                      && allDone
+                      && activeGroupIndex > 0
+                      && gidx === activeGroupIndex - 1
+                      && allowSettle;
                     const resetKey = `${generatingJob?.id || 'none'}:${generatingJob?.status || 'none'}:${generatingJob?.started_at || 0}`;
                     const isPlaying = playingSegmentId && group.segments.some(s => s.id === playingSegmentId);
                     const nextId = (() => {
@@ -504,6 +565,7 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
                             showPreparingIndeterminate={showPreparingIndeterminate}
                             resetKey={resetKey}
                             allowSettle={allowSettle}
+                            initialSettled={initialSettled}
                             isPlaying={Boolean(isPlaying)}
                             isNext={Boolean(isNext)}
                             allDone={allDone}

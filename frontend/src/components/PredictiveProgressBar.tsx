@@ -11,12 +11,41 @@ interface PredictiveProgressBarProps {
     indeterminateRunning?: boolean;
 }
 
+const isActiveStatus = (status?: string) => status === 'running' || status === 'processing' || status === 'finalizing';
+
 const formatTime = (seconds: number) => {
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     const s = Math.floor(seconds % 60);
     if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
     return `${m}:${s.toString().padStart(2, '0')}`;
+};
+
+const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
+
+const getInitialDisplayProgress = (
+    progress: number,
+    startedAt?: number,
+    etaSeconds?: number,
+    predictive?: boolean,
+    status?: string,
+    indeterminateRunning?: boolean,
+) => {
+    if (status === 'finalizing') return 1;
+    if (!isActiveStatus(status)) return 0;
+    if (indeterminateRunning) return 0;
+    // Contract for queue/project progress:
+    // 1. Always start from the authoritative backend progress that already reflects
+    //    completed chapter work, including partial renders and resumed jobs.
+    // 2. Never jump forward on mount just because startedAt/eta imply more elapsed time.
+    // 3. After mount, animate locally from the current displayed position using ETA as a
+    //    pacing hint, and ease toward later real backend corrections when they arrive.
+    // 4. While a job is active, the displayed bar should be monotonic: corrections change
+    //    future pace, but they should not visually move the bar backward.
+    // 4. Segment-scoped bars follow the same smoothing rule, but their source progress is
+    //    segment progress rather than chapter/job progress.
+    if (!predictive || !startedAt || !etaSeconds) return clamp01(progress);
+    return clamp01(progress);
 };
 
 export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
@@ -31,83 +60,132 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
 }) => {
     const [now, setNow] = useState(Date.now());
     const [displayedRemaining, setDisplayedRemaining] = useState<number | null>(null);
-    const [anchoredStartedAt, setAnchoredStartedAt] = useState<number | undefined>(startedAt);
-    const prevProgressRef = useRef(progress);
-    const prevMetaRef = useRef({
-        startedAt,
-        etaSeconds,
-        predictive,
-        status,
-    });
+    const [displayProgress, setDisplayProgress] = useState(() => getInitialDisplayProgress(progress, startedAt, etaSeconds, predictive, status, indeterminateRunning));
+    const lastTickRef = useRef(Date.now());
 
     useEffect(() => {
-        const interval = setInterval(() => setNow(Date.now()), 1000);
+        lastTickRef.current = Date.now();
+        const interval = setInterval(() => {
+            setNow(Date.now());
+        }, 250);
         return () => clearInterval(interval);
     }, []);
 
     useEffect(() => {
-        const metaChanged =
-            prevMetaRef.current.startedAt !== startedAt
-            || prevMetaRef.current.etaSeconds !== etaSeconds
-            || prevMetaRef.current.predictive !== predictive
-            || prevMetaRef.current.status !== status;
+        if (status === 'finalizing') {
+            setDisplayProgress(1);
+            return;
+        }
+        if (!isActiveStatus(status)) {
+            setDisplayProgress(0);
+            return;
+        }
+        if (indeterminateRunning) {
+            setDisplayProgress(0);
+            return;
+        }
+        if (!predictive || !startedAt || !etaSeconds) {
+            setDisplayProgress(prev => {
+                const target = clamp01(progress);
+                const gap = target - prev;
+                if (Math.abs(gap) <= 0.002) return target;
+                return clamp01(prev + (gap * 0.35));
+            });
+        }
+    }, [progress, startedAt, etaSeconds, predictive, status, indeterminateRunning]);
 
-        if (!predictive || !startedAt || !etaSeconds || status !== 'running') {
-            setAnchoredStartedAt(startedAt);
-            prevProgressRef.current = progress;
-            prevMetaRef.current = { startedAt, etaSeconds, predictive, status };
+    useEffect(() => {
+        const tickNow = now;
+        const dt = Math.max(0.05, (tickNow - lastTickRef.current) / 1000);
+        lastTickRef.current = tickNow;
+
+        if (status === 'finalizing') {
+            setDisplayProgress(1);
+            return;
+        }
+        if (!isActiveStatus(status)) {
+            return;
+        }
+        if (indeterminateRunning) {
+            setDisplayProgress(0);
+            return;
+        }
+        if (!predictive) {
+            setDisplayProgress(prev => {
+                const target = indeterminateRunning ? 0 : clamp01(progress);
+                const gap = target - prev;
+                if (Math.abs(gap) <= 0.002) return target;
+                const correctionWindow = gap > 0 ? 0.45 : 0.7;
+                const correctionFraction = Math.min(1, dt / correctionWindow);
+                return clamp01(prev + (gap * correctionFraction));
+            });
+            return;
+        }
+        if (!startedAt || !etaSeconds) {
+            setDisplayProgress(clamp01(progress));
             return;
         }
 
-        if (metaChanged) {
-            setAnchoredStartedAt(startedAt);
-        }
+        const authoritativeProgress = clamp01(progress);
+        const elapsed = Math.max(0, (tickNow / 1000) - startedAt);
+        const estimatedRemaining = Math.max(1, etaSeconds - elapsed);
+        const actualRemaining = authoritativeProgress > 0.05
+            ? Math.max(1, (elapsed / authoritativeProgress) - elapsed)
+            : estimatedRemaining;
+        const blend = Math.min(1.0, authoritativeProgress / 0.3);
+        const refinedRemaining = Math.max(1, (estimatedRemaining * (1 - blend)) + (actualRemaining * blend));
 
-        if (progress > prevProgressRef.current + 0.009) {
-            const correctedStartedAt = (Date.now() / 1000) - (progress * etaSeconds);
-            setAnchoredStartedAt(correctedStartedAt);
-        }
+        setDisplayProgress(prev => {
+            const targetProgress = Math.max(prev, authoritativeProgress);
+            const gap = targetProgress - prev;
+            let next = prev;
 
-        prevProgressRef.current = progress;
-        prevMetaRef.current = { startedAt, etaSeconds, predictive, status };
-    }, [progress, startedAt, etaSeconds, predictive, status]);
+            if (gap > 0.003) {
+                const correctionWindow = 0.6;
+                const correctionFraction = Math.min(1, dt / correctionWindow);
+                next = prev + (gap * correctionFraction);
+            } else {
+                const velocity = (1 - targetProgress) / refinedRemaining;
+                next = prev + (velocity * dt);
+            }
+
+            return clamp01(Math.max(prev, Math.min(next, 0.995)));
+        });
+    }, [now, progress, startedAt, etaSeconds, predictive, indeterminateRunning, status]);
 
     const getProgressInfo = () => {
         if (status === 'finalizing') {
             return { remaining: null, localProgress: 1, indeterminate: false };
         }
-        if (status !== 'running' && status !== 'finalizing') {
+        if (!isActiveStatus(status)) {
             return { remaining: null, localProgress: 0, indeterminate: false };
+        }
+        if (indeterminateRunning) {
+            return { remaining: null, localProgress: 0, indeterminate: true };
         }
         if (!predictive) {
             return {
                 remaining: null,
-                localProgress: indeterminateRunning && status === 'running' ? 0 : Math.max(0, Math.min(1, progress)),
-                indeterminate: indeterminateRunning && status === 'running',
+                localProgress: clamp01(displayProgress),
+                indeterminate: false,
             };
         }
-        const effectiveStartedAt = anchoredStartedAt ?? startedAt;
-        if (!effectiveStartedAt || !etaSeconds) {
-            return { remaining: null, localProgress: progress, indeterminate: false };
+        if (!startedAt || !etaSeconds) {
+            return { remaining: null, localProgress: displayProgress, indeterminate: false };
         }
-        const elapsed = (now / 1000) - effectiveStartedAt;
-        const timeProgress = Math.min(0.99, Math.max(0, elapsed / etaSeconds));
-        // If we disabled prediction via props (e.g. usePredictionLabels=false),
-        // ETA seconds or startedAt would be undefined.
-        // It should drop into the if block above.
-        const currentProgress = Math.max(progress, timeProgress);
-        
-        // Use a 5% threshold before relying on actual job rate math to avoid noise/spikes
-        const estimatedRemaining = Math.max(0, etaSeconds - elapsed);
-        const actualRemaining = (currentProgress > 0.05) ? (elapsed / currentProgress) - elapsed : estimatedRemaining;
-        
-        // Blend between estimated (stable) and actual (real) over the first 30% of the job
-        const blend = Math.min(1.0, currentProgress / 0.3);
+
+        const elapsed = Math.max(0, (now / 1000) - startedAt);
+        const visibleProgress = clamp01(displayProgress);
+        const estimatedRemaining = Math.max(1, etaSeconds - elapsed);
+        const actualRemaining = visibleProgress > 0.05
+            ? Math.max(1, (elapsed / visibleProgress) - elapsed)
+            : estimatedRemaining;
+        const blend = Math.min(1.0, visibleProgress / 0.3);
         const refinedRemaining = (estimatedRemaining * (1 - blend)) + (actualRemaining * blend);
 
         return {
             remaining: Math.max(0, Math.floor(refinedRemaining)),
-            localProgress: currentProgress,
+            localProgress: visibleProgress,
             indeterminate: false
         };
     };

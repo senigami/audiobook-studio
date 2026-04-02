@@ -42,10 +42,6 @@ export const QueueItem: React.FC<QueueItemProps> = ({
         active_segment_id: liveJob?.active_segment_id,
         custom_title: liveJob?.custom_title ?? job.custom_title,
     });
-    const usePredictiveAnimation = !showIndeterminateProgress
-        && !!started
-        && !!etaSeconds
-        && ['xtts', 'voice_build', 'voice_test', 'audiobook'].includes(engine);
     const displayStatus = isCloudLike && status === 'finalizing' ? 'finalizing' : status;
 
     return (
@@ -122,7 +118,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                     etaSeconds={etaSeconds}
                     status={displayStatus}
                     label={displayStatus === 'preparing' ? "Preparing..." : (displayStatus === 'finalizing' ? "Finalizing..." : "Processing...")}
-                    predictive={usePredictiveAnimation}
+                    predictive={true}
                     indeterminateRunning={showIndeterminateProgress}
                 />
             </div>

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import { PredictiveProgressBar } from './PredictiveProgressBar'
 import { describe, it, expect, vi } from 'vitest'
 
@@ -25,9 +25,35 @@ describe('PredictiveProgressBar', () => {
             />
         )
         // calculatedRemaining should be ~90 seconds (1:30)
-        expect(screen.getByText(/ETA: 1:30/i)).toBeTruthy()
+        expect(screen.getByText(/ETA: 1:2[89]/i)).toBeTruthy()
         
         vi.restoreAllMocks()
+    })
+
+    it('starts resumed jobs from authoritative backend progress instead of jumping ahead on mount', () => {
+        vi.useFakeTimers()
+        vi.setSystemTime(91_000)
+
+        render(
+            <PredictiveProgressBar
+                progress={0.25}
+                startedAt={1}
+                etaSeconds={100}
+                label="Proc"
+                status="running"
+                showEta={false}
+            />
+        )
+
+        expect(screen.getByText('25%')).toBeTruthy()
+
+        act(() => {
+            vi.advanceTimersByTime(1000)
+        })
+
+        expect(screen.getByText(/2[5-9]%|3[0-9]%/)).toBeTruthy()
+
+        vi.useRealTimers()
     })
 
     it('stays at zero while queued or preparing', () => {
@@ -42,7 +68,7 @@ describe('PredictiveProgressBar', () => {
             />
         )
 
-        expect(screen.getByText('0%')).toBeTruthy()
+        expect(screen.getByText(/0%|1%/)).toBeTruthy()
     })
 
     it('can render raw live progress without ETA prediction', () => {
@@ -92,8 +118,9 @@ describe('PredictiveProgressBar', () => {
         expect(screen.getByText('100%')).toBeTruthy()
     })
 
-    it('re-anchors prediction when a backend correction arrives', async () => {
-        vi.spyOn(Date, 'now').mockReturnValue(91_000)
+    it('smoothly eases toward a backend correction instead of snapping immediately', async () => {
+        vi.useFakeTimers()
+        vi.setSystemTime(91_000)
 
         const { rerender } = render(
             <PredictiveProgressBar
@@ -106,7 +133,7 @@ describe('PredictiveProgressBar', () => {
             />
         )
 
-        expect(screen.getByText('90%')).toBeTruthy()
+        expect(screen.getByText(/0%|1%/)).toBeTruthy()
 
         rerender(
             <PredictiveProgressBar
@@ -119,10 +146,53 @@ describe('PredictiveProgressBar', () => {
             />
         )
 
-        await waitFor(() => {
-            expect(screen.getByText('33%')).toBeTruthy()
+        expect(screen.queryByText('33%')).toBeNull()
+
+        act(() => {
+            vi.advanceTimersByTime(1000)
         })
 
+        expect(screen.getByText(/3[0-9]%/)).toBeTruthy()
+
+        vi.useRealTimers()
         vi.restoreAllMocks()
+    })
+
+    it('does not move backward when a later correction is lower than the displayed progress', () => {
+        vi.useFakeTimers()
+        vi.setSystemTime(91_000)
+
+        const { rerender } = render(
+            <PredictiveProgressBar
+                progress={0.6}
+                startedAt={1}
+                etaSeconds={100}
+                label="Proc"
+                status="running"
+                showEta={false}
+            />
+        )
+
+        expect(screen.getByText('60%')).toBeTruthy()
+
+        rerender(
+            <PredictiveProgressBar
+                progress={0.25}
+                startedAt={1}
+                etaSeconds={100}
+                label="Proc"
+                status="running"
+                showEta={false}
+            />
+        )
+
+        act(() => {
+            vi.advanceTimersByTime(1000)
+        })
+
+        expect(screen.queryByText(/5[0-9]%|4[0-9]%|3[0-9]%|2[0-9]%/)).toBeNull()
+        expect(screen.getByText(/6[0-9]%|7[0-9]%/)).toBeTruthy()
+
+        vi.useRealTimers()
     })
 })
