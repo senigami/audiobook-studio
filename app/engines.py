@@ -19,6 +19,14 @@ _active_processes = set()
 logger = logging.getLogger(__name__)
 
 
+def _coerce_process_chunk(chunk) -> str:
+    if isinstance(chunk, bytes):
+        return chunk.decode("utf-8", errors="replace")
+    if isinstance(chunk, str):
+        return chunk
+    return ""
+
+
 def _create_temp_manifest(prefix: str, suffix: str) -> Path:
     safe_prefix = re.sub(r"[^A-Za-z0-9._-]+", "_", prefix) or "audiobook"
     fd, tmp = tempfile.mkstemp(prefix=safe_prefix, suffix=suffix)
@@ -76,7 +84,9 @@ def run_cmd_stream(cmd, on_output, cancel_check, env=None) -> int:
                 char = proc.stdout.read(1)
                 if not char:
                     break
-                decoded = char.decode("utf-8", errors="replace")
+                decoded = _coerce_process_chunk(char)
+                if not decoded:
+                    continue
                 sys.stdout.write(decoded)
                 sys.stdout.flush()
                 output_queue.put(decoded)
@@ -260,13 +270,15 @@ def get_audio_duration(file_path: Path) -> float:
     ]
     try:
         result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.stdout:
-            sys.stdout.write(result.stdout)
+        stdout = _coerce_process_chunk(getattr(result, "stdout", ""))
+        stderr = _coerce_process_chunk(getattr(result, "stderr", ""))
+        if stdout:
+            sys.stdout.write(stdout)
             sys.stdout.flush()
-        if result.stderr:
-            sys.stderr.write(result.stderr)
+        if stderr:
+            sys.stderr.write(stderr)
             sys.stderr.flush()
-        return float(result.stdout.strip())
+        return float(stdout.strip())
     except Exception:
         return 0.0
 

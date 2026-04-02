@@ -20,7 +20,7 @@ import { isChapterScopedJob, isSegmentScopedJob, pickRelevantJob } from '../util
 
 interface ProjectViewProps {
   jobs: Record<string, Job>;
-  segmentProgress: Record<string, SegmentProgress>;
+  segmentProgress?: Record<string, SegmentProgress>;
   speakerProfiles: SpeakerProfile[];
   speakers: import('../types').Speaker[];
   settings?: Settings;
@@ -29,7 +29,7 @@ interface ProjectViewProps {
   chapterUpdate?: { chapterId: string; tick: number };
 }
 
-export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, segmentProgress, speakerProfiles, speakers, settings, refreshTrigger = 0, segmentUpdate, chapterUpdate }) => {
+export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, segmentProgress = {}, speakerProfiles, speakers, settings, refreshTrigger = 0, segmentUpdate, chapterUpdate }) => {
   const RECENT_DONE_WINDOW_SECONDS = 60;
   const { projectId } = useParams() as { projectId: string };
   const navigate = useNavigate();

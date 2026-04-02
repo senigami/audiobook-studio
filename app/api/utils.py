@@ -23,6 +23,14 @@ FFPROBE_AUDIOBOOK_CMD = (
 )
 
 
+def _coerce_subprocess_output(value) -> str:
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    if isinstance(value, str):
+        return value
+    return ""
+
+
 def _contained_audiobook_path(root: Path, filename: str) -> Optional[Path]:
     if not SAFE_FILE_RE.fullmatch(filename):
         return None
@@ -48,13 +56,15 @@ def probe_audiobook_metadata(root: Path, filename: str) -> dict:
         check=True,
         timeout=3,
     )
-    if probe_res.stdout:
-        sys.stdout.write(probe_res.stdout)
+    stdout = _coerce_subprocess_output(getattr(probe_res, "stdout", ""))
+    stderr = _coerce_subprocess_output(getattr(probe_res, "stderr", ""))
+    if stdout:
+        sys.stdout.write(stdout)
         sys.stdout.flush()
-    if probe_res.stderr:
-        sys.stderr.write(probe_res.stderr)
+    if stderr:
+        sys.stderr.write(stderr)
         sys.stderr.flush()
-    probe_data = json.loads(probe_res.stdout)
+    probe_data = json.loads(stdout)
     if not isinstance(probe_data, dict):
         return {}
     return probe_data

@@ -53,9 +53,6 @@ export const buildPredictiveProgressModel = ({
     // 6. Chapter bars and segment bars can share this engine as long as they
     //    feed it the correct scoped progress source.
     const expectedProgressFromPrior = etaSeconds > 0 ? clamp01(safeElapsed / etaSeconds) : safeAuthoritative
-    const impliedTotalDurationSeconds = safeAuthoritative > 0.001
-        ? safeElapsed / safeAuthoritative
-        : etaSeconds
     const maxQueueConfidence = Math.max(0.05, Math.min(0.35, safeEvidenceWeight * 0.35))
     const confidence = correctionWeightMode === 'queue'
         ? Math.min(

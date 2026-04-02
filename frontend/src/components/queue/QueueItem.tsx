@@ -65,30 +65,30 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     const hasActiveGroupSignal = isGroupedChapterJob && (completedRenderGroups > 0 || activeRenderGroupIndex > 0);
     const stableStatus = hasActiveGroupSignal && ['queued', 'preparing'].includes(status) ? 'running' : status;
     const displayStatus = isCloudLike && stableStatus === 'finalizing' ? 'finalizing' : stableStatus;
-    const stableStartedRef = React.useRef<number | null | undefined>(rawStarted);
-    const stableEtaRef = React.useRef<number | null | undefined>(rawEtaSeconds);
+    const [stableStarted, setStableStarted] = React.useState<number | null | undefined>(rawStarted);
+    const [stableEta, setStableEta] = React.useState<number | null | undefined>(rawEtaSeconds);
 
     React.useEffect(() => {
         if (typeof rawStarted === 'number' && rawStarted > 0) {
-            stableStartedRef.current = rawStarted;
+            setStableStarted(rawStarted);
         } else if (!['running', 'processing', 'finalizing'].includes(displayStatus) && !hasActiveGroupSignal) {
-            stableStartedRef.current = rawStarted;
+            setStableStarted(rawStarted);
         }
     }, [rawStarted, displayStatus, hasActiveGroupSignal]);
 
     React.useEffect(() => {
         if (typeof rawEtaSeconds === 'number' && rawEtaSeconds > 0) {
-            stableEtaRef.current = rawEtaSeconds;
+            setStableEta(rawEtaSeconds);
         } else if (!['running', 'processing', 'finalizing'].includes(displayStatus) && !hasActiveGroupSignal) {
-            stableEtaRef.current = rawEtaSeconds;
+            setStableEta(rawEtaSeconds);
         }
     }, [rawEtaSeconds, displayStatus, hasActiveGroupSignal]);
 
     const started = ['running', 'processing', 'finalizing'].includes(displayStatus) || hasActiveGroupSignal
-        ? (stableStartedRef.current ?? rawStarted)
+        ? (stableStarted ?? rawStarted)
         : rawStarted;
     const etaSeconds = ['running', 'processing', 'finalizing'].includes(displayStatus) || hasActiveGroupSignal
-        ? (stableEtaRef.current ?? rawEtaSeconds)
+        ? (stableEta ?? rawEtaSeconds)
         : rawEtaSeconds;
 
     return (
