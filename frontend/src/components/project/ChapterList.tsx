@@ -106,6 +106,11 @@ export const ChapterList: React.FC<ChapterListProps> = ({
             ? 1
             : activeJob ? (activeJob.progress ?? 0) : 0;
           const showIndeterminateProgress = !!activeJob && shouldShowIndeterminateProgress(activeJob);
+          const usePredictiveAnimation = !!activeJob
+            && !showIndeterminateProgress
+            && !!activeJob.started_at
+            && !!activeJob.eta_seconds
+            && ['xtts', 'audiobook', 'voice_build', 'voice_test'].includes(activeJob.engine || '');
           const isMenuOpen = openMenuRowId === chap.id;
           const isFullyRendered = hasChapterAudio;
           const queueActionLabel = isFullyRendered
@@ -212,7 +217,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                           etaSeconds={activeJob.eta_seconds}
                           status={displayStatus}
                           label={displayStatus} 
-                          predictive={!showIndeterminateProgress}
+                          predictive={usePredictiveAnimation}
                           indeterminateRunning={showIndeterminateProgress}
                         />
                     </div>

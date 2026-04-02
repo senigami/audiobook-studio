@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 interface PredictiveProgressBarProps {
     progress: number;
@@ -31,11 +31,46 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
 }) => {
     const [now, setNow] = useState(Date.now());
     const [displayedRemaining, setDisplayedRemaining] = useState<number | null>(null);
+    const [anchoredStartedAt, setAnchoredStartedAt] = useState<number | undefined>(startedAt);
+    const prevProgressRef = useRef(progress);
+    const prevMetaRef = useRef({
+        startedAt,
+        etaSeconds,
+        predictive,
+        status,
+    });
 
     useEffect(() => {
         const interval = setInterval(() => setNow(Date.now()), 1000);
         return () => clearInterval(interval);
     }, []);
+
+    useEffect(() => {
+        const metaChanged =
+            prevMetaRef.current.startedAt !== startedAt
+            || prevMetaRef.current.etaSeconds !== etaSeconds
+            || prevMetaRef.current.predictive !== predictive
+            || prevMetaRef.current.status !== status;
+
+        if (!predictive || !startedAt || !etaSeconds || status !== 'running') {
+            setAnchoredStartedAt(startedAt);
+            prevProgressRef.current = progress;
+            prevMetaRef.current = { startedAt, etaSeconds, predictive, status };
+            return;
+        }
+
+        if (metaChanged) {
+            setAnchoredStartedAt(startedAt);
+        }
+
+        if (progress > prevProgressRef.current + 0.009) {
+            const correctedStartedAt = (Date.now() / 1000) - (progress * etaSeconds);
+            setAnchoredStartedAt(correctedStartedAt);
+        }
+
+        prevProgressRef.current = progress;
+        prevMetaRef.current = { startedAt, etaSeconds, predictive, status };
+    }, [progress, startedAt, etaSeconds, predictive, status]);
 
     const getProgressInfo = () => {
         if (status === 'finalizing') {
@@ -51,10 +86,11 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                 indeterminate: indeterminateRunning && status === 'running',
             };
         }
-        if (!startedAt || !etaSeconds) {
+        const effectiveStartedAt = anchoredStartedAt ?? startedAt;
+        if (!effectiveStartedAt || !etaSeconds) {
             return { remaining: null, localProgress: progress, indeterminate: false };
         }
-        const elapsed = (now / 1000) - startedAt;
+        const elapsed = (now / 1000) - effectiveStartedAt;
         const timeProgress = Math.min(0.99, Math.max(0, elapsed / etaSeconds));
         // If we disabled prediction via props (e.g. usePredictionLabels=false),
         // ETA seconds or startedAt would be undefined.

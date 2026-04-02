@@ -26,6 +26,21 @@ from ..engines_voxtral import VoxtralError, voxtral_generate
 logger = logging.getLogger(__name__)
 
 
+def _broadcast_segment_progress(j, jid: str, progress: float):
+    segment_id = getattr(j, "active_segment_id", None)
+    if not segment_id:
+        return
+    try:
+        from ..api.ws import broadcast_segment_progress
+        broadcast_segment_progress(jid, getattr(j, "chapter_id", None), segment_id, progress)
+    except Exception:
+        logger.debug("Failed to broadcast segment progress for %s", jid, exc_info=True)
+
+
+def _should_stream_predicted_progress(engine: str | None) -> bool:
+    return engine == "audiobook"
+
+
 def _looks_like_external_download_progress(line: str, lowered: str | None = None) -> bool:
     lowered = lowered or line.lower()
     if "%|" not in line or ":" not in line:
@@ -186,15 +201,16 @@ def worker_loop(q):
                     return None
 
                 if not s:
-                    prog = calculate_predicted_progress(j, now, j.started_at, eta, limit=PROGRESS_STITCH_LIMIT, prepare_limit=PROGRESS_PREPARE_LIMIT, prepare_step=PROGRESS_PREPARE_STEP)
-                    last_b = getattr(j, '_last_broadcast_time', 0)
-                    last_p = getattr(j, '_last_broadcast_p', 0.0)
-                    if (prog - last_p >= 0.01) or (now - last_b >= 30.0):
-                        prog = round(prog, 2)
-                        j.progress = prog
-                        j._last_broadcast_time = now
-                        j._last_broadcast_p = prog
-                        update_job(jid, progress=prog)
+                    if _should_stream_predicted_progress(getattr(j, "engine", None)):
+                        prog = calculate_predicted_progress(j, now, j.started_at, eta, limit=PROGRESS_STITCH_LIMIT, prepare_limit=PROGRESS_PREPARE_LIMIT, prepare_step=PROGRESS_PREPARE_STEP)
+                        last_b = getattr(j, '_last_broadcast_time', 0)
+                        last_p = getattr(j, '_last_broadcast_p', 0.0)
+                        if (prog - last_p >= 0.01) or (now - last_b >= 30.0):
+                            prog = round(prog, 2)
+                            j.progress = prog
+                            j._last_broadcast_time = now
+                            j._last_broadcast_p = prog
+                            update_job(jid, progress=prog)
                     return
 
                 if "[START_SYNTHESIS]" in s:
@@ -219,6 +235,7 @@ def worker_loop(q):
                         j.active_segment_id = seg_id
                         j.active_segment_progress = 0.0
                         update_job(jid, active_segment_id=seg_id, active_segment_progress=0.0)
+                        _broadcast_segment_progress(j, jid, 0.0)
                     except Exception as e:
                         logger.warning(f"Failed to parse segment ID from '{s}': {e}")
                     return
@@ -234,11 +251,7 @@ def worker_loop(q):
                         if p_val != getattr(j, 'active_segment_progress', -1.0):
                             j.active_segment_progress = p_val
                             broadcast_args['active_segment_progress'] = p_val
-                    elif not is_download_progress and ("|" in s or "Synthesizing" in s):
-                        is_progress = True
-                        if getattr(j, 'synthesis_started_at', None):
-                             if p_val > getattr(j, 'progress', 0.0):
-                                 new_progress = p_val
+                            _broadcast_segment_progress(j, jid, p_val)
 
                 if not is_progress:
                     if "exceeds the character limit" in s:
@@ -246,11 +259,8 @@ def worker_loop(q):
                         update_job(jid, warning_count=j.warning_count)
 
                 broadcast_p = getattr(j, '_last_broadcast_p', 0.0)
-                if new_progress is None:
-                    if j.engine == "mixed":
-                        new_progress = getattr(j, "progress", 0.0)
-                    else:
-                        new_progress = round(calculate_predicted_progress(j, now, j.started_at, eta), 2)
+                if new_progress is None and _should_stream_predicted_progress(getattr(j, "engine", None)):
+                    new_progress = round(calculate_predicted_progress(j, now, j.started_at, eta), 2)
 
                 include_p = new_progress is not None and ((abs(new_progress - broadcast_p) >= 0.01) or (broadcast_p == 0 and new_progress > 0))
                 if include_p or broadcast_args:

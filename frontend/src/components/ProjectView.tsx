@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Plus, Zap, ArrowUpDown } from 'lucide-react';
 import { api } from '../api';
-import type { Project, Chapter, Job, Audiobook, SpeakerProfile, Settings } from '../types';
+import type { Project, Chapter, Job, Audiobook, SpeakerProfile, Settings, SegmentProgress } from '../types';
 
 // Extracted Components
 import { ProjectHeader } from './project/ProjectHeader';
@@ -20,6 +20,7 @@ import { isChapterScopedJob, isSegmentScopedJob, pickRelevantJob } from '../util
 
 interface ProjectViewProps {
   jobs: Record<string, Job>;
+  segmentProgress: Record<string, SegmentProgress>;
   speakerProfiles: SpeakerProfile[];
   speakers: import('../types').Speaker[];
   settings?: Settings;
@@ -28,7 +29,7 @@ interface ProjectViewProps {
   chapterUpdate?: { chapterId: string; tick: number };
 }
 
-export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles, speakers, settings, refreshTrigger = 0, segmentUpdate, chapterUpdate }) => {
+export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, segmentProgress, speakerProfiles, speakers, settings, refreshTrigger = 0, segmentUpdate, chapterUpdate }) => {
   const RECENT_DONE_WINDOW_SECONDS = 60;
   const { projectId } = useParams() as { projectId: string };
   const navigate = useNavigate();
@@ -188,6 +189,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
                   chapterId={editingChapterId} projectId={projectId} speakerProfiles={speakerProfiles} speakers={speakers}
                   job={pickRelevantJob(chapterRenderJobs, includeDoneForEditor)}
                   chapterJobs={segmentJobs}
+                  segmentProgress={segmentProgress}
                   onBack={() => { setEditingChapterId(null); loadData(); }}
                   selectedVoice={effectiveProjectVoice}
                   onNext={activeIdx < chapters.length - 1 ? () => setEditingChapterId(chapters[activeIdx + 1].id) : undefined}

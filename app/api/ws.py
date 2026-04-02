@@ -68,6 +68,16 @@ def broadcast_job_updated(job_id: str, updates: dict):
         "updates": updates
     })
 
+
+def broadcast_segment_progress(job_id: str, chapter_id: str | None, segment_id: str, progress: float):
+    manager.broadcast({
+        "type": "segment_progress",
+        "job_id": job_id,
+        "chapter_id": chapter_id,
+        "segment_id": segment_id,
+        "progress": progress,
+    })
+
 def broadcast_test_progress(name: str, progress: float, started_at: float = None):
     manager.broadcast({
         "type": "test_progress",

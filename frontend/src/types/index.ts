@@ -137,6 +137,13 @@ export interface Job {
   active_segment_progress?: number;
 }
 
+export interface SegmentProgress {
+  job_id: string;
+  chapter_id?: string;
+  segment_id: string;
+  progress: number;
+}
+
 export interface Settings {
   safe_mode: boolean;
   make_mp3: boolean;

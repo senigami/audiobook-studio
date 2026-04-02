@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { List, RefreshCw, Volume2, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
-import type { ChapterSegment, Character, Job } from '../../types';
+import type { ChapterSegment, Character, Job, SegmentProgress } from '../../types';
 import { shouldShowIndeterminateProgress } from '../../utils/jobSelection';
 
 const SEGMENT_PROGRESS_LINGER_MS = 600;
@@ -349,6 +349,7 @@ interface PerformanceTabProps {
   onStop: () => void;
   onGenerate: (sids: string[]) => void;
   generatingJob?: Job;
+  segmentProgress?: Record<string, SegmentProgress>;
 }
 
 export const PerformanceTab: React.FC<PerformanceTabProps> = ({
@@ -363,7 +364,8 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
   onPlay,
   onStop,
   onGenerate,
-  generatingJob
+  generatingJob,
+  segmentProgress = {}
 }) => {
   const [, forceNow] = useState(0);
   const uniqueSegmentIds = Array.from(new Set(allSegmentIds));
@@ -373,12 +375,15 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
   const activeSegmentId = activeJobIsLive ? generatingJob?.active_segment_id : null;
 
   useEffect(() => {
-    if (!activeJobIsLive || !generatingJob || voxtralJob || (generatingJob.active_segment_progress ?? 0) > 0) {
+    const activeSegmentLiveProgress = activeSegmentId
+      ? (segmentProgress[activeSegmentId]?.progress ?? generatingJob?.active_segment_progress ?? 0)
+      : (generatingJob?.active_segment_progress ?? 0);
+    if (!activeJobIsLive || !generatingJob || voxtralJob || activeSegmentLiveProgress > 0) {
       return;
     }
     const timer = window.setInterval(() => forceNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
-  }, [activeJobIsLive, voxtralJob, generatingJob?.id, generatingJob?.status, generatingJob?.started_at, generatingJob?.eta_seconds, generatingJob?.progress, generatingJob?.active_segment_progress]);
+  }, [activeJobIsLive, voxtralJob, generatingJob?.id, generatingJob?.status, generatingJob?.started_at, generatingJob?.eta_seconds, generatingJob?.progress, activeSegmentId, segmentProgress]);
 
   const lastActiveGroupIndexRef = React.useRef(-1);
   const activeGroupIndex = React.useMemo(() => {
@@ -444,11 +449,15 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
                     const isActiveGroup = gidx === activeGroupIndex;
                     const groupHasProcessingState = group.segments.some(s => s.audio_status === 'processing' || generatingSegmentIds.has(s.id));
                     const groupHasQueuedState = group.segments.some(s => queuedSegmentIds.has(s.id));
+                    const liveSegmentEntry = group.segments
+                        .map(segment => segmentProgress[segment.id])
+                        .find(entry => entry && entry.job_id === generatingJob?.id);
+                    const liveSegmentValue = liveSegmentEntry?.progress ?? (generatingJob?.active_segment_progress ?? 0);
                     const activeProgress = activeJobIsLive && isActiveGroup
                         ? (voxtralJob
                             ? (generatingJob?.status === 'finalizing' ? 1 : 0)
-                            : ((generatingJob?.active_segment_progress ?? 0) > 0
-                                ? (generatingJob?.active_segment_progress ?? 0)
+                            : (liveSegmentValue > 0
+                                ? liveSegmentValue
                                 : getPredictiveJobProgress(generatingJob)))
                         : 0;
                     const showIndeterminateProgress = activeJobIsLive

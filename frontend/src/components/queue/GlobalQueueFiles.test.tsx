@@ -97,7 +97,7 @@ describe('Global Queue Components', () => {
             expect(screen.getByText('Test Project • Part 3')).toBeInTheDocument();
         });
 
-        it('passes live job timing data to the predictive progress bar', () => {
+        it('passes live job timing data through and enables local predictive animation for xtts queue jobs', () => {
             render(
                 <QueueItem 
                     job={{ ...mockJob, progress: 0.15 } as any}
@@ -110,7 +110,7 @@ describe('Global Queue Components', () => {
             );
 
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.15');
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'true');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'false');
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-started-at', '1000');
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-eta-seconds', '30');
         });
@@ -127,7 +127,7 @@ describe('Global Queue Components', () => {
                 />
             );
 
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'false');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'true');
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-indeterminate-running', 'true');
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-status', 'running');
         });
@@ -135,12 +135,12 @@ describe('Global Queue Components', () => {
         it('uses live segment progress for running voice build jobs', () => {
             render(
                 <QueueItem
-                    job={{ ...mockJob, engine: 'voice_build', status: 'running', progress: 0.99 } as any}
+                    job={{ ...mockJob, engine: 'voice_build', status: 'running', progress: 0.2 } as any}
                     liveJob={{
                         id: 'job-1',
                         engine: 'voice_build',
                         status: 'running',
-                        progress: 0.99,
+                        progress: 0.4,
                         active_segment_progress: 0.66,
                         started_at: 1000,
                         eta_seconds: 30,
@@ -153,7 +153,31 @@ describe('Global Queue Components', () => {
             );
 
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.66');
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'false');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'true');
+        });
+
+        it('keeps voice build progress moving when overall job progress is ahead of sparse segment updates', () => {
+            render(
+                <QueueItem
+                    job={{ ...mockJob, engine: 'voice_build', status: 'running', progress: 0.4 } as any}
+                    liveJob={{
+                        id: 'job-1',
+                        engine: 'voice_build',
+                        status: 'running',
+                        progress: 0.72,
+                        active_segment_progress: 0.66,
+                        started_at: 1000,
+                        eta_seconds: 30,
+                    } as any}
+                    localPaused={false}
+                    formatJobTitle={(j) => `Title for ${j.id}`}
+                    formatTime={(t) => `Time ${t}`}
+                    onRemove={vi.fn()}
+                />
+            );
+
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.72');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'true');
         });
 
         it('keeps chapter jobs on overall progress even when segment progress is present', () => {

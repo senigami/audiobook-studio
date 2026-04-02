@@ -200,6 +200,9 @@ describe('Chapter Subcomponents', () => {
             onStop={vi.fn()} 
             onGenerate={vi.fn()} 
             generatingJob={activeJob}
+            segmentProgress={{
+              'seg-2': { job_id: 'job-1', segment_id: 'seg-2', progress: 0.5 }
+            } as any}
           />
         </>
       );

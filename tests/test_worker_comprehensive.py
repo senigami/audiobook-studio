@@ -137,7 +137,6 @@ def test_on_output_logic(mock_q, sample_job):
 
     with patch("app.jobs.worker.get_jobs", return_value={"test_job_1": sample_job}), \
          patch("app.jobs.worker.update_job") as mock_update, \
-         patch("app.jobs.worker.logger.info") as mock_log, \
          patch("app.jobs.worker.get_performance_metrics", return_value={}), \
          patch("app.jobs.worker.get_project_text_dir", create=True) as mock_text_dir, \
          patch("pathlib.Path.exists", return_value=True), \
@@ -162,11 +161,12 @@ def test_on_output_logic(mock_q, sample_job):
         on_out("[START_SYNTHESIS]")
         assert sample_job.status == "running"
 
-        # Test progress parsing
+        # Generic tqdm-style percentages should not be treated as authoritative job progress.
         mock_update.reset_mock()
         sample_job.synthesis_started_at = time.time()
         on_out("Processing | 50% [########    ]")
-        assert sample_job.progress == 0.5
+        assert sample_job.progress == 0.05
+        mock_update.assert_not_called()
 
         # Test character limit warning
         mock_update.reset_mock()
@@ -177,10 +177,10 @@ def test_on_output_logic(mock_q, sample_job):
         mock_update.reset_mock()
         on_out("Normal log line")
 
-        # Hugging Face / tqdm-style download lines should be surfaced verbatim.
+        # Hugging Face / tqdm-style download lines should be surfaced verbatim without synthetic progress updates.
         download_line = "model.safetensors: 71%|###5 | 6.62G/9.36G [05:07<01:03, 42.8MB/s]"
         on_out(download_line)
-        mock_log.assert_any_call("Job %s: %s", "test_job_1", download_line)
+        mock_update.assert_not_called()
 
 def test_worker_loop_xtts_bake(mock_q, sample_job):
     """Test XTTS job with is_bake=True."""
@@ -362,8 +362,8 @@ def test_worker_resumption_error_handling(mock_q, sample_job):
         # The worker should continue past the DB error and still emit progress updates.
         assert mock_update.called
 
-def test_on_output_predictive_progress(mock_q, sample_job):
-    """Test the predictive progress part of on_output (empty line)."""
+def test_on_output_blank_xtts_heartbeat_does_not_broadcast_predicted_progress(mock_q, sample_job):
+    """XTTS jobs should not emit synthetic websocket progress on blank heartbeats."""
     mock_q.get.side_effect = ["test_job_1", Exception("StopLoop")]
     captured_on_output = []
     def fake_handler(jid, j, start, on_output, *args, **kwargs): captured_on_output.append(on_output)
@@ -391,8 +391,7 @@ def test_on_output_predictive_progress(mock_q, sample_job):
         sample_job._last_broadcast_p = 0.0
         on_out("") 
 
-        # Should call update_job with progress=0.15
-        mock_update.assert_any_call("test_job_1", progress=0.15)
+        mock_update.assert_not_called()
 
 def test_worker_loop_crash(mock_q):
     """Test the top-level exception handler in worker_loop."""

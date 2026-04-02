@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { Job } from '../types';
+import type { Job, SegmentProgress } from '../types';
 import { api } from '../api';
 import { useWebSocket } from './useWebSocket';
 
@@ -15,6 +15,7 @@ const STATUS_PRIORITY: Record<string, number> = {
 
 export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, onPauseUpdate?: (paused: boolean) => void, onSegmentsUpdate?: (chapterId: string) => void, onChapterUpdate?: (chapterId: string) => void) => {
   const [jobs, setJobs] = useState<Record<string, Job>>({});
+  const [segmentProgress, setSegmentProgress] = useState<Record<string, SegmentProgress>>({});
   const [loading, setLoading] = useState(true);
   const prevJobsRef = useRef<Record<string, Job>>({});
 
@@ -77,6 +78,14 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
     } else if (data.type === 'test_progress') {
       const { name, progress, started_at } = data;
       setTestProgress(prev => ({ ...prev, [name]: { progress, started_at } }));
+    } else if (data.type === 'segment_progress') {
+      const next: SegmentProgress = {
+        job_id: data.job_id,
+        chapter_id: data.chapter_id,
+        segment_id: data.segment_id,
+        progress: data.progress,
+      };
+      setSegmentProgress(prev => ({ ...prev, [next.segment_id]: next }));
     } else if (data.type === 'segments_updated') {
       if (onSegmentsUpdate) onSegmentsUpdate(data.chapter_id);
     } else if (data.type === 'chapter_updated') {
@@ -107,5 +116,5 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
     return () => clearInterval(timer);
   }, [refreshJobs, connected]);
 
-  return { jobs, loading, refreshJobs, testProgress };
+  return { jobs, loading, refreshJobs, testProgress, segmentProgress };
 };

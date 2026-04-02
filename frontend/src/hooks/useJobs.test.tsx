@@ -161,6 +161,39 @@ describe('useJobs', () => {
     expect(onChapterUpdate).toHaveBeenCalledWith('chap1');
   });
 
+  it('stores dedicated segment progress websocket updates separately from job progress', async () => {
+    let wsHandler: (data: any) => void = () => {};
+    (useWebSocket as any).mockImplementation((_url: string, handler: any) => {
+      wsHandler = handler;
+      return { connected: true };
+    });
+
+    (api.fetchJobs as any).mockResolvedValue([
+      { id: 'job1', status: 'running', progress: 0.35, active_segment_id: 'seg-2' }
+    ]);
+
+    const { result } = renderHook(() => useJobs());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    act(() => {
+      wsHandler({
+        type: 'segment_progress',
+        job_id: 'job1',
+        chapter_id: 'chap-1',
+        segment_id: 'seg-2',
+        progress: 0.75,
+      });
+    });
+
+    expect(result.current.jobs.job1.progress).toBe(0.35);
+    expect(result.current.segmentProgress['seg-2']).toEqual({
+      job_id: 'job1',
+      chapter_id: 'chap-1',
+      segment_id: 'seg-2',
+      progress: 0.75,
+    });
+  });
+
   it('ignores websocket status regressions for an existing job', async () => {
     let wsHandler: ((data: any) => void) | undefined;
     vi.mocked(useWebSocket).mockImplementation((_path: string, handler: any) => {

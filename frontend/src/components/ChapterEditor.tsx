@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ConfirmModal } from './ConfirmModal';
 import { api } from '../api';
-import type { Chapter, SpeakerProfile, Job, Character, ChapterSegment } from '../types';
+import type { Chapter, SpeakerProfile, Job, Character, ChapterSegment, SegmentProgress } from '../types';
 
 // Extracted Components
 import { ChapterHeader } from './chapter/ChapterHeader';
@@ -27,6 +27,7 @@ interface ChapterEditorProps {
   speakers: import('../types').Speaker[];
   job?: Job;
   chapterJobs?: Job[];
+  segmentProgress?: Record<string, SegmentProgress>;
   selectedVoice?: string;
   onBack: () => void;
   onNext?: () => void;
@@ -42,6 +43,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   speakers, 
   job, 
   chapterJobs = [],
+  segmentProgress = {},
   selectedVoice: externalVoice, 
   onBack, 
   onNext, 
@@ -606,6 +608,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                     allSegmentIds={segments.map(s => s.id)} segments={segments}
                     onPlay={playSegment} onStop={stopPlayback} onGenerate={handleGenerate}
                     generatingJob={generatingSegmentJob}
+                    segmentProgress={segmentProgress}
                   />
                 )}
                 {editorTab === 'preview' && <PreviewTab analysis={analysis} analyzing={analyzing} />}

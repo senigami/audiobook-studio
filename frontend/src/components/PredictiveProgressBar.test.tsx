@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { PredictiveProgressBar } from './PredictiveProgressBar'
 import { describe, it, expect, vi } from 'vitest'
 
@@ -90,5 +90,39 @@ describe('PredictiveProgressBar', () => {
         )
 
         expect(screen.getByText('100%')).toBeTruthy()
+    })
+
+    it('re-anchors prediction when a backend correction arrives', async () => {
+        vi.spyOn(Date, 'now').mockReturnValue(91_000)
+
+        const { rerender } = render(
+            <PredictiveProgressBar
+                progress={0}
+                startedAt={1}
+                etaSeconds={100}
+                label="Proc"
+                status="running"
+                showEta={false}
+            />
+        )
+
+        expect(screen.getByText('90%')).toBeTruthy()
+
+        rerender(
+            <PredictiveProgressBar
+                progress={0.33}
+                startedAt={1}
+                etaSeconds={100}
+                label="Proc"
+                status="running"
+                showEta={false}
+            />
+        )
+
+        await waitFor(() => {
+            expect(screen.getByText('33%')).toBeTruthy()
+        })
+
+        vi.restoreAllMocks()
     })
 })

@@ -273,7 +273,7 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
                       etaSeconds={liveSegmentProgressJob.eta_seconds}
                       status={liveSegmentProgressJob.status === 'preparing' ? 'running' : liveSegmentProgressJob.status}
                       label="Segment Progress"
-                      predictive={true}
+                      predictive={false}
                       indeterminateRunning={false}
                       showEta={false}
                   />
