@@ -204,6 +204,33 @@ describe('Global Queue Components', () => {
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'true');
         });
 
+        it('uses render group metadata for mixed chapter queue progress and keeps the row running', () => {
+            render(
+                <QueueItem
+                    job={{ ...mockJob, engine: 'mixed', status: 'preparing', progress: 0 } as any}
+                    liveJob={{
+                        id: 'job-1',
+                        engine: 'mixed',
+                        status: 'preparing',
+                        progress: 0.3,
+                        active_segment_progress: 0.75,
+                        render_group_count: 3,
+                        completed_render_groups: 1,
+                        active_render_group_index: 2,
+                        started_at: 1000,
+                        eta_seconds: 30,
+                    } as any}
+                    localPaused={false}
+                    formatJobTitle={(j) => `Title for ${j.id}`}
+                    formatTime={(t) => `Time ${t}`}
+                    onRemove={vi.fn()}
+                />
+            );
+
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-status', 'running');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.525');
+        });
+
         it('shows pause icon when paused', () => {
             const { container } = render(
                 <QueueItem 

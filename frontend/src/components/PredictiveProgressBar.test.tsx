@@ -558,7 +558,15 @@ describe('PredictiveProgressBar', () => {
         )
 
         const afterRestore = screen.getByText(/ETA:/).textContent
-        expect(afterRestore).toBe(beforeDrop)
+        const parseEtaSeconds = (value: string | null) => {
+            const match = value?.match(/ETA:\s+(\d+):(\d+)/)
+            if (!match) return null
+            return (Number(match[1]) * 60) + Number(match[2])
+        }
+
+        expect(parseEtaSeconds(afterRestore)).not.toBeNull()
+        expect(parseEtaSeconds(beforeDrop)).not.toBeNull()
+        expect(parseEtaSeconds(beforeDrop)! - parseEtaSeconds(afterRestore)!).toBeLessThanOrEqual(3)
 
         vi.useRealTimers()
     })

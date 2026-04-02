@@ -25,8 +25,7 @@ export function isSegmentScopedJob(job: SegmentScopedShape): boolean {
 
 export function shouldShowIndeterminateProgress(job: SegmentScopedShape & { engine?: Engine }): boolean {
   if (job.engine === 'voxtral') return true;
-  if (job.engine !== 'mixed') return false;
-  return !isSegmentScopedJob(job);
+  return false;
 }
 
 export function isChapterScopedJob(job: Job): boolean {

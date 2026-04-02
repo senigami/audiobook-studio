@@ -94,6 +94,23 @@ def _mark_queue_failed(jid: str, error_message: str | None = None):
         except Exception as e:
             logger.warning("Could not update failed job state for %s: %s", jid, e, exc_info=True)
 
+def _maybe_autotune_xtts_cps(job, start: float, chars: int, perf: dict):
+    if getattr(job, "is_bake", False):
+        return
+    if chars <= 0:
+        return
+    if getattr(job, "engine", None) not in ("xtts", "mixed"):
+        return
+
+    eff_start = getattr(job, "synthesis_started_at", None) or start
+    dur = time.time() - eff_start
+    if dur <= 0:
+        return
+
+    new_cps = chars / dur
+    updated = (perf.get("xtts_cps", BASELINE_XTTS_CPS) * 0.8) + (new_cps * 0.2)
+    update_performance_metrics(xtts_cps=updated)
+
 def worker_loop(q):
     while True:
         jid = q.get()
@@ -336,6 +353,7 @@ def worker_loop(q):
                 spk = get_speaker_settings(j.speaker_profile)
 
                 handle_xtts_job(jid, j, start, on_output, cancel_check, sw, spk["speed"], pdir, out_wav, out_mp3, text=text)
+                _maybe_autotune_xtts_cps(j, start, chars, perf)
             elif j.engine == "voxtral":
                 result = handle_voxtral_job(jid, j, start, on_output, cancel_check, text=text)
                 if result == "cancelled":
@@ -345,6 +363,7 @@ def worker_loop(q):
                 result = handle_mixed_job(jid, j, start, on_output, cancel_check, text=text)
                 if result == "cancelled":
                     update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
+                _maybe_autotune_xtts_cps(j, start, chars, perf)
                 return
             elif j.engine in ("voice_build", "voice_test"):
                 from ..config import VOICES_DIR
@@ -436,13 +455,8 @@ def worker_loop(q):
                     logger.warning(f"Could not mark voice job {jid} done in DB queue: {_qe}")
 
                 # Auto-tuning
-                if not getattr(j, 'is_bake', False):
-                    eff_start = getattr(j, 'synthesis_started_at', None) or start
-                    dur = time.time() - eff_start
-                    if dur > 0 and chars > 0 and engine == "xtts":
-                        new_cps = chars / dur
-                        updated = (perf.get("xtts_cps", BASELINE_XTTS_CPS) * 0.8) + (new_cps * 0.2)
-                        update_performance_metrics(xtts_cps=updated)
+                if engine == "xtts":
+                    _maybe_autotune_xtts_cps(j, start, chars, perf)
 
         except Exception:
             tb = traceback.format_exc()

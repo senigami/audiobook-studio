@@ -23,19 +23,29 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     formatTime,
     onRemove
 }) => {
-    const started = liveJob?.started_at ?? job.started_at;
-    const etaSeconds = liveJob?.eta_seconds ?? job.eta_seconds;
+    const rawStarted = liveJob?.started_at ?? job.started_at;
+    const rawEtaSeconds = liveJob?.eta_seconds ?? job.eta_seconds;
     const status = liveJob?.status ?? job.status;
     const engine = (liveJob?.engine ?? job.engine) || '';
     const activeSegmentProgress = liveJob?.active_segment_progress;
     const jobProgress = liveJob?.progress ?? job.progress ?? 0;
+    const renderGroupCount = liveJob?.render_group_count ?? 0;
+    const completedRenderGroups = liveJob?.completed_render_groups ?? 0;
+    const activeRenderGroupIndex = liveJob?.active_render_group_index ?? 0;
+    const isGroupedChapterJob = renderGroupCount > 0 && !job.segment_ids?.length && !liveJob?.segment_ids?.length;
+    const activeGroupProgress = activeRenderGroupIndex > completedRenderGroups
+        ? Math.max(0, Math.min(activeSegmentProgress ?? 0, 1))
+        : 0;
+    const groupedProgress = isGroupedChapterJob
+        ? (((completedRenderGroups + activeGroupProgress) / renderGroupCount) * 0.9)
+        : 0;
     const useLiveSegmentProgress = ['voice_build', 'voice_test'].includes(engine)
         && status === 'running'
         && typeof activeSegmentProgress === 'number'
         && activeSegmentProgress > 0;
     const progress = useLiveSegmentProgress
         ? Math.max(jobProgress, activeSegmentProgress)
-        : jobProgress;
+        : (isGroupedChapterJob ? Math.max(jobProgress, groupedProgress) : jobProgress);
     const engineType = (liveJob?.engine ?? job.engine) || '';
     const isCloudLike = ['voxtral', 'mixed'].includes(engineType);
     const showIndeterminateProgress = engineType === 'voxtral' && shouldShowIndeterminateProgress({
@@ -44,10 +54,34 @@ export const QueueItem: React.FC<QueueItemProps> = ({
         active_segment_id: liveJob?.active_segment_id,
         custom_title: liveJob?.custom_title ?? job.custom_title,
     });
-    const displayStatus = isCloudLike && status === 'finalizing' ? 'finalizing' : status;
-    const renderGroupCount = liveJob?.render_group_count ?? 0;
-    const completedRenderGroups = liveJob?.completed_render_groups ?? 0;
-    const activeRenderGroupIndex = liveJob?.active_render_group_index ?? 0;
+    const hasActiveGroupSignal = isGroupedChapterJob && (completedRenderGroups > 0 || activeRenderGroupIndex > 0);
+    const stableStatus = hasActiveGroupSignal && ['queued', 'preparing'].includes(status) ? 'running' : status;
+    const displayStatus = isCloudLike && stableStatus === 'finalizing' ? 'finalizing' : stableStatus;
+    const stableStartedRef = React.useRef<number | null | undefined>(rawStarted);
+    const stableEtaRef = React.useRef<number | null | undefined>(rawEtaSeconds);
+
+    React.useEffect(() => {
+        if (typeof rawStarted === 'number' && rawStarted > 0) {
+            stableStartedRef.current = rawStarted;
+        } else if (!['running', 'processing', 'finalizing'].includes(displayStatus) && !hasActiveGroupSignal) {
+            stableStartedRef.current = rawStarted;
+        }
+    }, [rawStarted, displayStatus, hasActiveGroupSignal]);
+
+    React.useEffect(() => {
+        if (typeof rawEtaSeconds === 'number' && rawEtaSeconds > 0) {
+            stableEtaRef.current = rawEtaSeconds;
+        } else if (!['running', 'processing', 'finalizing'].includes(displayStatus) && !hasActiveGroupSignal) {
+            stableEtaRef.current = rawEtaSeconds;
+        }
+    }, [rawEtaSeconds, displayStatus, hasActiveGroupSignal]);
+
+    const started = ['running', 'processing', 'finalizing'].includes(displayStatus) || hasActiveGroupSignal
+        ? (stableStartedRef.current ?? rawStarted)
+        : rawStarted;
+    const etaSeconds = ['running', 'processing', 'finalizing'].includes(displayStatus) || hasActiveGroupSignal
+        ? (stableEtaRef.current ?? rawEtaSeconds)
+        : rawEtaSeconds;
 
     React.useEffect(() => {
         logProgress('queue:item', {
@@ -68,8 +102,10 @@ export const QueueItem: React.FC<QueueItemProps> = ({
             activeSegmentId: liveJob?.active_segment_id ?? null,
             queueProgress: job.progress ?? null,
             liveProgress: liveJob?.progress ?? null,
+            rawStarted,
+            rawEtaSeconds,
         });
-    }, [job.id, status, displayStatus, engine, jobProgress, activeSegmentProgress, progress, started, etaSeconds, renderGroupCount, completedRenderGroups, activeRenderGroupIndex, liveJob?.segment_ids, job.segment_ids, liveJob?.active_segment_id, job.progress, liveJob?.progress]);
+    }, [job.id, status, displayStatus, engine, jobProgress, activeSegmentProgress, progress, started, etaSeconds, renderGroupCount, completedRenderGroups, activeRenderGroupIndex, liveJob?.segment_ids, job.segment_ids, liveJob?.active_segment_id, job.progress, liveJob?.progress, rawStarted, rawEtaSeconds]);
 
     return (
         <div style={{
@@ -148,6 +184,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                     label={displayStatus === 'preparing' ? "Preparing..." : (displayStatus === 'finalizing' ? "Finalizing..." : "Processing...")}
                     predictive={true}
                     indeterminateRunning={showIndeterminateProgress}
+                    authoritativeFloor={isGroupedChapterJob}
                 />
             </div>
         </div>
