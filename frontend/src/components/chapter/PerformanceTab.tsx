@@ -3,8 +3,10 @@ import { List, RefreshCw, Volume2, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { ChapterSegment, Character, Job, SegmentProgress } from '../../types';
 import { shouldShowIndeterminateProgress } from '../../utils/jobSelection';
+import { progressDebug } from '../../utils/progressDebug';
 
 const SEGMENT_PROGRESS_LINGER_MS = 600;
+const MIN_VISIBLE_SEGMENT_PROGRESS = 0.015;
 
 function queueFromGroupStart(uniqueSegmentIds: string[], segmentId: string): string[] {
   const idx = uniqueSegmentIds.indexOf(segmentId);
@@ -36,6 +38,7 @@ function useSegmentProgressLifecycle(
     hasProcessingState: boolean,
     allowSettle: boolean,
     initialSettled: boolean,
+    isRunning: boolean,
     resetKey?: string
 ) {
     const [settledProgress, setSettledProgress] = useState<number | null>(null);
@@ -115,9 +118,25 @@ function useSegmentProgressLifecycle(
     }, []);
 
     useEffect(() => {
+        if (isActive && activeProgress > 0) {
+            setSmoothedProgress(prev => Math.max(prev, Math.min(1, activeProgress)));
+        }
+    }, [isActive, activeProgress]);
+
+    useEffect(() => {
         const timer = window.setInterval(() => {
             setSmoothedProgress(prev => {
                 const target = isActive ? activeProgress : (settledProgress ?? 0);
+                if (isActive && target >= 1) {
+                    return 1;
+                }
+                if (isActive && target > 0) {
+                    const floor = Math.max(prev, Math.min(1, target));
+                    return Math.min(0.995, floor + 0.005);
+                }
+                if (isActive && isRunning) {
+                    return Math.min(0.95, Math.max(prev, prev + 0.005));
+                }
                 const gap = target - prev;
                 if (Math.abs(gap) <= 0.002) return target;
                 const correctionWindow = gap > 0 ? 0.45 : 0.65;
@@ -126,7 +145,7 @@ function useSegmentProgressLifecycle(
             });
         }, 250);
         return () => window.clearInterval(timer);
-    }, [isActive, activeProgress, settledProgress]);
+    }, [isActive, activeProgress, settledProgress, isRunning]);
 
     return {
         displayProgress: smoothedProgress,
@@ -186,6 +205,7 @@ const PerformanceGroupCard: React.FC<PerformanceGroupCardProps> = ({
     groupHasProcessingState,
     allowSettle,
     initialSettled,
+    activeJobIsLive && isActiveGroup,
     resetKey
   );
   const anyPending = isActiveGroup || groupHasProcessingState || groupHasQueuedState;
@@ -247,7 +267,12 @@ const PerformanceGroupCard: React.FC<PerformanceGroupCardProps> = ({
               ? { duration: 1.1, ease: 'easeInOut', repeat: Infinity }
               : { duration: isSettling ? 0.45 : 0.6, ease: "easeInOut" }}
             style={{ 
-              width: showIndeterminateProgress ? (showPreparingIndeterminate ? '28%' : '35%') : `${displayProgress * 100}%`,
+              width: showIndeterminateProgress
+                ? (showPreparingIndeterminate ? '28%' : '35%')
+                : `${Math.max(
+                    displayProgress,
+                    isActiveGroup && activeJobIsLive ? MIN_VISIBLE_SEGMENT_PROGRESS : 0
+                  ) * 100}%`,
               height: '100%', 
               background: showPreparingIndeterminate
                 ? 'linear-gradient(90deg, rgba(255,255,255,0.05) 0%, rgba(248,250,252,0.95) 35%, rgba(203,213,225,0.95) 65%, rgba(255,255,255,0.05) 100%)'
@@ -294,9 +319,9 @@ const PerformanceGroupCard: React.FC<PerformanceGroupCardProps> = ({
               <Volume2 size={14} /> Listen
             </button>
           )}
-          <button 
-            onClick={() => onGenerate(Array.from(new Set(group.segments.map(s => s.id))))}
-            className="btn-ghost" 
+            <button 
+              onClick={() => onGenerate(Array.from(new Set(group.segments.map(s => s.id))))}
+              className="btn-ghost" 
             style={{ 
               display: 'flex', alignItems: 'center', gap: '0.5rem', 
               justifyContent: 'center', fontSize: '0.8rem', padding: '0.5rem', 
@@ -305,12 +330,12 @@ const PerformanceGroupCard: React.FC<PerformanceGroupCardProps> = ({
               border: '1px solid var(--border)'
             }}
             disabled={anyPending}
-          >
+            >
             <RefreshCw size={14} className={(isActiveGroup || groupHasProcessingState) ? 'animate-spin' : ''} /> 
             {anyPending
               ? (
                   activeJobIsLive && isActiveGroup
-                    ? (activeProgress > 0 ? `${Math.round(activeProgress * 100)}%` : 'Working...')
+                    ? (showPreparingIndeterminate ? 'Working...' : `${Math.round(activeProgress * 100)}%`)
                     : (groupHasQueuedState ? 'Queued' : 'Working...')
                 )
               : (allDone ? 'Regenerate' : 'Generate')}
@@ -508,25 +533,38 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
                         if (voxtralJob) {
                             return generatingJob?.status === 'finalizing' ? 1 : 0;
                         }
-                        if (generatingJob?.engine === 'mixed' && hasActiveSegmentSignal) {
-                            return liveSegmentValue > 0 ? liveSegmentValue : getPredictiveJobProgress(generatingJob);
-                        }
                         if (hasActiveSegmentSignal) {
                             return liveSegmentValue;
                         }
                         return getPredictiveJobProgress(generatingJob);
                     })();
+                    const isPreparingLike = ['queued', 'preparing'].includes(generatingJob?.status || '');
                     const showIndeterminateProgress = activeJobIsLive
                       && isActiveGroup
-                      && ((indeterminateJob && ['queued', 'preparing', 'running'].includes(generatingJob?.status || ''))
-                        || activeProgress <= 0);
-                    const showPreparingIndeterminate = showIndeterminateProgress && ['queued', 'preparing'].includes(generatingJob?.status || '');
+                      && (isPreparingLike || (indeterminateJob && (generatingJob?.status === 'running')));
+                    const showPreparingIndeterminate = showIndeterminateProgress && isPreparingLike;
                     const allowSettle = !voxtralJob && (generatingJob?.status === 'running' || generatingJob?.status === 'finalizing') && !!generatingJob?.active_segment_id;
                     const initialSettled = !isActiveGroup
                       && allDone
                       && activeGroupIndex > 0
                       && gidx === activeGroupIndex - 1
                       && allowSettle;
+                    if (activeJobIsLive && isActiveGroup) {
+                        progressDebug('chapter:performance-group', {
+                            groupIndex: gidx,
+                            jobId: generatingJob?.id,
+                            engine: generatingJob?.engine,
+                            status: generatingJob?.status,
+                            activeSegmentId: generatingJob?.active_segment_id,
+                            activeSegmentProgress: generatingJob?.active_segment_progress,
+                            liveSegmentEntryProgress: liveSegmentEntry?.progress,
+                            hasActiveSegmentSignal,
+                            chosenActiveProgress: activeProgress,
+                            allowSettle,
+                            initialSettled,
+                            groupSegmentIds: group.segments.map(s => s.id),
+                        });
+                    }
                     const resetKey = `${generatingJob?.id || 'none'}:${generatingJob?.status || 'none'}:${generatingJob?.started_at || 0}`;
                     const isPlaying = playingSegmentId && group.segments.some(s => s.id === playingSegmentId);
                     const nextId = (() => {

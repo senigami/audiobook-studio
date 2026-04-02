@@ -4,6 +4,7 @@ import { PredictiveProgressBar } from '../PredictiveProgressBar';
 import type { ProcessingQueueItem, Job } from '../../types';
 import { formatQueueContext } from '../../utils/queueLabels';
 import { shouldShowIndeterminateProgress } from '../../utils/jobSelection';
+import { progressDebug } from '../../utils/progressDebug';
 
 interface QueueItemProps {
     job: ProcessingQueueItem;
@@ -43,6 +44,23 @@ export const QueueItem: React.FC<QueueItemProps> = ({
         custom_title: liveJob?.custom_title ?? job.custom_title,
     });
     const displayStatus = isCloudLike && status === 'finalizing' ? 'finalizing' : status;
+
+    React.useEffect(() => {
+        progressDebug('queue:item', {
+            jobId: job.id,
+            engine,
+            queueProgress: job.progress,
+            liveProgress: liveJob?.progress,
+            activeSegmentProgress,
+            chosenProgress: progress,
+            status,
+            displayStatus,
+            started,
+            etaSeconds,
+            showIndeterminateProgress,
+            runAnchor: `${job.id}:${started ?? 0}`,
+        });
+    }, [job.id, engine, job.progress, liveJob?.progress, activeSegmentProgress, progress, status, displayStatus, started, etaSeconds, showIndeterminateProgress]);
 
     return (
         <div style={{
@@ -116,6 +134,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                     progress={progress}
                     startedAt={started}
                     etaSeconds={etaSeconds}
+                    persistenceKey={job.id}
                     status={displayStatus}
                     label={displayStatus === 'preparing' ? "Preparing..." : (displayStatus === 'finalizing' ? "Finalizing..." : "Processing...")}
                     predictive={true}

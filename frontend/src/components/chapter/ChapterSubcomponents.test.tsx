@@ -253,6 +253,88 @@ describe('Chapter Subcomponents', () => {
       expect(screen.getByTestId('performance-progress-0')).toHaveAttribute('data-progress', '72');
     });
 
+    it('does not use chapter/job prediction for a mixed-engine segment once an active segment is known', () => {
+      const activeJob = {
+        id: 'job-mixed-1',
+        status: 'running',
+        engine: 'mixed',
+        active_segment_id: 'seg-1',
+        active_segment_progress: 0,
+        started_at: Date.now() / 1000 - 20,
+        eta_seconds: 100,
+        progress: 0.72
+      } as any;
+
+      render(
+        <PerformanceTab
+          chunkGroups={[
+            { characterId: 'char-1', segments: [{ ...mockSegments[0], audio_status: 'processing' }] },
+            { characterId: null, segments: [mockSegments[1]] }
+          ]}
+          characters={mockCharacters}
+          playingSegmentId={null}
+          playbackQueue={['seg-1', 'seg-2']}
+          generatingSegmentIds={new Set(['seg-1'])}
+          allSegmentIds={['seg-1', 'seg-2']}
+          segments={mockSegments}
+          onPlay={vi.fn()}
+          onStop={vi.fn()}
+          onGenerate={vi.fn()}
+          generatingJob={activeJob}
+          segmentProgress={{} as any}
+        />
+      );
+
+      const activeCard = screen.getByText('Sentence one.').closest('div[style*="background: var(--surface)"]');
+      expect(activeCard).toBeTruthy();
+      expect(within(activeCard as HTMLElement).queryByText('72%')).toBeNull();
+      expect(screen.getByTestId('performance-progress-0')).toHaveAttribute('data-progress', '0');
+      expect(within(activeCard as HTMLElement).getByText('0%')).toBeInTheDocument();
+    });
+
+    it('shows a determinate progress bar for running mixed segment jobs even before the first nonzero checkpoint', () => {
+      vi.useFakeTimers();
+      const activeJob = {
+        id: 'job-mixed-2',
+        status: 'running',
+        engine: 'mixed',
+        active_segment_id: 'seg-1',
+        active_segment_progress: 0,
+        started_at: Date.now() / 1000 - 5,
+        eta_seconds: 57,
+        progress: 0.05
+      } as any;
+
+      render(
+        <PerformanceTab
+          chunkGroups={[
+            { characterId: 'char-1', segments: [{ ...mockSegments[0], audio_status: 'processing' }] }
+          ]}
+          characters={mockCharacters}
+          playingSegmentId={null}
+          playbackQueue={['seg-1']}
+          generatingSegmentIds={new Set(['seg-1'])}
+          allSegmentIds={['seg-1']}
+          segments={mockSegments}
+          onPlay={vi.fn()}
+          onStop={vi.fn()}
+          onGenerate={vi.fn()}
+          generatingJob={activeJob}
+          segmentProgress={{} as any}
+        />
+      );
+
+      expect(screen.getByTestId('performance-progress-0')).toHaveAttribute('data-progress', '0');
+      expect(screen.queryByText('Working...')).toBeNull();
+
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+
+      expect(Number(screen.getByTestId('performance-progress-0').getAttribute('data-progress'))).toBeGreaterThan(0);
+      vi.useRealTimers();
+    });
+
     it('shows Voxtral jobs as indeterminate while running instead of predictive percentages', () => {
       const activeJob = {
         id: 'job-vox-1',
@@ -287,14 +369,14 @@ describe('Chapter Subcomponents', () => {
       expect(screen.queryByText('100%')).toBeNull();
     });
 
-    it('shows mixed segment jobs as determinate progress while running', () => {
+    it('shows mixed segment jobs as determinate progress when real segment progress is present', () => {
       const activeJob = {
         id: 'job-mixed-seg-1',
         status: 'running',
         engine: 'mixed',
         segment_ids: ['seg-1', 'seg-2'],
         active_segment_id: 'seg-1',
-        active_segment_progress: 0,
+        active_segment_progress: 0.2,
         started_at: Date.now() / 1000 - 20,
         eta_seconds: 100,
         progress: 0.05,
