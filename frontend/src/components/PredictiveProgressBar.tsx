@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { advancePredictiveProgress, buildPredictiveProgressModel } from '../utils/predictiveProgress';
-import { logProgress } from '../utils/progressDebug';
 
 interface PredictiveProgressBarProps {
     progress: number;
@@ -78,6 +77,15 @@ const getInitialDisplayProgress = (
     return Math.max(baseProgress, remembered ?? 0);
 };
 
+// Grouped chapter progress behavior:
+// - Backend progress is authoritative enough to act as a floor, but not so
+//   absolute that the UI should hard-snap to each update.
+// - Between websocket updates, the bar keeps moving locally from its current
+//   displayed value using the current ETA model so it feels continuous.
+// - ETA corrections are eased toward a new target end time over multiple ticks.
+// - Width transitions stay enabled for active jobs so checkpoint updates remain
+//   visually smooth instead of looking like direct sets.
+
 export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     progress,
     startedAt,
@@ -134,21 +142,6 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         currentEndTimeRef.current = seededEndTime;
         targetEndTimeRef.current = initialEndTime;
         setCurrentEndTime(seededEndTime);
-        logProgress('bar:init', {
-            label,
-            persistenceKey,
-            runAnchor,
-            status,
-            progress,
-            startedAt,
-            etaSeconds,
-            predictive,
-            indeterminateRunning,
-            memoryKey,
-            rememberedEndTime,
-            initialEndTime,
-            seededEndTime,
-        });
         setDisplayProgress(getInitialDisplayProgress(
             progress,
             startedAt,
@@ -331,15 +324,6 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             currentEndTimeRef.current = null;
             targetEndTimeRef.current = null;
             setCurrentEndTime(null);
-            logProgress('bar:clear', {
-                label,
-                persistenceKey,
-                memoryKey,
-                status,
-                predictive,
-                indeterminateRunning,
-                preserveActiveVisualState,
-            });
             return;
         }
         if (!startedAt || !etaSeconds) {
@@ -360,41 +344,11 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         });
         const nextTargetEndTime = Date.now() + (model.refinedRemainingSeconds * 1000);
         const rememberedEndTime = memoryKey ? (endTimeMemory.get(memoryKey) ?? null) : null;
-        const previousTargetEndTime = targetEndTimeRef.current ?? rememberedEndTime;
         targetEndTimeRef.current = nextTargetEndTime;
-        logProgress('bar:target', {
-            label,
-            persistenceKey,
-            memoryKey,
-            progress,
-            etaProgressBasis,
-            displayedProgress: displayProgressRef.current,
-            effectiveDisplayedProgress,
-            startedAt,
-            etaSeconds,
-            refinedRemainingSeconds: model.refinedRemainingSeconds,
-            actualRemainingSeconds: model.actualRemainingSeconds,
-            estimatedRemainingSeconds: model.estimatedRemainingSeconds,
-            confidence: model.confidence,
-            expectedProgressFromPrior: model.expectedProgressFromPrior,
-            impliedTotalDurationSeconds: model.impliedTotalDurationSeconds,
-            predictionErrorSeconds: model.predictionErrorSeconds,
-            evidenceWeightFraction,
-            previousTargetEndTime,
-            nextTargetEndTime,
-        });
         if (currentEndTimeRef.current === null) {
             const seededEndTime = rememberedEndTime ?? nextTargetEndTime;
             currentEndTimeRef.current = seededEndTime;
             setCurrentEndTime(seededEndTime);
-            logProgress('bar:seed-current-end', {
-                label,
-                persistenceKey,
-                memoryKey,
-                rememberedEndTime,
-                seededEndTime,
-                nextTargetEndTime,
-            });
         }
     }, [progress, startedAt, etaSeconds, predictive, status, indeterminateRunning, memoryKey, preserveActiveVisualState, authoritativeFloor, evidenceWeightFraction]);
 
@@ -447,30 +401,8 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         : (displayedRemaining === null ? queueRemainingFloor : Math.max(displayedRemaining, queueRemainingFloor));
 
     useEffect(() => {
-        const previous = displayedRemainingRef.current;
-        if (syncedDisplayedRemaining !== previous) {
-            if (
-                previous !== null
-                && syncedDisplayedRemaining !== null
-                && Math.abs(syncedDisplayedRemaining - previous) >= 2
-            ) {
-                logProgress('bar:eta-jump', {
-                    label,
-                    persistenceKey,
-                    memoryKey,
-                    previousDisplayedRemaining: previous,
-                    displayedRemaining: syncedDisplayedRemaining,
-                    currentEndTime,
-                    targetEndTime: targetEndTimeRef.current,
-                    startedAt,
-                    etaSeconds,
-                    progress,
-                    displayProgress,
-                });
-            }
-            displayedRemainingRef.current = syncedDisplayedRemaining;
-        }
-    }, [syncedDisplayedRemaining, currentEndTime, label, persistenceKey, memoryKey, startedAt, etaSeconds, progress, displayProgress]);
+        displayedRemainingRef.current = syncedDisplayedRemaining;
+    }, [syncedDisplayedRemaining]);
 
     return (
         <div style={{ width: '100%' }} data-testid="progress-bar">

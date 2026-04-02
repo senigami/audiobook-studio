@@ -17,10 +17,6 @@ export interface PredictiveProgressModel {
     actualRemainingSeconds: number
     refinedRemainingSeconds: number
     velocityPerSecond: number
-    confidence: number
-    expectedProgressFromPrior: number
-    impliedTotalDurationSeconds: number
-    predictionErrorSeconds: number
 }
 
 export interface PredictiveAdvanceInput extends PredictiveProgressInput {
@@ -83,10 +79,6 @@ export const buildPredictiveProgressModel = ({
         actualRemainingSeconds,
         refinedRemainingSeconds,
         velocityPerSecond,
-        confidence,
-        expectedProgressFromPrior,
-        impliedTotalDurationSeconds,
-        predictionErrorSeconds: actualRemainingSeconds - estimatedRemainingSeconds,
     }
 }
 
