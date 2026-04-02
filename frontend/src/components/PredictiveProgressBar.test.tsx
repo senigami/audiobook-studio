@@ -407,7 +407,7 @@ describe('PredictiveProgressBar', () => {
         vi.useRealTimers()
     })
 
-    it('keeps moving forward after a segment checkpoint instead of freezing on it', () => {
+    it('holds the authoritative floor after a segment checkpoint instead of dropping below it', () => {
         vi.useFakeTimers()
         vi.setSystemTime(20_000)
 
@@ -429,7 +429,13 @@ describe('PredictiveProgressBar', () => {
             vi.advanceTimersByTime(1000)
         })
 
-        expect(readPercent()).toBeGreaterThan(66)
+        expect(readPercent()).toBeGreaterThanOrEqual(66)
+
+        act(() => {
+            vi.advanceTimersByTime(2000)
+        })
+
+        expect(readPercent()).toBeGreaterThanOrEqual(66)
 
         vi.useRealTimers()
     })

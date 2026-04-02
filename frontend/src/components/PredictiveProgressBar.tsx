@@ -37,6 +37,7 @@ const ETA_END_TIME_NUDGE_MS = 150;
 const ETA_SMOOTHING_MAX_SECONDS = 3;
 const ETA_TICK_MS = 250;
 const ETA_MAX_SMOOTHING_TICKS = Math.max(1, Math.round((ETA_SMOOTHING_MAX_SECONDS * 1000) / ETA_TICK_MS));
+const PROGRESS_MAX_SMOOTHING_TICKS = ETA_MAX_SMOOTHING_TICKS;
 const hasRememberedActiveRun = (memoryKey?: string, startedAt?: number) =>
     !!(memoryKey && (
         progressMemory.has(memoryKey)
@@ -241,7 +242,8 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
 
         setDisplayProgress(prev => {
             if (authoritativeFloor) {
-                const base = Math.max(prev, memoryFloor, clamp01(progress));
+                const targetFloor = Math.max(memoryFloor, clamp01(progress));
+                const base = Math.max(prev, memoryFloor);
                 const elapsed = Math.max(0, (tickNow / 1000) - startedAt);
                 const next = advancePredictiveProgress({
                     authoritativeProgress: progress,
@@ -250,7 +252,10 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                     etaSeconds,
                     deltaSeconds: dt,
                 });
-                return Math.max(base, next.nextProgress);
+                const gapToTarget = Math.max(0, targetFloor - prev);
+                const minimumCatchupStep = gapToTarget / PROGRESS_MAX_SMOOTHING_TICKS;
+                const cappedCandidate = prev + Math.max(getMaxVisualStep(dt), minimumCatchupStep);
+                return clamp01(Math.max(base, Math.min(targetFloor, Math.max(next.nextProgress, cappedCandidate))));
             }
             const elapsed = Math.max(0, (tickNow / 1000) - startedAt);
             const next = advancePredictiveProgress({
@@ -290,8 +295,9 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
 
         const visibleProgress = Math.max(memoryFloor, clamp01(displayProgress));
         const elapsed = Math.max(0, (now / 1000) - startedAt);
+        const etaProgressBasis = authoritativeFloor ? visibleProgress : progress;
         const model = buildPredictiveProgressModel({
-            authoritativeProgress: progress,
+            authoritativeProgress: etaProgressBasis,
             displayedProgress: visibleProgress,
             elapsedSeconds: elapsed,
             etaSeconds,
@@ -334,8 +340,9 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         const elapsed = Math.max(0, (Date.now() / 1000) - startedAt);
         const rememberedProgress = memoryKey ? (progressMemory.get(memoryKey) ?? 0) : 0;
         const effectiveDisplayedProgress = Math.max(displayProgressRef.current, rememberedProgress);
+        const etaProgressBasis = authoritativeFloor ? effectiveDisplayedProgress : progress;
         const model = buildPredictiveProgressModel({
-            authoritativeProgress: progress,
+            authoritativeProgress: etaProgressBasis,
             displayedProgress: effectiveDisplayedProgress,
             elapsedSeconds: elapsed,
             etaSeconds,
@@ -349,6 +356,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             persistenceKey,
             memoryKey,
             progress,
+            etaProgressBasis,
             displayedProgress: displayProgressRef.current,
             effectiveDisplayedProgress,
             startedAt,
@@ -372,7 +380,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                 nextTargetEndTime,
             });
         }
-    }, [progress, startedAt, etaSeconds, predictive, status, indeterminateRunning, memoryKey, preserveActiveVisualState]);
+    }, [progress, startedAt, etaSeconds, predictive, status, indeterminateRunning, memoryKey, preserveActiveVisualState, authoritativeFloor]);
 
     useEffect(() => {
         if (!predictive || ((!isActiveStatus(status) && !preserveActiveVisualState)) || indeterminateRunning) {
