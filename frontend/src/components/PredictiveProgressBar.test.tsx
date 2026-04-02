@@ -260,8 +260,8 @@ describe('PredictiveProgressBar', () => {
         })
 
         const beforeCorrection = readPercent()
-        expect(beforeCorrection).toBeGreaterThanOrEqual(30)
-        expect(beforeCorrection).toBeLessThanOrEqual(36)
+        expect(beforeCorrection).toBeGreaterThanOrEqual(25)
+        expect(beforeCorrection).toBeLessThanOrEqual(30)
 
         rerender(
             <PredictiveProgressBar
@@ -307,8 +307,8 @@ describe('PredictiveProgressBar', () => {
         })
 
         const beforeCorrection = readPercent()
-        expect(beforeCorrection).toBeGreaterThanOrEqual(57)
-        expect(beforeCorrection).toBeLessThanOrEqual(61)
+        expect(beforeCorrection).toBeGreaterThanOrEqual(50)
+        expect(beforeCorrection).toBeLessThanOrEqual(55)
 
         rerender(
             <PredictiveProgressBar
@@ -470,6 +470,74 @@ describe('PredictiveProgressBar', () => {
         )
 
         expect(readPercent()).toBeGreaterThanOrEqual(beforeRemount)
+
+        vi.useRealTimers()
+    })
+
+    it('renders with the remembered floor during the same run even before the next tick', () => {
+        vi.useFakeTimers()
+        vi.setSystemTime(10_000)
+
+        const { rerender } = render(
+            <PredictiveProgressBar
+                progress={0.3}
+                startedAt={1}
+                etaSeconds={57}
+                persistenceKey="job-1"
+                label="Proc"
+                status="running"
+                showEta={false}
+            />
+        )
+
+        act(() => {
+            vi.advanceTimersByTime(4000)
+        })
+
+        const remembered = readPercent()
+        expect(remembered).toBeGreaterThanOrEqual(30)
+
+        rerender(
+            <PredictiveProgressBar
+                progress={0.3}
+                startedAt={1}
+                etaSeconds={57}
+                persistenceKey="job-1"
+                label="Proc"
+                status="running"
+                showEta={false}
+            />
+        )
+
+        expect(readPercent()).toBeGreaterThanOrEqual(remembered)
+
+        vi.useRealTimers()
+    })
+
+    it('caps the first predictive queue advance so it does not lurch forward', () => {
+        vi.useFakeTimers()
+        vi.setSystemTime(10_000)
+
+        render(
+            <PredictiveProgressBar
+                progress={0.05}
+                startedAt={7}
+                etaSeconds={57}
+                persistenceKey="job-queue"
+                label="Processing..."
+                status="running"
+                showEta={false}
+            />
+        )
+
+        expect(readPercent()).toBe(5)
+
+        act(() => {
+            vi.advanceTimersByTime(1250)
+        })
+
+        expect(readPercent()).toBeGreaterThanOrEqual(5)
+        expect(readPercent()).toBeLessThanOrEqual(6)
 
         vi.useRealTimers()
     })

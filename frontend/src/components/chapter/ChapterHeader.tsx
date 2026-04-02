@@ -293,6 +293,7 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
                       progress={liveSegmentProgressValue}
                       startedAt={liveSegmentProgressJob.started_at}
                       etaSeconds={liveSegmentProgressJob.eta_seconds}
+                      persistenceKey={`${liveSegmentProgressJob.id}:${liveSegmentProgressJob.active_segment_id || 'none'}`}
                       status={liveSegmentProgressJob.status === 'preparing' ? 'running' : liveSegmentProgressJob.status}
                       label="Segment Progress"
                       predictive={true}
