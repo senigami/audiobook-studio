@@ -65,6 +65,25 @@ def _group_weight_updates(
     }
 
 
+def _grouped_progress_updates(
+    groups: list[dict],
+    completed_groups: int,
+    active_group_progress: float,
+    *,
+    limit: float,
+    active_index: int = 0,
+) -> dict:
+    return {
+        "grouped_progress": _weighted_group_progress(
+            groups,
+            completed_groups,
+            active_group_progress,
+            limit=limit,
+        ),
+        **_group_weight_updates(groups, completed_groups, active_index=active_index),
+    }
+
+
 def _segment_output_path(pdir: Path, segment_id: str) -> Path:
     return pdir / f"seg_{segment_id}.wav"
 
@@ -219,7 +238,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
     j.total_render_weight = weight_updates["total_render_weight"]
     j.completed_render_weight = 0
     j.active_render_group_weight = 0
-    update_job(jid, **weight_updates)
+    update_job(jid, grouped_progress=0.0, **weight_updates)
 
     for index, group in enumerate(target_groups, start=1):
         if cancel_check():
@@ -239,7 +258,13 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
             jid,
             active_segment_id=segment_id,
             active_segment_progress=0.0,
-            **_group_weight_updates(target_groups, index - 1, active_index=index),
+            **_grouped_progress_updates(
+                target_groups,
+                index - 1,
+                0.0,
+                limit=1.0 if j.segment_ids else 0.9,
+                active_index=index,
+            ),
         )
         for group_segment in group["segments"]:
             update_segment(
@@ -296,7 +321,13 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
             progress=progress,
             active_segment_id=None,
             active_segment_progress=0.0,
-            **_group_weight_updates(target_groups, index, active_index=0),
+            **_grouped_progress_updates(
+                target_groups,
+                index,
+                0.0,
+                limit=progress_limit,
+                active_index=0,
+            ),
         )
 
     if j.segment_ids:
@@ -318,7 +349,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
             status="done",
             progress=final_p,
             finished_at=time.time(),
-            **_group_weight_updates(target_groups, total_groups, active_index=0),
+            **_grouped_progress_updates(target_groups, total_groups, 0.0, limit=1.0, active_index=0),
         )
         return "done"
 
@@ -327,7 +358,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
         jid,
         status="finalizing",
         progress=max(getattr(j, "progress", 0.0), 0.91),
-        **_group_weight_updates(target_groups, total_groups, active_index=0),
+        **_grouped_progress_updates(target_groups, total_groups, 0.0, limit=0.9, active_index=0),
     )
     segment_paths = []
     fresh_groups = build_chunk_groups(get_chapter_segments(j.chapter_id), j.speaker_profile)

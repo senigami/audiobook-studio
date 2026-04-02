@@ -1,8 +1,7 @@
 import os
-import subprocess
 import logging
-import sys
 from .core import _db_lock, get_connection
+from ..subprocess_utils import probe_audio_duration
 
 logger = logging.getLogger(__name__)
 
@@ -70,18 +69,7 @@ def reconcile_project_audio(project_id: str):
                             audio_path = all_audio_paths.get(best_file)
                             if not audio_path:
                                 raise FileNotFoundError(best_file)
-                            result = subprocess.run(
-                                ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", str(audio_path)],
-                                stdout=subprocess.PIPE,
-                                stderr=subprocess.STDOUT,
-                                text=True,
-                                timeout=2
-                            )
-                            if result.stdout:
-                                sys.stdout.write(result.stdout)
-                                sys.stdout.flush()
-                            if result.returncode == 0:
-                                duration = float(result.stdout.strip())
+                            duration = probe_audio_duration(audio_path)
                         except Exception:
                             logger.debug("Failed to probe audio duration for %s", best_file, exc_info=True)
 

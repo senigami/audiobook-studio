@@ -49,3 +49,4 @@ class Job:
     total_render_weight: int = 0
     completed_render_weight: int = 0
     active_render_group_weight: int = 0
+    grouped_progress: float = 0.0

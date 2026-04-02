@@ -2,7 +2,6 @@ import json
 import os
 import logging
 import re
-import sys
 import threading
 import time
 from dataclasses import asdict
@@ -12,6 +11,7 @@ from json import JSONDecodeError
 
 from .models import Job
 from .config import BASE_DIR
+from .subprocess_utils import probe_audio_duration
 from .voice_engines import normalize_tts_engine
 SAFE_OUTPUT_FILE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
 
@@ -265,7 +265,6 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
             try:
                 from .db import update_queue_item
                 from .config import XTTS_OUT_DIR
-                import subprocess
 
                 audio_length = 0.0
                 output_file = None
@@ -293,18 +292,7 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
                                     break
                         if full_audio_path and full_audio_path.exists():
                             try:
-                                result = subprocess.run(
-                                    ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", str(full_audio_path)],
-                                    stdout=subprocess.PIPE,
-                                    stderr=subprocess.STDOUT,
-                                    text=True,
-                                    timeout=2
-                                )
-                                if result.stdout:
-                                    sys.stdout.write(result.stdout)
-                                    sys.stdout.flush()
-                                if result.returncode == 0:
-                                    audio_length = float(result.stdout.strip())
+                                audio_length = probe_audio_duration(full_audio_path)
                             except Exception:
                                 logger.warning("Could not get duration for %s", output_file, exc_info=True)
 
@@ -313,11 +301,15 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
                     new_status, 
                     audio_length_seconds=audio_length, 
                     force_chapter_id=j.get("chapter_id"), 
-                    output_file=output_file
+                    output_file=output_file,
+                    chapter_scoped=not bool(j.get("segment_ids")),
                 )
 
                 try:
-                    from .api.ws import broadcast_queue_update
+                    from .api.ws import broadcast_chapter_updated, broadcast_queue_update
+                    chapter_id = j.get("chapter_id")
+                    if chapter_id:
+                        broadcast_chapter_updated(chapter_id)
                     broadcast_queue_update()
                 except ImportError:
                     logger.debug("broadcast_queue_update is unavailable during state sync")

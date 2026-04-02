@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 from typing import Optional, List
 from .. import config
+from ..subprocess_utils import coerce_subprocess_output, write_subprocess_output
 from ..textops import split_by_chapter_markers, write_chapters_to_folder, split_into_parts
 
 logger = logging.getLogger(__name__)
@@ -21,14 +22,6 @@ FFPROBE_AUDIOBOOK_CMD = (
     "-of",
     "json",
 )
-
-
-def _coerce_subprocess_output(value) -> str:
-    if isinstance(value, bytes):
-        return value.decode("utf-8", errors="replace")
-    if isinstance(value, str):
-        return value
-    return ""
 
 
 def _contained_audiobook_path(root: Path, filename: str) -> Optional[Path]:
@@ -56,14 +49,9 @@ def probe_audiobook_metadata(root: Path, filename: str) -> dict:
         check=True,
         timeout=3,
     )
-    stdout = _coerce_subprocess_output(getattr(probe_res, "stdout", ""))
-    stderr = _coerce_subprocess_output(getattr(probe_res, "stderr", ""))
-    if stdout:
-        sys.stdout.write(stdout)
-        sys.stdout.flush()
-    if stderr:
-        sys.stderr.write(stderr)
-        sys.stderr.flush()
+    stdout = coerce_subprocess_output(getattr(probe_res, "stdout", ""))
+    stderr = coerce_subprocess_output(getattr(probe_res, "stderr", ""))
+    write_subprocess_output(stdout=stdout, stderr=stderr)
     probe_data = json.loads(stdout)
     if not isinstance(probe_data, dict):
         return {}
@@ -200,6 +188,7 @@ def list_audiobooks():
             "url": url,
             "created_at": st.st_mtime,
             "size_bytes": st.st_size,
+            "duration_seconds": 0.0,
             "download_filename": p.name,
         }
         try:

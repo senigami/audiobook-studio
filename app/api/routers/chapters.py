@@ -19,7 +19,8 @@ from ...textops import (
 )
 from ...jobs import cancel as cancel_job, get_jobs
 from ...state import update_job, delete_jobs, get_settings
-from ..ws import broadcast_queue_update
+from ...constants import DEFAULT_VOICE_SENTINEL
+from ..ws import broadcast_chapter_updated, broadcast_queue_update
 from ...pathing import safe_basename, safe_join_flat
 
 # Compatibility for tests that monkeypatch these
@@ -27,7 +28,6 @@ CHAPTER_DIR = config.CHAPTER_DIR
 XTTS_OUT_DIR = config.XTTS_OUT_DIR
 
 logger = logging.getLogger(__name__)
-DEFAULT_VOICE_SENTINEL = "__USE_DEFAULT__"
 
 
 def get_chapter_dir() -> Path:
@@ -116,6 +116,7 @@ def api_update_chapter_details(
 
     if updates:
         update_chapter(chapter_id, **updates)
+        broadcast_chapter_updated(chapter_id)
 
     return JSONResponse({"status": "ok", "chapter": get_chapter(chapter_id)})
 

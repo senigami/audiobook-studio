@@ -1,6 +1,5 @@
 import type { Job, Project, Chapter } from '../types';
-
-const DEFAULT_VOICE_SENTINEL = '__USE_DEFAULT__';
+import { DEFAULT_VOICE_SENTINEL } from '../constants/api';
 
 const parseApiResponse = async (res: Response) => {
   const data = await res.json();

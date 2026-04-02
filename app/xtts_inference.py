@@ -11,21 +11,25 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-import torch  # noqa: E402
-import torch.nn.functional as F  # noqa: E402
 import argparse  # noqa: E402
 import warnings  # noqa: E402
 import json  # noqa: E402
 import hashlib  # noqa: E402
-
-from app.engines import migrate_speaker_latent_to_profile  # noqa: E402
 
 # Suppress common XTTS/Torch warnings that clutter logs
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
 
 
-def _save_wav(path: str, waveform: torch.Tensor, sample_rate: int) -> None:
+def _get_torch_modules():
+    import torch
+    import torch.nn.functional as F
+
+    return torch, F
+
+
+def _save_wav(path: str, waveform, sample_rate: int) -> None:
+    torch, _ = _get_torch_modules()
     wav = waveform.detach().cpu()
     if wav.dim() == 2:
         wav = wav.squeeze(0)
@@ -39,7 +43,8 @@ def _save_wav(path: str, waveform: torch.Tensor, sample_rate: int) -> None:
         wav_file.writeframes(pcm16.tobytes())
 
 
-def _load_wav_tensor(path: str, sample_rate: int) -> torch.Tensor:
+def _load_wav_tensor(path: str, sample_rate: int):
+    torch, F = _get_torch_modules()
     with wave.open(path, "rb") as wav_file:
         if wav_file.getcomptype() != "NONE":
             raise ValueError(f"Unsupported compressed WAV format: {path}")
@@ -183,11 +188,14 @@ def main():
         return None, None
 
     def get_latents(speaker_wav_paths, device, tts_model, voice_profile_dir=None):
+        from app.engines import migrate_speaker_latent_to_profile
+
         wav_input, combined_paths = _normalize_speaker_wav_paths(speaker_wav_paths, voice_profile_dir)
 
         if wav_input is None and not voice_profile_dir:
             raise ValueError("No speaker WAVs or voice profile directory available")
 
+        torch, _ = _get_torch_modules()
         speaker_id = hashlib.md5(combined_paths.encode()).hexdigest()
         migrated = False
         if voice_profile_dir:
@@ -231,6 +239,7 @@ def main():
 
     # Load model (quietly)
     print("Loading XTTS model...", file=sys.stderr)
+    torch, _ = _get_torch_modules()
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     original_stderr = sys.stderr

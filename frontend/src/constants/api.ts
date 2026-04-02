@@ -1,0 +1,1 @@
+export const DEFAULT_VOICE_SENTINEL = '__USE_DEFAULT__';

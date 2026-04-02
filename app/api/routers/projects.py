@@ -20,9 +20,9 @@ from ...state import put_job, update_job, get_jobs
 from ...models import Job
 from ...pathing import safe_basename, safe_join, safe_join_flat
 from ...api.utils import SAFE_FILE_RE, preferred_audiobook_download_filename, probe_audiobook_metadata
+from ...constants import DEFAULT_VOICE_SENTINEL
 
 logger = logging.getLogger(__name__)
-DEFAULT_VOICE_SENTINEL = "__USE_DEFAULT__"
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 

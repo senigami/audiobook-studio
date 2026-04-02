@@ -44,8 +44,13 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     const weightedProgress = totalRenderWeight > 0
         ? (((completedRenderWeight + (activeRenderGroupWeight * activeGroupProgress)) / totalRenderWeight) * 0.9)
         : 0;
+    const backendGroupedProgress = liveJob?.grouped_progress ?? job.grouped_progress ?? 0;
     const groupedProgress = isGroupedChapterJob
-        ? Math.max(weightedProgress, (((completedRenderGroups + activeGroupProgress) / Math.max(1, renderGroupCount)) * 0.9))
+        ? Math.max(
+            backendGroupedProgress,
+            weightedProgress,
+            (((completedRenderGroups + activeGroupProgress) / Math.max(1, renderGroupCount)) * 0.9),
+        )
         : 0;
     const useLiveSegmentProgress = ['voice_build', 'voice_test'].includes(engine)
         && status === 'running'

@@ -349,12 +349,6 @@ def update_chapter(chapter_id: str, **updates) -> bool:
             if updated and is_text_update:
                 from .segments import sync_chapter_segments
                 sync_chapter_segments(chapter_id, updates["text_content"])
-    if updated:
-        try:
-            from ..api.ws import broadcast_chapter_updated
-            broadcast_chapter_updated(chapter_id)
-        except Exception:
-            logger.warning("Failed to broadcast chapter update for %s", chapter_id, exc_info=True)
     return updated
 
 def delete_chapter(chapter_id: str) -> bool:

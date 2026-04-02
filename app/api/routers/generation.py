@@ -157,6 +157,7 @@ def api_add_to_queue(
                 custom_title=display_title,
             )
             enqueue(j)
+            broadcast_chapter_updated(chapter_id)
             broadcast_queue_update()
 
         return JSONResponse({"status": "ok", "queue_id": qid})

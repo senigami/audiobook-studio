@@ -2,6 +2,7 @@ import pytest
 import os
 import subprocess
 import sys
+import importlib.util
 from pathlib import Path
 from unittest.mock import MagicMock, patch, ANY
 from app.engines import (
@@ -242,7 +243,8 @@ def test_xtts_generate_script_includes_voice_profile_dir(mock_on_output, mock_ca
 
 
 def test_xtts_inference_can_run_from_outside_repo(tmp_path):
-    pytest.importorskip("torch")
+    if importlib.util.find_spec("torch") is None:
+        pytest.skip("torch is not installed")
     script = Path(__file__).resolve().parents[1] / "app" / "xtts_inference.py"
     env = os.environ.copy()
     env.pop("PYTHONPATH", None)
@@ -311,6 +313,7 @@ def test_run_cmd_stream_heartbeat(mock_on_output, mock_cancel_check):
 def test_terminate_all_subprocesses():
     from app.engines import _active_processes
     mock_proc = MagicMock()
+    mock_proc.pid = None
     _active_processes.add(mock_proc)
     terminate_all_subprocesses()
     mock_proc.terminate.assert_called_once()

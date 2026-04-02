@@ -78,6 +78,7 @@ export interface ProcessingQueueItem {
   char_count?: number;
   engine?: Engine;
   segment_ids?: string[];
+  grouped_progress?: number;
   chapter_audio_status?: Chapter['audio_status'];
   chapter_audio_file_path?: string | null;
 }
@@ -141,6 +142,7 @@ export interface Job {
   total_render_weight?: number;
   completed_render_weight?: number;
   active_render_group_weight?: number;
+  grouped_progress?: number;
 }
 
 export interface SegmentProgress {
