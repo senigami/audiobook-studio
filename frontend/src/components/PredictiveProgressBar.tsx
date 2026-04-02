@@ -13,6 +13,7 @@ interface PredictiveProgressBarProps {
     predictive?: boolean;
     indeterminateRunning?: boolean;
     authoritativeFloor?: boolean;
+    evidenceWeightFraction?: number;
 }
 
 const progressMemory = new Map<string, number>();
@@ -33,10 +34,13 @@ const formatTime = (seconds: number) => {
 
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
 const getMaxVisualStep = (dtSeconds: number) => Math.max(0.006, Math.min(0.012, dtSeconds * 0.012));
-const ETA_END_TIME_NUDGE_MS = 150;
-const ETA_SMOOTHING_MAX_SECONDS = 3;
 const ETA_TICK_MS = 250;
+const ETA_SMOOTHING_MAX_SECONDS = 3;
+const EARLY_QUEUE_ETA_SMOOTHING_MAX_SECONDS = 5;
+const QUEUE_ETA_SMOOTHING_MAX_SECONDS = 4;
 const ETA_MAX_SMOOTHING_TICKS = Math.max(1, Math.round((ETA_SMOOTHING_MAX_SECONDS * 1000) / ETA_TICK_MS));
+const EARLY_QUEUE_ETA_MAX_SMOOTHING_TICKS = Math.max(1, Math.round((EARLY_QUEUE_ETA_SMOOTHING_MAX_SECONDS * 1000) / ETA_TICK_MS));
+const QUEUE_ETA_MAX_SMOOTHING_TICKS = Math.max(1, Math.round((QUEUE_ETA_SMOOTHING_MAX_SECONDS * 1000) / ETA_TICK_MS));
 const PROGRESS_MAX_SMOOTHING_TICKS = ETA_MAX_SMOOTHING_TICKS;
 const hasRememberedActiveRun = (memoryKey?: string, startedAt?: number) =>
     !!(memoryKey && (
@@ -84,14 +88,14 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     status,
     predictive = true,
     indeterminateRunning = false,
-    authoritativeFloor = false
+    authoritativeFloor = false,
+    evidenceWeightFraction = 1
 }) => {
     const memoryKey = getProgressMemoryKey(persistenceKey, startedAt);
     const preserveActiveVisualState = hasRememberedActiveRun(memoryKey, startedAt);
     const [now, setNow] = useState(Date.now());
     const [currentEndTime, setCurrentEndTime] = useState<number | null>(null);
     const [displayProgress, setDisplayProgress] = useState(() => getInitialDisplayProgress(progress, startedAt, etaSeconds, persistenceKey, predictive, status, indeterminateRunning));
-    const [lastVisualProgress, setLastVisualProgress] = useState(() => getInitialDisplayProgress(progress, startedAt, etaSeconds, persistenceKey, predictive, status, indeterminateRunning));
     const lastTickRef = useRef(Date.now());
     const displayProgressRef = useRef(getInitialDisplayProgress(progress, startedAt, etaSeconds, persistenceKey, predictive, status, indeterminateRunning));
     const displayedRemainingRef = useRef<number | null>(null);
@@ -253,11 +257,15 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                     deltaSeconds: dt,
                     priorProgressBasis: base,
                     correctionWeightMode: 'queue',
+                    evidenceWeightFraction,
                 });
-                const gapToTarget = Math.max(0, targetFloor - prev);
-                const minimumCatchupStep = gapToTarget / PROGRESS_MAX_SMOOTHING_TICKS;
-                const cappedCandidate = prev + Math.max(getMaxVisualStep(dt), minimumCatchupStep);
-                return clamp01(Math.max(base, Math.min(targetFloor, Math.max(next.nextProgress, cappedCandidate))));
+                if (prev < targetFloor) {
+                    const gapToTarget = targetFloor - prev;
+                    const minimumCatchupStep = gapToTarget / PROGRESS_MAX_SMOOTHING_TICKS;
+                    const catchupCandidate = prev + Math.max(getMaxVisualStep(dt), minimumCatchupStep);
+                    return clamp01(Math.max(base, Math.min(targetFloor, catchupCandidate), next.nextProgress));
+                }
+                return clamp01(Math.max(base, targetFloor, next.nextProgress));
             }
             const elapsed = Math.max(0, (tickNow / 1000) - startedAt);
             const next = advancePredictiveProgress({
@@ -305,6 +313,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             etaSeconds,
             priorProgressBasis: authoritativeFloor ? visibleProgress : undefined,
             correctionWeightMode: authoritativeFloor ? 'queue' : 'default',
+            evidenceWeightFraction,
         });
 
         return {
@@ -315,12 +324,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     };
 
     const { localProgress, indeterminate } = getProgressInfo();
-    const visualDelta = Math.abs(localProgress - lastVisualProgress);
-    const shouldAnimateWidth = !indeterminate && visualDelta <= 0.03;
-
-    useEffect(() => {
-        setLastVisualProgress(localProgress);
-    }, [localProgress]);
+    const shouldAnimateWidth = !indeterminate && isActiveStatus(status);
 
     useEffect(() => {
         if (!predictive || ((!isActiveStatus(status) && !preserveActiveVisualState)) || indeterminateRunning) {
@@ -352,6 +356,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             etaSeconds,
             priorProgressBasis: authoritativeFloor ? effectiveDisplayedProgress : undefined,
             correctionWeightMode: authoritativeFloor ? 'queue' : 'default',
+            evidenceWeightFraction,
         });
         const nextTargetEndTime = Date.now() + (model.refinedRemainingSeconds * 1000);
         const rememberedEndTime = memoryKey ? (endTimeMemory.get(memoryKey) ?? null) : null;
@@ -370,6 +375,11 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             refinedRemainingSeconds: model.refinedRemainingSeconds,
             actualRemainingSeconds: model.actualRemainingSeconds,
             estimatedRemainingSeconds: model.estimatedRemainingSeconds,
+            confidence: model.confidence,
+            expectedProgressFromPrior: model.expectedProgressFromPrior,
+            impliedTotalDurationSeconds: model.impliedTotalDurationSeconds,
+            predictionErrorSeconds: model.predictionErrorSeconds,
+            evidenceWeightFraction,
             previousTargetEndTime,
             nextTargetEndTime,
         });
@@ -386,7 +396,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                 nextTargetEndTime,
             });
         }
-    }, [progress, startedAt, etaSeconds, predictive, status, indeterminateRunning, memoryKey, preserveActiveVisualState, authoritativeFloor]);
+    }, [progress, startedAt, etaSeconds, predictive, status, indeterminateRunning, memoryKey, preserveActiveVisualState, authoritativeFloor, evidenceWeightFraction]);
 
     useEffect(() => {
         if (!predictive || ((!isActiveStatus(status) && !preserveActiveVisualState)) || indeterminateRunning) {
@@ -411,8 +421,12 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         }
 
         const deltaMs = targetEndTime - currentEndTime;
-        const minimumCatchupMs = Math.ceil(Math.abs(deltaMs) / ETA_MAX_SMOOTHING_TICKS);
-        const maxPerTickMs = Math.max(ETA_END_TIME_NUDGE_MS, minimumCatchupMs);
+        const smoothingTicks = authoritativeFloor
+            ? (progress < 0.4 ? EARLY_QUEUE_ETA_MAX_SMOOTHING_TICKS : QUEUE_ETA_MAX_SMOOTHING_TICKS)
+            : ETA_MAX_SMOOTHING_TICKS;
+        const minimumCatchupMs = Math.ceil(Math.abs(deltaMs) / smoothingTicks);
+        const minimumNudgeMs = authoritativeFloor ? 60 : 150;
+        const maxPerTickMs = Math.max(minimumNudgeMs, minimumCatchupMs);
         const nudgeMs = deltaMs > 0
             ? Math.min(deltaMs, maxPerTickMs)
             : Math.max(deltaMs, -maxPerTickMs);
@@ -420,7 +434,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
 
         currentEndTimeRef.current = nextEndTime;
         setCurrentEndTime(nextEndTime);
-    }, [now, predictive, startedAt, etaSeconds, status, indeterminateRunning, preserveActiveVisualState]);
+    }, [now, predictive, startedAt, etaSeconds, status, indeterminateRunning, preserveActiveVisualState, authoritativeFloor, progress]);
 
     const displayedRemaining = currentEndTime === null
         ? null
@@ -489,10 +503,10 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                         height: '100%',
                         width: indeterminate ? '35%' : `${localProgress * 100}%`,
                         background: 'var(--accent)',
-                        // This bar updates on a ~250ms loop, so any width transition
-                        // needs to stay at or below that cadence or the browser will
-                        // visually fight the JS-driven progress engine.
-                        transition: shouldAnimateWidth ? 'width 0.18s linear' : 'none'
+                        // This bar updates on a ~250ms loop, so the width transition
+                        // should stay close to that cadence: long enough to soften
+                        // visible snaps, but short enough to avoid visible lag.
+                        transition: shouldAnimateWidth ? 'width 0.25s linear' : 'none'
                     }}
                 />
             </div>

@@ -104,6 +104,7 @@ describe('predictiveProgress', () => {
             etaSeconds: 61,
             priorProgressBasis: 0.55,
             correctionWeightMode: 'queue',
+            evidenceWeightFraction: 0.4,
         })
 
         expect(model.estimatedRemainingSeconds).toBeCloseTo(19, 0)
@@ -120,11 +121,12 @@ describe('predictiveProgress', () => {
             etaSeconds: 63,
             priorProgressBasis: 0.62,
             correctionWeightMode: 'queue',
+            evidenceWeightFraction: 0.17,
         })
 
         expect(model.estimatedRemainingSeconds).toBe(7)
         expect(model.actualRemainingSeconds).toBeGreaterThan(40)
-        expect(model.refinedRemainingSeconds).toBeGreaterThan(15)
-        expect(model.refinedRemainingSeconds).toBeLessThan(25)
+        expect(model.refinedRemainingSeconds).toBeGreaterThan(8)
+        expect(model.refinedRemainingSeconds).toBeLessThan(15)
     })
 })

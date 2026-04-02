@@ -115,6 +115,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
           const weightedGroupedProgress = totalRenderWeight > 0
             ? (((completedRenderWeight + (activeRenderGroupWeight * activeGroupProgress)) / totalRenderWeight) * 0.9)
             : 0;
+          const evidenceWeightFraction = totalRenderWeight > 0 ? (activeRenderGroupWeight / totalRenderWeight) : 1;
           const progressValue = displayStatus === 'finalizing'
             ? 1
             : activeJob ? Math.max(activeJob.progress ?? 0, weightedGroupedProgress) : 0;
@@ -229,6 +230,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                           predictive={true}
                           indeterminateRunning={showIndeterminateProgress}
                           authoritativeFloor={isGroupedChapterJob}
+                          evidenceWeightFraction={isGroupedChapterJob ? evidenceWeightFraction : 1}
                         />
                     </div>
                 ) : hasChapterAudio && !isAssemblyMode ? (

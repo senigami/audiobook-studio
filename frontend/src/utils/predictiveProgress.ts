@@ -7,6 +7,7 @@ export interface PredictiveProgressInput {
     etaSeconds: number
     priorProgressBasis?: number
     correctionWeightMode?: 'default' | 'queue'
+    evidenceWeightFraction?: number
 }
 
 export interface PredictiveProgressModel {
@@ -16,6 +17,10 @@ export interface PredictiveProgressModel {
     actualRemainingSeconds: number
     refinedRemainingSeconds: number
     velocityPerSecond: number
+    confidence: number
+    expectedProgressFromPrior: number
+    impliedTotalDurationSeconds: number
+    predictionErrorSeconds: number
 }
 
 export interface PredictiveAdvanceInput extends PredictiveProgressInput {
@@ -29,11 +34,13 @@ export const buildPredictiveProgressModel = ({
     etaSeconds,
     priorProgressBasis,
     correctionWeightMode = 'default',
+    evidenceWeightFraction = 1,
 }: PredictiveProgressInput): PredictiveProgressModel => {
     const safeAuthoritative = clamp01(authoritativeProgress)
     const safeDisplayed = clamp01(displayedProgress)
     const safeElapsed = Math.max(0, elapsedSeconds)
     const safePriorBasis = clamp01(priorProgressBasis ?? safeAuthoritative)
+    const safeEvidenceWeight = clamp01(evidenceWeightFraction)
     const estimatedRemainingSeconds = Math.max(1, etaSeconds - safeElapsed)
     const rawActualRemainingSeconds = safeAuthoritative > 0.001
         ? Math.max(1, (safeElapsed / safeAuthoritative) - safeElapsed)
@@ -50,9 +57,13 @@ export const buildPredictiveProgressModel = ({
     // 6. Chapter bars and segment bars can share this engine as long as they
     //    feed it the correct scoped progress source.
     const expectedProgressFromPrior = etaSeconds > 0 ? clamp01(safeElapsed / etaSeconds) : safeAuthoritative
+    const impliedTotalDurationSeconds = safeAuthoritative > 0.001
+        ? safeElapsed / safeAuthoritative
+        : etaSeconds
+    const maxQueueConfidence = Math.max(0.05, Math.min(0.35, safeEvidenceWeight * 0.35))
     const confidence = correctionWeightMode === 'queue'
         ? Math.min(
-            0.35,
+            maxQueueConfidence,
             0.08
             + Math.min(0.18, Math.abs(safeAuthoritative - expectedProgressFromPrior) * 0.45)
             + Math.min(0.08, Math.abs(safeAuthoritative - safePriorBasis) * 0.2)
@@ -72,6 +83,10 @@ export const buildPredictiveProgressModel = ({
         actualRemainingSeconds,
         refinedRemainingSeconds,
         velocityPerSecond,
+        confidence,
+        expectedProgressFromPrior,
+        impliedTotalDurationSeconds,
+        predictionErrorSeconds: actualRemainingSeconds - estimatedRemainingSeconds,
     }
 }
 
@@ -83,6 +98,7 @@ export const advancePredictiveProgress = ({
     deltaSeconds,
     priorProgressBasis,
     correctionWeightMode,
+    evidenceWeightFraction,
 }: PredictiveAdvanceInput) => {
     const model = buildPredictiveProgressModel({
         authoritativeProgress,
@@ -91,6 +107,7 @@ export const advancePredictiveProgress = ({
         etaSeconds,
         priorProgressBasis,
         correctionWeightMode,
+        evidenceWeightFraction,
     })
     const safeDelta = Math.max(0, deltaSeconds)
     const nextProgress = clamp01(

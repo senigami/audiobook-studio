@@ -3,6 +3,28 @@ import { ChapterList } from './ChapterList';
 import { vi, describe, it, expect } from 'vitest';
 import type { Chapter } from '../../types';
 
+vi.mock('../PredictiveProgressBar', () => ({
+  PredictiveProgressBar: ({
+    progress,
+    status,
+    authoritativeFloor,
+    evidenceWeightFraction,
+  }: {
+    progress: number;
+    status?: string;
+    authoritativeFloor?: boolean;
+    evidenceWeightFraction?: number;
+  }) => (
+    <div
+      data-testid="progress-bar"
+      data-progress={progress}
+      data-status={status ?? ''}
+      data-authoritative-floor={String(!!authoritativeFloor)}
+      data-evidence-weight-fraction={evidenceWeightFraction ?? ''}
+    />
+  ),
+}));
+
 describe('ChapterList', () => {
   const mockChapters: Chapter[] = [
     {
@@ -102,14 +124,23 @@ describe('ChapterList', () => {
       project_id: 'proj-1',
       chapter_id: 'chap-123',
       status: 'running',
-      progress: 0.65,
+      progress: 0.4,
       started_at: Date.now() / 1000 - 30,
       eta_seconds: 120,
+      render_group_count: 3,
+      completed_render_groups: 1,
+      active_render_group_index: 2,
+      active_segment_progress: 0.5,
+      total_render_weight: 1000,
+      completed_render_weight: 500,
+      active_render_group_weight: 400,
     } as any;
 
     render(<ChapterList {...defaultProps} jobs={{ [liveJob.id]: liveJob }} />);
 
-    expect(screen.getByText('65%')).toBeInTheDocument();
+    expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.63');
+    expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-authoritative-floor', 'true');
+    expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-evidence-weight-fraction', '0.4');
   });
 
   it('shows a queued badge for chapters awaiting rendering', () => {
@@ -141,7 +172,9 @@ describe('ChapterList', () => {
 
     render(<ChapterList {...defaultProps} jobs={{ [liveJob.id]: liveJob }} chapters={[{ ...mockChapters[0], has_wav: false, audio_file_path: null, audio_status: 'processing' } as any]} />);
 
-    expect(screen.getByText('Working...')).toBeInTheDocument();
+    expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-status', 'running');
+    expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0');
+    expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-authoritative-floor', 'false');
   });
 
   it('does not reuse a recent completed job once the chapter has been requeued into processing', () => {
@@ -211,7 +244,8 @@ describe('ChapterList', () => {
 
     render(<ChapterList {...defaultProps} jobs={{ [liveSegmentJob.id]: liveSegmentJob }} chapters={[{ ...mockChapters[0], has_wav: false, audio_file_path: null, audio_status: 'unprocessed', done_segments_count: 2, total_segments_count: 4 } as any]} />);
 
-    expect(screen.getByText('5%')).toBeInTheDocument();
-    expect(screen.queryByText('Working...')).toBeNull();
+    expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.05');
+    expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-authoritative-floor', 'false');
+    expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-evidence-weight-fraction', '1');
   });
 });

@@ -4,6 +4,7 @@ type SegmentScopedShape = {
   segment_ids?: string[];
   active_segment_id?: string | null;
   custom_title?: string | null;
+  render_group_count?: number;
 };
 
 const STATUS_RANK: Record<string, number> = {
@@ -18,6 +19,7 @@ const STATUS_RANK: Record<string, number> = {
 };
 
 export function isSegmentScopedJob(job: SegmentScopedShape): boolean {
+  if ((job.render_group_count ?? 0) > 0) return false;
   if ((job.segment_ids?.length ?? 0) > 0) return true;
   if (job.active_segment_id) return true;
   return /segment\s*#/i.test(job.custom_title || '');

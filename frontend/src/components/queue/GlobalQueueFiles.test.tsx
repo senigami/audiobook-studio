@@ -9,7 +9,9 @@ vi.mock('../PredictiveProgressBar', () => ({
     startedAt,
     etaSeconds,
     indeterminateRunning,
-    status
+    status,
+    authoritativeFloor,
+    evidenceWeightFraction
   }: {
     progress: number;
     predictive?: boolean;
@@ -17,6 +19,8 @@ vi.mock('../PredictiveProgressBar', () => ({
     etaSeconds?: number;
     indeterminateRunning?: boolean;
     status?: string;
+    authoritativeFloor?: boolean;
+    evidenceWeightFraction?: number;
   }) => (
     <div
       data-testid="progress-bar"
@@ -26,6 +30,8 @@ vi.mock('../PredictiveProgressBar', () => ({
       data-eta-seconds={etaSeconds ?? ''}
       data-indeterminate-running={String(!!indeterminateRunning)}
       data-status={status ?? ''}
+      data-authoritative-floor={String(!!authoritativeFloor)}
+      data-evidence-weight-fraction={evidenceWeightFraction ?? ''}
     />
   )
 }));
@@ -217,6 +223,9 @@ describe('Global Queue Components', () => {
                         render_group_count: 3,
                         completed_render_groups: 1,
                         active_render_group_index: 2,
+                        total_render_weight: 1000,
+                        completed_render_weight: 500,
+                        active_render_group_weight: 400,
                         started_at: 1000,
                         eta_seconds: 30,
                     } as any}
@@ -228,7 +237,9 @@ describe('Global Queue Components', () => {
             );
 
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-status', 'running');
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.525');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.7200000000000001');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-authoritative-floor', 'true');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-evidence-weight-fraction', '0.4');
         });
 
         it('shows pause icon when paused', () => {

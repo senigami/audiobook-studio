@@ -39,6 +39,9 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     const activeGroupProgress = activeRenderGroupIndex > completedRenderGroups
         ? Math.max(0, Math.min(activeSegmentProgress ?? 0, 1))
         : 0;
+    const evidenceWeightFraction = totalRenderWeight > 0
+        ? (activeRenderGroupWeight / totalRenderWeight)
+        : 1;
     const weightedProgress = totalRenderWeight > 0
         ? (((completedRenderWeight + (activeRenderGroupWeight * activeGroupProgress)) / totalRenderWeight) * 0.9)
         : 0;
@@ -194,6 +197,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                     predictive={true}
                     indeterminateRunning={showIndeterminateProgress}
                     authoritativeFloor={isGroupedChapterJob}
+                    evidenceWeightFraction={isGroupedChapterJob ? evidenceWeightFraction : 1}
                 />
             </div>
         </div>
