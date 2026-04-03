@@ -20,12 +20,10 @@ def _has_meaningful_entries(path: Path) -> bool:
 
 
 def demo_restore_needed(base_dir: Path) -> bool:
-    db_path = base_dir / "audiobook_studio.db"
     projects_dir = base_dir / "projects"
     voices_dir = base_dir / "voices"
     return (
-        not _has_meaningful_entries(db_path)
-        and not _has_meaningful_entries(projects_dir)
+        not _has_meaningful_entries(projects_dir)
         and not _has_meaningful_entries(voices_dir)
     )
 
