@@ -1,5 +1,40 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+const stripMotionProps = (props: Record<string, unknown>) => {
+  const {
+    initial,
+    animate,
+    exit,
+    transition,
+    whileHover,
+    whileTap,
+    whileDrag,
+    layout,
+    layoutId,
+    drag,
+    dragListener,
+    dragConstraints,
+    dragElastic,
+    onReorder,
+    ...domProps
+  } = props;
+  void initial;
+  void animate;
+  void exit;
+  void transition;
+  void whileHover;
+  void whileTap;
+  void whileDrag;
+  void layout;
+  void layoutId;
+  void drag;
+  void dragListener;
+  void dragConstraints;
+  void dragElastic;
+  void onReorder;
+  return domProps;
+};
+
 const mockUseProjectActions = vi.hoisted(() =>
   vi.fn(() => ({
     submitting: false,
@@ -24,6 +59,7 @@ vi.mock('../api', () => ({
     fetchCharacters: vi.fn().mockResolvedValue([]),
     fetchSegments: vi.fn().mockResolvedValue([]),
     updateChapter: vi.fn(),
+    updateProject: vi.fn(),
     exportSample: vi.fn(),
   },
 }));
@@ -31,6 +67,10 @@ vi.mock('../api', () => ({
 // Mock hooks
 vi.mock('../hooks/useProjectActions', () => ({
   useProjectActions: () => mockUseProjectActions(),
+}));
+
+vi.mock('./CharactersTab', () => ({
+  CharactersTab: () => <div>Characters & Voices</div>,
 }));
 
 // Mock lucide-react
@@ -70,13 +110,13 @@ vi.mock('lucide-react', () => ({
 // Mock framer-motion
 vi.mock('framer-motion', () => ({
   motion: {
-    div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
-    button: ({ children, ...props }: any) => <button {...props}>{children}</button>,
+    div: ({ children, ...props }: any) => <div {...stripMotionProps(props)}>{children}</div>,
+    button: ({ children, ...props }: any) => <button {...stripMotionProps(props)}>{children}</button>,
   },
   AnimatePresence: ({ children }: any) => <>{children}</>,
   Reorder: {
-      Group: ({ children }: any) => <div data-testid="reorder-group">{children}</div>,
-      Item: ({ children }: any) => <div data-testid="reorder-item">{children}</div>,
+      Group: ({ children, ...props }: any) => <div data-testid="reorder-group" {...stripMotionProps(props)}>{children}</div>,
+      Item: ({ children, ...props }: any) => <div data-testid="reorder-item" {...stripMotionProps(props)}>{children}</div>,
   }
 }));
 
@@ -90,6 +130,7 @@ const mockProject = {
   name: 'Test Project',
   series: 'Test Series',
   author: 'Test Author',
+  speaker_profile_name: null,
   cover_image_path: '',
   created_at: 1000,
   updated_at: 2000,
@@ -151,6 +192,16 @@ const mockChapters = [
     },
   ];
 
+  const mockSpeakers = [
+    {
+      id: 'speaker-1',
+      name: 'Voice 1',
+      default_profile_name: 'Voice 1',
+      created_at: 1,
+      updated_at: 1,
+    },
+  ];
+
 describe('ProjectView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -158,6 +209,7 @@ describe('ProjectView', () => {
     (api.fetchProject as any).mockResolvedValue(mockProject);
     (api.fetchChapters as any).mockResolvedValue(mockChapters);
     (api.fetchProjectAudiobooks as any).mockResolvedValue([]);
+    (api.updateProject as any).mockResolvedValue({ status: 'ok', project_id: mockProject.id });
   });
 
   const renderProjectView = () => {
@@ -168,7 +220,7 @@ describe('ProjectView', () => {
             <ProjectView 
               jobs={{}} 
               speakerProfiles={mockSpeakerProfiles as any} 
-              speakers={[]} 
+              speakers={mockSpeakers as any} 
             />
           } />
         </Routes>
@@ -177,6 +229,10 @@ describe('ProjectView', () => {
   };
 
   it('renders loading state', () => {
+    (api.fetchProject as any).mockReturnValue(new Promise(() => {}));
+    (api.fetchChapters as any).mockReturnValue(new Promise(() => {}));
+    (api.fetchProjectAudiobooks as any).mockReturnValue(new Promise(() => {}));
+
     renderProjectView();
     expect(screen.getByText('Loading project...')).toBeInTheDocument();
   });
@@ -196,7 +252,7 @@ describe('ProjectView', () => {
   it('switches to characters tab', async () => {
     renderProjectView();
 
-    await waitFor(() => screen.findByText('Test Project'));
+    await screen.findByText('Test Project');
 
     fireEvent.click(screen.getByText('Characters'));
     expect(screen.getByText('Characters & Voices')).toBeInTheDocument();
@@ -234,9 +290,10 @@ describe('ProjectView', () => {
   it('defaults the queue voice to the available profile', async () => {
     renderProjectView();
 
-    await waitFor(() => screen.findByText('Test Project'));
-
-    expect(screen.getByDisplayValue('Voice 1')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByText('Loading project...')).not.toBeInTheDocument();
+      expect(screen.getByRole('combobox')).toHaveValue('');
+    });
 
     fireEvent.click(screen.getByText('Queue Remaining'));
     await waitFor(() => {
@@ -257,7 +314,7 @@ describe('ProjectView', () => {
             <ProjectView
               jobs={{}}
               speakerProfiles={mockSpeakerProfiles as any}
-              speakers={[]}
+              speakers={mockSpeakers as any}
               settings={{ default_speaker_profile: 'Voice 1' } as any}
             />
           } />
@@ -267,11 +324,12 @@ describe('ProjectView', () => {
 
     await waitFor(() => {
       expect(screen.queryByText('Loading project...')).not.toBeInTheDocument();
+      expect(screen.getByRole('combobox')).toHaveValue('');
     });
 
-    const select = screen.getByDisplayValue('Voice 1');
+    const select = screen.getByRole('combobox');
     fireEvent.change(select, { target: { value: '' } });
-    expect(screen.getByDisplayValue('Default Speaker')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Default Speaker (Voice 1)')).toBeInTheDocument();
 
     fireEvent.click(screen.getByText('Queue Remaining'));
     await waitFor(() => {
@@ -279,7 +337,7 @@ describe('ProjectView', () => {
       expect(actions?.handleQueueAllUnprocessed).toHaveBeenCalledWith(
         expect.any(Array),
         expect.any(Object),
-        ''
+        'Voice 1'
       );
     });
   });
@@ -292,7 +350,7 @@ describe('ProjectView', () => {
             <ProjectView
               jobs={{}}
               speakerProfiles={mockSpeakerProfilesWithVariant as any}
-              speakers={[]}
+              speakers={mockSpeakers as any}
             />
           } />
         </Routes>
@@ -303,7 +361,7 @@ describe('ProjectView', () => {
       expect(screen.queryByText('Loading project...')).not.toBeInTheDocument();
     });
 
-    expect(screen.getByDisplayValue('Voice 1')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Default Speaker (Voice 1)')).toBeInTheDocument();
   });
 
   it('stores a real default profile name when a speaker label differs from its default profile', async () => {
@@ -367,9 +425,10 @@ describe('ProjectView', () => {
 
     await waitFor(() => {
       expect(screen.queryByText('Loading project...')).not.toBeInTheDocument();
+      expect(screen.getByRole('combobox')).toHaveValue('');
     });
 
-    fireEvent.change(screen.getByDisplayValue('Test'), { target: { value: 'Dark Fantasy - Default' } });
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'Dark Fantasy - Default' } });
     expect(screen.getByDisplayValue('Dark Fantasy')).toBeInTheDocument();
 
     fireEvent.click(screen.getByText('Queue Remaining'));
@@ -380,6 +439,69 @@ describe('ProjectView', () => {
         expect.any(Object),
         'Dark Fantasy - Default'
       );
+    });
+  });
+
+  it('keeps the default option selected after reload when no project override is saved', async () => {
+    render(
+      <MemoryRouter initialEntries={['/projects/proj-123']}>
+        <Routes>
+          <Route path="/projects/:projectId" element={
+            <ProjectView
+              jobs={{}}
+              speakerProfiles={mockSpeakerProfiles as any}
+              speakers={mockSpeakers as any}
+              settings={{ default_speaker_profile: 'Voice 1' } as any}
+            />
+          } />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    const select = await screen.findByRole('combobox');
+    expect(select).toHaveValue('');
+    expect(screen.getByDisplayValue('Default Speaker (Voice 1)')).toBeInTheDocument();
+  });
+
+  it('persists the project voice selection immediately', async () => {
+    renderProjectView();
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading project...')).not.toBeInTheDocument();
+      expect(screen.getByRole('combobox')).toHaveValue('');
+    });
+
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: '' } });
+
+    await waitFor(() => {
+      expect(api.updateProject).toHaveBeenCalledWith('proj-123', { speaker_profile_name: null });
+    });
+  });
+
+  it('loads a saved project voice instead of reusing the global default', async () => {
+    (api.fetchProject as any).mockResolvedValue({
+      ...mockProject,
+      speaker_profile_name: 'Voice 1',
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/projects/proj-123']}>
+        <Routes>
+          <Route path="/projects/:projectId" element={
+            <ProjectView
+              jobs={{}}
+              speakerProfiles={mockSpeakerProfiles as any}
+              speakers={mockSpeakers as any}
+              settings={{ default_speaker_profile: 'Some Other Voice' } as any}
+            />
+          } />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading project...')).not.toBeInTheDocument();
+      expect(screen.getByRole('combobox')).toHaveValue('Voice 1');
     });
   });
 });

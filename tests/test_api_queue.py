@@ -1,6 +1,7 @@
 import pytest
 import os
 import json
+import time
 from unittest.mock import patch
 from app.db.core import init_db
 from app.models import Job
@@ -156,3 +157,85 @@ def test_processing_queue_reconciles_db_running_row_when_memory_job_is_done(clea
         assert db_row["completed_at"] is not None
 
     assert get_chapter(cid)["audio_status"] == "unprocessed"
+
+
+def test_processing_queue_keeps_old_done_voxtral_row_done_when_new_run_is_already_queued(clean_db, client):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.core import get_connection
+    from app.state import put_job
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "T1")
+    now = time.time()
+
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO processing_queue (id, project_id, chapter_id, split_part, status, created_at, completed_at, engine)
+            VALUES (?, ?, ?, 0, 'done', ?, ?, 'voxtral')
+            """,
+            ("job-old", pid, cid, now - 30, now - 2),
+        )
+        cursor.execute(
+            """
+            INSERT INTO processing_queue (id, project_id, chapter_id, split_part, status, created_at, engine)
+            VALUES (?, ?, ?, 0, 'queued', ?, 'voxtral')
+            """,
+            ("job-new", pid, cid, now),
+        )
+        cursor.execute(
+            "UPDATE chapters SET audio_status = 'processing', audio_file_path = NULL WHERE id = ?",
+            (cid,),
+        )
+        conn.commit()
+
+    put_job(Job(
+        id="job-new",
+        project_id=pid,
+        chapter_id=cid,
+        chapter_file=f"{cid}_0.txt",
+        status="queued",
+        created_at=now,
+        engine="voxtral",
+    ))
+
+    response = client.get("/api/processing_queue")
+    assert response.status_code == 200
+    rows = {item["id"]: item for item in response.json()}
+    assert rows["job-old"]["status"] == "done"
+    assert rows["job-new"]["status"] == "queued"
+
+
+def test_segment_scoped_queue_updates_do_not_mutate_chapter_audio_state(clean_db):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter, get_chapter
+    from app.db.queue import upsert_queue_row, update_queue_item
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "T1")
+    jid = "job-segment"
+
+    put_job(Job(
+        id=jid,
+        project_id=pid,
+        chapter_id=cid,
+        chapter_file=f"{cid}_0.txt",
+        status="queued",
+        created_at=time.time(),
+        engine="mixed",
+        segment_ids=["segment-1", "segment-2"],
+        custom_title="C1: segment #3",
+    ))
+    upsert_queue_row(jid, project_id=pid, chapter_id=cid, status="queued", engine="mixed")
+
+    update_queue_item(jid, "running")
+    chapter = get_chapter(cid)
+    assert chapter["audio_status"] == "unprocessed"
+    assert chapter["audio_file_path"] is None
+
+    update_queue_item(jid, "done", audio_length_seconds=12.3, output_file=f"{cid}.wav")
+    chapter = get_chapter(cid)
+    assert chapter["audio_status"] == "unprocessed"
+    assert chapter["audio_file_path"] is None

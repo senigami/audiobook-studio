@@ -49,6 +49,35 @@ def test_worker_loop_xtts_basic(mock_q, sample_job):
         # Verify handle_xtts_job was called
         assert mock_handle.called
 
+def test_worker_loop_xtts_updates_learned_cps_from_completed_chapter_runs(mock_q, sample_job):
+    """Completed XTTS chapter runs should feed the learned CPS metric."""
+    mock_q.get.side_effect = ["test_job_1", Exception("StopLoop")]
+
+    def fake_handler(*args, **kwargs):
+        sample_job.synthesis_started_at = time.time() - 10
+
+    with patch("app.jobs.worker.get_jobs", return_value={"test_job_1": sample_job}), \
+         patch("app.jobs.worker.update_job"), \
+         patch("app.jobs.worker.get_performance_metrics", return_value={"xtts_cps": 10.0}), \
+         patch("app.jobs.worker.get_project_text_dir", create=True) as mock_text_dir, \
+         patch("pathlib.Path.exists", return_value=True), \
+         patch("pathlib.Path.read_text", return_value="A" * 1000), \
+         patch("app.jobs.worker.handle_xtts_job", side_effect=fake_handler), \
+         patch("app.jobs.worker.update_performance_metrics") as mock_update_perf, \
+         patch("app.jobs.worker._output_exists", return_value=False), \
+         patch("app.jobs.worker.get_speaker_wavs", return_value=[]), \
+         patch("app.jobs.worker.get_speaker_settings", return_value={"speed": 1.0}):
+
+        mock_text_dir.return_value = Path("/tmp")
+
+        try:
+            worker_loop(mock_q)
+        except Exception as e:
+            if str(e) != "StopLoop": raise e
+
+        mock_update_perf.assert_called_once()
+        assert "xtts_cps" in mock_update_perf.call_args.kwargs
+
 def test_worker_loop_xtts_segments(mock_q, sample_job):
     """Test XTTS job with segment_ids."""
     sample_job.segment_ids = ["s1", "s2"]
@@ -84,7 +113,7 @@ def test_worker_loop_resumption(mock_q, sample_job):
          patch("app.jobs.worker.get_project_text_dir", create=True) as mock_text_dir, \
          patch("pathlib.Path.exists", return_value=True), \
          patch("pathlib.Path.read_text", return_value="A" * 1000), \
-         patch("app.db.chapters.get_chapter_segments_counts", return_value=(5, 10)), \
+         patch("app.jobs.worker._calculate_group_resume_state", return_value=(0.67, 2, 3)), \
          patch("app.jobs.worker.handle_xtts_job"), \
          patch("app.jobs.worker._output_exists", return_value=False):
 
@@ -97,8 +126,11 @@ def test_worker_loop_resumption(mock_q, sample_job):
 
         # Find the call to update_job with initial state
         prep_call = [c for c in mock_update.call_args_list if c.kwargs.get('status') == "preparing"][0]
-        assert prep_call.kwargs['progress'] == 0.5
+        assert prep_call.kwargs['progress'] == 0.67
         assert prep_call.kwargs['started_at'] is not None
+        assert prep_call.kwargs['completed_render_groups'] == 2
+        assert prep_call.kwargs['render_group_count'] == 3
+        assert prep_call.kwargs['active_render_group_index'] == 0
 
 def test_worker_loop_audiobook_engine(mock_q):
     """Test audiobook assembly job flow."""
@@ -160,12 +192,23 @@ def test_on_output_logic(mock_q, sample_job):
         mock_update.reset_mock()
         on_out("[START_SYNTHESIS]")
         assert sample_job.status == "running"
+        start_synthesis_call = mock_update.call_args_list[-1]
+        assert start_synthesis_call.kwargs["status"] == "running"
+        assert start_synthesis_call.kwargs["progress"] == 0.01
 
-        # Test progress parsing
+        # Repeated group starts must not reseed the chapter run.
+        mock_update.reset_mock()
+        previous_started_at = sample_job.started_at
+        on_out("[START_SYNTHESIS]")
+        mock_update.assert_not_called()
+        assert sample_job.started_at == previous_started_at
+
+        # Generic tqdm-style percentages should not be treated as authoritative job progress.
         mock_update.reset_mock()
         sample_job.synthesis_started_at = time.time()
         on_out("Processing | 50% [########    ]")
-        assert sample_job.progress == 0.5
+        assert sample_job.progress == 0.01
+        mock_update.assert_not_called()
 
         # Test character limit warning
         mock_update.reset_mock()
@@ -175,6 +218,11 @@ def test_on_output_logic(mock_q, sample_job):
         # Test log accumulation (Simplified: No longer checking for 'log' in update_job)
         mock_update.reset_mock()
         on_out("Normal log line")
+
+        # Hugging Face / tqdm-style download lines should be surfaced verbatim without synthetic progress updates.
+        download_line = "model.safetensors: 71%|###5 | 6.62G/9.36G [05:07<01:03, 42.8MB/s]"
+        on_out(download_line)
+        mock_update.assert_not_called()
 
 def test_worker_loop_xtts_bake(mock_q, sample_job):
     """Test XTTS job with is_bake=True."""
@@ -233,6 +281,80 @@ def test_worker_loop_voxtral_dispatches_handler(mock_q):
 
         assert mock_handle.called
         mock_failed.assert_not_called()
+
+def test_worker_loop_mixed_updates_learned_cps_from_completed_chapter_runs(mock_q):
+    sample_job = Job(
+        id="mixed_job",
+        engine="mixed",
+        chapter_file="chapter1.txt",
+        chapter_id="chap_1",
+        status="queued",
+        created_at=time.time(),
+        project_id="proj_1",
+        speaker_profile="Voice1"
+    )
+    mock_q.get.side_effect = ["mixed_job", Exception("StopLoop")]
+
+    def fake_handler(*args, **kwargs):
+        sample_job.synthesis_started_at = time.time() - 20
+        return "done"
+
+    with patch("app.jobs.worker.get_jobs", return_value={"mixed_job": sample_job}), \
+         patch("app.jobs.worker.update_job"), \
+         patch("app.jobs.worker.get_performance_metrics", return_value={"xtts_cps": 10.0}), \
+         patch("app.jobs.worker.get_project_text_dir", create=True) as mock_text_dir, \
+         patch("pathlib.Path.exists", return_value=True), \
+         patch("pathlib.Path.read_text", return_value="B" * 2000), \
+         patch("app.jobs.worker.handle_mixed_job", side_effect=fake_handler), \
+         patch("app.jobs.worker.update_performance_metrics") as mock_update_perf, \
+         patch("app.jobs.worker._output_exists", return_value=False):
+
+        mock_text_dir.return_value = Path("/tmp")
+
+        try:
+            worker_loop(mock_q)
+        except Exception as e:
+            if str(e) != "StopLoop":
+                raise e
+
+        mock_update_perf.assert_called_once()
+        assert "xtts_cps" in mock_update_perf.call_args.kwargs
+
+def test_worker_loop_voxtral_does_not_resume_from_segment_completion(mock_q):
+    sample_job = Job(
+        id="voxtral_job",
+        engine="voxtral",
+        chapter_file="chapter1.txt",
+        chapter_id="chap_1",
+        status="queued",
+        created_at=time.time(),
+        project_id="proj_1",
+        speaker_profile="Voice1"
+    )
+    mock_q.get.side_effect = ["voxtral_job", Exception("StopLoop")]
+
+    with patch("app.jobs.worker.get_jobs", return_value={"voxtral_job": sample_job}), \
+         patch("app.jobs.worker.update_job") as mock_update, \
+         patch("app.jobs.worker.get_performance_metrics", return_value={"xtts_cps": 10.0}), \
+         patch("app.jobs.worker.get_project_text_dir", create=True) as mock_text_dir, \
+         patch("pathlib.Path.exists", return_value=True), \
+         patch("pathlib.Path.read_text", return_value="Hello world"), \
+         patch("app.db.chapters.get_chapter_segments_counts", return_value=(10, 10)) as mock_counts, \
+         patch("app.jobs.worker.handle_voxtral_job", return_value="done"), \
+         patch("app.jobs.worker._output_exists", return_value=False):
+
+        mock_text_dir.return_value = Path("/tmp")
+
+        try:
+            worker_loop(mock_q)
+        except Exception as e:
+            if str(e) != "StopLoop":
+                raise e
+
+        prep_call = [c for c in mock_update.call_args_list if c.kwargs.get('status') == "preparing"][0]
+        assert prep_call.kwargs['progress'] == 0.0
+        assert prep_call.kwargs['started_at'] is None
+        mock_counts.assert_not_called()
 
 def test_worker_loop_skipped_or_failed(mock_q, sample_job):
     """Test skipped and failed scenarios in worker_loop."""
@@ -320,8 +442,8 @@ def test_worker_resumption_error_handling(mock_q, sample_job):
         # The worker should continue past the DB error and still emit progress updates.
         assert mock_update.called
 
-def test_on_output_predictive_progress(mock_q, sample_job):
-    """Test the predictive progress part of on_output (empty line)."""
+def test_on_output_blank_xtts_heartbeat_does_not_broadcast_predicted_progress(mock_q, sample_job):
+    """XTTS jobs should not emit synthetic websocket progress on blank heartbeats."""
     mock_q.get.side_effect = ["test_job_1", Exception("StopLoop")]
     captured_on_output = []
     def fake_handler(jid, j, start, on_output, *args, **kwargs): captured_on_output.append(on_output)
@@ -349,8 +471,7 @@ def test_on_output_predictive_progress(mock_q, sample_job):
         sample_job._last_broadcast_p = 0.0
         on_out("") 
 
-        # Should call update_job with progress=0.15
-        mock_update.assert_any_call("test_job_1", progress=0.15)
+        mock_update.assert_not_called()
 
 def test_worker_loop_crash(mock_q):
     """Test the top-level exception handler in worker_loop."""

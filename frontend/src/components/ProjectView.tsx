@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Plus, Zap, ArrowUpDown } from 'lucide-react';
 import { api } from '../api';
-import type { Project, Chapter, Job, Audiobook, SpeakerProfile, Settings } from '../types';
+import type { Project, Chapter, Job, Audiobook, SpeakerProfile, Settings, SegmentProgress } from '../types';
 
 // Extracted Components
 import { ProjectHeader } from './project/ProjectHeader';
@@ -15,19 +15,22 @@ import { ConfirmModal } from './ConfirmModal';
 
 // Extracted Hooks
 import { useProjectActions } from '../hooks/useProjectActions';
-import { getDefaultVoiceProfileName } from '../utils/voiceProfiles';
-import { pickRelevantJob } from '../utils/jobSelection';
+import { buildVoiceOptions, getDefaultVoiceProfileName, getVoiceOptionLabel } from '../utils/voiceProfiles';
+import { isChapterScopedJob, isSegmentScopedJob, pickRelevantJob } from '../utils/jobSelection';
 
 interface ProjectViewProps {
   jobs: Record<string, Job>;
+  segmentProgress?: Record<string, SegmentProgress>;
   speakerProfiles: SpeakerProfile[];
   speakers: import('../types').Speaker[];
   settings?: Settings;
   refreshTrigger?: number;
   segmentUpdate?: { chapterId: string; tick: number };
+  chapterUpdate?: { chapterId: string; tick: number };
 }
 
-export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles, speakers, settings, refreshTrigger = 0, segmentUpdate }) => {
+export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, segmentProgress = {}, speakerProfiles, speakers, settings, refreshTrigger = 0, segmentUpdate, chapterUpdate }) => {
+  const RECENT_DONE_WINDOW_SECONDS = 60;
   const { projectId } = useParams() as { projectId: string };
   const navigate = useNavigate();
   
@@ -60,20 +63,18 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
   } | null>(null);
 
   useEffect(() => {
-    if (speakerProfiles.length === 0) return;
-    const voiceStillAvailable = selectedVoice && speakerProfiles.some(p => p.name === selectedVoice);
-    if (voiceStillAvailable) return;
-    if (hasResolvedInitialVoice && selectedVoice === '') return;
+    if (!project || speakerProfiles.length === 0) return;
 
-    const savedDefault = settings?.default_speaker_profile || '';
-    const defaultProfile = (savedDefault && speakerProfiles.some(p => p.name === savedDefault))
-      ? savedDefault
-      : (getDefaultVoiceProfileName(speakerProfiles) || '');
-    if (defaultProfile) {
-      setSelectedVoice(defaultProfile);
+    const projectProfile = project.speaker_profile_name || '';
+    const normalizedProjectProfile = projectProfile && speakerProfiles.some(p => p.name === projectProfile)
+      ? projectProfile
+      : '';
+
+    if (selectedVoice !== normalizedProjectProfile || !hasResolvedInitialVoice) {
+      setSelectedVoice(normalizedProjectProfile);
       setHasResolvedInitialVoice(true);
     }
-  }, [speakerProfiles, selectedVoice, settings?.default_speaker_profile, hasResolvedInitialVoice]);
+  }, [project, speakerProfiles, selectedVoice, settings?.default_speaker_profile, hasResolvedInitialVoice]);
 
   const loadData = async () => {
     try {
@@ -105,6 +106,37 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
 
   useEffect(() => { loadData(); }, [projectId, refreshTrigger]);
 
+  const handleProjectVoiceChange = async (voice: string) => {
+    const previousVoice = selectedVoice;
+    const previousProjectVoice = project?.speaker_profile_name ?? null;
+    setHasResolvedInitialVoice(true);
+    setSelectedVoice(voice);
+    setProject(prev => prev ? { ...prev, speaker_profile_name: voice || null } : prev);
+    try {
+      await api.updateProject(projectId, { speaker_profile_name: voice || null });
+    } catch (e) {
+      console.error(e);
+      setSelectedVoice(previousVoice);
+      setProject(prev => prev ? { ...prev, speaker_profile_name: previousProjectVoice } : prev);
+    }
+  };
+
+  const mergedVoices = buildVoiceOptions(speakerProfiles || [], speakers || []);
+  const effectiveProjectVoice = React.useMemo(() => {
+    if (project?.speaker_profile_name && speakerProfiles.some(p => p.name === project.speaker_profile_name)) {
+      return project.speaker_profile_name;
+    }
+    const savedDefault = settings?.default_speaker_profile || '';
+    if (savedDefault && speakerProfiles.some(p => p.name === savedDefault)) {
+      return savedDefault;
+    }
+    return getDefaultVoiceProfileName(speakerProfiles) || '';
+  }, [project?.speaker_profile_name, settings?.default_speaker_profile, speakerProfiles]);
+  const projectDefaultVoiceLabel = React.useMemo(() => {
+    const fallbackVoiceLabel = getVoiceOptionLabel(effectiveProjectVoice, speakerProfiles, speakers);
+    return fallbackVoiceLabel ? `Default Speaker (${fallbackVoiceLabel})` : 'Default Speaker';
+  }, [effectiveProjectVoice, speakerProfiles, speakers]);
+
   const formatLength = (seconds: number) => {
     if (seconds < 60) return `${Math.round(seconds)}s`;
     const mins = Math.floor(seconds / 60);
@@ -133,40 +165,40 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
   if (!project) return <div style={{ padding: '2rem' }}>Project not found.</div>;
 
   if (editingChapterId) {
-      const chapterJobs = Object.values(jobs).filter(j =>
+      const editingChapter = chapters.find(c => c.id === editingChapterId) || null;
+      const matchingChapterJobs = Object.values(jobs).filter(j =>
         j.project_id === projectId &&
-        (j.chapter_id === editingChapterId || j.chapter_file?.includes(editingChapterId)) &&
+        (j.chapter_id === editingChapterId || j.chapter_file?.includes(editingChapterId))
+      );
+      const chapterRenderJobs = matchingChapterJobs.filter(isChapterScopedJob);
+      const segmentGenerationJobs = matchingChapterJobs.filter(isSegmentScopedJob);
+      const includeDoneForEditor = !!editingChapter
+        && editingChapter.audio_status !== 'processing'
+        && !(editingChapter.has_wav || editingChapter.has_mp3 || editingChapter.has_m4a)
+        && chapterRenderJobs.some(j =>
+          j.status === 'done' &&
+          !!j.finished_at &&
+          ((Date.now() / 1000) - j.finished_at) <= RECENT_DONE_WINDOW_SECONDS
+        );
+      const segmentJobs = segmentGenerationJobs.filter(j =>
         ['queued', 'preparing', 'running', 'finalizing'].includes(j.status)
       );
       const activeIdx = chapters.findIndex(c => c.id === editingChapterId);
       return (
               <ChapterEditor 
                   chapterId={editingChapterId} projectId={projectId} speakerProfiles={speakerProfiles} speakers={speakers}
-                  job={pickLatestJob(j => j.project_id === projectId && (j.chapter_id === editingChapterId || j.chapter_file?.includes(editingChapterId)))}
-                  chapterJobs={chapterJobs}
+                  job={pickRelevantJob(chapterRenderJobs, includeDoneForEditor)}
+                  chapterJobs={segmentJobs}
+                  segmentProgress={segmentProgress}
                   onBack={() => { setEditingChapterId(null); loadData(); }}
-                  selectedVoice={selectedVoice}
+                  selectedVoice={effectiveProjectVoice}
                   onNext={activeIdx < chapters.length - 1 ? () => setEditingChapterId(chapters[activeIdx + 1].id) : undefined}
                   onPrev={activeIdx > 0 ? () => setEditingChapterId(chapters[activeIdx - 1].id) : undefined}
-              segmentUpdate={segmentUpdate}
+                  segmentUpdate={segmentUpdate}
+                  chapterUpdate={chapterUpdate}
           />
       );
   }
-
-  const mergedVoices = [
-    ...(speakers || []).map(speaker => {
-      const matchingProfiles = (speakerProfiles || []).filter(profile => profile.speaker_id === speaker.id);
-      const defaultProfileName =
-        matchingProfiles.find(profile => profile.name === speaker.default_profile_name)?.name ||
-        getDefaultVoiceProfileName(matchingProfiles) ||
-        speaker.default_profile_name ||
-        speaker.name;
-      return { id: speaker.id, name: speaker.name, value: defaultProfileName };
-    }),
-    ...(speakerProfiles || [])
-      .filter(profile => !profile.speaker_id || !speakers.some(speaker => speaker.id === profile.speaker_id))
-      .map(profile => ({ id: `unassigned-${profile.name}`, name: profile.name, value: profile.name })),
-  ];
 
   const totalRuntime = (Array.isArray(chapters) ? chapters : []).reduce((acc, c) => acc + (c.audio_status === 'done' ? (c.audio_length_seconds || c.predicted_audio_length || 0) : 0), 0);
   const totalPredicted = (Array.isArray(chapters) ? chapters : []).reduce((acc, c) => acc + (c.predicted_audio_length || 0), 0);
@@ -202,9 +234,9 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
                         </>
                       ) : (
                         <>
-                          <button onClick={() => handleQueueAllUnprocessed(chapters, jobs, selectedVoice)} className="btn-ghost" style={{ border: '1px solid var(--border)', color: 'var(--accent)', fontSize: '0.85rem' }}><Zap size={16} /> Queue Remaining</button>
-                          <select value={selectedVoice} onChange={e => { setHasResolvedInitialVoice(true); setSelectedVoice(e.target.value); }} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '0.85rem', padding: '0.25rem 0.5rem' }}>
-                              <option value="">Default Speaker</option>
+                          <button onClick={() => handleQueueAllUnprocessed(chapters, jobs, effectiveProjectVoice)} className="btn-ghost" style={{ border: '1px solid var(--border)', color: 'var(--accent)', fontSize: '0.85rem' }}><Zap size={16} /> Queue Remaining</button>
+                          <select value={selectedVoice} onChange={e => { void handleProjectVoiceChange(e.target.value); }} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '0.85rem', padding: '0.25rem 0.5rem' }}>
+                              <option value="">{projectDefaultVoiceLabel}</option>
                               {mergedVoices.map(v => <option key={v.id} value={v.value}>{v.name}</option>)}
                           </select>
                           <button onClick={() => handleReorderChapters([...chapters].sort((a,b) => a.title.localeCompare(b.title, undefined, {numeric: true})))} className="btn-ghost" style={{ border: '1px solid var(--border)', fontSize: '0.85rem' }}><ArrowUpDown size={16} /> Sort A-Z</button>
@@ -221,7 +253,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, speakerProfiles,
                 onReorder={(newOrder) => { setChapters(newOrder); handleReorderChapters(newOrder); }}
                 onEditChapter={setEditingChapterId} 
                 onRenameChapter={async (id, title) => { await api.updateChapter(id, { title }); await loadData(); }}
-                onQueueChapter={chap => { if (chap.char_count > 50000) setConfirmConfig({ title: 'Large Chapter', message: 'Chapter is long. Queue anyway?', onConfirm: () => handleQueueChapter(chap.id, selectedVoice) }); else handleQueueChapter(chap.id, selectedVoice); }}
+                onQueueChapter={chap => { if (chap.char_count > 50000) setConfirmConfig({ title: 'Large Chapter', message: 'Chapter is long. Queue anyway?', onConfirm: () => handleQueueChapter(chap.id, effectiveProjectVoice) }); else handleQueueChapter(chap.id, effectiveProjectVoice); }}
                 onResetAudio={id => setConfirmConfig({ title: 'Reset Audio', message: 'Delete all audio for this chapter?', isDestructive: true, onConfirm: () => handleResetChapterAudio(id) })}
                 onDeleteChapter={id => setConfirmConfig({ title: 'Delete Chapter', message: 'Permanently delete this chapter?', isDestructive: true, onConfirm: () => handleDeleteChapter(id) })}
                 onExportSample={async chap => { setIsExporting(chap.id); const res = await api.exportSample(chap.id, projectId); if (res.url) window.open(res.url, '_blank'); setIsExporting(null); }}

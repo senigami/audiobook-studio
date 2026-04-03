@@ -5,6 +5,7 @@ import { ActionMenu } from '../ActionMenu';
 import { StatusOrb } from '../StatusOrb';
 import { PredictiveProgressBar } from '../PredictiveProgressBar';
 import type { Chapter, Job } from '../../types';
+import { isSegmentScopedJob, shouldShowIndeterminateProgress } from '../../utils/jobSelection';
 
 interface ChapterListProps {
   chapters: Chapter[];
@@ -43,18 +44,25 @@ export const ChapterList: React.FC<ChapterListProps> = ({
   isExporting,
   formatLength
 }) => {
+  const RECENT_COMPLETION_WINDOW_SECONDS = 60;
   const [editingTitleId, setEditingTitleId] = React.useState<string | null>(null);
   const [tempTitle, setTempTitle] = React.useState('');
   const [openMenuRowId, setOpenMenuRowId] = React.useState<string | null>(null);
   const skipBlurSaveId = React.useRef<string | null>(null);
 
-  const pickActiveJob = React.useCallback((chapterId: string) => {
+  const pickActiveJob = React.useCallback((chapterId: string, includeRecentDone = false) => {
     const liveStatuses = new Set(['running', 'preparing', 'finalizing', 'queued']);
+    const now = Date.now() / 1000;
     const relevantJobs = Object.values(jobs).filter(j => j.project_id === projectId && (j.chapter_id === chapterId || (j.chapter_file && j.chapter_file.includes(chapterId))));
     const ranked = relevantJobs
-      .filter(j => liveStatuses.has(j.status))
+      .filter(j => {
+        if (liveStatuses.has(j.status)) return true;
+        if (!includeRecentDone) return false;
+        if (j.status !== 'done' || !j.finished_at || (now - j.finished_at) > RECENT_COMPLETION_WINDOW_SECONDS) return false;
+        return !isSegmentScopedJob(j);
+      })
       .sort((a, b) => {
-        const statusRank: Record<string, number> = { running: 4, finalizing: 3, preparing: 2, queued: 1 };
+        const statusRank: Record<string, number> = { running: 5, finalizing: 4, preparing: 3, queued: 2, done: 1 };
         const aRank = statusRank[a.status] || 0;
         const bRank = statusRank[b.status] || 0;
         if (aRank !== bRank) return bRank - aRank;
@@ -90,10 +98,30 @@ export const ChapterList: React.FC<ChapterListProps> = ({
       
       <Reorder.Group axis="y" values={chapters} onReorder={onReorder} style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column' }}>
         {chapters.map((chap, idx) => {
-          const activeJob = pickActiveJob(chap.id);
-          const progressValue = activeJob ? (activeJob.progress ?? 0) : 0;
-          const isMenuOpen = openMenuRowId === chap.id;
           const hasChapterAudio = !!(chap.has_wav || chap.has_mp3 || chap.has_m4a);
+          const activeJob = pickActiveJob(chap.id, !hasChapterAudio && chap.audio_status !== 'processing');
+          const isRecentDone = activeJob?.status === 'done' && !!activeJob?.finished_at && ((Date.now() / 1000) - activeJob.finished_at) <= RECENT_COMPLETION_WINDOW_SECONDS;
+          const displayStatus = isRecentDone && !hasChapterAudio ? 'finalizing' : activeJob?.status;
+          const renderGroupCount = activeJob?.render_group_count ?? 0;
+          const completedRenderGroups = activeJob?.completed_render_groups ?? 0;
+          const activeRenderGroupIndex = activeJob?.active_render_group_index ?? 0;
+          const totalRenderWeight = activeJob?.total_render_weight ?? 0;
+          const completedRenderWeight = activeJob?.completed_render_weight ?? 0;
+          const activeRenderGroupWeight = activeJob?.active_render_group_weight ?? 0;
+          const activeGroupProgress = activeRenderGroupIndex > completedRenderGroups
+            ? Math.max(0, Math.min(activeJob?.active_segment_progress ?? 0, 1))
+            : 0;
+          const isGroupedChapterJob = !!activeJob && renderGroupCount > 0 && !isSegmentScopedJob(activeJob);
+          const weightedGroupedProgress = totalRenderWeight > 0
+            ? (((completedRenderWeight + (activeRenderGroupWeight * activeGroupProgress)) / totalRenderWeight) * 0.9)
+            : 0;
+          const backendGroupedProgress = activeJob?.grouped_progress ?? 0;
+          const evidenceWeightFraction = totalRenderWeight > 0 ? (activeRenderGroupWeight / totalRenderWeight) : 1;
+          const progressValue = displayStatus === 'finalizing'
+            ? 1
+            : activeJob ? Math.max(activeJob.progress ?? 0, backendGroupedProgress, weightedGroupedProgress) : 0;
+          const showIndeterminateProgress = !!activeJob && shouldShowIndeterminateProgress(activeJob);
+          const isMenuOpen = openMenuRowId === chap.id;
           const isFullyRendered = hasChapterAudio;
           const queueActionLabel = isFullyRendered
             ? 'Rebuild Audio'
@@ -101,13 +129,13 @@ export const ChapterList: React.FC<ChapterListProps> = ({
               ? 'Queue Remaining'
               : 'Queue Chapter';
           const queueStatus = activeJob
-            ? (activeJob.status === 'queued'
+            ? (displayStatus === 'queued'
               ? 'Queued'
-              : activeJob.status === 'preparing'
+              : displayStatus === 'preparing'
                 ? 'Preparing'
-                : activeJob.status === 'running'
+                : displayStatus === 'running'
                   ? 'Rendering'
-                  : activeJob.status === 'finalizing'
+                  : displayStatus === 'finalizing'
                     ? 'Finalizing'
                     : null)
             : chap.audio_status === 'processing'
@@ -197,9 +225,13 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                           progress={progressValue} 
                           startedAt={activeJob.started_at}
                           etaSeconds={activeJob.eta_seconds}
-                          status={activeJob.status}
-                          label={activeJob.status} 
+                          persistenceKey={activeJob.id}
+                          status={displayStatus}
+                          label={displayStatus} 
                           predictive={true}
+                          indeterminateRunning={showIndeterminateProgress}
+                          authoritativeFloor={isGroupedChapterJob}
+                          evidenceWeightFraction={isGroupedChapterJob ? evidenceWeightFraction : 1}
                         />
                     </div>
                 ) : hasChapterAudio && !isAssemblyMode ? (

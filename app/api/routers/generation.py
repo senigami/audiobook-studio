@@ -15,7 +15,7 @@ from ...models import Job
 from ...state import put_job, update_job, get_settings, get_jobs
 from ...config import XTTS_OUT_DIR, find_existing_project_dir, find_existing_project_subdir
 from ...voice_engines import resolve_tts_engine_for_profiles, normalize_tts_engine
-from ..ws import broadcast_queue_update
+from ..ws import broadcast_chapter_updated, broadcast_queue_update
 
 router = APIRouter(prefix="/api", tags=["generation"])
 logger = logging.getLogger(__name__)
@@ -34,6 +34,15 @@ def _voxtral_disabled_error():
         },
         status_code=400,
     )
+
+
+def _single_job_title(chapter_file: str, engine: str) -> str:
+    base_name = Path(chapter_file or "").stem.strip() or Path(chapter_file or "").name.strip() or "Untitled"
+    action = {
+        "voxtral": "Generating Voxtral audio for",
+        "mixed": "Generating mixed audio for",
+    }.get(engine, "Generating audio for")
+    return f"{action} {base_name}"
 
 
 def _resolved_segment_profiles(chapter_id: str, only_segment_ids: Optional[set[str]] = None) -> list[Optional[str]]:
@@ -141,9 +150,14 @@ def api_add_to_queue(
                 active_segment_progress=0.0,
                 project_id=project_id,
                 chapter_id=chapter_id,
+                chapter_file=temp_filename,
+                engine=queue_engine,
+                speaker_profile=active_profile,
+                is_bake=has_bakeable_segments,
                 custom_title=display_title,
             )
             enqueue(j)
+            broadcast_chapter_updated(chapter_id)
             broadcast_queue_update()
 
         return JSONResponse({"status": "ok", "queue_id": qid})
@@ -246,18 +260,21 @@ def cancel_chapter_generation(chapter_id: str):
     for jid, job in jobs.items():
         if job.get("chapter_id") == chapter_id and job.get("status") in ["queued", "running", "preparing"]:
             cancel_job_worker(jid)
+    broadcast_chapter_updated(chapter_id)
     return JSONResponse({"status": "ok"})
 
 @router.post("/generation/enqueue-single")
 def enqueue_single(chapter_file: str = Form(...), engine: str = Form("xtts")):
+    normalized_engine = normalize_tts_engine(engine, engine)
     jid = f"job-{uuid.uuid4().hex[:8]}"
     j = Job(
         id=jid,
         chapter_file=chapter_file,
-        engine=normalize_tts_engine(engine, engine),
+        engine=normalized_engine,
         status="queued",
         created_at=time.time(),
-        speaker_profile=get_settings().get("default_speaker_profile")
+        speaker_profile=get_settings().get("default_speaker_profile"),
+        custom_title=_single_job_title(chapter_file, normalized_engine),
     )
     put_job(j)
     enqueue(j)
@@ -339,11 +356,21 @@ def api_generate_segments(segment_ids: str = Form(...), speaker_profile: Optiona
             except Exception:
                 logger.warning("Failed to remove stale chapter audio file %s", p, exc_info=True)
 
-    # Update chapter status to processing to ensure UI reflects the work
+    # Segment generation invalidates any existing chapter render, but it is not
+    # itself a chapter-level render job. Keep the chapter unprocessed so the top
+    # chapter controls do not enter a fake "working" state.
     with get_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("UPDATE chapters SET audio_status = 'processing', audio_file_path = NULL WHERE id = ?", (chapter_id,))
+        cursor.execute("""
+            UPDATE chapters
+            SET audio_status = 'unprocessed',
+                audio_file_path = NULL,
+                audio_generated_at = NULL,
+                audio_length_seconds = NULL
+            WHERE id = ?
+        """, (chapter_id,))
         conn.commit()
+    broadcast_chapter_updated(chapter_id)
 
     put_job(job)
     update_job(
@@ -357,6 +384,10 @@ def api_generate_segments(segment_ids: str = Form(...), speaker_profile: Optiona
         active_segment_progress=0.0,
         chapter_id=chapter_id,
         project_id=project_id,
+        chapter_file=job.chapter_file,
+        engine=queue_engine,
+        segment_ids=sids,
+        speaker_profile=active_profile,
         custom_title=segment_custom_title,
     )
     enqueue(job)

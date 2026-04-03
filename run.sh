@@ -20,6 +20,18 @@ die() {
   exit 1
 }
 
+ffmpeg_install_help() {
+  cat <<'EOF'
+FFmpeg is required for audio conversion and audiobook assembly.
+
+Install it with your platform package manager or from:
+  https://ffmpeg.org/download.html
+
+Then open a new shell and rerun:
+  ./run.sh
+EOF
+}
+
 usage() {
   cat <<EOF
 Audiobook Studio bootstrap and startup script
@@ -66,9 +78,9 @@ pick_python() {
     if ! command -v "$candidate" >/dev/null 2>&1; then
       continue
     fi
-    if "$candidate" - <<'PY' >/dev/null 2>&1
+    if "$candidate" - <<'PY'
 import sys
-raise SystemExit(0 if sys.version_info >= (3, 11) else 1)
+raise SystemExit(0 if sys.version_info >= (3, 10) else 1)
 PY
     then
       printf '%s\n' "$candidate"
@@ -90,7 +102,7 @@ bootstrap_conda_python() {
     return 1
   fi
 
-  if [[ -x "$python_exe" ]] && "$python_exe" - <<'PY' >/dev/null 2>&1
+  if [[ -x "$python_exe" ]] && "$python_exe" - <<'PY'
 import sys
 raise SystemExit(0 if sys.version_info >= (3, 11) else 1)
 PY
@@ -115,13 +127,19 @@ require_cmd() {
   command -v "$1" >/dev/null 2>&1 || die "Missing required command: $1"
 }
 
+ensure_ffmpeg_ready() {
+  if ! command -v ffmpeg >/dev/null 2>&1; then
+    die "$(ffmpeg_install_help)"
+  fi
+}
+
 xtts_env_has_conflicts() {
   local env_dir="$1"
   local python_exe="$env_dir/bin/python"
 
   [[ -x "$python_exe" ]] || return 1
 
-  "$python_exe" - <<'PY' >/dev/null 2>&1
+  "$python_exe" - <<'PY'
 from importlib import metadata
 
 conflicting_dists = []
@@ -181,9 +199,20 @@ ensure_frontend_ready() {
   local install_stamp="$FRONTEND_DIR/node_modules/.install.stamp"
   local dist_index="$FRONTEND_DIR/dist/index.html"
   local needs_build=0
+  local has_npm=0
+
+  if command -v npm >/dev/null 2>&1; then
+    has_npm=1
+  fi
 
   if [[ ! -d "$FRONTEND_DIR/node_modules" ]] || [[ ! -f "$install_stamp" ]] || ! cmp -s "$lockfile" "$install_stamp"; then
-    require_cmd npm
+    if [[ "$has_npm" -eq 0 ]]; then
+      if [[ -f "$dist_index" ]]; then
+        log "npm is not installed; using the bundled frontend build"
+        return 0
+      fi
+      die "Missing required command: npm"
+    fi
     log "Installing frontend dependencies"
     (
       cd "$FRONTEND_DIR"
@@ -204,7 +233,13 @@ ensure_frontend_ready() {
   fi
 
   if [[ "$needs_build" -eq 1 ]]; then
-    require_cmd npm
+    if [[ "$has_npm" -eq 0 ]]; then
+      if [[ -f "$dist_index" ]]; then
+        log "npm is not installed; using the bundled frontend build instead of rebuilding"
+        return 0
+      fi
+      die "Missing required command: npm"
+    fi
     log "Building frontend"
     (
       cd "$FRONTEND_DIR"
@@ -220,7 +255,7 @@ maybe_restore_demo_bundle() {
 
   [[ -f "$DEMO_ZIP" ]] || return 0
 
-  if ! "$PYTHON_BIN" -m app.demo_bundle status --base-dir "$DIR" >/dev/null 2>&1; then
+  if ! "$PYTHON_BIN" -m app.demo_bundle status --base-dir "$DIR"; then
     return 0
   fi
 
@@ -252,9 +287,10 @@ maybe_restore_demo_bundle() {
 require_cmd bash
 
 PYTHON_BIN="$(pick_python || bootstrap_conda_python)"
-[[ -n "$PYTHON_BIN" ]] || die "Python 3.11+ is required. Please install Python 3.11 or newer, or use Pinokio's AI bundle with conda support."
+[[ -n "$PYTHON_BIN" ]] || die "Python 3.10+ is required. Please install Python 3.10 or newer, or use Pinokio's AI bundle with conda support."
 
 log "Using Python: $PYTHON_BIN"
+ensure_ffmpeg_ready
 sync_python_requirements "$APP_VENV" "$DIR/requirements.txt" "app"
 sync_python_requirements "$XTTS_VENV" "$DIR/requirements-xtts.txt" "XTTS"
 ensure_frontend_ready

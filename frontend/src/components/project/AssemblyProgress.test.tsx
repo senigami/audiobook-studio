@@ -9,6 +9,7 @@ describe('AssemblyProgress', () => {
     name: 'Test Project',
     series: 'Test Series',
     author: 'Test Author',
+    speaker_profile_name: null,
     cover_image_path: null,
     created_at: 123456789,
     updated_at: 123456789,

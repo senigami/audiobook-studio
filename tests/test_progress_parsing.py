@@ -47,9 +47,9 @@ def test_progress_simulation():
         if s.startswith("['") or s.startswith('["'): return None
         if s.endswith("']") or s.endswith('"]'): return None
 
-        # 2. Extract Progress from tqdm if present
+        # 2. Only explicit [PROGRESS] lines should drive render progress.
         progress_match = re.search(r'(\d+)%', s)
-        is_progress_line = progress_match and "|" in s
+        is_progress_line = "[PROGRESS]" in s and progress_match
         if is_progress_line:
             try:
                 p_val = round(int(progress_match.group(1)) / 100.0, 2)
@@ -83,20 +83,20 @@ def test_progress_simulation():
 
         return args
 
-    # Test logic
+    # Generic tqdm lines should not be treated as authoritative chapter progress.
     res1 = simulate_line("Synthesizing: 10%|███       |", elapsed_offset=2)
-    assert res1.get('progress') == 0.10
+    assert res1.get('progress') == 0.02
 
-    # Time prediction catches up, should be 15%
+    # Time prediction may advance locally, but only from elapsed time.
     res2 = simulate_line("", elapsed_offset=15)
     assert res2.get('progress') == 0.15
 
-    # Real progress jumps to 12% (ignored because prediction is higher)
+    # Another generic tqdm line should not replace chapter progress.
     res3 = simulate_line("Synthesizing: 12%|████      |", elapsed_offset=16)
-    assert res3.get('progress') == 0.16 # prediction pushes it to 0.16!
+    assert res3.get('progress') == 0.16
     assert j.progress == 0.16
 
-    # Real progress 20%, prediction is 18%, we jump to 20%
-    res4 = simulate_line("Synthesizing: 20%|██████    |", elapsed_offset=18)
+    # Explicit backend progress lines remain authoritative.
+    res4 = simulate_line("[PROGRESS] 20%", elapsed_offset=18)
     assert res4.get('progress') == 0.20
     assert j.progress == 0.20

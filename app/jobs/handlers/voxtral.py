@@ -1,4 +1,5 @@
 import time
+import logging
 from pathlib import Path
 
 from ...config import XTTS_OUT_DIR, get_project_audio_dir
@@ -6,6 +7,8 @@ from ...engines import wav_to_mp3
 from ...engines_voxtral import VoxtralError, voxtral_generate
 from ...state import update_job
 from ..speaker import get_speaker_settings
+
+logger = logging.getLogger(__name__)
 
 
 def _chapter_text_from_segments(chapter_id: str) -> str:
@@ -85,11 +88,23 @@ def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
 
     spk = get_speaker_settings(j.speaker_profile) if j.speaker_profile else {}
     render_text = text or (_chapter_text_from_segments(j.chapter_id) if j.chapter_id else "")
+    logger.info(
+        "[voxtral-debug %s] start job=%s chapter=%s profile=%s make_mp3=%s out_wav=%s out_mp3=%s text_len=%s",
+        time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
+        jid,
+        j.chapter_id,
+        j.speaker_profile,
+        getattr(j, "make_mp3", False),
+        out_wav,
+        out_mp3,
+        len(render_text),
+    )
     if not render_text.strip():
         update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error="No text was available for Voxtral synthesis.")
         return "failed"
 
     try:
+        logger.info("[voxtral-debug %s] calling voxtral_generate job=%s", time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()), jid)
         rc = voxtral_generate(
             text=render_text,
             out_wav=out_wav,
@@ -100,7 +115,15 @@ def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
             model=spk.get("voxtral_model"),
             reference_sample=spk.get("reference_sample"),
         )
+        logger.info(
+            "[voxtral-debug %s] voxtral_generate returned job=%s rc=%s wav_exists=%s",
+            time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
+            jid,
+            rc,
+            out_wav.exists(),
+        )
     except VoxtralError as exc:
+        logger.info("[voxtral-debug %s] voxtral_generate error job=%s error=%s", time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()), jid, exc)
         update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error=str(exc))
         return "failed"
 
@@ -109,18 +132,52 @@ def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
         return "cancelled"
 
     if rc != 0 or not out_wav.exists():
+        logger.info(
+            "[voxtral-debug %s] synthesis failed job=%s rc=%s wav_exists=%s",
+            time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
+            jid,
+            rc,
+            out_wav.exists(),
+        )
         update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error="Voxtral synthesis failed.")
         return "failed"
 
     if j.make_mp3:
+        logger.info("[voxtral-debug %s] finalizing mp3 job=%s wav=%s", time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()), jid, out_wav)
         update_job(jid, status="finalizing", progress=0.99)
         frc = wav_to_mp3(out_wav, out_mp3, on_output=on_output, cancel_check=cancel_check)
+        logger.info(
+            "[voxtral-debug %s] wav_to_mp3 returned job=%s rc=%s mp3_exists=%s",
+            time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
+            jid,
+            frc,
+            out_mp3.exists(),
+        )
         if frc == 0 and out_mp3.exists():
+            logger.info(
+                "[voxtral-debug %s] marking done job=%s wav=%s mp3=%s",
+                time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
+                jid,
+                out_wav.name,
+                out_mp3.name,
+            )
             update_job(jid, status="done", finished_at=time.time(), progress=1.0, output_wav=out_wav.name, output_mp3=out_mp3.name)
             return "done"
 
+        logger.info(
+            "[voxtral-debug %s] marking done with wav fallback job=%s wav=%s",
+            time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
+            jid,
+            out_wav.name,
+        )
         update_job(jid, status="done", finished_at=time.time(), progress=1.0, output_wav=out_wav.name, error="MP3 conversion failed (using WAV fallback)")
         return "done"
 
+    logger.info(
+        "[voxtral-debug %s] marking done job=%s wav=%s",
+        time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
+        jid,
+        out_wav.name,
+    )
     update_job(jid, status="done", finished_at=time.time(), progress=1.0, output_wav=out_wav.name)
     return "done"

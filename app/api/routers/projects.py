@@ -20,6 +20,7 @@ from ...state import put_job, update_job, get_jobs
 from ...models import Job
 from ...pathing import safe_basename, safe_join, safe_join_flat
 from ...api.utils import SAFE_FILE_RE, preferred_audiobook_download_filename, probe_audiobook_metadata
+from ...constants import DEFAULT_VOICE_SENTINEL
 
 logger = logging.getLogger(__name__)
 
@@ -75,9 +76,11 @@ async def api_create_project(
     name: str = Form(...),
     series: Optional[str] = Form(None),
     author: Optional[str] = Form(None),
+    speaker_profile_name: Optional[str] = Form(None),
     cover: Optional[UploadFile] = File(None)
 ):
-    pid = create_project(name, series, author, None)
+    normalized_profile_name = (speaker_profile_name or "").strip() or None
+    pid = create_project(name, series, author, None, normalized_profile_name)
     if cover:
         cover_path = await _store_project_cover(pid, get_project_dir(pid), cover)
         update_project(pid, cover_image_path=cover_path)
@@ -89,6 +92,7 @@ async def api_update_project(
     name: Optional[str] = Form(None),
     series: Optional[str] = Form(None),
     author: Optional[str] = Form(None),
+    speaker_profile_name: Optional[str] = Form(None),
     cover: Optional[UploadFile] = File(None)
 ):
     p = get_project(project_id)
@@ -99,6 +103,11 @@ async def api_update_project(
     if name is not None: updates["name"] = name
     if series is not None: updates["series"] = series
     if author is not None: updates["author"] = author
+    if speaker_profile_name is not None:
+        normalized_profile_name = (speaker_profile_name.strip() or None)
+        if normalized_profile_name == DEFAULT_VOICE_SENTINEL:
+            normalized_profile_name = None
+        updates["speaker_profile_name"] = normalized_profile_name
 
     if cover:
         project_dir = find_existing_project_dir(project_id) or get_project_dir(project_id)

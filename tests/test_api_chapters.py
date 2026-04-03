@@ -58,6 +58,22 @@ def test_chapter_crud(clean_db, client):
     response = client.put(f"/api/chapters/{cid}", data={"title": "C1 Updated", "text_content": "T1 Updated"})
     assert response.status_code == 200
 
+    response = client.put(f"/api/chapters/{cid}", data={"speaker_profile_name": "XTTS Voice"})
+    assert response.status_code == 200
+    assert response.json()["chapter"]["speaker_profile_name"] == "XTTS Voice"
+
+    response = client.get(f"/api/chapters/{cid}")
+    assert response.status_code == 200
+    assert response.json()["speaker_profile_name"] == "XTTS Voice"
+
+    response = client.put(f"/api/chapters/{cid}", data={"speaker_profile_name": "__USE_DEFAULT__"})
+    assert response.status_code == 200
+    assert response.json()["chapter"]["speaker_profile_name"] is None
+
+    response = client.get(f"/api/chapters/{cid}")
+    assert response.status_code == 200
+    assert response.json()["speaker_profile_name"] is None
+
     # Delete chapter
     response = client.delete(f"/api/chapters/{cid}")
     assert response.status_code == 200

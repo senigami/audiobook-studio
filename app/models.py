@@ -43,3 +43,10 @@ class Job:
     is_bake: bool = False
     active_segment_id: Optional[str] = None
     active_segment_progress: float = 0.0
+    render_group_count: int = 0
+    completed_render_groups: int = 0
+    active_render_group_index: int = 0
+    total_render_weight: int = 0
+    completed_render_weight: int = 0
+    active_render_group_weight: int = 0
+    grouped_progress: float = 0.0

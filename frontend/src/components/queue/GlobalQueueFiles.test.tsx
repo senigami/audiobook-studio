@@ -7,12 +7,20 @@ vi.mock('../PredictiveProgressBar', () => ({
     progress,
     predictive,
     startedAt,
-    etaSeconds
+    etaSeconds,
+    indeterminateRunning,
+    status,
+    authoritativeFloor,
+    evidenceWeightFraction
   }: {
     progress: number;
     predictive?: boolean;
     startedAt?: number;
     etaSeconds?: number;
+    indeterminateRunning?: boolean;
+    status?: string;
+    authoritativeFloor?: boolean;
+    evidenceWeightFraction?: number;
   }) => (
     <div
       data-testid="progress-bar"
@@ -20,6 +28,10 @@ vi.mock('../PredictiveProgressBar', () => ({
       data-predictive={String(!!predictive)}
       data-started-at={startedAt ?? ''}
       data-eta-seconds={etaSeconds ?? ''}
+      data-indeterminate-running={String(!!indeterminateRunning)}
+      data-status={status ?? ''}
+      data-authoritative-floor={String(!!authoritativeFloor)}
+      data-evidence-weight-fraction={evidenceWeightFraction ?? ''}
     />
   )
 }));
@@ -91,7 +103,7 @@ describe('Global Queue Components', () => {
             expect(screen.getByText('Test Project • Part 3')).toBeInTheDocument();
         });
 
-        it('passes live job timing data to the predictive progress bar', () => {
+        it('passes live job timing data through and enables local predictive animation for xtts queue jobs', () => {
             render(
                 <QueueItem 
                     job={{ ...mockJob, progress: 0.15 } as any}
@@ -107,6 +119,129 @@ describe('Global Queue Components', () => {
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'true');
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-started-at', '1000');
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-eta-seconds', '30');
+        });
+
+        it('uses indeterminate working state for voxtral jobs while keeping predictive mode enabled', () => {
+            render(
+                <QueueItem
+                    job={{ ...mockJob, engine: 'voxtral', status: 'running', progress: 0 } as any}
+                    liveJob={{ id: 'job-1', engine: 'voxtral', status: 'running', progress: 0, started_at: 1000, eta_seconds: 30 } as any}
+                    localPaused={false}
+                    formatJobTitle={(j) => `Title for ${j.id}`}
+                    formatTime={(t) => `Time ${t}`}
+                    onRemove={vi.fn()}
+                />
+            );
+
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'true');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-indeterminate-running', 'true');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-status', 'running');
+        });
+
+        it('uses live segment progress for running voice build jobs', () => {
+            render(
+                <QueueItem
+                    job={{ ...mockJob, engine: 'voice_build', status: 'running', progress: 0.2 } as any}
+                    liveJob={{
+                        id: 'job-1',
+                        engine: 'voice_build',
+                        status: 'running',
+                        progress: 0.4,
+                        active_segment_progress: 0.66,
+                        started_at: 1000,
+                        eta_seconds: 30,
+                    } as any}
+                    localPaused={false}
+                    formatJobTitle={(j) => `Title for ${j.id}`}
+                    formatTime={(t) => `Time ${t}`}
+                    onRemove={vi.fn()}
+                />
+            );
+
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.66');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'true');
+        });
+
+        it('keeps voice build progress moving when overall job progress is ahead of sparse segment updates', () => {
+            render(
+                <QueueItem
+                    job={{ ...mockJob, engine: 'voice_build', status: 'running', progress: 0.4 } as any}
+                    liveJob={{
+                        id: 'job-1',
+                        engine: 'voice_build',
+                        status: 'running',
+                        progress: 0.72,
+                        active_segment_progress: 0.66,
+                        started_at: 1000,
+                        eta_seconds: 30,
+                    } as any}
+                    localPaused={false}
+                    formatJobTitle={(j) => `Title for ${j.id}`}
+                    formatTime={(t) => `Time ${t}`}
+                    onRemove={vi.fn()}
+                />
+            );
+
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.72');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'true');
+        });
+
+        it('keeps chapter jobs on overall progress even when segment progress is present', () => {
+            render(
+                <QueueItem
+                    job={{ ...mockJob, engine: 'xtts', status: 'running', progress: 0.52 } as any}
+                    liveJob={{
+                        id: 'job-1',
+                        engine: 'xtts',
+                        status: 'running',
+                        progress: 0.52,
+                        active_segment_progress: 0.75,
+                        started_at: 1000,
+                        eta_seconds: 30,
+                    } as any}
+                    localPaused={false}
+                    formatJobTitle={(j) => `Title for ${j.id}`}
+                    formatTime={(t) => `Time ${t}`}
+                    onRemove={vi.fn()}
+                />
+            );
+
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.52');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'true');
+        });
+
+        it('uses render group metadata for mixed chapter queue progress without leaving preparing early', () => {
+            render(
+                <QueueItem
+                    job={{ ...mockJob, engine: 'mixed', status: 'preparing', progress: 0 } as any}
+                    liveJob={{
+                        id: 'job-1',
+                        engine: 'mixed',
+                        status: 'preparing',
+                        progress: 0.3,
+                        active_segment_progress: 0.75,
+                        render_group_count: 3,
+                        completed_render_groups: 1,
+                        active_render_group_index: 2,
+                        total_render_weight: 1000,
+                        completed_render_weight: 500,
+                        active_render_group_weight: 400,
+                        started_at: 1000,
+                        eta_seconds: 30,
+                    } as any}
+                    localPaused={false}
+                    formatJobTitle={(j) => `Title for ${j.id}`}
+                    formatTime={(t) => `Time ${t}`}
+                    onRemove={vi.fn()}
+                />
+            );
+
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-status', 'preparing');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-authoritative-floor', 'true');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-evidence-weight-fraction', '0.4');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-started-at', '');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-eta-seconds', '');
         });
 
         it('shows pause icon when paused', () => {

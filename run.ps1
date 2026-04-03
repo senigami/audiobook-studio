@@ -19,7 +19,65 @@ function Write-Step($Message) {
 }
 
 function Fail($Message) {
-    throw $Message
+    Write-Host ""
+    if ($Message -is [System.Array]) {
+        $lines = @($Message | ForEach-Object { [string]$_ })
+        if ($lines.Count -gt 0) {
+            Write-Host "Error: $($lines[0])" -ForegroundColor Red
+            foreach ($line in $lines[1..($lines.Count - 1)]) {
+                if ($line -ne "") {
+                    Write-Host $line -ForegroundColor Red
+                } else {
+                    Write-Host ""
+                }
+            }
+        } else {
+            Write-Host "Error" -ForegroundColor Red
+        }
+    } else {
+        Write-Host "Error: $Message" -ForegroundColor Red
+    }
+    exit 1
+}
+
+function Get-NodeInstallHelp() {
+    $lines = @("Node.js 18+ and npm are required on a fresh clone because the frontend must be built.", "")
+
+    if (Get-Command "winget" -ErrorAction SilentlyContinue) {
+        $lines += "Install it with:"
+        $lines += "  winget install -e --id OpenJS.NodeJS.LTS"
+    } else {
+        $lines += "Install Node.js LTS from:"
+        $lines += "  https://nodejs.org/"
+    }
+
+    $lines += ""
+    $lines += "After installing Node.js:"
+    $lines += "  1. Close this PowerShell window"
+    $lines += "  2. Open a new PowerShell window"
+    $lines += "  3. Rerun:"
+    $lines += "     powershell -ExecutionPolicy Bypass -File .\run.ps1"
+    return $lines
+}
+
+function Get-FfmpegInstallHelp() {
+    $lines = @("FFmpeg is required for audio conversion and audiobook assembly.", "")
+
+    if (Get-Command "winget" -ErrorAction SilentlyContinue) {
+        $lines += "Install it with:"
+        $lines += "  winget install -e --id Gyan.FFmpeg"
+    } else {
+        $lines += "Install FFmpeg from:"
+        $lines += "  https://ffmpeg.org/download.html"
+    }
+
+    $lines += ""
+    $lines += "After installing FFmpeg:"
+    $lines += "  1. Close this PowerShell window"
+    $lines += "  2. Open a new PowerShell window"
+    $lines += "  3. Rerun:"
+    $lines += "     powershell -ExecutionPolicy Bypass -File .\run.ps1"
+    return $lines
 }
 
 function Remove-BootstrapPythonEnv {
@@ -30,7 +88,7 @@ function Remove-BootstrapPythonEnv {
 
 function Test-PythonVersion($Command, [string[]]$Prefix = @()) {
     try {
-        $versionOutput = & $Command @($Prefix + @("-c", "import sys; print(f'{sys.version_info[0]}.{sys.version_info[1]}')")) 2>$null
+        $versionOutput = & $Command @($Prefix + @("-c", "import sys; print(f'{sys.version_info[0]}.{sys.version_info[1]}')"))
         if ($LASTEXITCODE -ne 0 -or -not $versionOutput) {
             return $false
         }
@@ -43,17 +101,81 @@ function Test-PythonVersion($Command, [string[]]$Prefix = @()) {
         if (-not [version]::TryParse($versionText, [ref]$parsedVersion)) {
             return $false
         }
-        return $parsedVersion -ge [version]"3.11"
+        return $parsedVersion -ge [version]"3.10"
     } catch {
         return $false
     }
 }
 
+function Get-WindowsPythonCandidates {
+    $candidates = @()
+    $roots = @(
+        $env:LOCALAPPDATA,
+        $env:ProgramFiles,
+        ${env:ProgramFiles(x86)}
+    ) | Where-Object { $_ }
+
+    foreach ($root in $roots) {
+        $pythonBase = Join-Path $root "Programs/Python"
+        if (Test-Path $pythonBase) {
+            $candidates += Get-ChildItem $pythonBase -Directory -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -match '^Python3\d+$' } |
+                Sort-Object Name -Descending |
+                ForEach-Object { Join-Path $_.FullName "python.exe" }
+        }
+
+        $candidates += @(
+            (Join-Path $root "Python313/python.exe"),
+            (Join-Path $root "Python312/python.exe"),
+            (Join-Path $root "Python311/python.exe")
+        )
+    }
+
+    return $candidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -Unique
+}
+
+function Get-PyLauncherCandidates {
+    if (-not (Get-Command "py" -ErrorAction SilentlyContinue)) {
+        return @()
+    }
+
+    $paths = @()
+    try {
+        $launcherOutput = & py -0p
+        if ($LASTEXITCODE -ne 0 -or -not $launcherOutput) {
+            return @()
+        }
+
+        foreach ($line in $launcherOutput) {
+            $text = [string]$line
+            if (-not $text) {
+                continue
+            }
+            if ($text -match '([A-Za-z]:\\[^*\r\n]+python(?:\.exe)?)') {
+                $candidate = $Matches[1].Trim()
+                if ($candidate) {
+                    $paths += $candidate
+                }
+            }
+        }
+    } catch {
+        return @()
+    }
+
+    return $paths | Where-Object { $_ -and (Test-Path $_) } | Select-Object -Unique
+}
+
 function Find-Python {
     $candidates = @(
+        @{ Command = "py"; Prefix = @("-3.13") },
+        @{ Command = "py"; Prefix = @("-3.12") },
         @{ Command = "py"; Prefix = @("-3.11") },
+        @{ Command = "py"; Prefix = @("-3.10") },
+        @{ Command = "py"; Prefix = @("-3") },
+        @{ Command = "py"; Prefix = @() },
         @{ Command = "python"; Prefix = @() },
         @{ Command = "python3.11"; Prefix = @() },
+        @{ Command = "python3.10"; Prefix = @() },
         @{ Command = "python3"; Prefix = @() }
     )
 
@@ -63,6 +185,18 @@ function Find-Python {
         }
         if (Test-PythonVersion $candidate.Command $candidate.Prefix) {
             return $candidate
+        }
+    }
+
+    foreach ($pythonExe in Get-PyLauncherCandidates) {
+        if (Test-PythonVersion $pythonExe) {
+            return @{ Command = $pythonExe; Prefix = @() }
+        }
+    }
+
+    foreach ($pythonExe in Get-WindowsPythonCandidates) {
+        if (Test-PythonVersion $pythonExe) {
+            return @{ Command = $pythonExe; Prefix = @() }
         }
     }
 
@@ -104,11 +238,13 @@ function Get-CondaBootstrapPython {
         & $condaExe create -y -p $BootstrapPythonEnv python=3.11 pip
     } catch {
         Remove-BootstrapPythonEnv
-        Fail "Failed to provision Python 3.11 with conda. Please install Python 3.11+ or reset the Pinokio app and try again."
+        Write-Warning "Failed to provision Python 3.11 with conda; falling back to standard Python discovery."
+        return $null
     }
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path $pythonExe)) {
         Remove-BootstrapPythonEnv
-        Fail "Failed to provision Python 3.11 with conda. Please install Python 3.11+ or reset the Pinokio app and try again."
+        Write-Warning "Failed to provision Python 3.11 with conda; falling back to standard Python discovery."
+        return $null
     }
 
     return @{ Command = $pythonExe; Prefix = @() }
@@ -131,6 +267,12 @@ function Invoke-Python($PythonInfo, [string[]]$PythonArgs) {
 function Require-Command($Name) {
     if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
         Fail "Missing required command: $Name"
+    }
+}
+
+function Ensure-FfmpegReady() {
+    if (-not (Get-Command "ffmpeg" -ErrorAction SilentlyContinue)) {
+        Fail (Get-FfmpegInstallHelp)
     }
 }
 
@@ -161,7 +303,7 @@ for dist_name in ("coqpit",):
         conflicting_dists.append(dist_name)
 
 raise SystemExit(0 if conflicting_dists else 1)
-'@ 2>$null
+'@
     } catch {
         Write-Warning ("XTTS conflict probe failed for {0}: {1}" -f $EnvDir, $_.Exception.Message)
         return $false
@@ -202,9 +344,16 @@ function Ensure-FrontendReady() {
     $InstallStamp = Join-Path $NodeModules ".install.stamp"
     $DistIndex = Join-Path $FrontendDir "dist/index.html"
     $NeedsBuild = $false
+    $HasNpm = [bool](Get-Command "npm" -ErrorAction SilentlyContinue)
 
     if (-not (Test-Path $NodeModules) -or -not (Test-SameFileContent $Lockfile $InstallStamp)) {
-        Require-Command "npm"
+        if (-not $HasNpm) {
+            if (Test-Path $DistIndex) {
+                Write-Warning "npm is not installed; using the bundled frontend build."
+                return
+            }
+            Fail (Get-NodeInstallHelp)
+        }
         Write-Step "Installing frontend dependencies"
         Push-Location $FrontendDir
         try {
@@ -244,7 +393,13 @@ function Ensure-FrontendReady() {
     }
 
     if ($NeedsBuild) {
-        Require-Command "npm"
+        if (-not $HasNpm) {
+            if (Test-Path $DistIndex) {
+                Write-Warning "npm is not installed; using the bundled frontend build instead of rebuilding."
+                return
+            }
+            Fail (Get-NodeInstallHelp)
+        }
         Write-Step "Building frontend"
         Push-Location $FrontendDir
         try {
@@ -263,7 +418,7 @@ function Maybe-RestoreDemoBundle($PythonInfo) {
         return
     }
 
-    & $PythonInfo.Command @($PythonInfo.Prefix + @("-m", "app.demo_bundle", "status", "--base-dir", $Root)) *> $null
+    & $PythonInfo.Command @($PythonInfo.Prefix + @("-m", "app.demo_bundle", "status", "--base-dir", $Root))
     if ($LASTEXITCODE -ne 0) {
         return
     }
@@ -300,10 +455,11 @@ if (-not $PythonInfo) {
     $PythonInfo = Get-CondaBootstrapPython
 }
 if (-not $PythonInfo) {
-    Fail "Python 3.11+ is required. Please install Python 3.11 or newer, or use Pinokio's AI bundle with conda support."
+    Fail "Python 3.10+ is required. Please install Python 3.10 or newer, or use Pinokio's AI bundle with conda support."
 }
 
 Write-Step "Using Python: $($PythonInfo.Command)"
+Ensure-FfmpegReady
 Sync-PythonRequirements $PythonInfo $AppVenv (Join-Path $Root "requirements.txt") "app"
 Sync-PythonRequirements $PythonInfo $XttsVenv (Join-Path $Root "requirements-xtts.txt") "XTTS"
 Ensure-FrontendReady

@@ -16,6 +16,7 @@ function App() {
   const navigate = useNavigate();
   const [queueCount, setQueueCount] = useState(0);
   const [queueRefreshTrigger, setQueueRefreshTrigger] = useState(0);
+  const [chapterUpdate, setChapterUpdate] = useState<{ chapterId: string; tick: number }>({ chapterId: '', tick: 0 });
 
   const fetchQueueCount = async () => {
     try {
@@ -28,11 +29,12 @@ function App() {
 
   const [segmentUpdate, setSegmentUpdate] = useState<{ chapterId: string; tick: number }>({ chapterId: '', tick: 0 });
   const { data: initialData, loading: initialLoading, refetch: refetchHome } = useInitialData();
-  const { jobs, refreshJobs, testProgress } = useJobs(
+  const { jobs, refreshJobs, testProgress, segmentProgress } = useJobs(
     () => { refetchHome(); setQueueRefreshTrigger(prev => prev + 1); }, 
     () => { fetchQueueCount(); setQueueRefreshTrigger(prev => prev + 1); }, 
     () => refetchHome(),
-    (chapterId: string) => { setSegmentUpdate(prev => ({ chapterId, tick: prev.tick + 1 })); }
+    (chapterId: string) => { setSegmentUpdate(prev => ({ chapterId, tick: prev.tick + 1 })); },
+    (chapterId: string) => { setChapterUpdate(prev => ({ chapterId, tick: prev.tick + 1 })); }
   );
   
   const [previewFilename, setPreviewFilename] = useState<string | null>(null);
@@ -90,11 +92,13 @@ function App() {
               <Route path="/project/:projectId" element={
                 <ProjectView 
                   jobs={jobs}
+                  segmentProgress={segmentProgress}
                   speakerProfiles={initialData?.speaker_profiles || []}
                   speakers={initialData?.speakers || []}
                   settings={initialData?.settings}
                   refreshTrigger={queueRefreshTrigger}
                   segmentUpdate={segmentUpdate}
+                  chapterUpdate={chapterUpdate}
                 />
               } />
               <Route path="/queue" element={

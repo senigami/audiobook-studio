@@ -8,6 +8,7 @@ export interface Project {
   name: string;
   series: string | null;
   author: string | null;
+  speaker_profile_name: string | null;
   cover_image_path: string | null;
   created_at: number;
   updated_at: number;
@@ -40,6 +41,7 @@ export interface Chapter {
   project_id: string;
   title: string;
   text_content: string;
+  speaker_profile_name: string | null;
   sort_order: number;
   audio_status: 'unprocessed' | 'processing' | 'done' | 'error' | 'failed' | 'cancelled';
   audio_file_path: string | null;
@@ -75,6 +77,10 @@ export interface ProcessingQueueItem {
   predicted_audio_length?: number;
   char_count?: number;
   engine?: Engine;
+  segment_ids?: string[];
+  grouped_progress?: number;
+  chapter_audio_status?: Chapter['audio_status'];
+  chapter_audio_file_path?: string | null;
 }
 
 export interface SpeakerProfile {
@@ -130,6 +136,20 @@ export interface Job {
   segment_ids?: string[];
   active_segment_id?: string | null;
   active_segment_progress?: number;
+  render_group_count?: number;
+  completed_render_groups?: number;
+  active_render_group_index?: number;
+  total_render_weight?: number;
+  completed_render_weight?: number;
+  active_render_group_weight?: number;
+  grouped_progress?: number;
+}
+
+export interface SegmentProgress {
+  job_id: string;
+  chapter_id?: string;
+  segment_id: string;
+  progress: number;
 }
 
 export interface Settings {

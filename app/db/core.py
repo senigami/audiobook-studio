@@ -3,6 +3,7 @@ import os
 import logging
 import threading
 import sys
+import tempfile
 from pathlib import Path
 
 # Use a connection pool or a single connection with a lock
@@ -19,6 +20,10 @@ def _running_under_test() -> bool:
     )
 
 
+def get_db_path() -> Path:
+    return Path(os.getenv("DB_PATH", os.fspath(DB_PATH)))
+
+
 def _assert_safe_db_path_for_tests(db_path: Path) -> None:
     if not _running_under_test():
         return
@@ -27,14 +32,34 @@ def _assert_safe_db_path_for_tests(db_path: Path) -> None:
     if "test" in db_name:
         return
 
+    try:
+        raw_db_path = db_path.expanduser()
+        resolved_db_path = raw_db_path.resolve()
+        raw_temp_root = Path(tempfile.gettempdir())
+        resolved_temp_root = raw_temp_root.resolve()
+        raw_db_path_str = os.path.abspath(os.fspath(raw_db_path))
+        raw_temp_root_str = os.path.abspath(os.fspath(raw_temp_root))
+        if (
+            raw_db_path_str.startswith("/tmp/")
+            or raw_db_path_str == "/tmp"
+            or raw_db_path_str.startswith(raw_temp_root_str + os.sep)
+            or raw_db_path_str == raw_temp_root_str
+            or raw_temp_root in raw_db_path.parents
+            or resolved_temp_root in resolved_db_path.parents
+        ):
+            return
+    except Exception:
+        logger.debug("Failed to normalize DB path while validating test DB safety", exc_info=True)
+
     raise RuntimeError(
         f"Refusing to use non-test DB path while running tests: {db_path}. "
         "Set DB_PATH to a test-specific database filename."
     )
 
 def get_connection():
-    _assert_safe_db_path_for_tests(DB_PATH)
-    conn = sqlite3.connect(DB_PATH)
+    db_path = get_db_path()
+    _assert_safe_db_path_for_tests(db_path)
+    conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -51,6 +76,7 @@ def init_db():
                     name TEXT NOT NULL,
                     series TEXT,
                     author TEXT,
+                    speaker_profile_name TEXT,
                     cover_image_path TEXT,
                     created_at REAL,
                     updated_at REAL
@@ -64,6 +90,7 @@ def init_db():
                     project_id TEXT NOT NULL,
                     title TEXT NOT NULL,
                     text_content TEXT,
+                    speaker_profile_name TEXT,
                     sort_order INTEGER,
                     audio_status TEXT DEFAULT 'unprocessed',
                     audio_file_path TEXT,
@@ -144,6 +171,8 @@ def init_db():
                         logger.warning("Failed to apply %s migration", label, exc_info=True)
 
             add_column_if_missing("ALTER TABLE chapter_segments ADD COLUMN speaker_profile_name TEXT", "chapter_segments.speaker_profile_name")
+            add_column_if_missing("ALTER TABLE chapters ADD COLUMN speaker_profile_name TEXT", "chapters.speaker_profile_name")
+            add_column_if_missing("ALTER TABLE projects ADD COLUMN speaker_profile_name TEXT", "projects.speaker_profile_name")
             add_column_if_missing("ALTER TABLE chapter_segments ADD COLUMN sanitized_text TEXT", "chapter_segments.sanitized_text")
             add_column_if_missing("ALTER TABLE processing_queue ADD COLUMN started_at REAL", "processing_queue.started_at")
             add_column_if_missing("ALTER TABLE processing_queue ADD COLUMN completed_at REAL", "processing_queue.completed_at")

@@ -60,6 +60,7 @@ def test_speaker_helpers_resolve_uuid_profile(tmp_path):
     voices_dir = tmp_path / "voices"
     profile_dir = voices_dir / "v2"
     profile_dir.mkdir(parents=True)
+    (profile_dir / "voice.wav").write_text("audio")
     (profile_dir / "sample.wav").write_text("audio")
 
     with patch("app.db.get_speaker", return_value={"default_profile_name": "v2"}) as mock_get_speaker, \
@@ -68,7 +69,8 @@ def test_speaker_helpers_resolve_uuid_profile(tmp_path):
         result = get_speaker_wavs("123e4567-e89b-12d3-a456-426614174000")
 
     assert result is not None
-    assert "sample.wav" in result
+    assert "voice.wav" in result
+    assert "sample.wav" not in result
     mock_get_speaker.assert_called_once_with("123e4567-e89b-12d3-a456-426614174000")
 
 

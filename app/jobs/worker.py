@@ -25,6 +25,62 @@ from ..engines_voxtral import VoxtralError, voxtral_generate
 
 logger = logging.getLogger(__name__)
 
+
+def _calculate_group_resume_state(job) -> tuple[float, int, int]:
+    if not getattr(job, "chapter_id", None):
+        return 0.0, 0, 0
+
+    try:
+        from ..chunk_groups import build_chunk_groups, load_chunk_segments
+
+        groups = build_chunk_groups(load_chunk_segments(job.chapter_id), job.speaker_profile)
+        if not groups:
+            return 0.0, 0, 0
+
+        completed_groups = 0
+        for group in groups:
+            segments = group.get("segments", [])
+            if not segments:
+                continue
+            if all(segment.get("audio_status") == "done" and segment.get("audio_file_path") for segment in segments):
+                completed_groups += 1
+
+        return round(completed_groups / len(groups), 2), completed_groups, len(groups)
+    except Exception:
+        logger.error("Failed to get grouped chapter progress for resume initialization", exc_info=True)
+        return 0.0, 0, 0
+
+
+def _calculate_group_resume_progress(job) -> float:
+    progress, _, _ = _calculate_group_resume_state(job)
+    return progress
+
+
+def _broadcast_segment_progress(j, jid: str, progress: float):
+    segment_id = getattr(j, "active_segment_id", None)
+    if not segment_id:
+        return
+    try:
+        from ..api.ws import broadcast_segment_progress
+        broadcast_segment_progress(jid, getattr(j, "chapter_id", None), segment_id, progress)
+    except Exception:
+        logger.debug("Failed to broadcast segment progress for %s", jid, exc_info=True)
+
+
+def _should_stream_predicted_progress(engine: str | None) -> bool:
+    return engine == "audiobook"
+
+
+def _looks_like_external_download_progress(line: str, lowered: str | None = None) -> bool:
+    lowered = lowered or line.lower()
+    if "%|" not in line or ":" not in line:
+        return False
+    if "[progress]" in lowered or "synthesizing" in lowered:
+        return False
+    if any(token in lowered for token in ["downloading (", "fetching ", "converting "]):
+        return True
+    return bool(re.search(r"[a-z0-9._-]+\.(json|txt|bin|pth|pt|ckpt|onnx|safetensors)(?:\.[a-z0-9]+)*:", lowered))
+
 def _mark_queue_failed(jid: str, error_message: str | None = None):
     try:
         from ..db import update_queue_item
@@ -37,6 +93,23 @@ def _mark_queue_failed(jid: str, error_message: str | None = None):
             update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error=error_message)
         except Exception as e:
             logger.warning("Could not update failed job state for %s: %s", jid, e, exc_info=True)
+
+def _maybe_autotune_xtts_cps(job, start: float, chars: int, perf: dict):
+    if getattr(job, "is_bake", False):
+        return
+    if chars <= 0:
+        return
+    if getattr(job, "engine", None) not in ("xtts", "mixed"):
+        return
+
+    eff_start = getattr(job, "synthesis_started_at", None) or start
+    dur = time.time() - eff_start
+    if dur <= 0:
+        return
+
+    new_cps = chars / dur
+    updated = (perf.get("xtts_cps", BASELINE_XTTS_CPS) * 0.8) + (new_cps * 0.2)
+    update_performance_metrics(xtts_cps=updated)
 
 def worker_loop(q):
     while True:
@@ -55,8 +128,18 @@ def worker_loop(q):
             chars = 0
             eta = 0
             text = None
+            voice_job_settings = None
 
-            if j.engine not in ("audiobook", "voice_build", "voice_test"):
+            if j.engine in ("voice_build", "voice_test"):
+                voice_job_settings = get_speaker_settings(j.speaker_profile)
+                chars = len((voice_job_settings.get("test_text") or "").strip())
+                if chars > 0 and voice_job_settings.get("engine", "xtts") == "xtts":
+                    perf = get_performance_metrics()
+                    cps = perf.get("xtts_cps", BASELINE_XTTS_CPS)
+                    eta = _estimate_seconds(chars, cps)
+                else:
+                    eta = max(15, eta)
+            elif j.engine != "audiobook":
                 if j.segment_ids:
                     from ..db import get_connection
                     with get_connection() as conn:
@@ -121,25 +204,34 @@ def worker_loop(q):
 
             # Accurate Resumption: Initialize progress from DB if resuming
             initial_progress = 0.0
-            if j.chapter_id:
-                try:
-                    from ..db.chapters import get_chapter_segments_counts
-                    done_c, total_c = get_chapter_segments_counts(j.chapter_id)
-                    if total_c > 0:
-                        initial_progress = round(done_c / total_c, 2)
-                except Exception:
-                    logger.error("Failed to get chapter segment counts for progress initialization", exc_info=True)
+            completed_render_groups = 0
+            render_group_count = 0
+            if j.chapter_id and j.engine != "voxtral" and not j.segment_ids:
+                initial_progress, completed_render_groups, render_group_count = _calculate_group_resume_state(j)
 
             # ETA Fix: Adjust started_at to account for past work
             adjusted_start = initial_start - (initial_progress * eta) if (eta > 0 and initial_progress > 0) else initial_start
 
             # Only send started_at if we are actually resuming (p > 0)
-            update_job(jid, status=initial_status, started_at=adjusted_start if initial_progress > 0 else None, eta_seconds=eta, progress=initial_progress)
+            update_job(
+                jid,
+                status=initial_status,
+                started_at=adjusted_start if initial_progress > 0 else None,
+                eta_seconds=eta,
+                progress=initial_progress,
+                completed_render_groups=completed_render_groups,
+                render_group_count=render_group_count,
+                active_render_group_index=0,
+            )
 
             j.status = initial_status
             j.progress = initial_progress
             j.started_at = adjusted_start
             j._last_broadcast_p = initial_progress
+            j._synthesis_started_once = False
+            j.completed_render_groups = completed_render_groups
+            j.render_group_count = render_group_count
+            j.active_render_group_index = 0
 
             # Skip output check if we are doing a segment rebuild or a bake, to ensure we don't skip due to a stale full-chapter wav
             # Never skip voice_build/voice_test — they must always run synthesis
@@ -154,34 +246,47 @@ def worker_loop(q):
             start = adjusted_start
 
             def on_output(line):
+                raw_line = line
                 s = line.strip()
                 now = time.time()
                 new_progress = None
                 lowered = s.lower() if s else ""
+                is_download_progress = _looks_like_external_download_progress(s, lowered) if s else False
 
                 def log_terminal(message: str):
-                    logger.info("Job %s: %s", jid, message)
+                    return None
 
                 if not s:
-                    prog = calculate_predicted_progress(j, now, j.started_at, eta, limit=PROGRESS_STITCH_LIMIT, prepare_limit=PROGRESS_PREPARE_LIMIT, prepare_step=PROGRESS_PREPARE_STEP)
-                    last_b = getattr(j, '_last_broadcast_time', 0)
-                    last_p = getattr(j, '_last_broadcast_p', 0.0)
-                    if (prog - last_p >= 0.01) or (now - last_b >= 30.0):
-                        prog = round(prog, 2)
-                        j.progress = prog
-                        j._last_broadcast_time = now
-                        j._last_broadcast_p = prog
-                        update_job(jid, progress=prog)
+                    if _should_stream_predicted_progress(getattr(j, "engine", None)):
+                        prog = calculate_predicted_progress(j, now, j.started_at, eta, limit=PROGRESS_STITCH_LIMIT, prepare_limit=PROGRESS_PREPARE_LIMIT, prepare_step=PROGRESS_PREPARE_STEP)
+                        last_b = getattr(j, '_last_broadcast_time', 0)
+                        last_p = getattr(j, '_last_broadcast_p', 0.0)
+                        if (prog - last_p >= 0.01) or (now - last_b >= 30.0):
+                            prog = round(prog, 2)
+                            j.progress = prog
+                            j._last_broadcast_time = now
+                            j._last_broadcast_p = prog
+                            update_job(jid, progress=prog)
                     return
 
                 if "[START_SYNTHESIS]" in s:
-                    log_terminal("Synthesis started")
+                    if getattr(j, "_synthesis_started_once", False):
+                        return
+
+                    previous_progress = getattr(j, "progress", 0.0) or 0.0
+                    previous_started_at = getattr(j, "started_at", None)
+                    j._synthesis_started_once = True
                     j.synthesis_started_at = now
                     j.status = "running"
-                    prog = max(j.progress, PROGRESS_PREPARE_LIMIT)
+                    prog = max(previous_progress, PROGRESS_PREPARE_LIMIT)
                     j.progress = prog
-                    j.started_at = now - (prog * eta) if eta > 0 else now
-                    update_job(jid, status="running", started_at=j.started_at, progress=prog)
+
+                    update_args = {"status": "running", "progress": prog}
+                    if previous_started_at is None or previous_progress <= 0:
+                        j.started_at = now - (prog * eta) if eta > 0 else now
+                        update_args["started_at"] = j.started_at
+
+                    update_job(jid, **update_args)
                     return
 
                 if "[START_SEGMENT]" in s:
@@ -196,37 +301,11 @@ def worker_loop(q):
 
                         j.active_segment_id = seg_id
                         j.active_segment_progress = 0.0
-                        log_terminal(f"Segment started: {seg_id}")
                         update_job(jid, active_segment_id=seg_id, active_segment_progress=0.0)
+                        _broadcast_segment_progress(j, jid, 0.0)
                     except Exception as e:
                         logger.warning(f"Failed to parse segment ID from '{s}': {e}")
                     return
-
-                if any(x in lowered for x in [
-                    "loading xtts model",
-                    "loading model",
-                    "using model:",
-                    "already downloaded",
-                    "downloading",
-                    "downloaded",
-                    "fetching",
-                    "resolving",
-                    "huggingface",
-                    "cache",
-                    "cloning",
-                    "computing latents",
-                    "loading cached latents",
-                    "profile fingerprint changed",
-                    "synthesizing ",
-                    "[critical error]",
-                    "[error]",
-                    "warning:",
-                ]):
-                    log_terminal(s)
-
-                # Filter noise
-                if any(x in lowered for x in ["> text", "> processing sentence", "pkg_resources is deprecated", "using model:", "futurewarning", "tensorboard", "processing time", "real-time factor"]): return
-                if s.startswith(("['", '["', "'", '"')): return
 
                 progress_match = re.search(r'(\d+)%', s)
                 is_progress = False
@@ -239,49 +318,16 @@ def worker_loop(q):
                         if p_val != getattr(j, 'active_segment_progress', -1.0):
                             j.active_segment_progress = p_val
                             broadcast_args['active_segment_progress'] = p_val
-                            last_segment_log = getattr(j, '_last_segment_log_progress', -1.0)
-                            if p_val >= 1.0 or last_segment_log < 0 or (p_val - last_segment_log) >= 0.1:
-                                seg_label = getattr(j, 'active_segment_id', 'segment')
-                                log_terminal(f"{seg_label}: {int(p_val * 100)}%")
-                                j._last_segment_log_progress = p_val
-                    elif "|" in s or "Synthesizing" in s:
-                        is_progress = True
-                        if getattr(j, 'synthesis_started_at', None):
-                             if p_val > getattr(j, 'progress', 0.0):
-                                 new_progress = p_val
-                                 last_job_log = getattr(j, '_last_job_log_progress', 0.0)
-                                 if p_val >= 1.0 or (p_val - last_job_log) >= 0.1:
-                                     log_terminal(f"Render progress: {int(p_val * 100)}%")
-                                     j._last_job_log_progress = p_val
+                            _broadcast_segment_progress(j, jid, p_val)
 
                 if not is_progress:
-                    if not any(x in lowered for x in [
-                        "loading xtts model",
-                        "loading model",
-                        "already downloaded",
-                        "downloading",
-                        "downloaded",
-                        "fetching",
-                        "resolving",
-                        "huggingface",
-                        "cache",
-                        "cloning",
-                        "computing latents",
-                        "loading cached latents",
-                        "profile fingerprint changed",
-                        "synthesizing ",
-                    ]):
-                        log_terminal(s)
                     if "exceeds the character limit" in s:
                         j.warning_count = getattr(j, 'warning_count', 0) + 1
                         update_job(jid, warning_count=j.warning_count)
 
                 broadcast_p = getattr(j, '_last_broadcast_p', 0.0)
-                if new_progress is None:
-                    if j.engine == "mixed":
-                        new_progress = getattr(j, "progress", 0.0)
-                    else:
-                        new_progress = round(calculate_predicted_progress(j, now, j.started_at, eta), 2)
+                if new_progress is None and _should_stream_predicted_progress(getattr(j, "engine", None)):
+                    new_progress = round(calculate_predicted_progress(j, now, j.started_at, eta), 2)
 
                 include_p = new_progress is not None and ((abs(new_progress - broadcast_p) >= 0.01) or (broadcast_p == 0 and new_progress > 0))
                 if include_p or broadcast_args:
@@ -307,6 +353,7 @@ def worker_loop(q):
                 spk = get_speaker_settings(j.speaker_profile)
 
                 handle_xtts_job(jid, j, start, on_output, cancel_check, sw, spk["speed"], pdir, out_wav, out_mp3, text=text)
+                _maybe_autotune_xtts_cps(j, start, chars, perf)
             elif j.engine == "voxtral":
                 result = handle_voxtral_job(jid, j, start, on_output, cancel_check, text=text)
                 if result == "cancelled":
@@ -316,6 +363,7 @@ def worker_loop(q):
                 result = handle_mixed_job(jid, j, start, on_output, cancel_check, text=text)
                 if result == "cancelled":
                     update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
+                _maybe_autotune_xtts_cps(j, start, chars, perf)
                 return
             elif j.engine in ("voice_build", "voice_test"):
                 from ..config import VOICES_DIR
@@ -326,7 +374,7 @@ def worker_loop(q):
                 sample_path = pdir / "sample.wav"
                 if j.engine in ("voice_build", "voice_test") or not sample_path.exists():
                     on_output(f"Generating test sample for {j.speaker_profile}...\n")
-                    spk = get_speaker_settings(j.speaker_profile)
+                    spk = voice_job_settings or get_speaker_settings(j.speaker_profile)
                     sw = get_speaker_wavs(j.speaker_profile)
                     try:
                         voice_profile_dir = get_voice_profile_dir(j.speaker_profile)
@@ -407,13 +455,8 @@ def worker_loop(q):
                     logger.warning(f"Could not mark voice job {jid} done in DB queue: {_qe}")
 
                 # Auto-tuning
-                if not getattr(j, 'is_bake', False):
-                    eff_start = getattr(j, 'synthesis_started_at', None) or start
-                    dur = time.time() - eff_start
-                    if dur > 0 and chars > 0:
-                        new_cps = chars / dur
-                        updated = (perf.get("xtts_cps", BASELINE_XTTS_CPS) * 0.8) + (new_cps * 0.2)
-                        update_performance_metrics(xtts_cps=updated)
+                if engine == "xtts":
+                    _maybe_autotune_xtts_cps(j, start, chars, perf)
 
         except Exception:
             tb = traceback.format_exc()

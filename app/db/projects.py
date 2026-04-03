@@ -8,7 +8,13 @@ from .core import _db_lock, get_connection
 
 logger = logging.getLogger(__name__)
 
-def create_project(name: str, series: Optional[str] = None, author: Optional[str] = None, cover_image_path: Optional[str] = None) -> str:
+def create_project(
+    name: str,
+    series: Optional[str] = None,
+    author: Optional[str] = None,
+    cover_image_path: Optional[str] = None,
+    speaker_profile_name: Optional[str] = None,
+) -> str:
     from .. import config
 
     with _db_lock:
@@ -17,9 +23,9 @@ def create_project(name: str, series: Optional[str] = None, author: Optional[str
             project_id = str(uuid.uuid4())
             now = time.time()
             cursor.execute("""
-                INSERT INTO projects (id, name, series, author, cover_image_path, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (project_id, name, series, author, cover_image_path, now, now))
+                INSERT INTO projects (id, name, series, author, speaker_profile_name, cover_image_path, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (project_id, name, series, author, speaker_profile_name, cover_image_path, now, now))
             conn.commit()
 
             project_dir = config.PROJECTS_DIR / project_id

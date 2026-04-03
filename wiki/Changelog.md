@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.4] - 2026-03-31
+
+### Highlights
+
+- **Predictive Queue Progress Finally Feels Continuous**: Grouped chapter jobs now keep local progress motion between websocket updates, ETA corrections ease toward new checkpoints instead of hard-snapping, active bars keep width transitions enabled even for larger corrections, and the queue/project bars now stay aligned with weighted render-group progress instead of getting dragged around by a single active segment.
+- **Progress Instrumentation Was Cleaned Back Out After Validation**: The temporary websocket/progress debug logging used to tune the predictive bar has been removed again, and the progress-bar component now includes comments documenting the intended floor-vs-motion behavior so future updates are less likely to accidentally reintroduce snapping.
+- **Backend Helper Regressions That Broke Test Validation Are Fixed**: Audiobook metadata probing and ffprobe duration parsing now tolerate mocked subprocess output correctly, command-stream readers now handle both byte and string chunks, and the backend suite no longer fails the affected `list_audiobooks`, command-stream, and audio-duration tests because of hidden type assumptions.
+- **Test-Safe Database Path Handling Is More Robust**: Database connections now resolve the current `DB_PATH` dynamically, and test-mode safety checks still block obvious production paths while allowing the temporary DB locations the repo’s isolated/surgical validation tests actually use.
+- **Changed-File Push Validation No Longer Breaks On Deleted Frontend Files**: The changed-file pre-push validator now skips removed frontend paths before handing them to ESLint or related-test selection, so cleanup work like deleting debug helpers no longer aborts a push with `No files matching the pattern ...`.
+- **Project And Chapter Voice Overrides Now Actually Persist**: Voice selection changes from the project page and chapter editor are now saved through the API, survive refreshes, and correctly clear back to the inherited default when you choose the default option again.
+- **Fallback Voice Labels Are Much Clearer**: Default voice options now show the actual effective fallback voice in parentheses using the same display-name logic as the rest of the voice picker, so users can see what “Default Speaker” or “Use Project Default” will really use.
+- **Voice Queue Labels Are Much More Descriptive**: Voice preview/rebuild jobs and other standalone queue work now carry clearer titles and engine-specific context instead of falling back to generic `System Task` / `Internal Process` labels, so the queue is easier to scan while voice work is running.
+- **Chapter Queue Progress Is Less Jumpy And More Honest**: XTTS chapter jobs now fold live segment updates into whole-job progress instead of treating raw segment percentages like chapter percentages, so the global queue stays aligned with chapter completion while segment views can still show segment-level progress.
+- **Chapter And Segment Progress No Longer Fight Each Other**: Websocket updates now separate chapter-level job progress from live segment progress, which lets the global queue follow whole-chapter completion while Performance cards track the currently rendering segment directly.
+- **Chapter Progress Now Follows Actual Chapter Segments**: XTTS chapter jobs now weight progress by the real number of chapter segments being completed instead of by internal synth-group count, so queue/project overview progress behaves like `segment 2 of 4` even when adjacent segments are merged into one XTTS pass under the hood.
+- **Voxtral Regenerate No Longer Gets Stuck Acting Like Play**: Regenerating a Voxtral preview now behaves like a true rebuild action, without trying to auto-play audio before the new preview exists or leaving the button stuck in a play-state UI.
+- **Windows README Startup Is Much More Forgiving**: The PowerShell launcher now checks more standard Windows Python install locations before relying on the Pinokio/conda bootstrap path, a failed conda bootstrap no longer hard-aborts local installs that should fall back to a normal Python setup, the launcher/docs now match the app’s actual Python 3.10+ compatibility, and missing `npm` or `ffmpeg` now fails early with clearer install guidance instead of surfacing later as confusing runtime breakage.
+- **XTTS Windows Reference Loading Is More Reliable**: XTTS voice conditioning now reads plain WAV reference clips without depending on TorchCodec’s FFmpeg DLL chain, and generated `sample.wav` previews are no longer accidentally reused as source training references during later renders.
+- **Startup And First-Run Terminal Output Are Much Less Hidden**: The launcher, worker, and more one-shot subprocess paths now stop swallowing so much install, model-load, ffmpeg/ffprobe, and download output, which makes first-run XTTS setup and other long startup work much easier to follow from the terminal.
+- **First-Run XTTS Downloads Are Easier To Understand**: Worker logging now surfaces more Hugging Face and model-download progress into the terminal, which makes long first-run setup look like active work instead of a silent stall.
+- **PR Validation Is Faster Without Removing Main-Branch Protection**: The CI workflow now uses a quicker PR check path while still keeping full-suite backend and frontend validation available for mainline protection.
+- **Frontend Voice-Workflow Tests Are Cleaner**: The focused `ProjectView` and `ChapterEditor` Vitest coverage now avoids React warning noise from test-only motion mocks and async tab loading, so regressions are easier to spot when these tests fail for real.
+
 ## [1.8.3] - 2026-03-30
 
 ### Highlights

@@ -4,9 +4,11 @@ import json
 import os
 import subprocess
 import re
+import sys
 from pathlib import Path
 from typing import Optional, List
 from .. import config
+from ..subprocess_utils import coerce_subprocess_output, write_subprocess_output
 from ..textops import split_by_chapter_markers, write_chapters_to_folder, split_into_parts
 
 logger = logging.getLogger(__name__)
@@ -47,7 +49,10 @@ def probe_audiobook_metadata(root: Path, filename: str) -> dict:
         check=True,
         timeout=3,
     )
-    probe_data = json.loads(probe_res.stdout)
+    stdout = coerce_subprocess_output(getattr(probe_res, "stdout", ""))
+    stderr = coerce_subprocess_output(getattr(probe_res, "stderr", ""))
+    write_subprocess_output(stdout=stdout, stderr=stderr)
+    probe_data = json.loads(stdout)
     if not isinstance(probe_data, dict):
         return {}
     return probe_data
@@ -183,6 +188,7 @@ def list_audiobooks():
             "url": url,
             "created_at": st.st_mtime,
             "size_bytes": st.st_size,
+            "duration_seconds": 0.0,
             "download_filename": p.name,
         }
         try:

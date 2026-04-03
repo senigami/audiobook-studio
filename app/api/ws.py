@@ -49,6 +49,12 @@ def broadcast_segments_updated(chapter_id: str):
         "chapter_id": chapter_id
     })
 
+def broadcast_chapter_updated(chapter_id: str):
+    manager.broadcast({
+        "type": "chapter_updated",
+        "chapter_id": chapter_id
+    })
+
 def broadcast_pause_state(paused: bool):
     manager.broadcast({
         "type": "pause_updated",
@@ -60,6 +66,16 @@ def broadcast_job_updated(job_id: str, updates: dict):
         "type": "job_updated",
         "job_id": job_id,
         "updates": updates
+    })
+
+
+def broadcast_segment_progress(job_id: str, chapter_id: str | None, segment_id: str, progress: float):
+    manager.broadcast({
+        "type": "segment_progress",
+        "job_id": job_id,
+        "chapter_id": chapter_id,
+        "segment_id": segment_id,
+        "progress": progress,
     })
 
 def broadcast_test_progress(name: str, progress: float, started_at: float = None):

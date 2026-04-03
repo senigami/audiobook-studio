@@ -3,7 +3,7 @@ import json
 import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-from app.jobs.handlers.xtts import handle_xtts_job
+from app.jobs.handlers.xtts import handle_xtts_job, _group_job_progress
 from app.models import Job
 
 @pytest.fixture(autouse=True)
@@ -171,3 +171,20 @@ def test_handle_xtts_no_custom_segments(mock_job, mock_params):
          patch("app.db.update_segments_status_bulk"):
         handle_xtts_job(j=mock_job, **mock_params)
         assert mock_gen.called
+
+
+def test_group_job_progress_blends_active_segment_into_total_progress():
+    assert _group_job_progress(0, 4, 0.5, limit=0.9) == 0.11
+    assert _group_job_progress(2, 4, 0.75, limit=0.9) == 0.62
+    assert _group_job_progress(1, 2, 1.0, limit=1.0) == 1.0
+
+
+def test_group_job_progress_tracks_render_group_units():
+    assert _group_job_progress(0, 2, 0.5, limit=0.9) == 0.23
+    assert _group_job_progress(1, 2, 0.5, limit=0.9) == 0.68
+
+
+def test_group_job_progress_weights_short_groups_less():
+    assert _group_job_progress(1, 3, 0.0, limit=0.9, group_weights=[500, 450, 50]) == 0.45
+    assert _group_job_progress(2, 3, 0.0, limit=0.9, group_weights=[500, 450, 50]) == 0.85
+    assert _group_job_progress(2, 3, 0.5, limit=0.9, group_weights=[500, 450, 50]) == 0.88

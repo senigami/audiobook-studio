@@ -322,6 +322,7 @@ def list_chapters(project_id: str) -> List[Dict[str, Any]]:
 
 def update_chapter(chapter_id: str, **updates) -> bool:
     if not updates: return False
+    updated = False
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
@@ -343,12 +344,12 @@ def update_chapter(chapter_id: str, **updates) -> bool:
             values.append(chapter_id)
             cursor.execute(f"UPDATE chapters SET {', '.join(fields)} WHERE id = ?", values)
             conn.commit()
+            updated = cursor.rowcount > 0
 
-            if is_text_update:
+            if updated and is_text_update:
                 from .segments import sync_chapter_segments
                 sync_chapter_segments(chapter_id, updates["text_content"])
-
-            return cursor.rowcount > 0
+    return updated
 
 def delete_chapter(chapter_id: str) -> bool:
     with _db_lock:

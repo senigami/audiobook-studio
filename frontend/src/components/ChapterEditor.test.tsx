@@ -1,5 +1,36 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+const stripMotionProps = (props: Record<string, unknown>) => {
+  const {
+    initial,
+    animate,
+    exit,
+    transition,
+    whileHover,
+    whileTap,
+    whileDrag,
+    layout,
+    layoutId,
+    drag,
+    dragConstraints,
+    dragElastic,
+    ...domProps
+  } = props;
+  void initial;
+  void animate;
+  void exit;
+  void transition;
+  void whileHover;
+  void whileTap;
+  void whileDrag;
+  void layout;
+  void layoutId;
+  void drag;
+  void dragConstraints;
+  void dragElastic;
+  return domProps;
+};
+
 // Mock API
 vi.mock('../api', () => ({
   api: {
@@ -39,17 +70,20 @@ vi.mock('../hooks/useChapterPlayback', () => ({
 // Mock framer-motion
 vi.mock('framer-motion', () => ({
   motion: {
-    div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+    div: ({ children, ...props }: any) => <div {...stripMotionProps(props)}>{children}</div>,
   },
   AnimatePresence: ({ children }: any) => <>{children}</>,
 }));
 
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { ChapterEditor } from './ChapterEditor';
+import { ChapterHeader } from './chapter/ChapterHeader';
 import { api } from '../api';
 import type { Character } from '../types';
 
 describe('ChapterEditor', () => {
+  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
+
   const mockProjectId = 'proj-123';
   const mockChapterId = 'chap-456';
   const mockChapter = {
@@ -57,6 +91,7 @@ describe('ChapterEditor', () => {
     project_id: mockProjectId,
     title: 'Test Chapter',
     text_content: 'Once upon a time.',
+    speaker_profile_name: null,
     char_count: 50,
     word_count: 10,
     audio_status: 'unprocessed' as const,
@@ -81,6 +116,7 @@ describe('ChapterEditor', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     (api.fetchChapters as any).mockResolvedValue([mockChapter]);
     (api.fetchSegments as any).mockResolvedValue(mockSegments);
     (api.fetchCharacters as any).mockResolvedValue(mockCharacters);
@@ -89,9 +125,14 @@ describe('ChapterEditor', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    consoleErrorSpy.mockRestore();
   });
 
   it('renders loading state initially', () => {
+    (api.fetchChapters as any).mockReturnValue(new Promise(() => {}));
+    (api.fetchSegments as any).mockReturnValue(new Promise(() => {}));
+    (api.fetchCharacters as any).mockReturnValue(new Promise(() => {}));
+
     render(
       <ChapterEditor 
         chapterId={mockChapterId} 
@@ -398,6 +439,149 @@ describe('ChapterEditor', () => {
     expect(screen.queryByTitle('Rebuild Chapter')).not.toBeInTheDocument();
   });
 
+  it('shows processing for segment generation without entering chapter render states', async () => {
+    const partialChapter = {
+      ...mockChapter,
+      audio_status: 'unprocessed' as const,
+      audio_file_path: null,
+      has_wav: false,
+      has_mp3: false,
+    };
+    const partialSegments = [
+      {
+        ...mockSegments[0],
+        audio_status: 'done' as const,
+        audio_file_path: 'seg-1.wav',
+        audio_generated_at: Date.now() / 1000,
+      },
+      {
+        id: 'seg-2',
+        chapter_id: mockChapterId,
+        text_content: 'Another sentence.',
+        character_id: null,
+        audio_status: 'processing' as const,
+        audio_file_path: null,
+      },
+    ];
+
+    (api.fetchChapters as any).mockResolvedValue([partialChapter]);
+    (api.fetchSegments as any).mockResolvedValue(partialSegments);
+
+    render(
+      <ChapterEditor
+        chapterId={mockChapterId}
+        projectId={mockProjectId}
+        speakerProfiles={mockSpeakerProfiles as any}
+        speakers={mockSpeakers as any}
+        chapterJobs={[
+          {
+            id: 'job-seg-1',
+            engine: 'mixed',
+            chapter_file: 'chapter.txt',
+            status: 'running',
+            created_at: Date.now() / 1000,
+            chapter_id: mockChapterId,
+            safe_mode: false,
+            make_mp3: false,
+            progress: 0.5,
+            segment_ids: ['seg-2'],
+            active_segment_id: 'seg-2',
+          } as any,
+        ]}
+        onBack={vi.fn()}
+      />
+    );
+
+    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
+
+    expect(screen.getByTitle('Already processing')).toBeDisabled();
+    expect(screen.getByText('Processing')).toBeInTheDocument();
+    expect(screen.queryByText('Rendering')).not.toBeInTheDocument();
+    expect(screen.queryByText('Finalizing')).not.toBeInTheDocument();
+  });
+
+  it('keeps the queue button disabled while the header still shows queue status', () => {
+    const { rerender } = render(
+      <ChapterHeader
+        chapter={mockChapter as any}
+        title={mockChapter.title}
+        setTitle={vi.fn()}
+        saving={false}
+        hasUnsavedChanges={false}
+        onBack={vi.fn()}
+        selectedVoice=""
+        onVoiceChange={vi.fn()}
+        availableVoices={[]}
+        submitting={false}
+        queueLocked={false}
+        queuePending={false}
+        job={{ id: 'job-1', engine: 'mixed', status: 'running', progress: 1 } as any}
+        generatingSegmentIdsCount={0}
+        queueLabel="Complete"
+        queueTitle="Complete Chapter Audio"
+        onQueue={vi.fn()}
+        onStopAll={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTitle('Already processing')).toBeDisabled();
+
+    rerender(
+      <ChapterHeader
+        chapter={mockChapter as any}
+        title={mockChapter.title}
+        setTitle={vi.fn()}
+        saving={false}
+        hasUnsavedChanges={false}
+        onBack={vi.fn()}
+        selectedVoice=""
+        onVoiceChange={vi.fn()}
+        availableVoices={[]}
+        submitting={false}
+        queueLocked={false}
+        queuePending={false}
+        job={{ id: 'job-1', engine: 'mixed', status: 'done', finished_at: Date.now() / 1000, progress: 1 } as any}
+        generatingSegmentIdsCount={0}
+        queueLabel="Complete"
+        queueTitle="Complete Chapter Audio"
+        onQueue={vi.fn()}
+        onStopAll={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTitle('Already processing')).toBeDisabled();
+  });
+
+  it('shows working header state for active segment generation without a chapter render job', () => {
+    render(
+      <ChapterHeader
+        chapter={mockChapter as any}
+        title={mockChapter.title}
+        setTitle={vi.fn()}
+        saving={false}
+        hasUnsavedChanges={false}
+        onBack={vi.fn()}
+        selectedVoice=""
+        onVoiceChange={vi.fn()}
+        availableVoices={[]}
+        submitting={false}
+        queueLocked={false}
+        queuePending={false}
+        job={undefined}
+        generatingJob={{ id: 'job-seg', engine: 'mixed', status: 'running', progress: 0.4, started_at: Date.now() / 1000, eta_seconds: 9 } as any}
+        generatingSegmentIdsCount={2}
+        queueLabel="Complete"
+        queueTitle="Complete Chapter Audio"
+        onQueue={vi.fn()}
+        onStopAll={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Processing')).toBeInTheDocument();
+    expect(screen.getByTitle('Already processing')).toBeDisabled();
+    expect(screen.getByText('40%')).toBeInTheDocument();
+  });
+
   it('ignores duplicate generate clicks while the same segments are already pending', async () => {
     (api.generateSegments as any).mockResolvedValue(undefined);
 
@@ -488,7 +672,7 @@ describe('ChapterEditor', () => {
     await waitFor(() => screen.findByDisplayValue('Test Chapter'));
 
     const voiceSelect = screen.getByTitle('Select Voice Profile for this chapter');
-    expect(screen.getByDisplayValue('Use Project Default')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Use Project Default (Voice 1 - Standard)')).toBeInTheDocument();
 
     fireEvent.change(voiceSelect, { target: { value: 'Profile 1' } });
     fireEvent.change(voiceSelect, { target: { value: '' } });
@@ -503,6 +687,49 @@ describe('ChapterEditor', () => {
         'Profile 1'
       );
     });
+  });
+
+  it('persists a chapter voice selection immediately', async () => {
+    render(
+      <ChapterEditor
+        chapterId={mockChapterId}
+        projectId={mockProjectId}
+        speakerProfiles={mockSpeakerProfiles as any}
+        speakers={mockSpeakers as any}
+        onBack={vi.fn()}
+      />
+    );
+
+    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
+
+    const voiceSelect = screen.getByTitle('Select Voice Profile for this chapter');
+    fireEvent.change(voiceSelect, { target: { value: 'Profile 1' } });
+
+    await waitFor(() => {
+      expect(api.updateChapter).toHaveBeenCalledWith(mockChapterId, { speaker_profile_name: 'Profile 1' });
+    });
+  });
+
+  it('loads a saved chapter voice instead of falling back to the project voice', async () => {
+    (api.fetchChapters as any).mockResolvedValue([
+      { ...mockChapter, speaker_profile_name: 'Profile 1' }
+    ]);
+
+    render(
+      <ChapterEditor
+        chapterId={mockChapterId}
+        projectId={mockProjectId}
+        speakerProfiles={mockSpeakerProfiles as any}
+        speakers={mockSpeakers as any}
+        selectedVoice="Profile 1"
+        onBack={vi.fn()}
+      />
+    );
+
+    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
+
+    const voiceSelect = screen.getByTitle('Select Voice Profile for this chapter') as HTMLSelectElement;
+    expect(voiceSelect.value).toBe('Profile 1');
   });
 
 });

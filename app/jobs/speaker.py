@@ -145,7 +145,11 @@ def get_speaker_wavs(profile_name_or_id: str) -> Optional[str]:
     except ValueError:
         return None
 
-    wavs = sorted(p.glob("*.wav"))
+    wavs = sorted(w for w in p.glob("*.wav") if w.name != "sample.wav")
+    if not wavs:
+        # Variants created by tests or lightweight imports may only have a
+        # single sample file. Fall back to it so name resolution still works.
+        wavs = sorted(p.glob("sample.wav"))
     if not wavs:
         return None
 

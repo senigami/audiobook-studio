@@ -24,10 +24,17 @@ The system tracks **Characters Per Second (CPS)** and uses it to provide:
 - **ETA**: Estimated time remaining for the current job. Now includes a **total queue estimate** at the top of the Global Queue page, summing up all pending and active work in minutes.
 - **Predicted Length**: How long the final audio chapter will likely be based on character count.
 
+### Predictive Progress Behavior
+
+- Queue and project-level chapter bars treat backend progress as an authoritative floor, not a visual snap target.
+- Between websocket updates, the bar keeps moving locally using the current ETA model so long chapter renders do not look frozen.
+- When a new checkpoint arrives, the ETA model changes future pacing and eases toward the new estimate instead of directly teleporting the bar to a new width.
+- Grouped chapter renders use weighted render-group progress, so a short final group contributes less than a much larger earlier group.
+
 ### New Features & Fixes
 - **Global Queue ETA**: Added an "Approx. X minutes remaining" badge to the processing queue header that tracks cumulative work across all active and queued tasks.
 - **Reliable Queue Reordering**: Fixed a timestamp inversion bug and implemented in-memory synchronization, ensuring the background worker strictly follows the UI priority.
-- **Enhanced Progress Visuals**: Smoothed progress transitions to 2s ease-in-out for a more fluid and premium interface experience.
+- **Enhanced Progress Visuals**: Progress bars now blend predictive updates and backend checkpoints without hard-snapping, while keeping active width transitions enabled so larger corrections still feel continuous.
 - **Locked-in Test Suite**: Added 11 regression tests covering ETA calculations, database joins, and in-memory queue synchronization logic.
 
 ## 🛠️ Job Types

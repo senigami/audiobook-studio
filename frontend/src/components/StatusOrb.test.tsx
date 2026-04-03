@@ -9,6 +9,7 @@ describe('StatusOrb', () => {
     project_id: 'p-1',
     title: 'Test Chapter',
     text_content: 'Test content',
+    speaker_profile_name: null,
     sort_order: 1,
     audio_status: 'unprocessed',
     audio_file_path: null,

@@ -254,6 +254,24 @@ def test_voxtral_profile_test_accepts_saved_voice_id_without_samples(clean_db, v
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
 
+
+def test_voice_test_job_uses_descriptive_queue_title(clean_db, voices_root, client):
+    profile_dir = voices_root / "Alice - Warm"
+    profile_dir.mkdir(parents=True)
+    (profile_dir / "1.wav").write_text("audio")
+    (profile_dir / "profile.json").write_text(json.dumps({
+        "speaker_id": "speaker-alice",
+        "variant_name": "Warm",
+        "engine": "xtts",
+    }))
+
+    with patch("app.api.routers.voices.put_job") as mock_put_job, patch("app.api.routers.voices.enqueue"):
+        response = client.post("/api/speaker-profiles/Alice%20-%20Warm/test")
+
+    assert response.status_code == 200
+    queued_job = mock_put_job.call_args.args[0]
+    assert queued_job.custom_title == "Building voice for Alice: Warm"
+
 def test_character_crud(clean_db, client):
     from app.db.projects import create_project
     pid = create_project("P1")

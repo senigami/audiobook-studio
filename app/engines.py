@@ -5,13 +5,16 @@ import re
 import hashlib
 import shutil
 import logging
+import sys
 import tempfile
 import queue
 import threading
+import signal
 from pathlib import Path
 from typing import List, Optional
 
 from .config import XTTS_ENV_ACTIVATE, XTTS_ENV_PYTHON, MP3_QUALITY, BASE_DIR, AUDIOBOOK_BITRATE
+from .subprocess_utils import coerce_subprocess_output, probe_audio_duration
 from .textops import safe_split_long_sentences, sanitize_for_xtts, pack_text_to_limit
 
 _active_processes = set()
@@ -33,14 +36,34 @@ def _ffmpeg_concat_entry(path: Path) -> str:
 def terminate_all_subprocesses():
     for proc in list(_active_processes):
         try:
-            proc.terminate()
+            pgid = None
+            if getattr(proc, "pid", None):
+                try:
+                    pgid = os.getpgid(proc.pid)
+                except Exception:
+                    pgid = None
+
+            if pgid is not None:
+                try:
+                    os.killpg(pgid, signal.SIGTERM)
+                except Exception:
+                    logger.debug("Failed to terminate subprocess group", exc_info=True)
+            else:
+                proc.terminate()
+
             proc.wait(timeout=2)
         except Exception:
             try:
-                proc.kill()
+                if getattr(proc, "pid", None):
+                    try:
+                        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+                    except Exception:
+                        proc.kill()
+                else:
+                    proc.kill()
             except Exception:
                 logger.debug("Failed to force-kill subprocess during termination", exc_info=True)
-        _active_processes.clear()
+    _active_processes.clear()
 
 def run_cmd_stream(cmd, on_output, cancel_check, env=None) -> int:
     import time
@@ -50,15 +73,21 @@ def run_cmd_stream(cmd, on_output, cancel_check, env=None) -> int:
     else:
         display_cmd = str(cmd)
     logger.debug("Running command: %s", display_cmd)
-    proc = subprocess.Popen(
-        cmd,
-        shell=isinstance(cmd, str),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=0, # Unbuffered
-        env=env,
-    )
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            shell=isinstance(cmd, str),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            bufsize=0, # Unbuffered
+            env=env,
+            start_new_session=True,
+        )
+    except FileNotFoundError as exc:
+        message = f"[error] Failed to launch command: {exc}\n"
+        on_output(message)
+        logger.warning("Command not found while launching: %s", display_cmd)
+        return 127
     _active_processes.add(proc)
     output_queue: "queue.Queue[Optional[str]]" = queue.Queue()
 
@@ -68,9 +97,17 @@ def run_cmd_stream(cmd, on_output, cancel_check, env=None) -> int:
                 return
             while True:
                 char = proc.stdout.read(1)
+                if not isinstance(char, (bytes, str)):
+                    logger.debug("Stopping reader thread on unexpected stdout.read() value: %r", char)
+                    break
                 if not char:
                     break
-                output_queue.put(char)
+                decoded = coerce_subprocess_output(char)
+                if not decoded:
+                    continue
+                sys.stdout.write(decoded)
+                sys.stdout.flush()
+                output_queue.put(decoded)
         finally:
             output_queue.put(None)
 
@@ -130,6 +167,7 @@ def run_cmd_stream(cmd, on_output, cancel_check, env=None) -> int:
             )
         return rc
     finally:
+        reader_thread.join(timeout=0.5)
         if proc in _active_processes:
             _active_processes.remove(proc)
 
@@ -161,7 +199,7 @@ def wav_to_mp3(in_wav: Path, out_mp3: Path, on_output=None, cancel_check=None) -
 def convert_to_wav(in_file: Path, out_wav: Path) -> int:
     """Converts any audio file to a standard 22050Hz mono WAV (best for XTTS references)."""
     cmd = ["ffmpeg", "-y", "-i", str(in_file), "-ar", "22050", "-ac", "1", str(out_wav)]
-    return subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode
+    return subprocess.run(cmd).returncode
 
 def xtts_generate(
     text: str,
@@ -245,13 +283,8 @@ def xtts_generate_script(
 
 def get_audio_duration(file_path: Path) -> float:
     """Uses ffprobe to get the duration of an audio file in seconds."""
-    cmd = [
-        'ffprobe', '-v', 'error', '-show_entries', 'format=duration',
-        '-of', 'default=noprint_wrappers=1:nokey=1', str(file_path)
-    ]
     try:
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-        return float(result.stdout.strip())
+        return probe_audio_duration(file_path)
     except Exception:
         return 0.0
 

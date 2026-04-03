@@ -19,7 +19,8 @@ from ...textops import (
 )
 from ...jobs import cancel as cancel_job, get_jobs
 from ...state import update_job, delete_jobs, get_settings
-from ..ws import broadcast_queue_update
+from ...constants import DEFAULT_VOICE_SENTINEL
+from ..ws import broadcast_chapter_updated, broadcast_queue_update
 from ...pathing import safe_basename, safe_join_flat
 
 # Compatibility for tests that monkeypatch these
@@ -97,7 +98,8 @@ def api_get_chapter_details(chapter_id: str):
 def api_update_chapter_details(
     chapter_id: str,
     title: Optional[str] = Form(None),
-    text_content: Optional[str] = Form(None)
+    text_content: Optional[str] = Form(None),
+    speaker_profile_name: Optional[str] = Form(None),
 ):
     updates = {}
     if title is not None:
@@ -106,9 +108,15 @@ def api_update_chapter_details(
         updates["text_content"] = text_content
         metrics = compute_chapter_metrics(text_content)
         updates.update(metrics)
+    if speaker_profile_name is not None:
+        normalized_profile_name = (speaker_profile_name.strip() or None)
+        if normalized_profile_name == DEFAULT_VOICE_SENTINEL:
+            normalized_profile_name = None
+        updates["speaker_profile_name"] = normalized_profile_name
 
     if updates:
         update_chapter(chapter_id, **updates)
+        broadcast_chapter_updated(chapter_id)
 
     return JSONResponse({"status": "ok", "chapter": get_chapter(chapter_id)})
 

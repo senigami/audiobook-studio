@@ -8,6 +8,7 @@ import { QueueItem } from './queue/QueueItem';
 import { ReorderableQueueItem } from './queue/ReorderableQueueItem';
 import { QueueStats } from './queue/QueueStats';
 import type { Job, ProcessingQueueItem } from '../types';
+import { formatQueueContext } from '../utils/queueLabels';
 
 interface GlobalQueueProps {
     paused?: boolean;
@@ -53,7 +54,6 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({ paused = false, jobs =
     const activeJobs = React.useMemo(() => queue.filter(q => q.status === 'running' || q.status === 'preparing' || q.status === 'finalizing'), [queue]);
     const pendingJobs = React.useMemo(() => queue.filter(q => q.status === 'queued'), [queue]);
     const pastJobs = React.useMemo(() => queue.filter(q => q.status === 'done' || q.status === 'failed' || q.status === 'cancelled'), [queue]);
-
     if (loading) return <div style={{ padding: '2rem' }}>Loading Queue...</div>;
 
     return (
@@ -123,7 +123,9 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({ paused = false, jobs =
 
                     {activeJobs.length > 0 && (
                         <div>
-                            <h3 style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '1rem' }}>Processing Now</h3>
+                            <h3 style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                                Processing Now ({activeJobs.length})
+                            </h3>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                 {activeJobs.map(job => (
                                     <QueueItem
@@ -142,7 +144,9 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({ paused = false, jobs =
 
                     {pendingJobs.length > 0 && (
                         <div style={{ position: 'relative' }}>
-                            <h3 style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '1rem' }}>Up Next</h3>
+                            <h3 style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                                Up Next ({pendingJobs.length})
+                            </h3>
                             <Reorder.Group 
                                 axis="y" 
                                 values={pendingJobs} 
@@ -190,7 +194,7 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({ paused = false, jobs =
                                                     <div style={{ flex: 1, minWidth: 0 }}>
                                                         <h4 style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{formatJobTitle(job)}</h4>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
-                                                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500 }}>{job.project_name || "Internal Process"}</span>
+                                                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500 }}>{formatQueueContext(job)}</span>
                                                             {job.started_at && <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{formatTime(job.started_at)} {job.completed_at ? `→ ${formatTime(job.completed_at)}` : ''}</span>}
                                                             <span style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: job.status === 'done' ? 'var(--success)' : 'var(--error)' }}>{job.status}</span>
                                                         </div>

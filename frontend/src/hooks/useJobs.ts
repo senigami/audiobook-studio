@@ -1,10 +1,21 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { Job } from '../types';
+import type { Job, SegmentProgress } from '../types';
 import { api } from '../api';
 import { useWebSocket } from './useWebSocket';
 
-export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, onPauseUpdate?: (paused: boolean) => void, onSegmentsUpdate?: (chapterId: string) => void) => {
+const STATUS_PRIORITY: Record<string, number> = {
+  done: 5,
+  failed: 5,
+  cancelled: 5,
+  finalizing: 4,
+  running: 3,
+  preparing: 2,
+  queued: 1,
+};
+
+export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, onPauseUpdate?: (paused: boolean) => void, onSegmentsUpdate?: (chapterId: string) => void, onChapterUpdate?: (chapterId: string) => void) => {
   const [jobs, setJobs] = useState<Record<string, Job>>({});
+  const [segmentProgress, setSegmentProgress] = useState<Record<string, SegmentProgress>>({});
   const [loading, setLoading] = useState(true);
   const prevJobsRef = useRef<Record<string, Job>>({});
 
@@ -32,14 +43,54 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
       setJobs(prev => {
         const oldJob = prev[job_id];
         if (!oldJob) {
-          // If we don't have the job yet, we can't merge safely without the default fields.
-          // We'll add it as a partial and trigger a refresh to get the full object.
-          refreshJobs();
-          // But let's still store what we got so the UI can at least show the status/progress
+          // Bootstrap unknown jobs directly from the websocket payload instead of
+          // falling back to /api/jobs. Queue creation broadcasts include the
+          // chapter/project context we need for UI wiring.
           return { ...prev, [job_id]: { id: job_id, ...updates } as Job };
         }
 
-        const newJob = { ...oldJob, ...updates };
+        const nextUpdates = { ...updates } as Record<string, any>;
+        const incomingStatus = typeof nextUpdates.status === 'string' ? nextUpdates.status : undefined;
+        const currentStatus = typeof oldJob.status === 'string' ? oldJob.status : undefined;
+        if (incomingStatus && currentStatus) {
+          const incomingPriority = STATUS_PRIORITY[incomingStatus] ?? 0;
+          const currentPriority = STATUS_PRIORITY[currentStatus] ?? 0;
+          if (incomingPriority < currentPriority) {
+            delete nextUpdates.status;
+          }
+        }
+
+        if (typeof nextUpdates.progress === 'number') {
+          const currentProgress = typeof oldJob.progress === 'number' ? oldJob.progress : 0;
+          const effectiveStatus = (nextUpdates.status as string | undefined) ?? currentStatus;
+          if (!['queued', 'preparing'].includes(effectiveStatus || '') && nextUpdates.progress < currentProgress) {
+            delete nextUpdates.progress;
+          }
+        }
+
+        const effectiveStatus = (nextUpdates.status as string | undefined) ?? currentStatus;
+        if (
+          typeof oldJob.started_at === 'number'
+          && typeof nextUpdates.started_at === 'number'
+          && ['running', 'processing', 'finalizing', 'done'].includes(effectiveStatus || '')
+          && nextUpdates.started_at !== oldJob.started_at
+        ) {
+          delete nextUpdates.started_at;
+        }
+
+        if (
+          typeof oldJob.eta_seconds === 'number'
+          && typeof nextUpdates.eta_seconds === 'number'
+          && ['running', 'processing', 'finalizing'].includes(effectiveStatus || '')
+        ) {
+          const currentEta = oldJob.eta_seconds;
+          const nextEta = nextUpdates.eta_seconds;
+          if (Math.abs(nextEta - currentEta) < 1) {
+            delete nextUpdates.eta_seconds;
+          }
+        }
+
+        const newJob = { ...oldJob, ...nextUpdates };
         return { ...prev, [job_id]: newJob };
       });
     } else if (data.type === 'queue_updated') {
@@ -49,10 +100,20 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
     } else if (data.type === 'test_progress') {
       const { name, progress, started_at } = data;
       setTestProgress(prev => ({ ...prev, [name]: { progress, started_at } }));
+    } else if (data.type === 'segment_progress') {
+      const next: SegmentProgress = {
+        job_id: data.job_id,
+        chapter_id: data.chapter_id,
+        segment_id: data.segment_id,
+        progress: data.progress,
+      };
+      setSegmentProgress(prev => ({ ...prev, [next.segment_id]: next }));
     } else if (data.type === 'segments_updated') {
       if (onSegmentsUpdate) onSegmentsUpdate(data.chapter_id);
+    } else if (data.type === 'chapter_updated') {
+      if (onChapterUpdate) onChapterUpdate(data.chapter_id);
     }
-  }, [refreshJobs, onQueueUpdate, onPauseUpdate, onSegmentsUpdate]);
+  }, [onQueueUpdate, onPauseUpdate, onSegmentsUpdate, onChapterUpdate]);
 
   const { connected } = useWebSocket('/ws', handleUpdate);
 
@@ -77,5 +138,5 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
     return () => clearInterval(timer);
   }, [refreshJobs, connected]);
 
-  return { jobs, loading, refreshJobs, testProgress };
+  return { jobs, loading, refreshJobs, testProgress, segmentProgress };
 };

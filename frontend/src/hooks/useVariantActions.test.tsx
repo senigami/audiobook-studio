@@ -76,6 +76,7 @@ describe('useVariantActions', () => {
       play: vi.fn().mockRejectedValue(new Error('no src yet')),
       pause: vi.fn(),
       load: vi.fn(),
+      paused: true,
     };
     (result.current.audioRef as any).current = mockAudio;
 
@@ -83,6 +84,33 @@ describe('useVariantActions', () => {
       result.current.handleGeneratePreview({ stopPropagation: vi.fn() } as any);
     });
 
+    expect(onTest).toHaveBeenCalledWith('Test Voice');
+    expect(mockAudio.play).not.toHaveBeenCalled();
+    expect(mockAudio.pause).not.toHaveBeenCalled();
+  });
+
+  it('stops current playback before regenerating a preview', () => {
+    const { result } = renderHook(() =>
+      useVariantActions(mockProfile, onRefresh, onTest, requestConfirm)
+    );
+
+    const mockAudio = {
+      play: vi.fn(),
+      pause: vi.fn(),
+      load: vi.fn(),
+      paused: false,
+    };
+    (result.current.audioRef as any).current = mockAudio;
+
+    act(() => {
+      result.current.setIsPlaying(true);
+    });
+
+    act(() => {
+      result.current.handleGeneratePreview({ stopPropagation: vi.fn() } as any);
+    });
+
+    expect(mockAudio.pause).toHaveBeenCalled();
     expect(onTest).toHaveBeenCalledWith('Test Voice');
   });
 

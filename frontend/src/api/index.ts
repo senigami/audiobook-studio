@@ -1,4 +1,5 @@
 import type { Job, Project, Chapter } from '../types';
+import { DEFAULT_VOICE_SENTINEL } from '../constants/api';
 
 const parseApiResponse = async (res: Response) => {
   const data = await res.json();
@@ -18,20 +19,22 @@ export const api = {
     const res = await fetch(`/api/projects/${id}`);
     return res.json();
   },
-  createProject: async (data: { name: string; series?: string; author?: string; cover?: File }): Promise<{ status: string; project_id: string }> => {
+  createProject: async (data: { name: string; series?: string; author?: string; speaker_profile_name?: string | null; cover?: File }): Promise<{ status: string; project_id: string }> => {
     const formData = new FormData();
     formData.append('name', data.name);
     if (data.series) formData.append('series', data.series);
     if (data.author) formData.append('author', data.author);
+    if (data.speaker_profile_name !== undefined) formData.append('speaker_profile_name', data.speaker_profile_name || DEFAULT_VOICE_SENTINEL);
     if (data.cover) formData.append('cover', data.cover);
     const res = await fetch('/api/projects', { method: 'POST', body: formData });
     return res.json();
   },
-  updateProject: async (id: string, data: { name?: string; series?: string; author?: string; cover?: File }): Promise<any> => {
+  updateProject: async (id: string, data: { name?: string; series?: string; author?: string; speaker_profile_name?: string | null; cover?: File }): Promise<any> => {
     const formData = new FormData();
     if (data.name) formData.append('name', data.name);
     if (data.series) formData.append('series', data.series);
     if (data.author) formData.append('author', data.author);
+    if (data.speaker_profile_name !== undefined) formData.append('speaker_profile_name', data.speaker_profile_name || DEFAULT_VOICE_SENTINEL);
     if (data.cover) formData.append('cover', data.cover);
     const res = await fetch(`/api/projects/${id}`, { method: 'PUT', body: formData });
     return res.json();
@@ -93,11 +96,12 @@ export const api = {
     const res = await fetch(`/api/projects/${projectId}/chapters`, { method: 'POST', body: formData });
     return res.json();
   },
-  updateChapter: async (chapterId: string, data: { title?: string; text_content?: string }): Promise<{status: string, chapter: Chapter}> => {
+  updateChapter: async (chapterId: string, data: { title?: string; text_content?: string; speaker_profile_name?: string | null }): Promise<{status: string, chapter: Chapter}> => {
     const formData = new FormData();
     if (data.title) formData.append('title', data.title);
     if (data.text_content) formData.append('text_content', data.text_content);
-    const res = await fetch(`/api/chapters/${chapterId}`, { method: 'PUT', body: formData });
+    if (data.speaker_profile_name !== undefined) formData.append('speaker_profile_name', data.speaker_profile_name || DEFAULT_VOICE_SENTINEL);
+    const res = await fetch(`/api/chapters/${chapterId}`, { method: 'PUT', body: formData, keepalive: true });
     return res.json();
   },
   deleteChapter: async (chapterId: string): Promise<{ status: string }> => {

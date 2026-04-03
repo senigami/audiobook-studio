@@ -44,6 +44,32 @@ def test_api_jobs_dynamic_progress(clean_jobs):
     assert 0.09 <= job_data["progress"] <= 0.11
 
 
+def test_api_jobs_uses_authoritative_progress_when_segment_tracking_is_active(clean_jobs):
+    jid = "test_segment_job"
+    now = time.time()
+    job = Job(
+        id=jid,
+        engine="xtts",
+        chapter_file="chapter1.txt",
+        status="running",
+        started_at=now - 50,
+        eta_seconds=100,
+        created_at=now,
+        progress=0.22,
+        active_segment_id="seg-1",
+        active_segment_progress=0.75,
+    )
+    put_job(job)
+
+    response = client.get("/api/jobs")
+    assert response.status_code == 200
+    data = response.json()
+
+    job_data = next((j for j in data if j["id"] == jid), None)
+    assert job_data is not None
+    assert job_data["progress"] == 0.22
+
+
 def test_api_jobs_does_not_block_on_reconciliation(clean_jobs):
     poisoned = AssertionError("cleanup_and_reconcile should not run inside /api/jobs")
 
