@@ -283,14 +283,6 @@ function Test-SameFileContent($PathA, $PathB) {
     return (Get-FileHash $PathA).Hash -eq (Get-FileHash $PathB).Hash
 }
 
-function Test-XttsEnvConflicts($EnvDir) {
-    $PythonExe = Join-Path $EnvDir "Scripts/python.exe"
-    if (-not (Test-Path $PythonExe)) {
-        return $false
-    }
-    return $false
-}
-
 function Test-VenvPythonHealthy($EnvDir) {
     $PythonExe = Join-Path $EnvDir "Scripts/python.exe"
     if (-not (Test-Path $PythonExe)) {
@@ -309,11 +301,6 @@ function Test-VenvPythonHealthy($EnvDir) {
 function Sync-PythonRequirements($PythonInfo, $EnvDir, $RequirementsFile, $Label) {
     $PythonExe = Join-Path $EnvDir "Scripts/python.exe"
     $StampFile = Join-Path $EnvDir ".requirements.stamp"
-
-    if ($Label -eq "XTTS" -and (Test-XttsEnvConflicts $EnvDir)) {
-        Write-Step "Resetting XTTS environment to remove stale Coqui packages"
-        Remove-Item $EnvDir -Recurse -Force
-    }
 
     if ($Label -eq "XTTS" -and (Test-Path $EnvDir) -and -not (Test-VenvPythonHealthy $EnvDir)) {
         Write-Step "Resetting XTTS environment because its Python launcher is stale"
