@@ -1,10 +1,14 @@
+import importlib.util
 import wave
 
 import pytest
 
-torch = pytest.importorskip("torch")
+if importlib.util.find_spec("torch") is None:
+    pytest.skip("torch is not installed", allow_module_level=True)
 
-from app.xtts_inference import _load_wav_tensor
+import torch  # noqa: E402
+
+from app.xtts_inference import _load_wav_tensor  # noqa: E402
 
 
 def test_load_wav_tensor_reads_and_resamples_mono_wav(tmp_path):
