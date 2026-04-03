@@ -255,7 +255,7 @@ maybe_restore_demo_bundle() {
 
   [[ -f "$DEMO_ZIP" ]] || return 0
 
-  if ! "$PYTHON_BIN" -m app.demo_bundle status --base-dir "$DIR"; then
+  if ! ( cd "$DIR" && "$PYTHON_BIN" -m app.demo_bundle status --base-dir "$DIR" ); then
     return 0
   fi
 
@@ -281,7 +281,7 @@ maybe_restore_demo_bundle() {
   esac
 
   log "Installing demo library"
-  "$PYTHON_BIN" -m app.demo_bundle restore --base-dir "$DIR" --zip "$DEMO_ZIP"
+  ( cd "$DIR" && "$PYTHON_BIN" -m app.demo_bundle restore --base-dir "$DIR" --zip "$DEMO_ZIP" )
 }
 
 require_cmd bash
