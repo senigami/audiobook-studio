@@ -13,7 +13,7 @@ permissions:
 jobs:
   backend-quick:
     name: Backend (Quick)
-    if: github.event_name == 'pull_request'
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -46,8 +46,8 @@ jobs:
             tests/test_xtts_handler.py
 
   backend-full:
-    name: Backend (Full)
-    if: github.event_name != 'pull_request'
+    name: Backend (Python)
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
