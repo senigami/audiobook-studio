@@ -11,6 +11,7 @@ permissions:
   contents: read
 
 jobs:
+  # 1. The "Quick" check - only for local/pushes, NOT PRs
   backend-quick:
     name: Backend (Quick)
     if: github.event_name != 'pull_request'
@@ -45,6 +46,8 @@ jobs:
             tests/test_incremental_assembly.py \
             tests/test_xtts_handler.py
 
+    # 2. The "Full" check - REQUIRED for PRs
+  # IMPORTANT: Name must match your Branch Protection exactly
   backend-full:
     name: Backend (Python)
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
@@ -68,9 +71,10 @@ jobs:
       - name: Test with pytest
         run: pytest
 
+    # 3. Frontend "Quick"
   frontend-quick:
     name: Frontend (Quick)
-    if: github.event_name == 'pull_request'
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -91,8 +95,9 @@ jobs:
       - name: Test
         run: cd frontend && npm run test -- --run
 
+    # 4. Frontend "Full" - REQUIRED for PRs
   frontend-full:
-    name: Frontend (Full)
+    name: Frontend (React)
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
