@@ -8,6 +8,9 @@ from app.demo_bundle import demo_restore_needed, restore_demo_bundle
 def test_demo_restore_needed_only_when_library_is_empty(tmp_path):
     assert demo_restore_needed(tmp_path)
 
+    (tmp_path / "audiobook_studio.db").write_bytes(b"sqlite bootstrap")
+    assert demo_restore_needed(tmp_path)
+
     (tmp_path / "projects").mkdir()
     assert demo_restore_needed(tmp_path)
 

@@ -283,41 +283,27 @@ function Test-SameFileContent($PathA, $PathB) {
     return (Get-FileHash $PathA).Hash -eq (Get-FileHash $PathB).Hash
 }
 
-function Test-XttsEnvConflicts($EnvDir) {
+function Test-VenvPythonHealthy($EnvDir) {
     $PythonExe = Join-Path $EnvDir "Scripts/python.exe"
     if (-not (Test-Path $PythonExe)) {
         return $false
     }
 
     try {
-        $probeOutput = & $PythonExe -c @'
-from importlib import metadata
-
-conflicting_dists = []
-for dist_name in ("coqpit",):
-    try:
-        metadata.distribution(dist_name)
-    except metadata.PackageNotFoundError:
-        continue
-    else:
-        conflicting_dists.append(dist_name)
-
-raise SystemExit(0 if conflicting_dists else 1)
-'@
+        & $PythonExe -c "import sys; print(sys.executable)"
+        return $LASTEXITCODE -eq 0
     } catch {
-        Write-Warning ("XTTS conflict probe failed for {0}: {1}" -f $EnvDir, $_.Exception.Message)
+        Write-Warning ("Virtual environment probe failed for {0}: {1}" -f $EnvDir, $_.Exception.Message)
         return $false
     }
-
-    return $LASTEXITCODE -eq 0
 }
 
 function Sync-PythonRequirements($PythonInfo, $EnvDir, $RequirementsFile, $Label) {
     $PythonExe = Join-Path $EnvDir "Scripts/python.exe"
     $StampFile = Join-Path $EnvDir ".requirements.stamp"
 
-    if ($Label -eq "XTTS" -and (Test-XttsEnvConflicts $EnvDir)) {
-        Write-Step "Resetting XTTS environment to remove stale Coqui packages"
+    if ($Label -eq "XTTS" -and (Test-Path $EnvDir) -and -not (Test-VenvPythonHealthy $EnvDir)) {
+        Write-Step "Resetting XTTS environment because its Python launcher is stale"
         Remove-Item $EnvDir -Recurse -Force
     }
 
@@ -418,35 +404,40 @@ function Maybe-RestoreDemoBundle($PythonInfo) {
         return
     }
 
-    & $PythonInfo.Command @($PythonInfo.Prefix + @("-m", "app.demo_bundle", "status", "--base-dir", $Root))
-    if ($LASTEXITCODE -ne 0) {
-        return
-    }
-
-    $installDemo = if ($env:AUDIOBOOK_STUDIO_INSTALL_DEMO) { $env:AUDIOBOOK_STUDIO_INSTALL_DEMO } else { "ask" }
-    switch -Regex ($installDemo) {
-        "^(1|true|yes)$" { break }
-        "^(0|false|no)$" {
-            Write-Step "Skipping demo library install"
+    Push-Location $Root
+    try {
+        & $PythonInfo.Command @($PythonInfo.Prefix + @("-m", "app.demo_bundle", "status", "--base-dir", $Root))
+        if ($LASTEXITCODE -ne 0) {
             return
         }
-        default {
-            if (-not [Environment]::UserInteractive) {
-                Write-Step "No interactive terminal detected; installing demo library by default"
-            } else {
-                $reply = Read-Host "No existing library was found. Install the demo library? [Y/n]"
-                if ($reply -and $reply.Trim() -notmatch '^(y|yes)$') {
-                    Write-Step "Starting with an empty library"
-                    return
+
+        $installDemo = if ($env:AUDIOBOOK_STUDIO_INSTALL_DEMO) { $env:AUDIOBOOK_STUDIO_INSTALL_DEMO } else { "ask" }
+        switch -Regex ($installDemo) {
+            "^(1|true|yes)$" { break }
+            "^(0|false|no)$" {
+                Write-Step "Skipping demo library install"
+                return
+            }
+            default {
+                if (-not [Environment]::UserInteractive) {
+                    Write-Step "No interactive terminal detected; installing demo library by default"
+                } else {
+                    $reply = Read-Host "No existing library was found. Install the demo library? [Y/n]"
+                    if ($reply -and $reply.Trim() -notmatch '^(y|yes)$') {
+                        Write-Step "Starting with an empty library"
+                        return
+                    }
                 }
             }
         }
-    }
 
-    Write-Step "Installing demo library"
-    & $PythonInfo.Command @($PythonInfo.Prefix + @("-m", "app.demo_bundle", "restore", "--base-dir", $Root, "--zip", $DemoZip))
-    if ($LASTEXITCODE -ne 0) {
-        Fail "Failed to restore the demo library"
+        Write-Step "Installing demo library"
+        & $PythonInfo.Command @($PythonInfo.Prefix + @("-m", "app.demo_bundle", "restore", "--base-dir", $Root, "--zip", $DemoZip))
+        if ($LASTEXITCODE -ne 0) {
+            Fail "Failed to restore the demo library"
+        }
+    } finally {
+        Pop-Location
     }
 }
 
