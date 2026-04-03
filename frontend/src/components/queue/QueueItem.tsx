@@ -22,6 +22,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     formatTime,
     onRemove
 }) => {
+    const isTrulyActive = ['running', 'processing', 'finalizing'].includes(liveJob?.status ?? job.status);
     const rawStarted = liveJob?.started_at ?? job.started_at;
     const rawEtaSeconds = liveJob?.eta_seconds ?? job.eta_seconds;
     const status = liveJob?.status ?? job.status;
@@ -56,7 +57,9 @@ export const QueueItem: React.FC<QueueItemProps> = ({
         && status === 'running'
         && typeof activeSegmentProgress === 'number'
         && activeSegmentProgress > 0;
-    const progress = useLiveSegmentProgress
+    const progress = !isTrulyActive
+        ? 0
+        : useLiveSegmentProgress
         ? Math.max(jobProgress, activeSegmentProgress)
         : (isGroupedChapterJob ? Math.max(jobProgress, groupedProgress) : jobProgress);
     const engineType = (liveJob?.engine ?? job.engine) || '';
@@ -68,8 +71,10 @@ export const QueueItem: React.FC<QueueItemProps> = ({
         custom_title: liveJob?.custom_title ?? job.custom_title,
     });
     const hasActiveGroupSignal = isGroupedChapterJob && (completedRenderGroups > 0 || activeRenderGroupIndex > 0);
-    const stableStatus = hasActiveGroupSignal && ['queued', 'preparing'].includes(status) ? 'running' : status;
-    const displayStatus = isCloudLike && stableStatus === 'finalizing' ? 'finalizing' : stableStatus;
+    // Render-group metadata can arrive before the backend flips a grouped chapter job from
+    // preparing into running. Keep the queue row in the backend's explicit status so the UI
+    // does not start the active animation early just because group bookkeeping showed up.
+    const displayStatus = isCloudLike && status === 'finalizing' ? 'finalizing' : status;
     const [stableStarted, setStableStarted] = React.useState<number | null | undefined>(rawStarted);
     const [stableEta, setStableEta] = React.useState<number | null | undefined>(rawEtaSeconds);
 
@@ -89,12 +94,12 @@ export const QueueItem: React.FC<QueueItemProps> = ({
         }
     }, [rawEtaSeconds, displayStatus, hasActiveGroupSignal]);
 
-    const started = ['running', 'processing', 'finalizing'].includes(displayStatus) || hasActiveGroupSignal
+    const started = ['running', 'processing', 'finalizing'].includes(displayStatus)
         ? (stableStarted ?? rawStarted)
-        : rawStarted;
-    const etaSeconds = ['running', 'processing', 'finalizing'].includes(displayStatus) || hasActiveGroupSignal
+        : undefined;
+    const etaSeconds = ['running', 'processing', 'finalizing'].includes(displayStatus)
         ? (stableEta ?? rawEtaSeconds)
-        : rawEtaSeconds;
+        : undefined;
 
     return (
         <div style={{

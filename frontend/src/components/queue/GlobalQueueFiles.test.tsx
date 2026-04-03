@@ -210,7 +210,7 @@ describe('Global Queue Components', () => {
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'true');
         });
 
-        it('uses render group metadata for mixed chapter queue progress and keeps the row running', () => {
+        it('uses render group metadata for mixed chapter queue progress without leaving preparing early', () => {
             render(
                 <QueueItem
                     job={{ ...mockJob, engine: 'mixed', status: 'preparing', progress: 0 } as any}
@@ -236,10 +236,12 @@ describe('Global Queue Components', () => {
                 />
             );
 
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-status', 'running');
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.7200000000000001');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-status', 'preparing');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0');
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-authoritative-floor', 'true');
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-evidence-weight-fraction', '0.4');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-started-at', '');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-eta-seconds', '');
         });
 
         it('shows pause icon when paused', () => {

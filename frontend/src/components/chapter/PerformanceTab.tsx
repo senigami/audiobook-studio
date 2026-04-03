@@ -6,6 +6,7 @@ import { shouldShowIndeterminateProgress } from '../../utils/jobSelection';
 
 const SEGMENT_PROGRESS_LINGER_MS = 600;
 const MIN_VISIBLE_SEGMENT_PROGRESS = 0.015;
+const MIN_ACTIVE_GROUP_DURATION_SECONDS = 4;
 
 function queueFromGroupStart(uniqueSegmentIds: string[], segmentId: string): string[] {
   const idx = uniqueSegmentIds.indexOf(segmentId);
@@ -41,9 +42,25 @@ function getWeightedActiveGroupProgress(job?: Job): number | null {
   }
 
   const elapsedSeconds = Math.max(0, (Date.now() / 1000) - job.started_at);
-  const expectedTotalSeconds = Math.max(job.eta_seconds, 1);
+  const observedOverallProgress = Math.max(
+    0.01,
+    Math.min(
+      0.995,
+      job.grouped_progress
+      ?? job.progress
+      ?? (totalRenderWeight > 0 ? (completedRenderWeight / totalRenderWeight) : 0)
+    )
+  );
+  // Use the larger of the learned ETA and the runtime implied by current observed progress.
+  // This keeps late uneven groups from "sprinting" unrealistically just because the original
+  // ETA was too optimistic for the chapter's actual pace.
+  const impliedTotalSeconds = elapsedSeconds / observedOverallProgress;
+  const expectedTotalSeconds = Math.max(job.eta_seconds, impliedTotalSeconds, 1);
   const expectedSecondsBeforeGroup = expectedTotalSeconds * (completedRenderWeight / totalRenderWeight);
-  const expectedActiveGroupSeconds = expectedTotalSeconds * (activeRenderGroupWeight / totalRenderWeight);
+  const expectedActiveGroupSeconds = Math.max(
+    MIN_ACTIVE_GROUP_DURATION_SECONDS,
+    expectedTotalSeconds * (activeRenderGroupWeight / totalRenderWeight)
+  );
 
   if (expectedActiveGroupSeconds <= 0) {
     return null;
