@@ -529,7 +529,7 @@ describe('Chapter Subcomponents', () => {
           />
         );
 
-        expect(Number(screen.getByTestId('performance-progress-0').getAttribute('data-progress'))).toBeLessThan(90);
+        expect(Number(screen.getByTestId('performance-progress-0').getAttribute('data-progress'))).toBeLessThan(25);
       } finally {
         vi.useRealTimers();
       }

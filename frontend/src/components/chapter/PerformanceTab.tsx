@@ -57,9 +57,11 @@ function getWeightedActiveGroupProgress(job?: Job): number | null {
   const impliedTotalSeconds = elapsedSeconds / observedOverallProgress;
   const expectedTotalSeconds = Math.max(job.eta_seconds, impliedTotalSeconds, 1);
   const expectedSecondsBeforeGroup = expectedTotalSeconds * (completedRenderWeight / totalRenderWeight);
+  const remainingRenderWeight = Math.max(1, totalRenderWeight - completedRenderWeight);
+  const expectedRemainingChapterSeconds = Math.max(1, expectedTotalSeconds - expectedSecondsBeforeGroup);
   const expectedActiveGroupSeconds = Math.max(
     MIN_ACTIVE_GROUP_DURATION_SECONDS,
-    expectedTotalSeconds * (activeRenderGroupWeight / totalRenderWeight)
+    expectedRemainingChapterSeconds * (activeRenderGroupWeight / remainingRenderWeight)
   );
 
   if (expectedActiveGroupSeconds <= 0) {

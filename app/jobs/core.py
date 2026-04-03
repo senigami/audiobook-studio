@@ -11,7 +11,9 @@ cancel_flags: Dict[str, threading.Event] = {}
 pause_flag = threading.Event()
 
 # Progress Calculation Constants
-PROGRESS_PREPARE_LIMIT = 0.05
+# Preparing owns the true "0%" phase now, so once synthesis begins we only
+# reserve a tiny nonzero floor to show that real generation has started.
+PROGRESS_PREPARE_LIMIT = 0.01
 PROGRESS_PREPARE_STEP = 0.005
 PROGRESS_MAX_PREDICTED = 0.85
 PROGRESS_STITCH_LIMIT = 0.98
