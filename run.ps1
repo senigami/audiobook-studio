@@ -300,6 +300,7 @@ function Test-VenvPythonHealthy($EnvDir) {
 
 function Sync-PythonRequirements($PythonInfo, $EnvDir, $RequirementsFile, $Label) {
     $PythonExe = Join-Path $EnvDir "Scripts/python.exe"
+    $PipExe = Join-Path $EnvDir "Scripts/pip.exe"
     $StampFile = Join-Path $EnvDir ".requirements.stamp"
 
     if ($Label -eq "XTTS" -and (Test-Path $EnvDir) -and -not (Test-VenvPythonHealthy $EnvDir)) {
@@ -307,9 +308,18 @@ function Sync-PythonRequirements($PythonInfo, $EnvDir, $RequirementsFile, $Label
         Remove-Item $EnvDir -Recurse -Force
     }
 
+    if ((Test-Path $PythonExe) -and -not (Test-Path $PipExe)) {
+        Write-Step "Pip missing; removing corrupt $Label environment"
+        Remove-Item $EnvDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
     if (-not (Test-Path $PythonExe)) {
         Write-Step "Creating $Label environment"
         Invoke-Python $PythonInfo @("-m", "venv", $EnvDir)
+    }
+    
+    if (-not (Test-Path $PipExe)) {
+        & $PythonExe -m ensurepip --upgrade
     }
 
     if (-not (Test-SameFileContent $RequirementsFile $StampFile)) {
