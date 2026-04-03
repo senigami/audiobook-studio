@@ -1,6 +1,8 @@
 import wave
 
-import torch
+import pytest
+
+torch = pytest.importorskip("torch")
 
 from app.xtts_inference import _load_wav_tensor
 

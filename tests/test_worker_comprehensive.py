@@ -194,7 +194,7 @@ def test_on_output_logic(mock_q, sample_job):
         assert sample_job.status == "running"
         start_synthesis_call = mock_update.call_args_list[-1]
         assert start_synthesis_call.kwargs["status"] == "running"
-        assert start_synthesis_call.kwargs["progress"] == 0.05
+        assert start_synthesis_call.kwargs["progress"] == 0.01
 
         # Repeated group starts must not reseed the chapter run.
         mock_update.reset_mock()
@@ -207,7 +207,7 @@ def test_on_output_logic(mock_q, sample_job):
         mock_update.reset_mock()
         sample_job.synthesis_started_at = time.time()
         on_out("Processing | 50% [########    ]")
-        assert sample_job.progress == 0.05
+        assert sample_job.progress == 0.01
         mock_update.assert_not_called()
 
         # Test character limit warning
