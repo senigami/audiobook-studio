@@ -71,6 +71,25 @@ powershell -ExecutionPolicy Bypass -File .\run.ps1 -Port 9000
 7. Generate segments or queue a chapter.
 8. Assemble the finished audiobook once chapter audio is ready.
 
+## Exploring the Demo Library
+
+If you installed Audiobook Studio via Pinokio and chose to include the **optional demo library**, you will be able to explore an almost-finished production immediately after opening the application. This gives an excellent overview of the completed workflow.
+
+**1. The Demo Project**  
+Immediately after installation, the Demo Project will appear in your Library home page. This allows you to dive straight into a working layout.
+
+![Demo Project Listing](images/demoproject.png)
+
+**2. Inside the Chapters Tab**  
+Click into the demo project to see what chapters look like. While it intentionally skips the full text here, it lists the chapters and allows you to instantly listen, queue audio generation, or build the entire audiobook to M4B directly from this view.
+
+![Demo Chapters View](images/demochapters.png)
+
+**3. Included Voice Profiles**  
+Under the Voices tab, you will find the bundled voices included with the demo project. You do not need to hunt for voice samples; these voices are pre-configured and can be dropped straight into any other project you create moving forward!
+
+![Demo Voices Setup](images/demovoices.png)
+
 ## Starter Voices
 
 Audiobook Studio now supports lighter starter voice bundles.

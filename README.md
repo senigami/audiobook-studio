@@ -8,6 +8,34 @@ Listen to the overview demo, explore the interface, and get a better feel for ho
 
 The live showcase also includes the fuller feature and cost comparison with ElevenLabs.
 
+## Choose Your Start
+
+![Choose Your Start](assets/demoproject.png)
+
+Whether you want to preview the app, install it the easy way, or build from source, start with the path that fits your comfort level:
+
+### Just want to see what it does?
+
+**[Open the Live Demo / Showcase](https://senigami.github.io/audiobook-studio/)**  
+Listen to real samples, see the interface, and get a quick feel for the workflow before installing anything.
+
+### Want the easiest install?
+
+**[Install Audiobook Studio with Pinokio](https://beta.pinokio.co/apps/github-com-senigami-audiobook-studio-pinokio)**  
+Best for most people. Pinokio handles the setup for you and can optionally install a demo library with sample voices so you can explore the app right away.
+
+![Pinokio Install](assets/pinokioinstall.png)
+
+### Want manual control or developer setup?
+
+**[Install from Source on GitHub](https://github.com/senigami/audiobook-studio)**  
+Best for developers or advanced users who want the full repo, direct scripts, and manual control over the environment.
+
+### Need detailed help?
+
+**[Read the Wiki / Getting Started Guide](https://github.com/senigami/audiobook-studio/wiki)**  
+Step-by-step documentation, concepts, troubleshooting, and workflow guides.
+
 # Audiobook Studio
 
 ### Local AI audiobook production with voice cloning, chapter repair, and long-form workflow control
@@ -172,9 +200,18 @@ If you want a fully local workflow, keep your voices on `XTTS (Local)`. If you w
 - `ffmpeg`
 - NVIDIA GPU recommended for faster local synthesis
 
+## Installation Paths
+
+There are two main ways to install Audiobook Studio:
+
+- **Pinokio** for the easiest setup and launch experience
+- **GitHub / scripts** for users who want direct manual control
+
+If you are not comfortable with Git, virtual environments, or terminal commands, use **[Pinokio](https://beta.pinokio.co/apps/github-com-senigami-audiobook-studio-pinokio) first**.
+
 ### One-Command Setup and Run
 
-This is the recommended path for new users.
+This is the recommended developer path for new users.
 
 On macOS or Linux, the easiest way to start is:
 

@@ -6,6 +6,29 @@ This wiki is meant to help both new users and contributors understand how the ap
 
 ## Recommended Starting Point
 
+Choose the setup path that matches your comfort level:
+
+### Easiest install for most people
+
+**[Use Audiobook Studio on Pinokio](https://beta.pinokio.co/apps/github-com-senigami-audiobook-studio-pinokio)**  
+Pinokio handles setup and launch for you, and can optionally install demo content for a faster first look.
+
+### Want to preview before installing?
+
+**[Open the Live Demo / Showcase](https://senigami.github.io/audiobook-studio/)**  
+Hear samples, review features, and see how the workflow works before installing anything.
+
+### Want the full repo and scripts?
+
+**[Use the Main GitHub Project](https://github.com/senigami/audiobook-studio)**  
+Best for developers and advanced users who want direct control over setup and files.
+
+If you are new to GitHub or terminal setup, start with **Pinokio**.
+
+![Visual Flow](images/demoproject.png)
+
+## Release Information
+
 For brand-new users, the current `1.8.x` release line is the best place to begin. That release family is the first one intended to feel smooth across local XTTS production and optional Voxtral support:
 
 - first-run setup
@@ -18,15 +41,16 @@ For brand-new users, the current `1.8.x` release line is the best place to begin
 
 ## Quick Links
 
-- [[Getting Started]] - Recommended setup and first run
-- [[Changelog]] - Release history and major changes
-- [[Concepts]] - Core architecture and terminology
-- [[Library and Projects]] - Managing books and assemblies
-- [[Voices and Voice Profiles]] - AI Voice Lab guide
-- [[Queue and Jobs]] - Monitoring generation and repair work
-- [[Comparison and Cost]] - Honest comparison with hosted TTS pricing
-- [[Recording Guide]] - Best practices for clean voice samples
-- [[Troubleshooting and FAQ]] - Solutions to common issues
+- **[Pinokio Install](https://beta.pinokio.co/apps/github-com-senigami-audiobook-studio-pinokio)** - Easiest install path
+- **[Live Demo / Showcase](https://senigami.github.io/audiobook-studio/)** - Hear examples and preview the app
+- **[Getting Started](https://github.com/senigami/audiobook-studio/wiki/Getting-Started)** - Recommended setup and first run
+- **[Concepts](https://github.com/senigami/audiobook-studio/wiki/Concepts)** - Core architecture and terminology
+- **[Library and Projects](https://github.com/senigami/audiobook-studio/wiki/Library-and-Projects)** - Managing books and assemblies
+- **[Voices and Voice Profiles](https://github.com/senigami/audiobook-studio/wiki/Voices-and-Voice-Profiles)** - AI Voice Lab guide
+- **[Queue and Jobs](https://github.com/senigami/audiobook-studio/wiki/Queue-and-Jobs)** - Monitoring generation and repair work
+- **[Comparison and Cost](https://github.com/senigami/audiobook-studio/wiki/Comparison-and-Cost)** - Hosted vs local tradeoffs
+- **[Recording Guide](https://github.com/senigami/audiobook-studio/wiki/Recording-Guide)** - Best practices for clean voice samples
+- **[Troubleshooting and FAQ](https://github.com/senigami/audiobook-studio/wiki/Troubleshooting-and-FAQ)** - Help when something acts possessed
 
 ## 5-Minute Quick Start
 
