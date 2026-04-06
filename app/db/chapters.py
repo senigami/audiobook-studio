@@ -350,9 +350,11 @@ def update_chapter(chapter_id: str, **updates) -> bool:
                 except Exception:
                     import logging
                     logging.getLogger(__name__).warning(
-                        "Segment sync failed for chapter %s; chapter text saved, segments may be stale",
+                        "Segment sync failed for chapter %s; rolling back chapter text update",
                         chapter_id, exc_info=True,
                     )
+                    conn.rollback()
+                    return False
 
             conn.commit()
             return updated

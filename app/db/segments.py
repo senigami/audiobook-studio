@@ -340,6 +340,13 @@ def sync_chapter_segments(chapter_id: str, text_content: str, conn=None):
     """
     Parses the text into sentences (segments) and syncs the chapter_segments table.
     Attempts to preserve IDs and assignments for sentences that haven't changed.
+
+    Transaction ownership:
+    - If ``conn`` is provided, this function does **not** call ``commit()`` or
+      ``rollback()``. The caller owns the transaction and must commit or roll
+      back after this function returns.
+    - If ``conn`` is ``None``, this function acquires ``_db_lock``, opens its
+      own connection, and commits the transaction before returning.
     """
     import logging
     logger = logging.getLogger(__name__)
