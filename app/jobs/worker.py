@@ -212,22 +212,33 @@ def worker_loop(q):
             # ETA Fix: Adjust started_at to account for past work
             adjusted_start = initial_start - (initial_progress * eta) if (eta > 0 and initial_progress > 0) else initial_start
 
-            # Only send started_at if we are actually resuming (p > 0)
+            # Stash resume state on the job object. These are applied when
+            # [START_SYNTHESIS] fires so the frontend sees 0% during "preparing"
+            # and only jumps to the real progress once synthesis actually begins.
+            j._resume_progress = initial_progress
+            j._resume_started_at = adjusted_start
+
+            # Audiobook assembly starts directly in "running"; everything else
+            # starts in "preparing" with 0% so the UI bar stays inert.
+            is_audiobook = j.engine == "audiobook"
+            send_progress = initial_progress if is_audiobook else 0.0
+            send_started = adjusted_start if is_audiobook else None
+
             update_job(
                 jid,
                 status=initial_status,
-                started_at=adjusted_start if initial_progress > 0 else None,
+                started_at=send_started,
                 eta_seconds=eta,
-                progress=initial_progress,
+                progress=send_progress,
                 completed_render_groups=completed_render_groups,
                 render_group_count=render_group_count,
                 active_render_group_index=0,
             )
 
             j.status = initial_status
-            j.progress = initial_progress
-            j.started_at = adjusted_start
-            j._last_broadcast_p = initial_progress
+            j.progress = send_progress
+            j.started_at = send_started
+            j._last_broadcast_p = send_progress
             j._synthesis_started_once = False
             j.completed_render_groups = completed_render_groups
             j.render_group_count = render_group_count
@@ -273,20 +284,21 @@ def worker_loop(q):
                     if getattr(j, "_synthesis_started_once", False):
                         return
 
-                    previous_progress = getattr(j, "progress", 0.0) or 0.0
-                    previous_started_at = getattr(j, "started_at", None)
+                    # Apply stashed resume state now that synthesis has actually started.
+                    resume_progress = getattr(j, "_resume_progress", 0.0) or 0.0
+                    resume_started_at = getattr(j, "_resume_started_at", None)
                     j._synthesis_started_once = True
                     j.synthesis_started_at = now
                     j.status = "running"
-                    prog = max(previous_progress, PROGRESS_PREPARE_LIMIT)
+                    prog = max(resume_progress, PROGRESS_PREPARE_LIMIT)
                     j.progress = prog
 
-                    update_args = {"status": "running", "progress": prog}
-                    if previous_started_at is None or previous_progress <= 0:
+                    if resume_started_at and resume_progress > 0:
+                        j.started_at = resume_started_at
+                    else:
                         j.started_at = now - (prog * eta) if eta > 0 else now
-                        update_args["started_at"] = j.started_at
 
-                    update_job(jid, **update_args)
+                    update_job(jid, status="running", progress=prog, started_at=j.started_at)
                     return
 
                 if "[START_SEGMENT]" in s:
