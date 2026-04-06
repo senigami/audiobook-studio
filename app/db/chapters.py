@@ -347,11 +347,11 @@ def update_chapter(chapter_id: str, **updates) -> bool:
                 try:
                     from .segments import sync_chapter_segments
                     sync_chapter_segments(chapter_id, updates["text_content"], conn=conn)
-                except Exception:
+                except Exception as e:
                     import logging
-                    logging.getLogger(__name__).warning(
-                        "Segment sync failed for chapter %s; rolling back chapter text update",
-                        chapter_id, exc_info=True,
+                    logging.getLogger(__name__).error(
+                        "Failed to sync segments for chapter %s: %s; rolling back chapter text update",
+                        chapter_id, e, exc_info=True,
                     )
                     conn.rollback()
                     return False
