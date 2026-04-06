@@ -95,21 +95,23 @@ def api_get_chapter_details(chapter_id: str):
     return JSONResponse(c)
 
 @router.put("/chapters/{chapter_id}")
-def api_update_chapter_details(
+async def api_update_chapter_details(
     chapter_id: str,
+    request: Request,
     title: Optional[str] = Form(None),
     text_content: Optional[str] = Form(None),
     speaker_profile_name: Optional[str] = Form(None),
 ):
+    form_data = await request.form()
     updates = {}
-    if title is not None:
-        updates["title"] = title
-    if text_content is not None:
-        updates["text_content"] = text_content
-        metrics = compute_chapter_metrics(text_content)
+    if "title" in form_data:
+        updates["title"] = title or ""
+    if "text_content" in form_data:
+        updates["text_content"] = text_content or ""
+        metrics = compute_chapter_metrics(updates["text_content"])
         updates.update(metrics)
-    if speaker_profile_name is not None:
-        normalized_profile_name = (speaker_profile_name.strip() or None)
+    if "speaker_profile_name" in form_data:
+        normalized_profile_name = (speaker_profile_name.strip() or None) if speaker_profile_name else None
         if normalized_profile_name == DEFAULT_VOICE_SENTINEL:
             normalized_profile_name = None
         updates["speaker_profile_name"] = normalized_profile_name

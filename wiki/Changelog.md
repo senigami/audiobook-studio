@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.5] - 2026-04-06
+
+### Highlights
+
+- **Chapter Content Clears Now Save Successfully**: Fixed a bug where deleting all text in a chapter (or clearing its title) failed to save because the API layer coerced empty strings to `None`. The update endpoint now explicitly checks for field presence in the form data to ensure intentional "empty" updates are persisted.
+- **Large Chapters No Longer Fail to Save**: Removed the `keepalive` attribute from the frontend's chapter save request, which was causing chapters larger than ~64KB to be silently blocked by browser payload limits.
+- **Save Operations Are Now Instant**: Rewrote the database segment sync logic to use bulk insertion (`executemany`) instead of sequential inserts. Saving a massive chapter now completes in milliseconds instead of seconds.
+- **Background Processes No Longer Stall the App**: Moved database bulk operations and text tokenization outside the global database lock, preventing the backend from freezing other requests (like progress polling) while a large chapter is saved.
+- **Increased Text Analysis Ceiling**: Raised the limit on the text analyzer endpoint from 1,000,000 to 5,000,000 characters to better support massive document inputs.
+- **Python 3.9 Compatibility Restored**: Replaced Python 3.10+ union type hints (`|`) with `typing.Optional` and `typing.Union` in the core configuration and database modules, resolving startup crashes in environments running older Python versions.
+- **Automated Regression Coverage for Empty Saves**: Added test cases to the backend suite to ensure that clearing chapter fields through the API remains functional in future updates.
+- **Unified Onboarding Funnel**: Streamlined installation paths across all surfaces (Pinokio, wiki, README) to make the onboarding process clearer for new users.
+- **Windows Architecture Hardening**: Implemented self-healing Python environment logic for Pinokio/Conda, hardened `run.ps1` for robust environment provisioning, and updated the Windows start script for better compatibility.
+- **Demo Bundle Restoration Fix**: Fixed an issue on macOS/Linux where the demo bundle restore executed in the wrong directory context.
+
 ## [1.8.4] - 2026-03-31
 
 ### Highlights

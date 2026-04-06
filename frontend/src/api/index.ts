@@ -99,9 +99,9 @@ export const api = {
   updateChapter: async (chapterId: string, data: { title?: string; text_content?: string; speaker_profile_name?: string | null }): Promise<{status: string, chapter: Chapter}> => {
     const formData = new FormData();
     if (data.title) formData.append('title', data.title);
-    if (data.text_content) formData.append('text_content', data.text_content);
+    if (data.text_content !== undefined) formData.append('text_content', data.text_content ?? '');
     if (data.speaker_profile_name !== undefined) formData.append('speaker_profile_name', data.speaker_profile_name || DEFAULT_VOICE_SENTINEL);
-    const res = await fetch(`/api/chapters/${chapterId}`, { method: 'PUT', body: formData, keepalive: true });
+    const res = await fetch(`/api/chapters/${chapterId}`, { method: 'PUT', body: formData });
     return res.json();
   },
   deleteChapter: async (chapterId: string): Promise<{ status: string }> => {

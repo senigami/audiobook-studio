@@ -167,7 +167,7 @@ def split_sentences(text: str, preserve_gap: bool = False):
     If preserve_gap is True, the sentence will include its trailing whitespace/newlines.
     """
     if not text:
-        return
+        return []
 
     start = 0
     i = 0

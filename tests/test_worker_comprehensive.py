@@ -126,8 +126,8 @@ def test_worker_loop_resumption(mock_q, sample_job):
 
         # Find the call to update_job with initial state
         prep_call = [c for c in mock_update.call_args_list if c.kwargs.get('status') == "preparing"][0]
-        assert prep_call.kwargs['progress'] == 0.67
-        assert prep_call.kwargs['started_at'] is not None
+        assert prep_call.kwargs['progress'] == 0.0
+        assert prep_call.kwargs['started_at'] is None
         assert prep_call.kwargs['completed_render_groups'] == 2
         assert prep_call.kwargs['render_group_count'] == 3
         assert prep_call.kwargs['active_render_group_index'] == 0

@@ -1,6 +1,6 @@
 import time
 import uuid
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from .core import _db_lock, get_connection
 
 ACTIVE_QUEUE_STATUSES = ("queued", "preparing", "running", "finalizing")
@@ -133,7 +133,7 @@ def clear_queue() -> bool:
             conn.commit()
             return True
 
-def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 0.0, force_chapter_id: str = None, output_file: str = None, chapter_scoped: bool | None = None):
+def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 0.0, force_chapter_id: str = None, output_file: str = None, chapter_scoped: Optional[bool] = None):
     import logging
 
     logger = logging.getLogger(__name__)
@@ -190,7 +190,7 @@ def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 
                         cursor.execute("UPDATE chapters SET audio_status = 'processing' WHERE id = ?", (cid,))
             conn.commit()
 
-def reconcile_queue_status(active_ids: List[str], known_job_statuses: Dict[str, str] | None = None):
+def reconcile_queue_status(active_ids: List[str], known_job_statuses: Optional[Dict[str, str]] = None):
     """
     Reconcile active queue rows against the in-memory job map.
 

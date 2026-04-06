@@ -214,12 +214,11 @@ def create_chapter(project_id: str, title: str, text_content: Optional[str] = No
                 INSERT INTO chapters (id, project_id, title, text_content, sort_order, predicted_audio_length, char_count, word_count, text_last_modified)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (chapter_id, project_id, title, text_content, sort_order, predicted_audio_length, char_count, word_count, time.time()))
-            conn.commit()
-
             if text_content:
                 from .segments import sync_chapter_segments
-                sync_chapter_segments(chapter_id, text_content)
+                sync_chapter_segments(chapter_id, text_content, conn=conn)
 
+            conn.commit()
             return chapter_id
 
 def get_chapter_segments_counts(chapter_id: str) -> tuple[int, int]:
@@ -343,13 +342,22 @@ def update_chapter(chapter_id: str, **updates) -> bool:
 
             values.append(chapter_id)
             cursor.execute(f"UPDATE chapters SET {', '.join(fields)} WHERE id = ?", values)
-            conn.commit()
             updated = cursor.rowcount > 0
-
             if updated and is_text_update:
-                from .segments import sync_chapter_segments
-                sync_chapter_segments(chapter_id, updates["text_content"])
-    return updated
+                try:
+                    from .segments import sync_chapter_segments
+                    sync_chapter_segments(chapter_id, updates["text_content"], conn=conn)
+                except Exception as e:
+                    import logging
+                    logging.getLogger(__name__).error(
+                        "Failed to sync segments for chapter %s: %s; rolling back chapter text update",
+                        chapter_id, e, exc_info=True,
+                    )
+                    conn.rollback()
+                    return False
+
+            conn.commit()
+            return updated
 
 def delete_chapter(chapter_id: str) -> bool:
     with _db_lock:

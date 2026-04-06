@@ -336,87 +336,94 @@ def cleanup_orphaned_segments(chapter_id: str):
                     except Exception as e:
                         logger.warning(f"Failed to delete orphaned segment {p.name}: {e}")
 
-def sync_chapter_segments(chapter_id: str, text_content: str):
+def sync_chapter_segments(chapter_id: str, text_content: str, conn=None):
     """
     Parses the text into sentences (segments) and syncs the chapter_segments table.
     Attempts to preserve IDs and assignments for sentences that haven't changed.
+
+    Transaction ownership:
+    - If ``conn`` is provided, this function does **not** call ``commit()`` or
+      ``rollback()``. The caller owns the transaction and must commit or roll
+      back after this function returns.
+    - If ``conn`` is ``None``, this function acquires ``_db_lock``, opens its
+      own connection, and commits the transaction before returning.
     """
     import logging
     logger = logging.getLogger(__name__)
     from .nlp import split_into_sentences
     sentences = split_into_sentences(text_content)
 
-    with _db_lock:
-        with get_connection() as conn:
-            cursor = conn.cursor()
-            # 1. Get existing segments
-            cursor.execute("SELECT * FROM chapter_segments WHERE chapter_id = ? ORDER BY segment_order ASC", (chapter_id,))
-            existing = [dict(row) for row in cursor.fetchall()]
-            cursor.execute("SELECT project_id FROM chapters WHERE id = ?", (chapter_id,))
-            crow = cursor.fetchone()
-            project_id = crow["project_id"] if crow else None
+    def _sync_with_conn(conn):
+        cursor = conn.cursor()
+        # 1. Get existing segments
+        cursor.execute("SELECT * FROM chapter_segments WHERE chapter_id = ? ORDER BY segment_order ASC", (chapter_id,))
+        existing = [dict(row) for row in cursor.fetchall()]
+        cursor.execute("SELECT project_id FROM chapters WHERE id = ?", (chapter_id,))
+        crow = cursor.fetchone()
+        project_id = crow["project_id"] if crow else None
 
-            # 2. Preserve unchanged sentences at the same index when possible.
-            # If a sentence changes, we regenerate that row, but later unchanged rows can keep
-            # their IDs and audio as long as they do not share a rendered artifact with any
-            # changed row.
-            new_segments = []
-            preserved_ids = set()
-            for i, sent in enumerate(sentences):
-                existing_row = None
-                if i < len(existing) and (existing[i].get("text_content") or "").strip() == sent.strip():
-                    existing_row = existing[i]
-                if existing_row:
-                    logger.debug(
-                        "sync_chapter_segments: Preserving segment %s at position %s for sentence: '%s...'",
-                        existing_row["id"],
-                        i,
-                        sent[:30],
-                    )
-                else:
-                    logger.debug(f"sync_chapter_segments: Generated new segment ID for sentence: '{sent[:30]}...'")
+        # 2. Preserve unchanged sentences at the same index when possible.
+        new_segments = []
+        preserved_ids = set()
+        for i, sent in enumerate(sentences):
+            existing_row = None
+            if i < len(existing) and (existing[i].get("text_content") or "").strip() == sent.strip():
+                existing_row = existing[i]
 
-                seg_id = existing_row["id"] if existing_row else str(time.time_ns()) + f"_{i}"
-                if existing_row:
-                    preserved_ids.add(existing_row["id"])
-                new_segments.append({
-                    'id': seg_id,
-                    'chapter_id': chapter_id,
-                    'segment_order': i,
-                    'text_content': sent,
-                    'character_id': existing_row.get("character_id") if existing_row else None,
-                    'speaker_profile_name': existing_row.get("speaker_profile_name") if existing_row else None,
-                    'audio_status': existing_row.get("audio_status", 'unprocessed') if existing_row else 'unprocessed',
-                    'audio_file_path': existing_row.get("audio_file_path") if existing_row else None,
-                    'audio_generated_at': existing_row.get("audio_generated_at") if existing_row else None,
-                })
+            seg_id = existing_row["id"] if existing_row else str(time.time_ns()) + f"_{i}"
+            if existing_row:
+                preserved_ids.add(existing_row["id"])
+            new_segments.append({
+                'id': seg_id,
+                'chapter_id': chapter_id,
+                'segment_order': i,
+                'text_content': sent,
+                'character_id': existing_row.get("character_id") if existing_row else None,
+                'speaker_profile_name': existing_row.get("speaker_profile_name") if existing_row else None,
+                'audio_status': existing_row.get("audio_status", 'unprocessed') if existing_row else 'unprocessed',
+                'audio_file_path': existing_row.get("audio_file_path") if existing_row else None,
+                'audio_generated_at': existing_row.get("audio_generated_at") if existing_row else None,
+            })
 
-            invalidated_audio_paths = {
-                row.get("audio_file_path")
-                for row in existing
-                if row["id"] not in preserved_ids and row.get("audio_file_path")
-            }
-            for seg in new_segments:
-                if seg["id"] not in preserved_ids:
-                    continue
-                if seg.get("audio_file_path") in invalidated_audio_paths:
-                    logger.debug(
-                        "sync_chapter_segments: Invalidating preserved segment %s because it shares audio with a changed segment",
-                        seg["id"],
-                    )
-                    seg["audio_status"] = "unprocessed"
-                    seg["audio_file_path"] = None
-                    seg["audio_generated_at"] = None
+        invalidated_audio_paths = {
+            row.get("audio_file_path")
+            for row in existing
+            if row["id"] not in preserved_ids and row.get("audio_file_path")
+        }
+        for seg in new_segments:
+            if seg["id"] not in preserved_ids:
+                continue
+            if seg.get("audio_file_path") in invalidated_audio_paths:
+                seg["audio_status"] = "unprocessed"
+                seg["audio_file_path"] = None
+                seg["audio_generated_at"] = None
 
-            # 3. Replace all (cleaner than complex sync)
-            cursor.execute("DELETE FROM chapter_segments WHERE chapter_id = ?", (chapter_id,))
-            for seg in new_segments:
-                cursor.execute("""
-                    INSERT INTO chapter_segments (id, chapter_id, segment_order, text_content, character_id, speaker_profile_name, audio_status, audio_file_path, audio_generated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (seg['id'], seg['chapter_id'], seg['segment_order'], seg['text_content'], seg['character_id'], seg['speaker_profile_name'], seg['audio_status'], seg['audio_file_path'], seg['audio_generated_at']))
+        # 3. Replace all (cleaner than complex sync)
+        cursor.execute("DELETE FROM chapter_segments WHERE chapter_id = ?", (chapter_id,))
 
-            conn.commit()
+        insert_data = [
+            (
+                seg['id'], seg['chapter_id'], seg['segment_order'], seg['text_content'],
+                seg['character_id'], seg['speaker_profile_name'], seg['audio_status'],
+                seg['audio_file_path'], seg['audio_generated_at']
+            )
+            for seg in new_segments
+        ]
+
+        cursor.executemany("""
+            INSERT INTO chapter_segments (id, chapter_id, segment_order, text_content, character_id, speaker_profile_name, audio_status, audio_file_path, audio_generated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, insert_data)
+
+        return existing, preserved_ids, project_id
+
+    if conn:
+        existing, preserved_ids, project_id = _sync_with_conn(conn)
+    else:
+        with _db_lock:
+            with get_connection() as conn:
+                existing, preserved_ids, project_id = _sync_with_conn(conn)
+                conn.commit()
 
     removed_rows = [row for row in existing if row["id"] not in preserved_ids]
     removed_ids = [row["id"] for row in removed_rows]
