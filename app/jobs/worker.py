@@ -171,7 +171,7 @@ def worker_loop(q):
                 if chars > 0:
                     perf = get_performance_metrics()
                     cps = perf.get("xtts_cps", BASELINE_XTTS_CPS)
-                    eta = _estimate_seconds(chars, cps) + 15
+                    eta = _estimate_seconds(chars, cps)
             else:
                 if j.project_id:
                     from ..config import get_project_audio_dir
