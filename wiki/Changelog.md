@@ -13,6 +13,9 @@ All notable changes to this project will be documented in this file.
 - **Increased Text Analysis Ceiling**: Raised the limit on the text analyzer endpoint from 1,000,000 to 5,000,000 characters to better support massive document inputs.
 - **Python 3.9 Compatibility Restored**: Replaced Python 3.10+ union type hints (`|`) with `typing.Optional` and `typing.Union` in the core configuration and database modules, resolving startup crashes in environments running older Python versions.
 - **Automated Regression Coverage for Empty Saves**: Added test cases to the backend suite to ensure that clearing chapter fields through the API remains functional in future updates.
+- **Unified Onboarding Funnel**: Streamlined installation paths across all surfaces (Pinokio, wiki, README) to make the onboarding process clearer for new users.
+- **Windows Architecture Hardening**: Implemented self-healing Python environment logic for Pinokio/Conda, hardened `run.ps1` for robust environment provisioning, and updated the Windows start script for better compatibility.
+- **Demo Bundle Restoration Fix**: Fixed an issue on macOS/Linux where the demo bundle restore executed in the wrong directory context.
 
 ## [1.8.4] - 2026-03-31
 
