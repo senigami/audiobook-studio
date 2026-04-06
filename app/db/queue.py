@@ -1,6 +1,6 @@
 import time
 import uuid
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from .core import _db_lock, get_connection
 
 ACTIVE_QUEUE_STATUSES = ("queued", "preparing", "running", "finalizing")
@@ -133,7 +133,7 @@ def clear_queue() -> bool:
             conn.commit()
             return True
 
-def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 0.0, force_chapter_id: str = None, output_file: str = None, chapter_scoped: bool | None = None):
+def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 0.0, force_chapter_id: str = None, output_file: str = None, chapter_scoped: Optional[bool] = None):
     import logging
 
     logger = logging.getLogger(__name__)

@@ -344,8 +344,15 @@ def update_chapter(chapter_id: str, **updates) -> bool:
             cursor.execute(f"UPDATE chapters SET {', '.join(fields)} WHERE id = ?", values)
             updated = cursor.rowcount > 0
             if updated and is_text_update:
-                from .segments import sync_chapter_segments
-                sync_chapter_segments(chapter_id, updates["text_content"], conn=conn)
+                try:
+                    from .segments import sync_chapter_segments
+                    sync_chapter_segments(chapter_id, updates["text_content"], conn=conn)
+                except Exception:
+                    import logging
+                    logging.getLogger(__name__).warning(
+                        "Segment sync failed for chapter %s; chapter text saved, segments may be stale",
+                        chapter_id, exc_info=True,
+                    )
 
             conn.commit()
             return updated
