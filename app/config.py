@@ -2,6 +2,7 @@ import os
 import re
 import uuid
 from pathlib import Path
+from typing import Optional
 
 BASE_DIR = Path(os.getenv("AUDIOBOOK_BASE_DIR", str(Path(__file__).resolve().parents[1])))
 
@@ -42,7 +43,7 @@ def _canonical_project_id(project_id: str) -> str:
         raise ValueError(f"Invalid project id: {project_id}")
 
 
-def find_existing_project_dir(project_id: str) -> Path | None:
+def find_existing_project_dir(project_id: str) -> Optional[Path]:
     canonical_project_id = _canonical_project_id(project_id)
     if not PROJECTS_DIR.exists():
         return None
@@ -55,7 +56,7 @@ def find_existing_project_dir(project_id: str) -> Path | None:
     return None
 
 
-def find_existing_project_subdir(project_id: str, dirname: str) -> Path | None:
+def find_existing_project_subdir(project_id: str, dirname: str) -> Optional[Path]:
     project_dir = find_existing_project_dir(project_id)
     if not project_dir or not project_dir.exists():
         return None

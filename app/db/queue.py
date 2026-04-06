@@ -190,7 +190,7 @@ def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 
                         cursor.execute("UPDATE chapters SET audio_status = 'processing' WHERE id = ?", (cid,))
             conn.commit()
 
-def reconcile_queue_status(active_ids: List[str], known_job_statuses: Dict[str, str] | None = None):
+def reconcile_queue_status(active_ids: List[str], known_job_statuses: Optional[Dict[str, str]] = None):
     """
     Reconcile active queue rows against the in-memory job map.
 
