@@ -410,11 +410,20 @@ def sync_chapter_segments(chapter_id: str, text_content: str):
 
             # 3. Replace all (cleaner than complex sync)
             cursor.execute("DELETE FROM chapter_segments WHERE chapter_id = ?", (chapter_id,))
-            for seg in new_segments:
-                cursor.execute("""
-                    INSERT INTO chapter_segments (id, chapter_id, segment_order, text_content, character_id, speaker_profile_name, audio_status, audio_file_path, audio_generated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (seg['id'], seg['chapter_id'], seg['segment_order'], seg['text_content'], seg['character_id'], seg['speaker_profile_name'], seg['audio_status'], seg['audio_file_path'], seg['audio_generated_at']))
+
+            insert_data = [
+                (
+                    seg['id'], seg['chapter_id'], seg['segment_order'], seg['text_content'],
+                    seg['character_id'], seg['speaker_profile_name'], seg['audio_status'],
+                    seg['audio_file_path'], seg['audio_generated_at']
+                )
+                for seg in new_segments
+            ]
+
+            cursor.executemany("""
+                INSERT INTO chapter_segments (id, chapter_id, segment_order, text_content, character_id, speaker_profile_name, audio_status, audio_file_path, audio_generated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, insert_data)
 
             conn.commit()
 

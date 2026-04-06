@@ -205,7 +205,7 @@ def api_analyze_chapter(chapter_id: str):
 
 
 class AnalyzeTextRequest(BaseModel):
-    text_content: str = Field(..., max_length=1000000)
+    text_content: str = Field(..., max_length=5000000)
 
 @router.post("/analyze_text", response_model=TextAnalysisResponse)
 def api_analyze_text(req: AnalyzeTextRequest):

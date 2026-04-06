@@ -347,8 +347,13 @@ def update_chapter(chapter_id: str, **updates) -> bool:
             updated = cursor.rowcount > 0
 
             if updated and is_text_update:
-                from .segments import sync_chapter_segments
-                sync_chapter_segments(chapter_id, updates["text_content"])
+                # We do this outside the lock below
+                pass
+
+    if updated and "text_content" in updates:
+        from .segments import sync_chapter_segments
+        sync_chapter_segments(chapter_id, updates["text_content"])
+
     return updated
 
 def delete_chapter(chapter_id: str) -> bool:
