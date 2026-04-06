@@ -138,7 +138,7 @@ def worker_loop(q):
                     cps = perf.get("xtts_cps", BASELINE_XTTS_CPS)
                     eta = _estimate_seconds(chars, cps)
                 else:
-                    eta = max(15, eta)
+                    eta = 0
             elif j.engine != "audiobook":
                 if j.segment_ids:
                     from ..db import get_connection
@@ -197,7 +197,7 @@ def worker_loop(q):
                 perf = get_performance_metrics()
                 mult = perf.get("audiobook_speed_multiplier", 1.0)
                 base_eta = (num_files * 0.02) + (total_size_mb / 10)
-                eta = max(15, int(base_eta * mult))
+                eta = int(base_eta * mult)
 
             initial_status = "running" if j.engine == "audiobook" else "preparing"
             initial_start = time.time()
