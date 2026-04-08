@@ -8,6 +8,7 @@ Each module (e.g., `engines/xtts/`, `engines/voxtral/`) will contain:
 - **`engine.py`**: Implementation of the `BaseVoiceEngine` interface.
 - **`settings_schema.json`**: A JSONSchema defining the engine's custom settings (e.g., API keys, temperature, repetition penalty).
 - **`manifest.json`**: Metadata (Name, Icon, Capabilities, Default `speed_multiplier`).
+- **`artifact_schema.json` or equivalent contract**: Defines the metadata saved alongside generated audio so cache/reuse remains safe across upgrades.
 
 ## 3. The `VoiceBridge` Service (Backend)
 - **Settings Injection**: When a `SynthesisRequest` is made, the `Bridge` retrieves the relevant engine settings from the DB and injects them into the engine instance.
@@ -18,10 +19,12 @@ To keep the global interface simple, we use a **Dynamic Form** approach hosted o
 - **Settings Tab Overview**: Shows a list of installed engines. Clicking an engine renders a form dynamically generated from its `settings_schema.json`.
 - **Isolation**: Voxtral settings (API Key) are stored under `engine_settings:voxtral`, completely separate from XTTS settings and global project settings.
 - **Speed Multiplier**: Every engine has a reserved `global_speed_multiplier` setting. Users can tune this if they find the ETA predictions are consistently off for their specific hardware.
+- **Refinement**: Pair the dynamic form with opinionated setup states, sample generation, validation feedback, and health checks so the page feels like a production tool rather than a schema inspector.
 
 ## 5. Voice Profile Integration
 - **Engine Selection**: A voice profile is bound to an engine module.
 - **Capabilities Check**: Before a job starts, the `Bridge` checks if the engine is "Available" (e.g., handles the requested language, has a valid API key).
+- **Compatibility Snapshot**: When a render is queued, persist the engine/version/voice asset snapshot used so later updates do not make prior outputs ambiguous.
 
 ## 6. Logic Sample: The Synthesis Call
 

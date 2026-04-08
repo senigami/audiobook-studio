@@ -2,6 +2,10 @@
 
 To avoid relying completely on `_v2` suffixes, we can adopt a more domain-driven architecture for the application. By naming folders according to their specific responsibility in the new architecture, we naturally separate the old code from the new while setting a clean foundation for future growth.
 
+## Migration Guardrail
+
+This structure should be treated as a target architecture, not a big-bang rename. The safest path is a strangler migration where new services are introduced behind stable route and hook boundaries, then old modules are retired once traffic is fully cut over.
+
 ## The Backend Architecture (`app/`)
 
 The current `app/` structure has a mix of routes, models, state, and tight-coupled worker scripts. The 2.0 structure will group files by their core domain.
@@ -36,7 +40,7 @@ app/
 │   ├── progress.py       # The standalone ETA and Piece-Mapping service
 │   └── runtimes/         # Logic for heavy vs light thread pools
 │
-└── plugins/              # (New) Replaces `engines/`. Modular add-ons.
+└── plugins/              # (New) Internal module registry for extensible engines.
     ├── __init__.py       # Plugin registry and Loader
     └── voice/            # Voice synthesis engines
         ├── base.py       # The `BaseVoiceEngine` interface contract
@@ -53,6 +57,15 @@ app/
 - **`orchestration/` vs `jobs/`**: "Jobs" often implies hard-coded scripts (like `worker.py`). "Orchestration" defines a service that manages generic task execution, perfectly embodying the new 2.0 generic queue.
 - **`domain/`**: Separates the business logic (What is a project? How do we split text?) from the delivery mechanism (API, Websockets).
 
+### Potential Problems And Refinements
+
+- **Problem: Renaming too much too early creates migration drag**
+  Refinement: Keep public import boundaries stable during the transition. Introduce adapter modules so routes can move gradually.
+- **Problem: `plugins/` may imply unsupported third-party code loading**
+  Refinement: Document it as an internal module boundary for 2.0 and separate external plugin support into future work.
+- **Problem: Frontend `store/` plus existing hooks can create duplicated state**
+  Refinement: Define store ownership explicitly. REST-fetched entities stay canonical in API-facing hooks, while the store holds live overlays and UI session state.
+
 ---
 
 ## The Frontend Architecture (`frontend/src/`)
@@ -61,7 +74,7 @@ The frontend is already relatively clean, but we need to accommodate the new Zus
 
 ```text
 frontend/src/
-├── api/                  # Layer 2: Hard-truth REST API fetching (React Query / Fetch wrappers)
+├── api/                  # Layer 2: Hard-truth REST API fetching and normalization
 │
 ├── components/           # Reusable, "dumb" UI elements (Buttons, Layouts, Inputs)
 │   ├── ui/               # Primitive components (GlassInput, GhostButton)
@@ -73,9 +86,9 @@ frontend/src/
 │   ├── voice-modules/    # The new "Installed Voice Modules" management UI
 │   └── global-queue/     # The progress tracking components
 │
-├── store/                # (New) Layer 1: Zustand real-time reactive state
-│   ├── useJobStore.ts    # Websocket-driven job states
-│   └── useProjectStore.ts# Local cache for project metadata
+├── store/                # (New) Layer 1: live overlays and UI session state
+│   ├── useJobStore.ts    # Websocket-driven job overlays
+│   └── useEditorStore.ts # Selection, filters, and unsaved local editor state
 │
 ├── lib/                  # (New) Shared frontend services
 │   └── websocket.ts      # The connection manager that dispatches to the store
@@ -86,3 +99,9 @@ frontend/src/
 ### Why this is better:
 - **`features/` vs `components/`**: Currently, massive "smart" pages like `ChapterEditor.tsx` are sitting right next to tiny "dumb" components like `GhostButton.tsx`. Grouping by feature makes it much easier to scale the application.
 - **`store/`**: Formally houses the Zustand state architecture, separating the real-time data from the API request handlers.
+
+### UX-Focused Frontend Refinements
+
+- **Feature entry points**: Each major feature should expose a route-level container and smaller presentational components so loading, error, and empty states are designed intentionally.
+- **Optimistic boundaries**: Only use optimistic UI for reversible local edits. Queue and render status should stay server-confirmed to avoid trust issues.
+- **Recovery-first states**: Every major screen should define reload, reconnecting, partial-failure, and interrupted-job states up front.

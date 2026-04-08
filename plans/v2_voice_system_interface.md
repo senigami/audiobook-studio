@@ -30,17 +30,26 @@ class BaseVoiceEngine:
 
 ### 3.1 `EngineRegistry`
 A central registry that loads installed engine modules. 
-- **Dynamic Loading**: Engines can be added as standalone python packages or modules in an `engines/` directory.
+- **Internal-First Loading**: 2.0 should begin with built-in modules loaded from a known directory and signed manifest contract. Treat arbitrary third-party package loading as future work, not a day-one requirement.
 - **Manifests**: Each engine provides a `manifest.json` describing its capabilities (e.g., handles emotions, supports local GPU, requires internet).
+- **Compatibility Contract**: The manifest should include engine version, minimum app version, supported languages, resource profile, and settings schema version so upgrades do not silently break old voices.
 
 ### 3.2 Standardized Input/Output
 - **`SynthesisRequest`**: A common object containing text, parameters (speed, emotion), and output preferences.
-- **`EngineResult`**: A common return object with status, log streams, and the path to the generated audio.
+- **`EngineResult`**: A common return object with status, log streams, warnings, generated artifact metadata, and the path to the output audio.
+
+### 3.3 Stable Artifact Contract
+- **Revision Hash**: Every request should compute a deterministic hash from normalized text, selected voice asset, engine ID/version, and synthesis parameters.
+- **Artifact Manifest**: Generated audio should be accompanied by metadata describing exactly what produced it.
+- **Why this matters**: Without a revision-aware artifact contract, the queue and progress systems cannot reliably resume work or reuse cached segments.
 
 ## 4. "Installed Voice Modules" UI (UX Improvement)
 To keep the main Studio interface clean, module-specific configurations will be relocated to a dedicated "Installed Voice Modules" page.
 - **Dynamic Configuration**: Editors for Voxtral API keys or OmniVoice constraints live here, separated from the project layout.
-- **Custom ETA Multipliers**: Each module exposes an `engine_speed_multiplier` setting. Users can tune this to make ETA predictions universally more accurate for their specific hardware.
+- **Curated First, Schema Second**: The most important actions should have hand-designed cards and health states; raw JSON-schema generated forms should be the advanced path, not the whole experience.
+- **Readiness Panel**: Each module should clearly show `Ready`, `Needs Setup`, `Model Missing`, `API Key Invalid`, or `Offline`.
+- **Custom ETA Multipliers**: Each module can expose an optional user override, but the default should come from observed historical performance on that machine rather than asking users to tune from scratch.
+- **Safe Defaults**: The page should explain the impact of changing module settings on existing projects and whether a change invalidates cached renders.
 
 ## 5. Specific Engine Wrappers (Examples)
 
@@ -52,8 +61,19 @@ To keep the main Studio interface clean, module-specific configurations will be 
 The application logic doesn't call an engine directly. Instead, it interacts with the `VoiceBridge`.
 - **Responsibility**: Routing requests to the correct engine based on the speaker profile settings.
 - **Abstraction**: Handles common tasks like "Final MP3 conversion" or "Loudness normalization" that apply to all engines.
+- **Preflight Validation**: Before enqueueing, the bridge should validate availability, language support, and required assets so errors are surfaced immediately instead of after queue time.
+- **Fallback Rules**: If fallback between engines is supported, it must be explicit and visible to the user. Silent engine swaps are risky because they can change voice quality.
 
-## 7. Planned Benefits
+## 7. Potential Problems And Refinements
+
+- **Problem: "Plugin" can imply arbitrary code loading**
+  Solution: Call this an internal module system in 2.0, backed by a strict registry. External plugins can come later once compatibility, trust, and sandboxing are solved.
+- **Problem: Dynamic forms can feel opaque**
+  Solution: Pair schema rendering with opinionated module dashboards, test buttons, sample generation, and setup checklists.
+- **Problem: Voice profiles may become tightly coupled to one engine**
+  Solution: Store both a canonical voice identity and engine-specific assets so a profile can expose migration or fallback options without losing project references.
+
+## 8. Planned Benefits
 - **Future-Proofing**: New AI models can be integrated in days, not weeks.
 - **Modular UX**: The global Studio interface remains simple. Complex, engine-specific settings are tucked away in module configurations.
 - **Hardware Agnostic**: The system can intelligently route jobs to local GPU engines if available, or fall back to cloud engines.
