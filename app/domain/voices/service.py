@@ -4,22 +4,121 @@ This will eventually own voice profile creation, compatibility checks, and
 profile-level defaults. Engine-specific work stays behind the bridge.
 """
 
+from .models import VoicePreviewRequestModel, VoiceProfileModel
 from .preview import preview_voice_profile
+from .repository import VoiceRepository
 
 
 class VoiceService:
     """Placeholder service showing voice-domain responsibilities."""
 
-    def get_voice_profile(self, voice_profile_id: str):
-        """Read voice profile data through the future domain service."""
+    def __init__(self, repository: VoiceRepository):
+        self.repository = repository
+
+    def list_voice_profiles(self) -> list[VoiceProfileModel]:
+        """List reusable voice profiles for picker and editor surfaces.
+
+        Returns:
+            list[VoiceProfileModel]: Installed or available voice identities.
+
+        Raises:
+            NotImplementedError: Phase 1 scaffold only.
+        """
+        _ = self.repository
         raise NotImplementedError("Studio 2.0 voice profile reads are not implemented yet.")
 
-    def run_preview(self, voice_profile_id: str):
-        """Delegate preview/test requests through the voice domain."""
-        _ = preview_voice_profile
+    def get_voice_profile(self, voice_profile_id: str) -> VoiceProfileModel:
+        """Read one reusable voice identity through the domain service.
+
+        Args:
+            voice_profile_id: Stable voice profile identifier.
+
+        Returns:
+            VoiceProfileModel: Requested voice identity and defaults.
+
+        Raises:
+            NotImplementedError: Phase 1 scaffold only.
+        """
+        _ = self._load_voice_profile(voice_profile_id=voice_profile_id)
+        raise NotImplementedError("Studio 2.0 voice profile reads are not implemented yet.")
+
+    def validate_profile_engine_compatibility(
+        self,
+        *,
+        voice_profile_id: str,
+        engine_id: str | None = None,
+    ) -> None:
+        """Validate that a voice profile can be used with a target engine.
+
+        Args:
+            voice_profile_id: Stable voice profile identifier.
+            engine_id: Optional explicit engine identifier. When omitted, the
+                profile's default engine will be evaluated.
+
+        Raises:
+            NotImplementedError: Phase 1 scaffold only.
+        """
+        _ = self._load_voice_profile(voice_profile_id=voice_profile_id)
+        _ = engine_id
+        raise NotImplementedError("Studio 2.0 voice compatibility checks are not implemented yet.")
+
+    def run_preview(self, request: VoicePreviewRequestModel) -> dict[str, object]:
+        """Delegate preview or test synthesis requests through the voice domain.
+
+        Args:
+            request: Preview request contract containing profile, script, and
+                optional engine overrides.
+
+        Returns:
+            dict[str, object]: Placeholder preview result payload.
+
+        Raises:
+            NotImplementedError: Phase 1 scaffold only.
+        """
+        resolved_request = self._resolve_preview_request(request=request)
+        _ = preview_voice_profile(request=resolved_request)
         raise NotImplementedError("Studio 2.0 voice preview is not implemented yet.")
 
+    def _load_voice_profile(self, *, voice_profile_id: str) -> VoiceProfileModel:
+        """Load one voice profile before validation or preview operations.
 
-def create_voice_service() -> VoiceService:
-    """Factory for the future voice domain service."""
-    raise NotImplementedError("Studio 2.0 voice service is not implemented yet.")
+        Args:
+            voice_profile_id: Stable voice profile identifier.
+
+        Returns:
+            VoiceProfileModel: Requested voice profile entity.
+
+        Raises:
+            NotImplementedError: Phase 1 scaffold only.
+        """
+        _ = self.repository
+        raise NotImplementedError("Studio 2.0 voice profile loading is not implemented yet.")
+
+    def _resolve_preview_request(
+        self, *, request: VoicePreviewRequestModel
+    ) -> VoicePreviewRequestModel:
+        """Normalize preview request fields before bridge-level routing.
+
+        Args:
+            request: Raw preview request contract.
+
+        Returns:
+            VoicePreviewRequestModel: Normalized preview request payload.
+
+        Raises:
+            NotImplementedError: Phase 1 scaffold only.
+        """
+        raise NotImplementedError("Studio 2.0 preview request resolution is not implemented yet.")
+
+
+def create_voice_service(repository: VoiceRepository) -> VoiceService:
+    """Create the voice-domain service shell for future API wiring.
+
+    Args:
+        repository: Persistence adapter implementing the voice repository
+            contract.
+
+    Returns:
+        VoiceService: Service shell exposing future voice-domain entry points.
+    """
+    return VoiceService(repository=repository)
