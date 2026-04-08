@@ -11,6 +11,7 @@ Move the main user workflows onto the 2.0 foundations once the lower-risk layers
 - inline failure recovery
 - voice module management UI
 - preview/test UI aligned to the new voice model
+- project-local navigation and chapter-to-chapter movement
 
 ## Deliverables Checklist
 
@@ -19,6 +20,7 @@ Move the main user workflows onto the 2.0 foundations once the lower-risk layers
 - [ ] Inline failure recovery implemented
 - [ ] Voice module management UI implemented
 - [ ] Preview/test UI aligned to the new voice model
+- [ ] Project-local navigation and chapter-to-chapter movement implemented
 
 ## Scope
 

@@ -12,6 +12,7 @@ const INTENDED_DOWNSTREAM_DEPENDENCIES = [
   'frontend/src/api/hydration/index.ts',
   'frontend/src/store/editor-session.ts',
   'frontend/src/store/live-jobs.ts',
+  'frontend/src/app/navigation/breadcrumbs.ts',
 ];
 const FORBIDDEN_DIRECT_IMPORTS = [
   'frontend/src/store/notifications.ts',
@@ -21,9 +22,10 @@ const FORBIDDEN_DIRECT_IMPORTS = [
 export const createChapterEditorRoute = () => {
   // Intended future flow:
   // - hydrate canonical chapter data before local route rendering
-  // - hydrate canonical chapter data through feature-level API hooks
+  // - preserve breadcrumb context back to project overview
   // - layer live job state from the live-jobs store
   // - coordinate local draft state through the editor-session store
+  // - support next/previous chapter movement without losing local session context
   _ = [
     INTENDED_UPSTREAM_CALLERS,
     INTENDED_DOWNSTREAM_DEPENDENCIES,

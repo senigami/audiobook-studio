@@ -6,3 +6,7 @@
 export const createHydrationCoordinator = () => {
   throw new Error('Studio 2.0 hydration helpers are not implemented yet.');
 };
+
+export const createMockHydrationSnapshot = () => {
+  throw new Error('Studio 2.0 mock hydration snapshot is not implemented yet.');
+};

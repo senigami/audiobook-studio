@@ -29,6 +29,7 @@ Move engine behavior behind the new voice contract while preserving current capa
 - preserve current synthesis capability
 - preserve preview/test concept
 - no full queue cutover yet
+- long-running engine and ffmpeg work must execute through non-blocking queue or async-safe infra boundaries rather than request-thread blocking calls
 
 ## Tests
 

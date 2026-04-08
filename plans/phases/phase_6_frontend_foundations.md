@@ -10,6 +10,7 @@ Adopt the 2.0 live-state and hydration model before migrating the full editor.
 - reconnect hydration logic
 - anti-regression merge rules
 - queue and header progress cutover
+- shell hydration and global navigation state
 
 ## Deliverables Checklist
 
@@ -18,12 +19,14 @@ Adopt the 2.0 live-state and hydration model before migrating the full editor.
 - [ ] Anti-regression merge rules implemented
 - [ ] Queue progress cut over to 2.0 live-state model
 - [ ] Header progress cut over to 2.0 live-state model
+- [ ] Shell hydration and global navigation state implemented
 
 ## Scope
 
 - canonical entities stay API-backed
 - store owns live overlays and session state
 - no full editor migration yet
+- mock or dev-shape hydration is acceptable in this phase so frontend 2.0 routes can be built against stable response shapes before full backend cutover
 
 ## Tests
 

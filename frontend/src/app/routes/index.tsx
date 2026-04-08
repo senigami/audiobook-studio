@@ -3,6 +3,12 @@
 // This file will eventually own route-level composition for the new feature-
 // first application shell. Phase 1 keeps this as a stub only.
 
+import {
+  CHAPTER_NAVIGATION_NODES,
+  COMPANION_SURFACES,
+  GLOBAL_NAVIGATION_NODES,
+  PROJECT_NAVIGATION_NODES,
+} from '../navigation/model';
 import { createStudioShell } from '../layout/StudioShell';
 import { createStudioProviders } from '../providers';
 import { createChapterEditorRoute } from '../../features/chapter-editor/routes/ChapterEditorRoute';
@@ -15,6 +21,7 @@ const INTENDED_UPSTREAM_CALLERS = ['frontend/src/main.tsx', 'frontend/src/App.ts
 const INTENDED_DOWNSTREAM_DEPENDENCIES = [
   'frontend/src/app/providers/index.tsx',
   'frontend/src/app/layout/StudioShell.tsx',
+  'frontend/src/app/navigation/model.ts',
   'frontend/src/features/project-library/routes/ProjectLibraryRoute.tsx',
   'frontend/src/features/project-view/routes/ProjectViewRoute.tsx',
   'frontend/src/features/chapter-editor/routes/ChapterEditorRoute.tsx',
@@ -35,6 +42,10 @@ export const createStudioRoutes = () => {
     INTENDED_UPSTREAM_CALLERS,
     INTENDED_DOWNSTREAM_DEPENDENCIES,
     FORBIDDEN_DIRECT_IMPORTS,
+    GLOBAL_NAVIGATION_NODES,
+    PROJECT_NAVIGATION_NODES,
+    CHAPTER_NAVIGATION_NODES,
+    COMPANION_SURFACES,
     createStudioProviders,
     createStudioShell,
     createProjectLibraryRoute,

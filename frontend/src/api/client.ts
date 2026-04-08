@@ -6,3 +6,7 @@
 export const createApiClient = () => {
   throw new Error('Studio 2.0 API client is not implemented yet.');
 };
+
+export const createMockApiClient = () => {
+  throw new Error('Studio 2.0 mock API client is not implemented yet.');
+};

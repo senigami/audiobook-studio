@@ -22,5 +22,7 @@ class ArtifactManifestModel:
     content_hash: str
     source_revision_id: str
     engine_id: str
+    engine_version: Optional[str] = None
+    model_revision: Optional[str] = None
     voice_profile_id: Optional[str] = None
     chapter_id: Optional[str] = None

@@ -19,13 +19,14 @@ INTENDED_DOWNSTREAM_DEPENDENCIES = (
     "app.domain.projects.repository.ProjectRepository",
     "app.domain.projects.snapshots.build_project_snapshot",
     "app.domain.projects.exports.build_project_export_manifest",
-    "app.domain.chapters.service.ChapterService",
-    "app.domain.artifacts.service.ArtifactService",
+    "app.orchestration.project_views",
 )
 FORBIDDEN_DIRECT_IMPORTS = (
     "app.db.projects",
     "app.jobs",
     "app.engines",
+    "app.domain.chapters.service",
+    "app.domain.artifacts.service",
 )
 
 

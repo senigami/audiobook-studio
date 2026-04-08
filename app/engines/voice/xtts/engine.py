@@ -5,7 +5,7 @@ contract without leaking XTTS-specific process management into the scheduler.
 """
 
 from app.engines.voice.base import BaseVoiceEngine
-from app.infra.subprocess import run_managed_subprocess
+from app.infra.subprocess import run_managed_subprocess_async
 
 INTENDED_UPSTREAM_CALLERS = (
     "app.engines.registry",
@@ -34,15 +34,15 @@ class XttsVoiceEngine(BaseVoiceEngine):
 
     def synthesize(self, request: dict[str, object]) -> dict[str, object]:
         """Describe XTTS synthesis through the standard engine contract."""
-        _ = run_managed_subprocess
+        _ = run_managed_subprocess_async
         raise NotImplementedError
 
     def preview(self, request: dict[str, object]) -> dict[str, object]:
         """Describe XTTS preview/test flow through the standard contract."""
-        _ = run_managed_subprocess
+        _ = run_managed_subprocess_async
         raise NotImplementedError
 
     def build_voice_asset(self, request: dict[str, object]) -> dict[str, object]:
         """Describe XTTS voice-asset build flow through the standard contract."""
-        _ = run_managed_subprocess
+        _ = run_managed_subprocess_async
         raise NotImplementedError

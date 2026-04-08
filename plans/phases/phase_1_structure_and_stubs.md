@@ -21,6 +21,7 @@ If we start implementing behavior before the 2.0 structure exists, new logic wil
   - ownership comments
   - placeholder exports
   - notes on which current routes/hooks/components remain canonical for now
+  - navigation shell, breadcrumb, and project-subnav scaffolding
 
 ## Deliverables Checklist
 
@@ -31,6 +32,7 @@ If we start implementing behavior before the 2.0 structure exists, new logic wil
 - [x] Backend stub files note which legacy modules still provide behavior
 - [x] Frontend stub files created with ownership comments and placeholder exports
 - [x] Frontend stub files note which current routes/hooks/components remain canonical
+- [x] Navigation shell, breadcrumb, and project-subnav scaffolding created
 - [x] No runtime behavior changes introduced
 
 ## Must Not Do
@@ -67,6 +69,10 @@ If we start implementing behavior before the 2.0 structure exists, new logic wil
 ### Frontend
 
 - `frontend/src/app/routes/index.tsx`
+- `frontend/src/app/layout/StudioShell.tsx`
+- `frontend/src/app/navigation/model.ts`
+- `frontend/src/app/navigation/breadcrumbs.ts`
+- `frontend/src/app/navigation/project-subnav.ts`
 - `frontend/src/features/chapter-editor/routes/ChapterEditorRoute.tsx`
 - `frontend/src/features/queue/routes/QueueRoute.tsx`
 - `frontend/src/features/voices/preview/VoicePreviewPanel.tsx`
@@ -107,6 +113,7 @@ If we start implementing behavior before the 2.0 structure exists, new logic wil
 - Added string-based dependency contracts to key backend services and frontend route/store stubs so intended callers, downstream seams, and forbidden shortcut imports are visible without introducing new import edges. This gives us a future linting target for cycle prevention while keeping the scaffold behavior-free.
 - Added the remaining planned infrastructure and engine-wrapper scaffold files, including `core/config`, `core/logging`, `infra/db`, `infra/subprocess`, and the per-engine XTTS/Voxtral wrapper directories with placeholder manifests and settings schemas.
 - Verified that the current scaffold now covers the planned file set for the Studio 2.0 target structure with no missing planned files.
+- Added early navigation UX scaffolding so the shell, route hierarchy, breadcrumbs, and project-local navigation are defined before deeper frontend implementation begins.
 
 ## Exit Gate
 

@@ -17,6 +17,9 @@ const FORBIDDEN_DIRECT_IMPORTS = [
 ];
 
 export const createQueueRoute = () => {
+  // Intended future flow:
+  // - support both full-page queue inspection and companion-surface usage
+  // - explain waiting reasons clearly without forcing users out of current work
   _ = [
     INTENDED_UPSTREAM_CALLERS,
     INTENDED_DOWNSTREAM_DEPENDENCIES,

@@ -11,6 +11,8 @@ def build_artifact_manifest(
     content_hash: str,
     source_revision_id: str,
     engine_id: str,
+    engine_version: str | None = None,
+    model_revision: str | None = None,
     voice_profile_id: str | None = None,
     chapter_id: str | None = None,
 ) -> ArtifactManifestModel:
@@ -20,6 +22,9 @@ def build_artifact_manifest(
         content_hash: Hash of the synthesized content inputs.
         source_revision_id: Source revision that produced the artifact.
         engine_id: Engine identifier used for synthesis.
+        engine_version: Optional engine wrapper or runtime version identifier.
+        model_revision: Optional engine model revision or model hash used for
+            synthesis consistency checks.
         voice_profile_id: Optional voice profile identifier used for synthesis.
         chapter_id: Optional chapter identifier owning the artifact.
 
@@ -33,6 +38,8 @@ def build_artifact_manifest(
         content_hash=content_hash,
         source_revision_id=source_revision_id,
         engine_id=engine_id,
+        engine_version=engine_version,
+        model_revision=model_revision,
         voice_profile_id=voice_profile_id,
         chapter_id=chapter_id,
     )
@@ -44,6 +51,8 @@ def _build_manifest_hash_input(
     content_hash: str,
     source_revision_id: str,
     engine_id: str,
+    engine_version: str | None,
+    model_revision: str | None,
     voice_profile_id: str | None,
     chapter_id: str | None,
 ) -> str:
@@ -53,6 +62,9 @@ def _build_manifest_hash_input(
         content_hash: Hash of the synthesized content inputs.
         source_revision_id: Source revision that produced the artifact.
         engine_id: Engine identifier used for synthesis.
+        engine_version: Optional engine wrapper or runtime version identifier.
+        model_revision: Optional engine model revision or model hash used for
+            synthesis consistency checks.
         voice_profile_id: Optional voice profile identifier used for synthesis.
         chapter_id: Optional chapter identifier owning the artifact.
 
