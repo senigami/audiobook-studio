@@ -29,6 +29,9 @@ Move engine behavior behind the new voice contract while preserving current capa
 - preserve current synthesis capability
 - preserve preview/test concept
 - no full queue cutover yet
+- long-running engine and ffmpeg work must execute through non-blocking queue or async-safe infra boundaries rather than request-thread blocking calls
+- engine wrappers must not rely on importing `app.web` or legacy queue modules for initialization side effects
+- any legacy engine lifecycle behavior that still depends on global startup or subprocess cleanup must remain behind explicit bridge or compatibility seams until Phase 5 and Phase 8 replace it cleanly
 
 ## Tests
 
@@ -36,6 +39,7 @@ Move engine behavior behind the new voice contract while preserving current capa
 - wrapper contract tests
 - preflight validation tests
 - preview/test isolated tests
+- import-safety checks for engine wrappers where practical
 
 ## Verification Checklist
 

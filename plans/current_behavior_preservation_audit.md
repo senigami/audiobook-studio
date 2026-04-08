@@ -27,6 +27,8 @@ This document records the current product behaviors that Studio 2.0 must preserv
 
 - The system attempts to recover from restart, missing outputs, and stale queue state.
 - The UI expects recovery to remain understandable, not just technically possible.
+- App startup currently performs meaningful operational work, including DB initialization, base-profile normalization, legacy cover migration, stuck-job cleanup, queue reconciliation, listener registration, and pause-state restoration.
+- Background worker startup currently exists as a real behavior boundary and must not be lost accidentally during migration.
 
 ### Progress UX
 
@@ -38,11 +40,18 @@ This document records the current product behaviors that Studio 2.0 must preserv
 
 - There are real global app settings today, including safe mode, default engine behavior, MP3 generation, and Voxtral/cloud configuration.
 - Voice preview/test behavior also has settings-like inputs that are distinct from project metadata.
+- Legacy middleware currently syncs config paths into router modules for compatibility with existing tests and monkeypatch patterns.
 
 ### Export And Audiobook Assembly
 
 - Audiobook assembly carries chapter-title, author, narrator, and cover-art intent.
 - Backfill or repair flows for derivative outputs such as MP3s are part of the current product concept.
+
+### App Boot And Runtime Side Effects
+
+- Importing legacy queue modules may start worker threads outside explicit route calls.
+- Startup hooks currently register WebSocket/job listeners and reconcile persistent queue state.
+- These behaviors should be preserved behind explicit application-entry boundaries until replacement systems are ready, not copied into new domain or orchestration modules.
 
 ## 2. Behaviors To Intentionally Replace
 

@@ -25,6 +25,8 @@ Build trustworthy progress, ETA, and artifact reconciliation before the orchestr
 - preserve smooth and monotonic-feeling progress behavior
 - preserve explicit `preparing` and `finalizing` phases
 - make reuse and stale detection revision-safe
+- listener registration and event broadcasting must move toward explicit application wiring rather than hidden legacy global registration
+- progress services must not depend on `app.state` listener globals as a permanent architecture choice
 
 ## Tests
 
@@ -32,6 +34,7 @@ Build trustworthy progress, ETA, and artifact reconciliation before the orchestr
 - monotonic progress tests
 - ETA stabilization tests
 - grouped render aggregation tests
+- restart and startup-reconciliation parity tests
 
 ## Verification Checklist
 
@@ -39,6 +42,7 @@ Build trustworthy progress, ETA, and artifact reconciliation before the orchestr
 - [ ] Monotonic progress tests pass
 - [ ] ETA stabilization tests pass
 - [ ] Grouped render aggregation tests pass
+- [ ] Restart and startup-reconciliation parity tests pass
 
 ## Exit Gate
 

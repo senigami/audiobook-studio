@@ -1,0 +1,9 @@
+{
+  "engine_id": "xtts",
+  "display_name": "XTTS",
+  "phase": "phase-1-scaffold",
+  "notes": [
+    "Placeholder manifest for Studio 2.0 engine discovery.",
+    "Real capability and health metadata will be defined in a later phase."
+  ]
+}

@@ -48,6 +48,7 @@ This document makes the Phase 0 feature-flag strategy explicit so rollout and ro
 - Turn flags on in dependency order, not convenience order
 - Do not enable a later-phase flag if it silently depends on a disabled earlier-phase system
 - If a flag changes user-visible behavior, document the intended scope in the relevant phase plan
+- A flag must not rely on hidden import-time worker startup or startup-hook side effects from legacy modules in order to function correctly
 
 ## 5. Rollback Rules
 

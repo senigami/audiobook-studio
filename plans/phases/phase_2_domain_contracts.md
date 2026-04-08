@@ -26,14 +26,18 @@ Implement the 2.0 domain model and persistence contracts while runtime execution
 - no full queue cutover
 - no full editor cutover
 - persistence and contract correctness only
+- cross-domain joins should prefer orchestration-level composition and ID-based lookups instead of direct domain-to-domain service coupling
+- new domain contracts must not import `app.web` or depend on legacy worker startup, startup reconciliation, or middleware-side config mutation
 
 ## Tests
 
 - revision matching tests
 - stale artifact tests
+- engine-version/model-revision artifact invalidation tests
 - render-batch derivation tests
 - project portability tests
 - settings ownership tests
+- import-safety tests or checks for new domain modules where practical
 
 ## Verification Checklist
 

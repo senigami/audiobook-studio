@@ -34,9 +34,16 @@
 - The target architecture should not be diluted by temporary migration shortcuts.
 - Keep compatibility adapters explicit and removable.
 - Remove legacy paths only after the new path is verified end to end.
+- New Studio 2.0 modules must not import `app.web` or `app.jobs` directly.
+- Legacy startup, worker boot, and listener registration side effects must stay behind explicit app-entry or compatibility boundaries until they are intentionally replaced.
 
 ## 7. Path And Asset Ownership
 
 - Projects own project-local drafts, exports, and references.
 - The library owns reusable voice identity and voice assets.
 - The shared artifact cache owns immutable generated outputs.
+
+## 8. Import-Time Safety
+
+- Importing a new domain, orchestration, engine, or frontend-support module must not start threads, mutate global settings, register listeners, or reconcile persistent state.
+- If a legacy module has import-time side effects, treat it as an integration boundary and document the dependency explicitly instead of importing it casually from new code.
