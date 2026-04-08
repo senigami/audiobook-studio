@@ -114,6 +114,8 @@ If we start implementing behavior before the 2.0 structure exists, new logic wil
 - Added the remaining planned infrastructure and engine-wrapper scaffold files, including `core/config`, `core/logging`, `infra/db`, `infra/subprocess`, and the per-engine XTTS/Voxtral wrapper directories with placeholder manifests and settings schemas.
 - Verified that the current scaffold now covers the planned file set for the Studio 2.0 target structure with no missing planned files.
 - Added early navigation UX scaffolding so the shell, route hierarchy, breadcrumbs, and project-local navigation are defined before deeper frontend implementation begins.
+- Completed an import-time side-effect audit of the legacy runtime boundaries. The main remaining legacy operational seams are `app.jobs` worker startup, `app.web` startup/shutdown lifecycle work, `app.state` listener/global state management, and middleware-based config syncing for legacy test compatibility.
+- Confirmed that the new Studio 2.0 scaffold does not depend on those legacy side effects for import success. Future phases must keep those seams explicit until they are intentionally replaced.
 
 ## Exit Gate
 

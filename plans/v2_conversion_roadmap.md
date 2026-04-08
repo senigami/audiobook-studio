@@ -72,3 +72,5 @@ Every phase must produce a deliverable that is:
 - each phase must define what is safe to debug in isolation
 - if a phase starts to depend on unfinished later phases, stop and re-scope it
 - each phase should maintain deliverables and verification checklists in its dedicated phase document
+- new Studio 2.0 modules must not rely on legacy import-time side effects for correctness
+- any needed interaction with legacy startup or worker lifecycle must go through an explicit compatibility seam and be called out in the phase notes
