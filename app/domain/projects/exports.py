@@ -8,3 +8,7 @@ def build_project_export_manifest(*args, **kwargs):
     """Placeholder export manifest builder."""
     raise NotImplementedError
 
+
+def resolve_project_export_inputs(*args, **kwargs):
+    """Placeholder export input resolver."""
+    raise NotImplementedError

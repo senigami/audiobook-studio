@@ -9,3 +9,7 @@ def build_project_snapshot(*args, **kwargs):
     """Placeholder snapshot builder."""
     raise NotImplementedError
 
+
+def validate_project_snapshot(*args, **kwargs):
+    """Placeholder snapshot validator."""
+    raise NotImplementedError
