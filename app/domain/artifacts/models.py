@@ -18,6 +18,7 @@ class RenderArtifactModel:
 class ArtifactManifestModel:
     """Manifest fields used to validate whether an artifact is still current."""
 
+    manifest_version: int
     artifact_hash: str
     content_hash: str
     source_revision_id: str

@@ -8,6 +8,7 @@ from .models import ArtifactManifestModel
 
 def build_artifact_manifest(
     *,
+    manifest_version: int = 1,
     content_hash: str,
     source_revision_id: str,
     engine_id: str,
@@ -19,6 +20,8 @@ def build_artifact_manifest(
     """Build the validation manifest for a rendered artifact.
 
     Args:
+        manifest_version: Version of the artifact manifest schema and hashing
+            contract.
         content_hash: Hash of the synthesized content inputs.
         source_revision_id: Source revision that produced the artifact.
         engine_id: Engine identifier used for synthesis.
@@ -35,6 +38,7 @@ def build_artifact_manifest(
         NotImplementedError: Phase 1 scaffold only.
     """
     _ = _build_manifest_hash_input(
+        manifest_version=manifest_version,
         content_hash=content_hash,
         source_revision_id=source_revision_id,
         engine_id=engine_id,
@@ -48,6 +52,7 @@ def build_artifact_manifest(
 
 def _build_manifest_hash_input(
     *,
+    manifest_version: int,
     content_hash: str,
     source_revision_id: str,
     engine_id: str,
@@ -59,6 +64,8 @@ def _build_manifest_hash_input(
     """Describe the deterministic fields that feed artifact manifest hashing.
 
     Args:
+        manifest_version: Version of the artifact manifest schema and hashing
+            contract.
         content_hash: Hash of the synthesized content inputs.
         source_revision_id: Source revision that produced the artifact.
         engine_id: Engine identifier used for synthesis.
