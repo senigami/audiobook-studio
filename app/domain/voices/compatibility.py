@@ -10,7 +10,7 @@ from .models import VoiceAssetModel, VoiceProfileModel
 def validate_voice_compatibility(
     *,
     profile: VoiceProfileModel,
-    engine_id: str,
+    engine_id: str | None,
     asset: VoiceAssetModel | None = None,
 ) -> None:
     """Describe compatibility validation for a voice profile and engine.
@@ -33,7 +33,7 @@ def _validate_profile_defaults(*, profile: VoiceProfileModel, engine_id: str) ->
 
     Args:
         profile: Reusable voice identity being evaluated.
-        engine_id: Target engine identifier requested by the caller.
+        engine_id: Optional target engine identifier requested by the caller.
 
     Raises:
         NotImplementedError: Phase 1 scaffold only.
@@ -45,7 +45,7 @@ def _validate_profile_defaults(*, profile: VoiceProfileModel, engine_id: str) ->
 def _validate_asset_requirements(
     *,
     profile: VoiceProfileModel,
-    engine_id: str,
+    engine_id: str | None,
     asset: VoiceAssetModel | None,
 ) -> None:
     """Describe asset-level requirements for the requested engine.

@@ -63,7 +63,7 @@ class VoiceService:
         profile = self._load_voice_profile(voice_profile_id=voice_profile_id)
         _ = validate_voice_compatibility(
             profile=profile,
-            engine_id=engine_id or profile.default_engine_id or "",
+            engine_id=engine_id or profile.default_engine_id,
             asset=None,
         )
         raise NotImplementedError("Studio 2.0 voice compatibility checks are not implemented yet.")

@@ -37,7 +37,4 @@ def describe_settings_ownership() -> list[SettingsOwnershipModel]:
     Raises:
         NotImplementedError: Phase 1 scaffold does not define concrete rules.
     """
-    from .ownership import build_settings_ownership_chain
-
-    _ = build_settings_ownership_chain
     raise NotImplementedError

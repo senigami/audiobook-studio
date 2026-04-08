@@ -91,7 +91,7 @@ class TaskOrchestrator:
         Raises:
             NotImplementedError: Phase 1 scaffold only.
         """
-        _ = reserve_task_resources(task_type=context.task_id, resource_claims={})
+        _ = reserve_task_resources(task_type=context.task_type, resource_claims={})
         raise NotImplementedError("Studio 2.0 resource reservation is not implemented yet.")
 
     def _publish_task_started(self, *, context: TaskContext) -> None:

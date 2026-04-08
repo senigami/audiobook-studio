@@ -98,9 +98,11 @@ If we start implementing behavior before the 2.0 structure exists, new logic wil
 ## Verification Notes
 
 - Passed backend import smoke for the new domain, orchestration, and engine packages.
+- Passed stricter dependency-tracing review for the new backend scaffold, including import-cycle checks across `core`, `infra`, `legacy`, `domain`, `orchestration`, and `engines`.
 - Passed backend syntax compilation for the new Phase 1 Python scaffold.
 - Passed lightweight app import smoke via `import app.web`.
 - Preserved legacy `app.engines` import behavior after adding the new `app/engines/` package by routing unresolved package attributes to the legacy module during the migration window.
+- Added missing structural landing zones for `core`, `infra`, `legacy`, `domain/text`, `domain/jobs`, scheduler helper modules, named task stubs, and the planned frontend app/API/shared shells so later phases do not need to invent boundaries mid-implementation.
 
 ## Exit Gate
 

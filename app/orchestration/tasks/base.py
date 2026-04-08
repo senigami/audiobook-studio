@@ -12,6 +12,7 @@ class TaskContext:
     """Shared task metadata used by the orchestrator and progress services."""
 
     task_id: str
+    task_type: str
     project_id: str | None = None
     chapter_id: str | None = None
     requested_by: str | None = None
