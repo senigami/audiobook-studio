@@ -1,0 +1,236 @@
+# Studio 2.0 Phase Delivery Plan
+
+This document breaks the conversion into concrete, testable deliverable phases. It is meant to be used during implementation, not just read once.
+
+## Phase 1: Structure And Stubs
+
+### Objective
+
+Create the 2.0 architecture skeleton without changing behavior.
+
+### Why this phase matters
+
+If we skip this and start coding features directly, we will end up rediscovering architecture boundaries under pressure and mixing old/new responsibilities together.
+
+### Scope
+
+- create new backend directories
+- create new frontend directories
+- add stub files with module docstrings
+- add placeholder types, interfaces, and function signatures
+- add comments inside each stub describing:
+  - what the module owns
+  - what the module must not own
+  - which legacy code currently still provides behavior
+
+### Suggested backend stub files
+
+- `app/domain/projects/models.py`
+- `app/domain/projects/repository.py`
+- `app/domain/projects/service.py`
+- `app/domain/chapters/models.py`
+- `app/domain/chapters/repository.py`
+- `app/domain/chapters/service.py`
+- `app/domain/chapters/batching.py`
+- `app/domain/voices/models.py`
+- `app/domain/voices/service.py`
+- `app/domain/voices/preview.py`
+- `app/domain/settings/service.py`
+- `app/domain/artifacts/manifest.py`
+- `app/orchestration/tasks/base.py`
+- `app/orchestration/scheduler/orchestrator.py`
+- `app/orchestration/progress/service.py`
+- `app/engines/voice/base.py`
+- `app/engines/registry.py`
+- `app/engines/bridge.py`
+
+### Suggested frontend stub files
+
+- `frontend/src/app/routes/index.tsx`
+- `frontend/src/features/chapter-editor/routes/ChapterEditorRoute.tsx`
+- `frontend/src/features/queue/routes/QueueRoute.tsx`
+- `frontend/src/features/voices/preview/VoicePreviewPanel.tsx`
+- `frontend/src/store/live-jobs.ts`
+- `frontend/src/store/editor-session.ts`
+- `frontend/src/api/contracts/events.ts`
+
+### Tests and verification
+
+- import smoke checks
+- app still boots
+- no behavior changes
+
+### Completion criteria
+
+- the architecture exists physically in the repo
+- the stubs are documented enough to guide Phase 2+ work
+
+## Phase 2: Domain Contracts
+
+### Objective
+
+Implement the domain models and persistence edges while leaving runtime execution mostly legacy.
+
+### Scope
+
+- entity models
+- repositories
+- artifact manifest writing/validation helpers
+- settings ownership model
+- render-batch derivation rules
+
+### Key tests
+
+- stale artifact tests
+- batching derivation tests
+- project portability tests
+- settings ownership tests
+
+### Completion criteria
+
+- 2.0 entities are real and testable
+- runtime code can start calling into them without queue cutover
+
+## Phase 3: Voice Bridge
+
+### Objective
+
+Move engine logic behind the new contract while preserving current output behavior.
+
+### Scope
+
+- engine base contract
+- XTTS wrapper
+- Voxtral wrapper
+- registry and bridge
+- preview/test contract
+
+### Key tests
+
+- mock engine tests
+- preflight validation tests
+- wrapper contract tests
+
+### Completion criteria
+
+- new engine boundary exists and can be used by later phases
+
+## Phase 4: Progress And Reconciliation
+
+### Objective
+
+Make progress and reuse decisions trustworthy before queue replacement.
+
+### Scope
+
+- reconciliation logic
+- ETA logic
+- event contract
+- frontend visual stability rules
+
+### Key tests
+
+- monotonic progress tests
+- stale-output reset tests
+- grouped render progress aggregation tests
+
+### Completion criteria
+
+- progress math and reuse logic no longer depend on legacy worker internals
+
+## Phase 5: Orchestrator
+
+### Objective
+
+Build the new queue beside the old one and validate it in isolation.
+
+### Scope
+
+- task hierarchy
+- scheduler policies
+- resource claims
+- recovery
+- special task classes
+
+### Key tests
+
+- scheduler fairness
+- recovery
+- cancel/retry
+- bake/mixed/sample/export-repair behavior
+
+### Completion criteria
+
+- representative backend flows run under the 2.0 queue behind a flag
+
+## Phase 6: Frontend Foundation Cutover
+
+### Objective
+
+Adopt the 2.0 live-state and hydration model before the full editor migration.
+
+### Scope
+
+- live overlay store
+- reconnect hydration
+- queue/header progress wiring
+
+### Key tests
+
+- reconnect tests
+- queue consistency tests
+- anti-regression merge tests
+
+### Completion criteria
+
+- 2.0 events can drive visible app behavior safely
+
+## Phase 7: Editor And Voice UX
+
+### Objective
+
+Move the core production workflows onto the 2.0 foundation.
+
+### Scope
+
+- block-aware editor behavior
+- render-batch execution requests
+- inline failure recovery
+- voice module and preview UI
+
+### Key tests
+
+- targeted rerender
+- stale-state handling
+- autosave merge behavior
+
+### Completion criteria
+
+- the main user workflow runs on 2.0 architecture
+
+## Phase 8: Cleanup And Hardening
+
+### Objective
+
+Remove legacy paths only after proven replacement.
+
+### Scope
+
+- legacy deletion
+- final path consolidation
+- documentation completion
+
+### Key tests
+
+- regression suite
+- end-to-end recovery/export validation
+
+### Completion criteria
+
+- legacy dependencies are gone without functionality loss
+
+## Debugging Discipline Across All Phases
+
+- Debug the smallest possible module first.
+- Avoid debugging through the full app when an isolated test or stub contract can prove the issue.
+- If a bug spans multiple new modules, add a contract test at the boundary where it leaks across.

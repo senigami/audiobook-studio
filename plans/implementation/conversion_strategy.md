@@ -16,6 +16,10 @@ Do not replace a working legacy path until the new path can prove the same behav
 
 Flags should allow shadow validation before full cutover where practical.
 
+## 2.1 Scaffold-First Rule
+
+Before large behavioral work begins, create the target directories and stub files with documented ownership boundaries. This reduces migration risk by making later implementation land inside pre-declared modules instead of expanding legacy files opportunistically.
+
 ## 3. Verification Stages
 
 ### Stage A: Isolated Module Verification
@@ -48,6 +52,7 @@ Pause implementation and update the plan if:
 - the store starts owning canonical entities
 - engine-specific logic leaks into queue or route handlers
 - migration requires deleting the rollback path too early
+- a phase starts silently depending on unfinished later-phase code to be usable
 
 ## 5. Definition Of Ready For Full Cutover
 
