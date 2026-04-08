@@ -14,6 +14,23 @@ from .batching import derive_render_batches
 from .drafting import normalize_chapter_draft
 from .repository import ChapterRepository
 
+INTENDED_UPSTREAM_CALLERS = (
+    "app.api.routers.chapters",
+    "app.api.routers.projects",
+)
+INTENDED_DOWNSTREAM_DEPENDENCIES = (
+    "app.domain.chapters.repository.ChapterRepository",
+    "app.domain.chapters.drafting.normalize_chapter_draft",
+    "app.domain.chapters.batching.derive_render_batches",
+    "app.domain.chapters.segmentation.segment_chapter_text",
+)
+FORBIDDEN_DIRECT_IMPORTS = (
+    "app.db.chapters",
+    "app.db.segments",
+    "app.jobs",
+    "app.engines",
+)
+
 
 class ChapterService:
     """Placeholder service showing how chapter logic will flow through 2.0."""

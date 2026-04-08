@@ -3,18 +3,7 @@
 Owns voice profiles, voice assets, preview/test behavior, and compatibility.
 """
 
-from .models import VoiceAssetModel, VoicePreviewRequestModel, VoiceProfileModel
-from .compatibility import validate_voice_compatibility
-from .repository import VoiceRepository
-from .samples import build_voice_sample_request
-from .service import create_voice_service
-
-__all__ = [
-    "VoiceAssetModel",
-    "VoicePreviewRequestModel",
-    "VoiceProfileModel",
-    "VoiceRepository",
-    "build_voice_sample_request",
-    "create_voice_service",
-    "validate_voice_compatibility",
-]
+# Import discipline note:
+# - Prefer direct imports from concrete voice modules.
+# - Keep package-level imports minimal so preview, compatibility, repository,
+#   and service layers do not accidentally form eager-import chains.

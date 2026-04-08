@@ -3,12 +3,7 @@
 Owns project lifecycle, project-level defaults, snapshots, and export intent.
 """
 
-from .models import ProjectExportManifestModel, ProjectModel, ProjectSnapshotModel
-from .service import create_project_service
-
-__all__ = [
-    "ProjectExportManifestModel",
-    "ProjectModel",
-    "ProjectSnapshotModel",
-    "create_project_service",
-]
+# Import discipline note:
+# - Prefer direct imports from concrete project modules.
+# - Keep this package lightweight to reduce future cycle risk as services,
+#   snapshots, and exports gain real behavior.

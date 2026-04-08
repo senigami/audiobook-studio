@@ -11,12 +11,30 @@ import { createProjectViewRoute } from '../../features/project-view/routes/Proje
 import { createQueueRoute } from '../../features/queue/routes/QueueRoute';
 import { createVoiceModulesRoute } from '../../features/settings/voice-modules/routes/VoiceModulesRoute';
 
+const INTENDED_UPSTREAM_CALLERS = ['frontend/src/main.tsx', 'frontend/src/App.tsx'];
+const INTENDED_DOWNSTREAM_DEPENDENCIES = [
+  'frontend/src/app/providers/index.tsx',
+  'frontend/src/app/layout/StudioShell.tsx',
+  'frontend/src/features/project-library/routes/ProjectLibraryRoute.tsx',
+  'frontend/src/features/project-view/routes/ProjectViewRoute.tsx',
+  'frontend/src/features/chapter-editor/routes/ChapterEditorRoute.tsx',
+  'frontend/src/features/queue/routes/QueueRoute.tsx',
+  'frontend/src/features/settings/voice-modules/routes/VoiceModulesRoute.tsx',
+];
+const FORBIDDEN_DIRECT_IMPORTS = [
+  'frontend/src/components',
+  'frontend/src/hooks',
+];
+
 export const createStudioRoutes = () => {
   // Intended future flow:
   // - compose providers and shell before route rendering begins
   // - create feature-first route boundaries
   // - compose them under the Studio 2.0 app shell
   _ = [
+    INTENDED_UPSTREAM_CALLERS,
+    INTENDED_DOWNSTREAM_DEPENDENCIES,
+    FORBIDDEN_DIRECT_IMPORTS,
     createStudioProviders,
     createStudioShell,
     createProjectLibraryRoute,

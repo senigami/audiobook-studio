@@ -6,8 +6,24 @@
 import { createHydrationCoordinator } from '../../../api/hydration';
 import { createLiveJobsStore } from '../../../store/live-jobs';
 
+const INTENDED_UPSTREAM_CALLERS = ['frontend/src/app/routes/index.tsx'];
+const INTENDED_DOWNSTREAM_DEPENDENCIES = [
+  'frontend/src/api/hydration/index.ts',
+  'frontend/src/store/live-jobs.ts',
+];
+const FORBIDDEN_DIRECT_IMPORTS = [
+  'frontend/src/store/editor-session.ts',
+  'frontend/src/components/GlobalQueue.tsx',
+];
+
 export const createQueueRoute = () => {
-  _ = [createHydrationCoordinator, createLiveJobsStore];
+  _ = [
+    INTENDED_UPSTREAM_CALLERS,
+    INTENDED_DOWNSTREAM_DEPENDENCIES,
+    FORBIDDEN_DIRECT_IMPORTS,
+    createHydrationCoordinator,
+    createLiveJobsStore,
+  ];
   return null;
 };
 

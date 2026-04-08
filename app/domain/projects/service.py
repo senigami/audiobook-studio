@@ -11,6 +11,23 @@ from .exports import build_project_export_manifest
 from .repository import ProjectRepository
 from .snapshots import build_project_snapshot
 
+INTENDED_UPSTREAM_CALLERS = (
+    "app.api.routers.projects",
+    "app.domain.projects.service_factory",
+)
+INTENDED_DOWNSTREAM_DEPENDENCIES = (
+    "app.domain.projects.repository.ProjectRepository",
+    "app.domain.projects.snapshots.build_project_snapshot",
+    "app.domain.projects.exports.build_project_export_manifest",
+    "app.domain.chapters.service.ChapterService",
+    "app.domain.artifacts.service.ArtifactService",
+)
+FORBIDDEN_DIRECT_IMPORTS = (
+    "app.db.projects",
+    "app.jobs",
+    "app.engines",
+)
+
 
 class ProjectService:
     """Placeholder service showing the intended project-domain entry points."""

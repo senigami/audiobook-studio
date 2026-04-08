@@ -7,6 +7,21 @@ implementation.
 from app.engines.voice.base import BaseVoiceEngine
 from app.engines.registry import load_engine_registry
 
+INTENDED_UPSTREAM_CALLERS = (
+    "app.domain.voices.preview",
+    "app.orchestration.scheduler.orchestrator",
+    "app.orchestration.tasks",
+)
+INTENDED_DOWNSTREAM_DEPENDENCIES = (
+    "app.engines.registry.load_engine_registry",
+    "app.engines.voice.base.BaseVoiceEngine",
+)
+FORBIDDEN_DIRECT_IMPORTS = (
+    "app.api.routers",
+    "app.db",
+    "app.jobs",
+)
+
 
 class VoiceBridge:
     """Placeholder bridge surface for synthesis and preview/test calls."""

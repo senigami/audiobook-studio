@@ -7,6 +7,21 @@ from .models import EffectiveSettingsModel, SettingsOwnershipModel
 from .ownership import build_settings_ownership_chain
 from .repository import SettingsRepository
 
+INTENDED_UPSTREAM_CALLERS = (
+    "app.api.routers.settings",
+    "app.api.routers.voices",
+    "app.api.routers.projects",
+)
+INTENDED_DOWNSTREAM_DEPENDENCIES = (
+    "app.domain.settings.repository.SettingsRepository",
+    "app.domain.settings.ownership.build_settings_ownership_chain",
+)
+FORBIDDEN_DIRECT_IMPORTS = (
+    "app.state",
+    "app.db",
+    "app.jobs",
+)
+
 
 class SettingsService:
     """Placeholder service for scoped settings lookups and migrations."""

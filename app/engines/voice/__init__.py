@@ -1,5 +1,5 @@
-"""Voice engine implementations for Studio 2.0."""
+"""Voice engine implementations for Studio 2.0.
 
-from .base import BaseVoiceEngine
-
-__all__ = ["BaseVoiceEngine"]
+Prefer direct imports from concrete engine modules instead of package-level
+re-exports.
+"""

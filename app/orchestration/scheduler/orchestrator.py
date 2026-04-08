@@ -12,6 +12,25 @@ from .policies import choose_next_task
 from .recovery import load_recoverable_task_contexts
 from .resources import reserve_task_resources
 
+INTENDED_UPSTREAM_CALLERS = (
+    "app.api.routers.queue",
+    "app.api.routers.projects",
+    "app.api.routers.chapters",
+)
+INTENDED_DOWNSTREAM_DEPENDENCIES = (
+    "app.orchestration.tasks.base.StudioTask",
+    "app.orchestration.progress.service.create_progress_service",
+    "app.orchestration.scheduler.resources.reserve_task_resources",
+    "app.orchestration.scheduler.recovery.load_recoverable_task_contexts",
+    "app.orchestration.scheduler.policies.choose_next_task",
+    "app.engines.bridge.create_voice_bridge",
+)
+FORBIDDEN_DIRECT_IMPORTS = (
+    "app.jobs.worker",
+    "app.jobs.core",
+    "app.db.queue",
+)
+
 
 class TaskOrchestrator:
     """Placeholder orchestrator surface for Studio 2.0.

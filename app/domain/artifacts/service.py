@@ -9,6 +9,22 @@ from .manifest import build_artifact_manifest
 from .models import ArtifactManifestModel, RenderArtifactModel
 from .repository import ArtifactRepository
 
+INTENDED_UPSTREAM_CALLERS = (
+    "app.domain.projects.service.ProjectService",
+    "app.orchestration.progress.reconciliation",
+    "app.orchestration.tasks",
+)
+INTENDED_DOWNSTREAM_DEPENDENCIES = (
+    "app.domain.artifacts.repository.ArtifactRepository",
+    "app.domain.artifacts.manifest.build_artifact_manifest",
+    "app.domain.artifacts.cache.publish_artifact",
+)
+FORBIDDEN_DIRECT_IMPORTS = (
+    "app.db.reconcile",
+    "app.jobs.reconcile",
+    "app.engines",
+)
+
 
 class ArtifactService:
     """Placeholder service for artifact validation and publication flow."""

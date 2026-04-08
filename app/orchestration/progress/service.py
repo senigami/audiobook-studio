@@ -8,6 +8,21 @@ from .broadcaster import broadcast_progress
 from .eta import estimate_eta_seconds
 from .reconciliation import reconcile_work_item
 
+INTENDED_UPSTREAM_CALLERS = (
+    "app.orchestration.scheduler.orchestrator",
+    "app.orchestration.tasks",
+)
+INTENDED_DOWNSTREAM_DEPENDENCIES = (
+    "app.orchestration.progress.reconciliation.reconcile_work_item",
+    "app.orchestration.progress.eta.estimate_eta_seconds",
+    "app.orchestration.progress.broadcaster.broadcast_progress",
+)
+FORBIDDEN_DIRECT_IMPORTS = (
+    "app.api.routers",
+    "app.engines",
+    "app.db.queue",
+)
+
 
 class ProgressService:
     """Placeholder progress-service entry points.

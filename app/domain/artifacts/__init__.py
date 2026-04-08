@@ -1,12 +1,7 @@
-"""Artifact domain for Studio 2.0."""
+"""Artifact domain for Studio 2.0.
 
-from .models import ArtifactManifestModel, RenderArtifactModel
-from .manifest import build_artifact_manifest
-from .service import create_artifact_service
-
-__all__ = [
-    "ArtifactManifestModel",
-    "RenderArtifactModel",
-    "build_artifact_manifest",
-    "create_artifact_service",
-]
+Import discipline note:
+- Prefer direct imports from concrete artifact modules.
+- Keep this package lightweight so Phase 2+ implementations do not create
+  accidental import cycles through package-level re-exports.
+"""
