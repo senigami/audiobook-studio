@@ -27,6 +27,8 @@ Move the main user workflows onto the 2.0 foundations once the lower-risk layers
 - preserve current product purpose
 - improve trust and clarity
 - avoid collapsing back into queue-driven UI design
+- editor and voice UX must keep recovery, stale-state, and progress messaging understandable even while some backend flows are still legacy-backed
+- project and chapter navigation should surface startup-recovered, paused, failed, and stale states clearly instead of assuming a clean active-session-only model
 
 ## Tests
 
@@ -34,6 +36,7 @@ Move the main user workflows onto the 2.0 foundations once the lower-risk layers
 - stale-state tests
 - autosave and local-draft merge tests
 - manual UX verification
+- recovery-state navigation and messaging verification
 
 ## Verification Checklist
 
@@ -41,6 +44,7 @@ Move the main user workflows onto the 2.0 foundations once the lower-risk layers
 - [ ] Stale-state tests pass
 - [ ] Autosave and local-draft merge tests pass
 - [ ] Manual UX verification completed
+- [ ] Recovery-state navigation and messaging verification completed
 
 ## Exit Gate
 

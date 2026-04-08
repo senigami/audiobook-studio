@@ -22,6 +22,7 @@ Remove legacy dependencies only after their replacements are proven.
 ## Scope
 
 - cleanup is only allowed after proof, not as a speculative simplification
+- legacy import-time worker startup, startup reconciliation, config-sync middleware, and listener-registration side effects must be removed only after explicit 2.0 replacements are proven
 
 ## Tests
 
@@ -29,6 +30,7 @@ Remove legacy dependencies only after their replacements are proven.
 - recovery validation
 - export validation
 - legacy removal validation
+- startup lifecycle replacement validation
 
 ## Verification Checklist
 
@@ -36,6 +38,7 @@ Remove legacy dependencies only after their replacements are proven.
 - [ ] Recovery validation passes
 - [ ] Export validation passes
 - [ ] Legacy removal validation passes
+- [ ] Startup lifecycle replacement validation passes
 
 ## Exit Gate
 
