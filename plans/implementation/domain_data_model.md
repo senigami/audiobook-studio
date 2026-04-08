@@ -52,6 +52,18 @@ This is the missing foundation under the rest of the 2.0 plans. Before queueing,
 - `status`
 - `last_error`
 
+### RenderBatch
+
+- `id`
+- `chapter_id`
+- `block_ids`
+- `stable_batch_key`
+- `resolved_engine_id`
+- `resolved_voice_assignment_id`
+- `batch_revision_hash`
+- `estimated_work_weight`
+- `status`
+
 ### VoiceProfile
 
 - `id`
@@ -95,6 +107,7 @@ This is the missing foundation under the rest of the 2.0 plans. Before queueing,
 - `parent_job_id`
 - `project_id`
 - `chapter_id`
+- `render_batch_id`
 - `resource_profile`
 - `priority`
 - `status`
@@ -121,7 +134,9 @@ This is the missing foundation under the rest of the 2.0 plans. Before queueing,
 
 - A project owns chapters, snapshots, and output presets.
 - A chapter owns ordered production blocks and draft revisions.
+- A chapter may derive ordered render batches from adjacent compatible production blocks.
 - A block may reference a compatible voice assignment and the last valid artifact for its current revision.
+- A render batch represents an execution-time grouping, not a replacement for editorial identity.
 - A voice profile may have many engine-specific voice assets.
 - A render artifact is immutable and may be referenced by multiple projects safely.
 - A queue job may have child jobs and may target a project, chapter, or block set.
@@ -195,8 +210,9 @@ Each stored artifact should have a manifest like:
 1. Define Python models for the core entities.
 2. Define DB schema or table migrations for the new entities.
 3. Introduce repositories that hide storage details from route handlers and queue tasks.
-4. Implement manifest writing and validation helpers.
-5. Add tests for stale detection, artifact reuse, grouped render-batch derivation, and project portability.
+4. Implement render-batch derivation rules in the chapter domain.
+5. Implement manifest writing and validation helpers.
+6. Add tests for stale detection, artifact reuse, grouped render-batch derivation, and project portability.
 
 ## 8. Invariants We Must Protect
 

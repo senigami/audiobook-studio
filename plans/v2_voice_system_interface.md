@@ -82,6 +82,11 @@ class BaseVoiceEngine(Protocol):
 - Support for profile-level preview settings such as test text, engine choice, and optional reference sample
 - Fast failure messaging when preview configuration is incomplete
 
+Implementation alignment:
+
+- preview/test behavior should live alongside the voice domain and engine bridge, not as an orphaned utility path
+- preview outputs should remain distinct from canonical project render artifacts unless explicitly promoted
+
 ## 5. Manifest Requirements
 
 Each engine manifest must declare:

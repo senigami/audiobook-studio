@@ -52,6 +52,11 @@ We should explicitly preserve and clarify the ownership of settings rather than 
 - **Voice-module settings**: API keys, model selection, engine-specific advanced settings, health/readiness configuration
 - **Voice-profile settings**: preview/test text, preview engine choice, reference sample choice, engine-compatible asset metadata
 
+Implementation alignment:
+
+- settings ownership should map to a real backend domain boundary, not just a documentation idea
+- routes and UI should read/write settings through that ownership model instead of continuing to treat all settings as one flat bag
+
 This needs to be explicit in 2.0 because the current product already mixes some of these concerns together operationally.
 
 ## 4. Library Safety Rules

@@ -28,6 +28,8 @@ This is the implementation sequence I want us to follow. It is structured to red
 ### What I want to create
 
 - Explicit data contracts for project, chapter, block, voice, artifact, queue job, and snapshot
+- Explicit render-batch model distinct from production blocks
+- Explicit settings ownership model for global, project, module, and profile-preview settings
 - Revision hash rules
 - Artifact manifest format
 - Stable project-root and cache-root path rules
@@ -35,9 +37,11 @@ This is the implementation sequence I want us to follow. It is structured to red
 ### How I want to do it
 
 1. Add the new domain model definitions and persistence adapters.
-2. Define artifact hashing inputs and manifest schema.
-3. Introduce immutable artifact cache semantics.
-4. Write tests for revision matching, stale detection, and project portability.
+2. Define render-batch derivation rules in the chapter domain.
+3. Define settings ownership and migration rules.
+4. Define artifact hashing inputs and manifest schema.
+5. Introduce immutable artifact cache semantics.
+6. Write tests for revision matching, stale detection, grouped batching, settings ownership, and project portability.
 
 ### Exit criteria
 
@@ -64,6 +68,7 @@ This is the implementation sequence I want us to follow. It is structured to red
 
 - The backend can queue synthesis through the new bridge without worker-specific engine branching.
 - Engine setup and readiness are inspectable in a consistent way.
+- Preview/test behavior is preserved as a first-class voice workflow, not left as an afterthought.
 
 ## Phase 3: Progress, Reconciliation, And Broadcasting
 
@@ -115,6 +120,7 @@ This is the implementation sequence I want us to follow. It is structured to red
 - Reload and reconnect hydration flow
 - New queue UX with waiting reasons and recovery states
 - 2.0 chapter editor workflow and voice-module management screens
+- Settings and preview flows aligned to the new ownership model
 
 ### How I want to do it
 

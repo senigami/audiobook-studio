@@ -45,6 +45,11 @@ Batch derivation should preserve current ideas such as:
 
 This lets us keep targeted editing while preserving efficient and natural grouped rendering.
 
+Implementation alignment:
+
+- batching logic belongs in the chapter domain, not in queue code and not only in frontend helpers
+- the editor may visualize blocks while requesting render operations against derived render batches
+
 ## 3. What I Want To Create
 
 ### 3.1 Two-Pane Production Layout

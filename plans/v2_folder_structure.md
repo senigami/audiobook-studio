@@ -44,13 +44,20 @@ app/
 │   │   ├── repository.py
 │   │   ├── service.py
 │   │   ├── segmentation.py
+│   │   ├── batching.py
 │   │   └── drafting.py
 │   ├── voices/
 │   │   ├── models.py
 │   │   ├── repository.py
 │   │   ├── service.py
 │   │   ├── compatibility.py
-│   │   └── samples.py
+│   │   ├── samples.py
+│   │   └── preview.py
+│   ├── settings/
+│   │   ├── models.py
+│   │   ├── repository.py
+│   │   ├── service.py
+│   │   └── ownership.py
 │   ├── artifacts/
 │   │   ├── models.py
 │   │   ├── repository.py
@@ -70,9 +77,13 @@ app/
 │   ├── tasks/
 │   │   ├── base.py
 │   │   ├── synthesis.py
+│   │   ├── mixed_synthesis.py
+│   │   ├── bake.py
 │   │   ├── assembly.py
 │   │   ├── export.py
-│   │   └── sample_build.py
+│   │   ├── export_repair.py
+│   │   ├── sample_build.py
+│   │   └── sample_test.py
 │   ├── scheduler/
 │   │   ├── orchestrator.py
 │   │   ├── resources.py
@@ -130,6 +141,7 @@ frontend/src/
 │   ├── chapter-editor/
 │   ├── queue/
 │   ├── voices/
+│   │   └── preview/
 │   └── settings/
 │       └── voice-modules/
 │
@@ -206,6 +218,8 @@ data/
 - Queue and progress logic can evolve independently without dragging engine wrappers and route handlers around.
 - The frontend becomes feature-first instead of page-and-hook accretion.
 - Runtime data ownership becomes explicit enough to support portability, reuse, and recovery safely.
+- Settings ownership becomes explicit enough that global app settings, project defaults, module settings, and profile preview behavior do not blur together during migration.
+- Render batching has a real home in the chapter domain instead of being rediscovered ad hoc inside queue or UI code.
 
 ## 7. Migration Rules
 
