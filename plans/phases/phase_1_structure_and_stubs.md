@@ -24,14 +24,14 @@ If we start implementing behavior before the 2.0 structure exists, new logic wil
 
 ## Deliverables Checklist
 
-- [ ] New backend directories created under `app/`
-- [ ] New frontend directories created under `frontend/src/`
-- [ ] Backend stub files created with module-purpose docstrings
-- [ ] Backend stub files include ownership and non-ownership comments
-- [ ] Backend stub files note which legacy modules still provide behavior
-- [ ] Frontend stub files created with ownership comments and placeholder exports
-- [ ] Frontend stub files note which current routes/hooks/components remain canonical
-- [ ] No runtime behavior changes introduced
+- [x] New backend directories created under `app/`
+- [x] New frontend directories created under `frontend/src/`
+- [x] Backend stub files created with module-purpose docstrings
+- [x] Backend stub files include ownership and non-ownership comments
+- [x] Backend stub files note which legacy modules still provide behavior
+- [x] Frontend stub files created with ownership comments and placeholder exports
+- [x] Frontend stub files note which current routes/hooks/components remain canonical
+- [x] No runtime behavior changes introduced
 
 ## Must Not Do
 
@@ -82,10 +82,25 @@ If we start implementing behavior before the 2.0 structure exists, new logic wil
 
 ## Verification Checklist
 
-- [ ] Import smoke checks pass
-- [ ] App still boots
-- [ ] Existing behavior remains unchanged
-- [ ] New structure is navigable and documented
+- [x] Import smoke checks pass
+- [x] App still boots
+- [x] Existing behavior remains unchanged
+- [x] New structure is navigable and documented
+
+## Rule Alignment Notes
+
+- Phase 1 now matches the modular architecture rule set by giving the next phases explicit homes for domain, orchestration, engine, artifact, settings, and job concerns.
+- Repository and service seams are present for persisted domains so later phases do not have to invent boundaries inside route handlers or worker code.
+- Scheduler policy, recovery, and resource-claim modules exist as stubs so queue logic does not drift into tasks or engine wrappers.
+- A compatibility facade in `app/engines/__init__.py` preserves legacy imports while the new `app/engines/` package exists, which keeps migration code explicit instead of leaking temporary shortcuts into the new architecture.
+- The scaffold remains behavior-free: the new modules are descriptive boundaries only, and legacy runtime paths still own execution.
+
+## Verification Notes
+
+- Passed backend import smoke for the new domain, orchestration, and engine packages.
+- Passed backend syntax compilation for the new Phase 1 Python scaffold.
+- Passed lightweight app import smoke via `import app.web`.
+- Preserved legacy `app.engines` import behavior after adding the new `app/engines/` package by routing unresolved package attributes to the legacy module during the migration window.
 
 ## Exit Gate
 
