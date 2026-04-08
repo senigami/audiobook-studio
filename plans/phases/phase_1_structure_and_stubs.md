@@ -105,6 +105,8 @@ If we start implementing behavior before the 2.0 structure exists, new logic wil
 - Added missing structural landing zones for `core`, `infra`, `legacy`, `domain/text`, `domain/jobs`, scheduler helper modules, named task stubs, and the planned frontend app/API/shared shells so later phases do not need to invent boundaries mid-implementation.
 - Removed eager package re-export imports from the new domain and orchestration packages so later phases are guided toward direct module imports and lower import-cycle risk. The `app.engines` package remains the one intentional exception because it currently carries the legacy compatibility facade.
 - Added string-based dependency contracts to key backend services and frontend route/store stubs so intended callers, downstream seams, and forbidden shortcut imports are visible without introducing new import edges. This gives us a future linting target for cycle prevention while keeping the scaffold behavior-free.
+- Added the remaining planned infrastructure and engine-wrapper scaffold files, including `core/config`, `core/logging`, `infra/db`, `infra/subprocess`, and the per-engine XTTS/Voxtral wrapper directories with placeholder manifests and settings schemas.
+- Verified that the current scaffold now covers the planned file set for the Studio 2.0 target structure with no missing planned files.
 
 ## Exit Gate
 

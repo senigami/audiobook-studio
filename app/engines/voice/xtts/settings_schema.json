@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "XTTS Settings Schema",
+  "description": "Placeholder Studio 2.0 schema for XTTS module settings.",
+  "type": "object",
+  "properties": {},
+  "additionalProperties": true
+}
