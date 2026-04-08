@@ -6,6 +6,7 @@ This module will eventually own draft revision and local-edit coordination.
 from collections.abc import Sequence
 
 from .models import ChapterDraftModel, ProductionBlockModel
+from .segmentation import segment_chapter_text
 
 
 def normalize_chapter_draft(
@@ -30,7 +31,11 @@ def normalize_chapter_draft(
     Raises:
         NotImplementedError: Phase 1 scaffold only.
     """
-    candidate_blocks = _split_text_into_candidate_blocks(raw_text=raw_text)
+    candidate_blocks = segment_chapter_text(
+        chapter_id=chapter_id,
+        raw_text=raw_text,
+        prior_blocks=existing_blocks,
+    )
     merged_blocks = _merge_existing_block_metadata(
         candidate_blocks=candidate_blocks,
         existing_blocks=existing_blocks or [],
@@ -56,6 +61,7 @@ def _split_text_into_candidate_blocks(*, raw_text: str) -> list[ProductionBlockM
     Raises:
         NotImplementedError: Phase 1 scaffold only.
     """
+    _ = raw_text
     raise NotImplementedError
 
 

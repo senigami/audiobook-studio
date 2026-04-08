@@ -8,6 +8,10 @@ from app.engines.bridge import create_voice_bridge
 from app.orchestration.progress.service import create_progress_service
 from app.orchestration.tasks.base import StudioTask, TaskContext
 
+from .policies import choose_next_task
+from .recovery import load_recoverable_task_contexts
+from .resources import reserve_task_resources
+
 
 class TaskOrchestrator:
     """Placeholder orchestrator surface for Studio 2.0.
@@ -87,7 +91,7 @@ class TaskOrchestrator:
         Raises:
             NotImplementedError: Phase 1 scaffold only.
         """
-        _ = context
+        _ = reserve_task_resources(task_type=context.task_id, resource_claims={})
         raise NotImplementedError("Studio 2.0 resource reservation is not implemented yet.")
 
     def _publish_task_started(self, *, context: TaskContext) -> None:
@@ -116,6 +120,7 @@ class TaskOrchestrator:
         Raises:
             NotImplementedError: Phase 1 scaffold only.
         """
+        _ = choose_next_task
         _ = self.voice_bridge
         _ = (task, context)
         raise NotImplementedError("Studio 2.0 task dispatch is not implemented yet.")
@@ -129,6 +134,7 @@ class TaskOrchestrator:
         Raises:
             NotImplementedError: Phase 1 scaffold only.
         """
+        _ = load_recoverable_task_contexts()
         raise NotImplementedError("Studio 2.0 recovery loading is not implemented yet.")
 
 

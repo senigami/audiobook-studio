@@ -5,8 +5,10 @@ profile-level defaults. Engine-specific work stays behind the bridge.
 """
 
 from .models import VoicePreviewRequestModel, VoiceProfileModel
+from .compatibility import validate_voice_compatibility
 from .preview import preview_voice_profile
 from .repository import VoiceRepository
+from .samples import build_voice_sample_request
 
 
 class VoiceService:
@@ -58,8 +60,12 @@ class VoiceService:
         Raises:
             NotImplementedError: Phase 1 scaffold only.
         """
-        _ = self._load_voice_profile(voice_profile_id=voice_profile_id)
-        _ = engine_id
+        profile = self._load_voice_profile(voice_profile_id=voice_profile_id)
+        _ = validate_voice_compatibility(
+            profile=profile,
+            engine_id=engine_id or profile.default_engine_id or "",
+            asset=None,
+        )
         raise NotImplementedError("Studio 2.0 voice compatibility checks are not implemented yet.")
 
     def run_preview(self, request: VoicePreviewRequestModel) -> dict[str, object]:
@@ -108,6 +114,12 @@ class VoiceService:
         Raises:
             NotImplementedError: Phase 1 scaffold only.
         """
+        profile = self._load_voice_profile(voice_profile_id=request.voice_profile_id)
+        _ = build_voice_sample_request(
+            profile=profile,
+            script_text=request.script_text,
+            engine_id=request.engine_id,
+        )
         raise NotImplementedError("Studio 2.0 preview request resolution is not implemented yet.")
 
 

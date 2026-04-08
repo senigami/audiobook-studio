@@ -3,7 +3,8 @@
 This module will own the explicit settings ownership model used by Studio 2.0.
 """
 
-from .models import EffectiveSettingsModel, SettingsOwnershipModel, describe_settings_ownership
+from .models import EffectiveSettingsModel, SettingsOwnershipModel
+from .ownership import build_settings_ownership_chain
 from .repository import SettingsRepository
 
 
@@ -23,7 +24,7 @@ class SettingsService:
         Raises:
             NotImplementedError: Phase 1 scaffold only.
         """
-        _ = describe_settings_ownership()
+        _ = build_settings_ownership_chain()
         raise NotImplementedError("Studio 2.0 settings ownership is not implemented yet.")
 
     def get_effective_settings(
@@ -48,7 +49,7 @@ class SettingsService:
         Raises:
             NotImplementedError: Phase 1 scaffold only.
         """
-        ownership = describe_settings_ownership()
+        ownership = build_settings_ownership_chain()
         _ = self._load_scope_chain(
             project_id=project_id,
             module_id=module_id,
