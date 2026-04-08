@@ -12,6 +12,15 @@ Implement the 2.0 domain model and persistence contracts while runtime execution
 - artifact manifest schema
 - revision hash rules
 
+## Deliverables Checklist
+
+- [ ] Core 2.0 entity models implemented
+- [ ] Persistence adapters or repositories implemented
+- [ ] Settings ownership model implemented
+- [ ] Artifact manifest schema defined in code
+- [ ] Revision hash rules implemented
+- [ ] Render-batch derivation rules implemented
+
 ## Scope
 
 - no full queue cutover
@@ -25,6 +34,14 @@ Implement the 2.0 domain model and persistence contracts while runtime execution
 - render-batch derivation tests
 - project portability tests
 - settings ownership tests
+
+## Verification Checklist
+
+- [ ] Revision matching tests pass
+- [ ] Stale artifact tests pass
+- [ ] Render-batch derivation tests pass
+- [ ] Project portability tests pass
+- [ ] Settings ownership tests pass
 
 ## Exit Gate
 

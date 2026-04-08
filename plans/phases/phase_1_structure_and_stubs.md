@@ -22,6 +22,17 @@ If we start implementing behavior before the 2.0 structure exists, new logic wil
   - placeholder exports
   - notes on which current routes/hooks/components remain canonical for now
 
+## Deliverables Checklist
+
+- [ ] New backend directories created under `app/`
+- [ ] New frontend directories created under `frontend/src/`
+- [ ] Backend stub files created with module-purpose docstrings
+- [ ] Backend stub files include ownership and non-ownership comments
+- [ ] Backend stub files note which legacy modules still provide behavior
+- [ ] Frontend stub files created with ownership comments and placeholder exports
+- [ ] Frontend stub files note which current routes/hooks/components remain canonical
+- [ ] No runtime behavior changes introduced
+
 ## Must Not Do
 
 - no behavior cutover
@@ -68,6 +79,13 @@ If we start implementing behavior before the 2.0 structure exists, new logic wil
 - import smoke checks
 - app still boots
 - no observable behavior change
+
+## Verification Checklist
+
+- [ ] Import smoke checks pass
+- [ ] App still boots
+- [ ] Existing behavior remains unchanged
+- [ ] New structure is navigable and documented
 
 ## Exit Gate
 

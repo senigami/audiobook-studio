@@ -71,3 +71,4 @@ Every phase must produce a deliverable that is:
 - each phase must document what is still intentionally legacy
 - each phase must define what is safe to debug in isolation
 - if a phase starts to depend on unfinished later phases, stop and re-scope it
+- each phase should maintain deliverables and verification checklists in its dedicated phase document

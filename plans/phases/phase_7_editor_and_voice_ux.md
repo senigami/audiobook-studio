@@ -12,6 +12,14 @@ Move the main user workflows onto the 2.0 foundations once the lower-risk layers
 - voice module management UI
 - preview/test UI aligned to the new voice model
 
+## Deliverables Checklist
+
+- [ ] Block-aware editor behavior implemented
+- [ ] Render-batch-aware generation actions implemented
+- [ ] Inline failure recovery implemented
+- [ ] Voice module management UI implemented
+- [ ] Preview/test UI aligned to the new voice model
+
 ## Scope
 
 - preserve current product purpose
@@ -24,6 +32,13 @@ Move the main user workflows onto the 2.0 foundations once the lower-risk layers
 - stale-state tests
 - autosave and local-draft merge tests
 - manual UX verification
+
+## Verification Checklist
+
+- [ ] Targeted rerender tests pass
+- [ ] Stale-state tests pass
+- [ ] Autosave and local-draft merge tests pass
+- [ ] Manual UX verification completed
 
 ## Exit Gate
 

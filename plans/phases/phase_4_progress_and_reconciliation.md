@@ -12,6 +12,14 @@ Build trustworthy progress, ETA, and artifact reconciliation before the orchestr
 - normalized event contract
 - live-progress stability rules
 
+## Deliverables Checklist
+
+- [ ] Reconciliation service implemented
+- [ ] Progress service implemented
+- [ ] ETA service implemented
+- [ ] Normalized event contract implemented
+- [ ] Live-progress stability rules implemented
+
 ## Scope
 
 - preserve smooth and monotonic-feeling progress behavior
@@ -24,6 +32,13 @@ Build trustworthy progress, ETA, and artifact reconciliation before the orchestr
 - monotonic progress tests
 - ETA stabilization tests
 - grouped render aggregation tests
+
+## Verification Checklist
+
+- [ ] Stale-output detection tests pass
+- [ ] Monotonic progress tests pass
+- [ ] ETA stabilization tests pass
+- [ ] Grouped render aggregation tests pass
 
 ## Exit Gate
 

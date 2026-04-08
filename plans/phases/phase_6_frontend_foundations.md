@@ -11,6 +11,14 @@ Adopt the 2.0 live-state and hydration model before migrating the full editor.
 - anti-regression merge rules
 - queue and header progress cutover
 
+## Deliverables Checklist
+
+- [ ] Live overlay store implemented
+- [ ] Reconnect hydration logic implemented
+- [ ] Anti-regression merge rules implemented
+- [ ] Queue progress cut over to 2.0 live-state model
+- [ ] Header progress cut over to 2.0 live-state model
+
 ## Scope
 
 - canonical entities stay API-backed
@@ -23,6 +31,13 @@ Adopt the 2.0 live-state and hydration model before migrating the full editor.
 - reload tests
 - queue consistency tests
 - anti-regression merge tests
+
+## Verification Checklist
+
+- [ ] Reconnect tests pass
+- [ ] Reload tests pass
+- [ ] Queue consistency tests pass
+- [ ] Anti-regression merge tests pass
 
 ## Exit Gate
 
