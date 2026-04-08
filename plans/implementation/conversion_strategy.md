@@ -1,54 +1,54 @@
 # Transformation Strategy: Converting to Studio 2.0
 
-## 1. Objective
-Define a safe, modular path for migrating the legacy monolithic logic into the 2.0 architecture, ensuring that every component is verified in isolation before being integrated into the production pipeline.
+This is the procedure I want us to follow while implementation is underway.
 
-## 2. Verification Strategy (The "Isolated First" Rule)
+## 1. Core Migration Rule
 
-To ensure "accurate functionality before integration," every 2.0 module must pass a three-stage verification process.
+Do not replace a working legacy path until the new path can prove the same behavior plus the new guarantees we want.
 
-### Stage 1: Functional Unit Testing
-New services (e.g., `ProgressService`, `QueueManager`) will be tested using **Mock Drivers**.
-- **The Mock Engine**: A simulated voice engine that implements the `BaseVoiceEngine` interface but only produces silent silence after a delay. This allows testing the Queue and Progress components without CUDA or API dependencies.
-- **The Simulated Worker**: Feeds high-frequency progress updates to the `ProgressService` to verify the ETA math remains stable under pressure.
+## 2. Feature Flag Strategy
 
-### Stage 2: Database & State Shadowing
-Before relying on the new `ProjectManager`, we will implement a "State Validator". 
-- **Method**: The 2.0 DB schema is built in parallel. During a legacy render, the validator synchronizes data into the 2.0 schema and checks for integrity errors without affecting the live job.
+- `USE_V2_DOMAIN_MODEL`
+- `USE_V2_ENGINE_BRIDGE`
+- `USE_V2_PROGRESS`
+- `USE_V2_QUEUE`
+- `USE_V2_EDITOR`
 
-### Stage 3: Visual & Broadcast Verification
-Using the "Side-by-Side" approach in the frontend:
-- **Test Dashboard**: A developer-only page that renders the 2.0 components (like the new Chapter Editor) using the same project data as the live editor. 
-- **Consistency Check**: Verify that the new Zustand store and the legacy websocket bridge are announcing the same status for every segment.
+Flags should allow shadow validation before full cutover where practical.
 
-## 3. Phased Roadmap
+## 3. Verification Stages
 
-### Phase 1: The Core Foundation (No User-Visible Change)
-- Implement `BaseVoiceEngine` and migrate XTTS/Voxtral logic into wrappers.
-- Implement the `ProgressService` math and `PieceMapper`.
-- **Validation**: Pass current `test_engines.py` and `test_progress_logic.py` using the new 2.0 classes.
+### Stage A: Isolated Module Verification
 
-### Phase 2: Orchestration Overhaul
-- Deploy the `QueueManager` and `TaskOrchestrator`.
-- **Safety Switch**: Introduce a backend flag `USE_V2_QUEUE=True`. If `False`, the system falls back to the legacy `worker.py`.
-- **Validation**: Successfully render a multi-chapter book using the 2.0 pipeline with 0% error rate.
+- mock engines
+- synthetic queue workloads
+- artifact reconciliation fixtures
 
-### Phase 3: Presentation & React Layer
-- Implement the Zustand state stores (`useJobStore`, `useProjectStore`).
-- Migrate `ChapterEditor` and `ProjectLibrary` to the 2.0 architecture.
-- **Validation**: Manual UI verification by the user to ensure the "wow" factor and snappiness are preserved.
+### Stage B: Shadow Validation
 
-## 4. Test Matrix per Component
+- run the new logic beside legacy behavior where feasible
+- compare queue, progress, and artifact outcomes
 
-| Component | Target Functionality | Verification Method |
-| :--- | :--- | :--- |
-| **Queue Manager** | Resource locking, prioritization | `pytest` with 10 concurrent heavy/light tasks. |
-| **VUI Bridge** | Modular setting injection | Verify `AudiobookEngine` receives correct engine-specific JSON. |
-| **Progress Service** | ETA drift, resumption mapping | Compare predicted vs actual time for 5 simulated jobs. |
-| **Zustand Store** | Real-time reactivity | Component tests verifying < 50ms re-render on progress. |
+### Stage C: End-To-End Cutover Validation
 
-## 5. Definition of "Done" for Integration
-A component is ready for integration only when:
-1. It achieves 100% pass on Stage 1 (Unit Tests) and Stage 2 (State Shadowing).
-2. It has documented compliance with the `modular_architecture.md` rules.
-3. The "Legacy Fallback" remains fully functional until the final Phase 3 sign-off.
+- chapter edit -> targeted rerender
+- queue recovery after restart
+- export flow
+- voice-module readiness flow
+
+## 4. Stop Conditions
+
+Pause implementation and update the plan if:
+
+- the new design requires raw file existence as truth
+- the store starts owning canonical entities
+- engine-specific logic leaks into queue or route handlers
+- migration requires deleting the rollback path too early
+
+## 5. Definition Of Ready For Full Cutover
+
+- queue recovery is stable
+- stale artifact detection is stable
+- editor targeted rerender is stable
+- reconnect hydration is stable
+- representative end-to-end flows pass consistently

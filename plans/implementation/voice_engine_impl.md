@@ -1,48 +1,74 @@
 # Implementation Blueprint: Universal Voice Interface (Studio 2.0)
 
-## 1. Objective
-Standardize the integration of disparate TTS models, ensuring that global application logic remains simple while giving each engine full control over its own settings and hardware requirements.
+This document turns the voice system plan into concrete implementation work.
 
-## 2. Engine Module Structure
-Each module (e.g., `engines/xtts/`, `engines/voxtral/`) will contain:
-- **`engine.py`**: Implementation of the `BaseVoiceEngine` interface.
-- **`settings_schema.json`**: A JSONSchema defining the engine's custom settings (e.g., API keys, temperature, repetition penalty).
-- **`manifest.json`**: Metadata (Name, Icon, Capabilities, Default `speed_multiplier`).
-- **`artifact_schema.json` or equivalent contract**: Defines the metadata saved alongside generated audio so cache/reuse remains safe across upgrades.
+## 1. Files I Want To Create
 
-## 3. The `VoiceBridge` Service (Backend)
-- **Settings Injection**: When a `SynthesisRequest` is made, the `Bridge` retrieves the relevant engine settings from the DB and injects them into the engine instance.
-- **Unified Progress Stream**: Standardizes log/status messages from engines into the `ProgressService` format.
+- `app/engines/voice/base.py`
+- `app/engines/registry.py`
+- `app/engines/bridge.py`
+- `app/engines/voice/xtts/engine.py`
+- `app/engines/voice/xtts/manifest.json`
+- `app/engines/voice/xtts/settings_schema.json`
+- `app/engines/voice/voxtral/engine.py`
+- `app/engines/voice/voxtral/manifest.json`
+- `app/engines/voice/voxtral/settings_schema.json`
 
-## 4. Modular Settings Management (Installed Voice Modules UX)
-To keep the global interface simple, we use a **Dynamic Form** approach hosted on a dedicated "Installed Voice Modules" page.
-- **Settings Tab Overview**: Shows a list of installed engines. Clicking an engine renders a form dynamically generated from its `settings_schema.json`.
-- **Isolation**: Voxtral settings (API Key) are stored under `engine_settings:voxtral`, completely separate from XTTS settings and global project settings.
-- **Speed Multiplier**: Every engine has a reserved `global_speed_multiplier` setting. Users can tune this if they find the ETA predictions are consistently off for their specific hardware.
-- **Refinement**: Pair the dynamic form with opinionated setup states, sample generation, validation feedback, and health checks so the page feels like a production tool rather than a schema inspector.
+## 2. Procedure
 
-## 5. Voice Profile Integration
-- **Engine Selection**: A voice profile is bound to an engine module.
-- **Capabilities Check**: Before a job starts, the `Bridge` checks if the engine is "Available" (e.g., handles the requested language, has a valid API key).
-- **Compatibility Snapshot**: When a render is queued, persist the engine/version/voice asset snapshot used so later updates do not make prior outputs ambiguous.
+### Step 1: Define Shared Contracts
 
-## 6. Logic Sample: The Synthesis Call
+- `EngineCapabilities`
+- `EngineHealth`
+- `SynthesisRequest`
+- `EngineResult`
+- `VoiceAssetBuildRequest`
+- `VoiceAssetBuildResult`
 
-```python
-# The Global Interface stays simple:
-result = voice_bridge.generate(
-    text="Hello world", 
-    voice_profile="NarratorA", 
-    out_path="./output.wav"
-)
+### Step 2: Build The Registry
 
-# Internally, the Bridge handles:
-# 1. Resolve 'NarratorA' -> uses 'XTTS' engine
-# 2. Fetch 'XTTS' settings from DB
-# 3. Call XTTS.generate(text, settings, out_path)
-```
+- Discover internal engine modules from the known engine directory.
+- Load and validate manifests.
+- Expose engine capabilities, settings schema, and health checks.
 
-## 7. Planned Benefits
-- **Zero-Core Changes**: Adding a new engine like OmniVoice requires 0 changes to `web.py` or `worker.py`.
-- **Dynamic UI**: No need to manually build React components for every new engine setting.
-- **Personalized ETA**: The `speed_multiplier` allows users to self-tune the system for their specific machine performance.
+### Step 3: Build The Bridge
+
+- Resolve voice profile and voice asset
+- Validate request compatibility
+- Normalize engine invocation
+- Convert engine result into artifact publication inputs
+
+### Step 4: Wrap XTTS And Voxtral
+
+- Keep current engine-specific behavior but move it behind the shared contract.
+- Preserve XTTS subprocess isolation through the wrapper.
+- Normalize cloud engine results into the same result shape as local engines.
+
+## 3. Required Engine Behaviors
+
+- validate environment
+- validate request
+- synthesize to a temp output
+- report progress or translated phase events
+- emit enough metadata for artifact manifest creation
+
+## 4. Artifact Safety Procedure
+
+1. The engine writes audio to a temp location.
+2. The bridge validates the file.
+3. The artifact manifest is written.
+4. The artifact is atomically published into the immutable cache.
+5. The related block revisions are updated to point at the new valid artifact.
+
+## 5. Testing Plan
+
+- Unit tests for manifest loading and validation
+- Unit tests for bridge preflight validation
+- XTTS and Voxtral wrapper tests with mocked dependencies
+- Mock engine tests for artifact publication behavior
+
+## 6. Guardrails
+
+- No route handler or queue task should call engine-specific code directly.
+- No engine wrapper should decide queue policy.
+- No engine result should bypass artifact manifest publication.

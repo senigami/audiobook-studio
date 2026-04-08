@@ -1,79 +1,160 @@
 # Proposal: Universal Voice System Interface (Studio 2.0)
 
-## 1. Objective
-Create a common API that abstracts away the specific implementation details of various text-to-speech engines, allowing for rapid integration of new models (XTTS, Voxtral, OmniVoice, Local Voxtral, etc.) without modifying core application logic.
+This is the engine boundary I want us to build around. The goal is not just “support more engines.” The goal is to prevent engine-specific concerns from leaking into queueing, project state, and UI decisions.
 
-> [!NOTE]
-> See the [Detailed Implementation Blueprint](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/plans/implementation/voice_engine_impl.md) for specifics on modular settings, manifest schemas, and the VUI bridge.
+## 1. Objectives
 
-## 2. The `BaseVoiceEngine` Interface
-Each engine module will implement a standardized class interface.
+- Standardize how synthesis engines are registered, configured, validated, and called.
+- Separate canonical voice identity from engine-specific voice assets.
+- Make engine setup and health visible to users before a job fails.
+- Support future engines without forcing queue, project, and editor rewrites.
+
+## 2. Core Concepts
+
+### Voice Profile
+
+A user-facing reusable voice identity. It can be used across projects and may have multiple engine-specific assets.
+
+### Voice Asset
+
+An engine-specific artifact that makes a voice profile usable for one engine. Examples include XTTS latents, speaker wav bundles, or cloud provider references.
+
+### Engine Module
+
+An internal module that implements the standard contract and declares its capabilities through a manifest.
+
+### Voice Bridge
+
+The only service allowed to route synthesis requests to an engine implementation.
+
+## 3. Engine Contract
 
 ```python
-class BaseVoiceEngine:
-    def __init__(self, config: Dict): ...
-    
-    def generate(self, text: str, voice_profile: str, out_path: Path, **kwargs) -> EngineResult:
-        """Core synthesis method."""
-        pass
+class BaseVoiceEngine(Protocol):
+    engine_id: str
+    engine_version: str
 
-    def build_profile(self, sample_wavs: List[Path], profile_name: str) -> bool:
-        """Extract latents or create engine-specific profile assets."""
-        pass
+    def validate_environment(self) -> EngineHealth:
+        ...
 
-    def get_status(self) -> EngineStatus:
-        """Health check (e.g. model loaded, API key valid)."""
-        pass
+    def validate_request(self, request: SynthesisRequest) -> ValidationResult:
+        ...
+
+    def synthesize(self, request: SynthesisRequest) -> EngineResult:
+        ...
+
+    def build_voice_asset(self, request: VoiceAssetBuildRequest) -> VoiceAssetBuildResult:
+        ...
+
+    def list_capabilities(self) -> EngineCapabilities:
+        ...
 ```
 
-## 3. Pluggable Architecture
+## 4. What I Want To Create
 
-### 3.1 `EngineRegistry`
-A central registry that loads installed engine modules. 
-- **Internal-First Loading**: 2.0 should begin with built-in modules loaded from a known directory and signed manifest contract. Treat arbitrary third-party package loading as future work, not a day-one requirement.
-- **Manifests**: Each engine provides a `manifest.json` describing its capabilities (e.g., handles emotions, supports local GPU, requires internet).
-- **Compatibility Contract**: The manifest should include engine version, minimum app version, supported languages, resource profile, and settings schema version so upgrades do not silently break old voices.
+### 4.1 Engine Registry
 
-### 3.2 Standardized Input/Output
-- **`SynthesisRequest`**: A common object containing text, parameters (speed, emotion), and output preferences.
-- **`EngineResult`**: A common return object with status, log streams, warnings, generated artifact metadata, and the path to the output audio.
+- Loads internal engine modules from `app/engines/voice/`
+- Reads a manifest for each engine
+- Exposes engine capabilities, settings schema, health, and resource profile
 
-### 3.3 Stable Artifact Contract
-- **Revision Hash**: Every request should compute a deterministic hash from normalized text, selected voice asset, engine ID/version, and synthesis parameters.
-- **Artifact Manifest**: Generated audio should be accompanied by metadata describing exactly what produced it.
-- **Why this matters**: Without a revision-aware artifact contract, the queue and progress systems cannot reliably resume work or reuse cached segments.
+### 4.2 Voice Bridge
 
-## 4. "Installed Voice Modules" UI (UX Improvement)
-To keep the main Studio interface clean, module-specific configurations will be relocated to a dedicated "Installed Voice Modules" page.
-- **Dynamic Configuration**: Editors for Voxtral API keys or OmniVoice constraints live here, separated from the project layout.
-- **Curated First, Schema Second**: The most important actions should have hand-designed cards and health states; raw JSON-schema generated forms should be the advanced path, not the whole experience.
-- **Readiness Panel**: Each module should clearly show `Ready`, `Needs Setup`, `Model Missing`, `API Key Invalid`, or `Offline`.
-- **Custom ETA Multipliers**: Each module can expose an optional user override, but the default should come from observed historical performance on that machine rather than asking users to tune from scratch.
-- **Safe Defaults**: The page should explain the impact of changing module settings on existing projects and whether a change invalidates cached renders.
+- Resolves voice profile to a compatible voice asset
+- Performs preflight validation
+- Builds the final engine request
+- Normalizes engine results into artifact and progress events
 
-## 5. Specific Engine Wrappers (Examples)
+### 4.3 Voice Module Management
 
-- **`XTTSModule`**: Wraps the existing subprocess logic for local execution.
-- **`VoxtralCloudModule`**: Wraps the cloud API calls.
-- **`OmniVoiceModule` (future)**: Would only require implementing the standard interface to become instantly available in the UI.
+- Dedicated UI for module readiness, setup, health, and advanced settings
+- Hand-designed module cards first, schema-generated advanced settings second
+- Test action for generating a quick sample with visible diagnostics
 
-## 6. Global Voice System (Bridge Pattern)
-The application logic doesn't call an engine directly. Instead, it interacts with the `VoiceBridge`.
-- **Responsibility**: Routing requests to the correct engine based on the speaker profile settings.
-- **Abstraction**: Handles common tasks like "Final MP3 conversion" or "Loudness normalization" that apply to all engines.
-- **Preflight Validation**: Before enqueueing, the bridge should validate availability, language support, and required assets so errors are surfaced immediately instead of after queue time.
-- **Fallback Rules**: If fallback between engines is supported, it must be explicit and visible to the user. Silent engine swaps are risky because they can change voice quality.
+## 5. Manifest Requirements
 
-## 7. Potential Problems And Refinements
+Each engine manifest must declare:
 
-- **Problem: "Plugin" can imply arbitrary code loading**
-  Solution: Call this an internal module system in 2.0, backed by a strict registry. External plugins can come later once compatibility, trust, and sandboxing are solved.
-- **Problem: Dynamic forms can feel opaque**
-  Solution: Pair schema rendering with opinionated module dashboards, test buttons, sample generation, and setup checklists.
-- **Problem: Voice profiles may become tightly coupled to one engine**
-  Solution: Store both a canonical voice identity and engine-specific assets so a profile can expose migration or fallback options without losing project references.
+- `engine_id`
+- `display_name`
+- `engine_version`
+- `min_app_version`
+- `resource_profile`
+- `supported_languages`
+- `supported_voice_asset_types`
+- `supports_local_execution`
+- `supports_cloud_execution`
+- `settings_schema_version`
+- `requires_network`
+- `health_checks`
 
-## 8. Planned Benefits
-- **Future-Proofing**: New AI models can be integrated in days, not weeks.
-- **Modular UX**: The global Studio interface remains simple. Complex, engine-specific settings are tucked away in module configurations.
-- **Hardware Agnostic**: The system can intelligently route jobs to local GPU engines if available, or fall back to cloud engines.
+## 6. Request And Result Contracts
+
+### SynthesisRequest must include
+
+- project id
+- chapter id
+- block ids
+- normalized text
+- target output format
+- voice profile id
+- resolved voice asset id
+- engine id and version
+- synthesis settings
+- output normalization settings
+- request fingerprint
+
+### EngineResult must include
+
+- status
+- warnings
+- engine logs or normalized progress events
+- output temp path
+- output metadata
+- request fingerprint
+
+## 7. Critical Procedures
+
+### Before Queueing
+
+1. Resolve the voice profile.
+2. Resolve a compatible voice asset for the selected or default engine.
+3. Validate engine readiness and capability support.
+4. Build the request fingerprint and block revision hashes.
+5. Reject invalid requests before they enter the queue.
+
+### During Synthesis
+
+1. Write output to a temp location.
+2. Validate the produced file.
+3. Write artifact manifest metadata.
+4. Atomically publish the artifact to the immutable cache.
+5. Emit standardized progress and result events.
+
+### After Synthesis
+
+1. Associate the artifact with the relevant block revisions.
+2. Publish completion through the progress and queue services.
+3. Surface warnings without collapsing the artifact into a generic success/failure binary.
+
+## 8. UX Requirements
+
+- Users must see if an engine is `Ready`, `Needs Setup`, `Offline`, `Invalid Config`, or `Incompatible`.
+- Engine-specific settings must not clutter project and chapter screens.
+- The UI must show when changing a module setting invalidates cached renders or only affects future renders.
+- Silent engine fallback is prohibited. If fallback is supported, it must be explicit at queue time and visible in the UI.
+
+## 9. Known Risks And Planned Solutions
+
+- **Risk: Voice profiles become coupled to one engine**
+  Solution: keep canonical voice identity separate from engine-specific assets.
+- **Risk: Dynamic settings forms feel opaque**
+  Solution: combine schema-driven advanced settings with opinionated setup dashboards.
+- **Risk: Engine wrappers leak special cases back into the queue**
+  Solution: force every engine-specific behavior through the bridge contract and result normalization.
+
+## 10. Implementation References
+
+- `plans/implementation/domain_data_model.md`
+- `plans/implementation/voice_engine_impl.md`
+- `plans/v2_project_library_management.md`

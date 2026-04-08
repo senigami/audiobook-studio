@@ -1,49 +1,84 @@
-# Proposal: Project & Library Management (Studio 2.0)
+# Proposal: Project, Library, And Asset Management (Studio 2.0)
 
-## 1. Objective
-Separate the management of "Static Assets" (the Voice Library) from "Dynamic Productions" (Projects), creating self-governed modules that allow the application to scale to hundreds of voices and large-scale book projects.
+This plan defines how I want the product’s content model to work. The distinction between project-owned data, library-owned data, and immutable shared artifacts is essential to portability and correctness.
 
-## 2. The Voice Library Module
-A self-contained system for managing reusable speaker profiles.
-- **Identity Service**: Unique IDs for voices that remain consistent even if labels change.
-- **Sample Management**: Automated lifecycle for reference samples (upload -> sanitize -> latent extract -> test).
-- **Engine-Agnostic Storage**: Stores only parameters and reference files; the actual generation is delegated to the `VoiceBridge`.
-- **Compatibility Metadata**: Each voice should record which engines and asset types it supports so the UI can prevent invalid selections early.
+## 1. Objectives
 
-## 3. The Project Management Module
-Responsible for the end-to-end lifecycle of an audiobook production.
-- **Isolation**: Each project has a strictly defined data root. 
-- **Workspace State**: Stores current chapter progress, text versions, and audio chunks within the project context, not the global state.
-- **Multi-Speaker Assignments**: A dedicated "Cast" map for each project that correlates characters in the text to Voice Library IDs.
-- **Project Defaults**: Narrator, output preset, pronunciation rules, and fallback engine choices should live at the project level so chapter editing stays lightweight.
+- Make project data portable and self-contained enough to move or back up safely.
+- Keep reusable voice assets in a clean library model.
+- Reuse immutable artifacts safely across projects where possible.
+- Surface asset health and dependency impact clearly in the UI.
 
-## 4. Shared Asset Registry
-A middle layer to handle assets that might be shared between projects or between a project and the library.
-- **De-duplication**: Identifies if a specific segment has already been rendered for a different project with the same voice/parameters.
-- **Backfill Handling**: Logic for re-generating missing MP3s or migrating legacy data formats.
-- **Refinement**: Shared assets should behave like a content-addressed cache, not like mutable cross-project files. Projects should own references to immutable render artifacts.
+## 2. What I Want To Create
 
-## 5. Metadata & Versioning
-- **Project Snapshots**: The ability to "save a version" of the text and audio state.
-- **Narrator/Author Metadata**: Integrated management for ID3 tags and M4B headers.
+### 2.1 Voice Library
 
-## 5.1 UX Refinements
+- Canonical voice profiles
+- Engine-specific voice assets
+- Sample ingestion and validation flow
+- Compatibility metadata for engine support and asset readiness
 
-- **Quick Resume**: The project library should prioritize `recently active`, `needs attention`, and `ready to export` views over a flat grid alone.
-- **Creation Flow**: New project creation should be a small guided workflow: metadata, source text import, narrator/default voice, then review.
-- **Library Safety**: When editing a shared voice profile, the UI should clearly show which projects use it and whether changes affect future renders only or require refresh.
-- **Asset Health**: Surface missing cover art, missing narrator, unresolved failed renders, and stale outputs as actionable project badges.
+### 2.2 Project Domain
 
-## 5.2 Potential Problems And Better Implementations
+- Stable project root with explicit metadata
+- Project defaults such as narrator, output preset, pronunciation profile, and preferred engine behavior
+- Chapter drafts, block state, snapshots, exports, and import history
 
-- **Problem: Cross-project dedupe can accidentally couple projects together**
-  Better implementation: Reuse immutable artifacts by hash and let projects reference them, rather than sharing mutable output paths.
-- **Problem: Voice library edits can create unexpected production drift**
-  Better implementation: Snapshot voice assignment metadata into the project at render time and require explicit refresh when the source library entry changes.
-- **Problem: Project portability breaks if hidden globals remain**
-  Better implementation: Define exactly which assets are embedded, referenced by cache key, or recreated on import/export, and document that contract in the plan.
+### 2.3 Shared Artifact Cache
 
-## 6. Planned Benefits
-- **Portability**: Projects can be easily zipped/moved because they don't depend on global absolute paths.
-- **Stability**: Changes to a voice profile in the library won't "break" an existing project unless the user explicitly chooses to refresh the project's cast.
-- **Scale**: Better database indexing and directory structure for handling multi-volume audiobook series.
+- Immutable artifact store keyed by artifact hash
+- Safe reuse only when the requested revision matches exactly
+- Project-local references to immutable artifacts, not mutable shared files
+
+## 3. Project Creation Flow
+
+I want project creation to be a guided flow, not one big modal dump:
+
+1. Project metadata
+2. Source text import
+3. Default narrator and output preset
+4. Review and create
+
+## 4. Library Safety Rules
+
+- Editing a voice profile must show which projects depend on it.
+- Future renders may use the new settings; old renders remain tied to the snapshot used when they were created.
+- If a library change makes some projects stale, the UI must say so explicitly.
+
+## 5. Portability Rules
+
+- Projects must not depend on hidden absolute paths.
+- A project export or backup must contain enough metadata to restore chapter, block, and render relationships.
+- Shared cached artifacts may be omitted from a lightweight export only if the system can clearly report which outputs will need regeneration on import.
+
+## 6. Asset Health UX
+
+Project and library screens should surface:
+
+- missing cover art
+- missing narrator
+- invalid or missing voice assets
+- stale renders
+- failed blocks or exports
+- ready-to-export state
+
+## 7. Risks And Planned Solutions
+
+- **Risk: Cross-project reuse creates hidden coupling**
+  Solution: reuse immutable artifacts only; never share mutable project output paths.
+- **Risk: Voice library edits create invisible behavior drift**
+  Solution: snapshot render-time voice asset and engine metadata into artifact manifests and project references.
+- **Risk: Portability becomes partial and confusing**
+  Solution: define export modes clearly, including whether cached artifacts are embedded or expected to be rebuilt.
+
+## 8. What Good Looks Like
+
+- A user can tell which projects need attention the moment they open the library.
+- A project can be moved or backed up without mysterious missing state.
+- Voice edits are powerful but safe, because their effect on past and future renders is explicit.
+
+## 9. Implementation References
+
+- `plans/implementation/domain_data_model.md`
+- `plans/v2_folder_structure.md`
+- `plans/v2_voice_system_interface.md`

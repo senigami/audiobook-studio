@@ -1,107 +1,215 @@
 # Proposed Folder Structure: Audiobook Studio 2.0
 
-To avoid relying completely on `_v2` suffixes, we can adopt a more domain-driven architecture for the application. By naming folders according to their specific responsibility in the new architecture, we naturally separate the old code from the new while setting a clean foundation for future growth.
+This is the target organization I want us to build toward. It is designed for an incremental migration, but it is opinionated enough to act as the architectural destination rather than a loose sketch.
 
-## Migration Guardrail
+## 1. Organization Principles
 
-This structure should be treated as a target architecture, not a big-bang rename. The safest path is a strangler migration where new services are introduced behind stable route and hook boundaries, then old modules are retired once traffic is fully cut over.
+- Organize around domains and operational boundaries, not around temporary “v2” labels.
+- Keep public route and adapter surfaces stable while moving internals behind them.
+- Separate domain logic, orchestration, engine integration, and infrastructure concerns.
+- Make the on-disk project data structure as intentional as the source tree.
 
-## The Backend Architecture (`app/`)
-
-The current `app/` structure has a mix of routes, models, state, and tight-coupled worker scripts. The 2.0 structure will group files by their core domain.
+## 2. Backend Source Layout (`app/`)
 
 ```text
 app/
-├── api/                  # (Existing) FastAPI routers and endpoints
-│   ├── routes/           # Standardized API routes
-│   └── websockets/       # Dedicated folder for WS connection managers (Layer 1)
+├── api/
+│   ├── routers/                # FastAPI route handlers
+│   ├── schemas/                # Pydantic request/response models
+│   ├── deps/                   # Dependency wiring for routes
+│   └── ws/                     # WebSocket connection manager and event wiring
 │
-├── core/                 # Shared foundational utilities
-│   ├── config.py         # Central configuration and env variables
-│   ├── security.py       # Path validation, sanitization
-│   └── state_manager.py  # (New) Replaces state.py. Memory/Redis abstraction.
+├── core/
+│   ├── config.py               # Environment and app settings
+│   ├── logging.py              # Logger setup
+│   ├── paths.py                # Trusted root definitions and path helpers
+│   ├── security.py             # Request and filesystem validation
+│   └── feature_flags.py        # Cutover and migration flags
 │
-├── db/                   # (Existing) SQLite models, migrations, DB connections
-│   ├── schema/           # Future extraction of SQLAlchemy/SQLModel definitions
-│   └── queries/          # Reusable DB logic
+├── infra/
+│   ├── db/                     # DB connection/session helpers
+│   ├── subprocess/             # Safe wrappers for ffmpeg, XTTS subprocesses, etc.
+│   ├── events/                 # Internal event bus / publisher abstraction
+│   └── cache/                  # Shared cache primitives if needed
 │
-├── desktop/              # Specific logic for local system integration
-│   └── subprocess.py     # Safe execution wrappers for ffmpeg, etc.
+├── domain/
+│   ├── projects/
+│   │   ├── models.py
+│   │   ├── repository.py
+│   │   ├── service.py
+│   │   ├── snapshots.py
+│   │   └── exports.py
+│   ├── chapters/
+│   │   ├── models.py
+│   │   ├── repository.py
+│   │   ├── service.py
+│   │   ├── segmentation.py
+│   │   └── drafting.py
+│   ├── voices/
+│   │   ├── models.py
+│   │   ├── repository.py
+│   │   ├── service.py
+│   │   ├── compatibility.py
+│   │   └── samples.py
+│   ├── artifacts/
+│   │   ├── models.py
+│   │   ├── repository.py
+│   │   ├── service.py
+│   │   ├── manifest.py
+│   │   └── cache.py
+│   ├── jobs/
+│   │   ├── models.py
+│   │   ├── repository.py
+│   │   └── service.py
+│   └── text/
+│       ├── sanitization.py
+│       ├── analysis.py
+│       └── pronunciation.py
 │
-├── domain/               # (New) The heart of Audiobook Studio 2.0
-│   ├── projects/         # Logic for managing project lifecycle and chapters
-│   │   ├── models.py     # Project-specific data structures
-│   │   └── services.py   # Project creation, deletion, validation
-│   ├── library/          # Logic for managing global voice library tools
-│   └── textops/          # (Moved) Chapter splitting and text sanitization
+├── orchestration/
+│   ├── tasks/
+│   │   ├── base.py
+│   │   ├── synthesis.py
+│   │   ├── assembly.py
+│   │   ├── export.py
+│   │   └── sample_build.py
+│   ├── scheduler/
+│   │   ├── orchestrator.py
+│   │   ├── resources.py
+│   │   ├── recovery.py
+│   │   └── policies.py
+│   └── progress/
+│       ├── service.py
+│       ├── reconciliation.py
+│       ├── eta.py
+│       └── broadcaster.py
 │
-├── orchestration/        # (New) Replaces `jobs/`. The generic Task Queue.
-│   ├── orchestrator.py   # The actual queue loop and Semaphore locking
-│   ├── progress.py       # The standalone ETA and Piece-Mapping service
-│   └── runtimes/         # Logic for heavy vs light thread pools
+├── engines/
+│   ├── registry.py
+│   ├── bridge.py
+│   └── voice/
+│       ├── base.py
+│       ├── xtts/
+│       │   ├── engine.py
+│       │   ├── manifest.json
+│       │   └── settings_schema.json
+│       └── voxtral/
+│           ├── engine.py
+│           ├── manifest.json
+│           └── settings_schema.json
 │
-└── plugins/              # (New) Internal module registry for extensible engines.
-    ├── __init__.py       # Plugin registry and Loader
-    └── voice/            # Voice synthesis engines
-        ├── base.py       # The `BaseVoiceEngine` interface contract
-        ├── xtts/         # XTTS specific plugin folder
-        │   ├── engine.py
-        │   └── settings_schema.json
-        └── voxtral/      # Voxtral specific plugin folder
-            ├── engine.py
-            └── settings_schema.json
+├── legacy/                     # Temporary adapters and compatibility shims
+│   ├── jobs/
+│   └── engines/
+│
+└── testsupport/                # Mock engines, fixtures, and helper utilities
 ```
 
-### Why this is better:
-- **`plugins/voice/` vs `engines/`**: By moving engines into a `plugins` directory, we clearly signal that these are modular, self-contained units. The legacy `engines.py` can remain untouched while we build the new system here.
-- **`orchestration/` vs `jobs/`**: "Jobs" often implies hard-coded scripts (like `worker.py`). "Orchestration" defines a service that manages generic task execution, perfectly embodying the new 2.0 generic queue.
-- **`domain/`**: Separates the business logic (What is a project? How do we split text?) from the delivery mechanism (API, Websockets).
-
-### Potential Problems And Refinements
-
-- **Problem: Renaming too much too early creates migration drag**
-  Refinement: Keep public import boundaries stable during the transition. Introduce adapter modules so routes can move gradually.
-- **Problem: `plugins/` may imply unsupported third-party code loading**
-  Refinement: Document it as an internal module boundary for 2.0 and separate external plugin support into future work.
-- **Problem: Frontend `store/` plus existing hooks can create duplicated state**
-  Refinement: Define store ownership explicitly. REST-fetched entities stay canonical in API-facing hooks, while the store holds live overlays and UI session state.
-
----
-
-## The Frontend Architecture (`frontend/src/`)
-
-The frontend is already relatively clean, but we need to accommodate the new Zustand layers and separate the "Editor" from the "Library" more cleanly.
+## 3. Frontend Source Layout (`frontend/src/`)
 
 ```text
 frontend/src/
-├── api/                  # Layer 2: Hard-truth REST API fetching and normalization
+├── app/
+│   ├── routes/                 # Route entry points
+│   ├── layout/                 # App shell and navigation
+│   └── providers/              # App-level providers and bootstrapping
 │
-├── components/           # Reusable, "dumb" UI elements (Buttons, Layouts, Inputs)
-│   ├── ui/               # Primitive components (GlassInput, GhostButton)
-│   └── shared/           # Complex but reusable (ProgressOrb, ConfirmModal)
+├── api/
+│   ├── client.ts               # Shared HTTP client
+│   ├── contracts/              # Shared request/response and event shapes
+│   ├── queries/                # Fetch and mutation helpers
+│   └── hydration/              # Reload/reconnect hydration helpers
 │
-├── features/             # (New) Feature-driven, "smart" modules
-│   ├── chapter-editor/   # Everything related explicitly to the Editor interface
-│   ├── project-library/  # Everything related explicitly to the project dashboard
-│   ├── voice-modules/    # The new "Installed Voice Modules" management UI
-│   └── global-queue/     # The progress tracking components
+├── features/
+│   ├── project-library/
+│   │   ├── components/
+│   │   ├── hooks/
+│   │   ├── api/
+│   │   └── routes/
+│   ├── project-view/
+│   ├── chapter-editor/
+│   ├── queue/
+│   ├── voices/
+│   └── settings/
+│       └── voice-modules/
 │
-├── store/                # (New) Layer 1: live overlays and UI session state
-│   ├── useJobStore.ts    # Websocket-driven job overlays
-│   └── useEditorStore.ts # Selection, filters, and unsaved local editor state
+├── store/
+│   ├── live-jobs.ts            # WebSocket-driven overlay state
+│   ├── editor-session.ts       # Selection, draft, viewport, local action state
+│   └── notifications.ts
 │
-├── lib/                  # (New) Shared frontend services
-│   └── websocket.ts      # The connection manager that dispatches to the store
+├── shared/
+│   ├── components/
+│   ├── hooks/
+│   ├── lib/
+│   ├── styles/
+│   └── types/
 │
-└── styles/               # Global CSS and layout tokens
+└── test/
+    ├── fixtures/
+    └── utils/
 ```
 
-### Why this is better:
-- **`features/` vs `components/`**: Currently, massive "smart" pages like `ChapterEditor.tsx` are sitting right next to tiny "dumb" components like `GhostButton.tsx`. Grouping by feature makes it much easier to scale the application.
-- **`store/`**: Formally houses the Zustand state architecture, separating the real-time data from the API request handlers.
+## 4. Test Layout
 
-### UX-Focused Frontend Refinements
+```text
+tests/
+├── unit/
+│   ├── domain/
+│   ├── engines/
+│   ├── orchestration/
+│   └── progress/
+├── integration/
+│   ├── api/
+│   ├── queue/
+│   └── recovery/
+└── e2e/
+    └── studio/
+```
 
-- **Feature entry points**: Each major feature should expose a route-level container and smaller presentational components so loading, error, and empty states are designed intentionally.
-- **Optimistic boundaries**: Only use optimistic UI for reversible local edits. Queue and render status should stay server-confirmed to avoid trust issues.
-- **Recovery-first states**: Every major screen should define reload, reconnecting, partial-failure, and interrupted-job states up front.
+## 5. Runtime Data Layout
+
+This matters as much as the code layout because project portability and artifact safety depend on it.
+
+```text
+data/
+├── projects/
+│   └── <project_id>/
+│       ├── project.json
+│       ├── chapters/
+│       │   └── <chapter_id>/
+│       │       ├── chapter.json
+│       │       ├── source.md
+│       │       ├── blocks/
+│       │       │   └── <block_id>.json
+│       │       ├── renders/
+│       │       └── previews/
+│       ├── exports/
+│       ├── snapshots/
+│       └── imports/
+├── library/
+│   └── voices/
+│       └── <voice_id>/
+│           ├── profile.json
+│           ├── samples/
+│           └── engine_assets/
+└── cache/
+    └── artifacts/
+        └── <artifact_hash>/
+            ├── audio.wav
+            └── manifest.json
+```
+
+## 6. Why This Organization Is Better
+
+- Domain services become easier to reason about because they stop sharing responsibility with orchestration code.
+- Queue and progress logic can evolve independently without dragging engine wrappers and route handlers around.
+- The frontend becomes feature-first instead of page-and-hook accretion.
+- Runtime data ownership becomes explicit enough to support portability, reuse, and recovery safely.
+
+## 7. Migration Rules
+
+- Do not rename everything at once. Add the new structure, move responsibilities gradually, then delete legacy modules once the cutover is verified.
+- Keep compatibility adapters in `app/legacy/` instead of polluting new modules with legacy branching.
+- Do not let `frontend/src/store/` become a canonical entity cache. Canonical entity loading belongs in `api/queries` plus feature data hooks.
+- Shared artifact cache entries must be immutable. Project-local references can point to them, but must not mutate them.

@@ -1,46 +1,77 @@
 # Implementation Blueprint: Queuing & Resource Service (Studio 2.0)
 
-## 1. Objective
-Build a robust, single-machine optimized queuing service that ensures maximum performance without starving system resources during heavy synthesis tasks.
+This document describes how I want the new orchestrator built in practical terms.
 
-## 2. Service Architecture
+## 1. Files I Want To Create
 
-### 2.1 The `TaskOrchestrator`
-A central Python service (singleton) that manages the lifecycle of all jobs.
-- **Single-Machine Priority**: The codebase strictly assumes local execution. Decentralized workers (Redis, Celery) are explicitly omitted to keep installation and resource usage simple.
-- **Resource Lock**: A `threading.BoundedSemaphore` initialized strictly to `1` ensures that only one heavy synthesis job runs at a time. This prevents thread thrashing and OS lockups.
-- **Concurrent IO**: A separate `ThreadPoolExecutor` for lightweight tasks (file combining, metadata tagging) that can run in parallel with synthesis.
+- `app/orchestration/tasks/base.py`
+- `app/orchestration/tasks/synthesis.py`
+- `app/orchestration/tasks/assembly.py`
+- `app/orchestration/tasks/export.py`
+- `app/orchestration/scheduler/resources.py`
+- `app/orchestration/scheduler/policies.py`
+- `app/orchestration/scheduler/orchestrator.py`
+- `app/orchestration/scheduler/recovery.py`
 
-### 2.2 Task Registry & Logic
-Instead of hardcoded `if engine == "xtts"`, tasks register their "Resource Profile".
+## 2. Resource Model
 
 ```python
-class TaskProfile(Enum):
-    HEAVY = "heavy"   # Consumes GPU/CPU (e.g. Synthesis)
-    LIGHT = "light"   # Consumes IO/Network (e.g. Voxtral API, Assembly)
-
-class StudioTask:
-    profile: TaskProfile
-    # ... other methods
+class ResourceClaim(BaseModel):
+    gpu: int = 0
+    cpu_light: int = 0
+    disk_io: int = 0
+    network: int = 0
 ```
 
-### 2.3 Execution Flow
-1. Task is added to the `ActiveQueue` (DB-backed).
-2. `TaskOrchestrator` picks the next high-priority task.
-3. If profile is `HEAVY`, it waits for the `GlobalResourceLock`.
-4. The worker executes `task.run()`.
-5. Upon completion/error, the lock is released and callbacks are fired.
+Initial policy:
 
-## 3. Metadata for ETA
-The queue provides metadata to the `ProgressService`:
-- `start_time`: Real wall-clock time synthesis began.
-- `last_chunk_duration`: How long the last rendered segment took.
-- `engine_speed_multiplier`: Exposed per engine in settings, used to adjust base ETA.
+- one GPU-heavy synthesis job at a time
+- allow safe concurrent network or IO work when it does not threaten responsiveness
 
-## 4. Error Handling & Retry Logic
-- **Internal Failures**: Configurable retry count for tasks.
-- **System Restarts**: The `Orchestrator` re-scans the DB on boot and re-enqueues "Interrupted" tasks, passing them through the `ProgressService`'s piece-map to skip finished work.
+## 3. Queue Procedure
 
-## 5. UI Integration
-- **Queue Status Overlay**: Shows "Waiting for Resources" if a heavy task is blocked by another.
-- **Batch Controls**: Ability to pause the entire queue or reprioritize individual chapters.
+### Submit
+
+1. Validate request and dependencies.
+2. Reconcile already-valid artifacts.
+3. Create parent and child queue records.
+4. Publish `queued` or `waiting_for_dependency`.
+
+### Dispatch
+
+1. Select eligible jobs by priority and age.
+2. Check dependency satisfaction.
+3. Check resource availability.
+4. Allocate claims.
+5. Start the task and publish `running`.
+
+### Finish
+
+1. Validate task output.
+2. Release resources.
+3. Update parent aggregation.
+4. Trigger dependent work.
+5. Publish completion or failure.
+
+## 4. Recovery Procedure
+
+1. Load incomplete jobs on startup.
+2. Reconcile artifacts for their requested revisions.
+3. Mark now-satisfied work complete.
+4. Requeue only the truly pending work.
+5. Publish `recovered` status before execution resumes.
+
+## 5. Failure Policy
+
+- infrastructure failures: retriable
+- request/content failures: `needs_review`
+- explicit cancelation: `cancelled`
+- dependency invalidation: back to `waiting_for_dependency`
+
+## 6. Testing Plan
+
+- scheduler fairness tests
+- resource-claim contention tests
+- recovery tests after simulated interruption
+- parent-child aggregation tests
+- cancelation and retry behavior tests

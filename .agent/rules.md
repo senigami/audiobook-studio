@@ -2,36 +2,34 @@
 
 This is the canonical entry point for repository rules.
 
-Use this file as the quick-reference summary, then consult the focused rule files in `.agent/rules/` for the details that match the task.
+Use this file as the quick summary, then read the focused rule files in `.agent/rules/` that apply to the task at hand.
 
 ## Read First
 
-- Verify all changes with the appropriate test and lint commands before considering a task done.
-- Use the local `./venv` for backend commands.
-- Update tests when logic changes; do not weaken tests to fit broken behavior.
-- Keep wiki docs and `wiki/Changelog.md` aligned with shipped behavior.
-- Prefer manual verification by the user for UI changes unless they explicitly ask for browser-driven verification.
-- Treat filesystem paths as a security surface; follow the backend security/path rules.
-- Push back when the requested implementation is weaker than the better pattern already available in the repo.
+- Verify changes with the relevant tests and linting before calling work complete.
+- Use the local `./venv` for backend tooling.
+- Update tests when behavior or logic changes.
+- Keep implementation docs, wiki pages, and `wiki/Changelog.md` aligned with shipped behavior.
+- Treat project paths, asset paths, and output publication as security-sensitive and correctness-sensitive surfaces.
+- For Studio 2.0 work, follow the plan set in `plans/` as architecture constraints, not optional ideas.
+- Prefer the better long-term boundary when a quick fix would deepen worker-centric or UI-state coupling.
 
 ## Rule Map
 
 - [`verification.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/verification.md)
-  Test-first expectations, verification commands, and definition of done.
+  Verification requirements, migration validation, and definition of done.
 - [`workflow.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/workflow.md)
-  Ownership, pushback, documentation, and manual verification expectations.
+  Ownership expectations, plan maintenance, documentation, and rollout discipline.
 - [`backend.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/backend.md)
-  Progress/state consistency, worker sync, path safety, and backend structural guidance.
+  Backend correctness, artifact safety, path rules, and structural guidance.
 - [`frontend.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/frontend.md)
-  UI consistency, accessibility, responsiveness, and frontend quality guidance.
+  State ownership, UI recovery expectations, accessibility, and UX quality.
 - [`modular_architecture.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/modular_architecture.md)
-  Rules for engine abstraction, task genericity, and centralized progress tracking in Studio 2.0.
+  Studio 2.0 architecture boundaries for engines, queueing, progress, and migration.
 
 ## Priority Order
 
-When rules overlap, follow them in this order:
-
-1. Verification and correctness
-2. Security and data safety
-3. User-visible behavior and documentation accuracy
-4. Maintainability and consistency
+1. Correctness and verification
+2. Security and artifact/path safety
+3. User-visible trust and recovery behavior
+4. Maintainability and architectural consistency

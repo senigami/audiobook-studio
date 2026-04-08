@@ -1,73 +1,125 @@
 # Proposed Update for GitHub Epic #79
 
-## New Title
+## Title
 
-**Epic: Studio 2.0 - Core Architectural Redesign & Modular Plugin System**
+**Epic: Studio 2.0 - Production-Grade Architecture, Queueing, and Editor Redesign**
 
-## New Description
+## Summary
 
-### User Story
+Studio 2.0 is not a cosmetic refactor. It is the foundation we will use to build the rest of the product, so the plan must optimize for correctness, resilience, and editor speed before extensibility.
 
-As an Audiobook Studio user, I want a modular, domain-driven architecture and a resource-aware task system so the application is exceptionally responsive, easily extensible with new engines, and resilient to state "drifting" or UI desynchronization.
+The current system works, but too much behavior is hidden inside the legacy worker loop, ad-hoc engine integration, and page-level state coordination. That makes the application harder to evolve and easier to desynchronize. Studio 2.0 replaces that with a clear domain model, revision-safe render artifacts, resource-aware orchestration, and a production-first authoring experience.
 
-### Problem
+## Desired User Outcomes
 
-The 1.0 architecture relied on a monolithic `worker.py` and implicit workflow boundaries. This led to:
+- Users can edit a chapter, rerender only what changed, and always understand what is queued, rendered, stale, or failed.
+- Users can trust that refreshes, crashes, and restarts will recover to the correct state without mystery regressions.
+- Users can manage voices, projects, and exports without engine-specific clutter leaking into every screen.
+- Users can grow from a single short project to a multi-volume production without the app collapsing under state drift or path sprawl.
 
-- **Resource Contention**: Multiple heavy threads competing for CPU/GPU, causing OS sluggishness.
-- **Engine Locality**: Hard-coded branching logic for XTTS/Voxtral making it difficult to add new models.
-- **State Drift**: UI components inferring status from shared global objects, causing "jumping" progress bars and desynchronized buttons upon page reloads.
+## What Studio 2.0 Will Create
 
-### The 2.0 Architectural Vision
+### 1. A Real Domain Model
 
-Studio 2.0 transitions to a **Local-First Modular Architecture** focused on:
+- Project, chapter, production block, voice profile, render artifact, queue job, and snapshot all become explicit first-class concepts.
+- Resume and reuse will be based on revision-safe artifact metadata, not just “does a file exist.”
+- Project data will live under stable project roots, with a shared immutable artifact cache where reuse is safe.
 
-- **Resource-Aware Orchestration**: A centralized scheduler that protects the machine from overload while still allowing safe concurrent light work.
-- **Universal Voice Interface (VUI)**: A plugin bridge that standardizes how all synthesis engines (local or cloud) communicate with the system.
-- **Layered State Management**: A single live-state layer for reactive updates paired with REST-backed hydration for reload-safe context resolution.
-- **Artifact Integrity**: Render outputs are tracked by revision and content hash so resume logic never mistakes stale audio for valid audio.
+### 2. A Universal Voice Interface
 
-### Phased Roadmap
+- Every engine will be wrapped behind a common contract.
+- Engine availability, settings, and capability checks will happen before queueing.
+- Engine-specific settings will live in a dedicated voice-module management surface instead of being scattered across project screens.
 
-#### Stage 1: The Engine Foundation (VUI Bridge)
+### 3. A Resource-Aware Orchestrator
 
-- [ ] Define the `BaseVoiceEngine` interface.
-- [ ] Implement XTTS and Voxtral as modular plugins.
-- [ ] Establish the `VoiceBridge` for standardized synthesis routing.
-- [ ] Start with an internal registry and stable manifest contract before opening the door to third-party plugin loading.
+- The queue will schedule by resource profile, not just “heavy vs light.”
+- Jobs will support parent-child structure, clear waiting reasons, retries, cancelation, recovery, and review-required states.
+- The queue will remain single-machine-first, but it will stop treating cloud calls, CPU normalization, and GPU synthesis as identical work.
 
-#### Stage 2: Independent Services (Progress & Data)
+### 4. A Revision-Safe Progress System
 
-- [ ] Extract piece-mapping and ETA math into a standalone `ProgressService`.
-- [ ] Implement the weighted-average ETA algorithm with persisted per-engine historical baselines and optional user override multipliers.
-- [ ] Introduce segment revision hashes so progress reconciliation can distinguish "already rendered" from "rendered for an older draft."
+- Progress will reconcile against expected artifacts tied to the current revision.
+- ETA will use historical baselines plus live sampling, not raw guesswork.
+- The UI will show why progress is paused, recalculating, or waiting, instead of just moving bars around.
 
-#### Stage 3: Orchestration (The Task Queue)
+### 5. A Production-Centric Chapter Editor
 
-- [ ] Build the new `TaskOrchestrator` with `StudioTask` abstractions.
-- [ ] Implement resource profiles and quotas so local GPU synthesis, cloud synthesis, assembly, and exports can be scheduled safely without a one-size-fits-all lock.
-- [ ] Add first-class support for cancel, retry, blocked, and review-required states.
+- Chapters will be edited as stable production blocks, not only as a giant text blob.
+- The editor will support local draft state, debounced autosave, targeted rerender, character-to-voice mapping, and inline failure recovery.
+- Fast preview and “render changed” workflows will be core paths, not add-ons.
 
-#### Stage 4: The 2.0 Presentation Layer
+## Non-Goals For The Initial 2.0 Cut
 
-- [ ] Implement the Zustand stores for Layer 1 reactivity.
-- [ ] Integrate the new "Installed Voice Modules" UI and the production-centric Chapter Editor workflow.
-- [ ] Ship queue visibility and failure recovery as part of the UX, not as a debug-only surface.
+- Arbitrary third-party plugin execution.
+- Distributed workers, Redis, Celery, or multi-machine orchestration.
+- Simultaneous storage migration and full product rewrite in one step.
+- Unlimited revision history for every block and asset.
+- Silent engine fallback that changes voice output without user awareness.
 
-### Key Risks To Solve In The Epic
+## Major Design Decisions
 
-- **Overly coarse locking**: A single global heavy lock is safe, but it can underutilize cloud engines and make the app feel artificially slow. Solve this with resource profiles and per-engine concurrency rules.
-- **False-positive resume state**: Filesystem existence alone is not enough to treat a segment as complete. Solve this with content hashes tied to text, voice, parameters, and engine version.
-- **Plugin surface area too early**: Dynamic third-party plugin loading adds security and support complexity. Solve this by treating 2.0 plugins as internal modules first, with a strict manifest and compatibility layer.
-- **Dual source of truth in the frontend**: Moving to Zustand without explicit state ownership can create another form of drift. Solve this by defining which data is authoritative in REST, which is ephemeral in live state, and how the two merge.
-- **Over-automation in the editor**: Character detection and automatic voice mapping can help, but incorrect guesses will break trust fast. Solve this with suggestion-first UX, confidence states, and clear user approval points.
+### Artifact Truth Over Raw File Truth
 
-### Acceptance Criteria
+- A render is complete only when a validated artifact manifest matches the current block revision, engine version, voice asset, and synthesis settings.
+- Raw file existence alone is never enough to mark work complete.
 
-- [ ] All synthesis engines operate behind a modular engine contract with their own manifests and configuration schemas.
-- [ ] The orchestrator enforces resource-aware concurrency limits that protect the machine without unnecessarily blocking safe parallel work.
-- [ ] Resume logic validates output artifacts against the current segment revision before marking them complete.
-- [ ] ETA predictions factor in actual recent engine performance, persisted historical baselines, and optional user tuning.
-- [ ] Real-time progress is consistent across the UI, survives reloads, and never regresses visually without an explicit status reason.
-- [ ] The Chapter Editor supports fast preview, clear queue visibility, and safe recovery from failures without forcing full re-renders.
-- [ ] The migration path replaces legacy internals incrementally without requiring a risky big-bang rewrite of routes or UI screens.
+### REST Owns Canonical Entities, Live Store Owns Overlays
+
+- Canonical project/chapter/library data comes from the API.
+- Real-time progress, queue overlays, reconnect state, and local draft session state live in the frontend store.
+- The store must not become a second database.
+
+### Internal Module System First
+
+- “Plugins” in 2.0 are internal engine modules behind a manifest and registry.
+- External plugin loading is deferred until compatibility, trust, and support boundaries are solved.
+
+### Strangler Migration Instead Of Big-Bang Rewrite
+
+- New services are introduced behind adapters and feature flags.
+- Legacy routes and UI can keep working while new internals are validated.
+- Cleanup happens only after new flows prove themselves in production-like testing.
+
+## Biggest Risks And How We Will Solve Them
+
+- **Coarse queue locking wastes safe concurrency**
+  Solution: model resources explicitly and give each task a resource claim.
+- **Resume logic marks stale audio as complete**
+  Solution: require revision hashes and artifact manifests for reconciliation.
+- **Frontend state splits into competing truths**
+  Solution: define hard ownership boundaries between REST entities and live overlays.
+- **Character detection and voice assignment overreach**
+  Solution: keep AI assistance suggestion-first with confidence labels and explicit approval.
+- **Storage and path contracts remain too implicit**
+  Solution: define a concrete domain data model and on-disk layout before queue cutover.
+
+## Delivery Plan
+
+1. Define the domain data model and artifact contract.
+2. Build the engine bridge and internal engine registry.
+3. Build progress reconciliation and ETA services against the new artifact model.
+4. Build the resource-aware orchestrator and recovery flow.
+5. Cut the frontend over to the new state boundaries and editor workflow.
+6. Remove legacy glue only after the new path is verified end to end.
+
+## Success Criteria
+
+- All synthesis runs through a modular engine contract with capability checks and manifests.
+- All render completion and resume decisions are revision-safe.
+- Queue status is explainable at all times, including waiting and recovery states.
+- The Chapter Editor supports targeted rerender, stale-state awareness, and inline failure handling.
+- The frontend reloads and reconnects without progress drift or state duplication.
+- Projects remain portable, and shared artifact reuse never creates hidden cross-project mutation.
+- The migration path is incremental, reversible, and verified at each phase.
+
+## Reference Plans
+
+- `plans/implementation/domain_data_model.md`
+- `plans/v2_folder_structure.md`
+- `plans/v2_voice_system_interface.md`
+- `plans/v2_queuing_system.md`
+- `plans/v2_progress_tracking.md`
+- `plans/v2_chapter_editor_workflow.md`
+- `plans/v2_project_library_management.md`
+- `plans/v2_conversion_roadmap.md`

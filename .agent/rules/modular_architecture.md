@@ -1,23 +1,42 @@
 # Modular Architecture Rules (Studio 2.0)
 
-## 1. Engine Isolation
-- No engine-specific logic (e.g., hardcoded XTTS or Voxtral parameters) should exist in core services or UI components.
-- All voice synthesis must be delegated to a common engine interface.
-- New engines must register themselves via a manifest and implement the standard `BaseVoiceEngine` methods.
+## 1. Domain First
 
-## 2. Task Genericity
-- All background jobs must inherit from the `StudioTask` base class.
-- Branching logic based on "Engine Type" in the main worker loop is prohibited; the worker should simply call `task.run()`.
+- Project, chapter, production block, voice profile, voice asset, render artifact, queue job, and snapshot are first-class concepts.
+- Do not hide core domain state inside worker-local or component-local assumptions.
 
-## 3. Progress & State Consistency
-- Use the centralized `ProgressService` for all ETA predictions and progress broadcasting.
-- Manual filesystem checks for job resumption logic are deprecated; use the `PieceMapper` utility instead.
-- Follow the 1% broadcast rule (defined in `backend.md`) but ensure all updates flow through the unified reporting interface.
+## 2. Engine Isolation
 
-## 4. Path & Asset Management
-- All production assets (chunks, samples, temp files) must be managed by the `ProjectManager` service. 
-- Avoid hardcoding absolute paths to globally shared directories like `outputs/` or `audiobooks/` within specific engine modules.
+- Engine-specific logic must live behind the engine registry and voice bridge.
+- New engines must register through manifests and implement the standard engine contract.
+- Queue code, route handlers, and UI components must not branch on engine IDs for core behavior.
 
-## 5. Schema Integrity
-- Voice profiles must adhere to the `VoiceManifest` JSON schema to ensure they can be used interchangeably by compatible engines.
-- Project state must be stored in a portable format within the project's own data root.
+## 3. Artifact And Revision Safety
+
+- Completion and reuse decisions must be based on validated artifact metadata tied to the requested revision.
+- Raw file existence is insufficient for completion, reuse, or recovery.
+- Shared artifact cache entries must be immutable.
+
+## 4. Queue And Progress Boundaries
+
+- All background work should flow through `StudioTask`-style task abstractions.
+- Scheduling policy belongs in the orchestrator and scheduler layers, not inside task implementations.
+- Progress math and reconciliation belong to the centralized progress services.
+
+## 5. Frontend State Boundaries
+
+- Canonical entity data comes from API hydration.
+- Live queue and progress overlays belong to the frontend store.
+- Local editor draft state must not overwrite canonical server state blindly.
+
+## 6. Migration Rules
+
+- The target architecture should not be diluted by temporary migration shortcuts.
+- Keep compatibility adapters explicit and removable.
+- Remove legacy paths only after the new path is verified end to end.
+
+## 7. Path And Asset Ownership
+
+- Projects own project-local drafts, exports, and references.
+- The library owns reusable voice identity and voice assets.
+- The shared artifact cache owns immutable generated outputs.

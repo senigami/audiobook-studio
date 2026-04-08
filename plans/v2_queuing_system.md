@@ -1,94 +1,130 @@
-# Proposal: Modular Queuing System (Studio 2.0)
+# Proposal: Resource-Aware Queuing System (Studio 2.0)
 
-## 1. Objective
-Redesign the existing asynchronous job system into a standalone, modular component that can handle diverse task types (synthesis, assembly, export, build) without deep awareness of the task's internal logic.
+This is the operational heart of Studio 2.0. The queue must be predictable, explainable, and recoverable. “Async” is not the goal. Trustworthy production flow is the goal.
 
-> [!NOTE]
-> See the [Detailed Implementation Blueprint](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/plans/implementation/queuing_service_impl.md) for technical specifics on resource locking and class structures.
+## 1. Objectives
 
-## 2. Key Concepts
+- Replace worker-centric branching with task-based orchestration.
+- Protect the machine from overload while still using safe parallelism.
+- Support parent-child job structure, targeted rerender, cancelation, recovery, and exports.
+- Make queue state understandable to users and other systems.
 
-> [!IMPORTANT]
-> Transitioning from the legacy worker to this modular system involves a parallel execution phase. See the [Conversion & Verification Strategy](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/plans/implementation/conversion_strategy.md) for details.
+## 2. What I Want To Create
 
-### 2.1 The `StudioTask` Abstraction
-Instead of branching in the worker loop, every job in the queue becomes a subclass of a base `StudioTask`.
+### 2.1 StudioTask Hierarchy
+
+- `SynthesisTask`
+- `AssemblyTask`
+- `ExportTask`
+- `SampleBuildTask`
+- `ProjectBackupTask`
+
+All queueable work should derive from a common base:
 
 ```python
 class StudioTask:
     task_id: str
-    priority: int = 10
-    on_progress: Optional[Callable]
-    on_complete: Optional[Callable]
-    on_error: Optional[Callable]
+    job_type: str
+    resource_claim: ResourceClaim
+    priority: int
+    parent_job_id: str | None
 
-    def run(self):
-        """Implemented by specific task types."""
-        raise NotImplementedError
+    def validate(self) -> None: ...
+    def run(self) -> TaskResult: ...
+    def on_cancel(self) -> None: ...
 ```
 
-### 2.2 Discrete Task Types
-- **`SynthesisTask`**: Logic for calling a voice engine.
-- **`AssemblyTask`**: Logic for merging chunks into a chapter or audiobook.
-- **`SampleBuildTask`**: Logic for creating voice profile samples.
-- **`ExportTask`**: Logic for format conversion and metadata tagging.
+### 2.2 Scheduler With Resource Claims
 
-## 3. Modular Architecture
+Instead of a single “heavy lock,” each task will declare a resource claim such as:
 
-### 3.1 `QueueManager` (The Orchestrator)
-A central service that manages multiple internal queues (Synthesis, Assembly, IO).
-- **Responsibility**: Task submission, pause/cancel coordination, and dispatching to available workers.
-- **Decoupling**: The backend API interacts only with the `QueueManager`, not the workers directly.
+- `gpu: 1`
+- `cpu_light: 1`
+- `disk_io: 1`
+- `network: 1`
 
-### 3.2 `WorkerPool` (Single-Machine Optimized)
-A configurable pool of local workers designed to maximize UX without starving the OS.
-- **The Heavy Worker Rules**: Local GPU-heavy synthesis should default to one active task at a time, but the scheduler should model this as a resource quota rather than a hardcoded universal rule.
-- **Concurrent IO Pool**: Lightweight tasks (assembly, conversion, API calls) run in a secondary background pool.
-- **Per-Engine Policies**: Cloud requests, CPU-bound normalization, and GPU synthesis should not all compete for the exact same slot.
+The initial policy will still allow only one GPU-heavy synthesis task at a time, but that rule will live in scheduler policy instead of being hardcoded everywhere.
 
-### 3.3 Callback System
-Each task can register "Hook" callbacks that trigger upon specific events:
-- `on_start`: e.g., Update UI status to "Running".
-- `on_chunk_complete`: e.g., Update individual segment progress for the Chapter Editor.
-- `on_success`: e.g., Trigger the next task in a chain (Chapter -> Assembly).
+### 2.3 Job Tree Model
 
-## 4. Item Processing & Piece Mapping
+- Parent job: chapter render, book export, or batch action
+- Child jobs: block renders, assembly pieces, metadata tasks
+- Parent status is derived from child execution plus orchestration-level state
 
-The 2.0 system will implement an "Item Registry" that allows the queue to understand the composition of a complex job.
+## 3. Queue States
 
-- **Example**: If a chapter job is submitted, the queue creates a parent task and multiple sub-tasks for segments.
-- **Resumption**: The `QueueManager` can query the Item Registry to see exactly which pieces are finished before starting workers, eliminating the need for hardcoded "resume state" logic in the worker loop.
-- **Revision Safety**: The registry should track a segment revision hash so a previously rendered file is only reused when it matches the exact current input.
-- **Parent/Child Semantics**: Parent jobs should surface aggregate state such as `waiting`, `partially_done`, `needs_review`, and `blocked` so the UI can explain what is happening.
+I want explicit, user-explainable states:
 
-## 5. Persistence & Recovery
+- `queued`
+- `validating`
+- `waiting_for_resources`
+- `waiting_for_dependency`
+- `running`
+- `paused`
+- `cancelling`
+- `completed`
+- `failed`
+- `needs_review`
+- `recovered`
 
-- **Source of Truth**: The Database becomes the primary source of truth for queue state.
-- **Lifecycle**:
-    1. API writes task to DB.
-    2. `QueueManager` picks up task and creates an in-memory execution object.
-    3. Status updates are written to DB *and* broadcast via WebSocket.
-    4. Upon restart, the `QueueManager` re-hydrates only "pending" or "interrupted" tasks from the DB.
+## 4. Scheduling Procedures
 
-## 5.1 Potential Problems And Better Implementations
+### Submission
 
-- **Problem: A single global lock can leave safe work idle**
-  Better implementation: Model resources explicitly, such as `gpu`, `cpu_light`, `network`, and `disk_io`, then let each task declare what it needs.
-- **Problem: Queue reorder can become unpredictable across parent and child jobs**
-  Better implementation: Reprioritize at the parent-job level by default, with child order derived deterministically unless the user explicitly drills in.
-- **Problem: Retries can loop on bad input**
-  Better implementation: Distinguish retriable infrastructure failures from non-retriable content/configuration failures and move the latter into `needs_review`.
-- **Problem: "Pause queue" can produce half-understood states**
-  Better implementation: Define pause behavior separately for queued, running, and chained tasks, and surface the exact effect in the UI.
+1. Validate the request.
+2. Resolve dependencies and target block set.
+3. Reconcile current artifacts and skip already-valid work.
+4. Create parent and child job records in the DB.
+5. Publish queue-visible status immediately.
 
-## 5.2 UX Refinements
+### Dispatch
 
-- **Queue Transparency**: Show why a task is waiting, not just that it is queued. Examples: `Waiting for GPU`, `Waiting for voice module setup`, `Blocked by missing sample`.
-- **Interruptibility**: Users should be able to cancel a single segment rerender without cancelling an entire book export.
-- **Fast Actions**: Common queue actions should be `Pause all`, `Resume all`, `Retry failed`, and `Render selected`.
-- **Recovery UX**: After app restart, recovered jobs should appear with a clear `Recovered after interruption` badge rather than silently resuming.
+1. Read queued jobs ordered by priority, submission time, and policy.
+2. Ignore jobs whose dependencies are not satisfied.
+3. Allocate resources only when the full claim can be honored.
+4. Move jobs to `waiting_for_resources` with a visible reason when blocked.
+5. Start execution and emit status transition events.
 
-## 6. Planned Benefits
-- **UX-First Performance**: By operating strictly as a local-first, single-heavy-worker system, we guarantee that Audiobook Studio runs predictably without slowing down the user's computer. Decentralized clustering is explicitly out-of-scope to maintain installation simplicity.
-- **Maintainability**: New task types can be added by simply implementing the `StudioTask` interface.
-- **Consistency**: Centralized progress math ensures that the "Global Progress Bar" and "Individual Segment Status" are always in sync.
+### Completion
+
+1. Validate the task result.
+2. Persist artifact or output metadata.
+3. Release resources.
+4. Recompute parent job status and progress.
+5. Trigger dependent tasks if appropriate.
+
+## 5. Failure Handling
+
+- Distinguish retriable infrastructure failures from non-retriable request/content failures.
+- Retriable failures increment attempt count and return to queue with clear reason metadata.
+- Non-retriable failures move to `needs_review` with actionable remediation suggestions.
+- Cancelation must be explicit and must propagate in a controlled way through parent and child jobs.
+
+## 6. Recovery Rules
+
+- On startup, reload jobs that were `queued`, `waiting_for_resources`, `running`, or `cancelling`.
+- Reconcile each affected block or artifact before requeueing actual work.
+- Recovered jobs must be labeled visibly so users know why the queue resumed.
+- Recovery may skip child work that is now already satisfied by valid artifacts.
+
+## 7. Queue UX Requirements
+
+- Always show why a task is waiting.
+- Support canceling a single rerender without nuking a whole book export.
+- Support `Pause all`, `Resume all`, `Retry failed`, and `Render changed`.
+- Surface `Recovered after restart`, `Needs setup`, and `Needs review` as first-class states.
+
+## 8. Risks And Planned Solutions
+
+- **Risk: One bad policy starves useful work**
+  Solution: keep resource policy centralized and test scheduling fairness.
+- **Risk: Parent and child reordering becomes confusing**
+  Solution: reprioritize parent jobs by default and derive child order deterministically.
+- **Risk: Retries loop forever on bad inputs**
+  Solution: classify failure types and move content/configuration issues to `needs_review`.
+
+## 9. Implementation References
+
+- `plans/implementation/queuing_service_impl.md`
+- `plans/implementation/domain_data_model.md`
+- `plans/v2_progress_tracking.md`

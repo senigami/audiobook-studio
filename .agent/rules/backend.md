@@ -1,18 +1,28 @@
 # Backend Rules
 
-## Progress And State Consistency
+## 1. Source Of Truth And Artifact Safety
+
+- Raw file existence alone is never enough to mark render work complete in Studio 2.0.
+- Validated artifact manifests plus canonical persistence state determine whether output is reusable.
+- Publish generated outputs atomically: temp file first, validate, write manifest, then promote into the final artifact location.
+- Shared cached artifacts must be immutable once published.
+- When job state is re-queued, recovered, or invalidated, clear stale runtime metadata and recalculate status from canonical state.
+
+## 2. Progress And State Consistency
 
 - WebSocket progress values must be rounded to exactly 2 decimal places.
-- Only broadcast progress updates when the value advances by at least 1%.
-- When a job is re-queued, reset, or recovered, clear stale metadata such as logs, timestamps, progress, and warnings.
-- Disk state is the source of truth when UI status and actual files disagree.
+- Only broadcast progress updates when the value advances meaningfully, the status changes, or the event carries important new context.
+- Queue and progress services own progress math. Do not duplicate ETA or completion logic inside engine wrappers or route handlers.
+- If a revision changes, mark prior artifacts stale explicitly rather than silently treating them as valid.
 
-## Technical Environment
+## 3. Queue And Domain Boundaries
 
-- Always use the local `./venv` for backend tooling.
-- When worker threads update `j` objects, follow up with `update_job` so the WebSocket bridge receives the change.
+- Route handlers should call domain services and orchestrator services, not engine-specific or worker-specific code directly.
+- Engine wrappers must not decide scheduling policy.
+- Queue tasks must declare resource needs; they must not acquire ad-hoc locks scattered through task code.
+- Parent-child job behavior should be modeled explicitly rather than inferred from filenames or loose naming conventions.
 
-## Path Safety And Code Scanning
+## 4. Path Safety And Code Scanning
 
 - Treat any filesystem path derived from request data, DB values, uploaded filenames, or user-editable names as untrusted.
 - For existing files or directories, prefer enumerating a trusted root and matching by `entry.name`.
@@ -22,12 +32,16 @@
   3. normalize with `os.path.normpath(...)`
   4. absolutize with `os.path.abspath(...)`
   5. verify the result stays under the trusted root before reading or writing
-- For filenames and profile names, require flat single-segment names unless nested paths are truly intentional.
 - Reject traversal-style input instead of silently “fixing” it.
-- Avoid hiding security-critical path creation in generic helpers unless the helper exactly mirrors the accepted containment shape and has already been proven scanner-safe.
-- When code scanning regresses, export the latest `code-scanning-alerts.json`, group by rule and file, and fix the current highest-concentration sink lines directly before broad refactors.
+- Do not hide security-critical path creation in vague helpers.
 
-## Structural Guidance
+## 5. Structural Guidance
 
-- If a file exceeds 500 lines, consider splitting it along real logical boundaries.
-- Refactor carefully to avoid circular dependencies or scattering tightly coupled logic across too many files.
+- Keep domain logic, orchestration logic, engine integration, and infrastructure concerns in separate modules.
+- If a file exceeds roughly 500 lines, consider splitting it along real boundaries rather than by arbitrary helper extraction.
+- Prefer explicit repositories and services over ad-hoc data access from route handlers and workers.
+
+## 6. Legacy Compatibility Guidance
+
+- During migration, compatibility adapters are acceptable, but they should live in explicit legacy or adapter layers.
+- Do not let temporary migration code redefine the long-term architecture.

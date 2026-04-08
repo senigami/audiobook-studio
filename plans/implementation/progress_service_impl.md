@@ -1,60 +1,54 @@
 # Implementation Blueprint: Progress & ETA Service (Studio 2.0)
 
-## 1. Objective
-Centralize all progress-related calculations and broadcasting, ensuring that "Total Progress" and "Expected Finish Time" are mathematically consistent across all layers of the application.
+This document specifies how I want progress and ETA implemented so the UI can trust it.
 
-## 2. The ETA Formula
-The 2.0 system will use a weighted average formula for ETA, factoring in engine-specific multipliers.
+## 1. Files I Want To Create
 
-### 2.1 Variables
-- `W_total`: Total weight of the job (e.g. total characters in a chapter).
-- `W_done`: Weight already completed.
-- `R_base`: Baseline performance (e.g. 15 characters/sec).
-- `M_engine`: The `global_speed_multiplier` from engine settings.
-- `R_actual`: The moving average of actual performance during the current session.
+- `app/orchestration/progress/service.py`
+- `app/orchestration/progress/reconciliation.py`
+- `app/orchestration/progress/eta.py`
+- `app/orchestration/progress/broadcaster.py`
 
-### 2.2 The Calculation
-```
-EstimatedRemainingTime = (W_total - W_done) / (R_base * M_engine * alpha + R_actual * (1 - alpha))
-```
-- `alpha`: A smoothing factor (e.g., 0.8) that favors base performance initially but pivots to actual performance as the job progresses.
+## 2. Reconciliation Procedure
 
-## 3. Piece Mapping (Reconciliation Logic)
-The `ProgressService` provides a `map_status(item_ids)` method called before a job starts.
+1. Receive requested scope such as block ids, chapter id, or export id.
+2. Load expected revisions and required outputs.
+3. Resolve referenced artifacts.
+4. Validate each artifact manifest against the current revision request.
+5. Return `valid`, `stale`, `missing`, or `unknown` per work item.
 
-### 3.1 Algorithm
-1. Retrieve the list of expected output files for the given `item_ids`.
-2. Check the Database for `done` status.
-3. Verify the Filesystem for physical exists.
-4. If status is `done` but physical file is missing -> Mark `pending`.
-5. If status is `pending` but physical file exists -> Mark `done` (Auto-reconciliation).
-6. Return `(completed_count, total_count, pending_ids)`.
+## 3. ETA Model
 
-## 4. Unified Broadcaster
-A singleton service that manages WebSocket frequency rules.
-- **Rules Engine**:
-    - Never broadcast more than once every 500ms for a single job.
-    - Always broadcast if progress crosses a % threshold (default: 1%).
-    - Always broadcast if the `status` string changes (e.g., `preparing` -> `running`).
+Use:
 
-## 5. Interface Definition (Python)
+- historical engine baseline
+- live moving throughput
+- task-type-specific work weighting
+- optional advanced user override multiplier
 
-```python
-class ProgressService:
-    def get_eta(self, jid) -> int:
-        """Returns seconds remaining."""
-        pass
+ETA output should include:
 
-    def reconcile_chapter(self, chapter_id) -> Tuple[float, List[str]]:
-        """Returns (initial_progress, pending_segment_ids)."""
-        pass
+- `eta_seconds`
+- `confidence`
+- `reason`
 
-    def update(self, jid, weight_delta):
-        """Called by workers to advance progress."""
-        pass
-```
+## 4. Broadcast Rules
 
-## 6. Planned Benefits
-- **Mathematical Uniformity**: The Global Progress bar and individual segment bars use a single calculation source.
-- **Robust Resumption**: Zero "pre-flight" synthesis; we simply don't enqueue segments that the `ProgressService` declares `done`.
-- **Human-Friendly Estimates**: The weighted ETA prevents wild fluctuations in "Time Remaining" if the system briefly slows down.
+- round progress to 2 decimal places
+- always emit on status changes
+- emit on meaningful progress movement
+- throttle repetitive events
+- publish human-meaningful phase messages
+
+## 5. Parent Aggregation
+
+- child blocks roll up into chapters
+- chapter tasks roll up into project/export jobs
+- parent progress is weighted, not averaged by count alone
+
+## 6. Testing Plan
+
+- reconciliation tests for valid vs stale artifacts
+- ETA stabilization tests with simulated workloads
+- broadcast throttling tests
+- parent-child aggregation tests

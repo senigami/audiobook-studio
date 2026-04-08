@@ -1,69 +1,102 @@
-# Proposal: Standalone Progress & ETA Service (Studio 2.0)
+# Proposal: Progress, Reconciliation, And ETA Tracking (Studio 2.0)
 
-## 1. Objective
-Extract progress calculation and ETA prediction logic into a dedicated, reusable component that provides a unified "Global Progress" view for any item processed by the system.
+Progress is a product surface, not just telemetry. The goal is to make status believable, stable, and useful to users.
 
-> [!NOTE]
-> See the [Detailed Implementation Blueprint](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/plans/implementation/progress_service_impl.md) for ETA formulas and piece-mapping algorithms.
+## 1. Objectives
 
-## 2. Key Responsibilities
+- Provide one progress model for headers, queue items, block cards, and exports.
+- Eliminate false completion caused by stale files or drifted state.
+- Make ETA useful without pretending to know more than we know.
+- Support reload and restart without the UI snapping to nonsense.
 
-> [!IMPORTANT]
-> For the phased rollout and testing plan of this component, refer to the [Conversion & Verification Strategy](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/plans/implementation/conversion_strategy.md).
+## 2. What I Want To Create
 
-### 2.1 Piece Mapping (The State Reconciler)
-Instead of the worker loop manually checking for existing files, the Progress Service provides a `get_work_map(item_id)` method.
-- **Function**: Compares the expected output (e.g., all segments for a chapter) against the database/filesystem.
-- **Result**: Returns a detailed map of `done` vs `pending` items, allowing the queue to skip completed work and the progress bar to start at the correct offset immediately upon resumption.
-- **Refinement**: Completion should be based on artifact metadata and revision hash, not file existence alone.
+### 2.1 Reconciliation Service
 
-### 2.2 Predictive ETA Engine
-A centralized algorithm for estimating completion times.
-- **Context-Aware**: Uses engine-specific performance metrics (e.g., characters-per-second for XTTS vs seconds-per-megabyte for M4B assembly).
-- **Hardware Integration**: Accounts for current system load or concurrent tasks.
-- **Adaptive**: Updates estimates in real-time based on actual synthesis speed during the job.
-- **Historical Baselines**: Persists recent performance per engine/model/device so the first ETA for a new job is reasonable before live samples accumulate.
+- Validates which work is already satisfied by revision-safe artifacts
+- Produces initial job progress before execution starts
+- Distinguishes `valid`, `stale`, `missing`, and `unknown` artifact states
 
-### 2.3 Consistent Broadcasting
-Provides a single `BroadcastProgress(jid, value, metadata)` interface.
-- **Rounding**: Enforces project-standard rounding (e.g., 2 decimal places).
-- **Throttling**: Automatically handles broadcast frequency (e.g., "only broadcast on >1% change" as per rules).
+### 2.2 Progress Service
 
-## 3. Component Architecture
+- Tracks weighted work completion at block, chapter, and book levels
+- Aggregates child task updates into parent progress
+- Emits normalized progress events with throttling
 
-### 3.1 Backend: `ProgressMonitor` Service
-A service that hooks into the `QueueManager`.
-- **Hooks**: Listens to `on_chunk_complete` events from workers.
-- **State Logic**: Aggregates sub-task progress into parent job progress (e.g., 10/20 segments done = 50% chapter progress).
+### 2.3 ETA Service
 
-### 3.2 Frontend: `useGlobalProgress` Hook
-A unified hook or state-store (Zustand/Redux) that decouples progress display from individual page components.
-- **Global Visibility**: The Progress Bar in the Header can listen to any active job without needing to know the context of the current page.
-- **Resumption Visuals**: Ensures that when a user refreshes or switches projects, the progress bar "snaps" to the accurate state retrieved from the reconciliation map.
-- **Confidence Signaling**: The UI should distinguish between `estimating`, `stable ETA`, and `recomputing` states rather than implying false precision.
+- Uses historical per-engine baselines plus current live throughput
+- Marks ETA confidence as `estimating`, `stable`, or `recomputing`
+- Adapts when resource contention or engine behavior changes
 
-## 4. Item Detail Mapping
-The service will support detailed mapping for complex items:
-- **Chapters**: Track progress by Segment ID.
-- **Books**: Track progress by Chapter ID.
-- **Voice Training**: Track progress by processing step (Preprocessing -> Training -> Testing).
+## 3. Progress Rules
 
-## 4.1 Potential Problems And Better Implementations
+- Progress is based on estimated work cost, not raw item count.
+- Visible progress must not move backward unless the requested revision changed.
+- If progress must regress because the revision changed, the UI must explain why.
+- A job is not complete because a file exists; it is complete because a valid artifact satisfies the requested revision.
 
-- **Problem: ETA can feel wrong if a single speed multiplier drives everything**
-  Better implementation: Use persisted historical throughput as the default baseline and treat the multiplier as an advanced override.
-- **Problem: Progress can regress visually during reconciliation**
-  Better implementation: Never move the visible bar backwards unless the underlying revision changed, and if it did, explain why.
-- **Problem: Tiny segments can create noisy updates**
-  Better implementation: Weight by estimated cost, not item count, and smooth parent progress independently from child micro-events.
+## 4. What Counts As Work
 
-## 4.2 UX Refinements
+- Chapter synthesis: weighted primarily by normalized text size with room for engine-specific cost modifiers
+- Assembly: weighted by input duration and file count
+- Export: weighted by output size and metadata work
+- Voice building: weighted by preprocessing and asset-generation phases
 
-- **Progress Explanations**: Add small labels like `Scanning existing renders`, `Rendering 12 of 46 blocks`, `Final assembly`, and `Writing metadata`.
-- **Useful ETA Copy**: Prefer friendly ranges early on, such as `About 3 to 5 min`, then tighten to exact estimates later.
-- **Failure Locality**: A parent job should show exactly which chapter or segment failed and what action is available next.
+## 5. Event Contract
 
-## 5. Planned Benefits
-- **Zero-Jump UI**: Eliminates the "0% to 50% jump" when resuming a partially finished chapter.
-- **Decoupled Logic**: Changes to how we calculate math for ETA won't require touching worker or engine code.
-- **Mathematical Accuracy**: A single source of truth for "Total Weight" vs "Current Progress," regardless of task type.
+Every progress event should include:
+
+- `job_id`
+- `parent_job_id`
+- `scope` such as block, chapter, project, export
+- `status`
+- `progress`
+- `eta_seconds`
+- `eta_confidence`
+- `message`
+- `reason_code`
+- `updated_at`
+
+## 6. UX Requirements
+
+- Show meaningful phase copy such as `Scanning existing renders`, `Rendering 12 of 46 blocks`, `Assembling chapter`, and `Writing metadata`.
+- Use softer copy early, such as `About 3 to 5 min`, then tighten when live confidence improves.
+- Show per-block waiting and failure reasons inline in the editor.
+- Queue and header progress must derive from the same normalized events.
+
+## 7. Risks And Planned Solutions
+
+- **Risk: ETA becomes noisy on tiny blocks**
+  Solution: smooth parent progress separately and weight by work, not item count.
+- **Risk: Speed multipliers become a crutch for bad modeling**
+  Solution: use them only as advanced overrides on top of historical baselines.
+- **Risk: Reconciliation causes visible regressions**
+  Solution: keep explicit stale-state messaging and never silently snap backwards.
+
+## 8. Procedures
+
+### Before Execution
+
+1. Reconcile requested work against valid artifacts.
+2. Initialize progress using only valid matches.
+3. Publish a preflight phase event if reconciliation takes meaningful time.
+
+### During Execution
+
+1. Accept child task updates.
+2. Aggregate by weighted work model.
+3. Throttle broadcasts by percentage threshold, status change, and time interval.
+4. Recompute ETA confidence as live throughput stabilizes.
+
+### After Execution
+
+1. Validate final artifacts.
+2. Mark parent progress complete only after all required child work and post-processing are finished.
+3. Emit a final status event with no ambiguous “almost done” state.
+
+## 9. Implementation References
+
+- `plans/implementation/progress_service_impl.md`
+- `plans/implementation/domain_data_model.md`
+- `plans/implementation/frontend_state_impl.md`

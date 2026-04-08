@@ -1,43 +1,155 @@
 # Conversion Roadmap: Building Audiobook Studio 2.0
 
-This plan breaks down the overarching 2.0 transition into four practical, highly cohesive stages. The strategy prioritizes foundational changes first, minimizing disruption to the live application while building the structure for the final switchover.
+This is the implementation sequence I want us to follow. It is structured to reduce migration risk, validate new contracts early, and avoid a frontloaded UI rewrite before the backend foundations are real.
 
-## Stage 1: The Engine Foundation (VUI Bridge)
-Build the new Universal Voice Interface completely isolated from the current worker.
-1. **Scaffolding**: Create the target 2.0 engine module area in the new architecture, aligning naming with the folder-structure plan instead of introducing another temporary namespace.
-2. **Base Interface**: Define `BaseVoiceEngine` interface.
-3. **Module Implementations**: Create `xtts_module.py` and `voxtral_module.py` that implement the interface by wrapping the existing generation functions.
-4. **The Bridge**: Create `voice_bridge.py` to route requests.
-5. **Testing**: Write unit tests (e.g., `test_v2_engines.py`) that call the `VoiceBridge` directly with mock inputs.
-*Constraint: `app/jobs/worker.py` is entirely untouched at this stage.*
+## Phase 0: Architecture Freeze And Safety Prep
 
-## Stage 2: Independent Services (Progress & Data)
-Extract the complex logic from `worker.py` into standalone utility classes.
-1. **Piece Mapping**: Build reconciliation around revision-aware artifact metadata so "completed" means "matches the current draft," not merely "file exists."
-2. **ETA Engine**: Create `app/services/progress.py` with the new weighted average formula and the 1% tracking rules.
-3. **Mock Runner**: Create `test_v2_progress.py` that simulates a job's progress loop to verify math accuracy.
-*Constraint: Live jobs still use the old inline logic. New services are built alongside them.*
+### What I want to create
 
-## Stage 3: Orchestration (The Shadow Queues)
-Build the new `TaskOrchestrator` and connect it to the Foundation layers, establishing the single-machine semaphore locking.
-1. **Task Abstraction**: Create the generic `StudioTask` with resource profiles and parent/child job semantics.
-2. **Orchestrator**: Create the orchestrator with explicit resource quotas, starting with a default single-slot GPU policy.
-3. **Integration**: Wire the `StudioTask` to call the `VoiceBridge` (from Stage 1) and report to the `ProgressService` (from Stage 2).
-4. **Testing**: Create an integration suite (`test_v2_pipeline.py`) that submits dummy tasks into the new orchestrator and asserts resource locks are respected.
+- Final 2.0 plan set and rules
+- Target folder structure
+- Feature flags for progressive cutover
+- Stable test fixtures for projects, chapters, voices, and mock renders
 
-## Stage 4: The Cutover & Presentation UI
-Disconnect the old wiring and attach the UI to the 2.0 backend.
-1. **Backend Cutover**: Modify `web.py` to route API requests (enqueue, assemble) to the new `jobs_v2` orchestrator instead of `app/jobs/core.py`.
-2. **Data Layer Hydration**: Keep REST data canonical, and use Zustand only for live overlays and session UI state to avoid dual truth.
-3. **Zustand Socket Hookup**: Connect the Layer 1 WebSocket receiver to update the live store directly.
-4. **Live Verification**: Run a full, end-to-end multi-chapter production in the browser. 
+### How I want to do it
 
-## Cross-Stage Refinements
+1. Finalize the 2.0 plan and rule documents.
+2. Introduce feature flags for queue, editor, and engine-bridge cutovers.
+3. Capture representative fixtures from current production-like flows.
+4. Define the baseline smoke tests we will use across the migration.
 
-- Keep naming consistent across roadmap, folder structure, and implementation docs so the migration does not invent temporary architectures.
-- Add a product verification checklist alongside technical tests: resume after restart, rerender after text edit, failure recovery, and first-run module setup.
-- Ship the queue and editor UX in the same phase as backend cutover; otherwise the new system will be technically correct but feel harder to use.
+### Exit criteria
 
-## Ongoing Verification Policy
-- Before moving from Stage N to Stage N+1, the associated unit/integration tests must pass 100%.
-- The transition is non-destructive until Stage 4; prior code remains in place to support the legacy system if rolled back.
+- The team has one agreed source of truth for architecture decisions.
+- We can run the same fixture set through legacy and 2.0 code paths for comparison.
+
+## Phase 1: Domain Data Model And Artifact Contract
+
+### What I want to create
+
+- Explicit data contracts for project, chapter, block, voice, artifact, queue job, and snapshot
+- Revision hash rules
+- Artifact manifest format
+- Stable project-root and cache-root path rules
+
+### How I want to do it
+
+1. Add the new domain model definitions and persistence adapters.
+2. Define artifact hashing inputs and manifest schema.
+3. Introduce immutable artifact cache semantics.
+4. Write tests for revision matching, stale detection, and project portability.
+
+### Exit criteria
+
+- We can answer “is this render still valid?” deterministically.
+- We can create or reconcile a chapter without relying on raw file existence.
+
+## Phase 2: Universal Voice Interface
+
+### What I want to create
+
+- `BaseVoiceEngine`
+- Engine registry and bridge
+- XTTS and Voxtral wrappers behind the new contract
+- Voice-module settings and health model
+
+### How I want to do it
+
+1. Wrap existing XTTS and Voxtral behavior without changing external product behavior.
+2. Add preflight validation and capability checks.
+3. Persist engine/version/voice-asset snapshots at queue time.
+4. Test the bridge with mock engines and representative requests.
+
+### Exit criteria
+
+- The backend can queue synthesis through the new bridge without worker-specific engine branching.
+- Engine setup and readiness are inspectable in a consistent way.
+
+## Phase 3: Progress, Reconciliation, And Broadcasting
+
+### What I want to create
+
+- Central progress service
+- Reconciliation based on revision-safe artifacts
+- ETA service with historical baselines plus live sampling
+- Unified event/broadcast contract for jobs and blocks
+
+### How I want to do it
+
+1. Build progress math and broadcaster independent of the new orchestrator.
+2. Feed the service with simulated and mocked workloads first.
+3. Validate restart, rerender-after-edit, and stale-output scenarios.
+4. Preserve or improve the current smooth-progress UX semantics.
+
+### Exit criteria
+
+- Progress never relies on page-local math.
+- Resume and rerender flows are stable in tests.
+
+## Phase 4: Resource-Aware Orchestrator
+
+### What I want to create
+
+- `StudioTask` hierarchy
+- Resource policy model
+- Parent-child job model
+- Recovery, cancelation, retry, and review-required states
+
+### How I want to do it
+
+1. Introduce the new queue beside the legacy worker behind a feature flag.
+2. Implement scheduler policies around resource claims.
+3. Wire the orchestrator to the engine bridge and progress service.
+4. Verify recoverability, fairness, and clear waiting-state reporting.
+
+### Exit criteria
+
+- The 2.0 queue can run representative multi-chapter flows safely.
+- Recovery and cancelation semantics are predictable and tested.
+
+## Phase 5: Frontend State Cutover And New UX
+
+### What I want to create
+
+- Explicit live-overlay store
+- Reload and reconnect hydration flow
+- New queue UX with waiting reasons and recovery states
+- 2.0 chapter editor workflow and voice-module management screens
+
+### How I want to do it
+
+1. Keep canonical entity loading in API hooks and add the live-overlay store separately.
+2. Migrate the queue and header progress surfaces first.
+3. Migrate the chapter editor to block-aware local draft plus server hydration.
+4. Add empty, loading, error, reconnecting, and recovered states intentionally.
+
+### Exit criteria
+
+- Refresh, reconnect, and restart behavior are believable to users.
+- The editor supports targeted rerender and stale-state awareness.
+
+## Phase 6: Cleanup, Removal, And Hardening
+
+### What I want to create
+
+- Removal of legacy worker-centric code that has been fully replaced
+- Final path consolidation into the new source layout
+- Final documentation, wiki updates, and changelog entries
+
+### How I want to do it
+
+1. Remove dead compatibility paths only after the new path is stable.
+2. Collapse legacy adapters into direct 2.0 implementations.
+3. Run full regression verification across queue, editor, library, and export flows.
+
+### Exit criteria
+
+- The application no longer depends on legacy worker-centric assumptions.
+- The repo structure reflects the actual architecture instead of the migration path.
+
+## Cross-Phase Procedures
+
+- Every phase must ship with tests for the behaviors it changes.
+- Every phase must preserve a rollback path until the next phase is verified.
+- Docs and rules must be updated before or alongside implementation, not as cleanup.
+- If a phase uncovers a bad assumption in the plan, update the plan before continuing.

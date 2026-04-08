@@ -1,26 +1,30 @@
 # Verification Rules
 
-## Test-Driven Updates
+## 1. Test Expectations
 
-- Every code update must be verified by running the relevant existing test suite.
-- When writing new code or modifying logic, update or add tests to reflect the new behavior.
-- Prefer true TDD when practical: write the failing test first.
-- Test business behavior and user outcomes, not the current implementation details.
-- Do not edit tests just to match incorrect code. Fix the logic first.
-- When a feature crosses layers, add or preserve integration coverage for the hand-off.
+- Every code change must be verified with the relevant tests and linting.
+- When writing new logic, add or update tests to reflect the intended behavior.
+- Prefer true TDD when practical.
+- Test business behavior and user outcomes, not only implementation details.
 
-## Execution Protocol
+## 2. Studio 2.0 Verification Expectations
+
+- For migration work, verify both the new behavior and the cutover safety where practical.
+- High-risk Studio 2.0 changes should cover restart recovery, stale-artifact detection, and parent-child queue behavior when relevant.
+- Frontend state changes should be verified for reload and reconnect behavior, not just initial render.
+
+## 3. Execution Protocol
 
 - Run `./venv/bin/python -m pytest` after backend or shared-logic changes.
-- Run frontend build/tests after UI changes.
+- Run Ruff and any relevant frontend tests/build steps after frontend or shared changes.
 - Document what you ran and whether it passed.
 
-## Definition Of Done
+## 4. Definition Of Done
 
-A task is not done until:
+Work is not done until:
 
-1. Ruff and other relevant linting pass.
-2. Backend tests pass for the affected area, and preferably the full suite when the change is broad.
-3. Frontend tests/build pass when UI code changed.
-4. Relevant docs/wiki pages are updated.
-5. `wiki/Changelog.md` has a dated entry when behavior changed.
+1. Relevant linting passes.
+2. Relevant tests pass.
+3. Cross-layer handoffs are verified when the change crosses boundaries.
+4. Plans, docs, and wiki are updated when architecture or behavior changed.
+5. `wiki/Changelog.md` has a dated entry when shipped behavior changed.

@@ -1,59 +1,88 @@
 # Current Architecture Mapping: Audiobook Studio
 
-This document maps out the current structure of the Audiobook Studio application to identify major components, their responsibilities, and architectural bottlenecks. It serves as the baseline for the 2.0 redesign proposals.
+This document is the honest baseline for Studio 2.0 planning. It describes how the application works today, where the coupling lives, and which constraints the migration must respect.
 
-## 1. System Overview
+## 1. System Topology Today
 
-Audiobook Studio is a web-based application designed for high-quality audiobook production using local (XTTS) and cloud (Voxtral) text-to-speech engines. It follows a classic Client-Server architecture with a React frontend and a FastAPI (FastAPI router based) backend.
+Audiobook Studio is a FastAPI backend with a React frontend. The product already supports project management, chapter editing, voice management, queue visibility, and XTTS/Voxtral generation, but many responsibilities are shared implicitly across modules instead of being represented as explicit domain contracts.
 
-## 2. Backend Components (The "Engine Room")
+## 2. Backend Reality
 
-### 2.1 Job & Queuing System (`app/jobs/`)
-- **`worker.py`**: The central execution loop. It pulls job IDs from memory-based queues and branches logic based on the `engine` type.
-- **`core.py`**: Defines the global `job_queue` (standard tasks) and `assembly_queue` (book generation) using Python's `queue.Queue`.
-- **`handlers/`**: Contains specific logic for different job types:
-    - `xtts.py`: Local GPU-accelerated synthesis.
-    - `voxtral.py`: Cloud-based synthesis.
-    - `mixed.py`: Handles chapters with multiple engines.
-    - `audiobook.py`: Handles final M4B assembly.
-- **Bottlenecks**:
-    - **Tight Coupling**: The main worker loop contains hardcoded logic for estimating ETA, initializing resume state, and handling engine-specific branching.
-    - **Concurrency Limits**: The current architecture is primarily focused on a single worker thread per queue, making it hard to scale horizontally across multiple instances or GPUs.
-    - **Progress Logic Duplication**: Progress prediction and calculation are scattered between `worker.py`, `core.py`, and the handlers.
+### 2.1 Queueing And Worker Flow
 
-### 2.2 Voice & Synthesis Engines (`app/engines.py`, `app/xtts_inference.py`, `app/engines_voxtral.py`)
-- **XTTS Integration**: Runs as a separate process via `app/xtts_inference.py` to maintain environmental isolation for CUDA/PyTorch dependencies.
-- **Voxtral Integration**: Direct cloud API calls.
-- **Bottlenecks**:
-    - **No Unified API**: Each engine has a slightly different function signature. Adding new modules requires modifying multiple files in the `app/` and `app/jobs/` directories.
-    - **Manual State Management**: Path resolution for speaker latents, samples, and results varies by engine, leading to repetitive "check if exists" logic.
+- `app/jobs/worker.py` is the operational center of the current pipeline.
+- `app/jobs/core.py` provides the in-memory queue structures.
+- `app/jobs/handlers/` contains engine-specific and job-specific logic.
+- Progress math, resume logic, queue state mutation, and engine branching are split across worker code, queue code, and handler code.
 
-### 2.3 State & Data Persistence
-- **Memory State (`app/state.py`)**: Stores the active job registry, performance metrics (like XTTS characters-per-second), and global settings.
-- **Persistence Layer (`app/db/`)**: SQLite is the primary source of truth for projects, library voices, and segment status.
-- **Bottlenecks**:
-    - **Synchronization Complexity**: Syncing the memory-based job objects with the SQLite-based queue state is a complex mechanism (managed partially in `reconcile.py` and `worker.py`) that can lead to inconsistencies during unexpected restarts.
+### 2.2 Engine Integration
 
-### 2.4 Text Operations (`app/textops.py`)
-- Handles text sanitization, chapter splitting, and character count management. This is a robust but largely independent module that could be moved into a utility service.
+- XTTS and Voxtral are integrated differently and require different path lookup and invocation patterns.
+- Engine-specific assumptions leak into queue and job handling.
+- There is no stable artifact contract describing what was rendered, by which engine, with which settings.
 
-## 3. Frontend Components (The "Studio")
+### 2.3 State And Persistence
 
-### 3.1 Layout & Navigation
-- **`App.tsx`**: Manages global routing and top-level layout.
-- **`Layout.tsx`**: Provides the structural frame, including the Global Queue visibility.
+- SQLite stores persistent business data.
+- `app/state.py` and in-memory job objects still carry important operational truth.
+- Restart recovery depends on synchronization between DB state, in-memory queues, and filesystem presence.
 
-### 3.2 Feature Modules
-- **`ProjectLibrary.tsx`**: High-level project management.
-- **`ChapterEditor.tsx`**: The primary workspace for editing text and assigning voices. This is one of the most complex components, handling real-time segment-level status.
-- **`VoicesTab.tsx`**: Interface for creating and managing different speaker profiles.
+### 2.4 Filesystem And Asset Ownership
 
-### 3.3 Progress Visualization
-- **`PredictiveProgressBar.tsx`**: A sophisticated component that interpolates progress during "Preparing" vs "Running" states to ensure a smooth user experience even when backend updates are delayed.
+- Filesystem layout is meaningful, but the ownership model is not yet strict enough.
+- Legacy logic often checks for outputs directly instead of validating whether the output matches the current request.
+- Shared assets and project-local assets are not yet separated as cleanly as 2.0 requires.
 
-## 4. Architectural Bottlenecks & Opportunities for 2.0
+## 3. Frontend Reality
 
-1.  **Modular Engine Registry**: Instead of hardcoded `if engine == "xtts"`, move to a plugin-style registry where engines wrap their specific needs into a common `AudiobookEngine` interface.
-2.  **Standalone Queuing Module**: Decouple the worker logic from the specific task types. A generic `TaskQueue` should handle callbacks, retries, and persistence, unaware of whether it's generating audio or combining chapters.
-3.  **Unified Progress/ETA Service**: Centralize the math for ETA predictions, resumption mapping, and progress broadcasting into a shared service used by both the backend and frontend.
-4.  **Library vs. Project Schema**: Better distinguish between "Library" assets (reusable voice profiles) and "Project" specific data (temporary audio chunks, project-specific character assignments).
+### 3.1 Route-Level Composition
+
+- `App.tsx` still coordinates a lot of global fetching and queue wiring.
+- Route screens depend heavily on top-level hooks and prop threading.
+- The current route structure is functional, but not yet feature-isolated.
+
+### 3.2 State Coordination
+
+- `useJobs`, `useWebSocket`, and per-screen hooks do most of the real-time work today.
+- Progress and job data are already being handled carefully, but ownership boundaries are not explicit enough for a larger 2.0 editor and queue system.
+- The app risks live-state duplication if we add a new store layer without defining exactly what it owns.
+
+### 3.3 Editor Complexity
+
+- The chapter editor is already complex and is doing real production work.
+- It manages segmented generation behavior, playback, voice choices, queue-related state, and refresh logic.
+- That means the 2.0 editor plan must be an extraction and improvement, not a naïve rewrite that ignores the current behavioral surface.
+
+## 4. Existing Bottlenecks
+
+### 4.1 Hidden Domain Model
+
+The application clearly has domain concepts such as project, chapter, segment, voice profile, and render job, but those contracts are not represented strongly enough in code or storage.
+
+### 4.2 Resume Logic Is Too Implicit
+
+File existence and status flags can disagree. Without revision-aware artifact metadata, recovery logic cannot be fully trustworthy.
+
+### 4.3 Queue Semantics Are Too Narrow
+
+The current system is safer than many naïve async systems, but it still treats too much work as if it belonged to the same bucket.
+
+### 4.4 UI State Recovery Still Requires Too Much Coordination
+
+The current UI has already developed techniques to avoid regressions, but the responsibility is spread across hooks, components, and refresh patterns instead of explicit state architecture.
+
+## 5. Constraints The 2.0 Migration Must Respect
+
+- The existing product is already useful, so the migration must be incremental.
+- XTTS subprocess isolation is valuable and should be preserved conceptually even if its wrapper changes.
+- Fast feedback in the editor is a product requirement, not a nice-to-have.
+- Path safety remains a security boundary and must get stronger, not looser.
+- The new system must be understandable enough that future features do not reintroduce worker-centric coupling.
+
+## 6. What 2.0 Must Fix Without Breaking
+
+- Preserve current core capabilities: project management, segmented generation, queue recovery, preview, and export.
+- Replace worker-centric logic with domain services and orchestration boundaries.
+- Make artifact reuse safe and auditable.
+- Prevent the frontend from accumulating multiple competing sources of truth.
+- Keep the migration reversible until the new path is fully verified.
