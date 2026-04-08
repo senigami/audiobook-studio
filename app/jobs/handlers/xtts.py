@@ -139,71 +139,60 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
         on_output(f"Baking Chapter {j.chapter_id} starting...\n")
         segs = get_chapter_segments(j.chapter_id)
 
-        # 1. Identify missing segments
-        missing_segs = []
-        for s in segs:
-            spath = pdir / (s['audio_file_path'] or f"chunk_{s['id']}.wav")
-            if s['audio_status'] != 'done' or not spath.exists():
-                missing_segs.append(s)
+        def _group_needs_render(group: dict, pdir: Path) -> bool:
+            expected_name = f"chunk_{group['segments'][0]['id']}.wav"
+            expected_path = pdir / expected_name
+            if not expected_path.exists():
+                return True
+            for segment in group["segments"]:
+                if segment.get("audio_status") != "done":
+                    return True
+                if segment.get("audio_file_path") != expected_name:
+                    return True
+            return False
 
-        total_missing_groups = 0
-        if missing_segs:
-            missing_groups = []
-            if missing_segs:
-                current_group = [missing_segs[0]]
-                for i in range(1, len(missing_segs)):
-                    prev = missing_segs[i-1]
-                    curr = missing_segs[i]
-                    prev_full_idx = next((idx for idx, s in enumerate(segs) if s['id'] == prev['id']), -1)
-                    curr_full_idx = next((idx for idx, s in enumerate(segs) if s['id'] == curr['id']), -1)
-                    trimmed_group_text = " ".join([s['text_content'] for s in current_group])
-                    combined_len = len(trimmed_group_text) + 1 + len(curr['text_content'])
-                    same_char = curr['character_id'] == prev['character_id']
-                    is_consecutive = curr_full_idx == prev_full_idx + 1
-                    fits_limit = combined_len <= SENT_CHAR_LIMIT
-                    if same_char and is_consecutive and fits_limit:
-                        current_group.append(curr)
-                    else:
-                        missing_groups.append(current_group)
-                        current_group = [curr]
-                missing_groups.append(current_group)
+        all_groups = build_chunk_groups(segs, j.speaker_profile)
+        missing_groups = [group for group in all_groups if _group_needs_render(group, pdir)]
 
+        total_missing_groups = len(all_groups)
+        offset = total_missing_groups - len(missing_groups)
+        missing_group_weights = [_segment_group_weight(group["segments"]) for group in all_groups]
+
+        if missing_groups:
             full_script = []
             path_to_group = {}
             for group in missing_groups:
-                char_profile = group[0].get('speaker_profile_name')
+                char_profile = group["profile_name"]
                 sw, voice_profile_dir = _profile_inputs_for_segment(char_profile, j.speaker_profile, default_sw)
-                combined_text = " ".join([s['text_content'] for s in group])
+                combined_text = " ".join([s['text_content'] for s in group["segments"]])
                 if j.safe_mode:
                     combined_text = sanitize_for_xtts(combined_text)
                     combined_text = safe_split_long_sentences(combined_text, target=SENT_CHAR_LIMIT)
-                sid = group[0]['id']
+                sid = group["segments"][0]['id']
                 seg_out = pdir / f"chunk_{sid}.wav"
                 save_path_str = str(seg_out.absolute())
-                script_entry = {"text": combined_text, "speaker_wav": sw, "save_path": save_path_str, "id": group[0]['id']}
+                script_entry = {"text": combined_text, "speaker_wav": sw, "save_path": save_path_str, "id": sid}
                 if voice_profile_dir:
                     script_entry["voice_profile_dir"] = voice_profile_dir
                 full_script.append(script_entry)
-                path_to_group[save_path_str] = group
+                path_to_group[save_path_str] = group["segments"]
 
             script_path = pdir / f"bake_{j.id}_script.json"
             script_path.write_text(json.dumps(full_script), encoding="utf-8")
 
-            completed_groups = [0]
-            total_missing_groups = len(missing_groups)
-            missing_group_weights = [_segment_group_weight(group) for group in missing_groups]
+            completed_groups = [offset]
             j.render_group_count = total_missing_groups
-            j.completed_render_groups = 0
-            j.active_render_group_index = 0
-            update_job(jid, **_group_display_updates(0, total_missing_groups, 0.0, limit=0.9, group_weights=missing_group_weights))
+            j.completed_render_groups = offset
+            j.active_render_group_index = offset
+            update_job(jid, **_group_display_updates(offset, total_missing_groups, 0.0, limit=0.9, active_index=offset, group_weights=missing_group_weights))
             def bake_on_output(line):
                 on_output(line)
                 if "[SEGMENT_SAVED]" in line:
                     saved_path = line.split("[SEGMENT_SAVED]")[1].strip()
-                    group = path_to_group.get(saved_path)
-                    if group:
+                    group_segs = path_to_group.get(saved_path)
+                    if group_segs:
                         seg_filename = Path(saved_path).name
-                        for s in group:
+                        for s in group_segs:
                             update_segment(s['id'], audio_status='done', audio_file_path=seg_filename, audio_generated_at=time.time())
                         completed_groups[0] += 1
                         j.completed_render_groups = completed_groups[0]
@@ -226,8 +215,6 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
                 if "[START_SEGMENT]" in line:
                     asid = line.split("[START_SEGMENT]")[1].strip()
                     j.active_render_group_index = min(completed_groups[0] + 1, total_missing_groups)
-                    # If it's a path, just take the filename stem or similar if possible, 
-                    # but inference script sends segment['id'] if available.
                     base_progress = _group_job_progress(
                         completed_groups[0],
                         total_missing_groups,
@@ -273,7 +260,7 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
 
         # Final Stitch
         if cancel_check(): return
-        update_job(jid, status="finalizing", progress=0.91, **_group_display_updates(total_missing_groups, total_missing_groups, 0.0, limit=0.9, group_weights=missing_group_weights if missing_segs else []))
+        update_job(jid, status="finalizing", progress=0.91, **_group_display_updates(total_missing_groups, total_missing_groups, 0.0, limit=0.9, group_weights=missing_group_weights if missing_groups else []))
         fresh_segs = get_chapter_segments(j.chapter_id)
         segment_paths = []
         last_path = None
