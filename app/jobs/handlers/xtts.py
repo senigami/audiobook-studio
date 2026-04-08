@@ -264,10 +264,12 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
                         )
                     except: pass
 
+            scratch_wav = pdir / f"output_{j.id}.wav"
             try:
-                xtts_generate_script(script_json_path=script_path, out_wav=out_wav, on_output=bake_on_output, cancel_check=cancel_check, speed=speed)
+                xtts_generate_script(script_json_path=script_path, out_wav=scratch_wav, on_output=bake_on_output, cancel_check=cancel_check, speed=speed)
             finally:
                 if script_path.exists(): script_path.unlink()
+                if scratch_wav.exists(): scratch_wav.unlink()
 
         # Final Stitch
         if cancel_check(): return
@@ -445,9 +447,63 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
         if j.chapter_id:
             groups = build_chunk_groups(load_chunk_segments(j.chapter_id), j.speaker_profile)
             if groups:
+                # --- Weight-based resume partition ---
+                # Every group gets an immutable weight (character count).
+                # total_weight is fixed for the entire chapter.
+                # completed_weight starts at the sum of already-done groups.
+                # As remaining groups finish (in any order) their weight is added.
+                # progress = completed_weight[0] / total_weight  →  always sums to 100%.
+
+                def _group_weight(g: dict) -> int:
+                    return max(1, int(g.get("text_length") or 0))
+
+                def _group_is_done(g: dict) -> bool:
+                    import logging as _logging
+                    _log = _logging.getLogger(__name__)
+                    all_segs_done = all(
+                        s.get("audio_status") == "done" and s.get("audio_file_path")
+                        for s in g["segments"]
+                    )
+                    if not all_segs_done:
+                        return False
+
+                    first = g["segments"][0]
+                    chunk_path = pdir / f"chunk_{first['id']}.wav"
+                    if chunk_path.exists():
+                        return True
+
+                    # The DB says it's done, but the audio file is completely missing from disk.
+                    # This means the DB is out of sync (stale). We must actively heal the DB
+                    # back to 'unprocessed' so the Performance Tab reflects the truth.
+                    _log.warning("RESUME: Group %s claims to be done, but %s is missing. Healing DB to unprocessed.", first["id"], chunk_path)
+                    for s in g["segments"]:
+                        update_segment(
+                            s["id"],
+                            broadcast=True,
+                            audio_status="unprocessed",
+                            audio_file_path=None,
+                            audio_generated_at=None,
+                        )
+                    return False
+
+
+
+                total_weight = sum(_group_weight(g) for g in groups)
+                total_groups = len(groups)
+
                 script = []
-                path_to_group = {}
+                path_to_group = {}   # save_path → (group, weight)
+                path_to_weight = {}  # save_path → weight
+                done_count = 0
+                done_weight = 0
+
                 for group in groups:
+                    w = _group_weight(group)
+                    if _group_is_done(group):
+                        done_count += 1
+                        done_weight += w
+                        continue
+
                     first = group["segments"][0]
                     profile_name = group["profile_name"]
                     sw = get_speaker_wavs(profile_name) if profile_name else default_sw
@@ -468,19 +524,69 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
                         script_entry["voice_profile_dir"] = voice_profile_dir
                     script.append(script_entry)
                     path_to_group[save_path_str] = group
+                    path_to_weight[save_path_str] = w
+
+                # Mutable accumulators (list so closures can mutate them)
+                completed_weight = [done_weight]
+                completed_count = [done_count]
+
+                _RENDER_LIMIT = 0.9  # leave headroom for stitching
+
+                def _progress_from_weight(active_seg_p: float = 0.0, active_path: str | None = None) -> float:
+                    active_contrib = 0.0
+                    if active_path and active_seg_p > 0:
+                        active_w = path_to_weight.get(active_path, 0)
+                        active_contrib = active_w * active_seg_p
+                    raw = (completed_weight[0] + active_contrib) / total_weight if total_weight > 0 else 1.0
+                    return round(min(_RENDER_LIMIT, raw), 4)
+
+                j.render_group_count = total_groups
+                j.completed_render_groups = done_count
+                j.active_render_group_index = done_count
+                update_job(
+                    jid,
+                    completed_render_groups=done_count,
+                    render_group_count=total_groups,
+                    active_render_group_index=done_count,
+                    total_render_weight=total_weight,
+                    completed_render_weight=done_weight,
+                    active_render_group_weight=0,
+                    grouped_progress=_progress_from_weight(),
+                )
+
+                active_save_path = [None]  # track currently-rendering group's path
 
                 script_path = pdir / f"{j.id}_script.json"
                 script_path.write_text(json.dumps(script), encoding="utf-8")
-                completed_groups = [0]
-                total_groups = len(groups)
-                group_weights = [max(1, int(group.get("text_length") or 0)) for group in groups]
-                j.render_group_count = total_groups
-                j.completed_render_groups = 0
-                j.active_render_group_index = 0
-                update_job(jid, **_group_display_updates(0, total_groups, 0.0, limit=0.9, group_weights=group_weights))
 
                 def chapter_on_output(line):
                     on_output(line)
+
+                    if "[START_SEGMENT]" in line:
+                        asid = line.split("[START_SEGMENT]")[1].strip()
+                        # Find which save_path corresponds to this segment id
+                        matched_path = next(
+                            (p for p, g in path_to_group.items() if g["segments"][0]["id"] == asid),
+                            None,
+                        )
+                        active_save_path[0] = matched_path
+                        j.active_render_group_index = min(completed_count[0] + 1, total_groups)
+                        prog = _progress_from_weight(0.0)
+                        update_job(
+                            jid,
+                            force_broadcast=True,
+                            progress=prog,
+                            active_segment_id=asid,
+                            active_segment_progress=0.0,
+                            completed_render_groups=completed_count[0],
+                            render_group_count=total_groups,
+                            active_render_group_index=j.active_render_group_index,
+                            total_render_weight=total_weight,
+                            completed_render_weight=completed_weight[0],
+                            active_render_group_weight=path_to_weight.get(matched_path, 0) if matched_path else 0,
+                            grouped_progress=prog,
+                        )
+
                     if "[SEGMENT_SAVED]" in line:
                         saved_path = line.split("[SEGMENT_SAVED]")[1].strip()
                         group = path_to_group.get(saved_path)
@@ -489,60 +595,43 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
                             generated_at = time.time()
                             for s in group["segments"]:
                                 update_segment(s["id"], broadcast=True, audio_status="done", audio_file_path=seg_filename, audio_generated_at=generated_at)
-                            completed_groups[0] += 1
-                            j.completed_render_groups = completed_groups[0]
+                            w = path_to_weight.get(saved_path, 0)
+                            completed_weight[0] += w
+                            completed_count[0] += 1
+                            j.completed_render_groups = completed_count[0]
                             j.active_render_group_index = 0
-                            progress = _group_job_progress(
-                                completed_groups[0],
-                                total_groups,
-                                0.0,
-                                limit=0.9,
-                                group_weights=group_weights,
-                            )
+                            active_save_path[0] = None
+                            prog = _progress_from_weight()
                             update_job(
                                 jid,
-                                progress=progress,
+                                progress=prog,
                                 active_segment_id=None,
                                 active_segment_progress=0.0,
-                                **_group_display_updates(completed_groups[0], total_groups, 0.0, limit=0.9, group_weights=group_weights),
+                                completed_render_groups=completed_count[0],
+                                render_group_count=total_groups,
+                                active_render_group_index=0,
+                                total_render_weight=total_weight,
+                                completed_render_weight=completed_weight[0],
+                                active_render_group_weight=0,
+                                grouped_progress=prog,
                             )
-
-                    if "[START_SEGMENT]" in line:
-                        asid = line.split("[START_SEGMENT]")[1].strip()
-                        j.active_render_group_index = min(completed_groups[0] + 1, total_groups)
-                        base_progress = _group_job_progress(
-                            completed_groups[0],
-                            total_groups,
-                            0.0,
-                            limit=0.9,
-                            group_weights=group_weights,
-                        )
-                        update_job(
-                            jid,
-                            force_broadcast=True,
-                            progress=base_progress,
-                            active_segment_id=asid,
-                            active_segment_progress=0.0,
-                            **_group_display_updates(completed_groups[0], total_groups, 0.0, limit=0.9, active_index=min(completed_groups[0] + 1, total_groups), group_weights=group_weights),
-                        )
 
                     if "[PROGRESS]" in line:
                         try:
                             p_str = line.split("[PROGRESS]")[1].split("%")[0].strip()
                             segment_progress = float(p_str) / 100.0
-                            overall_progress = _group_job_progress(
-                                completed_groups[0],
-                                total_groups,
-                                segment_progress,
-                                limit=0.9,
-                                group_weights=group_weights,
-                            )
+                            prog = _progress_from_weight(segment_progress, active_save_path[0])
                             update_job(
                                 jid,
                                 force_broadcast=True,
-                                progress=overall_progress,
+                                progress=prog,
                                 active_segment_progress=segment_progress,
-                                **_group_display_updates(completed_groups[0], total_groups, segment_progress, limit=0.9, active_index=min(completed_groups[0] + 1, total_groups), group_weights=group_weights),
+                                completed_render_groups=completed_count[0],
+                                render_group_count=total_groups,
+                                total_render_weight=total_weight,
+                                completed_render_weight=completed_weight[0],
+                                active_render_group_weight=path_to_weight.get(active_save_path[0], 0) if active_save_path[0] else 0,
+                                grouped_progress=prog,
                             )
                         except Exception:
                             pass
@@ -557,7 +646,10 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
                         scratch_wav.unlink()
 
                 if rc == 0:
-                    update_job(jid, status="finalizing", progress=0.91, **_group_display_updates(total_groups, total_groups, 0.0, limit=0.9, group_weights=group_weights))
+                    update_job(jid, status="finalizing", progress=0.91,
+                               completed_render_groups=total_groups, render_group_count=total_groups,
+                               total_render_weight=total_weight, completed_render_weight=total_weight,
+                               active_render_group_weight=0, grouped_progress=_RENDER_LIMIT)
                     segment_paths = []
                     last_path = None
                     for group in build_chunk_groups(load_chunk_segments(j.chapter_id), j.speaker_profile):
@@ -573,6 +665,7 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
                 rc = _generate_direct_xtts(text, j, out_wav, on_output, cancel_check, default_sw, speed)
         else:
             rc = _generate_direct_xtts(text, j, out_wav, on_output, cancel_check, default_sw, speed)
+
 
     if cancel_check():
         update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")

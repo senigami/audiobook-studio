@@ -24,6 +24,8 @@ Use this file as the quick-reference summary, then consult the focused rule file
   Progress/state consistency, worker sync, path safety, and backend structural guidance.
 - [`frontend.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/frontend.md)
   UI consistency, accessibility, responsiveness, and frontend quality guidance.
+- [`modular_architecture.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/modular_architecture.md)
+  Rules for engine abstraction, task genericity, and centralized progress tracking in Studio 2.0.
 
 ## Priority Order
 
