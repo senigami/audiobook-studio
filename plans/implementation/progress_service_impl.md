@@ -40,11 +40,19 @@ ETA output should include:
 - throttle repetitive events
 - publish human-meaningful phase messages
 
+## 4.1 Visual Stability Rules
+
+- backend progress is the authoritative floor for live work
+- the frontend may smooth between updates
+- active progress should not visibly regress except on explicit reset/revision invalidation
+- tiny ETA changes should be coalesced to avoid noisy UI churn
+
 ## 5. Parent Aggregation
 
 - child blocks roll up into chapters
 - chapter tasks roll up into project/export jobs
 - parent progress is weighted, not averaged by count alone
+- grouped render batches should also be representable so current mixed/grouped rendering semantics are preserved
 
 ## 6. Testing Plan
 

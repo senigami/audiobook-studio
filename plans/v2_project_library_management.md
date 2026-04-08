@@ -17,12 +17,14 @@ This plan defines how I want the product’s content model to work. The distinct
 - Engine-specific voice assets
 - Sample ingestion and validation flow
 - Compatibility metadata for engine support and asset readiness
+- Profile-level preview/test settings where those are part of the current product concept
 
 ### 2.2 Project Domain
 
 - Stable project root with explicit metadata
 - Project defaults such as narrator, output preset, pronunciation profile, and preferred engine behavior
 - Chapter drafts, block state, snapshots, exports, and import history
+- Cover artwork and audiobook metadata such as title, author, narrator, and chapter titles as first-class export inputs
 
 ### 2.3 Shared Artifact Cache
 
@@ -39,6 +41,19 @@ I want project creation to be a guided flow, not one big modal dump:
 3. Default narrator and output preset
 4. Review and create
 
+The flow should preserve the existing product idea that a project can carry meaningful publishable metadata, not just raw text.
+
+## 3.1 Settings Ownership Matrix
+
+We should explicitly preserve and clarify the ownership of settings rather than letting 2.0 blur them.
+
+- **Global app settings**: safe mode, installed-module setup, default engine preference, machine-level performance tuning, queue-level pause state
+- **Project settings**: narrator/default voice, output preset, pronunciation profile, export defaults, project-specific engine preference
+- **Voice-module settings**: API keys, model selection, engine-specific advanced settings, health/readiness configuration
+- **Voice-profile settings**: preview/test text, preview engine choice, reference sample choice, engine-compatible asset metadata
+
+This needs to be explicit in 2.0 because the current product already mixes some of these concerns together operationally.
+
 ## 4. Library Safety Rules
 
 - Editing a voice profile must show which projects depend on it.
@@ -49,6 +64,7 @@ I want project creation to be a guided flow, not one big modal dump:
 
 - Projects must not depend on hidden absolute paths.
 - A project export or backup must contain enough metadata to restore chapter, block, and render relationships.
+- A project export or backup must preserve cover art and audiobook metadata decisions, even if some audio artifacts are omitted.
 - Shared cached artifacts may be omitted from a lightweight export only if the system can clearly report which outputs will need regeneration on import.
 
 ## 6. Asset Health UX
@@ -61,6 +77,7 @@ Project and library screens should surface:
 - stale renders
 - failed blocks or exports
 - ready-to-export state
+- preview/test readiness for voice profiles
 
 ## 7. Risks And Planned Solutions
 
@@ -70,6 +87,8 @@ Project and library screens should surface:
   Solution: snapshot render-time voice asset and engine metadata into artifact manifests and project references.
 - **Risk: Portability becomes partial and confusing**
   Solution: define export modes clearly, including whether cached artifacts are embedded or expected to be rebuilt.
+- **Risk: settings ownership gets muddled during migration**
+  Solution: define a settings ownership matrix up front and enforce it in routes and UI boundaries.
 
 ## 8. What Good Looks Like
 

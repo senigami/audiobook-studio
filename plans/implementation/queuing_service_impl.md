@@ -8,6 +8,7 @@ This document describes how I want the new orchestrator built in practical terms
 - `app/orchestration/tasks/synthesis.py`
 - `app/orchestration/tasks/assembly.py`
 - `app/orchestration/tasks/export.py`
+- `app/orchestration/tasks/export_repair.py`
 - `app/orchestration/scheduler/resources.py`
 - `app/orchestration/scheduler/policies.py`
 - `app/orchestration/scheduler/orchestrator.py`
@@ -27,6 +28,13 @@ Initial policy:
 
 - one GPU-heavy synthesis job at a time
 - allow safe concurrent network or IO work when it does not threaten responsiveness
+
+## 2.1 Special Queue Policies To Preserve
+
+- `finalizing` remains a first-class state for jobs that have finished core synthesis but are still stitching, synchronizing metadata, or publishing outputs.
+- mixed-engine render jobs may generate progress at the render-batch level rather than a single segment level.
+- bake jobs should be able to queue only the work still needed to complete a chapter.
+- voice build and voice test jobs should have dedicated task types rather than being treated as generic synthesis.
 
 ## 3. Queue Procedure
 
@@ -67,6 +75,14 @@ Initial policy:
 - request/content failures: `needs_review`
 - explicit cancelation: `cancelled`
 - dependency invalidation: back to `waiting_for_dependency`
+
+## 5.1 Pause And Cancel Policy Matrix
+
+- synthesis: pausable unless policy says otherwise
+- bake/repair: policy-defined, but must be explicit
+- voice build/test: cancelable and not blocked behind unrelated exports by default
+- export/assembly: may continue during a synthesis pause if that is the intended queue policy
+- export repair/backfill: lightweight and user-visible, but should not quietly bypass queue visibility just because they are “small”
 
 ## 6. Testing Plan
 

@@ -42,12 +42,14 @@ The current system works, but too much behavior is hidden inside the legacy work
 - Progress will reconcile against expected artifacts tied to the current revision.
 - ETA will use historical baselines plus live sampling, not raw guesswork.
 - The UI will show why progress is paused, recalculating, or waiting, instead of just moving bars around.
+- Existing predictive-progress behavior will be preserved intentionally: backend progress remains the authoritative floor, while the UI may smooth between events without inventing false completion.
 
 ### 5. A Production-Centric Chapter Editor
 
 - Chapters will be edited as stable production blocks, not only as a giant text blob.
 - The editor will support local draft state, debounced autosave, targeted rerender, character-to-voice mapping, and inline failure recovery.
 - Fast preview and “render changed” workflows will be core paths, not add-ons.
+- The current grouped-rendering concept will be preserved, even if the implementation changes: editorial blocks and render batches may differ, but the product must keep the ability to render adjacent compatible content efficiently as one unit.
 
 ## Non-Goals For The Initial 2.0 Cut
 
@@ -93,6 +95,8 @@ The current system works, but too much behavior is hidden inside the legacy work
   Solution: keep AI assistance suggestion-first with confidence labels and explicit approval.
 - **Storage and path contracts remain too implicit**
   Solution: define a concrete domain data model and on-disk layout before queue cutover.
+- **Current UX subtlety gets lost in the rewrite**
+  Solution: explicitly preserve monotonic progress, grouped render behavior, inline recovery, and existing special-purpose job flows in the plan rather than assuming they will reappear naturally.
 
 ## Delivery Plan
 

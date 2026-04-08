@@ -14,9 +14,13 @@ This is the operational heart of Studio 2.0. The queue must be predictable, expl
 ### 2.1 StudioTask Hierarchy
 
 - `SynthesisTask`
+- `MixedSynthesisTask`
+- `BakeTask`
 - `AssemblyTask`
 - `ExportTask`
+- `ExportRepairTask`
 - `SampleBuildTask`
+- `SampleTestTask`
 - `ProjectBackupTask`
 
 All queueable work should derive from a common base:
@@ -45,7 +49,18 @@ Instead of a single “heavy lock,” each task will declare a resource claim su
 
 The initial policy will still allow only one GPU-heavy synthesis task at a time, but that rule will live in scheduler policy instead of being hardcoded everywhere.
 
-### 2.3 Job Tree Model
+### 2.3 Special Job Classes We Must Preserve
+
+The current product has concepts that should survive 2.0 even if their code paths change:
+
+- **Mixed-engine chapter render**: a single chapter may require more than one engine across its content
+- **Bake**: synthesize only the still-missing or stale pieces needed to complete a chapter
+- **Voice build**: build or rebuild engine-specific voice assets
+- **Voice test**: run a lightweight preview/test flow using profile-level preview settings
+- **Audiobook assembly/export**: a long-running downstream job that may have different pause behavior than synthesis
+- **Export repair/backfill**: lightweight jobs such as generating missing derivative outputs without rerunning core synthesis
+
+### 2.4 Job Tree Model
 
 - Parent job: chapter render, book export, or batch action
 - Child jobs: block renders, assembly pieces, metadata tasks
@@ -66,6 +81,7 @@ I want explicit, user-explainable states:
 - `failed`
 - `needs_review`
 - `recovered`
+- `finalizing`
 
 ## 4. Scheduling Procedures
 
@@ -84,6 +100,15 @@ I want explicit, user-explainable states:
 3. Allocate resources only when the full claim can be honored.
 4. Move jobs to `waiting_for_resources` with a visible reason when blocked.
 5. Start execution and emit status transition events.
+
+### Pause And Cancel Semantics By Job Type
+
+- **Interactive synthesis jobs**: should honor pause unless explicitly marked otherwise
+- **Bake jobs**: may bypass global pause if they are user-initiated targeted repair actions and we decide that is better UX, but this must be deliberate policy
+- **Voice build/test jobs**: should remain cancelable and should not be blocked behind unrelated export work
+- **Audiobook assembly/export**: may continue during pause if pause is defined as “pause new synthesis,” but the policy must be explicit and visible
+
+We should preserve the current product intent here rather than accidentally flattening everything into one pause rule.
 
 ### Completion
 
@@ -106,6 +131,7 @@ I want explicit, user-explainable states:
 - Reconcile each affected block or artifact before requeueing actual work.
 - Recovered jobs must be labeled visibly so users know why the queue resumed.
 - Recovery may skip child work that is now already satisfied by valid artifacts.
+- Recovery should also prune or archive stale terminal jobs after a retention window so queue state does not grow forever.
 
 ## 7. Queue UX Requirements
 
@@ -113,6 +139,7 @@ I want explicit, user-explainable states:
 - Support canceling a single rerender without nuking a whole book export.
 - Support `Pause all`, `Resume all`, `Retry failed`, and `Render changed`.
 - Surface `Recovered after restart`, `Needs setup`, and `Needs review` as first-class states.
+- Preserve a visible `finalizing` phase for flows that have finished synthesis but are still stitching, synchronizing, or publishing outputs.
 
 ## 8. Risks And Planned Solutions
 
@@ -122,6 +149,8 @@ I want explicit, user-explainable states:
   Solution: reprioritize parent jobs by default and derive child order deterministically.
 - **Risk: Retries loop forever on bad inputs**
   Solution: classify failure types and move content/configuration issues to `needs_review`.
+- **Risk: special job behavior gets flattened away**
+  Solution: model bake, mixed, voice build/test, and assembly/export as explicit job classes with defined policy semantics.
 
 ## 9. Implementation References
 

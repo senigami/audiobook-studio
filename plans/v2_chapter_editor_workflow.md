@@ -29,6 +29,22 @@ The Chapter Editor is the product. The 2.0 architecture has to serve this experi
 
 The editor works against production blocks, but the author still needs a coherent chapter draft view. We should support both through a single underlying block model.
 
+## 2.1 Render Batches
+
+To preserve current product behavior, the editor plan needs an explicit batching concept.
+
+- Users edit **production blocks**
+- The renderer may synthesize **render batches** composed of adjacent compatible blocks
+
+Batch derivation should preserve current ideas such as:
+
+- same resolved voice assignment
+- same engine
+- compatible character grouping
+- max character-size constraints
+
+This lets us keep targeted editing while preserving efficient and natural grouped rendering.
+
 ## 3. What I Want To Create
 
 ### 3.1 Two-Pane Production Layout
@@ -82,6 +98,7 @@ Each block should clearly communicate one of:
 ### Render Changed
 
 - Queue every block whose current revision is not satisfied by a valid artifact.
+- Derive render batches from the changed/stale blocks where batching rules allow, rather than forcing every block to synthesize as a totally isolated unit.
 
 ### Retry Failed
 
@@ -99,6 +116,14 @@ Each block should clearly communicate one of:
 - Waiting blocks must explain what they are waiting on.
 - Recovered-after-restart state must be visible but not scary.
 - The user should never need to jump to a separate queue screen just to recover one line.
+
+## 8.1 Preview And Voice-Test Workflow
+
+The current product has a useful concept of voice test and preview behavior tied to profile-level settings. Studio 2.0 should preserve that intent.
+
+- Users should be able to preview a voice or block quickly without committing to a full chapter render.
+- Voice preview/test flows may use profile-level preview settings and reference samples.
+- Preview should remain fast and isolated from large queue operations when possible.
 
 ## 9. Risks And Planned Solutions
 

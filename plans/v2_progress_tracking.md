@@ -36,6 +36,18 @@ Progress is a product surface, not just telemetry. The goal is to make status be
 - If progress must regress because the revision changed, the UI must explain why.
 - A job is not complete because a file exists; it is complete because a valid artifact satisfies the requested revision.
 
+## 3.1 Live Progress UX Contract
+
+Studio 2.0 should intentionally preserve the strongest parts of the current UI behavior:
+
+- Backend progress is the authoritative floor for active work.
+- The frontend may interpolate smoothly between updates for a more stable feel.
+- Interpolation must never visually outrun clear system state changes such as failure or cancelation.
+- `preparing` and `finalizing` are meaningful phases, not just temporary labels.
+- Sparse WebSocket updates should not create a jumpy experience if the job is still healthy.
+
+This is not decorative polish. It is part of user trust.
+
 ## 4. What Counts As Work
 
 - Chapter synthesis: weighted primarily by normalized text size with room for engine-specific cost modifiers
@@ -57,6 +69,18 @@ Every progress event should include:
 - `message`
 - `reason_code`
 - `updated_at`
+- `started_at`
+- `active_render_batch_id`
+- `active_render_batch_progress`
+
+## 5.1 Monotonic Event Handling Rules
+
+The 2.0 frontend plan should preserve current anti-regression safeguards:
+
+- ignore stale status regressions unless the server explicitly indicates a reset/retry transition
+- ignore tiny ETA churn that only adds noise
+- avoid moving visible active progress backward unless the requested revision changed or the job restarted intentionally
+- keep active-start timestamps stable once a run is established unless the run itself was recreated
 
 ## 6. UX Requirements
 
@@ -73,6 +97,8 @@ Every progress event should include:
   Solution: use them only as advanced overrides on top of historical baselines.
 - **Risk: Reconciliation causes visible regressions**
   Solution: keep explicit stale-state messaging and never silently snap backwards.
+- **Risk: we lose the current smooth-progress feel during cutover**
+  Solution: define the live-progress UX contract and test it, instead of assuming backend correctness alone will produce good UX.
 
 ## 8. Procedures
 

@@ -19,6 +19,10 @@ A user-facing reusable voice identity. It can be used across projects and may ha
 
 An engine-specific artifact that makes a voice profile usable for one engine. Examples include XTTS latents, speaker wav bundles, or cloud provider references.
 
+### Preview/Test Configuration
+
+A lightweight voice-level configuration used for fast validation, preview samples, or test synthesis without forcing a full project render flow.
+
 ### Engine Module
 
 An internal module that implements the standard contract and declares its capabilities through a manifest.
@@ -70,6 +74,13 @@ class BaseVoiceEngine(Protocol):
 - Dedicated UI for module readiness, setup, health, and advanced settings
 - Hand-designed module cards first, schema-generated advanced settings second
 - Test action for generating a quick sample with visible diagnostics
+- Clear privacy disclosure when a module sends text or audio off-machine to a cloud provider
+
+### 4.4 Voice Preview/Test Flow
+
+- A standardized lightweight test path for validating a voice profile or engine setup
+- Support for profile-level preview settings such as test text, engine choice, and optional reference sample
+- Fast failure messaging when preview configuration is incomplete
 
 ## 5. Manifest Requirements
 
@@ -123,6 +134,13 @@ Each engine manifest must declare:
 4. Build the request fingerprint and block revision hashes.
 5. Reject invalid requests before they enter the queue.
 
+### Before Preview/Test Generation
+
+1. Resolve the voice profile and preview/test configuration.
+2. Validate engine readiness and required voice assets.
+3. Run a lightweight generation path with clear diagnostics.
+4. Keep preview/test outputs isolated from canonical chapter render artifacts unless we explicitly choose to promote them.
+
 ### During Synthesis
 
 1. Write output to a temp location.
@@ -143,6 +161,7 @@ Each engine manifest must declare:
 - Engine-specific settings must not clutter project and chapter screens.
 - The UI must show when changing a module setting invalidates cached renders or only affects future renders.
 - Silent engine fallback is prohibited. If fallback is supported, it must be explicit at queue time and visible in the UI.
+- Cloud engines must clearly disclose that text and optional reference audio leave the local machine.
 
 ## 9. Known Risks And Planned Solutions
 
@@ -152,6 +171,8 @@ Each engine manifest must declare:
   Solution: combine schema-driven advanced settings with opinionated setup dashboards.
 - **Risk: Engine wrappers leak special cases back into the queue**
   Solution: force every engine-specific behavior through the bridge contract and result normalization.
+- **Risk: preview/test functionality disappears in the architecture rewrite**
+  Solution: model preview/test as an explicit supported flow in the bridge and library plans.
 
 ## 10. Implementation References
 

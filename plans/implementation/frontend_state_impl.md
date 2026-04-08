@@ -23,6 +23,7 @@ Owned by the store:
 - reconnect status
 - recovered-job markers
 - transient notifications
+- smoothed live progress presentation state where needed for stable UX
 
 ### Local Editor Session State
 
@@ -48,6 +49,15 @@ Owned by the store or feature-local session layer:
 3. Overlay progress, queue status, and waiting reasons without mutating canonical entities.
 4. Merge local editor draft state last so in-progress edits are protected.
 
+## 3.1 Anti-Regression Rules
+
+The current product already protects users from noisy live-state regressions. Studio 2.0 should preserve that behavior intentionally.
+
+- do not let stale socket events regress active status casually
+- do not let active progress move backward unless the server explicitly indicates reset/retry/revision invalidation
+- keep established run timing stable unless the job actually restarted
+- coalesce tiny ETA changes that only create visual churn
+
 ## 4. Reconnect Procedure
 
 1. Detect socket reconnect.
@@ -60,6 +70,7 @@ Owned by the store or feature-local session layer:
 - Every feature must define loading, empty, error, reconnecting, and recovered states.
 - Queue state must remain server-confirmed.
 - Only reversible local edits should appear optimistic.
+- Predictive progress smoothing is allowed only as a presentation layer over authoritative backend state.
 
 ## 6. Testing Plan
 

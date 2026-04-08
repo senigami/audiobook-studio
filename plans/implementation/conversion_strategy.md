@@ -35,6 +35,10 @@ Flags should allow shadow validation before full cutover where practical.
 - queue recovery after restart
 - export flow
 - voice-module readiness flow
+- mixed-engine grouped render flow
+- bake/repair flow
+- voice preview/test flow
+- progress smoothing and anti-regression behavior during sparse updates
 
 ## 4. Stop Conditions
 

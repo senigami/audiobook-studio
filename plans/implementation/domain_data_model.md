@@ -101,6 +101,9 @@ This is the missing foundation under the rest of the 2.0 plans. Before queueing,
 - `attempt_count`
 - `max_attempts`
 - `payload_json`
+- `reason_code`
+- `reason_detail`
+- `recovered_from_interruption`
 - `created_at`
 - `started_at`
 - `finished_at`
@@ -122,6 +125,27 @@ This is the missing foundation under the rest of the 2.0 plans. Before queueing,
 - A voice profile may have many engine-specific voice assets.
 - A render artifact is immutable and may be referenced by multiple projects safely.
 - A queue job may have child jobs and may target a project, chapter, or block set.
+- A queue job may also target a render batch derived from one or more adjacent production blocks when batching rules allow.
+
+## 3.1 Editing Unit Versus Rendering Unit
+
+Studio 2.0 must preserve an important current behavior: the unit the user edits is not always the unit we render.
+
+- **Production block**: the editorial/source-of-truth unit
+- **Render batch**: the execution unit used for synthesis when adjacent blocks are compatible
+
+Compatibility for batching may depend on:
+
+- resolved voice assignment
+- engine
+- character continuity
+- text-size limits
+- synthesis settings that affect output
+
+The plan must preserve both:
+
+- stable editorial identity for undo/history/selection
+- efficient grouped rendering for throughput and audio continuity
 
 ## 4. Revision Hash Rules
 
@@ -172,7 +196,7 @@ Each stored artifact should have a manifest like:
 2. Define DB schema or table migrations for the new entities.
 3. Introduce repositories that hide storage details from route handlers and queue tasks.
 4. Implement manifest writing and validation helpers.
-5. Add tests for stale detection, artifact reuse, and project portability.
+5. Add tests for stale detection, artifact reuse, grouped render-batch derivation, and project portability.
 
 ## 8. Invariants We Must Protect
 
