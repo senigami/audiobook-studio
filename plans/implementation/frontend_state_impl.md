@@ -25,6 +25,8 @@ Owned by the store:
 - transient notifications
 - smoothed live progress presentation state where needed for stable UX
 
+The live overlay transport should be websocket-first. REST is for initial hydration, reconnect recovery, and explicit user-driven refreshes, not for steady-state progress polling.
+
 ### Local Editor Session State
 
 Owned by the store or feature-local session layer:
@@ -45,7 +47,7 @@ Owned by the store or feature-local session layer:
 ## 3. Merge Procedure
 
 1. Load canonical entity state from the API.
-2. Load or reconnect the live overlay state.
+2. Establish or resume websocket-backed live overlay state.
 3. Overlay progress, queue status, and waiting reasons without mutating canonical entities.
 4. Merge local editor draft state last so in-progress edits are protected.
 
@@ -65,12 +67,15 @@ The current product already protects users from noisy live-state regressions. St
 3. Resume socket updates.
 4. Clear stale overlay state that no longer matches canonical entities.
 
+Outside reconnect or explicit recovery windows, the frontend should not rely on interval polling to keep job and queue overlays current.
+
 ## 5. UX Requirements
 
 - Every feature must define loading, empty, error, reconnecting, and recovered states.
 - Queue state must remain server-confirmed.
 - Only reversible local edits should appear optimistic.
 - Predictive progress smoothing is allowed only as a presentation layer over authoritative backend state.
+- If websocket delivery is interrupted, the UI should surface reconnecting/recovering state explicitly rather than silently degrading into indefinite background polling.
 
 ## 6. Testing Plan
 

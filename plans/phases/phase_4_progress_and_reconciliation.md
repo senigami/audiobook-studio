@@ -25,6 +25,8 @@ Build trustworthy progress, ETA, and artifact reconciliation before the orchestr
 - preserve smooth and monotonic-feeling progress behavior
 - preserve explicit `preparing` and `finalizing` phases
 - make reuse and stale detection revision-safe
+- normalized live progress must be published as websocket-friendly events rather than assuming polling-based refresh loops
+- REST should remain the bootstrap and reconnect recovery path for live state, not the steady-state transport for active progress
 - listener registration and event broadcasting must move toward explicit application wiring rather than hidden legacy global registration
 - progress services must not depend on `app.state` listener globals as a permanent architecture choice
 
@@ -47,3 +49,4 @@ Build trustworthy progress, ETA, and artifact reconciliation before the orchestr
 ## Exit Gate
 
 - progress and reuse logic are no longer worker-local assumptions
+- websocket event delivery is the primary live-state path for active jobs, with REST reserved for hydration and recovery
