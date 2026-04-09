@@ -29,6 +29,8 @@ from app.domain.voices.preview import preview_voice_profile
 @pytest.fixture(autouse=True)
 def _disable_voxtral_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.engines.voice.voxtral.engine.resolve_mistral_api_key", lambda: None)
+    monkeypatch.setattr("app.engines.voice.xtts.engine.XTTS_ENV_ACTIVATE", Path("/nonexistent/activate"))
+    monkeypatch.setattr("app.engines.voice.xtts.engine.XTTS_ENV_PYTHON", Path("/nonexistent/python"))
     from app.engines.registry import load_engine_registry
 
     load_engine_registry.cache_clear()
@@ -390,6 +392,42 @@ def test_preview_voice_profile_rejects_non_wav_bridge_format(
     assert response["reason"] == "invalid_request"
     assert "output_format='wav' only" in response["message"]
     assert response["preview_request"]["output_format"] == "mp3"
+
+
+def test_preview_voice_profile_maps_xtts_runtime_failures_to_execution_errors(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    reference_audio = tmp_path / "reference.wav"
+    reference_audio.write_bytes(b"wav data")
+    activate = tmp_path / "activate"
+    activate.write_text("", encoding="utf-8")
+    python_bin = tmp_path / "python"
+    python_bin.write_text("", encoding="utf-8")
+
+    monkeypatch.setattr("app.engines.voice.xtts.engine.XTTS_ENV_ACTIVATE", activate)
+    monkeypatch.setattr("app.engines.voice.xtts.engine.XTTS_ENV_PYTHON", python_bin)
+    monkeypatch.setattr(
+        "app.engines.voice.xtts.engine.xtts_generate",
+        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("xtts crashed")),
+    )
+
+    from app.engines.registry import load_engine_registry
+
+    load_engine_registry.cache_clear()
+
+    response = preview_voice_profile(
+        VoicePreviewRequestModel(
+            voice_profile_id="voice-1",
+            script_text="hello world",
+            engine_id="xtts",
+            reference_audio_path=str(reference_audio),
+        )
+    )
+
+    assert response["status"] == "error"
+    assert response["reason"] == "engine_execution_failed"
+    assert "xtts crashed" in response["message"]
 
 
 @pytest.mark.skip(reason="Documenting expected artifact validation behavior: reuse checks should accept explicit non-text revision inputs from the caller.")

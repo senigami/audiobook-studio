@@ -102,14 +102,22 @@ def _resolve_existing_profile_name(profile_name_or_id: str) -> Optional[str]:
     speaker_name: Optional[str] = None
     speaker_default_profile: Optional[str] = None
     if _is_uuid(target_profile):
-        from ..db import get_speaker
-        spk = get_speaker(target_profile)
+        try:
+            from ..db import get_speaker
+
+            spk = get_speaker(target_profile)
+        except Exception:
+            spk = None
         if spk:
             speaker_name = spk.get("name")
             speaker_default_profile = spk.get("default_profile_name")
     else:
-        from ..db import list_speakers
-        spk_match = next((s for s in list_speakers() if s["name"] == target_profile), None)
+        try:
+            from ..db import list_speakers
+
+            spk_match = next((s for s in list_speakers() if s["name"] == target_profile), None)
+        except Exception:
+            spk_match = None
         if spk_match:
             speaker_name = spk_match.get("name")
             speaker_default_profile = spk_match.get("default_profile_name")
