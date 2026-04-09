@@ -36,6 +36,8 @@ Implement the 2.0 domain model and persistence contracts while runtime execution
 - `request_fingerprint` is the canonical identity of the render intent and should reflect the revision-sensitive inputs that determine whether an existing artifact may be reused.
 - An artifact may be stale for one reuse request while still remaining a valid immutable historical record or valid reuse candidate for another request.
 - Staleness is therefore a logical reuse decision, not an intrinsic artifact state.
+- The current stale-check scaffold may accept a wide set of revision-sensitive fields directly, but the intended follow-up contract is a single request-side value object such as a render request or revision context rather than a long primitive argument list.
+- That follow-up should keep revision inputs explicit without forcing callers to manually thread or re-bind every manifest field during reuse checks.
 - The artifact repository and artifact domain service should not perform physical deletion as part of staleness checks or normal validation flows.
 - Cleanup or garbage collection of orphaned artifact files is a separate lifecycle concern and should live in explicit orchestration or reconciliation paths.
 - During the current scaffold phase, stale detection may surface through simple validation failures, but the long-term contract should move toward an explicit reuse decision result rather than relying on exceptions for expected business flow.
@@ -60,8 +62,8 @@ Implement the 2.0 domain model and persistence contracts while runtime execution
 
 ## Verification Note
 
-- Full `pytest` is blocked in this workspace because `tests/conftest.py` imports `psutil`, which is not installed here.
-- I verified the Phase 2 contract surface with `python3 -m compileall` and a direct import harness against the new domain helpers.
+- Backend verification now passes with `./venv/bin/python -m pytest -q`.
+- Frontend verification now passes with `cd frontend && npm run lint`, `cd frontend && npx tsc -b`, and `cd frontend && npm run build`.
 
 ## Exit Gate
 
