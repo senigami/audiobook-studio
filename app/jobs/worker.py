@@ -1,6 +1,7 @@
 import time
 import os
 import re
+import shutil
 import threading
 import traceback
 import logging
@@ -170,7 +171,7 @@ def _generate_voice_sample_via_bridge(
     if response.get("audio_path") and Path(str(response["audio_path"])) != out_wav:
         generated = Path(str(response["audio_path"]))
         if generated.exists() and generated != out_wav:
-            generated.replace(out_wav)
+            shutil.move(str(generated), str(out_wav))
     return 0
 
 def _maybe_autotune_xtts_cps(job, start: float, chars: int, perf: dict):
