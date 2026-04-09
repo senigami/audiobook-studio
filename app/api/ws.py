@@ -3,6 +3,8 @@ import logging
 from typing import List
 from fastapi import WebSocket
 
+from .contracts.events import build_studio_job_event
+
 logger = logging.getLogger(__name__)
 
 class ConnectionManager:
@@ -62,6 +64,21 @@ def broadcast_pause_state(paused: bool):
     })
 
 def broadcast_job_updated(job_id: str, updates: dict):
+    normalized = build_studio_job_event(
+        job_id=job_id,
+        status=str(updates.get("status") or "queued"),
+        scope="job",
+        parent_job_id=updates.get("parent_job_id"),
+        progress=updates.get("progress"),
+        eta_seconds=updates.get("eta_seconds"),
+        message=updates.get("message") or updates.get("log"),
+        reason_code=updates.get("reason_code"),
+        updated_at=updates.get("updated_at"),
+        started_at=updates.get("started_at"),
+        active_render_batch_id=updates.get("active_render_batch_id"),
+        active_render_batch_progress=updates.get("active_render_batch_progress"),
+    )
+    manager.broadcast(normalized)
     manager.broadcast({
         "type": "job_updated",
         "job_id": job_id,

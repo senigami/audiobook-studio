@@ -12,6 +12,14 @@ Build trustworthy progress, ETA, and artifact reconciliation before the orchestr
 - normalized event contract
 - live-progress stability rules
 
+## Implementation Order
+
+1. Land the normalized websocket event contract and keep the legacy event names as a compatibility layer.
+2. Route progress publication through the new progress service boundary while leaving legacy persistence in place.
+3. Move preflight stale-output and revision-safe reuse checks into reconciliation service calls before execution begins.
+4. Add ETA stabilization behind the progress service so live throughput can refine confidence without worker-local heuristics.
+5. Replace startup-time listener registration with explicit app wiring once the new event path is stable end to end.
+
 ## Deliverables Checklist
 
 - [ ] Reconciliation service implemented
@@ -29,6 +37,13 @@ Build trustworthy progress, ETA, and artifact reconciliation before the orchestr
 - REST should remain the bootstrap and reconnect recovery path for live state, not the steady-state transport for active progress
 - listener registration and event broadcasting must move toward explicit application wiring rather than hidden legacy global registration
 - progress services must not depend on `app.state` listener globals as a permanent architecture choice
+
+## Initial Cutover Rules
+
+- `app.state` may continue to persist queue state and synchronize SQLite during the transition, but it should stop being the long-term websocket publisher.
+- `app.api.ws` should become the transport adapter for a normalized event contract, not the place where progress semantics live.
+- frontend live job handling should accept both the normalized event envelope and the legacy queue-update payloads until hydration and reconnect flows are in place.
+- worker-local progress calculations should be treated as compatibility inputs to the new progress service, not as the final source of truth.
 
 ## Tests
 
