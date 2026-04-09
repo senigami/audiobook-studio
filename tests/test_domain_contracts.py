@@ -26,6 +26,16 @@ from app.domain.voices.models import VoiceAssetModel, VoicePreviewRequestModel, 
 from app.domain.voices.preview import preview_voice_profile
 
 
+@pytest.fixture(autouse=True)
+def _disable_voxtral_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.engines.voice.voxtral.engine.resolve_mistral_api_key", lambda: None)
+    from app.engines.registry import load_engine_registry
+
+    load_engine_registry.cache_clear()
+    yield
+    load_engine_registry.cache_clear()
+
+
 def _make_block(
     *,
     block_id: str,
@@ -360,6 +370,26 @@ def test_preview_voice_profile_routes_through_real_bridge() -> None:
     assert response["reason"] == "engine_unavailable"
     assert response["preview_request"]["engine_id"] == "xtts"
     assert response["preview_request"]["script_text"] == "hello world"
+
+
+def test_preview_voice_profile_rejects_non_wav_bridge_format(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("app.engines.voice.voxtral.engine.resolve_mistral_api_key", lambda: "token")
+
+    response = preview_voice_profile(
+        VoicePreviewRequestModel(
+            voice_profile_id="VoiceA",
+            engine_id="voxtral",
+            script_text="Hello there",
+            output_format="mp3",
+        )
+    )
+
+    assert response["status"] == "error"
+    assert response["reason"] == "invalid_request"
+    assert "output_format='wav' only" in response["message"]
+    assert response["preview_request"]["output_format"] == "mp3"
 
 
 @pytest.mark.skip(reason="Documenting expected artifact validation behavior: reuse checks should accept explicit non-text revision inputs from the caller.")

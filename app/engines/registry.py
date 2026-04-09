@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from functools import lru_cache
 from pathlib import Path
 
 from app.engines.models import (
@@ -15,14 +16,37 @@ from app.engines.voice.xtts.engine import XttsVoiceEngine
 
 
 def load_engine_registry() -> dict[str, EngineRegistrationModel]:
-    """Placeholder registry loader.
+    """Load the engine registry with fresh health snapshots.
 
-    The long-term loader will discover internal engine modules and expose them
-    through a uniform registry for the voice bridge.
+    Discovery metadata and adapter instances are cached, but health is refreshed
+    on each call so readiness checks can track live configuration changes.
     """
+
+    return _refresh_registry_health(_load_cached_engine_registry())
+
+
+@lru_cache(maxsize=1)
+def _load_cached_engine_registry() -> dict[str, EngineRegistrationModel]:
+    """Load and cache discovery metadata plus adapter instances."""
+
     registry = _load_builtin_engines()
     registry.update(_load_plugin_engines())
     return registry
+
+
+def _refresh_registry_health(
+    registry: dict[str, EngineRegistrationModel]
+) -> dict[str, EngineRegistrationModel]:
+    """Clone cached registrations with current engine health."""
+
+    refreshed: dict[str, EngineRegistrationModel] = {}
+    for engine_id, registration in registry.items():
+        refreshed[engine_id] = EngineRegistrationModel(
+            manifest=registration.manifest,
+            engine=registration.engine,
+            health=registration.engine.describe_health(),
+        )
+    return refreshed
 
 
 def _load_builtin_engines() -> dict[str, EngineRegistrationModel]:
@@ -107,3 +131,6 @@ def _manifest_module_path(manifest_path: Path) -> str:
 
     engine_dir = manifest_path.parent
     return f"app.engines.voice.{engine_dir.name}.engine"
+
+
+load_engine_registry.cache_clear = _load_cached_engine_registry.cache_clear

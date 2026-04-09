@@ -6,6 +6,11 @@ implementation.
 
 from __future__ import annotations
 
+from app.engines.errors import (
+    EngineNotReadyError,
+    EngineRequestError,
+    EngineUnavailableError,
+)
 from app.engines.registry import load_engine_registry
 from app.engines.models import EngineRegistrationModel
 
@@ -102,12 +107,12 @@ class VoiceBridge:
         """
         engine_id = str(request.get("engine_id") or "").strip()
         if not engine_id:
-            raise ValueError("Voice requests must include engine_id.")
+            raise EngineRequestError("Voice requests must include engine_id.")
         registry = self.registry_loader()
         try:
             return registry[engine_id]
         except KeyError as exc:
-            raise KeyError(f"Unknown voice engine: {engine_id}") from exc
+            raise EngineRequestError(f"Unknown voice engine: {engine_id}") from exc
 
     def _validate_request(
         self, *, registration: EngineRegistrationModel, request: dict[str, object]
@@ -123,13 +128,13 @@ class VoiceBridge:
         """
         _ = request
         if registration.manifest.engine_id != str(request.get("engine_id") or "").strip():
-            raise ValueError("Request engine_id does not match the registered engine.")
+            raise EngineRequestError("Request engine_id does not match the registered engine.")
         if not registration.health.available:
-            raise RuntimeError(
+            raise EngineUnavailableError(
                 f"Engine {registration.manifest.engine_id} is unavailable: {registration.health.message or 'unknown'}"
             )
         if not registration.health.ready:
-            raise RuntimeError(
+            raise EngineNotReadyError(
                 f"Engine {registration.manifest.engine_id} is not ready: {registration.health.message or 'unknown'}"
             )
         registration.engine.validate_request(request)

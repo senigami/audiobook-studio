@@ -2,6 +2,13 @@
 
 from __future__ import annotations
 
+from app.engines.errors import (
+    EngineBridgeError,
+    EngineExecutionError,
+    EngineNotReadyError,
+    EngineRequestError,
+    EngineUnavailableError,
+)
 from app.engines import create_voice_bridge
 
 from .models import VoicePreviewRequestModel
@@ -34,13 +41,22 @@ def _route_preview_to_engine_bridge(*, payload: dict[str, object]) -> dict[str, 
     bridge = create_voice_bridge()
     try:
         response = bridge.preview(payload)
-    except RuntimeError as exc:
+    except (EngineUnavailableError, EngineNotReadyError, EngineRequestError) as exc:
         return _build_preview_preflight_response(payload=payload, error=exc)
-    except (KeyError, ValueError) as exc:
+    except EngineExecutionError as exc:
         return {
             "status": "error",
             "bridge": "voice-preview-bridge",
-            "reason": "invalid_request",
+            "reason": "engine_execution_failed",
+            "message": str(exc),
+            "ephemeral": True,
+            "preview_request": payload,
+        }
+    except EngineBridgeError as exc:
+        return {
+            "status": "error",
+            "bridge": "voice-preview-bridge",
+            "reason": "engine_bridge_failed",
             "message": str(exc),
             "ephemeral": True,
             "preview_request": payload,
@@ -54,16 +70,19 @@ def _route_preview_to_engine_bridge(*, payload: dict[str, object]) -> dict[str, 
 
 
 def _build_preview_preflight_response(
-    *, payload: dict[str, object], error: RuntimeError
+    *, payload: dict[str, object], error: EngineBridgeError
 ) -> dict[str, object]:
     """Normalize readiness and availability failures for preview/test callers."""
 
     message = str(error)
-    reason = "engine_preflight_failed"
-    if " is unavailable:" in message:
+    if isinstance(error, EngineUnavailableError):
         reason = "engine_unavailable"
-    elif " is not ready:" in message:
+    elif isinstance(error, EngineNotReadyError):
         reason = "engine_not_ready"
+    elif isinstance(error, EngineRequestError):
+        reason = "invalid_request"
+    else:
+        reason = "engine_preflight_failed"
 
     return {
         "status": "error",

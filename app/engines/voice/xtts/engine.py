@@ -6,6 +6,7 @@ contract without leaking XTTS-specific process management into the scheduler.
 
 from __future__ import annotations
 
+from app.engines.errors import EngineRequestError
 from app.engines.voice.base import BaseVoiceEngine
 from app.engines.models import EngineHealthModel, EngineManifestModel
 from app.infra.subprocess import run_managed_subprocess_async
@@ -52,10 +53,10 @@ class XttsVoiceEngine(BaseVoiceEngine):
     def validate_request(self, request: dict[str, object]) -> None:
         """Describe XTTS request validation."""
         if not isinstance(request, dict):
-            raise TypeError("XTTS requests must be provided as a mapping.")
+            raise EngineRequestError("XTTS requests must be provided as a mapping.")
         engine_id = str(request.get("engine_id") or "").strip()
         if engine_id and engine_id != self.manifest.engine_id:
-            raise ValueError("XTTS request is targeting a different engine.")
+            raise EngineRequestError("XTTS request is targeting a different engine.")
 
     def synthesize(self, request: dict[str, object]) -> dict[str, object]:
         """Describe XTTS synthesis through the standard engine contract."""
