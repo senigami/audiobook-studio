@@ -4,8 +4,15 @@ Phase 1 compatibility note:
 - This package intentionally coexists with the legacy ``app/engines.py`` module.
 - Until the engine cutover phase is complete, unresolved attribute access falls
   back to the legacy module so existing imports continue to work.
+
+Compatibility behavior:
+- Legacy helpers still execute against the legacy module globals.
+- Test and migration code often patches ``app.engines.*`` directly.
+- To keep those patches effective during the coexistence phase, writes to this
+  package are mirrored into the legacy module when the same name exists there.
 """
 
+import sys
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 from types import ModuleType
@@ -75,3 +82,23 @@ def __dir__() -> list[str]:
 
 
 __all__ = ["create_voice_bridge", "load_engine_registry"]
+
+
+class _EnginesCompatibilityModule(ModuleType):
+    """Mirror package-level patches into the legacy module during coexistence."""
+
+    def __setattr__(self, name: str, value):
+        super().__setattr__(name, value)
+
+        if name.startswith("__"):
+            return
+
+        legacy_module = _LEGACY_MODULE
+        if legacy_module is None:
+            return
+
+        if hasattr(legacy_module, name):
+            setattr(legacy_module, name, value)
+
+
+sys.modules[__name__].__class__ = _EnginesCompatibilityModule
