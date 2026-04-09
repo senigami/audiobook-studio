@@ -123,6 +123,115 @@ def test_voice_bridge_routes_voxtral_preview_when_ready(monkeypatch: pytest.Monk
     assert Path(response["audio_path"]).exists()
 
 
+def test_voice_bridge_routes_voxtral_synthesize_when_ready(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr("app.engines.voice.voxtral.engine.resolve_mistral_api_key", lambda: "token")
+    load_engine_registry.cache_clear()
+
+    output_path = tmp_path / "sample.wav"
+
+    def fake_voxtral_generate(
+        *,
+        text,
+        out_wav,
+        on_output,
+        cancel_check,
+        profile_name,
+        voice_id=None,
+        model=None,
+        reference_sample=None,
+    ):
+        assert text == "hello"
+        assert out_wav == output_path
+        assert profile_name == "VoiceA"
+        assert voice_id == "asset-1"
+        on_output("voxtral line")
+        assert cancel_check() is False
+        out_wav.write_text("synthesis audio")
+        return 0
+
+    monkeypatch.setattr("app.engines.voice.voxtral.engine.voxtral_generate", fake_voxtral_generate)
+
+    bridge = create_voice_bridge()
+    response = bridge.synthesize(
+        {
+            "engine_id": "voxtral",
+            "voice_profile_id": "VoiceA",
+            "script_text": "hello",
+            "voice_asset_id": "asset-1",
+            "output_path": str(output_path),
+            "output_format": "wav",
+            "request_fingerprint": "fp-123",
+        }
+    )
+
+    assert response["status"] == "ok"
+    assert response["bridge"] == "voice-synthesis-bridge"
+    assert response["ephemeral"] is False
+    assert response["request_fingerprint"] == "fp-123"
+    assert Path(response["audio_path"]).exists()
+
+
+def test_voice_bridge_routes_voxtral_mp3_synthesize_when_ready(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr("app.engines.voice.voxtral.engine.resolve_mistral_api_key", lambda: "token")
+    load_engine_registry.cache_clear()
+
+    output_path = tmp_path / "sample.mp3"
+    callback_events: list[str] = []
+
+    def fake_voxtral_generate(
+        *,
+        text,
+        out_wav,
+        on_output,
+        cancel_check,
+        profile_name,
+        voice_id=None,
+        model=None,
+        reference_sample=None,
+    ):
+        assert text == "hello"
+        assert out_wav.suffix == ".wav"
+        assert out_wav != output_path
+        on_output("voxtral line")
+        assert cancel_check() is False
+        out_wav.write_text("synthesis audio")
+        return 0
+
+    def fake_wav_to_mp3(in_wav, out_mp3, on_output=None, cancel_check=None):
+        assert in_wav.suffix == ".wav"
+        assert out_mp3 == output_path
+        on_output("mp3 line")
+        assert cancel_check() is False
+        out_mp3.write_text("mp3 audio")
+        return 0
+
+    monkeypatch.setattr("app.engines.voice.voxtral.engine.voxtral_generate", fake_voxtral_generate)
+    monkeypatch.setattr("app.engines.voice.voxtral.engine.wav_to_mp3", fake_wav_to_mp3)
+
+    bridge = create_voice_bridge()
+    response = bridge.synthesize(
+        {
+            "engine_id": "voxtral",
+            "voice_profile_id": "VoiceA",
+            "script_text": "hello",
+            "voice_asset_id": "asset-1",
+            "output_path": str(output_path),
+            "output_format": "mp3",
+            "on_output": callback_events.append,
+            "cancel_check": lambda: False,
+        }
+    )
+
+    assert response["status"] == "ok"
+    assert response["audio_format"] == "mp3"
+    assert Path(response["audio_path"]).exists()
+    assert callback_events == ["voxtral line", "mp3 line"]
+
+
 def test_voice_bridge_routes_xtts_preview_when_ready(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -185,6 +294,75 @@ def test_voice_bridge_routes_xtts_preview_when_ready(
     assert response["engine_id"] == "xtts"
     assert response["ephemeral"] is True
     assert response["preview_request"]["reference_audio_path"] == str(reference_audio)
+    assert Path(response["audio_path"]).exists()
+
+
+def test_voice_bridge_routes_xtts_synthesize_when_ready(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    reference_audio = tmp_path / "reference.wav"
+    reference_audio.write_bytes(b"wav data")
+    output_path = tmp_path / "sample.wav"
+
+    def fake_xtts_generate(
+        *,
+        text,
+        out_wav,
+        safe_mode,
+        on_output,
+        cancel_check,
+        speaker_wav=None,
+        speed=1.0,
+        voice_profile_dir=None,
+    ):
+        assert text == "hello"
+        assert out_wav == output_path
+        assert safe_mode is True
+        assert speaker_wav == str(reference_audio)
+        assert voice_profile_dir is None
+        out_wav.write_text("synthesis audio")
+        return 0
+
+    monkeypatch.setattr("app.engines.voice.xtts.engine.xtts_generate", fake_xtts_generate)
+
+    manifest = EngineManifestModel(
+        engine_id="xtts",
+        display_name="XTTS",
+        phase="phase-3",
+        module_path="app.engines.voice.xtts.engine",
+    )
+    engine = XttsVoiceEngine(manifest=manifest)
+    registration = EngineRegistrationModel(
+        manifest=manifest,
+        engine=engine,
+        health=EngineHealthModel(
+            engine_id="xtts",
+            available=True,
+            ready=True,
+            status="ready",
+            message="ready",
+        ),
+    )
+
+    bridge = create_voice_bridge()
+    bridge.registry_loader = lambda: {"xtts": registration}
+
+    response = bridge.synthesize(
+        {
+            "engine_id": "xtts",
+            "voice_profile_id": "VoiceA",
+            "script_text": "hello",
+            "reference_audio_path": str(reference_audio),
+            "output_path": str(output_path),
+            "output_format": "wav",
+            "request_fingerprint": "fp-456",
+        }
+    )
+
+    assert response["status"] == "ok"
+    assert response["bridge"] == "voice-synthesis-bridge"
+    assert response["ephemeral"] is False
+    assert response["request_fingerprint"] == "fp-456"
     assert Path(response["audio_path"]).exists()
 
 

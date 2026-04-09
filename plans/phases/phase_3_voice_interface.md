@@ -16,13 +16,13 @@ Move engine behavior behind the new voice contract while preserving current capa
 
 ## Deliverables Checklist
 
-- [ ] Engine base contract implemented
-- [ ] Engine registry implemented
-- [ ] Voice bridge implemented
-- [ ] XTTS wrapped behind the new contract
-- [ ] Voxtral wrapped behind the new contract
-- [ ] Preview/test flow contract implemented
-- [ ] Module readiness and health model implemented
+- [x] Engine base contract implemented
+- [x] Engine registry implemented
+- [x] Voice bridge implemented
+- [x] XTTS wrapped behind the new contract
+- [x] Voxtral wrapped behind the new contract
+- [x] Preview/test flow contract implemented
+- [x] Module readiness and health model implemented
 
 ## Scope
 
@@ -35,12 +35,13 @@ Move engine behavior behind the new voice contract while preserving current capa
 
 ## Current Implementation Notes
 
-- The initial Phase 3 seam is now in place for the engine base contract, registry, bridge, and readiness model, but the concrete XTTS and Voxtral bridge-backed execution paths remain scaffolded until the preview/test flow is wired.
+- The initial Phase 3 seam is now in place for the engine base contract, registry, bridge, and readiness model, and both XTTS and Voxtral now support bridge-backed preview/test execution with conservative health checks.
 - Built-in engine registrations should currently report conservative health through the Studio 2.0 bridge path. If the bridge execution path is not implemented yet, the engine should report not available and not ready rather than advertising partial readiness.
 - The voice bridge must fail fast on preflight and readiness checks before any preview, synthesis, or voice-asset execution attempts reach scaffold or compatibility adapters.
 - The preview path should prefer typed bridge exceptions over string sniffing so UI-facing failure reasons stay stable as implementation details change.
 - Engine registry discovery should be cached after the first load. Preview and test requests should not pay repeated manifest-discovery cost during normal request cycles.
-- Voxtral is the first engine to receive a concrete bridge-backed preview path. It should stage ephemeral preview audio without publishing into the durable artifact repository.
+- Bridge-backed synthesis now has a first-pass compatibility contract for XTTS and Voxtral that writes to caller-provided output paths, but full queue and progress cutover still belongs to later work.
+- Preview and test output remains ephemeral. Synthesis output may be persisted by the caller, but artifact publication and reconciliation are still outside the engine adapters in this phase.
 
 ## Planned Implementation Order
 
@@ -67,10 +68,10 @@ Move engine behavior behind the new voice contract while preserving current capa
 
 ## Verification Checklist
 
-- [ ] Mock engine tests pass
-- [ ] Wrapper contract tests pass
-- [ ] Preflight validation tests pass
-- [ ] Preview/test isolated tests pass
+- [x] Mock engine tests pass
+- [x] Wrapper contract tests pass
+- [x] Preflight validation tests pass
+- [x] Preview/test isolated tests pass
 
 ## Exit Gate
 
