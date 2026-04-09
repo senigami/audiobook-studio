@@ -35,10 +35,10 @@ class XttsVoiceEngine(BaseVoiceEngine):
 
         return EngineHealthModel(
             engine_id=self.manifest.engine_id,
-            available=True,
+            available=False,
             ready=False,
             status="scaffold",
-            message="XTTS adapter is registered but execution is still scaffolded.",
+            message="XTTS adapter is registered, but the Studio 2.0 bridge execution path is not implemented yet.",
             details={
                 "module_path": self.manifest.module_path,
                 "capabilities": list(self.manifest.capabilities),

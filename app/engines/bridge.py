@@ -128,6 +128,10 @@ class VoiceBridge:
             raise RuntimeError(
                 f"Engine {registration.manifest.engine_id} is unavailable: {registration.health.message or 'unknown'}"
             )
+        if not registration.health.ready:
+            raise RuntimeError(
+                f"Engine {registration.manifest.engine_id} is not ready: {registration.health.message or 'unknown'}"
+            )
         registration.engine.validate_request(request)
 
 
