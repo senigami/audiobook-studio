@@ -14,6 +14,10 @@ def build_voice_sample_request(
     profile: VoiceProfileModel,
     script_text: str,
     engine_id: str | None = None,
+    reference_text: str | None = None,
+    reference_audio_path: str | None = None,
+    voice_asset_id: str | None = None,
+    output_format: str = "wav",
 ) -> VoicePreviewRequestModel:
     """Assemble a reusable voice sample request."""
 
@@ -21,6 +25,10 @@ def build_voice_sample_request(
         voice_profile_id=profile.id,
         script_text=script_text.strip(),
         engine_id=_resolve_sample_engine(profile=profile, engine_id=engine_id),
+        reference_text=reference_text,
+        reference_audio_path=reference_audio_path,
+        voice_asset_id=voice_asset_id,
+        output_format=output_format,
     )
 
 

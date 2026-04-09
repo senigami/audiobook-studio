@@ -297,10 +297,12 @@ def test_preview_payload_trims_script_text_but_preserves_request_context() -> No
         )
     )
 
-    assert response["status"] == "ok"
-    assert response["bridge"] == "voice-preview-contract"
-    assert response["preview"]["script_text"] == "hello world"
-    assert response["preview"]["voice_asset_id"] == "asset-1"
+    assert response["status"] == "error"
+    assert response["bridge"] == "voice-preview-bridge"
+    assert response["reason"] == "engine_unavailable"
+    assert response["preview_request"]["script_text"] == "hello world"
+    assert response["preview_request"]["voice_asset_id"] == "asset-1"
+    assert response["ephemeral"] is True
 
 
 def test_voice_compatibility_rejects_asset_owner_mismatch() -> None:
@@ -345,7 +347,6 @@ def test_normalize_chapter_draft_preserves_duplicate_block_identity() -> None:
     assert len({block.stable_key for block in draft.blocks}) == 2
 
 
-@pytest.mark.skip(reason="Documenting expected Phase 3 behavior: preview must route through a real engine bridge instead of returning a fabricated success payload.")
 def test_preview_voice_profile_routes_through_real_bridge() -> None:
     response = preview_voice_profile(
         VoicePreviewRequestModel(
@@ -355,8 +356,10 @@ def test_preview_voice_profile_routes_through_real_bridge() -> None:
         )
     )
 
-    assert "audio_url" in response or "job_id" in response
-    assert response.get("bridge") != "voice-preview-contract"
+    assert response["bridge"] == "voice-preview-bridge"
+    assert response["reason"] == "engine_unavailable"
+    assert response["preview_request"]["engine_id"] == "xtts"
+    assert response["preview_request"]["script_text"] == "hello world"
 
 
 @pytest.mark.skip(reason="Documenting expected artifact validation behavior: reuse checks should accept explicit non-text revision inputs from the caller.")

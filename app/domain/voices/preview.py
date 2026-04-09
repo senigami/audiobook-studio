@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.engines import create_voice_bridge
+
 from .models import VoicePreviewRequestModel
 
 
@@ -29,8 +31,45 @@ def _build_preview_payload(*, request: VoicePreviewRequestModel) -> dict[str, ob
 def _route_preview_to_engine_bridge(*, payload: dict[str, object]) -> dict[str, object]:
     """Describe how preview payloads should enter the engine bridge."""
 
+    bridge = create_voice_bridge()
+    try:
+        response = bridge.preview(payload)
+    except RuntimeError as exc:
+        return _build_preview_preflight_response(payload=payload, error=exc)
+    except (KeyError, ValueError) as exc:
+        return {
+            "status": "error",
+            "bridge": "voice-preview-bridge",
+            "reason": "invalid_request",
+            "message": str(exc),
+            "ephemeral": True,
+            "preview_request": payload,
+        }
+
+    if "bridge" not in response:
+        response["bridge"] = "voice-preview-bridge"
+    response.setdefault("ephemeral", True)
+    response.setdefault("preview_request", payload)
+    return response
+
+
+def _build_preview_preflight_response(
+    *, payload: dict[str, object], error: RuntimeError
+) -> dict[str, object]:
+    """Normalize readiness and availability failures for preview/test callers."""
+
+    message = str(error)
+    reason = "engine_preflight_failed"
+    if " is unavailable:" in message:
+        reason = "engine_unavailable"
+    elif " is not ready:" in message:
+        reason = "engine_not_ready"
+
     return {
-        "status": "ok",
-        "bridge": "voice-preview-contract",
-        "preview": payload,
+        "status": "error",
+        "bridge": "voice-preview-bridge",
+        "reason": reason,
+        "message": message,
+        "ephemeral": True,
+        "preview_request": payload,
     }
