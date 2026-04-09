@@ -2,6 +2,15 @@
 
 from __future__ import annotations
 
+from app.engines.errors import (
+    EngineBridgeError,
+    EngineExecutionError,
+    EngineNotReadyError,
+    EngineRequestError,
+    EngineUnavailableError,
+)
+from app.engines import create_voice_bridge
+
 from .models import VoicePreviewRequestModel
 
 
@@ -29,8 +38,57 @@ def _build_preview_payload(*, request: VoicePreviewRequestModel) -> dict[str, ob
 def _route_preview_to_engine_bridge(*, payload: dict[str, object]) -> dict[str, object]:
     """Describe how preview payloads should enter the engine bridge."""
 
+    bridge = create_voice_bridge()
+    try:
+        response = bridge.preview(payload)
+    except (EngineUnavailableError, EngineNotReadyError, EngineRequestError) as exc:
+        return _build_preview_preflight_response(payload=payload, error=exc)
+    except EngineExecutionError as exc:
+        return {
+            "status": "error",
+            "bridge": "voice-preview-bridge",
+            "reason": "engine_execution_failed",
+            "message": str(exc),
+            "ephemeral": True,
+            "preview_request": payload,
+        }
+    except EngineBridgeError as exc:
+        return {
+            "status": "error",
+            "bridge": "voice-preview-bridge",
+            "reason": "engine_bridge_failed",
+            "message": str(exc),
+            "ephemeral": True,
+            "preview_request": payload,
+        }
+
+    if "bridge" not in response:
+        response["bridge"] = "voice-preview-bridge"
+    response.setdefault("ephemeral", True)
+    response.setdefault("preview_request", payload)
+    return response
+
+
+def _build_preview_preflight_response(
+    *, payload: dict[str, object], error: EngineBridgeError
+) -> dict[str, object]:
+    """Normalize readiness and availability failures for preview/test callers."""
+
+    message = str(error)
+    if isinstance(error, EngineUnavailableError):
+        reason = "engine_unavailable"
+    elif isinstance(error, EngineNotReadyError):
+        reason = "engine_not_ready"
+    elif isinstance(error, EngineRequestError):
+        reason = "invalid_request"
+    else:
+        reason = "engine_preflight_failed"
+
     return {
-        "status": "ok",
-        "bridge": "voice-preview-contract",
-        "preview": payload,
+        "status": "error",
+        "bridge": "voice-preview-bridge",
+        "reason": reason,
+        "message": message,
+        "ephemeral": True,
+        "preview_request": payload,
     }

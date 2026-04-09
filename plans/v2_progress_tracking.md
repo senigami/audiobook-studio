@@ -8,6 +8,7 @@ Progress is a product surface, not just telemetry. The goal is to make status be
 - Eliminate false completion caused by stale files or drifted state.
 - Make ETA useful without pretending to know more than we know.
 - Support reload and restart without the UI snapping to nonsense.
+- Make websocket events the primary transport for live progress, with REST reserved for hydration and recovery.
 
 ## 2. What I Want To Create
 
@@ -73,6 +74,8 @@ Every progress event should include:
 - `active_render_batch_id`
 - `active_render_batch_progress`
 
+These events are intended to be delivered over the live websocket channel as the default runtime path. Polling should not be required for normal connected operation once the 2.0 progress path is in place.
+
 ## 5.1 Monotonic Event Handling Rules
 
 The 2.0 frontend plan should preserve current anti-regression safeguards:
@@ -112,7 +115,7 @@ The 2.0 frontend plan should preserve current anti-regression safeguards:
 
 1. Accept child task updates.
 2. Aggregate by weighted work model.
-3. Throttle broadcasts by percentage threshold, status change, and time interval.
+3. Throttle websocket broadcasts by percentage threshold, status change, and time interval.
 4. Recompute ETA confidence as live throughput stabilizes.
 
 ### After Execution

@@ -22,6 +22,7 @@ This document records the current product behaviors that Studio 2.0 must preserv
 - The queue supports active visibility, manual clearing, pausing, cancelation, and reordering.
 - Jobs surface meaningful phases such as `queued`, `preparing`, `running`, and `finalizing`.
 - Mixed-engine work, audiobook assembly, voice build, and voice test are distinct functional concepts.
+- Voice preview/test should remain usable as a distinct lightweight flow and should not accidentally inherit full batch-publishing behavior just because it shares engine infrastructure with synthesis.
 
 ### Recovery And Reconciliation
 
@@ -35,6 +36,7 @@ This document records the current product behaviors that Studio 2.0 must preserv
 - Progress should feel smooth and monotonic during active work.
 - Backend progress acts as an authoritative floor while the UI may smooth between sparse updates.
 - The app protects against stale live updates regressing active state casually.
+- If preview/test is temporarily unavailable because an engine is not configured, not ready, or already resource-constrained, the system should surface that reason clearly instead of failing with an opaque execution error.
 
 ### Settings
 

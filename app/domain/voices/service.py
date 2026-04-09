@@ -136,6 +136,10 @@ class VoiceService:
             profile=profile,
             script_text=request.script_text,
             engine_id=request.engine_id,
+            reference_text=request.reference_text,
+            reference_audio_path=request.reference_audio_path,
+            voice_asset_id=request.voice_asset_id,
+            output_format=request.output_format,
         )
 
 

@@ -4,9 +4,18 @@ The long-term goal is for every engine implementation to conform to this
 interface so the queue and UI never need engine-specific branches.
 """
 
+from __future__ import annotations
+
+from app.engines.models import EngineHealthModel
+
 
 class BaseVoiceEngine:
     """Placeholder base voice engine contract."""
+
+    def describe_health(self) -> EngineHealthModel:
+        """Summarize module readiness for discovery and diagnostics."""
+
+        raise NotImplementedError
 
     def validate_environment(self) -> None:
         """Check whether the engine can run in the current environment.

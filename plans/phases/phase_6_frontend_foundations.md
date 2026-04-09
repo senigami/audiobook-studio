@@ -25,6 +25,7 @@ Adopt the 2.0 live-state and hydration model before migrating the full editor.
 
 - canonical entities stay API-backed
 - store owns live overlays and session state
+- live overlays should be websocket-first, with REST used for hydration, reconnect recovery, and explicit refresh only
 - no full editor migration yet
 - mock or dev-shape hydration is acceptable in this phase so frontend 2.0 routes can be built against stable response shapes before full backend cutover
 - frontend hydration must not assume legacy startup reconciliation has already repaired queue state unless that behavior is explicitly provided by the active backend path
@@ -49,3 +50,4 @@ Adopt the 2.0 live-state and hydration model before migrating the full editor.
 ## Exit Gate
 
 - the frontend can consume 2.0 events safely without yet moving the entire editor
+- queue and header live state no longer depend on steady-state polling during normal connected operation
