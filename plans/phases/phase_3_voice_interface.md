@@ -41,6 +41,7 @@ Move engine behavior behind the new voice contract while preserving current capa
 - The preview path should prefer typed bridge exceptions over string sniffing so UI-facing failure reasons stay stable as implementation details change.
 - Engine registry discovery should be cached after the first load. Preview and test requests should not pay repeated manifest-discovery cost during normal request cycles.
 - Bridge-backed synthesis now has a first-pass compatibility contract for XTTS and Voxtral that writes to caller-provided output paths, but full queue and progress cutover still belongs to later work.
+- `voice_build` and `voice_test` jobs can now opt into the bridge-backed synthesis path behind `USE_V2_ENGINE_BRIDGE` while the legacy worker still owns queue scheduling and completion bookkeeping.
 - Preview and test output remains ephemeral. Synthesis output may be persisted by the caller, but artifact publication and reconciliation are still outside the engine adapters in this phase.
 
 ## Planned Implementation Order

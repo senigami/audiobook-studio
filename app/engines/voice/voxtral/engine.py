@@ -64,6 +64,8 @@ def voxtral_generate(
     *,
     text: str,
     out_wav: Path,
+    on_output=None,
+    cancel_check=None,
     profile_name: str,
     voice_id: str | None = None,
     model: str | None = None,
@@ -76,6 +78,8 @@ def voxtral_generate(
     return legacy_generate(
         text=text,
         out_wav=out_wav,
+        on_output=on_output,
+        cancel_check=cancel_check,
         profile_name=profile_name,
         voice_id=voice_id,
         model=model,
@@ -129,6 +133,7 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
         is_synthesis_request = bool(str(request.get("output_path") or "").strip())
         output_format = self._normalize_output_format(request, allow_mp3=is_synthesis_request)
         reference_audio_path = str(request.get("reference_audio_path") or "").strip()
+        _ = str(request.get("reference_sample") or "").strip()
         if reference_audio_path:
             reference_path = Path(reference_audio_path)
             if not reference_path.exists():
@@ -150,13 +155,13 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
         output_path = self._resolve_output_path(request)
         voice_asset_id = str(request.get("voice_asset_id") or "").strip() or None
         reference_audio_path = str(request.get("reference_audio_path") or "").strip() or None
+        reference_sample = str(request.get("reference_sample") or "").strip() or None
         on_output = self._resolve_on_output(request)
         cancel_check = self._resolve_cancel_check(request)
 
         cleanup_root: Path | None = None
         temp_wav: Path | None = None
         profile_name = voice_profile_id
-        reference_sample: str | None = None
         render_wav_path = output_path
         if reference_audio_path:
             cleanup_root, profile_name, reference_sample = self._stage_reference_audio(
@@ -223,6 +228,7 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
                 "engine_id": self.manifest.engine_id,
                 "script_text": script_text,
                 "reference_audio_path": reference_audio_path,
+                "reference_sample": reference_sample,
                 "voice_asset_id": voice_asset_id,
                 "output_format": output_format,
                 "output_path": str(output_path),
@@ -289,6 +295,7 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
                 "script_text": script_text,
                 "reference_text": request.get("reference_text"),
                 "reference_audio_path": reference_audio_path,
+                "reference_sample": request.get("reference_sample"),
                 "voice_asset_id": voice_asset_id,
                 "output_format": output_format,
             },

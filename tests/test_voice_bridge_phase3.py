@@ -131,7 +131,7 @@ def test_voice_bridge_routes_voxtral_synthesize_when_ready(
 
     output_path = tmp_path / "sample.wav"
 
-    def fake_voxtral_generate(
+    def fake_legacy_voxtral_generate(
         *,
         text,
         out_wav,
@@ -151,7 +151,7 @@ def test_voice_bridge_routes_voxtral_synthesize_when_ready(
         out_wav.write_text("synthesis audio")
         return 0
 
-    monkeypatch.setattr("app.engines.voice.voxtral.engine.voxtral_generate", fake_voxtral_generate)
+    monkeypatch.setattr("app.engines_voxtral.voxtral_generate", fake_legacy_voxtral_generate)
 
     bridge = create_voice_bridge()
     response = bridge.synthesize(
@@ -171,6 +171,48 @@ def test_voice_bridge_routes_voxtral_synthesize_when_ready(
     assert response["ephemeral"] is False
     assert response["request_fingerprint"] == "fp-123"
     assert Path(response["audio_path"]).exists()
+
+
+def test_voice_bridge_preserves_voxtral_reference_sample_for_synthesis(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr("app.engines.voice.voxtral.engine.resolve_mistral_api_key", lambda: "token")
+    load_engine_registry.cache_clear()
+
+    output_path = tmp_path / "sample.wav"
+
+    def fake_legacy_voxtral_generate(
+        *,
+        text,
+        out_wav,
+        on_output,
+        cancel_check,
+        profile_name,
+        voice_id=None,
+        model=None,
+        reference_sample=None,
+    ):
+        assert text == "hello"
+        assert reference_sample == "stored-reference.wav"
+        out_wav.write_text("synthesis audio")
+        return 0
+
+    monkeypatch.setattr("app.engines_voxtral.voxtral_generate", fake_legacy_voxtral_generate)
+
+    bridge = create_voice_bridge()
+    response = bridge.synthesize(
+        {
+            "engine_id": "voxtral",
+            "voice_profile_id": "VoiceA",
+            "script_text": "hello",
+            "output_path": str(output_path),
+            "output_format": "wav",
+            "reference_sample": "stored-reference.wav",
+        }
+    )
+
+    assert response["status"] == "ok"
+    assert response["synthesis_request"]["reference_sample"] == "stored-reference.wav"
 
 
 def test_voice_bridge_routes_voxtral_mp3_synthesize_when_ready(
