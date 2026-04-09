@@ -57,3 +57,37 @@ def test_update_job_syncs_queue_before_broadcast_listener(tmp_path):
         "queue-broadcast",
         "listener:job-voxtral-sync:done",
     ]
+
+
+def test_update_job_passes_current_job_snapshot_to_three_arg_listeners(tmp_path):
+    put_job(
+        Job(
+            id="job-snapshot-sync",
+            engine="xtts",
+            chapter_file="c2.txt",
+            status="running",
+            created_at=time.time(),
+            progress=0.25,
+            eta_seconds=20,
+        )
+    )
+
+    events: list[tuple[str, dict, dict]] = []
+
+    def listener(job_id, updates, current_job):
+        events.append((job_id, updates, current_job))
+
+    _JOB_LISTENERS.append(listener)
+
+    with patch("app.db.update_queue_item"), \
+         patch("app.api.ws.broadcast_queue_update"), \
+         patch("app.api.ws.broadcast_chapter_updated"):
+        update_job("job-snapshot-sync", progress=0.5)
+
+    assert len(events) == 1
+    job_id, updates, current_job = events[0]
+    assert job_id == "job-snapshot-sync"
+    assert updates == {"progress": 0.5}
+    assert current_job["status"] == "running"
+    assert current_job["progress"] == 0.5
+    assert current_job["eta_seconds"] == 20

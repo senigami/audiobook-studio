@@ -1,3 +1,4 @@
+import inspect
 import json
 import os
 import logging
@@ -319,9 +320,19 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
 
         broadcast_dict = {k: v for k, v in updates.items() if k != "log"}
         if broadcast_dict or force_broadcast:
+            job_snapshot = dict(j)
             for listener in _JOB_LISTENERS:
                 try:
-                    listener(job_id, broadcast_dict)
+                    try:
+                        listener_signature = inspect.signature(listener)
+                        supports_snapshot = len(listener_signature.parameters) >= 3
+                    except (TypeError, ValueError):
+                        supports_snapshot = False
+
+                    if supports_snapshot:
+                        listener(job_id, broadcast_dict, job_snapshot)
+                    else:
+                        listener(job_id, broadcast_dict)
                 except Exception:
                     logger.warning("Job listener failed for %s", job_id, exc_info=True)
 

@@ -63,20 +63,22 @@ def broadcast_pause_state(paused: bool):
         "paused": paused
     })
 
-def broadcast_job_updated(job_id: str, updates: dict):
+def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None = None):
+    merged = dict(current_job or {})
+    merged.update(updates or {})
     normalized = build_studio_job_event(
         job_id=job_id,
-        status=str(updates.get("status") or "queued"),
+        status=str(merged.get("status") or "queued"),
         scope="job",
-        parent_job_id=updates.get("parent_job_id"),
-        progress=updates.get("progress"),
-        eta_seconds=updates.get("eta_seconds"),
+        parent_job_id=merged.get("parent_job_id"),
+        progress=merged.get("progress"),
+        eta_seconds=merged.get("eta_seconds"),
         message=updates.get("message") or updates.get("log"),
-        reason_code=updates.get("reason_code"),
-        updated_at=updates.get("updated_at"),
-        started_at=updates.get("started_at"),
-        active_render_batch_id=updates.get("active_render_batch_id"),
-        active_render_batch_progress=updates.get("active_render_batch_progress"),
+        reason_code=merged.get("reason_code"),
+        updated_at=merged.get("updated_at"),
+        started_at=merged.get("started_at"),
+        active_render_batch_id=merged.get("active_render_batch_id"),
+        active_render_batch_progress=merged.get("active_render_batch_progress"),
     )
     manager.broadcast(normalized)
     manager.broadcast({
