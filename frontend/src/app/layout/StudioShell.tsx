@@ -23,7 +23,7 @@ const FORBIDDEN_DIRECT_IMPORTS = [
 ];
 
 export const createStudioShell = () => {
-  _ = [
+  consumeContractMarkers([
     INTENDED_UPSTREAM_CALLERS,
     INTENDED_DOWNSTREAM_DEPENDENCIES,
     FORBIDDEN_DIRECT_IMPORTS,
@@ -33,8 +33,8 @@ export const createStudioShell = () => {
     createProjectBreadcrumbs,
     createChapterBreadcrumbs,
     createProjectSubnav,
-  ];
+  ]);
   return null;
 };
 
-const _ = (_value: unknown) => _value;
+const consumeContractMarkers = (..._values: readonly unknown[]) => undefined;

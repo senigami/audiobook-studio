@@ -26,15 +26,15 @@ export const createChapterEditorRoute = () => {
   // - layer live job state from the live-jobs store
   // - coordinate local draft state through the editor-session store
   // - support next/previous chapter movement without losing local session context
-  _ = [
+  consumeContractMarkers([
     INTENDED_UPSTREAM_CALLERS,
     INTENDED_DOWNSTREAM_DEPENDENCIES,
     FORBIDDEN_DIRECT_IMPORTS,
     createHydrationCoordinator,
     createEditorSessionStore,
     createLiveJobsStore,
-  ];
+  ]);
   return null;
 };
 
-const _ = (_value: unknown) => _value;
+const consumeContractMarkers = (..._values: readonly unknown[]) => undefined;

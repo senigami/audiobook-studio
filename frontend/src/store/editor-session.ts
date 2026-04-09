@@ -6,7 +6,7 @@
 const INTENDED_UPSTREAM_CALLERS = [
   'frontend/src/features/chapter-editor/routes/ChapterEditorRoute.tsx',
 ];
-const INTENDED_DOWNSTREAM_DEPENDENCIES = [];
+const INTENDED_DOWNSTREAM_DEPENDENCIES: string[] = [];
 const FORBIDDEN_DIRECT_IMPORTS = [
   'frontend/src/api/queries',
   'frontend/src/store/live-jobs.ts',
@@ -21,11 +21,11 @@ export interface EditorSessionStore {
 export const createEditorSessionStore = (): EditorSessionStore => ({
   selectedBlockIds: [],
   setSelectedBlockIds: (_ids) => {
-    _ = [
+    consumeContractMarkers([
       INTENDED_UPSTREAM_CALLERS,
       INTENDED_DOWNSTREAM_DEPENDENCIES,
       FORBIDDEN_DIRECT_IMPORTS,
-    ];
+    ]);
     throw new Error('Studio 2.0 editor session store is not implemented yet.');
   },
   clear: () => {
@@ -33,4 +33,4 @@ export const createEditorSessionStore = (): EditorSessionStore => ({
   },
 });
 
-const _ = (_value: unknown) => _value;
+const consumeContractMarkers = (..._values: readonly unknown[]) => undefined;

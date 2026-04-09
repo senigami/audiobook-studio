@@ -22,14 +22,14 @@ export const createProjectLibraryRoute = () => {
   // - present recent work and quick-resume entry points
   // - open projects into the project overview hub
   // - support guided project creation from the library surface
-  _ = [
+  consumeContractMarkers([
     INTENDED_UPSTREAM_CALLERS,
     INTENDED_DOWNSTREAM_DEPENDENCIES,
     FORBIDDEN_DIRECT_IMPORTS,
     createHydrationCoordinator,
     createStudioQueries,
-  ];
+  ]);
   return null;
 };
 
-const _ = (_value: unknown) => _value;
+const consumeContractMarkers = (..._values: readonly unknown[]) => undefined;

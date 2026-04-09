@@ -19,15 +19,15 @@ const FORBIDDEN_DIRECT_IMPORTS = [
 ];
 
 export const createStudioProviders = () => {
-  _ = [
+  consumeContractMarkers([
     INTENDED_UPSTREAM_CALLERS,
     INTENDED_DOWNSTREAM_DEPENDENCIES,
     FORBIDDEN_DIRECT_IMPORTS,
     createApiClient,
     createHydrationCoordinator,
     createNotificationsStore,
-  ];
+  ]);
   return null;
 };
 
-const _ = (_value: unknown) => _value;
+const consumeContractMarkers = (..._values: readonly unknown[]) => undefined;
