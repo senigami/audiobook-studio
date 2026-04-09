@@ -27,6 +27,8 @@ This document makes the Phase 0 feature-flag strategy explicit so rollout and ro
 
 - Routes synthesis and preview/test requests through the new voice bridge
 - Must preserve existing engine capabilities before becoming default
+- Should be enabled for preview/test flows before full synthesis cutover where practical, so the new bridge can be validated on a narrower and more reversible path first
+- Must not advertise engines as ready through the v2 bridge unless the bridge-backed execution path and preflight checks are actually implemented for that engine
 
 ### `USE_V2_PROGRESS`
 
