@@ -4,8 +4,10 @@ This is the only place that should route a voice request to a concrete engine
 implementation.
 """
 
-from app.engines.voice.base import BaseVoiceEngine
+from __future__ import annotations
+
 from app.engines.registry import load_engine_registry
+from app.engines.models import EngineRegistrationModel
 
 INTENDED_UPSTREAM_CALLERS = (
     "app.domain.voices.preview",
@@ -41,9 +43,9 @@ class VoiceBridge:
         Raises:
             NotImplementedError: Phase 1 scaffold only.
         """
-        engine = self._resolve_engine(request=request)
-        _ = self._validate_request(engine=engine, request=request)
-        raise NotImplementedError("Studio 2.0 synthesis routing is not implemented yet.")
+        registration = self._resolve_registration(request=request)
+        self._validate_request(registration=registration, request=request)
+        return registration.engine.synthesize(request)
 
     def preview(self, request: dict[str, object]) -> dict[str, object]:
         """Route a preview/test request through the registry.
@@ -57,9 +59,9 @@ class VoiceBridge:
         Raises:
             NotImplementedError: Phase 1 scaffold only.
         """
-        engine = self._resolve_engine(request=request)
-        _ = self._validate_request(engine=engine, request=request)
-        raise NotImplementedError("Studio 2.0 preview routing is not implemented yet.")
+        registration = self._resolve_registration(request=request)
+        self._validate_request(registration=registration, request=request)
+        return registration.engine.preview(request)
 
     def build_voice_asset(self, request: dict[str, object]) -> dict[str, object]:
         """Route a voice-asset build request through the registry.
@@ -73,39 +75,60 @@ class VoiceBridge:
         Raises:
             NotImplementedError: Phase 1 scaffold only.
         """
-        engine = self._resolve_engine(request=request)
-        _ = self._validate_request(engine=engine, request=request)
-        raise NotImplementedError("Studio 2.0 voice-asset routing is not implemented yet.")
+        registration = self._resolve_registration(request=request)
+        self._validate_request(registration=registration, request=request)
+        return registration.engine.build_voice_asset(request)
 
-    def _resolve_engine(self, *, request: dict[str, object]) -> BaseVoiceEngine:
+    def describe_registry(self) -> list[dict[str, object]]:
+        """Return discovery metadata for all registered engines."""
+
+        registry = self.registry_loader()
+        return [registration.to_dict() for registration in registry.values()]
+
+    def _resolve_registration(
+        self, *, request: dict[str, object]
+    ) -> EngineRegistrationModel:
         """Resolve the concrete engine adapter for a canonical request.
 
         Args:
             request: Canonical request payload that includes engine identity.
 
         Returns:
-            BaseVoiceEngine: Engine adapter selected from the registry.
+            EngineRegistrationModel: Adapter registration selected from the registry.
 
         Raises:
-            NotImplementedError: Phase 1 scaffold only.
+            KeyError: If the requested engine is not registered.
+            ValueError: If the request omits an engine identifier.
         """
-        _ = self.registry_loader()
-        raise NotImplementedError("Studio 2.0 engine resolution is not implemented yet.")
+        engine_id = str(request.get("engine_id") or "").strip()
+        if not engine_id:
+            raise ValueError("Voice requests must include engine_id.")
+        registry = self.registry_loader()
+        try:
+            return registry[engine_id]
+        except KeyError as exc:
+            raise KeyError(f"Unknown voice engine: {engine_id}") from exc
 
     def _validate_request(
-        self, *, engine: BaseVoiceEngine, request: dict[str, object]
+        self, *, registration: EngineRegistrationModel, request: dict[str, object]
     ) -> None:
         """Describe request validation before engine execution begins.
 
         Args:
-            engine: Concrete engine adapter selected for the request.
+            registration: Concrete engine adapter selected for the request.
             request: Canonical request payload being routed.
 
         Raises:
             NotImplementedError: Phase 1 scaffold only.
         """
-        _ = (engine, request)
-        raise NotImplementedError("Studio 2.0 bridge request validation is not implemented yet.")
+        _ = request
+        if registration.manifest.engine_id != str(request.get("engine_id") or "").strip():
+            raise ValueError("Request engine_id does not match the registered engine.")
+        if not registration.health.available:
+            raise RuntimeError(
+                f"Engine {registration.manifest.engine_id} is unavailable: {registration.health.message or 'unknown'}"
+            )
+        registration.engine.validate_request(request)
 
 
 def create_voice_bridge() -> VoiceBridge:
