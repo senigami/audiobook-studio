@@ -1,5 +1,7 @@
 """Progress and artifact reconciliation helpers."""
 
+from __future__ import annotations
+
 from app.domain.artifacts.manifest import build_artifact_manifest
 
 

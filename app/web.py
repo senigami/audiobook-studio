@@ -309,7 +309,9 @@ def startup_event():
     # 3. Register job listener for WebSocket updates
     from .state import add_job_listener
     from .api.ws import broadcast_job_updated
+    from .orchestration.progress.broadcaster import configure_progress_broadcaster
     add_job_listener(broadcast_job_updated)
+    configure_progress_broadcaster(lambda payload, _channel: manager.broadcast(payload))
     logger.info("Startup: Job listeners registered.")
 
     # 4. Restore Pause State
@@ -322,7 +324,9 @@ def startup_event():
 
 @app.on_event("shutdown")
 def shutdown_event():
+    from .orchestration.progress.broadcaster import configure_progress_broadcaster
     from .engines import terminate_all_subprocesses
+    configure_progress_broadcaster(None)
     terminate_all_subprocesses()
 
 async def xtts_generate(*args, **kwargs):

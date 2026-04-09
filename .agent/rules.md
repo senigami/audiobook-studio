@@ -9,6 +9,7 @@ Use this file as the quick summary, then read the focused rule files in `.agent/
 - Verify changes with the relevant tests and linting before calling work complete.
 - Use the local `./venv` for backend tooling.
 - Update tests when behavior or logic changes.
+- If you discover a concrete bug or regression risk while reviewing your own work, fix it immediately in the same pass instead of waiting for a separate user prompt.
 - Keep implementation docs, wiki pages, and `wiki/Changelog.md` aligned with shipped behavior.
 - Treat project paths, asset paths, and output publication as security-sensitive and correctness-sensitive surfaces.
 - For Studio 2.0 work, follow the plan set in `plans/` as architecture constraints, not optional ideas.

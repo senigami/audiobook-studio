@@ -1,0 +1,106 @@
+from app.orchestration.progress.eta import estimate_eta_seconds, _select_eta_baseline
+from app.orchestration.progress.service import ProgressService
+
+
+def _make_service():
+    events: list[tuple[dict[str, object], str]] = []
+    now = {"value": 100.0}
+
+    def clock() -> float:
+        return now["value"]
+
+    def broadcaster(*, payload: dict[str, object], channel: str) -> None:
+        events.append((payload, channel))
+
+    service = ProgressService(
+        reconcile_fn=lambda **kwargs: kwargs,
+        eta_fn=estimate_eta_seconds,
+        broadcaster=broadcaster,
+        clock=clock,
+        max_silence_seconds=10.0,
+    )
+    return service, events, now
+
+
+def test_publish_throttles_small_progress_churn():
+    service, events, now = _make_service()
+
+    emitted = service.publish(
+        job_id="job-1",
+        status="running",
+        progress=0.2,
+        eta_seconds=30,
+        message="Rendering",
+    )
+    assert emitted is not None
+    assert emitted["progress"] == 0.2
+    assert events == [(emitted, "jobs")]
+
+    now["value"] += 1.0
+    throttled = service.publish(
+        job_id="job-1",
+        status="running",
+        progress=0.204,
+        eta_seconds=30,
+        message="Rendering",
+    )
+    assert throttled is None
+    assert len(events) == 1
+
+    now["value"] += 1.0
+    emitted_again = service.publish(
+        job_id="job-1",
+        status="running",
+        progress=0.28,
+        eta_seconds=29,
+        message="Rendering",
+    )
+    assert emitted_again is not None
+    assert emitted_again["progress"] == 0.28
+    assert len(events) == 2
+
+
+def test_publish_emits_heartbeat_after_silence():
+    service, events, now = _make_service()
+
+    service.publish(
+        job_id="job-2",
+        status="running",
+        progress=0.4,
+        eta_seconds=20,
+        message="Rendering",
+    )
+    assert len(events) == 1
+
+    now["value"] += 11.0
+    repeated = service.publish(
+        job_id="job-2",
+        status="running",
+        progress=0.4,
+        eta_seconds=20,
+        message="Rendering",
+    )
+    assert repeated is not None
+    assert len(events) == 2
+
+
+def test_monotonic_progress_and_eta_selection():
+    service, _, _ = _make_service()
+
+    assert service._normalize_monotonic_progress(job_id="job-3", completed_units=2, total_units=10) == 0.2
+    assert service._normalize_monotonic_progress(job_id="job-3", completed_units=1, total_units=10) == 0.2
+    assert estimate_eta_seconds(completed_units=80, total_units=100, observed_cps=1.0, baseline_cps=0.5) == 20
+    assert estimate_eta_seconds(completed_units=80, total_units=100, observed_cps=0.05, baseline_cps=0.5) == 40
+    assert _select_eta_baseline(observed_cps=0.05, baseline_cps=0.5) == 0.5
+
+
+def test_estimate_eta_does_not_advance_published_progress_floor():
+    service, _, _ = _make_service()
+
+    eta = service.estimate_eta(job_id="job-4", completed_units=8, total_units=10, observed_cps=1.0)
+    assert eta == 2
+    assert "job-4" not in service._last_progress_by_job
+
+    emitted = service.publish(job_id="job-4", status="running", progress=0.4, eta_seconds=eta)
+    assert emitted is not None
+    assert emitted["progress"] == 0.4

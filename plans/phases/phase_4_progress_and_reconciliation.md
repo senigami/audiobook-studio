@@ -44,6 +44,8 @@ Build trustworthy progress, ETA, and artifact reconciliation before the orchestr
 - `app.api.ws` should become the transport adapter for a normalized event contract, not the place where progress semantics live.
 - frontend live job handling should accept both the normalized event envelope and the legacy queue-update payloads until hydration and reconnect flows are in place.
 - worker-local progress calculations should be treated as compatibility inputs to the new progress service, not as the final source of truth.
+- progress throttling and heartbeat decisions belong in `ProgressService`; the broadcaster should stay transport-only.
+- reconciliation is still the next structural slice after the progress service lands, and it should be reviewed as a separate risk area rather than folded into the broadcaster work.
 
 ## Tests
 
