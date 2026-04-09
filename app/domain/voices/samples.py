@@ -4,6 +4,8 @@ Sample flows are intentionally separated from project rendering so sample
 creation, voice tests, and library previews can evolve independently.
 """
 
+from __future__ import annotations
+
 from .models import VoicePreviewRequestModel, VoiceProfileModel
 
 
@@ -13,21 +15,13 @@ def build_voice_sample_request(
     script_text: str,
     engine_id: str | None = None,
 ) -> VoicePreviewRequestModel:
-    """Describe how a reusable voice sample request should be assembled.
+    """Assemble a reusable voice sample request."""
 
-    Args:
-        profile: Reusable voice identity that the sample should use.
-        script_text: Preview or sample script text selected by the user.
-        engine_id: Optional explicit engine override for the sample flow.
-
-    Returns:
-        VoicePreviewRequestModel: Canonical sample request payload.
-
-    Raises:
-        NotImplementedError: Phase 1 scaffold only.
-    """
-    _ = _resolve_sample_engine(profile=profile, engine_id=engine_id)
-    raise NotImplementedError
+    return VoicePreviewRequestModel(
+        voice_profile_id=profile.id,
+        script_text=script_text.strip(),
+        engine_id=_resolve_sample_engine(profile=profile, engine_id=engine_id),
+    )
 
 
 def _resolve_sample_engine(
@@ -42,8 +36,6 @@ def _resolve_sample_engine(
     Returns:
         str | None: Engine identifier the sample flow should target.
 
-    Raises:
-        NotImplementedError: Phase 1 scaffold only.
     """
-    _ = profile
-    raise NotImplementedError
+    resolved_engine = (engine_id or "").strip()
+    return resolved_engine or profile.default_engine_id

@@ -1,5 +1,7 @@
 """Job repository boundary."""
 
+from __future__ import annotations
+
 from typing import Iterable, Protocol
 
 from .models import JobModel

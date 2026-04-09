@@ -7,6 +7,8 @@ Intended responsibility:
 Legacy source of truth remains in the current DB modules for now.
 """
 
+from __future__ import annotations
+
 from typing import Iterable, Protocol
 
 from .models import ProjectModel, ProjectSnapshotModel
@@ -36,3 +38,6 @@ class ProjectRepository(Protocol):
         self, snapshot: ProjectSnapshotModel
     ) -> ProjectSnapshotModel:
         """Persist a project snapshot and return the stored snapshot."""
+
+    def list_snapshots(self, project_id: str) -> Iterable[ProjectSnapshotModel]:
+        """List stored snapshots for a project in newest-first order."""

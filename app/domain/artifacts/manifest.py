@@ -3,82 +3,153 @@
 The manifest is what lets Studio 2.0 tell a valid artifact from stale output.
 """
 
-from .models import ArtifactManifestModel
+from __future__ import annotations
+
+import hashlib
+import json
+from typing import Any
+
+from .models import ArtifactManifestModel, ArtifactOutputModel
+
+
+def build_artifact_request_fingerprint(
+    *,
+    manifest_version: int = 1,
+    source_revision_id: str,
+    engine_id: str,
+    engine_version: str | None = None,
+    voice_asset_id: str | None = None,
+    block_revision_hash: str,
+    text_hash: str,
+    settings_hash: str,
+    chapter_id: str | None = None,
+    project_id: str | None = None,
+) -> str:
+    """Build the stable request fingerprint for an artifact render request."""
+
+    payload = {
+        "manifest_version": manifest_version,
+        "source_revision_id": source_revision_id,
+        "engine_id": engine_id,
+        "engine_version": engine_version,
+        "voice_asset_id": voice_asset_id,
+        "block_revision_hash": block_revision_hash,
+        "text_hash": text_hash,
+        "settings_hash": settings_hash,
+        "chapter_id": chapter_id,
+        "project_id": project_id,
+    }
+    return _sha256_json(payload)
 
 
 def build_artifact_manifest(
     *,
-    manifest_version: int = 1,
-    content_hash: str,
+    artifact_hash: str,
     source_revision_id: str,
     engine_id: str,
+    block_revision_hash: str,
+    text_hash: str,
+    settings_hash: str,
+    output: ArtifactOutputModel,
+    manifest_version: int = 1,
+    request_fingerprint: str | None = None,
     engine_version: str | None = None,
-    model_revision: str | None = None,
-    voice_profile_id: str | None = None,
+    voice_asset_id: str | None = None,
     chapter_id: str | None = None,
+    project_id: str | None = None,
 ) -> ArtifactManifestModel:
-    """Build the validation manifest for a rendered artifact.
+    """Build the validation manifest for a rendered artifact."""
 
-    Args:
-        manifest_version: Version of the artifact manifest schema and hashing
-            contract.
-        content_hash: Hash of the synthesized content inputs.
-        source_revision_id: Source revision that produced the artifact.
-        engine_id: Engine identifier used for synthesis.
-        engine_version: Optional engine wrapper or runtime version identifier.
-        model_revision: Optional engine model revision or model hash used for
-            synthesis consistency checks.
-        voice_profile_id: Optional voice profile identifier used for synthesis.
-        chapter_id: Optional chapter identifier owning the artifact.
-
-    Returns:
-        ArtifactManifestModel: Validation manifest stored beside the artifact.
-
-    Raises:
-        NotImplementedError: Phase 1 scaffold only.
-    """
-    _ = _build_manifest_hash_input(
+    fingerprint = request_fingerprint or build_artifact_request_fingerprint(
         manifest_version=manifest_version,
-        content_hash=content_hash,
         source_revision_id=source_revision_id,
         engine_id=engine_id,
         engine_version=engine_version,
-        model_revision=model_revision,
-        voice_profile_id=voice_profile_id,
+        voice_asset_id=voice_asset_id,
+        block_revision_hash=block_revision_hash,
+        text_hash=text_hash,
+        settings_hash=settings_hash,
         chapter_id=chapter_id,
+        project_id=project_id,
     )
-    raise NotImplementedError
+    return ArtifactManifestModel(
+        manifest_version=manifest_version,
+        artifact_hash=artifact_hash,
+        request_fingerprint=fingerprint,
+        engine_id=engine_id,
+        engine_version=engine_version,
+        voice_asset_id=voice_asset_id,
+        block_revision_hash=block_revision_hash,
+        text_hash=text_hash,
+        settings_hash=settings_hash,
+        output=output,
+        source_revision_id=source_revision_id,
+        chapter_id=chapter_id,
+        project_id=project_id,
+    )
 
 
-def _build_manifest_hash_input(
+def is_artifact_stale(
     *,
-    manifest_version: int,
-    content_hash: str,
+    manifest: ArtifactManifestModel,
     source_revision_id: str,
     engine_id: str,
-    engine_version: str | None,
-    model_revision: str | None,
-    voice_profile_id: str | None,
-    chapter_id: str | None,
-) -> str:
-    """Describe the deterministic fields that feed artifact manifest hashing.
+    block_revision_hash: str,
+    text_hash: str,
+    settings_hash: str,
+    engine_version: str | None = None,
+    voice_asset_id: str | None = None,
+    chapter_id: str | None = None,
+    project_id: str | None = None,
+) -> bool:
+    """Return True when the stored artifact manifest no longer matches."""
 
-    Args:
-        manifest_version: Version of the artifact manifest schema and hashing
-            contract.
-        content_hash: Hash of the synthesized content inputs.
-        source_revision_id: Source revision that produced the artifact.
-        engine_id: Engine identifier used for synthesis.
-        engine_version: Optional engine wrapper or runtime version identifier.
-        model_revision: Optional engine model revision or model hash used for
-            synthesis consistency checks.
-        voice_profile_id: Optional voice profile identifier used for synthesis.
-        chapter_id: Optional chapter identifier owning the artifact.
+    expected_fingerprint = build_artifact_request_fingerprint(
+        manifest_version=manifest.manifest_version,
+        source_revision_id=source_revision_id,
+        engine_id=engine_id,
+        engine_version=engine_version,
+        voice_asset_id=voice_asset_id,
+        block_revision_hash=block_revision_hash,
+        text_hash=text_hash,
+        settings_hash=settings_hash,
+        chapter_id=chapter_id,
+        project_id=project_id,
+    )
+    return manifest.request_fingerprint != expected_fingerprint
 
-    Returns:
-        str: Deterministic manifest-hash input string.
 
-    Raises:
-        NotImplementedError: Phase 1 scaffold only.
-    """
-    raise NotImplementedError
+def validate_artifact_manifest(
+    *,
+    manifest: ArtifactManifestModel,
+    source_revision_id: str,
+    engine_id: str,
+    block_revision_hash: str,
+    text_hash: str,
+    settings_hash: str,
+    engine_version: str | None = None,
+    voice_asset_id: str | None = None,
+    chapter_id: str | None = None,
+    project_id: str | None = None,
+) -> None:
+    """Raise ValueError when the manifest does not match the requested revision."""
+
+    if is_artifact_stale(
+        manifest=manifest,
+        source_revision_id=source_revision_id,
+        engine_id=engine_id,
+        block_revision_hash=block_revision_hash,
+        text_hash=text_hash,
+        settings_hash=settings_hash,
+        engine_version=engine_version,
+        voice_asset_id=voice_asset_id,
+        chapter_id=chapter_id,
+        project_id=project_id,
+    ):
+        raise ValueError("Artifact manifest is stale for the requested revision.")
+
+
+def _sha256_json(payload: dict[str, Any]) -> str:
+    return "sha256:" + hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+    ).hexdigest()

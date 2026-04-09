@@ -1,40 +1,56 @@
 """Settings ownership models."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass(frozen=True)
 class SettingsOwnershipModel:
-    """Placeholder settings ownership contract.
-
-    This will eventually describe which settings belong to:
-    - the whole app
-    - a project
-    - an installed voice module
-    - a voice profile preview/test surface
-    """
+    """Explicit settings ownership contract."""
 
     scope: str
     owner: str
     description: str
+    precedence: int
 
 
-@dataclass(frozen=True)
+@dataclass
 class EffectiveSettingsModel:
     """Resolved settings after applying the Studio 2.0 ownership chain."""
 
     scope_chain: list[str] = field(default_factory=list)
-    values: dict[str, object] = field(default_factory=dict)
+    values: dict[str, Any] = field(default_factory=dict)
+    source_scopes: list[str] = field(default_factory=list)
 
 
 def describe_settings_ownership() -> list[SettingsOwnershipModel]:
-    """Describe the intended Studio 2.0 settings ownership hierarchy.
+    """Describe the intended Studio 2.0 settings ownership hierarchy."""
 
-    Returns:
-        list[SettingsOwnershipModel]: Ordered settings scopes from broadest to
-        most specific.
-
-    Raises:
-        NotImplementedError: Phase 1 scaffold does not define concrete rules.
-    """
-    raise NotImplementedError
+    return [
+        SettingsOwnershipModel(
+            scope="global",
+            owner="app",
+            description="Application-wide defaults and safety settings.",
+            precedence=0,
+        ),
+        SettingsOwnershipModel(
+            scope="project",
+            owner="project",
+            description="Project-local defaults and library-level overrides.",
+            precedence=1,
+        ),
+        SettingsOwnershipModel(
+            scope="module",
+            owner="installed_voice_module",
+            description="Settings owned by an installed voice module or engine wrapper.",
+            precedence=2,
+        ),
+        SettingsOwnershipModel(
+            scope="profile_preview",
+            owner="voice_profile_preview",
+            description="Preview and test-only overrides for a specific voice profile.",
+            precedence=3,
+        ),
+    ]

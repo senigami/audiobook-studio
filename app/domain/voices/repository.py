@@ -10,6 +10,8 @@ Phase 1 note:
 - Existing voice persistence behavior remains legacy-backed for now.
 """
 
+from __future__ import annotations
+
 from typing import Iterable, Protocol
 
 from .models import VoiceAssetModel, VoiceProfileModel

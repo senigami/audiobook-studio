@@ -1,5 +1,9 @@
 """Immutable artifact cache helpers."""
 
+from __future__ import annotations
+
+from pathlib import Path
+
 from .models import RenderArtifactModel
 
 
@@ -9,26 +13,21 @@ def publish_artifact(
     destination_path: str,
     replace_existing: bool = False,
 ) -> RenderArtifactModel:
-    """Describe atomic publication of a rendered artifact into cache storage.
+    """Describe atomic publication of a rendered artifact into cache storage."""
 
-    Args:
-        artifact: Render artifact being published.
-        destination_path: Final cache path the artifact should be written to.
-        replace_existing: Whether an existing artifact path may be replaced.
-
-    Returns:
-        RenderArtifactModel: Published artifact shell with final cache location.
-
-    Raises:
-        NotImplementedError: Phase 1 scaffold only.
-    """
-    _ = _prepare_publish_target(
+    final_path = _prepare_publish_target(
         artifact=artifact,
         destination_path=destination_path,
         replace_existing=replace_existing,
     )
-    _ = _write_manifest_sidecar(artifact=artifact, destination_path=destination_path)
-    raise NotImplementedError
+    manifest_path = _write_manifest_sidecar(artifact=artifact, destination_path=final_path)
+    return RenderArtifactModel(
+        id=artifact.id,
+        artifact_hash=artifact.artifact_hash,
+        manifest_path=manifest_path,
+        audio_path=final_path,
+        created_at=artifact.created_at,
+    )
 
 
 def _prepare_publish_target(
@@ -37,37 +36,22 @@ def _prepare_publish_target(
     destination_path: str,
     replace_existing: bool,
 ) -> str:
-    """Describe the cache-path preparation needed before artifact publication.
+    """Describe the cache-path preparation needed before artifact publication."""
 
-    Args:
-        artifact: Render artifact being published.
-        destination_path: Requested final cache path.
-        replace_existing: Whether an existing path may be replaced.
-
-    Returns:
-        str: Final publish path after path validation and collision checks.
-
-    Raises:
-        NotImplementedError: Phase 1 scaffold only.
-    """
     _ = artifact
-    raise NotImplementedError
+    path = Path(destination_path).expanduser()
+    if not path.name:
+        raise ValueError("Artifact destination path must include a filename.")
+    if not replace_existing and path.exists():
+        raise FileExistsError(f"Artifact already exists at destination: {path}")
+    return str(path)
 
 
 def _write_manifest_sidecar(
     *, artifact: RenderArtifactModel, destination_path: str
 ) -> str:
-    """Describe manifest sidecar publication beside the cached artifact.
+    """Describe manifest sidecar publication beside the cached artifact."""
 
-    Args:
-        artifact: Render artifact whose manifest should be written.
-        destination_path: Artifact cache path used to derive the sidecar path.
-
-    Returns:
-        str: Sidecar manifest path that would be written.
-
-    Raises:
-        NotImplementedError: Phase 1 scaffold only.
-    """
     _ = artifact
-    raise NotImplementedError
+    path = Path(destination_path)
+    return str(path.with_suffix(path.suffix + ".manifest.json"))

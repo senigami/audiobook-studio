@@ -2,9 +2,11 @@
 
 This is where project creation, validation, defaults, and snapshot behavior
 will eventually live.
-
-For Phase 1, the module exists only to define the boundary.
 """
+
+from __future__ import annotations
+
+import uuid
 
 from .models import ProjectExportManifestModel, ProjectModel, ProjectSnapshotModel
 from .exports import build_project_export_manifest
@@ -46,8 +48,7 @@ class ProjectService:
         Raises:
             NotImplementedError: Phase 1 scaffold only.
         """
-        _ = self.repository
-        raise NotImplementedError("Studio 2.0 project reads are not implemented yet.")
+        return list(self.repository.list_all())
 
     def get_project(
         self, project_id: str, *, include_snapshot: bool = False
@@ -65,9 +66,8 @@ class ProjectService:
         Raises:
             NotImplementedError: Phase 1 scaffold only.
         """
-        _ = self._load_project(project_id=project_id)
         _ = include_snapshot
-        raise NotImplementedError("Studio 2.0 project reads are not implemented yet.")
+        return self._load_project(project_id=project_id)
 
     def prepare_project_defaults(
         self,
@@ -89,12 +89,11 @@ class ProjectService:
         Raises:
             NotImplementedError: Phase 1 scaffold only.
         """
-        _ = self._build_default_project(
+        return self._build_default_project(
             name=name,
             author=author,
             series=series,
         )
-        raise NotImplementedError("Studio 2.0 project defaults are not implemented yet.")
 
     def create_snapshot(
         self, project_id: str, *, include_chapter_audio: bool = True
@@ -113,7 +112,6 @@ class ProjectService:
             NotImplementedError: Phase 1 scaffold only.
         """
         project = self._load_project(project_id=project_id)
-        _ = build_project_snapshot
         _ = self._collect_snapshot_inputs(
             project=project,
             include_chapter_audio=include_chapter_audio,
@@ -144,7 +142,6 @@ class ProjectService:
             NotImplementedError: Phase 1 scaffold only.
         """
         project = self._load_project(project_id=project_id)
-        _ = build_project_export_manifest
         _ = self._resolve_export_inputs(
             project=project,
             format_id=format_id,
@@ -164,8 +161,10 @@ class ProjectService:
         Raises:
             NotImplementedError: Phase 1 scaffold only.
         """
-        _ = self.repository
-        raise NotImplementedError("Studio 2.0 project loading is not implemented yet.")
+        project = self.repository.get(project_id)
+        if project is None:
+            raise KeyError(f"Project not found: {project_id}")
+        return project
 
     def _build_default_project(
         self,
@@ -187,8 +186,12 @@ class ProjectService:
         Raises:
             NotImplementedError: Phase 1 scaffold only.
         """
-        _ = self.repository
-        raise NotImplementedError("Studio 2.0 default project preparation is not implemented yet.")
+        return ProjectModel(
+            id=f"project_{uuid.uuid4().hex[:12]}",
+            title=name.strip() or "Untitled Project",
+            author=author.strip() if author else None,
+            series=series.strip() if series else None,
+        )
 
     def _collect_snapshot_inputs(
         self,

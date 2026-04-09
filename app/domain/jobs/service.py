@@ -4,6 +4,8 @@ This module will own canonical job-state reads and state transitions that are
 separate from live progress overlays.
 """
 
+from __future__ import annotations
+
 from .models import JobModel
 from .repository import JobRepository
 
@@ -26,8 +28,10 @@ class JobService:
         Raises:
             NotImplementedError: Phase 1 scaffold only.
         """
-        _ = self.repository
-        raise NotImplementedError("Studio 2.0 job reads are not implemented yet.")
+        job = self.repository.get(job_id)
+        if job is None:
+            raise KeyError(f"Job not found: {job_id}")
+        return job
 
 
 def create_job_service(repository: JobRepository) -> JobService:

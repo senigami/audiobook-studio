@@ -4,6 +4,8 @@ This module describes the rules that decide whether a reusable voice profile,
 its engine-bound assets, and a requested engine can work together safely.
 """
 
+from __future__ import annotations
+
 from .models import VoiceAssetModel, VoiceProfileModel
 
 
@@ -13,33 +15,19 @@ def validate_voice_compatibility(
     engine_id: str | None,
     asset: VoiceAssetModel | None = None,
 ) -> None:
-    """Describe compatibility validation for a voice profile and engine.
+    """Validate compatibility for a voice profile and engine."""
 
-    Args:
-        profile: Reusable voice identity being evaluated.
-        engine_id: Target engine identifier requested by the caller.
-        asset: Optional engine-bound asset already associated with the profile.
-
-    Raises:
-        NotImplementedError: Phase 1 scaffold only.
-    """
-    _ = _validate_profile_defaults(profile=profile, engine_id=engine_id)
-    _ = _validate_asset_requirements(profile=profile, engine_id=engine_id, asset=asset)
-    raise NotImplementedError
+    _validate_profile_defaults(profile=profile, engine_id=engine_id)
+    _validate_asset_requirements(profile=profile, engine_id=engine_id, asset=asset)
 
 
 def _validate_profile_defaults(*, profile: VoiceProfileModel, engine_id: str) -> None:
-    """Describe default-engine compatibility checks for a voice profile.
+    """Validate default-engine compatibility checks for a voice profile."""
 
-    Args:
-        profile: Reusable voice identity being evaluated.
-        engine_id: Optional target engine identifier requested by the caller.
-
-    Raises:
-        NotImplementedError: Phase 1 scaffold only.
-    """
-    _ = (profile, engine_id)
-    raise NotImplementedError
+    if engine_id is None and profile.default_engine_id is None:
+        raise ValueError("A voice profile must define or receive a target engine.")
+    if engine_id is not None and profile.default_engine_id is not None and engine_id != profile.default_engine_id:
+        return
 
 
 def _validate_asset_requirements(
@@ -48,15 +36,11 @@ def _validate_asset_requirements(
     engine_id: str | None,
     asset: VoiceAssetModel | None,
 ) -> None:
-    """Describe asset-level requirements for the requested engine.
+    """Validate asset-level requirements for the requested engine."""
 
-    Args:
-        profile: Reusable voice identity being evaluated.
-        engine_id: Target engine identifier requested by the caller.
-        asset: Optional engine-bound asset already associated with the profile.
-
-    Raises:
-        NotImplementedError: Phase 1 scaffold only.
-    """
-    _ = (profile, engine_id, asset)
-    raise NotImplementedError
+    if asset is None:
+        return
+    if asset.voice_profile_id != profile.id:
+        raise ValueError("Voice asset does not belong to the requested profile.")
+    if engine_id is not None and asset.engine_id != engine_id:
+        raise ValueError("Voice asset is not compatible with the requested engine.")

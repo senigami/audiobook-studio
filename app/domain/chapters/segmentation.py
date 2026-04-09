@@ -1,12 +1,6 @@
-"""Chapter segmentation helpers.
+"""Chapter segmentation helpers."""
 
-This module is intentionally separate from drafting and batching so we keep:
-- text-to-block editorial segmentation
-- stable block identity reconciliation
-- render-batch derivation
-
-as distinct concerns.
-"""
+from __future__ import annotations
 
 from collections.abc import Sequence
 
@@ -19,39 +13,34 @@ def segment_chapter_text(
     raw_text: str,
     prior_blocks: Sequence[ProductionBlockModel] | None = None,
 ) -> list[ProductionBlockModel]:
-    """Describe the editorial segmentation boundary for chapter text.
+    """Segment raw chapter text into editorial blocks."""
 
-    Args:
-        chapter_id: Stable chapter identifier owning the text.
-        raw_text: Raw chapter text to segment into editorial blocks.
-        prior_blocks: Optional prior revision blocks used to preserve semantic
-            continuity where possible.
-
-    Returns:
-        list[ProductionBlockModel]: Candidate editorial blocks before draft
-        reconciliation and persistence.
-
-    Raises:
-        NotImplementedError: Phase 1 scaffold only.
-    """
-    _ = _split_text_by_editorial_rules(raw_text=raw_text)
-    _ = _reconcile_segment_identity(chapter_id=chapter_id, prior_blocks=prior_blocks or [])
-    raise NotImplementedError
+    candidate_blocks = _split_text_by_editorial_rules(raw_text=raw_text)
+    reconciled = _reconcile_segment_identity(chapter_id=chapter_id, prior_blocks=candidate_blocks)
+    if prior_blocks is None:
+        return reconciled
+    return _merge_with_prior_blocks(chapter_id=chapter_id, candidate_blocks=reconciled, prior_blocks=prior_blocks)
 
 
 def _split_text_by_editorial_rules(*, raw_text: str) -> list[ProductionBlockModel]:
-    """Describe the first-pass segmentation rules for chapter text.
+    """Split chapter text on blank lines into ordered blocks."""
 
-    Args:
-        raw_text: Raw chapter text supplied by import or editor flows.
-
-    Returns:
-        list[ProductionBlockModel]: Candidate blocks before identity merge.
-
-    Raises:
-        NotImplementedError: Phase 1 scaffold only.
-    """
-    raise NotImplementedError
+    blocks: list[ProductionBlockModel] = []
+    chunks = [chunk.strip() for chunk in raw_text.replace("\r\n", "\n").split("\n\n") if chunk.strip()]
+    if not chunks and raw_text.strip():
+        chunks = [raw_text.strip()]
+    for index, chunk in enumerate(chunks):
+        blocks.append(
+            ProductionBlockModel(
+                id=f"segment_{index + 1}",
+                chapter_id="",
+                order_index=index,
+                stable_key=f"segment_{index + 1}",
+                text=chunk,
+                normalized_text=chunk,
+            )
+        )
+    return blocks
 
 
 def _reconcile_segment_identity(
@@ -59,17 +48,70 @@ def _reconcile_segment_identity(
     chapter_id: str,
     prior_blocks: Sequence[ProductionBlockModel],
 ) -> list[ProductionBlockModel]:
-    """Describe identity reconciliation for segmented chapter blocks.
+    """Attach chapter ownership and preserve identity for segmented blocks."""
 
-    Args:
-        chapter_id: Stable chapter identifier owning the segmented text.
-        prior_blocks: Prior revision blocks used to preserve stable identity.
+    reconciled: list[ProductionBlockModel] = []
+    for index, block in enumerate(prior_blocks):
+        reconciled.append(
+            ProductionBlockModel(
+                id=block.id or f"{chapter_id}_block_{index + 1}",
+                chapter_id=chapter_id,
+                order_index=block.order_index if block.order_index is not None else index,
+                stable_key=block.stable_key or f"{chapter_id}_block_{index + 1}",
+                text=block.text,
+                normalized_text=block.normalized_text or block.text,
+                character_id=block.character_id,
+                voice_assignment_id=block.voice_assignment_id,
+                render_revision_hash=block.render_revision_hash,
+                last_rendered_artifact_id=block.last_rendered_artifact_id,
+                status=block.status,
+                last_error=block.last_error,
+                resolved_engine_id=block.resolved_engine_id,
+                resolved_engine_version=block.resolved_engine_version,
+                synthesis_settings=block.synthesis_settings,
+                normalization_settings=block.normalization_settings,
+                post_processing_settings=block.post_processing_settings,
+                estimated_work_weight=block.estimated_work_weight,
+            )
+        )
+    return reconciled
 
-    Returns:
-        list[ProductionBlockModel]: Identity-aware candidate blocks.
 
-    Raises:
-        NotImplementedError: Phase 1 scaffold only.
-    """
-    _ = chapter_id
-    raise NotImplementedError
+def _merge_with_prior_blocks(
+    *,
+    chapter_id: str,
+    candidate_blocks: Sequence[ProductionBlockModel],
+    prior_blocks: Sequence[ProductionBlockModel],
+) -> list[ProductionBlockModel]:
+    """Carry forward prior metadata when the current text still aligns."""
+
+    prior_by_text = {block.stable_text: block for block in prior_blocks}
+    merged: list[ProductionBlockModel] = []
+    for index, block in enumerate(candidate_blocks):
+        prior = prior_by_text.get(block.stable_text)
+        if prior is None:
+            merged.append(block)
+            continue
+        merged.append(
+            ProductionBlockModel(
+                id=prior.id,
+                chapter_id=chapter_id,
+                order_index=index,
+                stable_key=prior.stable_key or block.stable_key,
+                text=block.text,
+                normalized_text=prior.normalized_text or block.normalized_text,
+                character_id=prior.character_id,
+                voice_assignment_id=prior.voice_assignment_id,
+                render_revision_hash=prior.render_revision_hash,
+                last_rendered_artifact_id=prior.last_rendered_artifact_id,
+                status=prior.status,
+                last_error=prior.last_error,
+                resolved_engine_id=prior.resolved_engine_id,
+                resolved_engine_version=prior.resolved_engine_version,
+                synthesis_settings=prior.synthesis_settings,
+                normalization_settings=prior.normalization_settings,
+                post_processing_settings=prior.post_processing_settings,
+                estimated_work_weight=prior.estimated_work_weight,
+            )
+        )
+    return merged

@@ -4,8 +4,14 @@ This module will own revision-safe artifact validation, reuse decisions, and
 cache publication coordination.
 """
 
+from __future__ import annotations
+
 from .cache import publish_artifact
-from .manifest import build_artifact_manifest
+from .manifest import (
+    build_artifact_manifest,
+    build_artifact_request_fingerprint,
+    is_artifact_stale,
+)
 from .models import ArtifactManifestModel, RenderArtifactModel
 from .repository import ArtifactRepository
 
@@ -44,8 +50,10 @@ class ArtifactService:
         Raises:
             NotImplementedError: Phase 1 scaffold only.
         """
-        _ = self.repository
-        raise NotImplementedError("Studio 2.0 artifact reads are not implemented yet.")
+        artifact = self.repository.get(artifact_hash)
+        if artifact is None:
+            raise KeyError(f"Artifact not found: {artifact_hash}")
+        return artifact
 
     def validate_reuse(
         self,
@@ -68,9 +76,47 @@ class ArtifactService:
         Raises:
             NotImplementedError: Phase 1 scaffold only.
         """
-        _ = build_artifact_manifest
-        _ = (artifact_hash, source_revision_id, content_hash)
-        raise NotImplementedError("Studio 2.0 artifact reuse validation is not implemented yet.")
+        manifest = self.repository.get_manifest(artifact_hash)
+        if manifest is None:
+            raise KeyError(f"Artifact manifest not found: {artifact_hash}")
+        requested_manifest = build_artifact_manifest(
+            artifact_hash=artifact_hash,
+            source_revision_id=source_revision_id,
+            engine_id=manifest.engine_id,
+            engine_version=manifest.engine_version,
+            voice_asset_id=manifest.voice_asset_id,
+            block_revision_hash=manifest.block_revision_hash,
+            text_hash=content_hash,
+            settings_hash=manifest.settings_hash,
+            output=manifest.output,
+            request_fingerprint=build_artifact_request_fingerprint(
+                source_revision_id=source_revision_id,
+                engine_id=manifest.engine_id,
+                engine_version=manifest.engine_version,
+                voice_asset_id=manifest.voice_asset_id,
+                block_revision_hash=manifest.block_revision_hash,
+                text_hash=content_hash,
+                settings_hash=manifest.settings_hash,
+                chapter_id=manifest.chapter_id,
+                project_id=manifest.project_id,
+            ),
+            chapter_id=manifest.chapter_id,
+            project_id=manifest.project_id,
+        )
+        if is_artifact_stale(
+            manifest=manifest,
+            source_revision_id=source_revision_id,
+            engine_id=manifest.engine_id,
+            block_revision_hash=manifest.block_revision_hash,
+            text_hash=content_hash,
+            settings_hash=manifest.settings_hash,
+            engine_version=manifest.engine_version,
+            voice_asset_id=manifest.voice_asset_id,
+            chapter_id=manifest.chapter_id,
+            project_id=manifest.project_id,
+        ):
+            raise ValueError("Artifact is stale for the requested revision.")
+        return requested_manifest
 
     def publish(
         self,
@@ -90,9 +136,8 @@ class ArtifactService:
         Raises:
             NotImplementedError: Phase 1 scaffold only.
         """
-        _ = publish_artifact
-        _ = (artifact, destination_path)
-        raise NotImplementedError("Studio 2.0 artifact publication is not implemented yet.")
+        published = publish_artifact(artifact=artifact, destination_path=destination_path)
+        return self.repository.save(published)
 
 
 def create_artifact_service(repository: ArtifactRepository) -> ArtifactService:

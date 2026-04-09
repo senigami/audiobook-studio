@@ -1,8 +1,10 @@
 """Chapter repository boundary."""
 
+from __future__ import annotations
+
 from typing import Iterable, Protocol
 
-from .models import ChapterDraftModel, ChapterModel, ProductionBlockModel
+from .models import ChapterDraftModel, ChapterModel, ProductionBlockModel, RenderBatchModel
 
 
 class ChapterRepository(Protocol):
@@ -32,3 +34,14 @@ class ChapterRepository(Protocol):
 
     def save_draft(self, draft: ChapterDraftModel) -> ChapterDraftModel:
         """Persist normalized editor draft state and return the saved draft."""
+
+    def list_batches(self, chapter_id: str) -> Iterable[RenderBatchModel]:
+        """Load derived render batches for a chapter."""
+
+    def save_batch(self, batch: RenderBatchModel) -> RenderBatchModel:
+        """Persist a derived render batch and return the stored batch."""
+
+    def save_batches(
+        self, chapter_id: str, batches: Iterable[RenderBatchModel]
+    ) -> None:
+        """Persist all derived render batches for a chapter revision."""
