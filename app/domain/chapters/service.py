@@ -7,6 +7,8 @@ Future responsibilities:
 - render-batch derivation
 """
 
+from __future__ import annotations
+
 from collections.abc import Sequence
 
 from .models import ChapterDraftModel, ChapterModel, ProductionBlockModel, RenderBatchModel
@@ -50,8 +52,7 @@ class ChapterService:
         Raises:
             NotImplementedError: Phase 1 scaffold only.
         """
-        _ = self.repository
-        raise NotImplementedError("Studio 2.0 chapter reads are not implemented yet.")
+        return list(self.repository.list_by_project(project_id))
 
     def get_chapter(
         self, chapter_id: str, *, include_blocks: bool = False
@@ -69,9 +70,10 @@ class ChapterService:
         Raises:
             NotImplementedError: Phase 1 scaffold only.
         """
-        _ = self._load_chapter(chapter_id=chapter_id)
-        _ = include_blocks
-        raise NotImplementedError("Studio 2.0 chapter reads are not implemented yet.")
+        chapter = self._load_chapter(chapter_id=chapter_id)
+        if include_blocks:
+            _ = self._load_blocks(chapter_id=chapter_id)
+        return chapter
 
     def normalize_draft(
         self,
@@ -95,13 +97,12 @@ class ChapterService:
             NotImplementedError: Phase 1 scaffold only.
         """
         existing_blocks = self._load_blocks(chapter_id=chapter_id)
-        _ = normalize_chapter_draft(
+        return normalize_chapter_draft(
             chapter_id=chapter_id,
             raw_text=raw_text,
             existing_blocks=existing_blocks,
             revision_id=revision_id,
         )
-        raise NotImplementedError("Studio 2.0 draft normalization is not implemented yet.")
 
     def save_blocks(
         self,
@@ -123,12 +124,13 @@ class ChapterService:
         Raises:
             NotImplementedError: Phase 1 scaffold only.
         """
-        _ = self._prepare_saved_draft(
+        draft = self._prepare_saved_draft(
             chapter_id=chapter_id,
             blocks=blocks,
             revision_id=revision_id,
         )
-        raise NotImplementedError("Studio 2.0 block persistence is not implemented yet.")
+        self.repository.save_blocks(chapter_id, draft.blocks)
+        return self.repository.save_draft(draft)
 
     def derive_batches(
         self, chapter_id: str, *, block_ids: Sequence[str] | None = None
@@ -148,8 +150,7 @@ class ChapterService:
         """
         chapter = self._load_chapter(chapter_id=chapter_id)
         blocks = self._load_blocks(chapter_id=chapter_id)
-        _ = derive_render_batches(chapter=chapter, blocks=blocks, block_ids=block_ids)
-        raise NotImplementedError("Studio 2.0 render-batch derivation is not implemented yet.")
+        return derive_render_batches(chapter=chapter, blocks=blocks, block_ids=block_ids)
 
     def _load_chapter(self, *, chapter_id: str) -> ChapterModel:
         """Load chapter metadata before domain operations run.
@@ -163,8 +164,10 @@ class ChapterService:
         Raises:
             NotImplementedError: Phase 1 scaffold only.
         """
-        _ = self.repository
-        raise NotImplementedError("Studio 2.0 chapter loading is not implemented yet.")
+        chapter = self.repository.get(chapter_id)
+        if chapter is None:
+            raise KeyError(f"Chapter not found: {chapter_id}")
+        return chapter
 
     def _load_blocks(self, *, chapter_id: str) -> list[ProductionBlockModel]:
         """Load ordered editorial blocks for chapter-level operations.
@@ -178,8 +181,7 @@ class ChapterService:
         Raises:
             NotImplementedError: Phase 1 scaffold only.
         """
-        _ = self.repository
-        raise NotImplementedError("Studio 2.0 chapter block loading is not implemented yet.")
+        return list(self.repository.list_blocks(chapter_id))
 
     def _prepare_saved_draft(
         self,
@@ -201,8 +203,9 @@ class ChapterService:
         Raises:
             NotImplementedError: Phase 1 scaffold only.
         """
-        _ = (chapter_id, blocks, revision_id)
-        raise NotImplementedError("Studio 2.0 draft save preparation is not implemented yet.")
+        ordered_blocks = sorted(list(blocks), key=lambda block: (block.order_index, block.id))
+        revision = revision_id or (ordered_blocks[0].render_revision_hash if ordered_blocks else None) or "draft"
+        return ChapterDraftModel(chapter_id=chapter_id, revision_id=revision, blocks=ordered_blocks)
 
 
 def create_chapter_service(repository: ChapterRepository) -> ChapterService:

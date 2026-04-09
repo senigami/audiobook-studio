@@ -28,11 +28,11 @@ export interface LiveJobsStore {
 export const createLiveJobsStore = (): LiveJobsStore => ({
   byId: {},
   applyEvent: (_event) => {
-    _ = [
+    consumeContractMarkers([
       INTENDED_UPSTREAM_CALLERS,
       INTENDED_DOWNSTREAM_DEPENDENCIES,
       FORBIDDEN_DIRECT_IMPORTS,
-    ];
+    ]);
     throw new Error('Studio 2.0 live job store is not implemented yet.');
   },
   seedFromSnapshot: (_events) => {
@@ -43,4 +43,4 @@ export const createLiveJobsStore = (): LiveJobsStore => ({
   },
 });
 
-const _ = (_value: unknown) => _value;
+const consumeContractMarkers = (..._values: readonly unknown[]) => undefined;

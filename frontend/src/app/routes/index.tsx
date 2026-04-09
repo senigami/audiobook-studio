@@ -38,7 +38,7 @@ export const createStudioRoutes = () => {
   // - compose providers and shell before route rendering begins
   // - create feature-first route boundaries
   // - compose them under the Studio 2.0 app shell
-  _ = [
+  consumeContractMarkers([
     INTENDED_UPSTREAM_CALLERS,
     INTENDED_DOWNSTREAM_DEPENDENCIES,
     FORBIDDEN_DIRECT_IMPORTS,
@@ -53,8 +53,8 @@ export const createStudioRoutes = () => {
     createChapterEditorRoute,
     createQueueRoute,
     createVoiceModulesRoute,
-  ];
+  ]);
   return [];
 };
 
-const _ = (_value: unknown) => _value;
+const consumeContractMarkers = (..._values: readonly unknown[]) => undefined;

@@ -20,14 +20,14 @@ export const createQueueRoute = () => {
   // Intended future flow:
   // - support both full-page queue inspection and companion-surface usage
   // - explain waiting reasons clearly without forcing users out of current work
-  _ = [
+  consumeContractMarkers([
     INTENDED_UPSTREAM_CALLERS,
     INTENDED_DOWNSTREAM_DEPENDENCIES,
     FORBIDDEN_DIRECT_IMPORTS,
     createHydrationCoordinator,
     createLiveJobsStore,
-  ];
+  ]);
   return null;
 };
 
-const _ = (_value: unknown) => _value;
+const consumeContractMarkers = (..._values: readonly unknown[]) => undefined;

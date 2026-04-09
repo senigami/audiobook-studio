@@ -6,6 +6,8 @@ Intended responsibility:
 - avoid leaking cache-path assumptions into orchestration or domain callers
 """
 
+from __future__ import annotations
+
 from typing import Iterable, Protocol
 
 from .models import ArtifactManifestModel, RenderArtifactModel

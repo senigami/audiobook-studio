@@ -3,6 +3,8 @@
 This module will own the explicit settings ownership model used by Studio 2.0.
 """
 
+from __future__ import annotations
+
 from .models import EffectiveSettingsModel, SettingsOwnershipModel
 from .ownership import build_settings_ownership_chain
 from .repository import SettingsRepository
@@ -39,8 +41,7 @@ class SettingsService:
         Raises:
             NotImplementedError: Phase 1 scaffold only.
         """
-        _ = build_settings_ownership_chain()
-        raise NotImplementedError("Studio 2.0 settings ownership is not implemented yet.")
+        return build_settings_ownership_chain()
 
     def get_effective_settings(
         self,
@@ -65,13 +66,12 @@ class SettingsService:
             NotImplementedError: Phase 1 scaffold only.
         """
         ownership = build_settings_ownership_chain()
-        _ = self._load_scope_chain(
+        scope_chain = self._load_scope_chain(
             project_id=project_id,
             module_id=module_id,
             profile_id=profile_id,
         )
-        _ = self._merge_scoped_values(ownership=ownership)
-        raise NotImplementedError("Studio 2.0 settings resolution is not implemented yet.")
+        return self._merge_scoped_values(ownership=ownership, scope_chain=scope_chain)
 
     def _load_scope_chain(
         self,
@@ -94,11 +94,22 @@ class SettingsService:
         Raises:
             NotImplementedError: Phase 1 scaffold only.
         """
-        _ = self.repository
-        raise NotImplementedError("Studio 2.0 settings scope loading is not implemented yet.")
+        scope_chain = [{"scope": "global", **self.repository.get_global()}]
+        if project_id is not None:
+            scope_chain.append({"scope": "project", **self.repository.get_project(project_id)})
+        if module_id is not None:
+            scope_chain.append({"scope": "module", **self.repository.get_module(module_id)})
+        if profile_id is not None:
+            scope_chain.append(
+                {"scope": "profile_preview", **self.repository.get_profile_preview(profile_id)}
+            )
+        return scope_chain
 
     def _merge_scoped_values(
-        self, *, ownership: list[SettingsOwnershipModel]
+        self,
+        *,
+        ownership: list[SettingsOwnershipModel],
+        scope_chain: list[dict[str, object]],
     ) -> EffectiveSettingsModel:
         """Merge the loaded scope chain into the final settings payload.
 
@@ -111,8 +122,21 @@ class SettingsService:
         Raises:
             NotImplementedError: Phase 1 scaffold only.
         """
-        _ = self.repository
-        raise NotImplementedError("Studio 2.0 scoped settings merge is not implemented yet.")
+        values: dict[str, object] = {}
+        source_scopes: list[str] = []
+        ownership_by_scope = {item.scope: item for item in ownership}
+        for scope_payload in scope_chain:
+            scope_name = str(scope_payload.get("scope") or "")
+            if scope_name:
+                source_scopes.append(scope_name)
+            values.update({k: v for k, v in scope_payload.items() if k != "scope"})
+            if scope_name not in ownership_by_scope:
+                continue
+        return EffectiveSettingsModel(
+            scope_chain=[item.scope for item in ownership],
+            values=values,
+            source_scopes=source_scopes,
+        )
 
 
 def create_settings_service(repository: SettingsRepository) -> SettingsService:

@@ -7,8 +7,8 @@ import { createStudioQueries } from '../../../../api/queries';
 import { createNotificationsStore } from '../../../../store/notifications';
 
 export const createVoiceModulesRoute = () => {
-  _ = [createStudioQueries, createNotificationsStore];
+  consumeContractMarkers([createStudioQueries, createNotificationsStore]);
   return null;
 };
 
-const _ = (_value: unknown) => _value;
+const consumeContractMarkers = (..._values: readonly unknown[]) => undefined;

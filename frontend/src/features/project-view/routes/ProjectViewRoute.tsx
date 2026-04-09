@@ -25,15 +25,15 @@ export const createProjectViewRoute = () => {
   // - act as the project operations hub
   // - keep project-local navigation visible while switching surfaces
   // - expose chapter readiness, queue state, export readiness, and recovery entry points
-  _ = [
+  consumeContractMarkers([
     INTENDED_UPSTREAM_CALLERS,
     INTENDED_DOWNSTREAM_DEPENDENCIES,
     FORBIDDEN_DIRECT_IMPORTS,
     createHydrationCoordinator,
     createStudioQueries,
     createLiveJobsStore,
-  ];
+  ]);
   return null;
 };
 
-const _ = (_value: unknown) => _value;
+const consumeContractMarkers = (..._values: readonly unknown[]) => undefined;

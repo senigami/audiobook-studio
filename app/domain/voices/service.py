@@ -4,6 +4,8 @@ This will eventually own voice profile creation, compatibility checks, and
 profile-level defaults. Engine-specific work stays behind the bridge.
 """
 
+from __future__ import annotations
+
 from .models import VoicePreviewRequestModel, VoiceProfileModel
 from .compatibility import validate_voice_compatibility
 from .preview import preview_voice_profile
@@ -43,8 +45,7 @@ class VoiceService:
         Raises:
             NotImplementedError: Phase 1 scaffold only.
         """
-        _ = self.repository
-        raise NotImplementedError("Studio 2.0 voice profile reads are not implemented yet.")
+        return list(self.repository.list_profiles())
 
     def get_voice_profile(self, voice_profile_id: str) -> VoiceProfileModel:
         """Read one reusable voice identity through the domain service.
@@ -58,8 +59,7 @@ class VoiceService:
         Raises:
             NotImplementedError: Phase 1 scaffold only.
         """
-        _ = self._load_voice_profile(voice_profile_id=voice_profile_id)
-        raise NotImplementedError("Studio 2.0 voice profile reads are not implemented yet.")
+        return self._load_voice_profile(voice_profile_id=voice_profile_id)
 
     def validate_profile_engine_compatibility(
         self,
@@ -78,12 +78,11 @@ class VoiceService:
             NotImplementedError: Phase 1 scaffold only.
         """
         profile = self._load_voice_profile(voice_profile_id=voice_profile_id)
-        _ = validate_voice_compatibility(
+        validate_voice_compatibility(
             profile=profile,
             engine_id=engine_id or profile.default_engine_id,
-            asset=None,
+            asset=self.repository.get_asset(profile.id, engine_id or profile.default_engine_id or ""),
         )
-        raise NotImplementedError("Studio 2.0 voice compatibility checks are not implemented yet.")
 
     def run_preview(self, request: VoicePreviewRequestModel) -> dict[str, object]:
         """Delegate preview or test synthesis requests through the voice domain.
@@ -99,8 +98,7 @@ class VoiceService:
             NotImplementedError: Phase 1 scaffold only.
         """
         resolved_request = self._resolve_preview_request(request=request)
-        _ = preview_voice_profile(request=resolved_request)
-        raise NotImplementedError("Studio 2.0 voice preview is not implemented yet.")
+        return preview_voice_profile(request=resolved_request)
 
     def _load_voice_profile(self, *, voice_profile_id: str) -> VoiceProfileModel:
         """Load one voice profile before validation or preview operations.
@@ -114,8 +112,10 @@ class VoiceService:
         Raises:
             NotImplementedError: Phase 1 scaffold only.
         """
-        _ = self.repository
-        raise NotImplementedError("Studio 2.0 voice profile loading is not implemented yet.")
+        profile = self.repository.get_profile(voice_profile_id)
+        if profile is None:
+            raise KeyError(f"Voice profile not found: {voice_profile_id}")
+        return profile
 
     def _resolve_preview_request(
         self, *, request: VoicePreviewRequestModel
@@ -132,12 +132,11 @@ class VoiceService:
             NotImplementedError: Phase 1 scaffold only.
         """
         profile = self._load_voice_profile(voice_profile_id=request.voice_profile_id)
-        _ = build_voice_sample_request(
+        return build_voice_sample_request(
             profile=profile,
             script_text=request.script_text,
             engine_id=request.engine_id,
         )
-        raise NotImplementedError("Studio 2.0 preview request resolution is not implemented yet.")
 
 
 def create_voice_service(repository: VoiceRepository) -> VoiceService:
