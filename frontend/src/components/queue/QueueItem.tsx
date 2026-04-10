@@ -74,7 +74,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     // Render-group metadata can arrive before the backend flips a grouped chapter job from
     // preparing into running. Keep the queue row in the backend's explicit status so the UI
     // does not start the active animation early just because group bookkeeping showed up.
-    const displayStatus = isCloudLike && status === 'finalizing' ? 'finalizing' : status;
+    const displayStatus = isCloudLike && status === 'finalizing' ? 'finalizing' : (showIndeterminateProgress ? 'preparing' : status);
     const [stableStarted, setStableStarted] = React.useState<number | null | undefined>(rawStarted);
     const [stableEta, setStableEta] = React.useState<number | null | undefined>(rawEtaSeconds);
 
@@ -177,7 +177,6 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                     status={displayStatus}
                     label={displayStatus === 'preparing' ? "Preparing..." : (displayStatus === 'finalizing' ? "Finalizing..." : "Processing...")}
                     predictive={true}
-                    indeterminateRunning={showIndeterminateProgress}
                     authoritativeFloor={isGroupedChapterJob}
                     checkpointMode={isGroupedChapterJob ? 'queue' : (job.segment_ids?.length || liveJob?.segment_ids?.length || liveJob?.active_segment_id ? 'segment' : 'default')}
                     evidenceWeightFraction={isGroupedChapterJob ? evidenceWeightFraction : 1}

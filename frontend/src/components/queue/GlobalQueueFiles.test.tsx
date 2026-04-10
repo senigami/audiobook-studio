@@ -8,7 +8,6 @@ vi.mock('../PredictiveProgressBar', () => ({
     predictive,
     startedAt,
     etaSeconds,
-    indeterminateRunning,
     status,
     authoritativeFloor,
     evidenceWeightFraction
@@ -17,7 +16,6 @@ vi.mock('../PredictiveProgressBar', () => ({
     predictive?: boolean;
     startedAt?: number;
     etaSeconds?: number;
-    indeterminateRunning?: boolean;
     status?: string;
     authoritativeFloor?: boolean;
     evidenceWeightFraction?: number;
@@ -28,7 +26,6 @@ vi.mock('../PredictiveProgressBar', () => ({
       data-predictive={String(!!predictive)}
       data-started-at={startedAt ?? ''}
       data-eta-seconds={etaSeconds ?? ''}
-      data-indeterminate-running={String(!!indeterminateRunning)}
       data-status={status ?? ''}
       data-authoritative-floor={String(!!authoritativeFloor)}
       data-evidence-weight-fraction={evidenceWeightFraction ?? ''}
@@ -134,8 +131,7 @@ describe('Global Queue Components', () => {
             );
 
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'true');
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-indeterminate-running', 'true');
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-status', 'running');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-status', 'preparing');
         });
 
         it('uses live segment progress for running voice build jobs', () => {

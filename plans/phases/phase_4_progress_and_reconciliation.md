@@ -73,6 +73,16 @@ Build trustworthy progress, ETA, and artifact reconciliation before the orchestr
 - persisted job snapshots now retain `reason_code`, `eta_confidence`, and active render batch metadata so `/api/jobs` no longer strips live overlay context during reconnect or fallback refreshes.
 - frontend hydration now has a typed coordinator placeholder instead of throw-only stubs so Phase 5 and Phase 6 can land reconnect behavior without inventing a new boundary.
 
+## Next Focus
+
+- migrate runtime ETA producers to emit the Studio 2.0 contract instead of legacy duration semantics
+- keep `started_at` immutable for a run and treat ETA updates as producer-authored runtime corrections
+- derive update significance in the producer, not the frontend
+- for XTTS-style segment updates, derive normalized update significance from processed characters versus the model-specific batch cap
+- do not expose model-specific batch caps or segment-count heuristics to the frontend
+- when a producer cannot provide a stronger signal, use a fallback update confidence around `0.8`
+- keep the frontend progress bar focused on two concerns only: remaining time to finish and how strongly a new ETA update should retime the visual model
+
 ## Exit Gate
 
 - progress and reuse logic are no longer worker-local assumptions

@@ -54,6 +54,24 @@ describe('ProgressBarTestPage', () => {
     expect(screen.getAllByText('0%').length).toBeGreaterThan(0)
   })
 
+  it('seeds startedAt to now when a preparing run becomes running without a handoff timestamp', async () => {
+    render(<ProgressBarTestPage />)
+
+    fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'preparing' } })
+    fireEvent.change(screen.getAllByLabelText('Progress')[0], { target: { value: '0.00' } })
+    fireEvent.change(screen.getAllByLabelText('ETA Seconds')[0], { target: { value: '120' } })
+    fireEvent.click(screen.getByText('Launch From Config'))
+
+    fireEvent.change(screen.getAllByRole('slider')[1], { target: { value: '1' } })
+    fireEvent.change(screen.getAllByLabelText('ETA Seconds')[1], { target: { value: '120' } })
+    fireEvent.change(screen.getByLabelText('Update Status'), { target: { value: 'running' } })
+    fireEvent.click(screen.getByText('Send Update'))
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/ETA:/).length).toBeGreaterThan(0)
+    })
+  })
+
   it('uses absolute live update fields instead of delta controls', async () => {
     render(<ProgressBarTestPage />)
 

@@ -7,13 +7,11 @@ vi.mock('../PredictiveProgressBar', () => ({
   PredictiveProgressBar: ({
     progress,
     status,
-    indeterminateRunning,
     authoritativeFloor,
     evidenceWeightFraction,
   }: {
     progress: number;
     status?: string;
-    indeterminateRunning?: boolean;
     authoritativeFloor?: boolean;
     evidenceWeightFraction?: number;
   }) => (
@@ -21,7 +19,6 @@ vi.mock('../PredictiveProgressBar', () => ({
       data-testid="progress-bar"
       data-progress={progress}
       data-status={status ?? ''}
-      data-indeterminate-running={String(!!indeterminateRunning)}
       data-authoritative-floor={String(!!authoritativeFloor)}
       data-evidence-weight-fraction={evidenceWeightFraction ?? ''}
     />
@@ -192,7 +189,7 @@ describe('ChapterList', () => {
 
     render(<ChapterList {...defaultProps} jobs={{ [liveJob.id]: liveJob }} chapters={[{ ...mockChapters[0], has_wav: false, audio_file_path: null, audio_status: 'processing' } as any]} />);
 
-    expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-status', 'running');
+    expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-status', 'preparing');
     expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0');
     expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-authoritative-floor', 'false');
   });

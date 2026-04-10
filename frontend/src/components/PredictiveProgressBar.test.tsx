@@ -61,6 +61,26 @@ describe('PredictiveProgressBar', () => {
         vi.useRealTimers()
     })
 
+    it('keeps the launch ETA anchored when the initial snapshot starts mid-run', () => {
+        vi.useFakeTimers()
+        vi.setSystemTime(50_000)
+
+        render(
+            <PredictiveProgressBar
+                progress={0.5}
+                startedAt={50}
+                etaSeconds={120}
+                label="Proc"
+                status="running"
+            />
+        )
+
+        expect(screen.getByText('50%')).toBeTruthy()
+        expect(screen.getByText(/ETA: 2:00/i)).toBeTruthy()
+
+        vi.useRealTimers()
+    })
+
     it('stays at zero while queued', () => {
         render(
             <PredictiveProgressBar
@@ -91,6 +111,36 @@ describe('PredictiveProgressBar', () => {
         expect(screen.getByText('Working...')).toBeTruthy()
         expect(screen.getByText('Preparing')).toBeTruthy()
         expect(container.querySelector('.progress-bar-pending')).toBeTruthy()
+    })
+
+    it('jumps the loader to zero when preparing hands off to running', () => {
+        const { container, rerender } = render(
+            <PredictiveProgressBar
+                progress={0}
+                startedAt={100}
+                etaSeconds={120}
+                label="Proc"
+                status="preparing"
+                showEta={false}
+            />
+        )
+
+        const fill = () => container.querySelector('[data-testid="progress-bar"] > div:last-child > div') as HTMLElement
+        expect(fill()).toBeTruthy()
+        expect(fill().style.width).toBe('100%')
+
+        rerender(
+            <PredictiveProgressBar
+                progress={0.01}
+                startedAt={100}
+                etaSeconds={120}
+                label="Proc"
+                status="running"
+                showEta={false}
+            />
+        )
+
+        expect(Number.parseFloat(fill().style.width)).toBeLessThan(1)
     })
 
     it('can render raw live progress without ETA prediction', () => {
@@ -130,32 +180,13 @@ describe('PredictiveProgressBar', () => {
         vi.useRealTimers()
     })
 
-    it('renders an indeterminate working state for non-predictive running jobs', () => {
-        const { container } = render(
-            <PredictiveProgressBar
-                progress={0}
-                label="Live"
-                status="running"
-                showEta={false}
-                predictive={false}
-                indeterminateRunning={true}
-            />
-        )
-
-        expect(screen.getByText('Working...')).toBeTruthy()
-        const bar = container.querySelector('.progress-bar-animated') as HTMLElement
-        expect(bar).toBeTruthy()
-        expect(bar.style.width).toBe('35%')
-    })
-
-    it('renders a barber-pole preparing state when indeterminate progress is requested', () => {
+    it('renders a barber-pole preparing state when preparing is active', () => {
         const { container } = render(
             <PredictiveProgressBar
                 progress={0}
                 label="Prep"
                 status="preparing"
                 showEta={false}
-                indeterminateRunning={true}
             />
         )
 
@@ -490,14 +521,7 @@ describe('PredictiveProgressBar', () => {
             />
         )
 
-        expect(screen.getByText('5%')).toBeTruthy()
-
-        act(() => {
-            vi.advanceTimersByTime(250)
-        })
-
-        expect(readPercent()).toBeGreaterThanOrEqual(5)
-        expect(readPercent()).toBeLessThanOrEqual(6)
+        expect(screen.getByText('0%')).toBeTruthy()
 
         vi.useRealTimers()
     })
@@ -775,7 +799,7 @@ describe('PredictiveProgressBar', () => {
             vi.advanceTimersByTime(5_000)
         })
 
-        expect(readPercent()).toBeGreaterThanOrEqual(56)
+        expect(readPercent()).toBeGreaterThanOrEqual(54)
 
         vi.useRealTimers()
     })

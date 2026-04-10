@@ -283,7 +283,6 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
                       predictive={true}
                       authoritativeFloor={true}
                       checkpointMode="segment"
-                      indeterminateRunning={false}
                       showEta={false}
                   />
               </div>
