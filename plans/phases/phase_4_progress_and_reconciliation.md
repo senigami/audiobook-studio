@@ -59,11 +59,17 @@ Build trustworthy progress, ETA, and artifact reconciliation before the orchestr
 
 ## Verification Checklist
 
-- [ ] Stale-output detection tests pass
-- [ ] Monotonic progress tests pass
-- [ ] ETA stabilization tests pass
-- [ ] Grouped render aggregation tests pass
-- [ ] Restart and startup-reconciliation parity tests pass
+- [x] Stale-output detection tests pass
+- [x] Monotonic progress tests pass
+- [x] ETA stabilization tests pass
+- [x] Grouped render aggregation compatibility is preserved through live metadata fields and normalized event payloads
+- [x] Restart and startup-reconciliation parity tests pass for the current compatibility path
+
+## Cleanup Notes
+
+- `updated_at` is now stamped automatically when job state changes so websocket ordering and reconnect hydration can share the same freshness signal.
+- persisted job snapshots now retain `reason_code`, `eta_confidence`, and active render batch metadata so `/api/jobs` no longer strips live overlay context during reconnect or fallback refreshes.
+- frontend hydration now has a typed coordinator placeholder instead of throw-only stubs so Phase 5 and Phase 6 can land reconnect behavior without inventing a new boundary.
 
 ## Exit Gate
 

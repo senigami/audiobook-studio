@@ -54,7 +54,7 @@ def build_studio_job_event(
     if parent_job_id is not None:
         event["parent_job_id"] = parent_job_id
     if progress is not None:
-        event["progress"] = round(float(progress), 4)
+        event["progress"] = round(float(progress), 2)
     if eta_seconds is not None:
         event["eta_seconds"] = int(eta_seconds)
     if eta_confidence is not None:
@@ -70,7 +70,7 @@ def build_studio_job_event(
     if active_render_batch_id is not None:
         event["active_render_batch_id"] = active_render_batch_id
     if active_render_batch_progress is not None:
-        event["active_render_batch_progress"] = round(float(active_render_batch_progress), 4)
+        event["active_render_batch_progress"] = round(float(active_render_batch_progress), 2)
     return event
 
 

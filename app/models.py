@@ -16,6 +16,7 @@ class Job:
     chapter_id: Optional[str] = None
 
     started_at: Optional[float] = None
+    updated_at: Optional[float] = None
     synthesis_started_at: Optional[float] = None
     finished_at: Optional[float] = None
 
@@ -29,6 +30,8 @@ class Job:
 
     progress: float = 0.0  # 0..1
     eta_seconds: Optional[int] = None
+    eta_confidence: Optional[str] = None
+    reason_code: Optional[str] = None
 
     log: str = ""
     error: Optional[str] = None
@@ -50,3 +53,5 @@ class Job:
     completed_render_weight: int = 0
     active_render_group_weight: int = 0
     grouped_progress: float = 0.0
+    active_render_batch_id: Optional[str] = None
+    active_render_batch_progress: Optional[float] = None

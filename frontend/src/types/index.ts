@@ -125,8 +125,10 @@ export interface Job {
   make_mp3: boolean;
   progress: number;
   eta_seconds?: number;
+  eta_confidence?: 'estimating' | 'stable' | 'recomputing';
   log?: string;
   error?: string;
+  reason_code?: string;
   warning_count: number;
   custom_title?: string;
   author_meta?: string;
@@ -144,6 +146,8 @@ export interface Job {
   completed_render_weight?: number;
   active_render_group_weight?: number;
   grouped_progress?: number;
+  active_render_batch_id?: string | null;
+  active_render_batch_progress?: number;
 }
 
 export interface SegmentProgress {

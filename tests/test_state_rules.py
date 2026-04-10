@@ -28,6 +28,25 @@ def test_progress_rounding_rule():
     state = load_state()
     assert state["jobs"]["test_rounding"]["progress"] == 0.13
 
+
+def test_update_job_stamps_updated_at_for_state_and_broadcast():
+    job = Job(id="test_updated_at", engine="xtts", chapter_file="c1.txt", status="running", progress=0.0, created_at=time.time())
+    put_job(job)
+
+    events = []
+
+    def listener(job_id, updates, current_job):
+        events.append((job_id, updates, current_job))
+
+    with patch("app.state._JOB_LISTENERS", [listener]):
+        update_job("test_updated_at", progress=0.25)
+
+    state = load_state()
+    updated_at = state["jobs"]["test_updated_at"]["updated_at"]
+    assert isinstance(updated_at, float)
+    assert events[0][1]["updated_at"] == updated_at
+    assert events[0][2]["updated_at"] == updated_at
+
 def test_progress_regression_protection():
     job = Job(id="test_regress", engine="xtts", chapter_file="c1.txt", status="running", progress=0.5, created_at=time.time())
     put_job(job)
