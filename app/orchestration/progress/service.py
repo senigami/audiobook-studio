@@ -145,6 +145,7 @@ class ProgressService:
         updated_at: float | None = None,
         active_render_batch_id: str | None = None,
         active_render_batch_progress: float | None = None,
+        allow_progress_regression: bool = False,
         force: bool = False,
     ) -> dict[str, object] | None:
         """Publish normalized progress updates for queue and chapter surfaces.
@@ -164,6 +165,8 @@ class ProgressService:
             updated_at: Optional event timestamp.
             active_render_batch_id: Optional active grouped-render identifier.
             active_render_batch_progress: Optional progress for the active batch.
+            allow_progress_regression: Allow an explicit recovery/reset event to
+                move progress backward instead of clamping to the previous floor.
             force: Emit even if the payload is unchanged.
 
         Returns:
@@ -186,7 +189,7 @@ class ProgressService:
             active_render_batch_id=active_render_batch_id,
             active_render_batch_progress=active_render_batch_progress,
         )
-        if not force and not self._should_emit(payload):
+        if not force and not self._should_emit(payload, allow_progress_regression=allow_progress_regression):
             return None
 
         self._last_payload_by_job[job_id] = payload
@@ -309,11 +312,17 @@ class ProgressService:
             payload["active_render_batch_progress"] = round(max(0.0, min(float(active_render_batch_progress), 1.0)), 2)
         return payload
 
-    def _should_emit(self, payload: dict[str, object]) -> bool:
+    def _should_emit(self, payload: dict[str, object], *, allow_progress_regression: bool = False) -> bool:
         job_id = str(payload["job_id"])
         previous = self._last_payload_by_job.get(job_id)
         if previous is None:
             return True
+
+        self._apply_progress_regression_guard(
+            payload=payload,
+            previous=previous,
+            allow_progress_regression=allow_progress_regression,
+        )
 
         if payload.get("status") != previous.get("status"):
             return True
@@ -339,9 +348,6 @@ class ProgressService:
         previous_progress = previous.get("progress")
         current_progress = payload.get("progress")
         if isinstance(previous_progress, (int, float)) and isinstance(current_progress, (int, float)):
-            if current_progress < previous_progress and payload.get("status") not in {"queued", "preparing"}:
-                payload["progress"] = previous_progress
-                current_progress = previous_progress
             if abs(float(current_progress) - float(previous_progress)) >= self.min_progress_delta:
                 return True
 
@@ -356,6 +362,28 @@ class ProgressService:
         if last_emit_at is None:
             return True
         return (now - last_emit_at) >= self.max_silence_seconds
+
+    def _apply_progress_regression_guard(
+        self,
+        *,
+        payload: dict[str, object],
+        previous: dict[str, object],
+        allow_progress_regression: bool,
+    ) -> None:
+        """Clamp backward progress unless the caller explicitly allows it."""
+        if allow_progress_regression:
+            return
+
+        previous_progress = previous.get("progress")
+        current_progress = payload.get("progress")
+        if not isinstance(previous_progress, (int, float)):
+            return
+        if not isinstance(current_progress, (int, float)):
+            return
+        if current_progress >= previous_progress:
+            return
+
+        payload["progress"] = previous_progress
 
 
 def create_progress_service() -> ProgressService:

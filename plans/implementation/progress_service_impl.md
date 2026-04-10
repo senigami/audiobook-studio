@@ -45,6 +45,7 @@ ETA output should include:
 - backend progress is the authoritative floor for live work
 - the frontend may smooth between updates
 - active progress should not visibly regress except on explicit reset/revision invalidation
+- explicit reset/revision invalidation should be opt-in at the progress-service boundary, not inferred by the broadcaster
 - tiny ETA changes should be coalesced to avoid noisy UI churn
 
 ## 5. Parent Aggregation

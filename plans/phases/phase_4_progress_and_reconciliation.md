@@ -45,6 +45,7 @@ Build trustworthy progress, ETA, and artifact reconciliation before the orchestr
 - frontend live job handling should accept both the normalized event envelope and the legacy queue-update payloads until hydration and reconnect flows are in place.
 - worker-local progress calculations should be treated as compatibility inputs to the new progress service, not as the final source of truth.
 - progress throttling and heartbeat decisions belong in `ProgressService`; the broadcaster should stay transport-only.
+- explicit recovery/reset events may move progress backward only when the progress service is told to allow that regression.
 - reconciliation is still the next structural slice after the progress service lands, and it should be reviewed as a separate risk area rather than folded into the broadcaster work.
 - reconciliation now accepts a normalized request mapping plus an optional manifest lookup callback so orchestration can stay ID-based without importing worker or web modules directly.
 

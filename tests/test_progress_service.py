@@ -84,6 +84,50 @@ def test_publish_emits_heartbeat_after_silence():
     assert len(events) == 2
 
 
+def test_publish_allows_explicit_progress_regression_for_recovery():
+    service, events, now = _make_service()
+
+    service.publish(
+        job_id="job-3",
+        status="running",
+        progress=0.85,
+        eta_seconds=8,
+        message="Rendering",
+    )
+    assert len(events) == 1
+
+    now["value"] += 1.0
+    blocked_reset_event = service.publish(
+        job_id="job-3",
+        status="preparing",
+        progress=0.0,
+        eta_seconds=None,
+        message="Recovering",
+        reason_code="recovery_reconcile",
+    )
+
+    assert blocked_reset_event is not None
+    assert blocked_reset_event["progress"] == 0.85
+    assert blocked_reset_event["reason_code"] == "recovery_reconcile"
+    assert len(events) == 2
+
+    now["value"] += 1.0
+    reset_event = service.publish(
+        job_id="job-3",
+        status="preparing",
+        progress=0.0,
+        eta_seconds=None,
+        message="Recovering",
+        reason_code="recovery_reconcile",
+        allow_progress_regression=True,
+    )
+
+    assert reset_event is not None
+    assert reset_event["progress"] == 0.0
+    assert reset_event["reason_code"] == "recovery_reconcile"
+    assert len(events) == 3
+
+
 def test_monotonic_progress_and_eta_selection():
     service, _, _ = _make_service()
 
