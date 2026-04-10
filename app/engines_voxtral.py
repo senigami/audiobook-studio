@@ -2,6 +2,7 @@ import base64
 import json
 import logging
 import os
+import shutil
 from pathlib import Path
 from typing import Optional
 
@@ -230,7 +231,7 @@ def voxtral_generate(
         tmp_audio.write_bytes(audio_bytes)
         try:
             if _looks_like_wav(audio_bytes):
-                tmp_audio.replace(out_wav)
+                shutil.move(str(tmp_audio), str(out_wav))
                 on_output(f"Saved Voxtral audio to {out_wav.name}.\n")
                 return 0
 

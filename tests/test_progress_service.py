@@ -4,10 +4,14 @@ from app.orchestration.progress.service import ProgressService
 
 def _make_service():
     events: list[tuple[dict[str, object], str]] = []
-    now = {"value": 100.0}
+    wall_now = {"value": 100.0}
+    monotonic_now = {"value": 500.0}
 
-    def clock() -> float:
-        return now["value"]
+    def wall_clock() -> float:
+        return wall_now["value"]
+
+    def monotonic_clock() -> float:
+        return monotonic_now["value"]
 
     def broadcaster(*, payload: dict[str, object], channel: str) -> None:
         events.append((payload, channel))
@@ -16,14 +20,15 @@ def _make_service():
         reconcile_fn=lambda **kwargs: kwargs,
         eta_fn=estimate_eta_seconds,
         broadcaster=broadcaster,
-        clock=clock,
+        wall_clock=wall_clock,
+        monotonic_clock=monotonic_clock,
         max_silence_seconds=10.0,
     )
-    return service, events, now
+    return service, events, wall_now, monotonic_now
 
 
 def test_publish_throttles_small_progress_churn():
-    service, events, now = _make_service()
+    service, events, wall_now, monotonic_now = _make_service()
 
     emitted = service.publish(
         job_id="job-1",
@@ -36,7 +41,8 @@ def test_publish_throttles_small_progress_churn():
     assert emitted["progress"] == 0.2
     assert events == [(emitted, "jobs")]
 
-    now["value"] += 1.0
+    wall_now["value"] += 1.0
+    monotonic_now["value"] += 1.0
     throttled = service.publish(
         job_id="job-1",
         status="running",
@@ -47,7 +53,8 @@ def test_publish_throttles_small_progress_churn():
     assert throttled is None
     assert len(events) == 1
 
-    now["value"] += 1.0
+    wall_now["value"] += 1.0
+    monotonic_now["value"] += 1.0
     emitted_again = service.publish(
         job_id="job-1",
         status="running",
@@ -61,7 +68,7 @@ def test_publish_throttles_small_progress_churn():
 
 
 def test_publish_emits_heartbeat_after_silence():
-    service, events, now = _make_service()
+    service, events, wall_now, monotonic_now = _make_service()
 
     service.publish(
         job_id="job-2",
@@ -72,7 +79,8 @@ def test_publish_emits_heartbeat_after_silence():
     )
     assert len(events) == 1
 
-    now["value"] += 11.0
+    wall_now["value"] += 11.0
+    monotonic_now["value"] += 11.0
     repeated = service.publish(
         job_id="job-2",
         status="running",
@@ -85,7 +93,7 @@ def test_publish_emits_heartbeat_after_silence():
 
 
 def test_publish_allows_explicit_progress_regression_for_recovery():
-    service, events, now = _make_service()
+    service, events, wall_now, monotonic_now = _make_service()
 
     service.publish(
         job_id="job-3",
@@ -96,7 +104,8 @@ def test_publish_allows_explicit_progress_regression_for_recovery():
     )
     assert len(events) == 1
 
-    now["value"] += 1.0
+    wall_now["value"] += 1.0
+    monotonic_now["value"] += 1.0
     blocked_reset_event = service.publish(
         job_id="job-3",
         status="preparing",
@@ -111,7 +120,8 @@ def test_publish_allows_explicit_progress_regression_for_recovery():
     assert blocked_reset_event["reason_code"] == "recovery_reconcile"
     assert len(events) == 2
 
-    now["value"] += 1.0
+    wall_now["value"] += 1.0
+    monotonic_now["value"] += 1.0
     reset_event = service.publish(
         job_id="job-3",
         status="preparing",
@@ -129,7 +139,7 @@ def test_publish_allows_explicit_progress_regression_for_recovery():
 
 
 def test_monotonic_progress_and_eta_selection():
-    service, _, _ = _make_service()
+    service, _, _, _ = _make_service()
 
     assert service._normalize_monotonic_progress(job_id="job-3", completed_units=2, total_units=10) == 0.2
     assert service._normalize_monotonic_progress(job_id="job-3", completed_units=1, total_units=10) == 0.2
@@ -139,7 +149,7 @@ def test_monotonic_progress_and_eta_selection():
 
 
 def test_estimate_eta_does_not_advance_published_progress_floor():
-    service, _, _ = _make_service()
+    service, _, _, _ = _make_service()
 
     eta = service.estimate_eta(job_id="job-4", completed_units=8, total_units=10, observed_cps=1.0)
     assert eta == 2
@@ -148,3 +158,30 @@ def test_estimate_eta_does_not_advance_published_progress_floor():
     emitted = service.publish(job_id="job-4", status="running", progress=0.4, eta_seconds=eta)
     assert emitted is not None
     assert emitted["progress"] == 0.4
+
+
+def test_publish_queued_reset_clears_progress_floor_without_explicit_flag():
+    service, events, wall_now, monotonic_now = _make_service()
+
+    service.publish(
+        job_id="job-5",
+        status="done",
+        progress=1.0,
+        eta_seconds=0,
+        message="Finished",
+    )
+    assert len(events) == 1
+
+    wall_now["value"] += 1.0
+    monotonic_now["value"] += 1.0
+    queued_event = service.publish(
+        job_id="job-5",
+        status="queued",
+        progress=0.0,
+        eta_seconds=None,
+        message="Queued again",
+    )
+
+    assert queued_event is not None
+    assert queued_event["progress"] == 0.0
+    assert len(events) == 2

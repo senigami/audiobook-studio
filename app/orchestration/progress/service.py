@@ -44,18 +44,20 @@ class ProgressService:
         reconcile_fn,
         eta_fn,
         broadcaster,
-        clock: Callable[[], float] | None = None,
+        monotonic_clock: Callable[[], float] | None = None,
+        wall_clock: Callable[[], float] | None = None,
         min_progress_delta: float = 0.01,
         max_silence_seconds: float = 10.0,
     ):
         self.reconcile_fn = reconcile_fn
         self.eta_fn = eta_fn
         self.broadcaster = broadcaster
-        self.clock = clock or time.time
+        self.monotonic_clock = monotonic_clock or time.monotonic
+        self.wall_clock = wall_clock or time.time
         self.min_progress_delta = max(0.0, float(min_progress_delta))
         self.max_silence_seconds = max(1.0, float(max_silence_seconds))
         self._last_payload_by_job: dict[str, dict[str, object]] = {}
-        self._last_emit_at_by_job: dict[str, float] = {}
+        self._last_emit_tick_by_job: dict[str, float] = {}
         self._last_progress_by_job: dict[str, float] = {}
 
     def reconcile(
@@ -193,10 +195,15 @@ class ProgressService:
             return None
 
         self._last_payload_by_job[job_id] = payload
-        self._last_emit_at_by_job[job_id] = float(payload["updated_at"])
+        self._last_emit_tick_by_job[job_id] = float(self.monotonic_clock())
         if isinstance(payload.get("progress"), (int, float)):
             self._last_progress_by_job[job_id] = float(payload["progress"])
+        elif status == "queued":
+            self._last_progress_by_job.pop(job_id, None)
+        if status == "queued":
+            self._last_payload_by_job.pop(job_id, None)
         self.broadcaster(payload=payload, channel="jobs")
+        self._last_payload_by_job[job_id] = payload
         return payload
 
     def _normalize_monotonic_progress(
@@ -276,7 +283,7 @@ class ProgressService:
         Returns:
             dict[str, object]: Broadcast-ready progress payload.
         """
-        now = float(updated_at if updated_at is not None else self.clock())
+        now = float(updated_at if updated_at is not None else self.wall_clock())
         normalized_progress = None
         if progress is not None:
             normalized_progress = round(max(0.0, min(float(progress), 1.0)), 2)
@@ -357,11 +364,11 @@ class ProgressService:
             if abs(current_eta - previous_eta) >= 1:
                 return True
 
-        last_emit_at = self._last_emit_at_by_job.get(job_id)
-        now = float(payload.get("updated_at") or self.clock())
-        if last_emit_at is None:
+        last_emit_tick = self._last_emit_tick_by_job.get(job_id)
+        now = float(self.monotonic_clock())
+        if last_emit_tick is None:
             return True
-        return (now - last_emit_at) >= self.max_silence_seconds
+        return (now - last_emit_tick) >= self.max_silence_seconds
 
     def _apply_progress_regression_guard(
         self,
@@ -376,6 +383,8 @@ class ProgressService:
 
         previous_progress = previous.get("progress")
         current_progress = payload.get("progress")
+        if payload.get("status") == "queued":
+            return
         if not isinstance(previous_progress, (int, float)):
             return
         if not isinstance(current_progress, (int, float)):

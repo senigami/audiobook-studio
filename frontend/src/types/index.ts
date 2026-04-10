@@ -119,6 +119,7 @@ export interface Job {
   project_id?: string;
   chapter_id?: string;
   started_at?: number;
+  updated_at?: number;
   finished_at?: number;
   safe_mode: boolean;
   make_mp3: boolean;

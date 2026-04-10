@@ -25,7 +25,21 @@ _JOB_LISTENERS = []
 
 def add_job_listener(callback):
     """Register a callback to be notified of job updates."""
+    _cache_listener_snapshot_support(callback)
     _JOB_LISTENERS.append(callback)
+
+
+def _cache_listener_snapshot_support(callback) -> bool:
+    cached = getattr(callback, "_supports_job_snapshot", None)
+    if cached is not None:
+        return bool(cached)
+    try:
+        listener_signature = inspect.signature(callback)
+        supports_snapshot = len(listener_signature.parameters) >= 3
+    except (TypeError, ValueError):
+        supports_snapshot = False
+    setattr(callback, "_supports_job_snapshot", supports_snapshot)
+    return supports_snapshot
 
 
 def _default_state() -> Dict[str, Any]:
@@ -323,11 +337,7 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
             job_snapshot = dict(j)
             for listener in _JOB_LISTENERS:
                 try:
-                    try:
-                        listener_signature = inspect.signature(listener)
-                        supports_snapshot = len(listener_signature.parameters) >= 3
-                    except (TypeError, ValueError):
-                        supports_snapshot = False
+                    supports_snapshot = _cache_listener_snapshot_support(listener)
 
                     if supports_snapshot:
                         listener(job_id, broadcast_dict, job_snapshot)

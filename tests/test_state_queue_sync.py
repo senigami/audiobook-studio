@@ -4,7 +4,7 @@ from unittest.mock import patch
 import pytest
 
 from app.models import Job
-from app.state import clear_all_jobs, put_job, update_job, _JOB_LISTENERS
+from app.state import clear_all_jobs, put_job, update_job, _JOB_LISTENERS, add_job_listener
 
 
 @pytest.fixture(autouse=True)
@@ -91,3 +91,12 @@ def test_update_job_passes_current_job_snapshot_to_three_arg_listeners(tmp_path)
     assert current_job["status"] == "running"
     assert current_job["progress"] == 0.5
     assert current_job["eta_seconds"] == 20
+
+
+def test_add_job_listener_caches_snapshot_support():
+    def listener(job_id, updates, current_job):
+        return (job_id, updates, current_job)
+
+    add_job_listener(listener)
+
+    assert getattr(listener, "_supports_job_snapshot", None) is True

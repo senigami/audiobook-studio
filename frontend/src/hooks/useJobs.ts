@@ -66,7 +66,18 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
           return { ...prev, [job_id]: { id: job_id, ...nextUpdates } as Job };
         }
 
+        if (
+          typeof oldJob.updated_at === 'number'
+          && typeof data.updated_at === 'number'
+          && data.updated_at < oldJob.updated_at
+        ) {
+          return prev;
+        }
+
         const normalizedUpdates = { ...nextUpdates };
+        if (typeof data.updated_at === 'number') {
+          normalizedUpdates.updated_at = data.updated_at;
+        }
         const currentStatus = typeof oldJob.status === 'string' ? oldJob.status : undefined;
         const incomingStatus = typeof normalizedUpdates.status === 'string' ? normalizedUpdates.status : undefined;
         if (incomingStatus && currentStatus) {
@@ -119,6 +130,14 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
           // falling back to /api/jobs. Queue creation broadcasts include the
           // chapter/project context we need for UI wiring.
           return { ...prev, [job_id]: { id: job_id, ...updates } as Job };
+        }
+
+        if (
+          typeof oldJob.updated_at === 'number'
+          && typeof updates?.updated_at === 'number'
+          && updates.updated_at < oldJob.updated_at
+        ) {
+          return prev;
         }
 
         const nextUpdates = { ...updates } as Record<string, any>;
