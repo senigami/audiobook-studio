@@ -29,8 +29,20 @@ Use:
 ETA output should include:
 
 - `eta_seconds`
+- `estimated_end_at`
+- `eta_basis`
 - `confidence`
 - `reason`
+
+ETA semantics:
+
+- `started_at` is written once when the run starts and stays stable for that run
+- `eta_seconds` should be emitted as the backend's current remaining-seconds estimate
+- `estimated_end_at` should be emitted whenever the backend can provide a stable absolute finish time
+- `eta_basis="total_from_start"` is temporary compatibility only; Studio 2.0 should converge on `eta_basis="remaining_from_update"`
+- `evidence_weight_fraction` belongs to the update event, not the initial launch state
+- for segment-style updates, derive `evidence_weight_fraction` from the processed character count divided by the maximum segment batch size
+- when a producer cannot provide a better signal, use a fallback confidence of about `0.8`
 
 ## 4. Broadcast Rules
 

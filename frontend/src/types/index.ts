@@ -71,6 +71,8 @@ export interface ProcessingQueueItem {
   project_name?: string;
   progress?: number;
   eta_seconds?: number;
+  estimated_end_at?: number;
+  eta_basis?: 'remaining_from_update' | 'total_from_start';
   started_at?: number;
   log?: string;
   custom_title?: string;
@@ -125,6 +127,8 @@ export interface Job {
   make_mp3: boolean;
   progress: number;
   eta_seconds?: number;
+  estimated_end_at?: number;
+  eta_basis?: 'remaining_from_update' | 'total_from_start';
   eta_confidence?: 'estimating' | 'stable' | 'recomputing';
   log?: string;
   error?: string;

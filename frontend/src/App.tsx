@@ -6,6 +6,7 @@ import { VoicesTab } from './components/VoicesTab';
 import { ProjectLibrary } from './components/ProjectLibrary';
 import { ProjectView } from './components/ProjectView';
 import { GlobalQueue } from './components/GlobalQueue';
+import { ProgressBarTestPage } from './components/ProgressBarTestPage';
 import { useJobs } from './hooks/useJobs';
 import { useInitialData } from './hooks/useInitialData';
 import { SettingsTray } from './components/SettingsTray';
@@ -117,6 +118,7 @@ function App() {
                   settings={initialData?.settings}
                 />
               } />
+              <Route path="/progress-test" element={<ProgressBarTestPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>

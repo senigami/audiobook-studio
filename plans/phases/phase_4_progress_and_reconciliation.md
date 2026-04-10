@@ -37,6 +37,7 @@ Build trustworthy progress, ETA, and artifact reconciliation before the orchestr
 - REST should remain the bootstrap and reconnect recovery path for live state, not the steady-state transport for active progress
 - listener registration and event broadcasting must move toward explicit application wiring rather than hidden legacy global registration
 - progress services must not depend on `app.state` listener globals as a permanent architecture choice
+- runtime ETA producer migration is a follow-on slice after the contract is stable; Phase 4 currently establishes the contract and service boundary, but it does not require every worker producer to rewrite ETA semantics in lockstep
 
 ## Initial Cutover Rules
 
@@ -48,6 +49,7 @@ Build trustworthy progress, ETA, and artifact reconciliation before the orchestr
 - explicit recovery/reset events may move progress backward only when the progress service is told to allow that regression.
 - reconciliation is still the next structural slice after the progress service lands, and it should be reviewed as a separate risk area rather than folded into the broadcaster work.
 - reconciliation now accepts a normalized request mapping plus an optional manifest lookup callback so orchestration can stay ID-based without importing worker or web modules directly.
+- backend ETA producers should continue emitting compatibility data until the producer migration slice lands, but the contract should already describe the target shape (`eta_seconds` as remaining time, `estimated_end_at`, and `eta_basis`).
 
 ## Tests
 

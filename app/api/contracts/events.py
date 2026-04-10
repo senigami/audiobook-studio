@@ -6,6 +6,7 @@ from typing import Literal, NotRequired, TypedDict
 
 StudioJobStatus = Literal["queued", "preparing", "running", "finalizing", "done", "failed", "cancelled"]
 StudioJobEventScope = Literal["job", "queue", "chapter", "segment", "export", "voice_test", "voice_build"]
+StudioEtaBasis = Literal["remaining_from_update", "total_from_start"]
 
 
 class StudioJobEvent(TypedDict, total=False):
@@ -18,6 +19,8 @@ class StudioJobEvent(TypedDict, total=False):
     status: StudioJobStatus
     progress: NotRequired[float | None]
     eta_seconds: NotRequired[int | None]
+    estimated_end_at: NotRequired[float | None]
+    eta_basis: NotRequired[StudioEtaBasis]
     eta_confidence: NotRequired[Literal["estimating", "stable", "recomputing"]]
     message: NotRequired[str | None]
     reason_code: NotRequired[str | None]
@@ -35,6 +38,8 @@ def build_studio_job_event(
     parent_job_id: str | None = None,
     progress: float | None = None,
     eta_seconds: int | None = None,
+    estimated_end_at: float | None = None,
+    eta_basis: StudioEtaBasis | None = None,
     eta_confidence: Literal["estimating", "stable", "recomputing"] | None = None,
     message: str | None = None,
     reason_code: str | None = None,
@@ -57,6 +62,10 @@ def build_studio_job_event(
         event["progress"] = round(float(progress), 2)
     if eta_seconds is not None:
         event["eta_seconds"] = int(eta_seconds)
+    if estimated_end_at is not None:
+        event["estimated_end_at"] = float(estimated_end_at)
+    if eta_basis is not None:
+        event["eta_basis"] = eta_basis
     if eta_confidence is not None:
         event["eta_confidence"] = eta_confidence
     if message is not None:

@@ -6,7 +6,7 @@ export interface PredictiveProgressInput {
     elapsedSeconds: number
     etaSeconds: number
     priorProgressBasis?: number
-    correctionWeightMode?: 'default' | 'queue'
+    correctionWeightMode?: 'default' | 'queue' | 'segment'
     evidenceWeightFraction?: number
 }
 
@@ -41,7 +41,7 @@ export const buildPredictiveProgressModel = ({
     const rawActualRemainingSeconds = safeAuthoritative > 0.001
         ? Math.max(1, (safeElapsed / safeAuthoritative) - safeElapsed)
         : estimatedRemainingSeconds
-    const actualRemainingSeconds = rawActualRemainingSeconds
+    const actualRemainingSeconds = Math.min(rawActualRemainingSeconds, estimatedRemainingSeconds)
 
     // Queue/progress contract:
     // 1. The backend may correct the authoritative progress value, but the
@@ -61,6 +61,14 @@ export const buildPredictiveProgressModel = ({
             + Math.min(0.18, Math.abs(safeAuthoritative - expectedProgressFromPrior) * 0.45)
             + Math.min(0.08, Math.abs(safeAuthoritative - safePriorBasis) * 0.2)
             + (safeAuthoritative >= 0.75 ? 0.04 : 0),
+        )
+        : correctionWeightMode === 'segment'
+        ? Math.min(
+            1,
+            0.65
+            + Math.min(0.25, Math.abs(safeAuthoritative - expectedProgressFromPrior) * 1.2)
+            + Math.min(0.12, Math.abs(safeAuthoritative - safePriorBasis) * 0.8)
+            + (safeAuthoritative >= 0.85 ? 0.08 : 0),
         )
         : Math.min(1, safeAuthoritative / 0.35)
     const refinedRemainingSeconds = Math.max(

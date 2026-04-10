@@ -29,7 +29,7 @@ describe('PredictiveProgressBar', () => {
                 status="running"
             />
         )
-        // calculatedRemaining should be ~90 seconds (1:30)
+        // calculatedRemaining should remain anchored and land around 1:30 here.
         expect(screen.getByText(/ETA: 1:30/i)).toBeTruthy()
         
         vi.restoreAllMocks()
@@ -61,11 +61,26 @@ describe('PredictiveProgressBar', () => {
         vi.useRealTimers()
     })
 
-    it('stays at zero while queued or preparing', () => {
+    it('stays at zero while queued', () => {
         render(
             <PredictiveProgressBar
                 progress={0.5}
                 startedAt={undefined}
+                etaSeconds={120}
+                label="Proc"
+                status="queued"
+                showEta={false}
+            />
+        )
+
+        expect(screen.getAllByText('Queued')).toHaveLength(2)
+    })
+
+    it('shows preparing as an indeterminate state even when live timing data exists', () => {
+        const { container } = render(
+            <PredictiveProgressBar
+                progress={0.42}
+                startedAt={100}
                 etaSeconds={120}
                 label="Proc"
                 status="preparing"
@@ -73,7 +88,9 @@ describe('PredictiveProgressBar', () => {
             />
         )
 
-        expect(screen.getByText(/0%|1%/)).toBeTruthy()
+        expect(screen.getByText('Working...')).toBeTruthy()
+        expect(screen.getByText('Preparing')).toBeTruthy()
+        expect(container.querySelector('.progress-bar-pending')).toBeTruthy()
     })
 
     it('can render raw live progress without ETA prediction', () => {
@@ -131,17 +148,105 @@ describe('PredictiveProgressBar', () => {
         expect(bar.style.width).toBe('35%')
     })
 
-    it('pins finalizing jobs at 100 percent', () => {
-        render(
+    it('renders a barber-pole preparing state when indeterminate progress is requested', () => {
+        const { container } = render(
+            <PredictiveProgressBar
+                progress={0}
+                label="Prep"
+                status="preparing"
+                showEta={false}
+                indeterminateRunning={true}
+            />
+        )
+
+        expect(screen.getByText('Working...')).toBeTruthy()
+        const bar = container.querySelector('.progress-bar-pending') as HTMLElement
+        expect(bar).toBeTruthy()
+        expect(bar.style.width).toBe('100%')
+    })
+
+    it('renders a blue finalizing presentation state override', () => {
+        const { container } = render(
             <PredictiveProgressBar
                 progress={0.42}
                 label="Fin"
-                status="finalizing"
+                status="running"
+                state="finalizing"
                 showEta={false}
             />
         )
 
-        expect(screen.getByText('100%')).toBeTruthy()
+        expect(screen.getByText('Finalizing...')).toBeTruthy()
+        expect(screen.queryByText(/ETA:/)).toBeNull()
+        const bar = container.querySelector('.progress-bar-finalizing') as HTMLElement
+        expect(bar).toBeTruthy()
+        expect(bar.style.width).toBe('100%')
+    })
+
+    it('auto-flips a running bar to finalizing at 100 percent until done arrives', () => {
+        const { container } = render(
+            <PredictiveProgressBar
+                progress={1}
+                startedAt={100}
+                etaSeconds={120}
+                label="Fin"
+                status="running"
+                showEta={false}
+            />
+        )
+
+        expect(screen.getByText('Finalizing...')).toBeTruthy()
+        expect(screen.queryByText('100%')).toBeNull()
+        const bar = container.querySelector('.progress-bar-finalizing') as HTMLElement
+        expect(bar).toBeTruthy()
+        expect(bar.style.width).toBe('100%')
+    })
+
+    it('renders a distinct complete state for done jobs', () => {
+        const { container } = render(
+            <PredictiveProgressBar
+                progress={0.42}
+                label="Done"
+                status="done"
+                showEta={false}
+            />
+        )
+
+        expect(screen.getByText('Complete')).toBeTruthy()
+        const bar = container.querySelector('div[style*="linear-gradient(90deg, rgba(16, 185, 129"]') as HTMLElement
+        expect(bar).toBeTruthy()
+    })
+
+    it('renders an error state for failed jobs without showing a percent', () => {
+        const { container } = render(
+            <PredictiveProgressBar
+                progress={0.42}
+                label="Failed"
+                status="failed"
+                showEta={false}
+            />
+        )
+
+        expect(screen.getByText('Error')).toBeTruthy()
+        expect(screen.queryByText('42%')).toBeNull()
+        const bar = container.querySelector('div[style*="linear-gradient(90deg, rgba(239, 68, 68"]') as HTMLElement
+        expect(bar).toBeTruthy()
+    })
+
+    it('renders cancelled jobs as an empty terminal state', () => {
+        const { container } = render(
+            <PredictiveProgressBar
+                progress={0.42}
+                label="Cancelled"
+                status="cancelled"
+                showEta={false}
+            />
+        )
+
+        expect(screen.getAllByText('Cancelled')).toHaveLength(3)
+        expect(screen.queryByText('42%')).toBeNull()
+        const bar = container.querySelector('div[style*="width: 0%"]') as HTMLElement
+        expect(bar).toBeTruthy()
     })
 
     it('smoothly eases toward a backend correction instead of snapping immediately', async () => {
@@ -159,7 +264,8 @@ describe('PredictiveProgressBar', () => {
             />
         )
 
-        expect(screen.getByText(/0%|1%/)).toBeTruthy()
+        expect(screen.getByText('0%')).toBeTruthy()
+        expect(screen.getByText('Proc')).toBeTruthy()
 
         rerender(
             <PredictiveProgressBar
@@ -369,7 +475,8 @@ describe('PredictiveProgressBar', () => {
             />
         )
 
-        expect(screen.getByText(/0%|1%/)).toBeTruthy()
+        expect(screen.getByText('Working...')).toBeTruthy()
+        expect(screen.getByText('Preparing')).toBeTruthy()
 
         rerender(
             <PredictiveProgressBar
@@ -622,6 +729,81 @@ describe('PredictiveProgressBar', () => {
 
         expect(readPercent()).toBeGreaterThanOrEqual(5)
         expect(readPercent()).toBeLessThanOrEqual(6)
+
+        vi.useRealTimers()
+    })
+
+    it('retimes segment-scoped bars from live checkpoints instead of keeping the old pace', () => {
+        vi.useFakeTimers()
+        vi.setSystemTime(26_000)
+
+        const { rerender } = render(
+            <PredictiveProgressBar
+                progress={0.25}
+                startedAt={1}
+                etaSeconds={100}
+                persistenceKey="segment-job"
+                label="Segment Progress"
+                status="running"
+                showEta={false}
+                authoritativeFloor={true}
+                checkpointMode="segment"
+            />
+        )
+
+        act(() => {
+            vi.advanceTimersByTime(10_000)
+        })
+
+        rerender(
+            <PredictiveProgressBar
+                progress={0.5}
+                startedAt={1}
+                etaSeconds={100}
+                persistenceKey="segment-job"
+                label="Segment Progress"
+                status="running"
+                showEta={false}
+                authoritativeFloor={true}
+                checkpointMode="segment"
+            />
+        )
+
+        expect(readPercent()).toBe(50)
+
+        act(() => {
+            vi.advanceTimersByTime(5_000)
+        })
+
+        expect(readPercent()).toBeGreaterThanOrEqual(56)
+
+        vi.useRealTimers()
+    })
+
+    it('can reach 100 percent when a live segment run is effectively at the end', () => {
+        vi.useFakeTimers()
+        vi.setSystemTime(99_800)
+
+        render(
+            <PredictiveProgressBar
+                progress={0.98}
+                startedAt={1}
+                etaSeconds={100}
+                persistenceKey="segment-finish"
+                label="Segment Progress"
+                status="running"
+                showEta={false}
+                authoritativeFloor={true}
+                checkpointMode="segment"
+            />
+        )
+
+        act(() => {
+            vi.advanceTimersByTime(1_500)
+        })
+
+        expect(screen.getByText('Finalizing...')).toBeTruthy()
+        expect(screen.queryByText(/\d+%/)).toBeNull()
 
         vi.useRealTimers()
     })

@@ -66,6 +66,8 @@ Every progress event should include:
 - `status`
 - `progress`
 - `eta_seconds`
+- `estimated_end_at`
+- `eta_basis`
 - `eta_confidence`
 - `message`
 - `reason_code`
@@ -75,6 +77,26 @@ Every progress event should include:
 - `active_render_batch_progress`
 
 These events are intended to be delivered over the live websocket channel as the default runtime path. Polling should not be required for normal connected operation once the 2.0 progress path is in place.
+
+## 5.2 ETA Contract Adjustment
+
+The ETA contract needs to be explicit enough that the frontend is rendering a trustworthy server estimate, not reverse-engineering one.
+
+- `started_at` is the immutable run anchor for the current execution attempt.
+- `progress` is the current normalized completion ratio at `updated_at`.
+- `eta_seconds` should mean the server's current remaining-seconds estimate at `updated_at`.
+- `estimated_end_at` should be the server-computed absolute finish timestamp when the backend can provide it.
+- `eta_basis` exists as a transition field while legacy paths are still mixed:
+  - `remaining_from_update`: preferred Studio 2.0 meaning for `eta_seconds`
+  - `total_from_start`: compatibility meaning for legacy producers that still send total duration from `started_at`
+- `evidence_weight_fraction` should come from the update message, not the initial launch snapshot. For XTTS-style segment progress, derive it from processed segment characters divided by the maximum batch size, with a default fallback confidence around `0.8` when the producer cannot provide a better indicator.
+
+Target state:
+
+- all Studio 2.0 progress events should publish `eta_basis="remaining_from_update"`
+- the backend should recompute ETA as live throughput changes instead of expecting the frontend to infer a new end time from stale duration math
+- the frontend should prefer `estimated_end_at` when present and otherwise honor `eta_seconds` according to `eta_basis`
+- the worker-side producer migration to this target shape is intentionally a later slice after the contract is in place; the contract should be stable before we ask every runtime producer to switch at once
 
 ## 5.1 Monotonic Event Handling Rules
 

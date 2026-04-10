@@ -70,6 +70,56 @@ def test_api_jobs_uses_authoritative_progress_when_segment_tracking_is_active(cl
     assert job_data["progress"] == 0.22
 
 
+def test_api_jobs_hydrates_running_progress_when_segment_id_exists_but_segment_progress_is_idle(clean_jobs):
+    jid = "test_segment_idle_job"
+    now = time.time()
+    job = Job(
+        id=jid,
+        engine="xtts",
+        chapter_file="chapter1.txt",
+        status="running",
+        started_at=now - 20,
+        eta_seconds=100,
+        created_at=now,
+        progress=0.0,
+        active_segment_id="seg-1",
+        active_segment_progress=0.0,
+    )
+    put_job(job)
+
+    response = client.get("/api/jobs")
+    assert response.status_code == 200
+    data = response.json()
+
+    job_data = next((j for j in data if j["id"] == jid), None)
+    assert job_data is not None
+    assert job_data["progress"] >= 0.19
+
+
+def test_api_jobs_hydrates_preparing_progress_when_started(clean_jobs):
+    jid = "test_preparing_reload_job"
+    now = time.time()
+    job = Job(
+        id=jid,
+        engine="xtts",
+        chapter_file="chapter1.txt",
+        status="preparing",
+        started_at=now - 20,
+        eta_seconds=100,
+        created_at=now,
+        progress=0.0,
+    )
+    put_job(job)
+
+    response = client.get("/api/jobs")
+    assert response.status_code == 200
+    data = response.json()
+
+    job_data = next((j for j in data if j["id"] == jid), None)
+    assert job_data is not None
+    assert job_data["progress"] >= 0.19
+
+
 def test_api_jobs_does_not_block_on_reconciliation(clean_jobs):
     poisoned = AssertionError("cleanup_and_reconcile should not run inside /api/jobs")
 

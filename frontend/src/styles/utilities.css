@@ -88,6 +88,15 @@
 }
 
 .progress-bar-pending {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.progress-bar-pending::before {
+  content: '';
+  position: absolute;
+  inset: 0;
   background-image: repeating-linear-gradient(
     135deg,
     rgba(255, 255, 255, 0.12) 0px,
@@ -97,6 +106,31 @@
   );
   background-size: 36px 36px;
   animation: barber-pole 0.7s linear infinite;
+  will-change: background-position;
+  pointer-events: none;
+}
+
+.progress-bar-finalizing {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.progress-bar-finalizing::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgba(96, 165, 250, 0.36) 0px,
+    rgba(96, 165, 250, 0.36) 10px,
+    rgba(219, 234, 254, 0.20) 10px,
+    rgba(219, 234, 254, 0.20) 20px
+  );
+  background-size: 36px 36px;
+  animation: barber-pole 0.7s linear infinite;
+  will-change: background-position;
+  pointer-events: none;
 }
 
 /* Layout & Utils */

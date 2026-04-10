@@ -231,6 +231,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                           predictive={true}
                           indeterminateRunning={showIndeterminateProgress}
                           authoritativeFloor={isGroupedChapterJob}
+                          checkpointMode={isGroupedChapterJob ? 'queue' : (isSegmentScopedJob(activeJob) ? 'segment' : 'default')}
                           evidenceWeightFraction={isGroupedChapterJob ? evidenceWeightFraction : 1}
                         />
                     </div>

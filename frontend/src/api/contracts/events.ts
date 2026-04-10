@@ -22,6 +22,7 @@ export type StudioJobEventScope =
   | 'voice_build';
 
 export type StudioEtaConfidence = 'estimating' | 'stable' | 'recomputing';
+export type StudioEtaBasis = 'remaining_from_update' | 'total_from_start';
 
 export interface StudioJobEvent {
   type: 'studio_job_event';
@@ -31,6 +32,8 @@ export interface StudioJobEvent {
   status: StudioJobStatus;
   progress?: number | null;
   eta_seconds?: number | null;
+  estimated_end_at?: number | null;
+  eta_basis?: StudioEtaBasis;
   eta_confidence?: StudioEtaConfidence;
   message?: string | null;
   reason_code?: string | null;

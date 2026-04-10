@@ -7,11 +7,13 @@ vi.mock('../PredictiveProgressBar', () => ({
   PredictiveProgressBar: ({
     progress,
     status,
+    indeterminateRunning,
     authoritativeFloor,
     evidenceWeightFraction,
   }: {
     progress: number;
     status?: string;
+    indeterminateRunning?: boolean;
     authoritativeFloor?: boolean;
     evidenceWeightFraction?: number;
   }) => (
@@ -19,6 +21,7 @@ vi.mock('../PredictiveProgressBar', () => ({
       data-testid="progress-bar"
       data-progress={progress}
       data-status={status ?? ''}
+      data-indeterminate-running={String(!!indeterminateRunning)}
       data-authoritative-floor={String(!!authoritativeFloor)}
       data-evidence-weight-fraction={evidenceWeightFraction ?? ''}
     />
@@ -141,6 +144,23 @@ describe('ChapterList', () => {
     expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.63');
     expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-authoritative-floor', 'true');
     expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-evidence-weight-fraction', '0.4');
+  });
+
+  it('shows an indeterminate preparing state for active chapter jobs', () => {
+    const preparingJob = {
+      id: 'job-preparing',
+      project_id: 'proj-1',
+      chapter_id: 'chap-123',
+      engine: 'xtts',
+      status: 'preparing',
+      progress: 0,
+      started_at: Date.now() / 1000 - 10,
+      eta_seconds: 120,
+    } as any;
+
+    render(<ChapterList {...defaultProps} jobs={{ [preparingJob.id]: preparingJob }} />);
+
+    expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-status', 'preparing');
   });
 
   it('shows a queued badge for chapters awaiting rendering', () => {

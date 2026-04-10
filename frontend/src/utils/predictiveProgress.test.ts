@@ -79,9 +79,8 @@ describe('predictiveProgress', () => {
         })
 
         expect(after.nextProgress).toBeCloseTo(0.5, 5)
-        expect(after.velocityPerSecond).toBeLessThan(before.velocityPerSecond)
-        expect(afterTenSeconds.nextProgress).toBeGreaterThan(0.54)
-        expect(afterTenSeconds.nextProgress).toBeLessThan(0.56)
+        expect(after.velocityPerSecond).toBeCloseTo(before.velocityPerSecond, 5)
+        expect(afterTenSeconds.nextProgress).toBeGreaterThanOrEqual(0.5)
     })
 
     it('keeps the bar monotonic even when current display is ahead of the backend update', () => {
@@ -96,6 +95,34 @@ describe('predictiveProgress', () => {
         expect(advanced.nextProgress).toBeGreaterThanOrEqual(0.6)
     })
 
+    it('anchors low-progress ETA to the configured estimate instead of inflating it', () => {
+        const model = buildPredictiveProgressModel({
+            authoritativeProgress: 0.01,
+            displayedProgress: 0.01,
+            elapsedSeconds: 1,
+            etaSeconds: 5,
+        })
+
+        expect(model.estimatedRemainingSeconds).toBe(4)
+        expect(model.actualRemainingSeconds).toBe(4)
+        expect(model.refinedRemainingSeconds).toBeCloseTo(4, 3)
+        expect(model.velocityPerSecond).toBeCloseTo(0.2475, 3)
+    })
+
+    it('keeps a short ETA from stretching even when the run started long ago', () => {
+        const model = buildPredictiveProgressModel({
+            authoritativeProgress: 0.5,
+            displayedProgress: 0.5,
+            elapsedSeconds: 120,
+            etaSeconds: 5,
+        })
+
+        expect(model.estimatedRemainingSeconds).toBe(1)
+        expect(model.actualRemainingSeconds).toBe(1)
+        expect(model.refinedRemainingSeconds).toBe(1)
+        expect(model.velocityPerSecond).toBe(0.5)
+    })
+
     it('uses the learned queue ETA as a strong prior and only bends it gently at coarse checkpoints', () => {
         const model = buildPredictiveProgressModel({
             authoritativeProgress: 0.6,
@@ -108,12 +135,11 @@ describe('predictiveProgress', () => {
         })
 
         expect(model.estimatedRemainingSeconds).toBeCloseTo(19, 0)
-        expect(model.actualRemainingSeconds).toBeCloseTo(28, 0)
-        expect(model.refinedRemainingSeconds).toBeGreaterThan(20)
-        expect(model.refinedRemainingSeconds).toBeLessThan(23)
+        expect(model.actualRemainingSeconds).toBeCloseTo(19, 0)
+        expect(model.refinedRemainingSeconds).toBeCloseTo(19, 0)
     })
 
-    it('does not let a late short-group checkpoint yank the queue ETA far away from the learned finish', () => {
+    it('does not let a late short-group checkpoint stretch the queue ETA beyond the learned finish', () => {
         const model = buildPredictiveProgressModel({
             authoritativeProgress: 0.56,
             displayedProgress: 0.62,
@@ -125,8 +151,7 @@ describe('predictiveProgress', () => {
         })
 
         expect(model.estimatedRemainingSeconds).toBe(7)
-        expect(model.actualRemainingSeconds).toBeGreaterThan(40)
-        expect(model.refinedRemainingSeconds).toBeGreaterThan(8)
-        expect(model.refinedRemainingSeconds).toBeLessThan(15)
+        expect(model.actualRemainingSeconds).toBe(7)
+        expect(model.refinedRemainingSeconds).toBe(7)
     })
 })

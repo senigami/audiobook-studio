@@ -21,8 +21,8 @@ def api_jobs():
     # Dynamic progress update based on time
     now = time.time()
     for j in jobs_dict.values():
-        if j.get('status') == 'running' and j.get('started_at') and j.get('eta_seconds'):
-            if j.get('active_segment_id') or (j.get('active_segment_progress') or 0) > 0:
+        if j.get('status') in ('preparing', 'running') and j.get('started_at') and j.get('eta_seconds'):
+            if (j.get('active_segment_progress') or 0) > 0:
                 continue
             elapsed = now - j['started_at']
             time_prog = min(0.99, elapsed / float(j['eta_seconds']))

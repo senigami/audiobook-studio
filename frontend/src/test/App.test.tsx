@@ -78,4 +78,16 @@ describe('App', () => {
         expect(screen.getByText('Voices', { selector: 'h2' })).toBeTruthy()
     })
   })
+
+  it('opens the progress bar test page', async () => {
+    render(
+      <MemoryRouter initialEntries={['/progress-test']}>
+        <App />
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Progress Bar Test')).toBeTruthy()
+    })
+  })
 })

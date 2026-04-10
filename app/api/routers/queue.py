@@ -1,5 +1,6 @@
 import time
 from typing import List, Optional
+from dataclasses import asdict
 from pydantic import BaseModel
 from fastapi import APIRouter, Form
 from fastapi.responses import JSONResponse
@@ -11,6 +12,53 @@ from ..ws import broadcast_queue_update
 router = APIRouter(prefix="/api", tags=["queue"])
 ACTIVE_JOB_STATUSES = {"queued", "preparing", "running", "finalizing"}
 TERMINAL_JOB_STATUSES = {"done", "failed", "cancelled"}
+_LIVE_QUEUE_JOB_FIELDS = (
+    "progress",
+    "status",
+    "started_at",
+    "updated_at",
+    "eta_seconds",
+    "segment_ids",
+    "engine",
+    "custom_title",
+    "active_segment_id",
+    "active_segment_progress",
+    "render_group_count",
+    "completed_render_groups",
+    "active_render_group_index",
+    "total_render_weight",
+    "completed_render_weight",
+    "active_render_group_weight",
+    "grouped_progress",
+    "reason_code",
+    "active_render_batch_id",
+    "active_render_batch_progress",
+)
+
+
+def _merge_live_queue_job(item: dict, job) -> None:
+    job_dict = asdict(job)
+    for field in _LIVE_QUEUE_JOB_FIELDS:
+        value = job_dict.get(field)
+        if value is not None:
+            item[field] = value
+
+
+def _apply_hydrated_progress_floor(item: dict, now: float) -> None:
+    status = item.get("status")
+    started_at = item.get("started_at")
+    eta_seconds = item.get("eta_seconds")
+    active_segment_progress = item.get("active_segment_progress") or 0
+    if status not in {"preparing", "running"}:
+        return
+    if not started_at or not eta_seconds:
+        return
+    if active_segment_progress > 0:
+        return
+
+    elapsed = max(0.0, now - float(started_at))
+    predicted_progress = min(0.99, elapsed / float(eta_seconds))
+    item["progress"] = max(float(item.get("progress") or 0.0), predicted_progress)
 
 @router.get("/processing_queue")
 def api_get_queue():
@@ -76,12 +124,8 @@ def api_get_queue():
         jid = item["id"]
         job = all_jobs.get(jid)
         if job:
-            from dataclasses import asdict
-            job_dict = asdict(job)
-            item["progress"] = job_dict.get("progress", 0.0)
-            item["logs"] = job_dict.get("logs", "")
-            item["status"] = job_dict.get("status", item["status"])
-            item["segment_ids"] = job_dict.get("segment_ids")
+            _merge_live_queue_job(item, job)
+            _apply_hydrated_progress_floor(item, now)
         has_chapter_audio = item.get("chapter_audio_status") == "done" or bool(item.get("chapter_audio_file_path"))
         completed_at = item.get("completed_at") or 0
         has_active_sibling = bool(item.get("chapter_id")) and item.get("chapter_id") in active_queue_chapter_ids
