@@ -22,11 +22,11 @@ Build trustworthy progress, ETA, and artifact reconciliation before the orchestr
 
 ## Deliverables Checklist
 
-- [ ] Reconciliation service implemented
-- [ ] Progress service implemented
-- [ ] ETA service implemented
-- [ ] Normalized event contract implemented
-- [ ] Live-progress stability rules implemented
+- [x] Reconciliation service implemented
+- [x] Progress service implemented
+- [x] ETA service implemented
+- [x] Normalized event contract implemented
+- [x] Live-progress stability rules implemented
 
 ## Scope
 
@@ -46,6 +46,7 @@ Build trustworthy progress, ETA, and artifact reconciliation before the orchestr
 - worker-local progress calculations should be treated as compatibility inputs to the new progress service, not as the final source of truth.
 - progress throttling and heartbeat decisions belong in `ProgressService`; the broadcaster should stay transport-only.
 - reconciliation is still the next structural slice after the progress service lands, and it should be reviewed as a separate risk area rather than folded into the broadcaster work.
+- reconciliation now accepts a normalized request mapping plus an optional manifest lookup callback so orchestration can stay ID-based without importing worker or web modules directly.
 
 ## Tests
 

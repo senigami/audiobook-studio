@@ -7,7 +7,7 @@ gating for the live websocket path.
 from __future__ import annotations
 
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 
 from .broadcaster import broadcast_progress
 from .eta import estimate_eta_seconds
@@ -64,6 +64,10 @@ class ProgressService:
         job_id: str,
         task_revision_id: str,
         artifact_hash: str | None = None,
+        scope: str = "job",
+        requested_revision: Mapping[str, object] | None = None,
+        artifact_manifest: object | None = None,
+        artifact_lookup: Callable[[dict[str, object]], object | None] | None = None,
     ) -> dict[str, object]:
         """Reconcile queued work with current revision-safe artifacts.
 
@@ -72,6 +76,11 @@ class ProgressService:
             task_revision_id: Revision identifier that the job intends to
                 satisfy.
             artifact_hash: Optional artifact hash already linked to the job.
+            scope: Requested work scope such as job, chapter, block, or export.
+            requested_revision: Revision context used to validate artifacts.
+            artifact_manifest: Optional manifest already resolved by caller.
+            artifact_lookup: Optional callback used to resolve a manifest when
+                the caller only has a job snapshot or identifier context.
 
         Returns:
             dict[str, object]: Reconciliation result payload.
@@ -80,6 +89,10 @@ class ProgressService:
             job_id=job_id,
             task_revision_id=task_revision_id,
             artifact_hash=artifact_hash,
+            scope=scope,
+            requested_revision=requested_revision,
+            artifact_manifest=artifact_manifest,
+            artifact_lookup=artifact_lookup,
         )
 
     def estimate_eta(
