@@ -238,15 +238,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         checkpointMode: resolvedCheckpointMode,
         evidenceWeightFraction,
     };
-    const isLaunchSnapshot = !launchSnapshot
-        || launchSnapshot.runAnchor !== currentLaunchSnapshot.runAnchor
-        || launchSnapshot.status !== currentLaunchSnapshot.status
-        || launchSnapshot.progress !== currentLaunchSnapshot.progress
-        || launchSnapshot.startedAt !== currentLaunchSnapshot.startedAt
-        || launchSnapshot.etaSeconds !== currentLaunchSnapshot.etaSeconds
-        || launchSnapshot.checkpointMode !== currentLaunchSnapshot.checkpointMode
-        || launchSnapshot.evidenceWeightFraction !== currentLaunchSnapshot.evidenceWeightFraction;
-    const preferLaunchEtaOnly = isLaunchSnapshot && presentationState === 'preparing';
+    const preferLaunchEtaOnly = !launchSnapshot;
     const tickLoopActive = isDynamicPresentation(presentationState);
     const allowBackwardProgress = !authoritativeFloor;
     const handoffResetPendingRef = useRef(false);
@@ -578,7 +570,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         setDisplayProgress(prev => {
             if (authoritativeFloor) {
                 const targetFloor = Math.max(memoryFloor, clamp01(progress));
-                const base = Math.max(prev, targetFloor);
+                const base = Math.max(prev, memoryFloor);
                 const elapsed = Math.max(0, (tickNow / 1000) - startedAt);
                 const next = advancePredictiveProgress({
                     authoritativeProgress: progress,
@@ -586,7 +578,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                     elapsedSeconds: elapsed,
                     etaSeconds: effectiveEtaSeconds,
                     deltaSeconds: dt,
-                    priorProgressBasis: targetFloor,
+                    priorProgressBasis: base,
                     correctionWeightMode: resolvedCheckpointMode,
                     evidenceWeightFraction,
                     preferLaunchEtaOnly,
@@ -618,7 +610,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                     return 1;
                 }
                 const cappedNext = Math.min(next.nextProgress, base + getMaxVisualStep(dt));
-                const finalNext = clamp01(Math.max(targetFloor, cappedNext));
+                const finalNext = clamp01(Math.max(base, cappedNext));
                 const remainingTicks = getRemainingTicks(tickNow, currentEndTimeRef.current);
                 setDebugTick({
                     lastTickAt: tickNow,

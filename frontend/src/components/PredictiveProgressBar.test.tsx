@@ -84,7 +84,33 @@ describe('PredictiveProgressBar', () => {
         )
 
         expect(screen.getByText('50%')).toBeTruthy()
-        expect(screen.getByText(/ETA: 1:51/i)).toBeTruthy()
+        expect(screen.getByText(/ETA: 2:00/i)).toBeTruthy()
+
+        vi.useRealTimers()
+    })
+
+    it('keeps the launch eta authoritative for an initial running snapshot even when progress is already ahead', () => {
+        vi.useFakeTimers()
+        vi.setSystemTime(1_000)
+
+        render(
+            <PredictiveProgressBar
+                progress={0.25}
+                startedAt={1}
+                etaSeconds={120}
+                label="Proc"
+                status="running"
+            />
+        )
+
+        expect(screen.getByText('25%')).toBeTruthy()
+        expect(screen.getByText(/ETA: 1:5[0-9]|ETA: 2:0[0-9]/i)).toBeTruthy()
+
+        act(() => {
+            vi.advanceTimersByTime(1000)
+        })
+
+        expect(screen.getByText(/2[5-9]%|3[0-9]%/)).toBeTruthy()
 
         vi.useRealTimers()
     })
