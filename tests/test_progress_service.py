@@ -151,13 +151,16 @@ def test_monotonic_progress_and_eta_selection():
 def test_estimate_eta_does_not_advance_published_progress_floor():
     service, _, _, _ = _make_service()
 
+    service.publish(job_id="job-4", status="running", progress=0.7, eta_seconds=5)
+    assert service._last_progress_by_job["job-4"] == 0.7
+
     eta = service.estimate_eta(job_id="job-4", completed_units=8, total_units=10, observed_cps=1.0)
     assert eta == 2
-    assert "job-4" not in service._last_progress_by_job
+    assert service._last_progress_by_job["job-4"] == 0.7
 
     emitted = service.publish(job_id="job-4", status="running", progress=0.4, eta_seconds=eta)
     assert emitted is not None
-    assert emitted["progress"] == 0.4
+    assert emitted["progress"] == 0.7
 
 
 def test_publish_queued_reset_clears_progress_floor_without_explicit_flag():

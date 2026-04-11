@@ -29,8 +29,20 @@ export interface PredictiveProgressDebugSnapshot {
     maxVisualStep: number | null;
     targetFloor: number | null;
     nextProgress: number | null;
+    etaProgressBasis: number | null;
+    visibleProgress: number | null;
+    launchEtaOnly: boolean;
+    allowBackwardProgress: boolean;
+    modelAuthoritativeProgress?: number | null;
+    modelDisplayedProgress?: number | null;
+    modelEstimatedRemainingSeconds?: number | null;
+    modelActualRemainingSeconds?: number | null;
+    modelRefinedRemainingSeconds?: number | null;
+    modelVelocityPerSecond?: number | null;
     correctionWeightMode?: 'default' | 'queue' | 'segment';
     model?: ReturnType<typeof buildPredictiveProgressModel>;
+    lastDisplayWriteSource?: string;
+    lastDisplayWriteValue?: number | null;
 }
 
 interface PredictiveProgressBarProps {
@@ -225,6 +237,10 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         checkpointMode: 'default' | 'queue' | 'segment';
         evidenceWeightFraction: number;
     } | null>(null);
+    const lastDisplayWriteRef = useRef<{ source: string; value: number | null }>({
+        source: 'init',
+        value: getInitialDisplayProgress(progress, startedAt, etaSeconds, persistenceKey, predictive, presentationState),
+    });
     const resolvedCheckpointMode = checkpointMode ?? (authoritativeFloor ? 'queue' : 'default');
     const runAnchor = `${persistenceKey ?? 'none'}:${startedAt ?? 0}`;
     const launchSnapshot = launchSnapshotRef.current;
@@ -255,7 +271,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         currentEndTimeRef.current = null;
         targetEndTimeRef.current = null;
         setCurrentEndTime(null);
-        setDisplayProgress(0);
+        writeDisplayProgress('handoff-reset', 0);
     };
     const [debugTick, setDebugTick] = useState<{
         lastTickAt: number;
@@ -266,8 +282,20 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         maxVisualStep: number | null;
         targetFloor: number | null;
         nextProgress: number | null;
+        etaProgressBasis?: number | null;
+        visibleProgress?: number | null;
+        launchEtaOnly?: boolean;
+        allowBackwardProgress?: boolean;
+        modelAuthoritativeProgress?: number | null;
+        modelDisplayedProgress?: number | null;
+        modelEstimatedRemainingSeconds?: number | null;
+        modelActualRemainingSeconds?: number | null;
+        modelRefinedRemainingSeconds?: number | null;
+        modelVelocityPerSecond?: number | null;
         correctionWeightMode?: 'default' | 'queue' | 'segment';
         model?: ReturnType<typeof buildPredictiveProgressModel>;
+        lastDisplayWriteSource?: string;
+        lastDisplayWriteValue?: number | null;
     }>({
         lastTickAt: Date.now(),
         dtSeconds: 0,
@@ -277,9 +305,34 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         maxVisualStep: null,
         targetFloor: null,
         nextProgress: null,
+        etaProgressBasis: null,
+        visibleProgress: null,
+        launchEtaOnly: preferLaunchEtaOnly,
+        allowBackwardProgress,
+        modelAuthoritativeProgress: null,
+        modelDisplayedProgress: null,
+        modelEstimatedRemainingSeconds: null,
+        modelActualRemainingSeconds: null,
+        modelRefinedRemainingSeconds: null,
+        modelVelocityPerSecond: null,
         correctionWeightMode: resolvedCheckpointMode,
         model: undefined,
+        lastDisplayWriteSource: 'init',
+        lastDisplayWriteValue: getInitialDisplayProgress(progress, startedAt, etaSeconds, persistenceKey, predictive, presentationState),
     });
+
+    const writeDisplayProgress = (
+        source: string,
+        nextValue: number | ((previous: number) => number),
+    ) => {
+        setDisplayProgress(previous => {
+            const resolved = typeof nextValue === 'function'
+                ? (nextValue as (previous: number) => number)(previous)
+                : nextValue;
+            lastDisplayWriteRef.current = { source, value: resolved };
+            return resolved;
+        });
+    };
 
     useEffect(() => {
         if (!memoryKey) return;
@@ -315,7 +368,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         currentEndTimeRef.current = seededEndTime;
         targetEndTimeRef.current = initialEndTime;
         setCurrentEndTime(seededEndTime);
-        setDisplayProgress(loadingToDynamicHandoff
+        writeDisplayProgress('run-anchor-init', loadingToDynamicHandoff
             ? 0
             : getInitialDisplayProgress(
                 progress,
@@ -350,7 +403,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
 
     useEffect(() => {
         if (presentationState === 'finalizing') {
-            setDisplayProgress(0);
+            writeDisplayProgress('finalizing-sync', 0);
             return;
         }
         if (handoffResetPendingRef.current || handoffResetVisible) {
@@ -359,16 +412,12 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             return;
         }
         if (!preserveMountedProgress && !preserveActiveVisualState) {
-            setDisplayProgress(0);
+            writeDisplayProgress('inactive-sync', 0);
             return;
         }
         const memoryFloor = allowBackwardProgress ? 0 : (memoryKey ? (progressMemory.get(memoryKey) ?? 0) : 0);
-        if (allowBackwardProgress && clamp01(progress) < displayProgressRef.current) {
-            setDisplayProgress(clamp01(progress));
-            return;
-        }
         if (!predictive || !startedAt || !etaSeconds) {
-            setDisplayProgress(prev => {
+            writeDisplayProgress('non-predictive-sync', prev => {
                 const target = clamp01(progress);
                 const gap = target - prev;
                 if (Math.abs(gap) <= 0.002) return target;
@@ -378,8 +427,12 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             });
             return;
         }
+        if (allowBackwardProgress) {
+            writeDisplayProgress('direct-sync', clamp01(progress));
+            return;
+        }
         if (authoritativeFloor) {
-            setDisplayProgress(prev => Math.max(prev, memoryFloor, clamp01(progress)));
+            writeDisplayProgress('authoritative-floor-sync', prev => Math.max(prev, memoryFloor, clamp01(progress)));
         }
     }, [progress, startedAt, etaSeconds, predictive, presentationState, authoritativeFloor, preserveActiveVisualState, preserveMountedProgress, loadingToDynamicHandoff, handoffResetVisible, allowBackwardProgress]);
 
@@ -389,7 +442,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         lastTickRef.current = tickNow;
 
         if (presentationState === 'finalizing') {
-            setDisplayProgress(0);
+            writeDisplayProgress('finalizing-tick', 0);
             setDebugTick(prev => ({
                 ...prev,
                 lastTickAt: tickNow,
@@ -443,7 +496,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         }
         if (!isLiveAnimatedStatus(presentationState)) {
             const next = clamp01(Math.max(memoryKey ? (progressMemory.get(memoryKey) ?? 0) : 0, clamp01(progress)));
-            setDisplayProgress(next);
+            writeDisplayProgress('static-status-sync', next);
             setDebugTick(prev => ({
                 ...prev,
                 lastTickAt: tickNow,
@@ -476,7 +529,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             return;
         }
         if (!predictive) {
-            setDisplayProgress(prev => {
+            writeDisplayProgress('non-predictive-tick', prev => {
                 const target = clamp01(progress);
                 const gap = target - prev;
                 if (Math.abs(gap) <= 0.002) return target;
@@ -501,7 +554,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         }
         if (!startedAt || !etaSeconds) {
             const next = clamp01(progress);
-            setDisplayProgress(next);
+            writeDisplayProgress('missing-timing-sync', next);
             setDebugTick({
                 lastTickAt: tickNow,
                 dtSeconds: dt,
@@ -522,7 +575,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         const effectiveEtaSeconds = getEffectiveEtaSeconds(startedAt, etaSeconds, tickNow, currentEndTimeRef.current);
         if (pendingRunAnchorRef.current === runAnchor) {
             pendingRunAnchorRef.current = null;
-            setDisplayProgress(prev => {
+            writeDisplayProgress('pending-run-anchor', prev => {
                 const launchProgress = loadingToDynamicHandoff
                     ? 0
                     : getInitialDisplayProgress(
@@ -534,7 +587,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                         status,
                     );
                 const next = authoritativeFloor
-                    ? Math.max(prev, memoryFloor, launchProgress)
+                    ? Math.max(prev, clamp01(launchProgress))
                     : clamp01(launchProgress);
                 const pendingRemainingTicks = getRemainingTicks(tickNow, currentEndTimeRef.current);
                 setDebugTick({
@@ -548,7 +601,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                         ? getCappedSmoothingTicks(smoothingProgressBasis < EARLY_QUEUE_PROGRESS_THRESHOLD ? EARLY_QUEUE_ETA_MAX_SMOOTHING_TICKS : QUEUE_ETA_MAX_SMOOTHING_TICKS, pendingRemainingTicks)
                         : getCappedSmoothingTicks(ETA_MAX_SMOOTHING_TICKS, pendingRemainingTicks),
                     maxVisualStep: getMaxVisualStep(dt),
-                    targetFloor: Math.max(memoryFloor, clamp01(launchProgress)),
+                        targetFloor: clamp01(launchProgress),
                     nextProgress: next,
                     correctionWeightMode: resolvedCheckpointMode,
                     model: buildPredictiveProgressModel({
@@ -567,10 +620,10 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             return;
         }
 
-        setDisplayProgress(prev => {
+        writeDisplayProgress(authoritativeFloor ? 'predictive-tick-authoritative' : 'predictive-tick', prev => {
             if (authoritativeFloor) {
-                const targetFloor = Math.max(memoryFloor, clamp01(progress));
-                const base = Math.max(prev, memoryFloor);
+                const targetFloor = clamp01(progress);
+                const base = Math.max(prev, clamp01(progress));
                 const elapsed = Math.max(0, (tickNow / 1000) - startedAt);
                 const next = advancePredictiveProgress({
                     authoritativeProgress: progress,
@@ -622,8 +675,8 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                             : smoothingProgressBasis < EARLY_QUEUE_PROGRESS_THRESHOLD
                             ? getCappedSmoothingTicks(EARLY_QUEUE_ETA_MAX_SMOOTHING_TICKS, remainingTicks)
                             : getCappedSmoothingTicks(QUEUE_ETA_MAX_SMOOTHING_TICKS, remainingTicks),
-                    maxVisualStep: getMaxVisualStep(dt),
-                    targetFloor,
+                        maxVisualStep: getMaxVisualStep(dt),
+                        targetFloor,
                     nextProgress: finalNext,
                     correctionWeightMode: resolvedCheckpointMode,
                     model: next,
@@ -639,23 +692,6 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                 deltaSeconds: dt,
                 preferLaunchEtaOnly,
             })
-            if (clamp01(progress) < prev) {
-                const nextProgress = clamp01(progress);
-                const remainingTicks = getRemainingTicks(tickNow, currentEndTimeRef.current);
-                setDebugTick({
-                    lastTickAt: tickNow,
-                    dtSeconds: dt,
-                    tickElapsedSeconds: elapsed,
-                    effectiveEtaSeconds,
-                    smoothingTicks: getCappedSmoothingTicks(ETA_MAX_SMOOTHING_TICKS, remainingTicks),
-                    maxVisualStep: getMaxVisualStep(dt),
-                    targetFloor: nextProgress,
-                    nextProgress,
-                    correctionWeightMode: resolvedCheckpointMode,
-                    model: next,
-                });
-                return nextProgress;
-            }
             if (
                 progress >= 0.995
                 || (
@@ -681,10 +717,13 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                 });
                 return 1
             }
-            const cappedNext = Math.min(next.nextProgress, prev + getMaxVisualStep(dt))
-            const finalNext = allowBackwardProgress
-                ? clamp01(cappedNext)
-                : Math.max(prev, memoryFloor, cappedNext)
+                const liveProgress = clamp01(progress);
+                const forwardDelta = Math.max(0, liveProgress - prev);
+                const correctionBoost = Math.max(getMaxVisualStep(dt), forwardDelta * 0.15);
+                const cappedNext = Math.min(next.nextProgress, prev + correctionBoost)
+                const finalNext = allowBackwardProgress
+                    ? clamp01(Math.max(prev, cappedNext))
+                    : Math.max(prev, clamp01(progress), cappedNext)
             const remainingTicks = getRemainingTicks(tickNow, currentEndTimeRef.current);
             setDebugTick({
                 lastTickAt: tickNow,
@@ -693,7 +732,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                 effectiveEtaSeconds,
                 smoothingTicks: getCappedSmoothingTicks(ETA_MAX_SMOOTHING_TICKS, remainingTicks),
                 maxVisualStep: getMaxVisualStep(dt),
-                targetFloor: allowBackwardProgress ? clamp01(cappedNext) : Math.max(memoryFloor, clamp01(progress)),
+                targetFloor: allowBackwardProgress ? clamp01(cappedNext) : clamp01(progress),
                 nextProgress: finalNext,
                 correctionWeightMode: resolvedCheckpointMode,
                 model: next,
@@ -760,53 +799,25 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     };
 
     const { localProgress, indeterminate } = getProgressInfo();
+    const displayedRemaining = currentEndTime === null
+        ? null
+        : Math.max(0, Math.ceil((currentEndTime - now) / 1000));
+    const queueRemainingFloor = authoritativeFloor && startedAt && etaSeconds
+        ? Math.max(0, Math.ceil(Math.max(0, 1 - localProgress) * etaSeconds))
+        : null;
+    const syncedDisplayedRemaining = queueRemainingFloor === null
+        ? displayedRemaining
+        : (displayedRemaining === null ? queueRemainingFloor : Math.max(displayedRemaining, queueRemainingFloor));
     const smoothingProgressBasis = Math.max(clamp01(progress), localProgress);
+    const launchEtaExpired = startedAt != null && etaSeconds != null
+        ? (now / 1000) >= (startedAt + etaSeconds)
+        : false;
     const autoFinalizing = isLiveAnimatedStatus(presentationState)
-        && localProgress >= 0.995
+        && (localProgress >= 0.995 || launchEtaExpired || (syncedDisplayedRemaining !== null && syncedDisplayedRemaining <= 0))
         && !isDoneStatus(presentationState)
         && !isFailedStatus(presentationState)
         && !isCancelledStatus(presentationState);
     const visualState = autoFinalizing ? 'finalizing' : presentationState;
-    const shouldAnimateWidth = !indeterminate && isActiveStatus(visualState);
-    const indeterminateClassName = indeterminate
-        ? (visualState === 'finalizing'
-            ? 'progress-bar-finalizing'
-            : preparingIndeterminate
-            ? 'progress-bar-pending'
-            : 'progress-bar-animated')
-        : undefined;
-    const prepStyleIndeterminate = visualState === 'preparing' || visualState === 'finalizing';
-    const indeterminateWidth = prepStyleIndeterminate ? '100%' : '35%';
-    const busyStatusText = visualState === 'finalizing'
-        ? 'Finalizing...'
-        : indeterminate
-        ? 'Working...'
-        : null;
-    const terminalStatusText = isDoneStatus(visualState)
-        ? 'Complete'
-        : isFailedStatus(visualState)
-        ? 'Error'
-        : isCancelledStatus(visualState)
-        ? 'Cancelled'
-        : isQueuedStatus(visualState)
-        ? 'Queued'
-        : null;
-    const terminalFillStyle = isDoneStatus(visualState)
-        ? {
-            background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.82) 0%, rgba(34, 197, 94, 0.98) 100%)',
-            boxShadow: '0 0 15px rgba(34, 197, 94, 0.45)',
-        }
-        : isFailedStatus(visualState)
-        ? {
-            background: 'linear-gradient(90deg, rgba(239, 68, 68, 0.82) 0%, rgba(185, 28, 28, 0.98) 100%)',
-            boxShadow: '0 0 15px rgba(239, 68, 68, 0.40)',
-        }
-        : isQueuedStatus(visualState) || isCancelledStatus(visualState)
-        ? {
-            background: 'rgba(148, 163, 184, 0.12)',
-            boxShadow: 'none',
-        }
-        : null;
 
     useEffect(() => {
         if (visualState === 'finalizing') {
@@ -902,15 +913,46 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         setCurrentEndTime(nextEndTime);
     }, [now, predictive, startedAt, etaSeconds, presentationState, preserveActiveVisualState, preserveMountedProgress, authoritativeFloor, progress, resolvedCheckpointMode, visualState, loadingToDynamicHandoff, handoffResetVisible]);
 
-    const displayedRemaining = currentEndTime === null
-        ? null
-        : Math.max(0, Math.ceil((currentEndTime - now) / 1000));
-    const queueRemainingFloor = authoritativeFloor && startedAt && etaSeconds
-        ? Math.max(0, Math.ceil(Math.max(0, 1 - localProgress) * etaSeconds))
+    const shouldAnimateWidth = !indeterminate && isActiveStatus(visualState);
+    const indeterminateClassName = indeterminate
+        ? (visualState === 'finalizing'
+            ? 'progress-bar-finalizing'
+            : preparingIndeterminate
+            ? 'progress-bar-pending'
+            : 'progress-bar-animated')
+        : undefined;
+    const prepStyleIndeterminate = visualState === 'preparing' || visualState === 'finalizing';
+    const indeterminateWidth = prepStyleIndeterminate ? '100%' : '35%';
+    const busyStatusText = visualState === 'finalizing'
+        ? 'Finalizing...'
+        : indeterminate
+        ? 'Working...'
         : null;
-    const syncedDisplayedRemaining = queueRemainingFloor === null
-        ? displayedRemaining
-        : (displayedRemaining === null ? queueRemainingFloor : Math.max(displayedRemaining, queueRemainingFloor));
+    const terminalStatusText = isDoneStatus(visualState)
+        ? 'Complete'
+        : isFailedStatus(visualState)
+        ? 'Error'
+        : isCancelledStatus(visualState)
+        ? 'Cancelled'
+        : isQueuedStatus(visualState)
+        ? 'Queued'
+        : null;
+    const terminalFillStyle = isDoneStatus(visualState)
+        ? {
+            background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.82) 0%, rgba(34, 197, 94, 0.98) 100%)',
+            boxShadow: '0 0 15px rgba(34, 197, 94, 0.45)',
+        }
+        : isFailedStatus(visualState)
+        ? {
+            background: 'linear-gradient(90deg, rgba(239, 68, 68, 0.82) 0%, rgba(185, 28, 28, 0.98) 100%)',
+            boxShadow: '0 0 15px rgba(239, 68, 68, 0.40)',
+        }
+        : isQueuedStatus(visualState) || isCancelledStatus(visualState)
+        ? {
+            background: 'rgba(148, 163, 184, 0.12)',
+            boxShadow: 'none',
+        }
+        : null;
 
     useEffect(() => {
         displayedRemainingRef.current = syncedDisplayedRemaining;
@@ -946,8 +988,20 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             maxVisualStep: debugTick.maxVisualStep,
             targetFloor: debugTick.targetFloor,
             nextProgress: debugTick.nextProgress,
+            etaProgressBasis: debugTick.model?.authoritativeProgress ?? null,
+            visibleProgress: debugTick.model?.displayedProgress ?? null,
+            launchEtaOnly: preferLaunchEtaOnly,
+            allowBackwardProgress,
+            modelAuthoritativeProgress: debugTick.model?.authoritativeProgress ?? null,
+            modelDisplayedProgress: debugTick.model?.displayedProgress ?? null,
+            modelEstimatedRemainingSeconds: debugTick.model?.estimatedRemainingSeconds ?? null,
+            modelActualRemainingSeconds: debugTick.model?.actualRemainingSeconds ?? null,
+            modelRefinedRemainingSeconds: debugTick.model?.refinedRemainingSeconds ?? null,
+            modelVelocityPerSecond: debugTick.model?.velocityPerSecond ?? null,
             correctionWeightMode: debugTick.correctionWeightMode,
             model: debugTick.model,
+            lastDisplayWriteSource: lastDisplayWriteRef.current.source,
+            lastDisplayWriteValue: lastDisplayWriteRef.current.value,
         };
         onDebugSnapshot(snapshot);
     }, [
@@ -971,6 +1025,8 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         currentEndTime,
         now,
         debugTick,
+        preferLaunchEtaOnly,
+        allowBackwardProgress,
     ]);
 
     return (

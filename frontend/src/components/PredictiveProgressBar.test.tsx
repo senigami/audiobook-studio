@@ -267,6 +267,30 @@ describe('PredictiveProgressBar', () => {
         expect(bar.style.width).toBe('100%')
     })
 
+    it('auto-flips a running bar to finalizing when the eta is exhausted even below 100 percent', () => {
+        vi.useFakeTimers()
+        vi.setSystemTime(127_000)
+
+        const { container } = render(
+            <PredictiveProgressBar
+                progress={0.25}
+                startedAt={1}
+                etaSeconds={120}
+                label="Fin"
+                status="running"
+                showEta={false}
+            />
+        )
+
+        expect(screen.getByText('Finalizing...')).toBeTruthy()
+        expect(screen.queryByText(/ETA:/)).toBeNull()
+        const bar = container.querySelector('.progress-bar-finalizing') as HTMLElement
+        expect(bar).toBeTruthy()
+        expect(bar.style.width).toBe('100%')
+
+        vi.useRealTimers()
+    })
+
     it('renders a distinct complete state for done jobs', () => {
         const { container } = render(
             <PredictiveProgressBar
@@ -314,7 +338,7 @@ describe('PredictiveProgressBar', () => {
         expect(bar).toBeTruthy()
     })
 
-    it('smoothly eases toward a backend correction instead of snapping immediately', async () => {
+    it('applies a backend correction immediately when the floor is off', async () => {
         vi.useFakeTimers()
         vi.setSystemTime(91_000)
 
@@ -343,20 +367,19 @@ describe('PredictiveProgressBar', () => {
             />
         )
 
-        expect(screen.queryByText('33%')).toBeNull()
+        expect(screen.getByText('33%')).toBeTruthy()
 
         act(() => {
             vi.advanceTimersByTime(1000)
         })
 
-        expect(screen.queryByText('33%')).toBeNull()
-        expect(screen.getByText(/1%|2%|3%|4%|5%/)).toBeTruthy()
+        expect(screen.getByText(/3[0-9]%/)).toBeTruthy()
 
         vi.useRealTimers()
         vi.restoreAllMocks()
     })
 
-    it('does not move backward when a later correction is lower than the displayed progress', () => {
+    it('moves backward when a later correction is lower than the displayed progress and the floor is off', () => {
         vi.useFakeTimers()
         vi.setSystemTime(91_000)
 
@@ -393,7 +416,7 @@ describe('PredictiveProgressBar', () => {
         vi.useRealTimers()
     })
 
-    it('does not restart from stale lower progress when remounted with the same persistence key', () => {
+    it('re-anchors to a lower correction when remounted with the same persistence key and the floor is off', () => {
         vi.useFakeTimers()
         vi.setSystemTime(91_000)
 
@@ -428,7 +451,7 @@ describe('PredictiveProgressBar', () => {
         vi.useRealTimers()
     })
 
-    it('keeps the visible position steady when a higher backend correction arrives and only changes pace after that', () => {
+    it('applies a higher backend correction immediately when the floor is off', () => {
         vi.useFakeTimers()
         vi.setSystemTime(26_000)
 
@@ -464,18 +487,18 @@ describe('PredictiveProgressBar', () => {
             />
         )
 
-        expect(readPercent()).toBe(beforeCorrection)
+        expect(readPercent()).toBe(50)
 
         act(() => {
             vi.advanceTimersByTime(10_000)
         })
 
-        expect(readPercent()).toBeGreaterThan(beforeCorrection)
+        expect(readPercent()).toBeGreaterThanOrEqual(50)
 
         vi.useRealTimers()
     })
 
-    it('keeps the visible position steady when a lower backend correction arrives and only slows future pace', () => {
+    it('applies a lower backend correction immediately when the floor is off', () => {
         vi.useFakeTimers()
         vi.setSystemTime(51_000)
 
@@ -511,13 +534,13 @@ describe('PredictiveProgressBar', () => {
             />
         )
 
-        expect(readPercent()).toBeLessThan(beforeCorrection)
+        expect(readPercent()).toBe(25)
 
         act(() => {
             vi.advanceTimersByTime(10_000)
         })
 
-        expect(readPercent()).toBeLessThanOrEqual(beforeCorrection)
+        expect(readPercent()).toBeGreaterThanOrEqual(25)
 
         vi.useRealTimers()
     })

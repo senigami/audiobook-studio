@@ -118,12 +118,6 @@ class ProgressService:
             int | None: Estimated remaining seconds, or None when insufficient
             data is available.
         """
-        _ = self._normalize_monotonic_progress(
-            job_id=job_id,
-            completed_units=completed_units,
-            total_units=total_units,
-            persist=False,
-        )
         return self.eta_fn(
             completed_units=completed_units,
             total_units=total_units,
