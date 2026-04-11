@@ -73,7 +73,8 @@ const MetricCard: React.FC<{ label: string; help: string; value: string }> = ({ 
 );
 
 export const ProgressBarTestPage: React.FC = () => {
-  const [config, setConfig] = React.useState<ProgressBarTestConfig>(DEFAULT_CONFIG);
+  const [launchConfig, setLaunchConfig] = React.useState<ProgressBarTestConfig>(DEFAULT_CONFIG);
+  const [activeConfig, setActiveConfig] = React.useState<ProgressBarTestConfig>(DEFAULT_CONFIG);
   const [renderToken, setRenderToken] = React.useState(0);
   const [eventLog, setEventLog] = React.useState<string[]>([
     'Initialized with a live segment-style checkpoint mode.'
@@ -88,16 +89,7 @@ export const ProgressBarTestPage: React.FC = () => {
   };
 
   const applyConfigPatch = (patch: Partial<ProgressBarTestConfig>, message: string) => {
-    setConfig(prev => ({ ...prev, ...patch }));
-    if (Object.prototype.hasOwnProperty.call(patch, 'progress') && typeof patch.progress === 'number') {
-      setManualProgressValue(String(Math.round(clamp01(patch.progress) * 100)));
-    }
-    if (Object.prototype.hasOwnProperty.call(patch, 'etaSeconds')) {
-      setManualEtaSeconds(typeof patch.etaSeconds === 'number' ? String(patch.etaSeconds) : '');
-    }
-    if (Object.prototype.hasOwnProperty.call(patch, 'status') && typeof patch.status === 'string') {
-      setManualStatus(patch.status as ProgressBarStatus);
-    }
+    setLaunchConfig(prev => ({ ...prev, ...patch }));
     pushLog(message);
   };
 
@@ -105,7 +97,7 @@ export const ProgressBarTestPage: React.FC = () => {
     const nextProgressValue = manualProgressValue.trim() === '' ? undefined : clamp01(Number(manualProgressValue) / 100);
     const nextEtaValue = manualEtaSeconds.trim() === '' ? undefined : Math.max(1, Math.round(Number(manualEtaSeconds)));
 
-    setConfig(prev => {
+    setActiveConfig(prev => {
       const nextStatus = manualStatus;
       const shouldSeedStartNow = nextStatus === 'running' && typeof prev.startedAt !== 'number';
       const nextStartedAt = shouldSeedStartNow ? nowUnixSeconds() : prev.startedAt;
@@ -125,37 +117,40 @@ export const ProgressBarTestPage: React.FC = () => {
   };
 
   const launchSampleRun = () => {
-    const startedAt = config.status === 'preparing' ? undefined : (config.startedAt ?? nowUnixSeconds());
-    const launchProgress = config.progress;
-    const etaSeconds = config.etaSeconds;
-    const persistenceKey = config.persistenceKey || `progress-test-${Date.now()}`;
+    const startedAt = launchConfig.status === 'preparing' ? undefined : (launchConfig.startedAt ?? nowUnixSeconds());
+    const launchProgress = launchConfig.progress;
+    const etaSeconds = launchConfig.etaSeconds;
+    const persistenceKey = launchConfig.persistenceKey || `progress-test-${Date.now()}`;
     resetPredictiveProgressMemory(persistenceKey);
-    setConfig(prev => ({
-      ...prev,
+    const nextActiveConfig: ProgressBarTestConfig = {
+      ...launchConfig,
       progress: launchProgress,
       startedAt,
       etaSeconds,
       persistenceKey,
-      status: prev.status,
-    }));
+      status: launchConfig.status,
+    };
+    setActiveConfig(nextActiveConfig);
     setManualProgressValue(String(Math.round(launchProgress * 100)));
-    setManualEtaSeconds(typeof config.etaSeconds === 'number' ? String(config.etaSeconds) : '');
-    setManualStatus(config.status);
+    setManualEtaSeconds(typeof nextActiveConfig.etaSeconds === 'number' ? String(nextActiveConfig.etaSeconds) : '');
+    setManualStatus(nextActiveConfig.status);
     setRenderToken(prev => prev + 1);
     pushLog(`Launched run from the current config using persistence key ${persistenceKey}`);
   };
 
   const resetPreview = () => {
     resetPredictiveProgressMemory();
-    setConfig(DEFAULT_CONFIG);
+    setLaunchConfig(DEFAULT_CONFIG);
+    setActiveConfig(DEFAULT_CONFIG);
     setManualProgressValue(String(Math.round(DEFAULT_CONFIG.progress * 100)));
     setManualEtaSeconds(String(DEFAULT_CONFIG.etaSeconds ?? ''));
+    setManualStatus(DEFAULT_CONFIG.status);
     setRenderToken(prev => prev + 1);
     pushLog('Reset preview to the default configuration.');
   };
 
   const nudgeProgress = (delta: number) => {
-    setConfig(prev => {
+    setActiveConfig(prev => {
       const next = clamp01(prev.progress + delta);
       pushLog(`Progress nudged to ${Math.round(next * 100)}%`);
       setManualProgressValue(String(Math.round(next * 100)));
@@ -164,7 +159,6 @@ export const ProgressBarTestPage: React.FC = () => {
   };
 
   const setStatus = (status: ProgressBarStatus) => {
-    setManualStatus(status);
     applyConfigPatch({ status }, `Status changed to ${status}.`);
   };
 
@@ -234,18 +228,18 @@ export const ProgressBarTestPage: React.FC = () => {
             <div style={{ display: 'grid', gap: '0.9rem', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
               <label style={{ display: 'grid', gap: '0.35rem' }}>
                 <FieldLabel label="Progress" help="The authoritative backend progress value. Use this to simulate a job reporting its current percent complete." />
-                <input type="range" min={0} max={1} step={0.01} value={config.progress} onChange={e => applyConfigPatch({ progress: clamp01(Number(e.target.value)) }, `Progress set to ${Math.round(Number(e.target.value) * 100)}%.`)} />
+                <input type="range" min={0} max={1} step={0.01} value={launchConfig.progress} onChange={e => applyConfigPatch({ progress: clamp01(Number(e.target.value)) }, `Progress set to ${Math.round(Number(e.target.value) * 100)}%.`)} />
               </label>
               <label style={{ display: 'grid', gap: '0.35rem' }}>
                 <FieldLabel label="Label" help="The visible title shown beside the bar." />
-                <input value={config.label} onChange={e => applyConfigPatch({ label: e.target.value }, `Label changed to "${e.target.value}".`)} />
+                <input value={launchConfig.label} onChange={e => applyConfigPatch({ label: e.target.value }, `Label changed to "${e.target.value}".`)} />
               </label>
               <label style={{ display: 'grid', gap: '0.35rem' }}>
                 <FieldLabel label="Started At" help="Unix timestamp in seconds. This is the launch-time anchor for a run. In live updates, the backend normally keeps this stable instead of re-sending a new value each tick." />
                 <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center' }}>
                   <input
                     type="number"
-                    value={config.startedAt ?? ''}
+                    value={launchConfig.startedAt ?? ''}
                     onChange={e => applyConfigPatch({ startedAt: e.target.value === '' ? undefined : Number(e.target.value) }, `startedAt updated to ${e.target.value || 'unset'}.`)}
                     style={{ flex: 1 }}
                   />
@@ -256,29 +250,29 @@ export const ProgressBarTestPage: React.FC = () => {
               </label>
               <label style={{ display: 'grid', gap: '0.35rem' }}>
                 <FieldLabel label="ETA Seconds" help="The current server ETA value. The live runtime sends this as a real field update, not as a delta." />
-                <input type="number" min={1} value={config.etaSeconds ?? ''} onChange={e => applyConfigPatch({ etaSeconds: e.target.value === '' ? undefined : Number(e.target.value) }, `etaSeconds updated to ${e.target.value || 'unset'}.`)} />
+                <input type="number" min={1} value={launchConfig.etaSeconds ?? ''} onChange={e => applyConfigPatch({ etaSeconds: e.target.value === '' ? undefined : Number(e.target.value) }, `etaSeconds updated to ${e.target.value || 'unset'}.`)} />
               </label>
               <label style={{ display: 'grid', gap: '0.35rem' }}>
                 <FieldLabel label="Persistence Key" help="A stable identifier used to remember progress and ETA across remounts and reloads." />
-                <input value={config.persistenceKey ?? ''} onChange={e => applyConfigPatch({ persistenceKey: e.target.value || undefined }, `persistenceKey updated.`)} />
+                <input value={launchConfig.persistenceKey ?? ''} onChange={e => applyConfigPatch({ persistenceKey: e.target.value || undefined }, `persistenceKey updated.`)} />
               </label>
               <label style={{ display: 'grid', gap: '0.35rem' }}>
                 <FieldLabel label="Status" help="The lifecycle state being simulated. Running and processing animate; queued and preparing stay idle unless a live run is explicitly started." />
-                <select value={config.status} onChange={e => setStatus(e.target.value as ProgressBarStatus)}>
+                <select value={launchConfig.status} onChange={e => setStatus(e.target.value as ProgressBarStatus)}>
                   {STATUS_OPTIONS.map(status => <option key={status} value={status}>{status}</option>)}
                 </select>
               </label>
               <label style={{ display: 'grid', gap: '0.35rem' }}>
                 <FieldLabel label="Checkpoint Mode" help="Changes how strongly the bar trusts incoming updates. Segment mode is more responsive, queue mode is more conservative, and default sits in between." />
-                <select value={config.checkpointMode} onChange={e => applyConfigPatch({ checkpointMode: e.target.value as ProgressBarCheckpointMode }, `checkpointMode set to ${e.target.value}.`)}>
+                <select value={launchConfig.checkpointMode} onChange={e => applyConfigPatch({ checkpointMode: e.target.value as ProgressBarCheckpointMode }, `checkpointMode set to ${e.target.value}.`)}>
                   {CHECKPOINT_MODES.map(mode => <option key={mode} value={mode}>{mode}</option>)}
                 </select>
               </label>
             </div>
 
             <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginTop: '1rem' }}>
-              <label title="Show or hide the ETA readout next to the percent value." style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}><input type="checkbox" checked={config.showEta} onChange={e => applyConfigPatch({ showEta: e.target.checked }, `showEta ${e.target.checked ? 'enabled' : 'disabled'}.`)} /> Show ETA</label>
-              <label title="Keep the visible bar from moving backward when a newer backend update reports a lower value." style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}><input type="checkbox" checked={config.authoritativeFloor} onChange={e => applyConfigPatch({ authoritativeFloor: e.target.checked }, `authoritativeFloor ${e.target.checked ? 'enabled' : 'disabled'}.`)} /> Authoritative floor</label>
+              <label title="Show or hide the ETA readout next to the percent value." style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}><input type="checkbox" checked={launchConfig.showEta} onChange={e => applyConfigPatch({ showEta: e.target.checked }, `showEta ${e.target.checked ? 'enabled' : 'disabled'}.`)} /> Show ETA</label>
+              <label title="Keep the visible bar from moving backward when a newer backend update reports a lower value." style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}><input type="checkbox" checked={launchConfig.authoritativeFloor} onChange={e => applyConfigPatch({ authoritativeFloor: e.target.checked }, `authoritativeFloor ${e.target.checked ? 'enabled' : 'disabled'}.`)} /> Authoritative floor</label>
             </div>
 
             <div style={{ marginTop: '1rem' }}>
@@ -332,7 +326,7 @@ export const ProgressBarTestPage: React.FC = () => {
               <button className="btn-ghost" onClick={() => nudgeProgress(0.01)}>+1%</button>
               <button className="btn-ghost" onClick={() => nudgeProgress(0.05)}>+5%</button>
               <button className="btn-ghost" onClick={() => nudgeProgress(0.1)}>+10%</button>
-              <button className="btn-ghost" onClick={() => applyConfigPatch({ progress: 1, status: 'finalizing' }, 'Marked as finalizing at 100%.')}>
+              <button className="btn-ghost" onClick={() => setActiveConfig(prev => ({ ...prev, progress: 1, status: 'finalizing' }))}>
                 Finish
               </button>
             </div>
@@ -365,15 +359,15 @@ export const ProgressBarTestPage: React.FC = () => {
               <label style={{ display: 'grid', gap: '0.35rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
                   <FieldLabel label="Update Confidence" help="How much of the whole this update should count for. Larger segments or more trusted checkpoints should influence ETA more strongly." />
-                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)' }}>{Math.round(config.evidenceWeightFraction * 100)}%</span>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)' }}>{Math.round(activeConfig.evidenceWeightFraction * 100)}%</span>
                 </div>
                 <input
                   type="range"
                   min={0}
                   max={100}
                   step={1}
-                  value={Math.round(config.evidenceWeightFraction * 100)}
-                  onChange={e => applyConfigPatch({ evidenceWeightFraction: Number(e.target.value) / 100 }, `evidenceWeightFraction set to ${e.target.value}%.`)}
+                  value={Math.round(activeConfig.evidenceWeightFraction * 100)}
+                  onChange={e => setActiveConfig(prev => ({ ...prev, evidenceWeightFraction: Number(e.target.value) / 100 }))}
                 />
                 <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                   Real producers should derive this from the update payload. If it is missing, use an 80% fallback confidence.
@@ -406,17 +400,17 @@ export const ProgressBarTestPage: React.FC = () => {
           <div style={{ padding: '1rem', borderRadius: '16px', border: '1px solid var(--border)', background: 'var(--surface)' }}>
               <PredictiveProgressBar
                 key={renderToken}
-                progress={config.progress}
-                startedAt={config.startedAt}
-                etaSeconds={config.etaSeconds}
-                persistenceKey={config.persistenceKey}
-                label={config.label}
-                showEta={config.showEta}
-                status={config.status}
+                progress={activeConfig.progress}
+                startedAt={activeConfig.startedAt}
+                etaSeconds={activeConfig.etaSeconds}
+                persistenceKey={activeConfig.persistenceKey}
+                label={activeConfig.label}
+                showEta={activeConfig.showEta}
+                status={activeConfig.status}
                 predictive={true}
-                authoritativeFloor={config.authoritativeFloor}
-                evidenceWeightFraction={config.evidenceWeightFraction}
-                checkpointMode={config.checkpointMode}
+                authoritativeFloor={activeConfig.authoritativeFloor}
+                evidenceWeightFraction={activeConfig.evidenceWeightFraction}
+                checkpointMode={activeConfig.checkpointMode}
                 onDebugSnapshot={setDebugSnapshot}
             />
           </div>
@@ -428,8 +422,8 @@ export const ProgressBarTestPage: React.FC = () => {
                 These are the values the bar is actually using for its visible render.
               </p>
               <div style={{ display: 'grid', gap: '0.5rem', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
-                <MetricCard label="Bar status" help="The status currently being rendered by the bar." value={debugSnapshot?.status ?? config.status} />
-                <MetricCard label="Launch started_at" help="The launch snapshot anchor the test page last passed into the bar." value={config.startedAt !== undefined ? `${config.startedAt}` : 'unset'} />
+                <MetricCard label="Bar status" help="The status currently being rendered by the bar." value={debugSnapshot?.status ?? activeConfig.status} />
+                <MetricCard label="Launch started_at" help="The staged launch snapshot currently configured in the left panel." value={launchConfig.startedAt !== undefined ? `${launchConfig.startedAt}` : 'unset'} />
                 <MetricCard label="Runtime started_at" help="The started_at value the live bar is currently using after any handoff or live update." value={debugSnapshot?.startedAt !== null && debugSnapshot?.startedAt !== undefined ? `${debugSnapshot.startedAt}` : 'n/a'} />
                 <MetricCard label="Tick loop active" help="Whether the bar is currently running its predictive tick loop or sitting in a static presentation state." value={debugSnapshot ? (debugSnapshot.tickLoopActive ? 'yes' : 'no') : 'n/a'} />
                 <MetricCard label="Displayed progress" help="The width actually being shown on screen right now." value={debugSnapshot ? `${Math.round(debugSnapshot.displayProgress * 100)}%` : 'n/a'} />
@@ -453,7 +447,8 @@ export const ProgressBarTestPage: React.FC = () => {
               gridTemplateColumns: 'repeat(2, minmax(0, 1fr))'
             }}>
               {[
-                ['launchStartedAt', 'The launch snapshot started_at value last passed into the bar.', config.startedAt !== undefined ? `${config.startedAt}` : 'unset'],
+                ['launchStartedAt', 'The staged launch snapshot value from the left panel.', launchConfig.startedAt !== undefined ? `${launchConfig.startedAt}` : 'unset'],
+                ['activeStartedAt', 'The runtime snapshot currently driving the live preview.', activeConfig.startedAt !== undefined ? `${activeConfig.startedAt}` : 'unset'],
                 ['runtimeStartedAt', 'The started_at value the bar is actually using for the current runtime anchor.', debugSnapshot?.startedAt !== null && debugSnapshot?.startedAt !== undefined ? `${debugSnapshot.startedAt}` : 'n/a'],
                 ['tickLoopActive', 'Whether the predictive tick loop is currently running.', debugSnapshot ? (debugSnapshot.tickLoopActive ? 'yes' : 'no') : 'n/a'],
                 ['memoryFloor', 'The remembered floor carried over from the last known live run.', debugSnapshot ? `${Math.round(debugSnapshot.memoryFloor * 100)}%` : 'n/a'],

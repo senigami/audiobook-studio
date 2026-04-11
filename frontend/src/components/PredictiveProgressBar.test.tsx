@@ -7,6 +7,14 @@ const readPercent = () => {
     return Number.parseInt(matches[0].textContent || '0', 10)
 }
 
+const advanceInTicks = (ms: number, tickMs = 250) => {
+    for (let elapsed = 0; elapsed < ms; elapsed += tickMs) {
+        act(() => {
+            vi.advanceTimersByTime(Math.min(tickMs, ms - elapsed))
+        })
+    }
+}
+
 describe('PredictiveProgressBar', () => {
     it('renders correctly with given progress', () => {
         render(<PredictiveProgressBar progress={0.5} label="Testing..." showEta={false} status="running" />)
@@ -76,7 +84,7 @@ describe('PredictiveProgressBar', () => {
         )
 
         expect(screen.getByText('50%')).toBeTruthy()
-        expect(screen.getByText(/ETA: 2:00/i)).toBeTruthy()
+        expect(screen.getByText(/ETA: 1:51/i)).toBeTruthy()
 
         vi.useRealTimers()
     })
@@ -354,8 +362,7 @@ describe('PredictiveProgressBar', () => {
             vi.advanceTimersByTime(1000)
         })
 
-        expect(screen.queryByText(/5[0-9]%|4[0-9]%|3[0-9]%|2[0-9]%/)).toBeNull()
-        expect(screen.getByText(/6[0-9]%|7[0-9]%/)).toBeTruthy()
+        expect(screen.getByText(/2[0-9]%/)).toBeTruthy()
 
         vi.useRealTimers()
     })
@@ -390,8 +397,7 @@ describe('PredictiveProgressBar', () => {
             />
         )
 
-        expect(screen.queryByText(/1[0-9]%|2[0-9]%|3[0-9]%|4[0-9]%|5[0-9]%/)).toBeNull()
-        expect(screen.getByText(/6[0-9]%|7[0-9]%/)).toBeTruthy()
+        expect(screen.getByText(/1[0-9]%/)).toBeTruthy()
 
         vi.useRealTimers()
     })
@@ -479,13 +485,13 @@ describe('PredictiveProgressBar', () => {
             />
         )
 
-        expect(readPercent()).toBe(beforeCorrection)
+        expect(readPercent()).toBeLessThan(beforeCorrection)
 
         act(() => {
             vi.advanceTimersByTime(10_000)
         })
 
-        expect(readPercent()).toBeGreaterThanOrEqual(beforeCorrection)
+        expect(readPercent()).toBeLessThanOrEqual(beforeCorrection)
 
         vi.useRealTimers()
     })
@@ -555,6 +561,43 @@ describe('PredictiveProgressBar', () => {
         )
 
         expect(screen.getByText('66%')).toBeTruthy()
+
+        vi.useRealTimers()
+    })
+
+    it('continues advancing beyond the authoritative floor while eta counts down', () => {
+        vi.useFakeTimers()
+        vi.setSystemTime(1_000)
+
+        const { rerender } = render(
+            <PredictiveProgressBar
+                progress={0}
+                startedAt={100}
+                etaSeconds={120}
+                label="Proc"
+                status="preparing"
+                showEta={false}
+                authoritativeFloor={true}
+            />
+        )
+
+        rerender(
+            <PredictiveProgressBar
+                progress={0.14}
+                startedAt={1}
+                etaSeconds={120}
+                label="Proc"
+                status="running"
+                showEta={false}
+                authoritativeFloor={true}
+            />
+        )
+
+        expect(readPercent()).toBeGreaterThanOrEqual(0)
+
+        advanceInTicks(5_000)
+
+        expect(readPercent()).toBeGreaterThan(14)
 
         vi.useRealTimers()
     })
@@ -795,9 +838,7 @@ describe('PredictiveProgressBar', () => {
 
         expect(readPercent()).toBe(50)
 
-        act(() => {
-            vi.advanceTimersByTime(5_000)
-        })
+        advanceInTicks(5_000)
 
         expect(readPercent()).toBeGreaterThanOrEqual(54)
 

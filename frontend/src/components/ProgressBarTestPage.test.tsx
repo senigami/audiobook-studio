@@ -3,6 +3,25 @@ import { describe, it, expect } from 'vitest'
 import { ProgressBarTestPage } from './ProgressBarTestPage'
 
 describe('ProgressBarTestPage', () => {
+  it('does not apply launch-state edits to the live preview until launch is clicked', async () => {
+    render(<ProgressBarTestPage />)
+
+    expect(screen.getAllByText('25%').length).toBeGreaterThan(0)
+
+    fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'queued' } })
+    fireEvent.change(screen.getByLabelText('Progress'), { target: { value: '0.67' } })
+
+    expect(screen.getAllByText('25%').length).toBeGreaterThan(0)
+    expect(screen.queryByText('67%')).toBeNull()
+
+    fireEvent.click(screen.getByText('Launch From Config'))
+
+    await waitFor(() => {
+      expect(screen.getAllByText('67%').length).toBeGreaterThan(0)
+      expect(screen.getAllByText('queued').length).toBeGreaterThan(0)
+    })
+  })
+
   it('launches from the configured initial state without resetting progress', async () => {
     render(<ProgressBarTestPage />)
 
