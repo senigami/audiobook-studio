@@ -25,6 +25,7 @@ export interface PredictiveProgressDebugSnapshot {
     tickElapsedSeconds: number | null;
     effectiveEtaSeconds: number | null;
     smoothingTicks: number | null;
+    smoothingBaseTicks: number | null;
     maxVisualStep: number | null;
     targetFloor: number | null;
     nextProgress: number | null;
@@ -73,6 +74,7 @@ export const createInitialDebugTickState = ({
     tickElapsedSeconds: null,
     effectiveEtaSeconds: null,
     smoothingTicks: null,
+    smoothingBaseTicks: null,
     maxVisualStep: null,
     targetFloor: null,
     nextProgress: null,
@@ -167,6 +169,7 @@ export const buildPredictiveProgressDebugSnapshot = ({
     tickElapsedSeconds: debugTick.tickElapsedSeconds,
     effectiveEtaSeconds: debugTick.effectiveEtaSeconds,
     smoothingTicks: debugTick.smoothingTicks,
+    smoothingBaseTicks: debugTick.smoothingBaseTicks ?? null,
     maxVisualStep: debugTick.maxVisualStep,
     targetFloor: debugTick.targetFloor,
     nextProgress: debugTick.nextProgress,
