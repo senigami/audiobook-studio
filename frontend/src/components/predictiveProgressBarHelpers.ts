@@ -72,7 +72,7 @@ export const getRemainingTicks = (nowMs: number, endTimeMs: number | null) =>
 export const getCappedSmoothingTicks = (baseTicks: number, remainingTicks: number) =>
     Math.max(1, Math.min(baseTicks, remainingTicks));
 
-export const getSmoothingTicks = ({
+export const getSmoothingTickBudget = ({
     checkpointMode,
     authoritativeFloor,
     smoothingProgressBasis,
@@ -84,15 +84,17 @@ export const getSmoothingTicks = ({
     remainingTicks: number;
 }) => {
     if (checkpointMode === 'segment') {
-        return getCappedSmoothingTicks(2, remainingTicks);
+        const baseTicks = 2;
+        return { baseTicks, cappedTicks: getCappedSmoothingTicks(baseTicks, remainingTicks) };
     }
     if (!authoritativeFloor) {
-        return getCappedSmoothingTicks(ETA_MAX_SMOOTHING_TICKS, remainingTicks);
+        const baseTicks = ETA_MAX_SMOOTHING_TICKS;
+        return { baseTicks, cappedTicks: getCappedSmoothingTicks(baseTicks, remainingTicks) };
     }
     const baseTicks = smoothingProgressBasis < EARLY_QUEUE_PROGRESS_THRESHOLD
         ? EARLY_QUEUE_ETA_MAX_SMOOTHING_TICKS
         : QUEUE_ETA_MAX_SMOOTHING_TICKS;
-    return getCappedSmoothingTicks(baseTicks, remainingTicks);
+    return { baseTicks, cappedTicks: getCappedSmoothingTicks(baseTicks, remainingTicks) };
 };
 
 export const getEffectiveEtaSeconds = (

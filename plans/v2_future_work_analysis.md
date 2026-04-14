@@ -35,8 +35,8 @@ The 2.0 architecture should make backlog work easier, but only if we actually la
 ### Issue #20: Workflow for larger trained local models
 
 - **Compatibility**: Good fit
-- **Why**: The engine bridge and resource-profile scheduler are exactly the right boundary for heavier local models.
-- **Prerequisite**: Resource policy model must be richer than a single heavy/light flag
+- **Why**: The TTS Server process boundary and plugin SDK are exactly the right boundary for heavier local models. A contributor wraps the model in a `StudioTTSEngine` plugin, declares its resource profile in the manifest, and the orchestrator schedules it correctly.
+- **Prerequisite**: TTS Server must be running; resource policy model must be richer than a single heavy/light flag
 
 ### Issue #19: Project backup and restore via dated bundles
 
@@ -54,9 +54,11 @@ The 2.0 architecture should make backlog work easier, but only if we actually la
 
 - Pronunciation dictionaries and per-project text normalization
 - Multi-output presets such as WAV-only, MP3-on-demand, and M4B export bundles
-- Additional local and cloud engines
+- Additional local and cloud engines via the plugin SDK and `plugins/` directory
+- Local TTS API for external applications to generate speech through Studio's installed engines
 - Voice migration or compatibility warnings when engine capabilities change
 - Recovery tooling for interrupted or partially migrated projects
+- Plugin ecosystem tooling: submission, review, and community distribution
 
 ## What Would Still Block Future Work If We Get 2.0 Wrong
 
@@ -65,6 +67,9 @@ The 2.0 architecture should make backlog work easier, but only if we actually la
 - Coupling voice identity too tightly to one engine implementation
 - Hiding queue policy inside task code instead of a scheduler policy layer
 - Rewriting the editor UI without fixing the underlying block and artifact contracts
+- Loading engine code in the Studio process instead of isolating it in the TTS Server
+- Making built-in engines use a different discovery path than community plugins
+- Hardcoding engine-specific settings in the UI instead of using schema-driven forms
 
 ## Recommendation
 

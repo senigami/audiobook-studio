@@ -58,9 +58,12 @@ class BaseVoiceEngine(Protocol):
 
 ### 4.1 Engine Registry
 
-- Loads internal engine modules from `app/engines/voice/`
+- Loads engine plugins from `plugins/tts_*/` folders via the TTS Server process
 - Reads a manifest for each engine
 - Exposes engine capabilities, settings schema, health, and resource profile
+- Built-in engines (XTTS, Voxtral) live in `plugins/` and go through the same discovery path as community plugins
+- Studio's registry client caches TTS Server `/engines` responses; it does not import engine code directly
+- External plugin scanning uses folder name validation (`tts_<name>` pattern) and strict manifest validation before loading any Python code
 
 ### 4.2 Voice Bridge
 
@@ -71,10 +74,16 @@ class BaseVoiceEngine(Protocol):
 
 ### 4.3 Voice Module Management
 
-- Dedicated UI for module readiness, setup, health, and advanced settings
-- Hand-designed module cards first, schema-generated advanced settings second
+- Dedicated UI (Settings → TTS Engines tab) for module readiness, setup, health, and advanced settings
+- Collapsible engine cards with status badges (Verified, Ready, Needs Setup, Unverified, Invalid Config, Not Loaded)
+- Per-engine settings grouped inside each card, rendered from `settings_schema.json` using JSON Schema types
 - Test action for generating a quick sample with visible diagnostics
+- Verify action for re-running verification synthesis
+- Install Dependencies action when `requirements.txt` has unmet dependencies
 - Clear privacy disclosure when a module sends text or audio off-machine to a cloud provider
+- Install Plugin and Refresh Plugins actions at the bottom of the engines list
+- Plugin install flow: user selects a folder or drops it into `plugins/`, clicks Refresh
+- Remove Plugin action with confirmation prompt
 
 ### 4.4 Voice Preview/Test Flow
 
@@ -179,8 +188,45 @@ Each engine manifest must declare:
 - **Risk: preview/test functionality disappears in the architecture rewrite**
   Solution: model preview/test as an explicit supported flow in the bridge and library plans.
 
-## 10. Implementation References
+## 10. TTS Server Process Boundary
+
+Synthesis no longer runs in the Studio process. A dedicated TTS Server subprocess hosts all engine plugins, manages GPU memory, and provides an HTTP API for synthesis. Studio communicates with the TTS Server through a VoiceBridge HTTP client.
+
+Key properties:
+
+- the TTS Server is spawned and managed by Studio as a subprocess
+- a watchdog in Studio monitors TTS Server health via heartbeat polling
+- if the TTS Server crashes or becomes unresponsive, the watchdog kills and restarts it
+- engines can crash without taking down Studio's web server or losing user state
+- external applications can generate speech through Studio's local TTS API, which routes through the same TTS Server
+
+Full specification: `plans/v2_tts_server.md`
+
+## 11. Plugin SDK Contract
+
+The `StudioTTSEngine` ABC is the published contract that all plugin engines implement. It is intentionally simple — 5 required methods:
+
+- `info()` — engine metadata for registry display
+- `check_env()` — environment validation (can this engine run?)
+- `check_request(req)` — pre-flight request validation
+- `synthesize(req)` — run TTS synthesis
+- `settings_schema()` — return JSON Schema for configurable settings
+
+Plus 2 optional overrides:
+
+- `preview(req)` — lightweight preview (defaults to calling `synthesize()`)
+- `shutdown()` — cleanup on unload (defaults to no-op)
+
+Engines must not import Studio modules, start background threads, or write files outside their plugin folder and the requested output path.
+
+Full specification: `plans/v2_plugin_sdk.md`
+
+## 12. Implementation References
 
 - `plans/implementation/domain_data_model.md`
 - `plans/implementation/voice_engine_impl.md`
 - `plans/v2_project_library_management.md`
+- `plans/v2_tts_server.md`
+- `plans/v2_plugin_sdk.md`
+- `plans/v2_local_tts_api.md`
+- `plans/v2_settings_architecture.md`

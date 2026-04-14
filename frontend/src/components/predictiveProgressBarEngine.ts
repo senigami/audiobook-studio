@@ -1,5 +1,5 @@
 import { advancePredictiveProgress, buildPredictiveProgressModel } from '../utils/predictiveProgress';
-import { clamp01, getMaxVisualStep, getRemainingTicks, getSmoothingTicks, ETA_TICK_MS } from './predictiveProgressBarHelpers';
+import { clamp01, getMaxVisualStep, getRemainingTicks, getSmoothingTickBudget, ETA_TICK_MS } from './predictiveProgressBarHelpers';
 
 export interface PredictiveTickDebugState {
     lastTickAt: number;
@@ -7,6 +7,7 @@ export interface PredictiveTickDebugState {
     tickElapsedSeconds: number | null;
     effectiveEtaSeconds: number | null;
     smoothingTicks: number | null;
+    smoothingBaseTicks: number | null;
     maxVisualStep: number | null;
     targetFloor: number | null;
     nextProgress: number | null;
@@ -87,6 +88,12 @@ export const buildPendingRunAnchorTick = ({
         ? Math.max(previousDisplayProgress, clamp01(launchProgress))
         : clamp01(launchProgress);
     const remainingTicks = getRemainingTicks(tickNow, currentEndTime);
+    const smoothingBudget = getSmoothingTickBudget({
+        checkpointMode,
+        authoritativeFloor,
+        smoothingProgressBasis,
+        remainingTicks,
+    });
     return {
         nextProgress,
         debugTick: {
@@ -94,12 +101,8 @@ export const buildPendingRunAnchorTick = ({
             dtSeconds: dt,
             tickElapsedSeconds: Math.max(0, (tickNow / 1000) - startedAt),
             effectiveEtaSeconds,
-            smoothingTicks: getSmoothingTicks({
-                checkpointMode,
-                authoritativeFloor,
-                smoothingProgressBasis,
-                remainingTicks,
-            }),
+            smoothingTicks: smoothingBudget.cappedTicks,
+            smoothingBaseTicks: smoothingBudget.baseTicks,
             maxVisualStep: getMaxVisualStep(dt),
             targetFloor: clamp01(launchProgress),
             nextProgress,
@@ -158,6 +161,12 @@ export const buildAuthoritativePredictiveTick = ({
         )
     );
     const remainingTicks = getRemainingTicks(tickNow, currentEndTime);
+    const smoothingBudget = getSmoothingTickBudget({
+        checkpointMode,
+        authoritativeFloor: true,
+        smoothingProgressBasis,
+        remainingTicks,
+    });
     if (shouldCompleteNow) {
         return {
             nextProgress: 1,
@@ -166,12 +175,8 @@ export const buildAuthoritativePredictiveTick = ({
                 dtSeconds: dt,
                 tickElapsedSeconds: elapsed,
                 effectiveEtaSeconds,
-                smoothingTicks: getSmoothingTicks({
-                    checkpointMode,
-                    authoritativeFloor: true,
-                    smoothingProgressBasis,
-                    remainingTicks,
-                }),
+                smoothingTicks: smoothingBudget.cappedTicks,
+                smoothingBaseTicks: smoothingBudget.baseTicks,
                 maxVisualStep: getMaxVisualStep(dt),
                 targetFloor,
                 nextProgress: 1,
@@ -189,12 +194,8 @@ export const buildAuthoritativePredictiveTick = ({
             dtSeconds: dt,
             tickElapsedSeconds: elapsed,
             effectiveEtaSeconds,
-            smoothingTicks: getSmoothingTicks({
-                checkpointMode,
-                authoritativeFloor: true,
-                smoothingProgressBasis,
-                remainingTicks,
-            }),
+            smoothingTicks: smoothingBudget.cappedTicks,
+            smoothingBaseTicks: smoothingBudget.baseTicks,
             maxVisualStep: getMaxVisualStep(dt),
             targetFloor,
             nextProgress,
@@ -231,6 +232,12 @@ export const buildFlexiblePredictiveTick = ({
         preferLaunchEtaOnly,
     });
     const remainingTicks = getRemainingTicks(tickNow, currentEndTime);
+    const smoothingBudget = getSmoothingTickBudget({
+        checkpointMode,
+        authoritativeFloor: false,
+        smoothingProgressBasis,
+        remainingTicks,
+    });
     if (
         progress >= 0.995
         || (
@@ -246,12 +253,8 @@ export const buildFlexiblePredictiveTick = ({
                 dtSeconds: dt,
                 tickElapsedSeconds: elapsed,
                 effectiveEtaSeconds,
-                smoothingTicks: getSmoothingTicks({
-                    checkpointMode,
-                    authoritativeFloor: false,
-                    smoothingProgressBasis,
-                    remainingTicks,
-                }),
+                smoothingTicks: smoothingBudget.cappedTicks,
+                smoothingBaseTicks: smoothingBudget.baseTicks,
                 maxVisualStep: getMaxVisualStep(dt),
                 targetFloor: Math.max(progress, model.nextProgress),
                 nextProgress: 1,
@@ -274,12 +277,8 @@ export const buildFlexiblePredictiveTick = ({
             dtSeconds: dt,
             tickElapsedSeconds: elapsed,
             effectiveEtaSeconds,
-            smoothingTicks: getSmoothingTicks({
-                checkpointMode,
-                authoritativeFloor: false,
-                smoothingProgressBasis,
-                remainingTicks,
-            }),
+            smoothingTicks: smoothingBudget.cappedTicks,
+            smoothingBaseTicks: smoothingBudget.baseTicks,
             maxVisualStep: getMaxVisualStep(dt),
             targetFloor: allowBackwardProgress ? clamp01(cappedNext) : liveProgress,
             nextProgress,
@@ -306,13 +305,13 @@ export const nudgeCurrentEndTime = ({
 }) => {
     const deltaMs = targetEndTime - currentEndTime;
     const remainingTicks = getRemainingTicks(now, currentEndTime);
-    const smoothingTicks = getSmoothingTicks({
+    const smoothingBudget = getSmoothingTickBudget({
         checkpointMode,
         authoritativeFloor,
         smoothingProgressBasis,
         remainingTicks,
     });
-    const minimumCatchupMs = Math.ceil(Math.abs(deltaMs) / smoothingTicks);
+    const minimumCatchupMs = Math.ceil(Math.abs(deltaMs) / smoothingBudget.cappedTicks);
     const minimumNudgeMs = authoritativeFloor ? 60 : 150;
     const maxPerTickMs = Math.max(minimumNudgeMs, minimumCatchupMs);
     const nudgeMs = deltaMs > 0

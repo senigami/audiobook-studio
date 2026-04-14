@@ -217,6 +217,7 @@ export const ProgressBarTestPage: React.FC = () => {
       `eta=${debugSnapshot.syncedDisplayedRemaining !== null && debugSnapshot.syncedDisplayedRemaining !== undefined ? `${debugSnapshot.syncedDisplayedRemaining}s` : 'n/a'}`,
       `rem=${debugSnapshot.model ? `${debugSnapshot.model.refinedRemainingSeconds.toFixed(3)}s` : 'n/a'}`,
       `vel=${debugSnapshot.model ? debugSnapshot.model.velocityPerSecond.toFixed(6) : 'n/a'}`,
+      `smooth=${debugSnapshot.smoothingTicks ?? 'n/a'}/${debugSnapshot.smoothingBaseTicks ?? 'n/a'}`,
     ].join(' | ');
 
     setDebugHistory(prev => {
@@ -251,6 +252,7 @@ export const ProgressBarTestPage: React.FC = () => {
         `dtSeconds=${debugSnapshot.dtSeconds.toFixed(3)}`,
         `tickElapsedSeconds=${debugSnapshot.tickElapsedSeconds !== null && debugSnapshot.tickElapsedSeconds !== undefined ? debugSnapshot.tickElapsedSeconds.toFixed(3) : 'n/a'}`,
         `smoothingTicks=${debugSnapshot.smoothingTicks ?? 'n/a'}`,
+        `smoothingBaseTicks=${debugSnapshot.smoothingBaseTicks ?? 'n/a'}`,
         `maxVisualStep=${debugSnapshot.maxVisualStep !== null && debugSnapshot.maxVisualStep !== undefined ? debugSnapshot.maxVisualStep.toFixed(4) : 'n/a'}`,
         `model.refinedRemaining=${debugSnapshot.model ? `${debugSnapshot.model.refinedRemainingSeconds.toFixed(3)}s` : 'n/a'}`,
         `checkpointMode=${debugSnapshot.resolvedCheckpointMode}`,
@@ -564,7 +566,8 @@ export const ProgressBarTestPage: React.FC = () => {
                 ['effectiveEtaSeconds', 'The live ETA after smoothing and elapsed-time recalculation.', debugSnapshot?.effectiveEtaSeconds !== null && debugSnapshot?.effectiveEtaSeconds !== undefined ? `${Math.round(debugSnapshot.effectiveEtaSeconds)}s` : 'n/a'],
                 ['dtSeconds', 'How many seconds elapsed since the previous tick.', debugSnapshot?.dtSeconds !== null && debugSnapshot?.dtSeconds !== undefined ? debugSnapshot.dtSeconds.toFixed(3) : 'n/a'],
                 ['tickElapsedSeconds', 'How long the current run has been active according to the current anchor.', debugSnapshot?.tickElapsedSeconds !== null && debugSnapshot?.tickElapsedSeconds !== undefined ? debugSnapshot.tickElapsedSeconds.toFixed(3) : 'n/a'],
-                ['smoothingTicks', 'How many ticks the current correction is being spread across.', debugSnapshot?.smoothingTicks ?? 'n/a'],
+                ['smoothingTicks', 'How many ticks the current correction is being spread across after remaining-time capping.', debugSnapshot?.smoothingTicks ?? 'n/a'],
+                ['smoothingBaseTicks', 'The raw smoothing budget selected by the current checkpoint mode before capping to remaining time.', debugSnapshot?.smoothingBaseTicks ?? 'n/a'],
                 ['maxVisualStep', 'The per-tick visual cap applied to avoid sudden jumps.', debugSnapshot?.maxVisualStep !== null && debugSnapshot?.maxVisualStep !== undefined ? debugSnapshot.maxVisualStep.toFixed(4) : 'n/a'],
                 ['model.refinedRemaining', 'The blended remaining time after weighting ETA and progress evidence.', debugSnapshot?.model ? `${debugSnapshot.model.refinedRemainingSeconds.toFixed(3)}s` : 'n/a'],
                 ['checkpointMode', 'The checkpoint policy currently in effect for the progress engine.', debugSnapshot?.resolvedCheckpointMode ?? 'n/a'],

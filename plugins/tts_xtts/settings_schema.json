@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "title": "XTTS Settings",
+  "description": "Configuration for the XTTS speech synthesis engine.",
+  "type": "object",
+  "properties": {
+    "speed": {
+      "type": "number",
+      "title": "Speed",
+      "description": "Synthesis speed multiplier. Values below 1.0 slow down speech; values above 1.0 speed it up.",
+      "minimum": 0.5,
+      "maximum": 2.0,
+      "default": 1.0
+    },
+    "temperature": {
+      "type": "number",
+      "title": "Temperature",
+      "description": "Sampling temperature for the XTTS model. Lower values produce more deterministic output.",
+      "minimum": 0.01,
+      "maximum": 1.0,
+      "default": 0.75
+    },
+    "repetition_penalty": {
+      "type": "number",
+      "title": "Repetition Penalty",
+      "description": "Penalty applied to repeated tokens. Increase to reduce repetitive output.",
+      "minimum": 1.0,
+      "maximum": 10.0,
+      "default": 5.0
+    },
+    "top_k": {
+      "type": "integer",
+      "title": "Top-K",
+      "description": "Number of highest-probability tokens to consider during sampling.",
+      "minimum": 1,
+      "maximum": 100,
+      "default": 50
+    },
+    "top_p": {
+      "type": "number",
+      "title": "Top-P",
+      "description": "Cumulative probability cutoff for nucleus sampling.",
+      "minimum": 0.01,
+      "maximum": 1.0,
+      "default": 0.85
+    },
+    "safe_mode": {
+      "type": "boolean",
+      "title": "Safe Mode",
+      "description": "Enable safe mode to prevent potential crashes on problematic inputs.",
+      "default": true
+    }
+  },
+  "additionalProperties": false
+}

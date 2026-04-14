@@ -1,4 +1,14 @@
-"""Shared engine contract models for Studio 2.0."""
+"""Shared engine contract models for Studio 2.0.
+
+During the Phase 5 migration, this module serves two generations of engine
+metadata:
+
+- ``EngineManifestModel`` \u2014 original minimal manifest used by the legacy
+  in-process registry.  Extended with new optional SDK fields so both paths
+  can coexist without a breaking change.
+- ``ResourceProfile`` \u2014 new resource declaration used by the scheduler and
+  the TTS Server discovery path.
+"""
 
 from __future__ import annotations
 
@@ -15,9 +25,36 @@ def _utc_now() -> datetime:
 
 
 @dataclass(frozen=True)
-class EngineManifestModel:
-    """Discovery metadata for a voice engine adapter."""
+class ResourceProfile:
+    """Resource requirements declared by a TTS plugin engine.
 
+    Used by the orchestrator to decide whether a task can be scheduled given
+    current resource availability.
+
+    Attributes:
+        gpu: Whether the engine requires exclusive GPU access.
+        vram_mb: Estimated VRAM usage in megabytes (0 when gpu is False).
+        cpu_heavy: Whether the engine does sustained heavy CPU work.
+    """
+
+    gpu: bool = False
+    vram_mb: int = 0
+    cpu_heavy: bool = False
+
+
+@dataclass(frozen=True)
+class EngineManifestModel:
+    """Discovery metadata for a voice engine adapter.
+
+    Legacy fields (``engine_id``, ``display_name``, ``phase``,
+    ``module_path``, ``notes``, ``capabilities``, ``built_in``) are preserved
+    for the in-process registry path.
+
+    New SDK fields are optional with safe defaults so existing registrations
+    remain valid during the migration window.
+    """
+
+    # Legacy fields — always present
     engine_id: str
     display_name: str
     phase: str
@@ -25,6 +62,22 @@ class EngineManifestModel:
     notes: tuple[str, ...] = ()
     capabilities: tuple[str, ...] = ()
     built_in: bool = True
+
+    # SDK fields — populated by the TTS Server plugin loader
+    schema_version: str = "1.0"
+    version: str = "0.0.0"
+    min_studio: str = "2.0.0"
+    entry_class: str = ""
+    resource: ResourceProfile = field(default_factory=ResourceProfile)
+    languages: tuple[str, ...] = ("en",)
+    local: bool = True
+    cloud: bool = False
+    network: bool = False
+    author: str = ""
+    license: str = ""
+    homepage: str = ""
+    test_text: str = "This is a verification test."
+    verified: bool = False
 
 
 @dataclass(frozen=True)
