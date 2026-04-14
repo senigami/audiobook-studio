@@ -1,0 +1,336 @@
+"""Plugin loader for the TTS Server.
+
+Scans ``plugins/tts_*/`` folders inside the Studio install root, validates
+each plugin's manifest, imports the declared engine class, and runs
+environment validation.
+
+Path safety: plugin folder names are validated against a strict regex before
+any filesystem access.  Paths derived from manifest fields are validated
+before import.
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import json
+import logging
+import re
+import sys
+from pathlib import Path
+from typing import Any
+
+logger = logging.getLogger(__name__)
+
+# Matches tts_<name> where <name> is 2–15 lowercase alphanumeric characters.
+_PLUGIN_FOLDER_RE = re.compile(r"^tts_[a-z][a-z0-9]{1,14}$")
+
+# Regex for the entry_class field: "module:ClassName"
+_ENTRY_CLASS_RE = re.compile(r"^[a-z_][a-z0-9_]*:[A-Za-z][A-Za-z0-9_]*$")
+
+# Maximum seconds allowed for a plugin's __init__ / module load.
+_IMPORT_TIMEOUT_SECONDS = 120
+
+
+class PluginLoadError(Exception):
+    """Raised when a plugin cannot be loaded due to a configuration error."""
+
+
+class LoadedPlugin:
+    """A successfully loaded plugin with its manifest and engine instance."""
+
+    def __init__(
+        self,
+        *,
+        folder_name: str,
+        plugin_dir: Path,
+        manifest: dict[str, Any],
+        engine: Any,
+    ) -> None:
+        self.folder_name = folder_name
+        self.plugin_dir = plugin_dir
+        self.manifest = manifest
+        self.engine = engine
+        self.verified: bool = False
+        self.verification_error: str | None = None
+
+    @property
+    def engine_id(self) -> str:
+        return str(self.manifest.get("engine_id", ""))
+
+    @property
+    def display_name(self) -> str:
+        return str(self.manifest.get("display_name", self.engine_id))
+
+    @property
+    def test_text(self) -> str:
+        return str(self.manifest.get("test_text", "")) or "This is a verification test."
+
+
+def discover_plugins(plugins_dir: Path) -> list[LoadedPlugin]:
+    """Scan ``plugins/`` and load all valid plugin engines.
+
+    Args:
+        plugins_dir: Absolute path to the ``plugins/`` directory.
+
+    Returns:
+        list[LoadedPlugin]: Successfully loaded plugins.  Plugins that fail
+        to load are skipped and logged as warnings — they do not block other
+        plugins from loading.
+    """
+    if not plugins_dir.is_dir():
+        logger.info("Plugins directory does not exist: %s", plugins_dir)
+        return []
+
+    loaded: list[LoadedPlugin] = []
+    seen_engine_ids: dict[str, str] = {}
+
+    for entry in sorted(plugins_dir.iterdir()):
+        if not entry.is_dir():
+            continue
+
+        folder_name = entry.name
+
+        # Reject folder names that don't match the naming convention.
+        if not _PLUGIN_FOLDER_RE.match(folder_name):
+            logger.debug("Skipping non-plugin folder: %s", folder_name)
+            continue
+
+        try:
+            plugin = _load_plugin(plugin_dir=entry, folder_name=folder_name)
+        except PluginLoadError as exc:
+            logger.warning("Plugin %s failed to load: %s", folder_name, exc)
+            continue
+        except Exception:
+            logger.exception(
+                "Unexpected error loading plugin %s", folder_name
+            )
+            continue
+
+        # Guard against duplicate engine_id.
+        engine_id = plugin.engine_id
+        if engine_id in seen_engine_ids:
+            logger.warning(
+                "Duplicate engine_id %r in %s (already registered by %s) — skipping",
+                engine_id,
+                folder_name,
+                seen_engine_ids[engine_id],
+            )
+            continue
+
+        seen_engine_ids[engine_id] = folder_name
+        loaded.append(plugin)
+        logger.info(
+            "Loaded plugin %s (engine_id=%r)",
+            folder_name,
+            engine_id,
+        )
+
+    return loaded
+
+
+def _load_plugin(*, plugin_dir: Path, folder_name: str) -> LoadedPlugin:
+    """Load and validate a single plugin folder.
+
+    Args:
+        plugin_dir: Absolute path to the plugin folder.
+        folder_name: Validated folder name (already checked against regex).
+
+    Returns:
+        LoadedPlugin: Loaded plugin with manifest and engine instance.
+
+    Raises:
+        PluginLoadError: If any validation or import step fails.
+    """
+    # 1. Load manifest.
+    manifest = _load_manifest(plugin_dir=plugin_dir, folder_name=folder_name)
+
+    # 2. Validate manifest fields.
+    _validate_manifest(manifest=manifest, folder_name=folder_name)
+
+    # 3. Import engine class.
+    engine_cls = _import_engine_class(
+        manifest=manifest,
+        plugin_dir=plugin_dir,
+        folder_name=folder_name,
+    )
+
+    # 4. Instantiate engine.
+    try:
+        engine = engine_cls()
+    except Exception as exc:
+        raise PluginLoadError(
+            f"Failed to instantiate {engine_cls.__name__}: {exc}"
+        ) from exc
+
+    # 5. Environment check.
+    try:
+        ok, msg = engine.check_env()
+    except Exception as exc:
+        raise PluginLoadError(
+            f"check_env() raised an exception: {exc}"
+        ) from exc
+
+    if not ok:
+        logger.warning(
+            "Plugin %s check_env() failed: %s (marking as needs_setup)",
+            folder_name,
+            msg,
+        )
+        # Still return the plugin — it will show in Settings as "needs_setup".
+
+    return LoadedPlugin(
+        folder_name=folder_name,
+        plugin_dir=plugin_dir,
+        manifest=manifest,
+        engine=engine,
+    )
+
+
+def _load_manifest(*, plugin_dir: Path, folder_name: str) -> dict[str, Any]:
+    """Read and parse the plugin's ``manifest.json``.
+
+    Args:
+        plugin_dir: Plugin folder path.
+        folder_name: Validated folder name.
+
+    Returns:
+        dict[str, Any]: Parsed manifest.
+
+    Raises:
+        PluginLoadError: If the manifest is missing or not valid JSON.
+    """
+    manifest_path = plugin_dir / "manifest.json"
+
+    # Containment check: the manifest path must stay inside the plugin folder.
+    try:
+        manifest_path.resolve().relative_to(plugin_dir.resolve())
+    except ValueError as exc:
+        raise PluginLoadError(
+            f"manifest.json path escapes plugin directory: {manifest_path}"
+        ) from exc
+
+    if not manifest_path.is_file():
+        raise PluginLoadError(
+            f"manifest.json not found in plugin folder: {folder_name}"
+        )
+
+    try:
+        return json.loads(manifest_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise PluginLoadError(
+            f"manifest.json is not valid JSON: {exc}"
+        ) from exc
+
+
+def _validate_manifest(*, manifest: dict[str, Any], folder_name: str) -> None:
+    """Validate required manifest fields.
+
+    Args:
+        manifest: Parsed manifest dict.
+        folder_name: Validated folder name for error messages.
+
+    Raises:
+        PluginLoadError: If required fields are missing or invalid.
+    """
+    required = ["engine_id", "display_name", "entry_class", "capabilities"]
+    for field_name in required:
+        if not manifest.get(field_name):
+            raise PluginLoadError(
+                f"manifest.json missing required field '{field_name}' in {folder_name}"
+            )
+
+    engine_id = str(manifest["engine_id"]).strip()
+    if not re.match(r"^[a-z][a-z0-9]{1,14}$", engine_id):
+        raise PluginLoadError(
+            f"engine_id {engine_id!r} does not match required pattern "
+            f"^[a-z][a-z0-9]{{1,14}}$ in {folder_name}"
+        )
+
+    entry_class = str(manifest["entry_class"]).strip()
+    if not _ENTRY_CLASS_RE.match(entry_class):
+        raise PluginLoadError(
+            f"entry_class {entry_class!r} must be in 'module:ClassName' format in {folder_name}"
+        )
+
+    capabilities = manifest.get("capabilities", [])
+    if "synthesis" not in capabilities:
+        raise PluginLoadError(
+            f"capabilities must include 'synthesis' in {folder_name}"
+        )
+
+
+def _import_engine_class(
+    *,
+    manifest: dict[str, Any],
+    plugin_dir: Path,
+    folder_name: str,
+) -> type:
+    """Import and return the engine class declared in the manifest.
+
+    Args:
+        manifest: Parsed manifest dict.
+        plugin_dir: Plugin folder path.
+        folder_name: Validated folder name for error messages.
+
+    Returns:
+        type: The engine class.
+
+    Raises:
+        PluginLoadError: If the module cannot be imported or the class is not found.
+    """
+    entry_class = str(manifest["entry_class"]).strip()
+    module_name, class_name = entry_class.split(":", 1)
+
+    # Build the module file path.  Only allow simple module names (no dots,
+    # no traversal).
+    if not re.match(r"^[a-z_][a-z0-9_]*$", module_name):
+        raise PluginLoadError(
+            f"entry_class module name {module_name!r} is not a valid simple module name "
+            f"in {folder_name}"
+        )
+
+    module_path = plugin_dir / f"{module_name}.py"
+
+    # Containment check.
+    try:
+        module_path.resolve().relative_to(plugin_dir.resolve())
+    except ValueError as exc:
+        raise PluginLoadError(
+            f"entry_class module path escapes plugin directory in {folder_name}"
+        ) from exc
+
+    if not module_path.is_file():
+        raise PluginLoadError(
+            f"entry_class module file not found: {module_path.name} in {folder_name}"
+        )
+
+    # Use a unique module spec name to avoid collisions between plugins.
+    spec_name = f"_tts_plugin_{folder_name}.{module_name}"
+
+    try:
+        spec = importlib.util.spec_from_file_location(spec_name, module_path)
+        if spec is None or spec.loader is None:
+            raise PluginLoadError(
+                f"Could not create module spec for {module_path} in {folder_name}"
+            )
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec_name] = module
+        spec.loader.exec_module(module)  # type: ignore[attr-defined]
+    except PluginLoadError:
+        raise
+    except Exception as exc:
+        raise PluginLoadError(
+            f"Failed to import {module_name} from {folder_name}: {exc}"
+        ) from exc
+
+    engine_cls = getattr(module, class_name, None)
+    if engine_cls is None:
+        raise PluginLoadError(
+            f"Class {class_name!r} not found in {module_name}.py in {folder_name}"
+        )
+    if not isinstance(engine_cls, type):
+        raise PluginLoadError(
+            f"{class_name!r} in {folder_name} is not a class"
+        )
+
+    return engine_cls

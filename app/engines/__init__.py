@@ -10,6 +10,10 @@ Compatibility behavior:
 - Test and migration code often patches ``app.engines.*`` directly.
 - To keep those patches effective during the coexistence phase, writes to this
   package are mirrored into the legacy module when the same name exists there.
+
+Phase 5 note:
+- When ``USE_TTS_SERVER=true``, this package starts the TTS Server watchdog
+  during initialisation so the bridge has a live TTS Server to route to.
 """
 
 import sys
@@ -102,3 +106,32 @@ class _EnginesCompatibilityModule(ModuleType):
 
 
 sys.modules[__name__].__class__ = _EnginesCompatibilityModule
+
+
+# ---------------------------------------------------------------------------
+# TTS Server boot hook (Phase 5)
+# ---------------------------------------------------------------------------
+
+def _boot_tts_server_if_enabled() -> None:
+    """Start the TTS Server watchdog when USE_TTS_SERVER is enabled.
+
+    Called once at package import time.  This is the only place where the
+    watchdog bootstrap import should happen — keeping it here prevents
+    accidental side effects if other modules import ``app.engines.watchdog``
+    directly.
+    """
+    try:
+        from app.core.feature_flags import use_tts_server  # noqa: PLC0415
+        if not use_tts_server():
+            return
+        from app.engines.watchdog import start_watchdog  # noqa: PLC0415
+        start_watchdog()
+    except Exception:
+        # Boot errors are logged but must not crash the Studio process.
+        import logging  # noqa: PLC0415
+        logging.getLogger(__name__).exception(
+            "TTS Server watchdog failed to start during boot."
+        )
+
+
+_boot_tts_server_if_enabled()

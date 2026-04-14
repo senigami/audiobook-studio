@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "title": "Voxtral Settings",
+  "description": "Configuration for the Voxtral (Mistral AI) speech synthesis engine.",
+  "type": "object",
+  "properties": {
+    "model": {
+      "type": "string",
+      "title": "Model",
+      "description": "Mistral TTS model to use for synthesis.",
+      "enum": ["mistral-tts-1", "mistral-tts-1-hd"],
+      "default": "mistral-tts-1"
+    },
+    "output_format": {
+      "type": "string",
+      "title": "Output Format",
+      "description": "Audio format for synthesis output.",
+      "enum": ["wav", "mp3"],
+      "default": "wav"
+    }
+  },
+  "additionalProperties": false
+}
