@@ -15,11 +15,14 @@ import time
 from typing import Any
 
 from app.orchestration.scheduler.resources import ResourceClaim
-from app.orchestration.tasks.base import TaskContext
+from app.orchestration.tasks.base import StudioTask, TaskContext, TaskResult
 
 
-class ApiSynthesisTask:
+class ApiSynthesisTask(StudioTask):
     """Synthesis task submitted via the external Local TTS API.
+
+    This is a real ``StudioTask`` subclass — the orchestrator's ``submit()``
+    method can accept it directly.
 
     Attributes:
         task_id: Stable unique identifier for this task.
@@ -61,6 +64,69 @@ class ApiSynthesisTask:
         self.submitted_at = time.monotonic()
         self.caller_id = caller_id
 
+    # ------------------------------------------------------------------
+    # StudioTask contract
+    # ------------------------------------------------------------------
+
+    def validate(self) -> None:
+        """Validate task payload before scheduler admission.
+
+        Raises:
+            ValueError: When required fields are missing or invalid.
+        """
+        if not self.task_id:
+            raise ValueError("task_id is required")
+        if not self.engine_id:
+            raise ValueError("engine_id is required")
+        if not self.text:
+            raise ValueError("text is required")
+        if not self.output_path:
+            raise ValueError("output_path is required")
+
+    def describe(self) -> TaskContext:
+        """Return the identifying metadata needed for scheduling.
+
+        Returns:
+            TaskContext: Scheduler-compatible context derived from this task.
+        """
+        return self.to_task_context()
+
+    def run(self) -> TaskResult:
+        """Execute the synthesis via VoiceBridge.
+
+        .. note::
+
+           The orchestrator should call this method after reserving resources.
+           This method builds the bridge request and delegates to the bridge.
+           The orchestrator handles progress publication, not this method.
+
+        Returns:
+            TaskResult: Synthesis outcome.
+        """
+        # Import lazily to avoid circular deps and stay behind the bridge boundary.
+        from app.engines.bridge import create_voice_bridge  # noqa: PLC0415
+
+        bridge = create_voice_bridge()
+        try:
+            result = bridge.synthesize(self.to_bridge_request())
+            status = result.get("status", "ok")
+            return TaskResult(
+                status="completed" if status == "ok" else "failed",
+                message=result.get("message"),
+            )
+        except Exception as exc:
+            return TaskResult(status="failed", message=str(exc))
+
+    def on_cancel(self) -> None:
+        """Release task-level resources when a task is cancelled.
+
+        API synthesis tasks are stateless — there is nothing to clean up.
+        """
+
+    # ------------------------------------------------------------------
+    # Adapter methods
+    # ------------------------------------------------------------------
+
     def to_task_context(self) -> TaskContext:
         """Convert to a ``TaskContext`` for queue and scheduling use.
 
@@ -83,7 +149,6 @@ class ApiSynthesisTask:
                 **self.request_settings,
             },
         )
-
 
     def to_bridge_request(self) -> dict[str, Any]:
         """Build a VoiceBridge-compatible synthesis request.

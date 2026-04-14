@@ -87,6 +87,15 @@ def stop_watchdog() -> None:
         _global_watchdog = None
 
 
+def get_watchdog() -> "TtsServerWatchdog | None":
+    """Return the global watchdog instance, or None if not yet started.
+
+    Used by the registry and other components that need to reach the TTS
+    Server without owning the lifecycle.
+    """
+    return _global_watchdog
+
+
 # Watchdog default configuration.
 _HEARTBEAT_INTERVAL   = 5.0   # seconds between /health polls
 _FAILURE_THRESHOLD    = 3     # consecutive failures before restart

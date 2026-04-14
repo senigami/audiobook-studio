@@ -2,6 +2,19 @@
 
 Loads incomplete tasks from the database on startup so the orchestrator can
 re-queue work that was interrupted by a crash or restart.
+
+Recovery contract
+-----------------
+The orchestrator's ``recover()`` method is responsible for calling Phase 4
+reconciliation on each recovered context before re-queuing.  This module
+only discovers interrupted jobs — it does not decide what to re-render.
+
+The intended recovery flow is:
+1. This module discovers interrupted ``running``, ``queued``, ``waiting`` jobs.
+2. The orchestrator calls ``reconcile_work_item()`` for each batch in scope.
+3. Already-valid artifacts are reused (not re-rendered).
+4. Only unresolved work items are re-queued.
+5. Recovery-specific progress transitions are published.
 """
 
 from __future__ import annotations
@@ -21,15 +34,20 @@ def load_recoverable_task_contexts() -> list[TaskContext]:
 
     Scans the job queue for tasks in ``running``, ``queued``, or ``waiting``
     states and returns minimal ``TaskContext`` objects so the orchestrator can
-    re-add them to the work queue.
+    reconcile and resume them.
 
-    Tasks that were ``running`` when the server crashed are reset to ``queued``
-    state — their actual execution is replayed from the beginning, not resumed.
+    .. note::
+
+       This function discovers interrupted jobs only.  It does **not** call
+       reconciliation or decide what to re-render.  That responsibility
+       belongs to ``TaskOrchestrator.recover()``, which must call
+       ``reconcile_work_item()`` for each batch before dispatching work.
 
     Returns:
         list[TaskContext]: Contexts for recoverable tasks.  Empty list when
         there are no dangling jobs or the database is unavailable.
     """
+
     try:
         from app.db.queue import list_jobs_by_status  # noqa: PLC0415
     except ImportError:
