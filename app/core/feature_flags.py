@@ -13,6 +13,7 @@ USE_TTS_SERVER
 
     Set via environment: ``USE_TTS_SERVER=true`` or ``USE_TTS_SERVER=1``.
     Disabled by default during the Phase 5 migration.
+    Code-level constant: ``USE_TTS_SERVER_ENV``.
 
 USE_STUDIO_ORCHESTRATOR
     When true, the 2.0 TaskOrchestrator handles scheduling, dispatch, and
@@ -24,11 +25,15 @@ USE_STUDIO_ORCHESTRATOR
 
     Set via environment: ``USE_STUDIO_ORCHESTRATOR=true``.
     Disabled by default during the Phase 5 migration.
+    Code-level constant: ``USE_STUDIO_ORCHESTRATOR_ENV``.
 """
 
 from __future__ import annotations
 
 import os
+
+USE_TTS_SERVER_ENV = "USE_TTS_SERVER"
+USE_STUDIO_ORCHESTRATOR_ENV = "USE_STUDIO_ORCHESTRATOR"
 
 
 def _normalize_flag_value(value: str | None) -> bool:
@@ -63,7 +68,7 @@ def use_tts_server() -> bool:
     Returns:
         bool: True when the TTS Server path should be used.
     """
-    return _normalize_flag_value(os.getenv("USE_TTS_SERVER"))
+    return is_feature_enabled(USE_TTS_SERVER_ENV)
 
 
 def use_studio_orchestrator() -> bool:
@@ -80,4 +85,4 @@ def use_studio_orchestrator() -> bool:
     Returns:
         bool: True when the 2.0 orchestrator path should be used.
     """
-    return _normalize_flag_value(os.getenv("USE_STUDIO_ORCHESTRATOR"))
+    return is_feature_enabled(USE_STUDIO_ORCHESTRATOR_ENV)
