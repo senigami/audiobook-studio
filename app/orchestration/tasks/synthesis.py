@@ -58,6 +58,7 @@ class SynthesisTask(StudioTask):
         output_path: str,
         project_id: str | None = None,
         chapter_id: str | None = None,
+        voice_profile_id: str | None = None,
         voice_ref: str | None = None,
         language: str = "en",
         resource_claim: ResourceClaim | None = None,
@@ -70,6 +71,7 @@ class SynthesisTask(StudioTask):
         self.output_path = output_path
         self.project_id = project_id
         self.chapter_id = chapter_id
+        self.voice_profile_id = voice_profile_id
         self.voice_ref = voice_ref
         self.language = language
         self.resource_claim = resource_claim or ResourceClaim.none()
@@ -113,6 +115,7 @@ class SynthesisTask(StudioTask):
                 "engine_id": self.engine_id,
                 "script_text": self.script_text,
                 "output_path": self.output_path,
+                "voice_profile_id": self.voice_profile_id,
                 "reference_audio_path": self.voice_ref,
                 "language": self.language,
                 "source": self.source,
@@ -147,7 +150,7 @@ class SynthesisTask(StudioTask):
 
         bridge = create_voice_bridge()
         try:
-            result = bridge.synthesize(self._to_bridge_request())
+            result = bridge.synthesize(self.to_bridge_request())
             ok = result.get("status", "ok") == "ok"
             return TaskResult(
                 status="completed" if ok else "failed",
@@ -168,14 +171,16 @@ class SynthesisTask(StudioTask):
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _to_bridge_request(self) -> dict[str, Any]:
+    def to_bridge_request(self) -> dict[str, Any]:
         """Build a VoiceBridge-compatible synthesis request."""
         return {
             "engine_id": self.engine_id,
             "script_text": self.script_text,
             "output_path": self.output_path,
+            "voice_profile_id": self.voice_profile_id,
             "reference_audio_path": self.voice_ref,
             "language": self.language,
             "source": self.source,
             "render_batch_id": self.render_batch_id,
         }
+
