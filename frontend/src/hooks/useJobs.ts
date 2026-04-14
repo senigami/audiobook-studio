@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Job, SegmentProgress } from '../types';
 import { api } from '../api';
 import { useWebSocket } from './useWebSocket';
+import { isStudioJobEvent } from '../api/contracts/events';
 
 const STATUS_PRIORITY: Record<string, number> = {
   done: 5,
@@ -38,7 +39,89 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
   const [testProgress, setTestProgress] = useState<Record<string, { progress: number; started_at?: number }>>({});
 
   const handleUpdate = useCallback((data: any) => {
-    if (data.type === 'job_updated') {
+    if (data.type === 'studio_job_event' || isStudioJobEvent(data)) {
+      const job_id = data.job_id;
+      const nextUpdates: Record<string, any> = {
+        status: data.status,
+        progress: data.progress,
+        eta_seconds: data.eta_seconds,
+        started_at: data.started_at,
+      };
+      if (data.message) {
+        nextUpdates.log = data.message;
+      }
+      if (data.reason_code) {
+        nextUpdates.reason_code = data.reason_code;
+      }
+      if (data.active_render_batch_id) {
+        nextUpdates.active_render_batch_id = data.active_render_batch_id;
+      }
+      if (typeof data.active_render_batch_progress === 'number') {
+        nextUpdates.active_render_batch_progress = data.active_render_batch_progress;
+      }
+
+      setJobs(prev => {
+        const oldJob = prev[job_id];
+        if (!oldJob) {
+          return { ...prev, [job_id]: { id: job_id, ...nextUpdates } as Job };
+        }
+
+        if (
+          typeof oldJob.updated_at === 'number'
+          && typeof data.updated_at === 'number'
+          && data.updated_at < oldJob.updated_at
+        ) {
+          return prev;
+        }
+
+        const normalizedUpdates = { ...nextUpdates };
+        if (typeof data.updated_at === 'number') {
+          normalizedUpdates.updated_at = data.updated_at;
+        }
+        const currentStatus = typeof oldJob.status === 'string' ? oldJob.status : undefined;
+        const incomingStatus = typeof normalizedUpdates.status === 'string' ? normalizedUpdates.status : undefined;
+        if (incomingStatus && currentStatus) {
+          const incomingPriority = STATUS_PRIORITY[incomingStatus] ?? 0;
+          const currentPriority = STATUS_PRIORITY[currentStatus] ?? 0;
+          if (incomingPriority < currentPriority) {
+            delete normalizedUpdates.status;
+          }
+        }
+
+        if (typeof normalizedUpdates.progress === 'number') {
+          const currentProgress = typeof oldJob.progress === 'number' ? oldJob.progress : 0;
+          const effectiveStatus = (normalizedUpdates.status as string | undefined) ?? currentStatus;
+          if (!['queued', 'preparing'].includes(effectiveStatus || '') && normalizedUpdates.progress < currentProgress) {
+            delete normalizedUpdates.progress;
+          }
+        }
+
+        const effectiveStatus = (normalizedUpdates.status as string | undefined) ?? currentStatus;
+        if (
+          typeof oldJob.started_at === 'number'
+          && typeof normalizedUpdates.started_at === 'number'
+          && ['running', 'processing', 'finalizing', 'done'].includes(effectiveStatus || '')
+          && normalizedUpdates.started_at !== oldJob.started_at
+        ) {
+          delete normalizedUpdates.started_at;
+        }
+
+        if (
+          typeof oldJob.eta_seconds === 'number'
+          && typeof normalizedUpdates.eta_seconds === 'number'
+          && ['running', 'processing', 'finalizing'].includes(effectiveStatus || '')
+        ) {
+          const currentEta = oldJob.eta_seconds;
+          const nextEta = normalizedUpdates.eta_seconds;
+          if (Math.abs(nextEta - currentEta) < 1) {
+            delete normalizedUpdates.eta_seconds;
+          }
+        }
+
+        const newJob = { ...oldJob, ...normalizedUpdates };
+        return { ...prev, [job_id]: newJob };
+      });
+    } else if (data.type === 'job_updated') {
       const { job_id, updates } = data;
       setJobs(prev => {
         const oldJob = prev[job_id];
@@ -47,6 +130,14 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
           // falling back to /api/jobs. Queue creation broadcasts include the
           // chapter/project context we need for UI wiring.
           return { ...prev, [job_id]: { id: job_id, ...updates } as Job };
+        }
+
+        if (
+          typeof oldJob.updated_at === 'number'
+          && typeof updates?.updated_at === 'number'
+          && updates.updated_at < oldJob.updated_at
+        ) {
+          return prev;
         }
 
         const nextUpdates = { ...updates } as Record<string, any>;

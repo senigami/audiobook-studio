@@ -239,3 +239,106 @@ def test_segment_scoped_queue_updates_do_not_mutate_chapter_audio_state(clean_db
     chapter = get_chapter(cid)
     assert chapter["audio_status"] == "unprocessed"
     assert chapter["audio_file_path"] is None
+
+
+def test_processing_queue_hydrates_running_progress_for_reload(clean_db, client):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.queue import upsert_queue_row, update_queue_item
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "T1")
+    jid = "job-reload-progress"
+    start_time = time.time() - 10
+
+    put_job(Job(
+        id=jid,
+        project_id=pid,
+        chapter_id=cid,
+        chapter_file=f"{cid}_0.txt",
+        status="running",
+        created_at=start_time - 5,
+        started_at=start_time,
+        eta_seconds=100,
+        progress=0.0,
+        engine="xtts",
+    ))
+    upsert_queue_row(jid, project_id=pid, chapter_id=cid, status="queued", engine="xtts")
+    update_queue_item(jid, "running")
+
+    response = client.get("/api/processing_queue")
+    assert response.status_code == 200
+
+    row = next(item for item in response.json() if item["id"] == jid)
+    assert row["status"] == "running"
+    assert row["started_at"] is not None
+    assert row["eta_seconds"] == 100
+    assert row["progress"] >= 0.09
+
+
+def test_processing_queue_hydrates_running_progress_when_active_segment_is_set_but_idle(clean_db, client):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.queue import upsert_queue_row, update_queue_item
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "T1")
+    jid = "job-reload-segment-id"
+    start_time = time.time() - 12
+
+    put_job(Job(
+        id=jid,
+        project_id=pid,
+        chapter_id=cid,
+        chapter_file=f"{cid}_0.txt",
+        status="running",
+        created_at=start_time - 5,
+        started_at=start_time,
+        eta_seconds=120,
+        progress=0.0,
+        engine="xtts",
+        active_segment_id="seg-1",
+        active_segment_progress=0.0,
+    ))
+    upsert_queue_row(jid, project_id=pid, chapter_id=cid, status="queued", engine="xtts")
+    update_queue_item(jid, "running")
+
+    response = client.get("/api/processing_queue")
+    assert response.status_code == 200
+
+    row = next(item for item in response.json() if item["id"] == jid)
+    assert row["status"] == "running"
+    assert row["progress"] >= 0.09
+
+
+def test_processing_queue_hydrates_preparing_progress_for_reload(clean_db, client):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.queue import upsert_queue_row, update_queue_item
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "T1")
+    jid = "job-reload-preparing"
+    start_time = time.time() - 12
+
+    put_job(Job(
+        id=jid,
+        project_id=pid,
+        chapter_id=cid,
+        chapter_file=f"{cid}_0.txt",
+        status="preparing",
+        created_at=start_time - 5,
+        started_at=start_time,
+        eta_seconds=120,
+        progress=0.0,
+        engine="xtts",
+    ))
+    upsert_queue_row(jid, project_id=pid, chapter_id=cid, status="queued", engine="xtts")
+    update_queue_item(jid, "preparing")
+
+    response = client.get("/api/processing_queue")
+    assert response.status_code == 200
+
+    row = next(item for item in response.json() if item["id"] == jid)
+    assert row["status"] == "preparing"
+    assert row["progress"] >= 0.09

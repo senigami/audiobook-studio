@@ -70,6 +70,56 @@ def test_api_jobs_uses_authoritative_progress_when_segment_tracking_is_active(cl
     assert job_data["progress"] == 0.22
 
 
+def test_api_jobs_hydrates_running_progress_when_segment_id_exists_but_segment_progress_is_idle(clean_jobs):
+    jid = "test_segment_idle_job"
+    now = time.time()
+    job = Job(
+        id=jid,
+        engine="xtts",
+        chapter_file="chapter1.txt",
+        status="running",
+        started_at=now - 20,
+        eta_seconds=100,
+        created_at=now,
+        progress=0.0,
+        active_segment_id="seg-1",
+        active_segment_progress=0.0,
+    )
+    put_job(job)
+
+    response = client.get("/api/jobs")
+    assert response.status_code == 200
+    data = response.json()
+
+    job_data = next((j for j in data if j["id"] == jid), None)
+    assert job_data is not None
+    assert job_data["progress"] >= 0.19
+
+
+def test_api_jobs_hydrates_preparing_progress_when_started(clean_jobs):
+    jid = "test_preparing_reload_job"
+    now = time.time()
+    job = Job(
+        id=jid,
+        engine="xtts",
+        chapter_file="chapter1.txt",
+        status="preparing",
+        started_at=now - 20,
+        eta_seconds=100,
+        created_at=now,
+        progress=0.0,
+    )
+    put_job(job)
+
+    response = client.get("/api/jobs")
+    assert response.status_code == 200
+    data = response.json()
+
+    job_data = next((j for j in data if j["id"] == jid), None)
+    assert job_data is not None
+    assert job_data["progress"] >= 0.19
+
+
 def test_api_jobs_does_not_block_on_reconciliation(clean_jobs):
     poisoned = AssertionError("cleanup_and_reconcile should not run inside /api/jobs")
 
@@ -167,3 +217,33 @@ def test_api_jobs_returns_multiple_live_jobs_for_same_chapter_file(clean_jobs):
     returned_ids = {j["id"] for j in data}
     assert "job-a" in returned_ids
     assert "job-b" in returned_ids
+
+
+def test_api_jobs_preserves_live_metadata_fields(clean_jobs):
+    now = time.time()
+    put_job(Job(
+        id="job-live-metadata",
+        engine="mixed",
+        chapter_file="chapter.txt",
+        status="running",
+        created_at=now,
+        updated_at=now + 5,
+        progress=0.55,
+        eta_seconds=12,
+        eta_confidence="stable",
+        reason_code="resource_wait_gpu",
+        active_render_batch_id="batch-1",
+        active_render_batch_progress=0.6,
+    ))
+
+    response = client.get("/api/jobs")
+    assert response.status_code == 200
+    data = response.json()
+
+    job_data = next((j for j in data if j["id"] == "job-live-metadata"), None)
+    assert job_data is not None
+    assert job_data["updated_at"] == now + 5
+    assert job_data["eta_confidence"] == "stable"
+    assert job_data["reason_code"] == "resource_wait_gpu"
+    assert job_data["active_render_batch_id"] == "batch-1"
+    assert job_data["active_render_batch_progress"] == 0.6

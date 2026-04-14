@@ -81,9 +81,14 @@ function reconcileQueueItem(
         ? (previousEta ?? itemEta)
         : (liveEta ?? previousEta ?? itemEta);
 
+    const liveProgress = typeof liveJob?.progress === 'number' ? liveJob.progress : undefined;
+    const previousProgress = typeof previousItem?.progress === 'number' ? previousItem.progress : undefined;
+    const itemProgress = typeof item.progress === 'number' ? item.progress : undefined;
     const stableProgress = nextStatus === 'finalizing'
         ? 1.0
-        : (liveJob?.progress ?? previousItem?.progress ?? item.progress);
+        : ['preparing', 'running', 'finalizing'].includes(nextStatus)
+            ? Math.max(liveProgress ?? 0, previousProgress ?? 0, itemProgress ?? 0)
+            : (liveProgress ?? previousProgress ?? itemProgress ?? 0);
 
     if (baseStatus === 'done' && shouldHoldCompletedCloudItem(item, jobs, queue, baseStatus)) {
         nextStatus = 'finalizing';

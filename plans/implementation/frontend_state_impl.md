@@ -67,6 +67,10 @@ The current product already protects users from noisy live-state regressions. St
 3. Resume socket updates.
 4. Clear stale overlay state that no longer matches canonical entities.
 
+The reconnect path should treat backend `updated_at` as the ordering authority so
+REST hydration and websocket events can be merged without frontend-only
+"best guess" clocks.
+
 Outside reconnect or explicit recovery windows, the frontend should not rely on interval polling to keep job and queue overlays current.
 
 ## 5. UX Requirements

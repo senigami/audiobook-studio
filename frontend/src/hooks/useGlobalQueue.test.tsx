@@ -101,6 +101,55 @@ describe('useGlobalQueue', () => {
     expect(result.current.queue[0].eta_seconds).toBe(40);
   });
 
+  it('keeps hydrated running progress on initial load before live jobs arrive', async () => {
+    (api.getProcessingQueue as any).mockResolvedValue([
+      { id: 'job1', status: 'running', progress: 0.34, started_at: 1000, eta_seconds: 40 }
+    ] as any);
+
+    const { result } = renderHook(() => useGlobalQueue(false, {}, 0));
+
+    await waitFor(() => expect(result.current.queue[0]?.status).toBe('running'));
+
+    expect(result.current.queue[0].progress).toBe(0.34);
+    expect(result.current.queue[0].started_at).toBe(1000);
+    expect(result.current.queue[0].eta_seconds).toBe(40);
+  });
+
+  it('does not let a thinner live jobs snapshot reset hydrated running progress to zero', async () => {
+    (api.getProcessingQueue as any).mockResolvedValue([
+      { id: 'job1', status: 'running', progress: 0.34, started_at: 1000, eta_seconds: 40 }
+    ] as any);
+
+    const { result, rerender } = renderHook(({ jobs }) => useGlobalQueue(false, jobs, 0), {
+      initialProps: { jobs: {} as Record<string, any> }
+    });
+
+    await waitFor(() => expect(result.current.queue[0]?.progress).toBe(0.34));
+
+    rerender({
+      jobs: {
+        job1: { id: 'job1', status: 'running', progress: 0, started_at: 1000, eta_seconds: 40 } as any,
+      },
+    });
+
+    expect(result.current.queue[0].status).toBe('running');
+    expect(result.current.queue[0].progress).toBe(0.34);
+  });
+
+  it('keeps hydrated preparing progress on initial load for an already-started job', async () => {
+    (api.getProcessingQueue as any).mockResolvedValue([
+      { id: 'job1', status: 'preparing', progress: 0.34, started_at: 1000, eta_seconds: 40 }
+    ] as any);
+
+    const { result } = renderHook(() => useGlobalQueue(false, {}, 0));
+
+    await waitFor(() => expect(result.current.queue[0]?.status).toBe('preparing'));
+
+    expect(result.current.queue[0].progress).toBe(0.34);
+    expect(result.current.queue[0].started_at).toBe(1000);
+    expect(result.current.queue[0].eta_seconds).toBe(40);
+  });
+
   it('holds a completed chapter job in finalizing until chapter audio is visible', async () => {
     const mockQueue = [{
       id: 'job1',

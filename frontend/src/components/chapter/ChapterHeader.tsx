@@ -278,11 +278,11 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
                       startedAt={liveSegmentProgressJob.started_at}
                       etaSeconds={liveSegmentProgressJob.eta_seconds}
                       persistenceKey={`${liveSegmentProgressJob.id}:${liveSegmentProgressJob.active_segment_id || 'none'}`}
-                      status={liveSegmentProgressJob.status === 'preparing' ? 'running' : liveSegmentProgressJob.status}
+                      status={liveSegmentProgressJob.status}
                       label="Segment Progress"
                       predictive={true}
                       authoritativeFloor={true}
-                      indeterminateRunning={false}
+                      checkpointMode="segment"
                       showEta={false}
                   />
               </div>

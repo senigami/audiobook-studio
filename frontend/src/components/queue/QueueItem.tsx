@@ -22,7 +22,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     formatTime,
     onRemove
 }) => {
-    const isTrulyActive = ['running', 'processing', 'finalizing'].includes(liveJob?.status ?? job.status);
+    const isTrulyActive = ['preparing', 'running', 'processing', 'finalizing'].includes(liveJob?.status ?? job.status);
     const rawStarted = liveJob?.started_at ?? job.started_at;
     const rawEtaSeconds = liveJob?.eta_seconds ?? job.eta_seconds;
     const status = liveJob?.status ?? job.status;
@@ -64,17 +64,17 @@ export const QueueItem: React.FC<QueueItemProps> = ({
         : (isGroupedChapterJob ? Math.max(jobProgress, groupedProgress) : jobProgress);
     const engineType = (liveJob?.engine ?? job.engine) || '';
     const isCloudLike = ['voxtral', 'mixed'].includes(engineType);
-    const showIndeterminateProgress = engineType === 'voxtral' && shouldShowIndeterminateProgress({
-        engine: liveJob?.engine ?? job.engine,
-        segment_ids: liveJob?.segment_ids ?? job.segment_ids,
-        active_segment_id: liveJob?.active_segment_id,
-        custom_title: liveJob?.custom_title ?? job.custom_title,
-    });
+    const showIndeterminateProgress = shouldShowIndeterminateProgress({
+            engine: liveJob?.engine ?? job.engine,
+            segment_ids: liveJob?.segment_ids ?? job.segment_ids,
+            active_segment_id: liveJob?.active_segment_id,
+            custom_title: liveJob?.custom_title ?? job.custom_title,
+        });
     const hasActiveGroupSignal = isGroupedChapterJob && (completedRenderGroups > 0 || activeRenderGroupIndex > 0);
     // Render-group metadata can arrive before the backend flips a grouped chapter job from
     // preparing into running. Keep the queue row in the backend's explicit status so the UI
     // does not start the active animation early just because group bookkeeping showed up.
-    const displayStatus = isCloudLike && status === 'finalizing' ? 'finalizing' : status;
+    const displayStatus = isCloudLike && status === 'finalizing' ? 'finalizing' : (showIndeterminateProgress ? 'preparing' : status);
     const [stableStarted, setStableStarted] = React.useState<number | null | undefined>(rawStarted);
     const [stableEta, setStableEta] = React.useState<number | null | undefined>(rawEtaSeconds);
 
@@ -177,8 +177,8 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                     status={displayStatus}
                     label={displayStatus === 'preparing' ? "Preparing..." : (displayStatus === 'finalizing' ? "Finalizing..." : "Processing...")}
                     predictive={true}
-                    indeterminateRunning={showIndeterminateProgress}
                     authoritativeFloor={isGroupedChapterJob}
+                    checkpointMode={isGroupedChapterJob ? 'queue' : (job.segment_ids?.length || liveJob?.segment_ids?.length || liveJob?.active_segment_id ? 'segment' : 'default')}
                     evidenceWeightFraction={isGroupedChapterJob ? evidenceWeightFraction : 1}
                 />
             </div>

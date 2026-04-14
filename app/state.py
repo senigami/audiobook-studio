@@ -1,3 +1,4 @@
+import inspect
 import json
 import os
 import logging
@@ -21,10 +22,35 @@ logger = logging.getLogger(__name__)
 # IMPORTANT: RLock prevents deadlock when a function that holds the lock calls another that also locks.
 _STATE_LOCK = threading.RLock()
 _JOB_LISTENERS = []
+_LISTENER_SNAPSHOT_SUPPORT: dict[object, bool] = {}
 
 def add_job_listener(callback):
     """Register a callback to be notified of job updates."""
+    _cache_listener_snapshot_support(callback)
     _JOB_LISTENERS.append(callback)
+
+
+def _cache_listener_snapshot_support(callback) -> bool:
+    cached = _LISTENER_SNAPSHOT_SUPPORT.get(callback)
+    if cached is not None:
+        return bool(cached)
+
+    attr_cached = getattr(callback, "_supports_job_snapshot", None)
+    if attr_cached is not None:
+        supports_snapshot = bool(attr_cached)
+        _LISTENER_SNAPSHOT_SUPPORT[callback] = supports_snapshot
+        return supports_snapshot
+    try:
+        listener_signature = inspect.signature(callback)
+        supports_snapshot = len(listener_signature.parameters) >= 3
+    except (TypeError, ValueError):
+        supports_snapshot = False
+    try:
+        setattr(callback, "_supports_job_snapshot", supports_snapshot)
+    except (AttributeError, TypeError):
+        pass
+    _LISTENER_SNAPSHOT_SUPPORT[callback] = supports_snapshot
+    return supports_snapshot
 
 
 def _default_state() -> Dict[str, Any]:
@@ -187,6 +213,8 @@ def put_job(job: Job) -> None:
     with _STATE_LOCK:
         state = _load_state_no_lock()
         state.setdefault("jobs", {})
+        if job.updated_at is None:
+            job.updated_at = job.created_at
         state["jobs"][job.id] = asdict(job)
         _atomic_write_text(STATE_FILE, json.dumps(state, indent=2))
 
@@ -237,6 +265,14 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
             if j.get(k) != v:
                 j[k] = v
                 changed_fields.append(k)
+
+        auto_updated_at = None
+        if changed_fields or force_broadcast:
+            auto_updated_at = float(updates.get("updated_at") or time.time())
+            if j.get("updated_at") != auto_updated_at:
+                j["updated_at"] = auto_updated_at
+                if "updated_at" not in changed_fields:
+                    changed_fields.append("updated_at")
         if not changed_fields and not force_broadcast:
             return
 
@@ -318,10 +354,18 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
                 logger.warning("Failed to sync job status to SQLite for %s", job_id, exc_info=True)
 
         broadcast_dict = {k: v for k, v in updates.items() if k != "log"}
+        if auto_updated_at is not None:
+            broadcast_dict.setdefault("updated_at", auto_updated_at)
         if broadcast_dict or force_broadcast:
+            job_snapshot = dict(j)
             for listener in _JOB_LISTENERS:
                 try:
-                    listener(job_id, broadcast_dict)
+                    supports_snapshot = _cache_listener_snapshot_support(listener)
+
+                    if supports_snapshot:
+                        listener(job_id, broadcast_dict, job_snapshot)
+                    else:
+                        listener(job_id, broadcast_dict)
                 except Exception:
                     logger.warning("Job listener failed for %s", job_id, exc_info=True)
 

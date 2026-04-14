@@ -4,7 +4,7 @@ from unittest.mock import patch
 import pytest
 
 from app.models import Job
-from app.state import clear_all_jobs, put_job, update_job, _JOB_LISTENERS
+from app.state import clear_all_jobs, put_job, update_job, _JOB_LISTENERS, _LISTENER_SNAPSHOT_SUPPORT, add_job_listener
 
 
 @pytest.fixture(autouse=True)
@@ -12,10 +12,14 @@ def clean_state_and_listeners(tmp_path):
     with patch("app.state.STATE_FILE", tmp_path / "state.json"):
         clear_all_jobs()
         original = list(_JOB_LISTENERS)
+        original_cache = dict(_LISTENER_SNAPSHOT_SUPPORT)
         _JOB_LISTENERS.clear()
+        _LISTENER_SNAPSHOT_SUPPORT.clear()
         yield
         _JOB_LISTENERS.clear()
         _JOB_LISTENERS.extend(original)
+        _LISTENER_SNAPSHOT_SUPPORT.clear()
+        _LISTENER_SNAPSHOT_SUPPORT.update(original_cache)
 
 
 def test_update_job_syncs_queue_before_broadcast_listener(tmp_path):
@@ -57,3 +61,64 @@ def test_update_job_syncs_queue_before_broadcast_listener(tmp_path):
         "queue-broadcast",
         "listener:job-voxtral-sync:done",
     ]
+
+
+def test_update_job_passes_current_job_snapshot_to_three_arg_listeners(tmp_path):
+    put_job(
+        Job(
+            id="job-snapshot-sync",
+            engine="xtts",
+            chapter_file="c2.txt",
+            status="running",
+            created_at=time.time(),
+            progress=0.25,
+            eta_seconds=20,
+        )
+    )
+
+    events: list[tuple[str, dict, dict]] = []
+
+    def listener(job_id, updates, current_job):
+        events.append((job_id, updates, current_job))
+
+    _JOB_LISTENERS.append(listener)
+
+    with patch("app.db.update_queue_item"), \
+         patch("app.api.ws.broadcast_queue_update"), \
+         patch("app.api.ws.broadcast_chapter_updated"):
+        update_job("job-snapshot-sync", progress=0.5)
+
+    assert len(events) == 1
+    job_id, updates, current_job = events[0]
+    assert job_id == "job-snapshot-sync"
+    assert updates["progress"] == 0.5
+    assert isinstance(updates["updated_at"], float)
+    assert current_job["status"] == "running"
+    assert current_job["progress"] == 0.5
+    assert current_job["eta_seconds"] == 20
+    assert current_job["updated_at"] == updates["updated_at"]
+
+
+def test_add_job_listener_caches_snapshot_support():
+    def listener(job_id, updates, current_job):
+        return (job_id, updates, current_job)
+
+    add_job_listener(listener)
+
+    assert getattr(listener, "_supports_job_snapshot", None) is True
+
+
+def test_add_job_listener_supports_bound_method_callbacks():
+    class Listener:
+        def __init__(self):
+            self.events = []
+
+        def on_update(self, job_id, updates, current_job):
+            self.events.append((job_id, updates, current_job))
+
+    listener = Listener()
+    callback = listener.on_update
+
+    add_job_listener(callback)
+
+    assert _LISTENER_SNAPSHOT_SUPPORT[callback] is True

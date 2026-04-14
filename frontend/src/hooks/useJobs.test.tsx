@@ -65,6 +65,41 @@ describe('useJobs', () => {
     expect(result.current.jobs.job1.progress).toBe(0.2);
   });
 
+  it('handles normalized studio_job_event websocket payloads', async () => {
+    let wsHandler: (data: any) => void = () => {};
+    (useWebSocket as any).mockImplementation((_url: string, handler: any) => {
+      wsHandler = handler;
+      return { connected: true };
+    });
+
+    (api.fetchJobs as any).mockResolvedValue([
+      { id: 'job1', status: 'queued', progress: 0 } as any,
+    ]);
+
+    const { result } = renderHook(() => useJobs());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    act(() => {
+      wsHandler({
+        type: 'studio_job_event',
+        job_id: 'job1',
+        scope: 'job',
+        status: 'running',
+        progress: 0.42,
+        eta_seconds: 12,
+        message: 'Rendering chapter',
+        updated_at: 123,
+      });
+    });
+
+    expect(result.current.jobs.job1).toMatchObject({
+      status: 'running',
+      progress: 0.42,
+      eta_seconds: 12,
+      log: 'Rendering chapter',
+    });
+  });
+
   it('does not fall back to fetchJobs when a new websocket job appears', async () => {
     let wsHandler: (data: any) => void = () => {};
     (useWebSocket as any).mockImplementation((_url: string, handler: any) => {
@@ -146,7 +181,8 @@ describe('useJobs', () => {
     
     (api.fetchJobs as any).mockResolvedValue([]);
 
-    renderHook(() => useJobs(undefined, onQueueUpdate, onPauseUpdate, onSegmentsUpdate, onChapterUpdate));
+    const { result } = renderHook(() => useJobs(undefined, onQueueUpdate, onPauseUpdate, onSegmentsUpdate, onChapterUpdate));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     act(() => {
       wsHandler({ type: 'queue_updated' });
@@ -208,9 +244,40 @@ describe('useJobs', () => {
     const { result } = renderHook(() => useJobs());
     await waitFor(() => expect(result.current.jobs['job-1']?.status).toBe('done'));
 
-    wsHandler?.({ type: 'job_updated', job_id: 'job-1', updates: { status: 'running', progress: 0.5 } });
+    act(() => {
+      wsHandler?.({ type: 'job_updated', job_id: 'job-1', updates: { status: 'running', progress: 0.5 } });
+    });
 
     expect(result.current.jobs['job-1']?.status).toBe('done');
     expect(result.current.jobs['job-1']?.progress).toBe(1);
+  });
+
+  it('ignores stale normalized websocket updates by updated_at', async () => {
+    let wsHandler: ((data: any) => void) | undefined;
+    vi.mocked(useWebSocket).mockImplementation((_path: string, handler: any) => {
+      wsHandler = handler;
+      return { connected: true } as any;
+    });
+
+    vi.mocked(api.fetchJobs).mockResolvedValue([
+      { id: 'job-1', status: 'running', progress: 0.7, created_at: 1, updated_at: 200 } as any,
+    ]);
+
+    const { result } = renderHook(() => useJobs());
+    await waitFor(() => expect(result.current.jobs['job-1']?.updated_at).toBe(200));
+
+    act(() => {
+      wsHandler?.({
+        type: 'studio_job_event',
+        job_id: 'job-1',
+        scope: 'job',
+        status: 'running',
+        progress: 0.4,
+        updated_at: 100,
+      });
+    });
+
+    expect(result.current.jobs['job-1']?.progress).toBe(0.7);
+    expect(result.current.jobs['job-1']?.updated_at).toBe(200);
   });
 });

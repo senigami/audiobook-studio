@@ -71,6 +71,8 @@ export interface ProcessingQueueItem {
   project_name?: string;
   progress?: number;
   eta_seconds?: number;
+  estimated_end_at?: number;
+  eta_basis?: 'remaining_from_update' | 'total_from_start';
   started_at?: number;
   log?: string;
   custom_title?: string;
@@ -119,13 +121,18 @@ export interface Job {
   project_id?: string;
   chapter_id?: string;
   started_at?: number;
+  updated_at?: number;
   finished_at?: number;
   safe_mode: boolean;
   make_mp3: boolean;
   progress: number;
   eta_seconds?: number;
+  estimated_end_at?: number;
+  eta_basis?: 'remaining_from_update' | 'total_from_start';
+  eta_confidence?: 'estimating' | 'stable' | 'recomputing';
   log?: string;
   error?: string;
+  reason_code?: string;
   warning_count: number;
   custom_title?: string;
   author_meta?: string;
@@ -143,6 +150,8 @@ export interface Job {
   completed_render_weight?: number;
   active_render_group_weight?: number;
   grouped_progress?: number;
+  active_render_batch_id?: string | null;
+  active_render_batch_progress?: number;
 }
 
 export interface SegmentProgress {

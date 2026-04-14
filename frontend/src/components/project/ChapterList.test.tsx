@@ -143,6 +143,23 @@ describe('ChapterList', () => {
     expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-evidence-weight-fraction', '0.4');
   });
 
+  it('shows an indeterminate preparing state for active chapter jobs', () => {
+    const preparingJob = {
+      id: 'job-preparing',
+      project_id: 'proj-1',
+      chapter_id: 'chap-123',
+      engine: 'xtts',
+      status: 'preparing',
+      progress: 0,
+      started_at: Date.now() / 1000 - 10,
+      eta_seconds: 120,
+    } as any;
+
+    render(<ChapterList {...defaultProps} jobs={{ [preparingJob.id]: preparingJob }} />);
+
+    expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-status', 'preparing');
+  });
+
   it('shows a queued badge for chapters awaiting rendering', () => {
     const queuedJob = {
       id: 'job-queued',
@@ -172,7 +189,7 @@ describe('ChapterList', () => {
 
     render(<ChapterList {...defaultProps} jobs={{ [liveJob.id]: liveJob }} chapters={[{ ...mockChapters[0], has_wav: false, audio_file_path: null, audio_status: 'processing' } as any]} />);
 
-    expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-status', 'running');
+    expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-status', 'preparing');
     expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0');
     expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-authoritative-floor', 'false');
   });
