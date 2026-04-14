@@ -65,6 +65,11 @@ Every phase must produce a deliverable that is:
 - [phase_8_cleanup_and_legacy_removal.md](/Users/stevendunn/GitHub-Steven/audiobook-factory/plans/phases/phase_8_cleanup_and_legacy_removal.md)
   Export finalization, cleanup, legacy deletion, and hardening.
 
+### Phase 9
+
+- [phase_9_plugins_and_api.md](/Users/stevendunn/GitHub-Steven/audiobook-factory/plans/phases/phase_9_plugins_and_api.md)
+  Plugin ecosystem hardening, pip entry-point discovery, external TTS API authentication, rate limiting, and contributor tooling.
+
 ## Cross-Phase Rules
 
 - each phase must leave the repo in a working state

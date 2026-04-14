@@ -15,6 +15,7 @@ This is the target organization I want us to build toward. It is designed for an
 app/
 ├── api/
 │   ├── routers/                # FastAPI route handlers
+│   │   └── tts_api.py          # Local TTS API routes (/api/v1/tts/*)
 │   ├── schemas/                # Pydantic request/response models
 │   ├── deps/                   # Dependency wiring for routes
 │   └── ws/                     # WebSocket connection manager and event wiring
@@ -28,7 +29,7 @@ app/
 │
 ├── infra/
 │   ├── db/                     # DB connection/session helpers
-│   ├── subprocess/             # Safe wrappers for ffmpeg, XTTS subprocesses, etc.
+│   ├── subprocess/             # Safe wrappers for ffmpeg, etc.
 │   ├── events/                 # Internal event bus / publisher abstraction
 │   └── cache/                  # Shared cache primitives if needed
 │
@@ -78,6 +79,7 @@ app/
 │   │   ├── base.py
 │   │   ├── synthesis.py
 │   │   ├── mixed_synthesis.py
+│   │   ├── api_synthesis.py    # API synthesis task class
 │   │   ├── bake.py
 │   │   ├── assembly.py
 │   │   ├── export.py
@@ -88,32 +90,66 @@ app/
 │   │   ├── orchestrator.py
 │   │   ├── resources.py
 │   │   ├── recovery.py
-│   │   └── policies.py
+│   │   └── policies.py         # Includes API vs. UI priority policy
 │   └── progress/
 │       ├── service.py
 │       ├── reconciliation.py
 │       ├── eta.py
 │       └── broadcaster.py
 │
-├── engines/
-│   ├── registry.py
-│   ├── bridge.py
+├── engines/                    # Studio-side engine boundary (HTTP clients)
+│   ├── models.py               # Shared engine models (manifest, health, registration)
+│   ├── errors.py               # Typed engine error hierarchy
+│   ├── registry.py             # Registry client — caches TTS Server /engines responses
+│   ├── bridge.py               # VoiceBridge — HTTP client to TTS Server
+│   ├── tts_client.py           # Low-level HTTP client for TTS Server communication
+│   ├── watchdog.py             # TTS Server health monitor with heartbeat/kill/restart
 │   └── voice/
-│       ├── base.py
-│       ├── xtts/
-│       │   ├── engine.py
-│       │   ├── manifest.json
-│       │   └── settings_schema.json
-│       └── voxtral/
-│           ├── engine.py
-│           ├── manifest.json
-│           └── settings_schema.json
+│       └── base.py             # StudioTTSEngine ABC (published SDK contract)
+│
+├── tts_server/                 # TTS Server source (runs as separate process)
+│   ├── __init__.py
+│   ├── server.py               # FastAPI app for TTS Server HTTP API
+│   ├── plugin_loader.py        # Plugin discovery, manifest validation, engine loading
+│   ├── verification.py         # Verification synthesis runner
+│   ├── settings_store.py       # Per-engine settings persistence
+│   └── health.py               # Health endpoint and per-engine status aggregation
 │
 ├── legacy/                     # Temporary adapters and compatibility shims
 │   ├── jobs/
 │   └── engines/
 │
 └── testsupport/                # Mock engines, fixtures, and helper utilities
+```
+
+**Top-level TTS Server entry point:**
+
+```text
+tts_server.py                   # Entry point script spawned by Studio as subprocess
+```
+
+**Plugin directory (top-level, inside install root):**
+
+```text
+plugins/
+├── tts_xtts/                   # Built-in XTTS engine (same discovery as community plugins)
+│   ├── manifest.json
+│   ├── engine.py
+│   ├── settings_schema.json
+│   ├── settings.json           # Auto-managed user settings
+│   ├── requirements.txt
+│   └── assets/
+├── tts_voxtral/                # Built-in Voxtral engine
+│   ├── manifest.json
+│   ├── engine.py
+│   ├── settings_schema.json
+│   ├── settings.json
+│   └── requirements.txt
+└── tts_<community>/            # Community-contributed plugins follow same structure
+    ├── manifest.json
+    ├── engine.py
+    ├── settings_schema.json
+    └── ...
 ```
 
 ## 3. Frontend Source Layout (`frontend/src/`)
@@ -142,8 +178,15 @@ frontend/src/
 │   ├── queue/
 │   ├── voices/
 │   │   └── preview/
-│   └── settings/
-│       └── voice-modules/
+│   ├── settings/
+│   │   ├── routes/
+│   │   │   └── SettingsRoute.tsx    # Tabbed settings page (/settings/*)
+│   │   ├── general/                 # General settings tab
+│   │   ├── engines/                 # TTS Engines tab (per-engine cards)
+│   │   ├── api/                     # API settings tab
+│   │   ├── about/                   # About tab
+│   │   └── voice-modules/           # Legacy voice module route (migrates into engines/)
+│   └── tts-api/                     # Developer-facing API docs page (future)
 │
 ├── store/
 │   ├── live-jobs.ts            # WebSocket-driven overlay state
@@ -220,6 +263,9 @@ data/
 - Runtime data ownership becomes explicit enough to support portability, reuse, and recovery safely.
 - Settings ownership becomes explicit enough that global app settings, project defaults, module settings, and profile preview behavior do not blur together during migration.
 - Render batching has a real home in the chapter domain instead of being rediscovered ad hoc inside queue or UI code.
+- Engines live in self-contained plugin folders that contributors can create without touching Studio source.
+- The TTS Server process isolates GPU memory and model weights from the web server.
+- The VoiceBridge becomes an HTTP client, making the engine boundary a real process boundary rather than just a class hierarchy.
 
 ## 7. Migration Rules
 
@@ -227,3 +273,6 @@ data/
 - Keep compatibility adapters in `app/legacy/` instead of polluting new modules with legacy branching.
 - Do not let `frontend/src/store/` become a canonical entity cache. Canonical entity loading belongs in `api/queries` plus feature data hooks.
 - Shared artifact cache entries must be immutable. Project-local references can point to them, but must not mutate them.
+- Built-in engines (XTTS, Voxtral) move from `app/engines/voice/` to `plugins/tts_xtts/` and `plugins/tts_voxtral/` and go through the same discovery path as community plugins.
+- Plugin folder names must follow the `tts_<name>` convention (max 20 characters, lowercase alphanumeric).
+- The `app/engines/` directory retains only Studio-side clients (registry cache, bridge HTTP client, watchdog) — no engine implementation code.

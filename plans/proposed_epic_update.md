@@ -53,11 +53,12 @@ The current system works, but too much behavior is hidden inside the legacy work
 
 ## Non-Goals For The Initial 2.0 Cut
 
-- Arbitrary third-party plugin execution.
 - Distributed workers, Redis, Celery, or multi-machine orchestration.
 - Simultaneous storage migration and full product rewrite in one step.
 - Unlimited revision history for every block and asset.
 - Silent engine fallback that changes voice output without user awareness.
+- Cloud-hosted plugin marketplace or automatic plugin update checking.
+- Process-level sandboxing or bytecode analysis of plugin code.
 
 ## Major Design Decisions
 
@@ -72,10 +73,13 @@ The current system works, but too much behavior is hidden inside the legacy work
 - Real-time progress, queue overlays, reconnect state, and local draft session state live in the frontend store.
 - The store must not become a second database.
 
-### Internal Module System First
+### Internal Module System First, Plugin SDK Next
 
-- “Plugins” in 2.0 are internal engine modules behind a manifest and registry.
-- External plugin loading is deferred until compatibility, trust, and support boundaries are solved.
+- “Plugins” in 2.0 start as internal engine modules behind a manifest and registry.
+- The TTS Server process runs engines in a separate subprocess with a watchdog, isolating crashes from Studio.
+- Built-in engines (XTTS, Voxtral) use the same plugin folder structure as community plugins.
+- Community plugin support (drop-in folders) is a Phase 5 deliverable.
+- External plugin ecosystem hardening (pip distribution, authentication, rate limiting) is deferred to Phase 9 after the core architecture is proven.
 
 ### Strangler Migration Instead Of Big-Bang Rewrite
 
@@ -103,9 +107,10 @@ The current system works, but too much behavior is hidden inside the legacy work
 1. Define the domain data model and artifact contract.
 2. Build the engine bridge and internal engine registry.
 3. Build progress reconciliation and ETA services against the new artifact model.
-4. Build the resource-aware orchestrator and recovery flow.
-5. Cut the frontend over to the new state boundaries and editor workflow.
-6. Remove legacy glue only after the new path is verified end to end.
+4. Build the resource-aware orchestrator, TTS Server subprocess, watchdog, and plugin discovery.
+5. Cut the frontend over to the new state boundaries, editor workflow, and tabbed Settings page.
+6. Remove legacy glue only after the new path is verified end to end. Document the plugin system and TTS API.
+7. Harden the plugin ecosystem for community contributions and open the external TTS API.
 
 ## Success Criteria
 
@@ -116,6 +121,10 @@ The current system works, but too much behavior is hidden inside the legacy work
 - The frontend reloads and reconnects without progress drift or state duplication.
 - Projects remain portable, and shared artifact reuse never creates hidden cross-project mutation.
 - The migration path is incremental, reversible, and verified at each phase.
+- TTS engines run in a separate process with automatic crash recovery.
+- Community-contributed plugins can be installed by dropping a folder into `plugins/`.
+- External applications can generate speech through the local TTS API.
+- Per-engine settings are grouped in the UI and driven by JSON Schema, not hard-coded forms.
 
 ## Reference Plans
 
@@ -127,3 +136,7 @@ The current system works, but too much behavior is hidden inside the legacy work
 - `plans/v2_chapter_editor_workflow.md`
 - `plans/v2_project_library_management.md`
 - `plans/v2_conversion_roadmap.md`
+- `plans/v2_tts_server.md`
+- `plans/v2_plugin_sdk.md`
+- `plans/v2_local_tts_api.md`
+- `plans/v2_settings_architecture.md`
