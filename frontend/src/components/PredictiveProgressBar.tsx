@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
-import { advancePredictiveProgress, buildPredictiveProgressModel } from '../utils/predictiveProgress';
 import {
     ETA_TICK_MS,
     clamp01,
@@ -12,7 +11,6 @@ import {
     getMaxVisualStep,
     getProgressInfo,
     getRemainingTicks,
-    getSmoothingTicks,
     getTerminalFillStyle,
     getTerminalStatusText,
     isActiveStatus,
@@ -27,50 +25,21 @@ import {
     shouldPreserveMountedProgress,
     type ProgressPresentationState,
 } from './predictiveProgressBarHelpers';
+import {
+    buildAuthoritativePredictiveTick,
+    buildFlexiblePredictiveTick,
+    buildPendingRunAnchorTick,
+    buildPredictiveTargetModel,
+    nudgeCurrentEndTime,
+    type PredictiveTickDebugState,
+} from './predictiveProgressBarEngine';
+import {
+    buildPredictiveProgressDebugSnapshot,
+    createInitialDebugTickState,
+    type PredictiveProgressDebugSnapshot,
+} from './predictiveProgressBarDebug';
 
-export interface PredictiveProgressDebugSnapshot {
-    memoryKey?: string;
-    resolvedCheckpointMode: 'default' | 'queue' | 'segment';
-    status?: string;
-    progress: number;
-    startedAt?: number;
-    etaSeconds?: number;
-    predictive: boolean;
-    authoritativeFloor: boolean;
-    tickLoopActive: boolean;
-    preserveMountedProgress: boolean;
-    preserveActiveVisualState: boolean;
-    memoryFloor: number;
-    displayProgress: number;
-    localProgress: number;
-    currentEndTime: number | null;
-    targetEndTime: number | null;
-    displayedRemaining: number | null;
-    syncedDisplayedRemaining: number | null;
-    remainingTicks: number | null;
-    lastTickAt: number;
-    dtSeconds: number;
-    tickElapsedSeconds: number | null;
-    effectiveEtaSeconds: number | null;
-    smoothingTicks: number | null;
-    maxVisualStep: number | null;
-    targetFloor: number | null;
-    nextProgress: number | null;
-    etaProgressBasis: number | null;
-    visibleProgress: number | null;
-    launchEtaOnly: boolean;
-    allowBackwardProgress: boolean;
-    modelAuthoritativeProgress?: number | null;
-    modelDisplayedProgress?: number | null;
-    modelEstimatedRemainingSeconds?: number | null;
-    modelActualRemainingSeconds?: number | null;
-    modelRefinedRemainingSeconds?: number | null;
-    modelVelocityPerSecond?: number | null;
-    correctionWeightMode?: 'default' | 'queue' | 'segment';
-    model?: ReturnType<typeof buildPredictiveProgressModel>;
-    lastDisplayWriteSource?: string;
-    lastDisplayWriteValue?: number | null;
-}
+export type { PredictiveProgressDebugSnapshot } from './predictiveProgressBarDebug';
 
 interface PredictiveProgressBarProps {
     progress: number;
@@ -165,7 +134,6 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     const [displayProgress, setDisplayProgress] = useState(() => initialDisplayProgress);
     const lastTickRef = useRef(Date.now());
     const displayProgressRef = useRef(initialDisplayProgress);
-    const displayedRemainingRef = useRef<number | null>(null);
     const currentEndTimeRef = useRef<number | null>(null);
     const targetEndTimeRef = useRef<number | null>(null);
     const lastRunAnchorRef = useRef<string | null>(null);
@@ -215,15 +183,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         setCurrentEndTime(null);
         writeDisplayProgress('handoff-reset', 0);
     };
-    const [debugTick, setDebugTick] = useState<{
-        lastTickAt: number;
-        dtSeconds: number;
-        tickElapsedSeconds: number | null;
-        effectiveEtaSeconds: number | null;
-        smoothingTicks: number | null;
-        maxVisualStep: number | null;
-        targetFloor: number | null;
-        nextProgress: number | null;
+    const [debugTick, setDebugTick] = useState<PredictiveTickDebugState & {
         etaProgressBasis?: number | null;
         visibleProgress?: number | null;
         launchEtaOnly?: boolean;
@@ -234,34 +194,14 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         modelActualRemainingSeconds?: number | null;
         modelRefinedRemainingSeconds?: number | null;
         modelVelocityPerSecond?: number | null;
-        correctionWeightMode?: 'default' | 'queue' | 'segment';
-        model?: ReturnType<typeof buildPredictiveProgressModel>;
         lastDisplayWriteSource?: string;
         lastDisplayWriteValue?: number | null;
-    }>({
-        lastTickAt: Date.now(),
-        dtSeconds: 0,
-        tickElapsedSeconds: null,
-        effectiveEtaSeconds: null,
-        smoothingTicks: null,
-        maxVisualStep: null,
-        targetFloor: null,
-        nextProgress: null,
-        etaProgressBasis: null,
-        visibleProgress: null,
+    }>(() => createInitialDebugTickState({
+        initialDisplayProgress,
         launchEtaOnly: preferLaunchEtaOnly,
         allowBackwardProgress,
-        modelAuthoritativeProgress: null,
-        modelDisplayedProgress: null,
-        modelEstimatedRemainingSeconds: null,
-        modelActualRemainingSeconds: null,
-        modelRefinedRemainingSeconds: null,
-        modelVelocityPerSecond: null,
-        correctionWeightMode: resolvedCheckpointMode,
-        model: undefined,
-        lastDisplayWriteSource: 'init',
-        lastDisplayWriteValue: initialDisplayProgress,
-    });
+        resolvedCheckpointMode,
+    }));
 
     const writeDisplayProgress = (
         source: string,
@@ -512,171 +452,61 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             pendingRunAnchorRef.current = null;
             writeDisplayProgress('pending-run-anchor', prev => {
                 const launchProgress = loadingToDynamicHandoff ? 0 : initialDisplayProgress;
-                const next = authoritativeFloor
-                    ? Math.max(prev, clamp01(launchProgress))
-                    : clamp01(launchProgress);
-                const pendingRemainingTicks = getRemainingTicks(tickNow, currentEndTimeRef.current);
-                setDebugTick({
-                    lastTickAt: tickNow,
-                    dtSeconds: dt,
-                    tickElapsedSeconds: Math.max(0, (tickNow / 1000) - startedAt),
+                const pendingTick = buildPendingRunAnchorTick({
+                    tickNow,
+                    dt,
+                    startedAt,
                     effectiveEtaSeconds,
-                    smoothingTicks: getSmoothingTicks({
-                        checkpointMode: resolvedCheckpointMode,
-                        authoritativeFloor,
-                        smoothingProgressBasis,
-                        remainingTicks: pendingRemainingTicks,
-                    }),
-                    maxVisualStep: getMaxVisualStep(dt),
-                    targetFloor: clamp01(launchProgress),
-                    nextProgress: next,
-                    correctionWeightMode: resolvedCheckpointMode,
-                    model: buildPredictiveProgressModel({
-                        authoritativeProgress: authoritativeFloor ? Math.max(clamp01(progress), memoryFloor) : progress,
-                        displayedProgress: next,
-                        elapsedSeconds: Math.max(0, (tickNow / 1000) - startedAt),
-                        etaSeconds: effectiveEtaSeconds,
-                        priorProgressBasis: authoritativeFloor ? Math.max(clamp01(progress), memoryFloor) : undefined,
-                        correctionWeightMode: resolvedCheckpointMode,
-                        evidenceWeightFraction,
-                        preferLaunchEtaOnly,
-                    }),
+                    launchProgress,
+                    progress,
+                    memoryFloor,
+                    checkpointMode: resolvedCheckpointMode,
+                    authoritativeFloor,
+                    evidenceWeightFraction,
+                    preferLaunchEtaOnly,
+                    smoothingProgressBasis,
+                    currentEndTime: currentEndTimeRef.current,
+                    previousDisplayProgress: prev,
                 });
-                return next;
+                setDebugTick(pendingTick.debugTick);
+                return pendingTick.nextProgress;
             });
             return;
         }
 
         writeDisplayProgress(authoritativeFloor ? 'predictive-tick-authoritative' : 'predictive-tick', prev => {
             if (authoritativeFloor) {
-                const targetFloor = clamp01(progress);
-                const base = Math.max(prev, clamp01(progress));
-                const elapsed = Math.max(0, (tickNow / 1000) - startedAt);
-                const next = advancePredictiveProgress({
-                    authoritativeProgress: progress,
-                    displayedProgress: base,
-                    elapsedSeconds: elapsed,
-                    etaSeconds: effectiveEtaSeconds,
-                    deltaSeconds: dt,
-                    priorProgressBasis: base,
-                    correctionWeightMode: resolvedCheckpointMode,
+                const tickState = buildAuthoritativePredictiveTick({
+                    tickNow,
+                    dt,
+                    startedAt,
+                    effectiveEtaSeconds,
+                    progress,
+                    checkpointMode: resolvedCheckpointMode,
+                    smoothingProgressBasis,
+                    currentEndTime: currentEndTimeRef.current,
+                    previousDisplayProgress: prev,
                     evidenceWeightFraction,
                     preferLaunchEtaOnly,
                 });
-                const shouldCompleteNow = (
-                    progress >= 0.995
-                    || (
-                        currentEndTimeRef.current !== null
-                        && currentEndTimeRef.current <= tickNow + ETA_TICK_MS
-                        && Math.max(targetFloor, next.nextProgress) >= 0.98
-                    )
-                );
-                if (shouldCompleteNow) {
-                    const remainingTicks = getRemainingTicks(tickNow, currentEndTimeRef.current);
-                    setDebugTick({
-                        lastTickAt: tickNow,
-                        dtSeconds: dt,
-                        tickElapsedSeconds: elapsed,
-                        effectiveEtaSeconds,
-                        smoothingTicks: getSmoothingTicks({
-                            checkpointMode: resolvedCheckpointMode,
-                            authoritativeFloor: true,
-                            smoothingProgressBasis,
-                            remainingTicks,
-                        }),
-                        maxVisualStep: getMaxVisualStep(dt),
-                        targetFloor,
-                        nextProgress: 1,
-                        correctionWeightMode: resolvedCheckpointMode,
-                        model: next,
-                    });
-                    return 1;
-                }
-                const cappedNext = Math.min(next.nextProgress, base + getMaxVisualStep(dt));
-                const finalNext = clamp01(Math.max(base, cappedNext));
-                const remainingTicks = getRemainingTicks(tickNow, currentEndTimeRef.current);
-                setDebugTick({
-                    lastTickAt: tickNow,
-                    dtSeconds: dt,
-                    tickElapsedSeconds: elapsed,
-                    effectiveEtaSeconds,
-                    smoothingTicks: getSmoothingTicks({
-                        checkpointMode: resolvedCheckpointMode,
-                        authoritativeFloor: true,
-                        smoothingProgressBasis,
-                        remainingTicks,
-                    }),
-                    maxVisualStep: getMaxVisualStep(dt),
-                    targetFloor,
-                    nextProgress: finalNext,
-                    correctionWeightMode: resolvedCheckpointMode,
-                    model: next,
-                });
-                return finalNext;
+                setDebugTick(tickState.debugTick);
+                return tickState.nextProgress;
             }
-            const elapsed = Math.max(0, (tickNow / 1000) - startedAt);
-            const next = advancePredictiveProgress({
-                authoritativeProgress: progress,
-                displayedProgress: prev,
-                elapsedSeconds: elapsed,
-                etaSeconds: effectiveEtaSeconds,
-                deltaSeconds: dt,
-                preferLaunchEtaOnly,
-            })
-            if (
-                progress >= 0.995
-                || (
-                    currentEndTimeRef.current !== null
-                    && currentEndTimeRef.current <= tickNow + ETA_TICK_MS
-                    && Math.max(progress, next.nextProgress) >= 0.98
-                )
-            ) {
-                const remainingTicks = getRemainingTicks(tickNow, currentEndTimeRef.current);
-                setDebugTick({
-                    lastTickAt: tickNow,
-                    dtSeconds: dt,
-                    tickElapsedSeconds: elapsed,
-                    effectiveEtaSeconds,
-                    smoothingTicks: getSmoothingTicks({
-                        checkpointMode: resolvedCheckpointMode,
-                        authoritativeFloor: false,
-                        smoothingProgressBasis,
-                        remainingTicks,
-                    }),
-                    maxVisualStep: getMaxVisualStep(dt),
-                    targetFloor: Math.max(progress, next.nextProgress),
-                    nextProgress: 1,
-                    correctionWeightMode: resolvedCheckpointMode,
-                    model: next,
-                });
-                return 1
-            }
-                const liveProgress = clamp01(progress);
-                const forwardDelta = Math.max(0, liveProgress - prev);
-                const correctionBoost = Math.max(getMaxVisualStep(dt), forwardDelta * 0.15);
-                const cappedNext = Math.min(next.nextProgress, prev + correctionBoost)
-                const finalNext = allowBackwardProgress
-                    ? clamp01(Math.max(prev, cappedNext))
-                    : Math.max(prev, clamp01(progress), cappedNext)
-            const remainingTicks = getRemainingTicks(tickNow, currentEndTimeRef.current);
-            setDebugTick({
-                lastTickAt: tickNow,
-                dtSeconds: dt,
-                tickElapsedSeconds: elapsed,
+            const tickState = buildFlexiblePredictiveTick({
+                tickNow,
+                dt,
+                startedAt,
                 effectiveEtaSeconds,
-                smoothingTicks: getSmoothingTicks({
-                    checkpointMode: resolvedCheckpointMode,
-                    authoritativeFloor: false,
-                    smoothingProgressBasis,
-                    remainingTicks,
-                }),
-                maxVisualStep: getMaxVisualStep(dt),
-                targetFloor: allowBackwardProgress ? clamp01(cappedNext) : clamp01(progress),
-                nextProgress: finalNext,
-                correctionWeightMode: resolvedCheckpointMode,
-                model: next,
+                progress,
+                checkpointMode: resolvedCheckpointMode,
+                smoothingProgressBasis,
+                currentEndTime: currentEndTimeRef.current,
+                previousDisplayProgress: prev,
+                allowBackwardProgress,
+                preferLaunchEtaOnly,
             });
-            return finalNext
+            setDebugTick(tickState.debugTick);
+            return tickState.nextProgress;
         });
 
     }, [now, progress, startedAt, etaSeconds, predictive, presentationState, authoritativeFloor, preserveActiveVisualState, preserveMountedProgress, resolvedCheckpointMode, evidenceWeightFraction, loadingToDynamicHandoff, handoffResetVisible, allowBackwardProgress]);
@@ -747,21 +577,20 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         const rememberedProgress = getRememberedProgress(memoryKey);
         const effectiveDisplayedProgress = Math.max(displayProgressRef.current, rememberedProgress);
         const etaProgressBasis = authoritativeFloor ? Math.max(clamp01(progress), effectiveDisplayedProgress) : progress;
-        const model = buildPredictiveProgressModel({
+        const targetModel = buildPredictiveTargetModel({
             authoritativeProgress: etaProgressBasis,
             displayedProgress: effectiveDisplayedProgress,
             elapsedSeconds: elapsed,
             etaSeconds,
             priorProgressBasis: authoritativeFloor ? etaProgressBasis : undefined,
-            correctionWeightMode: resolvedCheckpointMode,
+            checkpointMode: resolvedCheckpointMode,
             evidenceWeightFraction,
             preferLaunchEtaOnly,
         });
-        const nextTargetEndTime = Date.now() + (model.refinedRemainingSeconds * 1000);
         const rememberedEndTime = memoryKey ? (endTimeMemory.get(memoryKey) ?? null) : null;
-        targetEndTimeRef.current = nextTargetEndTime;
+        targetEndTimeRef.current = targetModel.nextTargetEndTime;
         if (currentEndTimeRef.current === null) {
-            const seededEndTime = rememberedEndTime ?? nextTargetEndTime;
+            const seededEndTime = rememberedEndTime ?? targetModel.nextTargetEndTime;
             currentEndTimeRef.current = seededEndTime;
             setCurrentEndTime(seededEndTime);
         }
@@ -797,21 +626,14 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             return;
         }
 
-        const deltaMs = targetEndTime - currentEndTime;
-        const remainingTicks = getRemainingTicks(now, currentEndTime);
-        const smoothingTicks = getSmoothingTicks({
+        const nextEndTime = nudgeCurrentEndTime({
+            now,
+            targetEndTime,
+            currentEndTime,
             checkpointMode: resolvedCheckpointMode,
             authoritativeFloor,
             smoothingProgressBasis,
-            remainingTicks,
         });
-        const minimumCatchupMs = Math.ceil(Math.abs(deltaMs) / smoothingTicks);
-        const minimumNudgeMs = authoritativeFloor ? 60 : 150;
-        const maxPerTickMs = Math.max(minimumNudgeMs, minimumCatchupMs);
-        const nudgeMs = deltaMs > 0
-            ? Math.min(deltaMs, maxPerTickMs)
-            : Math.max(deltaMs, -maxPerTickMs);
-        const nextEndTime = currentEndTime + nudgeMs;
 
         currentEndTimeRef.current = nextEndTime;
         setCurrentEndTime(nextEndTime);
@@ -832,12 +654,8 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     const terminalFillStyle = getTerminalFillStyle(visualState);
 
     useEffect(() => {
-        displayedRemainingRef.current = syncedDisplayedRemaining;
-    }, [syncedDisplayedRemaining]);
-
-    useEffect(() => {
         if (!onDebugSnapshot) return;
-        const snapshot: PredictiveProgressDebugSnapshot = {
+        const snapshot = buildPredictiveProgressDebugSnapshot({
             memoryKey,
             resolvedCheckpointMode,
             status,
@@ -857,29 +675,12 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             displayedRemaining,
             syncedDisplayedRemaining,
             remainingTicks: currentEndTime === null ? null : getRemainingTicks(now, currentEndTime),
-            lastTickAt: debugTick.lastTickAt,
-            dtSeconds: debugTick.dtSeconds,
-            tickElapsedSeconds: debugTick.tickElapsedSeconds,
-            effectiveEtaSeconds: debugTick.effectiveEtaSeconds,
-            smoothingTicks: debugTick.smoothingTicks,
-            maxVisualStep: debugTick.maxVisualStep,
-            targetFloor: debugTick.targetFloor,
-            nextProgress: debugTick.nextProgress,
-            etaProgressBasis: debugTick.model?.authoritativeProgress ?? null,
-            visibleProgress: debugTick.model?.displayedProgress ?? null,
+            debugTick,
             launchEtaOnly: preferLaunchEtaOnly,
             allowBackwardProgress,
-            modelAuthoritativeProgress: debugTick.model?.authoritativeProgress ?? null,
-            modelDisplayedProgress: debugTick.model?.displayedProgress ?? null,
-            modelEstimatedRemainingSeconds: debugTick.model?.estimatedRemainingSeconds ?? null,
-            modelActualRemainingSeconds: debugTick.model?.actualRemainingSeconds ?? null,
-            modelRefinedRemainingSeconds: debugTick.model?.refinedRemainingSeconds ?? null,
-            modelVelocityPerSecond: debugTick.model?.velocityPerSecond ?? null,
-            correctionWeightMode: debugTick.correctionWeightMode,
-            model: debugTick.model,
             lastDisplayWriteSource: lastDisplayWriteRef.current.source,
             lastDisplayWriteValue: lastDisplayWriteRef.current.value,
-        };
+        });
         onDebugSnapshot(snapshot);
     }, [
         onDebugSnapshot,
