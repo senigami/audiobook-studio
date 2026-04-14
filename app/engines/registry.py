@@ -24,7 +24,10 @@ try:
     from app.engines.watchdog import get_watchdog
 except ImportError:  # pragma: no cover
     TtsClient = None  # type: ignore[assignment,misc]
-    get_watchdog = lambda: None  # type: ignore[assignment]
+
+    def get_watchdog():  # type: ignore[misc]
+        """Fallback watchdog accessor for minimal environments."""
+        return None
 
 logger = logging.getLogger(__name__)
 
