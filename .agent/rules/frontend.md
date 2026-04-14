@@ -1,31 +1,20 @@
 # Frontend Rules
 
-## 1. State Ownership
+Use this file when the task touches UI state ownership, overlays, local session state, interaction design, or responsive layouts.
 
-- Canonical entities such as projects, chapters, blocks, voices, and settings belong to API-backed data loading.
-- The frontend store owns live overlays, reconnect state, notifications, and local session state.
-- Do not let the store become a second database.
-- Do not infer canonical completion state from local UI assumptions or stale props.
+## Read The Right Subfile
 
-## 2. UX Quality Bar
+- [`frontend-state.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/frontend-state.md) for canonical data, live overlays, and local session state boundaries.
+- [`frontend-ux.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/frontend-ux.md) for loading/error/recovery states, trust, and editor expectations.
+- [`frontend-interactions.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/frontend-interactions.md) for styling, semantics, component boundaries, and responsive behavior.
 
-- Every meaningful screen change must account for loading, empty, error, reconnecting, interrupted, and recovered states.
-- Prefer interfaces that explain why something is waiting or stale instead of hiding behind generic spinners.
-- Recommend improvements when a requested UI flow would reduce trust, recovery, or clarity.
+## Load Order
 
-## 3. Interaction Consistency
+1. [`frontend-state.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/frontend-state.md) for state ownership and overlay boundaries.
+1. [`frontend-ux.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/frontend-ux.md) for recovery, waiting, empty, and failure experience.
+1. [`frontend-interactions.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/frontend-interactions.md) for interaction quality, semantics, and responsive layouts.
 
-- Prefer theme variables over hardcoded colors.
-- Preserve focus behavior, keyboard access, and semantics.
-- High-level interaction logic should use reliable state and clear component boundaries rather than fragile styling hacks.
+## Pair With
 
-## 4. Chapter Editor Expectations
-
-- Fast local editing is required, but canonical persistence must remain trustworthy.
-- Mark edited, stale, queued, rendering, rendered, and failed states explicitly.
-- Inline recovery actions are preferred over forcing users to leave the editor for common fixes.
-
-## 5. Responsiveness
-
-- Keep layouts usable on desktop and mobile.
-- Sticky controls and two-pane layouts must degrade gracefully on smaller screens.
+- [`modular_architecture.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/modular_architecture.md) for Studio 2.0 boundary rules.
+- [`verification.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/verification.md) for the required frontend test and lint verification.

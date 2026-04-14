@@ -1,47 +1,22 @@
 # Backend Rules
 
-## 1. Source Of Truth And Artifact Safety
+Use this file when the task touches backend orchestration, queueing, progress, artifact publication, or filesystem path handling.
 
-- Raw file existence alone is never enough to mark render work complete in Studio 2.0.
-- Validated artifact manifests plus canonical persistence state determine whether output is reusable.
-- Publish generated outputs atomically: temp file first, validate, write manifest, then promote into the final artifact location.
-- Shared cached artifacts must be immutable once published.
-- When job state is re-queued, recovered, or invalidated, clear stale runtime metadata and recalculate status from canonical state.
+## Read The Right Subfile
 
-## 2. Progress And State Consistency
+- [`backend-artifacts.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/backend-artifacts.md) for manifest validation, publish flow, cache immutability, and recovery safety.
+- [`backend-progress.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/backend-progress.md) for progress math, ETA rules, rounding, and update throttling.
+- [`backend-boundaries.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/backend-boundaries.md) for route/service/engine boundaries and migration discipline.
+- [`backend-paths.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/backend-paths.md) for request-derived paths and containment checks.
 
-- WebSocket progress values must be rounded to exactly 2 decimal places.
-- Only broadcast progress updates when the value advances meaningfully, the status changes, or the event carries important new context.
-- Queue and progress services own progress math. Do not duplicate ETA or completion logic inside engine wrappers or route handlers.
-- If a revision changes, mark prior artifacts stale explicitly rather than silently treating them as valid.
+## Load Order
 
-## 3. Queue And Domain Boundaries
+1. [`backend-progress.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/backend-progress.md) for ETA, rounding, and progress consistency.
+1. [`backend-artifacts.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/backend-artifacts.md) for publish/recovery/immutability.
+1. [`backend-paths.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/backend-paths.md) for any request-derived path handling.
+1. [`backend-boundaries.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/backend-boundaries.md) for routing, orchestration, queue policy, and migration shape.
 
-- Route handlers should call domain services and orchestrator services, not engine-specific or worker-specific code directly.
-- Engine wrappers must not decide scheduling policy.
-- Queue tasks must declare resource needs; they must not acquire ad-hoc locks scattered through task code.
-- Parent-child job behavior should be modeled explicitly rather than inferred from filenames or loose naming conventions.
+## Pair With
 
-## 4. Path Safety And Code Scanning
-
-- Treat any filesystem path derived from request data, DB values, uploaded filenames, or user-editable names as untrusted.
-- For existing files or directories, prefer enumerating a trusted root and matching by `entry.name`.
-- For new paths, use the explicit containment pattern that CodeQL recognizes well:
-  1. validate with a strict regex
-  2. build with `os.path.join(...)`
-  3. normalize with `os.path.normpath(...)`
-  4. absolutize with `os.path.abspath(...)`
-  5. verify the result stays under the trusted root before reading or writing
-- Reject traversal-style input instead of silently “fixing” it.
-- Do not hide security-critical path creation in vague helpers.
-
-## 5. Structural Guidance
-
-- Keep domain logic, orchestration logic, engine integration, and infrastructure concerns in separate modules.
-- If a file exceeds roughly 500 lines, consider splitting it along real boundaries rather than by arbitrary helper extraction.
-- Prefer explicit repositories and services over ad-hoc data access from route handlers and workers.
-
-## 6. Legacy Compatibility Guidance
-
-- During migration, compatibility adapters are acceptable, but they should live in explicit legacy or adapter layers.
-- Do not let temporary migration code redefine the long-term architecture.
+- [`modular_architecture.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/modular_architecture.md) for Studio 2.0 boundary rules.
+- [`verification.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/verification.md) for the required backend test and lint verification.
