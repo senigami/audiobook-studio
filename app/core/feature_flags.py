@@ -13,6 +13,17 @@ USE_TTS_SERVER
 
     Set via environment: ``USE_TTS_SERVER=true`` or ``USE_TTS_SERVER=1``.
     Disabled by default during the Phase 5 migration.
+
+USE_STUDIO_ORCHESTRATOR
+    When true, the 2.0 TaskOrchestrator handles scheduling, dispatch, and
+    recovery.  When false (default), the legacy ``app.jobs`` worker loop runs.
+
+    This flag is intentionally separate from ``USE_TTS_SERVER`` so engine
+    transport rollout (HTTP vs in-process) can be tested independently of
+    scheduler rollout.
+
+    Set via environment: ``USE_STUDIO_ORCHESTRATOR=true``.
+    Disabled by default during the Phase 5 migration.
 """
 
 from __future__ import annotations
@@ -53,3 +64,20 @@ def use_tts_server() -> bool:
         bool: True when the TTS Server path should be used.
     """
     return _normalize_flag_value(os.getenv("USE_TTS_SERVER"))
+
+
+def use_studio_orchestrator() -> bool:
+    """Return True when the Studio 2.0 orchestrator is enabled.
+
+    Controlled by the ``USE_STUDIO_ORCHESTRATOR`` environment variable.
+    When enabled, the 2.0 TaskOrchestrator handles scheduling, dispatch,
+    and recovery.  When disabled (default), the legacy ``app.jobs`` worker
+    loop runs.
+
+    This flag is independent of ``USE_TTS_SERVER`` — they can be enabled
+    separately to allow independent testing and rollout.
+
+    Returns:
+        bool: True when the 2.0 orchestrator path should be used.
+    """
+    return _normalize_flag_value(os.getenv("USE_STUDIO_ORCHESTRATOR"))

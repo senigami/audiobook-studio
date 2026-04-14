@@ -322,6 +322,15 @@ def startup_event():
         set_paused(True)
         logger.info("Startup: Queue restored to PAUSED state.")
 
+    # 5. Studio 2.0 boot sequence — starts feature-flagged subsystems
+    #    (e.g. TTS Server watchdog when USE_TTS_SERVER=true).
+    try:
+        from .boot import boot_studio
+        boot_studio()
+    except Exception as e:
+        logger.warning(f"Startup Warning: Studio 2.0 boot sequence failed: {e}")
+
+
 @app.on_event("shutdown")
 def shutdown_event():
     from .orchestration.progress.broadcaster import configure_progress_broadcaster
