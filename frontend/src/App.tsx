@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { PreviewModal } from './components/PreviewModal';
@@ -8,6 +8,7 @@ import { ProjectView } from './components/ProjectView';
 import { GlobalQueue } from './components/GlobalQueue';
 import { ProgressBarTestPage } from './components/ProgressBarTestPage';
 import { useJobs } from './hooks/useJobs';
+import { useQueueSync } from './hooks/useQueueSync';
 import { useInitialData } from './hooks/useInitialData';
 import { SettingsTray } from './components/SettingsTray';
 import { ConfirmModal } from './components/ConfirmModal';
@@ -15,24 +16,26 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 function App() {
   const navigate = useNavigate();
-  const [queueCount, setQueueCount] = useState(0);
   const [queueRefreshTrigger, setQueueRefreshTrigger] = useState(0);
-  const [chapterUpdate, setChapterUpdate] = useState<{ chapterId: string; tick: number }>({ chapterId: '', tick: 0 });
+  const { 
+    queue: mergedQueue, 
+    queueCount, 
+    loading: queueLoading,
+    refreshQueue: originalRefreshQueue
+  } = useQueueSync();
 
-  const fetchQueueCount = async () => {
-    try {
-        const res = await fetch('/api/processing_queue');
-        const queueData = await res.json();
-        const active = queueData.filter((q: any) => q.status === 'queued' || q.status === 'preparing' || q.status === 'running' || q.status === 'finalizing');
-        setQueueCount(active.length);
-    } catch(e) { console.error('Failed to get queue count', e); }
-  };
+  const refreshQueue = useCallback(async (source: 'bootstrap' | 'reconnect' | 'refresh' = 'refresh') => {
+    await originalRefreshQueue(source);
+    setQueueRefreshTrigger(prev => prev + 1);
+  }, [originalRefreshQueue]);
+
+  const [chapterUpdate, setChapterUpdate] = useState<{ chapterId: string; tick: number }>({ chapterId: '', tick: 0 });
 
   const [segmentUpdate, setSegmentUpdate] = useState<{ chapterId: string; tick: number }>({ chapterId: '', tick: 0 });
   const { data: initialData, loading: initialLoading, refetch: refetchHome } = useInitialData();
   const { jobs, refreshJobs, testProgress, segmentProgress } = useJobs(
-    () => { refetchHome(); setQueueRefreshTrigger(prev => prev + 1); }, 
-    () => { fetchQueueCount(); setQueueRefreshTrigger(prev => prev + 1); }, 
+    () => { refetchHome(); refreshQueue('refresh'); }, 
+    () => { refreshQueue('refresh'); }, 
     () => refetchHome(),
     (chapterId: string) => { setSegmentUpdate(prev => ({ chapterId, tick: prev.tick + 1 })); },
     (chapterId: string) => { setChapterUpdate(prev => ({ chapterId, tick: prev.tick + 1 })); }
@@ -55,14 +58,8 @@ function App() {
     setTimeout(() => setToast(prev => prev ? { ...prev, visible: false } : null), 4000);
   };
 
-  useEffect(() => {
-     fetchQueueCount();
-     const interval = setInterval(fetchQueueCount, 3000);
-     return () => clearInterval(interval);
-  }, []);
-
   const handleRefresh = async () => {
-    await Promise.all([refetchHome(), refreshJobs()]);
+    await Promise.all([refetchHome(), refreshJobs(), refreshQueue('refresh')]);
   };
 
 
@@ -106,7 +103,9 @@ function App() {
                 <GlobalQueue 
                   paused={initialData?.paused || false} 
                   jobs={jobs}
-                  refreshTrigger={queueRefreshTrigger}
+                  queue={mergedQueue}
+                  loading={queueLoading}
+                  onRefresh={() => refreshQueue('refresh')}
                 />
               } />
               <Route path="/voices" element={

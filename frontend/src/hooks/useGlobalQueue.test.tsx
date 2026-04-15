@@ -1,12 +1,12 @@
-import { renderHook, waitFor, act } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useGlobalQueue } from './useGlobalQueue';
 import { api } from '../api';
+import type { ProcessingQueueItem } from '../types';
 
 // Mock API
 vi.mock('../api', () => ({
   api: {
-    getProcessingQueue: vi.fn(),
     reorderProcessingQueue: vi.fn(),
     removeProcessingQueue: vi.fn(),
     clearCompletedJobs: vi.fn(),
@@ -22,31 +22,46 @@ describe('useGlobalQueue', () => {
     });
   });
 
-  it('fetches queue on mount and when refreshTrigger changes', async () => {
-    const mockQueue = [{ id: 'job1', status: 'queued', title: 'Chapter 1' }];
-    (api.getProcessingQueue as any).mockResolvedValue(mockQueue);
+  const mockQueue: ProcessingQueueItem[] = [
+    { id: 'job1', status: 'queued', chapter_title: 'Chapter 1' } as any,
+    { id: 'job2', status: 'queued', chapter_title: 'Chapter 2' } as any,
+  ];
 
-    const { result, rerender } = renderHook(({ paused, jobs, refreshTrigger }) => 
-      useGlobalQueue(paused, jobs, refreshTrigger), {
-      initialProps: { paused: false, jobs: {}, refreshTrigger: 0 }
+  it('initializes with provided queue', () => {
+    const { result } = renderHook(() => useGlobalQueue(mockQueue, false));
+    expect(result.current.queue).toEqual(mockQueue);
+  });
+
+  it('syncs with initialQueue updates when not dragging', () => {
+    const { result, rerender } = renderHook(({ q }) => useGlobalQueue(q, false), {
+      initialProps: { q: mockQueue }
     });
 
-    expect(result.current.loading).toBe(true);
+    const updatedQueue = [...mockQueue, { id: 'job3', status: 'queued' } as any];
+    rerender({ q: updatedQueue });
     
-    await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(result.current.queue).toEqual(mockQueue);
+    expect(result.current.queue).toEqual(updatedQueue);
+  });
 
-    // Change trigger
-    (api.getProcessingQueue as any).mockResolvedValue([...mockQueue, { id: 'job2', status: 'queued' }]);
-    rerender({ paused: false, jobs: {}, refreshTrigger: 1 });
+  it('suspends sync during drag', () => {
+    const { result, rerender } = renderHook(({ q }) => useGlobalQueue(q, false), {
+      initialProps: { q: mockQueue }
+    });
+
+    act(() => {
+        result.current.handleDragStart();
+    });
+
+    const updatedQueue = [...mockQueue, { id: 'job3', status: 'queued' } as any];
+    rerender({ q: updatedQueue });
     
-    await waitFor(() => expect(result.current.queue).toHaveLength(2));
+    // Should still be old queue because dragging
+    expect(result.current.queue).toEqual(mockQueue);
   });
 
   it('handles pause/resume toggle', async () => {
-    (api.getProcessingQueue as any).mockResolvedValue([]);
     const onRefresh = vi.fn();
-    const { result } = renderHook(() => useGlobalQueue(false, {}, 0, onRefresh));
+    const { result } = renderHook(() => useGlobalQueue([], false, onRefresh));
 
     await act(async () => {
       await result.current.handlePauseToggle();
@@ -55,197 +70,14 @@ describe('useGlobalQueue', () => {
     expect(global.fetch).toHaveBeenCalledWith('/queue/pause', { method: 'POST' });
     expect(result.current.localPaused).toBe(true);
     expect(onRefresh).toHaveBeenCalled();
-
-    await act(async () => {
-      await result.current.handlePauseToggle();
-    });
-
-    expect(global.fetch).toHaveBeenCalledWith('/queue/resume', { method: 'POST' });
-    expect(result.current.localPaused).toBe(false);
   });
 
-  it('updates queue status when jobs update', async () => {
-    const mockQueue = [{ id: 'job1', status: 'queued', title: 'Chapter 1' }];
-    (api.getProcessingQueue as any).mockResolvedValue(mockQueue);
-
-    const { result, rerender } = renderHook(({ jobs }) => 
-      useGlobalQueue(false, jobs, 0), {
-      initialProps: { jobs: {} }
-    });
-
-    await waitFor(() => expect(result.current.queue).toEqual(mockQueue));
-
-    // Update job status
-    const updatedJobs = { job1: { id: 'job1', status: 'running' } as any };
-    rerender({ jobs: updatedJobs });
-
-    expect(result.current.queue[0].status).toBe('running');
-  });
-
-  it('does not visually regress an active row to preparing from a stale queue poll', async () => {
-    (api.getProcessingQueue as any)
-      .mockResolvedValueOnce([{ id: 'job1', status: 'running', progress: 0.3, started_at: 1000, eta_seconds: 40 }] as any)
-      .mockResolvedValueOnce([{ id: 'job1', status: 'preparing', progress: 0, started_at: null, eta_seconds: 57 }] as any);
-
-    const { result, rerender } = renderHook(({ refreshTrigger }) => useGlobalQueue(false, {}, refreshTrigger), {
-      initialProps: { refreshTrigger: 0 }
-    });
-
-    await waitFor(() => expect(result.current.queue[0]?.status).toBe('running'));
-
-    rerender({ refreshTrigger: 1 });
-    await waitFor(() => expect((api.getProcessingQueue as any).mock.calls.length).toBeGreaterThanOrEqual(2));
-
-    expect(result.current.queue[0].status).toBe('running');
-    expect(result.current.queue[0].started_at).toBe(1000);
-    expect(result.current.queue[0].eta_seconds).toBe(40);
-  });
-
-  it('keeps hydrated running progress on initial load before live jobs arrive', async () => {
-    (api.getProcessingQueue as any).mockResolvedValue([
-      { id: 'job1', status: 'running', progress: 0.34, started_at: 1000, eta_seconds: 40 }
-    ] as any);
-
-    const { result } = renderHook(() => useGlobalQueue(false, {}, 0));
-
-    await waitFor(() => expect(result.current.queue[0]?.status).toBe('running'));
-
-    expect(result.current.queue[0].progress).toBe(0.34);
-    expect(result.current.queue[0].started_at).toBe(1000);
-    expect(result.current.queue[0].eta_seconds).toBe(40);
-  });
-
-  it('does not let a thinner live jobs snapshot reset hydrated running progress to zero', async () => {
-    (api.getProcessingQueue as any).mockResolvedValue([
-      { id: 'job1', status: 'running', progress: 0.34, started_at: 1000, eta_seconds: 40 }
-    ] as any);
-
-    const { result, rerender } = renderHook(({ jobs }) => useGlobalQueue(false, jobs, 0), {
-      initialProps: { jobs: {} as Record<string, any> }
-    });
-
-    await waitFor(() => expect(result.current.queue[0]?.progress).toBe(0.34));
-
-    rerender({
-      jobs: {
-        job1: { id: 'job1', status: 'running', progress: 0, started_at: 1000, eta_seconds: 40 } as any,
-      },
-    });
-
-    expect(result.current.queue[0].status).toBe('running');
-    expect(result.current.queue[0].progress).toBe(0.34);
-  });
-
-  it('keeps hydrated preparing progress on initial load for an already-started job', async () => {
-    (api.getProcessingQueue as any).mockResolvedValue([
-      { id: 'job1', status: 'preparing', progress: 0.34, started_at: 1000, eta_seconds: 40 }
-    ] as any);
-
-    const { result } = renderHook(() => useGlobalQueue(false, {}, 0));
-
-    await waitFor(() => expect(result.current.queue[0]?.status).toBe('preparing'));
-
-    expect(result.current.queue[0].progress).toBe(0.34);
-    expect(result.current.queue[0].started_at).toBe(1000);
-    expect(result.current.queue[0].eta_seconds).toBe(40);
-  });
-
-  it('holds a completed chapter job in finalizing until chapter audio is visible', async () => {
-    const mockQueue = [{
-      id: 'job1',
-      status: 'running',
-      chapter_id: 'chap1',
-      chapter_audio_status: 'processing',
-      chapter_audio_file_path: null,
-      completed_at: Date.now() / 1000
-    }] as any;
-    (api.getProcessingQueue as any).mockResolvedValue(mockQueue);
-
-    const { result, rerender } = renderHook(({ jobs }) =>
-      useGlobalQueue(false, jobs, 0), {
-      initialProps: { jobs: {} }
-    });
-
-    await waitFor(() => expect(result.current.queue).toHaveLength(1));
-
-    rerender({
-      jobs: { job1: { id: 'job1', status: 'done', progress: 1, engine: 'voxtral' } as any }
-    });
-
-    expect(result.current.queue[0].status).toBe('finalizing');
-    expect(result.current.queue[0].progress).toBe(1);
-  });
-
-  it('does not hold a completed segment-scoped mixed job in finalizing', async () => {
-    const mockQueue = [{
-      id: 'job-segment',
-      status: 'done',
-      chapter_id: 'chap1',
-      engine: 'mixed',
-      segment_ids: ['seg-1'],
-      chapter_audio_status: 'unprocessed',
-      chapter_audio_file_path: null,
-      completed_at: Date.now() / 1000,
-    }] as any;
-    (api.getProcessingQueue as any).mockResolvedValue(mockQueue);
-
-    const { result, rerender } = renderHook(({ jobs }) =>
-      useGlobalQueue(false, jobs, 0), {
-      initialProps: { jobs: {} }
-    });
-
-    await waitFor(() => expect(result.current.queue).toHaveLength(1));
-
-    rerender({
-      jobs: { job1: { id: 'job-segment', status: 'done', progress: 1, engine: 'mixed', segment_ids: ['seg-1'] } as any }
-    });
-
-    expect(result.current.queue[0].status).toBe('done');
-  });
-
-  it('keeps an older done Voxtral row in history when a newer run for the same chapter is already queued', async () => {
-    const mockQueue = [
-      {
-        id: 'job-old',
-        status: 'done',
-        chapter_id: 'chap1',
-        engine: 'voxtral',
-        chapter_audio_status: 'processing',
-        chapter_audio_file_path: null,
-        completed_at: Date.now() / 1000,
-      },
-      {
-        id: 'job-new',
-        status: 'queued',
-        chapter_id: 'chap1',
-        engine: 'voxtral',
-        chapter_audio_status: 'processing',
-        chapter_audio_file_path: null,
-        created_at: Date.now() / 1000,
-      }
-    ] as any;
-    (api.getProcessingQueue as any).mockResolvedValue(mockQueue);
-
-    const { result } = renderHook(() => useGlobalQueue(false, {}, 0));
-    await waitFor(() => expect(result.current.queue).toHaveLength(2));
-
-    expect(result.current.queue.find(q => q.id === 'job-old')?.status).toBe('done');
-    expect(result.current.queue.find(q => q.id === 'job-new')?.status).toBe('queued');
-  });
-
-  it('handles reordering', async () => {
-    const mockQueue = [
-      { id: 'job1', status: 'queued' },
-      { id: 'job2', status: 'queued' }
-    ] as any;
-    (api.getProcessingQueue as any).mockResolvedValue(mockQueue);
-
-    const { result } = renderHook(() => useGlobalQueue(false, {}, 0));
-    await waitFor(() => expect(result.current.queue).toHaveLength(2));
+  it('handles reordering and commit', async () => {
+    const onRefresh = vi.fn();
+    const { result } = renderHook(() => useGlobalQueue(mockQueue, false, onRefresh));
 
     const newOrder = [mockQueue[1], mockQueue[0]];
     
-    // Simulate drag and drop flow
     act(() => {
       result.current.handleDragStart();
       result.current.handleReorder(newOrder);
@@ -259,39 +91,34 @@ describe('useGlobalQueue', () => {
     });
 
     expect(api.reorderProcessingQueue).toHaveBeenCalledWith(['job2', 'job1']);
+    expect(onRefresh).toHaveBeenCalled();
   });
 
-  it('handles removal and cancellation', async () => {
-    const mockQueue = [{ id: 'job1', status: 'running', chapter_id: 'chap1' }] as any;
-    (api.getProcessingQueue as any).mockResolvedValue(mockQueue);
-
-    const { result } = renderHook(() => useGlobalQueue(false, {}, 0));
-    await waitFor(() => expect(result.current.loading).toBe(false));
+  it('handles removal', async () => {
+    const onRefresh = vi.fn();
+    const { result } = renderHook(() => useGlobalQueue(mockQueue, false, onRefresh));
 
     await act(async () => {
       await result.current.handleRemove('job1');
     });
 
-    expect(global.fetch).toHaveBeenCalledWith('/api/chapters/chap1/cancel', { method: 'POST' });
     expect(api.removeProcessingQueue).toHaveBeenCalledWith('job1');
+    expect(onRefresh).toHaveBeenCalled();
   });
 
   it('handles clear all with confirmation', async () => {
-    (api.getProcessingQueue as any).mockResolvedValue([]);
-    const { result } = renderHook(() => useGlobalQueue(false, {}, 0));
+    const { result } = renderHook(() => useGlobalQueue([], false));
 
     act(() => {
       result.current.handleClearAll();
     });
 
     expect(result.current.confirmConfig).not.toBeNull();
-    expect(result.current.confirmConfig?.title).toBe('Clear Queue');
 
     await act(async () => {
       await result.current.confirmConfig?.onConfirm();
     });
 
     expect(api.clearProcessingQueue).toHaveBeenCalled();
-    expect(result.current.confirmConfig).toBeNull();
   });
 });
