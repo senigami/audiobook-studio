@@ -174,6 +174,17 @@ Adopt the 2.0 live-state and hydration model before the full editor migration.
 - live overlay store
 - reconnect hydration
 - queue/header progress wiring
+- compatibility-aware hydration that can tolerate both legacy-backed and
+  2.0-backed queue sources during the migration window
+
+### Handoff assumptions from Phase 5
+
+- the backend orchestrator, progress, recovery, TTS Server, and task
+  foundations are in place behind feature flags
+- the main visible queue route is not yet fully cut over, so reload/reconnect
+  behavior may still reflect legacy hydration heuristics until this phase lands
+- Phase 6 is therefore the start of the visible queue/header cutover, not a
+  polish pass on an already-switched frontend
 
 ### Key tests
 
