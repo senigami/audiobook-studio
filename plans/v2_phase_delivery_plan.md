@@ -176,6 +176,9 @@ Adopt the 2.0 live-state and hydration model before the full editor migration.
 - queue/header progress wiring
 - compatibility-aware hydration that can tolerate both legacy-backed and
   2.0-backed queue sources during the migration window
+- the first header consumer in this phase is the existing global queue
+  badge/count path; a full Studio 2.0 shell migration is not a prerequisite for
+  the first cutover slice
 
 ### Handoff assumptions from Phase 5
 
@@ -191,6 +194,7 @@ Adopt the 2.0 live-state and hydration model before the full editor migration.
 - reconnect tests
 - queue consistency tests
 - anti-regression merge tests
+- shared queue/header source-of-truth tests
 
 ### Completion criteria
 

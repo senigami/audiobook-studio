@@ -70,6 +70,32 @@ before the main visible queue/render route has been fully cut over.
 4. Keep the queue page honest about the active data source until the submission
    route is fully cut over.
 
+### First Visible Consumers
+
+- the first Phase 6 `header` consumer is the existing global queue badge/count
+  path, not a fully migrated Studio 2.0 shell header
+- queue page cutover should therefore share one compatibility-owned live-state
+  model with that badge/count path so both surfaces reflect the same merged
+  hydration and reconnect state
+- do not require `app/layout/StudioShell.tsx` or the feature-first route shell
+  stubs to become the first migration landing zone; those can remain structural
+  until the shared queue/header live-state seam is proven
+
+### First Implementation Batch
+
+1. Implement the live overlay store as a pure merge boundary for websocket job
+   updates and reconnect session state.
+2. Expand the hydration coordinator so bootstrap and reconnect snapshots can
+   carry explicit source metadata for legacy-backed vs. 2.0-backed hydration.
+3. Introduce one compatibility hook/composition layer that merges:
+   - canonical queue API hydration
+   - websocket/live overlay updates
+   - reconnect rehydration
+4. Retool the existing queue route consumers to read from that compatibility
+   layer rather than each owning their own polling/merge logic.
+5. Move the global queue badge/count to the same merged source of truth before
+   attempting broader shell migration.
+
 ## Phase 6 Guardrails
 
 - do not move progress math, reconciliation, or scheduling policy into the
@@ -103,3 +129,5 @@ before the main visible queue/render route has been fully cut over.
 - queue and header live state no longer depend on steady-state polling during normal connected operation
 - queue/header hydration semantics are explicit enough that refresh and
   reconnect behavior no longer need legacy-only heuristics to look stable
+- queue page and global queue badge/count agree on the same merged live-state
+  model during the migration window
