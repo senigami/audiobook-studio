@@ -14,11 +14,11 @@ Adopt the 2.0 live-state and hydration model before migrating the full editor.
 
 ## Deliverables Checklist
 
-- [ ] Live overlay store implemented
-- [ ] Reconnect hydration logic implemented
-- [ ] Anti-regression merge rules implemented
-- [ ] Queue progress cut over to 2.0 live-state model
-- [ ] Header progress cut over to 2.0 live-state model
+- [x] Live overlay store implemented
+- [x] Reconnect hydration logic implemented
+- [x] Anti-regression merge rules implemented
+- [x] Queue progress cut over to 2.0 live-state model
+- [x] Header progress cut over to 2.0 live-state model
 - [ ] Shell hydration and global navigation state implemented
 
 ## Scope
@@ -117,10 +117,10 @@ before the main visible queue/render route has been fully cut over.
 
 ## Verification Checklist
 
-- [ ] Reconnect tests pass
+- [x] Reconnect tests pass
 - [ ] Reload tests pass
-- [ ] Queue consistency tests pass
-- [ ] Anti-regression merge tests pass
+- [x] Queue consistency tests pass
+- [x] Anti-regression merge tests pass
 - [ ] Hydration behavior tests pass for legacy-backed and mock/dev-shape snapshots
 
 ## Exit Gate

@@ -252,4 +252,9 @@ export const api = {
     const res = await fetch('/api/processing_queue/clear_completed', { method: 'POST' });
     return res.json();
   },
+  toggleQueuePause: async (paused: boolean): Promise<any> => {
+    const endpoint = paused ? '/queue/pause' : '/queue/resume';
+    const res = await fetch(endpoint, { method: 'POST' });
+    return res.json();
+  },
 };

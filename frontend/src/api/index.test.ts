@@ -97,6 +97,12 @@ describe('api methods', () => {
 
         await api.clearProcessingQueue()
         expect(global.fetch).toHaveBeenCalledWith('/api/processing_queue', expect.objectContaining({ method: 'DELETE' }))
+
+        await api.toggleQueuePause(true)
+        expect(global.fetch).toHaveBeenCalledWith('/queue/pause', expect.objectContaining({ method: 'POST' }))
+
+        await api.toggleQueuePause(false)
+        expect(global.fetch).toHaveBeenCalledWith('/queue/resume', expect.objectContaining({ method: 'POST' }))
     })
 
     it('throws helpful errors for blocked generation requests', async () => {

@@ -26,6 +26,13 @@ export const useGlobalQueue = (initialQueue: ProcessingQueueItem[], paused: bool
         }
     }, [initialQueue]);
 
+    useEffect(() => {
+        return () => {
+            if (dragTimeoutRef.current) clearTimeout(dragTimeoutRef.current);
+        };
+    }, []);
+
+
     const handleSetHoveredJobId = (id: string | null) => {
         if (!isDraggingRef.current) {
             setHoveredJobId(id);
@@ -55,9 +62,7 @@ export const useGlobalQueue = (initialQueue: ProcessingQueueItem[], paused: bool
         const targetState = !localPaused;
         setLocalPaused(targetState);
         try {
-            const endpoint = targetState ? '/queue/pause' : '/queue/resume';
-            const res = await fetch(endpoint, { method: 'POST' });
-            await res.json();
+            await api.toggleQueuePause(targetState);
             if (onRefresh) onRefresh();
         } catch (e) {
             console.error('Failed to toggle pause', e);
@@ -108,7 +113,7 @@ export const useGlobalQueue = (initialQueue: ProcessingQueueItem[], paused: bool
             const job = queue.find(q => q.id === id);
             if (job?.chapter_id && job.status !== 'done' && job.status !== 'failed' && job.status !== 'cancelled') {
                 try {
-                    await fetch(`/api/chapters/${job.chapter_id}/cancel`, { method: 'POST' });
+                    await api.cancelChapterGeneration(job.chapter_id);
                 } catch (e) {
                     console.warn('Could not cancel chapter job, removing from queue anyway', e);
                 }

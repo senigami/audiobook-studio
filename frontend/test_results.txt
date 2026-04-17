@@ -1,0 +1,208 @@
+
+ RUN  v3.2.4 /Users/stevendunn/GitHub-Steven/audiobook-factory/frontend
+
+ ✓ src/utils/predictiveProgress.test.ts (9 tests) 2ms
+ ✓ src/hooks/useVariantActions.test.tsx (8 tests) 20ms
+stderr | src/hooks/useChapterPlayback.test.tsx > useChapterPlayback > handles playback error with fallback
+Playback failed Error: Play failed
+    at Object.<anonymous> (/Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/src/hooks/useChapterPlayback.test.tsx:203:33)
+    at Object.mockCall (file:///Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/node_modules/@vitest/spy/dist/index.js:96:15)
+    at Object.play (file:///Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/node_modules/tinyspy/dist/index.js:47:80)
+    at playWithFallback (/Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/src/hooks/useChapterPlayback.ts:103:13)
+    at playFromIndex (/Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/src/hooks/useChapterPlayback.ts:110:5)
+    at Object.playSegment (/Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/src/hooks/useChapterPlayback.ts:174:11)
+    at /Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/src/hooks/useChapterPlayback.test.tsx:212:28
+    at /Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/node_modules/@testing-library/react/dist/act-compat.js:47:24
+    at process.env.NODE_ENV.exports.act (/Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/node_modules/react/cjs/react.development.js:814:22)
+    at /Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/node_modules/@testing-library/react/dist/act-compat.js:46:25
+
+ ✓ src/hooks/useChapterPlayback.test.tsx (6 tests) 24ms
+ ✓ src/components/voices/ScriptEditor.test.tsx (5 tests) 106ms
+ ✓ src/components/PredictiveProgressBar.test.tsx (32 tests) 222ms
+ ✓ src/components/queue/GlobalQueueFiles.test.tsx (12 tests) 86ms
+ ✓ src/components/project/ChapterList.test.tsx (11 tests) 220ms
+stderr | src/components/VoicesTab.test.tsx > VoicesTab > opens profile details and allows building voice
+Not implemented: Window's scrollTo() method
+
+ ✓ src/hooks/useJobs.test.tsx (9 tests) 524ms
+ ✓ src/api/index.test.ts (4 tests) 5ms
+ ✓ src/components/chapter/ChapterSubcomponents.test.tsx (26 tests) 471ms
+ ✓ src/components/ProjectView.test.tsx (13 tests) 504ms
+ ✓ src/components/voices/VoicesTabFiles.test.tsx (13 tests) 486ms
+stderr | src/components/VoicesTab.test.tsx > VoicesTab > saves imported base variant labels as metadata instead of renaming the whole voice
+Not implemented: Window's scrollTo() method
+
+ ✓ src/components/project/ProjectModals.test.tsx (7 tests) 219ms
+ ✓ src/components/VoicesTab.test.tsx (8 tests) 573ms
+ ✓ src/components/voices/VoiceModals.test.tsx (6 tests) 170ms
+ ✓ src/hooks/useProjectActions.test.tsx (7 tests) 40ms
+ ✓ src/components/ChapterEditor.test.tsx (19 tests) 853ms
+stderr | src/components/GlobalQueue.test.tsx > GlobalQueue > renders the queue sections correctly
+You are trying to animate boxShadow from "0" to "none". "none" is not an animatable value.. For more information and steps for solving, visit https://motion.dev/troubleshooting/value-not-animatable
+
+stdout | src/hooks/useProjectLibrary.test.tsx > useProjectLibrary > handles project creation
+Project created: { status: 'success', project_id: 'new_id' }
+
+stderr | src/components/GlobalQueue.test.tsx > GlobalQueue > toggles pause state
+Failed to toggle pause TypeError: __vite_ssr_import_1__.api.toggleQueuePause is not a function
+    at /Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/src/hooks/useGlobalQueue.ts:65:23
+    at executeDispatch (/Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/node_modules/react-dom/cjs/react-dom-client.development.js:19116:9)
+    at runWithFiberInDEV (/Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+    at processDispatchQueue (/Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/node_modules/react-dom/cjs/react-dom-client.development.js:19166:19)
+    at /Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/node_modules/react-dom/cjs/react-dom-client.development.js:19767:9
+    at batchedUpdates$1 (/Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/node_modules/react-dom/cjs/react-dom-client.development.js:3255:40)
+    at dispatchEventForPluginEventSystem (/Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/node_modules/react-dom/cjs/react-dom-client.development.js:19320:7)
+    at dispatchEvent (/Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/node_modules/react-dom/cjs/react-dom-client.development.js:23585:11)
+    at dispatchDiscreteEvent (/Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/node_modules/react-dom/cjs/react-dom-client.development.js:23553:11)
+    at HTMLDivElement.callTheUserObjectsOperation (/Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/node_modules/jsdom/lib/jsdom/living/generated/EventListener.js:26:30)
+
+stderr | src/components/GlobalQueue.test.tsx > GlobalQueue > toggles history visibility and shows start/end times
+You are trying to animate boxShadow from "0" to "none". "none" is not an animatable value.. For more information and steps for solving, visit https://motion.dev/troubleshooting/value-not-animatable
+
+stderr | src/hooks/useProjectLibrary.test.tsx > useProjectLibrary > handles drag and drop
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ ✓ src/hooks/useProjectLibrary.test.tsx (5 tests) 172ms
+ ✓ src/store/live-jobs.test.ts (8 tests) 3ms
+stderr | src/components/GlobalQueue.test.tsx > GlobalQueue > calls clear completed from ActionMenu
+You are trying to animate boxShadow from "0" to "none". "none" is not an animatable value.. For more information and steps for solving, visit https://motion.dev/troubleshooting/value-not-animatable
+
+ ❯ src/components/GlobalQueue.test.tsx (5 tests | 1 failed) 368ms
+   ✓ GlobalQueue > renders the queue sections correctly 139ms
+   ✓ GlobalQueue > prefers custom titles over raw chapter titles when present 17ms
+   × GlobalQueue > toggles pause state 32ms
+     → expected "spy" to be called with arguments: [ '/queue/pause', Anything ]
+
+Number of calls: 0
+
+   ✓ GlobalQueue > toggles history visibility and shows start/end times 107ms
+   ✓ GlobalQueue > calls clear completed from ActionMenu 73ms
+ ✓ src/hooks/useVoiceManagement.test.tsx (6 tests) 84ms
+ ✓ src/components/chapter/EditTab.test.tsx (4 tests) 119ms
+ ✓ src/api/hydration/index.test.ts (5 tests) 2ms
+ ✓ src/components/StatusOrb.test.tsx (5 tests) 29ms
+ ✓ src/components/queue/QueueStats.test.tsx (5 tests) 38ms
+stderr | src/components/VoiceDropzone.test.tsx > VoiceDropzone > rejects non-audio files
+An update to VoiceDropzone inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ ✓ src/utils/chunkGroups.test.ts (2 tests) 2ms
+ ✓ src/components/project/ProjectLibraryFiles.test.tsx (3 tests) 111ms
+ ✓ src/components/VoiceDropzone.test.tsx (6 tests) 260ms
+ ✓ src/components/project/AssemblyProgress.test.tsx (4 tests) 99ms
+ ✓ src/components/SearchableSelect.test.tsx (7 tests) 285ms
+ ✓ src/components/ProgressBarTestPage.test.tsx (5 tests) 1288ms
+   ✓ ProgressBarTestPage > does not apply launch-state edits to the live preview until launch is clicked  539ms
+stdout | src/hooks/useWebSocket.test.tsx > useWebSocket > connects on mount
+WS Connected
+
+stdout | src/hooks/useWebSocket.test.tsx > useWebSocket > handles message parsing
+WS Connected
+
+stdout | src/hooks/useWebSocket.test.tsx > useWebSocket > handles reconnection on close
+WS Connected
+
+ ✓ src/components/voices/VoiceUtils.test.tsx (3 tests) 166ms
+stderr | src/hooks/useWebSocket.test.tsx > useWebSocket > handles reconnection on close
+WS Closed, reconnecting...
+
+ ✓ src/hooks/useWebSocket.test.tsx (4 tests) 33ms
+stderr | src/test/Navigation.test.tsx > Navigation Regression > navigates to project page when project card is clicked
+WS Error Event { isTrusted: [Getter] }
+WS Closed, reconnecting...
+
+stderr | src/test/Navigation.test.tsx
+WS Error Event { isTrusted: [Getter] }
+WS Closed, reconnecting...
+
+ ✓ src/test/Navigation.test.tsx (1 test) 189ms
+stderr | src/test/App.test.tsx > App > switches tabs
+WS Error Event { isTrusted: [Getter] }
+WS Closed, reconnecting...
+
+stderr | src/test/App.test.tsx > App > switches tabs
+WS Error Event { isTrusted: [Getter] }
+WS Closed, reconnecting...
+
+stderr | src/test/App.test.tsx > App > switches tabs
+WS Error Event { isTrusted: [Getter] }
+WS Closed, reconnecting...
+
+ ✓ src/components/chapter/PreviewTab.test.tsx (5 tests) 70ms
+stderr | src/hooks/useInitialData.test.tsx > useInitialData > handles fetch error
+Failed to fetch home data Error: Fetch failed
+    at /Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/src/hooks/useInitialData.test.tsx:30:45
+    at file:///Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/node_modules/@vitest/runner/dist/chunk-hooks.js:155:11
+    at file:///Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/node_modules/@vitest/runner/dist/chunk-hooks.js:752:26
+    at file:///Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/node_modules/@vitest/runner/dist/chunk-hooks.js:1897:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/node_modules/@vitest/runner/dist/chunk-hooks.js:1863:10)
+    at runTest (file:///Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/node_modules/@vitest/runner/dist/chunk-hooks.js:1574:12)
+    at runSuite (file:///Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/node_modules/@vitest/runner/dist/chunk-hooks.js:1729:8)
+    at runSuite (file:///Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/node_modules/@vitest/runner/dist/chunk-hooks.js:1729:8)
+    at runFiles (file:///Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/node_modules/@vitest/runner/dist/chunk-hooks.js:1787:3)
+
+ ✓ src/components/ProjectLibrary.test.tsx (2 tests) 102ms
+ ✓ src/components/RecordingGuide.test.tsx (3 tests) 78ms
+ ✓ src/utils/queueLabels.test.ts (3 tests) 2ms
+ ✓ src/utils/jobSelection.test.ts (2 tests) 1ms
+ ✓ src/components/ActionMenu.test.tsx (3 tests) 127ms
+ ✓ src/hooks/useInitialData.test.tsx (3 tests) 202ms
+stderr | src/test/App.test.tsx > App > opens the progress bar test page
+WS Error Event { isTrusted: [Getter] }
+WS Closed, reconnecting...
+
+ ✓ src/components/BrandLogo.test.tsx (4 tests) 25ms
+stderr | src/test/App.test.tsx
+WS Error Event { isTrusted: [Getter] }
+WS Closed, reconnecting...
+
+stderr | src/test/App.test.tsx
+WS Error Event { isTrusted: [Getter] }
+WS Closed, reconnecting...
+
+ ✓ src/test/App.test.tsx (3 tests) 453ms
+ ✓ src/components/Layout.test.tsx (2 tests) 60ms
+ ✓ src/hooks/useChapterAnalysis.test.tsx (4 tests) 1061ms
+   ✓ useChapterAnalysis > runs analysis after debounce when text changes  1055ms
+
+⎯⎯⎯⎯ Unhandled Rejection ⎯⎯⎯⎯⎯
+Error: Channel closed
+ ❯ target.send node:internal/child_process:737:16
+ ❯ ProcessWorker.send node_modules/tinypool/dist/index.js:140:41
+ ❯ MessagePort.<anonymous> node_modules/tinypool/dist/index.js:149:62
+ ❯ [nodejs.internal.kHybridDispatch] node:internal/event_target:843:20
+ ❯ MessagePort.<anonymous> node:internal/per_context/messageport:23:28
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { code: 'ERR_IPC_CHANNEL_CLOSED' }
+
+
+

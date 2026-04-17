@@ -64,12 +64,18 @@ export const createLiveJobsStore = (): LiveJobsStore => {
     let effectiveStatus = incomingStatus;
 
     if (existingStatus) {
-      const incomingPri = STATUS_PRIORITY[incomingStatus] ?? 0;
-      const existingPri = STATUS_PRIORITY[existingStatus] ?? 0;
-      if (incomingPri < existingPri) {
-        effectiveStatus = existingStatus;
-      } else {
+      if (isRollbackStatus(incomingStatus)) {
+        // Orchestrator explicit retries
+        effectiveStatus = incomingStatus;
         nextDelta.status = incomingStatus;
+      } else {
+        const incomingPri = STATUS_PRIORITY[incomingStatus] ?? 0;
+        const existingPri = STATUS_PRIORITY[existingStatus] ?? 0;
+        if (incomingPri < existingPri) {
+          effectiveStatus = existingStatus;
+        } else {
+          nextDelta.status = incomingStatus;
+        }
       }
     } else {
       nextDelta.status = incomingStatus;
