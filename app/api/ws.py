@@ -73,6 +73,12 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
         parent_job_id=merged.get("parent_job_id"),
         progress=merged.get("progress"),
         eta_seconds=merged.get("eta_seconds"),
+        eta_basis=merged.get("eta_basis") or "remaining_from_update",
+        estimated_end_at=merged.get("estimated_end_at") or (
+            (float(merged["updated_at"]) + float(merged["eta_seconds"]))
+            if merged.get("updated_at") and merged.get("eta_seconds")
+            else None
+        ),
         message=updates.get("message") or updates.get("log"),
         reason_code=merged.get("reason_code"),
         updated_at=merged.get("updated_at"),

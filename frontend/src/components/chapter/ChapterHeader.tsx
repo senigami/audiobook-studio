@@ -277,12 +277,17 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
                       progress={liveSegmentProgressValue}
                       startedAt={liveSegmentProgressJob.started_at}
                       etaSeconds={liveSegmentProgressJob.eta_seconds}
+                      etaBasis={liveSegmentProgressJob.eta_basis ?? (liveSegmentProgressJob.eta_seconds != null ? 'remaining_from_update' : undefined)}
+                      updatedAt={liveSegmentProgressJob.updated_at}
                       persistenceKey={`${liveSegmentProgressJob.id}:${liveSegmentProgressJob.active_segment_id || 'none'}`}
                       status={liveSegmentProgressJob.status}
                       label="Segment Progress"
                       predictive={true}
-                      authoritativeFloor={true}
+                      allowBackwardProgress={false}
                       checkpointMode="segment"
+                      transitionTickCount={3}
+                      backwardTransitionTickCount={2}
+                      tickMs={250}
                       showEta={false}
                   />
               </div>

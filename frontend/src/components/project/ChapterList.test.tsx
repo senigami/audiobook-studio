@@ -7,19 +7,19 @@ vi.mock('../PredictiveProgressBar', () => ({
   PredictiveProgressBar: ({
     progress,
     status,
-    authoritativeFloor,
+    allowBackwardProgress,
     evidenceWeightFraction,
   }: {
     progress: number;
     status?: string;
-    authoritativeFloor?: boolean;
+    allowBackwardProgress?: boolean;
     evidenceWeightFraction?: number;
   }) => (
     <div
       data-testid="progress-bar"
       data-progress={progress}
       data-status={status ?? ''}
-      data-authoritative-floor={String(!!authoritativeFloor)}
+      data-allow-backward={String(!!allowBackwardProgress)}
       data-evidence-weight-fraction={evidenceWeightFraction ?? ''}
     />
   ),
@@ -139,7 +139,7 @@ describe('ChapterList', () => {
     render(<ChapterList {...defaultProps} jobs={{ [liveJob.id]: liveJob }} />);
 
     expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.63');
-    expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-authoritative-floor', 'true');
+    expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-allow-backward', 'false');
     expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-evidence-weight-fraction', '0.4');
   });
 
@@ -189,9 +189,10 @@ describe('ChapterList', () => {
 
     render(<ChapterList {...defaultProps} jobs={{ [liveJob.id]: liveJob }} chapters={[{ ...mockChapters[0], has_wav: false, audio_file_path: null, audio_status: 'processing' } as any]} />);
 
+    expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'true');
     expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-status', 'preparing');
     expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0');
-    expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-authoritative-floor', 'false');
+    expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-allow-backward', 'true');
   });
 
   it('does not reuse a recent completed job once the chapter has been requeued into processing', () => {
@@ -262,7 +263,7 @@ describe('ChapterList', () => {
     render(<ChapterList {...defaultProps} jobs={{ [liveSegmentJob.id]: liveSegmentJob }} chapters={[{ ...mockChapters[0], has_wav: false, audio_file_path: null, audio_status: 'unprocessed', done_segments_count: 2, total_segments_count: 4 } as any]} />);
 
     expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.05');
-    expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-authoritative-floor', 'false');
+    expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-allow-backward', 'true');
     expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-evidence-weight-fraction', '1');
   });
 });

@@ -1,41 +1,25 @@
-import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
-    ETA_TICK_MS,
     clamp01,
     formatStatusLabel,
     formatTime,
-    getAutoFinalizing,
     getBusyStatusText,
-    getEffectiveEtaSeconds,
-    getInitialDisplayProgress,
-    getMaxVisualStep,
     getProgressInfo,
     getRemainingTicks,
     getTerminalFillStyle,
     getTerminalStatusText,
     isActiveStatus,
-    isCancelledStatus,
+    isLiveAnimatedStatus,
+    isPreparingStatus,
+    isTerminalStatus,
     isDoneStatus,
     isFailedStatus,
-    isLiveAnimatedStatus,
-    isLoadingPresentationStatus,
-    isPreparingStatus,
     isQueuedStatus,
-    isTerminalStatus,
-    shouldPreserveMountedProgress,
+    isCancelledStatus,
     type ProgressPresentationState,
 } from './predictiveProgressBarHelpers';
 import {
-    buildAuthoritativePredictiveTick,
-    buildFlexiblePredictiveTick,
-    buildPendingRunAnchorTick,
-    buildPredictiveTargetModel,
-    nudgeCurrentEndTime,
-    type PredictiveTickDebugState,
-} from './predictiveProgressBarEngine';
-import {
     buildPredictiveProgressDebugSnapshot,
-    createInitialDebugTickState,
     type PredictiveProgressDebugSnapshot,
 } from './predictiveProgressBarDebug';
 
@@ -45,37 +29,40 @@ interface PredictiveProgressBarProps {
     progress: number;
     startedAt?: number;
     etaSeconds?: number;
+    updatedAt?: number;
     persistenceKey?: string;
     label?: string;
     showEta?: boolean;
+    showPercent?: boolean;
+    showLabel?: boolean;
+    barOnly?: boolean;
     status?: string;
+    etaBasis?: 'remaining_from_update' | 'total_from_start';
+    estimatedEndAt?: number;
     predictive?: boolean;
+    /** @deprecated Use allowBackwardProgress instead */
     authoritativeFloor?: boolean;
-    evidenceWeightFraction?: number;
+    /** Explicitly allow the bar to move backward on updates. Default is derived from authoritativeFloor (false). */
+    allowBackwardProgress?: boolean;
+    transitionTickCount?: number;
+    backwardTransitionTickCount?: number;
+    tickMs?: number;
     checkpointMode?: 'default' | 'queue' | 'segment';
+    evidenceWeightFraction?: number;
     state?: ProgressPresentationState;
     onDebugSnapshot?: (snapshot: PredictiveProgressDebugSnapshot) => void;
 }
 
 const progressMemory = new Map<string, number>();
-const endTimeMemory = new Map<string, number>();
 
 export const resetPredictiveProgressMemory = (persistenceKey?: string) => {
     if (!persistenceKey) {
         progressMemory.clear();
-        endTimeMemory.clear();
         return;
     }
-
     for (const key of Array.from(progressMemory.keys())) {
         if (key.startsWith(`${persistenceKey}:`)) {
             progressMemory.delete(key);
-        }
-    }
-
-    for (const key of Array.from(endTimeMemory.keys())) {
-        if (key.startsWith(`${persistenceKey}:`)) {
-            endTimeMemory.delete(key);
         }
     }
 };
@@ -84,23 +71,71 @@ const getProgressMemoryKey = (persistenceKey?: string, startedAt?: number) =>
     persistenceKey ? `${persistenceKey}:${startedAt ?? 0}` : undefined;
 const getRememberedProgress = (memoryKey?: string) =>
     memoryKey ? (progressMemory.get(memoryKey) ?? 0) : 0;
-const getMemoryFloor = (memoryKey: string | undefined, allowBackwardProgress: boolean) =>
-    allowBackwardProgress ? 0 : getRememberedProgress(memoryKey);
-const hasRememberedActiveRun = (memoryKey?: string, startedAt?: number) =>
-    !!(memoryKey && (
-        progressMemory.has(memoryKey)
-        || endTimeMemory.has(memoryKey)
-        || (typeof startedAt === 'number' && startedAt > 0)
-    ));
 
-// Grouped chapter progress behavior:
-// - Backend progress is authoritative enough to act as a floor, but not so
-//   absolute that the UI should hard-snap to each update.
-// - Between websocket updates, the bar keeps moving locally from its current
-//   displayed value using the current ETA model so it feels continuous.
-// - ETA corrections are eased toward a new target end time over multiple ticks.
-// - Width transitions stay enabled for active jobs so checkpoint updates remain
-//   visually smooth instead of looking like direct sets.
+type ProgressLane = {
+    startedAtMs: number;
+    startProgress: number;
+    endAtMs: number | null;
+};
+
+type LaneMigration = {
+    startedAtMs: number;
+    durationMs: number;
+    fromLane: ProgressLane;
+    toLane: ProgressLane;
+};
+
+const resolveEndAtMs = ({
+    nowMs,
+    startedAt,
+    etaSeconds,
+    etaBasis,
+    estimatedEndAt,
+    updatedAt,
+}: {
+    nowMs: number;
+    startedAt?: number;
+    etaSeconds?: number;
+    etaBasis?: 'remaining_from_update' | 'total_from_start';
+    estimatedEndAt?: number;
+    updatedAt?: number;
+}) => {
+    if (typeof estimatedEndAt === 'number' && estimatedEndAt > 0) {
+        return estimatedEndAt * 1000;
+    }
+
+    if (typeof etaSeconds !== 'number' || etaSeconds < 0) {
+        return null;
+    }
+
+    if (etaBasis === 'remaining_from_update') {
+        const anchorSeconds = updatedAt ?? (nowMs / 1000);
+        return (anchorSeconds + etaSeconds) * 1000;
+    }
+    
+    if (typeof startedAt === 'number' && startedAt > 0) {
+        return (startedAt + etaSeconds) * 1000;
+    }
+
+    return nowMs + (etaSeconds * 1000);
+};
+
+const getLaneProgress = (lane: ProgressLane, nowMs: number) => {
+    if (lane.endAtMs === null) return lane.startProgress;
+    const duration = lane.endAtMs - lane.startedAtMs;
+    if (duration <= 0) return 0.995;
+    const t = Math.max(0, Math.min(1, (nowMs - lane.startedAtMs) / duration));
+    return lane.startProgress + ((0.995 - lane.startProgress) * t);
+};
+
+const getRenderedProgress = (currentLane: ProgressLane | null, migration: LaneMigration | null, nowMs: number, fallback: number) => {
+    if (!currentLane) return fallback;
+    if (!migration) return getLaneProgress(currentLane, nowMs);
+    const oldValue = getLaneProgress(migration.fromLane, nowMs);
+    const desiredValue = getLaneProgress(migration.toLane, nowMs);
+    const t = Math.max(0, Math.min(1, (nowMs - migration.startedAtMs) / migration.durationMs));
+    return oldValue + ((desiredValue - oldValue) * t);
+};
 
 export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     progress,
@@ -109,695 +144,289 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     persistenceKey,
     label = "Progress",
     showEta = true,
+    showPercent = true,
+    showLabel = true,
+    barOnly = false,
     status,
+    etaBasis = 'total_from_start',
+    estimatedEndAt,
+    updatedAt,
     predictive = true,
     authoritativeFloor = false,
-    evidenceWeightFraction = 1,
+    allowBackwardProgress,
+    transitionTickCount = 8,
+    backwardTransitionTickCount = 2,
+    tickMs = 250,
     checkpointMode,
+    evidenceWeightFraction, // No-op for compatibility
     state,
     onDebugSnapshot,
 }) => {
     const presentationState = state ?? status;
+    const effectiveAllowBackward = allowBackwardProgress ?? !authoritativeFloor;
     const memoryKey = getProgressMemoryKey(persistenceKey, startedAt);
-    const preserveActiveVisualState = hasRememberedActiveRun(memoryKey, startedAt);
-    const rememberedProgress = getRememberedProgress(memoryKey);
-    const preserveMountedProgress = shouldPreserveMountedProgress(presentationState, startedAt, rememberedProgress);
-    const initialDisplayProgress = getInitialDisplayProgress({
-        progress,
-        startedAt,
-        rememberedProgress,
-        status: presentationState,
-    });
     const preparingIndeterminate = isPreparingStatus(presentationState);
     const [now, setNow] = useState(Date.now());
-    const [currentEndTime, setCurrentEndTime] = useState<number | null>(null);
-    const [displayProgress, setDisplayProgress] = useState(() => initialDisplayProgress);
-    const lastTickRef = useRef(Date.now());
-    const displayProgressRef = useRef(initialDisplayProgress);
-    const currentEndTimeRef = useRef<number | null>(null);
-    const targetEndTimeRef = useRef<number | null>(null);
-    const lastRunAnchorRef = useRef<string | null>(null);
-    const pendingRunAnchorRef = useRef<string | null>(null);
-    const launchSnapshotRef = useRef<{
-        runAnchor: string;
-        status?: string;
-        progress: number;
-        startedAt?: number;
-        etaSeconds?: number;
-        checkpointMode: 'default' | 'queue' | 'segment';
-        evidenceWeightFraction: number;
-    } | null>(null);
+    const [currentLane, setCurrentLane] = useState<ProgressLane | null>(null);
+    const [migration, setMigration] = useState<LaneMigration | null>(null);
+    const [displayProgress, setDisplayProgress] = useState(clamp01(progress));
+    
+    const currentLaneRef = useRef<ProgressLane | null>(null);
+    const migrationRef = useRef<LaneMigration | null>(null);
+    const displayProgressRef = useRef<number>(displayProgress);
+    
     const lastDisplayWriteRef = useRef<{ source: string; value: number | null }>({
         source: 'init',
-        value: initialDisplayProgress,
+        value: clamp01(progress),
     });
-    const resolvedCheckpointMode = checkpointMode ?? (authoritativeFloor ? 'queue' : 'default');
-    const runAnchor = `${persistenceKey ?? 'none'}:${startedAt ?? 0}`;
-    const launchSnapshot = launchSnapshotRef.current;
-    const previousPresentationStateRef = useRef<typeof presentationState>(presentationState);
-    const currentLaunchSnapshot = {
-        runAnchor,
-        status: state ?? status,
-        progress: clamp01(progress),
-        startedAt,
-        etaSeconds,
-        checkpointMode: resolvedCheckpointMode,
-        evidenceWeightFraction,
-    };
-    const preferLaunchEtaOnly = !launchSnapshot;
-    const tickLoopActive = isLiveAnimatedStatus(presentationState);
-    const allowBackwardProgress = !authoritativeFloor;
-    const handoffResetPendingRef = useRef(false);
-    const handoffResetArmedAtRef = useRef<number | null>(null);
-    const [handoffResetVisible, setHandoffResetVisible] = useState(false);
-    const loadingToDynamicHandoff = (
-        isLoadingPresentationStatus(previousPresentationStateRef.current)
-        && isLiveAnimatedStatus(presentationState)
-    ) || (
-        launchSnapshot?.status === 'preparing'
-        && isLiveAnimatedStatus(presentationState)
-    );
-    const resetHandoffState = () => {
-        currentEndTimeRef.current = null;
-        targetEndTimeRef.current = null;
-        setCurrentEndTime(null);
-        writeDisplayProgress('handoff-reset', 0);
-    };
-    const [debugTick, setDebugTick] = useState<PredictiveTickDebugState & {
-        etaProgressBasis?: number | null;
-        visibleProgress?: number | null;
-        launchEtaOnly?: boolean;
-        allowBackwardProgress?: boolean;
-        modelAuthoritativeProgress?: number | null;
-        modelDisplayedProgress?: number | null;
-        modelEstimatedRemainingSeconds?: number | null;
-        modelActualRemainingSeconds?: number | null;
-        modelRefinedRemainingSeconds?: number | null;
-        modelVelocityPerSecond?: number | null;
-        lastDisplayWriteSource?: string;
-        lastDisplayWriteValue?: number | null;
-    }>(() => createInitialDebugTickState({
-        initialDisplayProgress,
-        launchEtaOnly: preferLaunchEtaOnly,
-        allowBackwardProgress,
-        resolvedCheckpointMode,
-    }));
 
-    const writeDisplayProgress = (
-        source: string,
-        nextValue: number | ((previous: number) => number),
-    ) => {
-        setDisplayProgress(previous => {
-            const resolved = typeof nextValue === 'function'
-                ? (nextValue as (previous: number) => number)(previous)
-                : nextValue;
-            lastDisplayWriteRef.current = { source, value: resolved };
-            return resolved;
-        });
+    const lastUpdateMetadataRef = useRef<{
+        incomingProgress: number | null;
+        effectiveTargetProgress: number | null;
+        evidenceWeightFraction: number | null;
+        currentVisualAtUpdate: number | null;
+    }>({
+        incomingProgress: null,
+        effectiveTargetProgress: null,
+        evidenceWeightFraction: null,
+        currentVisualAtUpdate: null,
+    });
+
+    const updateLaneToTarget = (source: string, nextEndAtMs: number | null, nextProgress: number) => {
+        const nowMs = Date.now();
+        const currentVisual = getRenderedProgress(currentLaneRef.current, migrationRef.current, nowMs, displayProgressRef.current);
+        const activeCurrentEndAtMs = migrationRef.current?.toLane.endAtMs ?? currentLaneRef.current?.endAtMs ?? null;
+
+        const incomingProgress = clamp01(nextProgress);
+        const confidence = clamp01(evidenceWeightFraction ?? 1);
+        const weightedTargetProgress = currentVisual + ((incomingProgress - currentVisual) * confidence);
+
+        let targetProgress = weightedTargetProgress;
+        if (!effectiveAllowBackward) {
+            targetProgress = Math.max(currentVisual, getRememberedProgress(memoryKey), weightedTargetProgress);
+        }
+
+        const isBackwardMigration = effectiveAllowBackward && targetProgress < currentVisual - 0.001;
+        const activeTransitionTickCount = isBackwardMigration ? backwardTransitionTickCount : transitionTickCount;
+
+        if (!currentLaneRef.current) {
+            // Initial mount
+            const desiredLane: ProgressLane = {
+                startedAtMs: nowMs,
+                startProgress: targetProgress,
+                endAtMs: nextEndAtMs,
+            };
+            currentLaneRef.current = desiredLane;
+            setCurrentLane(desiredLane);
+            setMigration(null);
+            migrationRef.current = null;
+            
+            displayProgressRef.current = targetProgress;
+            setDisplayProgress(targetProgress);
+        } else {
+            const desiredLane: ProgressLane = {
+                startedAtMs: nowMs,
+                startProgress: targetProgress,
+                endAtMs: nextEndAtMs,
+            };
+            const newMigration: LaneMigration = {
+                startedAtMs: nowMs,
+                durationMs: activeTransitionTickCount * tickMs,
+                fromLane: { 
+                    startedAtMs: nowMs, 
+                    startProgress: currentVisual, 
+                    endAtMs: activeCurrentEndAtMs 
+                },
+                toLane: desiredLane,
+            };
+            setMigration(newMigration);
+            migrationRef.current = newMigration;
+            
+            // No direct snap. Preserve currentVisual.
+            displayProgressRef.current = currentVisual;
+            setDisplayProgress(currentVisual);
+        }
+        
+        lastDisplayWriteRef.current = { source, value: targetProgress };
+        lastUpdateMetadataRef.current = {
+            incomingProgress,
+            effectiveTargetProgress: targetProgress,
+            evidenceWeightFraction: confidence,
+            currentVisualAtUpdate: currentVisual
+        };
     };
+
+    useEffect(() => {
+        const nextEndAtMs = resolveEndAtMs({
+            nowMs: Date.now(),
+            startedAt,
+            etaSeconds,
+            etaBasis,
+            estimatedEndAt,
+            updatedAt
+        });
+        updateLaneToTarget('prop-sync', nextEndAtMs, progress);
+    }, [progress, startedAt, etaSeconds, etaBasis, estimatedEndAt, updatedAt]);
+
+    useEffect(() => {
+        if (!isLiveAnimatedStatus(presentationState)) return;
+        const interval = setInterval(() => {
+            const nowMs = Date.now();
+            setNow(nowMs);
+            
+            if (migrationRef.current && nowMs >= migrationRef.current.startedAtMs + migrationRef.current.durationMs) {
+                const targetLane = migrationRef.current.toLane;
+                currentLaneRef.current = targetLane;
+                setCurrentLane(targetLane);
+                migrationRef.current = null;
+                setMigration(null);
+            }
+
+            const currentVisual = getRenderedProgress(currentLaneRef.current, migrationRef.current, nowMs, displayProgressRef.current);
+            displayProgressRef.current = currentVisual;
+            setDisplayProgress(currentVisual);
+        }, tickMs);
+        return () => clearInterval(interval);
+    }, [presentationState, tickMs]);
+
+    const { localProgress, indeterminate } = getProgressInfo({
+        presentationState,
+        preparingIndeterminate,
+        displayProgress,
+    });
+
+    const activeTargetLane = migration?.toLane ?? currentLane;
+    const displayedRemaining = activeTargetLane?.endAtMs == null
+        ? null
+        : Math.max(0, Math.ceil((activeTargetLane.endAtMs - now) / 1000));
+
+    const autoFinalizing = isLiveAnimatedStatus(presentationState)
+        && (localProgress >= 0.995 || (displayedRemaining !== null && displayedRemaining <= 0))
+        && !isDoneStatus(presentationState)
+        && !isFailedStatus(presentationState)
+        && !isCancelledStatus(presentationState);
 
     useEffect(() => {
         if (!memoryKey) return;
-        progressMemory.set(memoryKey, allowBackwardProgress ? clamp01(displayProgress) : Math.max(getRememberedProgress(memoryKey), displayProgress));
-    }, [memoryKey, displayProgress, allowBackwardProgress]);
+        const currentFloor = !effectiveAllowBackward ? Math.max(getRememberedProgress(memoryKey), displayProgress) : clamp01(displayProgress);
+        progressMemory.set(memoryKey, currentFloor);
+    }, [memoryKey, displayProgress, effectiveAllowBackward]);
 
-    useEffect(() => {
-        if (!memoryKey || currentEndTime === null) return;
-        endTimeMemory.set(memoryKey, currentEndTime);
-    }, [memoryKey, currentEndTime]);
-
-    useEffect(() => {
-        displayProgressRef.current = displayProgress;
-    }, [displayProgress]);
-
-    useEffect(() => {
-        previousPresentationStateRef.current = presentationState;
-    }, [presentationState]);
-
-    useEffect(() => {
-        if (lastRunAnchorRef.current === runAnchor) {
-            return;
-        }
-        lastRunAnchorRef.current = runAnchor;
-        pendingRunAnchorRef.current = runAnchor;
-        launchSnapshotRef.current = currentLaunchSnapshot;
-        lastTickRef.current = Date.now();
-        const initialEndTime = etaSeconds
-            ? (startedAt ? (startedAt * 1000) + (etaSeconds * 1000) : Date.now() + (etaSeconds * 1000))
-            : null;
-        const rememberedEndTime = memoryKey ? endTimeMemory.get(memoryKey) ?? null : null;
-        const seededEndTime = rememberedEndTime ?? initialEndTime;
-        currentEndTimeRef.current = seededEndTime;
-        targetEndTimeRef.current = initialEndTime;
-        setCurrentEndTime(seededEndTime);
-        writeDisplayProgress('run-anchor-init', loadingToDynamicHandoff
-            ? 0
-            : initialDisplayProgress);
-    }, [etaSeconds, initialDisplayProgress, loadingToDynamicHandoff, memoryKey, progress, runAnchor, startedAt]);
-
-    useLayoutEffect(() => {
-        if (!loadingToDynamicHandoff || handoffResetVisible) {
-            return;
-        }
-        handoffResetArmedAtRef.current = Date.now();
-        handoffResetPendingRef.current = true;
-        setHandoffResetVisible(true);
-        resetHandoffState();
-    }, [loadingToDynamicHandoff]);
-
-    useEffect(() => {
-        lastTickRef.current = Date.now();
-        if (!isLiveAnimatedStatus(presentationState)) {
-            return;
-        }
-        const interval = setInterval(() => {
-            setNow(Date.now());
-        }, 250);
-        return () => clearInterval(interval);
-    }, [presentationState]);
-
-    useEffect(() => {
-        if (presentationState === 'finalizing') {
-            writeDisplayProgress('finalizing-sync', 0);
-            return;
-        }
-        if (handoffResetPendingRef.current || handoffResetVisible) {
-            handoffResetPendingRef.current = false;
-            resetHandoffState();
-            return;
-        }
-        if (!preserveMountedProgress && !preserveActiveVisualState) {
-            writeDisplayProgress('inactive-sync', 0);
-            return;
-        }
-        const memoryFloor = getMemoryFloor(memoryKey, allowBackwardProgress);
-        if (!predictive || !startedAt || !etaSeconds) {
-            writeDisplayProgress('non-predictive-sync', prev => {
-                const target = clamp01(progress);
-                const gap = target - prev;
-                if (Math.abs(gap) <= 0.002) return target;
-                return allowBackwardProgress
-                    ? clamp01(prev + (gap * 0.35))
-                    : Math.max(memoryFloor, clamp01(prev + (gap * 0.35)));
-            });
-            return;
-        }
-        if (allowBackwardProgress) {
-            writeDisplayProgress('direct-sync', clamp01(progress));
-            return;
-        }
-        if (authoritativeFloor) {
-            writeDisplayProgress('authoritative-floor-sync', prev => Math.max(prev, memoryFloor, clamp01(progress)));
-        }
-    }, [allowBackwardProgress, authoritativeFloor, etaSeconds, handoffResetVisible, memoryKey, predictive, presentationState, preserveActiveVisualState, preserveMountedProgress, progress, startedAt]);
-
-    useEffect(() => {
-        const tickNow = now;
-        const dt = Math.max(0.05, (tickNow - lastTickRef.current) / 1000);
-        lastTickRef.current = tickNow;
-
-        if (presentationState === 'finalizing') {
-            writeDisplayProgress('finalizing-tick', 0);
-            setDebugTick(prev => ({
-                ...prev,
-                lastTickAt: tickNow,
-                dtSeconds: dt,
-                tickElapsedSeconds: startedAt ? Math.max(0, (tickNow / 1000) - startedAt) : null,
-                effectiveEtaSeconds: null,
-                smoothingTicks: null,
-                smoothingBaseTicks: null,
-                maxVisualStep: null,
-                targetFloor: 0,
-                nextProgress: 0,
-                correctionWeightMode: resolvedCheckpointMode,
-                model: undefined,
-            }));
-            return;
-        }
-        if (handoffResetVisible) {
-            const armedAt = handoffResetArmedAtRef.current;
-            if (armedAt !== null && tickNow <= armedAt + ETA_TICK_MS) {
-                setDebugTick(prev => ({
-                    ...prev,
-                    lastTickAt: tickNow,
-                    dtSeconds: dt,
-                    tickElapsedSeconds: startedAt ? Math.max(0, (tickNow / 1000) - startedAt) : null,
-                    effectiveEtaSeconds: null,
-                    smoothingTicks: null,
-                    smoothingBaseTicks: null,
-                    maxVisualStep: null,
-                    targetFloor: 0,
-                    nextProgress: 0,
-                    correctionWeightMode: resolvedCheckpointMode,
-                    model: undefined,
-                }));
-                return;
-            }
-            handoffResetArmedAtRef.current = null;
-            setHandoffResetVisible(false);
-            resetHandoffState();
-            setDebugTick(prev => ({
-                ...prev,
-                lastTickAt: tickNow,
-                dtSeconds: dt,
-                tickElapsedSeconds: startedAt ? Math.max(0, (tickNow / 1000) - startedAt) : null,
-                effectiveEtaSeconds: null,
-                smoothingTicks: null,
-                smoothingBaseTicks: null,
-                maxVisualStep: null,
-                targetFloor: 0,
-                nextProgress: 0,
-                correctionWeightMode: resolvedCheckpointMode,
-                model: undefined,
-            }));
-            return;
-        }
-        if (!isLiveAnimatedStatus(presentationState)) {
-            const next = clamp01(Math.max(getRememberedProgress(memoryKey), clamp01(progress)));
-            writeDisplayProgress('static-status-sync', next);
-            setDebugTick(prev => ({
-                ...prev,
-                lastTickAt: tickNow,
-                dtSeconds: dt,
-                tickElapsedSeconds: null,
-                effectiveEtaSeconds: null,
-                smoothingTicks: null,
-                smoothingBaseTicks: null,
-                maxVisualStep: null,
-                targetFloor: next,
-                nextProgress: next,
-                correctionWeightMode: resolvedCheckpointMode,
-                model: undefined,
-            }));
-            return;
-        }
-        if (!preserveMountedProgress && !preserveActiveVisualState) {
-            setDebugTick(prev => ({
-                ...prev,
-                lastTickAt: tickNow,
-                dtSeconds: dt,
-                tickElapsedSeconds: null,
-                effectiveEtaSeconds: null,
-                smoothingTicks: null,
-                smoothingBaseTicks: null,
-                maxVisualStep: null,
-                targetFloor: null,
-                nextProgress: 0,
-                correctionWeightMode: resolvedCheckpointMode,
-                model: undefined,
-            }));
-            return;
-        }
-        if (!predictive) {
-            writeDisplayProgress('non-predictive-tick', prev => {
-                const target = clamp01(progress);
-                const gap = target - prev;
-                if (Math.abs(gap) <= 0.002) return target;
-                const correctionWindow = gap > 0 ? 0.45 : 0.7;
-                const correctionFraction = Math.min(1, dt / correctionWindow);
-                const next = clamp01(prev + (gap * correctionFraction));
-                setDebugTick({
-                    lastTickAt: tickNow,
-                    dtSeconds: dt,
-                    tickElapsedSeconds: null,
-                    effectiveEtaSeconds: null,
-                    smoothingTicks: null,
-                    smoothingBaseTicks: null,
-                    maxVisualStep: getMaxVisualStep(dt),
-                    targetFloor: target,
-                    nextProgress: next,
-                    correctionWeightMode: resolvedCheckpointMode,
-                    model: undefined,
-                });
-                return next;
-            });
-            return;
-        }
-        if (!startedAt || !etaSeconds) {
-            const next = clamp01(progress);
-            writeDisplayProgress('missing-timing-sync', next);
-            setDebugTick({
-                lastTickAt: tickNow,
-                dtSeconds: dt,
-                tickElapsedSeconds: null,
-                effectiveEtaSeconds: null,
-                smoothingTicks: null,
-                smoothingBaseTicks: null,
-                maxVisualStep: getMaxVisualStep(dt),
-                targetFloor: next,
-                nextProgress: next,
-                correctionWeightMode: resolvedCheckpointMode,
-                model: undefined,
-            });
-            return;
-        }
-
-        const runAnchor = `${persistenceKey ?? 'none'}:${startedAt ?? 0}`;
-        const memoryFloor = getMemoryFloor(memoryKey, allowBackwardProgress);
-        const effectiveEtaSeconds = getEffectiveEtaSeconds(startedAt, etaSeconds, tickNow, currentEndTimeRef.current);
-        if (pendingRunAnchorRef.current === runAnchor) {
-            pendingRunAnchorRef.current = null;
-            writeDisplayProgress('pending-run-anchor', prev => {
-                const launchProgress = loadingToDynamicHandoff ? 0 : initialDisplayProgress;
-                const pendingTick = buildPendingRunAnchorTick({
-                    tickNow,
-                    dt,
-                    startedAt,
-                    effectiveEtaSeconds,
-                    launchProgress,
-                    progress,
-                    memoryFloor,
-                    checkpointMode: resolvedCheckpointMode,
-                    authoritativeFloor,
-                    evidenceWeightFraction,
-                    preferLaunchEtaOnly,
-                    smoothingProgressBasis,
-                    currentEndTime: currentEndTimeRef.current,
-                    previousDisplayProgress: prev,
-                });
-                setDebugTick(pendingTick.debugTick);
-                return pendingTick.nextProgress;
-            });
-            return;
-        }
-
-        writeDisplayProgress(authoritativeFloor ? 'predictive-tick-authoritative' : 'predictive-tick', prev => {
-            if (authoritativeFloor) {
-                const tickState = buildAuthoritativePredictiveTick({
-                    tickNow,
-                    dt,
-                    startedAt,
-                    effectiveEtaSeconds,
-                    progress,
-                    checkpointMode: resolvedCheckpointMode,
-                    smoothingProgressBasis,
-                    currentEndTime: currentEndTimeRef.current,
-                    previousDisplayProgress: prev,
-                    evidenceWeightFraction,
-                    preferLaunchEtaOnly,
-                });
-                setDebugTick(tickState.debugTick);
-                return tickState.nextProgress;
-            }
-            const tickState = buildFlexiblePredictiveTick({
-                tickNow,
-                dt,
-                startedAt,
-                effectiveEtaSeconds,
-                progress,
-                checkpointMode: resolvedCheckpointMode,
-                smoothingProgressBasis,
-                currentEndTime: currentEndTimeRef.current,
-                previousDisplayProgress: prev,
-                allowBackwardProgress,
-                preferLaunchEtaOnly,
-            });
-            setDebugTick(tickState.debugTick);
-            return tickState.nextProgress;
-        });
-
-    }, [now, progress, startedAt, etaSeconds, predictive, presentationState, authoritativeFloor, preserveActiveVisualState, preserveMountedProgress, resolvedCheckpointMode, evidenceWeightFraction, loadingToDynamicHandoff, handoffResetVisible, allowBackwardProgress]);
-
-    const memoryFloor = getMemoryFloor(memoryKey, allowBackwardProgress);
-    const { localProgress, indeterminate } = getProgressInfo({
-        loadingToDynamicHandoff,
-        presentationState,
-        preparingIndeterminate,
-        preserveMountedProgress,
-        preserveActiveVisualState,
-        predictive,
-        startedAt,
-        etaSeconds,
-        allowBackwardProgress,
-        memoryFloor,
-        displayProgress,
-        progress,
-        now,
-        currentEndTime: currentEndTimeRef.current,
-        authoritativeFloor,
-        resolvedCheckpointMode,
-        evidenceWeightFraction,
-        preferLaunchEtaOnly,
-    });
-    const displayedRemaining = currentEndTime === null
-        ? null
-        : Math.max(0, Math.ceil((currentEndTime - now) / 1000));
-    const queueRemainingFloor = authoritativeFloor && startedAt && etaSeconds
-        ? Math.max(0, Math.ceil(Math.max(0, 1 - localProgress) * etaSeconds))
-        : null;
-    const syncedDisplayedRemaining = queueRemainingFloor === null
-        ? displayedRemaining
-        : (displayedRemaining === null ? queueRemainingFloor : Math.max(displayedRemaining, queueRemainingFloor));
-    const smoothingProgressBasis = Math.max(clamp01(progress), localProgress);
-    const autoFinalizing = getAutoFinalizing({
-        presentationState,
-        localProgress,
-        now,
-        startedAt,
-        etaSeconds,
-        syncedDisplayedRemaining,
-    });
     const visualState = autoFinalizing ? 'finalizing' : presentationState;
-
-    useEffect(() => {
-        if (visualState === 'finalizing') {
-            currentEndTimeRef.current = null;
-            targetEndTimeRef.current = null;
-            setCurrentEndTime(null);
-            return;
-        }
-        if (handoffResetPendingRef.current) {
-            handoffResetPendingRef.current = false;
-            resetHandoffState();
-            return;
-        }
-        if (!predictive || ((!preserveMountedProgress && !preserveActiveVisualState))) {
-            currentEndTimeRef.current = null;
-            targetEndTimeRef.current = null;
-            setCurrentEndTime(null);
-            return;
-        }
-        if (!startedAt || !etaSeconds) {
-            return;
-        }
-        const elapsed = Math.max(0, (Date.now() / 1000) - startedAt);
-        const rememberedProgress = getRememberedProgress(memoryKey);
-        const effectiveDisplayedProgress = Math.max(displayProgressRef.current, rememberedProgress);
-        const etaProgressBasis = authoritativeFloor ? Math.max(clamp01(progress), effectiveDisplayedProgress) : progress;
-        const targetModel = buildPredictiveTargetModel({
-            authoritativeProgress: etaProgressBasis,
-            displayedProgress: effectiveDisplayedProgress,
-            elapsedSeconds: elapsed,
-            etaSeconds,
-            priorProgressBasis: authoritativeFloor ? etaProgressBasis : undefined,
-            checkpointMode: resolvedCheckpointMode,
-            evidenceWeightFraction,
-            preferLaunchEtaOnly,
-        });
-        const rememberedEndTime = memoryKey ? (endTimeMemory.get(memoryKey) ?? null) : null;
-        targetEndTimeRef.current = targetModel.nextTargetEndTime;
-        if (currentEndTimeRef.current === null) {
-            const seededEndTime = rememberedEndTime ?? targetModel.nextTargetEndTime;
-            currentEndTimeRef.current = seededEndTime;
-            setCurrentEndTime(seededEndTime);
-        }
-    }, [progress, startedAt, etaSeconds, predictive, status, memoryKey, preserveActiveVisualState, preserveMountedProgress, authoritativeFloor, evidenceWeightFraction, resolvedCheckpointMode, visualState, loadingToDynamicHandoff, handoffResetVisible]);
-
-    useEffect(() => {
-        if (visualState === 'finalizing') {
-            setCurrentEndTime(null);
-            return;
-        }
-        if (loadingToDynamicHandoff) {
-            resetHandoffState();
-            return;
-        }
-        if (!predictive || ((!preserveMountedProgress && !preserveActiveVisualState))) {
-            setCurrentEndTime(null);
-            return;
-        }
-        if (!startedAt || !etaSeconds) {
-            return;
-        }
-        const targetEndTime = targetEndTimeRef.current;
-        const currentEndTime = currentEndTimeRef.current;
-
-        if (targetEndTime === null) {
-            setCurrentEndTime(null);
-            return;
-        }
-
-        if (currentEndTime === null) {
-            currentEndTimeRef.current = targetEndTime;
-            setCurrentEndTime(targetEndTime);
-            return;
-        }
-
-        const nextEndTime = nudgeCurrentEndTime({
-            now,
-            targetEndTime,
-            currentEndTime,
-            checkpointMode: resolvedCheckpointMode,
-            authoritativeFloor,
-            smoothingProgressBasis,
-        });
-
-        currentEndTimeRef.current = nextEndTime;
-        setCurrentEndTime(nextEndTime);
-    }, [now, predictive, startedAt, etaSeconds, presentationState, preserveActiveVisualState, preserveMountedProgress, authoritativeFloor, progress, resolvedCheckpointMode, visualState, loadingToDynamicHandoff, handoffResetVisible]);
-
     const shouldAnimateWidth = !indeterminate && isActiveStatus(visualState);
     const indeterminateClassName = indeterminate
-        ? (visualState === 'finalizing'
-            ? 'progress-bar-finalizing'
-            : preparingIndeterminate
-            ? 'progress-bar-pending'
-            : 'progress-bar-animated')
+        ? (visualState === 'finalizing' ? 'progress-bar-finalizing' : preparingIndeterminate ? 'progress-bar-pending' : 'progress-bar-animated')
         : undefined;
-    const prepStyleIndeterminate = visualState === 'preparing' || visualState === 'finalizing';
-    const indeterminateWidth = prepStyleIndeterminate ? '100%' : '35%';
     const busyStatusText = getBusyStatusText(visualState, indeterminate);
     const terminalStatusText = getTerminalStatusText(visualState);
     const terminalFillStyle = getTerminalFillStyle(visualState);
 
     useEffect(() => {
         if (!onDebugSnapshot) return;
-        const snapshot = buildPredictiveProgressDebugSnapshot({
+        onDebugSnapshot(buildPredictiveProgressDebugSnapshot({
             memoryKey,
-            resolvedCheckpointMode,
+            resolvedCheckpointMode: checkpointMode ?? (effectiveAllowBackward ? 'default' : 'queue'),
             status,
             progress,
             startedAt,
             etaSeconds,
             predictive,
-            authoritativeFloor,
-            tickLoopActive,
-            preserveMountedProgress,
-            preserveActiveVisualState,
+            tickLoopActive: isLiveAnimatedStatus(presentationState),
+            preserveMountedProgress: true,
+            preserveActiveVisualState: true,
             memoryFloor: getRememberedProgress(memoryKey),
             displayProgress,
             localProgress,
-            currentEndTime,
-            targetEndTime: targetEndTimeRef.current,
+            currentLane,
+            desiredLane: migration?.toLane ?? null,
+            migrationProgress: migration ? clamp01((now - migration.startedAtMs) / migration.durationMs) : null,
             displayedRemaining,
-            syncedDisplayedRemaining,
-            remainingTicks: currentEndTime === null ? null : getRemainingTicks(now, currentEndTime),
-            debugTick,
-            launchEtaOnly: preferLaunchEtaOnly,
-            allowBackwardProgress,
+            remainingTicks: activeTargetLane?.endAtMs == null ? null : getRemainingTicks(now, activeTargetLane.endAtMs),
+            launchEtaOnly: false,
+            allowBackwardProgress: effectiveAllowBackward,
             lastDisplayWriteSource: lastDisplayWriteRef.current.source,
             lastDisplayWriteValue: lastDisplayWriteRef.current.value,
-        });
-        onDebugSnapshot(snapshot);
+            transitionTickCount,
+            backwardTransitionTickCount,
+            activeTransitionTickCount: migration ? Math.round(migration.durationMs / tickMs) : null,
+            isBackwardMigration: migration ? (migration.toLane.startProgress < migration.fromLane.startProgress - 0.001) : false,
+            tickMs,
+            migrationDurationMs: migration?.durationMs ?? null,
+            migrationElapsedMs: migration ? Math.max(0, now - migration.startedAtMs) : null,
+            migrationTicksTotal: migration ? Math.round(migration.durationMs / tickMs) : transitionTickCount,
+            migrationTicksElapsed: migration ? Math.floor(Math.max(0, now - migration.startedAtMs) / tickMs) : null,
+            evidenceWeightFraction: lastUpdateMetadataRef.current.evidenceWeightFraction,
+            incomingProgress: lastUpdateMetadataRef.current.incomingProgress,
+            effectiveTargetProgress: lastUpdateMetadataRef.current.effectiveTargetProgress,
+            currentVisualAtUpdate: lastUpdateMetadataRef.current.currentVisualAtUpdate,
+        }));
     }, [
-        onDebugSnapshot,
-        memoryKey,
-        resolvedCheckpointMode,
-        status,
-        progress,
-        startedAt,
-        etaSeconds,
-        predictive,
-        authoritativeFloor,
-        tickLoopActive,
-        preserveMountedProgress,
-        preserveActiveVisualState,
-        displayProgress,
-        localProgress,
-        currentEndTime,
-        displayedRemaining,
-        syncedDisplayedRemaining,
-        currentEndTime,
-        now,
-        debugTick,
-        preferLaunchEtaOnly,
-        allowBackwardProgress,
+        onDebugSnapshot, memoryKey, status, progress, startedAt, etaSeconds, predictive, 
+        effectiveAllowBackward, displayProgress, localProgress, displayedRemaining, now, 
+        presentationState, currentLane, migration, activeTargetLane, tickMs
     ]);
+
+    if (barOnly) {
+        return (
+            <div style={{ height: '6px', background: 'rgba(0,0,0,0.05)', borderRadius: '3px', overflow: 'hidden' }} data-testid="progress-bar-tiny">
+                <div
+                    className={visualState === 'finalizing' ? 'progress-bar-finalizing' : indeterminateClassName}
+                    style={{
+                        height: '100%',
+                        width: indeterminate ? '100%' : visualState === 'finalizing' ? '100%' : terminalStatusText ? (isDoneStatus(visualState) || isFailedStatus(visualState) ? '100%' : '0%') : `${localProgress * 100}%`,
+                        background: visualState === 'finalizing' ? 'rgba(191, 219, 254, 0.34)' : terminalFillStyle?.background ?? 'var(--accent)',
+                        opacity: terminalStatusText && (isQueuedStatus(visualState) || isCancelledStatus(visualState)) ? 0.55 : 1,
+                        boxShadow: terminalFillStyle?.boxShadow ?? (visualState === 'finalizing' ? '0 0 15px rgba(59, 130, 246, 0.45)' : '0 0 15px var(--accent)'),
+                        transition: shouldAnimateWidth && !isTerminalStatus(visualState) ? 'width 0.25s linear' : 'none'
+                    }}
+                />
+            </div>
+        );
+    }
 
     return (
         <div style={{ width: '100%' }} data-testid="progress-bar">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', minWidth: 0 }}>
-                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600 }}>{label}</span>
-                    {visualState ? (
-                        <span
-                            style={{
-                                fontSize: '0.58rem',
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.08em',
-                                padding: '0.14rem 0.42rem',
-                                borderRadius: '999px',
-                                border: '1px solid rgba(0,0,0,0.08)',
-                                background: visualState === 'running' || visualState === 'processing'
-                                    ? 'rgba(37, 99, 235, 0.10)'
-                                    : visualState === 'preparing'
-                                    ? 'rgba(245, 158, 11, 0.12)'
-                                    : visualState === 'finalizing'
-                                    ? 'rgba(59, 130, 246, 0.10)'
-                                    : 'rgba(100, 116, 139, 0.10)',
-                                color: 'var(--text-secondary)',
-                                fontWeight: 800,
-                                whiteSpace: 'nowrap',
-                            }}
-                        >
-                            {formatStatusLabel(visualState)}
-                        </span>
-                    ) : null}
-                </div>
-                {showEta && syncedDisplayedRemaining !== null && !terminalStatusText && !busyStatusText ? (
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
-                            {Math.round(localProgress * 100)}%
-                        </span>
-                        <span style={{
-                            fontSize: '0.65rem',
-                            color: 'var(--accent)',
-                            fontWeight: 700,
-                            fontVariantNumeric: 'tabular-nums'
-                        }}>
-                            ETA: {formatTime(syncedDisplayedRemaining)}
-                        </span>
+            {(showLabel || showPercent || showEta) && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', minWidth: 0 }}>
+                        {showLabel && <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600 }}>{label}</span>}
+                        {visualState && (
+                            <span style={{
+                                fontSize: '0.58rem', textTransform: 'uppercase', letterSpacing: '0.08em',
+                                padding: '0.14rem 0.42rem', borderRadius: '999px', border: '1px solid rgba(0,0,0,0.08)',
+                                background: visualState === 'running' || visualState === 'processing' ? 'rgba(37, 99, 235, 0.10)' : visualState === 'preparing' ? 'rgba(245, 158, 11, 0.12)' : visualState === 'finalizing' ? 'rgba(59, 130, 246, 0.10)' : 'rgba(100, 116, 139, 0.10)',
+                                color: 'var(--text-secondary)', fontWeight: 800, whiteSpace: 'nowrap',
+                            }}>
+                                {formatStatusLabel(visualState)}
+                            </span>
+                        )}
                     </div>
-                ) : (
-                    <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--accent)' }}>
-                        {terminalStatusText ?? busyStatusText ?? `${Math.round(localProgress * 100)}%`}
-                    </span>
-                )}
-            </div>
+                    <div>
+                        {showEta && displayedRemaining !== null && !terminalStatusText && !busyStatusText ? (
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                {showPercent && <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{Math.round(localProgress * 100)}%</span>}
+                                <span style={{ fontSize: '0.65rem', color: 'var(--accent)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                                    ETA: {formatTime(displayedRemaining)}
+                                </span>
+                            </div>
+                        ) : (
+                            <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--accent)' }}>
+                                {terminalStatusText ?? busyStatusText ?? (showPercent ? `${Math.round(localProgress * 100)}%` : '')}
+                            </span>
+                        )}
+                    </div>
+                </div>
+            )}
             <div style={{ height: '6px', background: 'rgba(0,0,0,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
                 <div
                     className={visualState === 'finalizing' ? 'progress-bar-finalizing' : indeterminateClassName}
                     style={{
                         height: '100%',
-                    width: loadingToDynamicHandoff
-                        || handoffResetVisible
-                            ? '0%'
-                            : indeterminate
-                            ? indeterminateWidth
-                            : visualState === 'finalizing'
-                            ? '100%'
-                            : terminalStatusText
-                            ? (isDoneStatus(visualState) || isFailedStatus(visualState) ? '100%' : '0%')
-                            : `${localProgress * 100}%`,
-                        background: visualState === 'finalizing'
-                            ? 'rgba(191, 219, 254, 0.34)'
-                            : indeterminate && preparingIndeterminate
-                            ? 'rgba(248, 250, 252, 0.96)'
-                            : terminalFillStyle?.background ?? 'var(--accent)',
+                        width: indeterminate ? (visualState === 'preparing' || visualState === 'finalizing' ? '100%' : '35%') : visualState === 'finalizing' ? '100%' : terminalStatusText ? (isDoneStatus(visualState) || isFailedStatus(visualState) ? '100%' : '0%') : `${localProgress * 100}%`,
+                        background: visualState === 'finalizing' ? 'rgba(191, 219, 254, 0.34)' : (indeterminate && preparingIndeterminate ? 'rgba(248, 250, 252, 0.96)' : terminalFillStyle?.background ?? 'var(--accent)'),
                         opacity: terminalStatusText && (isQueuedStatus(visualState) || isCancelledStatus(visualState)) ? 0.55 : 1,
-                        boxShadow: visualState === 'finalizing'
-                            ? '0 0 15px rgba(59, 130, 246, 0.45)'
-                            : indeterminate && preparingIndeterminate
-                            ? '0 0 10px rgba(226,232,240,0.45)'
-                            : terminalFillStyle?.boxShadow ?? '0 0 15px var(--accent)',
-                        // This bar updates on a ~250ms loop, so the width transition
-                        // should stay close to that cadence: long enough to soften
-                        // visible snaps, but short enough to avoid visible lag.
-                        transition: loadingToDynamicHandoff || handoffResetVisible
-                            ? 'none'
-                            : shouldAnimateWidth && !isTerminalStatus(visualState)
-                            ? 'width 0.25s linear'
-                            : 'none'
+                        boxShadow: visualState === 'finalizing' ? '0 0 15px rgba(59, 130, 246, 0.45)' : (indeterminate && preparingIndeterminate ? '0 0 10px rgba(226,232,240,0.45)' : terminalFillStyle?.boxShadow ?? '0 0 15px var(--accent)'),
+                        transition: shouldAnimateWidth && !isTerminalStatus(visualState) ? 'width 0.25s linear' : 'none'
                     }}
                 />
             </div>

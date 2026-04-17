@@ -83,6 +83,7 @@ export interface ProcessingQueueItem {
   grouped_progress?: number;
   chapter_audio_status?: Chapter['audio_status'];
   chapter_audio_file_path?: string | null;
+  updated_at?: number;
 }
 
 export interface SpeakerProfile {

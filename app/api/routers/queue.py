@@ -44,21 +44,6 @@ def _merge_live_queue_job(item: dict, job) -> None:
             item[field] = value
 
 
-def _apply_hydrated_progress_floor(item: dict, now: float) -> None:
-    status = item.get("status")
-    started_at = item.get("started_at")
-    eta_seconds = item.get("eta_seconds")
-    active_segment_progress = item.get("active_segment_progress") or 0
-    if status not in {"preparing", "running"}:
-        return
-    if not started_at or not eta_seconds:
-        return
-    if active_segment_progress > 0:
-        return
-
-    elapsed = max(0.0, now - float(started_at))
-    predicted_progress = min(0.99, elapsed / float(eta_seconds))
-    item["progress"] = max(float(item.get("progress") or 0.0), predicted_progress)
 
 @router.get("/processing_queue")
 def api_get_queue():
@@ -125,7 +110,6 @@ def api_get_queue():
         job = all_jobs.get(jid)
         if job:
             _merge_live_queue_job(item, job)
-            _apply_hydrated_progress_floor(item, now)
         has_chapter_audio = item.get("chapter_audio_status") == "done" or bool(item.get("chapter_audio_file_path"))
         completed_at = item.get("completed_at") or 0
         has_active_sibling = bool(item.get("chapter_id")) and item.get("chapter_id") in active_queue_chapter_ids

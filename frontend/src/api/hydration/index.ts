@@ -39,8 +39,11 @@ function shouldHoldCompletedCloudItem(
   const completedAt = item.completed_at;
   const recentlyCompleted = !!completedAt && (nowSeconds - completedAt) <= COMPLETION_HOLD_SECONDS;
 
-  // If it's recently completed OR we still have a live overlay (meaning we just saw it finish)
-  if (!recentlyCompleted && !delta) return false;
+  // We also check overlay age. If we saw a 'done' event just now, we hold it.
+  // But if the overlay itself is older than the window, we let it through.
+  const recentlyUpdated = !!delta?.updated_at && (nowSeconds - delta.updated_at) <= COMPLETION_HOLD_SECONDS;
+
+  if (!recentlyCompleted && !recentlyUpdated) return false;
 
   const hasActiveSibling = queue.some(other =>
     other.id !== item.id &&
@@ -83,6 +86,8 @@ export const createHydrationCoordinator = (): HydrationCoordinator => ({
         status: (delta.status as LegacyStatus) ?? item.status,
         progress: delta.progress ?? item.progress,
         eta_seconds: delta.eta_seconds !== undefined ? (delta.eta_seconds ?? undefined) : item.eta_seconds,
+        eta_basis: delta.eta_basis ?? item.eta_basis,
+        estimated_end_at: delta.estimated_end_at !== undefined ? (delta.estimated_end_at ?? undefined) : item.estimated_end_at,
         started_at: delta.started_at !== undefined ? (delta.started_at ?? undefined) : item.started_at,
         log: delta.message ?? item.log,
         // active_render_batch_id etc are not in ProcessingQueueItem but we could add them if needed

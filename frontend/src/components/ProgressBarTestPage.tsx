@@ -1,5 +1,5 @@
 import React from 'react';
-import { Info, RefreshCw, Play, SkipForward, RotateCcw, Terminal } from 'lucide-react';
+import { Info, RefreshCw, Play, SkipForward, RotateCcw, Terminal, Clipboard } from 'lucide-react';
 import { PredictiveProgressBar, resetPredictiveProgressMemory, type PredictiveProgressDebugSnapshot } from './PredictiveProgressBar';
 
 type ProgressBarCheckpointMode = 'default' | 'queue' | 'segment';
@@ -13,9 +13,14 @@ interface ProgressBarTestConfig {
   label: string;
   showEta: boolean;
   status: ProgressBarStatus;
-  authoritativeFloor: boolean;
+  allowBackwardProgress: boolean;
   evidenceWeightFraction: number;
   checkpointMode: ProgressBarCheckpointMode;
+  etaBasis: 'remaining_from_update' | 'total_from_start';
+  updatedAt?: number;
+  transitionTickCount: number;
+  backwardTransitionTickCount: number;
+  tickMs: number;
 }
 
 const DEFAULT_CONFIG: ProgressBarTestConfig = {
@@ -26,9 +31,13 @@ const DEFAULT_CONFIG: ProgressBarTestConfig = {
   label: 'Progress Test',
   showEta: true,
   status: 'running',
-  authoritativeFloor: true,
+  allowBackwardProgress: false,
   evidenceWeightFraction: 0.8,
   checkpointMode: 'segment',
+  etaBasis: 'total_from_start',
+  transitionTickCount: 8,
+  backwardTransitionTickCount: 2,
+  tickMs: 250,
 };
 
 const STATUS_OPTIONS: ProgressBarStatus[] = ['queued', 'preparing', 'running', 'finalizing', 'done', 'failed', 'cancelled'];
@@ -144,6 +153,7 @@ export const ProgressBarTestPage: React.FC = () => {
         etaSeconds: typeof nextEtaValue === 'number' ? nextEtaValue : prev.etaSeconds,
         startedAt: nextStartedAt,
         status: nextStatus,
+        updatedAt: nowUnixSeconds(),
       };
       return next;
     });
@@ -210,14 +220,11 @@ export const ProgressBarTestPage: React.FC = () => {
     const timestamp = new Date().toLocaleTimeString();
     const historyLine = [
       timestamp,
-      `display=${(debugSnapshot.displayProgress * 100).toFixed(3)}%`,
-      `write=${debugSnapshot.lastDisplayWriteSource ?? 'n/a'}:${debugSnapshot.lastDisplayWriteValue !== null && debugSnapshot.lastDisplayWriteValue !== undefined ? `${(debugSnapshot.lastDisplayWriteValue * 100).toFixed(3)}%` : 'n/a'}`,
-      `target=${debugSnapshot.targetFloor !== null && debugSnapshot.targetFloor !== undefined ? `${(debugSnapshot.targetFloor * 100).toFixed(3)}%` : 'n/a'}`,
-      `visible=${debugSnapshot.visibleProgress !== null && debugSnapshot.visibleProgress !== undefined ? `${(debugSnapshot.visibleProgress * 100).toFixed(3)}%` : 'n/a'}`,
-      `eta=${debugSnapshot.syncedDisplayedRemaining !== null && debugSnapshot.syncedDisplayedRemaining !== undefined ? `${debugSnapshot.syncedDisplayedRemaining}s` : 'n/a'}`,
-      `rem=${debugSnapshot.model ? `${debugSnapshot.model.refinedRemainingSeconds.toFixed(3)}s` : 'n/a'}`,
-      `vel=${debugSnapshot.model ? debugSnapshot.model.velocityPerSecond.toFixed(6) : 'n/a'}`,
-      `smooth=${debugSnapshot.smoothingTicks ?? 'n/a'}/${debugSnapshot.smoothingBaseTicks ?? 'n/a'}`,
+      `v=${(debugSnapshot.displayProgress * 100).toFixed(3)}%`,
+      `curr=${(debugSnapshot.currentLane?.startProgress ?? 0 * 100).toFixed(1)}%->${debugSnapshot.currentLane?.endAtMs ? new Date(debugSnapshot.currentLane.endAtMs).toLocaleTimeString() : 'n/a'}`,
+      `des=${debugSnapshot.desiredLane ? `${(debugSnapshot.desiredLane.startProgress * 100).toFixed(1)}%->${debugSnapshot.desiredLane.endAtMs ? new Date(debugSnapshot.desiredLane.endAtMs).toLocaleTimeString() : 'n/a'}` : 'none'}`,
+      `mig=${debugSnapshot.migrationProgress !== null ? `${(debugSnapshot.migrationProgress * 100).toFixed(0)}%` : 'none'}`,
+      `eta=${debugSnapshot.displayedRemaining !== null && debugSnapshot.displayedRemaining !== undefined ? `${debugSnapshot.displayedRemaining}s` : 'n/a'}`,
     ].join(' | ');
 
     setDebugHistory(prev => {
@@ -227,47 +234,13 @@ export const ProgressBarTestPage: React.FC = () => {
   }, [debugSnapshot]);
 
   const debugDump = debugSnapshot
-    ? [
-        `launchStartedAt=${launchConfig.startedAt ?? 'unset'}`,
-        `activeStartedAt=${activeConfig.startedAt ?? 'unset'}`,
-        `runtimeStartedAt=${debugSnapshot.startedAt ?? 'unset'}`,
-        `tickLoopActive=${debugSnapshot.tickLoopActive ? 'yes' : 'no'}`,
-        `launchEtaOnly=${(debugSnapshot as any).launchEtaOnly ? 'yes' : 'no'}`,
-        `allowBackwardProgress=${(debugSnapshot as any).allowBackwardProgress ? 'yes' : 'no'}`,
-        `memoryFloor=${Math.round(debugSnapshot.memoryFloor * 100)}%`,
-        `targetFloor=${debugSnapshot.targetFloor !== null && debugSnapshot.targetFloor !== undefined ? `${Math.round(debugSnapshot.targetFloor * 100)}%` : 'n/a'}`,
-        `nextProgress=${debugSnapshot.nextProgress !== null && debugSnapshot.nextProgress !== undefined ? `${(debugSnapshot.nextProgress * 100).toFixed(3)}%` : 'n/a'}`,
-        `displayProgress=${(debugSnapshot.displayProgress * 100).toFixed(3)}%`,
-        `displayProgressRaw=${debugSnapshot.displayProgress.toFixed(3)}`,
-        `lastDisplayWriteSource=${debugSnapshot.lastDisplayWriteSource ?? 'n/a'}`,
-        `lastDisplayWriteValue=${debugSnapshot.lastDisplayWriteValue !== null && debugSnapshot.lastDisplayWriteValue !== undefined ? `${(debugSnapshot.lastDisplayWriteValue * 100).toFixed(3)}%` : 'n/a'}`,
-        `etaProgressBasis=${debugSnapshot.etaProgressBasis !== null && debugSnapshot.etaProgressBasis !== undefined ? `${Math.round(debugSnapshot.etaProgressBasis * 100)}%` : 'n/a'}`,
-        `visibleProgress=${debugSnapshot.visibleProgress !== null && debugSnapshot.visibleProgress !== undefined ? `${Math.round(debugSnapshot.visibleProgress * 100)}%` : 'n/a'}`,
-        `targetEndTime=${debugSnapshot.targetEndTime ? new Date(debugSnapshot.targetEndTime).toLocaleTimeString() : 'n/a'}`,
-        `currentEndTime=${debugSnapshot.currentEndTime ? new Date(debugSnapshot.currentEndTime).toLocaleTimeString() : 'n/a'}`,
-        `displayedRemaining=${debugSnapshot.displayedRemaining !== null && debugSnapshot.displayedRemaining !== undefined ? `${debugSnapshot.displayedRemaining}s` : 'n/a'}`,
-        `syncedDisplayedRemaining=${debugSnapshot.syncedDisplayedRemaining !== null && debugSnapshot.syncedDisplayedRemaining !== undefined ? `${debugSnapshot.syncedDisplayedRemaining}s` : 'n/a'}`,
-        `remainingTicks=${debugSnapshot.remainingTicks !== null && debugSnapshot.remainingTicks !== undefined ? `${debugSnapshot.remainingTicks}` : 'n/a'}`,
-        `effectiveEtaSeconds=${debugSnapshot.effectiveEtaSeconds !== null && debugSnapshot.effectiveEtaSeconds !== undefined ? `${Math.round(debugSnapshot.effectiveEtaSeconds)}s` : 'n/a'}`,
-        `dtSeconds=${debugSnapshot.dtSeconds.toFixed(3)}`,
-        `tickElapsedSeconds=${debugSnapshot.tickElapsedSeconds !== null && debugSnapshot.tickElapsedSeconds !== undefined ? debugSnapshot.tickElapsedSeconds.toFixed(3) : 'n/a'}`,
-        `smoothingTicks=${debugSnapshot.smoothingTicks ?? 'n/a'}`,
-        `smoothingBaseTicks=${debugSnapshot.smoothingBaseTicks ?? 'n/a'}`,
-        `maxVisualStep=${debugSnapshot.maxVisualStep !== null && debugSnapshot.maxVisualStep !== undefined ? debugSnapshot.maxVisualStep.toFixed(4) : 'n/a'}`,
-        `model.refinedRemaining=${debugSnapshot.model ? `${debugSnapshot.model.refinedRemainingSeconds.toFixed(3)}s` : 'n/a'}`,
-        `checkpointMode=${debugSnapshot.resolvedCheckpointMode}`,
-        `correctionMode=${debugSnapshot.correctionWeightMode ?? 'n/a'}`,
-        `model.authoritativeProgress=${debugSnapshot.model ? `${Math.round(debugSnapshot.model.authoritativeProgress * 100)}%` : 'n/a'}`,
-        `model.displayedProgress=${debugSnapshot.model ? `${Math.round(debugSnapshot.model.displayedProgress * 100)}%` : 'n/a'}`,
-        `model.estimatedRemaining=${debugSnapshot.model ? `${Math.round(debugSnapshot.model.estimatedRemainingSeconds)}s` : 'n/a'}`,
-        `model.actualRemaining=${debugSnapshot.model ? `${Math.round(debugSnapshot.model.actualRemainingSeconds)}s` : 'n/a'}`,
-        `model.velocity=${debugSnapshot.model ? debugSnapshot.model.velocityPerSecond.toFixed(6) : 'n/a'}`,
-      ].join('\n')
-    : 'No debug snapshot yet. Launch a run to capture one.';
+    ? JSON.stringify({
+        config: activeConfig,
+        snapshot: debugSnapshot,
+      }, null, 2)
+    : '{}';
 
-  const historyDump = debugHistory.length > 0
-    ? debugHistory.join('\n')
-    : 'No history yet. Launch a run and let it tick a few times.';
+  const historyDump = debugHistory.join('\n');
 
   return (
     <div style={{ display: 'grid', gap: '1.5rem' }}>
@@ -366,15 +339,41 @@ export const ProgressBarTestPage: React.FC = () => {
               </label>
               <label style={{ display: 'grid', gap: '0.35rem' }}>
                 <FieldLabel label="Checkpoint Mode" help="Changes how strongly the bar trusts incoming updates. Segment mode is more responsive, queue mode is more conservative, and default sits in between." />
-                <select value={launchConfig.checkpointMode} onChange={e => applyConfigPatch({ checkpointMode: e.target.value as ProgressBarCheckpointMode }, `checkpointMode set to ${e.target.value}.`)}>
+                <select value={launchConfig.checkpointMode} onChange={e => {
+                  const mode = e.target.value as ProgressBarCheckpointMode;
+                  const ticks = mode === 'segment' ? 3 : (mode === 'queue' ? 12 : 8);
+                  applyConfigPatch({ checkpointMode: mode, transitionTickCount: ticks }, `checkpointMode set to ${mode} (auto-tapered transition to ${ticks} ticks).`);
+                }}>
                   {CHECKPOINT_MODES.map(mode => <option key={mode} value={mode}>{mode}</option>)}
+                </select>
+              </label>
+              <label style={{ display: 'grid', gap: '0.35rem' }}>
+                <FieldLabel label="ETA Basis" help="Chooses whether etaSeconds is treated as 'remaining from now' or 'total from start'." />
+                <select value={launchConfig.etaBasis} onChange={e => applyConfigPatch({ etaBasis: e.target.value as any }, `etaBasis set to ${e.target.value}.`)}>
+                  <option value="total_from_start">Total from start</option>
+                  <option value="remaining_from_update">Remaining from update</option>
                 </select>
               </label>
             </div>
 
             <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginTop: '1rem' }}>
               <label title="Show or hide the ETA readout next to the percent value." style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}><input type="checkbox" checked={launchConfig.showEta} onChange={e => applyConfigPatch({ showEta: e.target.checked }, `showEta ${e.target.checked ? 'enabled' : 'disabled'}.`)} /> Show ETA</label>
-              <label title="Keep the visible bar from moving backward when a newer backend update reports a lower value." style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}><input type="checkbox" checked={launchConfig.authoritativeFloor} onChange={e => applyConfigPatch({ authoritativeFloor: e.target.checked }, `authoritativeFloor ${e.target.checked ? 'enabled' : 'disabled'}.`)} /> Authoritative floor</label>
+              <label title="Explicitly allow the bar to move backward when a newer backend update reports a lower value." style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}><input type="checkbox" checked={launchConfig.allowBackwardProgress} onChange={e => applyConfigPatch({ allowBackwardProgress: e.target.checked }, `Allow Backward ${e.target.checked ? 'enabled' : 'disabled'}.`)} /> Allow Backward</label>
+            </div>
+
+            <div style={{ marginTop: '0.75rem', display: 'grid', gap: '0.75rem', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+              <label style={{ display: 'grid', gap: '0.35rem' }}>
+                <FieldLabel label="Forward Ticks" help="Standard physics ticks for blending forward updates." />
+                <input type="number" min={1} max={50} value={launchConfig.transitionTickCount} onChange={e => applyConfigPatch({ transitionTickCount: Number(e.target.value) }, `transitionTickCount set to ${e.target.value}.`)} />
+              </label>
+              <label style={{ display: 'grid', gap: '0.35rem' }}>
+                <FieldLabel label="Backward Ticks" help="Physics ticks used for correcting backward (if enabled). Usually 2." />
+                <input type="number" min={1} max={50} value={launchConfig.backwardTransitionTickCount} onChange={e => applyConfigPatch({ backwardTransitionTickCount: Number(e.target.value) }, `backwardTransitionTickCount set to ${e.target.value}.`)} />
+              </label>
+              <label style={{ display: 'grid', gap: '0.35rem' }}>
+                <FieldLabel label="Tick Ms" help="Duration of one physics tick in milliseconds. Usually 250ms." />
+                <input type="number" min={50} max={2000} step={50} value={launchConfig.tickMs} onChange={e => applyConfigPatch({ tickMs: Number(e.target.value) }, `tickMs set to ${e.target.value}ms.`)} />
+              </label>
             </div>
 
             <div style={{ marginTop: '1rem' }}>
@@ -428,6 +427,7 @@ export const ProgressBarTestPage: React.FC = () => {
               <button className="btn-ghost" onClick={() => nudgeProgress(0.01)}>+1%</button>
               <button className="btn-ghost" onClick={() => nudgeProgress(0.05)}>+5%</button>
               <button className="btn-ghost" onClick={() => nudgeProgress(0.1)}>+10%</button>
+              <button className="btn-ghost" style={{ border: '1px solid var(--error)', color: 'var(--error)' }} onClick={() => nudgeProgress(-0.1)}>-10%</button>
               <button className="btn-ghost" onClick={() => setActiveConfig(prev => ({ ...prev, progress: 1, status: 'finalizing' }))}>
                 Finish
               </button>
@@ -509,8 +509,13 @@ export const ProgressBarTestPage: React.FC = () => {
                 label={activeConfig.label}
                 showEta={activeConfig.showEta}
                 status={activeConfig.status}
+                updatedAt={activeConfig.updatedAt}
+                etaBasis={activeConfig.etaBasis}
                 predictive={true}
-                authoritativeFloor={activeConfig.authoritativeFloor}
+                allowBackwardProgress={activeConfig.allowBackwardProgress}
+                transitionTickCount={activeConfig.transitionTickCount}
+                backwardTransitionTickCount={activeConfig.backwardTransitionTickCount}
+                tickMs={activeConfig.tickMs}
                 evidenceWeightFraction={activeConfig.evidenceWeightFraction}
                 checkpointMode={activeConfig.checkpointMode}
                 onDebugSnapshot={setDebugSnapshot}
@@ -526,11 +531,11 @@ export const ProgressBarTestPage: React.FC = () => {
               <MetricGrid items={[
                 ['Bar status', 'The status currently being rendered by the bar.', debugSnapshot?.status ?? activeConfig.status],
                 ['Launch started_at', 'The staged launch snapshot currently configured in the left panel.', launchConfig.startedAt !== undefined ? `${launchConfig.startedAt}` : 'unset'],
-                ['Runtime started_at', 'The started_at value the live bar is currently using after any handoff or live update.', debugSnapshot?.startedAt !== null && debugSnapshot?.startedAt !== undefined ? `${debugSnapshot.startedAt}` : 'n/a'],
-                ['Tick loop active', 'Whether the bar is currently running its predictive tick loop or sitting in a static presentation state.', debugSnapshot ? (debugSnapshot.tickLoopActive ? 'yes' : 'no') : 'n/a'],
-                ['Displayed progress', 'The width actually being shown on screen right now.', debugSnapshot ? `${Math.round(debugSnapshot.displayProgress * 100)}%` : 'n/a'],
-                ['Local progress', 'The rendered percent used for the visible label and width after smoothing and floors are applied.', debugSnapshot ? `${Math.round(debugSnapshot.localProgress * 100)}%` : 'n/a'],
-                ['ETA remaining', 'The countdown currently being displayed beside the bar.', debugSnapshot?.syncedDisplayedRemaining !== null && debugSnapshot?.syncedDisplayedRemaining !== undefined ? `${debugSnapshot.syncedDisplayedRemaining}s` : 'n/a'],
+                ['Runtime started_at', 'The started_at value the live bar is currently using after any handoff or live update.', debugSnapshot?.startedAt != null ? `${debugSnapshot.startedAt}` : 'n/a'],
+                ['Tick loop active', 'Whether the bar is currently running its predictive tick loop or sitting in a static presentation state.', debugSnapshot?.tickLoopActive != null ? (debugSnapshot.tickLoopActive ? 'yes' : 'no') : 'n/a'],
+                ['Displayed progress', 'The width actually being shown on screen right now.', debugSnapshot?.displayProgress != null ? `${Math.round(debugSnapshot.displayProgress * 100)}%` : 'n/a'],
+                ['Local progress', 'The rendered percent used for the visible label and width after smoothing and floors are applied.', debugSnapshot?.localProgress != null ? `${Math.round(debugSnapshot.localProgress * 100)}%` : 'n/a'],
+                ['ETA remaining', 'The countdown currently being displayed beside the bar.', debugSnapshot?.displayedRemaining != null ? `${debugSnapshot.displayedRemaining}s` : 'n/a'],
               ]} />
             </section>
           </div>
@@ -538,52 +543,65 @@ export const ProgressBarTestPage: React.FC = () => {
           <div style={{ marginTop: '1rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
               <RefreshCw size={16} color="var(--accent)" />
-              <strong>Tick Debug</strong>
+              <strong>Lane Migration Debug</strong>
             </div>
             <p style={{ marginTop: 0, marginBottom: '0.75rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-              This is the low-level timing and smoothing math behind the displayed values above.
+              This monitors the movement between the current authoritative lane and the desired target.
             </p>
             <MetricGrid items={[
-                ['launchStartedAt', 'The staged launch snapshot value from the left panel.', launchConfig.startedAt !== undefined ? `${launchConfig.startedAt}` : 'unset'],
-                ['activeStartedAt', 'The runtime snapshot currently driving the live preview.', activeConfig.startedAt !== undefined ? `${activeConfig.startedAt}` : 'unset'],
-                ['runtimeStartedAt', 'The started_at value the bar is actually using for the current runtime anchor.', debugSnapshot?.startedAt !== null && debugSnapshot?.startedAt !== undefined ? `${debugSnapshot.startedAt}` : 'n/a'],
-                ['tickLoopActive', 'Whether the predictive tick loop is currently running.', debugSnapshot ? (debugSnapshot.tickLoopActive ? 'yes' : 'no') : 'n/a'],
-                ['launchEtaOnly', 'Whether the current snapshot is still using launch-only ETA anchoring.', debugSnapshot ? (debugSnapshot as any).launchEtaOnly ? 'yes' : 'no' : 'n/a'],
-                ['allowBackwardProgress', 'Whether the visible bar is allowed to move backward from a newer correction.', debugSnapshot ? (debugSnapshot as any).allowBackwardProgress ? 'yes' : 'no' : 'n/a'],
-                ['memoryFloor', 'The remembered floor carried over from the last known live run.', debugSnapshot ? `${Math.round(debugSnapshot.memoryFloor * 100)}%` : 'n/a'],
-                ['targetFloor', 'The highest authoritative minimum percent the bar should not fall below.', debugSnapshot?.targetFloor !== null && debugSnapshot?.targetFloor !== undefined ? `${Math.round(debugSnapshot.targetFloor * 100)}%` : 'n/a'],
-                ['nextProgress', 'The next eased progress value the bar will move toward on the next tick.', debugSnapshot?.nextProgress !== null && debugSnapshot?.nextProgress !== undefined ? `${Math.round(debugSnapshot.nextProgress * 100)}%` : 'n/a'],
-                ['displayProgress', 'The raw internal progress value before the label rounds it for display.', debugSnapshot?.displayProgress !== null && debugSnapshot?.displayProgress !== undefined ? `${(debugSnapshot.displayProgress * 100).toFixed(3)}%` : 'n/a'],
-                ['lastDisplayWriteSource', 'Which internal code path most recently wrote the display progress value.', debugSnapshot?.lastDisplayWriteSource ?? 'n/a'],
-                ['lastDisplayWriteValue', 'The raw progress value written by the last internal display-progress update.', debugSnapshot?.lastDisplayWriteValue !== null && debugSnapshot?.lastDisplayWriteValue !== undefined ? `${(debugSnapshot.lastDisplayWriteValue * 100).toFixed(3)}%` : 'n/a'],
-                ['etaProgressBasis', 'The progress value currently being used to derive ETA.', debugSnapshot ? `${Math.round(((debugSnapshot as any).etaProgressBasis ?? 0) * 100)}%` : 'n/a'],
-                ['visibleProgress', 'The rendered progress value after floors and smoothing are applied.', debugSnapshot ? `${Math.round(((debugSnapshot as any).visibleProgress ?? 0) * 100)}%` : 'n/a'],
-                ['targetEndTime', 'The target end time the component is easing toward from the live ETA model.', debugSnapshot?.targetEndTime ? new Date(debugSnapshot.targetEndTime).toLocaleTimeString() : 'n/a'],
-                ['currentEndTime', 'The smoothed end time currently used to pace the visible countdown.', debugSnapshot?.currentEndTime ? new Date(debugSnapshot.currentEndTime).toLocaleTimeString() : 'n/a'],
-                ['displayedRemaining', 'The countdown value derived directly from the current smoothed end time.', debugSnapshot?.displayedRemaining !== null && debugSnapshot?.displayedRemaining !== undefined ? `${debugSnapshot.displayedRemaining}s` : 'n/a'],
-                ['syncedDisplayedRemaining', 'The countdown after queue-floor syncing is applied.', debugSnapshot?.syncedDisplayedRemaining !== null && debugSnapshot?.syncedDisplayedRemaining !== undefined ? `${debugSnapshot.syncedDisplayedRemaining}s` : 'n/a'],
-                ['remainingTicks', 'How many 250ms ticks remain before the current end time is reached.', debugSnapshot?.remainingTicks !== null && debugSnapshot?.remainingTicks !== undefined ? `${debugSnapshot.remainingTicks}` : 'n/a'],
-                ['effectiveEtaSeconds', 'The live ETA after smoothing and elapsed-time recalculation.', debugSnapshot?.effectiveEtaSeconds !== null && debugSnapshot?.effectiveEtaSeconds !== undefined ? `${Math.round(debugSnapshot.effectiveEtaSeconds)}s` : 'n/a'],
-                ['dtSeconds', 'How many seconds elapsed since the previous tick.', debugSnapshot?.dtSeconds !== null && debugSnapshot?.dtSeconds !== undefined ? debugSnapshot.dtSeconds.toFixed(3) : 'n/a'],
-                ['tickElapsedSeconds', 'How long the current run has been active according to the current anchor.', debugSnapshot?.tickElapsedSeconds !== null && debugSnapshot?.tickElapsedSeconds !== undefined ? debugSnapshot.tickElapsedSeconds.toFixed(3) : 'n/a'],
-                ['smoothingTicks', 'How many ticks the current correction is being spread across after remaining-time capping.', debugSnapshot?.smoothingTicks ?? 'n/a'],
-                ['smoothingBaseTicks', 'The raw smoothing budget selected by the current checkpoint mode before capping to remaining time.', debugSnapshot?.smoothingBaseTicks ?? 'n/a'],
-                ['maxVisualStep', 'The per-tick visual cap applied to avoid sudden jumps.', debugSnapshot?.maxVisualStep !== null && debugSnapshot?.maxVisualStep !== undefined ? debugSnapshot.maxVisualStep.toFixed(4) : 'n/a'],
-                ['model.refinedRemaining', 'The blended remaining time after weighting ETA and progress evidence.', debugSnapshot?.model ? `${debugSnapshot.model.refinedRemainingSeconds.toFixed(3)}s` : 'n/a'],
-                ['checkpointMode', 'The checkpoint policy currently in effect for the progress engine.', debugSnapshot?.resolvedCheckpointMode ?? 'n/a'],
-                ['correctionMode', 'The correction weighting mode used to build the current predictive model.', debugSnapshot?.correctionWeightMode ?? 'n/a'],
-                ['model.authoritativeProgress', 'The authoritative progress value passed into the ETA model.', debugSnapshot?.model ? `${Math.round(debugSnapshot.model.authoritativeProgress * 100)}%` : 'n/a'],
-                ['model.displayedProgress', 'The displayed progress value passed into the ETA model.', debugSnapshot?.model ? `${Math.round(debugSnapshot.model.displayedProgress * 100)}%` : 'n/a'],
-                ['model.estimatedRemaining', 'The remaining time implied by the launch ETA anchor.', debugSnapshot?.model ? `${Math.round(debugSnapshot.model.estimatedRemainingSeconds)}s` : 'n/a'],
-                ['model.actualRemaining', 'The remaining time implied by the current progress ratio.', debugSnapshot?.model ? `${Math.round(debugSnapshot.model.actualRemainingSeconds)}s` : 'n/a'],
-                ['model.velocity', 'The per-second progress rate being used for the next tick.', debugSnapshot?.model ? debugSnapshot.model.velocityPerSecond.toFixed(6) : 'n/a'],
+                ['currentLaneEnd', 'The end time of the lane currently driving the visible position.', debugSnapshot?.currentLane?.endAtMs != null ? new Date(debugSnapshot.currentLane.endAtMs).toLocaleTimeString() : 'n/a'],
+                ['desiredLaneEnd', 'The target end time we are migrating toward.', debugSnapshot?.desiredLane?.endAtMs != null ? new Date(debugSnapshot.desiredLane.endAtMs).toLocaleTimeString() : 'n/a'],
+                ['isBackward', 'Whether the current migration is a backward correction.', debugSnapshot?.isBackwardMigration ? 'YES' : 'no'],
+                ['activeTicks', 'The tick count chosen for this specific transition window.', debugSnapshot?.activeTransitionTickCount ?? 'n/a'],
+                ['migrationProgress', 'Visual blending percent between the old and new lanes.', debugSnapshot?.migrationProgress != null ? `${Math.round(debugSnapshot.migrationProgress * 100)}%` : 'none'],
+                ['migrationElapsed', 'Wall-clock time that has passed since migration started.', debugSnapshot?.migrationElapsedMs != null ? `${debugSnapshot.migrationElapsedMs}ms` : 'n/a'],
+                ['migrationTicks', 'Progress through the transition in discrete physics ticks.', debugSnapshot?.migrationTicksElapsed != null ? `${debugSnapshot.migrationTicksElapsed} / ${debugSnapshot.migrationTicksTotal}` : 'n/a'],
+                ['evidenceWeight', 'Confidence/weighting applied to the most recent update.', debugSnapshot?.evidenceWeightFraction != null ? `${Math.round(debugSnapshot.evidenceWeightFraction * 100)}%` : 'n/a'],
+                ['incomingProgress', 'The raw progress value received from the update.', debugSnapshot?.incomingProgress != null ? `${Math.round(debugSnapshot.incomingProgress * 100)}%` : 'n/a'],
+                ['targetProgress', 'The calculated blended target progress for the desired lane.', debugSnapshot?.effectiveTargetProgress != null ? `${(debugSnapshot.effectiveTargetProgress * 100).toFixed(2)}%` : 'n/a'],
+                ['visualAtUpdate', 'The visual progress position captured at the moment of update.', debugSnapshot?.currentVisualAtUpdate != null ? `${(debugSnapshot.currentVisualAtUpdate * 100).toFixed(2)}%` : 'n/a'],
+                ['transitionDuration', 'Total duration of the migration window.', debugSnapshot?.migrationDurationMs != null ? `${debugSnapshot.migrationDurationMs}ms` : 'n/a'],
+                ['lastSource', 'Which internal code path most recently wrote the display progress value.', debugSnapshot?.lastDisplayWriteSource ?? 'n/a'],
               ]} />
           </div>
 
           <div style={{ marginTop: '1rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
-              <Terminal size={16} color="var(--accent)" />
-              <strong>Paste Debug Dump</strong>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Terminal size={16} color="var(--accent)" />
+                <strong>Paste Debug Dump</strong>
+              </div>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(debugDump);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.35rem 0.75rem',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  background: 'white',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  color: 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--accent)';
+                  e.currentTarget.style.color = 'var(--accent)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--border)';
+                  e.currentTarget.style.color = 'var(--text-secondary)';
+                }}
+              >
+                <Clipboard size={14} />
+                Copy JSON
+              </button>
             </div>
             <p style={{ marginTop: 0, marginBottom: '0.75rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
               Copy this block back to me and I can read the exact live state without needing screenshots or row-by-row slices.
@@ -608,9 +626,47 @@ export const ProgressBarTestPage: React.FC = () => {
           </div>
 
           <div style={{ marginTop: '1rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
-              <SkipForward size={16} color="var(--accent)" />
-              <strong>Snapshot History</strong>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <SkipForward size={16} color="var(--accent)" />
+                <strong>Snapshot History</strong>
+              </div>
+              <button
+                onClick={() => {
+                  const combined = {
+                    current: debugSnapshot ? { config: activeConfig, snapshot: debugSnapshot } : null,
+                    history: debugHistory,
+                    exported_at: new Date().toISOString()
+                  };
+                  navigator.clipboard.writeText(JSON.stringify(combined, null, 2));
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.35rem 0.75rem',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  background: 'white',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  color: 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--accent)';
+                  e.currentTarget.style.color = 'var(--accent)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--border)';
+                  e.currentTarget.style.color = 'var(--text-secondary)';
+                }}
+              >
+                <Clipboard size={14} />
+                Copy History
+              </button>
             </div>
             <p style={{ marginTop: 0, marginBottom: '0.75rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
               This keeps the last few ticks in order so we can compare what changed over time instead of only reading one instant.

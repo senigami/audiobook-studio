@@ -30,6 +30,8 @@ class Job:
 
     progress: float = 0.0  # 0..1
     eta_seconds: Optional[int] = None
+    eta_basis: Optional[str] = None
+    estimated_end_at: Optional[float] = None
     eta_confidence: Optional[str] = None
     reason_code: Optional[str] = None
 

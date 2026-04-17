@@ -266,6 +266,27 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
                 j[k] = v
                 changed_fields.append(k)
 
+        # 4. ETA basis/end_at hardening
+        # If we have eta_seconds but no basis/end_at, default to remaining_from_update
+        if "eta_seconds" in changed_fields or "eta_seconds" in updates:
+            eta_val = updates.get("eta_seconds") if "eta_seconds" in updates else j.get("eta_seconds")
+            if eta_val is not None:
+                if (updates.get("eta_basis") or j.get("eta_basis")) is None:
+                    j["eta_basis"] = "remaining_from_update"
+                    updates["eta_basis"] = "remaining_from_update"
+                    if "eta_basis" not in changed_fields:
+                        changed_fields.append("eta_basis")
+
+                # If basis is remaining, ensure we have a valid estimated_end_at
+                if (updates.get("eta_basis") or j.get("eta_basis")) == "remaining_from_update":
+                    if (updates.get("estimated_end_at") or j.get("estimated_end_at")) is None or "eta_seconds" in changed_fields:
+                        anchor = updates.get("updated_at") or j.get("updated_at") or time.time()
+                        end_at = float(anchor) + float(eta_val)
+                        j["estimated_end_at"] = end_at
+                        updates["estimated_end_at"] = end_at
+                        if "estimated_end_at" not in changed_fields:
+                            changed_fields.append("estimated_end_at")
+
         auto_updated_at = None
         if changed_fields or force_broadcast:
             auto_updated_at = float(updates.get("updated_at") or time.time())

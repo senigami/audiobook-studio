@@ -22,13 +22,16 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     formatTime,
     onRemove
 }) => {
-    const isTrulyActive = ['preparing', 'running', 'processing', 'finalizing'].includes(liveJob?.status ?? job.status);
-    const rawStarted = liveJob?.started_at ?? job.started_at;
-    const rawEtaSeconds = liveJob?.eta_seconds ?? job.eta_seconds;
-    const status = liveJob?.status ?? job.status;
-    const engine = (liveJob?.engine ?? job.engine) || '';
+    const status = job.status;
+    const isTrulyActive = ['preparing', 'running', 'processing', 'finalizing'].includes(status);
+    const rawStarted = job.started_at ?? liveJob?.started_at;
+    const rawEtaSeconds = job.eta_seconds ?? liveJob?.eta_seconds;
+    const etaBasis = job.eta_basis ?? liveJob?.eta_basis ?? (rawEtaSeconds != null ? 'remaining_from_update' : undefined);
+    const estimatedEndAt = job.estimated_end_at ?? liveJob?.estimated_end_at;
+    const updatedAt = job.updated_at ?? liveJob?.updated_at;
+    const engine = job.engine || liveJob?.engine || '';
     const activeSegmentProgress = liveJob?.active_segment_progress;
-    const jobProgress = liveJob?.progress ?? job.progress ?? 0;
+    const jobProgress = job.progress ?? liveJob?.progress ?? 0;
     const renderGroupCount = liveJob?.render_group_count ?? 0;
     const completedRenderGroups = liveJob?.completed_render_groups ?? 0;
     const activeRenderGroupIndex = liveJob?.active_render_group_index ?? 0;
@@ -173,13 +176,19 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                     progress={progress}
                     startedAt={started}
                     etaSeconds={etaSeconds}
+                    etaBasis={etaBasis}
+                    estimatedEndAt={estimatedEndAt}
+                    updatedAt={updatedAt}
                     persistenceKey={job.id}
                     status={displayStatus}
                     label={displayStatus === 'preparing' ? "Preparing..." : (displayStatus === 'finalizing' ? "Finalizing..." : "Processing...")}
                     predictive={true}
-                    authoritativeFloor={isGroupedChapterJob}
+                    allowBackwardProgress={!isGroupedChapterJob}
                     checkpointMode={isGroupedChapterJob ? 'queue' : (job.segment_ids?.length || liveJob?.segment_ids?.length || liveJob?.active_segment_id ? 'segment' : 'default')}
                     evidenceWeightFraction={isGroupedChapterJob ? evidenceWeightFraction : 1}
+                    transitionTickCount={isGroupedChapterJob ? 12 : 3}
+                    backwardTransitionTickCount={2}
+                    tickMs={250}
                 />
             </div>
         </div>

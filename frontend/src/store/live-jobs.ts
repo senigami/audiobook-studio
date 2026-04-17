@@ -6,6 +6,8 @@ export interface OverlayDelta {
   eta_seconds?: number | null;
   started_at?: number | null;
   updated_at?: number | null;
+  estimated_end_at?: number | null;
+  eta_basis?: 'remaining_from_update' | 'total_from_start' | null;
   active_render_batch_id?: string | null;
   active_render_batch_progress?: number | null;
   reason_code?: string | null;
@@ -71,7 +73,12 @@ export const createLiveJobsStore = (): LiveJobsStore => {
       } else {
         const incomingPri = STATUS_PRIORITY[incomingStatus] ?? 0;
         const existingPri = STATUS_PRIORITY[existingStatus] ?? 0;
-        if (incomingPri < existingPri) {
+        
+        // Anti-Regression: If we are in 'finalizing' but get a newer 'running' signal, 
+        // we trust the newer signal. Legacy-backed streams can emit finalizing heuristically.
+        const isCorrection = existingStatus === 'finalizing' && incomingStatus === 'running';
+        
+        if (incomingPri < existingPri && !isCorrection) {
           effectiveStatus = existingStatus;
         } else {
           nextDelta.status = incomingStatus;
@@ -121,12 +128,20 @@ export const createLiveJobsStore = (): LiveJobsStore => {
       nextDelta.started_at = null;
     }
 
-    // 6. Metadata/passthrough
-    if (event.updated_at !== undefined) nextDelta.updated_at = event.updated_at;
-    if (event.active_render_batch_id !== undefined) nextDelta.active_render_batch_id = event.active_render_batch_id;
-    if (event.active_render_batch_progress !== undefined) nextDelta.active_render_batch_progress = event.active_render_batch_progress;
-    if (event.reason_code !== undefined) nextDelta.reason_code = event.reason_code;
-    if (event.message !== undefined) nextDelta.message = event.message;
+    // 6. Metadata/Basis
+    if (typeof event.updated_at === 'number') nextDelta.updated_at = event.updated_at;
+    if (typeof event.estimated_end_at === 'number') nextDelta.estimated_end_at = event.estimated_end_at;
+    
+    // Explicitly default eta_basis to 'remaining_from_update' for StudioJobEvents
+    // as per Backend Progress Service documentation, unless specified otherwise.
+    nextDelta.eta_basis = event.eta_basis ?? 'remaining_from_update';
+
+    if (event.message) nextDelta.message = event.message;
+    if (event.reason_code) nextDelta.reason_code = event.reason_code;
+    if (event.active_render_batch_id) nextDelta.active_render_batch_id = event.active_render_batch_id;
+    if (typeof event.active_render_batch_progress === 'number') {
+      nextDelta.active_render_batch_progress = event.active_render_batch_progress;
+    }
 
     state.eventsById[jobId] = nextDelta;
   };

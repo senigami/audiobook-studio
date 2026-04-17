@@ -145,4 +145,23 @@ describe('GlobalQueue', () => {
             expect(api.clearProcessingQueue).toHaveBeenCalled()
         })
     })
+
+    it('trusts merged queue status as authoritative even if legacy liveJob is stale', async () => {
+        const mergedQueue = [
+            { id: 'job-1', status: 'running', chapter_title: 'Authoritative Chapter', progress: 0.5 } as any
+        ];
+        // Legacy job says finalizing (Priority 4) but authoritative queue says running (Priority 3)
+        const legacyJobs = {
+            'job-1': { id: 'job-1', status: 'finalizing', progress: 1.0 } as any
+        };
+
+        render(<GlobalQueue queue={mergedQueue} jobs={legacyJobs} />)
+        
+        // Should show 'Processing Now (1)' because it trusts 'running' status
+        expect(await screen.findByText(/Processing Now \(1\)/i)).toBeTruthy();
+        
+        // PredictiveProgressBar label for running is "Processing..."
+        expect(screen.getByText(/Processing\.\.\./i)).toBeTruthy();
+        expect(screen.queryByText(/Finalizing\.\.\./i)).toBeNull();
+    })
 })

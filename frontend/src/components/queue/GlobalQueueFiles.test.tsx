@@ -9,7 +9,7 @@ vi.mock('../PredictiveProgressBar', () => ({
     startedAt,
     etaSeconds,
     status,
-    authoritativeFloor,
+    allowBackwardProgress,
     evidenceWeightFraction
   }: {
     progress: number;
@@ -17,7 +17,7 @@ vi.mock('../PredictiveProgressBar', () => ({
     startedAt?: number;
     etaSeconds?: number;
     status?: string;
-    authoritativeFloor?: boolean;
+    allowBackwardProgress?: boolean;
     evidenceWeightFraction?: number;
   }) => (
     <div
@@ -27,7 +27,7 @@ vi.mock('../PredictiveProgressBar', () => ({
       data-started-at={startedAt ?? ''}
       data-eta-seconds={etaSeconds ?? ''}
       data-status={status ?? ''}
-      data-authoritative-floor={String(!!authoritativeFloor)}
+      data-allow-backward={String(!!allowBackwardProgress)}
       data-evidence-weight-fraction={evidenceWeightFraction ?? ''}
     />
   )
@@ -161,12 +161,12 @@ describe('Global Queue Components', () => {
         it('keeps voice build progress moving when overall job progress is ahead of sparse segment updates', () => {
             render(
                 <QueueItem
-                    job={{ ...mockJob, engine: 'voice_build', status: 'running', progress: 0.4 } as any}
+                    job={{ ...mockJob, engine: 'voice_build', status: 'running', progress: 0.72 } as any}
                     liveJob={{
                         id: 'job-1',
                         engine: 'voice_build',
                         status: 'running',
-                        progress: 0.72,
+                        progress: 0.4,
                         active_segment_progress: 0.66,
                         started_at: 1000,
                         eta_seconds: 30,
@@ -234,7 +234,7 @@ describe('Global Queue Components', () => {
 
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-status', 'preparing');
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.7200000000000001');
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-authoritative-floor', 'true');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-allow-backward', 'false');
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-evidence-weight-fraction', '0.4');
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-started-at', '');
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-eta-seconds', '');
@@ -278,6 +278,7 @@ describe('Global Queue Components', () => {
                 <GlobalQueue 
                     paused={false}
                     jobs={{}}
+                    queue={[]}
                 />
             );
 
@@ -289,6 +290,7 @@ describe('Global Queue Components', () => {
                 <GlobalQueue 
                     paused={false}
                     jobs={{}}
+                    queue={[]}
                 />
             );
 
