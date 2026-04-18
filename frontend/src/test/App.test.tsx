@@ -3,6 +3,10 @@ import App from '../App'
 import { MemoryRouter } from 'react-router-dom'
 import { vi, describe, it, expect, beforeEach } from 'vitest'
 
+vi.mock('../hooks/useWebSocket', () => ({
+  useWebSocket: () => ({ connected: true })
+}))
+
 describe('App', () => {
   beforeEach(() => {
     global.fetch = vi.fn((url) => {
@@ -51,6 +55,18 @@ describe('App', () => {
     
     await waitFor(() => {
       expect(screen.getByText(/Audiobook/i)).toBeTruthy()
+    })
+  })
+
+  it('reports ready hydration status when idle and connected', async () => {
+    render(
+      <MemoryRouter>
+        <App />
+      </MemoryRouter>
+    )
+    
+    await waitFor(() => {
+      expect(screen.getByTestId('layout-root')).toHaveAttribute('data-shell-hydration', 'ready')
     })
   })
 

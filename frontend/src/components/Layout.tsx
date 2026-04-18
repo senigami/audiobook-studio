@@ -2,24 +2,43 @@ import React, { useState } from 'react';
 import { Mic, Zap, Library } from 'lucide-react';
 import { BrandLogo } from './BrandLogo';
 import { useLocation, useNavigate } from 'react-router-dom';
+import type { StudioShellState } from '../app/navigation/model';
 
 interface LayoutProps {
   children: React.ReactNode;
   headerRight?: React.ReactNode;
   queueCount?: number;
+  shellState?: Pick<StudioShellState, 'navigation' | 'hydration'>;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children, headerRight, queueCount }) => {
+export const Layout: React.FC<LayoutProps> = ({ children, headerRight, queueCount, shellState }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [hoveredTab, setHoveredTab] = useState<string | null>(null);
 
-  // Derive active tab from path
   const getActiveTab = () => {
+    if (shellState) {
+      if (shellState.navigation.routeKind === 'queue') return 'queue';
+      if (shellState.navigation.routeKind === 'voices') return 'voices';
+      if (shellState.navigation.routeKind === 'settings') return 'library';
+      if (shellState.navigation.routeKind === 'library') return 'library';
+      if (
+        shellState.navigation.routeKind === 'project-overview' ||
+        shellState.navigation.routeKind === 'project-chapters' ||
+        shellState.navigation.routeKind === 'project-queue' ||
+        shellState.navigation.routeKind === 'project-export' ||
+        shellState.navigation.routeKind === 'project-settings' ||
+        shellState.navigation.routeKind === 'chapter-editor'
+      ) {
+        return 'library';
+      }
+    }
+
     const path = location.pathname;
     if (path === '/' || path.startsWith('/project/')) return 'library';
     if (path.startsWith('/queue')) return 'queue';
     if (path.startsWith('/voices')) return 'voices';
+    if (path.startsWith('/settings')) return 'library';
     return 'library';
   };
 
@@ -32,7 +51,11 @@ export const Layout: React.FC<LayoutProps> = ({ children, headerRight, queueCoun
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', width: '100vw', backgroundColor: 'var(--bg)' }}>
+    <div
+      data-testid="layout-root"
+      data-shell-hydration={shellState?.hydration.status || 'unknown'}
+      style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', width: '100vw', backgroundColor: 'var(--bg)' }}
+    >
       <header className="header-container" style={{
         height: 'var(--header-height, 72px)',
         width: '100%',
@@ -65,6 +88,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, headerRight, queueCoun
                 onClick={() => navigate(item.path)}
                 onMouseEnter={() => setHoveredTab(item.id)}
                 onMouseLeave={() => setHoveredTab(null)}
+                aria-current={activeTab === item.id ? 'page' : undefined}
                 className="btn-ghost"
                 style={{
                   display: 'flex',

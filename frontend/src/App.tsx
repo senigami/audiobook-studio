@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react';
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { useState, useCallback, useMemo } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { PreviewModal } from './components/PreviewModal';
 import { VoicesTab } from './components/VoicesTab';
@@ -12,20 +12,31 @@ import { useQueueSync } from './hooks/useQueueSync';
 import { useInitialData } from './hooks/useInitialData';
 import { SettingsTray } from './components/SettingsTray';
 import { ConfirmModal } from './components/ConfirmModal';
+import { createStudioShellState } from './app/layout/StudioShell';
 import { motion, AnimatePresence } from 'framer-motion';
 
 function App() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [queueRefreshTrigger, setQueueRefreshTrigger] = useState(0);
   const { 
     queue: mergedQueue, 
     queueCount, 
     loading: queueLoading,
+    connected,
+    isReconnecting,
     refreshQueue: originalRefreshQueue
   } = useQueueSync();
 
+  const [refreshingSource, setRefreshingSource] = useState<'bootstrap' | 'reconnect' | 'refresh' | undefined>(undefined);
+
   const refreshQueue = useCallback(async (source: 'bootstrap' | 'reconnect' | 'refresh' = 'refresh') => {
-    await originalRefreshQueue(source);
+    setRefreshingSource(source);
+    try {
+      await originalRefreshQueue(source);
+    } finally {
+      setRefreshingSource(undefined);
+    }
     setQueueRefreshTrigger(prev => prev + 1);
   }, [originalRefreshQueue]);
 
@@ -59,15 +70,30 @@ function App() {
   };
 
   const handleRefresh = async () => {
-    await Promise.all([refetchHome(), refreshJobs(), refreshQueue('refresh')]);
+    setRefreshingSource('refresh');
+    try {
+      await Promise.all([refetchHome(), refreshJobs(), refreshQueue('refresh')]);
+    } finally {
+      setRefreshingSource(undefined);
+    }
   };
 
+  const shellState = useMemo(() => {
+    return createStudioShellState({
+      pathname: location.pathname,
+      loading: initialLoading || queueLoading,
+      connected,
+      isReconnecting,
+      hydrationSource: isReconnecting ? 'reconnect' : refreshingSource,
+    });
+  }, [location.pathname, initialLoading, queueLoading, connected, isReconnecting, refreshingSource]);
 
 
   return (
     <div className="app-container">
       <Layout
         queueCount={queueCount}
+        shellState={shellState}
         headerRight={
           <SettingsTray 
             settings={initialData?.settings}

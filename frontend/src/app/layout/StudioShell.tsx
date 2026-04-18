@@ -1,13 +1,11 @@
-// Studio app shell boundary for Studio 2.0.
-//
-// This module will eventually compose global navigation, layout chrome,
-// reconnect banners, and route-level feature framing for the new app shell.
-
 import { createChapterBreadcrumbs, createProjectBreadcrumbs } from '../navigation/breadcrumbs';
-import {
-  COMPANION_SURFACES,
-  GLOBAL_NAVIGATION_NODES,
-  PROJECT_NAVIGATION_NODES,
+import { GLOBAL_NAVIGATION_NODES } from '../navigation/model';
+import type {
+  RouteKind,
+  NavigationState,
+  ShellHydrationState,
+  StudioShellState,
+  HydrationStatus,
 } from '../navigation/model';
 import { createProjectSubnav } from '../navigation/project-subnav';
 
@@ -22,19 +20,118 @@ const FORBIDDEN_DIRECT_IMPORTS = [
   'frontend/src/components',
 ];
 
+export interface ShellInputs {
+  pathname: string;
+  loading: boolean;
+  connected: boolean;
+  isReconnecting: boolean;
+  hydrationSource?: 'bootstrap' | 'reconnect' | 'refresh';
+  projectTitle?: string;
+  chapterTitle?: string;
+}
+
+export const deriveNavigationState = (pathname: string): NavigationState => {
+  const parts = pathname.split('/').filter(Boolean);
+  
+  let routeKind: RouteKind = 'unknown';
+  let activeGlobalId = 'library';
+  let activeProjectId: string | undefined;
+  let activeChapterId: string | undefined;
+
+  if (pathname === '/') {
+    routeKind = 'library';
+    activeGlobalId = 'library';
+  } else if (pathname === '/queue') {
+    routeKind = 'queue';
+    activeGlobalId = 'queue';
+  } else if (pathname === '/voices') {
+    routeKind = 'voices';
+    activeGlobalId = 'voices';
+  } else if (pathname === '/settings') {
+    routeKind = 'settings';
+    activeGlobalId = 'settings';
+  } else if (parts[0] === 'project' && parts[1]) {
+    routeKind = 'project-overview';
+    activeGlobalId = 'project';
+    activeProjectId = parts[1];
+  } else if (parts[0] === 'chapter' && parts[1]) {
+    routeKind = 'chapter-editor';
+    activeGlobalId = 'project';
+    activeChapterId = parts[1];
+  }
+
+  return {
+    activeGlobalId,
+    activeProjectId,
+    activeChapterId,
+    routeKind,
+  };
+};
+
+export const deriveHydrationStatus = (inputs: {
+  loading: boolean;
+  connected: boolean;
+  isReconnecting: boolean;
+  source?: 'bootstrap' | 'reconnect' | 'refresh';
+}): HydrationStatus => {
+  if (inputs.loading || inputs.source === 'bootstrap') return 'bootstrap';
+  if (inputs.isReconnecting) return 'reconnecting';
+  if (inputs.source === 'reconnect') return 'recovering';
+  if (inputs.source === 'refresh') return 'refreshing';
+  if (!inputs.connected) return 'error';
+  return 'ready';
+};
+
+export const createStudioShellState = (inputs: ShellInputs): StudioShellState => {
+  const navigation = deriveNavigationState(inputs.pathname);
+  const hydration: ShellHydrationState = {
+    status: deriveHydrationStatus({
+      loading: inputs.loading,
+      connected: inputs.connected,
+      isReconnecting: inputs.isReconnecting,
+      source: inputs.hydrationSource,
+    }),
+    lastHydratedAt: Date.now(),
+  };
+
+  const breadcrumbContext = {
+    projectId: navigation.activeProjectId,
+    projectTitle: inputs.projectTitle,
+    chapterId: navigation.activeChapterId,
+    chapterTitle: inputs.chapterTitle,
+    isEditorSurface: navigation.routeKind === 'chapter-editor',
+  };
+
+  const breadcrumbs = navigation.activeChapterId 
+    ? createChapterBreadcrumbs(breadcrumbContext)
+    : createProjectBreadcrumbs(breadcrumbContext);
+
+  const projectSubnav = createProjectSubnav(navigation.activeProjectId);
+
+  return {
+    navigation,
+    hydration,
+    breadcrumbs,
+    projectSubnav,
+  };
+};
+
 export const createStudioShell = () => {
   consumeContractMarkers([
     INTENDED_UPSTREAM_CALLERS,
     INTENDED_DOWNSTREAM_DEPENDENCIES,
     FORBIDDEN_DIRECT_IMPORTS,
     GLOBAL_NAVIGATION_NODES,
-    PROJECT_NAVIGATION_NODES,
-    COMPANION_SURFACES,
     createProjectBreadcrumbs,
     createChapterBreadcrumbs,
     createProjectSubnav,
   ]);
-  return null;
+  return {
+    // Return a minimal compatibility shape if needed, 
+    // but the main goal is providing the state derivation above.
+    version: '2.0-beta',
+    status: 'state-only'
+  };
 };
 
 const consumeContractMarkers = (..._values: readonly unknown[]) => undefined;

@@ -1,22 +1,58 @@
-// Navigation model for Studio 2.0.
-//
-// This module defines the intended shell hierarchy and route relationships so
-// later UI work can implement navigation against a stable UX model instead of
-// inventing structure ad hoc.
+export type NavigationLevel = 'global' | 'project' | 'chapter' | 'companion';
 
 export interface NavigationNode {
   id: string;
   label: string;
-  level: 'global' | 'project' | 'chapter' | 'companion';
+  level: NavigationLevel;
   parentId?: string;
+  href?: string;
+}
+
+export type RouteKind = 
+  | 'library' 
+  | 'project-overview' 
+  | 'project-chapters' 
+  | 'project-queue' 
+  | 'project-export' 
+  | 'project-settings' 
+  | 'chapter-editor' 
+  | 'queue' 
+  | 'voices' 
+  | 'settings' 
+  | 'unknown';
+
+export interface NavigationState {
+  activeGlobalId: string;
+  activeProjectId?: string;
+  activeChapterId?: string;
+  routeKind: RouteKind;
+}
+
+export type HydrationStatus = 
+  | 'bootstrap' 
+  | 'ready' 
+  | 'reconnecting' 
+  | 'recovering' 
+  | 'refreshing' 
+  | 'error';
+
+export interface ShellHydrationState {
+  status: HydrationStatus;
+  lastHydratedAt?: number;
+}
+
+export interface StudioShellState {
+  navigation: NavigationState;
+  hydration: ShellHydrationState;
+  breadcrumbs: { id: string; label: string; href?: string }[];
+  projectSubnav: { id: string; label: string; href?: string }[];
 }
 
 export const GLOBAL_NAVIGATION_NODES: NavigationNode[] = [
-  { id: 'library', label: 'Library', level: 'global' },
-  { id: 'project', label: 'Project', level: 'global' },
-  { id: 'queue', label: 'Queue', level: 'global' },
-  { id: 'voices', label: 'Voices', level: 'global' },
-  { id: 'settings', label: 'Settings', level: 'global' },
+  { id: 'library', label: 'Library', level: 'global', href: '/' },
+  { id: 'queue', label: 'Queue', level: 'global', href: '/queue' },
+  { id: 'voices', label: 'Voices', level: 'global', href: '/voices' },
+  { id: 'settings', label: 'Settings', level: 'global', href: '/settings' },
 ];
 
 export const PROJECT_NAVIGATION_NODES: NavigationNode[] = [
