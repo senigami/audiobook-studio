@@ -7,7 +7,7 @@ import threading
 import time
 from dataclasses import asdict
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from json import JSONDecodeError
 
 from .models import Job
@@ -70,7 +70,7 @@ def _default_state() -> Dict[str, Any]:
     }
 
 
-def _normalize_settings(settings: Dict[str, Any] | None) -> Dict[str, Any]:
+def _normalize_settings(settings: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     defaults = _default_state()["settings"].copy()
     normalized = defaults.copy()
     if settings:
@@ -255,41 +255,84 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
             if k == "progress":
                 if v is not None:
                     v = round(float(v), 2)
-                if not force_broadcast:
-                    current_status = j.get("status")
-                    if current_status not in ("queued", "preparing"):
-                        if v < (j.get("progress") or 0.0):
-                            logger.debug("Skipping progress regression for %s: %s -> %s", job_id, j.get("progress"), v)
-                            continue
+
+                target_status = updates.get("status") or j.get("status")
+                current_p = j.get("progress") or 0.0
+
+                # Strictly prevent regression once running, even if forced.
+                # Only allow backward movement if status is being reset to a pre-running state (e.g. back to 'queued').
+                if target_status in ("running", "finalizing", "done"):
+                    # 0.01 floor removal: Allow regression to 0.0 if we are only at the very start (< 0.03)
+                    # This allows the 'preparing -> running 0.0' handoff to happen cleanly.
+                    if v is not None and v < current_p and current_p >= 0.03:
+                        logger.debug("Preventing progress regression for %s during %s: %s -> %s", job_id, target_status, current_p, v)
+                        # Clamp to current progress instead of skipping entirely
+                        v = current_p
 
             if j.get(k) != v:
                 j[k] = v
                 changed_fields.append(k)
 
-        # 4. ETA basis/end_at hardening
-        # If we have eta_seconds but no basis/end_at, default to remaining_from_update
-        if "eta_seconds" in changed_fields or "eta_seconds" in updates:
-            eta_val = updates.get("eta_seconds") if "eta_seconds" in updates else j.get("eta_seconds")
+        # 4. ETA basis/end_at hardening & Observed Progress Projection
+        event_updated_at = float(updates.get("updated_at") or time.time())
+        status = updates.get("status") or j.get("status")
+        progress = updates.get("progress") if "progress" in updates else j.get("progress")
+        started_at = updates.get("started_at") or j.get("started_at")
+
+        # Explicit ETA check or Observed projection
+        if "eta_seconds" in updates:
+            eta_val = updates.get("eta_seconds")
             if eta_val is not None:
+                sanitized_eta = max(0, int(eta_val))
+                j["eta_seconds"] = sanitized_eta
+                updates["eta_seconds"] = sanitized_eta
+
                 if (updates.get("eta_basis") or j.get("eta_basis")) is None:
                     j["eta_basis"] = "remaining_from_update"
                     updates["eta_basis"] = "remaining_from_update"
                     if "eta_basis" not in changed_fields:
                         changed_fields.append("eta_basis")
 
-                # If basis is remaining, ensure we have a valid estimated_end_at
+                # Recompute anchor relative to this specific update event
                 if (updates.get("eta_basis") or j.get("eta_basis")) == "remaining_from_update":
-                    if (updates.get("estimated_end_at") or j.get("estimated_end_at")) is None or "eta_seconds" in changed_fields:
-                        anchor = updates.get("updated_at") or j.get("updated_at") or time.time()
-                        end_at = float(anchor) + float(eta_val)
-                        j["estimated_end_at"] = end_at
-                        updates["estimated_end_at"] = end_at
-                        if "estimated_end_at" not in changed_fields:
-                            changed_fields.append("estimated_end_at")
+                    end_at = event_updated_at + sanitized_eta
+                    j["estimated_end_at"] = end_at
+                    updates["estimated_end_at"] = end_at
+                    if "estimated_end_at" not in changed_fields:
+                        changed_fields.append("estimated_end_at")
+                    if "eta_seconds" not in changed_fields:
+                        changed_fields.append("eta_seconds")
+            else:
+                # Explicitly clear ETA metadata
+                for k in ("eta_seconds", "eta_basis", "estimated_end_at"):
+                    if j.get(k) is not None:
+                        j[k] = None
+                        updates[k] = None
+                        if k not in changed_fields:
+                            changed_fields.append(k)
+        elif status == "running" and started_at and progress is not None and 0.03 <= progress < 0.98:
+            # Observed progress projection (Bug 5)
+            # Only compute if we don't have a fresh explicit ETA update in this payload
+            elapsed = event_updated_at - started_at
+            if elapsed > 1:
+                import math
+                remaining = math.ceil(elapsed * (1 - progress) / progress)
+                # Omit if remaining is absurdly huge (> 24 hours) or if progress stagnant
+                if 1 <= remaining <= 86400:
+                    j["eta_seconds"] = remaining
+                    updates["eta_seconds"] = remaining
+                    j["eta_basis"] = "remaining_from_update"
+                    updates["eta_basis"] = "remaining_from_update"
+                    end_at = event_updated_at + remaining
+                    j["estimated_end_at"] = end_at
+                    updates["estimated_end_at"] = end_at
+                    for k in ("eta_seconds", "eta_basis", "estimated_end_at"):
+                        if k not in changed_fields:
+                            changed_fields.append(k)
 
         auto_updated_at = None
         if changed_fields or force_broadcast:
-            auto_updated_at = float(updates.get("updated_at") or time.time())
+            auto_updated_at = event_updated_at
             if j.get("updated_at") != auto_updated_at:
                 j["updated_at"] = auto_updated_at
                 if "updated_at" not in changed_fields:

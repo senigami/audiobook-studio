@@ -11,9 +11,8 @@ cancel_flags: Dict[str, threading.Event] = {}
 pause_flag = threading.Event()
 
 # Progress Calculation Constants
-# Preparing owns the true "0%" phase now, so once synthesis begins we only
-# reserve a tiny nonzero floor to show that real generation has started.
-PROGRESS_PREPARE_LIMIT = 0.01
+# Preparing owns the true "0%" phase now. Status is authoritative.
+PROGRESS_PREPARE_LIMIT = 0.0
 PROGRESS_PREPARE_STEP = 0.005
 PROGRESS_MAX_PREDICTED = 0.85
 PROGRESS_STITCH_LIMIT = 0.98
@@ -42,8 +41,19 @@ def set_paused(value: bool):
         pause_flag.clear()
         update_settings({"is_paused": False})
 
-def _estimate_seconds(text_chars: int, cps: float) -> int:
-    return max(5, int(text_chars / max(1.0, cps)))
+def _estimate_seconds(text_chars: int, cps: float, group_count: int = 1) -> int:
+    """Estimate synthesis time including startup and per-text-segment overhead."""
+    # Base character-dependent run time
+    base_run_time = text_chars / max(1.0, cps)
+
+    # Per-segment overhead (initialization/handoff per XTTS text segment): ~3s
+    # Base synthesis start overhead: ~4s
+    # The argument is kept as group_count for compatibility with older callers,
+    # but should represent the number of source text segments when available.
+    group_overhead = max(1, group_count) * 3.0
+    start_overhead = 4.0
+
+    return int(base_run_time + group_overhead + start_overhead)
 
 def format_seconds(seconds: int) -> str:
     """Formats seconds into readable string (e.g. 1h 2m 3s or 45s)."""

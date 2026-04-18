@@ -32,12 +32,12 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     const engine = job.engine || liveJob?.engine || '';
     const activeSegmentProgress = liveJob?.active_segment_progress;
     const jobProgress = job.progress ?? liveJob?.progress ?? 0;
-    const renderGroupCount = liveJob?.render_group_count ?? 0;
-    const completedRenderGroups = liveJob?.completed_render_groups ?? 0;
-    const activeRenderGroupIndex = liveJob?.active_render_group_index ?? 0;
-    const totalRenderWeight = liveJob?.total_render_weight ?? 0;
-    const completedRenderWeight = liveJob?.completed_render_weight ?? 0;
-    const activeRenderGroupWeight = liveJob?.active_render_group_weight ?? 0;
+    const renderGroupCount = job.render_group_count ?? liveJob?.render_group_count ?? 0;
+    const completedRenderGroups = job.completed_render_groups ?? liveJob?.completed_render_groups ?? 0;
+    const activeRenderGroupIndex = job.active_render_group_index ?? liveJob?.active_render_group_index ?? 0;
+    const totalRenderWeight = job.total_render_weight ?? liveJob?.total_render_weight ?? 0;
+    const completedRenderWeight = job.completed_render_weight ?? liveJob?.completed_render_weight ?? 0;
+    const activeRenderGroupWeight = job.active_render_group_weight ?? liveJob?.active_render_group_weight ?? 0;
     const isGroupedChapterJob = renderGroupCount > 0 && !job.segment_ids?.length && !liveJob?.segment_ids?.length;
     const activeGroupProgress = activeRenderGroupIndex > completedRenderGroups
         ? Math.max(0, Math.min(activeSegmentProgress ?? 0, 1))
@@ -59,7 +59,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     const useLiveSegmentProgress = ['voice_build', 'voice_test'].includes(engine)
         && status === 'running'
         && typeof activeSegmentProgress === 'number'
-        && activeSegmentProgress > 0;
+        && activeSegmentProgress >= 0;
     const progress = !isTrulyActive
         ? 0
         : useLiveSegmentProgress

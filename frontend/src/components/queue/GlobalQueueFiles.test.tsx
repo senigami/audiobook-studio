@@ -270,6 +270,27 @@ describe('Global Queue Components', () => {
             fireEvent.click(screen.getByTitle('Cancel Job'));
             expect(onRemove).toHaveBeenCalledWith('job-1');
         });
+
+        it('stabilizes grouped-job policy from the first frame by reading render group count from the authoritative queue job', () => {
+             render(
+                <QueueItem 
+                    job={{ 
+                        ...mockJob, 
+                        status: 'running', 
+                        progress: 0,
+                        render_group_count: 5,
+                    } as any}
+                    liveJob={undefined}
+                    localPaused={false}
+                    formatJobTitle={(j) => `Title for ${j.id}`}
+                    formatTime={(t) => `Time ${t}`}
+                    onRemove={vi.fn()}
+                />
+            );
+
+            // Even if liveJob is missing, it should detect grouped progress and disable backward movement
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-allow-backward', 'false');
+        });
     });
 
     describe('GlobalQueue', () => {

@@ -41,7 +41,7 @@ def test_broadcast_job_updated_uses_current_job_status_for_normalized_event(monk
 
     broadcast_job_updated(
         "job-1",
-        {"progress": 0.5},
+        {"progress": 0.5, "eta_seconds": 12},
         {"status": "running", "progress": 0.5, "eta_seconds": 12},
     )
 
@@ -53,7 +53,7 @@ def test_broadcast_job_updated_uses_current_job_status_for_normalized_event(monk
     assert messages[1] == {
         "type": "job_updated",
         "job_id": "job-1",
-        "updates": {"progress": 0.5},
+        "updates": {"progress": 0.5, "eta_seconds": 12},
     }
 
 

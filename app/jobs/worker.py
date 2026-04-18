@@ -181,6 +181,8 @@ def _maybe_autotune_xtts_cps(job, start: float, chars: int, perf: dict):
         return
     if getattr(job, "engine", None) not in ("xtts", "mixed"):
         return
+    if getattr(job, "status", None) != "done":
+        return
 
     eff_start = getattr(job, "synthesis_started_at", None) or start
     dur = time.time() - eff_start
@@ -207,6 +209,7 @@ def worker_loop(q):
 
             chars = 0
             eta = 0
+            eta_unit_count = 1
             text = None
             voice_job_settings = None
 
@@ -216,7 +219,7 @@ def worker_loop(q):
                 if chars > 0 and voice_job_settings.get("engine", "xtts") == "xtts":
                     perf = get_performance_metrics()
                     cps = perf.get("xtts_cps", BASELINE_XTTS_CPS)
-                    eta = _estimate_seconds(chars, cps)
+                    eta = _estimate_seconds(chars, cps, group_count=eta_unit_count)
                 else:
                     eta = 0
             elif j.engine != "audiobook":
@@ -225,33 +228,48 @@ def worker_loop(q):
                     with get_connection() as conn:
                         cursor = conn.cursor()
                         placeholders = ",".join(["?"] * len(j.segment_ids))
-                        cursor.execute(f"SELECT SUM(LENGTH(text_content)) FROM chapter_segments WHERE id IN ({placeholders})", j.segment_ids)
+                        cursor.execute(f"SELECT COUNT(*), SUM(LENGTH(text_content)) FROM chapter_segments WHERE id IN ({placeholders})", j.segment_ids)
                         row = cursor.fetchone()
-                        chars = row[0] if row and row[0] else 0
+                        eta_unit_count = row[0] if row and row[0] else len(j.segment_ids)
+                        chars = row[1] if row and row[1] else 0
                 elif j.is_bake:
                     from ..db import get_connection
                     with get_connection() as conn:
                         cursor = conn.cursor()
-                        cursor.execute("SELECT SUM(LENGTH(text_content)) FROM chapter_segments WHERE chapter_id = ?", (j.chapter_id,))
+                        cursor.execute("SELECT COUNT(*), SUM(LENGTH(text_content)) FROM chapter_segments WHERE chapter_id = ?", (j.chapter_id,))
                         row = cursor.fetchone()
-                        chars = row[0] if row and row[0] else 0
+                        eta_unit_count = row[0] if row and row[0] else 1
+                        chars = row[1] if row and row[1] else 0
                 elif j.chapter_file:
-                    try:
-                        if j.project_id:
-                            from ..config import get_project_text_dir
-                            text_path = safe_join(get_project_text_dir(j.project_id), j.chapter_file)
-                        else:
-                            text_path = safe_join(CHAPTER_DIR, j.chapter_file)
+                    if j.chapter_id:
+                        try:
+                            from ..db import get_connection
+                            with get_connection() as conn:
+                                cursor = conn.cursor()
+                                cursor.execute("SELECT COUNT(*), SUM(LENGTH(text_content)) FROM chapter_segments WHERE chapter_id = ?", (j.chapter_id,))
+                                row = cursor.fetchone()
+                                eta_unit_count = row[0] if row and row[0] else 1
+                                chars = row[1] if row and row[1] else 0
+                        except Exception:
+                            eta_unit_count = 1
 
-                        text = text_path.read_text(encoding="utf-8", errors="replace")
-                        chars = len(text)
+                    try:
+                        if chars <= 0:
+                            if j.project_id:
+                                from ..config import get_project_text_dir
+                                text_path = safe_join(get_project_text_dir(j.project_id), j.chapter_file)
+                            else:
+                                text_path = safe_join(CHAPTER_DIR, j.chapter_file)
+
+                            text = text_path.read_text(encoding="utf-8", errors="replace")
+                            chars = len(text)
                     except (FileNotFoundError, ValueError):
                         pass
 
                 if chars > 0:
                     perf = get_performance_metrics()
                     cps = perf.get("xtts_cps", BASELINE_XTTS_CPS)
-                    eta = _estimate_seconds(chars, cps)
+                    eta = _estimate_seconds(chars, cps, group_count=eta_unit_count)
             else:
                 if j.project_id:
                     from ..config import get_project_audio_dir
@@ -304,11 +322,15 @@ def worker_loop(q):
             send_progress = initial_progress if is_audiobook else 0.0
             send_started = adjusted_start if is_audiobook else None
 
+            # Bug 4: Non-audiobook preparing status should NOT send a rough total ETA
+            # because it's not a fresh 'remaining_from_update' estimate yet.
+            send_eta = eta if is_audiobook else None
+
             update_job(
                 jid,
                 status=initial_status,
                 started_at=send_started,
-                eta_seconds=eta,
+                eta_seconds=send_eta,
                 progress=send_progress,
                 completed_render_groups=completed_render_groups,
                 render_group_count=render_group_count,
@@ -330,7 +352,8 @@ def worker_loop(q):
                 update_job(jid, status="done", finished_at=time.time(), progress=1.0)
                 continue
 
-            if j.engine not in ("audiobook", "voice_build", "voice_test") and not (text or j.segment_ids or j.is_bake):
+            has_db_chapter_text = bool(j.chapter_id and chars > 0)
+            if j.engine not in ("audiobook", "voice_build", "voice_test") and not (text or j.segment_ids or j.is_bake or has_db_chapter_text):
                 update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error=f"Chapter file not found: {j.chapter_file}")
                 continue
 
@@ -370,7 +393,8 @@ def worker_loop(q):
                     j._synthesis_started_once = True
                     j.synthesis_started_at = now
                     j.status = "running"
-                    prog = max(resume_progress, PROGRESS_PREPARE_LIMIT)
+
+                    prog = resume_progress
                     j.progress = prog
 
                     if resume_started_at and resume_progress > 0:
@@ -378,7 +402,16 @@ def worker_loop(q):
                     else:
                         j.started_at = now - (prog * eta) if eta > 0 else now
 
-                    update_job(jid, status="running", progress=prog, started_at=j.started_at)
+                    update_job(
+                        jid, 
+                        status="running", 
+                        progress=prog, 
+                        started_at=j.started_at,
+                        # Bug 8: Compute a conservative startup ETA now that 
+                        # synthesis has actually begun. This ensures the progress
+                        # bar starts moving immediately with a trustworthy clock.
+                        eta_seconds=_estimate_seconds(chars, cps, group_count=eta_unit_count),
+                    )
                     return
 
                 if "[START_SEGMENT]" in s:

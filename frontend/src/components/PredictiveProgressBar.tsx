@@ -172,6 +172,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     const [displayProgress, setDisplayProgress] = useState(clamp01(progress));
     
     const currentLaneRef = useRef<ProgressLane | null>(null);
+    const prevPresentationStateRef = useRef<string | null>(presentationState);
     const migrationRef = useRef<LaneMigration | null>(null);
     const displayProgressRef = useRef<number>(displayProgress);
     
@@ -179,6 +180,8 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         source: 'init',
         value: clamp01(progress),
     });
+
+    const isPhaseHandoff = isPreparingStatus(prevPresentationStateRef.current) && !isPreparingStatus(presentationState);
 
     const lastUpdateMetadataRef = useRef<{
         incomingProgress: number | null;
@@ -192,12 +195,35 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         currentVisualAtUpdate: null,
     });
 
-    const updateLaneToTarget = (source: string, nextEndAtMs: number | null, nextProgress: number) => {
+    const updateLaneToTarget = (source: string, nextEndAtMs: number | null, nextProgress: number, instant = false) => {
         const nowMs = Date.now();
         const currentVisual = getRenderedProgress(currentLaneRef.current, migrationRef.current, nowMs, displayProgressRef.current);
         const activeCurrentEndAtMs = migrationRef.current?.toLane.endAtMs ?? currentLaneRef.current?.endAtMs ?? null;
 
         const incomingProgress = clamp01(nextProgress);
+
+        if (instant) {
+            const snapLane: ProgressLane = {
+                startedAtMs: nowMs,
+                startProgress: incomingProgress,
+                endAtMs: nextEndAtMs,
+            };
+            currentLaneRef.current = snapLane;
+            setCurrentLane(snapLane);
+            setMigration(null);
+            migrationRef.current = null;
+            displayProgressRef.current = incomingProgress;
+            setDisplayProgress(incomingProgress);
+
+            lastUpdateMetadataRef.current = {
+                incomingProgress,
+                effectiveTargetProgress: incomingProgress,
+                evidenceWeightFraction: 1,
+                currentVisualAtUpdate: currentVisual
+            };
+            return;
+        }
+
         const confidence = clamp01(evidenceWeightFraction ?? 1);
         const weightedTargetProgress = currentVisual + ((incomingProgress - currentVisual) * confidence);
 
@@ -263,10 +289,12 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             etaSeconds,
             etaBasis,
             estimatedEndAt,
-            updatedAt
+            updatedAt,
         });
-        updateLaneToTarget('prop-sync', nextEndAtMs, progress);
-    }, [progress, startedAt, etaSeconds, etaBasis, estimatedEndAt, updatedAt]);
+
+        updateLaneToTarget('prop-sync', nextEndAtMs, progress, isPhaseHandoff);
+        prevPresentationStateRef.current = presentationState;
+    }, [progress, startedAt, etaSeconds, etaBasis, estimatedEndAt, updatedAt, presentationState, isPhaseHandoff]);
 
     useEffect(() => {
         if (!isLiveAnimatedStatus(presentationState)) return;
@@ -321,6 +349,12 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     const terminalStatusText = getTerminalStatusText(visualState);
     const terminalFillStyle = getTerminalFillStyle(visualState);
 
+    // Deriving a stable phase key forces a remount on broad mode transitions (preparing -> active),
+    // which prevents the browser from trying to animate widthRegressions from 100% back to 0.
+    const stablePhaseKey = indeterminate
+        ? (visualState === 'preparing' ? 'preparing-indeterminate' : 'finalizing-indeterminate')
+        : (isActiveStatus(visualState) || visualState === 'running' ? 'determinate-active' : 'terminal');
+
     useEffect(() => {
         if (!onDebugSnapshot) return;
         onDebugSnapshot(buildPredictiveProgressDebugSnapshot({
@@ -370,6 +404,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         return (
             <div style={{ height: '6px', background: 'rgba(0,0,0,0.05)', borderRadius: '3px', overflow: 'hidden' }} data-testid="progress-bar-tiny">
                 <div
+                    key={stablePhaseKey}
                     className={visualState === 'finalizing' ? 'progress-bar-finalizing' : indeterminateClassName}
                     style={{
                         height: '100%',
@@ -377,7 +412,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                         background: visualState === 'finalizing' ? 'rgba(191, 219, 254, 0.34)' : terminalFillStyle?.background ?? 'var(--accent)',
                         opacity: terminalStatusText && (isQueuedStatus(visualState) || isCancelledStatus(visualState)) ? 0.55 : 1,
                         boxShadow: terminalFillStyle?.boxShadow ?? (visualState === 'finalizing' ? '0 0 15px rgba(59, 130, 246, 0.45)' : '0 0 15px var(--accent)'),
-                        transition: shouldAnimateWidth && !isTerminalStatus(visualState) ? 'width 0.25s linear' : 'none'
+                        transition: (shouldAnimateWidth && !isTerminalStatus(visualState)) ? 'width 0.25s linear' : 'none'
                     }}
                 />
             </div>
@@ -419,6 +454,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             )}
             <div style={{ height: '6px', background: 'rgba(0,0,0,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
                 <div
+                    key={stablePhaseKey}
                     className={visualState === 'finalizing' ? 'progress-bar-finalizing' : indeterminateClassName}
                     style={{
                         height: '100%',
@@ -426,7 +462,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                         background: visualState === 'finalizing' ? 'rgba(191, 219, 254, 0.34)' : (indeterminate && preparingIndeterminate ? 'rgba(248, 250, 252, 0.96)' : terminalFillStyle?.background ?? 'var(--accent)'),
                         opacity: terminalStatusText && (isQueuedStatus(visualState) || isCancelledStatus(visualState)) ? 0.55 : 1,
                         boxShadow: visualState === 'finalizing' ? '0 0 15px rgba(59, 130, 246, 0.45)' : (indeterminate && preparingIndeterminate ? '0 0 10px rgba(226,232,240,0.45)' : terminalFillStyle?.boxShadow ?? '0 0 15px var(--accent)'),
-                        transition: shouldAnimateWidth && !isTerminalStatus(visualState) ? 'width 0.25s linear' : 'none'
+                        transition: (shouldAnimateWidth && !isTerminalStatus(visualState)) ? 'width 0.25s linear' : 'none'
                     }}
                 />
             </div>

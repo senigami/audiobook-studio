@@ -90,11 +90,10 @@ describe('PredictiveProgressBar', () => {
     })
 
     it('jumps the loader to zero when preparing hands off to running', () => {
+        vi.useFakeTimers()
         const { container, rerender } = render(
             <PredictiveProgressBar
                 progress={0}
-                startedAt={100}
-                etaSeconds={120}
                 label="Proc"
                 status="preparing"
                 showEta={false}
@@ -106,14 +105,16 @@ describe('PredictiveProgressBar', () => {
         rerender(
             <PredictiveProgressBar
                 progress={0.01}
-                startedAt={100}
-                etaSeconds={120}
                 label="Proc"
                 status="running"
                 showEta={false}
+                transitionTickCount={1}
+                predictive={false}
             />
         )
-        expect(fill().style.width).toBe('1%')
+        act(() => { vi.advanceTimersByTime(1000) })
+        expect(screen.getByText('1%')).toBeTruthy()
+        vi.useRealTimers()
     })
 
     it('can render raw live progress without ETA prediction', () => {
@@ -200,26 +201,24 @@ describe('PredictiveProgressBar', () => {
         const { rerender } = render(
             <PredictiveProgressBar
                 progress={0}
-                startedAt={1}
-                etaSeconds={100}
                 label="Proc"
                 status="running"
                 showEta={false}
                 transitionTickCount={4}
                 tickMs={250}
+                predictive={false}
             />
         )
         expect(screen.getByText('0%')).toBeTruthy()
         rerender(
             <PredictiveProgressBar
                 progress={0.33}
-                startedAt={1}
-                etaSeconds={100}
                 label="Proc"
                 status="running"
                 showEta={false}
                 transitionTickCount={4}
                 tickMs={250}
+                predictive={false}
             />
         )
         expect(readPercent()).toBeLessThan(33)
@@ -234,28 +233,26 @@ describe('PredictiveProgressBar', () => {
         const { rerender } = render(
             <PredictiveProgressBar
                 progress={0.6}
-                startedAt={1}
-                etaSeconds={100}
                 label="Proc"
                 status="running"
                 showEta={false}
                 allowBackwardProgress={true}
                 transitionTickCount={4}
                 tickMs={250}
+                predictive={false}
             />
         )
         expect(screen.getByText('60%')).toBeTruthy()
         rerender(
             <PredictiveProgressBar
                 progress={0.25}
-                startedAt={1}
-                etaSeconds={100}
                 label="Proc"
                 status="running"
                 showEta={false}
                 allowBackwardProgress={true}
                 transitionTickCount={4}
                 tickMs={250}
+                predictive={false}
             />
         )
         // Default backward correction is 2 ticks (500ms)
@@ -408,6 +405,7 @@ describe('PredictiveProgressBar', () => {
                 label="Proc"
                 status="preparing"
                 showEta={false}
+                transitionTickCount={1}
             />
         )
         rerender(
@@ -419,8 +417,11 @@ describe('PredictiveProgressBar', () => {
                 label="Proc"
                 status="running"
                 showEta={false}
+                transitionTickCount={1}
+                predictive={false}
             />
         )
+        act(() => { vi.advanceTimersByTime(300) })
         expect(screen.getByText('5%')).toBeTruthy()
         vi.useRealTimers()
     })
@@ -513,6 +514,133 @@ describe('PredictiveProgressBar', () => {
         expect(captured.activeTransitionTickCount).toBe(2)
         expect(captured.migrationDurationMs).toBe(500) // 2 * 250
         vi.useRealTimers()
+    })
+
+    it('activates the progress bar for running jobs even at exactly 0.0 progress', () => {
+        const { container } = render(
+            <PredictiveProgressBar 
+                progress={0} 
+                status="running" 
+                showEta={false}
+            />
+        )
+        const fill = () => container.querySelector('[data-testid="progress-bar"] > div:last-child > div') as HTMLElement
+        // Running 0.0 should not be indeterminate. It should be a real bar at 0%.
+        expect(fill().style.width).toBe('0%')
+        expect(screen.queryByText('Working...')).toBeNull()
+        expect(container.querySelector('.progress-bar-pending')).toBeNull()
+    })
+
+    it('triggers predictive movement for running 0.0 jobs as soon as an ETA is provided', () => {
+        vi.useFakeTimers()
+        const now = 100_000
+        vi.setSystemTime(now)
+        const { container } = render(
+            <PredictiveProgressBar 
+                progress={0} 
+                status="running" 
+                showEta={true}
+                etaSeconds={100}
+                updatedAt={now / 1000}
+                tickMs={250}
+            />
+        )
+        const fill = () => container.querySelector('[data-testid="progress-bar"] > div:last-child > div') as HTMLElement
+        expect(fill().style.width).toBe('0%')
+        
+        act(() => {
+            vi.advanceTimersByTime(10000) // 10 seconds
+        })
+        
+        // 10s of 100s is 10%
+        expect(readPercent()).toBe(10)
+        vi.useRealTimers()
+    })
+
+    it('performs an instant mode swap (no backward animation) on preparing -> running transition', () => {
+        vi.useFakeTimers()
+        const { container, rerender } = render(
+            <PredictiveProgressBar 
+                progress={0.5} 
+                status="preparing" 
+                showEta={false}
+            />
+        )
+        const fill = () => container.querySelector('[data-testid="progress-bar"] > div:last-child > div') as HTMLElement
+        
+        // Preparing should be 100% and indeterminate
+        expect(fill().style.width).toBe('100%')
+        
+        // Rerender to running at 0.0
+        // This should snap instantly to 0% and suppress transition
+        act(() => {
+            rerender(
+                <PredictiveProgressBar 
+                    progress={0} 
+                    status="running" 
+                    showEta={false}
+                />
+            )
+        })
+        
+        expect(fill().style.width).toBe('0%')
+        // The element should have remounted (key change), so no backward slide occurs.
+        // We can check if it has the determinate phase key if we really wanted to, 
+        // but checking the width snap is sufficient for this logic.
+        
+        vi.useRealTimers()
+    })
+
+    it('verifies real queue trace sequence: running 0/no ETA -> metadata -> grouped progress', () => {
+        vi.useFakeTimers()
+        const { container, rerender } = render(
+            <PredictiveProgressBar 
+                progress={0} 
+                status="running" 
+                showEta={true}
+            />
+        )
+        const fill = () => container.querySelector('[data-testid="progress-bar"] > div:last-child > div') as HTMLElement
+        
+        // determinate 0%
+        expect(fill().style.width).toBe('0%')
+        
+        // Rerender with metadata but no progress change
+        const nowMs = Date.now()
+        rerender(
+            <PredictiveProgressBar 
+                progress={0} 
+                status="running" 
+                showEta={true}
+                etaSeconds={60}
+                updatedAt={nowMs / 1000}
+                etaBasis="remaining_from_update"
+            />
+        )
+        
+        // Still at 0% but now has an ETA/clock lane
+        expect(fill().style.width).toBe('0%')
+        
+        // Advance timers - should start moving
+        act(() => { vi.advanceTimersByTime(1000) })
+        // 1s out of 60s is ~1.6%
+        expect(parseFloat(fill().style.width)).toBeGreaterThan(0)
+        
+        vi.useRealTimers()
+    })
+
+    it('remains at determinate 0% for running jobs without an ETA', () => {
+        const { container } = render(
+            <PredictiveProgressBar 
+                progress={0} 
+                status="running" 
+                showEta={false}
+                etaSeconds={undefined}
+            />
+        )
+        const fill = () => container.querySelector('[data-testid="progress-bar"] > div:last-child > div') as HTMLElement
+        expect(fill().style.width).toBe('0%')
+        expect(container.querySelector('.progress-bar-pending')).toBeNull()
     })
 })
 
