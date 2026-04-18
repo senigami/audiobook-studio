@@ -3,8 +3,8 @@ import os
 import uuid
 import json
 import time
+import importlib
 from unittest.mock import patch
-from app.db.core import init_db
 from app.models import Job
 from app.state import put_job, clear_all_jobs
 
@@ -15,22 +15,21 @@ def client():
     return TestClient(fastapi_app)
 
 @pytest.fixture
-def clean_db():
-    db_path = "/tmp/test_api_queue.db"
-    if os.path.exists(db_path):
-        os.unlink(db_path)
-    os.environ["DB_PATH"] = db_path
+def clean_db(tmp_path):
+    db_path = tmp_path / f"test_api_queue_{uuid.uuid4().hex}.db"
+    os.environ["DB_PATH"] = os.fspath(db_path)
     import app.db.core
-    import importlib
-    importlib.reload(app.db.core)
-    init_db()
-    clear_all_jobs()
+    core = importlib.reload(app.db.core)
+    core.init_db()
+
+    import app.state as state_module
+    state_module.clear_all_jobs()
 
     from app.state import update_settings
     update_settings({"default_speaker_profile": "DefaultVoice"})
 
     yield
-    clear_all_jobs()
+    state_module.clear_all_jobs()
     if os.path.exists(db_path):
         os.unlink(db_path)
 

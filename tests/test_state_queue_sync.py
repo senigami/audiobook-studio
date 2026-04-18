@@ -3,27 +3,27 @@ from unittest.mock import patch
 
 import pytest
 
+import app.state as state_module
 from app.models import Job
-from app.state import clear_all_jobs, put_job, update_job, _JOB_LISTENERS, _LISTENER_SNAPSHOT_SUPPORT, add_job_listener
 
 
 @pytest.fixture(autouse=True)
 def clean_state_and_listeners(tmp_path):
     with patch("app.state.STATE_FILE", tmp_path / "state.json"):
-        clear_all_jobs()
-        original = list(_JOB_LISTENERS)
-        original_cache = dict(_LISTENER_SNAPSHOT_SUPPORT)
-        _JOB_LISTENERS.clear()
-        _LISTENER_SNAPSHOT_SUPPORT.clear()
+        state_module.clear_all_jobs()
+        original = list(state_module._JOB_LISTENERS)
+        original_cache = dict(state_module._LISTENER_SNAPSHOT_SUPPORT)
+        state_module._JOB_LISTENERS.clear()
+        state_module._LISTENER_SNAPSHOT_SUPPORT.clear()
         yield
-        _JOB_LISTENERS.clear()
-        _JOB_LISTENERS.extend(original)
-        _LISTENER_SNAPSHOT_SUPPORT.clear()
-        _LISTENER_SNAPSHOT_SUPPORT.update(original_cache)
+        state_module._JOB_LISTENERS.clear()
+        state_module._JOB_LISTENERS.extend(original)
+        state_module._LISTENER_SNAPSHOT_SUPPORT.clear()
+        state_module._LISTENER_SNAPSHOT_SUPPORT.update(original_cache)
 
 
 def test_update_job_syncs_queue_before_broadcast_listener(tmp_path):
-    put_job(
+    state_module.put_job(
         Job(
             id="job-voxtral-sync",
             engine="voxtral",
@@ -40,7 +40,7 @@ def test_update_job_syncs_queue_before_broadcast_listener(tmp_path):
     def listener(job_id, updates):
         events.append(f"listener:{job_id}:{updates.get('status')}")
 
-    _JOB_LISTENERS.append(listener)
+    state_module._JOB_LISTENERS.append(listener)
 
     audio_dir = tmp_path / "audio"
     audio_dir.mkdir()
@@ -48,7 +48,7 @@ def test_update_job_syncs_queue_before_broadcast_listener(tmp_path):
     with patch("app.config.get_project_audio_dir", return_value=audio_dir), \
          patch("app.db.update_queue_item", side_effect=lambda *args, **kwargs: events.append("queue-sync")), \
          patch("app.api.ws.broadcast_queue_update", side_effect=lambda: events.append("queue-broadcast")):
-        update_job(
+        state_module.update_job(
             "job-voxtral-sync",
             status="done",
             finished_at=time.time(),
@@ -64,7 +64,7 @@ def test_update_job_syncs_queue_before_broadcast_listener(tmp_path):
 
 
 def test_update_job_passes_current_job_snapshot_to_three_arg_listeners(tmp_path):
-    put_job(
+    state_module.put_job(
         Job(
             id="job-snapshot-sync",
             engine="xtts",
@@ -81,12 +81,12 @@ def test_update_job_passes_current_job_snapshot_to_three_arg_listeners(tmp_path)
     def listener(job_id, updates, current_job):
         events.append((job_id, updates, current_job))
 
-    _JOB_LISTENERS.append(listener)
+    state_module._JOB_LISTENERS.append(listener)
 
     with patch("app.db.update_queue_item"), \
          patch("app.api.ws.broadcast_queue_update"), \
          patch("app.api.ws.broadcast_chapter_updated"):
-        update_job("job-snapshot-sync", progress=0.5)
+        state_module.update_job("job-snapshot-sync", progress=0.5)
 
     assert len(events) == 1
     job_id, updates, current_job = events[0]
@@ -103,7 +103,7 @@ def test_add_job_listener_caches_snapshot_support():
     def listener(job_id, updates, current_job):
         return (job_id, updates, current_job)
 
-    add_job_listener(listener)
+    state_module.add_job_listener(listener)
 
     assert getattr(listener, "_supports_job_snapshot", None) is True
 
@@ -119,6 +119,6 @@ def test_add_job_listener_supports_bound_method_callbacks():
     listener = Listener()
     callback = listener.on_update
 
-    add_job_listener(callback)
+    state_module.add_job_listener(callback)
 
-    assert _LISTENER_SNAPSHOT_SUPPORT[callback] is True
+    assert state_module._LISTENER_SNAPSHOT_SUPPORT[callback] is True

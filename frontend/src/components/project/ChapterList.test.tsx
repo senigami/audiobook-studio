@@ -7,11 +7,13 @@ vi.mock('../PredictiveProgressBar', () => ({
   PredictiveProgressBar: ({
     progress,
     status,
+    predictive,
     allowBackwardProgress,
     evidenceWeightFraction,
   }: {
     progress: number;
     status?: string;
+    predictive?: boolean;
     allowBackwardProgress?: boolean;
     evidenceWeightFraction?: number;
   }) => (
@@ -19,6 +21,7 @@ vi.mock('../PredictiveProgressBar', () => ({
       data-testid="progress-bar"
       data-progress={progress}
       data-status={status ?? ''}
+      data-predictive={String(!!predictive)}
       data-allow-backward={String(!!allowBackwardProgress)}
       data-evidence-weight-fraction={evidenceWeightFraction ?? ''}
     />
