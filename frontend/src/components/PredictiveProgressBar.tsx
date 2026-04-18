@@ -170,18 +170,18 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     const [currentLane, setCurrentLane] = useState<ProgressLane | null>(null);
     const [migration, setMigration] = useState<LaneMigration | null>(null);
     const [displayProgress, setDisplayProgress] = useState(clamp01(progress));
-    
+
     const currentLaneRef = useRef<ProgressLane | null>(null);
     const prevPresentationStateRef = useRef<string | null>(presentationState);
     const migrationRef = useRef<LaneMigration | null>(null);
     const displayProgressRef = useRef<number>(displayProgress);
-    
+
     const lastDisplayWriteRef = useRef<{ source: string; value: number | null }>({
         source: 'init',
         value: clamp01(progress),
     });
 
-    const isPhaseHandoff = isPreparingStatus(prevPresentationStateRef.current) && !isPreparingStatus(presentationState);
+    const isPhaseHandoff = isPreparingStatus(prevPresentationStateRef.current ?? undefined) && !isPreparingStatus(presentationState);
 
     const lastUpdateMetadataRef = useRef<{
         incomingProgress: number | null;

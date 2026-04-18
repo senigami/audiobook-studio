@@ -255,20 +255,6 @@ def _write_setting_value(cursor, key: str, value: Any) -> None:
     )
 
 
-def _sample_to_db_tuple(sample: Dict[str, Any]) -> tuple:
-    return (
-        str(sample.get("engine") or "xtts"),
-        sample.get("speaker_profile"),
-        int(sample.get("chars") or 0),
-        max(1, int(sample.get("segment_count") or 1)),
-        int(sample.get("render_group_count") or 0),
-        float(sample.get("duration_seconds") or 0),
-        float(sample.get("cps") or 0),
-        float(sample.get("seconds_per_segment") or 0),
-        float(sample.get("completed_at") or time.time()),
-    )
-
-
 def _read_legacy_performance_metrics_json(cursor) -> Optional[Dict[str, Any]]:
     cursor.execute(
         "SELECT value FROM settings WHERE key = ?",
@@ -285,20 +271,60 @@ def _read_legacy_performance_metrics_json(cursor) -> Optional[Dict[str, Any]]:
     return decoded if isinstance(decoded, dict) else None
 
 
+def _record_legacy_performance_history(history: list[Dict[str, Any]]) -> None:
+    from .db.performance import record_render_sample
+
+    for sample in history:
+        if not isinstance(sample, dict):
+            continue
+        record_render_sample(
+            engine=str(sample.get("engine") or "xtts"),
+            chars=int(sample.get("chars") or 0),
+            segment_count=max(1, int(sample.get("segment_count") or 1)),
+            duration_seconds=float(sample.get("duration_seconds") or 0),
+            cps=float(sample["cps"]) if sample.get("cps") is not None else None,
+            seconds_per_segment=(
+                float(sample["seconds_per_segment"])
+                if sample.get("seconds_per_segment") is not None
+                else None
+            ),
+            job_id=sample.get("job_id"),
+            project_id=sample.get("project_id"),
+            chapter_id=sample.get("chapter_id"),
+            speaker_profile=sample.get("speaker_profile"),
+            render_group_count=int(sample.get("render_group_count") or 0),
+            started_at=sample.get("started_at"),
+            audio_duration_seconds=sample.get("audio_duration_seconds"),
+            make_mp3=bool(sample.get("make_mp3")),
+            completed_at=sample.get("completed_at"),
+        )
+
+
 def _read_performance_metrics_from_db() -> Dict[str, Any]:
     metrics = _default_performance_metrics()
     try:
         from .db.core import get_connection
+        from .db.performance import get_render_history
+
+        legacy_history = None
+        legacy_metrics_found = False
 
         with get_connection() as conn:
             cursor = conn.cursor()
             _ensure_settings_table(cursor)
             legacy_metrics = _read_legacy_performance_metrics_json(cursor)
             if legacy_metrics:
-                metrics.update({
-                    "audiobook_speed_multiplier": legacy_metrics.get("audiobook_speed_multiplier", metrics["audiobook_speed_multiplier"]),
-                    "xtts_cps": legacy_metrics.get("xtts_cps", metrics["xtts_cps"]),
-                })
+                legacy_metrics_found = True
+                metrics["audiobook_speed_multiplier"] = legacy_metrics.get(
+                    "audiobook_speed_multiplier",
+                    metrics["audiobook_speed_multiplier"],
+                )
+                metrics["xtts_cps"] = legacy_metrics.get("xtts_cps", metrics["xtts_cps"])
+                history = legacy_metrics.get("xtts_render_history")
+                if isinstance(history, list):
+                    legacy_history = history
+
+            # 1. Read scalars from settings table
             metrics["audiobook_speed_multiplier"] = _read_setting_float(
                 cursor,
                 "performance_metric:audiobook_speed_multiplier",
@@ -309,68 +335,31 @@ def _read_performance_metrics_from_db() -> Dict[str, Any]:
                 "performance_metric:xtts_cps",
                 float(metrics["xtts_cps"]),
             )
-            cursor.execute("""
-                SELECT
-                    engine,
-                    speaker_profile,
-                    chars,
-                    segment_count,
-                    render_group_count,
-                    duration_seconds,
-                    cps,
-                    seconds_per_segment,
-                    completed_at
-                FROM render_performance_samples
-                ORDER BY completed_at DESC, id DESC
-                LIMIT 30
-            """)
-            rows = cursor.fetchall()
-            history = [
-                {
-                    "engine": row["engine"],
-                    "speaker_profile": row["speaker_profile"],
-                    "chars": row["chars"],
-                    "segment_count": row["segment_count"],
-                    "render_group_count": row["render_group_count"],
-                    "duration_seconds": row["duration_seconds"],
-                    "cps": row["cps"],
-                    "seconds_per_segment": row["seconds_per_segment"],
-                    "completed_at": row["completed_at"],
-                }
-                for row in reversed(rows)
-            ]
-            if not history and legacy_metrics and isinstance(legacy_metrics.get("xtts_render_history"), list):
-                history = legacy_metrics["xtts_render_history"][-30:]
-                _write_render_history_rows(cursor, history)
+
+            # 2. Read history from render_performance_samples table
+            # We use the new dedicated module for this.
+            metrics["xtts_render_history"] = get_render_history(limit=100)
+
             if legacy_metrics:
+                _write_setting_value(
+                    cursor,
+                    "performance_metric:audiobook_speed_multiplier",
+                    metrics["audiobook_speed_multiplier"],
+                )
+                _write_setting_value(cursor, "performance_metric:xtts_cps", metrics["xtts_cps"])
+
+        if legacy_history and not metrics["xtts_render_history"]:
+            _record_legacy_performance_history(legacy_history)
+            metrics["xtts_render_history"] = get_render_history(limit=100)
+
+        if legacy_metrics_found:
+            with get_connection() as conn:
+                cursor = conn.cursor()
                 cursor.execute("DELETE FROM settings WHERE key = ?", (_PERFORMANCE_METRICS_SETTING_KEY,))
                 conn.commit()
-            metrics["xtts_render_history"] = history
     except Exception:
         logger.warning("Failed to read performance metrics from database", exc_info=True)
     return _normalize_performance_metrics(metrics)
-
-
-def _write_render_history_rows(cursor, history: list[Dict[str, Any]]) -> None:
-    cursor.execute("DELETE FROM render_performance_samples")
-    rows = [_sample_to_db_tuple(sample) for sample in history[-30:]]
-    cursor.executemany(
-        """
-        INSERT INTO render_performance_samples (
-            engine,
-            speaker_profile,
-            chars,
-            segment_count,
-            render_group_count,
-            duration_seconds,
-            cps,
-            seconds_per_segment,
-            completed_at
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        rows,
-    )
 
 
 def _write_performance_metrics_to_db(metrics: Dict[str, Any]) -> bool:
@@ -390,8 +379,8 @@ def _write_performance_metrics_to_db(metrics: Dict[str, Any]) -> bool:
                 "performance_metric:xtts_cps",
                 metrics["xtts_cps"],
             )
-            _write_render_history_rows(cursor, metrics.get("xtts_render_history") or [])
-            cursor.execute("DELETE FROM settings WHERE key = ?", (_PERFORMANCE_METRICS_SETTING_KEY,))
+            # History is NOT written via this path anymore.
+            # Individual samples are recorded via record_render_sample().
             conn.commit()
         return True
     except Exception:
@@ -409,14 +398,26 @@ def _remove_legacy_performance_metrics_from_state(state: Dict[str, Any]) -> None
 def get_performance_metrics() -> Dict[str, Any]:
     with _STATE_LOCK:
         state = _load_state_no_lock()
-        legacy_metrics = state.get("performance_metrics")
         metrics = _read_performance_metrics_from_db()
+        legacy_metrics = state.get("performance_metrics")
+
         if legacy_metrics is not None:
-            metrics = _normalize_performance_metrics({**metrics, **legacy_metrics})
-            if legacy_metrics.get("xtts_render_history") and not metrics.get("xtts_render_history"):
-                metrics["xtts_render_history"] = legacy_metrics["xtts_render_history"][-30:]
+            # Migration from state.json
+            metrics["audiobook_speed_multiplier"] = legacy_metrics.get("audiobook_speed_multiplier", metrics["audiobook_speed_multiplier"])
+            metrics["xtts_cps"] = legacy_metrics.get("xtts_cps", metrics["xtts_cps"])
+
+            history = legacy_metrics.get("xtts_render_history")
+            if history and isinstance(history, list) and not metrics["xtts_render_history"]:
+                from .db.performance import record_render_sample
+                for sample in history:
+                    record_render_sample(**sample)
+
+            # Write back to DB to ensure scalars are saved
             _write_performance_metrics_to_db(metrics)
+            # Re-read to ensure we have the final migrated state in the return value
+            metrics = _read_performance_metrics_from_db()
             _remove_legacy_performance_metrics_from_state(state)
+
         return metrics
 
 

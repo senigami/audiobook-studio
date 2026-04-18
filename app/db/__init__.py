@@ -6,6 +6,7 @@ from .segments import clear_duplicate_segment_audio_paths, update_segments_statu
 from .speakers import create_speaker, get_speaker, list_speakers, update_speaker, delete_speaker, update_voice_profile_references, normalize_base_profiles
 from .queue import upsert_queue_row, add_to_queue, get_queue, clear_queue, update_queue_item, reconcile_queue_status, reorder_queue, clear_completed_queue, remove_from_queue
 from .reconcile import reconcile_project_audio
+from .performance import record_render_sample, get_render_history, apply_performance_retention_policy
 from .migration import migrate_state_json_to_db
 
 # Run migration on import if needed

@@ -224,30 +224,34 @@ def _record_xtts_sample(job, start: float, chars: int, perf: dict, source_segmen
         segment_count = max(1, len(segment_ids or [1]))
 
     base_cps = chars / dur
-    new_sample = {
-        "engine": engine,
-        "speaker_profile": _job_field(persisted, "speaker_profile", _job_field(job, "speaker_profile")),
-        "chars": chars,
-        "segment_count": segment_count,
-        "render_group_count": _job_field(persisted, "render_group_count", _job_field(job, "render_group_count", 0)) or 0,
-        "duration_seconds": round(dur, 2),
-        "cps": round(base_cps, 2),
-        "seconds_per_segment": round(dur / segment_count, 2),
-        "completed_at": finished_at,
-    }
+    from ..db.performance import record_render_sample
 
-    current_perf = get_performance_metrics()
-    history = current_perf.get("xtts_render_history") or perf.get("xtts_render_history") or []
-    history.append(new_sample)
-    # Bounded history: keep latest 30 samples
-    history = history[-30:]
+    # Record detailed sample
+    record_render_sample(
+        engine=engine,
+        chars=chars,
+        segment_count=segment_count,
+        duration_seconds=round(dur, 2),
+        cps=round(base_cps, 2),
+        seconds_per_segment=round(dur / segment_count, 2),
+        job_id=job_id,
+        project_id=_job_field(persisted, "project_id", _job_field(job, "project_id")),
+        chapter_id=chapter_id,
+        speaker_profile=_job_field(persisted, "speaker_profile", _job_field(job, "speaker_profile")),
+        render_group_count=_job_field(persisted, "render_group_count", _job_field(job, "render_group_count", 0)) or 0,
+        started_at=eff_start,
+        completed_at=finished_at,
+        make_mp3=_job_field(persisted, "make_mp3", _job_field(job, "make_mp3", False)),
+    )
 
     # Re-derive robust CPS for legacy field compatibility
-    robust_params = get_robust_eta_params(history, current_perf.get("xtts_cps", perf.get("xtts_cps", BASELINE_XTTS_CPS)))
-    robust_cps = robust_params[0] if robust_params else current_perf.get("xtts_cps", perf.get("xtts_cps", BASELINE_XTTS_CPS))
+    # We still keep xtts_cps in settings because workers use it for quick lookups
+    current_perf = get_performance_metrics()
+    history = current_perf.get("xtts_render_history") or []
+    robust_params = get_robust_eta_params(history, current_perf.get("xtts_cps", BASELINE_XTTS_CPS))
+    robust_cps = robust_params[0] if robust_params else current_perf.get("xtts_cps", BASELINE_XTTS_CPS)
 
     update_performance_metrics(
-        xtts_render_history=history,
         xtts_cps=round(robust_cps, 2)
     )
 
