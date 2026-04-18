@@ -41,19 +41,51 @@ def set_paused(value: bool):
         pause_flag.clear()
         update_settings({"is_paused": False})
 
-def _estimate_seconds(text_chars: int, cps: float, group_count: int = 1) -> int:
-    """Estimate synthesis time including startup and per-text-segment overhead."""
-    # Base character-dependent run time
-    base_run_time = text_chars / max(1.0, cps)
+def _trimmed_mean(values: list[float], fallback: float) -> float:
+    if not values:
+        return fallback
 
-    # Per-segment overhead (initialization/handoff per XTTS text segment): ~3s
-    # Base synthesis start overhead: ~4s
-    # The argument is kept as group_count for compatibility with older callers,
-    # but should represent the number of source text segments when available.
-    group_overhead = max(1, group_count) * 3.0
-    start_overhead = 4.0
+    ordered = sorted(values)
+    trim = int(len(ordered) * 0.15) if len(ordered) >= 5 else 0
+    effective = ordered[trim:len(ordered) - trim] if trim else ordered
+    return sum(effective) / len(effective)
 
-    return int(base_run_time + group_overhead + start_overhead)
+
+def get_robust_eta_params(history: list[dict], fallback_cps: float) -> tuple[float, float, float] | None:
+    """Derive robust CPS, per-segment overhead, and base startup overhead from history."""
+    if not history:
+        return None
+
+    cps_values = sorted([s["cps"] for s in history if s.get("cps", 0) > 0])
+    if not cps_values:
+        return None
+
+    avg_cps = _trimmed_mean(cps_values, fallback_cps)
+
+    sps_values = sorted([
+        s.get("seconds_per_segment", 0)
+        for s in history
+        if s.get("seconds_per_segment", 0) > 0
+    ])
+    avg_sps = _trimmed_mean(sps_values, 3.0)
+
+    return avg_cps, avg_sps, 4.0
+
+def _estimate_seconds(text_chars: int, cps: float, group_count: int = 1, robust_params: tuple[float, float, float] | None = None) -> int:
+    """Conservative estimation of synthesis time including startup and segment overhead."""
+    if robust_params:
+        eff_cps, eff_sps, eff_start = robust_params
+    else:
+        eff_cps, eff_sps, eff_start = cps, 3.0, 4.0
+
+    base_run_time = text_chars / max(1.0, eff_cps)
+
+    if robust_params:
+        # Historical seconds-per-segment already includes the character cost for
+        # those samples. Use the stronger model instead of double-counting both.
+        return int(max(base_run_time, max(1, group_count) * eff_sps) + eff_start)
+
+    return int(base_run_time + (max(1, group_count) * eff_sps) + eff_start)
 
 def format_seconds(seconds: int) -> str:
     """Formats seconds into readable string (e.g. 1h 2m 3s or 45s)."""

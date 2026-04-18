@@ -190,3 +190,4 @@ audiobook_studio.db
 /xtts_audio
 /chapters_out
 
+/node_modules

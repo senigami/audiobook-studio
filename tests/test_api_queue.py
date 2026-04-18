@@ -1,5 +1,6 @@
 import pytest
 import os
+import uuid
 import json
 import time
 from unittest.mock import patch
@@ -36,14 +37,15 @@ def clean_db():
 def test_queue_api(clean_db, client):
     from app.db.projects import create_project
     from app.db.chapters import create_chapter
-    pid = create_project("P1")
-    cid1 = create_chapter(pid, "C1", "T1")
-    cid2 = create_chapter(pid, "C2", "T2")
+    prefix = uuid.uuid4().hex[:6]
+    pid = create_project(f"P-{prefix}")
+    cid1 = create_chapter(pid, f"C1-{prefix}", "T1")
+    cid2 = create_chapter(pid, f"C2-{prefix}", "T2")
 
     # Add to queue (from generation.py)
     with patch("app.api.routers.generation.enqueue"):
         response = client.post("/api/processing_queue", data={"project_id": pid, "chapter_id": cid1})
-        assert response.status_code == 200
+        assert response.status_code == 200, f"Failed to add to queue: {response.json()}"
         qid1 = response.json()["queue_id"]
 
         response = client.post("/api/processing_queue", data={"project_id": pid, "chapter_id": cid2})
@@ -273,7 +275,7 @@ def test_processing_queue_hydrates_running_progress_for_reload(clean_db, client)
     assert row["status"] == "running"
     assert row["started_at"] is not None
     assert row["eta_seconds"] == 100
-    assert row["progress"] >= 0.09
+    assert row["progress"] == 0.0
 
 
 def test_processing_queue_hydrates_running_progress_when_active_segment_is_set_but_idle(clean_db, client):
@@ -308,7 +310,7 @@ def test_processing_queue_hydrates_running_progress_when_active_segment_is_set_b
 
     row = next(item for item in response.json() if item["id"] == jid)
     assert row["status"] == "running"
-    assert row["progress"] >= 0.09
+    assert row["progress"] == 0.0
 
 
 def test_processing_queue_hydrates_preparing_progress_for_reload(clean_db, client):
@@ -341,4 +343,4 @@ def test_processing_queue_hydrates_preparing_progress_for_reload(clean_db, clien
 
     row = next(item for item in response.json() if item["id"] == jid)
     assert row["status"] == "preparing"
-    assert row["progress"] >= 0.09
+    assert row["progress"] == 0.0

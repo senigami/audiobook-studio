@@ -55,6 +55,9 @@ def test_worker_loop_xtts_updates_learned_cps_from_completed_chapter_runs(mock_q
 
     def fake_handler(*args, **kwargs):
         sample_job.synthesis_started_at = time.time() - 10
+        sample_job.finished_at = time.time()
+        sample_job.status = "done"
+        return "done"
 
     with patch("app.jobs.worker.get_jobs", return_value={"test_job_1": sample_job}), \
          patch("app.jobs.worker.update_job"), \
@@ -194,7 +197,7 @@ def test_on_output_logic(mock_q, sample_job):
         assert sample_job.status == "running"
         start_synthesis_call = mock_update.call_args_list[-1]
         assert start_synthesis_call.kwargs["status"] == "running"
-        assert start_synthesis_call.kwargs["progress"] == 0.01
+        assert start_synthesis_call.kwargs["progress"] == 0.0
 
         # Repeated group starts must not reseed the chapter run.
         mock_update.reset_mock()
@@ -207,7 +210,7 @@ def test_on_output_logic(mock_q, sample_job):
         mock_update.reset_mock()
         sample_job.synthesis_started_at = time.time()
         on_out("Processing | 50% [########    ]")
-        assert sample_job.progress == 0.01
+        assert sample_job.progress == 0.0
         mock_update.assert_not_called()
 
         # Test character limit warning
@@ -297,6 +300,8 @@ def test_worker_loop_mixed_updates_learned_cps_from_completed_chapter_runs(mock_
 
     def fake_handler(*args, **kwargs):
         sample_job.synthesis_started_at = time.time() - 20
+        sample_job.finished_at = time.time()
+        sample_job.status = "done"
         return "done"
 
     with patch("app.jobs.worker.get_jobs", return_value={"mixed_job": sample_job}), \

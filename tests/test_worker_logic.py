@@ -50,6 +50,6 @@ def test_prediction_logic():
     # Test the calculation in jobs.py if we can
     from app.jobs import _estimate_seconds
 
-    # Test expectation for _estimate_seconds (minimum is 5)
-    assert _estimate_seconds(20, 10) == 5
-    assert _estimate_seconds(200, 10) == 20
+    # 20 chars at 10 cps = 2 + (1*3) + 4 = 9
+    assert _estimate_seconds(20, 10) == 9
+    assert _estimate_seconds(200, 10) == 20 + 3 + 4 # 27

@@ -23,6 +23,12 @@ logger = logging.getLogger(__name__)
 _STATE_LOCK = threading.RLock()
 _JOB_LISTENERS = []
 _LISTENER_SNAPSHOT_SUPPORT: dict[object, bool] = {}
+_PERFORMANCE_METRICS_SETTING_KEY = "performance_metrics"
+_DEFAULT_PERFORMANCE_METRICS = {
+    "audiobook_speed_multiplier": 1.0,
+    "xtts_cps": 16.7,
+    "xtts_render_history": [],
+}
 
 def add_job_listener(callback):
     """Register a callback to be notified of job updates."""
@@ -63,10 +69,6 @@ def _default_state() -> Dict[str, Any]:
             "voxtral_enabled": False,
             "voxtral_model": "voxtral-mini-tts-2603",
         },
-        "performance_metrics": {
-            "audiobook_speed_multiplier": 1.0,
-            "xtts_cps": 16.7
-        }
     }
 
 
@@ -175,23 +177,262 @@ def update_settings(updates: dict = None, **kwargs) -> None:
         _atomic_write_text(STATE_FILE, json.dumps(state, indent=2))
 
 
+def _default_performance_metrics() -> Dict[str, Any]:
+    return {
+        "audiobook_speed_multiplier": _DEFAULT_PERFORMANCE_METRICS["audiobook_speed_multiplier"],
+        "xtts_cps": _DEFAULT_PERFORMANCE_METRICS["xtts_cps"],
+        "xtts_render_history": [],
+    }
+
+
+def _normalize_performance_metrics(metrics: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    normalized = _default_performance_metrics()
+    if metrics:
+        normalized.update(metrics)
+
+    try:
+        normalized["audiobook_speed_multiplier"] = float(normalized.get("audiobook_speed_multiplier", 1.0))
+    except (TypeError, ValueError):
+        normalized["audiobook_speed_multiplier"] = 1.0
+
+    try:
+        normalized["xtts_cps"] = float(normalized.get("xtts_cps", 16.7))
+    except (TypeError, ValueError):
+        normalized["xtts_cps"] = 16.7
+
+    history = normalized.get("xtts_render_history")
+    normalized["xtts_render_history"] = history if isinstance(history, list) else []
+    return normalized
+
+
+def _ensure_settings_table(cursor) -> None:
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        )
+    """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS render_performance_samples (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            engine TEXT NOT NULL,
+            speaker_profile TEXT,
+            chars INTEGER NOT NULL,
+            segment_count INTEGER NOT NULL,
+            render_group_count INTEGER DEFAULT 0,
+            duration_seconds REAL NOT NULL,
+            cps REAL NOT NULL,
+            seconds_per_segment REAL NOT NULL,
+            completed_at REAL NOT NULL
+        )
+    """)
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_render_performance_completed_at
+        ON render_performance_samples (completed_at)
+    """)
+
+
+def _read_setting_float(cursor, key: str, default: float) -> float:
+    cursor.execute("SELECT value FROM settings WHERE key = ?", (key,))
+    row = cursor.fetchone()
+    if not row:
+        return default
+    value = row["value"] if hasattr(row, "keys") else row[0]
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _write_setting_value(cursor, key: str, value: Any) -> None:
+    cursor.execute(
+        """
+        INSERT INTO settings (key, value)
+        VALUES (?, ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value
+        """,
+        (key, str(value)),
+    )
+
+
+def _sample_to_db_tuple(sample: Dict[str, Any]) -> tuple:
+    return (
+        str(sample.get("engine") or "xtts"),
+        sample.get("speaker_profile"),
+        int(sample.get("chars") or 0),
+        max(1, int(sample.get("segment_count") or 1)),
+        int(sample.get("render_group_count") or 0),
+        float(sample.get("duration_seconds") or 0),
+        float(sample.get("cps") or 0),
+        float(sample.get("seconds_per_segment") or 0),
+        float(sample.get("completed_at") or time.time()),
+    )
+
+
+def _read_legacy_performance_metrics_json(cursor) -> Optional[Dict[str, Any]]:
+    cursor.execute(
+        "SELECT value FROM settings WHERE key = ?",
+        (_PERFORMANCE_METRICS_SETTING_KEY,),
+    )
+    row = cursor.fetchone()
+    if not row:
+        return None
+    value = row["value"] if hasattr(row, "keys") else row[0]
+    try:
+        decoded = json.loads(value)
+    except (TypeError, ValueError, JSONDecodeError):
+        return None
+    return decoded if isinstance(decoded, dict) else None
+
+
+def _read_performance_metrics_from_db() -> Dict[str, Any]:
+    metrics = _default_performance_metrics()
+    try:
+        from .db.core import get_connection
+
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            _ensure_settings_table(cursor)
+            legacy_metrics = _read_legacy_performance_metrics_json(cursor)
+            if legacy_metrics:
+                metrics.update({
+                    "audiobook_speed_multiplier": legacy_metrics.get("audiobook_speed_multiplier", metrics["audiobook_speed_multiplier"]),
+                    "xtts_cps": legacy_metrics.get("xtts_cps", metrics["xtts_cps"]),
+                })
+            metrics["audiobook_speed_multiplier"] = _read_setting_float(
+                cursor,
+                "performance_metric:audiobook_speed_multiplier",
+                float(metrics["audiobook_speed_multiplier"]),
+            )
+            metrics["xtts_cps"] = _read_setting_float(
+                cursor,
+                "performance_metric:xtts_cps",
+                float(metrics["xtts_cps"]),
+            )
+            cursor.execute("""
+                SELECT
+                    engine,
+                    speaker_profile,
+                    chars,
+                    segment_count,
+                    render_group_count,
+                    duration_seconds,
+                    cps,
+                    seconds_per_segment,
+                    completed_at
+                FROM render_performance_samples
+                ORDER BY completed_at DESC, id DESC
+                LIMIT 30
+            """)
+            rows = cursor.fetchall()
+            history = [
+                {
+                    "engine": row["engine"],
+                    "speaker_profile": row["speaker_profile"],
+                    "chars": row["chars"],
+                    "segment_count": row["segment_count"],
+                    "render_group_count": row["render_group_count"],
+                    "duration_seconds": row["duration_seconds"],
+                    "cps": row["cps"],
+                    "seconds_per_segment": row["seconds_per_segment"],
+                    "completed_at": row["completed_at"],
+                }
+                for row in reversed(rows)
+            ]
+            if not history and legacy_metrics and isinstance(legacy_metrics.get("xtts_render_history"), list):
+                history = legacy_metrics["xtts_render_history"][-30:]
+                _write_render_history_rows(cursor, history)
+            if legacy_metrics:
+                cursor.execute("DELETE FROM settings WHERE key = ?", (_PERFORMANCE_METRICS_SETTING_KEY,))
+                conn.commit()
+            metrics["xtts_render_history"] = history
+    except Exception:
+        logger.warning("Failed to read performance metrics from database", exc_info=True)
+    return _normalize_performance_metrics(metrics)
+
+
+def _write_render_history_rows(cursor, history: list[Dict[str, Any]]) -> None:
+    cursor.execute("DELETE FROM render_performance_samples")
+    rows = [_sample_to_db_tuple(sample) for sample in history[-30:]]
+    cursor.executemany(
+        """
+        INSERT INTO render_performance_samples (
+            engine,
+            speaker_profile,
+            chars,
+            segment_count,
+            render_group_count,
+            duration_seconds,
+            cps,
+            seconds_per_segment,
+            completed_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        rows,
+    )
+
+
+def _write_performance_metrics_to_db(metrics: Dict[str, Any]) -> bool:
+    try:
+        from .db.core import get_connection
+
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            _ensure_settings_table(cursor)
+            _write_setting_value(
+                cursor,
+                "performance_metric:audiobook_speed_multiplier",
+                metrics["audiobook_speed_multiplier"],
+            )
+            _write_setting_value(
+                cursor,
+                "performance_metric:xtts_cps",
+                metrics["xtts_cps"],
+            )
+            _write_render_history_rows(cursor, metrics.get("xtts_render_history") or [])
+            cursor.execute("DELETE FROM settings WHERE key = ?", (_PERFORMANCE_METRICS_SETTING_KEY,))
+            conn.commit()
+        return True
+    except Exception:
+        logger.warning("Failed to write performance metrics to database", exc_info=True)
+        return False
+
+
+def _remove_legacy_performance_metrics_from_state(state: Dict[str, Any]) -> None:
+    if "performance_metrics" not in state:
+        return
+    state.pop("performance_metrics", None)
+    _atomic_write_text(STATE_FILE, json.dumps(state, indent=2))
+
+
 def get_performance_metrics() -> Dict[str, Any]:
     with _STATE_LOCK:
         state = _load_state_no_lock()
-        # Fallback to defaults if missing in older state files
-        metrics = state.get("performance_metrics", {})
-        defaults = _default_state()["performance_metrics"]
-        for k, v in defaults.items():
-            metrics.setdefault(k, v)
+        legacy_metrics = state.get("performance_metrics")
+        metrics = _read_performance_metrics_from_db()
+        if legacy_metrics is not None:
+            metrics = _normalize_performance_metrics({**metrics, **legacy_metrics})
+            if legacy_metrics.get("xtts_render_history") and not metrics.get("xtts_render_history"):
+                metrics["xtts_render_history"] = legacy_metrics["xtts_render_history"][-30:]
+            _write_performance_metrics_to_db(metrics)
+            _remove_legacy_performance_metrics_from_state(state)
         return metrics
 
 
 def update_performance_metrics(**updates) -> None:
     with _STATE_LOCK:
         state = _load_state_no_lock()
-        metrics = state.setdefault("performance_metrics", {})
+        metrics = _read_performance_metrics_from_db()
+        if "performance_metrics" in state:
+            legacy_metrics = _normalize_performance_metrics(state.get("performance_metrics"))
+            metrics = _normalize_performance_metrics({**metrics, **legacy_metrics})
+            if legacy_metrics.get("xtts_render_history") and not metrics.get("xtts_render_history"):
+                metrics["xtts_render_history"] = legacy_metrics["xtts_render_history"][-30:]
         metrics.update(updates)
-        _atomic_write_text(STATE_FILE, json.dumps(state, indent=2))
+        metrics = _normalize_performance_metrics(metrics)
+        _write_performance_metrics_to_db(metrics)
+        _remove_legacy_performance_metrics_from_state(state)
 
 
 def get_jobs() -> Dict[str, Job]:
@@ -259,12 +500,12 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
                 target_status = updates.get("status") or j.get("status")
                 current_p = j.get("progress") or 0.0
 
-                # Strictly prevent regression once running, even if forced.
+                # Strictly prevent regression once running, UNLESS forced.
                 # Only allow backward movement if status is being reset to a pre-running state (e.g. back to 'queued').
                 if target_status in ("running", "finalizing", "done"):
                     # 0.01 floor removal: Allow regression to 0.0 if we are only at the very start (< 0.03)
                     # This allows the 'preparing -> running 0.0' handoff to happen cleanly.
-                    if v is not None and v < current_p and current_p >= 0.03:
+                    if not force_broadcast and v is not None and v < current_p and current_p >= 0.03:
                         logger.debug("Preventing progress regression for %s during %s: %s -> %s", job_id, target_status, current_p, v)
                         # Clamp to current progress instead of skipping entirely
                         v = current_p

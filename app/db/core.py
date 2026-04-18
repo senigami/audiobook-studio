@@ -162,6 +162,33 @@ def init_db():
                 )
             """)
 
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS settings (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                )
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS render_performance_samples (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    engine TEXT NOT NULL,
+                    speaker_profile TEXT,
+                    chars INTEGER NOT NULL,
+                    segment_count INTEGER NOT NULL,
+                    render_group_count INTEGER DEFAULT 0,
+                    duration_seconds REAL NOT NULL,
+                    cps REAL NOT NULL,
+                    seconds_per_segment REAL NOT NULL,
+                    completed_at REAL NOT NULL
+                )
+            """)
+
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_render_performance_completed_at
+                ON render_performance_samples (completed_at)
+            """)
+
             # Migrations
             def add_column_if_missing(sql: str, label: str):
                 try:

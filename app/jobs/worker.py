@@ -9,6 +9,7 @@ from pathlib import Path
 from .core import (
     job_queue, assembly_queue, cancel_flags, pause_flag,
     BASELINE_XTTS_CPS, _estimate_seconds, format_seconds, calculate_predicted_progress,
+    get_robust_eta_params,
     PROGRESS_PREPARE_LIMIT, PROGRESS_PREPARE_STEP, PROGRESS_MAX_PREDICTED, PROGRESS_STITCH_LIMIT
 )
 from ..core.feature_flags import is_feature_enabled
@@ -174,24 +175,81 @@ def _generate_voice_sample_via_bridge(
             shutil.move(str(generated), str(out_wav))
     return 0
 
-def _maybe_autotune_xtts_cps(job, start: float, chars: int, perf: dict):
-    if getattr(job, "is_bake", False):
+def _job_field(job, key: str, default=None):
+    if isinstance(job, dict):
+        return job.get(key, default)
+    return getattr(job, key, default)
+
+
+def _record_xtts_sample(job, start: float, chars: int, perf: dict, source_segment_count: int | None = None):
+    # Only train on the persisted terminal job, not the stale in-memory object.
+    # Cancelled, failed, or partial jobs must not poison history.
+    job_id = _job_field(job, "id")
+    persisted = get_jobs().get(job_id) if job_id else None
+    status = _job_field(persisted, "status", _job_field(job, "status"))
+    if status != "done":
+        return
+
+    is_bake = _job_field(persisted, "is_bake", _job_field(job, "is_bake", False))
+    if is_bake:
         return
     if chars <= 0:
         return
-    if getattr(job, "engine", None) not in ("xtts", "mixed"):
-        return
-    if getattr(job, "status", None) != "done":
+
+    engine = _job_field(persisted, "engine", _job_field(job, "engine"))
+    if engine not in ("xtts", "mixed"):
         return
 
-    eff_start = getattr(job, "synthesis_started_at", None) or start
-    dur = time.time() - eff_start
-    if dur <= 0:
+    eff_start = _job_field(persisted, "synthesis_started_at", _job_field(job, "synthesis_started_at"))
+    eff_start = eff_start or start
+    finished_at = _job_field(persisted, "finished_at", _job_field(job, "finished_at")) or time.time()
+    dur = finished_at - eff_start
+    if dur <= 1.0: # Filter out cached/instant runs to avoid poisoning metrics
         return
 
-    new_cps = chars / dur
-    updated = (perf.get("xtts_cps", BASELINE_XTTS_CPS) * 0.8) + (new_cps * 0.2)
-    update_performance_metrics(xtts_cps=updated)
+    segment_count = max(1, int(source_segment_count or 0))
+    chapter_id = _job_field(persisted, "chapter_id", _job_field(job, "chapter_id"))
+
+    if not source_segment_count and chapter_id:
+        try:
+            from ..db.chapters import get_chapter_segments_counts
+            _, total_c = get_chapter_segments_counts(chapter_id)
+            segment_count = max(1, total_c)
+        except Exception:
+            # Fallback
+            segment_ids = _job_field(persisted, "segment_ids", _job_field(job, "segment_ids", [])) or []
+            segment_count = max(1, len(segment_ids or [1]))
+    elif not source_segment_count:
+        segment_ids = _job_field(persisted, "segment_ids", _job_field(job, "segment_ids", [])) or []
+        segment_count = max(1, len(segment_ids or [1]))
+
+    base_cps = chars / dur
+    new_sample = {
+        "engine": engine,
+        "speaker_profile": _job_field(persisted, "speaker_profile", _job_field(job, "speaker_profile")),
+        "chars": chars,
+        "segment_count": segment_count,
+        "render_group_count": _job_field(persisted, "render_group_count", _job_field(job, "render_group_count", 0)) or 0,
+        "duration_seconds": round(dur, 2),
+        "cps": round(base_cps, 2),
+        "seconds_per_segment": round(dur / segment_count, 2),
+        "completed_at": finished_at,
+    }
+
+    current_perf = get_performance_metrics()
+    history = current_perf.get("xtts_render_history") or perf.get("xtts_render_history") or []
+    history.append(new_sample)
+    # Bounded history: keep latest 30 samples
+    history = history[-30:]
+
+    # Re-derive robust CPS for legacy field compatibility
+    robust_params = get_robust_eta_params(history, current_perf.get("xtts_cps", perf.get("xtts_cps", BASELINE_XTTS_CPS)))
+    robust_cps = robust_params[0] if robust_params else current_perf.get("xtts_cps", perf.get("xtts_cps", BASELINE_XTTS_CPS))
+
+    update_performance_metrics(
+        xtts_render_history=history,
+        xtts_cps=round(robust_cps, 2)
+    )
 
 def worker_loop(q):
     while True:
@@ -211,6 +269,10 @@ def worker_loop(q):
             eta = 0
             eta_unit_count = 1
             text = None
+            perf = get_performance_metrics()
+            cps = perf.get("xtts_cps", BASELINE_XTTS_CPS)
+            history = perf.get("xtts_render_history", [])
+            robust_params = get_robust_eta_params(history, cps)
             voice_job_settings = None
 
             if j.engine in ("voice_build", "voice_test"):
@@ -266,10 +328,21 @@ def worker_loop(q):
                     except (FileNotFoundError, ValueError):
                         pass
 
-                if chars > 0:
-                    perf = get_performance_metrics()
-                    cps = perf.get("xtts_cps", BASELINE_XTTS_CPS)
-                    eta = _estimate_seconds(chars, cps, group_count=eta_unit_count)
+                    robust_params = get_robust_eta_params(perf.get("xtts_render_history", []), cps)
+                    # Use DB-backed info if possible
+                    seg_count = 1
+                    if j.chapter_id and j.engine != "voxtral":
+                        try:
+                            from ..db.chapters import get_chapter_segments_counts
+                            _, total_c = get_chapter_segments_counts(j.chapter_id)
+                            seg_count = max(1, total_c)
+                        except Exception:
+                            seg_count = len(getattr(j, "segment_ids", []) or [1])
+                    else:
+                        seg_count = len(getattr(j, "segment_ids", []) or [1])
+
+                    eta_unit_count = seg_count
+                    eta = _estimate_seconds(chars, cps, group_count=seg_count, robust_params=robust_params)
             else:
                 if j.project_id:
                     from ..config import get_project_audio_dir
@@ -360,6 +433,7 @@ def worker_loop(q):
             start = adjusted_start
 
             def on_output(line):
+                nonlocal eta
                 raw_line = line
                 s = line.strip()
                 now = time.time()
@@ -402,15 +476,26 @@ def worker_loop(q):
                     else:
                         j.started_at = now - (prog * eta) if eta > 0 else now
 
+                    # Conservative startup ETA
+                    # Focus Area 1: use DB-backed source text segment count
+                    seg_count = 1
+                    if j.chapter_id:
+                        try:
+                            from ..db.chapters import get_chapter_segments_counts
+                            _, total_c = get_chapter_segments_counts(j.chapter_id)
+                            seg_count = max(1, total_c)
+                        except Exception:
+                            seg_count = len(getattr(j, "segment_ids", []) or [1])
+                    else:
+                        seg_count = len(getattr(j, "segment_ids", []) or [1])
+
+                    eta = _estimate_seconds(chars, cps, group_count=seg_count, robust_params=robust_params)
                     update_job(
                         jid, 
                         status="running", 
                         progress=prog, 
                         started_at=j.started_at,
-                        # Bug 8: Compute a conservative startup ETA now that 
-                        # synthesis has actually begun. This ensures the progress
-                        # bar starts moving immediately with a trustworthy clock.
-                        eta_seconds=_estimate_seconds(chars, cps, group_count=eta_unit_count),
+                        eta_seconds=eta,
                     )
                     return
 
@@ -478,18 +563,17 @@ def worker_loop(q):
                 spk = get_speaker_settings(j.speaker_profile)
 
                 handle_xtts_job(jid, j, start, on_output, cancel_check, sw, spk["speed"], pdir, out_wav, out_mp3, text=text)
-                _maybe_autotune_xtts_cps(j, start, chars, perf)
+                _record_xtts_sample(j, start, chars, perf, eta_unit_count)
             elif j.engine == "voxtral":
                 result = handle_voxtral_job(jid, j, start, on_output, cancel_check, text=text)
                 if result == "cancelled":
                     update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
-                return
             elif j.engine == "mixed":
                 result = handle_mixed_job(jid, j, start, on_output, cancel_check, text=text)
                 if result == "cancelled":
                     update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
-                _maybe_autotune_xtts_cps(j, start, chars, perf)
-                return
+                else:
+                    _record_xtts_sample(j, start, chars, perf, eta_unit_count)
             elif j.engine in ("voice_build", "voice_test"):
                 from ..config import VOICES_DIR
                 pdir = VOICES_DIR / j.speaker_profile
@@ -598,10 +682,6 @@ def worker_loop(q):
                     update_queue_item(jid, "done")
                 except Exception as _qe:
                     logger.warning(f"Could not mark voice job {jid} done in DB queue: {_qe}")
-
-                # Auto-tuning
-                if engine == "xtts":
-                    _maybe_autotune_xtts_cps(j, start, chars, perf)
 
         except Exception:
             tb = traceback.format_exc()
