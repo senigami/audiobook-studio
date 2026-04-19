@@ -19,7 +19,7 @@ Adopt the 2.0 live-state and hydration model before migrating the full editor.
 - [x] Anti-regression merge rules implemented
 - [x] Queue progress cut over to 2.0 live-state model
 - [x] Header progress cut over to 2.0 live-state model
-- [ ] Shell hydration and global navigation state implemented
+- [x] Shell hydration and global navigation state implemented
 
 ## Scope
 
@@ -118,10 +118,10 @@ before the main visible queue/render route has been fully cut over.
 ## Verification Checklist
 
 - [x] Reconnect tests pass
-- [ ] Reload tests pass
+- [x] Reload tests pass
 - [x] Queue consistency tests pass
 - [x] Anti-regression merge tests pass
-- [ ] Hydration behavior tests pass for legacy-backed and mock/dev-shape snapshots
+- [x] Hydration behavior tests pass for legacy-backed and mock/dev-shape snapshots
 
 ## Exit Gate
 
