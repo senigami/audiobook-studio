@@ -22,6 +22,7 @@ const FORBIDDEN_DIRECT_IMPORTS = [
 
 export interface ShellInputs {
   pathname: string;
+  search?: string;
   loading: boolean;
   connected: boolean;
   isReconnecting: boolean;
@@ -30,13 +31,14 @@ export interface ShellInputs {
   chapterTitle?: string;
 }
 
-export const deriveNavigationState = (pathname: string): NavigationState => {
+export const deriveNavigationState = (pathname: string, search?: string): NavigationState => {
   const parts = pathname.split('/').filter(Boolean);
   
   let routeKind: RouteKind = 'unknown';
   let activeGlobalId = 'library';
   let activeProjectId: string | undefined;
   let activeChapterId: string | undefined;
+  let activeProjectSubnavId: string | undefined;
 
   if (pathname === '/') {
     routeKind = 'library';
@@ -54,6 +56,28 @@ export const deriveNavigationState = (pathname: string): NavigationState => {
     routeKind = 'project-overview';
     activeGlobalId = 'project';
     activeProjectId = parts[1];
+
+    // Derive project subnav from tab param
+    const params = new URLSearchParams(search || '');
+    const tab = params.get('tab');
+    if (tab === 'chapters') {
+      routeKind = 'project-chapters';
+      activeProjectSubnavId = 'project-chapters';
+    } else if (tab === 'characters') {
+      routeKind = 'project-chapters'; // Map to project-chapters for now as it's a sub-pane
+      activeProjectSubnavId = 'project-characters';
+    } else if (tab === 'queue') {
+      routeKind = 'project-queue';
+      activeProjectSubnavId = 'project-queue';
+    } else if (tab === 'export') {
+      routeKind = 'project-export';
+      activeProjectSubnavId = 'project-export';
+    } else if (tab === 'settings') {
+      routeKind = 'project-settings';
+      activeProjectSubnavId = 'project-settings';
+    } else {
+      activeProjectSubnavId = 'project-overview';
+    }
   } else if (parts[0] === 'chapter' && parts[1]) {
     routeKind = 'chapter-editor';
     activeGlobalId = 'project';
@@ -64,6 +88,7 @@ export const deriveNavigationState = (pathname: string): NavigationState => {
     activeGlobalId,
     activeProjectId,
     activeChapterId,
+    activeProjectSubnavId,
     routeKind,
   };
 };
@@ -83,7 +108,7 @@ export const deriveHydrationStatus = (inputs: {
 };
 
 export const createStudioShellState = (inputs: ShellInputs): StudioShellState => {
-  const navigation = deriveNavigationState(inputs.pathname);
+  const navigation = deriveNavigationState(inputs.pathname, inputs.search);
   const hydration: ShellHydrationState = {
     status: deriveHydrationStatus({
       loading: inputs.loading,

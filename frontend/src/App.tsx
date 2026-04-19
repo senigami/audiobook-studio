@@ -13,6 +13,8 @@ import { useInitialData } from './hooks/useInitialData';
 import { SettingsTray } from './components/SettingsTray';
 import { ConfirmModal } from './components/ConfirmModal';
 import { createStudioShellState } from './app/layout/StudioShell';
+import { ProjectViewRoute } from './features/project-view/routes/ProjectViewRoute';
+import type { Project } from './types';
 import { motion, AnimatePresence } from 'framer-motion';
 
 function App() {
@@ -114,16 +116,27 @@ function App() {
             <Routes>
               <Route path="/" element={<ProjectLibrary onSelectProject={(id) => navigate(`/project/${id}`)} />} />
               <Route path="/project/:projectId" element={
-                <ProjectView 
-                  jobs={jobs}
-                  segmentProgress={segmentProgress}
-                  speakerProfiles={initialData?.speaker_profiles || []}
-                  speakers={initialData?.speakers || []}
-                  settings={initialData?.settings}
-                  refreshTrigger={queueRefreshTrigger}
-                  segmentUpdate={segmentUpdate}
-                  chapterUpdate={chapterUpdate}
-                />
+                <ProjectViewRoute 
+                  loading={initialLoading || queueLoading}
+                  connected={connected}
+                  isReconnecting={isReconnecting}
+                  refreshingSource={refreshingSource}
+                  projectTitle={initialData?.projects?.find((p: Project) => p.id === location.pathname.split('/')[2])?.name}
+                >
+                  {({ shellState }) => (
+                    <ProjectView 
+                      jobs={jobs}
+                      segmentProgress={segmentProgress}
+                      speakerProfiles={initialData?.speaker_profiles || []}
+                      speakers={initialData?.speakers || []}
+                      settings={initialData?.settings}
+                      refreshTrigger={queueRefreshTrigger}
+                      segmentUpdate={segmentUpdate}
+                      chapterUpdate={chapterUpdate}
+                      shellState={shellState}
+                    />
+                  )}
+                </ProjectViewRoute>
               } />
               <Route path="/queue" element={
                 <GlobalQueue 

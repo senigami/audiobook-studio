@@ -214,9 +214,9 @@ describe('ProjectView', () => {
 
   const renderProjectView = () => {
     return render(
-      <MemoryRouter initialEntries={['/projects/proj-123']}>
+      <MemoryRouter initialEntries={['/project/proj-123']}>
         <Routes>
-          <Route path="/projects/:projectId" element={
+          <Route path="/project/:projectId" element={
             <ProjectView 
               jobs={{}} 
               speakerProfiles={mockSpeakerProfiles as any} 
@@ -503,5 +503,36 @@ describe('ProjectView', () => {
       expect(screen.queryByText('Loading project...')).not.toBeInTheDocument();
       expect(screen.getByRole('combobox')).toHaveValue('Voice 1');
     });
+  });
+
+  it('renders breadcrumbs when shellState is provided', async () => {
+    const mockShellState = {
+      navigation: { activeGlobalId: 'project', activeProjectId: 'proj-123', routeKind: 'project-overview' },
+      hydration: { status: 'ready', lastHydratedAt: 1000 },
+      breadcrumbs: [
+        { id: 'library', label: 'Library', href: '/' },
+        { id: 'project', label: 'Test Project' }
+      ],
+      projectSubnav: []
+    };
+
+    render(
+      <MemoryRouter initialEntries={['/projects/proj-123']}>
+        <Routes>
+          <Route path="/projects/:projectId" element={
+            <ProjectView 
+              jobs={{}} 
+              speakerProfiles={mockSpeakerProfiles as any} 
+              speakers={mockSpeakers as any} 
+              shellState={mockShellState as any}
+            />
+          } />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findAllByText('Test Project');
+    expect(screen.getByRole('navigation', { name: /breadcrumb/i })).toBeInTheDocument();
+    expect(screen.getByText('Library')).toBeInTheDocument();
   });
 });

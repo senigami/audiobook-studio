@@ -213,4 +213,5 @@ export interface GlobalState {
   narrator_ok: boolean;
   speaker_profiles: SpeakerProfile[];
   speakers: Speaker[];
+  projects: Project[];
 }

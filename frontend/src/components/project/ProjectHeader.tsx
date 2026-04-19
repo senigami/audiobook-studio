@@ -1,5 +1,6 @@
 import React from 'react';
 import { ArrowLeft, Clock, CheckCircle, Edit3, Image as ImageIcon, Download, Trash2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { ActionMenu } from '../ActionMenu';
 import type { Project, Audiobook } from '../../types';
 
@@ -16,6 +17,7 @@ interface ProjectHeaderProps {
   formatLength: (seconds: number) => string;
   formatFileSize: (bytes?: number) => string;
   formatRelativeTime: (timestamp?: number) => string;
+  breadcrumbs?: { id: string; label: string; href?: string }[];
 }
 
 export const ProjectHeader: React.FC<ProjectHeaderProps> = ({
@@ -30,8 +32,11 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({
   onDeleteAudiobook,
   formatLength,
   formatFileSize,
-  formatRelativeTime
+  formatRelativeTime,
+  breadcrumbs
 }) => {
+  const navigate = useNavigate();
+
   return (
     <header style={{ 
         background: 'var(--surface)', 
@@ -75,6 +80,28 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({
 
       {/* Project Metadata */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          {/* Breadcrumbs */}
+          {breadcrumbs && breadcrumbs.length > 0 && (
+            <nav aria-label="Breadcrumb" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
+              {breadcrumbs.map((crumb, idx) => (
+                <React.Fragment key={crumb.id}>
+                  {idx > 0 && <span style={{ opacity: 0.5 }}>/</span>}
+                  {crumb.href ? (
+                    <button 
+                      onClick={() => navigate(crumb.href!)}
+                      style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', cursor: 'pointer', fontWeight: 500 }}
+                      className="hover-text-primary"
+                    >
+                      {crumb.label}
+                    </button>
+                  ) : (
+                    <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{crumb.label}</span>
+                  )}
+                </React.Fragment>
+              ))}
+            </nav>
+          )}
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
               <button onClick={onBack} className="btn-ghost" style={{ padding: '0.5rem', marginLeft: '-0.5rem' }}>
                   <ArrowLeft size={20} />

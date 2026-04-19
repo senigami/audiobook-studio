@@ -1,11 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Plus, Zap, ArrowUpDown } from 'lucide-react';
 import { api } from '../api';
-import type { Project, Chapter, Job, Audiobook, SpeakerProfile, Settings, SegmentProgress } from '../types';
+import type { 
+  Project, 
+  Chapter, 
+  Job, 
+  Audiobook, 
+  SpeakerProfile, 
+  Settings, 
+  SegmentProgress 
+} from '../types';
+import type { StudioShellState } from '../app/navigation/model';
 
 // Extracted Components
 import { ProjectHeader } from './project/ProjectHeader';
+import { ProjectSubnav } from './project/ProjectSubnav';
+import { createProjectSubnav } from '../app/navigation/project-subnav';
 import { AssemblyProgress } from './project/AssemblyProgress';
 import { ChapterList } from './project/ChapterList';
 import { AddChapterModal, EditProjectModal, CoverImageModal } from './project/ProjectModals';
@@ -27,12 +38,24 @@ interface ProjectViewProps {
   refreshTrigger?: number;
   segmentUpdate?: { chapterId: string; tick: number };
   chapterUpdate?: { chapterId: string; tick: number };
+  shellState?: StudioShellState;
 }
 
-export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, segmentProgress = {}, speakerProfiles, speakers, settings, refreshTrigger = 0, segmentUpdate, chapterUpdate }) => {
+export const ProjectView: React.FC<ProjectViewProps> = ({ 
+  jobs, 
+  segmentProgress = {}, 
+  speakerProfiles, 
+  speakers, 
+  settings, 
+  refreshTrigger = 0, 
+  segmentUpdate, 
+  chapterUpdate,
+  shellState
+}) => {
   const RECENT_DONE_WINDOW_SECONDS = 60;
   const { projectId } = useParams() as { projectId: string };
   const navigate = useNavigate();
+  const location = useLocation();
   
   const [project, setProject] = useState<Project | null>(null);
   const [chapters, setChapters] = useState<Chapter[]>([]);
@@ -103,8 +126,45 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, segmentProgress 
     handleAssembleProject,
     handleDeleteAudiobook
   } = useProjectActions(projectId, loadData, navigate);
-
   useEffect(() => { loadData(); }, [projectId, refreshTrigger]);
+
+  // Sync currentTab with shellState or URL fallback
+  useEffect(() => {
+    const subnavId = shellState?.navigation.activeProjectSubnavId;
+    if (subnavId) {
+      if (subnavId === 'project-characters') {
+        setCurrentTab('characters');
+      } else {
+        setCurrentTab('chapters');
+      }
+    } else {
+      // Fallback for tests or non-shell usage
+      const params = new URLSearchParams(location.search);
+      if (params.get('tab') === 'characters') {
+        setCurrentTab('characters');
+      } else {
+        setCurrentTab('chapters');
+      }
+    }
+  }, [shellState?.navigation.activeProjectSubnavId, location.search]);
+
+  const subnavState = React.useMemo(() => {
+    if (shellState) {
+      return {
+        items: shellState.projectSubnav,
+        activeId: shellState.navigation.activeProjectSubnavId
+      };
+    }
+    
+    // Fallback for tests or non-shell usage
+    const tab = new URLSearchParams(location.search).get('tab');
+    return {
+      items: createProjectSubnav(projectId),
+      activeId: tab === 'characters' ? 'project-characters' : 
+                tab === 'chapters' ? 'project-chapters' : 
+                'project-overview'
+    };
+  }, [shellState, projectId, location.search]);
 
   const handleProjectVoiceChange = async (voice: string) => {
     const previousVoice = selectedVoice;
@@ -210,15 +270,16 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ jobs, segmentProgress 
         onBack={() => navigate('/')} onEditMetadata={() => setShowEditProjectModal(true)} onShowCover={() => setShowCoverModal(true)}
         onStartAssembly={() => { setSelectedChapters(new Set(chapters.filter(c => c.audio_status === 'done').map(c => c.id))); setIsAssemblyMode(true); }}
         onDeleteAudiobook={handleDeleteAudiobook} formatLength={formatLength} formatFileSize={formatFileSize} formatRelativeTime={formatRelativeTime}
+        breadcrumbs={shellState?.breadcrumbs}
       />
 
       <AssemblyProgress project={project} activeAssemblyJob={pickLatestJob(j => j.engine === 'audiobook' && j.project_id === projectId, false)} 
                         finishedAssemblyJob={pickLatestJob(j => j.engine === 'audiobook' && j.project_id === projectId, true)} />
 
-      <div style={{ display: 'flex', gap: '0.75rem', padding: '0 0.5rem' }}>
-          <button onClick={() => setCurrentTab('chapters')} className={currentTab === 'chapters' ? 'btn-primary' : 'btn-ghost'} style={{ fontWeight: 700, fontSize: '0.9rem' }}>Chapters</button>
-          <button onClick={() => setCurrentTab('characters')} className={currentTab === 'characters' ? 'btn-primary' : 'btn-ghost'} style={{ fontWeight: 700, fontSize: '0.9rem' }}>Characters</button>
-      </div>
+      <ProjectSubnav 
+        items={subnavState.items} 
+        activeId={subnavState.activeId} 
+      />
 
       {currentTab === 'characters' ? (
           <CharactersTab projectId={projectId} speakers={speakers} speakerProfiles={speakerProfiles} />

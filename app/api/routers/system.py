@@ -64,6 +64,9 @@ def api_home(
     settings = get_settings()
     jobs = {j_id: job for j_id, job in get_jobs().items()}
 
+    from ...db import list_projects
+    projects = list_projects()
+
     return {
         "chapters": [],
         "jobs": jobs,
@@ -78,6 +81,7 @@ def api_home(
         "audiobooks": [],
         "speaker_profiles": profiles,
         "speakers": speakers,
+        "projects": projects,
     }
 
 

@@ -1,13 +1,12 @@
-// Project view route boundary for Studio 2.0.
-//
-// This route will eventually compose project metadata, chapter lists, assembly
-// status, and export entry points around canonical project data.
-
+import React, { useMemo } from 'react';
+import { useLocation, useParams } from 'react-router-dom';
 import { createHydrationCoordinator } from '../../../api/hydration';
 import { createStudioQueries } from '../../../api/queries';
 import { createLiveJobsStore } from '../../../store/live-jobs';
+import { createStudioShellState } from '../../../app/layout/StudioShell';
+import type { StudioShellState } from '../../../app/navigation/model';
 
-const INTENDED_UPSTREAM_CALLERS = ['frontend/src/app/routes/index.tsx'];
+const INTENDED_UPSTREAM_CALLERS = ['frontend/src/app/routes/index.tsx', 'frontend/src/App.tsx'];
 const INTENDED_DOWNSTREAM_DEPENDENCIES = [
   'frontend/src/api/hydration/index.ts',
   'frontend/src/api/queries/index.ts',
@@ -17,14 +16,40 @@ const INTENDED_DOWNSTREAM_DEPENDENCIES = [
 ];
 const FORBIDDEN_DIRECT_IMPORTS = [
   'frontend/src/store/editor-session.ts',
-  'frontend/src/components/ProjectView.tsx',
 ];
 
-export const createProjectViewRoute = () => {
-  // Intended future flow:
-  // - act as the project operations hub
-  // - keep project-local navigation visible while switching surfaces
-  // - expose chapter readiness, queue state, export readiness, and recovery entry points
+interface ProjectViewRouteProps {
+  children: (props: { shellState: StudioShellState }) => React.ReactNode;
+  loading: boolean;
+  connected: boolean;
+  isReconnecting: boolean;
+  refreshingSource?: 'bootstrap' | 'reconnect' | 'refresh';
+  projectTitle?: string;
+}
+
+export const ProjectViewRoute: React.FC<ProjectViewRouteProps> = ({ 
+  children, 
+  loading, 
+  connected, 
+  isReconnecting, 
+  refreshingSource,
+  projectTitle
+}) => {
+  const { projectId } = useParams<{ projectId: string }>();
+  const location = useLocation();
+
+  const shellState = useMemo(() => {
+    return createStudioShellState({
+      pathname: location.pathname,
+      search: location.search,
+      loading,
+      connected,
+      isReconnecting,
+      hydrationSource: isReconnecting ? 'reconnect' : refreshingSource,
+      projectTitle,
+    });
+  }, [location.pathname, location.search, loading, connected, isReconnecting, refreshingSource, projectTitle, projectId]);
+
   consumeContractMarkers([
     INTENDED_UPSTREAM_CALLERS,
     INTENDED_DOWNSTREAM_DEPENDENCIES,
@@ -33,6 +58,11 @@ export const createProjectViewRoute = () => {
     createStudioQueries,
     createLiveJobsStore,
   ]);
+
+  return <>{children({ shellState })}</>;
+};
+
+export const createProjectViewRoute = () => {
   return null;
 };
 

@@ -25,6 +25,7 @@ export interface NavigationState {
   activeGlobalId: string;
   activeProjectId?: string;
   activeChapterId?: string;
+  activeProjectSubnavId?: string;
   routeKind: RouteKind;
 }
 
@@ -58,6 +59,7 @@ export const GLOBAL_NAVIGATION_NODES: NavigationNode[] = [
 export const PROJECT_NAVIGATION_NODES: NavigationNode[] = [
   { id: 'project-overview', label: 'Overview', level: 'project', parentId: 'project' },
   { id: 'project-chapters', label: 'Chapters', level: 'project', parentId: 'project' },
+  { id: 'project-characters', label: 'Characters', level: 'project', parentId: 'project' },
   { id: 'project-queue', label: 'Queue', level: 'project', parentId: 'project' },
   { id: 'project-export', label: 'Export', level: 'project', parentId: 'project' },
   { id: 'project-settings', label: 'Settings', level: 'project', parentId: 'project' },
