@@ -27,6 +27,11 @@ describe('GlobalQueue', () => {
         window.scrollTo = vi.fn()
     })
 
+    it('renders loading state when loading prop is true', () => {
+        render(<GlobalQueue queue={[]} loading={true} />)
+        expect(screen.getByText(/Loading Queue\.\.\./i)).toBeTruthy()
+    })
+
     it('renders the queue sections correctly', async () => {
         render(<GlobalQueue queue={mockJobs as any[]} />)
         

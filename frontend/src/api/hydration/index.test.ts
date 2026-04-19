@@ -19,6 +19,18 @@ describe('HydrationCoordinator', () => {
     expect(snapshot.hydratedAt).toBeLessThan(2000000000); 
   });
 
+  it('captures hydration source metadata in snapshots', () => {
+    const items: ProcessingQueueItem[] = [];
+    const bootstrap = coordinator.createSnapshot(items, 'bootstrap');
+    expect(bootstrap.source).toBe('bootstrap');
+
+    const reconnect = coordinator.createSnapshot(items, 'reconnect');
+    expect(reconnect.source).toBe('reconnect');
+
+    const refresh = coordinator.createSnapshot(items, 'refresh');
+    expect(refresh.source).toBe('refresh');
+  });
+
   it('merges overlays into queue items (Stability Check)', () => {
     const snapshot = coordinator.createSnapshot([
       { id: 'job1', status: 'queued', progress: 0 } as any,

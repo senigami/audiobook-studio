@@ -85,4 +85,25 @@ describe('Layout', () => {
 
         expect(screen.getByTestId('layout-root')).toHaveAttribute('data-shell-hydration', 'reconnecting')
     })
+
+    it('renders the queue count badge even during hydration', () => {
+        const shellState = createStudioShellState({
+            pathname: '/',
+            loading: false,
+            connected: true,
+            isReconnecting: false,
+            hydrationSource: 'reconnect'
+        })
+
+        render(
+            <MemoryRouter>
+                <Layout {...defaultProps} queueCount={5} shellState={shellState} />
+            </MemoryRouter>
+        )
+
+        // The 'Queue' text should have a badge with '5'
+        expect(screen.getByText('Queue')).toBeTruthy()
+        expect(screen.getByText('5')).toBeTruthy()
+        expect(screen.getByTestId('layout-root')).toHaveAttribute('data-shell-hydration', 'recovering')
+    })
 })

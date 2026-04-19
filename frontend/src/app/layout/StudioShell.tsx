@@ -100,8 +100,8 @@ export const deriveHydrationStatus = (inputs: {
   source?: 'bootstrap' | 'reconnect' | 'refresh';
 }): HydrationStatus => {
   if (inputs.loading || inputs.source === 'bootstrap') return 'bootstrap';
-  if (inputs.isReconnecting) return 'reconnecting';
   if (inputs.source === 'reconnect') return 'recovering';
+  if (inputs.isReconnecting) return 'reconnecting';
   if (inputs.source === 'refresh') return 'refreshing';
   if (!inputs.connected) return 'error';
   return 'ready';

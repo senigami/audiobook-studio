@@ -87,7 +87,7 @@ function App() {
       loading: initialLoading || queueLoading,
       connected,
       isReconnecting,
-      hydrationSource: isReconnecting ? 'reconnect' : (activeSource || refreshingSource),
+      hydrationSource: activeSource || refreshingSource,
     });
   }, [location.pathname, initialLoading, queueLoading, connected, isReconnecting, activeSource, refreshingSource]);
 

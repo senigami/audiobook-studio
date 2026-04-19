@@ -128,6 +128,22 @@ export const SettingsTray: React.FC<SettingsTrayProps> = ({
                             )}
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                {/* Refresh Action */}
+                                <div 
+                                    style={rowStyle('refresh-all')}
+                                    onMouseEnter={() => setHoveredItem('refresh-all')}
+                                    onMouseLeave={() => setHoveredItem(null)}
+                                    onClick={() => { setIsOpen(false); onRefresh(); }}
+                                >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <RefreshCw size={18} color={hoveredItem === 'refresh-all' ? 'var(--accent)' : 'var(--text-muted)'} />
+                                        <div>
+                                            <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>Refresh All Data</div>
+                                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Force sync with server</div>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 {/* Safe Mode */}
                                 <div 
                                     style={rowStyle('safe-mode')}
