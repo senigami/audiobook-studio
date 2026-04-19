@@ -14,6 +14,7 @@ import { SettingsTray } from './components/SettingsTray';
 import { ConfirmModal } from './components/ConfirmModal';
 import { createStudioShellState } from './app/layout/StudioShell';
 import { ProjectViewRoute } from './features/project-view/routes/ProjectViewRoute';
+import { QueueRoute } from './features/queue/routes/QueueRoute';
 import type { Project } from './types';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -141,13 +142,22 @@ function App() {
                 </ProjectViewRoute>
               } />
               <Route path="/queue" element={
-                <GlobalQueue 
-                  paused={initialData?.paused || false} 
-                  jobs={jobs}
-                  queue={mergedQueue}
+                <QueueRoute
                   loading={queueLoading}
-                  onRefresh={() => refreshQueue('refresh')}
-                />
+                  connected={connected}
+                  isReconnecting={isReconnecting}
+                  refreshingSource={activeSource || refreshingSource}
+                >
+                  {() => (
+                    <GlobalQueue 
+                      paused={initialData?.paused || false} 
+                      jobs={jobs}
+                      queue={mergedQueue}
+                      loading={queueLoading}
+                      onRefresh={() => refreshQueue('refresh')}
+                    />
+                  )}
+                </QueueRoute>
               } />
               <Route path="/voices" element={
                 <VoicesTab

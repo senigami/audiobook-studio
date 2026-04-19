@@ -45,7 +45,7 @@ export const ProjectViewRoute: React.FC<ProjectViewRouteProps> = ({
       loading,
       connected,
       isReconnecting,
-      hydrationSource: isReconnecting ? 'reconnect' : refreshingSource,
+      hydrationSource: refreshingSource,
       projectTitle,
     });
   }, [location.pathname, location.search, loading, connected, isReconnecting, refreshingSource, projectTitle, projectId]);
