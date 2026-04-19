@@ -13,6 +13,7 @@ export const useQueueSync = () => {
   const [queueCount, setQueueCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isReconnecting, setIsReconnecting] = useState(false);
+  const [activeSource, setActiveSource] = useState<'bootstrap' | 'reconnect' | 'refresh' | undefined>(undefined);
 
   // Pure stores initialized once
   const storeRef = useRef(createLiveJobsStore());
@@ -35,6 +36,7 @@ export const useQueueSync = () => {
   const isFirstConnectRef = useRef(true);
 
   const refreshQueue = useCallback(async (source: 'bootstrap' | 'reconnect' | 'refresh' = 'refresh') => {
+    setActiveSource(source);
     try {
       const items = await api.getProcessingQueue();
       const snapshot = coordinatorRef.current.createSnapshot(items, source);
@@ -51,6 +53,8 @@ export const useQueueSync = () => {
     } catch (e) {
       console.error(`Failed to refresh queue (${source})`, e);
       setLoading(false);
+    } finally {
+      setActiveSource(undefined);
     }
   }, [updateDerivedState]);
 
@@ -99,6 +103,7 @@ export const useQueueSync = () => {
     loading,
     connected,
     isReconnecting,
+    activeSource,
     refreshQueue
   };
 };

@@ -23,10 +23,11 @@ function App() {
   const [queueRefreshTrigger, setQueueRefreshTrigger] = useState(0);
   const { 
     queue: mergedQueue, 
-    queueCount, 
+    queueCount,
     loading: queueLoading,
     connected,
     isReconnecting,
+    activeSource,
     refreshQueue: originalRefreshQueue
   } = useQueueSync();
 
@@ -86,9 +87,9 @@ function App() {
       loading: initialLoading || queueLoading,
       connected,
       isReconnecting,
-      hydrationSource: isReconnecting ? 'reconnect' : refreshingSource,
+      hydrationSource: isReconnecting ? 'reconnect' : (activeSource || refreshingSource),
     });
-  }, [location.pathname, initialLoading, queueLoading, connected, isReconnecting, refreshingSource]);
+  }, [location.pathname, initialLoading, queueLoading, connected, isReconnecting, activeSource, refreshingSource]);
 
 
   return (
@@ -120,11 +121,12 @@ function App() {
                   loading={initialLoading || queueLoading}
                   connected={connected}
                   isReconnecting={isReconnecting}
-                  refreshingSource={refreshingSource}
+                  refreshingSource={activeSource || refreshingSource}
                   projectTitle={initialData?.projects?.find((p: Project) => p.id === location.pathname.split('/')[2])?.name}
                 >
                   {({ shellState }) => (
                     <ProjectView 
+                      key={shellState.navigation.activeProjectId}
                       jobs={jobs}
                       segmentProgress={segmentProgress}
                       speakerProfiles={initialData?.speaker_profiles || []}

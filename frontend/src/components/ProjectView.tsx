@@ -99,7 +99,8 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
     }
   }, [project, speakerProfiles, selectedVoice, settings?.default_speaker_profile, hasResolvedInitialVoice]);
 
-  const loadData = async () => {
+  const loadData = async (isTransition = false) => {
+    if (isTransition) setLoading(true);
     try {
       const [projData, chapsData] = await Promise.all([
         api.fetchProject(projectId),
@@ -111,7 +112,11 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
         const audiobooksData = await api.fetchProjectAudiobooks(projectId);
         setAvailableAudiobooks(audiobooksData || []);
       } catch (err) { setAvailableAudiobooks([]); }
-    } catch (e) { console.error(e); } finally { setLoading(false); }
+    } catch (e) { 
+      console.error(e); 
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   const {
@@ -126,7 +131,15 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
     handleAssembleProject,
     handleDeleteAudiobook
   } = useProjectActions(projectId, loadData, navigate);
-  useEffect(() => { loadData(); }, [projectId, refreshTrigger]);
+
+  useEffect(() => { 
+    const isTransition = project?.id !== projectId;
+    if (isTransition) {
+      setProject(null);
+      setChapters([]);
+    }
+    loadData(isTransition); 
+  }, [projectId, refreshTrigger]);
 
   // Sync currentTab with shellState or URL fallback
   useEffect(() => {
@@ -160,8 +173,8 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
     const tab = new URLSearchParams(location.search).get('tab');
     return {
       items: createProjectSubnav(projectId),
-      activeId: tab === 'characters' ? 'project-characters' : 
-                tab === 'chapters' ? 'project-chapters' : 
+      activeId: tab === 'characters' ? 'project-characters' :
+                tab === 'chapters' ? 'project-chapters' :
                 'project-overview'
     };
   }, [shellState, projectId, location.search]);

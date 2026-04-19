@@ -255,7 +255,7 @@ describe('ProjectView', () => {
     await screen.findByText('Test Project');
 
     fireEvent.click(screen.getByText('Characters'));
-    expect(screen.getByText('Characters & Voices')).toBeInTheDocument();
+    expect(await screen.findByText('Characters & Voices')).toBeInTheDocument();
   });
 
   it('opens add chapter modal', async () => {

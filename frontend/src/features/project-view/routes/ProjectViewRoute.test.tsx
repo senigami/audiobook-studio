@@ -78,4 +78,64 @@ describe('ProjectViewRoute', () => {
 
     expect(screen.getByText('New Title')).toBeInTheDocument();
   });
+
+  it('reflects reconnecting state in shell hydration', () => {
+    render(
+      <MemoryRouter initialEntries={['/project/p1']}>
+        <Routes>
+          <Route path="/project/:projectId" element={
+            <ProjectViewRoute 
+              {...defaultProps}
+              connected={false}
+              isReconnecting={true}
+            >
+              {(props) => <div data-testid="hydration-status">{props.shellState.hydration.status}</div>}
+            </ProjectViewRoute>
+          } />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(screen.getByTestId('hydration-status')).toHaveTextContent('reconnecting');
+  });
+
+  it('reflects recovering state after reconnection', () => {
+    render(
+      <MemoryRouter initialEntries={['/project/p1']}>
+        <Routes>
+          <Route path="/project/:projectId" element={
+            <ProjectViewRoute 
+              {...defaultProps}
+              connected={true}
+              isReconnecting={false}
+              refreshingSource="reconnect"
+            >
+              {(props) => <div data-testid="hydration-status">{props.shellState.hydration.status}</div>}
+            </ProjectViewRoute>
+          } />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(screen.getByTestId('hydration-status')).toHaveTextContent('recovering');
+  });
+
+  it('reflects refreshing state during manual refresh', () => {
+    render(
+      <MemoryRouter initialEntries={['/project/p1']}>
+        <Routes>
+          <Route path="/project/:projectId" element={
+            <ProjectViewRoute 
+              {...defaultProps}
+              refreshingSource="refresh"
+            >
+              {(props) => <div data-testid="hydration-status">{props.shellState.hydration.status}</div>}
+            </ProjectViewRoute>
+          } />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(screen.getByTestId('hydration-status')).toHaveTextContent('refreshing');
+  });
 });
