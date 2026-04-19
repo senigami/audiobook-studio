@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useLocation, useMatch } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { PreviewModal } from './components/PreviewModal';
 import { VoicesTab } from './components/VoicesTab';
@@ -21,6 +21,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 function App() {
   const navigate = useNavigate();
   const location = useLocation();
+  const projectMatch = useMatch('/project/:projectId');
+  const projectIdFromRoute = projectMatch?.params.projectId;
   const [queueRefreshTrigger, setQueueRefreshTrigger] = useState(0);
   const { 
     queue: mergedQueue, 
@@ -123,7 +125,7 @@ function App() {
                   connected={connected}
                   isReconnecting={isReconnecting}
                   refreshingSource={activeSource || refreshingSource}
-                  projectTitle={initialData?.projects?.find((p: Project) => p.id === location.pathname.split('/')[2])?.name}
+                  projectTitle={initialData?.projects?.find((p: Project) => p.id === projectIdFromRoute)?.name}
                 >
                   {({ shellState }) => (
                     <ProjectView 
