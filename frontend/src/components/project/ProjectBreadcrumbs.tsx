@@ -112,9 +112,6 @@ export const ProjectBreadcrumbs: React.FC<ProjectBreadcrumbsProps> = ({
                 }}
                 className="hover-bg-subtle"
               >
-                <option value="" disabled>
-                  {chapterTitle}
-                </option>
                 {chapters.map((chapter) => (
                   <option key={chapter.id} value={chapter.id}>
                     {chapter.title}

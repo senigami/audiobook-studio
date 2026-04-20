@@ -28,4 +28,24 @@ describe('ProjectBreadcrumbs', () => {
 
     expect(onProjectClick).toHaveBeenCalledTimes(1);
   });
+
+  it('does not duplicate the selected chapter as a disabled placeholder option', () => {
+    render(
+      <MemoryRouter>
+        <ProjectBreadcrumbs
+          projectId="proj-1"
+          projectTitle="Test Project"
+          chapterTitle="Chapter One"
+          selectedChapterId="chap-1"
+          chapters={[
+            { id: 'chap-1', title: 'Chapter One' } as any,
+            { id: 'chap-2', title: 'Chapter Two' } as any,
+          ]}
+          onNavigateChapter={vi.fn()}
+        />
+      </MemoryRouter>
+    );
+
+    expect(screen.getAllByRole('option', { name: 'Chapter One' })).toHaveLength(1);
+  });
 });
