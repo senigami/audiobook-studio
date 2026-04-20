@@ -1,6 +1,5 @@
 import React from 'react';
-import { ArrowLeft, Clock, CheckCircle, Edit3, Image as ImageIcon, Download, Trash2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Clock, CheckCircle, Edit3, Image as ImageIcon, Download, Trash2 } from 'lucide-react';
 import { ActionMenu } from '../ActionMenu';
 import type { Project, Audiobook } from '../../types';
 
@@ -9,7 +8,7 @@ interface ProjectHeaderProps {
   totalRuntime: number;
   totalPredicted: number;
   availableAudiobooks: Audiobook[];
-  onBack: () => void;
+  onBack?: () => void;
   onEditMetadata: () => void;
   onShowCover: () => void;
   onStartAssembly: () => void;
@@ -17,7 +16,7 @@ interface ProjectHeaderProps {
   formatLength: (seconds: number) => string;
   formatFileSize: (bytes?: number) => string;
   formatRelativeTime: (timestamp?: number) => string;
-  breadcrumbs?: { id: string; label: string; href?: string }[];
+  compact?: boolean;
 }
 
 export const ProjectHeader: React.FC<ProjectHeaderProps> = ({
@@ -25,7 +24,6 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({
   totalRuntime,
   totalPredicted,
   availableAudiobooks,
-  onBack,
   onEditMetadata,
   onShowCover,
   onStartAssembly,
@@ -33,111 +31,88 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({
   formatLength,
   formatFileSize,
   formatRelativeTime,
-  breadcrumbs
+  compact = false
 }) => {
-  const navigate = useNavigate();
-
   return (
     <header style={{ 
-        background: 'var(--surface)', 
-        borderRadius: '16px', 
-        border: '1px solid var(--border)', 
-        padding: '2rem',
+        padding: compact ? '1rem 0' : '2rem 0',
         display: 'flex', 
-        gap: '2rem',
-        alignItems: 'center'
+        gap: compact ? '1rem' : '2rem',
+        alignItems: 'center',
+        flexShrink: 0
     }}>
-      {/* Project Cover Art */}
-      <div 
-          onClick={() => project.cover_image_path ? onShowCover() : null}
-          style={{
-              height: '200px',
-              width: '150px',
-              flexShrink: 0,
-              borderRadius: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              overflow: 'hidden',
-              cursor: project.cover_image_path ? 'zoom-in' : 'default',
-              transition: 'transform 0.2s',
-              background: 'var(--surface-light)',
-              border: '1px solid var(--border)'
-          }}
-          onMouseOver={(e) => { if (project.cover_image_path) e.currentTarget.style.transform = 'scale(1.02)' }}
-          onMouseOut={(e) => { if (project.cover_image_path) e.currentTarget.style.transform = 'scale(1)' }}
-      >
-          {project.cover_image_path ? (
-              <img 
-                  src={project.cover_image_path} 
-                  alt="Cover" 
-                  style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
-              />
-          ) : (
-              <ImageIcon size={48} style={{ opacity: 0.2 }} />
-          )}
-      </div>
+      {!compact && (
+        <div 
+            onClick={() => project.cover_image_path ? onShowCover() : null}
+            style={{
+                height: '200px',
+                width: '150px',
+                flexShrink: 0,
+                borderRadius: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
+                cursor: project.cover_image_path ? 'zoom-in' : 'default',
+                transition: 'transform 0.2s',
+                background: 'var(--surface-light)',
+                border: '1px solid var(--border)'
+            }}
+            onMouseOver={(e) => { if (project.cover_image_path) e.currentTarget.style.transform = 'scale(1.02)' }}
+            onMouseOut={(e) => { if (project.cover_image_path) e.currentTarget.style.transform = 'scale(1)' }}
+        >
+            {project.cover_image_path ? (
+                <img 
+                    src={project.cover_image_path} 
+                    alt="Cover" 
+                    style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+                />
+            ) : (
+                <ImageIcon size={48} style={{ opacity: 0.2 }} />
+            )}
+        </div>
+      )}
 
       {/* Project Metadata */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          {/* Breadcrumbs */}
-          {breadcrumbs && breadcrumbs.length > 0 && (
-            <nav aria-label="Breadcrumb" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
-              {breadcrumbs.map((crumb, idx) => (
-                <React.Fragment key={crumb.id}>
-                  {idx > 0 && <span style={{ opacity: 0.5 }}>/</span>}
-                  {crumb.href ? (
-                    <button 
-                      onClick={() => navigate(crumb.href!)}
-                      style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', cursor: 'pointer', fontWeight: 500 }}
-                      className="hover-text-primary"
-                    >
-                      {crumb.label}
-                    </button>
-                  ) : (
-                    <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{crumb.label}</span>
-                  )}
-                </React.Fragment>
-              ))}
-            </nav>
+          {!compact && (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
+                  <div style={{ background: 'var(--surface-light)', padding: '0.25rem 0.75rem', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'inline-block' }}>
+                      {project.series || 'Standalone'}
+                  </div>
+              </div>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
+                  <h2 style={{ fontSize: '2.5rem', fontWeight: 700, lineHeight: 1.1 }}>{project.name}</h2>
+                  <button 
+                    onClick={onEditMetadata} 
+                    className="btn-ghost" 
+                    style={{ padding: '0.5rem', color: 'var(--text-secondary)' }}
+                    title="Edit Project Metadata"
+                  >
+                      <Edit3 size={18} />
+                  </button>
+              </div>
+              {project.author && <p style={{ fontSize: '1.1rem', color: 'var(--text-muted)' }}>by {project.author}</p>}
+              
+              <div style={{ display: 'flex', gap: '2rem', marginTop: '1rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Clock size={16} /> 
+                      <span>Runtime: <strong style={{ color: 'var(--text-primary)' }}>{formatLength(totalRuntime)}</strong> {totalRuntime < totalPredicted && `(Predicted: ${formatLength(totalPredicted)})`}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <CheckCircle size={16} />
+                      <span>Created: <strong style={{ color: 'var(--text-primary)' }}>{new Date(project.created_at * 1000).toLocaleDateString()}</strong></span>
+                  </div>
+              </div>
+            </>
           )}
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
-              <button onClick={onBack} className="btn-ghost" style={{ padding: '0.5rem', marginLeft: '-0.5rem' }}>
-                  <ArrowLeft size={20} />
-              </button>
-              <div style={{ background: 'var(--surface-light)', padding: '0.25rem 0.75rem', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'inline-block' }}>
-                  {project.series || 'Standalone'}
-              </div>
-          </div>
-          
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
-              <h2 style={{ fontSize: '2.5rem', fontWeight: 700, lineHeight: 1.1 }}>{project.name}</h2>
-              <button 
-                onClick={onEditMetadata} 
-                className="btn-ghost" 
-                style={{ padding: '0.5rem', color: 'var(--text-secondary)' }}
-                title="Edit Project Metadata"
-              >
-                  <Edit3 size={18} />
-              </button>
-          </div>
-          {project.author && <p style={{ fontSize: '1.1rem', color: 'var(--text-muted)' }}>by {project.author}</p>}
-          
-          <div style={{ display: 'flex', gap: '2rem', marginTop: '1rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Clock size={16} /> 
-                  <span>Runtime: <strong style={{ color: 'var(--text-primary)' }}>{formatLength(totalRuntime)}</strong> {totalRuntime < totalPredicted && `(Predicted: ${formatLength(totalPredicted)})`}</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <CheckCircle size={16} />
-                  <span>Created: <strong style={{ color: 'var(--text-primary)' }}>{new Date(project.created_at * 1000).toLocaleDateString()}</strong></span>
-              </div>
-          </div>
       </div>
 
       {/* Action Buttons & History */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: '220px' }}>
+      {!compact && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: '220px' }}>
           {availableAudiobooks.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '-0.25rem' }}>
@@ -267,7 +242,8 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({
               <CheckCircle size={16} />
               Assemble Project
           </button>
-      </div>
+        </div>
+      )}
     </header>
   );
 };

@@ -20,7 +20,7 @@ describe('StudioShell state', () => {
     expect(state.navigation.activeProjectId).toBe('p123');
     expect(state.hydration.status).toBe('ready');
     expect(state.breadcrumbs).toHaveLength(2);
-    expect(state.projectSubnav).toHaveLength(6);
+    expect(state.projectSubnav).toHaveLength(2);
   });
 
   describe('hydration status derivation', () => {

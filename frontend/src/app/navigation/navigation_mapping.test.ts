@@ -22,7 +22,7 @@ describe('navigation mapping', () => {
 
   it('identifies project-specific routes', () => {
     const state = deriveNavigationState('/project/p123');
-    expect(state.routeKind).toBe('project-overview');
+    expect(state.routeKind).toBe('project-chapters');
     expect(state.activeGlobalId).toBe('project');
     expect(state.activeProjectId).toBe('p123');
   });

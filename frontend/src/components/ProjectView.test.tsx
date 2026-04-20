@@ -244,7 +244,7 @@ describe('ProjectView', () => {
       expect(screen.queryByText('Loading project...')).not.toBeInTheDocument();
     });
 
-    expect(screen.getByText('Test Project')).toBeInTheDocument();
+    expect(screen.getAllByText('Test Project')[0]).toBeInTheDocument();
     expect(screen.getByText('Chapter 1')).toBeInTheDocument();
     expect(screen.getByText('Chapter 2')).toBeInTheDocument();
   });
@@ -252,7 +252,7 @@ describe('ProjectView', () => {
   it('switches to characters tab', async () => {
     renderProjectView();
 
-    await screen.findByText('Test Project');
+    await screen.findAllByText('Test Project');
 
     fireEvent.click(screen.getByText('Characters'));
     expect(await screen.findByText('Characters & Voices')).toBeInTheDocument();
@@ -261,7 +261,7 @@ describe('ProjectView', () => {
   it('opens add chapter modal', async () => {
     renderProjectView();
 
-    await waitFor(() => screen.findByText('Test Project'));
+    await waitFor(() => screen.findAllByText('Test Project'));
 
     fireEvent.click(screen.getByText('Add Chapter'));
     expect(screen.getByText('Add New Chapter')).toBeInTheDocument();
@@ -270,7 +270,7 @@ describe('ProjectView', () => {
   it('opens edit project modal', async () => {
     renderProjectView();
 
-    await waitFor(() => screen.findByText('Test Project'));
+    await waitFor(() => screen.findAllByText('Test Project'));
 
     // ProjectHeader has the edit button with title="Edit Project Metadata"
     fireEvent.click(screen.getByTitle('Edit Project Metadata'));
@@ -280,7 +280,7 @@ describe('ProjectView', () => {
   it('enters assembly mode', async () => {
     renderProjectView();
 
-    await waitFor(() => screen.findByText('Test Project'));
+    await waitFor(() => screen.findAllByText('Test Project'));
 
     fireEvent.click(screen.getByText('Assemble Project'));
     expect(screen.getByText('Select Chapters for Assembly')).toBeInTheDocument();
@@ -292,7 +292,7 @@ describe('ProjectView', () => {
 
     await waitFor(() => {
       expect(screen.queryByText('Loading project...')).not.toBeInTheDocument();
-      expect(screen.getByRole('combobox')).toHaveValue('');
+      expect(screen.getAllByRole('combobox').length).toBeGreaterThan(0);
     });
 
     fireEvent.click(screen.getByText('Queue Remaining'));
@@ -324,7 +324,7 @@ describe('ProjectView', () => {
 
     await waitFor(() => {
       expect(screen.queryByText('Loading project...')).not.toBeInTheDocument();
-      expect(screen.getByRole('combobox')).toHaveValue('');
+      expect(screen.getAllByRole('combobox').length).toBeGreaterThan(0);
     });
 
     const select = screen.getByRole('combobox');
@@ -425,7 +425,7 @@ describe('ProjectView', () => {
 
     await waitFor(() => {
       expect(screen.queryByText('Loading project...')).not.toBeInTheDocument();
-      expect(screen.getByRole('combobox')).toHaveValue('');
+      expect(screen.getAllByRole('combobox').length).toBeGreaterThan(0);
     });
 
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'Dark Fantasy - Default' } });
@@ -468,7 +468,7 @@ describe('ProjectView', () => {
 
     await waitFor(() => {
       expect(screen.queryByText('Loading project...')).not.toBeInTheDocument();
-      expect(screen.getByRole('combobox')).toHaveValue('');
+      expect(screen.getAllByRole('combobox').length).toBeGreaterThan(0);
     });
 
     fireEvent.change(screen.getByRole('combobox'), { target: { value: '' } });

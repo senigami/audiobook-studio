@@ -24,18 +24,22 @@ interface ProjectViewRouteProps {
   connected: boolean;
   isReconnecting: boolean;
   refreshingSource?: 'bootstrap' | 'reconnect' | 'refresh';
+  projectId?: string;
   projectTitle?: string;
+  chapterTitle?: string;
 }
 
 export const ProjectViewRoute: React.FC<ProjectViewRouteProps> = ({ 
   children, 
   loading, 
-  connected, 
-  isReconnecting, 
+  connected,
+  isReconnecting,
   refreshingSource,
-  projectTitle
+  projectId,
+  projectTitle,
+  chapterTitle
 }) => {
-  const { projectId } = useParams<{ projectId: string }>();
+  const { projectId: routeProjectId } = useParams<{ projectId: string }>();
   const location = useLocation();
 
   const shellState = useMemo(() => {
@@ -46,9 +50,11 @@ export const ProjectViewRoute: React.FC<ProjectViewRouteProps> = ({
       connected,
       isReconnecting,
       hydrationSource: refreshingSource,
+      projectId: projectId || routeProjectId,
       projectTitle,
+      chapterTitle,
     });
-  }, [location.pathname, location.search, loading, connected, isReconnecting, refreshingSource, projectTitle, projectId]);
+  }, [location.pathname, location.search, loading, connected, isReconnecting, refreshingSource, projectId, routeProjectId, projectTitle, chapterTitle]);
 
   consumeContractMarkers([
     INTENDED_UPSTREAM_CALLERS,

@@ -206,7 +206,7 @@ export interface GlobalState {
   jobs: Record<string, Job>;
   settings: Settings;
   paused: boolean;
-  chapters: string[];
+  chapters: Chapter[];
   audiobooks: Audiobook[];
   xtts_mp3: string[];
   xtts_wav_only: string[];

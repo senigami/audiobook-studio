@@ -22,7 +22,9 @@ function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const projectMatch = useMatch('/project/:projectId');
+  const chapterMatch = useMatch('/chapter/:chapterId');
   const projectIdFromRoute = projectMatch?.params.projectId;
+  const chapterIdFromRoute = chapterMatch?.params.chapterId;
   const [queueRefreshTrigger, setQueueRefreshTrigger] = useState(0);
   const { 
     queue: mergedQueue, 
@@ -57,6 +59,7 @@ function App() {
     (chapterId: string) => { setSegmentUpdate(prev => ({ chapterId, tick: prev.tick + 1 })); },
     (chapterId: string) => { setChapterUpdate(prev => ({ chapterId, tick: prev.tick + 1 })); }
   );
+  const chapterProjectIdFromRoute = initialData?.chapters?.find((c: any) => c.id === chapterIdFromRoute)?.project_id;
   
   const [previewFilename, setPreviewFilename] = useState<string | null>(null);
   
@@ -125,7 +128,37 @@ function App() {
                   connected={connected}
                   isReconnecting={isReconnecting}
                   refreshingSource={activeSource || refreshingSource}
+                  projectId={projectIdFromRoute}
                   projectTitle={initialData?.projects?.find((p: Project) => p.id === projectIdFromRoute)?.name}
+                  chapterTitle={initialData?.chapters?.find((c: any) => c.id === chapterIdFromRoute)?.title}
+                >
+                  {({ shellState }) => (
+                    <ProjectView 
+                      key={shellState.navigation.activeProjectId}
+                      jobs={jobs}
+                      segmentProgress={segmentProgress}
+                      speakerProfiles={initialData?.speaker_profiles || []}
+                      speakers={initialData?.speakers || []}
+                      settings={initialData?.settings}
+                      refreshTrigger={queueRefreshTrigger}
+                      segmentUpdate={segmentUpdate}
+                      chapterUpdate={chapterUpdate}
+                      shellState={shellState}
+                    />
+                  )}
+                </ProjectViewRoute>
+              } />
+              {/* Separate Chapter route if needed, though ProjectView handles it via state right now */}
+              <Route path="/chapter/:chapterId" element={
+                <ProjectViewRoute 
+                  loading={initialLoading || queueLoading}
+                  connected={connected}
+                  isReconnecting={isReconnecting}
+                  refreshingSource={activeSource || refreshingSource}
+                  // We might need to resolve projectId from chapter's parent here
+                  projectId={chapterProjectIdFromRoute}
+                  projectTitle={initialData?.projects?.find((p: Project) => p.id === initialData?.chapters?.find((c: any) => c.id === chapterIdFromRoute)?.project_id)?.name}
+                  chapterTitle={initialData?.chapters?.find((c: any) => c.id === chapterIdFromRoute)?.title}
                 >
                   {({ shellState }) => (
                     <ProjectView 

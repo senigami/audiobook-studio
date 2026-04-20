@@ -10,6 +10,7 @@ export interface BreadcrumbContext {
   chapterId?: string;
   chapterTitle?: string;
   isEditorSurface?: boolean;
+  activeTab?: string;
 }
 
 export const createProjectBreadcrumbs = (context: BreadcrumbContext): BreadcrumbItem[] => {
@@ -29,18 +30,20 @@ export const createProjectBreadcrumbs = (context: BreadcrumbContext): Breadcrumb
 };
 
 export const createChapterBreadcrumbs = (context: BreadcrumbContext): BreadcrumbItem[] => {
-  const items = createProjectBreadcrumbs(context);
+  const items: BreadcrumbItem[] = [
+    { id: 'library', label: 'Library', href: '/' }
+  ];
 
-  if (context.projectId && context.chapterId) {
-    if (context.isEditorSurface) {
-      items.push({
-        id: 'chapters',
-        label: 'Chapters',
-        href: `/project/${context.projectId}?tab=chapters`
-      });
+  if (context.projectId) {
+    items.push({ 
+      id: 'project', 
+      label: context.projectTitle || 'Project', 
+      href: `/project/${context.projectId}` 
+    });
+    if (context.chapterId) {
       items.push({
         id: 'chapter',
-        label: context.chapterTitle || 'Chapter Editor',
+        label: context.chapterTitle || 'Chapter',
         href: undefined // Active surface
       });
     }

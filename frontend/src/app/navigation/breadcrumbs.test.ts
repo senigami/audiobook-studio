@@ -19,14 +19,13 @@ describe('breadcrumb builders', () => {
     expect(crumbs[1].href).toBe('/project/p123');
   });
 
-  it('creates chapter (editor) breadcrumbs with secondary project context', () => {
+  it('creates chapter (editor) breadcrumbs', () => {
     const crumbs = createChapterBreadcrumbs(context);
-    expect(crumbs).toHaveLength(4);
-    expect(crumbs[2].id).toBe('chapters');
-    expect(crumbs[2].href).toContain('tab=chapters');
-    expect(crumbs[3].id).toBe('chapter');
-    expect(crumbs[3].label).toBe('Chapter One');
-    expect(crumbs[3].href).toBeUndefined(); // Active
+    expect(crumbs).toHaveLength(3);
+    expect(crumbs[1].id).toBe('project');
+    expect(crumbs[2].id).toBe('chapter');
+    expect(crumbs[2].label).toBe('Chapter One');
+    expect(crumbs[2].href).toBeUndefined(); // Active
   });
 
   it('handles missing titles gracefully', () => {

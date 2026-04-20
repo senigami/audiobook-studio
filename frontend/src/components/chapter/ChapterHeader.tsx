@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft, RefreshCw, Zap, CheckCircle, AlertTriangle } from 'lucide-react';
+import { RefreshCw, Zap, CheckCircle, AlertTriangle } from 'lucide-react';
 import type { Chapter, Job } from '../../types';
 import { PredictiveProgressBar } from '../PredictiveProgressBar';
 
@@ -7,11 +7,11 @@ const RECENT_DONE_WINDOW_SECONDS = 60;
 
 interface ChapterHeaderProps {
   chapter: Chapter;
-  title: string;
-  setTitle: (title: string) => void;
+  title?: string;
+  setTitle?: (title: string) => void;
   saving: boolean;
   hasUnsavedChanges: boolean;
-  onBack: () => void;
+  onBack?: () => void;
   onPrev?: () => void;
   onNext?: () => void;
   selectedVoice: string;
@@ -36,7 +36,6 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
   setTitle,
   saving,
   hasUnsavedChanges,
-  onBack,
   onPrev,
   onNext,
   selectedVoice,
@@ -136,19 +135,16 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
 
   return (
     <header style={{ 
-      display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 1.5rem', 
-      borderBottom: '1px solid var(--border)', background: 'var(--surface)',
+      display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 0', 
+      background: 'var(--bg)',
       flexShrink: 0
     }}>
-      <button onClick={onBack} className="btn-ghost" style={{ padding: '0.5rem' }} title="Save & Back to Project">
-        <ArrowLeft size={18} />
-      </button>
-      <div style={{ display: 'flex', gap: '0.25rem', borderRight: '1px solid var(--border)', paddingRight: '1rem' }}>
+      <div style={{ display: 'flex', gap: '0.25rem' }}>
         <button 
           onClick={onPrev} 
           disabled={!onPrev} 
           className="btn-ghost" 
-          style={{ padding: '0.4rem', opacity: !onPrev ? 0.3 : 1, cursor: !onPrev ? 'not-allowed' : 'pointer' }}
+          style={{ padding: '0.4rem', opacity: !onPrev ? 0.3 : 1, cursor: !onPrev ? 'not-allowed' : 'pointer', border: '1px solid var(--border)', borderRadius: '8px' }}
           title="Save & Previous Chapter"
         >
           ← Prev
@@ -157,22 +153,32 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
           onClick={onNext} 
           disabled={!onNext} 
           className="btn-ghost" 
-          style={{ padding: '0.4rem', opacity: !onNext ? 0.3 : 1, cursor: !onNext ? 'not-allowed' : 'pointer' }}
+          style={{ padding: '0.4rem', opacity: !onNext ? 0.3 : 1, cursor: !onNext ? 'not-allowed' : 'pointer', border: '1px solid var(--border)', borderRadius: '8px' }}
           title="Save & Next Chapter"
         >
           Next →
         </button>
       </div>
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '1rem', minWidth: 0 }}>
-          <input 
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-              style={{
-                  fontSize: '1.25rem', fontWeight: 600, background: 'transparent', border: 'none', 
-                  color: 'var(--text-primary)', outline: 'none', width: '100%',
-                  padding: '0.25rem'
-              }}
-          />
+          {typeof title === 'string' && setTitle && (
+              <input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  aria-label="Chapter Title"
+                  style={{
+                      flex: 1,
+                      minWidth: 0,
+                      padding: '0.55rem 0.8rem',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border)',
+                      background: 'var(--surface)',
+                      color: 'var(--text-primary)',
+                      fontSize: '1rem',
+                      fontWeight: 700,
+                      outline: 'none',
+                  }}
+              />
+          )}
           
           {hasChapterAudio && (
               <div style={{ paddingLeft: '1rem', borderLeft: '1px solid var(--border)' }}>
