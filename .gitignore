@@ -18,6 +18,9 @@ state.json
 # Reports & Output
 /reports/
 /frontend/coverage/
+/frontend/scratch/
+/frontend/test_output.txt
+/frontend/test_results.txt
 
 # ==========================================
 # PYTHON CORE
