@@ -258,3 +258,5 @@ def init_db():
                 logger.warning("Failed to migrate processing_queue NULL constraints", exc_info=True)
 
             conn.commit()
+            from .performance import apply_performance_retention_policy
+            apply_performance_retention_policy()

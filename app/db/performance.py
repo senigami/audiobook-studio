@@ -59,7 +59,6 @@ def record_render_sample(
                 )
             )
             conn.commit()
-            apply_performance_retention_policy()
 
 def apply_performance_retention_policy():
     """

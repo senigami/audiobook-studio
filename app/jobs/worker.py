@@ -216,6 +216,7 @@ def _record_xtts_sample(job, start: float, chars: int, perf: dict, source_segmen
             _, total_c = get_chapter_segments_counts(chapter_id)
             segment_count = max(1, total_c)
         except Exception:
+            logger.debug("Failed to calculate segment count from DB for history recording, falling back to job state", exc_info=True)
             # Fallback
             segment_ids = _job_field(persisted, "segment_ids", _job_field(job, "segment_ids", [])) or []
             segment_count = max(1, len(segment_ids or [1]))
@@ -317,6 +318,7 @@ def worker_loop(q):
                                 eta_unit_count = row[0] if row and row[0] else 1
                                 chars = row[1] if row and row[1] else 0
                         except Exception:
+                            logger.debug("Failed to calculate ETA unit count from DB, falling back to 1", exc_info=True)
                             eta_unit_count = 1
 
                     try:
@@ -334,13 +336,13 @@ def worker_loop(q):
 
                     robust_params = get_robust_eta_params(perf.get("xtts_render_history", []), cps)
                     # Use DB-backed info if possible
-                    seg_count = 1
                     if j.chapter_id and j.engine != "voxtral":
                         try:
                             from ..db.chapters import get_chapter_segments_counts
                             _, total_c = get_chapter_segments_counts(j.chapter_id)
                             seg_count = max(1, total_c)
                         except Exception:
+                            logger.debug("Failed to calculate segment count from DB for ETA, falling back to job state", exc_info=True)
                             seg_count = len(getattr(j, "segment_ids", []) or [1])
                     else:
                         seg_count = len(getattr(j, "segment_ids", []) or [1])
@@ -489,6 +491,7 @@ def worker_loop(q):
                             _, total_c = get_chapter_segments_counts(j.chapter_id)
                             seg_count = max(1, total_c)
                         except Exception:
+                            logger.debug("Failed to calculate segment count from DB for ETA update, falling back to job state", exc_info=True)
                             seg_count = len(getattr(j, "segment_ids", []) or [1])
                     else:
                         seg_count = len(getattr(j, "segment_ids", []) or [1])

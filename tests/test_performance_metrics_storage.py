@@ -4,7 +4,6 @@ import pytest
 import uuid
 import json
 from pathlib import Path
-from unittest.mock import patch
 from app.db.core import init_db, get_connection
 from app.db.performance import record_render_sample, get_render_history, apply_performance_retention_policy
 from app.state import get_performance_metrics, update_performance_metrics, _default_performance_metrics, _default_state
@@ -83,6 +82,7 @@ def test_performance_retention_policy(clean_db):
         engine="xtts", chars=100, segment_count=1, duration_seconds=10, cps=10, seconds_per_segment=10,
         completed_at=old_time
     )
+    apply_performance_retention_policy()
     history = get_render_history()
     assert len(history) == 0 # Purged immediately
 
@@ -97,8 +97,9 @@ def test_performance_retention_policy(clean_db):
             completed_at=now - (31 * 86400) - i
         )
 
+    # Retention is now startup-triggered, so we invoke it explicitly to test the cleanup logic.
+    apply_performance_retention_policy()
     history = get_render_history(limit=200)
-    # Retention policy is called inside record_render_sample.
     # It should have kept exactly 100 newest (the last 100 we inserted).
     assert len(history) == 100
 
@@ -109,17 +110,25 @@ def test_performance_retention_policy(clean_db):
             completed_at=now - (1 * 86400)
         )
 
+    apply_performance_retention_policy()
     history = get_render_history(limit=200)
-    # 50 new ones (within 30 days) + 100 old ones (retained because they were the 100 newest at some point) = 150 total
-    # Wait, the policy says: "Always keep at least the newest 100 samples if available".
-    # After inserting 50 new ones, the "newest 100" contains these 50 + 50 from the previous batch.
-    # So the total should stay around 100 + whatever is within 30 days?
-    # No, the code says: DELETE where completed_at < 30_days AND id NOT IN (top 100).
-    # So if we have 50 within 30 days, they are NOT affected by this clause.
-    # The 100 older ones ARE affected, but they are NOT deleted because they are in the top 100 newest.
-    # Wait, if we have 50 new ones, the "top 100 newest" includes those 50 plus 50 older ones.
-    # So the other 50 older ones WOULD be deleted.
+    # After inserting 50 new ones, the total should still be capped by the newest-100 retention rule.
     assert len(history) == 100
+
+
+def test_init_db_runs_performance_retention(clean_db, monkeypatch):
+    from app.db import core as db_core
+
+    calls: list[int] = []
+
+    def fake_retention_policy():
+        calls.append(1)
+
+    monkeypatch.setattr("app.db.performance.apply_performance_retention_policy", fake_retention_policy)
+
+    db_core.init_db()
+
+    assert len(calls) == 1
 
 def test_migration_from_state_json(clean_db, clean_state):
     from app.state import STATE_FILE

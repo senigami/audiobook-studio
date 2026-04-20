@@ -44,7 +44,7 @@ export const useQueueSync = () => {
       
       // On reconnect/refresh, prune overlays older than the snapshot (units: seconds)
       if (source !== 'bootstrap') {
-        storeRef.current.pruneOlderThan(snapshot.hydratedAt);
+        storeRef.current.pruneOlderThan(snapshot.hydratedAtSeconds);
       }
 
       updateDerivedState();

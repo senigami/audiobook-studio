@@ -6,7 +6,7 @@ export type HydrationSource = 'bootstrap' | 'reconnect' | 'refresh';
 
 export interface HydrationSnapshot {
   items: ProcessingQueueItem[];
-  hydratedAt: number;
+  hydratedAtSeconds: number;
   source: HydrationSource;
 }
 
@@ -61,7 +61,7 @@ export interface HydrationCoordinator {
 export const createHydrationCoordinator = (): HydrationCoordinator => ({
   createSnapshot: (items, source = 'bootstrap') => ({
     items,
-    hydratedAt: Date.now() / 1000,
+    hydratedAtSeconds: Date.now() / 1000,
     source,
   }),
 

@@ -13,10 +13,10 @@ describe('HydrationCoordinator', () => {
     const after = Date.now() / 1000;
     
     expect(snapshot.items).toEqual(items);
-    expect(snapshot.hydratedAt).toBeGreaterThanOrEqual(before);
-    expect(snapshot.hydratedAt).toBeLessThanOrEqual(after);
+    expect(snapshot.hydratedAtSeconds).toBeGreaterThanOrEqual(before);
+    expect(snapshot.hydratedAtSeconds).toBeLessThanOrEqual(after);
     // Ensure it's not in milliseconds (milliseconds would be ~1000x larger)
-    expect(snapshot.hydratedAt).toBeLessThan(2000000000); 
+    expect(snapshot.hydratedAtSeconds).toBeLessThan(2000000000); 
   });
 
   it('captures hydration source metadata in snapshots', () => {
