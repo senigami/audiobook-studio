@@ -15,6 +15,7 @@ import { ConfirmModal } from './components/ConfirmModal';
 import { createStudioShellState } from './app/layout/StudioShell';
 import { ProjectViewRoute } from './features/project-view/routes/ProjectViewRoute';
 import { QueueRoute } from './features/queue/routes/QueueRoute';
+import { SettingsRoute } from './features/settings/routes';
 import type { Project } from './types';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -201,6 +202,13 @@ function App() {
                   testProgress={testProgress}
                   jobs={jobs}
                   settings={initialData?.settings}
+                />
+              } />
+              <Route path="/settings/*" element={
+                <SettingsRoute
+                  settings={initialData?.settings}
+                  onRefresh={handleRefresh}
+                  onShowNotification={showToast}
                 />
               } />
               <Route path="/progress-test" element={<ProgressBarTestPage />} />

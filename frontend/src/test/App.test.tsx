@@ -186,4 +186,18 @@ describe('App', () => {
       expect(screen.getByText('Progress Bar Test')).toBeTruthy()
     })
   })
+
+  it('opens the deep-linked settings engines page', async () => {
+    render(
+      <MemoryRouter initialEntries={['/settings/engines']}>
+        <App />
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'TTS Engines' })).toBeTruthy()
+    })
+
+    expect(screen.getByRole('button', { name: /Settings/i })).toHaveAttribute('aria-current', 'page')
+  })
 })

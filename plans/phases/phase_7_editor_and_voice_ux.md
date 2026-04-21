@@ -26,7 +26,7 @@ Move the main user workflows onto the 2.0 foundations once the lower-risk layers
 - [ ] Voice module management UI implemented with plugin cards
 - [ ] Preview/test UI aligned to the new voice model
 - [ ] Project-local navigation and chapter-to-chapter movement implemented
-- [ ] Settings page route structure implemented (/settings, /settings/engines, /settings/api, /settings/about)
+- [x] Settings page route structure implemented (/settings, /settings/engines, /settings/api, /settings/about)
 - [ ] General settings tab implemented (migrated from SettingsTray)
 - [ ] TTS Engines tab with collapsible engine cards implemented
 - [ ] Schema-driven settings forms rendering from settings_schema.json implemented

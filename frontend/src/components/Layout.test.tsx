@@ -31,6 +31,7 @@ describe('Layout', () => {
         expect(screen.getByText(/Voices/i)).toBeTruthy()
         expect(screen.getByText(/Queue/i)).toBeTruthy()
         expect(screen.getByText(/Library/i)).toBeTruthy()
+        expect(screen.getByText(/Settings/i)).toBeTruthy()
     })
 
     it('uses shell state to keep project surfaces mapped to the visible library tab', () => {
@@ -105,5 +106,22 @@ describe('Layout', () => {
         expect(screen.getByText('Queue')).toBeTruthy()
         expect(screen.getByText('5')).toBeTruthy()
         expect(screen.getByTestId('layout-root')).toHaveAttribute('data-shell-hydration', 'recovering')
+    })
+
+    it('uses shell state to mark settings as the active global tab', () => {
+        const shellState = createStudioShellState({
+            pathname: '/settings/engines',
+            loading: false,
+            connected: true,
+            isReconnecting: false,
+        })
+
+        render(
+            <MemoryRouter>
+                <Layout {...defaultProps} shellState={shellState} />
+            </MemoryRouter>
+        )
+
+        expect(screen.getByRole('button', { name: /Settings/i })).toHaveAttribute('aria-current', 'page')
     })
 })

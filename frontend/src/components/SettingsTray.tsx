@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Settings, RefreshCw, Loader2, ShieldCheck, Music, KeyRound, CircleHelp, Sparkles, TriangleAlert } from 'lucide-react';
+import { Settings, RefreshCw, Loader2, ShieldCheck, Music, KeyRound, CircleHelp, Sparkles, TriangleAlert, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { GhostButton } from './GhostButton';
 import type { Settings as AppSettings } from '../types';
 
@@ -15,6 +16,7 @@ export const SettingsTray: React.FC<SettingsTrayProps> = ({
     onRefresh, 
     onShowNotification
 }) => {
+    const navigate = useNavigate();
     const [isOpen, setIsOpen] = useState(false);
     const [hoveredItem, setHoveredItem] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
@@ -120,6 +122,16 @@ export const SettingsTray: React.FC<SettingsTrayProps> = ({
                                     onRefresh={() => { setIsOpen(false); onRefresh(); }}
                                     hovered={hoveredItem === 'refresh-all'}
                                     onMouseEnter={() => setHoveredItem('refresh-all')}
+                                    onMouseLeave={() => setHoveredItem(null)}
+                                />
+
+                                <AllSettingsSection
+                                    onOpen={() => {
+                                        setIsOpen(false);
+                                        navigate('/settings');
+                                    }}
+                                    hovered={hoveredItem === 'all-settings'}
+                                    onMouseEnter={() => setHoveredItem('all-settings')}
                                     onMouseLeave={() => setHoveredItem(null)}
                                 />
 
@@ -324,6 +336,29 @@ const RefreshSection: React.FC<{
                 <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Force sync with server</div>
             </div>
         </div>
+    </div>
+);
+
+const AllSettingsSection: React.FC<{
+    onOpen: () => void;
+    hovered: boolean;
+    onMouseEnter: () => void;
+    onMouseLeave: () => void;
+}> = ({ onOpen, hovered, onMouseEnter, onMouseLeave }) => (
+    <div
+        style={rowStyle(hovered)}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+        onClick={onOpen}
+    >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Settings size={18} color={hovered ? 'var(--accent)' : 'var(--text-muted)'} />
+            <div>
+                <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>All Settings</div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Open the full settings page</div>
+            </div>
+        </div>
+        <ArrowRight size={16} color={hovered ? 'var(--accent)' : 'var(--text-muted)'} />
     </div>
 );
 
