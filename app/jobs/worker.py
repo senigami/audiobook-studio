@@ -120,7 +120,8 @@ def _resolve_voxtral_reference_audio_path(
         try:
             if candidate.exists() and candidate.is_file():
                 return str(candidate)
-        except OSError:
+        except OSError as e:
+            logger.debug("Failed to check reference audio candidate %s: %s", candidate, e)
             continue
     return None
 
@@ -331,8 +332,8 @@ def worker_loop(q):
 
                             text = text_path.read_text(encoding="utf-8", errors="replace")
                             chars = len(text)
-                    except (FileNotFoundError, ValueError):
-                        pass
+                    except (FileNotFoundError, ValueError) as e:
+                        logger.debug("Failed to read chapter text for ETA calculation from %s: %s", text_path, e)
 
                     robust_params = get_robust_eta_params(perf.get("xtts_render_history", []), cps)
                     # Use DB-backed info if possible
@@ -368,6 +369,7 @@ def worker_loop(q):
                         try:
                             total_size_mb += safe_join(src_dir, f).stat().st_size
                         except FileNotFoundError:
+                            logger.debug("Audiobook assembly skipped size calculation for missing file: %s", f)
                             continue
                 total_size_mb /= (1024 * 1024)
 
@@ -654,7 +656,7 @@ def worker_loop(q):
                         try:
                             sample_path.unlink()
                         except FileNotFoundError:
-                            pass
+                            logger.debug("Transient voice sample already removed or missing at %s", sample_path)
                     else:
                         logger.warning(
                             "Failed to convert voice sample for %s to mp3; keeping wav fallback",

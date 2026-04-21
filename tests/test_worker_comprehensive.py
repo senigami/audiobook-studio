@@ -447,6 +447,31 @@ def test_worker_resumption_error_handling(mock_q, sample_job):
         # The worker should continue past the DB error and still emit progress updates.
         assert mock_update.called
 
+def test_worker_loop_observable_fallback_on_db_error(mock_q, caplog, sample_job):
+    """Fallback paths should be observable via DEBUG logging when DB fails."""
+    mock_q.get.side_effect = ["test_job_1", Exception("Stop")]
+
+    with patch("app.jobs.worker.get_jobs", return_value={"test_job_1": sample_job}), \
+         patch("app.jobs.worker.update_job"), \
+         patch("app.jobs.worker.get_project_text_dir", create=True, return_value=Path("/tmp")), \
+         patch("pathlib.Path.exists", return_value=True), \
+         patch("pathlib.Path.read_text", return_value="Hello"), \
+         patch("app.jobs.worker.get_performance_metrics", return_value={}), \
+         patch("app.db.chapters.get_chapter_segments_counts", side_effect=Exception("DB Failure Simulation")), \
+         patch("app.jobs.worker.handle_xtts_job"), \
+         patch("app.jobs.worker._output_exists", return_value=False):
+
+        import logging
+        with caplog.at_level(logging.DEBUG):
+            try:
+                worker_loop(mock_q)
+            except Exception as e:
+                if str(e) != "Stop": raise e
+
+        # Assert that the specific debug log for ETA fallback was triggered
+        assert "Failed to calculate segment count from DB for ETA" in caplog.text
+        assert "DB Failure Simulation" in caplog.text
+
 def test_on_output_blank_xtts_heartbeat_does_not_broadcast_predicted_progress(mock_q, sample_job):
     """XTTS jobs should not emit synthetic websocket progress on blank heartbeats."""
     mock_q.get.side_effect = ["test_job_1", Exception("StopLoop")]
