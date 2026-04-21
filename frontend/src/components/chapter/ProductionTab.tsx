@@ -619,13 +619,14 @@ export const ProductionTab: React.FC<ProductionTabProps> = ({
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.65rem' }}>
             {renderBatches.map(batch => {
-              const batchBadge = batch.status === 'stale' 
+              const statusLower = batch.status.toLowerCase();
+              const batchBadge = statusLower === 'stale' 
                 ? { label: 'Stale', tone: 'warning' as const }
-                : (batch.status === 'queued' ? { label: 'Queued', tone: 'warning' as const } 
-                : (batch.status === 'rendering' || batch.status === 'running' ? { label: 'Rendering', tone: 'accent' as const }
-                : (batch.status === 'failed' || batch.status === 'error' ? { label: 'Failed', tone: 'danger' as const }
-                : (batch.status === 'needs_review' ? { label: 'Review', tone: 'info' as const }
-                : (batch.status === 'rendered' || batch.status === 'done' ? { label: 'Rendered', tone: 'success' as const }
+                : (statusLower === 'queued' ? { label: 'Queued', tone: 'warning' as const } 
+                : (statusLower === 'rendering' || statusLower === 'running' || statusLower === 'processing' ? { label: 'Rendering', tone: 'accent' as const }
+                : (statusLower === 'failed' || statusLower === 'error' ? { label: 'Failed', tone: 'danger' as const }
+                : (statusLower === 'needs_review' ? { label: 'Review', tone: 'info' as const }
+                : (statusLower === 'rendered' || statusLower === 'done' ? { label: 'Rendered', tone: 'success' as const }
                 : { label: batch.status, tone: 'muted' as const })))));
 
               const batchSegmentIds = batch.block_ids.flatMap(blockId => {
@@ -633,7 +634,19 @@ export const ProductionTab: React.FC<ProductionTabProps> = ({
                 return block ? block.source_segment_ids : [];
               });
 
-              const isGenerating = batch.status === 'queued' || batch.status === 'rendering' || batch.status === 'running';
+              const isGenerating = statusLower === 'queued' || statusLower === 'rendering' || statusLower === 'running' || statusLower === 'processing';
+              
+              let actionLabel = 'Generate';
+              let recoveryMsg = null;
+              if (statusLower === 'rendered' || statusLower === 'done') {
+                actionLabel = 'Rebuild';
+              } else if (statusLower === 'stale') {
+                actionLabel = 'Rebuild';
+                recoveryMsg = 'Text changed since render';
+              } else if (statusLower === 'failed' || statusLower === 'error') {
+                actionLabel = 'Retry';
+                recoveryMsg = 'Last render failed';
+              }
 
               return (
                 <div
@@ -649,7 +662,14 @@ export const ProductionTab: React.FC<ProductionTabProps> = ({
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'center' }}>
-                    <span style={{ fontWeight: 700, fontSize: '0.82rem' }}>Batch {batch.id.slice(0, 6)}</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
+                      <span style={{ fontWeight: 700, fontSize: '0.82rem' }}>Batch {batch.id.slice(0, 6)}</span>
+                      {recoveryMsg && (
+                        <span style={{ fontSize: '0.68rem', color: statusLower === 'stale' ? 'rgb(180 83 9)' : 'rgb(185 28 28)', fontWeight: 500 }}>
+                          {recoveryMsg}
+                        </span>
+                      )}
+                    </div>
                     <span style={{ ...getBadgeStyle(batchBadge.tone), border: '1px solid var(--border)', borderRadius: '999px', padding: '0.18rem 0.45rem', fontSize: '0.7rem', fontWeight: 700 }}>
                       {batchBadge.label}
                     </span>
@@ -676,10 +696,10 @@ export const ProductionTab: React.FC<ProductionTabProps> = ({
                         cursor: isGenerating || dirtyIds.size > 0 ? 'not-allowed' : 'pointer',
                         opacity: isGenerating || dirtyIds.size > 0 ? 0.6 : 1
                       }}
-                      title={dirtyIds.size > 0 ? "Save blocks before generating" : `Generate ${batch.id}`}
+                      title={dirtyIds.size > 0 ? "Save blocks before generating" : `${actionLabel} ${batch.id}`}
                     >
                       {isGenerating ? <RefreshCcw size={12} className="animate-spin" /> : <Zap size={12} />}
-                      {batch.status === 'rendered' || batch.status === 'done' ? 'Rebuild' : 'Generate'}
+                      {isGenerating ? 'Queued' : actionLabel}
                     </button>
                   </div>
                 </div>

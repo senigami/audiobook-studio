@@ -299,12 +299,103 @@ describe('Chapter Subcomponents', () => {
       );
 
       expect(screen.getByText('Stale')).toBeInTheDocument();
+      expect(screen.getByText(/text changed since render/i)).toBeInTheDocument();
       expect(screen.getByText('1 blocks · 10 units')).toBeInTheDocument();
       
-      const genBtn = screen.getByTitle('Generate batch-1');
+      const genBtn = screen.getByTitle('Rebuild batch-1');
+      expect(genBtn).toHaveTextContent('Rebuild');
       fireEvent.click(genBtn);
       
       expect(onGenerateBatch).toHaveBeenCalledWith(['seg-1']);
+    });
+
+    it('supports failed render batch recovery actions', () => {
+      const onGenerateBatch = vi.fn();
+      const mockRenderBatch = { 
+        id: 'batch-failed', 
+        block_ids: ['block-1'], 
+        status: 'failed', 
+        estimated_work_weight: 10 
+      };
+      
+      render(
+        <ProductionTab 
+          chapterId="chap-1"
+          blocks={mockBlocks as any}
+          renderBatches={[mockRenderBatch]} 
+          baseRevisionId="rev-1"
+          characters={mockCharacters} 
+          speakerProfiles={mockProfiles} 
+          selectedCharacterId={null} 
+          selectedProfileName={null}
+          hoveredBlockId={null} 
+          setHoveredBlockId={vi.fn()} 
+          activeBlockId={null} 
+          setActiveBlockId={vi.fn()} 
+          onBulkAssign={vi.fn()} 
+          onBulkReset={vi.fn()} 
+          onSaveBlocks={vi.fn()} 
+          onReloadBlocks={vi.fn()}
+          onGenerateBatch={onGenerateBatch}
+          pendingSegmentIds={new Set()} 
+          queuedSegmentIds={new Set()} 
+          segments={mockSegments} 
+          segmentsCount={2} 
+        />
+      );
+
+      expect(screen.getByText('Failed')).toBeInTheDocument();
+      expect(screen.getByText(/last render failed/i)).toBeInTheDocument();
+      
+      const retryBtn = screen.getByTitle('Retry batch-failed');
+      expect(retryBtn).toHaveTextContent('Retry');
+      fireEvent.click(retryBtn);
+      
+      expect(onGenerateBatch).toHaveBeenCalledWith(['seg-1']);
+    });
+
+    it('disables batch generation when edits are dirty', () => {
+      const onGenerateBatch = vi.fn();
+      const mockRenderBatch = { 
+        id: 'batch-1', 
+        block_ids: ['block-1'], 
+        status: 'stale', 
+        estimated_work_weight: 10 
+      };
+      
+      render(
+        <ProductionTab 
+          chapterId="chap-1"
+          blocks={mockBlocks as any}
+          renderBatches={[mockRenderBatch]} 
+          baseRevisionId="rev-1"
+          characters={mockCharacters} 
+          speakerProfiles={mockProfiles} 
+          selectedCharacterId={null} 
+          selectedProfileName={null}
+          hoveredBlockId={null} 
+          setHoveredBlockId={vi.fn()} 
+          activeBlockId={null} 
+          setActiveBlockId={vi.fn()} 
+          onBulkAssign={vi.fn()} 
+          onBulkReset={vi.fn()} 
+          onSaveBlocks={vi.fn()} 
+          onReloadBlocks={vi.fn()}
+          onGenerateBatch={onGenerateBatch}
+          pendingSegmentIds={new Set()} 
+          queuedSegmentIds={new Set()} 
+          segments={mockSegments} 
+          segmentsCount={2} 
+        />
+      );
+
+      // Make it dirty
+      fireEvent.change(screen.getByLabelText('Production block 1 text'), {
+        target: { value: 'Dirty edit' }
+      });
+      
+      const genBtn = screen.getByTitle('Save blocks before generating');
+      expect(genBtn).toBeDisabled();
     });
   });
 
