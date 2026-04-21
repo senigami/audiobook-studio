@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ConfirmModal } from './ConfirmModal';
 import { api } from '../api';
-import type { Chapter, SpeakerProfile, Job, Character, ChapterSegment, SegmentProgress } from '../types';
+import type { Chapter, SpeakerProfile, Job, Character, ChapterSegment, SegmentProgress, ProductionBlock, ProductionRenderBatch } from '../types';
 
 // Extracted Components
 import { ChapterHeader } from './chapter/ChapterHeader';
@@ -62,11 +62,15 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   
   const [segments, setSegments] = useState<ChapterSegment[]>([]);
   const [characters, setCharacters] = useState<Character[]>([]);
-  const [activeSegmentId, setActiveSegmentId] = useState<string | null>(null);
+  const [productionBlocks, setProductionBlocks] = useState<ProductionBlock[]>([]);
+  const [renderBatches, setRenderBatches] = useState<ProductionRenderBatch[]>([]);
+  const [productionBaseRevisionId, setProductionBaseRevisionId] = useState<string | null>(null);
+  const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
   const [selectedProfileName, setSelectedProfileName] = useState<string | null>(null);
   const [expandedCharacterId, setExpandedCharacterId] = useState<string | null>(null);
-  const [hoveredSegmentId, setHoveredSegmentId] = useState<string | null>(null);
+  const [hoveredBlockId, setHoveredBlockId] = useState<string | null>(null);
+  const [exportingFormat, setExportingFormat] = useState<'wav' | 'mp3' | null>(null);
   
   const [confirmConfig, setConfirmConfig] = useState<{
     title: string;
@@ -116,6 +120,48 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   const availableVoices = React.useMemo(() => {
     return buildVoiceOptions(speakerProfiles || [], speakers || []);
   }, [speakers, speakerProfiles]);
+
+  const buildFallbackProductionBlocks = React.useCallback((sourceSegments: ChapterSegment[]): ProductionBlock[] => {
+    return [...sourceSegments]
+      .sort((a, b) => (a.segment_order ?? 0) - (b.segment_order ?? 0))
+      .map((segment, index) => ({
+        id: segment.id,
+        order_index: index,
+        text: segment.sanitized_text || segment.text_content || '',
+        character_id: segment.character_id,
+        speaker_profile_name: segment.speaker_profile_name,
+        status: segment.audio_status === 'done'
+          ? 'rendered'
+          : segment.audio_status === 'processing'
+            ? 'running'
+            : segment.audio_status === 'failed' || segment.audio_status === 'error'
+              ? 'failed'
+              : segment.audio_status === 'cancelled'
+                ? 'failed'
+                : 'draft',
+        source_segment_ids: [segment.id],
+      }));
+  }, []);
+
+  const syncProductionBlocks = React.useCallback((payload: {
+    base_revision_id?: string | null;
+    blocks: ProductionBlock[];
+    render_batches?: ProductionRenderBatch[];
+  }) => {
+    setProductionBaseRevisionId(payload.base_revision_id ?? null);
+    setProductionBlocks([...payload.blocks].sort((a, b) => a.order_index - b.order_index));
+    setRenderBatches(payload.render_batches ? [...payload.render_batches] : []);
+  }, []);
+
+  const downloadBlob = React.useCallback((blob: Blob, filename: string) => {
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.rel = 'noopener';
+    link.click();
+    window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+  }, []);
 
   const { analysis, setAnalysis, analyzing, loadingVoiceChunks, ensureVoiceChunks, runAnalysis } = useChapterAnalysis(chapterId, text);
 
@@ -200,21 +246,6 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
 
   const { playingSegmentId, playSegment, stopPlayback } = useChapterPlayback(projectId, segments, chunkGroups, effectivePendingSegmentIds, handleGenerate);
 
-  const paragraphGroups = React.useMemo(() => {
-    const groups: { characterId: string | null; segments: ChapterSegment[] }[] = [];
-    segments.forEach(seg => {
-        const lastGroup = groups[groups.length - 1];
-        const lastSeg = lastGroup?.segments[lastGroup.segments.length - 1];
-        const isNewParagraph = lastSeg && (lastSeg.text_content.includes('\n') || lastSeg.text_content.includes('\r'));
-        if (lastGroup && !isNewParagraph) {
-            lastGroup.segments.push(seg);
-        } else {
-            groups.push({ characterId: seg.character_id, segments: [seg] });
-        }
-    });
-    return groups;
-  }, [segments]);
-
   const loadChapter = async (_source: string = 'unknown') => {
     try {
       const chapters = await api.fetchChapters(projectId);
@@ -225,12 +256,20 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         setText(target.text_content || '');
         setLocalVoice(target.speaker_profile_name || '');
       }
-      const [segs, chars] = await Promise.all([
+      const [segs, chars, production] = await Promise.all([
         api.fetchSegments(chapterId),
-        api.fetchCharacters(projectId)
+        api.fetchCharacters(projectId),
+        api.fetchProductionBlocks(chapterId).catch(() => null)
       ]);
       setSegments(segs);
       setCharacters(chars);
+      if (production?.blocks?.length) {
+        syncProductionBlocks(production);
+      } else {
+        setProductionBaseRevisionId(null);
+        setProductionBlocks(buildFallbackProductionBlocks(segs));
+        setRenderBatches([]);
+      }
       setGeneratingSegmentIds(prev => {
         if (prev.size === 0) return prev;
         const next = new Set(
@@ -267,12 +306,22 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     if (segmentRefreshTimerRef.current) clearTimeout(segmentRefreshTimerRef.current);
     segmentRefreshTimerRef.current = setTimeout(async () => {
         try {
-        const updated = await api.fetchSegments(chapterId);
-        setSegments(updated);
+        const [updatedSegments, updatedProduction] = await Promise.all([
+          api.fetchSegments(chapterId),
+          api.fetchProductionBlocks(chapterId).catch(() => null),
+        ]);
+        setSegments(updatedSegments);
+        if (updatedProduction?.blocks?.length) {
+          syncProductionBlocks(updatedProduction);
+        } else {
+          setProductionBlocks(buildFallbackProductionBlocks(updatedSegments));
+          setRenderBatches([]);
+          setProductionBaseRevisionId(null);
+        }
         setGeneratingSegmentIds(prev => {
           const next = new Set(prev);
           for (const id of prev) {
-            const seg = updated.find((s: any) => s.id === id);
+            const seg = updatedSegments.find((s: any) => s.id === id);
             if (!seg) {
               next.delete(id);
               pendingGenerationIdsRef.current.delete(id);
@@ -336,8 +385,18 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
       const result = await api.updateChapter(chapterId, { title: finalTitle, text_content: finalText });
       if (result.chapter) setChapter(result.chapter);
       if (finalText !== chapter.text_content) {
-          const updatedSegs = await api.fetchSegments(chapterId);
+          const [updatedSegs, updatedProduction] = await Promise.all([
+            api.fetchSegments(chapterId),
+            api.fetchProductionBlocks(chapterId).catch(() => null)
+          ]);
           setSegments(updatedSegs);
+          if (updatedProduction?.blocks?.length) {
+            syncProductionBlocks(updatedProduction);
+          } else {
+            setProductionBlocks(buildFallbackProductionBlocks(updatedSegs));
+            setRenderBatches([]);
+            setProductionBaseRevisionId(null);
+          }
           runAnalysis(finalText);
       }
       return true;
@@ -391,6 +450,37 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     try { await api.updateSegmentsBulk(segmentIds, { character_id: null, speaker_profile_name: null }); }
     catch (e) { console.error("Bulk reset failed", e); }
   };
+
+  const saveProductionBlocks = React.useCallback(async (blocks: ProductionBlock[]) => {
+    const result = await api.updateProductionBlocks(chapterId, {
+      base_revision_id: productionBaseRevisionId ?? undefined,
+      blocks,
+    });
+    syncProductionBlocks(result);
+    return result;
+  }, [chapterId, productionBaseRevisionId, syncProductionBlocks]);
+
+  const handleExportAudio = React.useCallback(async (format: 'wav' | 'mp3') => {
+    setExportingFormat(format);
+    try {
+      const blob = await api.exportChapterAudio(chapterId, format);
+      const safeTitle = (chapter?.title || `chapter-${chapterId}`)
+        .trim()
+        .replace(/[^\w.-]+/g, '_')
+        .replace(/^_+|_+$/g, '') || `chapter-${chapterId}`;
+      downloadBlob(blob, `${safeTitle}.${format}`);
+    } catch (e) {
+      console.error(e);
+      setConfirmConfig({
+        title: 'Export Failed',
+        message: e instanceof Error ? e.message : `Could not save ${format.toUpperCase()} audio.`,
+        onConfirm: () => {},
+        confirmText: 'OK'
+      });
+    } finally {
+      setExportingFormat(null);
+    }
+  }, [chapter?.title, chapterId, downloadBlob]);
 
   const hasRenderedOutput = chapter?.audio_status === 'done' || !!chapter?.audio_file_path || !!chapter?.has_wav || !!chapter?.has_mp3;
   const hasRenderedSegments = segments.some(s => s.audio_status === 'done' || !!s.audio_file_path);
@@ -562,6 +652,9 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         submitting={submitting} queueLocked={isQueueLocked} queuePending={queuePending} job={job} generatingJob={generatingSegmentJob} generatingSegmentIdsCount={effectivePendingSegmentIds.size}
         queueLabel={queueButtonLabel}
         queueTitle={queueButtonTitle}
+        onSaveWav={() => void handleExportAudio('wav')}
+        onSaveMp3={() => void handleExportAudio('mp3')}
+        exportingFormat={exportingFormat}
         onQueue={() => {
             if (shouldWarnBeforeRequeue) {
                 setConfirmConfig({
@@ -597,7 +690,11 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                 />
                 
                 {editorTab === 'edit' && (
-                  <EditTab text={text} setText={setText} analysis={analysis} setAnalysis={setAnalysis} analyzing={analyzing} chapter={chapter} segmentsCount={segments.length} />
+                  <EditTab 
+                    text={text} setText={setText} analysis={analysis} setAnalysis={setAnalysis} 
+                    analyzing={analyzing} chapter={chapter} segmentsCount={segments.length} 
+                    hasUnsavedChanges={hasUnsavedChanges} 
+                  />
                 )}
                 {editorTab === 'performance' && (
                   <PerformanceTab 
@@ -612,10 +709,24 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                 {editorTab === 'preview' && <PreviewTab analysis={analysis} analyzing={analyzing} />}
                 {editorTab === 'production' && (
                   <ProductionTab 
-                    paragraphGroups={paragraphGroups} characters={characters} speakerProfiles={speakerProfiles} selectedCharacterId={selectedCharacterId}
-                    hoveredSegmentId={hoveredSegmentId} setHoveredSegmentId={setHoveredSegmentId}
-                    activeSegmentId={activeSegmentId} setActiveSegmentId={setActiveSegmentId}
-                    onBulkAssign={handleParagraphBulkAssign} onBulkReset={handleParagraphBulkReset}
+                    chapterId={chapterId}
+                    blocks={productionBlocks}
+                    renderBatches={renderBatches}
+                    baseRevisionId={productionBaseRevisionId}
+                    characters={characters}
+                    speakerProfiles={speakerProfiles}
+                    selectedCharacterId={selectedCharacterId}
+                    selectedProfileName={selectedProfileName}
+                    hoveredBlockId={hoveredBlockId}
+                    setHoveredBlockId={setHoveredBlockId}
+                    activeBlockId={activeBlockId}
+                    setActiveBlockId={setActiveBlockId}
+                    onBulkAssign={handleParagraphBulkAssign}
+                    onBulkReset={handleParagraphBulkReset}
+                    onSaveBlocks={saveProductionBlocks}
+                    pendingSegmentIds={effectivePendingSegmentIds}
+                    queuedSegmentIds={queuedSegmentJobIds}
+                    segments={segments}
                     segmentsCount={segments.length}
                   />
                 )}

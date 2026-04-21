@@ -1,5 +1,5 @@
 import React from 'react';
-import { RefreshCw, Zap, CheckCircle, AlertTriangle } from 'lucide-react';
+import { RefreshCw, Zap, CheckCircle, AlertTriangle, Download } from 'lucide-react';
 import type { Chapter, Job } from '../../types';
 import { PredictiveProgressBar } from '../PredictiveProgressBar';
 
@@ -26,6 +26,9 @@ interface ChapterHeaderProps {
   generatingSegmentIdsCount: number;
   queueLabel?: string;
   queueTitle?: string;
+  onSaveWav?: () => void;
+  onSaveMp3?: () => void;
+  exportingFormat?: 'wav' | 'mp3' | null;
   onQueue: () => void;
   onStopAll: () => void;
 }
@@ -50,6 +53,9 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
   generatingSegmentIdsCount,
   queueLabel = 'Queue',
   queueTitle = 'Queue Chapter',
+  onSaveWav,
+  onSaveMp3,
+  exportingFormat = null,
   onQueue,
   onStopAll
 }) => {
@@ -220,6 +226,53 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
           )}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          {(onSaveWav || onSaveMp3) && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  {onSaveWav && (
+                      <button
+                          type="button"
+                          onClick={onSaveWav}
+                          className="btn-ghost"
+                          style={{
+                              padding: '0.4rem 0.75rem',
+                              fontSize: '0.82rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.4rem',
+                              border: '1px solid var(--border)',
+                              borderRadius: '8px'
+                          }}
+                          title="Save WAV"
+                          disabled={exportingFormat !== null}
+                      >
+                          {exportingFormat === 'wav' ? <RefreshCw size={14} className="animate-spin" /> : <Download size={14} />}
+                          Save WAV
+                      </button>
+                  )}
+                  {onSaveMp3 && (
+                      <button
+                          type="button"
+                          onClick={onSaveMp3}
+                          className="btn-ghost"
+                          style={{
+                              padding: '0.4rem 0.75rem',
+                              fontSize: '0.82rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.4rem',
+                              border: '1px solid var(--border)',
+                              borderRadius: '8px'
+                          }}
+                          title="Save MP3"
+                          disabled={exportingFormat !== null}
+                      >
+                          {exportingFormat === 'mp3' ? <RefreshCw size={14} className="animate-spin" /> : <Download size={14} />}
+                          Save MP3
+                      </button>
+                  )}
+              </div>
+          )}
+
           {availableVoices.length > 0 && (
               <select
                   value={selectedVoice}

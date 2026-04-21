@@ -6,6 +6,8 @@ describe('api methods', () => {
         global.fetch = vi.fn().mockResolvedValue({
             ok: true,
             json: () => Promise.resolve({ success: true })
+            ,
+            blob: () => Promise.resolve(new Blob(['test']))
         }) as any
     })
 
@@ -38,6 +40,19 @@ describe('api methods', () => {
 
         await api.updateChapter('c1', { title: 'Chapter 1' })
         expect(global.fetch).toHaveBeenCalledWith('/api/chapters/c1', expect.anything())
+
+        await api.fetchProductionBlocks('c1')
+        expect(global.fetch).toHaveBeenCalledWith('/api/chapters/c1/production-blocks')
+
+        await api.updateProductionBlocks('c1', { blocks: [] })
+        expect(global.fetch).toHaveBeenCalledWith('/api/chapters/c1/production-blocks', expect.objectContaining({ method: 'PUT' }))
+
+        await api.exportChapterAudio('c1', 'wav')
+        expect(global.fetch).toHaveBeenCalledWith('/api/chapters/c1/export-audio', expect.objectContaining({ 
+            method: 'POST',
+            headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ format: 'wav' })
+        }))
     })
 
     it('other', async () => {
@@ -113,5 +128,14 @@ describe('api methods', () => {
 
         await expect(api.generateSegments(['seg-1'], 'Test')).rejects.toThrow(/Enable Voxtral in Settings/i)
         await expect(api.addProcessingQueue('p1', 'c1', 0, 'Test')).rejects.toThrow(/Enable Voxtral in Settings/i)
+    })
+
+    it('rejects production block updates when the backend reports a revision conflict', async () => {
+        global.fetch = vi.fn().mockResolvedValue({
+            ok: false,
+            json: () => Promise.resolve({ status: 'error', message: 'Revision mismatch' })
+        }) as any
+
+        await expect(api.updateProductionBlocks('c1', { blocks: [] })).rejects.toThrow('Revision mismatch')
     })
 })

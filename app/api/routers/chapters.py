@@ -22,6 +22,12 @@ from ...state import update_job, delete_jobs, get_settings
 from ...constants import DEFAULT_VOICE_SENTINEL
 from ..ws import broadcast_chapter_updated, broadcast_queue_update
 from ...pathing import safe_basename, safe_join_flat
+from ...domain.chapters.compatibility import (
+    CompatibilityRevisionMismatch,
+    export_chapter_audio,
+    get_production_blocks_payload,
+    save_production_blocks_payload,
+)
 
 # Compatibility for tests that monkeypatch these
 CHAPTER_DIR = config.CHAPTER_DIR
@@ -58,6 +64,26 @@ def _named_audio_file_map(base_dir: Optional[Path]) -> dict[str, Path]:
         for entry in base_dir.iterdir()
         if entry.is_file() and entry.suffix.lower() in (".wav", ".mp3", ".m4a")
     }
+
+
+class BulkStatusUpdate(BaseModel):
+    segment_ids: List[str]
+    status: Literal["unprocessed", "processing", "done", "failed", "cancelled", "error"]
+
+
+class BulkSegmentsUpdate(BaseModel):
+    segment_ids: List[str]
+    updates: dict
+
+
+class ProductionBlocksUpdate(BaseModel):
+    blocks: list[dict]
+    base_revision_id: Optional[str] = None
+
+
+class AudioExportRequest(BaseModel):
+    format: Literal["wav", "mp3"]
+
 
 router = APIRouter(prefix="/api", tags=["chapters"])
 
@@ -179,6 +205,52 @@ def cancel_chapter_generation_route(chapter_id: str):
 def api_get_segments(chapter_id: str):
     return JSONResponse({"segments": get_chapter_segments(chapter_id)})
 
+
+@router.get("/chapters/{chapter_id}/production-blocks")
+def api_get_production_blocks(chapter_id: str):
+    try:
+        return JSONResponse(get_production_blocks_payload(chapter_id))
+    except KeyError:
+        return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
+
+
+@router.put("/chapters/{chapter_id}/production-blocks")
+def api_save_production_blocks(chapter_id: str, payload: ProductionBlocksUpdate):
+    try:
+        return JSONResponse(
+            save_production_blocks_payload(
+                chapter_id,
+                blocks=payload.blocks,
+                base_revision_id=payload.base_revision_id,
+            )
+        )
+    except CompatibilityRevisionMismatch as exc:
+        return JSONResponse(
+            {
+                "status": "error",
+                "message": "Chapter production blocks were updated by someone else. Reload before saving again.",
+                "expected_base_revision_id": exc.expected_revision_id,
+                "base_revision_id": exc.actual_revision_id,
+            },
+            status_code=409,
+        )
+    except KeyError:
+        return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
+
+
+@router.post("/chapters/{chapter_id}/export-audio")
+def api_export_chapter_audio(chapter_id: str, payload: AudioExportRequest):
+    try:
+        export_path, media_type = export_chapter_audio(chapter_id, format=payload.format)
+    except KeyError:
+        return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
+    except FileNotFoundError as exc:
+        return JSONResponse({"status": "error", "message": str(exc)}, status_code=404)
+    except ValueError as exc:
+        return JSONResponse({"status": "error", "message": str(exc)}, status_code=400)
+
+    return FileResponse(export_path, media_type=media_type, filename=export_path.name)
+
 @router.put("/segments/{segment_id}")
 async def api_update_segment_route(segment_id: str, request: Request):
     updates = {}
@@ -200,18 +272,10 @@ async def api_update_segment_route(segment_id: str, request: Request):
     )
     return JSONResponse({"status": "ok" if success else "error"})
 
-class BulkStatusUpdate(BaseModel):
-    segment_ids: List[str]
-    status: Literal["unprocessed", "processing", "done", "failed", "cancelled", "error"]
-
 @router.post("/chapters/{chapter_id}/segments/bulk-status")
 def api_bulk_update_segment_status(chapter_id: str, req: BulkStatusUpdate):
     update_segments_status_bulk(req.segment_ids, chapter_id, req.status)
     return JSONResponse({"status": "ok"})
-
-class BulkSegmentsUpdate(BaseModel):
-    segment_ids: List[str]
-    updates: dict
 
 @router.post("/segments/bulk-update")
 async def api_bulk_update_segments(req: BulkSegmentsUpdate):

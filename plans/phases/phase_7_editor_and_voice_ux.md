@@ -48,6 +48,16 @@ Move the main user workflows onto the 2.0 foundations once the lower-risk layers
 - per-engine settings must be grouped inside each engine's card, never scattered across other pages
 - the Settings page must be deep-linkable for each tab
 - engine settings forms must be schema-driven — the UI must not hard-code engine-specific fields
+- GitHub issue #18 is in scope as the main editor migration thread: production blocks become the editable source of truth, raw chapter text becomes a reconstructed/reference view, and existing segment/job behavior remains the compatibility layer until the block path is verified end to end
+- GitHub issue #56 is in scope only as explicit chapter Save WAV / Save MP3 behavior; render jobs should not produce MP3s unless that output is explicitly requested, and voice sample previews may remain MP3 endpoints
+- GitHub issues #38 and #39 are deferred from Phase 7 implementation because nested voice storage and portable voice bundles are structural voice-library migrations that depend on a stable voice domain/storage boundary
+
+## Issue Intake Decisions
+
+- **#18: Refactor chapter editing so production segments are the source of truth** — include now, but slice it through compatibility adapters. Initial production blocks should represent human-editable paragraph/speaker groupings; render chunks and batches are derived from those blocks using active engine limits and normalization rules.
+- **#56: Don't make MP3s unless asked** — include as a bounded chapter export UX task. Add explicit Save WAV and Save MP3 actions without changing the global `make_mp3` render-time default or implying MP3 backfill is implemented.
+- **#38: Nested voice/variant folders** — defer. This changes storage, repair, rename, lookup, and migration behavior and should not be mixed into the Phase 7 editor/settings surface work.
+- **#39: Portable voice bundles** — defer until after #38 or an equivalent stable voice asset storage contract exists. Bundle import/export needs its own manifest, path-safety, duplicate handling, and round-trip strategy.
 
 ## Settings Page Design Notes
 

@@ -37,6 +37,7 @@ vi.mock('../api', () => ({
     fetchChapters: vi.fn(),
     fetchSegments: vi.fn(),
     fetchCharacters: vi.fn(),
+    fetchProductionBlocks: vi.fn(),
     updateChapter: vi.fn(),
     generateSegments: vi.fn(),
     updateSegmentsBulk: vi.fn(),
@@ -44,6 +45,8 @@ vi.mock('../api', () => ({
     cancelChapterGeneration: vi.fn(),
     updateCharacter: vi.fn(),
     bakeChapter: vi.fn(),
+    updateProductionBlocks: vi.fn(),
+    exportChapterAudio: vi.fn(),
   },
 }));
 
@@ -107,7 +110,28 @@ describe('ChapterEditor', () => {
   ];
 
   const mockSegments = [
-    { id: 'seg-1', chapter_id: mockChapterId, text_content: 'Once upon a time.', character_id: null, audio_status: 'unprocessed' }
+    { id: 'seg-1', chapter_id: mockChapterId, segment_order: 0, text_content: 'Once upon a time.', character_id: null, audio_status: 'unprocessed' }
+  ];
+
+  const mockProductionBlocks = [
+    {
+      id: 'block-1',
+      order_index: 0,
+      text: 'Once upon a time.',
+      character_id: null,
+      speaker_profile_name: null,
+      status: 'draft',
+      source_segment_ids: ['seg-1']
+    }
+  ];
+
+  const mockRenderBatches = [
+    {
+      id: 'batch-1',
+      block_ids: ['block-1'],
+      status: 'queued',
+      estimated_work_weight: 1
+    }
   ];
 
   const mockCharacters: Character[] = [
@@ -115,12 +139,36 @@ describe('ChapterEditor', () => {
   ];
 
   beforeEach(() => {
+    vi.restoreAllMocks();
     vi.clearAllMocks();
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     (api.fetchChapters as any).mockResolvedValue([mockChapter]);
     (api.fetchSegments as any).mockResolvedValue(mockSegments);
     (api.fetchCharacters as any).mockResolvedValue(mockCharacters);
+    (api.fetchProductionBlocks as any).mockResolvedValue({
+      chapter_id: mockChapterId,
+      base_revision_id: 'rev-1',
+      blocks: mockProductionBlocks,
+      render_batches: mockRenderBatches
+    });
     (api.updateChapter as any).mockResolvedValue({ chapter: mockChapter });
+    (api.updateProductionBlocks as any).mockResolvedValue({
+      chapter_id: mockChapterId,
+      base_revision_id: 'rev-2',
+      blocks: mockProductionBlocks,
+      render_batches: mockRenderBatches
+    });
+    (api.exportChapterAudio as any).mockResolvedValue(new Blob(['audio']));
+    Object.defineProperty(window.URL, 'createObjectURL', {
+      value: vi.fn(() => 'blob:mock'),
+      writable: true,
+      configurable: true,
+    });
+    Object.defineProperty(window.URL, 'revokeObjectURL', {
+      value: vi.fn(),
+      writable: true,
+      configurable: true,
+    });
   });
 
   afterEach(() => {
@@ -179,7 +227,8 @@ describe('ChapterEditor', () => {
 
     // Production Tab
     fireEvent.click(screen.getByText('Production'));
-    expect(await screen.findByText('NARRATOR')).toBeInTheDocument();
+    expect(await screen.findByText('Production Blocks')).toBeInTheDocument();
+    expect(screen.getByText('Block 1')).toBeInTheDocument();
 
     // Performance Tab
     fireEvent.click(screen.getByText('Performance'));
@@ -221,6 +270,40 @@ describe('ChapterEditor', () => {
     expect(api.updateChapter).toHaveBeenCalledWith(mockChapterId, expect.objectContaining({
       title: 'Updated Title'
     }));
+  });
+
+  it('saves edited production blocks', async () => {
+    render(
+      <ChapterEditor
+        chapterId={mockChapterId}
+        projectId={mockProjectId}
+        speakerProfiles={mockSpeakerProfiles as any}
+        speakers={mockSpeakers as any}
+        onBack={vi.fn()}
+      />
+    );
+
+    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
+
+    fireEvent.click(screen.getByText('Production'));
+    const blockEditor = await screen.findByLabelText('Production block 1 text');
+    fireEvent.change(blockEditor, { target: { value: 'Updated block text.' } });
+    fireEvent.click(screen.getByRole('button', { name: /save blocks/i }));
+
+    await waitFor(() => {
+      expect(api.updateProductionBlocks).toHaveBeenCalledWith(
+        mockChapterId,
+        expect.objectContaining({
+          base_revision_id: 'rev-1',
+          blocks: expect.arrayContaining([
+            expect.objectContaining({
+              id: 'block-1',
+              text: 'Updated block text.'
+            })
+          ])
+        })
+      );
+    });
   });
 
   it('handles "Add to Queue"', async () => {
@@ -708,6 +791,34 @@ describe('ChapterEditor', () => {
     await waitFor(() => {
       expect(api.updateChapter).toHaveBeenCalledWith(mockChapterId, { speaker_profile_name: 'Profile 1' });
     });
+  });
+
+  it('exports WAV and MP3 audio directly from the chapter editor', async () => {
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    render(
+      <ChapterEditor
+        chapterId={mockChapterId}
+        projectId={mockProjectId}
+        speakerProfiles={mockSpeakerProfiles as any}
+        speakers={mockSpeakers as any}
+        onBack={vi.fn()}
+      />
+    );
+
+    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
+
+    fireEvent.click(screen.getByTitle('Save WAV'));
+    await waitFor(() => {
+      expect(api.exportChapterAudio).toHaveBeenCalledWith(mockChapterId, 'wav');
+    });
+
+    fireEvent.click(screen.getByTitle('Save MP3'));
+    await waitFor(() => {
+      expect(api.exportChapterAudio).toHaveBeenCalledWith(mockChapterId, 'mp3');
+    });
+
+    expect(clickSpy).toHaveBeenCalled();
   });
 
   it('loads a saved chapter voice instead of falling back to the project voice', async () => {

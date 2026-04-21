@@ -1,4 +1,4 @@
-import type { Job, Project, Chapter } from '../types';
+import type { Job, Project, Chapter, ProductionBlocksResponse, ProductionBlock } from '../types';
 import { DEFAULT_VOICE_SENTINEL } from '../constants/api';
 
 const parseApiResponse = async (res: Response) => {
@@ -117,6 +117,40 @@ export const api = {
   analyzeChapter: async (chapterId: string): Promise<any> => {
     const res = await fetch(`/api/chapters/${chapterId}/analyze`);
     return res.json();
+  },
+  fetchProductionBlocks: async (chapterId: string): Promise<ProductionBlocksResponse> => {
+    const res = await fetch(`/api/chapters/${chapterId}/production-blocks`);
+    return parseApiResponse(res);
+  },
+  updateProductionBlocks: async (
+    chapterId: string,
+    data: { base_revision_id?: string; blocks: ProductionBlock[] }
+  ): Promise<ProductionBlocksResponse> => {
+    const res = await fetch(`/api/chapters/${chapterId}/production-blocks`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        base_revision_id: data.base_revision_id,
+        blocks: data.blocks,
+      }),
+    });
+    return parseApiResponse(res);
+  },
+  exportChapterAudio: async (chapterId: string, format: 'wav' | 'mp3'): Promise<Blob> => {
+    const res = await fetch(`/api/chapters/${chapterId}/export-audio`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ format }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      throw new Error(data?.message || 'Audio export failed');
+    }
+    return res.blob();
   },
 
   // --- Segments ---

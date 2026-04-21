@@ -36,6 +36,30 @@ export interface ChapterSegment {
   audio_generated_at: number | null;
 }
 
+export interface ProductionBlock {
+  id: string;
+  order_index: number;
+  text: string;
+  character_id: string | null;
+  speaker_profile_name: string | null;
+  status: string;
+  source_segment_ids: string[];
+}
+
+export interface ProductionRenderBatch {
+  id: string;
+  block_ids: string[];
+  status: string;
+  estimated_work_weight: number;
+}
+
+export interface ProductionBlocksResponse {
+  chapter_id: string;
+  base_revision_id: string | null;
+  blocks: ProductionBlock[];
+  render_batches: ProductionRenderBatch[];
+}
+
 export interface Chapter {
   id: string;
   project_id: string;

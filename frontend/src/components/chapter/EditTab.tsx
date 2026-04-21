@@ -10,6 +10,7 @@ interface EditTabProps {
   analyzing: boolean;
   chapter: Chapter;
   segmentsCount: number;
+  hasUnsavedChanges: boolean;
 }
 
 export const EditTab: React.FC<EditTabProps> = ({
@@ -19,10 +20,25 @@ export const EditTab: React.FC<EditTabProps> = ({
   setAnalysis,
   analyzing,
   chapter,
-  segmentsCount
+  segmentsCount,
+  hasUnsavedChanges
 }) => {
+  const isTextChanged = (text || "").replace(/\r\n/g, '\n') !== (chapter.text_content || "").replace(/\r\n/g, '\n');
+
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.75rem', minHeight: 0 }}>
+      {hasUnsavedChanges && isTextChanged && (
+          <div style={{ 
+              display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', 
+              background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.3)', 
+              borderRadius: '10px', color: 'rgb(146, 64, 14)', fontSize: '0.88rem' 
+          }}>
+              <AlertTriangle size={18} style={{ flexShrink: 0 }} />
+              <div>
+                  <strong>Unsaved changes detected.</strong> Saving raw text changes will resync production blocks and may cause loss of block-level character/voice assignments.
+              </div>
+          </div>
+      )}
       <textarea 
           value={text}
           onChange={e => setText(e.target.value)}
