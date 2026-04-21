@@ -162,6 +162,39 @@ def init_db():
                 )
             """)
 
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS settings (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                )
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS render_performance_samples (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    job_id TEXT,
+                    project_id TEXT,
+                    chapter_id TEXT,
+                    engine TEXT NOT NULL,
+                    speaker_profile TEXT,
+                    chars INTEGER NOT NULL,
+                    segment_count INTEGER NOT NULL,
+                    render_group_count INTEGER DEFAULT 0,
+                    started_at REAL,
+                    completed_at REAL NOT NULL,
+                    duration_seconds REAL NOT NULL,
+                    cps REAL NOT NULL,
+                    seconds_per_segment REAL NOT NULL,
+                    audio_duration_seconds REAL,
+                    make_mp3 INTEGER DEFAULT 0
+                )
+            """)
+
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_render_performance_completed_at
+                ON render_performance_samples (completed_at)
+            """)
+
             # Migrations
             def add_column_if_missing(sql: str, label: str):
                 try:
@@ -178,6 +211,12 @@ def init_db():
             add_column_if_missing("ALTER TABLE processing_queue ADD COLUMN completed_at REAL", "processing_queue.completed_at")
             add_column_if_missing("ALTER TABLE processing_queue ADD COLUMN custom_title TEXT", "processing_queue.custom_title")
             add_column_if_missing("ALTER TABLE processing_queue ADD COLUMN engine TEXT", "processing_queue.engine")
+            add_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN job_id TEXT", "render_performance_samples.job_id")
+            add_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN project_id TEXT", "render_performance_samples.project_id")
+            add_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN chapter_id TEXT", "render_performance_samples.chapter_id")
+            add_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN started_at REAL", "render_performance_samples.started_at")
+            add_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN audio_duration_seconds REAL", "render_performance_samples.audio_duration_seconds")
+            add_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN make_mp3 INTEGER DEFAULT 0", "render_performance_samples.make_mp3")
 
             # Migration: Ensure project_id and chapter_id allow NULLs for system tasks
             try:
@@ -219,3 +258,5 @@ def init_db():
                 logger.warning("Failed to migrate processing_queue NULL constraints", exc_info=True)
 
             conn.commit()
+            from .performance import apply_performance_retention_policy
+            apply_performance_retention_policy()

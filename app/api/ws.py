@@ -23,7 +23,7 @@ class ConnectionManager:
         # We need to broadcast from a non-async context sometimes (jobs.py or db.py)
         # So we use the bridge approach or create a task
         from ..web import _main_loop
-        if _main_loop[0]:
+        if _main_loop[0] and not _main_loop[0].is_closed():
             _main_loop[0].call_soon_threadsafe(
                 lambda: asyncio.create_task(self._send_to_all(message))
             )
@@ -72,7 +72,9 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
         scope="job",
         parent_job_id=merged.get("parent_job_id"),
         progress=merged.get("progress"),
-        eta_seconds=merged.get("eta_seconds"),
+        eta_seconds=updates.get("eta_seconds"),
+        eta_basis=updates.get("eta_basis"),
+        estimated_end_at=updates.get("estimated_end_at"),
         message=updates.get("message") or updates.get("log"),
         reason_code=merged.get("reason_code"),
         updated_at=merged.get("updated_at"),

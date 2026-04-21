@@ -294,7 +294,10 @@ class ProgressService:
         if normalized_progress is not None:
             payload["progress"] = normalized_progress
         if eta_seconds is not None:
-            payload["eta_seconds"] = max(0, int(eta_seconds))
+            sanitized_eta = max(0, int(eta_seconds))
+            payload["eta_seconds"] = sanitized_eta
+            payload["eta_basis"] = "remaining_from_update"
+            payload["estimated_end_at"] = now + float(sanitized_eta)
         if eta_confidence is not None:
             payload["eta_confidence"] = eta_confidence
         else:

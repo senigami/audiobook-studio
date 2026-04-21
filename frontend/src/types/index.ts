@@ -83,6 +83,15 @@ export interface ProcessingQueueItem {
   grouped_progress?: number;
   chapter_audio_status?: Chapter['audio_status'];
   chapter_audio_file_path?: string | null;
+  updated_at?: number;
+  render_group_count?: number;
+  completed_render_groups?: number;
+  active_render_group_index?: number;
+  total_render_weight?: number;
+  completed_render_weight?: number;
+  active_render_group_weight?: number;
+  active_segment_id?: string | null;
+  active_segment_progress?: number;
 }
 
 export interface SpeakerProfile {
@@ -197,11 +206,12 @@ export interface GlobalState {
   jobs: Record<string, Job>;
   settings: Settings;
   paused: boolean;
-  chapters: string[];
+  chapters: Chapter[];
   audiobooks: Audiobook[];
   xtts_mp3: string[];
   xtts_wav_only: string[];
   narrator_ok: boolean;
   speaker_profiles: SpeakerProfile[];
   speakers: Speaker[];
+  projects: Project[];
 }

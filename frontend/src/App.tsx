@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { useState, useCallback, useMemo } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation, useMatch } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { PreviewModal } from './components/PreviewModal';
 import { VoicesTab } from './components/VoicesTab';
@@ -8,35 +8,58 @@ import { ProjectView } from './components/ProjectView';
 import { GlobalQueue } from './components/GlobalQueue';
 import { ProgressBarTestPage } from './components/ProgressBarTestPage';
 import { useJobs } from './hooks/useJobs';
+import { useQueueSync } from './hooks/useQueueSync';
 import { useInitialData } from './hooks/useInitialData';
 import { SettingsTray } from './components/SettingsTray';
 import { ConfirmModal } from './components/ConfirmModal';
+import { createStudioShellState } from './app/layout/StudioShell';
+import { ProjectViewRoute } from './features/project-view/routes/ProjectViewRoute';
+import { QueueRoute } from './features/queue/routes/QueueRoute';
+import type { Project } from './types';
 import { motion, AnimatePresence } from 'framer-motion';
 
 function App() {
   const navigate = useNavigate();
-  const [queueCount, setQueueCount] = useState(0);
+  const location = useLocation();
+  const projectMatch = useMatch('/project/:projectId');
+  const chapterMatch = useMatch('/chapter/:chapterId');
+  const projectIdFromRoute = projectMatch?.params.projectId;
+  const chapterIdFromRoute = chapterMatch?.params.chapterId;
   const [queueRefreshTrigger, setQueueRefreshTrigger] = useState(0);
-  const [chapterUpdate, setChapterUpdate] = useState<{ chapterId: string; tick: number }>({ chapterId: '', tick: 0 });
+  const { 
+    queue: mergedQueue, 
+    queueCount,
+    loading: queueLoading,
+    connected,
+    isReconnecting,
+    activeSource,
+    refreshQueue: originalRefreshQueue
+  } = useQueueSync();
 
-  const fetchQueueCount = async () => {
+  const [refreshingSource, setRefreshingSource] = useState<'bootstrap' | 'reconnect' | 'refresh' | undefined>(undefined);
+
+  const refreshQueue = useCallback(async (source: 'bootstrap' | 'reconnect' | 'refresh' = 'refresh') => {
+    setRefreshingSource(source);
     try {
-        const res = await fetch('/api/processing_queue');
-        const queueData = await res.json();
-        const active = queueData.filter((q: any) => q.status === 'queued' || q.status === 'preparing' || q.status === 'running' || q.status === 'finalizing');
-        setQueueCount(active.length);
-    } catch(e) { console.error('Failed to get queue count', e); }
-  };
+      await originalRefreshQueue(source);
+    } finally {
+      setRefreshingSource(undefined);
+    }
+    setQueueRefreshTrigger(prev => prev + 1);
+  }, [originalRefreshQueue]);
+
+  const [chapterUpdate, setChapterUpdate] = useState<{ chapterId: string; tick: number }>({ chapterId: '', tick: 0 });
 
   const [segmentUpdate, setSegmentUpdate] = useState<{ chapterId: string; tick: number }>({ chapterId: '', tick: 0 });
   const { data: initialData, loading: initialLoading, refetch: refetchHome } = useInitialData();
   const { jobs, refreshJobs, testProgress, segmentProgress } = useJobs(
-    () => { refetchHome(); setQueueRefreshTrigger(prev => prev + 1); }, 
-    () => { fetchQueueCount(); setQueueRefreshTrigger(prev => prev + 1); }, 
+    () => { refetchHome(); refreshQueue('refresh'); }, 
+    () => { refreshQueue('refresh'); }, 
     () => refetchHome(),
     (chapterId: string) => { setSegmentUpdate(prev => ({ chapterId, tick: prev.tick + 1 })); },
     (chapterId: string) => { setChapterUpdate(prev => ({ chapterId, tick: prev.tick + 1 })); }
   );
+  const chapterProjectIdFromRoute = initialData?.chapters?.find((c: any) => c.id === chapterIdFromRoute)?.project_id;
   
   const [previewFilename, setPreviewFilename] = useState<string | null>(null);
   
@@ -55,22 +78,31 @@ function App() {
     setTimeout(() => setToast(prev => prev ? { ...prev, visible: false } : null), 4000);
   };
 
-  useEffect(() => {
-     fetchQueueCount();
-     const interval = setInterval(fetchQueueCount, 3000);
-     return () => clearInterval(interval);
-  }, []);
-
   const handleRefresh = async () => {
-    await Promise.all([refetchHome(), refreshJobs()]);
+    setRefreshingSource('refresh');
+    try {
+      await Promise.all([refetchHome(), refreshJobs(), refreshQueue('refresh')]);
+    } finally {
+      setRefreshingSource(undefined);
+    }
   };
 
+  const shellState = useMemo(() => {
+    return createStudioShellState({
+      pathname: location.pathname,
+      loading: initialLoading || queueLoading,
+      connected,
+      isReconnecting,
+      hydrationSource: activeSource || refreshingSource,
+    });
+  }, [location.pathname, initialLoading, queueLoading, connected, isReconnecting, activeSource, refreshingSource]);
 
 
   return (
     <div className="app-container">
       <Layout
         queueCount={queueCount}
+        shellState={shellState}
         headerRight={
           <SettingsTray 
             settings={initialData?.settings}
@@ -91,23 +123,76 @@ function App() {
             <Routes>
               <Route path="/" element={<ProjectLibrary onSelectProject={(id) => navigate(`/project/${id}`)} />} />
               <Route path="/project/:projectId" element={
-                <ProjectView 
-                  jobs={jobs}
-                  segmentProgress={segmentProgress}
-                  speakerProfiles={initialData?.speaker_profiles || []}
-                  speakers={initialData?.speakers || []}
-                  settings={initialData?.settings}
-                  refreshTrigger={queueRefreshTrigger}
-                  segmentUpdate={segmentUpdate}
-                  chapterUpdate={chapterUpdate}
-                />
+                <ProjectViewRoute 
+                  loading={initialLoading || queueLoading}
+                  connected={connected}
+                  isReconnecting={isReconnecting}
+                  refreshingSource={activeSource || refreshingSource}
+                  projectId={projectIdFromRoute}
+                  projectTitle={initialData?.projects?.find((p: Project) => p.id === projectIdFromRoute)?.name}
+                  chapterTitle={initialData?.chapters?.find((c: any) => c.id === chapterIdFromRoute)?.title}
+                >
+                  {({ shellState }) => (
+                    <ProjectView 
+                      key={shellState.navigation.activeProjectId}
+                      jobs={jobs}
+                      segmentProgress={segmentProgress}
+                      speakerProfiles={initialData?.speaker_profiles || []}
+                      speakers={initialData?.speakers || []}
+                      settings={initialData?.settings}
+                      refreshTrigger={queueRefreshTrigger}
+                      segmentUpdate={segmentUpdate}
+                      chapterUpdate={chapterUpdate}
+                      shellState={shellState}
+                    />
+                  )}
+                </ProjectViewRoute>
+              } />
+              {/* Separate Chapter route if needed, though ProjectView handles it via state right now */}
+              <Route path="/chapter/:chapterId" element={
+                <ProjectViewRoute 
+                  loading={initialLoading || queueLoading}
+                  connected={connected}
+                  isReconnecting={isReconnecting}
+                  refreshingSource={activeSource || refreshingSource}
+                  // We might need to resolve projectId from chapter's parent here
+                  projectId={chapterProjectIdFromRoute}
+                  projectTitle={initialData?.projects?.find((p: Project) => p.id === initialData?.chapters?.find((c: any) => c.id === chapterIdFromRoute)?.project_id)?.name}
+                  chapterTitle={initialData?.chapters?.find((c: any) => c.id === chapterIdFromRoute)?.title}
+                >
+                  {({ shellState }) => (
+                    <ProjectView 
+                      key={shellState.navigation.activeProjectId}
+                      jobs={jobs}
+                      segmentProgress={segmentProgress}
+                      speakerProfiles={initialData?.speaker_profiles || []}
+                      speakers={initialData?.speakers || []}
+                      settings={initialData?.settings}
+                      refreshTrigger={queueRefreshTrigger}
+                      segmentUpdate={segmentUpdate}
+                      chapterUpdate={chapterUpdate}
+                      shellState={shellState}
+                    />
+                  )}
+                </ProjectViewRoute>
               } />
               <Route path="/queue" element={
-                <GlobalQueue 
-                  paused={initialData?.paused || false} 
-                  jobs={jobs}
-                  refreshTrigger={queueRefreshTrigger}
-                />
+                <QueueRoute
+                  loading={queueLoading}
+                  connected={connected}
+                  isReconnecting={isReconnecting}
+                  refreshingSource={activeSource || refreshingSource}
+                >
+                  {() => (
+                    <GlobalQueue 
+                      paused={initialData?.paused || false} 
+                      jobs={jobs}
+                      queue={mergedQueue}
+                      loading={queueLoading}
+                      onRefresh={() => refreshQueue('refresh')}
+                    />
+                  )}
+                </QueueRoute>
               } />
               <Route path="/voices" element={
                 <VoicesTab

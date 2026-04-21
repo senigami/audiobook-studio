@@ -9,6 +9,7 @@ from pathlib import Path
 from .core import (
     job_queue, assembly_queue, cancel_flags, pause_flag,
     BASELINE_XTTS_CPS, _estimate_seconds, format_seconds, calculate_predicted_progress,
+    get_robust_eta_params,
     PROGRESS_PREPARE_LIMIT, PROGRESS_PREPARE_STEP, PROGRESS_MAX_PREDICTED, PROGRESS_STITCH_LIMIT
 )
 from ..core.feature_flags import is_feature_enabled
@@ -119,7 +120,8 @@ def _resolve_voxtral_reference_audio_path(
         try:
             if candidate.exists() and candidate.is_file():
                 return str(candidate)
-        except OSError:
+        except OSError as e:
+            logger.debug("Failed to check reference audio candidate %s: %s", candidate, e)
             continue
     return None
 
@@ -174,22 +176,86 @@ def _generate_voice_sample_via_bridge(
             shutil.move(str(generated), str(out_wav))
     return 0
 
-def _maybe_autotune_xtts_cps(job, start: float, chars: int, perf: dict):
-    if getattr(job, "is_bake", False):
+def _job_field(job, key: str, default=None):
+    if isinstance(job, dict):
+        return job.get(key, default)
+    return getattr(job, key, default)
+
+
+def _record_xtts_sample(job, start: float, chars: int, perf: dict, source_segment_count: int | None = None):
+    # Only train on the persisted terminal job, not the stale in-memory object.
+    # Cancelled, failed, or partial jobs must not poison history.
+    job_id = _job_field(job, "id")
+    persisted = get_jobs().get(job_id) if job_id else None
+    status = _job_field(persisted, "status", _job_field(job, "status"))
+    if status != "done":
+        return
+
+    is_bake = _job_field(persisted, "is_bake", _job_field(job, "is_bake", False))
+    if is_bake:
         return
     if chars <= 0:
         return
-    if getattr(job, "engine", None) not in ("xtts", "mixed"):
+
+    engine = _job_field(persisted, "engine", _job_field(job, "engine"))
+    if engine not in ("xtts", "mixed"):
         return
 
-    eff_start = getattr(job, "synthesis_started_at", None) or start
-    dur = time.time() - eff_start
-    if dur <= 0:
+    eff_start = _job_field(persisted, "synthesis_started_at", _job_field(job, "synthesis_started_at"))
+    eff_start = eff_start or start
+    finished_at = _job_field(persisted, "finished_at", _job_field(job, "finished_at")) or time.time()
+    dur = finished_at - eff_start
+    if dur <= 1.0: # Filter out cached/instant runs to avoid poisoning metrics
         return
 
-    new_cps = chars / dur
-    updated = (perf.get("xtts_cps", BASELINE_XTTS_CPS) * 0.8) + (new_cps * 0.2)
-    update_performance_metrics(xtts_cps=updated)
+    segment_count = max(1, int(source_segment_count or 0))
+    chapter_id = _job_field(persisted, "chapter_id", _job_field(job, "chapter_id"))
+
+    if not source_segment_count and chapter_id:
+        try:
+            from ..db.chapters import get_chapter_segments_counts
+            _, total_c = get_chapter_segments_counts(chapter_id)
+            segment_count = max(1, total_c)
+        except Exception:
+            logger.debug("Failed to calculate segment count from DB for history recording, falling back to job state", exc_info=True)
+            # Fallback
+            segment_ids = _job_field(persisted, "segment_ids", _job_field(job, "segment_ids", [])) or []
+            segment_count = max(1, len(segment_ids or [1]))
+    elif not source_segment_count:
+        segment_ids = _job_field(persisted, "segment_ids", _job_field(job, "segment_ids", [])) or []
+        segment_count = max(1, len(segment_ids or [1]))
+
+    base_cps = chars / dur
+    from ..db.performance import record_render_sample
+
+    # Record detailed sample
+    record_render_sample(
+        engine=engine,
+        chars=chars,
+        segment_count=segment_count,
+        duration_seconds=round(dur, 2),
+        cps=round(base_cps, 2),
+        seconds_per_segment=round(dur / segment_count, 2),
+        job_id=job_id,
+        project_id=_job_field(persisted, "project_id", _job_field(job, "project_id")),
+        chapter_id=chapter_id,
+        speaker_profile=_job_field(persisted, "speaker_profile", _job_field(job, "speaker_profile")),
+        render_group_count=_job_field(persisted, "render_group_count", _job_field(job, "render_group_count", 0)) or 0,
+        started_at=eff_start,
+        completed_at=finished_at,
+        make_mp3=_job_field(persisted, "make_mp3", _job_field(job, "make_mp3", False)),
+    )
+
+    # Re-derive robust CPS for legacy field compatibility
+    # We still keep xtts_cps in settings because workers use it for quick lookups
+    current_perf = get_performance_metrics()
+    history = current_perf.get("xtts_render_history") or []
+    robust_params = get_robust_eta_params(history, current_perf.get("xtts_cps", BASELINE_XTTS_CPS))
+    robust_cps = robust_params[0] if robust_params else current_perf.get("xtts_cps", BASELINE_XTTS_CPS)
+
+    update_performance_metrics(
+        xtts_cps=round(robust_cps, 2)
+    )
 
 def worker_loop(q):
     while True:
@@ -207,7 +273,12 @@ def worker_loop(q):
 
             chars = 0
             eta = 0
+            eta_unit_count = 1
             text = None
+            perf = get_performance_metrics()
+            cps = perf.get("xtts_cps", BASELINE_XTTS_CPS)
+            history = perf.get("xtts_render_history", [])
+            robust_params = get_robust_eta_params(history, cps)
             voice_job_settings = None
 
             if j.engine in ("voice_build", "voice_test"):
@@ -216,7 +287,7 @@ def worker_loop(q):
                 if chars > 0 and voice_job_settings.get("engine", "xtts") == "xtts":
                     perf = get_performance_metrics()
                     cps = perf.get("xtts_cps", BASELINE_XTTS_CPS)
-                    eta = _estimate_seconds(chars, cps)
+                    eta = _estimate_seconds(chars, cps, group_count=eta_unit_count)
                 else:
                     eta = 0
             elif j.engine != "audiobook":
@@ -225,33 +296,60 @@ def worker_loop(q):
                     with get_connection() as conn:
                         cursor = conn.cursor()
                         placeholders = ",".join(["?"] * len(j.segment_ids))
-                        cursor.execute(f"SELECT SUM(LENGTH(text_content)) FROM chapter_segments WHERE id IN ({placeholders})", j.segment_ids)
+                        cursor.execute(f"SELECT COUNT(*), SUM(LENGTH(text_content)) FROM chapter_segments WHERE id IN ({placeholders})", j.segment_ids)
                         row = cursor.fetchone()
-                        chars = row[0] if row and row[0] else 0
+                        eta_unit_count = row[0] if row and row[0] else len(j.segment_ids)
+                        chars = row[1] if row and row[1] else 0
                 elif j.is_bake:
                     from ..db import get_connection
                     with get_connection() as conn:
                         cursor = conn.cursor()
-                        cursor.execute("SELECT SUM(LENGTH(text_content)) FROM chapter_segments WHERE chapter_id = ?", (j.chapter_id,))
+                        cursor.execute("SELECT COUNT(*), SUM(LENGTH(text_content)) FROM chapter_segments WHERE chapter_id = ?", (j.chapter_id,))
                         row = cursor.fetchone()
-                        chars = row[0] if row and row[0] else 0
+                        eta_unit_count = row[0] if row and row[0] else 1
+                        chars = row[1] if row and row[1] else 0
                 elif j.chapter_file:
+                    if j.chapter_id:
+                        try:
+                            from ..db import get_connection
+                            with get_connection() as conn:
+                                cursor = conn.cursor()
+                                cursor.execute("SELECT COUNT(*), SUM(LENGTH(text_content)) FROM chapter_segments WHERE chapter_id = ?", (j.chapter_id,))
+                                row = cursor.fetchone()
+                                eta_unit_count = row[0] if row and row[0] else 1
+                                chars = row[1] if row and row[1] else 0
+                        except Exception:
+                            logger.debug("Failed to calculate ETA unit count from DB, falling back to 1", exc_info=True)
+                            eta_unit_count = 1
+
                     try:
-                        if j.project_id:
-                            from ..config import get_project_text_dir
-                            text_path = safe_join(get_project_text_dir(j.project_id), j.chapter_file)
-                        else:
-                            text_path = safe_join(CHAPTER_DIR, j.chapter_file)
+                        if chars <= 0:
+                            if j.project_id:
+                                from ..config import get_project_text_dir
+                                text_path = safe_join(get_project_text_dir(j.project_id), j.chapter_file)
+                            else:
+                                text_path = safe_join(CHAPTER_DIR, j.chapter_file)
 
-                        text = text_path.read_text(encoding="utf-8", errors="replace")
-                        chars = len(text)
-                    except (FileNotFoundError, ValueError):
-                        pass
+                            text = text_path.read_text(encoding="utf-8", errors="replace")
+                            chars = len(text)
+                    except (FileNotFoundError, ValueError) as e:
+                        logger.debug("Failed to read chapter text for ETA calculation from %s: %s", text_path, e)
 
-                if chars > 0:
-                    perf = get_performance_metrics()
-                    cps = perf.get("xtts_cps", BASELINE_XTTS_CPS)
-                    eta = _estimate_seconds(chars, cps)
+                    robust_params = get_robust_eta_params(perf.get("xtts_render_history", []), cps)
+                    # Use DB-backed info if possible
+                    if j.chapter_id and j.engine != "voxtral":
+                        try:
+                            from ..db.chapters import get_chapter_segments_counts
+                            _, total_c = get_chapter_segments_counts(j.chapter_id)
+                            seg_count = max(1, total_c)
+                        except Exception:
+                            logger.debug("Failed to calculate segment count from DB for ETA, falling back to job state", exc_info=True)
+                            seg_count = len(getattr(j, "segment_ids", []) or [1])
+                    else:
+                        seg_count = len(getattr(j, "segment_ids", []) or [1])
+
+                    eta_unit_count = seg_count
+                    eta = _estimate_seconds(chars, cps, group_count=seg_count, robust_params=robust_params)
             else:
                 if j.project_id:
                     from ..config import get_project_audio_dir
@@ -271,6 +369,7 @@ def worker_loop(q):
                         try:
                             total_size_mb += safe_join(src_dir, f).stat().st_size
                         except FileNotFoundError:
+                            logger.debug("Audiobook assembly skipped size calculation for missing file: %s", f)
                             continue
                 total_size_mb /= (1024 * 1024)
 
@@ -304,11 +403,15 @@ def worker_loop(q):
             send_progress = initial_progress if is_audiobook else 0.0
             send_started = adjusted_start if is_audiobook else None
 
+            # Bug 4: Non-audiobook preparing status should NOT send a rough total ETA
+            # because it's not a fresh 'remaining_from_update' estimate yet.
+            send_eta = eta if is_audiobook else None
+
             update_job(
                 jid,
                 status=initial_status,
                 started_at=send_started,
-                eta_seconds=eta,
+                eta_seconds=send_eta,
                 progress=send_progress,
                 completed_render_groups=completed_render_groups,
                 render_group_count=render_group_count,
@@ -330,13 +433,15 @@ def worker_loop(q):
                 update_job(jid, status="done", finished_at=time.time(), progress=1.0)
                 continue
 
-            if j.engine not in ("audiobook", "voice_build", "voice_test") and not (text or j.segment_ids or j.is_bake):
+            has_db_chapter_text = bool(j.chapter_id and chars > 0)
+            if j.engine not in ("audiobook", "voice_build", "voice_test") and not (text or j.segment_ids or j.is_bake or has_db_chapter_text):
                 update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error=f"Chapter file not found: {j.chapter_file}")
                 continue
 
             start = adjusted_start
 
             def on_output(line):
+                nonlocal eta
                 raw_line = line
                 s = line.strip()
                 now = time.time()
@@ -370,7 +475,8 @@ def worker_loop(q):
                     j._synthesis_started_once = True
                     j.synthesis_started_at = now
                     j.status = "running"
-                    prog = max(resume_progress, PROGRESS_PREPARE_LIMIT)
+
+                    prog = resume_progress
                     j.progress = prog
 
                     if resume_started_at and resume_progress > 0:
@@ -378,7 +484,28 @@ def worker_loop(q):
                     else:
                         j.started_at = now - (prog * eta) if eta > 0 else now
 
-                    update_job(jid, status="running", progress=prog, started_at=j.started_at)
+                    # Conservative startup ETA
+                    # Focus Area 1: use DB-backed source text segment count
+                    seg_count = 1
+                    if j.chapter_id:
+                        try:
+                            from ..db.chapters import get_chapter_segments_counts
+                            _, total_c = get_chapter_segments_counts(j.chapter_id)
+                            seg_count = max(1, total_c)
+                        except Exception:
+                            logger.debug("Failed to calculate segment count from DB for ETA update, falling back to job state", exc_info=True)
+                            seg_count = len(getattr(j, "segment_ids", []) or [1])
+                    else:
+                        seg_count = len(getattr(j, "segment_ids", []) or [1])
+
+                    eta = _estimate_seconds(chars, cps, group_count=seg_count, robust_params=robust_params)
+                    update_job(
+                        jid, 
+                        status="running", 
+                        progress=prog, 
+                        started_at=j.started_at,
+                        eta_seconds=eta,
+                    )
                     return
 
                 if "[START_SEGMENT]" in s:
@@ -445,18 +572,17 @@ def worker_loop(q):
                 spk = get_speaker_settings(j.speaker_profile)
 
                 handle_xtts_job(jid, j, start, on_output, cancel_check, sw, spk["speed"], pdir, out_wav, out_mp3, text=text)
-                _maybe_autotune_xtts_cps(j, start, chars, perf)
+                _record_xtts_sample(j, start, chars, perf, eta_unit_count)
             elif j.engine == "voxtral":
                 result = handle_voxtral_job(jid, j, start, on_output, cancel_check, text=text)
                 if result == "cancelled":
                     update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
-                return
             elif j.engine == "mixed":
                 result = handle_mixed_job(jid, j, start, on_output, cancel_check, text=text)
                 if result == "cancelled":
                     update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
-                _maybe_autotune_xtts_cps(j, start, chars, perf)
-                return
+                else:
+                    _record_xtts_sample(j, start, chars, perf, eta_unit_count)
             elif j.engine in ("voice_build", "voice_test"):
                 from ..config import VOICES_DIR
                 pdir = VOICES_DIR / j.speaker_profile
@@ -530,7 +656,7 @@ def worker_loop(q):
                         try:
                             sample_path.unlink()
                         except FileNotFoundError:
-                            pass
+                            logger.debug("Transient voice sample already removed or missing at %s", sample_path)
                     else:
                         logger.warning(
                             "Failed to convert voice sample for %s to mp3; keeping wav fallback",
@@ -565,10 +691,6 @@ def worker_loop(q):
                     update_queue_item(jid, "done")
                 except Exception as _qe:
                     logger.warning(f"Could not mark voice job {jid} done in DB queue: {_qe}")
-
-                # Auto-tuning
-                if engine == "xtts":
-                    _maybe_autotune_xtts_cps(j, start, chars, perf)
 
         except Exception:
             tb = traceback.format_exc()

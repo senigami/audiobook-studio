@@ -225,13 +225,18 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                           progress={progressValue} 
                           startedAt={activeJob.started_at}
                           etaSeconds={activeJob.eta_seconds}
+                          etaBasis={activeJob.eta_basis ?? (activeJob.eta_seconds != null ? 'remaining_from_update' : undefined)}
+                          updatedAt={activeJob.updated_at}
                           persistenceKey={activeJob.id}
                           status={showIndeterminateProgress ? 'preparing' : displayStatus}
                           label={displayStatus} 
                           predictive={true}
-                          authoritativeFloor={isGroupedChapterJob}
+                          allowBackwardProgress={!isGroupedChapterJob}
                           checkpointMode={isGroupedChapterJob ? 'queue' : (isSegmentScopedJob(activeJob) ? 'segment' : 'default')}
                           evidenceWeightFraction={isGroupedChapterJob ? evidenceWeightFraction : 1}
+                          transitionTickCount={isGroupedChapterJob ? 12 : 3}
+                          backwardTransitionTickCount={2}
+                          tickMs={250}
                         />
                     </div>
                 ) : hasChapterAudio && !isAssemblyMode ? (

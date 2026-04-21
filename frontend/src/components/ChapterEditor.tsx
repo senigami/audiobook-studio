@@ -29,7 +29,7 @@ interface ChapterEditorProps {
   chapterJobs?: Job[];
   segmentProgress?: Record<string, SegmentProgress>;
   selectedVoice?: string;
-  onBack: () => void;
+  onBack?: () => void;
   onNext?: () => void;
   onPrev?: () => void;
   segmentUpdate?: { chapterId: string; tick: number };
@@ -45,7 +45,6 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   chapterJobs = [],
   segmentProgress = {},
   selectedVoice: externalVoice, 
-  onBack, 
   onNext, 
   onPrev, 
   segmentUpdate,
@@ -554,10 +553,9 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                            (text || "").replace(/\r\n/g, '\n') !== (chapter.text_content || "").replace(/\r\n/g, '\n');
 
   return (
-    <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 72px)', margin: '-2.5rem', background: 'var(--bg)', position: 'relative', zIndex: 100 }}>
+    <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, background: 'var(--bg)', position: 'relative', zIndex: 100 }}>
       <ChapterHeader 
         chapter={chapter} title={title} setTitle={setTitle} saving={saving} hasUnsavedChanges={hasUnsavedChanges}
-        onBack={async () => { await handleSave(); onBack(); }}
         onPrev={onPrev ? async () => { await handleSave(); onPrev(); } : undefined}
         onNext={onNext ? async () => { await handleSave(); onNext(); } : undefined}
         selectedVoice={chapterVoice} onVoiceChange={handleVoiceChange} availableVoices={availableVoices} defaultVoiceLabel={chapterDefaultVoiceLabel}

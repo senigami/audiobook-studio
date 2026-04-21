@@ -13,14 +13,14 @@ import { formatQueueContext } from '../utils/queueLabels';
 interface GlobalQueueProps {
     paused?: boolean;
     jobs?: Record<string, Job>;
-    refreshTrigger?: number;
+    queue: ProcessingQueueItem[];
+    loading?: boolean;
     onRefresh?: () => void;
 }
 
-export const GlobalQueue: React.FC<GlobalQueueProps> = ({ paused = false, jobs = {}, refreshTrigger = 0, onRefresh }) => {
+export const GlobalQueue: React.FC<GlobalQueueProps> = ({ paused = false, jobs = {}, queue: initialQueue, loading = false, onRefresh }) => {
     const {
         queue,
-        loading,
         localPaused,
         hoveredJobId,
         setHoveredJobId,
@@ -35,7 +35,7 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({ paused = false, jobs =
         handleClearAll,
         handleDragStart,
         handleDragEnd
-    } = useGlobalQueue(paused, jobs, refreshTrigger, onRefresh);
+    } = useGlobalQueue(initialQueue, paused, onRefresh);
 
     const formatTime = React.useCallback((ts: number | null | undefined) => {
         if (!ts) return "";

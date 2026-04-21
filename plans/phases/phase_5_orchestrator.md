@@ -132,3 +132,61 @@ API synthesis requests from the local TTS API enter the queue as `ApiSynthesisTa
 - TTS Server starts, loads plugins, and responds to synthesis requests
 - watchdog detects failures and restarts the TTS Server
 - API synthesis tasks are scheduled with correct priority
+
+## Phase 6 Handoff
+
+Phase 5 leaves Studio in a deliberately split state:
+
+- the 2.0 backend foundations now exist behind explicit feature flags
+- the TTS Server, watchdog, bridge, registry cache path, and orchestrator/task
+  layers are real and test-covered
+- the primary synthesis-to-export backend flow can run through the new task
+  stack
+- legacy queue submission, queue hydration, and some visible queue-state
+  behavior still remain on the old path
+
+### What Phase 5 Landed
+
+- `USE_TTS_SERVER` and `USE_STUDIO_ORCHESTRATOR` are separate rollout flags
+- TTS Server startup is owned by explicit boot wiring, not import-time side
+  effects
+- the orchestrator consumes reconciliation and recovery services instead of
+  assuming restart-from-zero
+- progress publication is explicit in the orchestration layer
+- resource admission has a Phase 5 baseline implementation for single-process,
+  one-GPU-at-a-time scheduling
+- `SynthesisTask`, `ApiSynthesisTask`, `AssemblyTask`, `BakeTask`, and
+  `ExportTask` exist for the core render pipeline
+- `MixedSynthesisTask` remains an explicit compatibility adapter and should not
+  be treated as the target long-term thin-task shape
+
+### What Is Still Intentionally Legacy-Backed
+
+- the main queue render submission route still enters `app.jobs`
+- queue-page hydration still relies on legacy snapshots and legacy database
+  state
+- some visible queue states after refresh are still heuristic-driven by legacy
+  hydration rules rather than by the 2.0 orchestrator as the sole source of
+  truth
+- current queue visuals therefore should not yet be used as proof that the
+  authoritative-progress floor is cut over end to end
+
+### Expected Current Behavior Before Frontend Cutover
+
+- a normal queue render can still succeed while visually following the legacy
+  queue path
+- hard refresh during an active render may rehydrate into `finalizing` or
+  similar legacy-derived states before converging again
+- monotonic progress guarantees are trustworthy in the Phase 4/5 services, but
+  the main UI path will not fully reflect them until the frontend hydration and
+  submission cutovers are complete
+
+### Carry-Forward Notes For Phase 6
+
+- do not assume a brand-new Studio 2.0 queue UI already exists; Phase 6 is the
+  beginning of that visible cutover
+- keep compatibility adapters explicit and removable
+- preserve the active backend-path distinction in the frontend: legacy-backed
+  hydration is still possible during the migration window
+- treat queue hydration, reconnect behavior, and visible progress ownership as
+  the next major seam to replace

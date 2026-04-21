@@ -188,3 +188,21 @@ def test_publish_queued_reset_clears_progress_floor_without_explicit_flag():
     assert queued_event is not None
     assert queued_event["progress"] == 0.0
     assert len(events) == 2
+
+def test_publish_includes_explicit_eta_basis():
+    service, events, wall_now, _ = _make_service()
+
+    wall_now["value"] = 1200.0
+    emitted = service.publish(
+        job_id="job-6",
+        status="running",
+        progress=0.4,
+        eta_seconds=45,
+    )
+
+    assert emitted is not None
+    assert emitted["eta_seconds"] == 45
+    assert emitted["eta_basis"] == "remaining_from_update"
+    # 1200 (now) + 45 (eta) = 1245
+    assert emitted["estimated_end_at"] == 1245.0
+    assert emitted["updated_at"] == 1200.0

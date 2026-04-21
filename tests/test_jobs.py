@@ -15,8 +15,8 @@ def test_pause_states():
     assert paused() is False
 
 def test_estimate_seconds():
-    # 10 chars at 10 cps = max(5, 1) = 5
-    assert _estimate_seconds(10, 10.0) == 5
+    # 10 chars at 10 cps = 1 + (1*3) + 4 = 8
+    assert _estimate_seconds(10, 10.0) == 8
     assert format_seconds(65) == "1m 5s"
     assert format_seconds(3605) == "1h 0m 5s"
 

@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 import { GlobalQueue } from './GlobalQueue'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { api } from '../api'
@@ -6,11 +6,12 @@ import { api } from '../api'
 // Mock the API
 vi.mock('../api', () => ({
     api: {
-        getProcessingQueue: vi.fn(),
         reorderProcessingQueue: vi.fn(),
-        removeProcessingQueue: vi.fn(),
-        clearProcessingQueue: vi.fn(),
-        clearCompletedJobs: vi.fn(),
+        removeProcessingQueue: vi.fn().mockResolvedValue({}),
+        clearProcessingQueue: vi.fn().mockResolvedValue({}),
+        clearCompletedJobs: vi.fn().mockResolvedValue({}),
+        toggleQueuePause: vi.fn().mockResolvedValue({}),
+        cancelChapterGeneration: vi.fn().mockResolvedValue({}),
     }
 }))
 
@@ -23,12 +24,16 @@ describe('GlobalQueue', () => {
 
     beforeEach(() => {
         vi.clearAllMocks()
-        vi.mocked(api.getProcessingQueue).mockResolvedValue(mockJobs)
         window.scrollTo = vi.fn()
     })
 
+    it('renders loading state when loading prop is true', () => {
+        render(<GlobalQueue queue={[]} loading={true} />)
+        expect(screen.getByText(/Loading Queue\.\.\./i)).toBeTruthy()
+    })
+
     it('renders the queue sections correctly', async () => {
-        render(<GlobalQueue />)
+        render(<GlobalQueue queue={mockJobs as any[]} />)
         
         expect(await screen.findByText(/Processing Now/i)).toBeTruthy()
         expect(screen.getByText(/Up Next/i)).toBeTruthy()
@@ -39,36 +44,32 @@ describe('GlobalQueue', () => {
     })
 
     it('prefers custom titles over raw chapter titles when present', async () => {
-        vi.mocked(api.getProcessingQueue).mockResolvedValue([
-            {
-                id: 'job-seg',
-                status: 'running',
-                chapter_title: 'overview',
-                custom_title: 'overview * Part 5: segment #7',
-                project_name: 'Project A',
-                split_part: 0,
-                progress: 0.5
-            }
-        ] as any)
 
-        render(<GlobalQueue />)
+
+        const customItem = {
+            id: 'job-seg',
+            status: 'running',
+            chapter_title: 'overview',
+            custom_title: 'overview * Part 5: segment #7',
+            project_name: 'Project A',
+            split_part: 0,
+            progress: 0.5
+        };
+
+        render(<GlobalQueue queue={[customItem] as any[]} />)
 
         expect(await screen.findByText('overview * Part 5: segment #7')).toBeTruthy()
         expect(screen.queryByText(/^overview$/i)).toBeNull()
     })
 
     it('toggles pause state', async () => {
-        // Mock fetch for the pause/resume endpoints
-        global.fetch = vi.fn().mockResolvedValue({
-            json: () => Promise.resolve({ status: 'success' })
-        })
-
-        render(<GlobalQueue paused={false} />)
+        // Now relying on the api mock instead of fetch
+        render(<GlobalQueue paused={false} queue={mockJobs as any[]} />)
         
         const pauseBtn = await screen.findByText(/Pause All Jobs/i)
         fireEvent.click(pauseBtn)
         
-        expect(global.fetch).toHaveBeenCalledWith('/queue/pause', expect.anything())
+        expect(api.toggleQueuePause).toHaveBeenCalledWith(true)
         expect(await screen.findByText(/Resume Processing/i)).toBeTruthy()
     })
 
@@ -87,9 +88,9 @@ describe('GlobalQueue', () => {
                 completed_at: endTime 
             }
         ]
-        vi.mocked(api.getProcessingQueue).mockResolvedValue(mockJobsWithTime)
 
-        render(<GlobalQueue />)
+
+        render(<GlobalQueue queue={mockJobsWithTime as any[]} />)
         
         const historyToggle = await screen.findByText(/Completed \/ Failed History/i)
         
@@ -107,7 +108,7 @@ describe('GlobalQueue', () => {
     })
 
     it('calls clear completed from ActionMenu', async () => {
-        render(<GlobalQueue />)
+        render(<GlobalQueue queue={mockJobs as any[]} />)
         
         const menuBtn = await screen.findByRole('button', { name: /more actions/i }) // The kebab button
         fireEvent.click(menuBtn)
@@ -116,5 +117,56 @@ describe('GlobalQueue', () => {
         fireEvent.click(clearCompletedBtn)
         
         expect(api.clearCompletedJobs).toHaveBeenCalled()
+    })
+
+    it('calls removeProcessingQueue when a queued job is cancelled', async () => {
+        render(<GlobalQueue queue={mockJobs as any[]} />)
+        
+        const removeBtns = await screen.findAllByRole('button', { name: /Cancel Job/i })
+        // Click the first one (assume the first row's remove button)
+        fireEvent.click(removeBtns[0])
+        
+        expect(api.removeProcessingQueue).toHaveBeenCalled()
+    })
+
+    it('calls clearProcessingQueue after confirmation', async () => {
+        render(<GlobalQueue queue={mockJobs as any[]} />)
+        
+        const menuBtn = await screen.findByRole('button', { name: /more actions/i })
+        fireEvent.click(menuBtn)
+        
+        const clearAllBtn = await screen.findByText(/Clear All/i)
+        fireEvent.click(clearAllBtn)
+
+        expect(await screen.findByText(/Are you sure you want to clear all/i)).toBeTruthy()
+        
+        // Find and click the confirm button in the modal
+        const confirmBtn = await screen.findByText('Clear All', { selector: 'button' })
+        await act(async () => {
+            fireEvent.click(confirmBtn)
+        })
+        
+        await waitFor(() => {
+            expect(api.clearProcessingQueue).toHaveBeenCalled()
+        })
+    })
+
+    it('trusts merged queue status as authoritative even if legacy liveJob is stale', async () => {
+        const mergedQueue = [
+            { id: 'job-1', status: 'running', chapter_title: 'Authoritative Chapter', progress: 0.5 } as any
+        ];
+        // Legacy job says finalizing (Priority 4) but authoritative queue says running (Priority 3)
+        const legacyJobs = {
+            'job-1': { id: 'job-1', status: 'finalizing', progress: 1.0 } as any
+        };
+
+        render(<GlobalQueue queue={mergedQueue} jobs={legacyJobs} />)
+        
+        // Should show 'Processing Now (1)' because it trusts 'running' status
+        expect(await screen.findByText(/Processing Now \(1\)/i)).toBeTruthy();
+        
+        // PredictiveProgressBar label for running is "Processing..."
+        expect(screen.getByText(/Processing\.\.\./i)).toBeTruthy();
+        expect(screen.queryByText(/Finalizing\.\.\./i)).toBeNull();
     })
 })

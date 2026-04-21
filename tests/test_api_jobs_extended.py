@@ -16,8 +16,8 @@ def clean_jobs():
     yield
     clear_all_jobs()
 
-def test_api_jobs_dynamic_progress(clean_jobs):
-    # Create a running job with eta
+def test_api_jobs_returns_authoritative_running_progress(clean_jobs):
+    # REST returns persisted ground truth; the frontend owns predictive motion.
     jid = "test_running_job"
     now = time.time()
     job = Job(
@@ -37,11 +37,9 @@ def test_api_jobs_dynamic_progress(clean_jobs):
         data = response.json()
         mock_cleanup.assert_not_called()
 
-    # Find our job
     job_data = next((j for j in data if j["id"] == jid), None)
     assert job_data is not None
-    # Progress should be around 0.1 (10/100)
-    assert 0.09 <= job_data["progress"] <= 0.11
+    assert job_data["progress"] == 0.0
 
 
 def test_api_jobs_uses_authoritative_progress_when_segment_tracking_is_active(clean_jobs):
@@ -70,7 +68,7 @@ def test_api_jobs_uses_authoritative_progress_when_segment_tracking_is_active(cl
     assert job_data["progress"] == 0.22
 
 
-def test_api_jobs_hydrates_running_progress_when_segment_id_exists_but_segment_progress_is_idle(clean_jobs):
+def test_api_jobs_preserves_zero_running_progress_when_segment_id_exists_but_segment_progress_is_idle(clean_jobs):
     jid = "test_segment_idle_job"
     now = time.time()
     job = Job(
@@ -93,10 +91,10 @@ def test_api_jobs_hydrates_running_progress_when_segment_id_exists_but_segment_p
 
     job_data = next((j for j in data if j["id"] == jid), None)
     assert job_data is not None
-    assert job_data["progress"] >= 0.19
+    assert job_data["progress"] == 0.0
 
 
-def test_api_jobs_hydrates_preparing_progress_when_started(clean_jobs):
+def test_api_jobs_preserves_zero_preparing_progress_when_started(clean_jobs):
     jid = "test_preparing_reload_job"
     now = time.time()
     job = Job(
@@ -117,7 +115,7 @@ def test_api_jobs_hydrates_preparing_progress_when_started(clean_jobs):
 
     job_data = next((j for j in data if j["id"] == jid), None)
     assert job_data is not None
-    assert job_data["progress"] >= 0.19
+    assert job_data["progress"] == 0.0
 
 
 def test_api_jobs_does_not_block_on_reconciliation(clean_jobs):

@@ -99,10 +99,13 @@
   inset: 0;
   background-image: repeating-linear-gradient(
     135deg,
-    rgba(255, 255, 255, 0.12) 0px,
-    rgba(255, 255, 255, 0.12) 10px,
-    rgba(148, 163, 184, 0.28) 10px,
-    rgba(148, 163, 184, 0.28) 20px
+    rgba(255, 255, 255, 0.16) 0px,
+    rgba(255, 255, 255, 0.16) 7px,
+    rgba(255, 255, 255, 0.09) 9px,
+    rgba(148, 163, 184, 0.22) 12px,
+    rgba(148, 163, 184, 0.22) 17px,
+    rgba(148, 163, 184, 0.10) 20px,
+    rgba(255, 255, 255, 0.16) 24px
   );
   background-size: 36px 36px;
   animation: barber-pole 0.7s linear infinite;
@@ -123,9 +126,12 @@
   background-image: repeating-linear-gradient(
     135deg,
     rgba(96, 165, 250, 0.36) 0px,
-    rgba(96, 165, 250, 0.36) 10px,
-    rgba(219, 234, 254, 0.20) 10px,
-    rgba(219, 234, 254, 0.20) 20px
+    rgba(96, 165, 250, 0.36) 7px,
+    rgba(96, 165, 250, 0.20) 9px,
+    rgba(219, 234, 254, 0.20) 12px,
+    rgba(219, 234, 254, 0.20) 17px,
+    rgba(219, 234, 254, 0.10) 20px,
+    rgba(96, 165, 250, 0.36) 24px
   );
   background-size: 36px 36px;
   animation: barber-pole 0.7s linear infinite;

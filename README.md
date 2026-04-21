@@ -301,6 +301,8 @@ Then open [http://127.0.0.1:8123](http://127.0.0.1:8123).
 
 > [!NOTE]
 > On first run, the application creates the current app roots it needs immediately, including `projects/` and `voices/`. Other folders are created only when those features are used. On fresh installs, loose chapter text now defaults to `chapters/`. Older workspaces that already use `chapters_out/`, `xtts_audio/`, or `audiobooks/` still continue to work.
+>
+> **Git Protection**: These data directories and the local `state.json` file are now categorized and ignored by default in `.gitignore`. This keeps your production workspace, manuscript data, and cloned voice assets private during repository updates. If you have been manually tracking these folders and wish to continue doing so, you can force-track them with `git add --force` or manage exceptions in your local `.git/info/exclude`.
 
 ## Voice Profiles
 

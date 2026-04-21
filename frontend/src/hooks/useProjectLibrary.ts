@@ -85,7 +85,6 @@ export const useProjectLibrary = (onSelectProject?: (projectId: string) => void)
         setSubmitting(true);
         try {
             const res = await api.createProject({ name: title, series, author, cover: coverFile || undefined });
-            console.log("Project created:", res);
             if (res.status === 'ok' || res.status === 'success') {
                 // Clear state immediately
                 setTitle('');

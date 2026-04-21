@@ -1,18 +1,53 @@
-// Breadcrumb model for Studio 2.0.
-//
-// Breadcrumbs should preserve project and chapter location context so the user
-// always has a clear return path during focused work.
-
 export interface BreadcrumbItem {
   id: string;
   label: string;
   href?: string;
 }
 
-export const createProjectBreadcrumbs = (): BreadcrumbItem[] => {
-  return [];
+export interface BreadcrumbContext {
+  projectId?: string;
+  projectTitle?: string;
+  chapterId?: string;
+  chapterTitle?: string;
+  isEditorSurface?: boolean;
+  activeTab?: string;
+}
+
+export const createProjectBreadcrumbs = (context: BreadcrumbContext): BreadcrumbItem[] => {
+  const items: BreadcrumbItem[] = [
+    { id: 'library', label: 'Library', href: '/' }
+  ];
+
+  if (context.projectId) {
+    items.push({ 
+      id: 'project', 
+      label: context.projectTitle || 'Project', 
+      href: `/project/${context.projectId}` 
+    });
+  }
+
+  return items;
 };
 
-export const createChapterBreadcrumbs = (): BreadcrumbItem[] => {
-  return [];
+export const createChapterBreadcrumbs = (context: BreadcrumbContext): BreadcrumbItem[] => {
+  const items: BreadcrumbItem[] = [
+    { id: 'library', label: 'Library', href: '/' }
+  ];
+
+  if (context.projectId) {
+    items.push({ 
+      id: 'project', 
+      label: context.projectTitle || 'Project', 
+      href: `/project/${context.projectId}` 
+    });
+    if (context.chapterId) {
+      items.push({
+        id: 'chapter',
+        label: context.chapterTitle || 'Chapter',
+        href: undefined // Active surface
+      });
+    }
+  }
+
+  return items;
 };
