@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Merge, SplitSquareHorizontal, Save, Trash2, UserRound } from 'lucide-react';
-import type { ChapterSegment, Character, ProductionBlock, ProductionRenderBatch, SpeakerProfile } from '../../types';
+import { AlertTriangle, Merge, SplitSquareHorizontal, Save, Trash2, UserRound, RefreshCcw, Zap } from 'lucide-react';
+import type { ChapterSegment, Character, ProductionBlock, ProductionBlocksResponse, ProductionRenderBatch, SpeakerProfile } from '../../types';
 import { getVariantDisplayName } from '../../utils/voiceProfiles';
 
 interface ProductionTabProps {
@@ -19,6 +19,9 @@ interface ProductionTabProps {
   onBulkAssign: (segmentIds: string[]) => void;
   onBulkReset: (segmentIds: string[]) => void;
   onSaveBlocks: (blocks: ProductionBlock[]) => Promise<any>;
+  onGenerateBatch?: (segmentIds: string[]) => void;
+  saveConflictError?: string | null;
+  onReloadBlocks: () => Promise<ProductionBlocksResponse | null>;
   pendingSegmentIds: Set<string>;
   queuedSegmentIds: Set<string>;
   segments: ChapterSegment[];
@@ -169,6 +172,9 @@ export const ProductionTab: React.FC<ProductionTabProps> = ({
   onBulkAssign,
   onBulkReset,
   onSaveBlocks,
+  onGenerateBatch,
+  saveConflictError,
+  onReloadBlocks,
   pendingSegmentIds,
   queuedSegmentIds,
   segments,
@@ -178,6 +184,7 @@ export const ProductionTab: React.FC<ProductionTabProps> = ({
   const [dirtyIds, setDirtyIds] = useState<Set<string>>(new Set());
   const [rawOverrideIds, setRawOverrideIds] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
+  const [reloading, setReloading] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const textAreaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
   const lastCanonicalKeyRef = useRef('');
@@ -224,21 +231,48 @@ export const ProductionTab: React.FC<ProductionTabProps> = ({
     dirtyIdsToMark: string[] = [],
     rawOverrideIdsToMark: string[] = []
   ) => {
-    const normalized = normalizeBlocks(nextBlocks);
-    setDraftBlocks(normalized);
+    setDraftBlocks(nextBlocks);
     if (dirtyIdsToMark.length > 0) {
-      setDirtyIds(prev => {
-        const next = new Set(prev);
-        dirtyIdsToMark.forEach(id => next.add(id));
-        return next;
-      });
+      const nextDirty = new Set(dirtyIds);
+      dirtyIdsToMark.forEach(id => nextDirty.add(id));
+      setDirtyIds(nextDirty);
     }
     if (rawOverrideIdsToMark.length > 0) {
-      setRawOverrideIds(prev => {
-        const next = new Set(prev);
-        rawOverrideIdsToMark.forEach(id => next.add(id));
-        return next;
-      });
+      const nextRaw = new Set(rawOverrideIds);
+      rawOverrideIdsToMark.forEach(id => nextRaw.add(id));
+      setRawOverrideIds(nextRaw);
+    }
+  };
+
+  const handleManualReload = async () => {
+    setReloading(true);
+    setSaveError(null);
+    try {
+      const result = await onReloadBlocks();
+      if (!result) {
+        throw new Error('Failed to reload the latest production blocks.');
+      }
+      const nextBlocks = normalizeBlocks(result.blocks);
+      setDraftBlocks(nextBlocks);
+      lastCanonicalKeyRef.current = [
+        chapterId,
+        result.base_revision_id || 'base:none',
+        nextBlocks.map(block => [
+          block.id,
+          block.order_index,
+          block.text,
+          block.character_id || 'none',
+          block.speaker_profile_name || 'none',
+          block.status || 'draft',
+          block.source_segment_ids.join(',')
+        ].join(':')).join('|')
+      ].join('::');
+      setDirtyIds(new Set());
+      setRawOverrideIds(new Set());
+    } catch (e: any) {
+      setSaveError(e.message || "Failed to reload blocks");
+    } finally {
+      setReloading(false);
     }
   };
 
@@ -441,26 +475,94 @@ export const ProductionTab: React.FC<ProductionTabProps> = ({
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => void handleSave()}
-          disabled={saving || dirtyIds.size === 0}
-          className="btn-primary"
-          style={{
-            minWidth: '140px',
-            padding: '0.6rem 1rem',
-            fontSize: '0.86rem',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '0.45rem',
-            opacity: saving || dirtyIds.size === 0 ? 0.5 : 1
-          }}
-        >
-          {saving ? <Save size={14} className="animate-spin" /> : <Save size={14} />}
-          {saving ? 'Saving...' : 'Save Blocks'}
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          {dirtyIds.size > 0 && (
+            <button
+              type="button"
+              onClick={handleManualReload}
+              disabled={reloading || saving}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                padding: '0.6rem 1rem',
+                fontSize: '0.86rem',
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: '8px',
+                color: 'var(--text-secondary)',
+                cursor: (reloading || saving) ? 'not-allowed' : 'pointer'
+              }}
+              title="Discard changes and reload latest blocks"
+            >
+              <RefreshCcw size={14} className={reloading ? 'animate-spin' : ''} />
+              Reload Latest
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => void handleSave()}
+            disabled={saving || dirtyIds.size === 0}
+            className="btn-primary"
+            style={{
+              minWidth: '140px',
+              padding: '0.6rem 1rem',
+              fontSize: '0.86rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.45rem',
+              opacity: saving || dirtyIds.size === 0 ? 0.5 : 1
+            }}
+          >
+            {saving ? <RefreshCcw size={14} className="animate-spin" /> : <Save size={14} />}
+            {saving ? 'Saving...' : 'Save Blocks'}
+          </button>
+        </div>
       </div>
+
+      {saveConflictError && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '1rem',
+          padding: '1rem 1.5rem',
+          background: 'rgba(239, 68, 68, 0.08)',
+          border: '1px solid rgba(239, 68, 68, 0.3)',
+          borderRadius: '12px',
+          color: 'rgb(185, 28, 28)',
+          fontSize: '0.94rem'
+        }}>
+          <AlertTriangle size={20} style={{ flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <strong>Save Conflict:</strong> {saveConflictError}
+            <div style={{ marginTop: '0.25rem', fontSize: '0.88rem', opacity: 0.9 }}>
+              The chapter has been updated since you started editing. Please reload the latest blocks to reconcile. Your local edits will be discarded on reload.
+            </div>
+          </div>
+          <button
+            onClick={handleManualReload}
+            disabled={reloading}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              padding: '0.5rem 1rem',
+              background: 'rgb(185, 28, 28)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: reloading ? 'not-allowed' : 'pointer',
+              fontSize: '0.88rem',
+              fontWeight: 600,
+              opacity: reloading ? 0.7 : 1
+            }}
+          >
+            <RefreshCcw size={16} className={reloading ? 'animate-spin' : ''} />
+            Reload Latest
+          </button>
+        </div>
+      )}
 
       {saveError && (
         <div style={{
@@ -516,30 +618,73 @@ export const ProductionTab: React.FC<ProductionTabProps> = ({
             </span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.65rem' }}>
-            {renderBatches.map(batch => (
-              <div
-                key={batch.id}
-                style={{
-                  padding: '0.8rem',
-                  borderRadius: '10px',
-                  border: '1px solid var(--border)',
-                  background: 'var(--surface-light)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.35rem'
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 700, fontSize: '0.82rem' }}>Batch {batch.id.slice(0, 6)}</span>
-                  <span style={{ ...getBadgeStyle('muted'), border: '1px solid var(--border)', borderRadius: '999px', padding: '0.18rem 0.45rem', fontSize: '0.7rem', fontWeight: 700 }}>
-                    {batch.status}
-                  </span>
+            {renderBatches.map(batch => {
+              const batchBadge = batch.status === 'stale' 
+                ? { label: 'Stale', tone: 'warning' as const }
+                : (batch.status === 'queued' ? { label: 'Queued', tone: 'warning' as const } 
+                : (batch.status === 'rendering' || batch.status === 'running' ? { label: 'Rendering', tone: 'accent' as const }
+                : (batch.status === 'failed' || batch.status === 'error' ? { label: 'Failed', tone: 'danger' as const }
+                : (batch.status === 'needs_review' ? { label: 'Review', tone: 'info' as const }
+                : (batch.status === 'rendered' || batch.status === 'done' ? { label: 'Rendered', tone: 'success' as const }
+                : { label: batch.status, tone: 'muted' as const })))));
+
+              const batchSegmentIds = batch.block_ids.flatMap(blockId => {
+                const block = draftBlocks.find(b => b.id === blockId);
+                return block ? block.source_segment_ids : [];
+              });
+
+              const isGenerating = batch.status === 'queued' || batch.status === 'rendering' || batch.status === 'running';
+
+              return (
+                <div
+                  key={batch.id}
+                  style={{
+                    padding: '0.8rem',
+                    borderRadius: '10px',
+                    border: '1px solid var(--border)',
+                    background: 'var(--surface-light)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.65rem'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'center' }}>
+                    <span style={{ fontWeight: 700, fontSize: '0.82rem' }}>Batch {batch.id.slice(0, 6)}</span>
+                    <span style={{ ...getBadgeStyle(batchBadge.tone), border: '1px solid var(--border)', borderRadius: '999px', padding: '0.18rem 0.45rem', fontSize: '0.7rem', fontWeight: 700 }}>
+                      {batchBadge.label}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '1rem' }}>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                      {batch.block_ids.length} blocks · {batch.estimated_work_weight} units
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => onGenerateBatch?.(batchSegmentIds)}
+                      disabled={isGenerating || !onGenerateBatch || dirtyIds.size > 0}
+                      style={{
+                        padding: '0.35rem 0.65rem',
+                        borderRadius: '6px',
+                        background: isGenerating ? 'var(--surface)' : 'var(--accent)',
+                        color: isGenerating ? 'var(--text-muted)' : 'white',
+                        border: 'none',
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        cursor: isGenerating || dirtyIds.size > 0 ? 'not-allowed' : 'pointer',
+                        opacity: isGenerating || dirtyIds.size > 0 ? 0.6 : 1
+                      }}
+                      title={dirtyIds.size > 0 ? "Save blocks before generating" : `Generate ${batch.id}`}
+                    >
+                      {isGenerating ? <RefreshCcw size={12} className="animate-spin" /> : <Zap size={12} />}
+                      {batch.status === 'rendered' || batch.status === 'done' ? 'Rebuild' : 'Generate'}
+                    </button>
+                  </div>
                 </div>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                  {batch.block_ids.length} blocks · Work weight {batch.estimated_work_weight}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

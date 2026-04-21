@@ -1,4 +1,4 @@
-import { act, render, screen, fireEvent, within } from '@testing-library/react';
+import { act, render, screen, fireEvent, within, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { ProductionTab } from './ProductionTab';
 import { PerformanceTab } from './PerformanceTab';
@@ -86,6 +86,7 @@ describe('Chapter Subcomponents', () => {
           onBulkAssign={vi.fn()} 
           onBulkReset={vi.fn()} 
           onSaveBlocks={vi.fn().mockResolvedValue({ blocks: mockBlocks, base_revision_id: 'rev-2' })} 
+          onReloadBlocks={vi.fn().mockResolvedValue({ blocks: mockBlocks, base_revision_id: 'rev-2', render_batches: [] })}
           pendingSegmentIds={new Set()} 
           queuedSegmentIds={new Set()} 
           segments={mockSegments} 
@@ -123,6 +124,7 @@ describe('Chapter Subcomponents', () => {
           onBulkAssign={onBulkAssign} 
           onBulkReset={vi.fn()} 
           onSaveBlocks={onSaveBlocks} 
+          onReloadBlocks={vi.fn().mockResolvedValue({ blocks: mockBlocks, base_revision_id: 'rev-2', render_batches: [] })}
           pendingSegmentIds={new Set()} 
           queuedSegmentIds={new Set()} 
           segments={mockSegments} 
@@ -143,6 +145,166 @@ describe('Chapter Subcomponents', () => {
 
       fireEvent.click(screen.getByRole('button', { name: /save blocks/i }));
       expect(onSaveBlocks).toHaveBeenCalled();
+    });
+
+    it('surfaces conflict message and allows recovery through reload', async () => {
+      const onReloadBlocks = vi.fn().mockResolvedValue({ blocks: mockBlocks, base_revision_id: 'rev-2', render_batches: [] });
+      const onSaveBlocks = vi.fn(); // Logic handled by parent mock if needed
+      
+      const { rerender } = render(
+        <ProductionTab 
+          chapterId="chap-1"
+          blocks={mockBlocks as any}
+          renderBatches={[]} 
+          baseRevisionId="rev-1"
+          characters={mockCharacters} 
+          speakerProfiles={mockProfiles} 
+          selectedCharacterId={null} 
+          selectedProfileName={null}
+          hoveredBlockId={null} 
+          setHoveredBlockId={vi.fn()} 
+          activeBlockId={null} 
+          setActiveBlockId={vi.fn()} 
+          onBulkAssign={vi.fn()} 
+          onBulkReset={vi.fn()} 
+          onSaveBlocks={onSaveBlocks} 
+          onReloadBlocks={onReloadBlocks}
+          pendingSegmentIds={new Set()} 
+          queuedSegmentIds={new Set()} 
+          segments={mockSegments} 
+          segmentsCount={2} 
+        />
+      );
+
+      // Make a dirty edit
+      fireEvent.change(screen.getByLabelText('Production block 1 text'), {
+        target: { value: 'Draft edit' }
+      });
+      
+      expect(screen.getByText('Edited')).toBeInTheDocument();
+
+      // Simulate a conflict error passed down from parent
+      rerender(
+        <ProductionTab 
+          chapterId="chap-1"
+          blocks={mockBlocks as any}
+          renderBatches={[]} 
+          baseRevisionId="rev-1"
+          characters={mockCharacters} 
+          speakerProfiles={mockProfiles} 
+          selectedCharacterId={null} 
+          selectedProfileName={null}
+          hoveredBlockId={null} 
+          setHoveredBlockId={vi.fn()} 
+          activeBlockId={null} 
+          setActiveBlockId={vi.fn()} 
+          onBulkAssign={vi.fn()} 
+          onBulkReset={vi.fn()} 
+          onSaveBlocks={onSaveBlocks} 
+          onReloadBlocks={onReloadBlocks}
+          saveConflictError="Revision conflict occurred"
+          pendingSegmentIds={new Set()} 
+          queuedSegmentIds={new Set()} 
+          segments={mockSegments} 
+          segmentsCount={2} 
+        />
+      );
+
+      expect(screen.getByText(/Save Conflict:/i)).toBeInTheDocument();
+      expect(screen.getByText(/Revision conflict occurred/i)).toBeInTheDocument();
+      
+      // Draft should still be visible
+      expect(screen.getByDisplayValue('Draft edit')).toBeInTheDocument();
+
+      // Click reload
+      fireEvent.click(screen.getAllByRole('button', { name: /reload latest/i })[1]);
+      expect(onReloadBlocks).toHaveBeenCalled();
+      await waitFor(() => {
+        expect(screen.getByDisplayValue('Sentence one.')).toBeInTheDocument();
+      });
+    });
+
+    it('reloads the latest blocks from the reload button', async () => {
+      const onReloadBlocks = vi.fn().mockResolvedValue({ blocks: mockBlocks, base_revision_id: 'rev-2', render_batches: [] });
+      render(
+        <ProductionTab 
+          chapterId="chap-1"
+          blocks={mockBlocks as any}
+          renderBatches={[]} 
+          baseRevisionId="rev-1"
+          characters={mockCharacters} 
+          speakerProfiles={mockProfiles} 
+          selectedCharacterId={null} 
+          selectedProfileName={null}
+          hoveredBlockId={null} 
+          setHoveredBlockId={vi.fn()} 
+          activeBlockId={null} 
+          setActiveBlockId={vi.fn()} 
+          onBulkAssign={vi.fn()} 
+          onBulkReset={vi.fn()} 
+          onSaveBlocks={vi.fn()} 
+          onReloadBlocks={onReloadBlocks}
+          pendingSegmentIds={new Set()} 
+          queuedSegmentIds={new Set()} 
+          segments={mockSegments} 
+          segmentsCount={2} 
+        />
+      );
+
+      fireEvent.change(screen.getByLabelText('Production block 1 text'), {
+        target: { value: 'Draft edit' }
+      });
+      
+      const reloadBtn = screen.getByRole('button', { name: /reload latest/i });
+      fireEvent.click(reloadBtn);
+      expect(onReloadBlocks).toHaveBeenCalled();
+      await waitFor(() => {
+        expect(screen.getByDisplayValue('Sentence one.')).toBeInTheDocument();
+      });
+    });
+
+    it('supports render batch generation actions', () => {
+      const onGenerateBatch = vi.fn();
+      const mockRenderBatch = { 
+        id: 'batch-1', 
+        block_ids: ['block-1'], 
+        status: 'stale', 
+        estimated_work_weight: 10 
+      };
+      
+      render(
+        <ProductionTab 
+          chapterId="chap-1"
+          blocks={mockBlocks as any}
+          renderBatches={[mockRenderBatch]} 
+          baseRevisionId="rev-1"
+          characters={mockCharacters} 
+          speakerProfiles={mockProfiles} 
+          selectedCharacterId={null} 
+          selectedProfileName={null}
+          hoveredBlockId={null} 
+          setHoveredBlockId={vi.fn()} 
+          activeBlockId={null} 
+          setActiveBlockId={vi.fn()} 
+          onBulkAssign={vi.fn()} 
+          onBulkReset={vi.fn()} 
+          onSaveBlocks={vi.fn()} 
+          onReloadBlocks={vi.fn()}
+          onGenerateBatch={onGenerateBatch}
+          pendingSegmentIds={new Set()} 
+          queuedSegmentIds={new Set()} 
+          segments={mockSegments} 
+          segmentsCount={2} 
+        />
+      );
+
+      expect(screen.getByText('Stale')).toBeInTheDocument();
+      expect(screen.getByText('1 blocks · 10 units')).toBeInTheDocument();
+      
+      const genBtn = screen.getByTitle('Generate batch-1');
+      fireEvent.click(genBtn);
+      
+      expect(onGenerateBatch).toHaveBeenCalledWith(['seg-1']);
     });
   });
 

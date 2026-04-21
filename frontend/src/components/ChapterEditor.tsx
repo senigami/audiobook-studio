@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ConfirmModal } from './ConfirmModal';
 import { api } from '../api';
-import type { Chapter, SpeakerProfile, Job, Character, ChapterSegment, SegmentProgress, ProductionBlock, ProductionRenderBatch } from '../types';
+import type { Chapter, SpeakerProfile, Job, Character, ChapterSegment, SegmentProgress, ProductionBlock, ProductionRenderBatch, ProductionBlocksResponse } from '../types';
 
 // Extracted Components
 import { ChapterHeader } from './chapter/ChapterHeader';
@@ -451,14 +451,36 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     catch (e) { console.error("Bulk reset failed", e); }
   };
 
+  const [saveConflictError, setSaveConflictError] = React.useState<string | null>(null);
+
   const saveProductionBlocks = React.useCallback(async (blocks: ProductionBlock[]) => {
-    const result = await api.updateProductionBlocks(chapterId, {
-      base_revision_id: productionBaseRevisionId ?? undefined,
-      blocks,
-    });
-    syncProductionBlocks(result);
-    return result;
+    setSaveConflictError(null);
+    try {
+      const result = await api.updateProductionBlocks(chapterId, {
+        base_revision_id: productionBaseRevisionId ?? undefined,
+        blocks,
+      });
+      syncProductionBlocks(result);
+      return result;
+    } catch (e: any) {
+      if (e.status === 409) {
+        setSaveConflictError(e.message || "A conflict occurred while saving. The chapter was modified by another process.");
+      }
+      throw e;
+    }
   }, [chapterId, productionBaseRevisionId, syncProductionBlocks]);
+
+  const reloadLatestBlocks = React.useCallback(async (): Promise<ProductionBlocksResponse | null> => {
+    setSaveConflictError(null);
+    try {
+      const result = await api.fetchProductionBlocks(chapterId);
+      syncProductionBlocks(result);
+      return result;
+    } catch (e) {
+      console.error("Failed to reload production blocks", e);
+      return null;
+    }
+  }, [chapterId, syncProductionBlocks]);
 
   const handleExportAudio = React.useCallback(async (format: 'wav' | 'mp3') => {
     setExportingFormat(format);
@@ -724,6 +746,9 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                     onBulkAssign={handleParagraphBulkAssign}
                     onBulkReset={handleParagraphBulkReset}
                     onSaveBlocks={saveProductionBlocks}
+                    onGenerateBatch={handleGenerate}
+                    saveConflictError={saveConflictError}
+                    onReloadBlocks={reloadLatestBlocks}
                     pendingSegmentIds={effectivePendingSegmentIds}
                     queuedSegmentIds={queuedSegmentJobIds}
                     segments={segments}

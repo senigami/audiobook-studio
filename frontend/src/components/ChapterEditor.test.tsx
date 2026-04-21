@@ -843,4 +843,50 @@ describe('ChapterEditor', () => {
     expect(voiceSelect.value).toBe('Profile 1');
   });
 
+  it('manages production block save conflicts and allows reloading', async () => {
+    (api.updateProductionBlocks as any).mockRejectedValueOnce({ status: 409, message: 'Version mismatch' });
+    (api.fetchProductionBlocks as any).mockResolvedValue({
+      blocks: mockProductionBlocks,
+      base_revision_id: 'new-rev',
+      render_batches: []
+    });
+
+    render(
+      <ChapterEditor
+        chapterId={mockChapterId}
+        projectId={mockProjectId}
+        speakerProfiles={mockSpeakerProfiles as any}
+        speakers={mockSpeakers as any}
+        onBack={vi.fn()}
+      />
+    );
+
+    await waitFor(() => screen.findByText('Production'));
+    fireEvent.click(screen.getByText('Production'));
+    
+    await waitFor(() => screen.findByText('Save Blocks'));
+    
+    // Make it dirty
+    fireEvent.change(screen.getByLabelText('Production block 1 text'), {
+      target: { value: 'Dirty edit' }
+    });
+    
+    // Click save
+    fireEvent.click(screen.getByText('Save Blocks'));
+    
+    // Should see conflict message
+    await waitFor(() => screen.findByText(/Save Conflict:/i));
+    expect(screen.getByText(/Version mismatch/i)).toBeInTheDocument();
+    
+    // Click reload
+    fireEvent.click(screen.getAllByRole('button', { name: /reload latest/i })[1]);
+    
+    await waitFor(() => {
+      expect(api.fetchProductionBlocks).toHaveBeenCalledWith(mockChapterId);
+    });
+    
+    // Conflict message should be gone
+    expect(screen.queryByText(/Save Conflict:/i)).not.toBeInTheDocument();
+  });
+
 });
