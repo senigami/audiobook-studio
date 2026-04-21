@@ -1,5 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
+import { LAYERS } from '../../app/layout/layering';
 
 interface ProjectSubnavProps {
   items: { id: string; label: string; href?: string }[];
@@ -37,7 +38,7 @@ export const ProjectSubnav: React.FC<ProjectSubnavProps> = ({ items, activeId })
               marginBottom: '-1px',
               border: isActive ? '1px solid var(--border)' : '1px solid transparent',
               borderBottom: isActive ? '1px solid var(--surface)' : '1px solid transparent',
-              zIndex: isActive ? 1 : 0
+              zIndex: isActive ? LAYERS.TAB_ACTIVE : LAYERS.TAB_INACTIVE
             }}
           >
             {item.label}

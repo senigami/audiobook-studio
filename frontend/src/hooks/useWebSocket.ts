@@ -20,7 +20,6 @@ export const useWebSocket = (url: string, onMessage: (data: any) => void) => {
     socketRef.current = socket;
 
     socket.onopen = () => {
-      console.log('WS Connected');
       setConnected(true);
       if (reconnectTimerRef.current) {
         window.clearTimeout(reconnectTimerRef.current);

@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import type { Chapter } from '../../types';
+import { LAYERS } from '../../app/layout/layering';
 
 interface ProjectBreadcrumbsProps {
   projectId: string;
@@ -49,7 +50,7 @@ export const ProjectBreadcrumbs: React.FC<ProjectBreadcrumbsProps> = ({
         margin: '0 -2.5rem 1rem -2.5rem', // Bleed out to match Layout padding
         position: 'sticky',
         top: 0,
-        zIndex: 10,
+        zIndex: LAYERS.STICKY_NAV,
       }}
     >
       <Link to="/" style={crumbLinkStyle} className="hover-text-primary">

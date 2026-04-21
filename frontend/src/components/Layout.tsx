@@ -3,6 +3,7 @@ import { Mic, Zap, Library } from 'lucide-react';
 import { BrandLogo } from './BrandLogo';
 import { useLocation, useNavigate } from 'react-router-dom';
 import type { StudioShellState } from '../app/navigation/model';
+import { LAYERS } from '../app/layout/layering';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -66,7 +67,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, headerRight, queueCoun
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: '0 2rem',
-        zIndex: 1200,
+        zIndex: LAYERS.HEADER,
         backgroundColor: 'rgba(255, 255, 255, 0.8)',
         backdropFilter: 'blur(20px)',
         borderBottom: '1px solid var(--border)',
