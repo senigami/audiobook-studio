@@ -48,6 +48,124 @@ def get_production_blocks_payload(chapter_id: str) -> dict[str, Any]:
     }
 
 
+def get_script_view_payload(chapter_id: str) -> dict[str, Any]:
+    """Build the Phase 7 Script View read model payload for a chapter."""
+    from app.textops import sanitize_for_xtts, SENT_CHAR_LIMIT
+
+    with _db_lock:
+        with get_connection() as conn:
+            chapter_row = _load_chapter_row(conn, chapter_id)
+            if chapter_row is None:
+                raise KeyError(f"Chapter not found: {chapter_id}")
+            segment_rows = _load_segment_rows(conn, chapter_id)
+
+    spans = []
+    paragraphs = []
+    current_paragraph_span_ids = []
+
+    for index, row in enumerate(segment_rows):
+        text = str(row.get("text_content") or "")
+        sanitized = _clean_optional_text(row.get("sanitized_text"))
+        if sanitized is None:
+            sanitized = sanitize_for_xtts(text)
+
+        span_id = str(row["id"])
+        span_payload = {
+            "id": span_id,
+            "paragraph_id": f"p_{span_id}",  # Placeholder
+            "order_index": row.get("segment_order", index),
+            "text": text,
+            "sanitized_text": sanitized,
+            "character_id": _clean_optional_text(row.get("character_id")),
+            "speaker_profile_name": _resolved_speaker_profile_name(row),
+            "status": _normalize_segment_status(row.get("audio_status")),
+            "audio_file_path": _clean_optional_text(row.get("audio_file_path")),
+            "audio_generated_at": row.get("audio_generated_at"),
+            "char_count": len(text),
+            "sanitized_char_count": len(sanitized),
+        }
+        spans.append(span_payload)
+        current_paragraph_span_ids.append(span_id)
+
+        if _segment_contains_paragraph_break(row):
+            p_id = f"para_{current_paragraph_span_ids[0]}"
+            paragraphs.append({"id": p_id, "span_ids": current_paragraph_span_ids})
+            current_paragraph_span_ids = []
+
+    if current_paragraph_span_ids:
+        p_id = f"para_{current_paragraph_span_ids[0]}"
+        paragraphs.append({"id": p_id, "span_ids": current_paragraph_span_ids})
+
+    # Group spans into compatible render batches
+    render_batches = []
+    current_batch_spans = []
+    current_batch_len = 0
+    prev_sig = None
+
+    for span in spans:
+        sig = (span["character_id"], span["speaker_profile_name"])
+        span_len = span["sanitized_char_count"]
+
+        if current_batch_spans:
+            if sig != prev_sig or (current_batch_len + span_len > SENT_CHAR_LIMIT):
+                render_batches.append(
+                    _build_script_batch(
+                        chapter_id=chapter_id,
+                        spans=current_batch_spans,
+                        order_index=len(render_batches),
+                    )
+                )
+                current_batch_spans = []
+                current_batch_len = 0
+
+        current_batch_spans.append(span)
+        current_batch_len += span_len
+        prev_sig = sig
+
+    if current_batch_spans:
+        render_batches.append(
+            _build_script_batch(
+                chapter_id=chapter_id,
+                spans=current_batch_spans,
+                order_index=len(render_batches),
+            )
+        )
+
+    return {
+        "chapter_id": chapter_id,
+        "base_revision_id": _build_base_revision_id(chapter_row, segment_rows),
+        "paragraphs": paragraphs,
+        "spans": spans,
+        "render_batches": render_batches,
+    }
+
+
+def _normalize_segment_status(status: Any) -> str:
+    s = str(status or "unprocessed").lower()
+    if s == "done":
+        return "rendered"
+    if s == "processing":
+        return "rendering"
+    if s in {"failed", "error"}:
+        return "failed"
+    if s in {"queued", "preparing", "finalizing"}:
+        return "queued"
+    return "draft"
+
+
+def _build_script_batch(
+    *, chapter_id: str, spans: Sequence[Mapping[str, Any]], order_index: int
+) -> dict[str, Any]:
+    span_ids = [str(span["id"]) for span in spans]
+    status = _aggregate_status([span.get("status") for span in spans])
+    return {
+        "id": _stable_batch_id(chapter_id=chapter_id, block_ids=span_ids, order_index=order_index),
+        "span_ids": span_ids,
+        "status": status,
+        "estimated_work_weight": max(1, len(spans)),
+    }
+
+
 def save_production_blocks_payload(
     chapter_id: str,
     *,

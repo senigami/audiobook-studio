@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ConfirmModal } from './ConfirmModal';
 import { api } from '../api';
-import type { Chapter, SpeakerProfile, Job, Character, ChapterSegment, SegmentProgress, ProductionBlock, ProductionRenderBatch, ProductionBlocksResponse } from '../types';
+import type { Chapter, SpeakerProfile, Job, Character, ChapterSegment, SegmentProgress, ProductionBlock, ProductionRenderBatch, ProductionBlocksResponse, ScriptViewResponse } from '../types';
 
 // Extracted Components
 import { ChapterHeader } from './chapter/ChapterHeader';
@@ -10,6 +10,7 @@ import { EditTab } from './chapter/EditTab';
 import { PerformanceTab } from './chapter/PerformanceTab';
 import { PreviewTab } from './chapter/PreviewTab';
 import { ProductionTab } from './chapter/ProductionTab';
+import { ScriptView } from './chapter/ScriptView';
 import { CharacterSidebar } from './chapter/CharacterSidebar';
 
 // Extracted Hooks
@@ -71,6 +72,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   const [expandedCharacterId, setExpandedCharacterId] = useState<string | null>(null);
   const [hoveredBlockId, setHoveredBlockId] = useState<string | null>(null);
   const [exportingFormat, setExportingFormat] = useState<'wav' | 'mp3' | null>(null);
+  const [scriptViewData, setScriptViewData] = useState<ScriptViewResponse | null>(null);
   
   const [confirmConfig, setConfirmConfig] = useState<{
     title: string;
@@ -108,7 +110,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
       }
   };
 
-  const [editorTab, setEditorTab] = useState<'edit' | 'preview' | 'production' | 'performance'>('edit');
+  const [editorTab, setEditorTab] = useState<'script' | 'edit' | 'preview' | 'production' | 'performance'>('script');
   const [generatingSegmentIds, setGeneratingSegmentIds] = useState<Set<string>>(new Set());
   const pendingGenerationIdsRef = useRef<Set<string>>(new Set());
   const pendingGenerationTimesRef = useRef<Map<string, number>>(new Map());
@@ -256,13 +258,15 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         setText(target.text_content || '');
         setLocalVoice(target.speaker_profile_name || '');
       }
-      const [segs, chars, production] = await Promise.all([
+      const [segs, chars, production, scriptView] = await Promise.all([
         api.fetchSegments(chapterId),
         api.fetchCharacters(projectId),
-        api.fetchProductionBlocks(chapterId).catch(() => null)
+        api.fetchProductionBlocks(chapterId).catch(() => null),
+        api.fetchScriptView(chapterId).catch(() => null)
       ]);
       setSegments(segs);
       setCharacters(chars);
+      if (scriptView) setScriptViewData(scriptView);
       if (production?.blocks?.length) {
         syncProductionBlocks(production);
       } else {
@@ -306,11 +310,13 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     if (segmentRefreshTimerRef.current) clearTimeout(segmentRefreshTimerRef.current);
     segmentRefreshTimerRef.current = setTimeout(async () => {
         try {
-        const [updatedSegments, updatedProduction] = await Promise.all([
+        const [updatedSegments, updatedProduction, updatedScript] = await Promise.all([
           api.fetchSegments(chapterId),
           api.fetchProductionBlocks(chapterId).catch(() => null),
+          api.fetchScriptView(chapterId).catch(() => null),
         ]);
         setSegments(updatedSegments);
+        if (updatedScript) setScriptViewData(updatedScript);
         if (updatedProduction?.blocks?.length) {
           syncProductionBlocks(updatedProduction);
         } else {
@@ -385,11 +391,13 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
       const result = await api.updateChapter(chapterId, { title: finalTitle, text_content: finalText });
       if (result.chapter) setChapter(result.chapter);
       if (finalText !== chapter.text_content) {
-          const [updatedSegs, updatedProduction] = await Promise.all([
+          const [updatedSegs, updatedProduction, updatedScript] = await Promise.all([
             api.fetchSegments(chapterId),
-            api.fetchProductionBlocks(chapterId).catch(() => null)
+            api.fetchProductionBlocks(chapterId).catch(() => null),
+            api.fetchScriptView(chapterId).catch(() => null)
           ]);
           setSegments(updatedSegs);
+          if (updatedScript) setScriptViewData(updatedScript);
           if (updatedProduction?.blocks?.length) {
             syncProductionBlocks(updatedProduction);
           } else {
@@ -706,11 +714,41 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '1.5rem', overflow: 'hidden', minHeight: 0 }}>
             <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                 <EditorTabs 
-                  editorTab={editorTab} setEditorTab={setEditorTab} onSave={handleSave} 
+                  editorTab={editorTab} setEditorTab={(tab) => {
+                    if (tab === 'edit') {
+                      setConfirmConfig({
+                        title: 'Edit Source Text',
+                        message: 'Caution: Modifying the source text here will force a complete resynchronization of ALL segments, which may clobber granular assignments and render status if text is shifted. Are you sure you want to proceed?',
+                        onConfirm: () => {
+                          setConfirmConfig(null);
+                          setEditorTab('edit');
+                        },
+                        confirmText: 'Continue to Source Text',
+                        isDestructive: true
+                      });
+                    } else {
+                      setEditorTab(tab);
+                    }
+                  }} onSave={handleSave} 
                   onEnsureVoiceChunks={() => ensureVoiceChunks(handleSave)}
                   analysis={analysis} loadingVoiceChunks={loadingVoiceChunks}
                 />
                 
+                {editorTab === 'script' && scriptViewData && (
+                  <ScriptView 
+                    data={scriptViewData}
+                    characters={characters}
+                    onGenerateBatch={handleGenerate}
+                    pendingSpanIds={effectivePendingSegmentIds}
+                    playingSpanId={playingSegmentId}
+                    onPlaySpan={(sid) => playSegment(sid, segments.map(s => s.id))}
+                  />
+                )}
+                {editorTab === 'script' && !scriptViewData && (
+                  <div style={{ padding: '2rem', textAlign: 'center', opacity: 0.7 }}>
+                    Loading script view...
+                  </div>
+                )}
                 {editorTab === 'edit' && (
                   <EditTab 
                     text={text} setText={setText} analysis={analysis} setAnalysis={setAnalysis} 

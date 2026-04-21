@@ -26,6 +26,7 @@ from ...domain.chapters.compatibility import (
     CompatibilityRevisionMismatch,
     export_chapter_audio,
     get_production_blocks_payload,
+    get_script_view_payload,
     save_production_blocks_payload,
 )
 
@@ -210,6 +211,14 @@ def api_get_segments(chapter_id: str):
 def api_get_production_blocks(chapter_id: str):
     try:
         return JSONResponse(get_production_blocks_payload(chapter_id))
+    except KeyError:
+        return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
+
+
+@router.get("/chapters/{chapter_id}/script-view")
+def api_get_script_view(chapter_id: str):
+    try:
+        return JSONResponse(get_script_view_payload(chapter_id))
     except KeyError:
         return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
 

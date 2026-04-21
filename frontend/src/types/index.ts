@@ -60,6 +60,40 @@ export interface ProductionBlocksResponse {
   render_batches: ProductionRenderBatch[];
 }
 
+export interface ScriptSpan {
+  id: string;
+  order_index: number;
+  text: string;
+  sanitized_text: string;
+  character_id: string | null;
+  speaker_profile_name: string | null;
+  status: string;
+  audio_file_path: string | null;
+  audio_generated_at: number | null;
+  char_count: number;
+  sanitized_char_count: number;
+}
+
+export interface ScriptParagraph {
+  id: string;
+  span_ids: string[];
+}
+
+export interface ScriptRenderBatch {
+  id: string;
+  span_ids: string[];
+  status: string;
+  estimated_work_weight: number;
+}
+
+export interface ScriptViewResponse {
+  chapter_id: string;
+  base_revision_id: string | null;
+  paragraphs: ScriptParagraph[];
+  spans: ScriptSpan[];
+  render_batches: ScriptRenderBatch[];
+}
+
 export interface Chapter {
   id: string;
   project_id: string;

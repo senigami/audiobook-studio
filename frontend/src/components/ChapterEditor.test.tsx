@@ -47,6 +47,7 @@ vi.mock('../api', () => ({
     bakeChapter: vi.fn(),
     updateProductionBlocks: vi.fn(),
     exportChapterAudio: vi.fn(),
+    fetchScriptView: vi.fn(),
   },
 }));
 
@@ -138,6 +139,32 @@ describe('ChapterEditor', () => {
     { id: 'char-1', project_id: mockProjectId, name: 'Char 1', color: '#ff0000', speaker_profile_name: 'Voice 1' } as any
   ];
 
+  const mockScriptView = {
+    chapter_id: mockChapterId,
+    base_revision_id: 'rev-1',
+    paragraphs: [
+      { id: 'para-1', span_ids: ['seg-1'] }
+    ],
+    spans: [
+      {
+        id: 'seg-1',
+        order_index: 0,
+        text: 'Once upon a time.',
+        sanitized_text: 'Once upon a time.',
+        character_id: null,
+        speaker_profile_name: null,
+        status: 'draft',
+        audio_file_path: null,
+        audio_generated_at: null,
+        char_count: 17,
+        sanitized_char_count: 17
+      }
+    ],
+    render_batches: [
+      { id: 'batch-1', span_ids: ['seg-1'], status: 'draft', estimated_work_weight: 1 }
+    ]
+  };
+
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.clearAllMocks();
@@ -151,6 +178,7 @@ describe('ChapterEditor', () => {
       blocks: mockProductionBlocks,
       render_batches: mockRenderBatches
     });
+    (api.fetchScriptView as any).mockResolvedValue(mockScriptView);
     (api.updateChapter as any).mockResolvedValue({ chapter: mockChapter });
     (api.updateProductionBlocks as any).mockResolvedValue({
       chapter_id: mockChapterId,
@@ -223,7 +251,15 @@ describe('ChapterEditor', () => {
       />
     );
 
-    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
+    await waitFor(() => {
+      expect(screen.queryByText('Loading editor...')).not.toBeInTheDocument();
+    });
+
+    // Source Text Tab (with warning)
+    fireEvent.click(screen.getByText('Source Text'));
+    expect(await screen.findByText(/Caution: Modifying the source text here will force a complete resynchronization/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Continue to Source Text'));
+    expect(await screen.findByDisplayValue('Once upon a time.')).toBeInTheDocument();
 
     // Production Tab
     fireEvent.click(screen.getByText('Production'));
@@ -808,12 +844,12 @@ describe('ChapterEditor', () => {
 
     await waitFor(() => screen.findByDisplayValue('Test Chapter'));
 
-    fireEvent.click(screen.getByTitle('Save WAV'));
+    fireEvent.click(screen.getByTitle('Export WAV'));
     await waitFor(() => {
       expect(api.exportChapterAudio).toHaveBeenCalledWith(mockChapterId, 'wav');
     });
 
-    fireEvent.click(screen.getByTitle('Save MP3'));
+    fireEvent.click(screen.getByTitle('Export MP3'));
     await waitFor(() => {
       expect(api.exportChapterAudio).toHaveBeenCalledWith(mockChapterId, 'mp3');
     });

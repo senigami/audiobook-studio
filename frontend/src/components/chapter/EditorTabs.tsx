@@ -2,8 +2,8 @@ import React from 'react';
 import { RefreshCw } from 'lucide-react';
 
 interface EditorTabsProps {
-  editorTab: 'edit' | 'preview' | 'production' | 'performance';
-  setEditorTab: (tab: 'edit' | 'preview' | 'production' | 'performance') => void;
+  editorTab: 'script' | 'edit' | 'preview' | 'production' | 'performance';
+  setEditorTab: (tab: 'script' | 'edit' | 'preview' | 'production' | 'performance') => void;
   onSave: () => Promise<boolean>;
   onEnsureVoiceChunks: () => Promise<void>;
   analysis?: any;
@@ -21,11 +21,18 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
   return (
     <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem', flexShrink: 0 }}>
       <button 
+          onClick={() => setEditorTab('script')} 
+          className={editorTab === 'script' ? 'btn-primary' : 'btn-ghost'}
+          style={{ padding: '8px 16px', fontSize: '0.9rem', borderRadius: '8px' }}
+      >
+          Script
+      </button>
+      <button 
           onClick={() => setEditorTab('edit')} 
           className={editorTab === 'edit' ? 'btn-primary' : 'btn-ghost'}
           style={{ padding: '8px 16px', fontSize: '0.9rem', borderRadius: '8px' }}
       >
-          Edit Text
+          Source Text
       </button>
       <button 
           onClick={async () => {

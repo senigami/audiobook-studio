@@ -1,4 +1,4 @@
-import type { Job, Project, Chapter, ProductionBlocksResponse, ProductionBlock } from '../types';
+import type { Job, Project, Chapter, ProductionBlocksResponse, ProductionBlock, ScriptViewResponse } from '../types';
 import { DEFAULT_VOICE_SENTINEL } from '../constants/api';
 
 const parseApiResponse = async (res: Response) => {
@@ -122,6 +122,10 @@ export const api = {
   },
   fetchProductionBlocks: async (chapterId: string): Promise<ProductionBlocksResponse> => {
     const res = await fetch(`/api/chapters/${chapterId}/production-blocks`);
+    return parseApiResponse(res);
+  },
+  fetchScriptView: async (chapterId: string): Promise<ScriptViewResponse> => {
+    const res = await fetch(`/api/chapters/${chapterId}/script-view`);
     return parseApiResponse(res);
   },
   updateProductionBlocks: async (

@@ -242,11 +242,11 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
                               border: '1px solid var(--border)',
                               borderRadius: '8px'
                           }}
-                          title="Save WAV"
+                          title="Export WAV"
                           disabled={exportingFormat !== null}
                       >
                           {exportingFormat === 'wav' ? <RefreshCw size={14} className="animate-spin" /> : <Download size={14} />}
-                          Save WAV
+                          Export WAV
                       </button>
                   )}
                   {onSaveMp3 && (
@@ -263,11 +263,11 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
                               border: '1px solid var(--border)',
                               borderRadius: '8px'
                           }}
-                          title="Save MP3"
+                          title="Export MP3"
                           disabled={exportingFormat !== null}
                       >
                           {exportingFormat === 'mp3' ? <RefreshCw size={14} className="animate-spin" /> : <Download size={14} />}
-                          Save MP3
+                          Export MP3
                       </button>
                   )}
               </div>
