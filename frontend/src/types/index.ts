@@ -94,6 +94,27 @@ export interface ScriptViewResponse {
   render_batches: ScriptRenderBatch[];
 }
 
+export interface ScriptAssignment {
+  span_ids: string[];
+  character_id?: string | null;
+  speaker_profile_name?: string | null;
+}
+
+export interface ScriptRangeAssignment {
+  start_span_id: string;
+  start_offset: number;
+  end_span_id: string;
+  end_offset: number;
+  character_id?: string | null;
+  speaker_profile_name?: string | null;
+}
+
+export interface ScriptAssignmentsUpdate {
+  assignments: ScriptAssignment[];
+  range_assignments?: ScriptRangeAssignment[];
+  base_revision_id: string | null;
+}
+
 export interface Chapter {
   id: string;
   project_id: string;

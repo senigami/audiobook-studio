@@ -230,6 +230,192 @@ def save_production_blocks_payload(
     return get_production_blocks_payload(chapter_id)
 
 
+
+def save_script_assignments(
+    chapter_id: str,
+    *,
+    assignments: Sequence[Mapping[str, Any]],
+    range_assignments: Sequence[Mapping[str, Any]] = None,
+    base_revision_id: str | None = None,
+) -> dict[str, Any]:
+    """Apply speaker assignments to script spans and return the refreshed read model."""
+
+    with _db_lock:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            chapter_row = _load_chapter_row(conn, chapter_id)
+            if chapter_row is None:
+                raise KeyError(f"Chapter not found: {chapter_id}")
+
+            current_segments = _load_segment_rows(conn, chapter_id)
+            current_base_revision_id = _build_base_revision_id(chapter_row, current_segments)
+            if base_revision_id and base_revision_id != current_base_revision_id:
+                raise CompatibilityRevisionMismatch(current_base_revision_id, base_revision_id)
+
+            # 1. Handle range assignments (which may involve splitting)
+            for range_req in (range_assignments or []):
+                _apply_range_assignment(conn, chapter_id, range_req)
+
+            # 2. Handle whole-span assignments
+            flat_assignments: list[tuple[str | None, str | None, str]] = []
+            for entry in assignments:
+                char_id = _clean_optional_text(entry.get("character_id"))
+                prof_name = _clean_optional_text(entry.get("speaker_profile_name"))
+                span_ids = entry.get("span_ids") or []
+                for sid in span_ids:
+                    flat_assignments.append((char_id, prof_name, str(sid)))
+
+            if flat_assignments:
+                cursor.executemany(
+                    """
+                    UPDATE chapter_segments
+                    SET character_id = ?,
+                        speaker_profile_name = ?,
+                        audio_status = CASE 
+                            WHEN audio_status = 'done' AND (character_id IS NOT ? OR IFNULL(speaker_profile_name, '') IS NOT IFNULL(?, '')) THEN 'unprocessed'
+                            ELSE audio_status
+                        END
+                    WHERE id = ? AND chapter_id = ?
+                    """,
+                    [(char_id, prof_name, char_id, prof_name, span_id, chapter_id) for char_id, prof_name, span_id in flat_assignments],
+                )
+
+            if range_assignments or flat_assignments:
+                conn.commit()
+
+    return get_script_view_payload(chapter_id)
+
+
+import uuid
+
+def _apply_range_assignment(conn, chapter_id: str, range_req: Mapping[str, Any]):
+    """Surgically split segments and apply assignment to a character range."""
+    cursor = conn.cursor()
+
+    start_span_id = range_req["start_span_id"]
+    start_offset = range_req["start_offset"]
+    end_span_id = range_req["end_span_id"]
+    end_offset = range_req["end_offset"]
+    character_id = _clean_optional_text(range_req.get("character_id"))
+    speaker_profile_name = _clean_optional_text(range_req.get("speaker_profile_name"))
+
+    # Load IDs to validate range
+    cursor.execute("SELECT id FROM chapter_segments WHERE chapter_id = ? ORDER BY segment_order ASC", (chapter_id,))
+    initial_ids = [row[0] for row in cursor.fetchall()]
+
+    try:
+        start_idx = initial_ids.index(start_span_id)
+        end_idx = initial_ids.index(end_span_id)
+    except ValueError:
+        return # Invalid range
+
+    if start_idx > end_idx:
+        return # Invalid range
+
+    assign_ids = []
+
+    if start_span_id == end_span_id:
+        cursor.execute("SELECT text_content FROM chapter_segments WHERE id = ?", (start_span_id,))
+        row = cursor.fetchone()
+        if not row: return
+        text = row["text_content"] or ""
+
+        left_id = start_span_id
+        # Split at end first if partial
+        if 0 < end_offset < len(text):
+            _split_segment_at_offset(conn, chapter_id, left_id, end_offset)
+
+        # Split at start if partial
+        if 0 < start_offset < len(text):
+            _, mid_id = _split_segment_at_offset(conn, chapter_id, left_id, start_offset)
+            assign_ids = [mid_id]
+        else:
+            assign_ids = [left_id]
+    else:
+        # Cross-segment range
+        # 1. Split end segment if partial
+        cursor.execute("SELECT text_content FROM chapter_segments WHERE id = ?", (end_span_id,))
+        row = cursor.fetchone()
+        end_text = row["text_content"] if row else ""
+        if 0 < end_offset < len(end_text):
+            _split_segment_at_offset(conn, chapter_id, end_span_id, end_offset)
+        # The assigned part starts at the beginning of end_span_id (the left part)
+
+        # 2. Split start segment if partial
+        cursor.execute("SELECT text_content FROM chapter_segments WHERE id = ?", (start_span_id,))
+        row = cursor.fetchone()
+        start_text = row["text_content"] if row else ""
+        target_start_id = start_span_id
+        if 0 < start_offset < len(start_text):
+            _, res_right_id = _split_segment_at_offset(conn, chapter_id, start_span_id, start_offset)
+            target_start_id = res_right_id
+
+        # 3. Identify all IDs between target_start_id and end_span_id
+        cursor.execute("SELECT id FROM chapter_segments WHERE chapter_id = ? ORDER BY segment_order ASC", (chapter_id,))
+        ordered_ids = [row[0] for row in cursor.fetchall()]
+        try:
+            s_idx = ordered_ids.index(target_start_id)
+            e_idx = ordered_ids.index(end_span_id)
+            assign_ids = ordered_ids[s_idx : e_idx + 1]
+        except ValueError:
+            return # Should not happen
+
+    if assign_ids:
+        cursor.executemany(
+            """
+            UPDATE chapter_segments
+            SET character_id = ?,
+                speaker_profile_name = ?,
+                audio_status = 'unprocessed',
+                audio_file_path = NULL,
+                audio_generated_at = NULL
+            WHERE id = ? AND chapter_id = ?
+            """,
+            [(character_id, speaker_profile_name, sid, chapter_id) for sid in assign_ids]
+        )
+
+
+def _split_segment_at_offset(conn, chapter_id: str, segment_id: str, offset: int) -> tuple[str, str]:
+    """Splits a segment into two parts at a character offset. Returns (left_id, right_id)."""
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, text_content, segment_order, character_id, speaker_profile_name FROM chapter_segments WHERE id = ? AND chapter_id = ?", (segment_id, chapter_id))
+    seg = cursor.fetchone()
+    if not seg: return segment_id, segment_id
+
+    text = seg["text_content"] or ""
+    if offset <= 0 or offset >= len(text):
+        return segment_id, segment_id
+
+    left_text = text[:offset]
+    right_text = text[offset:]
+
+    right_id = f"split_{uuid.uuid4().hex[:12]}"
+    order = seg["segment_order"]
+
+    cursor.execute(
+        "UPDATE chapter_segments SET text_content = ?, audio_status = 'unprocessed', audio_file_path = NULL, audio_generated_at = NULL WHERE id = ?",
+        (left_text, segment_id)
+    )
+    cursor.execute(
+        "UPDATE chapter_segments SET segment_order = segment_order + 1 WHERE chapter_id = ? AND segment_order > ?",
+        (chapter_id, order)
+    )
+    cursor.execute(
+        """
+        INSERT INTO chapter_segments (
+            id, chapter_id, segment_order, text_content, character_id, 
+            speaker_profile_name, audio_status, audio_file_path, audio_generated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            right_id, chapter_id, order + 1, right_text, seg["character_id"],
+            seg["speaker_profile_name"], "unprocessed", None, None
+        )
+    )
+
+    return segment_id, right_id
+
+
 def export_chapter_audio(chapter_id: str, *, format: str) -> tuple[Path, str]:
     """Resolve or build the requested chapter export audio path."""
 

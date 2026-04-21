@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ConfirmModal } from './ConfirmModal';
 import { api } from '../api';
-import type { Chapter, SpeakerProfile, Job, Character, ChapterSegment, SegmentProgress, ProductionBlock, ProductionRenderBatch, ProductionBlocksResponse, ScriptViewResponse } from '../types';
+import type { Chapter, SpeakerProfile, Job, Character, ChapterSegment, SegmentProgress, ProductionBlock, ProductionRenderBatch, ProductionBlocksResponse, ScriptViewResponse, ScriptRangeAssignment } from '../types';
 
 // Extracted Components
 import { ChapterHeader } from './chapter/ChapterHeader';
@@ -477,6 +477,87 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
       throw e;
     }
   }, [chapterId, productionBaseRevisionId, syncProductionBlocks]);
+  
+  const handleScriptAssign = React.useCallback(async (spanIds: string[]) => {
+    if (!scriptViewData) return;
+    const isClearing = selectedCharacterId === 'CLEAR_ASSIGNMENT';
+    const characterId = isClearing ? null : selectedCharacterId;
+    const profileName = isClearing ? null : (selectedCharacterId ? (selectedProfileName || resolveDefaultVariantName(selectedCharacterId)) : null);
+
+    // Optimistic update
+    setScriptViewData(prev => {
+        if (!prev) return prev;
+        return {
+            ...prev,
+            spans: prev.spans.map(s => spanIds.includes(s.id) ? { 
+                ...s, character_id: characterId, speaker_profile_name: profileName,
+                status: (s.status === 'rendered' && (s.character_id !== characterId || s.speaker_profile_name !== profileName)) ? 'draft' : s.status
+            } : s)
+        };
+    });
+
+    try {
+        const result = await api.saveScriptAssignments(chapterId, {
+            base_revision_id: scriptViewData.base_revision_id,
+            assignments: [{
+                span_ids: spanIds,
+                character_id: characterId,
+                speaker_profile_name: profileName
+            }]
+        });
+        setScriptViewData(result);
+        // Also refresh segments to stay in sync for other tabs
+        const updatedSegs = await api.fetchSegments(chapterId);
+        setSegments(updatedSegs);
+    } catch (e: any) {
+        console.error("Script assignment failed", e);
+        if (e.status === 409) {
+             setConfirmConfig({
+                title: 'Assignment Conflict',
+                message: 'This chapter was modified by another process. Please reload to see the latest changes.',
+                onConfirm: () => { setConfirmConfig(null); loadChapter('conflict-reload'); },
+                confirmText: 'Reload Now'
+             });
+        } else {
+             // Rollback on other errors
+             loadChapter('assignment-error-rollback');
+        }
+    }
+  }, [chapterId, scriptViewData, selectedCharacterId, selectedProfileName, resolveDefaultVariantName, loadChapter]);
+
+  const handleScriptAssignRange = React.useCallback(async (range: ScriptRangeAssignment) => {
+    if (!scriptViewData) return;
+    const isClearing = selectedCharacterId === 'CLEAR_ASSIGNMENT';
+    const characterId = isClearing ? null : selectedCharacterId;
+    const profileName = isClearing ? null : (selectedCharacterId ? (selectedProfileName || resolveDefaultVariantName(selectedCharacterId)) : null);
+
+    try {
+        const result = await api.saveScriptAssignments(chapterId, {
+            base_revision_id: scriptViewData.base_revision_id,
+            assignments: [],
+            range_assignments: [{
+                ...range,
+                character_id: characterId,
+                speaker_profile_name: profileName
+            }]
+        });
+        setScriptViewData(result);
+        const updatedSegs = await api.fetchSegments(chapterId);
+        setSegments(updatedSegs);
+    } catch (e: any) {
+        console.error("Script range assignment failed", e);
+        if (e.status === 409) {
+             setConfirmConfig({
+                title: 'Assignment Conflict',
+                message: 'This chapter was modified by another process. Please reload to see the latest changes.',
+                onConfirm: () => { setConfirmConfig(null); loadChapter('conflict-reload'); },
+                confirmText: 'Reload Now'
+             });
+        } else {
+             loadChapter('assignment-range-error-rollback');
+        }
+    }
+  }, [chapterId, scriptViewData, selectedCharacterId, selectedProfileName, resolveDefaultVariantName, loadChapter]);
 
   const reloadLatestBlocks = React.useCallback(async (): Promise<ProductionBlocksResponse | null> => {
     setSaveConflictError(null);
@@ -742,6 +823,9 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                     pendingSpanIds={effectivePendingSegmentIds}
                     playingSpanId={playingSegmentId}
                     onPlaySpan={(sid) => playSegment(sid, segments.map(s => s.id))}
+                    onAssign={handleScriptAssign}
+                    onAssignRange={handleScriptAssignRange}
+                    activeCharacterId={selectedCharacterId}
                   />
                 )}
                 {editorTab === 'script' && !scriptViewData && (

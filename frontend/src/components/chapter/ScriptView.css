@@ -117,6 +117,33 @@
   position: relative;
 }
 
+.book-paragraph-gutter {
+  position: absolute;
+  left: -1.5rem;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  border-radius: 3px;
+  background: var(--book-paragraph-accent, transparent);
+  transition: all 0.2s ease;
+}
+
+.book-paragraph.is-paintable {
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.book-paragraph.is-paintable:hover {
+  background: var(--surface-light);
+}
+
+.book-paragraph.is-paintable:hover .book-paragraph-gutter {
+  width: 10px;
+  left: -2rem;
+  box-shadow: 0 0 10px var(--book-paragraph-accent, var(--accent-glow));
+}
+
 .book-paragraph-text {
   flex: 1;
   color: var(--text-primary);
@@ -133,10 +160,20 @@
 
 .book-paragraph .script-span.is-assigned .script-span-text {
   text-decoration-line: underline;
-  text-decoration-thickness: 0.09em;
-  text-underline-offset: 0.08em;
+  text-decoration-thickness: 0.12em;
+  text-underline-offset: 0.12em;
   text-decoration-color: var(--book-paragraph-accent, currentColor);
   text-decoration-skip-ink: auto;
+}
+
+.script-span.is-paintable {
+  cursor: cell;
+}
+
+.script-span.is-paintable:hover {
+  background: var(--accent-glow);
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .script-span {
@@ -263,6 +300,37 @@
   color: var(--accent);
 }
 
-.span-status-indicator {
-  display: none;
+/* Selection Popover */
+.selection-popover {
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  padding: 4px;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
+  pointer-events: auto;
+}
+
+.selection-assign-btn {
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.fade-in {
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.book-paragraph-text::selection,
+.script-span-text::selection {
+  background: var(--accent-glow);
+  color: var(--text-primary);
 }

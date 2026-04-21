@@ -1,10 +1,18 @@
 import anyio
 import logging
 from pathlib import Path
-from typing import Optional, List, Literal
+from typing import Optional, List, Literal, Sequence, Mapping
 from pydantic import BaseModel, Field
-from fastapi import APIRouter, Form, File, UploadFile, Request, Depends, Body
+from fastapi import APIRouter, Form, File, UploadFile, Request, Depends, Body, HTTPException
 from fastapi.responses import JSONResponse, FileResponse
+from ...domain.chapters.compatibility import (
+    get_production_blocks_payload,
+    save_production_blocks_payload,
+    get_script_view_payload,
+    save_script_assignments,
+    CompatibilityRevisionMismatch,
+    export_chapter_audio,
+)
 from ...db import (
     list_chapters, reconcile_project_audio, create_chapter, update_chapter, 
     get_chapter, delete_chapter, reorder_chapters, get_chapter_segments, 
@@ -22,13 +30,6 @@ from ...state import update_job, delete_jobs, get_settings
 from ...constants import DEFAULT_VOICE_SENTINEL
 from ..ws import broadcast_chapter_updated, broadcast_queue_update
 from ...pathing import safe_basename, safe_join_flat
-from ...domain.chapters.compatibility import (
-    CompatibilityRevisionMismatch,
-    export_chapter_audio,
-    get_production_blocks_payload,
-    get_script_view_payload,
-    save_production_blocks_payload,
-)
 
 # Compatibility for tests that monkeypatch these
 CHAPTER_DIR = config.CHAPTER_DIR
@@ -84,6 +85,61 @@ class ProductionBlocksUpdate(BaseModel):
 
 class AudioExportRequest(BaseModel):
     format: Literal["wav", "mp3"]
+
+
+class ScriptSpan(BaseModel):
+    id: str
+    order_index: int
+    text: str
+    sanitized_text: str
+    character_id: Optional[str] = None
+    speaker_profile_name: Optional[str] = None
+    status: str
+    audio_file_path: Optional[str] = None
+    audio_generated_at: Optional[float] = None
+    char_count: int
+    sanitized_char_count: int
+
+
+class ScriptParagraph(BaseModel):
+    id: str
+    span_ids: List[str]
+
+
+class ScriptRenderBatch(BaseModel):
+    id: str
+    span_ids: List[str]
+    status: str
+    estimated_work_weight: int
+
+
+class ScriptViewResponse(BaseModel):
+    chapter_id: str
+    base_revision_id: str
+    paragraphs: List[ScriptParagraph]
+    spans: List[ScriptSpan]
+    render_batches: List[ScriptRenderBatch]
+
+
+class ScriptAssignment(BaseModel):
+    span_ids: List[str]
+    character_id: Optional[str] = None
+    speaker_profile_name: Optional[str] = None
+
+
+class ScriptRangeAssignment(BaseModel):
+    start_span_id: str
+    start_offset: int
+    end_span_id: str
+    end_offset: int
+    character_id: Optional[str] = None
+    speaker_profile_name: Optional[str] = None
+
+
+class ScriptAssignmentsUpdate(BaseModel):
+    assignments: List[ScriptAssignment] = []
+    range_assignments: List[ScriptRangeAssignment] = []
+    base_revision_id: Optional[str] = None
 
 
 router = APIRouter(prefix="/api", tags=["chapters"])
@@ -245,6 +301,32 @@ def api_save_production_blocks(chapter_id: str, payload: ProductionBlocksUpdate)
         )
     except KeyError:
         return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
+
+
+@router.put("/chapters/{chapter_id}/script-view/assignments", response_model=ScriptViewResponse)
+def api_save_script_assignments(chapter_id: str, payload: ScriptAssignmentsUpdate):
+    try:
+        data = save_script_assignments(
+            chapter_id,
+            assignments=[a.model_dump() for a in payload.assignments],
+            range_assignments=[a.model_dump() for a in payload.range_assignments],
+            base_revision_id=payload.base_revision_id
+        )
+        return JSONResponse(data)
+    except CompatibilityRevisionMismatch as exc:
+        return JSONResponse(
+            {
+                "status": "error",
+                "message": "Chapter script view was updated by someone else. Reload before saving again.",
+                "expected_base_revision_id": exc.expected_revision_id,
+                "base_revision_id": exc.actual_revision_id,
+            },
+            status_code=409,
+        )
+    except KeyError as e:
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=404)
+    except Exception as e:
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 
 
 @router.post("/chapters/{chapter_id}/export-audio")

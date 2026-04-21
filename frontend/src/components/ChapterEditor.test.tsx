@@ -48,6 +48,7 @@ vi.mock('../api', () => ({
     updateProductionBlocks: vi.fn(),
     exportChapterAudio: vi.fn(),
     fetchScriptView: vi.fn(),
+    saveScriptAssignments: vi.fn(),
   },
 }));
 
@@ -923,6 +924,86 @@ describe('ChapterEditor', () => {
     
     // Conflict message should be gone
     expect(screen.queryByText(/Save Conflict:/i)).not.toBeInTheDocument();
+  });
+
+  it('handles script span assignment and optimistic update', async () => {
+    (api.saveScriptAssignments as any).mockResolvedValue({
+      ...mockScriptView,
+      spans: [
+        { ...mockScriptView.spans[0], character_id: 'char-1' }
+      ]
+    });
+
+    render(
+      <ChapterEditor 
+        chapterId={mockChapterId} 
+        projectId={mockProjectId} 
+        speakerProfiles={mockSpeakerProfiles as any} 
+        speakers={mockSpeakers as any} 
+        onBack={vi.fn()} 
+      />
+    );
+
+    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
+
+    // 1. Select character in sidebar
+    fireEvent.click(screen.getByText('Char 1'));
+
+    // 2. Click the span in script view
+    const span = screen.getByText('Once upon a time.').closest('.script-span');
+    fireEvent.click(span!);
+
+    // 3. Verify API call
+    expect(api.saveScriptAssignments).toHaveBeenCalledWith(
+      mockChapterId,
+      expect.objectContaining({
+        base_revision_id: 'rev-1',
+        assignments: [
+          expect.objectContaining({
+            span_ids: ['seg-1'],
+            character_id: 'char-1'
+          })
+        ]
+      })
+    );
+
+    // 4. Verify optimistic UI check
+    // Use getAllByText because there's a tab named Script and a view mode toggle named Script
+    fireEvent.click(screen.getAllByText('Script')[0]);
+    expect(await screen.queryByText('Narrator')).not.toBeInTheDocument();
+  });
+
+  it('handles script assignment revision conflicts', async () => {
+    const conflictErr = new Error('Revision mismatch');
+    (conflictErr as any).status = 409;
+    (api.saveScriptAssignments as any).mockRejectedValue(conflictErr);
+
+    render(
+      <ChapterEditor 
+        chapterId={mockChapterId} 
+        projectId={mockProjectId} 
+        speakerProfiles={mockSpeakerProfiles as any} 
+        speakers={mockSpeakers as any} 
+        onBack={vi.fn()} 
+      />
+    );
+
+    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
+
+    fireEvent.click(screen.getByText('Char 1'));
+    const span = screen.getByText('Once upon a time.').closest('.script-span');
+    fireEvent.click(span!);
+
+    expect(await screen.findByText('Assignment Conflict')).toBeInTheDocument();
+    expect(screen.getByText(/This chapter was modified by another process/i)).toBeInTheDocument();
+    
+    // Clicking reload should call loadChapter which calls fetchScriptView
+    const reloadBtn = screen.getByText('Reload Now');
+    fireEvent.click(reloadBtn);
+    
+    await waitFor(() => {
+      expect(api.fetchScriptView).toHaveBeenCalledTimes(2);
+    });
   });
 
 });

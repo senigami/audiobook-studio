@@ -1,4 +1,4 @@
-import type { Job, Project, Chapter, ProductionBlocksResponse, ProductionBlock, ScriptViewResponse } from '../types';
+import type { Job, Project, Chapter, ProductionBlocksResponse, ProductionBlock, ScriptViewResponse, ScriptAssignmentsUpdate } from '../types';
 import { DEFAULT_VOICE_SENTINEL } from '../constants/api';
 
 const parseApiResponse = async (res: Response) => {
@@ -126,6 +126,22 @@ export const api = {
   },
   fetchScriptView: async (chapterId: string): Promise<ScriptViewResponse> => {
     const res = await fetch(`/api/chapters/${chapterId}/script-view`);
+    return parseApiResponse(res);
+  },
+  saveScriptAssignments: async (chapterId: string, payload: ScriptAssignmentsUpdate): Promise<ScriptViewResponse> => {
+    const res = await fetch(`/api/chapters/${chapterId}/script-view/assignments`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (res.status === 409) {
+      const errorData = await res.json();
+      const err = new Error(errorData.message || 'Revision mismatch');
+      (err as any).status = 409;
+      (err as any).expected_base_revision_id = errorData.expected_base_revision_id;
+      (err as any).base_revision_id = errorData.base_revision_id;
+      throw err;
+    }
     return parseApiResponse(res);
   },
   updateProductionBlocks: async (

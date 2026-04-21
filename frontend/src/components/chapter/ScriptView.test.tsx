@@ -181,4 +181,43 @@ describe('ScriptView', () => {
     fireEvent.click(playButtons[0]);
     expect(onPlaySpan).toHaveBeenCalledWith('s1');
   });
+
+  it('calls onAssign when clicking a span in paint mode', () => {
+    const onAssign = vi.fn();
+    render(
+      <ScriptView 
+        data={mockData} 
+        characters={mockCharacters} 
+        onGenerateBatch={onGenerateBatch} 
+        pendingSpanIds={new Set()}
+        onPlaySpan={onPlaySpan}
+        onAssign={onAssign}
+        activeCharacterId="char-1"
+      />
+    );
+
+    const span = screen.getByText('Different paragraph.').closest('.script-span');
+    fireEvent.click(span!);
+    expect(onAssign).toHaveBeenCalledWith(['s3']);
+  });
+
+  it('calls onAssign with whole paragraph spans when clicking a paragraph in paint mode', () => {
+    const onAssign = vi.fn();
+    render(
+      <ScriptView 
+        data={mockData} 
+        characters={mockCharacters} 
+        onGenerateBatch={onGenerateBatch} 
+        pendingSpanIds={new Set()}
+        onPlaySpan={onPlaySpan}
+        onAssign={onAssign}
+        activeCharacterId="char-1"
+      />
+    );
+
+    // Click the first paragraph
+    const paragraph = screen.getByText('Sentence one.').closest('.book-paragraph');
+    fireEvent.click(paragraph!);
+    expect(onAssign).toHaveBeenCalledWith(['s1', 's2']);
+  });
 });

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import {
   BookOpen,
   AlignLeft,
@@ -7,12 +7,14 @@ import {
   Play,
   WandSparkles,
   RotateCcw,
+  UserPlus,
 } from 'lucide-react';
 import type {
   ScriptViewResponse,
   Character,
   ScriptSpan,
   ScriptRenderBatch,
+  ScriptRangeAssignment,
 } from '../../types';
 import './ScriptView.css';
 
@@ -23,6 +25,9 @@ interface ScriptViewProps {
   pendingSpanIds: Set<string>;
   playingSpanId?: string | null;
   onPlaySpan?: (spanId: string) => void;
+  onAssign?: (spanIds: string[]) => void;
+  onAssignRange?: (range: ScriptRangeAssignment) => void;
+  activeCharacterId?: string | null;
 }
 
 export const ScriptView: React.FC<ScriptViewProps> = ({
@@ -32,10 +37,16 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
   pendingSpanIds,
   playingSpanId = null,
   onPlaySpan,
+  onAssign,
+  onAssignRange,
+  activeCharacterId,
 }) => {
   const [viewMode, setViewMode] = useState<'book' | 'script'>('book');
   const [showSafeText, setShowSafeText] = useState(false);
   const [showNumbers, setShowNumbers] = useState(false);
+  const [pendingSelection, setPendingSelection] = useState<ScriptRangeAssignment | null>(null);
+  const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const spanMap = useMemo(() => {
     const map = new Map<string, ScriptSpan>();
@@ -57,6 +68,65 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
     return map;
   }, [data.render_batches]);
 
+  const getSpanIdFromNode = (node: Node | null): string | null => {
+    let curr = node;
+    while (curr && curr !== containerRef.current) {
+      if (curr instanceof HTMLElement && curr.dataset.spanId) {
+        return curr.dataset.spanId;
+      }
+      curr = curr.parentNode;
+    }
+    return null;
+  };
+
+  const handleSelection = () => {
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed || viewMode !== 'book') {
+      setPendingSelection(null);
+      setPopoverPos(null);
+      return;
+    }
+
+    const range = selection.getRangeAt(0);
+    const startSpanId = getSpanIdFromNode(range.startContainer);
+    const endSpanId = getSpanIdFromNode(range.endContainer);
+
+    if (!startSpanId || !endSpanId) {
+      setPendingSelection(null);
+      setPopoverPos(null);
+      return;
+    }
+
+    const startOffset = range.startOffset;
+    const endOffset = range.endOffset;
+
+    setPendingSelection({
+      start_span_id: startSpanId,
+      start_offset: startOffset,
+      end_span_id: endSpanId,
+      end_offset: endOffset,
+    });
+
+    const rect = range.getBoundingClientRect();
+    const containerRect = containerRef.current?.getBoundingClientRect();
+    if (containerRect) {
+      setPopoverPos({
+        top: rect.top - containerRect.top - 40,
+        left: rect.left - containerRect.left + rect.width / 2,
+      });
+    }
+  };
+
+  useEffect(() => {
+    const onMouseDown = () => {
+      // Clear previous selection popover when starting a new selection
+      setPendingSelection(null);
+      setPopoverPos(null);
+    };
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
+  }, []);
+
   const renderSpan = (span: ScriptSpan) => {
     const char = span.character_id ? charMap.get(span.character_id) : null;
     const batch = batchMap.get(span.id);
@@ -74,8 +144,19 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
     return (
       <span
         key={span.id}
-        className={`script-span ${char ? 'is-assigned' : ''} ${isPlaying ? 'is-playing' : ''}`}
+        data-span-id={span.id}
+        className={`script-span ${char ? 'is-assigned' : ''} ${isPlaying ? 'is-playing' : ''} ${activeCharacterId !== undefined ? 'is-paintable' : ''}`}
         style={char ? ({ '--script-span-accent': char.color } as React.CSSProperties) : undefined}
+        onClick={(e) => {
+          // If we have a selection, don't trigger whole-span assignment yet
+          const selection = window.getSelection();
+          if (selection && !selection.isCollapsed) return;
+
+          if (activeCharacterId !== undefined) {
+            e.stopPropagation();
+            onAssign?.([span.id]);
+          }
+        }}
       >
         {showNumbers && (
           <span className="script-span-number">{span.order_index + 1}</span>
@@ -86,7 +167,10 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
         <div className="span-controls">
           <button
             className="span-control-btn"
-            onClick={() => onPlaySpan?.(span.id)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onPlaySpan?.(span.id);
+            }}
             title="Play Audio"
             disabled={span.status !== 'rendered'}
           >
@@ -94,7 +178,10 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
           </button>
           <button
             className="span-control-btn"
-            onClick={() => batch && onGenerateBatch(batch.span_ids)}
+            onClick={(e) => {
+              e.stopPropagation();
+              batch && onGenerateBatch(batch.span_ids);
+            }}
             title={span.status === 'rendered' ? 'Rebuild' : 'Generate'}
             disabled={isPending}
           >
@@ -113,9 +200,19 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
       return (
         <div
           key={para.id}
-          className="book-paragraph"
+          className={`book-paragraph ${activeCharacterId !== undefined ? 'is-paintable' : ''}`}
           style={char ? ({ '--book-paragraph-accent': char.color } as React.CSSProperties) : undefined}
+          onClick={() => {
+             // If we have a selection, don't trigger whole-paragraph assignment
+             const selection = window.getSelection();
+             if (selection && !selection.isCollapsed) return;
+
+             if (activeCharacterId !== undefined) {
+               onAssign?.(para.span_ids);
+             }
+          }}
         >
+          <div className="book-paragraph-gutter" />
           <div className="book-paragraph-text">
             {para.span_ids.map((spanId, index) => {
               const span = spanMap.get(spanId);
@@ -159,7 +256,11 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
   };
 
   return (
-    <div className="script-view-container glass-panel">
+    <div 
+      className="script-view-container glass-panel" 
+      ref={containerRef}
+      onMouseUp={handleSelection}
+    >
       <div className="script-view-toolbar">
         <div className="script-view-toggle-group">
           <button
@@ -203,6 +304,38 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
       <div className="script-content-scroll">
         {viewMode === 'book' ? renderBook() : renderScript()}
       </div>
+
+      {popoverPos && pendingSelection && (
+        <div 
+          className="selection-popover fade-in"
+          style={{
+            position: 'absolute',
+            top: popoverPos.top,
+            left: popoverPos.left,
+            transform: 'translateX(-50%)',
+            zIndex: 1000,
+          }}
+        >
+          <button 
+            className="btn-primary selection-assign-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (activeCharacterId !== undefined) {
+                onAssignRange?.({
+                   ...pendingSelection,
+                   character_id: activeCharacterId
+                });
+              }
+              setPendingSelection(null);
+              setPopoverPos(null);
+              window.getSelection()?.removeAllRanges();
+            }}
+          >
+            <UserPlus size={14} style={{ marginRight: '6px' }} />
+            Assign {activeCharacterId ? (charMap.get(activeCharacterId)?.name || 'Character') : 'Narrator'}
+          </button>
+        </div>
+      )}
     </div>
   );
 };
