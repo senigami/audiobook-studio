@@ -122,7 +122,21 @@ describe('SettingsRoute', () => {
     expect(screen.getByText('Speaker Name')).toBeTruthy();
 
     fireEvent.click(screen.getByText('Voxtral Cloud Voices'));
-    expect(await screen.findByText(/privacy: cloud engines may send text/i)).toBeTruthy();
+    expect(await screen.findByText('Voxtral Cloud Settings')).toBeTruthy();
+    expect(screen.getByText(/Create a Mistral API key in your workspace settings/i)).toBeTruthy();
+    expect(screen.getByText('Mistral API Key')).toBeTruthy();
+    expect(screen.getByText('Voxtral Model')).toBeTruthy();
+    expect(screen.getByText(/Privacy note: turning on Voxtral sends the text you synthesize/i)).toBeTruthy();
+  });
+
+  it('normalizes trailing slashes on settings deep links', async () => {
+    render(
+      <MemoryRouter initialEntries={['/settings/engines/']}>
+        <SettingsRoute {...defaultProps} />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('XTTS Local')).toBeTruthy();
   });
 
   it('saves general settings through the existing settings endpoint', async () => {
@@ -188,5 +202,19 @@ describe('SettingsRoute', () => {
     expect(screen.getByText('Direct-In-Process')).toBeTruthy();
     expect(screen.getByText('Orchestrator')).toBeTruthy();
     expect(screen.getByText('Studio 2.0')).toBeTruthy();
+  });
+
+  it('renders the api tab as integration guidance', async () => {
+    render(
+      <MemoryRouter initialEntries={['/settings/api']}>
+        <SettingsRoute {...defaultProps} />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'API' })).toBeTruthy();
+    expect(screen.getByText('Studio API')).toBeTruthy();
+    expect(screen.getByText('/api/home')).toBeTruthy();
+    expect(screen.getByText('/api/engines')).toBeTruthy();
+    expect(screen.getByText('Read only')).toBeTruthy();
   });
 });

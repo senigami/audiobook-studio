@@ -55,9 +55,10 @@ const VALID_SETTINGS_PATHS = new Set(SETTINGS_TABS.map((tab) => tab.path));
 
 export const SettingsRoute: React.FC<SettingsRouteProps> = ({ settings, onRefresh, onShowNotification }) => {
   const { pathname } = useLocation();
-  const activeTab = useMemo(() => getActiveSettingsTab(pathname), [pathname]);
+  const canonicalPathname = useMemo(() => normalizeSettingsPath(pathname), [pathname]);
+  const activeTab = useMemo(() => getActiveSettingsTab(canonicalPathname), [canonicalPathname]);
 
-  if (!VALID_SETTINGS_PATHS.has(pathname)) {
+  if (!VALID_SETTINGS_PATHS.has(canonicalPathname)) {
     return <Navigate to="/settings" replace />;
   }
 
@@ -139,14 +140,8 @@ export const SettingsRoute: React.FC<SettingsRouteProps> = ({ settings, onRefres
               onShowNotification={onShowNotification}
             />
           )}
-          {activeTab.id === 'engines' && <EnginesPanel onShowNotification={onShowNotification} />}
-          {activeTab.id === 'api' && (
-            <ApiSettingsPanel
-              settings={settings}
-              onRefresh={onRefresh}
-              onShowNotification={onShowNotification}
-            />
-          )}
+          {activeTab.id === 'engines' && <EnginesPanel settings={settings} onRefresh={onRefresh} onShowNotification={onShowNotification} />}
+          {activeTab.id === 'api' && <ApiSettingsPanel />}
           {activeTab.id === 'about' && <AboutSettingsPanel />}
         </div>
       </div>
@@ -164,6 +159,14 @@ const getActiveSettingsTab = (pathname: string): SettingsTab => {
   if (pathname === '/settings/api') return SETTINGS_TABS[2];
   if (pathname === '/settings/about') return SETTINGS_TABS[3];
   return SETTINGS_TABS[0];
+};
+
+const normalizeSettingsPath = (pathname: string) => {
+  if (!pathname) {
+    return '/settings';
+  }
+  const normalized = pathname.replace(/\/+$/, '');
+  return normalized || '/';
 };
 
 const SettingsTabLink: React.FC<{ tab: SettingsTab; active: boolean }> = ({ tab, active }) => {
@@ -336,7 +339,11 @@ const GeneralSettingsPanel: React.FC<SettingsRouteProps> = ({ settings, onRefres
   );
 };
 
-const EnginesPanel: React.FC<{ onShowNotification?: (message: string) => void }> = ({ onShowNotification }) => {
+const EnginesPanel: React.FC<{
+  settings?: AppSettings;
+  onRefresh: () => void;
+  onShowNotification?: (message: string) => void;
+}> = ({ settings, onRefresh, onShowNotification }) => {
   const [engines, setEngines] = useState<TtsEngine[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -378,6 +385,22 @@ const EnginesPanel: React.FC<{ onShowNotification?: (message: string) => void }>
     }
   };
 
+  const updateStudioSetting = async (updates: Partial<AppSettings>) => {
+    const key = Object.keys(updates)[0];
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      onRefresh();
+      onShowNotification?.(`${formatSettingLabel(key)} saved.`);
+    } catch (err) {
+      console.error('Failed to update studio setting', err);
+      onShowNotification?.('Settings update failed. Please try again.');
+    }
+  };
+
   if (loading && engines.length === 0) {
     return (
       <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
@@ -395,7 +418,14 @@ const EnginesPanel: React.FC<{ onShowNotification?: (message: string) => void }>
         </div>
       )}
       {engines.map((engine) => (
-      <EngineCard key={engine.engine_id} engine={engine} onUpdate={loadEngines} onShowNotification={onShowNotification} />
+        <EngineCard
+          key={engine.engine_id}
+          engine={engine}
+          settings={settings}
+          onStudioSettingsUpdate={updateStudioSetting}
+          onUpdate={loadEngines}
+          onShowNotification={onShowNotification}
+        />
       ))}
       <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', paddingTop: '0.25rem' }}>
         <button
@@ -420,7 +450,13 @@ const EnginesPanel: React.FC<{ onShowNotification?: (message: string) => void }>
   );
 };
 
-const EngineCard: React.FC<{ engine: TtsEngine; onUpdate: () => void; onShowNotification?: (message: string) => void }> = ({ engine, onUpdate, onShowNotification }) => {
+const EngineCard: React.FC<{
+  engine: TtsEngine;
+  settings?: AppSettings;
+  onStudioSettingsUpdate: (updates: Partial<AppSettings>) => Promise<void>;
+  onUpdate: () => void;
+  onShowNotification?: (message: string) => void;
+}> = ({ engine, settings, onStudioSettingsUpdate, onUpdate, onShowNotification }) => {
   const [saving, setSaving] = useState(false);
   const tone = engine.status === 'ready'
     ? 'blue'
@@ -543,6 +579,80 @@ const EngineCard: React.FC<{ engine: TtsEngine; onUpdate: () => void; onShowNoti
             busy={saving}
           />
         </div>
+
+        {isVoxtralEngine(engine) && (
+          <div style={{ marginTop: '1rem', padding: '1rem', borderRadius: '14px', border: '1px solid rgba(43, 110, 255, 0.18)', background: 'rgba(239, 246, 255, 0.65)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', marginBottom: '0.9rem' }}>
+              <div>
+                <h4 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 900, color: 'var(--text-primary)' }}>Voxtral Cloud Settings</h4>
+                <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.84rem', lineHeight: 1.6, color: 'var(--text-secondary)' }}>
+                  Create a Mistral API key in your workspace settings, paste it here, then turn Voxtral on when you want cloud voices available. Voxtral requests are processed by Mistral instead of staying fully local.
+                </p>
+              </div>
+              <ToggleButton
+                enabled={!!settings?.voxtral_enabled}
+                busy={false}
+                onClick={() => onStudioSettingsUpdate({ voxtral_enabled: !settings?.voxtral_enabled })}
+              />
+            </div>
+
+            <div style={{ display: 'grid', gap: '1rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label style={{ fontWeight: 800, fontSize: '0.82rem', color: 'var(--text-primary)' }}>Mistral API Key</label>
+                </div>
+                <input
+                  type="password"
+                  placeholder="Paste your API key here..."
+                  defaultValue={settings?.mistral_api_key || ''}
+                  onBlur={(e) => {
+                    const nextValue = e.target.value.trim();
+                    if (nextValue !== (settings?.mistral_api_key || '')) {
+                      onStudioSettingsUpdate({ mistral_api_key: nextValue });
+                    }
+                  }}
+                  style={{
+                    padding: '0.65rem',
+                    borderRadius: '10px',
+                    border: '1px solid var(--border)',
+                    background: 'var(--background)',
+                    fontSize: '0.85rem',
+                    width: '100%',
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label style={{ fontWeight: 800, fontSize: '0.82rem', color: 'var(--text-primary)' }}>Voxtral Model</label>
+                </div>
+                <input
+                  type="text"
+                  placeholder="e.g. mistral-large-latest"
+                  defaultValue={settings?.voxtral_model || ''}
+                  onBlur={(e) => {
+                    const nextValue = e.target.value.trim();
+                    if (nextValue !== (settings?.voxtral_model || '')) {
+                      onStudioSettingsUpdate({ voxtral_model: nextValue || 'voxtral-mini-tts-2603' });
+                    }
+                  }}
+                  style={{
+                    padding: '0.65rem',
+                    borderRadius: '10px',
+                    border: '1px solid var(--border)',
+                    background: 'var(--background)',
+                    fontSize: '0.85rem',
+                    width: '100%',
+                  }}
+                />
+              </div>
+            </div>
+
+            <p style={{ margin: '1rem 0 0 0', fontSize: '0.82rem', lineHeight: 1.65, color: 'var(--text-secondary)' }}>
+              Privacy note: turning on Voxtral sends the text you synthesize, and any selected reference audio, to Mistral&apos;s servers. Keep voices on <code>XTTS (Local)</code> if you want your workflow to stay fully local.
+            </p>
+          </div>
+        )}
       </div>
     </details>
   );
@@ -659,115 +769,37 @@ const JsonSchemaForm: React.FC<{
   );
 };
 
-const ApiSettingsPanel: React.FC<SettingsRouteProps> = ({ settings, onRefresh, onShowNotification }) => {
-  const [savingKey, setSavingKey] = useState<string | null>(null);
-
-  const updateSetting = async (updates: Partial<AppSettings>) => {
-    const key = Object.keys(updates)[0];
-    setSavingKey(key);
-    try {
-      await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
-      });
-      onRefresh();
-    } catch (error) {
-      console.error('Failed to update setting', error);
-      onShowNotification?.('Settings update failed. Please try again.');
-    } finally {
-      setSavingKey(null);
-    }
-  };
-
+const ApiSettingsPanel: React.FC = () => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
       <SettingCard
-        icon={PlugZap}
-        title="Voxtral Integration"
-        description="Enable Voxtral cloud synthesis (requires Mistral API key)."
-        action={
-          <ToggleButton
-            enabled={!!settings?.voxtral_enabled}
-            busy={savingKey === 'voxtral_enabled'}
-            onClick={() => updateSetting({ voxtral_enabled: !settings?.voxtral_enabled })}
-          />
-        }
-      />
-
-      <div style={{ background: 'var(--surface-light)', border: '1px solid var(--border)', borderRadius: '16px', padding: '1rem' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <label style={{ fontWeight: 800, fontSize: '0.82rem', color: 'var(--text-primary)' }}>
-                Mistral API Key
-              </label>
-              {savingKey === 'mistral_api_key' && <span style={{ fontSize: '0.7rem', color: 'var(--accent)', fontWeight: 800 }}>SAVING...</span>}
-            </div>
-            <input
-              type="password"
-              placeholder="Paste your API key here..."
-              defaultValue={settings?.mistral_api_key || ''}
-              onBlur={(e) => {
-                if (e.target.value !== (settings?.mistral_api_key || '')) {
-                  updateSetting({ mistral_api_key: e.target.value });
-                }
-              }}
-              style={{
-                padding: '0.65rem',
-                borderRadius: '10px',
-                border: '1px solid var(--border)',
-                background: 'var(--background)',
-                fontSize: '0.85rem',
-                width: '100%',
-              }}
-            />
-            <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
-              Used for Voxtral cloud synthesis. Keys are stored locally in state.json.
-            </p>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <label style={{ fontWeight: 800, fontSize: '0.82rem', color: 'var(--text-primary)' }}>
-                Voxtral Model
-              </label>
-              {savingKey === 'voxtral_model' && <span style={{ fontSize: '0.7rem', color: 'var(--accent)', fontWeight: 800 }}>SAVING...</span>}
-            </div>
-            <input
-              type="text"
-              placeholder="e.g. mistral-large-latest"
-              defaultValue={settings?.voxtral_model || ''}
-              onBlur={(e) => {
-                if (e.target.value !== (settings?.voxtral_model || '')) {
-                  updateSetting({ voxtral_model: e.target.value });
-                }
-              }}
-              style={{
-                padding: '0.65rem',
-                borderRadius: '10px',
-                border: '1px solid var(--border)',
-                background: 'var(--background)',
-                fontSize: '0.85rem',
-                width: '100%',
-              }}
-            />
-          </div>
-        </div>
-      </div>
-
-      <SettingCard
         icon={Server}
-        title="Local API Discovery"
-        description="Allow other devices on your network to discover this Studio instance."
-        action={
-          <ToggleButton
-            enabled={false}
-            busy={false}
-            onClick={() => onShowNotification?.('Discovery settings are managed by the host process.')}
-          />
-        }
+        title="Studio API"
+        description="Use these endpoints to connect external tools to Studio or inspect runtime state."
+        action={<span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-muted)' }}>Read only</span>}
       />
+      <div style={{ display: 'grid', gap: '0.9rem' }}>
+        <div style={{ padding: '1rem', borderRadius: '14px', border: '1px solid var(--border)', background: 'var(--surface-light)' }}>
+          <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '0.95rem' }}>Integration Endpoints</h3>
+          <ul style={{ margin: 0, paddingLeft: '1.15rem', color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+            <li><code>/api/home</code> returns Studio version, engine health, and system diagnostics.</li>
+            <li><code>/api/engines</code> lists plugin engines, statuses, and settings schemas.</li>
+            <li><code>/api/settings</code> updates global Studio settings such as safe mode and export defaults.</li>
+            <li><code>/api/engines/&lt;id&gt;/settings</code> persists per-engine plugin configuration.</li>
+          </ul>
+        </div>
+        <div style={{ padding: '1rem', borderRadius: '14px', border: '1px dashed var(--border)', background: 'var(--background)', color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: 1.6 }}>
+          <p style={{ margin: 0 }}>
+            External apps can use these routes to read Studio health, inspect available engines, or configure the backend without going through the chapter editor.
+          </p>
+        </div>
+        <SettingCard
+          icon={Server}
+          title="Local API Discovery"
+          description="Network discovery remains managed by the host process."
+          action={<span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-muted)' }}>Managed outside UI</span>}
+        />
+      </div>
     </div>
   );
 };
@@ -929,6 +961,25 @@ const ToggleButton: React.FC<{ enabled: boolean; busy: boolean; onClick: () => v
     {busy ? '...' : enabled ? 'ON' : 'OFF'}
   </button>
 );
+
+const isVoxtralEngine = (engine: TtsEngine) => {
+  const engineId = engine.engine_id.toLowerCase();
+  const displayName = engine.display_name.toLowerCase();
+  return engine.cloud && (engineId.includes('voxtral') || displayName.includes('voxtral'));
+};
+
+const formatSettingLabel = (key: string) => {
+  switch (key) {
+    case 'voxtral_enabled':
+      return 'Voxtral';
+    case 'mistral_api_key':
+      return 'Mistral API key';
+    case 'voxtral_model':
+      return 'Voxtral model';
+    default:
+      return key.replace(/_/g, ' ');
+  }
+};
 
 
 const getBadgeStyles = (tone: 'blue' | 'yellow' | 'gray' | 'red'): React.CSSProperties => {
