@@ -118,14 +118,7 @@
 }
 
 .book-paragraph-gutter {
-  position: absolute;
-  left: -1.5rem;
-  top: 0;
-  bottom: 0;
-  width: 6px;
-  border-radius: 3px;
-  background: var(--book-paragraph-accent, transparent);
-  transition: all 0.2s ease;
+  display: none;
 }
 
 .book-paragraph.is-paintable {
@@ -139,9 +132,7 @@
 }
 
 .book-paragraph.is-paintable:hover .book-paragraph-gutter {
-  width: 10px;
-  left: -2rem;
-  box-shadow: 0 0 10px var(--book-paragraph-accent, var(--accent-glow));
+  display: none;
 }
 
 .book-paragraph-text {
@@ -171,7 +162,8 @@
 }
 
 .script-span.is-paintable:hover {
-  padding: 4px 0px 5px;
+  padding-top: 4px;
+  padding-bottom: 5px;
   background: var(--accent-glow);
   outline: 2px solid var(--accent);
   outline-offset: 1px;
@@ -190,7 +182,8 @@
 }
 
 .script-span.is-playing {
-  padding: 4px 0px 5px;
+  padding-top: 4px;
+  padding-bottom: 5px;
   background: color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
@@ -236,6 +229,18 @@
   position: relative;
 }
 
+.script-line::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  border-radius: 3px;
+  background: var(--script-line-accent, transparent);
+  opacity: 0.9;
+}
+
 .script-line:hover {
   background: var(--surface-light);
 }
@@ -257,7 +262,7 @@
 
 .script-line-content {
   font-size: 1.05rem;
-  line-height: 1.6;
+  line-height: 1.7;
 }
 
 .script-line.connected-top {

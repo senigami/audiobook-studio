@@ -254,7 +254,8 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
       return (
         <div
           key={span.id}
-          className={`script-line ${!isFirstInRun ? 'connected-top' : ''} ${isPlayingSpan(span.id) ? 'is-playing' : ''}`}
+          className={`script-line ${!isFirstInRun ? 'connected-top' : ''}`}
+          style={char ? ({ '--script-line-accent': char.color } as React.CSSProperties) : undefined}
         >
           <div className="script-line-speaker" style={char ? { color: char.color } : undefined}>
             {isFirstInRun ? (char?.name || 'Narrator') : ''}
