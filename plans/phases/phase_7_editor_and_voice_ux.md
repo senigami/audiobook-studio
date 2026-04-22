@@ -35,7 +35,7 @@ Move the main user workflows onto the 2.0 foundations once the lower-risk layers
 - [x] Engine status badges (Verified, Ready, Needs Setup, Unverified, Invalid Config, Not Loaded) implemented
 - [ ] Engine action buttons (Test, Verify, View Logs, Deactivate, Install Dependencies, Remove) implemented
 - [x] API settings tab implemented (enable, bind, key, priority)
-- [ ] About tab implemented (version, TTS Server status, engine count, system info)
+- [x] About tab implemented (version, TTS Server status, engine count, system info)
 - [ ] Install Plugin action implemented
 - [x] Refresh Plugins action implemented
 - [x] Cloud engine privacy disclosure rendering implemented

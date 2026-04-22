@@ -6,6 +6,7 @@ import { SettingsRoute } from './SettingsRoute';
 
 vi.mock('../../../api', () => ({
   api: {
+    fetchHome: vi.fn(),
     fetchEngines: vi.fn(),
     refreshPlugins: vi.fn(),
     updateEngineSettings: vi.fn(),
@@ -78,6 +79,13 @@ describe('SettingsRoute', () => {
       }
       return Promise.resolve({ ok: true, json: () => Promise.resolve({}) }) as any;
     }) as any;
+    vi.mocked(api.fetchHome).mockResolvedValue({
+      version: '1.8.4',
+      system_info: {
+        backend_mode: 'Direct-In-Process',
+        orchestrator: 'Studio 2.0',
+      },
+    } as any);
     vi.mocked(api.fetchEngines).mockResolvedValue(mockedEngines as any);
     vi.mocked(api.refreshPlugins).mockResolvedValue({ ok: true });
     vi.mocked(api.updateEngineSettings).mockResolvedValue({ ok: true });
@@ -162,5 +170,23 @@ describe('SettingsRoute', () => {
       expect(api.refreshPlugins).toHaveBeenCalled();
       expect(api.fetchEngines).toHaveBeenCalledTimes(2);
     });
+  });
+
+  it('renders the about tab as a read-only diagnostics surface', async () => {
+    render(
+      <MemoryRouter initialEntries={['/settings/about']}>
+        <SettingsRoute {...defaultProps} />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'About' })).toBeTruthy();
+    expect(screen.getByText('Studio Version')).toBeTruthy();
+    expect(screen.getByText('1.8.4')).toBeTruthy();
+    expect(screen.getByText('TTS Server')).toBeTruthy();
+    expect(screen.getByText(/2 engine\(s\) discovered/i)).toBeTruthy();
+    expect(screen.getByText('Backend Mode')).toBeTruthy();
+    expect(screen.getByText('Direct-In-Process')).toBeTruthy();
+    expect(screen.getByText('Orchestrator')).toBeTruthy();
+    expect(screen.getByText('Studio 2.0')).toBeTruthy();
   });
 });

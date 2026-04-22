@@ -15,6 +15,7 @@ from ...db import list_speakers
 from ...models import Job
 from ...pathing import safe_basename, safe_join_flat
 from ..utils import read_preview
+from ...core.feature_flags import use_tts_server, use_studio_orchestrator
 
 # Compatibility for tests that monkeypatch these
 UPLOAD_DIR = config.UPLOAD_DIR
@@ -72,6 +73,11 @@ def api_home(
         "jobs": jobs,
         "settings": settings,
         "paused": paused(),
+        "version": "1.8.4",
+        "system_info": {
+            "backend_mode": "TTS-Server-Subprocess" if use_tts_server() else "Direct-In-Process",
+            "orchestrator": "Studio 2.0" if use_studio_orchestrator() else "Legacy (app.jobs)",
+        },
         "narrator_ok": any(
             entry.is_dir() and entry.name == "Default"
             for entry in voices_dir.iterdir()

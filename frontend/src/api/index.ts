@@ -12,6 +12,10 @@ const parseApiResponse = async (res: Response) => {
 };
 
 export const api = {
+  fetchHome: async (): Promise<any> => {
+    const res = await fetch('/api/home');
+    return res.json();
+  },
   // --- Projects ---
   fetchProjects: async (): Promise<Project[]> => {
     const res = await fetch('/api/projects');

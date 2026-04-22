@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { NavLink, Navigate, useLocation } from 'react-router-dom';
-import { Activity, BadgeInfo, ChevronDown, Cloud, PlugZap, RefreshCw, Server, Settings as SettingsIcon, ShieldCheck, SlidersHorizontal, Music } from 'lucide-react';
+import { BadgeInfo, ChevronDown, Cloud, PlugZap, RefreshCw, Server, Settings as SettingsIcon, ShieldCheck, SlidersHorizontal, Music, Cpu, Globe, Layers } from 'lucide-react';
 import type { Settings as AppSettings, TtsEngine } from '../../../types';
 import { api } from '../../../api';
 
@@ -147,7 +147,7 @@ export const SettingsRoute: React.FC<SettingsRouteProps> = ({ settings, onRefres
               onShowNotification={onShowNotification}
             />
           )}
-          {activeTab.id === 'about' && <AboutFoundationPanel />}
+          {activeTab.id === 'about' && <AboutSettingsPanel />}
         </div>
       </div>
     </section>
@@ -772,12 +772,117 @@ const ApiSettingsPanel: React.FC<SettingsRouteProps> = ({ settings, onRefresh, o
   );
 };
 
-const AboutFoundationPanel = () => (
-  <FoundationCallout
-    icon={Activity}
-    title="About and health readouts have a home"
-    body="This tab will host Studio version, TTS Server status, engine counts, and runtime details once the health payload is connected."
-  />
+const AboutSettingsPanel: React.FC = () => {
+  const [data, setData] = useState<any>(null);
+  const [engines, setEngines] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadStatus = async () => {
+      try {
+        const [home, engs] = await Promise.all([api.fetchHome(), api.fetchEngines()]);
+        setData(home);
+        setEngines(engs);
+      } catch (err) {
+        console.error('Failed to load about data', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadStatus();
+  }, []);
+
+  if (loading) {
+    return (
+      <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+        <RefreshCw size={24} className="spin" style={{ marginBottom: '1rem', opacity: 0.5 }} />
+        <p>Gathering system info...</p>
+      </div>
+    );
+  }
+
+  const ttsServerStatus = engines.length > 0 ? 'Online' : 'Offline / Not Connected';
+  const ttsServerTone = engines.length > 0 ? 'blue' : 'gray';
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
+        <StatusCard
+          icon={BadgeInfo}
+          label="Studio Version"
+          value={data?.version || '1.8.4'}
+          subvalue="Release Channel: Stable"
+        />
+        <StatusCard
+          icon={Server}
+          label="TTS Server"
+          value={ttsServerStatus}
+          subvalue={`${engines.length} engine(s) discovered`}
+          tone={ttsServerTone}
+        />
+      </div>
+
+      <div style={{ background: 'var(--surface-light)', border: '1px solid var(--border)', borderRadius: '16px', padding: '1.25rem' }}>
+        <h3 style={{ margin: '0 0 1rem 0', fontSize: '0.9rem', fontWeight: 900, color: 'var(--text-muted)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+          Runtime Diagnostics
+        </h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <DiagnosticRow
+            icon={Cpu}
+            label="Backend Mode"
+            value={data?.system_info?.backend_mode || 'Direct-In-Process'}
+          />
+          <DiagnosticRow
+            icon={Layers}
+            label="Orchestrator"
+            value={data?.system_info?.orchestrator || 'Legacy'}
+          />
+          <DiagnosticRow
+            icon={Globe}
+            label="Environment"
+            value={typeof window !== 'undefined' ? 'Browser / Web Client' : 'Terminal'}
+          />
+        </div>
+      </div>
+
+      <div style={{ padding: '1rem', borderRadius: '14px', border: '1px dashed var(--border)', background: 'var(--background)', color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: 1.6 }}>
+        <p style={{ margin: 0 }}>
+          Audiobook Studio 2.0 is a modular synthesis and production platform. 
+          The "About" tab provides real-time readouts of the underlying bridge and engine status.
+          For deeper logs, refer to the <code>logs/</code> directory in your Studio root.
+        </p>
+      </div>
+    </div>
+  );
+};
+
+const StatusCard: React.FC<{ icon: React.ComponentType<{ size?: number }>; label: string; value: string; subvalue: string; tone?: 'blue' | 'gray' }> = ({ icon: Icon, label, value, subvalue, tone = 'blue' }) => {
+  const styles = getBadgeStyles(tone);
+  return (
+    <div style={{ padding: '1.25rem', borderRadius: '16px', border: '1px solid var(--border)', background: 'var(--surface-light)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--text-muted)' }}>
+        <Icon size={16} />
+        <span style={{ fontSize: '0.82rem', fontWeight: 800 }}>{label}</span>
+      </div>
+      <div>
+        <div style={{ fontSize: '1.4rem', fontWeight: 900, color: 'var(--text-primary)' }}>{value}</div>
+        <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>{subvalue}</div>
+      </div>
+      <div style={{ height: '4px', width: '100%', background: styles.background, borderRadius: '999px', marginTop: '0.25rem' }} />
+    </div>
+  );
+};
+
+const DiagnosticRow: React.FC<{ icon: React.ComponentType<{ size?: number }>; label: string; value: string }> = ({ icon: Icon, label, value }) => (
+  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+      <div style={{ color: 'var(--accent)' }}><Icon size={18} /></div>
+      <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-secondary)' }}>{label}</span>
+    </div>
+    <span style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-primary)', background: 'var(--background)', padding: '0.35rem 0.65rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
+      {value}
+    </span>
+  </div>
 );
 
 const SettingCard: React.FC<{
@@ -825,32 +930,6 @@ const ToggleButton: React.FC<{ enabled: boolean; busy: boolean; onClick: () => v
   </button>
 );
 
-
-const FoundationCallout: React.FC<{
-  icon: React.ComponentType<{ size?: number }>;
-  title: string;
-  body: string;
-}> = ({ icon: Icon, title, body }) => (
-  <div
-    style={{
-      display: 'flex',
-      alignItems: 'flex-start',
-      gap: '0.85rem',
-      padding: '1rem',
-      borderRadius: '14px',
-      border: '1px dashed var(--border)',
-      background: 'var(--surface-light)',
-    }}
-  >
-    <div style={{ color: 'var(--accent)', marginTop: '0.1rem' }}>
-      <Icon size={20} />
-    </div>
-    <div>
-      <h3 style={{ margin: 0, fontSize: '1rem' }}>{title}</h3>
-      <p style={{ margin: '0.25rem 0 0 0', color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.55 }}>{body}</p>
-    </div>
-  </div>
-);
 
 const getBadgeStyles = (tone: 'blue' | 'yellow' | 'gray' | 'red'): React.CSSProperties => {
   if (tone === 'blue') {
