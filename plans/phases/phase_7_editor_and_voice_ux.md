@@ -9,6 +9,7 @@ Move the main user workflows onto the 2.0 foundations once the lower-risk layers
 - block-aware editor behavior
 - render-batch-aware generation actions
 - inline failure recovery
+- source-text resync preview and commit safety
 - voice module management UI (plugin cards with per-engine settings)
 - preview/test UI aligned to the new voice model
 - project-local navigation and chapter-to-chapter movement
@@ -20,22 +21,23 @@ Move the main user workflows onto the 2.0 foundations once the lower-risk layers
 
 ## Deliverables Checklist
 
-- [ ] Block-aware editor behavior implemented
-- [ ] Render-batch-aware generation actions implemented
-- [ ] Inline failure recovery implemented
-- [ ] Voice module management UI implemented with plugin cards
+- [x] Block-aware editor behavior implemented
+- [x] Render-batch-aware generation actions implemented
+- [x] Inline failure recovery implemented
+- [x] Source-text resync preview and commit safety implemented
+- [x] Voice module management UI implemented with plugin cards
 - [ ] Preview/test UI aligned to the new voice model
 - [ ] Project-local navigation and chapter-to-chapter movement implemented
 - [x] Settings page route structure implemented (/settings, /settings/engines, /settings/api, /settings/about)
 - [ ] General settings tab implemented (migrated from SettingsTray)
-- [ ] TTS Engines tab with collapsible engine cards implemented
-- [ ] Schema-driven settings forms rendering from settings_schema.json implemented
-- [ ] Engine status badges (Verified, Ready, Needs Setup, Unverified, Invalid Config, Not Loaded) implemented
+- [x] TTS Engines tab with collapsible engine cards implemented
+- [x] Schema-driven settings forms rendering from settings_schema.json implemented
+- [x] Engine status badges (Verified, Ready, Needs Setup, Unverified, Invalid Config, Not Loaded) implemented
 - [ ] Engine action buttons (Test, Verify, View Logs, Deactivate, Install Dependencies, Remove) implemented
 - [ ] API settings tab implemented (enable, bind, key, priority)
 - [ ] About tab implemented (version, TTS Server status, engine count, system info)
-- [ ] Install Plugin and Refresh Plugins actions implemented
-- [ ] Cloud engine privacy disclosure rendering implemented
+- [x] Install Plugin and Refresh Plugins actions implemented
+- [x] Cloud engine privacy disclosure rendering implemented
 - [ ] SettingsTray reduced to quick-access widget
 
 ## Scope

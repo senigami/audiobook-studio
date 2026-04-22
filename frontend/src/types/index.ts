@@ -1,6 +1,24 @@
 export type Engine = 'xtts' | 'voxtral' | 'mixed' | 'audiobook' | 'voice_build' | 'voice_test';
 export type VoiceEngine = 'xtts' | 'voxtral';
 
+export interface TtsEngine {
+  engine_id: string;
+  display_name: string;
+  status: 'ready' | 'needs_setup' | 'unverified' | 'not_loaded' | 'invalid_config';
+  verified: boolean;
+  version: string;
+  local: boolean;
+  cloud: boolean;
+  network: boolean;
+  languages: string[];
+  capabilities: string[];
+  resource: Record<string, any>;
+  author: string;
+  homepage: string;
+  settings_schema: any;
+  current_settings?: Record<string, any>;
+}
+
 export type Status = 'queued' | 'preparing' | 'running' | 'finalizing' | 'done' | 'failed' | 'cancelled' | 'error';
 
 export interface Project {

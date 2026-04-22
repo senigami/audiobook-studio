@@ -15,7 +15,7 @@ from .config import (
     FRONTEND_DIST
 )
 from .db import init_db
-from .api import projects, chapters, voices, queue, settings, generation, system, analysis, jobs, migration, manager
+from .api import projects, chapters, voices, queue, settings, generation, system, analysis, jobs, migration, manager, engines
 from .api.routers.analysis import AnalysisError
 
 logger = logging.getLogger(__name__)
@@ -384,6 +384,7 @@ app.include_router(system.router)
 app.include_router(analysis.router)
 app.include_router(jobs.router)
 app.include_router(migration.router)
+app.include_router(engines.router)
 
 # --- Catch-all for React Router ---
 @app.get("/{full_path:path}")

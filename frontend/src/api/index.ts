@@ -344,4 +344,22 @@ export const api = {
     const res = await fetch(endpoint, { method: 'POST' });
     return res.json();
   },
+
+  // --- Engines ---
+  fetchEngines: async (): Promise<any[]> => {
+    const res = await fetch('/api/engines');
+    return parseApiResponse(res);
+  },
+  updateEngineSettings: async (engineId: string, settings: Record<string, any>): Promise<any> => {
+    const res = await fetch(`/api/engines/${encodeURIComponent(engineId)}/settings`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(settings),
+    });
+    return parseApiResponse(res);
+  },
+  refreshPlugins: async (): Promise<any> => {
+    const res = await fetch('/api/engines/refresh', { method: 'POST' });
+    return parseApiResponse(res);
+  },
 };

@@ -1,19 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { NavLink, Navigate, useLocation } from 'react-router-dom';
-import {
-  Activity,
-  BadgeInfo,
-  ChevronDown,
-  Cloud,
-  PlugZap,
-  RefreshCw,
-  Server,
-  Settings as SettingsIcon,
-  ShieldCheck,
-  SlidersHorizontal,
-  Music,
-} from 'lucide-react';
-import type { Settings as AppSettings } from '../../../types';
+import { Activity, BadgeInfo, ChevronDown, Cloud, PlugZap, RefreshCw, Server, Settings as SettingsIcon, ShieldCheck, SlidersHorizontal, Music } from 'lucide-react';
+import type { Settings as AppSettings, TtsEngine } from '../../../types';
+import { api } from '../../../api';
 
 type SettingsTabId = 'general' | 'engines' | 'api' | 'about';
 
@@ -150,7 +139,7 @@ export const SettingsRoute: React.FC<SettingsRouteProps> = ({ settings, onRefres
               onShowNotification={onShowNotification}
             />
           )}
-          {activeTab.id === 'engines' && <EnginesFoundationPanel settings={settings} />}
+          {activeTab.id === 'engines' && <EnginesPanel onShowNotification={onShowNotification} />}
           {activeTab.id === 'api' && <ApiFoundationPanel />}
           {activeTab.id === 'about' && <AboutFoundationPanel />}
         </div>
@@ -302,35 +291,325 @@ const GeneralSettingsPanel: React.FC<SettingsRouteProps> = ({ settings, onRefres
   );
 };
 
-const EnginesFoundationPanel: React.FC<{ settings: AppSettings | undefined }> = ({ settings }) => {
-  const voxtralConfigured = !!settings?.mistral_api_key?.trim();
-  const voxtralReady = voxtralConfigured && !!settings?.voxtral_enabled;
+const EnginesPanel: React.FC<{ onShowNotification?: (message: string) => void }> = ({ onShowNotification }) => {
+  const [engines, setEngines] = useState<TtsEngine[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadEngines = async () => {
+    try {
+      setLoading(true);
+      const data = await api.fetchEngines();
+      if (Array.isArray(data)) {
+        setEngines(data);
+        setError(null);
+      } else {
+        setEngines([]);
+        setError('Unexpected engine payload received from the server.');
+      }
+    } catch (err) {
+      setError('Failed to load engines. Ensure the TTS Server is running if enabled.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadEngines();
+  }, []);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await api.refreshPlugins();
+      await loadEngines();
+      onShowNotification?.('Plugins refreshed successfully.');
+    } catch (err) {
+      console.error('Refresh failed', err);
+      onShowNotification?.('Plugin refresh failed.');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  if (loading && engines.length === 0) {
+    return (
+      <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+        <RefreshCw size={24} className="spin" style={{ marginBottom: '1rem', opacity: 0.5 }} />
+        <p>Discovering engines...</p>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
-      <EnginePreviewCard
-        title="XTTS Local"
-        subtitle="Local engine card foundation"
-        badge="Ready"
-        badgeTone="blue"
-        description="Phase 7 will replace this foundation state with plugin-discovered engine metadata and schema-driven settings."
-      />
-      <EnginePreviewCard
-        title="Voxtral Cloud Voices"
-        subtitle="Cloud engine privacy boundary"
-        badge={voxtralReady ? 'Ready' : voxtralConfigured ? 'Needs Setup' : 'Not Loaded'}
-        badgeTone={voxtralReady ? 'blue' : voxtralConfigured ? 'yellow' : 'gray'}
-        description="This card reserves the cloud disclosure and plugin action area before engine data is fully hydrated from the TTS Server."
-        cloud
-      />
+      {error && (
+        <div style={{ padding: '1rem', borderRadius: '12px', background: 'rgba(239, 68, 68, 0.1)', color: '#b91c1c', fontSize: '0.85rem', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+          {error}
+        </div>
+      )}
+      {engines.map((engine) => (
+      <EngineCard key={engine.engine_id} engine={engine} onUpdate={loadEngines} onShowNotification={onShowNotification} />
+      ))}
       <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', paddingTop: '0.25rem' }}>
-        <button type="button" className="btn-glass" disabled style={{ padding: '0.65rem 0.9rem', borderRadius: '10px', border: '1px solid var(--border)', fontWeight: 800 }}>
+        <button
+          type="button"
+          className="btn-glass"
+          onClick={() => onShowNotification?.('Plugin installation is coming in a later slice.')}
+          style={{ padding: '0.65rem 0.9rem', borderRadius: '10px', border: '1px solid var(--border)', fontWeight: 800 }}
+        >
           Install Plugin
         </button>
-        <button type="button" className="btn-glass" disabled style={{ padding: '0.65rem 0.9rem', borderRadius: '10px', border: '1px solid var(--border)', fontWeight: 800 }}>
-          Refresh Plugins
+        <button
+          type="button"
+          className="btn-glass"
+          disabled={refreshing}
+          onClick={handleRefresh}
+          style={{ padding: '0.65rem 0.9rem', borderRadius: '10px', border: '1px solid var(--border)', fontWeight: 800 }}
+        >
+          {refreshing ? 'Refreshing...' : 'Refresh Plugins'}
         </button>
       </div>
+    </div>
+  );
+};
+
+const EngineCard: React.FC<{ engine: TtsEngine; onUpdate: () => void; onShowNotification?: (message: string) => void }> = ({ engine, onUpdate, onShowNotification }) => {
+  const [saving, setSaving] = useState(false);
+  const tone = engine.status === 'ready'
+    ? 'blue'
+    : engine.status === 'needs_setup'
+      ? 'yellow'
+      : engine.status === 'invalid_config'
+        ? 'red'
+        : 'gray';
+  const statusLabel = getEngineStatusLabel(engine.status);
+  const verificationLabel = engine.verified ? 'VERIFIED' : (engine.status === 'not_loaded' ? 'NOT LOADED' : 'UNVERIFIED');
+
+  const handleSaveSettings = async (settings: Record<string, any>) => {
+    setSaving(true);
+    try {
+      await api.updateEngineSettings(engine.engine_id, settings);
+      await onUpdate();
+      onShowNotification?.(`${engine.display_name} settings saved.`);
+    } catch (err) {
+      console.error('Failed to save settings', err);
+      onShowNotification?.('Failed to save settings.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <details
+      style={{
+        border: '1px solid var(--border)',
+        borderRadius: '16px',
+        background: 'var(--surface-light)',
+        overflow: 'hidden',
+      }}
+    >
+      <summary
+        style={{
+          listStyle: 'none',
+          cursor: 'pointer',
+          display: 'flex',
+          justifyContent: 'space-between',
+          gap: '1rem',
+          alignItems: 'center',
+          padding: '1rem',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+          <ChevronDown size={17} color="var(--text-muted)" className="details-chevron" />
+          <div>
+            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800 }}>{engine.display_name}</h3>
+            <p style={{ margin: '0.2rem 0 0 0', color: 'var(--text-muted)', fontSize: '0.78rem', fontWeight: 600 }}>
+              {engine.engine_id} {engine.version ? `• v${engine.version}` : ''}
+            </p>
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          {engine.cloud && <Cloud size={15} color="#92400e" />}
+          <span
+            style={{
+              borderRadius: '999px',
+              padding: '0.28rem 0.6rem',
+              fontSize: '0.7rem',
+              fontWeight: 900,
+              letterSpacing: '0.02em',
+              ...getBadgeStyles(tone),
+            }}
+          >
+            {statusLabel}
+          </span>
+          {engine.status !== 'not_loaded' && (
+            <span
+              style={{
+                borderRadius: '999px',
+                padding: '0.28rem 0.6rem',
+                fontSize: '0.7rem',
+                fontWeight: 900,
+                letterSpacing: '0.02em',
+                ...getBadgeStyles(engine.verified ? 'blue' : 'gray'),
+              }}
+            >
+              {verificationLabel}
+            </span>
+          )}
+        </div>
+      </summary>
+      <div style={{ padding: '0 1rem 1.25rem 2.95rem', color: 'var(--text-secondary)', fontSize: '0.88rem', lineHeight: 1.55 }}>
+        <p style={{ margin: '0 0 1.25rem 0', fontSize: '0.85rem' }}>
+          {engine.author ? `Engine by ${engine.author}. ` : ''}
+          {engine.homepage && (
+            <a href={engine.homepage} target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', textDecoration: 'none' }}>
+              View Documentation
+            </a>
+          )}
+        </p>
+
+        {engine.cloud && (
+          <div
+            style={{
+              marginBottom: '1.25rem',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '0.6rem',
+              padding: '0.85rem',
+              borderRadius: '12px',
+              border: '1px solid rgba(217, 119, 6, 0.25)',
+              background: 'rgba(245, 158, 11, 0.08)',
+              color: '#92400e',
+              fontSize: '0.82rem',
+            }}
+          >
+            <Cloud size={16} style={{ marginTop: '0.1rem', flexShrink: 0 }} />
+            <span>Privacy: cloud engines may send text and optional reference audio to external servers.</span>
+          </div>
+        )}
+
+        <div style={{ background: 'white', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
+          <JsonSchemaForm
+            schema={engine.settings_schema}
+            values={engine.current_settings || {}}
+            onSave={handleSaveSettings}
+            busy={saving}
+          />
+        </div>
+      </div>
+    </details>
+  );
+};
+
+const JsonSchemaForm: React.FC<{
+  schema: any;
+  values: Record<string, any>;
+  onSave: (values: Record<string, any>) => void;
+  busy: boolean;
+}> = ({ schema, values, onSave, busy }) => {
+  const [localValues, setLocalValues] = useState<Record<string, any>>(values);
+
+  useEffect(() => {
+    setLocalValues(values);
+  }, [values]);
+
+  if (!schema || !schema.properties || Object.keys(schema.properties).length === 0) {
+    return (
+      <div style={{ fontStyle: 'italic', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+        No configurable settings for this engine.
+      </div>
+    );
+  }
+
+  const handleChange = (key: string, value: any) => {
+    setLocalValues((prev: Record<string, any>) => ({ ...prev, [key]: value }));
+  };
+
+  const hasChanges = JSON.stringify(localValues) !== JSON.stringify(values);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.25rem' }}>
+        {Object.entries(schema.properties).map(([key, prop]: [string, any]) => (
+          <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label style={{ fontWeight: 800, fontSize: '0.82rem', color: 'var(--text-primary)' }}>
+                {prop.title || key}
+              </label>
+              {(prop.type === 'number' || prop.type === 'integer') && (
+                <span style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--accent)' }}>
+                  {localValues[key] ?? prop.default}
+                </span>
+              )}
+            </div>
+            {prop.type === 'boolean' ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <ToggleButton
+                  enabled={!!(localValues[key] ?? prop.default)}
+                  busy={false}
+                  onClick={() => handleChange(key, !(localValues[key] ?? prop.default))}
+                />
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                  {(localValues[key] ?? prop.default) ? 'Enabled' : 'Disabled'}
+                </span>
+              </div>
+            ) : prop.type === 'number' || prop.type === 'integer' ? (
+              <input
+                type="range"
+                min={prop.minimum ?? 0}
+                max={prop.maximum ?? 100}
+                step={prop.type === 'integer' ? 1 : 0.01}
+                value={localValues[key] ?? prop.default ?? 0}
+                onChange={(e) =>
+                  handleChange(key, prop.type === 'integer' ? parseInt(e.target.value) : parseFloat(e.target.value))
+                }
+                style={{ width: '100%', height: '6px', accentColor: 'var(--accent)', cursor: 'pointer' }}
+              />
+            ) : (
+              <input
+                type="text"
+                value={localValues[key] ?? prop.default ?? ''}
+                onChange={(e) => handleChange(key, e.target.value)}
+                style={{
+                  padding: '0.65rem',
+                  borderRadius: '10px',
+                  border: '1px solid var(--border)',
+                  background: 'var(--background)',
+                  fontSize: '0.85rem',
+                  width: '100%',
+                }}
+              />
+            )}
+            {prop.description && (
+              <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                {prop.description}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+      {hasChanges && (
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            marginTop: '0.5rem',
+            paddingTop: '1rem',
+            borderTop: '1px solid var(--border)',
+          }}
+        >
+          <button
+            className="btn-primary"
+            disabled={busy}
+            onClick={() => onSave(localValues)}
+            style={{ padding: '0.6rem 1.25rem', borderRadius: '10px', fontSize: '0.85rem', fontWeight: 900 }}
+          >
+            {busy ? 'Saving...' : 'Save Settings'}
+          </button>
+        </div>
+      )}
     </div>
   );
 };
@@ -396,80 +675,6 @@ const ToggleButton: React.FC<{ enabled: boolean; busy: boolean; onClick: () => v
   </button>
 );
 
-const EnginePreviewCard: React.FC<{
-  title: string;
-  subtitle: string;
-  badge: string;
-  badgeTone: 'blue' | 'yellow' | 'gray';
-  description: string;
-  cloud?: boolean;
-}> = ({ title, subtitle, badge, badgeTone, description, cloud }) => {
-  const badgeStyles = getBadgeStyles(badgeTone);
-  return (
-    <details
-      style={{
-        border: '1px solid var(--border)',
-        borderRadius: '16px',
-        background: 'var(--surface-light)',
-        overflow: 'hidden',
-      }}
-    >
-      <summary
-        style={{
-          listStyle: 'none',
-          cursor: 'pointer',
-          display: 'flex',
-          justifyContent: 'space-between',
-          gap: '1rem',
-          alignItems: 'center',
-          padding: '1rem',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-          <ChevronDown size={17} color="var(--text-muted)" />
-          <div>
-            <h3 style={{ margin: 0, fontSize: '1rem' }}>{title}</h3>
-            <p style={{ margin: '0.2rem 0 0 0', color: 'var(--text-muted)', fontSize: '0.82rem' }}>{subtitle}</p>
-          </div>
-        </div>
-        <span
-          style={{
-            borderRadius: '999px',
-            padding: '0.28rem 0.6rem',
-            fontSize: '0.72rem',
-            fontWeight: 900,
-            ...badgeStyles,
-          }}
-        >
-          {badge}
-        </span>
-      </summary>
-      <div style={{ padding: '0 1rem 1rem 2.95rem', color: 'var(--text-secondary)', fontSize: '0.88rem', lineHeight: 1.55 }}>
-        <p style={{ margin: 0 }}>{description}</p>
-        {cloud && (
-          <div
-            style={{
-              marginTop: '0.85rem',
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '0.5rem',
-              padding: '0.75rem',
-              borderRadius: '12px',
-              border: '1px solid rgba(217, 119, 6, 0.25)',
-              background: 'rgba(245, 158, 11, 0.08)',
-              color: '#92400e',
-            }}
-          >
-            <Cloud size={16} style={{ marginTop: '0.1rem', flexShrink: 0 }} />
-            <span>
-              Privacy: cloud engines may send text and optional reference audio to external servers.
-            </span>
-          </div>
-        )}
-      </div>
-    </details>
-  );
-};
 
 const FoundationCallout: React.FC<{
   icon: React.ComponentType<{ size?: number }>;
@@ -497,14 +702,34 @@ const FoundationCallout: React.FC<{
   </div>
 );
 
-const getBadgeStyles = (tone: 'blue' | 'yellow' | 'gray'): React.CSSProperties => {
+const getBadgeStyles = (tone: 'blue' | 'yellow' | 'gray' | 'red'): React.CSSProperties => {
   if (tone === 'blue') {
     return { color: '#075985', background: 'rgba(14, 165, 233, 0.12)', border: '1px solid rgba(14, 165, 233, 0.22)' };
   }
   if (tone === 'yellow') {
     return { color: '#92400e', background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.24)' };
   }
+  if (tone === 'red') {
+    return { color: '#991b1b', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.24)' };
+  }
   return { color: 'var(--text-muted)', background: 'rgba(100, 116, 139, 0.12)', border: '1px solid rgba(100, 116, 139, 0.2)' };
+};
+
+const getEngineStatusLabel = (status: string): string => {
+  switch (status) {
+    case 'ready':
+      return 'READY';
+    case 'needs_setup':
+      return 'NEEDS SETUP';
+    case 'unverified':
+      return 'UNVERIFIED';
+    case 'invalid_config':
+      return 'INVALID CONFIG';
+    case 'not_loaded':
+      return 'NOT LOADED';
+    default:
+      return status.replace(/_/g, ' ').toUpperCase();
+  }
 };
 
 const consumeContractMarkers = (..._values: readonly unknown[]) => undefined;

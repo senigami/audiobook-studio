@@ -111,6 +111,39 @@ class VoiceBridge:
         registry = self.registry_loader()
         return [registration.to_dict() for registration in registry.values()]
 
+    def update_engine_settings(
+        self, engine_id: str, settings: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Update and persist settings for an engine.
+
+        Args:
+            engine_id: Target engine identifier.
+            settings: Partial or full settings to merge.
+
+        Returns:
+            dict[str, Any]: Status and updated settings.
+        """
+        if use_tts_server():
+            return self._get_tts_client().update_settings(engine_id, settings)
+
+        # In-process path: settings are currently managed via the global state.json
+        # or engine-specific config files. Phase 7 focus is primarily on
+        # the plugin-driven path.
+        raise NotImplementedError(
+            "update_engine_settings is not yet implemented for in-process engines."
+        )
+
+    def refresh_plugins(self) -> dict[str, Any]:
+        """Re-scan for new plugins (TTS Server path only)."""
+        if use_tts_server():
+            return self._get_tts_client().refresh_plugins()
+
+        return {
+            "ok": True,
+            "message": "Plugin refresh is only supported when running with TTS Server.",
+            "loaded_count": len(self.registry_loader()),
+        }
+
     # ------------------------------------------------------------------
     # TTS Server path
     # ------------------------------------------------------------------
