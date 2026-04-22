@@ -84,6 +84,18 @@ class BaseVoiceEngine:
         """
         raise NotImplementedError
 
+    def settings_schema(self) -> dict[str, Any]:
+        """Return engine-specific configuration schema.
+
+        Legacy in-process engines may not expose configurable settings yet, so
+        the default implementation returns an empty schema.
+        """
+        return {}
+
+    def current_settings(self) -> dict[str, Any]:
+        """Return the engine's current persisted settings snapshot."""
+        return {}
+
     def build_voice_asset(self, request: dict[str, object]) -> dict[str, object]:
         """Build or refresh engine-specific voice assets for a profile.
 

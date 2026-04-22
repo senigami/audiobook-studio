@@ -12,6 +12,8 @@ Phase 5 migration note:
 
 from __future__ import annotations
 
+from typing import Any
+
 from app.core.feature_flags import use_tts_server
 from app.engines.errors import (
     EngineNotReadyError,
@@ -126,11 +128,21 @@ class VoiceBridge:
         if use_tts_server():
             return self._get_tts_client().update_settings(engine_id, settings)
 
-        # In-process path: settings are currently managed via the global state.json
-        # or engine-specific config files. Phase 7 focus is primarily on
-        # the plugin-driven path.
+        normalized_engine_id = engine_id.lower()
+        if "voxtral" in normalized_engine_id:
+            from app.state import get_settings, update_settings  # noqa: PLC0415
+
+            allowed_updates = {
+                key: value
+                for key, value in settings.items()
+                if key in {"voxtral_enabled", "mistral_api_key", "voxtral_model"}
+            }
+            if allowed_updates:
+                update_settings(allowed_updates)
+            return {"ok": True, "settings": get_settings()}
+
         raise NotImplementedError(
-            "update_engine_settings is not yet implemented for in-process engines."
+            f"update_engine_settings is not yet implemented for in-process engine {engine_id!r}."
         )
 
     def refresh_plugins(self) -> dict[str, Any]:

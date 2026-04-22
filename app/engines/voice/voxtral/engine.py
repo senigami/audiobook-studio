@@ -6,9 +6,11 @@ contract without leaking engine-specific request handling into orchestration.
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import tempfile
+from functools import lru_cache
 from collections.abc import Callable
 from pathlib import Path
 
@@ -58,6 +60,15 @@ def resolve_voxtral_model() -> str:
     from app.engines_voxtral import resolve_voxtral_model as legacy_resolver
 
     return legacy_resolver()
+
+
+@lru_cache(maxsize=1)
+def _load_settings_schema() -> dict[str, object]:
+    schema_path = Path(__file__).with_name("settings_schema.json")
+    try:
+        return json.loads(schema_path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
 
 
 def voxtral_generate(
@@ -114,6 +125,22 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
                 "model": resolve_voxtral_model(),
             },
         )
+
+    def settings_schema(self) -> dict[str, object]:
+        """Return the Voxtral settings schema used by the Settings UI."""
+        schema = _load_settings_schema()
+        return dict(schema) if isinstance(schema, dict) else {}
+
+    def current_settings(self) -> dict[str, object]:
+        """Return the current Voxtral-related settings snapshot."""
+        from app.state import get_settings  # noqa: PLC0415
+
+        settings = get_settings()
+        return {
+            "voxtral_enabled": bool(settings.get("voxtral_enabled")),
+            "mistral_api_key": str(settings.get("mistral_api_key") or ""),
+            "voxtral_model": str(settings.get("voxtral_model") or ""),
+        }
 
     def validate_environment(self) -> None:
         """Describe Voxtral environment validation."""

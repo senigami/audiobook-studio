@@ -83,3 +83,45 @@ def test_update_engine_settings_and_refresh_delegate_to_bridge(clean_db, client)
         {"temperature": 0.8, "speaker_name": "Narrator"},
     )
     bridge.refresh_plugins.assert_called_once()
+
+
+def test_in_process_voxtral_engine_settings_roundtrip(monkeypatch):
+    from app.engines.bridge import VoiceBridge
+
+    bridge = VoiceBridge(registry_loader=lambda: {})
+
+    captured_updates: dict[str, object] = {}
+
+    monkeypatch.setattr("app.engines.bridge.use_tts_server", lambda: False)
+    monkeypatch.setattr(
+        "app.state.update_settings",
+        lambda updates=None, **kwargs: captured_updates.update(updates or {}, **kwargs),
+    )
+    monkeypatch.setattr(
+        "app.state.get_settings",
+        lambda: {
+            "voxtral_enabled": True,
+            "mistral_api_key": "workspace-key",
+            "voxtral_model": "voxtral-mini-tts-2603",
+        },
+    )
+
+    result = bridge.update_engine_settings(
+        "voxtral",
+        {
+            "voxtral_enabled": True,
+            "mistral_api_key": "workspace-key",
+            "voxtral_model": "voxtral-mini-tts-2603",
+            "ignored_key": "nope",
+        },
+    )
+
+    assert captured_updates == {
+        "voxtral_enabled": True,
+        "mistral_api_key": "workspace-key",
+        "voxtral_model": "voxtral-mini-tts-2603",
+    }
+    assert result["ok"] is True
+    assert result["settings"]["voxtral_enabled"] is True
+    assert result["settings"]["mistral_api_key"] == "workspace-key"
+    assert result["settings"]["voxtral_model"] == "voxtral-mini-tts-2603"

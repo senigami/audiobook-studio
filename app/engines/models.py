@@ -137,6 +137,14 @@ class EngineRegistrationModel:
             "homepage": self.manifest.homepage,
         }
 
+        try:
+            if hasattr(self.engine, "current_settings"):
+                flattened["current_settings"] = self.engine.current_settings()
+            else:
+                flattened["current_settings"] = {}
+        except Exception:
+            flattened["current_settings"] = {}
+
         # Add settings_schema if the engine supports it (StudioTTSEngine contract)
         try:
             if hasattr(self.engine, "settings_schema"):

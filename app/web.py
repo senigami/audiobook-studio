@@ -20,6 +20,12 @@ from .api.routers.analysis import AnalysisError
 
 logger = logging.getLogger(__name__)
 
+_NO_CACHE_HEADERS = {
+    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+    "Pragma": "no-cache",
+    "Expires": "0",
+}
+
 app = FastAPI()
 
 
@@ -77,6 +83,10 @@ def _contained_file(root: Path, relative_path: str) -> Optional[Path]:
 
 def _frontend_dist_file(full_path: str) -> Optional[Path]:
     return _contained_file(FRONTEND_DIST, full_path)
+
+
+def _frontend_index_response(index_file: Path) -> FileResponse:
+    return FileResponse(index_file, headers=_NO_CACHE_HEADERS)
 
 # --- Ensure mounted static roots exist before mounting ---
 # StaticFiles raises at startup if the target directory is missing. These are the
@@ -398,7 +408,7 @@ def catch_all(full_path: str):
 
     index_file = FRONTEND_DIST / "index.html"
     if index_file.exists():
-        return FileResponse(index_file)
+        return _frontend_index_response(index_file)
 
     # If no index, return a basic welcome for the API
     return JSONResponse({

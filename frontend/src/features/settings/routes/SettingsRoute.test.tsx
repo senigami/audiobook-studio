@@ -64,8 +64,43 @@ const mockedEngines = [
     resource: { gpu: false, vram_mb: 0, cpu_heavy: false },
     author: 'Mistral',
     homepage: '',
-    settings_schema: { properties: {} },
-    current_settings: {},
+    settings_schema: {
+      properties: {
+        voxtral_enabled: {
+          type: 'boolean',
+          title: 'Enable Voxtral',
+          default: false,
+          description: 'Visible in Voices',
+          'x-ui': {
+            requires_verification: true,
+            locked_message: 'Verify this engine before turning Voxtral on.',
+          },
+        },
+        mistral_api_key: {
+          type: 'string',
+          title: 'Mistral API Key',
+          default: '',
+        },
+        voxtral_model: {
+          type: 'string',
+          title: 'Voxtral Model',
+          default: 'voxtral-mini-tts-2603',
+        },
+      },
+      'x-ui': {
+        panel_title: 'Voxtral Cloud Voices',
+        summary: 'Create a Mistral API key in your workspace settings, paste it here, then turn Voxtral on when you want cloud voices available. Voxtral requests are processed by Mistral instead of staying fully local.',
+        privacy_notice: 'Privacy note: turning on Voxtral sends the text you synthesize, and any selected reference audio, to Mistral\'s servers. Keep voices on XTTS (Local) if you want your workflow to stay fully local.',
+        privacy_tone: 'warning',
+        help_label: 'Open Mistral API key instructions',
+        help_url: 'https://help.mistral.ai/en/articles/347464-how-do-i-create-api-keys-within-a-workspace',
+      },
+    },
+    current_settings: {
+      voxtral_enabled: false,
+      mistral_api_key: '',
+      voxtral_model: 'voxtral-mini-tts-2603',
+    },
   },
 ];
 
@@ -112,7 +147,7 @@ describe('SettingsRoute', () => {
     );
 
     expect(await screen.findByText('XTTS Local')).toBeTruthy();
-    expect(screen.getByText('Voxtral Cloud Voices')).toBeTruthy();
+    expect(screen.getByText('Voxtral Cloud Voices', { selector: 'h4' })).toBeTruthy();
     expect(screen.getByText('READY')).toBeTruthy();
     expect(screen.getByText('VERIFIED')).toBeTruthy();
 
@@ -121,12 +156,14 @@ describe('SettingsRoute', () => {
     expect(await screen.findByText('Temperature')).toBeTruthy();
     expect(screen.getByText('Speaker Name')).toBeTruthy();
 
-    fireEvent.click(screen.getByText('Voxtral Cloud Voices'));
-    expect(await screen.findByText('Voxtral Cloud Settings')).toBeTruthy();
+    fireEvent.click(screen.getByRole('heading', { name: 'Voxtral Cloud Voices', level: 3 }));
+    expect(await screen.findByRole('heading', { name: 'Voxtral Cloud Voices', level: 4 })).toBeTruthy();
     expect(screen.getByText(/Create a Mistral API key in your workspace settings/i)).toBeTruthy();
+    expect(screen.getByText('Open Mistral API key instructions')).toBeTruthy();
     expect(screen.getByText('Mistral API Key')).toBeTruthy();
     expect(screen.getByText('Voxtral Model')).toBeTruthy();
     expect(screen.getByText(/Privacy note: turning on Voxtral sends the text you synthesize/i)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'OFF' })).toBeDisabled();
   });
 
   it('normalizes trailing slashes on settings deep links', async () => {

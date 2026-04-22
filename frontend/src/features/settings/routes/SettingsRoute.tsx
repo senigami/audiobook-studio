@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { NavLink, Navigate, useLocation } from 'react-router-dom';
-import { BadgeInfo, ChevronDown, Cloud, PlugZap, RefreshCw, Server, Settings as SettingsIcon, ShieldCheck, SlidersHorizontal, Music, Cpu, Globe, Layers } from 'lucide-react';
+import { BadgeInfo, ChevronDown, CircleHelp, Cloud, KeyRound, PlugZap, RefreshCw, Server, Settings as SettingsIcon, ShieldCheck, SlidersHorizontal, Music, Cpu, Globe, Layers, TriangleAlert } from 'lucide-react';
 import type { Settings as AppSettings, TtsEngine } from '../../../types';
 import { api } from '../../../api';
 
@@ -140,7 +140,7 @@ export const SettingsRoute: React.FC<SettingsRouteProps> = ({ settings, onRefres
               onShowNotification={onShowNotification}
             />
           )}
-          {activeTab.id === 'engines' && <EnginesPanel settings={settings} onRefresh={onRefresh} onShowNotification={onShowNotification} />}
+          {activeTab.id === 'engines' && <EnginesPanel onShowNotification={onShowNotification} />}
           {activeTab.id === 'api' && <ApiSettingsPanel />}
           {activeTab.id === 'about' && <AboutSettingsPanel />}
         </div>
@@ -340,10 +340,8 @@ const GeneralSettingsPanel: React.FC<SettingsRouteProps> = ({ settings, onRefres
 };
 
 const EnginesPanel: React.FC<{
-  settings?: AppSettings;
-  onRefresh: () => void;
   onShowNotification?: (message: string) => void;
-}> = ({ settings, onRefresh, onShowNotification }) => {
+}> = ({ onShowNotification }) => {
   const [engines, setEngines] = useState<TtsEngine[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -385,22 +383,6 @@ const EnginesPanel: React.FC<{
     }
   };
 
-  const updateStudioSetting = async (updates: Partial<AppSettings>) => {
-    const key = Object.keys(updates)[0];
-    try {
-      await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
-      });
-      onRefresh();
-      onShowNotification?.(`${formatSettingLabel(key)} saved.`);
-    } catch (err) {
-      console.error('Failed to update studio setting', err);
-      onShowNotification?.('Settings update failed. Please try again.');
-    }
-  };
-
   if (loading && engines.length === 0) {
     return (
       <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
@@ -421,8 +403,6 @@ const EnginesPanel: React.FC<{
         <EngineCard
           key={engine.engine_id}
           engine={engine}
-          settings={settings}
-          onStudioSettingsUpdate={updateStudioSetting}
           onUpdate={loadEngines}
           onShowNotification={onShowNotification}
         />
@@ -452,12 +432,11 @@ const EnginesPanel: React.FC<{
 
 const EngineCard: React.FC<{
   engine: TtsEngine;
-  settings?: AppSettings;
-  onStudioSettingsUpdate: (updates: Partial<AppSettings>) => Promise<void>;
   onUpdate: () => void;
   onShowNotification?: (message: string) => void;
-}> = ({ engine, settings, onStudioSettingsUpdate, onUpdate, onShowNotification }) => {
+}> = ({ engine, onUpdate, onShowNotification }) => {
   const [saving, setSaving] = useState(false);
+  const engineUi = getEngineUi(engine.settings_schema);
   const tone = engine.status === 'ready'
     ? 'blue'
     : engine.status === 'needs_setup'
@@ -571,88 +550,19 @@ const EngineCard: React.FC<{
           </div>
         )}
 
+        {engineUi && (
+          <EngineMetadataPanel engine={engine} ui={engineUi} />
+        )}
+
         <div style={{ background: 'white', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
           <JsonSchemaForm
             schema={engine.settings_schema}
             values={engine.current_settings || {}}
             onSave={handleSaveSettings}
             busy={saving}
+            engineVerified={engine.verified}
           />
         </div>
-
-        {isVoxtralEngine(engine) && (
-          <div style={{ marginTop: '1rem', padding: '1rem', borderRadius: '14px', border: '1px solid rgba(43, 110, 255, 0.18)', background: 'rgba(239, 246, 255, 0.65)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', marginBottom: '0.9rem' }}>
-              <div>
-                <h4 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 900, color: 'var(--text-primary)' }}>Voxtral Cloud Settings</h4>
-                <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.84rem', lineHeight: 1.6, color: 'var(--text-secondary)' }}>
-                  Create a Mistral API key in your workspace settings, paste it here, then turn Voxtral on when you want cloud voices available. Voxtral requests are processed by Mistral instead of staying fully local.
-                </p>
-              </div>
-              <ToggleButton
-                enabled={!!settings?.voxtral_enabled}
-                busy={false}
-                onClick={() => onStudioSettingsUpdate({ voxtral_enabled: !settings?.voxtral_enabled })}
-              />
-            </div>
-
-            <div style={{ display: 'grid', gap: '1rem' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <label style={{ fontWeight: 800, fontSize: '0.82rem', color: 'var(--text-primary)' }}>Mistral API Key</label>
-                </div>
-                <input
-                  type="password"
-                  placeholder="Paste your API key here..."
-                  defaultValue={settings?.mistral_api_key || ''}
-                  onBlur={(e) => {
-                    const nextValue = e.target.value.trim();
-                    if (nextValue !== (settings?.mistral_api_key || '')) {
-                      onStudioSettingsUpdate({ mistral_api_key: nextValue });
-                    }
-                  }}
-                  style={{
-                    padding: '0.65rem',
-                    borderRadius: '10px',
-                    border: '1px solid var(--border)',
-                    background: 'var(--background)',
-                    fontSize: '0.85rem',
-                    width: '100%',
-                  }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <label style={{ fontWeight: 800, fontSize: '0.82rem', color: 'var(--text-primary)' }}>Voxtral Model</label>
-                </div>
-                <input
-                  type="text"
-                  placeholder="e.g. mistral-large-latest"
-                  defaultValue={settings?.voxtral_model || ''}
-                  onBlur={(e) => {
-                    const nextValue = e.target.value.trim();
-                    if (nextValue !== (settings?.voxtral_model || '')) {
-                      onStudioSettingsUpdate({ voxtral_model: nextValue || 'voxtral-mini-tts-2603' });
-                    }
-                  }}
-                  style={{
-                    padding: '0.65rem',
-                    borderRadius: '10px',
-                    border: '1px solid var(--border)',
-                    background: 'var(--background)',
-                    fontSize: '0.85rem',
-                    width: '100%',
-                  }}
-                />
-              </div>
-            </div>
-
-            <p style={{ margin: '1rem 0 0 0', fontSize: '0.82rem', lineHeight: 1.65, color: 'var(--text-secondary)' }}>
-              Privacy note: turning on Voxtral sends the text you synthesize, and any selected reference audio, to Mistral&apos;s servers. Keep voices on <code>XTTS (Local)</code> if you want your workflow to stay fully local.
-            </p>
-          </div>
-        )}
       </div>
     </details>
   );
@@ -663,7 +573,8 @@ const JsonSchemaForm: React.FC<{
   values: Record<string, any>;
   onSave: (values: Record<string, any>) => void;
   busy: boolean;
-}> = ({ schema, values, onSave, busy }) => {
+  engineVerified: boolean;
+}> = ({ schema, values, onSave, busy, engineVerified }) => {
   const [localValues, setLocalValues] = useState<Record<string, any>>(values);
 
   useEffect(() => {
@@ -687,7 +598,10 @@ const JsonSchemaForm: React.FC<{
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.25rem' }}>
-        {Object.entries(schema.properties).map(([key, prop]: [string, any]) => (
+        {Object.entries(schema.properties).map(([key, prop]: [string, any]) => {
+          const propUi = prop?.['x-ui'] || {};
+          const isLocked = !!propUi.requires_verification && !engineVerified;
+          return (
           <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <label style={{ fontWeight: 800, fontSize: '0.82rem', color: 'var(--text-primary)' }}>
@@ -704,10 +618,11 @@ const JsonSchemaForm: React.FC<{
                 <ToggleButton
                   enabled={!!(localValues[key] ?? prop.default)}
                   busy={false}
+                  disabled={isLocked}
                   onClick={() => handleChange(key, !(localValues[key] ?? prop.default))}
                 />
                 <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                  {(localValues[key] ?? prop.default) ? 'Enabled' : 'Disabled'}
+                  {isLocked ? (propUi.locked_message || 'Verification required before this setting can be enabled.') : ((localValues[key] ?? prop.default) ? 'Enabled' : 'Disabled')}
                 </span>
               </div>
             ) : prop.type === 'number' || prop.type === 'integer' ? (
@@ -717,6 +632,7 @@ const JsonSchemaForm: React.FC<{
                 max={prop.maximum ?? 100}
                 step={prop.type === 'integer' ? 1 : 0.01}
                 value={localValues[key] ?? prop.default ?? 0}
+                disabled={isLocked}
                 onChange={(e) =>
                   handleChange(key, prop.type === 'integer' ? parseInt(e.target.value) : parseFloat(e.target.value))
                 }
@@ -726,6 +642,7 @@ const JsonSchemaForm: React.FC<{
               <input
                 type="text"
                 value={localValues[key] ?? prop.default ?? ''}
+                disabled={isLocked}
                 onChange={(e) => handleChange(key, e.target.value)}
                 style={{
                   padding: '0.65rem',
@@ -742,8 +659,14 @@ const JsonSchemaForm: React.FC<{
                 {prop.description}
               </p>
             )}
+            {isLocked && (
+              <p style={{ margin: 0, fontSize: '0.78rem', color: '#b45309', lineHeight: 1.4, fontWeight: 700 }}>
+                {propUi.locked_message || 'Verification required before enabling this setting.'}
+              </p>
+            )}
           </div>
-        ))}
+          );
+        })}
       </div>
       {hasChanges && (
         <div
@@ -763,6 +686,79 @@ const JsonSchemaForm: React.FC<{
           >
             {busy ? 'Saving...' : 'Save Settings'}
           </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const getEngineUi = (schema: any) => {
+  const ui = schema?.['x-ui'];
+  return ui && typeof ui === 'object' ? ui : null;
+};
+
+const EngineMetadataPanel: React.FC<{
+  engine: TtsEngine;
+  ui: any;
+}> = ({ engine, ui }) => {
+  const panelTitle = ui?.panel_title || `${engine.display_name} Settings`;
+  const summary = ui?.summary || engine.homepage || '';
+  const privacyNotice = ui?.privacy_notice;
+  const privacyTone = ui?.privacy_tone === 'warning' ? 'warning' : 'info';
+
+  return (
+    <div style={{ marginBottom: '1rem', padding: '1rem', borderRadius: '14px', border: '1px solid rgba(43, 110, 255, 0.18)', background: 'rgba(239, 246, 255, 0.65)' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', marginBottom: '0.9rem' }}>
+        <div style={{ display: 'flex', gap: '0.7rem', alignItems: 'flex-start' }}>
+          <div style={{ width: 30, height: 30, borderRadius: '10px', display: 'grid', placeItems: 'center', color: 'var(--accent)', background: 'rgba(43, 110, 255, 0.12)' }}>
+            <KeyRound size={16} />
+          </div>
+          <div>
+            <h4 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 900, color: 'var(--text-primary)' }}>{panelTitle}</h4>
+            {summary && (
+              <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.84rem', lineHeight: 1.6, color: 'var(--text-secondary)' }}>
+                {summary}
+              </p>
+            )}
+          </div>
+        </div>
+        {!engine.verified && (
+          <span style={{ borderRadius: '999px', padding: '0.3rem 0.7rem', fontSize: '0.68rem', fontWeight: 900, letterSpacing: '0.02em', ...getBadgeStyles('yellow') }}>
+            Verification required
+          </span>
+        )}
+      </div>
+
+      {ui?.help_url && (
+        <a
+          href={ui.help_url}
+          target="_blank"
+          rel="noreferrer"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', color: 'var(--accent)', textDecoration: 'none', fontWeight: 800, fontSize: '0.83rem', marginBottom: '0.9rem' }}
+        >
+          <CircleHelp size={14} />
+          {ui.help_label || 'Open instructions'}
+        </a>
+      )}
+
+      {privacyNotice && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '8px',
+            padding: '10px 12px',
+            borderRadius: '10px',
+            border: privacyTone === 'warning' ? '1px solid rgba(217, 119, 6, 0.25)' : '1px solid rgba(43, 110, 255, 0.18)',
+            background: privacyTone === 'warning' ? 'rgba(245, 158, 11, 0.08)' : 'rgba(239, 246, 255, 0.7)',
+            color: privacyTone === 'warning' ? '#92400e' : 'var(--text-secondary)',
+            fontSize: '0.78rem',
+            lineHeight: 1.5,
+            marginBottom: '0.9rem',
+          }}
+        >
+          {privacyTone === 'warning' ? <TriangleAlert size={14} style={{ marginTop: '2px', flexShrink: 0 }} /> : <Cloud size={14} style={{ marginTop: '2px', flexShrink: 0 }} />}
+          <span>{privacyNotice}</span>
         </div>
       )}
     </div>
@@ -950,10 +946,10 @@ const SettingCard: React.FC<{
   </div>
 );
 
-const ToggleButton: React.FC<{ enabled: boolean; busy: boolean; onClick: () => void }> = ({ enabled, busy, onClick }) => (
+const ToggleButton: React.FC<{ enabled: boolean; busy: boolean; disabled?: boolean; onClick: () => void }> = ({ enabled, busy, disabled, onClick }) => (
   <button
     type="button"
-    disabled={busy}
+    disabled={busy || disabled}
     onClick={onClick}
     className={enabled ? 'btn-primary' : 'btn-glass'}
     style={{ padding: '0.5rem 0.85rem', borderRadius: '10px', minWidth: 70, fontWeight: 900, border: enabled ? 'none' : '1px solid var(--border)' }}
@@ -961,25 +957,6 @@ const ToggleButton: React.FC<{ enabled: boolean; busy: boolean; onClick: () => v
     {busy ? '...' : enabled ? 'ON' : 'OFF'}
   </button>
 );
-
-const isVoxtralEngine = (engine: TtsEngine) => {
-  const engineId = engine.engine_id.toLowerCase();
-  const displayName = engine.display_name.toLowerCase();
-  return engineId.includes('voxtral') || displayName.includes('voxtral');
-};
-
-const formatSettingLabel = (key: string) => {
-  switch (key) {
-    case 'voxtral_enabled':
-      return 'Voxtral';
-    case 'mistral_api_key':
-      return 'Mistral API key';
-    case 'voxtral_model':
-      return 'Voxtral model';
-    default:
-      return key.replace(/_/g, ' ');
-  }
-};
 
 
 const getBadgeStyles = (tone: 'blue' | 'yellow' | 'gray' | 'red'): React.CSSProperties => {
