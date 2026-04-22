@@ -251,7 +251,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     return pickRelevantJob(chapterJobs);
   }, [chapterJobs]);
 
-  const { playingSegmentId, playSegment, stopPlayback } = useChapterPlayback(projectId, segments, chunkGroups, effectivePendingSegmentIds, handleGenerate);
+  const { playingSegmentId, playingSegmentIds, playSegment, stopPlayback } = useChapterPlayback(projectId, segments, chunkGroups, effectivePendingSegmentIds, handleGenerate);
 
   const loadChapter = async (_source: string = 'unknown') => {
     try {
@@ -896,6 +896,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                     onGenerateBatch={handleGenerate}
                     pendingSpanIds={effectivePendingSegmentIds}
                     playingSpanId={playingSegmentId}
+                    playingSpanIds={playingSegmentIds}
                     onPlaySpan={(sid) => playSegment(sid, segments.map(s => s.id))}
                     onAssign={handleScriptAssign}
                     onAssignRange={handleScriptAssignRange}

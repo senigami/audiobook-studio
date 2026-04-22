@@ -171,6 +171,7 @@
 }
 
 .script-span.is-paintable:hover {
+  padding: 4px 0px 5px;
   background: var(--accent-glow);
   outline: 2px solid var(--accent);
   outline-offset: 1px;
@@ -189,6 +190,7 @@
 }
 
 .script-span.is-playing {
+  padding: 4px 0px 5px;
   background: color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
@@ -259,7 +261,7 @@
 }
 
 .script-line.connected-top {
-  margin-top: -0.5rem;
+  margin-top: 0;
 }
 
 .script-line.connected-top .script-line-speaker {

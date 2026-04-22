@@ -130,6 +130,23 @@ describe('ScriptView', () => {
     expect(screen.getByText('Sentence two.').closest('.script-span')).toHaveClass('is-playing');
   });
 
+  it('highlights all spans in the active playback batch', () => {
+    render(
+      <ScriptView
+        data={mockData}
+        characters={mockCharacters}
+        onGenerateBatch={onGenerateBatch}
+        pendingSpanIds={new Set()}
+        playingSpanIds={new Set(['s1', 's2'])}
+        onPlaySpan={onPlaySpan}
+      />
+    );
+
+    expect(screen.getByText('Sentence one.').closest('.script-span')).toHaveClass('is-playing');
+    expect(screen.getByText('Sentence two.').closest('.script-span')).toHaveClass('is-playing');
+    expect(screen.getByText('Different paragraph.').closest('.script-span')).not.toHaveClass('is-playing');
+  });
+
   it('toggles segment numbers', () => {
     render(
       <ScriptView 

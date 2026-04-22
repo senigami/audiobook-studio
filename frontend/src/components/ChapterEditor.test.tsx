@@ -69,6 +69,7 @@ vi.mock('../hooks/useChapterAnalysis', () => ({
 vi.mock('../hooks/useChapterPlayback', () => ({
   useChapterPlayback: () => ({
     playingSegmentId: null,
+    playingSegmentIds: new Set(),
     playSegment: vi.fn(),
     stopPlayback: vi.fn(),
   }),

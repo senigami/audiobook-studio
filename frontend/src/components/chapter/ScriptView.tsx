@@ -25,6 +25,7 @@ interface ScriptViewProps {
   onGenerateBatch: (spanIds: string[]) => void;
   pendingSpanIds: Set<string>;
   playingSpanId?: string | null;
+  playingSpanIds?: Set<string>;
   onPlaySpan?: (spanId: string) => void;
   onAssign?: (spanIds: string[]) => void;
   onAssignRange?: (range: ScriptRangeAssignment) => void;
@@ -39,6 +40,7 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
   onGenerateBatch,
   pendingSpanIds,
   playingSpanId = null,
+  playingSpanIds,
   onPlaySpan,
   onAssign,
   onAssignRange,
@@ -72,6 +74,11 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
     });
     return map;
   }, [data.render_batches]);
+
+  const isPlayingSpan = (spanId: string) => {
+    if (playingSpanIds) return playingSpanIds.has(spanId);
+    return playingSpanId === spanId;
+  };
 
   const getSpanIdFromNode = (node: Node | null): string | null => {
     let curr = node;
@@ -136,7 +143,7 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
     const char = span.character_id ? charMap.get(span.character_id) : null;
     const batch = batchMap.get(span.id);
     const isPending = pendingSpanIds.has(span.id);
-    const isPlaying = playingSpanId === span.id;
+    const isPlaying = isPlayingSpan(span.id);
     const isReady = span.status === 'rendered';
     const displayText = showSafeText ? (span.sanitized_text || span.text) : span.text;
 
@@ -247,7 +254,7 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
       return (
         <div
           key={span.id}
-          className={`script-line ${!isFirstInRun ? 'connected-top' : ''} ${playingSpanId === span.id ? 'is-playing' : ''}`}
+          className={`script-line ${!isFirstInRun ? 'connected-top' : ''} ${isPlayingSpan(span.id) ? 'is-playing' : ''}`}
         >
           <div className="script-line-speaker" style={char ? { color: char.color } : undefined}>
             {isFirstInRun ? (char?.name || 'Narrator') : ''}
