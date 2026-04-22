@@ -965,7 +965,7 @@ const ToggleButton: React.FC<{ enabled: boolean; busy: boolean; onClick: () => v
 const isVoxtralEngine = (engine: TtsEngine) => {
   const engineId = engine.engine_id.toLowerCase();
   const displayName = engine.display_name.toLowerCase();
-  return engine.cloud && (engineId.includes('voxtral') || displayName.includes('voxtral'));
+  return engineId.includes('voxtral') || displayName.includes('voxtral');
 };
 
 const formatSettingLabel = (key: string) => {

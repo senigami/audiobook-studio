@@ -200,4 +200,18 @@ describe('App', () => {
 
     expect(screen.getByRole('button', { name: /Settings/i })).toHaveAttribute('aria-current', 'page')
   })
+
+  it('opens deep-linked settings tabs directly on first load', async () => {
+    render(
+      <MemoryRouter initialEntries={['/settings/api/']}>
+        <App />
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'API' })).toBeTruthy()
+    })
+
+    expect(screen.getByText('Studio API')).toBeTruthy()
+  })
 })
