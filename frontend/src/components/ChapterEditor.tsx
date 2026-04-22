@@ -11,6 +11,7 @@ import { PerformanceTab } from './chapter/PerformanceTab';
 import { PreviewTab } from './chapter/PreviewTab';
 import { ProductionTab } from './chapter/ProductionTab';
 import { ScriptView } from './chapter/ScriptView';
+import { ResyncPreviewModal, type ResyncPreviewData } from './chapter/ResyncPreviewModal';
 import { CharacterSidebar } from './chapter/CharacterSidebar';
 
 // Extracted Hooks
@@ -73,6 +74,10 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   const [hoveredBlockId, setHoveredBlockId] = useState<string | null>(null);
   const [exportingFormat, setExportingFormat] = useState<'wav' | 'mp3' | null>(null);
   const [scriptViewData, setScriptViewData] = useState<ScriptViewResponse | null>(null);
+  const [compacting, setCompacting] = useState(false);
+  const [resyncPreviewData, setResyncPreviewData] = useState<ResyncPreviewData | null>(null);
+  const [isPreviewingResync, setIsPreviewingResync] = useState(false);
+  const [isResyncing, setIsResyncing] = useState(false);
   
   const [confirmConfig, setConfirmConfig] = useState<{
     title: string;
@@ -414,9 +419,43 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
 
   useEffect(() => {
     if (loading) return;
+    // Disable auto-save of text while in the Edit tab to allow for explicit Commit workflow with preview
+    if (editorTab === 'edit') {
+      // Still auto-save title if it changed, but not text
+      if (title !== chapter?.title) {
+        const timer = setTimeout(() => handleSave(title, chapter?.text_content), 1500);
+        return () => clearTimeout(timer);
+      }
+      return;
+    }
     const timer = setTimeout(() => handleSave(title, text), 1500);
     return () => clearTimeout(timer);
-  }, [title, text]);
+  }, [title, text, editorTab]);
+
+  const handleRequestResyncPreview = async () => {
+    if (!text || text === chapter?.text_content) return;
+    setIsPreviewingResync(true);
+    setResyncPreviewData(null);
+    try {
+      const result = await api.previewSourceTextResync(chapterId, text);
+      setResyncPreviewData(result);
+    } catch (e) {
+      console.error("Preview failed", e);
+      setIsPreviewingResync(false);
+    }
+  };
+
+  const handleConfirmResync = async () => {
+    setIsResyncing(true);
+    try {
+      const success = await handleSave(title, text);
+      if (success) {
+        setIsPreviewingResync(false);
+      }
+    } finally {
+      setIsResyncing(false);
+    }
+  };
 
   const handleUpdateCharacterColor = async (id: string, color: string) => {
     try {
@@ -558,6 +597,39 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         }
     }
   }, [chapterId, scriptViewData, selectedCharacterId, selectedProfileName, resolveDefaultVariantName, loadChapter]);
+
+  const handleScriptCompact = React.useCallback(async () => {
+    if (!scriptViewData) return;
+    setCompacting(true);
+    try {
+      const result = await api.compactScriptView(chapterId, scriptViewData?.base_revision_id || undefined);
+      setScriptViewData(result);
+      setCompacting(false);
+      // Also refresh segments to stay in sync
+      const updatedSegs = await api.fetchSegments(chapterId);
+      setSegments(updatedSegs);
+    } catch (e: any) {
+      setCompacting(false);
+      console.error("Script compaction failed", e);
+      if (e.status === 409) {
+        setConfirmConfig({
+          title: 'Compaction Conflict',
+          message: 'The chapter was modified by another process. Please reload before cleaning up.',
+          onConfirm: () => { setConfirmConfig(null); loadChapter('conflict-reload'); },
+          confirmText: 'Reload Now'
+        });
+      } else {
+        setConfirmConfig({
+          title: 'Compaction Failed',
+          message: e instanceof Error ? e.message : 'Could not clean up script spans.',
+          onConfirm: () => {},
+          confirmText: 'OK'
+        });
+      }
+    } finally {
+      setCompacting(false);
+    }
+  }, [chapterId, scriptViewData, loadChapter]);
 
   const reloadLatestBlocks = React.useCallback(async (): Promise<ProductionBlocksResponse | null> => {
     setSaveConflictError(null);
@@ -789,6 +861,8 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
             try { await api.cancelChapterGeneration(chapterId); setGeneratingSegmentIds(new Set()); loadChapter('cancel'); }
             catch (e) { console.error("Cancel failed", e); }
         }}
+        onCommitSourceText={handleRequestResyncPreview}
+        canCommitSourceText={editorTab === 'edit' && (text !== chapter?.text_content)}
       />
 
       <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
@@ -826,6 +900,8 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                     onAssign={handleScriptAssign}
                     onAssignRange={handleScriptAssignRange}
                     activeCharacterId={selectedCharacterId}
+                    onCompact={handleScriptCompact}
+                    isCompacting={compacting}
                   />
                 )}
                 {editorTab === 'script' && !scriptViewData && (
@@ -898,6 +974,14 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         onCancel={() => setConfirmConfig(null)}
         isDestructive={confirmConfig?.isDestructive}
         confirmText={confirmConfig?.confirmText}
+      />
+
+      <ResyncPreviewModal
+        isOpen={isPreviewingResync}
+        data={resyncPreviewData}
+        loading={isResyncing || (isPreviewingResync && !resyncPreviewData)}
+        onConfirm={handleConfirmResync}
+        onCancel={() => setIsPreviewingResync(false)}
       />
 
       {queueNotice && (

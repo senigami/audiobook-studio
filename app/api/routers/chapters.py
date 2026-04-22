@@ -10,6 +10,8 @@ from ...domain.chapters.compatibility import (
     save_production_blocks_payload,
     get_script_view_payload,
     save_script_assignments,
+    get_resync_preview,
+    compact_script_view,
     CompatibilityRevisionMismatch,
     export_chapter_audio,
 )
@@ -136,10 +138,27 @@ class ScriptRangeAssignment(BaseModel):
     speaker_profile_name: Optional[str] = None
 
 
+class CompactionRequest(BaseModel):
+    base_revision_id: Optional[str] = None
+
+
 class ScriptAssignmentsUpdate(BaseModel):
     assignments: List[ScriptAssignment] = []
     range_assignments: List[ScriptRangeAssignment] = []
     base_revision_id: Optional[str] = None
+
+
+class ResyncPreviewRequest(BaseModel):
+    text_content: str
+
+
+class ResyncPreviewResponse(BaseModel):
+    total_segments_before: int
+    total_segments_after: int
+    preserved_assignments_count: int
+    lost_assignments_count: int
+    affected_character_names: List[str]
+    is_destructive: bool
 
 
 router = APIRouter(prefix="/api", tags=["chapters"])
@@ -279,6 +298,17 @@ def api_get_script_view(chapter_id: str):
         return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
 
 
+@router.post("/chapters/{chapter_id}/source-text/preview", response_model=ResyncPreviewResponse)
+def api_get_resync_preview(chapter_id: str, payload: ResyncPreviewRequest):
+    try:
+        return JSONResponse(get_resync_preview(chapter_id, payload.text_content))
+    except KeyError:
+        return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
+    except Exception as e:
+        logger.error(f"Error generating resync preview: {e}")
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+
+
 @router.put("/chapters/{chapter_id}/production-blocks")
 def api_save_production_blocks(chapter_id: str, payload: ProductionBlocksUpdate):
     try:
@@ -318,6 +348,30 @@ def api_save_script_assignments(chapter_id: str, payload: ScriptAssignmentsUpdat
             {
                 "status": "error",
                 "message": "Chapter script view was updated by someone else. Reload before saving again.",
+                "expected_base_revision_id": exc.expected_revision_id,
+                "base_revision_id": exc.actual_revision_id,
+            },
+            status_code=409,
+        )
+    except KeyError as e:
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=404)
+    except Exception as e:
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+
+
+@router.post("/chapters/{chapter_id}/script-view/compact", response_model=ScriptViewResponse)
+def api_compact_script_view(chapter_id: str, payload: CompactionRequest):
+    try:
+        data = compact_script_view(
+            chapter_id,
+            base_revision_id=payload.base_revision_id
+        )
+        return JSONResponse(data)
+    except CompatibilityRevisionMismatch as exc:
+        return JSONResponse(
+            {
+                "status": "error",
+                "message": "Chapter script view was updated by someone else. Reload before compacting.",
                 "expected_base_revision_id": exc.expected_revision_id,
                 "base_revision_id": exc.actual_revision_id,
             },

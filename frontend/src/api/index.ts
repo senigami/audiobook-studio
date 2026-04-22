@@ -144,6 +144,37 @@ export const api = {
     }
     return parseApiResponse(res);
   },
+  compactScriptView: async (chapterId: string, baseRevisionId?: string): Promise<ScriptViewResponse> => {
+    const res = await fetch(`/api/chapters/${chapterId}/script-view/compact`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ base_revision_id: baseRevisionId })
+    });
+    if (res.status === 409) {
+      const errorData = await res.json();
+      const err = new Error(errorData.message || 'Revision mismatch');
+      (err as any).status = 409;
+      (err as any).expected_base_revision_id = errorData.expected_base_revision_id;
+      (err as any).base_revision_id = errorData.base_revision_id;
+      throw err;
+    }
+    return parseApiResponse(res);
+  },
+  previewSourceTextResync: async (chapterId: string, textContent: string): Promise<{
+    total_segments_before: number;
+    total_segments_after: number;
+    preserved_assignments_count: number;
+    lost_assignments_count: number;
+    affected_character_names: string[];
+    is_destructive: boolean;
+  }> => {
+    const res = await fetch(`/api/chapters/${chapterId}/source-text/preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text_content: textContent })
+    });
+    return parseApiResponse(res);
+  },
   updateProductionBlocks: async (
     chapterId: string,
     data: { base_revision_id?: string; blocks: ProductionBlock[] }

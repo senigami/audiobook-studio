@@ -49,6 +49,8 @@ vi.mock('../api', () => ({
     exportChapterAudio: vi.fn(),
     fetchScriptView: vi.fn(),
     saveScriptAssignments: vi.fn(),
+    compactScriptView: vi.fn(),
+    previewSourceTextResync: vi.fn(),
   },
 }));
 
@@ -1006,4 +1008,94 @@ describe('ChapterEditor', () => {
     });
   });
 
+  it('disables auto-save for text in edit tab', async () => {
+    (api.updateChapter as any).mockResolvedValue({ chapter: mockChapter });
+    render(
+      <ChapterEditor
+        chapterId={mockChapterId}
+        projectId={mockProjectId}
+        speakerProfiles={mockSpeakerProfiles as any}
+        speakers={mockSpeakers as any}
+        onBack={vi.fn()}
+      />
+    );
+
+    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
+
+    // Go to edit tab
+    fireEvent.click(screen.getByText('Source Text'));
+    fireEvent.click(screen.getByText('Continue to Source Text'));
+
+    vi.useFakeTimers();
+
+    const textarea = screen.getByPlaceholderText(/Start typing your chapter text/i);
+    await act(async () => {
+      fireEvent.change(textarea, { target: { value: 'Completely different text.' } });
+    });
+
+    // Advance timers
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+
+    // Should NOT have called updateChapter with new text
+    expect(api.updateChapter).not.toHaveBeenCalledWith(mockChapterId, expect.objectContaining({
+      text_content: 'Completely different text.'
+    }));
+  });
+
+  it('handles source text resync preview and commit', async () => {
+    const previewData = {
+      total_segments_before: 1,
+      total_segments_after: 2,
+      preserved_assignments_count: 0,
+      lost_assignments_count: 5,
+      affected_character_names: ['Impacted Character A'],
+      is_destructive: true
+    };
+    (api.previewSourceTextResync as any).mockResolvedValue(previewData);
+    (api.updateChapter as any).mockResolvedValue({ chapter: { ...mockChapter, text_content: 'New Text.' } });
+
+    render(
+      <ChapterEditor
+        chapterId={mockChapterId}
+        projectId={mockProjectId}
+        speakerProfiles={mockSpeakerProfiles as any}
+        speakers={mockSpeakers as any}
+        onBack={vi.fn()}
+      />
+    );
+
+    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
+
+    // Go to edit tab
+    fireEvent.click(screen.getByText('Source Text'));
+    fireEvent.click(screen.getByText('Continue to Source Text'));
+
+    const textarea = screen.getByPlaceholderText(/Start typing your chapter text/i);
+    fireEvent.change(textarea, { target: { value: 'New Text.' } });
+
+    // Should see Commit Changes button
+    const commitBtn = screen.getByText('Commit Changes');
+    fireEvent.click(commitBtn);
+
+    // Should call preview
+    await waitFor(() => {
+      expect(api.previewSourceTextResync).toHaveBeenCalledWith(mockChapterId, 'New Text.');
+    });
+
+    // Should see preview modal
+    expect(await screen.findByText('Source Text Resync Preview')).toBeInTheDocument();
+    expect(screen.getByText('5')).toBeInTheDocument(); // lost_assignments_count
+    expect(screen.getByText('Impacted Character A')).toBeInTheDocument();
+
+    // Confirm resync
+    fireEvent.click(screen.getByText('Confirm Resync'));
+
+    await waitFor(() => {
+      expect(api.updateChapter).toHaveBeenCalledWith(mockChapterId, expect.objectContaining({
+        text_content: 'New Text.'
+      }));
+    });
+  });
 });

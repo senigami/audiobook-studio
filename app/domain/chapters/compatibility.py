@@ -280,7 +280,131 @@ def save_script_assignments(
                     [(char_id, prof_name, char_id, prof_name, span_id, chapter_id) for char_id, prof_name, span_id in flat_assignments],
                 )
 
-            if range_assignments or flat_assignments:
+            return get_script_view_payload(chapter_id)
+
+
+def get_resync_preview(chapter_id: str, new_text: str) -> dict[str, Any]:
+    """Calculates the impact of a source text resync without modifying the database."""
+    from app.db.nlp import split_into_sentences
+    from app.db.core import get_connection
+
+    with get_connection() as conn:
+        # 1. Get existing segments
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT s.text_content, s.character_id, s.speaker_profile_name, c.name as character_name
+            FROM chapter_segments s
+            LEFT JOIN characters c ON s.character_id = c.id
+            WHERE s.chapter_id = ? 
+            ORDER BY s.segment_order ASC
+            """,
+            (chapter_id,),
+        )
+        existing = [dict(row) for row in cursor.fetchall()]
+
+    new_sentences = split_into_sentences(new_text)
+
+    total_old = len(existing)
+    total_new = len(new_sentences)
+    preserved_count = 0
+    lost_assignments_count = 0
+    affected_character_names = set()
+
+    # Track which old indices were preserved
+    preserved_indices = set()
+
+    # Mirror sync_chapter_segments logic for preservation
+    for i, sent in enumerate(new_sentences):
+        if i < len(existing) and (existing[i].get("text_content") or "").strip() == sent.strip():
+            preserved_indices.add(i)
+            if existing[i].get("character_id"):
+                preserved_count += 1
+
+    # Any assigned segment NOT preserved is "lost"
+    for i, row in enumerate(existing):
+        if i not in preserved_indices and row.get("character_id"):
+            lost_assignments_count += 1
+            affected_character_names.add(row.get("character_name") or "Unknown")
+
+    return {
+        "total_segments_before": total_old,
+        "total_segments_after": total_new,
+        "preserved_assignments_count": preserved_count,
+        "lost_assignments_count": lost_assignments_count,
+        "affected_character_names": sorted(list(affected_character_names)),
+        "is_destructive": lost_assignments_count > 0 or (total_new < total_old and total_old > 0)
+    }
+
+
+def compact_script_view(chapter_id: str, base_revision_id: str | None = None) -> dict[str, Any]:
+    """Merges adjacent compatible segments and returns refreshed payload."""
+    with _db_lock:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            chapter_row = _load_chapter_row(conn, chapter_id)
+            if chapter_row is None:
+                raise KeyError(f"Chapter not found: {chapter_id}")
+
+            current_segments = _load_segment_rows(conn, chapter_id)
+            current_base_revision_id = _build_base_revision_id(chapter_row, current_segments)
+            if base_revision_id and base_revision_id != current_base_revision_id:
+                raise CompatibilityRevisionMismatch(current_base_revision_id, base_revision_id)
+
+            if not current_segments:
+                return get_script_view_payload(chapter_id)
+
+            segments = [dict(s) for s in current_segments]
+            i = 0
+            merged_any = False
+            while i < len(segments) - 1:
+                s1 = segments[i]
+                s2 = segments[i + 1]
+
+                char1 = _clean_optional_text(s1.get("character_id"))
+                char2 = _clean_optional_text(s2.get("character_id"))
+                prof1 = _resolved_speaker_profile_name(s1)
+                prof2 = _resolved_speaker_profile_name(s2)
+
+                # Criteria: Same speaker and s1 doesn't end a paragraph
+                is_compatible = (char1 == char2 and prof1 == prof2)
+                if is_compatible and _segment_contains_paragraph_break(s1):
+                    is_compatible = False
+
+                if is_compatible:
+                    new_text = (s1.get("text_content") or "") + (s2.get("text_content") or "")
+
+                    # Update S1
+                    cursor.execute(
+                        """
+                        UPDATE chapter_segments 
+                        SET text_content = ?, 
+                            audio_status = 'unprocessed', 
+                            audio_file_path = NULL, 
+                            audio_generated_at = NULL 
+                        WHERE id = ?
+                        """,
+                        (new_text, s1["id"])
+                    )
+                    # Delete S2
+                    cursor.execute("DELETE FROM chapter_segments WHERE id = ?", (s2["id"],))
+                    # Shift following
+                    cursor.execute(
+                        "UPDATE chapter_segments SET segment_order = segment_order - 1 WHERE chapter_id = ? AND segment_order > ?",
+                        (chapter_id, s2["segment_order"])
+                    )
+
+                    # Update local state
+                    s1["text_content"] = new_text
+                    for j in range(i + 2, len(segments)):
+                        segments[j]["segment_order"] -= 1
+
+                    segments.pop(i + 1)
+                    merged_any = True
+                else:
+                    i += 1
+
+            if merged_any:
                 conn.commit()
 
     return get_script_view_payload(chapter_id)

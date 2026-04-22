@@ -31,6 +31,8 @@ interface ChapterHeaderProps {
   exportingFormat?: 'wav' | 'mp3' | null;
   onQueue: () => void;
   onStopAll: () => void;
+  onCommitSourceText?: () => void;
+  canCommitSourceText?: boolean;
 }
 
 export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
@@ -57,7 +59,9 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
   onSaveMp3,
   exportingFormat = null,
   onQueue,
-  onStopAll
+  onStopAll,
+  onCommitSourceText,
+  canCommitSourceText
 }) => {
   const hasChapterAudio = !!(chapter.has_wav || chapter.has_mp3 || chapter.has_m4a);
   const recentlyFinishedDoneJob = !!(job?.status === 'done' && job?.finished_at && ((Date.now() / 1000) - job.finished_at) <= RECENT_DONE_WINDOW_SECONDS);
@@ -309,6 +313,21 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
               {submitting ? <RefreshCw size={14} className="animate-spin" /> : <Zap size={14} />}
               {queueLabel}
           </button>
+
+          {canCommitSourceText && onCommitSourceText && (
+              <button
+                  onClick={onCommitSourceText}
+                  className="btn-primary"
+                  style={{
+                      padding: '0.4rem 0.8rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem',
+                      background: 'var(--success)', border: '1px solid var(--success-muted)'
+                  }}
+                  title="Commit Source Text changes and resync segments"
+              >
+                  <CheckCircle size={14} />
+                  Commit Changes
+              </button>
+          )}
 
           {queueStatus && (
               <div style={{

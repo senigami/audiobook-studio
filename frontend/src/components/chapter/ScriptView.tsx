@@ -8,6 +8,7 @@ import {
   WandSparkles,
   RotateCcw,
   UserPlus,
+  Sparkles,
 } from 'lucide-react';
 import type {
   ScriptViewResponse,
@@ -28,6 +29,8 @@ interface ScriptViewProps {
   onAssign?: (spanIds: string[]) => void;
   onAssignRange?: (range: ScriptRangeAssignment) => void;
   activeCharacterId?: string | null;
+  onCompact?: () => void;
+  isCompacting?: boolean;
 }
 
 export const ScriptView: React.FC<ScriptViewProps> = ({
@@ -40,6 +43,8 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
   onAssign,
   onAssignRange,
   activeCharacterId,
+  onCompact,
+  isCompacting = false,
 }) => {
   const [viewMode, setViewMode] = useState<'book' | 'script'>('book');
   const [showSafeText, setShowSafeText] = useState(false);
@@ -297,6 +302,16 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
           >
             <Hash size={16} />
             <span>Numbers</span>
+          </button>
+
+          <button
+            className={`script-view-pill-toggle ${isCompacting ? 'is-loading' : ''}`}
+            onClick={onCompact}
+            title="Clean up and merge compatible spans"
+            disabled={isCompacting}
+          >
+            <Sparkles size={16} className={isCompacting ? 'animate-spin' : ''} />
+            <span>{isCompacting ? 'Cleaning...' : 'Clean Up'}</span>
           </button>
         </div>
       </div>
