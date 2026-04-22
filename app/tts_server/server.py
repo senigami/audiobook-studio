@@ -158,9 +158,13 @@ def update_engine_settings(
     try:
         schema = plugin.engine.settings_schema()
     except Exception as exc:
+        schema = {}
+    if not schema and getattr(plugin, "settings_schema", None):
+        schema = plugin.settings_schema
+    if not schema:
         raise HTTPException(
             status_code=500,
-            detail=f"Could not retrieve settings schema: {exc}",
+            detail="Could not retrieve settings schema: engine provides no settings_schema",
         )
 
     current = load_settings(plugin.plugin_dir)

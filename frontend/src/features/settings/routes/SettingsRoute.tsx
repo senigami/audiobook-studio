@@ -550,8 +550,8 @@ const EngineCard: React.FC<{
           </div>
         )}
 
-        {engineUi && (
-          <EngineMetadataPanel engine={engine} ui={engineUi} />
+        {(engineUi || engine.settings_schema?.description) && (
+          <EngineMetadataPanel engine={engine} schema={engine.settings_schema} />
         )}
 
         <div style={{ background: 'white', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
@@ -699,18 +699,24 @@ const getEngineUi = (schema: any) => {
 
 const EngineMetadataPanel: React.FC<{
   engine: TtsEngine;
-  ui: any;
-}> = ({ engine, ui }) => {
+  schema: any;
+}> = ({ engine, schema }) => {
+  const ui = getEngineUi(schema);
   const panelTitle = ui?.panel_title || `${engine.display_name} Settings`;
-  const summary = ui?.summary || engine.homepage || '';
+  const summary = ui?.summary || schema?.description || engine.homepage || '';
   const privacyNotice = ui?.privacy_notice;
   const privacyTone = ui?.privacy_tone === 'warning' ? 'warning' : 'info';
+  const showPanel = Boolean(summary || ui?.help_url || privacyNotice || !engine.verified);
+
+  if (!showPanel) {
+    return null;
+  }
 
   return (
-    <div style={{ marginBottom: '1rem', padding: '1rem', borderRadius: '14px', border: '1px solid rgba(43, 110, 255, 0.18)', background: 'rgba(239, 246, 255, 0.65)' }}>
+    <div style={{ marginBottom: '1rem', padding: '1rem', borderRadius: '16px', border: '1px solid rgba(43, 110, 255, 0.2)', background: 'linear-gradient(180deg, rgba(240, 247, 255, 0.9), rgba(245, 250, 255, 0.72))' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', marginBottom: '0.9rem' }}>
         <div style={{ display: 'flex', gap: '0.7rem', alignItems: 'flex-start' }}>
-          <div style={{ width: 30, height: 30, borderRadius: '10px', display: 'grid', placeItems: 'center', color: 'var(--accent)', background: 'rgba(43, 110, 255, 0.12)' }}>
+          <div style={{ width: 30, height: 30, borderRadius: '10px', display: 'grid', placeItems: 'center', color: 'var(--accent)', background: 'rgba(43, 110, 255, 0.12)', flexShrink: 0 }}>
             <KeyRound size={16} />
           </div>
           <div>
@@ -734,7 +740,7 @@ const EngineMetadataPanel: React.FC<{
           href={ui.help_url}
           target="_blank"
           rel="noreferrer"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', color: 'var(--accent)', textDecoration: 'none', fontWeight: 800, fontSize: '0.83rem', marginBottom: '0.9rem' }}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', color: 'var(--accent)', textDecoration: 'none', fontWeight: 900, fontSize: '0.83rem', marginBottom: '0.9rem', padding: '0.55rem 0.75rem', borderRadius: '999px', border: '1px solid rgba(43, 110, 255, 0.15)', background: 'rgba(255,255,255,0.8)', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)' }}
         >
           <CircleHelp size={14} />
           {ui.help_label || 'Open instructions'}
@@ -749,8 +755,8 @@ const EngineMetadataPanel: React.FC<{
             gap: '8px',
             padding: '10px 12px',
             borderRadius: '10px',
-            border: privacyTone === 'warning' ? '1px solid rgba(217, 119, 6, 0.25)' : '1px solid rgba(43, 110, 255, 0.18)',
-            background: privacyTone === 'warning' ? 'rgba(245, 158, 11, 0.08)' : 'rgba(239, 246, 255, 0.7)',
+            border: privacyTone === 'warning' ? '1px solid rgba(217, 119, 6, 0.28)' : '1px solid rgba(43, 110, 255, 0.18)',
+            background: privacyTone === 'warning' ? 'rgba(245, 158, 11, 0.09)' : 'rgba(239, 246, 255, 0.72)',
             color: privacyTone === 'warning' ? '#92400e' : 'var(--text-secondary)',
             fontSize: '0.78rem',
             lineHeight: 1.5,

@@ -99,6 +99,8 @@ def build_engine_detail(
         schema = plugin.engine.settings_schema()
     except Exception:
         schema = {}
+    if not schema and getattr(plugin, "settings_schema", None):
+        schema = plugin.settings_schema
 
     return {
         "engine_id": plugin.engine_id,
