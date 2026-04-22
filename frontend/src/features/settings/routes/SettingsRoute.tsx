@@ -140,7 +140,13 @@ export const SettingsRoute: React.FC<SettingsRouteProps> = ({ settings, onRefres
             />
           )}
           {activeTab.id === 'engines' && <EnginesPanel onShowNotification={onShowNotification} />}
-          {activeTab.id === 'api' && <ApiFoundationPanel />}
+          {activeTab.id === 'api' && (
+            <ApiSettingsPanel
+              settings={settings}
+              onRefresh={onRefresh}
+              onShowNotification={onShowNotification}
+            />
+          )}
           {activeTab.id === 'about' && <AboutFoundationPanel />}
         </div>
       </div>
@@ -231,6 +237,21 @@ const GeneralSettingsPanel: React.FC<SettingsRouteProps> = ({ settings, onRefres
     }
   };
 
+  const updateStringSetting = async (key: 'default_engine', value: string) => {
+    setSavingKey(key);
+    try {
+      const formData = new URLSearchParams();
+      formData.append(key, value);
+      await fetch('/settings', { method: 'POST', body: formData });
+      onRefresh();
+    } catch (error) {
+      console.error('Failed to update setting', error);
+      onShowNotification?.('Settings update failed. Please try again.');
+    } finally {
+      setSavingKey(null);
+    }
+  };
+
   const queueBackfill = async () => {
     setSavingKey('backfill');
     try {
@@ -269,6 +290,30 @@ const GeneralSettingsPanel: React.FC<SettingsRouteProps> = ({ settings, onRefres
             busy={savingKey === 'make_mp3'}
             onClick={() => updateBooleanSetting('make_mp3', !!settings?.make_mp3)}
           />
+        }
+      />
+      <SettingCard
+        icon={PlugZap}
+        title="Default Engine"
+        description="Choose the primary synthesis engine for new segments."
+        action={
+          <select
+            value={settings?.default_engine || 'xtts'}
+            onChange={(e) => updateStringSetting('default_engine', e.target.value)}
+            disabled={savingKey === 'default_engine'}
+            style={{
+              padding: '0.45rem',
+              borderRadius: '8px',
+              border: '1px solid var(--border)',
+              background: 'var(--surface)',
+              fontSize: '0.85rem',
+              fontWeight: 800,
+              minWidth: '120px',
+            }}
+          >
+            <option value="xtts">XTTS (Local)</option>
+            <option value="voxtral">Voxtral (Cloud)</option>
+          </select>
         }
       />
       <SettingCard
@@ -614,13 +659,118 @@ const JsonSchemaForm: React.FC<{
   );
 };
 
-const ApiFoundationPanel = () => (
-  <FoundationCallout
-    icon={Server}
-    title="API controls are ready for backend wiring"
-    body="The deep-linkable API surface is in place. A later slice can attach enablement, bind address, API key, and task-priority persistence without changing the route structure."
-  />
-);
+const ApiSettingsPanel: React.FC<SettingsRouteProps> = ({ settings, onRefresh, onShowNotification }) => {
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+
+  const updateSetting = async (updates: Partial<AppSettings>) => {
+    const key = Object.keys(updates)[0];
+    setSavingKey(key);
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      onRefresh();
+    } catch (error) {
+      console.error('Failed to update setting', error);
+      onShowNotification?.('Settings update failed. Please try again.');
+    } finally {
+      setSavingKey(null);
+    }
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
+      <SettingCard
+        icon={PlugZap}
+        title="Voxtral Integration"
+        description="Enable Voxtral cloud synthesis (requires Mistral API key)."
+        action={
+          <ToggleButton
+            enabled={!!settings?.voxtral_enabled}
+            busy={savingKey === 'voxtral_enabled'}
+            onClick={() => updateSetting({ voxtral_enabled: !settings?.voxtral_enabled })}
+          />
+        }
+      />
+
+      <div style={{ background: 'var(--surface-light)', border: '1px solid var(--border)', borderRadius: '16px', padding: '1rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label style={{ fontWeight: 800, fontSize: '0.82rem', color: 'var(--text-primary)' }}>
+                Mistral API Key
+              </label>
+              {savingKey === 'mistral_api_key' && <span style={{ fontSize: '0.7rem', color: 'var(--accent)', fontWeight: 800 }}>SAVING...</span>}
+            </div>
+            <input
+              type="password"
+              placeholder="Paste your API key here..."
+              defaultValue={settings?.mistral_api_key || ''}
+              onBlur={(e) => {
+                if (e.target.value !== (settings?.mistral_api_key || '')) {
+                  updateSetting({ mistral_api_key: e.target.value });
+                }
+              }}
+              style={{
+                padding: '0.65rem',
+                borderRadius: '10px',
+                border: '1px solid var(--border)',
+                background: 'var(--background)',
+                fontSize: '0.85rem',
+                width: '100%',
+              }}
+            />
+            <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+              Used for Voxtral cloud synthesis. Keys are stored locally in state.json.
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label style={{ fontWeight: 800, fontSize: '0.82rem', color: 'var(--text-primary)' }}>
+                Voxtral Model
+              </label>
+              {savingKey === 'voxtral_model' && <span style={{ fontSize: '0.7rem', color: 'var(--accent)', fontWeight: 800 }}>SAVING...</span>}
+            </div>
+            <input
+              type="text"
+              placeholder="e.g. mistral-large-latest"
+              defaultValue={settings?.voxtral_model || ''}
+              onBlur={(e) => {
+                if (e.target.value !== (settings?.voxtral_model || '')) {
+                  updateSetting({ voxtral_model: e.target.value });
+                }
+              }}
+              style={{
+                padding: '0.65rem',
+                borderRadius: '10px',
+                border: '1px solid var(--border)',
+                background: 'var(--background)',
+                fontSize: '0.85rem',
+                width: '100%',
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
+      <SettingCard
+        icon={Server}
+        title="Local API Discovery"
+        description="Allow other devices on your network to discover this Studio instance."
+        action={
+          <ToggleButton
+            enabled={false}
+            busy={false}
+            onClick={() => onShowNotification?.('Discovery settings are managed by the host process.')}
+          />
+        }
+      />
+    </div>
+  );
+};
 
 const AboutFoundationPanel = () => (
   <FoundationCallout
