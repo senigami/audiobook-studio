@@ -36,7 +36,8 @@ Move the main user workflows onto the 2.0 foundations once the lower-risk layers
 - [ ] Engine action buttons (Test, Verify, View Logs, Deactivate, Install Dependencies, Remove) implemented
 - [ ] API settings tab implemented (enable, bind, key, priority)
 - [ ] About tab implemented (version, TTS Server status, engine count, system info)
-- [x] Install Plugin and Refresh Plugins actions implemented
+- [ ] Install Plugin action implemented
+- [x] Refresh Plugins action implemented
 - [x] Cloud engine privacy disclosure rendering implemented
 - [ ] SettingsTray reduced to quick-access widget
 
