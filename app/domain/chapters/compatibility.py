@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import time
+import uuid
 from collections.abc import Mapping, Sequence
 from hashlib import sha256
 from pathlib import Path
@@ -408,9 +409,6 @@ def compact_script_view(chapter_id: str, base_revision_id: str | None = None) ->
                 conn.commit()
 
     return get_script_view_payload(chapter_id)
-
-
-import uuid
 
 def _apply_range_assignment(conn, chapter_id: str, range_req: Mapping[str, Any]):
     """Surgically split segments and apply assignment to a character range."""

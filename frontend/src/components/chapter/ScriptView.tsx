@@ -192,7 +192,7 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
             className="span-control-btn"
             onClick={(e) => {
               e.stopPropagation();
-              batch && onGenerateBatch(batch.span_ids);
+              if (batch) onGenerateBatch(batch.span_ids);
             }}
             title={span.status === 'rendered' ? 'Rebuild' : 'Generate'}
             disabled={isPending}
