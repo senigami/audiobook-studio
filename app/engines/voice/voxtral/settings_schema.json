@@ -4,16 +4,6 @@
   "description": "Create a Mistral API key in your workspace settings, paste it here, then turn Voxtral on when you want cloud voices available. Voxtral requests are processed by Mistral instead of staying fully local.",
   "type": "object",
   "properties": {
-    "voxtral_enabled": {
-      "type": "boolean",
-      "title": "Enable Voxtral",
-      "default": false,
-      "description": "Visible in Voices",
-      "x-ui": {
-        "requires_verification": true,
-        "locked_message": "Verify this engine before turning Voxtral on."
-      }
-    },
     "mistral_api_key": {
       "type": "string",
       "title": "Mistral API Key",

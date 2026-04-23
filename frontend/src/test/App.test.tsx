@@ -71,36 +71,6 @@ describe('App', () => {
     })
   })
 
-  it('reports refreshing status during manual refresh', async () => {
-    render(
-      <MemoryRouter>
-        <App />
-      </MemoryRouter>
-    )
-    
-    await waitFor(() => {
-      expect(screen.getByTestId('layout-root')).toHaveAttribute('data-shell-hydration', 'ready')
-    })
-
-    // Find the refresh button in SettingsTray
-    const settingsButton = screen.getByTitle(/Synthesis Preferences/i)
-    fireEvent.click(settingsButton)
-    
-    const refreshButton = screen.getByText(/Refresh All Data/i)
-    
-    // We need to delay the fetch response to see the refreshing state
-    let resolveRefresh: any;
-    global.fetch = vi.fn().mockReturnValue(new Promise(resolve => { resolveRefresh = resolve; }));
-
-    fireEvent.click(refreshButton)
-    
-    await waitFor(() => {
-      expect(screen.getByTestId('layout-root')).toHaveAttribute('data-shell-hydration', 'refreshing')
-    })
-
-    resolveRefresh({ ok: true, json: () => Promise.resolve([]) });
-  })
-
   it('reports reconnecting and recovering statuses during WS loss', async () => {
     wsConnected = true;
     const { rerender } = render(

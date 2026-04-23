@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
     Search, Plus, User, Info
 } from 'lucide-react';
-import type { Speaker, SpeakerProfile, Job, VoiceEngine, Settings } from '../types';
+import type { Speaker, SpeakerProfile, Job, VoiceEngine, Settings, TtsEngine } from '../types';
 import { GlassInput } from './GlassInput';
 import { GhostButton } from './GhostButton';
 import { NarratorCard } from './voices/NarratorCard';
@@ -16,9 +16,10 @@ interface VoicesTabProps {
     testProgress: Record<string, { progress: number; started_at?: number }>;
     jobs?: Record<string, Job>;
     settings?: Settings;
+    engines?: TtsEngine[];
 }
 
-export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles, testProgress, jobs = {}, settings }) => {
+export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles, testProgress, jobs = {}, settings, engines = [] }) => {
     const [confirmConfig, setConfirmConfig] = useState<{
         title: string;
         message: string;
@@ -27,7 +28,8 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
         isAlert?: boolean;
     } | null>(null);
 
-    const voxtralEnabled = !!settings?.mistral_api_key?.trim() && !!settings?.voxtral_enabled;
+    const voxtralEngine = engines.find(e => e.engine_id === 'voxtral');
+    const voxtralEnabled = !!voxtralEngine?.enabled && !!settings?.mistral_api_key?.trim();
     const visibleSpeakerProfiles = useMemo(() => speakerProfiles, [speakerProfiles]);
 
     const {

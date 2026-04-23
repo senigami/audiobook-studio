@@ -68,7 +68,7 @@ def _contained_root_file(root: Path, filename: str) -> Optional[Path]:
 def _contained_file(root: Path, relative_path: str) -> Optional[Path]:
     if not root.exists() or not relative_path:
         return None
-    normalized_parts = [part for part in Path(relative_path).parts if part not in ("", ".")]
+    normalized_parts = [part for part in Path(relative_path).parts if part not in ("", ".", "/")]
     if not normalized_parts or any(part == ".." for part in normalized_parts):
         return None
     base_dir = os.path.abspath(os.path.normpath(os.fspath(root)))
@@ -82,7 +82,26 @@ def _contained_file(root: Path, relative_path: str) -> Optional[Path]:
 
 
 def _frontend_dist_file(full_path: str) -> Optional[Path]:
-    return _contained_file(FRONTEND_DIST, full_path)
+    # 1. Try exact match (e.g. "assets/foo.js" or "favicon.ico")
+    file = _contained_file(FRONTEND_DIST, full_path)
+    if file:
+        return file
+
+    # 2. Try stripping known route prefixes if it looks like an asset (e.g. "settings/assets/foo.js")
+    # This handles deep-linked SPA reloads where the browser might request assets relatively.
+    if "/" in full_path:
+        parts = full_path.split("/")
+        # If it looks like a deep link into assets or other dist files
+        if any(p in {"assets", "docs", "static"} for p in parts):
+            # Find the index of the first known asset directory
+            for i, p in enumerate(parts):
+                if p in {"assets", "docs", "static"}:
+                    candidate_path = "/".join(parts[i:])
+                    file = _contained_file(FRONTEND_DIST, candidate_path)
+                    if file:
+                        return file
+
+    return None
 
 
 def _frontend_index_response(index_file: Path) -> FileResponse:
@@ -155,11 +174,18 @@ async def legacy_create_audiobook(request: Request):
         cover=form.get("cover"),
     )
 
-@app.post("/settings")
-async def legacy_save_settings(request: Request):
-    from .api.routers.system import save_settings
-    form = await request.form()
-    return await save_settings(request, safe_mode=form.get("safe_mode"), make_mp3=form.get("make_mp3"))
+@app.api_route("/settings", methods=["GET", "POST"])
+async def legacy_settings_handler(request: Request):
+    if request.method == "POST":
+        from .api.routers.system import save_settings
+        form = await request.form()
+        return await save_settings(request, safe_mode=form.get("safe_mode"), make_mp3=form.get("make_mp3"))
+
+    # GET: Serve React index
+    index_file = FRONTEND_DIST / "index.html"
+    if index_file.exists():
+        return _frontend_index_response(index_file)
+    raise HTTPException(status_code=404, detail="Frontend not built")
 
 @app.post("/api/settings/default-speaker")
 async def legacy_set_default_speaker(request: Request):

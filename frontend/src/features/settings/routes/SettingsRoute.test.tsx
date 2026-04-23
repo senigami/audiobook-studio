@@ -30,6 +30,7 @@ const mockedEngines = [
     display_name: 'XTTS Local',
     status: 'ready',
     verified: true,
+    enabled: true,
     version: '1.2.3',
     local: true,
     cloud: false,
@@ -55,6 +56,7 @@ const mockedEngines = [
     display_name: 'Voxtral Cloud Voices',
     status: 'needs_setup',
     verified: false,
+    enabled: false,
     version: '0.4.0',
     local: false,
     cloud: true,
@@ -66,14 +68,14 @@ const mockedEngines = [
     homepage: '',
     settings_schema: {
       properties: {
-        voxtral_enabled: {
+        enabled: {
           type: 'boolean',
-          title: 'Enable Voxtral',
+          title: 'Enable Plugin',
           default: false,
-          description: 'Visible in Voices',
+          description: 'When active, Voxtral cloud voices will be available for selection in the project and global settings. Disable this to stay fully local.',
           'x-ui': {
             requires_verification: true,
-            locked_message: 'Verify this engine before turning Voxtral on.',
+            locked_message: 'Verify this engine before activating the plugin.',
           },
         },
         mistral_api_key: {
@@ -97,7 +99,7 @@ const mockedEngines = [
       },
     },
     current_settings: {
-      voxtral_enabled: false,
+      enabled: false,
       mistral_api_key: '',
       voxtral_model: 'voxtral-mini-tts-2603',
     },

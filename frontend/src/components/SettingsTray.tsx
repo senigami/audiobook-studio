@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Settings, RefreshCw, Loader2, ShieldCheck, Music, KeyRound, CircleHelp, Sparkles, TriangleAlert, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -22,8 +22,6 @@ export const SettingsTray: React.FC<SettingsTrayProps> = ({
     const [saving, setSaving] = useState(false);
     const [mistralApiKey, setMistralApiKey] = useState('');
     const [voxtralModel, setVoxtralModel] = useState('voxtral-mini-tts-2603');
-    const voxtralConfigured = useMemo(() => !!settings?.mistral_api_key?.trim(), [settings?.mistral_api_key]);
-    const voxtralEnabled = !!settings?.voxtral_enabled && voxtralConfigured;
 
     useEffect(() => {
         setMistralApiKey(settings?.mistral_api_key || '');
@@ -61,23 +59,6 @@ export const SettingsTray: React.FC<SettingsTrayProps> = ({
         }
     };
 
-    const handleToggleVoxtral = async () => {
-        if (!voxtralConfigured) {
-            onShowNotification?.('Add a Mistral API key before turning Voxtral on.');
-            return;
-        }
-        setSaving(true);
-        try {
-            const formData = new URLSearchParams();
-            formData.append('voxtral_enabled', (!settings?.voxtral_enabled).toString());
-            await fetch('/settings', { method: 'POST', body: formData });
-            onRefresh();
-        } catch (e) {
-            console.error('Failed to update Voxtral toggle', e);
-        } finally {
-            setSaving(false);
-        }
-    };
 
     return (
         <div style={{ position: 'relative' }}>
@@ -150,9 +131,6 @@ export const SettingsTray: React.FC<SettingsTrayProps> = ({
                                     setMistralApiKey={setMistralApiKey}
                                     voxtralModel={voxtralModel}
                                     setVoxtralModel={setVoxtralModel}
-                                    voxtralEnabled={voxtralEnabled}
-                                    voxtralConfigured={voxtralConfigured}
-                                    onToggle={handleToggleVoxtral}
                                     onSave={handleSaveVoxtralSettings}
                                 />
                             </div>
@@ -169,9 +147,6 @@ interface VoxtralSettingsProps {
     setMistralApiKey: (key: string) => void;
     voxtralModel: string;
     setVoxtralModel: (model: string) => void;
-    voxtralEnabled: boolean;
-    voxtralConfigured: boolean;
-    onToggle: () => void;
     onSave: () => void;
 }
 
@@ -180,9 +155,6 @@ const VoxtralSettings: React.FC<VoxtralSettingsProps> = ({
     setMistralApiKey,
     voxtralModel,
     setVoxtralModel,
-    voxtralEnabled,
-    voxtralConfigured,
-    onToggle,
     onSave
 }) => {
     return (
@@ -200,21 +172,14 @@ const VoxtralSettings: React.FC<VoxtralSettingsProps> = ({
         >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <KeyRound size={18} color={voxtralEnabled ? '#0ea5e9' : 'var(--text-muted)'} />
+                    <KeyRound size={18} color="var(--accent)" />
                     <div>
                         <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>Voxtral Cloud Voices</div>
                         <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                            {voxtralEnabled ? 'Visible in Voices' : voxtralConfigured ? 'Saved but hidden' : 'Hidden until a key is added'}
+                            Plugin settings
                         </div>
                     </div>
                 </div>
-                <button
-                    onClick={onToggle}
-                    className={voxtralEnabled ? 'btn-primary' : 'btn-glass'}
-                    style={{ fontSize: '0.65rem', padding: '4px 10px', borderRadius: '6px', minWidth: '42px' }}
-                >
-                    {voxtralEnabled ? 'ON' : 'OFF'}
-                </button>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.72rem', lineHeight: 1.5 }}>

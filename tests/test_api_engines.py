@@ -120,6 +120,7 @@ def test_in_process_voxtral_engine_settings_roundtrip(monkeypatch):
         "voxtral_enabled": True,
         "mistral_api_key": "workspace-key",
         "voxtral_model": "voxtral-mini-tts-2603",
+        "enabled_plugins": {"voxtral": True},
     }
     assert result["ok"] is True
     assert result["settings"]["voxtral_enabled"] is True

@@ -12,7 +12,11 @@ describe('VoicesTab', () => {
         onRefresh: vi.fn(),
         speakerProfiles: mockProfiles,
         testProgress: {},
-        settings: { safe_mode: true, make_mp3: false, default_engine: 'xtts', mistral_api_key: 'key', voxtral_enabled: true } as any
+        settings: { safe_mode: true, make_mp3: false, default_engine: 'xtts', mistral_api_key: 'key', voxtral_enabled: true } as any,
+        engines: [
+            { engine_id: 'xtts', enabled: true, verified: true },
+            { engine_id: 'voxtral', enabled: true, verified: true }
+        ] as any
     }
 
     beforeEach(() => {
@@ -170,7 +174,7 @@ describe('VoicesTab', () => {
 
     it('keeps existing Voxtral voices visible when cloud voices are disabled', async () => {
         await act(async () => {
-            render(<VoicesTab {...mockProps} settings={{ safe_mode: true, make_mp3: false, default_engine: 'xtts', voxtral_enabled: false }} />)
+            render(<VoicesTab {...mockProps} engines={[{ engine_id: 'voxtral', enabled: false, verified: true }] as any} />)
         })
 
         expect(screen.getByText('Narrator1')).toBeInTheDocument()

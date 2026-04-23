@@ -68,6 +68,7 @@ def _default_state() -> Dict[str, Any]:
             "default_engine": "xtts",
             "voxtral_enabled": False,
             "voxtral_model": "voxtral-mini-tts-2603",
+            "enabled_plugins": {},
         },
     }
 
@@ -94,7 +95,25 @@ def _normalize_settings(settings: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         voxtral_enabled = bool(mistral_api_key)
     if not mistral_api_key:
         voxtral_enabled = False
+
+    # Sync with enabled_plugins map
+    enabled_plugins = normalized.get("enabled_plugins")
+    if not isinstance(enabled_plugins, dict):
+        enabled_plugins = {}
+
+    # Prefer enabled_plugins["voxtral"] if it exists, otherwise fallback to voxtral_enabled
+    if "voxtral" in enabled_plugins:
+        voxtral_enabled = bool(enabled_plugins["voxtral"])
+    else:
+        enabled_plugins["voxtral"] = voxtral_enabled
+
+    # Ensure mistral_api_key requirement is respected
+    if not mistral_api_key:
+        voxtral_enabled = False
+        enabled_plugins["voxtral"] = False
+
     normalized["voxtral_enabled"] = voxtral_enabled
+    normalized["enabled_plugins"] = enabled_plugins
 
     voxtral_model = str(normalized.get("voxtral_model") or "").strip() or defaults["voxtral_model"]
     if voxtral_model == "voxtral-tts":

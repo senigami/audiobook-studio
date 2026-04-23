@@ -10,7 +10,6 @@ import { ProgressBarTestPage } from './components/ProgressBarTestPage';
 import { useJobs } from './hooks/useJobs';
 import { useQueueSync } from './hooks/useQueueSync';
 import { useInitialData } from './hooks/useInitialData';
-import { SettingsTray } from './components/SettingsTray';
 import { ConfirmModal } from './components/ConfirmModal';
 import { createStudioShellState } from './app/layout/StudioShell';
 import { ProjectViewRoute } from './features/project-view/routes/ProjectViewRoute';
@@ -104,13 +103,6 @@ function App() {
       <Layout
         queueCount={queueCount}
         shellState={shellState}
-        headerRight={
-          <SettingsTray 
-            settings={initialData?.settings}
-            onRefresh={handleRefresh}
-            onShowNotification={showToast}
-          />
-        }
       >
         <div style={{
           flex: 1,
@@ -202,6 +194,7 @@ function App() {
                   testProgress={testProgress}
                   jobs={jobs}
                   settings={initialData?.settings}
+                  engines={initialData?.engines || []}
                 />
               } />
               <Route path="/settings/*" element={

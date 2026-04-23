@@ -6,6 +6,7 @@ export interface TtsEngine {
   display_name: string;
   status: 'ready' | 'needs_setup' | 'unverified' | 'not_loaded' | 'invalid_config';
   verified: boolean;
+  enabled: boolean;
   version: string;
   local: boolean;
   cloud: boolean;
@@ -273,6 +274,7 @@ export interface Settings {
   default_engine: Engine;
   default_speaker_profile?: string;
   voxtral_enabled?: boolean;
+  enabled_plugins?: Record<string, boolean>;
   voxtral_model?: string;
   mistral_api_key?: string;
 }
@@ -302,6 +304,7 @@ export interface AssemblyPrep {
 export interface GlobalState {
   jobs: Record<string, Job>;
   settings: Settings;
+  engines: TtsEngine[];
   paused: boolean;
   chapters: Chapter[];
   audiobooks: Audiobook[];

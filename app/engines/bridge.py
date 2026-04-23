@@ -107,11 +107,25 @@ class VoiceBridge:
 
     def describe_registry(self) -> list[dict[str, object]]:
         """Return discovery metadata for all registered engines."""
+        from app.state import get_settings  # noqa: PLC0415
+
         if use_tts_server():
             return self._describe_registry_via_tts_server()
 
         registry = self.registry_loader()
-        return [registration.to_dict() for registration in registry.values()]
+        settings = get_settings()
+        enabled_plugins = settings.get("enabled_plugins") or {}
+
+        results = []
+        for registration in registry.values():
+            data = registration.to_dict()
+            engine_id = registration.manifest.engine_id
+            # Default to enabled for built-ins/verified, disabled for others
+            default_enabled = registration.manifest.built_in or registration.manifest.verified
+            data["enabled"] = bool(enabled_plugins.get(engine_id, default_enabled))
+            results.append(data)
+
+        return results
 
     def update_engine_settings(
         self, engine_id: str, settings: dict[str, Any]
@@ -128,22 +142,43 @@ class VoiceBridge:
         if use_tts_server():
             return self._get_tts_client().update_settings(engine_id, settings)
 
-        normalized_engine_id = engine_id.lower()
-        if "voxtral" in normalized_engine_id:
-            from app.state import get_settings, update_settings  # noqa: PLC0415
+        from app.state import get_settings, update_settings  # noqa: PLC0415
 
-            allowed_updates = {
-                key: value
-                for key, value in settings.items()
-                if key in {"voxtral_enabled", "mistral_api_key", "voxtral_model"}
-            }
-            if allowed_updates:
-                update_settings(allowed_updates)
+        updates: dict[str, Any] = {}
+
+        normalized_engine_id = engine_id.lower()
+
+        # Handle generic enablement toggle
+        enabled_val = settings.get("enabled")
+        if enabled_val is None and "voxtral" in normalized_engine_id:
+             enabled_val = settings.get("voxtral_enabled")
+
+        if enabled_val is not None:
+            current_settings = get_settings()
+            enabled_plugins = dict(current_settings.get("enabled_plugins") or {})
+            enabled_plugins[engine_id] = bool(enabled_val)
+            updates["enabled_plugins"] = enabled_plugins
+            if "voxtral" in normalized_engine_id:
+                 updates["voxtral_enabled"] = bool(enabled_val)
+
+        if "voxtral" in normalized_engine_id:
+            for key in {"mistral_api_key", "voxtral_model"}:
+                if key in settings:
+                    updates[key] = settings[key]
+
+        if updates:
+            update_settings(updates)
             return {"ok": True, "settings": get_settings()}
 
-        raise NotImplementedError(
-            f"update_engine_settings is not yet implemented for in-process engine {engine_id!r}."
-        )
+        if not updates and settings:
+             # If no updates were identified but settings were provided, 
+             # the engine doesn't support these settings or isn't handled yet.
+             raise NotImplementedError(
+                f"update_engine_settings is not yet implemented for in-process engine {engine_id!r} "
+                f"with settings keys: {list(settings.keys())}"
+            )
+
+        return {"ok": True, "settings": get_settings()}
 
     def refresh_plugins(self) -> dict[str, Any]:
         """Re-scan for new plugins (TTS Server path only)."""
@@ -311,6 +346,15 @@ class VoiceBridge:
         _ = request
         if registration.manifest.engine_id != str(request.get("engine_id") or "").strip():
             raise EngineRequestError("Request engine_id does not match the registered engine.")
+
+        from app.state import get_settings  # noqa: PLC0415
+        settings = get_settings()
+        enabled_plugins = settings.get("enabled_plugins") or {}
+        if not bool(enabled_plugins.get(registration.manifest.engine_id, True)):
+            raise EngineUnavailableError(
+                f"Engine {registration.manifest.engine_id} is disabled in Settings."
+            )
+
         if not registration.health.available:
             raise EngineUnavailableError(
                 f"Engine {registration.manifest.engine_id} is unavailable: "

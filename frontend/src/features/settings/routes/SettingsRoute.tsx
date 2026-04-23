@@ -490,7 +490,28 @@ const EngineCard: React.FC<{
             </p>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+          <div style={{ marginRight: '0.5rem' }}>
+            <ToggleButton
+              enabled={engine.enabled}
+              busy={saving}
+              disabled={!engine.verified}
+              onClick={async (e: React.MouseEvent) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setSaving(true);
+                try {
+                  await api.updateEngineSettings(engine.engine_id, { enabled: !engine.enabled });
+                  await onUpdate();
+                  onShowNotification?.(`${engine.display_name} ${!engine.enabled ? 'enabled' : 'disabled'}.`);
+                } catch (err) {
+                  onShowNotification?.(`Failed to ${!engine.enabled ? 'enable' : 'disable'} ${engine.display_name}.`);
+                } finally {
+                  setSaving(false);
+                }
+              }}
+            />
+          </div>
           {engine.cloud && <Cloud size={15} color="#92400e" />}
           <span
             style={{
@@ -598,10 +619,12 @@ const JsonSchemaForm: React.FC<{
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.25rem' }}>
-        {Object.entries(schema.properties).map(([key, prop]: [string, any]) => {
-          const propUi = prop?.['x-ui'] || {};
-          const isLocked = !!propUi.requires_verification && !engineVerified;
-          return (
+        {Object.entries(schema.properties)
+          .filter(([key]) => key !== 'enabled')
+          .map(([key, prop]: [string, any]) => {
+            const propUi = prop?.['x-ui'] || {};
+            const isLocked = !!propUi.requires_verification && !engineVerified;
+            return (
           <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <label style={{ fontWeight: 800, fontSize: '0.82rem', color: 'var(--text-primary)' }}>
@@ -952,7 +975,7 @@ const SettingCard: React.FC<{
   </div>
 );
 
-const ToggleButton: React.FC<{ enabled: boolean; busy: boolean; disabled?: boolean; onClick: () => void }> = ({ enabled, busy, disabled, onClick }) => (
+const ToggleButton: React.FC<{ enabled: boolean; busy: boolean; disabled?: boolean; onClick: (e: React.MouseEvent) => void }> = ({ enabled, busy, disabled, onClick }) => (
   <button
     type="button"
     disabled={busy || disabled}

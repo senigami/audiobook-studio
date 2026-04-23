@@ -137,7 +137,7 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
 
         settings = get_settings()
         return {
-            "voxtral_enabled": bool(settings.get("voxtral_enabled")),
+            "enabled": bool(settings.get("voxtral_enabled")),
             "mistral_api_key": str(settings.get("mistral_api_key") or ""),
             "voxtral_model": str(settings.get("voxtral_model") or ""),
         }

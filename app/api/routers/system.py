@@ -68,10 +68,15 @@ def api_home(
     from ...db import list_projects
     projects = list_projects()
 
+    from ...engines.bridge import create_voice_bridge
+    bridge = create_voice_bridge()
+    engines = bridge.describe_registry()
+
     return {
         "chapters": [],
         "jobs": jobs,
         "settings": settings,
+        "engines": engines,
         "paused": paused(),
         "version": "1.8.4",
         "system_info": {
