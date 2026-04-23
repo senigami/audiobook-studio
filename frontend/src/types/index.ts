@@ -16,6 +16,8 @@ export interface TtsEngine {
   resource: Record<string, any>;
   author: string;
   homepage: string;
+  help_text?: string;
+  privacy_text?: string;
   settings_schema: any;
   current_settings?: Record<string, any>;
 }

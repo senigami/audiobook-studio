@@ -127,12 +127,29 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({
                                 onChange={(e) => onVoxtralVoiceIdChange(e.target.value)}
                             />
                         </div>
-
-                        <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                            Voxtral sends preview text and reference audio to Mistral when used. Leave this voice on XTTS if you want fully local generation.
-                        </p>
                     </div>
                 )}
+
+                {(() => {
+                    const activeEngine = engines.find(e => e.engine_id === engine);
+                    if (activeEngine?.help_text || activeEngine?.privacy_text) {
+                        return (
+                            <div style={{ padding: '12px', borderRadius: '12px', background: 'var(--surface-alt)', border: '1px solid var(--border)', marginBottom: '1.5rem' }}>
+                                {activeEngine.help_text && (
+                                    <p style={{ margin: '0 0 8px 0', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                                        {activeEngine.help_text}
+                                    </p>
+                                )}
+                                {activeEngine.privacy_text && (
+                                    <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, lineHeight: 1.5 }}>
+                                        {activeEngine.privacy_text}
+                                    </p>
+                                )}
+                            </div>
+                        );
+                    }
+                    return null;
+                })()}
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                     <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>PREVIEW TEXT SCRIPT</label>

@@ -10,10 +10,12 @@ import os
 import tempfile
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from app.config import XTTS_ENV_ACTIVATE, XTTS_ENV_PYTHON
 from app.engines.errors import EngineExecutionError, EngineRequestError
 from app.engines.voice.base import BaseVoiceEngine
+from app.engines.voice.sdk import TTSRequest, TTSResult, VoiceProcessingHooks, SynthesisPlan
 from app.engines.models import EngineHealthModel, EngineManifestModel
 from app.infra.subprocess import run_managed_subprocess_async
 from app.voice_engines import resolve_xtts_preview_inputs
@@ -77,6 +79,10 @@ class XttsVoiceEngine(BaseVoiceEngine):
 
     def __init__(self, *, manifest: EngineManifestModel):
         self.manifest = manifest
+
+    def hooks(self) -> VoiceProcessingHooks:
+        """Return XTTS-specific processing hooks."""
+        return XttsProcessingHooks()
 
     def describe_health(self) -> EngineHealthModel:
         """Summarize XTTS adapter readiness without triggering side effects."""
@@ -149,8 +155,14 @@ class XttsVoiceEngine(BaseVoiceEngine):
 
         speaker_wav: str | None = None
         voice_profile_dir: Path | None = None
-        if reference_audio_path:
+
+        # Priority 1: Resolved voice_id from hook
+        if request.get("voice_id"):
+            speaker_wav = str(request["voice_id"])
+        # Priority 2: Explicit reference path
+        elif reference_audio_path:
             speaker_wav = reference_audio_path
+        # Priority 3: Resolve from profile
         else:
             speaker_wav, voice_profile_dir = resolve_xtts_preview_inputs(voice_profile_id)
             if voice_profile_dir is None:
@@ -340,3 +352,60 @@ class XttsVoiceEngine(BaseVoiceEngine):
         if not callable(cancel_check):
             raise EngineRequestError("XTTS cancel_check callback must be callable.")
         return cancel_check
+
+class XttsProcessingHooks(VoiceProcessingHooks):
+    """XTTS-specific processing hooks for Studio 2.0."""
+
+    def plan_synthesis(self, req: TTSRequest) -> SynthesisPlan:
+        """Return a synthesis plan optimized for XTTS.
+
+        XTTS performs best with shorter sentences; we leverage the established
+        SENT_CHAR_LIMIT for chunking.
+        """
+        from app.config import SENT_CHAR_LIMIT
+        return SynthesisPlan(
+            chunk_size=SENT_CHAR_LIMIT,
+            metadata={"engine": "xtts"}
+        )
+
+    def preprocess_request(self, request: dict[str, Any]) -> None:
+        """Apply XTTS-specific defaults to the raw request."""
+        if "safe_mode" not in request:
+            request["safe_mode"] = True
+        if "speed" not in request:
+            # Attempt to resolve speed from profile if available
+            profile_id = request.get("voice_profile_id")
+            if profile_id:
+                from app.jobs.speaker import get_speaker_settings
+                try:
+                    spk = get_speaker_settings(str(profile_id))
+                    request["speed"] = spk.get("speed", 1.0)
+                except Exception:
+                    request["speed"] = 1.0
+            else:
+                request["speed"] = 1.0
+
+    def select_voice(self, profile_id: str, settings: dict[str, Any]) -> str | None:
+        """Resolve an XTTS speaker profile into a reference WAV path."""
+        from app.jobs.speaker import get_speaker_wavs
+        try:
+            return get_speaker_wavs(profile_id)
+        except Exception:
+            return None
+
+    def check_readiness(self, profile_id: str, settings: dict[str, Any], profile_dir: str | None) -> tuple[bool, str]:
+        """XTTS is ready if it has raw samples or a latent."""
+        import os
+        from pathlib import Path
+
+        # Check for samples
+        if profile_dir and os.path.isdir(profile_dir):
+            wavs = [f for f in os.listdir(profile_dir) if f.lower().endswith(".wav") and f != "sample.wav"]
+            if wavs:
+                return True, "OK"
+
+            # Check for latent
+            if (Path(profile_dir) / "latent.pth").exists():
+                return True, "OK"
+
+        return False, "Add at least one sample or keep a latent before using this voice."

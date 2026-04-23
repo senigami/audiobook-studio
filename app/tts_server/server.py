@@ -201,6 +201,7 @@ def reverify_engine(engine_id: str) -> dict[str, Any]:
 def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
     """Synthesize audio for a text request."""
     from app.engines.voice.sdk import TTSRequest  # noqa: PLC0415
+    from app.engines.voice.sdk import TTSResult  # noqa: PLC0415
 
     plugin = _plugin_by_id(body.engine_id)
 
@@ -215,12 +216,34 @@ def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
     persisted = load_settings(plugin.plugin_dir)
     merged_settings = {**persisted, **body.settings}
 
+    # Internal hook dispatch
+    h = plugin.engine.hooks()
+
+    # 1. preprocess_request (operates on a mutable dict)
+    request_dict = {
+        "engine_id": body.engine_id,
+        "script_text": body.text,
+        "output_path": body.output_path,
+        "reference_audio_path": body.voice_ref,
+        "settings": merged_settings,
+        "language": body.language,
+    }
+    h.preprocess_request(request_dict)
+
+    # 2. select_voice
+    profile_id = str(merged_settings.get("voice_profile_id") or "").strip()
+    if profile_id:
+        resolved = h.select_voice(profile_id, merged_settings)
+        if resolved:
+            request_dict["voice_id"] = resolved
+
+    # Convert back to immutable TTSRequest
     req = TTSRequest(
-        text=body.text,
-        output_path=body.output_path,
-        voice_ref=body.voice_ref,
-        settings=merged_settings,
-        language=body.language,
+        text=str(request_dict.get("script_text", body.text)),
+        output_path=str(request_dict.get("output_path", body.output_path)),
+        voice_ref=request_dict.get("reference_audio_path") or body.voice_ref,  # type: ignore[arg-type]
+        settings=request_dict.get("settings", merged_settings),  # type: ignore[arg-type]
+        language=str(request_dict.get("language", body.language)),
     )
 
     ok, msg = plugin.engine.check_request(req)
@@ -234,6 +257,10 @@ def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
             status_code=500,
             detail=f"Synthesis failed: {result.error}",
         )
+
+    # 3. postprocess_audio
+    if result.output_path:
+        h.postprocess_audio(result.output_path, merged_settings)
 
     return {
         "ok": True,
@@ -254,12 +281,34 @@ def preview(body: PreviewRequest) -> dict[str, Any]:
     persisted = load_settings(plugin.plugin_dir)
     merged_settings = {**persisted, **body.settings}
 
+    # Internal hook dispatch
+    h = plugin.engine.hooks()
+
+    # 1. preprocess_request
+    request_dict = {
+        "engine_id": body.engine_id,
+        "script_text": body.text,
+        "output_path": body.output_path,
+        "reference_audio_path": body.voice_ref,
+        "settings": merged_settings,
+        "language": body.language,
+    }
+    h.preprocess_request(request_dict)
+
+    # 2. select_voice
+    profile_id = str(merged_settings.get("voice_profile_id") or "").strip()
+    if profile_id:
+        resolved = h.select_voice(profile_id, merged_settings)
+        if resolved:
+            request_dict["voice_id"] = resolved
+
+    # Convert back to immutable TTSRequest
     req = TTSRequest(
-        text=body.text,
-        output_path=body.output_path,
-        voice_ref=body.voice_ref,
-        settings=merged_settings,
-        language=body.language,
+        text=str(request_dict.get("script_text", body.text)),
+        output_path=str(request_dict.get("output_path", body.output_path)),
+        voice_ref=request_dict.get("reference_audio_path") or body.voice_ref,  # type: ignore[arg-type]
+        settings=request_dict.get("settings", merged_settings),  # type: ignore[arg-type]
+        language=str(request_dict.get("language", body.language)),
     )
 
     ok, msg = plugin.engine.check_request(req)
@@ -274,6 +323,10 @@ def preview(body: PreviewRequest) -> dict[str, Any]:
             detail=f"Preview failed: {result.error}",
         )
 
+    # 3. postprocess_audio
+    if result.output_path:
+        h.postprocess_audio(result.output_path, merged_settings)
+
     return {
         "ok": True,
         "engine_id": body.engine_id,
@@ -281,6 +334,28 @@ def preview(body: PreviewRequest) -> dict[str, Any]:
         "duration_sec": result.duration_sec,
         "warnings": result.warnings,
     }
+
+
+@app.post("/engines/{engine_id}/plan")
+def plan_synthesis(engine_id: str, body: SynthesizeRequest) -> dict[str, Any]:
+    """Query an engine for its preferred synthesis plan."""
+    from app.engines.voice.sdk import TTSRequest  # noqa: PLC0415
+    from dataclasses import asdict  # noqa: PLC0415
+
+    plugin = _plugin_by_id(engine_id)
+    persisted = load_settings(plugin.plugin_dir)
+    merged_settings = {**persisted, **body.settings}
+
+    req = TTSRequest(
+        text=body.text,
+        output_path=body.output_path,
+        voice_ref=body.voice_ref,
+        settings=merged_settings,
+        language=body.language,
+    )
+
+    plan = plugin.engine.hooks().plan_synthesis(req)
+    return asdict(plan)
 
 
 @app.post("/plugins/refresh")

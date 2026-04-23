@@ -152,6 +152,33 @@ class TtsClient:
             timeout=_READ_TIMEOUT,
         )
 
+    def plan_synthesis(
+        self,
+        *,
+        engine_id: str,
+        text: str,
+        output_path: str,
+        voice_ref: str | None = None,
+        settings: dict[str, Any] | None = None,
+        language: str = "en",
+    ) -> dict[str, Any]:
+        """POST /engines/{engine_id}/plan — query preferred synthesis plan.
+
+        Returns:
+            dict[str, Any]: SynthesisPlan payload from the engine.
+        """
+        return self._post(
+            f"/engines/{_safe_id(engine_id)}/plan",
+            payload={
+                "engine_id": engine_id,
+                "text": text,
+                "output_path": output_path,
+                "voice_ref": voice_ref,
+                "settings": settings or {},
+                "language": language,
+            },
+        )
+
     def preview(
         self,
         *,

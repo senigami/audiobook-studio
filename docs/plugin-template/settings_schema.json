@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "sample_rate": {
+      "type": "integer",
+      "title": "Sample Rate",
+      "description": "Output sample rate used by the plugin.",
+      "default": 22050,
+      "minimum": 8000,
+      "maximum": 48000
+    },
+    "speed_factor": {
+      "type": "number",
+      "title": "Speed Factor",
+      "description": "Optional speed hint the plugin can use during planning.",
+      "default": 1.0,
+      "minimum": 0.5,
+      "maximum": 2.0
+    },
+    "voice_id": {
+      "type": "string",
+      "title": "Default Voice ID",
+      "description": "Optional engine-specific voice identifier used when Studio does not pick one."
+    }
+  },
+  "required": []
+}

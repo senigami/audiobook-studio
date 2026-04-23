@@ -150,24 +150,17 @@ def _generate_voice_sample_via_bridge(
         "output_format": "wav",
         "on_output": on_output,
         "cancel_check": cancel_check,
+        "reference_sample": reference_sample,
     }
-    if engine == "xtts":
-        request["safe_mode"] = True
+    # Pass through additional context that hooks might need
+    if speed is not None:
         request["speed"] = speed
-        if reference_sample:
-            request["reference_sample"] = reference_sample
-    elif engine == "voxtral":
+    if voxtral_model:
         request["voxtral_model"] = voxtral_model
+    if voxtral_voice_id:
         request["voice_asset_id"] = voxtral_voice_id
-        resolved_reference = _resolve_voxtral_reference_audio_path(
-            pdir=voice_profile_dir or out_wav.parent,
-            reference_sample=reference_sample,
-            speaker_wavs=speaker_wavs,
-        )
-        if resolved_reference:
-            request["reference_audio_path"] = resolved_reference
-        if reference_sample:
-            request["reference_sample"] = reference_sample
+    if voice_profile_dir:
+        request["voice_profile_dir"] = str(voice_profile_dir)
 
     response = bridge.synthesize(request)
     if response.get("audio_path") and Path(str(response["audio_path"])) != out_wav:

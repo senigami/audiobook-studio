@@ -101,7 +101,8 @@ async def save_settings(
     request: Request,
     safe_mode: Optional[Any] = Form(None),
     make_mp3: Optional[Any] = Form(None),
-    voxtral_enabled: Optional[Any] = Form(None)
+    voxtral_enabled: Optional[Any] = Form(None),
+    enabled_plugins: Optional[str] = Form(None)
 ):
     updates = {}
 
@@ -129,6 +130,8 @@ async def save_settings(
                     updates["voxtral_model"] = str(body["voxtral_model"] or "").strip()
                 if "mistral_api_key" in body:
                     updates["mistral_api_key"] = str(body["mistral_api_key"] or "").strip()
+                if "enabled_plugins" in body and isinstance(body["enabled_plugins"], dict):
+                    updates["enabled_plugins"] = body["enabled_plugins"]
         except Exception:
             logger.warning("Failed to parse JSON settings payload", exc_info=True)
 
@@ -148,6 +151,11 @@ async def save_settings(
             updates["voxtral_model"] = str(form.get("voxtral_model") or "").strip()
         if "mistral_api_key" not in updates and form.get("mistral_api_key") is not None:
             updates["mistral_api_key"] = str(form.get("mistral_api_key") or "").strip()
+        if "enabled_plugins" not in updates and form.get("enabled_plugins") is not None:
+            try:
+                updates["enabled_plugins"] = json.loads(form.get("enabled_plugins"))
+            except Exception:
+                logger.warning("Failed to parse enabled_plugins from form")
 
     # 2. Try Form parameters (either from FastAPI's parsing or manual fallback)
     if "safe_mode" not in updates and safe_mode is not None:

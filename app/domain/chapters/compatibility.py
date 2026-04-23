@@ -15,7 +15,7 @@ from app.config import XTTS_OUT_DIR, find_existing_project_subdir
 from app.db.core import _db_lock, get_connection
 from app.db.segments import sync_chapter_segments
 from app.pathing import safe_basename, safe_join_flat
-from app.textops import compute_chapter_metrics, split_sentences
+from app.textops import compute_chapter_metrics, split_sentences, SENT_CHAR_LIMIT
 
 
 class CompatibilityRevisionMismatch(Exception):
@@ -51,7 +51,7 @@ def get_production_blocks_payload(chapter_id: str) -> dict[str, Any]:
 
 def get_script_view_payload(chapter_id: str) -> dict[str, Any]:
     """Build the Phase 7 Script View read model payload for a chapter."""
-    from app.textops import sanitize_for_xtts, SENT_CHAR_LIMIT
+    from app.textops import sanitize_for_xtts
 
     with _db_lock:
         with get_connection() as conn:
@@ -98,6 +98,10 @@ def get_script_view_payload(chapter_id: str) -> dict[str, Any]:
         paragraphs.append({"id": p_id, "span_ids": current_paragraph_span_ids})
 
     # Group spans into compatible render batches
+    from app.engines.bridge import create_voice_bridge
+    bridge = create_voice_bridge()
+    chunk_cache = {}
+
     render_batches = []
     current_batch_spans = []
     current_batch_len = 0
@@ -107,8 +111,15 @@ def get_script_view_payload(chapter_id: str) -> dict[str, Any]:
         sig = (span["character_id"], span["speaker_profile_name"])
         span_len = span["sanitized_char_count"]
 
+        if sig not in chunk_cache:
+            eid = _resolve_engine_from_profile(span["speaker_profile_name"])
+            plan = bridge.get_synthesis_plan({"engine_id": eid})
+            chunk_cache[sig] = plan.chunk_size or SENT_CHAR_LIMIT
+
+        chunk_limit = chunk_cache[sig]
+
         if current_batch_spans:
-            if sig != prev_sig or (current_batch_len + span_len > SENT_CHAR_LIMIT):
+            if sig != prev_sig or (current_batch_len + span_len > chunk_limit):
                 render_batches.append(
                     _build_script_batch(
                         chapter_id=chapter_id,
@@ -799,10 +810,16 @@ def _fallback_block_for_update(
         if existing is not None:
             return existing
 
-    if block_index < len(existing_blocks):
-        return existing_blocks[block_index]
-
     return None
+
+def _resolve_engine_from_profile(profile_name: str | None) -> str:
+    """Resolve the engine ID for a given speaker profile name."""
+    from app.jobs.speaker import get_speaker_settings
+    try:
+        settings = get_speaker_settings(profile_name or "")
+        return settings.get("engine", "xtts")
+    except Exception:
+        return "xtts"
 
 
 def _normalize_block_payload(block: Mapping[str, Any], *, order_index: int) -> dict[str, Any]:

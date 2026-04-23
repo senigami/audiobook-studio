@@ -18,6 +18,7 @@ Move the main user workflows onto the 2.0 foundations once the lower-risk layers
 - plugin install/remove/refresh UI actions
 - cloud engine privacy disclosure in engine cards
 - SettingsTray migration to quick-access widget with "All Settings →" link
+- public-facing plugin docs updated after the voice/plugin hook contract is finalized
 
 ## Deliverables Checklist
 
@@ -99,6 +100,7 @@ The settings page follows a tabbed layout pattern as described in `plans/v2_sett
 - [ ] Settings persistence tests pass
 - [ ] Cloud engine disclosure tests pass
 - [ ] Plugin action tests pass
+- [ ] Public-facing plugin docs updated to match the finalized hook contract
 
 ## Implementation References
 

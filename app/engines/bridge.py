@@ -12,6 +12,7 @@ Phase 5 migration note:
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from app.core.feature_flags import use_tts_server
@@ -22,6 +23,8 @@ from app.engines.errors import (
 )
 from app.engines.registry import load_engine_registry
 from app.engines.models import EngineRegistrationModel
+
+logger = logging.getLogger(__name__)
 
 INTENDED_UPSTREAM_CALLERS = (
     "app.domain.voices.preview",
@@ -66,7 +69,28 @@ class VoiceBridge:
 
         registration = self._resolve_registration(request=request)
         self._validate_request(registration=registration, request=request)
-        return registration.engine.synthesize(request)
+
+        engine = registration.engine
+        h = engine.hooks()
+
+        # Hook: preprocess_request
+        h.preprocess_request(request)
+
+        # Hook: select_voice
+        profile_id = str(request.get("voice_profile_id") or "").strip()
+        settings = request.get("settings") or {}
+        if profile_id:
+            resolved = h.select_voice(profile_id, settings)  # type: ignore[arg-type]
+            if resolved:
+                request["voice_id"] = resolved
+
+        result = engine.synthesize(request)
+
+        # Hook: postprocess_audio
+        if result.get("status") == "ok" and result.get("audio_path"):
+            h.postprocess_audio(str(result["audio_path"]), settings)  # type: ignore[arg-type]
+
+        return result
 
     def preview(self, request: dict[str, object]) -> dict[str, object]:
         """Route a preview/test request through the registry.
@@ -82,7 +106,28 @@ class VoiceBridge:
 
         registration = self._resolve_registration(request=request)
         self._validate_request(registration=registration, request=request)
-        return registration.engine.preview(request)
+
+        engine = registration.engine
+        h = engine.hooks()
+
+        # Hook: preprocess_request
+        h.preprocess_request(request)
+
+        # Hook: select_voice
+        profile_id = str(request.get("voice_profile_id") or "").strip()
+        settings = request.get("settings") or {}
+        if profile_id:
+            resolved = h.select_voice(profile_id, settings)  # type: ignore[arg-type]
+            if resolved:
+                request["voice_id"] = resolved
+
+        result = engine.preview(request)
+
+        # Hook: postprocess_audio
+        if result.get("status") == "ok" and result.get("audio_path"):
+            h.postprocess_audio(str(result["audio_path"]), settings)  # type: ignore[arg-type]
+
+        return result
 
     def build_voice_asset(self, request: dict[str, object]) -> dict[str, object]:
         """Route a voice-asset build request through the registry.
@@ -104,6 +149,82 @@ class VoiceBridge:
         registration = self._resolve_registration(request=request)
         self._validate_request(registration=registration, request=request)
         return registration.engine.build_voice_asset(request)
+
+    def is_engine_enabled(self, engine_id: str) -> bool:
+        """Check whether an engine is enabled in settings.
+
+        Args:
+            engine_id: Target engine identifier.
+
+        Returns:
+            bool: True if enabled, False otherwise.
+        """
+        from app.state import get_settings  # noqa: PLC0415
+
+        registry = self.registry_loader()
+        registration = registry.get(engine_id)
+        if not registration:
+            return False
+
+        settings = get_settings()
+        enabled_plugins = settings.get("enabled_plugins") or {}
+        default_enabled = registration.manifest.built_in or registration.manifest.verified
+        return bool(enabled_plugins.get(engine_id, default_enabled))
+
+    def get_synthesis_plan(self, request: dict[str, Any]) -> Any:
+        """Query an engine for its preferred synthesis plan.
+
+        Args:
+            request: Canonical synthesis request payload.
+
+        Returns:
+            SynthesisPlan: Engine-specific processing plan.
+        """
+        if use_tts_server():
+            try:
+                client = self._get_tts_client()
+                engine_id = self._extract_engine_id(request)
+                payload = client.plan_synthesis(
+                    engine_id=engine_id,
+                    text=str(request.get("script_text", "")),
+                    output_path=str(request.get("output_path", "")),
+                    voice_ref=request.get("reference_audio_path") or None,
+                    settings=self._extract_synthesis_settings(request),
+                    language=str(request.get("language", "en")),
+                )
+                from app.engines.voice.sdk import SynthesisPlan
+
+                return SynthesisPlan(**payload)
+            except Exception as exc:
+                logger.warning("Failed to fetch synthesis plan from TTS Server: %s", exc)
+                from app.engines.voice.sdk import SynthesisPlan
+
+                return SynthesisPlan()
+
+        registration = self._resolve_registration(request=request)
+        from app.engines.voice.sdk import TTSRequest
+        req = TTSRequest(
+            engine_id=registration.manifest.engine_id,
+            script_text=str(request.get("script_text", "")),
+            output_path=str(request.get("output_path", "")),
+            voice_profile_id=str(request.get("voice_profile_id", "")),
+            language=str(request.get("language", "en")),
+            settings=request.get("settings", {}),
+        )
+        return registration.engine.hooks().plan_synthesis(req)
+
+    def check_readiness(self, engine_id: str, profile_id: str, settings: dict[str, Any], profile_dir: str | None) -> tuple[bool, str]:
+        """Check if a voice profile is ready for synthesis with the given engine."""
+        if use_tts_server():
+            # For now, we assume True if engine is active.
+            return True, "Assumed ready (TTS Server)"
+
+        registry = self.registry_loader()
+        registration = registry.get(engine_id)
+        if not registration:
+            return False, f"Engine {engine_id} not found"
+
+        return registration.engine.hooks().check_readiness(profile_id, settings, profile_dir)
 
     def describe_registry(self) -> list[dict[str, object]]:
         """Return discovery metadata for all registered engines."""

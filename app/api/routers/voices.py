@@ -27,6 +27,7 @@ from ...jobs import (
     enqueue, get_speaker_settings, update_speaker_settings, 
     DEFAULT_SPEAKER_TEST_TEXT
 )
+from ...engines.bridge import create_voice_bridge
 from ... import config
 from ...state import get_settings, update_settings, get_jobs, put_job, update_job
 from ...models import Job
@@ -63,28 +64,15 @@ def _normalize_profile_engine(engine: Optional[str]) -> str:
     return normalized
 
 
-def _engine_enabled(engine_id: str) -> bool:
-    settings = get_settings()
-    enabled_plugins = settings.get("enabled_plugins") or {}
-    # If not in the map, default to enabled (e.g. built-ins like XTTS)
-    return bool(enabled_plugins.get(engine_id, True))
-
-
-def _voxtral_enabled() -> bool:
-    """Legacy compatibility shim for Voxtral-specific gates.
-
-    The generic engine-level toggle remains the source of truth for plugin
-    activation, but older profile-management paths still expect Voxtral to be
-    treated as available when an API key is present and the plugin is not
-    explicitly disabled.
-    """
-    settings = get_settings()
-    if not str(settings.get("mistral_api_key") or "").strip():
-        return False
-    enabled_plugins = settings.get("enabled_plugins") or {}
-    if "voxtral" in enabled_plugins:
-        return bool(enabled_plugins.get("voxtral"))
-    return True
+def _is_engine_active(engine_id: str) -> bool:
+    if engine_id == "xtts":
+        return True
+    bridge = create_voice_bridge()
+    engines = bridge.describe_registry()
+    for e in engines:
+        if e["engine_id"] == engine_id:
+            return bool(e.get("enabled"))
+    return False
 
 
 def _voice_dirs_map() -> Dict[str, Path]:
@@ -170,21 +158,24 @@ def _voice_has_latent(name: str) -> bool:
 def _voice_has_generation_material(name: str) -> bool:
     settings = get_speaker_settings(name)
     engine = settings.get("engine", DEFAULT_PROFILE_ENGINE)
-    if engine == "voxtral":
-        if not _voxtral_enabled():
-            return False
-        if settings.get("voxtral_voice_id"):
-            return True
-        ref_sample = settings.get("reference_sample")
-        if ref_sample:
-            try:
-                if _existing_voice_sample_path(name, ref_sample):
-                    return True
-            except ValueError:
-                pass
-        return _voice_raw_sample_count(name) > 0
 
-    return _voice_raw_sample_count(name) > 0 or _voice_has_latent(name)
+    if engine != "xtts":
+        if not _is_engine_active(engine):
+            return False
+
+    bridge = create_voice_bridge()
+    try:
+        profile_dir = _existing_voice_profile_dir(name)
+        ready, _ = bridge.check_readiness(
+            engine_id=engine,
+            profile_id=name,
+            settings=settings,
+            profile_dir=str(profile_dir) if profile_dir else None
+        )
+        return ready
+    except Exception as exc:
+        logger.warning("Failed to check voice readiness for %s: %s", name, exc)
+        return False
 
 
 def _voice_job_title(name: str, action: str = "Building voice for") -> str:
@@ -332,8 +323,8 @@ def api_create_speaker_profile(
     logger.info(f"Creating profile for speaker_id='{speaker_id}', variant_name='{variant_name}', engine='{engine}'")
     try:
         normalized_engine = _normalize_profile_engine(engine)
-        if normalized_engine == "voxtral" and not _voxtral_enabled():
-            return JSONResponse({"status": "error", "message": "Add a Mistral API key in Settings to enable Voxtral."}, status_code=400)
+        if normalized_engine != "xtts" and not _is_engine_active(normalized_engine):
+            return JSONResponse({"status": "error", "message": f"Engine {normalized_engine} is not enabled in Settings."}, status_code=400)
         # Try to use speaker name instead of ID if possible for folder name
         spk = get_speaker(speaker_id)
         spk_name = spk["name"] if spk else speaker_id
@@ -607,8 +598,8 @@ def update_speaker_engine(name: str, engine: str = Form(...)):
     except ValueError:
         return JSONResponse({"status": "error", "message": "Invalid profile engine"}, status_code=400)
 
-    if normalized_engine == "voxtral" and not _voxtral_enabled():
-        return JSONResponse({"status": "error", "message": "Add a Mistral API key in Settings to enable Voxtral."}, status_code=400)
+    if normalized_engine != "xtts" and not _is_engine_active(normalized_engine):
+        return JSONResponse({"status": "error", "message": f"Engine {normalized_engine} is not enabled in Settings."}, status_code=400)
 
     if not update_speaker_settings(name, engine=normalized_engine):
         return JSONResponse({"status": "error", "message": "Profile not found"}, status_code=404)
@@ -618,8 +609,8 @@ def update_speaker_engine(name: str, engine: str = Form(...)):
 
 @router.post("/api/speaker-profiles/{name}/reference-sample")
 def update_speaker_reference_sample(name: str, sample_name: str = Form("")):
-    if not _voxtral_enabled():
-        return JSONResponse({"status": "error", "message": "Add a Mistral API key in Settings to configure Voxtral metadata."}, status_code=400)
+    if not _is_engine_active("voxtral"):
+        return JSONResponse({"status": "error", "message": "Enable Voxtral in Settings to configure metadata."}, status_code=400)
 
     clean_sample = (sample_name or "").strip() or None
 
@@ -639,8 +630,8 @@ def update_speaker_reference_sample(name: str, sample_name: str = Form("")):
 
 @router.post("/api/speaker-profiles/{name}/voxtral-voice-id")
 def update_speaker_voxtral_voice_id(name: str, voice_id: str = Form("")):
-    if not _voxtral_enabled():
-        return JSONResponse({"status": "error", "message": "Add a Mistral API key in Settings to configure Voxtral metadata."}, status_code=400)
+    if not _is_engine_active("voxtral"):
+        return JSONResponse({"status": "error", "message": "Enable Voxtral in Settings to configure metadata."}, status_code=400)
 
     clean_voice_id = (voice_id or "").strip() or None
     if not update_speaker_settings(name, voxtral_voice_id=clean_voice_id):
@@ -794,6 +785,11 @@ def delete_speaker_profile(
 
 @router.post("/api/speaker-profiles/{name}/test")
 def test_speaker_profile(name: str):
+    settings = get_speaker_settings(name)
+    engine = settings.get("engine", DEFAULT_PROFILE_ENGINE)
+    if engine != "xtts" and not _is_engine_active(engine):
+        return JSONResponse({"status": "error", "message": f"Engine {engine} is not enabled in Settings."}, status_code=400)
+
     if not _voice_has_generation_material(name):
         return JSONResponse(
             {"status": "error", "message": "Add at least one sample or keep a latent before testing this voice."},

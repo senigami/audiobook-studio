@@ -21,7 +21,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from app.engines.models import EngineHealthModel
-from app.engines.voice.sdk import TTSRequest, TTSResult
+from app.engines.voice.sdk import TTSRequest, TTSResult, VoiceProcessingHooks
 
 
 class BaseVoiceEngine:
@@ -31,6 +31,13 @@ class BaseVoiceEngine:
     adapters (XTTS, Voxtral) during the Phase 5 migration.  New engines
     should implement ``StudioTTSEngine`` instead.
     """
+
+    def hooks(self) -> VoiceProcessingHooks:
+        """Return processing hooks for this engine.
+
+        Defaults to a no-op implementation.
+        """
+        return VoiceProcessingHooks()
 
     def describe_health(self) -> EngineHealthModel:
         """Summarize module readiness for discovery and diagnostics."""
@@ -128,6 +135,17 @@ class StudioTTSEngine(ABC):
     """
 
     # ------------------------------------------------------------------
+    # Optional hooks
+    # ------------------------------------------------------------------
+
+    def hooks(self) -> VoiceProcessingHooks:
+        """Return processing hooks for this engine.
+
+        Override to customize request planning, voice selection, or postprocessing.
+        """
+        return VoiceProcessingHooks()
+
+    # ------------------------------------------------------------------
     # Required methods
     # ------------------------------------------------------------------
 
@@ -177,7 +195,7 @@ class StudioTTSEngine(ABC):
     def synthesize(self, req: TTSRequest) -> TTSResult:
         """Run TTS synthesis and write audio to ``req.output_path``.
 
-        Must write a valid audio file to ``req.output_path`` on success.  On
+        Must write a valid audio file to ``req.output_path swallow synthesis on success.  On
         failure, return ``TTSResult(ok=False, error=...)`` — do not raise
         unhandled exceptions for normal failure cases.
 
