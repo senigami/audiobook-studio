@@ -65,10 +65,13 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
     const activeProfile = profiles.find(p => p.name === activeProfileId) || defaultProfile;
     const activeEngine = activeProfile?.engine || 'xtts';
     const activeEngineInfo = engines.find(e => e.engine_id === activeEngine);
+    const isCloudEngine = activeEngineInfo
+        ? activeEngineInfo.local === false || (activeEngineInfo.local === undefined && activeEngine !== 'xtts')
+        : activeEngine !== 'xtts';
     const activeEngineBadge = {
         label: activeEngineInfo?.display_name || formatEngineLabel(activeEngine),
-        bg: activeEngine === 'voxtral' ? 'rgba(14, 165, 233, 0.12)' : 'rgba(var(--accent-rgb), 0.12)',
-        color: activeEngine === 'voxtral' ? '#0ea5e9' : 'var(--accent)'
+        bg: isCloudEngine ? 'rgba(14, 165, 233, 0.12)' : 'rgba(var(--accent-rgb), 0.12)',
+        color: isCloudEngine ? '#0ea5e9' : 'var(--accent)'
     };
 
     const handleAddVariant = () => onAddVariantClick(speaker, profiles.length);

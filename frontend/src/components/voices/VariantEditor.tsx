@@ -34,8 +34,10 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
     voiceName, showControlsInline = false, buildingProfiles, engines = []
 }) => {
     const engine = profile.engine || 'xtts';
-    const isVoxtral = engine === 'voxtral';
     const activeEngine = engines.find(e => e.engine_id === engine);
+    const isCloudEngine = activeEngine
+        ? activeEngine.local === false || (activeEngine.local === undefined && engine !== 'xtts')
+        : engine !== 'xtts';
     const engineUsable = !activeEngine || activeEngine.enabled;
     const hasSamples = (profile.wav_count || 0) > 0;
     const hasReferenceMaterial = hasSamples || !!profile.has_latent || !!profile.voxtral_voice_id;
@@ -66,8 +68,8 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
     const playIconColor = isPlaying ? 'var(--surface)' : 'var(--text-primary)';
     const engineBadge = {
         label: activeEngine?.display_name || formatEngineLabel(engine),
-        bg: isVoxtral ? 'rgba(14, 165, 233, 0.12)' : 'rgba(var(--accent-rgb), 0.12)',
-        color: isVoxtral ? '#0ea5e9' : 'var(--accent)'
+        bg: isCloudEngine ? 'rgba(14, 165, 233, 0.12)' : 'rgba(var(--accent-rgb), 0.12)',
+        color: isCloudEngine ? '#0ea5e9' : 'var(--accent)'
     };
 
     useEffect(() => {
@@ -102,7 +104,7 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
         <div style={{ padding: '0 1.25rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <SampleManager
                 profile={profile}
-                title={isVoxtral ? 'Reference Samples' : 'Samples'}
+                title={isCloudEngine ? 'Reference Samples' : 'Samples'}
                 isSamplesExpanded={isSamplesExpanded}
                 setIsSamplesExpanded={setIsSamplesExpanded}
                 isRebuildRequired={isRebuildRequired}
@@ -148,7 +150,7 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                             className="btn-ghost hover-bg-subtle"
                         disabled={!canPreviewOrGenerate || isTesting}
                         title={!canPreviewOrGenerate
-                            ? (isVoxtral
+                            ? (isCloudEngine
                             ? (engineUsable
                                     ? `Add a reference sample or saved voice id before generating a ${activeEngine?.display_name || formatEngineLabel(engine)} preview`
                                     : `Turn ${activeEngine?.display_name || formatEngineLabel(engine)} back on in Settings or switch this voice to XTTS before generating a new preview`)
@@ -199,7 +201,7 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
 
                     <div style={{ width: '1px', height: '24px', background: 'var(--border)', opacity: 0.5, margin: '0 4px' }} />
 
-                    {!isVoxtral && (
+                    {!isCloudEngine && (
                         <>
                             <button
                                 ref={speedPillRef}
@@ -266,7 +268,7 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                         Script
                     </button>
                     
-                    {!isVoxtral && (
+                    {!isCloudEngine && (
                         <button 
                             disabled={!hasReferenceMaterial || isBuilding || isTesting}
                             className={isRebuildRequired ? "btn-primary" : "btn-ghost hover-bg-subtle"}
@@ -304,7 +306,7 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                         </button>
                     )}
 
-                    {isVoxtral && (
+                    {isCloudEngine && (
                         <button
                             disabled={!canGeneratePreview || isTesting}
                             className={isRebuildRequired ? "btn-primary" : "btn-ghost hover-bg-subtle"}
@@ -343,7 +345,7 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                 </div>
             </div>
 
-            {isVoxtral && (
+            {isCloudEngine && (
                 <div style={{
                     padding: showControlsInline ? '0 1.25rem 1.25rem' : '1.25rem',
                     color: 'var(--text-muted)',
