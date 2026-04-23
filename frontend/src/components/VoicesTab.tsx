@@ -10,6 +10,8 @@ import { useVoiceManagement } from '../hooks/useVoiceManagement';
 import { VoicesModals } from './VoicesModals';
 import { getVariantDisplayName, isDefaultVoiceProfile } from '../utils/voiceProfiles';
 
+const formatEngineLabel = (engine: string) => (engine === 'xtts' ? 'XTTS' : engine.charAt(0).toUpperCase() + engine.slice(1));
+
 interface VoicesTabProps {
     onRefresh: () => void | Promise<void>;
     speakerProfiles: SpeakerProfile[];
@@ -19,7 +21,7 @@ interface VoicesTabProps {
     engines?: TtsEngine[];
 }
 
-export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles, testProgress, jobs = {}, settings, engines = [] }) => {
+export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles, testProgress, jobs = {}, engines = [] }) => {
     const [confirmConfig, setConfirmConfig] = useState<{
         title: string;
         message: string;
@@ -28,8 +30,6 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
         isAlert?: boolean;
     } | null>(null);
 
-    const voxtralEngine = engines.find(e => e.engine_id === 'voxtral');
-    const voxtralEnabled = !!voxtralEngine?.enabled && !!settings?.mistral_api_key?.trim();
     const visibleSpeakerProfiles = useMemo(() => speakerProfiles, [speakerProfiles]);
 
     const {
@@ -97,10 +97,15 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
     const [engineFilter, setEngineFilter] = useState<'all' | VoiceEngine>('all');
 
     useEffect(() => {
-        if (!voxtralEnabled && newVoiceEngine === 'voxtral') setNewVoiceEngine('xtts');
-        if (!voxtralEnabled && newVariantEngine === 'voxtral') setNewVariantEngine('xtts');
-        if (!voxtralEnabled && engineFilter === 'voxtral') setEngineFilter('all');
-    }, [voxtralEnabled, newVoiceEngine, newVariantEngine, engineFilter]);
+        const isEngineActive = (eid: string) => {
+            if (eid === 'xtts') return true;
+            return engines.find(e => e.engine_id === eid)?.enabled;
+        };
+
+        if (!isEngineActive(newVoiceEngine)) setNewVoiceEngine('xtts');
+        if (!isEngineActive(newVariantEngine)) setNewVariantEngine('xtts');
+        if (engineFilter !== 'all' && !isEngineActive(engineFilter)) setEngineFilter('all');
+    }, [engines, newVoiceEngine, newVariantEngine, engineFilter]);
 
     const handleRequestConfirm = (config: { title: string; message: string; onConfirm: () => void; isDestructive?: boolean; isAlert?: boolean }) => {
         setConfirmConfig(config);
@@ -407,7 +412,16 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
         const engine = profile.engine || 'xtts';
         acc[engine] = (acc[engine] || 0) + 1;
         return acc;
-    }, { xtts: 0, voxtral: 0 } as Record<VoiceEngine, number>);
+    }, { xtts: 0 } as Record<string, number>);
+
+    const engineFilterOptions: Array<{ key: 'all' | VoiceEngine; label: string }> = [
+        { key: 'all', label: `All (${visibleSpeakerProfiles.length})` },
+        { key: 'xtts', label: `XTTS (${engineCounts.xtts})` },
+        ...engines.filter(e => e.engine_id !== 'xtts' && e.enabled).map(e => ({
+            key: e.engine_id as VoiceEngine,
+            label: `${e.display_name || formatEngineLabel(e.engine_id)} (${engineCounts[e.engine_id as VoiceEngine] || 0})`
+        }))
+    ];
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
@@ -445,11 +459,7 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        {([
-                            { key: 'all', label: `All (${visibleSpeakerProfiles.length})` },
-                            { key: 'xtts', label: `XTTS (${engineCounts.xtts})` },
-                            ...(voxtralEnabled ? [{ key: 'voxtral', label: `Voxtral (${engineCounts.voxtral})` }] as const : []),
-                        ] as const).map((option) => {
+                        {engineFilterOptions.map((option) => {
                             const active = engineFilter === option.key;
                             return (
                                 <button
