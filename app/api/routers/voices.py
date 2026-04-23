@@ -70,6 +70,23 @@ def _engine_enabled(engine_id: str) -> bool:
     return bool(enabled_plugins.get(engine_id, True))
 
 
+def _voxtral_enabled() -> bool:
+    """Legacy compatibility shim for Voxtral-specific gates.
+
+    The generic engine-level toggle remains the source of truth for plugin
+    activation, but older profile-management paths still expect Voxtral to be
+    treated as available when an API key is present and the plugin is not
+    explicitly disabled.
+    """
+    settings = get_settings()
+    if not str(settings.get("mistral_api_key") or "").strip():
+        return False
+    enabled_plugins = settings.get("enabled_plugins") or {}
+    if "voxtral" in enabled_plugins:
+        return bool(enabled_plugins.get("voxtral"))
+    return True
+
+
 def _voice_dirs_map() -> Dict[str, Path]:
     if not VOICES_DIR.exists():
         return {}
@@ -154,7 +171,7 @@ def _voice_has_generation_material(name: str) -> bool:
     settings = get_speaker_settings(name)
     engine = settings.get("engine", DEFAULT_PROFILE_ENGINE)
     if engine == "voxtral":
-        if not _engine_enabled("voxtral"):
+        if not _voxtral_enabled():
             return False
         if settings.get("voxtral_voice_id"):
             return True
@@ -315,7 +332,7 @@ def api_create_speaker_profile(
     logger.info(f"Creating profile for speaker_id='{speaker_id}', variant_name='{variant_name}', engine='{engine}'")
     try:
         normalized_engine = _normalize_profile_engine(engine)
-        if normalized_engine == "voxtral" and not _engine_enabled("voxtral"):
+        if normalized_engine == "voxtral" and not _voxtral_enabled():
             return JSONResponse({"status": "error", "message": "Add a Mistral API key in Settings to enable Voxtral."}, status_code=400)
         # Try to use speaker name instead of ID if possible for folder name
         spk = get_speaker(speaker_id)
@@ -590,7 +607,7 @@ def update_speaker_engine(name: str, engine: str = Form(...)):
     except ValueError:
         return JSONResponse({"status": "error", "message": "Invalid profile engine"}, status_code=400)
 
-    if normalized_engine == "voxtral" and not _engine_enabled("voxtral"):
+    if normalized_engine == "voxtral" and not _voxtral_enabled():
         return JSONResponse({"status": "error", "message": "Add a Mistral API key in Settings to enable Voxtral."}, status_code=400)
 
     if not update_speaker_settings(name, engine=normalized_engine):
@@ -601,7 +618,7 @@ def update_speaker_engine(name: str, engine: str = Form(...)):
 
 @router.post("/api/speaker-profiles/{name}/reference-sample")
 def update_speaker_reference_sample(name: str, sample_name: str = Form("")):
-    if not _engine_enabled("voxtral"):
+    if not _voxtral_enabled():
         return JSONResponse({"status": "error", "message": "Add a Mistral API key in Settings to configure Voxtral metadata."}, status_code=400)
 
     clean_sample = (sample_name or "").strip() or None
@@ -622,7 +639,7 @@ def update_speaker_reference_sample(name: str, sample_name: str = Form("")):
 
 @router.post("/api/speaker-profiles/{name}/voxtral-voice-id")
 def update_speaker_voxtral_voice_id(name: str, voice_id: str = Form("")):
-    if not _engine_enabled("voxtral"):
+    if not _voxtral_enabled():
         return JSONResponse({"status": "error", "message": "Add a Mistral API key in Settings to configure Voxtral metadata."}, status_code=400)
 
     clean_voice_id = (voice_id or "").strip() or None

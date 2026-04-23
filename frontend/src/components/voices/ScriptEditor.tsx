@@ -1,14 +1,14 @@
 import React from 'react';
 import { RotateCcw, Loader2 } from 'lucide-react';
 import { GlassInput } from '../GlassInput';
-import type { VoiceEngine } from '../../types';
+import type { VoiceEngine, TtsEngine } from '../../types';
 
 interface ScriptEditorProps {
     variantName: string;
     onVariantNameChange: (val: string) => void;
     engine: VoiceEngine;
     onEngineChange: (val: VoiceEngine) => void;
-    voxtralEnabled: boolean;
+    engines?: TtsEngine[];
     testText: string;
     onTestTextChange: (val: string) => void;
     referenceSample: string;
@@ -26,7 +26,7 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({
     onVariantNameChange,
     engine,
     onEngineChange,
-    voxtralEnabled,
+    engines = [],
     testText,
     onTestTextChange,
     referenceSample,
@@ -70,17 +70,28 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({
                         }}
                     >
                         <option value="xtts">XTTS</option>
-                        {(voxtralEnabled || engine === 'voxtral') && (
-                            <option value="voxtral">
-                                {voxtralEnabled ? 'Voxtral (Cloud)' : 'Voxtral (Cloud, disabled in Settings)'}
-                            </option>
-                        )}
+                        {engines.map(e => {
+                            if (e.engine_id === 'xtts') return null;
+                            const isSelected = engine === e.engine_id;
+                            if (!e.enabled && !isSelected) return null;
+                            return (
+                                <option key={e.engine_id} value={e.engine_id}>
+                                    {e.enabled ? e.display_name : `${e.display_name} (disabled in Settings)`}
+                                </option>
+                            );
+                        })}
                     </select>
-                    {!voxtralEnabled && engine === 'voxtral' && (
-                        <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                            This profile is still assigned to Voxtral, but cloud voices are currently turned off in Settings. You can keep it as-is or switch it back to XTTS manually.
-                        </p>
-                    )}
+                    {(() => {
+                        const activeEngine = engines.find(e => e.engine_id === engine);
+                        if (engine !== 'xtts' && activeEngine && !activeEngine.enabled) {
+                            return (
+                                <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                                    This profile is assigned to {activeEngine.display_name}, but it is currently turned off in Settings. You can keep it as-is or switch back to XTTS.
+                                </p>
+                            );
+                        }
+                        return null;
+                    })()}
                 </div>
 
                 {engine === 'voxtral' && (

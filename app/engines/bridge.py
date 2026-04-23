@@ -154,6 +154,15 @@ class VoiceBridge:
              enabled_val = settings.get("voxtral_enabled")
 
         if enabled_val is not None:
+            # Enforcement: unverified plugins cannot be turned on
+            if bool(enabled_val):
+                registry = self.registry_loader()
+                registration = registry.get(engine_id)
+                if registration and not (registration.manifest.built_in or registration.manifest.verified):
+                    raise EngineUnavailableError(
+                        f"Cannot enable unverified engine {engine_id}. Verification required."
+                    )
+
             current_settings = get_settings()
             enabled_plugins = dict(current_settings.get("enabled_plugins") or {})
             enabled_plugins[engine_id] = bool(enabled_val)
@@ -350,7 +359,9 @@ class VoiceBridge:
         from app.state import get_settings  # noqa: PLC0415
         settings = get_settings()
         enabled_plugins = settings.get("enabled_plugins") or {}
-        if not bool(enabled_plugins.get(registration.manifest.engine_id, True)):
+
+        default_enabled = registration.manifest.built_in or registration.manifest.verified
+        if not bool(enabled_plugins.get(registration.manifest.engine_id, default_enabled)):
             raise EngineUnavailableError(
                 f"Engine {registration.manifest.engine_id} is disabled in Settings."
             )

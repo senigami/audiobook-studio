@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import type { SpeakerProfile } from '../../types';
+import type { SpeakerProfile, TtsEngine } from '../../types';
 import { 
     Trash2, Play, Loader2, RefreshCw, FileEdit, 
     Pause, Sliders
@@ -8,6 +8,8 @@ import { motion } from 'framer-motion';
 import { SpeedPopover } from './VoiceUtils';
 import { useVariantActions } from '../../hooks/useVariantActions';
 import { SampleManager } from './SampleManager';
+
+const formatEngineLabel = (engine: string) => (engine === 'xtts' ? 'XTTS' : engine.charAt(0).toUpperCase() + engine.slice(1));
 
 interface VariantEditorProps {
     profile: SpeakerProfile;
@@ -23,20 +25,21 @@ interface VariantEditorProps {
     voiceName: string;
     showControlsInline?: boolean;
     buildingProfiles: Record<string, boolean>;
-    voxtralAvailable?: boolean;
+    engines?: TtsEngine[];
 }
 
 export const VariantEditor: React.FC<VariantEditorProps> = ({ 
     profile, isTesting, onTest, onDeleteVariant, onMoveVariant, onRefresh, 
     onEditTestText, onBuildNow, requestConfirm, testStatus,
-    voiceName, showControlsInline = false, buildingProfiles, voxtralAvailable = true
+    voiceName, showControlsInline = false, buildingProfiles, engines = []
 }) => {
     const engine = profile.engine || 'xtts';
     const isVoxtral = engine === 'voxtral';
-    const voxtralUsable = !isVoxtral || voxtralAvailable;
+    const activeEngine = engines.find(e => e.engine_id === engine);
+    const engineUsable = !activeEngine || activeEngine.enabled;
     const hasSamples = (profile.wav_count || 0) > 0;
     const hasReferenceMaterial = hasSamples || !!profile.has_latent || !!profile.voxtral_voice_id;
-    const canGeneratePreview = hasReferenceMaterial && voxtralUsable;
+    const canGeneratePreview = hasReferenceMaterial && engineUsable;
     const canPreviewOrGenerate = !!profile.preview_url || canGeneratePreview;
 
     const {
@@ -62,7 +65,7 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
     const speed = localSpeed ?? profile.speed;
     const playIconColor = isPlaying ? 'var(--surface)' : 'var(--text-primary)';
     const engineBadge = {
-        label: isVoxtral ? 'Voxtral' : 'XTTS',
+        label: activeEngine?.display_name || formatEngineLabel(engine),
         bg: isVoxtral ? 'rgba(14, 165, 233, 0.12)' : 'rgba(var(--accent-rgb), 0.12)',
         color: isVoxtral ? '#0ea5e9' : 'var(--accent)'
     };
@@ -146,9 +149,9 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                         disabled={!canPreviewOrGenerate || isTesting}
                         title={!canPreviewOrGenerate
                             ? (isVoxtral
-                                ? (voxtralUsable
-                                    ? "Add a reference sample or saved voice id before generating a Voxtral preview"
-                                    : "Turn Voxtral back on in Settings or switch this voice to XTTS before generating a new preview")
+                            ? (engineUsable
+                                    ? `Add a reference sample or saved voice id before generating a ${activeEngine?.display_name || formatEngineLabel(engine)} preview`
+                                    : `Turn ${activeEngine?.display_name || formatEngineLabel(engine)} back on in Settings or switch this voice to XTTS before generating a new preview`)
                                 : "Add at least one sample or keep a latent before generating a preview")
                             : profile.preview_url
                                 ? (isPlaying ? "Pause Sample" : "Play Sample")
@@ -306,10 +309,10 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                             disabled={!canGeneratePreview || isTesting}
                             className={isRebuildRequired ? "btn-primary" : "btn-ghost hover-bg-subtle"}
                             onClick={handleGeneratePreview}
-                            title={!voxtralUsable
-                                ? "Turn Voxtral back on in Settings or switch this voice to XTTS before generating a new preview"
+                            title={!engineUsable
+                                ? `Turn ${activeEngine?.display_name || formatEngineLabel(engine)} back on in Settings or switch this voice to XTTS before generating a new preview`
                                 : !hasReferenceMaterial
-                                    ? "Add a reference sample or saved voice id before generating a Voxtral preview"
+                                    ? `Add a reference sample or saved voice id before generating a ${activeEngine?.display_name || formatEngineLabel(engine)} preview`
                                     : profile.preview_url ? "Regenerate Sample" : "Generate Sample"}
                             style={{
                                 padding: '8px 12px',
@@ -347,9 +350,9 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                     fontSize: '0.82rem',
                     lineHeight: 1.5
                 }}>
-                    {voxtralUsable
-                        ? 'Voxtral profiles use reference audio or a saved voice id instead of XTTS latent rebuilds. Use play to hear the current preview, and use regenerate when you want to refresh that preview after changing the script or reference settings.'
-                        : 'This voice is still assigned to Voxtral, but Voxtral is turned off in Settings. You can still play any existing preview, but new Voxtral generation is blocked until you turn Voxtral back on or switch this voice to XTTS.'}
+                    {engineUsable
+                        ? `${activeEngine?.display_name || formatEngineLabel(engine)} profiles use reference audio or a saved voice id instead of XTTS latent rebuilds. Use play to hear the current preview, and use regenerate when you want to refresh that preview after changing the script or reference settings.`
+                        : `This voice is still assigned to ${activeEngine?.display_name || formatEngineLabel(engine)}, but it is turned off in Settings. You can still play any existing preview, but new generation is blocked until you turn it back on or switch this voice to XTTS.`}
                 </div>
             )}
 

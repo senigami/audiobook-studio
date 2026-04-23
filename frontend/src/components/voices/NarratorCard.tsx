@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import type { Speaker, SpeakerProfile } from '../../types';
+import type { Speaker, SpeakerProfile, TtsEngine } from '../../types';
 import { User, RefreshCw, ChevronUp, Star, FileEdit, Trash2, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ActionMenu } from '../ActionMenu';
 import { VariantEditor } from './VariantEditor';
 import { getDefaultVoiceProfileName } from '../../utils/voiceProfiles';
+
+const formatEngineLabel = (engine: string) => (engine === 'xtts' ? 'XTTS' : engine.charAt(0).toUpperCase() + engine.slice(1));
 
 interface NarratorCardProps {
     speaker: Speaker;
@@ -23,7 +25,7 @@ interface NarratorCardProps {
     isExpanded: boolean;
     onToggleExpand: () => void;
     buildingProfiles: Record<string, boolean>;
-    voxtralAvailable?: boolean;
+    engines?: TtsEngine[];
 }
 
 export const NarratorCard: React.FC<NarratorCardProps> = ({
@@ -32,7 +34,7 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
     onEditTestText, onBuildNow, requestConfirm,
     onAddVariantClick, onRenameClick, onSetDefaultClick, isExpanded, onToggleExpand, onMoveVariant,
     buildingProfiles,
-    voxtralAvailable = true
+    engines = []
 }) => {
     const defaultProfileName = getDefaultVoiceProfileName(profiles);
     const defaultProfile =
@@ -62,8 +64,9 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
 
     const activeProfile = profiles.find(p => p.name === activeProfileId) || defaultProfile;
     const activeEngine = activeProfile?.engine || 'xtts';
+    const activeEngineInfo = engines.find(e => e.engine_id === activeEngine);
     const activeEngineBadge = {
-        label: activeEngine === 'voxtral' ? 'Voxtral' : 'XTTS',
+        label: activeEngineInfo?.display_name || formatEngineLabel(activeEngine),
         bg: activeEngine === 'voxtral' ? 'rgba(14, 165, 233, 0.12)' : 'rgba(var(--accent-rgb), 0.12)',
         color: activeEngine === 'voxtral' ? '#0ea5e9' : 'var(--accent)'
     };
@@ -325,7 +328,7 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
                                     voiceName={speaker.name}
                                     showControlsInline={true}
                                     buildingProfiles={buildingProfiles}
-                                    voxtralAvailable={voxtralAvailable}
+                                    engines={engines}
                                 />
                         </div>
                     </motion.div>

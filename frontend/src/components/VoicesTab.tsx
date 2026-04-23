@@ -559,7 +559,7 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                                     }}
                                     isExpanded={expandedVoiceId === voice.id}
                                     onToggleExpand={() => setExpandedVoiceId(expandedVoiceId === voice.id ? null : voice.id)}
-                                    voxtralAvailable={voxtralEnabled}
+                                    engines={engines}
                                 />
                             ))}
                         </>
@@ -574,7 +574,7 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 setNewVoiceName={setNewVoiceName}
                 newVoiceEngine={newVoiceEngine}
                 setNewVoiceEngine={setNewVoiceEngine}
-                voxtralEnabled={voxtralEnabled}
+                engines={engines}
                 isCreatingVoice={isCreatingVoice}
                 handleCreateVoice={handleCreateVoice}
                 isRenameModalOpen={isRenameModalOpen}
