@@ -17,7 +17,7 @@ Move the main user workflows onto the 2.0 foundations once the lower-risk layers
 - schema-driven per-engine settings forms
 - plugin install/remove/refresh UI actions
 - cloud engine privacy disclosure in engine cards
-- SettingsTray migration to quick-access widget with "All Settings →" link
+- SettingsTray retired in favor of the full tabbed Settings surface
 - public-facing plugin docs updated after the voice/plugin hook contract is finalized
 
 ## Deliverables Checklist
@@ -111,9 +111,12 @@ The settings page follows a tabbed layout pattern as described in `plans/v2_sett
 - `plans/v2_tts_server.md` — health data for engine badges and About tab
 - `plans/v2_voice_system_interface.md` — voice module management concept
 - `plans/v2_chapter_editor_workflow.md` — editor workflow requirements
-- `frontend/src/components/SettingsTray.tsx` — current settings implementation to migrate
 
 ## Exit Gate
 
 - the main user workflow runs on the 2.0 architecture
 - all TTS engines are configurable through the Settings page without hard-coded engine-specific UI
+
+## Closeout Status
+
+Phase 7 is ready for handoff and closeout. The remaining work is manual product verification if desired and planning the next phase, not additional Phase 7 feature implementation.
