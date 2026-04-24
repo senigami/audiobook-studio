@@ -4,13 +4,21 @@ import json
 import re
 import logging
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, List
 from fastapi import APIRouter, Form, File, UploadFile, Request, Query
 from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 from ...db import (
-    create_project, get_project, list_projects, update_project, 
-    delete_project, list_chapters as db_list_chapters, reorder_chapters
+    create_project,
+    get_project,
+    get_chapter,
+    list_projects,
+    update_project,
+    delete_project,
+    list_chapters as db_list_chapters,
+    reorder_chapters,
 )
 from ...config import COVER_DIR, XTTS_OUT_DIR, get_project_dir, get_project_cover_dir, find_existing_project_dir, find_existing_project_subdir
 import urllib.parse
@@ -21,10 +29,172 @@ from ...models import Job
 from ...pathing import safe_basename, safe_join, safe_join_flat
 from ...api.utils import SAFE_FILE_RE, preferred_audiobook_download_filename, probe_audiobook_metadata
 from ...constants import DEFAULT_VOICE_SENTINEL
+from ...domain.projects.service import create_project_service, ProjectService
+from ...domain.projects.models import ProjectModel, ProjectSnapshotModel
+from ...domain.chapters.models import ChapterModel
+from ...db.core import _db_lock, get_connection
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
+
+
+class SqliteProjectRepository:
+    """Project repository implementation using existing SQLite DB."""
+
+    def _ensure_table(self):
+        with _db_lock:
+            with get_connection() as conn:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS project_snapshots (
+                        id TEXT PRIMARY KEY,
+                        project_id TEXT NOT NULL,
+                        label TEXT NOT NULL,
+                        source_revision TEXT NOT NULL,
+                        metadata_json TEXT,
+                        chapter_ids TEXT,
+                        artifact_hashes TEXT,
+                        created_at REAL,
+                        FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
+                    )
+                """)
+                conn.commit()
+
+    def get(self, project_id: str) -> Optional[ProjectModel]:
+        p = get_project(project_id)
+        if not p:
+            return None
+        return ProjectModel(
+            id=p["id"],
+            title=p["name"],
+            author=p.get("author"),
+            series=p.get("series"),
+            cover_asset_ref=p.get("cover_image_path"),
+            default_voice_id=p.get("speaker_profile_name"),
+        )
+
+    def list_all(self) -> List[ProjectModel]:
+        return [
+            ProjectModel(
+                id=p["id"],
+                title=p["name"],
+                author=p.get("author"),
+                series=p.get("series"),
+                cover_asset_ref=p.get("cover_image_path"),
+                default_voice_id=p.get("speaker_profile_name"),
+            )
+            for p in list_projects()
+        ]
+
+    def save(self, project: ProjectModel) -> ProjectModel:
+        # Placeholder for real persistence update if needed in this slice
+        return project
+
+    def delete(self, project_id: str) -> None:
+        delete_project(project_id)
+
+    def save_snapshot(self, snapshot: ProjectSnapshotModel) -> ProjectSnapshotModel:
+        self._ensure_table()
+        with _db_lock:
+            with get_connection() as conn:
+                conn.execute("""
+                    INSERT OR REPLACE INTO project_snapshots
+                    (id, project_id, label, source_revision, metadata_json, chapter_ids, artifact_hashes, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    snapshot.id,
+                    snapshot.project_id,
+                    snapshot.label,
+                    snapshot.source_revision,
+                    json.dumps(snapshot.metadata_json),
+                    json.dumps(snapshot.chapter_ids),
+                    json.dumps(snapshot.artifact_hashes),
+                    snapshot.created_at.timestamp() if snapshot.created_at else time.time()
+                ))
+                conn.commit()
+        return snapshot
+
+    def get_snapshot(self, project_id: str, revision_id: str) -> Optional[ProjectSnapshotModel]:
+        self._ensure_table()
+        with _db_lock:
+            with get_connection() as conn:
+                cursor = conn.execute(
+                    "SELECT * FROM project_snapshots WHERE project_id = ? AND source_revision = ?",
+                    (project_id, revision_id)
+                )
+                row = cursor.fetchone()
+                if not row:
+                    return None
+                return ProjectSnapshotModel(
+                    id=row["id"],
+                    project_id=row["project_id"],
+                    label=row["label"],
+                    source_revision=row["source_revision"],
+                    metadata_json=json.loads(row["metadata_json"]),
+                    chapter_ids=json.loads(row["chapter_ids"]),
+                    artifact_hashes=json.loads(row["artifact_hashes"]),
+                    created_at=datetime.fromtimestamp(row["created_at"], timezone.utc) if row["created_at"] else datetime.now(timezone.utc)
+                )
+
+    def list_snapshots(self, project_id: str) -> List[ProjectSnapshotModel]:
+        self._ensure_table()
+        with _db_lock:
+            with get_connection() as conn:
+                cursor = conn.execute(
+                    "SELECT * FROM project_snapshots WHERE project_id = ? ORDER BY created_at DESC",
+                    (project_id,)
+                )
+                return [
+                    ProjectSnapshotModel(
+                        id=row["id"],
+                        project_id=row["project_id"],
+                        label=row["label"],
+                        source_revision=row["source_revision"],
+                        metadata_json=json.loads(row["metadata_json"]),
+                        chapter_ids=json.loads(row["chapter_ids"]),
+                        artifact_hashes=json.loads(row["artifact_hashes"]),
+                        created_at=datetime.fromtimestamp(row["created_at"], timezone.utc) if row["created_at"] else datetime.now(timezone.utc)
+                    )
+                    for row in cursor.fetchall()
+                ]
+
+
+class SqliteChapterRepository:
+    """Chapter repository implementation using existing SQLite DB."""
+
+    def list_by_project(self, project_id: str) -> List[ChapterModel]:
+        chapters = db_list_chapters(project_id)
+        return [
+            ChapterModel(
+                id=c["id"],
+                project_id=c["project_id"],
+                title=c["title"],
+                order_index=c.get("sort_order", 0),
+                word_count=c.get("word_count", 0),
+                character_count=c.get("char_count", 0),
+            )
+            for c in chapters
+        ]
+
+    def get(self, chapter_id: str) -> Optional[ChapterModel]:
+        c = get_chapter(chapter_id)
+        if not c:
+            return None
+        return ChapterModel(
+            id=c["id"],
+            project_id=c["project_id"],
+            title=c["title"],
+            order_index=c.get("sort_order", 0),
+            word_count=c.get("word_count", 0),
+            character_count=c.get("char_count", 0),
+        )
+
+
+def _get_project_service() -> ProjectService:
+    return create_project_service(
+        repository=SqliteProjectRepository(),
+        chapter_repository=SqliteChapterRepository()
+    )
 
 
 async def _store_project_cover(project_id: str, project_dir: Path, cover: UploadFile) -> str:
@@ -160,9 +330,9 @@ def api_list_project_audiobooks(project_id: str):
         p = Path(probe_target)
         st = p.stat()
         item = {
-            "filename": p.name, 
-            "title": p.name, 
-            "cover_url": None, 
+            "filename": p.name,
+            "title": p.name,
+            "cover_url": None,
             "url": url,
             "created_at": st.st_mtime,
             "size_bytes": st.st_size,
@@ -264,6 +434,34 @@ def assemble_project(project_id: str, chapter_ids: Optional[str] = Form(None)):
     update_job(jid, force_broadcast=True, status="queued", project_id=project_id, custom_title=book_title)
     enqueue(j)
     return JSONResponse({"status": "ok", "job_id": jid})
+
+@router.get("/{project_id}/export-manifest")
+def api_get_project_export_manifest(project_id: str, format_id: str = Query("audiobook")):
+    """Build and return an export manifest for the project."""
+    service = _get_project_service()
+    try:
+        manifest = service.build_export_manifest(project_id, format_id=format_id)
+        return JSONResponse(jsonable_encoder(manifest))
+    except KeyError:
+        return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
+    except NotImplementedError as e:
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=501)
+    except Exception as e:
+        logger.error(f"Failed to build export manifest for project {project_id}: {e}", exc_info=True)
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+
+@router.post("/{project_id}/snapshots")
+def api_create_project_snapshot(project_id: str):
+    """Create a new revision-safe snapshot for the project."""
+    service = _get_project_service()
+    try:
+        snapshot = service.create_snapshot(project_id)
+        return JSONResponse(jsonable_encoder(snapshot))
+    except KeyError:
+        return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
+    except Exception as e:
+        logger.error(f"Failed to create snapshot for project {project_id}: {e}", exc_info=True)
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 
 @router.get("/audiobook/prepare")
 def prepare_audiobook():
