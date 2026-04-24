@@ -109,7 +109,10 @@ This voice migration should preserve the generic plugin/engine model: `voice.jso
 - Project management ergonomics finalized: Chapters tab now owns the primary assembly creation flow, the action bar is responsive at narrow widths, and Assemblies/Backups support inline description editing.
 - Backup archival corrected: Archives now strictly include WAV-only assets when audio inclusion is enabled, verified by zip-content regression tests.
 - Chapter-folder and voice-folder storage normalization have been captured as follow-up candidates; current backups intentionally preserve chapter-level WAV masters only until segment storage is migrated.
-- Remaining Phase 8 work is now the plugin diagnostics/recovery pass and the stale-legacy cleanup pass.
+- Plugin diagnostics and recovery UX have been hardened, and legacy placeholders (like "Safe Mode") have been replaced with clearer terminology ("Stability Mode").
+- Structural legacy paths (backfill/repair) have been audited and confirmed as isolated system utilities.
+- Character assignment "None / Default" tool has been restored with a "No-Op" policy.
+- All Phase 8 cleanup and diagnostic audit items are complete.
 
 ## Scope
 

@@ -276,8 +276,8 @@ const GeneralSettingsPanel: React.FC<SettingsRouteProps> = ({ settings, speakerP
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
           <SettingCard
             icon={ShieldCheck}
-            title="Safe Mode"
-            description="Auto-recover the synthesis engine after errors."
+            title="Stability Mode"
+            description="Enable advanced text cleaning to improve engine stability and avoid speech artifacts."
             action={
               <ToggleButton
                 enabled={!!settings?.safe_mode}

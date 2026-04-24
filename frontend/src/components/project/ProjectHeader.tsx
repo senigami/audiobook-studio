@@ -24,7 +24,7 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({
 }) => {
   return (
     <header style={{ 
-        padding: compact ? '1rem 0' : '2rem 0',
+        padding: compact ? '0rem 0' : '1rem 0',
         display: 'flex', 
         gap: compact ? '1rem' : '2rem',
         alignItems: 'center',

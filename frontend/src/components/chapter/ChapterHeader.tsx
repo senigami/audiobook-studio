@@ -146,12 +146,12 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
   }, []);
 
   return (
-    <header style={{ 
+    <header className="chapter-header" style={{
       display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 0', 
       background: 'var(--bg)',
       flexShrink: 0
     }}>
-      <div style={{ display: 'flex', gap: '0.35rem' }}>
+      <div className="chapter-header__nav" style={{ display: 'flex', gap: '0.35rem' }}>
         <button 
           onClick={onPrev} 
           disabled={!onPrev} 
@@ -193,7 +193,7 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
           <ChevronRight size={18} />
         </button>
       </div>
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '1rem', minWidth: 0 }}>
+      <div className="chapter-header__main" style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '1rem', minWidth: 0 }}>
           {typeof title === 'string' && setTitle && (
               <input
                   value={title}
@@ -215,7 +215,7 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
           )}
           
           {hasChapterAudio && (
-              <div style={{ paddingLeft: '1rem', borderLeft: '1px solid var(--border)' }}>
+              <div className="chapter-header__audio" style={{ paddingLeft: '1rem', borderLeft: '1px solid var(--border)' }}>
                   {(() => {
                       const audioPath = chapter.audio_file_path;
                       if (!audioPath) {
@@ -253,7 +253,7 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
               </div>
           )}
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+      <div className="chapter-header__actions" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           {(onSaveWav || onSaveMp3) && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                   {onSaveWav && (
