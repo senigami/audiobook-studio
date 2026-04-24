@@ -53,7 +53,7 @@ def test_variant_folder_naming(clean_db, voices_root):
 
     # MUST use dash convention: "SpeakerName - VariantName"
     assert name == "TestSpeaker - Variant1"
-    assert (voices_dir / "TestSpeaker - Variant1").exists()
+    assert (voices_dir / "TestSpeaker" / "Variant1").exists()
 
 def test_rename_unassigned_profile(clean_db, voices_root):
     voices_dir = voices_root
@@ -70,6 +70,7 @@ def test_rename_unassigned_profile(clean_db, voices_root):
     assert response.status_code == 200
 
     assert (voices_dir / "NewUnassigned").exists()
+    assert (voices_dir / "NewUnassigned" / "profile.json").exists()
     assert not (voices_dir / "OldUnassigned").exists()
 
 def test_add_variant_to_unassigned(clean_db, voices_root):
@@ -78,6 +79,7 @@ def test_add_variant_to_unassigned(clean_db, voices_root):
 
     # 1. Create an unassigned profile base
     (voices_dir / "FreshVoice").mkdir()
+    (voices_dir / "FreshVoice" / "profile.json").write_text("{}")
 
     # 2. Add a variant to it (sending speaker_id="FreshVoice" since it's unassigned)
     response = client.post("/api/speaker-profiles", data={"speaker_id": "FreshVoice", "variant_name": "Variant1"})
@@ -86,10 +88,10 @@ def test_add_variant_to_unassigned(clean_db, voices_root):
 
     # MUST use dash convention: "FreshVoice - Variant1"
     assert name == "FreshVoice - Variant1"
-    assert (voices_dir / "FreshVoice - Variant1").exists()
+    assert (voices_dir / "FreshVoice" / "Variant1").exists()
 
     # Check metadata
-    meta = json.loads((voices_dir / "FreshVoice - Variant1" / "profile.json").read_text())
+    meta = json.loads((voices_dir / "FreshVoice" / "Variant1" / "profile.json").read_text())
     assert meta["speaker_id"] == "FreshVoice"
     assert meta["variant_name"] == "Variant1"
 
@@ -99,12 +101,14 @@ def test_rename_unassigned_profile_payload(clean_db, voices_root):
 
     profile_path = voices_dir / "OldName"
     profile_path.mkdir()
+    (profile_path / "profile.json").write_text("{}")
 
     # Frontend was sending 'name' but backend expects 'new_name'
     # This test should pass after we fix the frontend or backend
     response = client.post("/api/speaker-profiles/OldName/rename", data={"new_name": "NewName"})
     assert response.status_code == 200
     assert (voices_dir / "NewName").exists()
+    assert (voices_dir / "NewName" / "profile.json").exists()
 
 def test_default_variant_resolution(clean_db, voices_root):
     import app.jobs.speaker
@@ -116,8 +120,11 @@ def test_default_variant_resolution(clean_db, voices_root):
     sid = create_speaker("Old Man")
 
     # 2. Create a variant folder (but don't set it as default in DB)
-    variant_path = voices_dir / "Old Man - Angry"
+    variant_path = voices_dir / "Old Man" / "Angry"
+    variant_path.parent.mkdir(parents=True, exist_ok=True)
     variant_path.mkdir()
+    (variant_path.parent / "voice.json").write_text(json.dumps({"version": 2, "name": "Old Man"}))
+    (variant_path / "profile.json").write_text(json.dumps({"variant_name": "Angry"}))
     (variant_path / "sample.wav").write_text("dummy")
 
     # 3. Resolve "Old Man" (the speaker name)
@@ -125,10 +132,10 @@ def test_default_variant_resolution(clean_db, voices_root):
     from app.jobs.speaker import get_speaker_wavs
     res = get_speaker_wavs("Old Man")
     assert res is not None
-    assert "Old Man - Angry" in res
+    assert "Old Man" in res and "Angry" in res
 
     resolved_dir = app.jobs.speaker.get_voice_profile_dir("Old Man")
-    assert resolved_dir == (voices_dir / "Old Man - Angry").resolve()
+    assert resolved_dir == (voices_dir / "Old Man" / "Angry").resolve()
 
 
 def test_voice_output_exists_for_voice_engine():
@@ -177,8 +184,10 @@ def test_assign_profile_to_different_speaker(clean_db, voices_root):
     create_speaker("Narrator")
 
     # Create a profile folder for Dracula
-    (voices_dir / "Dracula - Calm").mkdir()
-    (voices_dir / "Dracula - Calm" / "profile.json").write_text(
+    (voices_dir / "Dracula").mkdir()
+    (voices_dir / "Dracula" / "Calm").mkdir()
+    (voices_dir / "Dracula" / "voice.json").write_text(json.dumps({"version": 2, "name": "Dracula"}))
+    (voices_dir / "Dracula" / "Calm" / "profile.json").write_text(
         json.dumps({"speaker_id": sid_dracula, "variant_name": "Calm"})
     )
 
@@ -195,8 +204,8 @@ def test_assign_profile_to_different_speaker(clean_db, voices_root):
     assert response.status_code == 200, response.text
     new_name = response.json()["new_profile_name"]
     assert new_name == "Narrator - Calm"
-    assert (voices_dir / "Narrator - Calm").exists()
-    assert not (voices_dir / "Dracula - Calm").exists()
+    assert (voices_dir / "Narrator" / "Calm").exists()
+    assert not (voices_dir / "Dracula").exists()
 
 
 def test_worker_does_not_skip_voice_builds():
@@ -220,6 +229,7 @@ def test_build_clears_sample_wav(clean_db, voices_root):
     # 1. Create a profile, a raw sample, and a sample.wav preview file
     profile_path = voices_dir / "TestBuilder"
     profile_path.mkdir()
+    (profile_path / "profile.json").write_text("{}")
     raw_sample_path = profile_path / "raw_sample.wav"
     raw_sample_path.write_text("raw content")
     sample_path = profile_path / "sample.wav"

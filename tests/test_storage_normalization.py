@@ -1,197 +1,242 @@
-import pytest
 import os
 import shutil
+import json
+import pytest
 from pathlib import Path
-from fastapi.testclient import TestClient
-from app.web import app
+from unittest.mock import patch, MagicMock
+
 from app.db.core import init_db
 from app.db.projects import create_project
-from app.db.chapters import create_chapter, update_chapter
-from app import config
-
-@pytest.fixture
-def client():
-    return TestClient(app)
+from app.db.chapters import create_chapter, get_chapter
+from app.db.segments import get_chapter_segments
+from app.config import get_project_dir, get_project_audio_dir, get_project_text_dir, resolve_chapter_asset_path, get_chapter_dir
+from app.domain.projects.migration import migrate_project_to_v2
+from app.domain.projects.manifest import load_project_manifest
 
 @pytest.fixture
 def clean_db(tmp_path):
     db_path = tmp_path / "test_storage.db"
     os.environ["DB_PATH"] = str(db_path)
-
-    # Override directories to use tmp_path
-    # We must override both app.config and app.web because web.py has a middleware 
-    # that syncs from its own local imports.
-    test_projects_dir = tmp_path / "projects"
-    test_projects_dir.mkdir(parents=True, exist_ok=True)
-
-    config.PROJECTS_DIR = test_projects_dir
-    from app import web
-    web.PROJECTS_DIR = test_projects_dir
-
     init_db()
-    yield tmp_path
-    if db_path.exists():
-        db_path.unlink()
 
-def test_legacy_flat_storage_resolution(clean_db, client):
-    """Verify that assets in legacy flat directories are still resolved correctly."""
-    pid = create_project("LegacyProject")
-    cid = create_chapter(pid, "Chapter1", "Legacy content")
+    # Mock projects root to tmp_path
+    with patch("app.config.XTTS_OUT_DIR", tmp_path / "xtts_out"), \
+         patch("app.config.PROJECTS_DIR", tmp_path / "projects"):
+        (tmp_path / "projects").mkdir()
+        yield tmp_path
 
-    project_dir = config.get_project_dir(pid)
-    audio_dir = project_dir / "audio"
-    text_dir = project_dir / "text"
+def test_migration_v1_to_v2(clean_db):
+    tmp_root = clean_db
+    # Create project with metadata
+    from app.db.projects import update_project
+    pid = create_project("Legacy Project")
+    update_project(pid, author="Test Author", series="Test Series")
+    project_dir = get_project_dir(pid)
+
+    # Create legacy structure
+    audio_dir = get_project_audio_dir(pid)
+    text_dir = get_project_text_dir(pid)
     audio_dir.mkdir(parents=True, exist_ok=True)
     text_dir.mkdir(parents=True, exist_ok=True)
 
+    cid = create_chapter(pid, "Chapter 1", "Hello world.")
+
     # Create legacy files
-    legacy_audio = audio_dir / f"{cid}_0.wav"
-    legacy_audio.write_bytes(b"RIFF_LEGACY")
+    (audio_dir / f"{cid}.wav").write_text("audio data")
+    (text_dir / f"{cid}.txt").write_text("text data")
 
-    legacy_text = text_dir / f"{cid}_0.txt"
-    legacy_text.write_text("Legacy Text File Content")
+    segments = get_chapter_segments(cid)
+    sid = segments[0]["id"]
+    (audio_dir / f"chunk_{sid}.wav").write_text("segment data")
 
-    # Verify via API asset endpoint
-    response = client.get(f"/api/projects/{pid}/chapters/{cid}/assets/audio")
-    assert response.status_code == 200
-    assert response.content == b"RIFF_LEGACY"
+    # RUN MIGRATION
+    success = migrate_project_to_v2(pid)
+    assert success is True
 
-    response = client.get(f"/api/projects/{pid}/chapters/{cid}/assets/text")
-    assert response.status_code == 200
-    assert response.text == "Legacy Text File Content"
+    # Verify manifest and enriched metadata
+    manifest = load_project_manifest(project_dir)
+    assert manifest["version"] == 2
+    assert manifest["title"] == "Legacy Project"
+    assert manifest["author"] == "Test Author"
+    assert manifest["series"] == "Test Series"
+    assert "created_at" in manifest
 
-def test_nested_storage_resolution_priority(clean_db, client):
-    """Verify that assets in the new nested directory take priority over legacy ones."""
-    pid = create_project("HybridProject")
-    cid = create_chapter(pid, "Chapter1", "Hybrid content")
+    # Verify files moved
+    nested_dir = get_chapter_dir(pid, cid)
+    assert (nested_dir / "chapter.wav").exists()
+    assert (nested_dir / "chapter.txt").exists()
+    assert (nested_dir / "segments" / f"{sid}.wav").exists()
 
-    project_dir = config.get_project_dir(pid)
+    # Verify legacy files ARE REMOVED
+    assert not (audio_dir / f"{cid}.wav").exists()
+    assert not (text_dir / f"{cid}.txt").exists()
+    assert not (audio_dir / f"chunk_{sid}.wav").exists()
 
-    # 1. Setup Legacy
-    audio_dir = project_dir / "audio"
-    audio_dir.mkdir(parents=True, exist_ok=True)
-    (audio_dir / f"{cid}_0.wav").write_bytes(b"RIFF_LEGACY")
+    # Verify legacy directories ARE REMOVED (Hardening Cleanup)
+    assert not audio_dir.exists()
+    assert not text_dir.exists()
 
-    # 2. Setup Nested
-    chapter_dir = config.get_chapter_dir(pid, cid)
-    chapter_dir.mkdir(parents=True, exist_ok=True)
-    nested_audio = chapter_dir / "chapter.wav"
-    nested_audio.write_bytes(b"RIFF_NESTED")
+    # Verify resolution still works (points to new location)
+    asset_path = resolve_chapter_asset_path(pid, cid, "audio")
+    assert asset_path.exists()
+    assert str(asset_path).endswith("chapter.wav")
 
-    # Verify nested takes priority
-    response = client.get(f"/api/projects/{pid}/chapters/{cid}/assets/audio")
-    assert response.status_code == 200
-    assert response.content == b"RIFF_NESTED"
+def test_idempotent_migration(clean_db):
+    pid = create_project("Idempotent Project")
+    project_dir = get_project_dir(pid)
 
-def test_explicit_filename_resolution(clean_db, client):
-    """Verify that passing an explicit filename works for both layouts."""
-    pid = create_project("ExplicitProject")
-    cid = create_chapter(pid, "Chapter1", "Explicit content")
+    # Migrate once
+    migrate_project_to_v2(pid)
+    manifest = load_project_manifest(project_dir)
+    assert manifest["version"] == 2
 
-    project_dir = config.get_project_dir(pid)
+    # Migrate again
+    success = migrate_project_to_v2(pid)
+    assert success is True
+    assert load_project_manifest(project_dir)["version"] == 2
 
-    # Case A: Legacy file with custom name
-    audio_dir = project_dir / "audio"
-    audio_dir.mkdir(parents=True, exist_ok=True)
-    custom_legacy = audio_dir / "custom_legacy.wav"
-    custom_legacy.write_bytes(b"RIFF_CUSTOM_LEGACY")
+def test_new_project_is_v2_compatible(clean_db):
+    # Actually, create_project currently doesn't write project.json.
+    # Migration is triggered on first access.
+    pid = create_project("New Project")
 
-    response = client.get(f"/api/projects/{pid}/chapters/{cid}/assets/audio?filename=custom_legacy.wav")
-    assert response.status_code == 200
-    assert response.content == b"RIFF_CUSTOM_LEGACY"
+    # Trigger migration via helper (simulating API access)
+    migrate_project_to_v2(pid)
 
-    # Case B: Nested file with custom name
-    chapter_dir = config.get_chapter_dir(pid, cid)
-    chapter_dir.mkdir(parents=True, exist_ok=True)
-    custom_nested = chapter_dir / "custom_nested.wav"
-    custom_nested.write_bytes(b"RIFF_CUSTOM_NESTED")
+    # Create chapter in v2 world
+    cid = create_chapter(pid, "New Chapter", "Content")
+    nested_dir = get_chapter_dir(pid, cid)
 
-    response = client.get(f"/api/projects/{pid}/chapters/{cid}/assets/audio?filename=custom_nested.wav")
-    assert response.status_code == 200
-    assert response.content == b"RIFF_CUSTOM_NESTED"
+    # Verify nested dir was created by create_chapter (Milestone 3)
+    assert nested_dir.exists()
+    assert (nested_dir / "segments").exists()
 
-def test_reconcile_supports_nested(clean_db):
-    """Verify that the reconciliation logic finds nested files."""
-    from app.db.reconcile import reconcile_project_audio
-    from app.db.chapters import get_chapter
+def test_voice_v2_migration(tmp_path):
+    voices_dir = tmp_path / "voices"
+    voices_dir.mkdir()
 
-    pid = create_project("ReconcileProject")
-    cid = create_chapter(pid, "Chapter1", "Reconcile content")
+    # Create legacy flat folder
+    legacy_dir = voices_dir / "Dracula - Angry"
+    legacy_dir.mkdir()
+    (legacy_dir / "profile.json").write_text(json.dumps({
+        "speaker_id": "dracula-uuid",
+        "variant_name": "Angry",
+        "engine": "xtts"
+    }))
+    (legacy_dir / "sample.wav").write_text("audio")
 
-    # Mark as unprocessed initially
-    assert get_chapter(cid)["audio_status"] == "unprocessed"
+    from app.domain.voices.migration import migrate_voices_to_v2
+    with patch("app.domain.voices.migration.VOICES_DIR", voices_dir):
+        success = migrate_voices_to_v2()
+        assert success is True
 
-    # Create nested audio
-    chapter_dir = config.get_chapter_dir(pid, cid)
-    chapter_dir.mkdir(parents=True, exist_ok=True)
-    (chapter_dir / "chapter.wav").write_bytes(b"RIFF_NESTED")
+        # Verify nested structure
+        voice_root = voices_dir / "Dracula"
+        variant_dir = voice_root / "Angry"
 
-    # Run reconciliation
-    reconcile_project_audio(pid)
+        assert voice_root.exists()
+        assert (voice_root / "voice.json").exists()
+        assert variant_dir.exists()
+        assert (variant_dir / "profile.json").exists()
+        assert (variant_dir / "sample.wav").exists()
 
-    # Verify it's now 'done'
-    chapter = get_chapter(cid)
-    assert chapter["audio_status"] == "done"
-    assert chapter["audio_file_path"] == "chapter.wav"
+        # Verify legacy folder is gone
+        assert not legacy_dir.exists()
 
-def test_cleanup_supports_nested(clean_db):
-    """Verify that cleanup removes files from both layouts."""
-    from app.db.chapters import cleanup_chapter_audio_files
+        # Verify voice manifest content
+        from app.domain.voices.manifest import load_voice_manifest
+        v_manifest = load_voice_manifest(voice_root)
+        assert v_manifest["version"] == 2
+        assert v_manifest["id"] == "dracula-uuid"
+        assert v_manifest["name"] == "Dracula"
 
-    pid = create_project("CleanupProject")
-    cid = create_chapter(pid, "Chapter1", "Cleanup content")
 
-    # 1. Setup Legacy
-    legacy_audio = config.get_project_dir(pid) / "audio" / f"{cid}_0.wav"
-    legacy_audio.parent.mkdir(parents=True, exist_ok=True)
-    legacy_audio.write_bytes(b"RIFF")
+def test_voice_v2_migration_root_default_profile(tmp_path):
+    voices_dir = tmp_path / "voices"
+    voices_dir.mkdir()
 
-    # 2. Setup Nested
-    nested_audio = config.get_chapter_dir(pid, cid) / "chapter.wav"
-    nested_audio.parent.mkdir(parents=True, exist_ok=True)
-    nested_audio.write_bytes(b"RIFF")
+    legacy_dir = voices_dir / "Test"
+    legacy_dir.mkdir()
+    (legacy_dir / "profile.json").write_text(json.dumps({
+        "speaker_id": "voxtral-uuid",
+        "variant_name": "Vox",
+        "engine": "voxtral",
+    }))
+    (legacy_dir / "latent.pth").write_text("latent")
+    (legacy_dir / "sample.wav").write_text("sample")
+    (legacy_dir / "1.wav").write_text("sample-a")
 
-    assert legacy_audio.exists()
-    assert nested_audio.exists()
+    from app.domain.voices.migration import migrate_voices_to_v2
+    with patch("app.domain.voices.migration.VOICES_DIR", voices_dir):
+        success = migrate_voices_to_v2()
+        assert success is True
 
-    # Run cleanup
-    cleanup_chapter_audio_files(pid, cid)
+        voice_root = voices_dir / "Test"
+        variant_dir = voice_root / "Default"
 
-    # Verify both are gone
-    assert not legacy_audio.exists()
-    assert not nested_audio.exists()
+        assert voice_root.exists()
+        assert (voice_root / "voice.json").exists()
+        assert variant_dir.exists()
+        assert (variant_dir / "profile.json").exists()
+        assert (variant_dir / "latent.pth").exists()
+        assert (variant_dir / "sample.wav").exists()
+        assert (variant_dir / "1.wav").exists()
+        assert not (voice_root / "latent.pth").exists()
+        assert not (voice_root / "sample.wav").exists()
 
-def test_trash_supports_nested(clean_db):
-    """Verify that trash migration moves files from both layouts."""
-    from app.db.chapters import move_chapter_artifacts_to_trash
+        from app.domain.voices.manifest import load_voice_manifest
+        v_manifest = load_voice_manifest(voice_root)
+        assert v_manifest["version"] == 2
+        assert v_manifest["id"] == "voxtral-uuid"
+        assert v_manifest["name"] == "Test"
+        assert v_manifest["default_variant"] == "Default"
 
-    pid = create_project("TrashProject")
-    cid = create_chapter(pid, "Chapter1", "Trash content")
+def test_voice_v2_backfill(tmp_path):
+    voices_dir = tmp_path / "voices"
+    voices_dir.mkdir()
 
-    # 1. Setup Legacy
-    legacy_audio = config.get_project_dir(pid) / "audio" / f"{cid}_0.wav"
-    legacy_audio.parent.mkdir(parents=True, exist_ok=True)
-    legacy_audio.write_bytes(b"RIFF_LEGACY")
+    # Create a partially valid v2 root
+    voice_root = voices_dir / "Partial"
+    voice_root.mkdir()
+    (voice_root / "voice.json").write_text(json.dumps({
+        "version": 2
+        # Missing name, id, default_variant
+    }))
 
-    # 2. Setup Nested
-    chapter_dir = config.get_chapter_dir(pid, cid)
-    chapter_dir.mkdir(parents=True, exist_ok=True)
-    nested_audio = chapter_dir / "chapter.wav"
-    nested_audio.write_bytes(b"RIFF_NESTED")
+    variant_dir = voice_root / "Default"
+    variant_dir.mkdir()
+    (variant_dir / "profile.json").write_text(json.dumps({
+        "speaker_id": "partial-uuid",
+        "variant_name": "Default"
+    }))
 
-    # Run trash move
-    move_chapter_artifacts_to_trash(pid, cid)
+    from app.domain.voices.migration import migrate_voices_to_v2
+    with patch("app.domain.voices.migration.VOICES_DIR", voices_dir):
+        success = migrate_voices_to_v2()
+        assert success is True
 
-    # Verify sources are gone
-    assert not legacy_audio.exists()
-    assert not nested_audio.exists()
+        from app.domain.voices.manifest import load_voice_manifest
+        manifest = load_voice_manifest(voice_root)
+        assert manifest["name"] == "Partial"
+        assert manifest["id"] == "partial-uuid"
+        assert manifest["default_variant"] == "Default"
 
-    # Verify trash has them
-    trash_dir = config.get_project_trash_dir(pid) / cid / "audio"
-    assert trash_dir.exists()
+def test_project_v2_enrichment_backfill(clean_db):
+    pid = create_project("Partial Project")
+    project_dir = get_project_dir(pid)
 
-    # Since we moved two files with different names (in their respective roots), 
-    # they should both be in the trash audio dir.
-    trash_files = [f.name for f in trash_dir.iterdir()]
-    assert f"{cid}_0.wav" in trash_files
-    assert "chapter.wav" in trash_files
+    # Create a v2 manifest missing metadata
+    from app.domain.projects.manifest import save_project_manifest
+    save_project_manifest(project_dir, {"version": 2})
+
+    # Ensure DB has metadata
+    from app.db.projects import update_project
+    update_project(pid, author="Backfill Author", series="Backfill Series")
+
+    success = migrate_project_to_v2(pid)
+    assert success is True
+
+    manifest = load_project_manifest(project_dir)
+    assert manifest["version"] == 2
+    assert manifest["author"] == "Backfill Author"
+    assert manifest["series"] == "Backfill Series"

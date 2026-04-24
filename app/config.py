@@ -123,6 +123,43 @@ def get_chapter_dir(project_id: str, chapter_id: str) -> Path:
     return project_dir / "chapters" / chapter_id
 
 
+def get_project_storage_version(project_id: str) -> int:
+    """Returns the storage version of the project (1 for legacy, 2 for nested)."""
+    try:
+        project_dir = get_project_dir(project_id)
+        manifest_path = project_dir / "project.json"
+        if not manifest_path.exists():
+            return 1
+        import json
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return int(data.get("version", 1))
+    except Exception:
+        return 1
+
+def get_voice_dir(voice_name: str) -> Path:
+    """Returns the root directory for a voice."""
+    return VOICES_DIR / voice_name
+
+def get_variant_dir(voice_name: str, variant_name: str) -> Path:
+    """Returns the directory for a voice variant in nested layout."""
+    return get_voice_dir(voice_name) / variant_name
+
+def get_voice_storage_version(voice_name: str) -> int:
+    """Returns the storage version of a voice (1 for legacy flat, 2 for nested)."""
+    try:
+        voice_root = get_voice_dir(voice_name)
+        manifest_path = voice_root / "voice.json"
+        if not manifest_path.exists():
+            return 1
+        import json
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return int(data.get("version", 1))
+    except Exception:
+        return 1
+
+
 def resolve_chapter_asset_path(
     project_id: Optional[str],
     chapter_id: str,

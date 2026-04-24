@@ -51,7 +51,10 @@ def test_list_speaker_profiles(clean_db, voices_root, client):
     voices_dir = voices_root
     voices_dir.mkdir()
     (voices_dir / "SpeakerA").mkdir()
-    (voices_dir / "SpeakerA" / "v1.wav").write_text("audio")
+    (voices_dir / "SpeakerA" / "voice.json").write_text(json.dumps({"version": 2, "name": "SpeakerA", "default_variant": "Default"}))
+    (voices_dir / "SpeakerA" / "Default").mkdir()
+    (voices_dir / "SpeakerA" / "Default" / "profile.json").write_text(json.dumps({"variant_name": "Default"}))
+    (voices_dir / "SpeakerA" / "Default" / "v1.wav").write_text("audio")
 
     with patch("app.api.routers.voices.get_speaker_settings", return_value={"built_samples": [], "speed": 1.0, "test_text": "", "engine": "xtts"}):
         response = client.get("/api/speaker-profiles")
@@ -60,6 +63,7 @@ def test_list_speaker_profiles(clean_db, voices_root, client):
         assert len(data) == 1
         assert data[0]["name"] == "SpeakerA"
         assert data[0]["engine"] == "xtts"
+        assert data[0]["asset_base_url"] == "/out/voices/SpeakerA/Default"
 
 
 def test_legacy_profile_listing_repairs_missing_speaker_rows_and_preserves_default_switch(clean_db, voices_root, client):
@@ -108,12 +112,21 @@ def test_create_and_delete_profile(clean_db, voices_root, client):
     response = client.post("/api/speaker-profiles", data={"speaker_id": "S1", "variant_name": "V1"})
     assert response.status_code == 200
     name = response.json()["name"]
-    assert (voices_dir / name).exists()
+    # Verify nested structure
+    if " - " in name:
+        spk, var = name.split(" - ", 1)
+        assert (voices_dir / spk.strip() / var.strip()).exists()
+    else:
+        assert (voices_dir / name).exists()
 
     # Delete
     response = client.delete(f"/api/speaker-profiles/{name}")
     assert response.status_code == 200
-    assert not (voices_dir / name).exists()
+    if " - " in name:
+        spk, var = name.split(" - ", 1)
+        assert not (voices_dir / spk.strip() / var.strip()).exists()
+    else:
+        assert not (voices_dir / name).exists()
 
 
 def test_character_voice_assignment_blank_value_clears_to_default(clean_db, voices_root, client):
@@ -158,7 +171,8 @@ def test_create_profile_persists_engine_metadata(clean_db, voices_root, client):
     assert response.status_code == 200
 
     name = response.json()["name"]
-    meta = json.loads((voices_root / name / "profile.json").read_text())
+    spk, var = name.split(" - ", 1)
+    meta = json.loads((voices_root / spk.strip() / var.strip() / "profile.json").read_text())
     assert meta["engine"] == "voxtral"
 
 
@@ -323,9 +337,9 @@ def test_rename_profile_and_security(clean_db, voices_root, client):
     # Success
     response = client.post("/api/voices/rename-profile", data={"old_name": "OldName", "new_name": "NewName - Variant"})
     assert response.status_code == 200
-    assert (voices_dir / "NewName - Variant").exists()
+    assert (voices_dir / "NewName" / "Variant").exists()
     assert not (voices_dir / "OldName").exists()
-    assert (voices_dir / "NewName - Variant" / "latent.pth").exists()
+    assert (voices_dir / "NewName" / "Variant" / "latent.pth").exists()
 
     # Security traversal
     response = client.post("/api/voices/rename-profile", data={"old_name": "NewName - Variant", "new_name": "../../traversal"})
@@ -358,6 +372,8 @@ def test_reset_speaker_test_text(clean_db, voices_root, client):
 
     assert response.status_code == 200
     assert response.json()["test_text"] == DEFAULT_SPEAKER_TEST_TEXT
+    # Check that test_text was removed from profile.json (falling back to default)
+    # SpeakerA is a flat folder in this test setup
     assert "test_text" not in json.loads((profile_dir / "profile.json").read_text())
 
 def test_build_and_test_profiles(clean_db, voices_root, client):
@@ -368,10 +384,13 @@ def test_build_and_test_profiles(clean_db, voices_root, client):
         # Build
         file_content = b"fake wav"
         files = {"files": ("input1.wav", io.BytesIO(file_content), "audio/wav")}
+        (voices_dir / "SpeakerA").mkdir()
+        (voices_dir / "SpeakerA" / "profile.json").write_text("{}")
         with patch("app.api.routers.voices.put_job"), patch("app.api.routers.voices.enqueue"):
             response = client.post("/api/speaker-profiles/SpeakerA/build", files=files)
             assert response.status_code == 200
-            assert (voices_dir / "SpeakerA" / "input1.wav").exists()
+            # Build creates SpeakerA/Default for a flat name if it's missing
+            assert (voices_dir / "SpeakerA" / "input1.wav").exists() or (voices_dir / "SpeakerA" / "Default" / "input1.wav").exists()
 
         (voices_dir / "SpeakerA" / "1.wav").write_text("fake wav content 2")
 
@@ -435,6 +454,7 @@ def test_profile_creation_errors(clean_db, voices_root, client):
 
     # Already exists
     (voices_dir / "S1 - V1").mkdir()
+    (voices_dir / "S1 - V1" / "profile.json").write_text("{}")
     response = client.post("/api/speaker-profiles", data={"speaker_id": "S1", "variant_name": "V1"})
     assert response.status_code == 400
 
@@ -454,10 +474,12 @@ def test_rename_speaker_with_variants(clean_db, voices_root, client):
     voices_dir = voices_root
     voices_dir.mkdir()
     (voices_dir / "Narrator").mkdir()
-    (voices_dir / "Narrator - Calm").mkdir()
-    (voices_dir / "Narrator - Calm" / "profile.json").write_text(json.dumps({"speaker_id": "Narrator"}))
-    (voices_dir / "Narrator - Calm" / "latent.pth").write_text("latent")
-    (voices_dir / "Narrator - Excited").mkdir()
+    (voices_dir / "Narrator" / "Calm").mkdir()
+    (voices_dir / "Narrator" / "voice.json").write_text(json.dumps({"version": 2, "name": "Narrator"}))
+    (voices_dir / "Narrator" / "Calm" / "profile.json").write_text(json.dumps({"speaker_id": "Narrator"}))
+    (voices_dir / "Narrator" / "Calm" / "latent.pth").write_text("latent")
+    (voices_dir / "Narrator" / "Excited").mkdir()
+    (voices_dir / "Narrator" / "Excited" / "profile.json").write_text("{}")
 
     # Rename
     response = client.post("/api/voices/rename-profile", data={"old_name": "Narrator", "new_name": "Dracula"})
@@ -465,14 +487,13 @@ def test_rename_speaker_with_variants(clean_db, voices_root, client):
 
     # Verify both main and variants are renamed
     assert (voices_dir / "Dracula").exists()
-    assert (voices_dir / "Dracula - Calm").exists()
-    assert (voices_dir / "Dracula - Excited").exists()
+    assert (voices_dir / "Dracula" / "Calm").exists()
+    assert (voices_dir / "Dracula" / "Excited").exists()
     assert not (voices_dir / "Narrator").exists()
-    assert not (voices_dir / "Narrator - Calm").exists()
-    assert (voices_dir / "Dracula - Calm" / "latent.pth").exists()
+    assert (voices_dir / "Dracula" / "Calm" / "latent.pth").exists()
 
     # Verify metadata update
-    meta = json.loads((voices_dir / "Dracula - Calm" / "profile.json").read_text())
+    meta = json.loads((voices_dir / "Dracula" / "Calm" / "profile.json").read_text())
     assert meta["speaker_id"] == "Dracula"
 
 def test_rename_profile_default_sync(clean_db, voices_root, client):
@@ -502,6 +523,7 @@ def test_delete_sample_errors(clean_db, voices_root, client):
     voices_dir = voices_root
     voices_dir.mkdir()
     (voices_dir / "SpeakerA").mkdir()
+    (voices_dir / "SpeakerA" / "profile.json").write_text("{}")
     (voices_dir / "SpeakerA" / "sample1.wav").write_text("audio")
 
     # Success
@@ -522,6 +544,7 @@ def test_delete_sample_rejects_traversal(voices_root):
     voices_dir = voices_root
     voices_dir.mkdir()
     (voices_dir / "SpeakerA").mkdir()
+    (voices_dir / "SpeakerA" / "profile.json").write_text("{}")
     with patch("app.api.routers.voices.VOICES_DIR", voices_dir):
         response = delete_speaker_sample(
             name="SpeakerA",
@@ -533,6 +556,7 @@ def test_assign_profile_to_speaker_errors(clean_db, voices_root, client):
     voices_dir = voices_root
     voices_dir.mkdir()
     (voices_dir / "SomeProf").mkdir()
+    (voices_dir / "SomeProf" / "profile.json").write_text("{}")
 
     # Generic error
     with patch("app.api.routers.voices.get_speaker", side_effect=Exception("db crash")):

@@ -34,6 +34,7 @@ from ...constants import DEFAULT_VOICE_SENTINEL
 from ...domain.projects.service import create_project_service, ProjectService
 from ...domain.projects.models import ProjectModel, ProjectSnapshotModel, ProjectBackupBundleModel
 from ...domain.chapters.models import ChapterModel
+from ...domain.projects.migration import migrate_project_to_v2
 from ...db.core import _db_lock, get_connection
 
 logger = logging.getLogger(__name__)
@@ -224,7 +225,10 @@ async def _store_project_cover(project_id: str, project_dir: Path, cover: Upload
 
 @router.get("")
 def api_list_projects():
-    return JSONResponse(list_projects())
+    projects = list_projects()
+    for p in projects:
+        migrate_project_to_v2(p["id"])
+    return JSONResponse(projects)
 
 @router.post("/{project_id}/reorder_chapters")
 def api_reorder_chapters_route(project_id: str, chapter_ids: str = Form(...)):
@@ -238,6 +242,7 @@ def api_reorder_chapters_route(project_id: str, chapter_ids: str = Form(...)):
 
 @router.get("/{project_id}")
 def api_get_project(project_id: str):
+    migrate_project_to_v2(project_id)
     p = get_project(project_id)
     if not p:
         return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)

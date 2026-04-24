@@ -6,6 +6,7 @@ import logging
 import re
 import json
 import os
+import urllib.parse
 from pathlib import Path
 from typing import Optional, List, Dict
 from fastapi import APIRouter, Form, File, UploadFile, HTTPException, Request
@@ -18,13 +19,13 @@ from ...db import (
 from ...db.speakers import (
     infer_speaker_name,
     infer_variant_name,
-    repair_speakers_from_profiles,
+    sync_speakers_from_profiles,
     normalize_profile_metadata,
     DEFAULT_PROFILE_ENGINE,
     VALID_PROFILE_ENGINES,
 )
 from ...jobs import (
-    enqueue, get_speaker_settings, update_speaker_settings, 
+    enqueue, get_speaker_settings, update_speaker_settings,
     DEFAULT_SPEAKER_TEST_TEXT
 )
 from ...engines.bridge import create_voice_bridge
@@ -79,7 +80,18 @@ def _voice_dirs_map() -> Dict[str, Path]:
     dirs: Dict[str, Path] = {}
     for entry in VOICES_DIR.iterdir():
         if entry.is_dir() and SAFE_PROFILE_NAME_RE.fullmatch(entry.name):
-            dirs[entry.name] = entry.resolve()
+            # 1. Nested Voice Roots (v2)
+            if (entry / "voice.json").exists():
+                for sub in entry.iterdir():
+                    if sub.is_dir() and (sub / "profile.json").exists():
+                        name = f"{entry.name} - {sub.name}"
+                        if sub.name == "Default":
+                            name = entry.name
+                        dirs[name] = sub.resolve()
+
+            # 2. Legacy Flat or Default Variant at Root
+            if (entry / "profile.json").exists():
+                dirs[entry.name] = entry.resolve()
     return dirs
 
 
@@ -89,12 +101,53 @@ def _existing_voice_profile_dir(name: str) -> Optional[Path]:
 
 def _new_voice_profile_dir(name: str) -> Path:
     candidate = _valid_profile_name(name)
+
+    # Phase 8: Default to nested layout for new variants
+    if " - " in candidate:
+        voice_name, variant_name = candidate.split(" - ", 1)
+        voice_name = voice_name.strip()
+        variant_name = variant_name.strip()
+
+        # Collision check: don't allow creating if a FLAT folder exists with the same name
+        if (VOICES_DIR / candidate).exists():
+             return VOICES_DIR / candidate
+
+        # Ensure voice root has a manifest if we create it
+        voice_root = VOICES_DIR / voice_name
+        if not (voice_root / "voice.json").exists():
+             voice_root.mkdir(parents=True, exist_ok=True)
+             from ...domain.voices.manifest import save_voice_manifest
+             save_voice_manifest(voice_root, {"version": 2, "name": voice_name})
+
+        return voice_root / variant_name
+
     base_dir = os.path.abspath(os.path.normpath(os.fspath(VOICES_DIR)))
     fullpath = os.path.abspath(os.path.normpath(os.path.join(base_dir, candidate)))
     if not fullpath.startswith(base_dir + os.sep):
         raise ValueError(f"Invalid profile name: {name}")
     return Path(fullpath)
 
+
+def _cleanup_voice_root(root: Path):
+    """Delete a voice root if it has no remaining variants."""
+    if not root.exists() or not root.is_dir() or root == VOICES_DIR:
+        return
+
+    # A v2 voice root is empty of variants if no subdirs have profile.json
+    has_variants = False
+    for sub in root.iterdir():
+        if sub.is_dir() and (sub / "profile.json").exists():
+            has_variants = True
+            break
+
+    if not has_variants:
+        # Check if anything else important is there. If just voice.json, wipe it.
+        remaining = [f for f in root.iterdir() if f.name != ".DS_Store"]
+        if not remaining or (len(remaining) == 1 and remaining[0].name == "voice.json"):
+            try:
+                shutil.rmtree(root)
+            except Exception:
+                logger.warning("Failed to cleanup empty voice root: %s", root)
 
 def _voice_file_map(profile_dir: Optional[Path]) -> Dict[str, Path]:
     if not profile_dir or not profile_dir.exists():
@@ -136,14 +189,31 @@ def _voice_preview_url(name: str) -> Optional[str]:
     profile_dir = _existing_voice_profile_dir(name)
     if not profile_dir:
         return None
+
+    # Calculate URL path relative to VOICES_DIR
+    try:
+        rel_path = profile_dir.relative_to(VOICES_DIR)
+        url_path = rel_path.as_posix()
+    except ValueError:
+        url_path = name
+
     files = _voice_file_map(profile_dir)
     if "sample.mp3" in files:
-        return f"/out/voices/{name}/sample.mp3"
+        return f"/out/voices/{url_path}/sample.mp3"
 
     if "sample.wav" in files:
-        return f"/out/voices/{name}/sample.wav"
+        return f"/out/voices/{url_path}/sample.wav"
 
     return None
+
+
+def _voice_asset_base_url(profile_dir: Path) -> str:
+    try:
+        rel_path = profile_dir.relative_to(VOICES_DIR)
+        url_path = urllib.parse.quote(rel_path.as_posix(), safe="/")
+    except ValueError:
+        url_path = urllib.parse.quote(profile_dir.name, safe="/")
+    return f"/out/voices/{url_path}"
 
 
 def _voice_has_latent(name: str) -> bool:
@@ -227,29 +297,32 @@ def _ensure_default_speaker_profile(speaker_id: str, speaker_name: str, default_
 
 @router.get("/api/speaker-profiles")
 def list_speaker_profiles():
-    repair_speakers_from_profiles()
+    from ...domain.voices.migration import migrate_voices_to_v2
+    migrate_voices_to_v2()
+    sync_speakers_from_profiles()
 
     if not VOICES_DIR.exists():
         return []
 
-    dirs = [path for _, path in sorted(_voice_dirs_map().items(), key=lambda item: item[0])]
+    dirs_map = _voice_dirs_map()
+    sorted_items = sorted(dirs_map.items(), key=lambda item: item[0])
     settings = get_settings()
     default_speaker = settings.get("default_speaker_profile")
 
     # Auto-set default if only one exists
-    if dirs:
-        names = [d.name for d in dirs]
-        if len(dirs) == 1 and default_speaker != names[0]:
+    if sorted_items:
+        names = [name for name, _ in sorted_items]
+        if len(sorted_items) == 1 and default_speaker != names[0]:
             default_speaker = names[0]
             update_settings({"default_speaker_profile": default_speaker})
         elif default_speaker and default_speaker not in names:
-            default_speaker = names[0] if len(dirs) > 0 else None
+            default_speaker = names[0] if len(sorted_items) > 0 else None
             update_settings({"default_speaker_profile": default_speaker})
 
     profiles = []
-    for d in dirs:
+    for name, d in sorted_items:
         raw_wavs = sorted([f.name for f in d.glob("*.wav") if f.name != "sample.wav"])
-        spk_settings = get_speaker_settings(d.name)
+        spk_settings = get_speaker_settings(name)
         built_samples = spk_settings.get("built_samples", [])
 
         samples = []
@@ -262,7 +335,7 @@ def list_speaker_profiles():
         if len([b for b in built_samples if SAFE_SAMPLE_NAME_RE.fullmatch(b) and (d / b).exists()]) < len(built_samples):
              is_rebuild_required = True
 
-        preview_url = _voice_preview_url(d.name)
+        preview_url = _voice_preview_url(name)
         preview_signature_stale = False
         if preview_url:
             has_preview_signature = any(
@@ -292,8 +365,8 @@ def list_speaker_profiles():
             is_rebuild_required = True
 
         profile_data = {
-            "name": d.name,
-            "is_default": d.name == default_speaker,
+            "name": name,
+            "is_default": name == default_speaker,
             "wav_count": len(raw_wavs),
             "samples_detailed": samples,
             "samples": raw_wavs,
@@ -307,7 +380,8 @@ def list_speaker_profiles():
             "voxtral_model": spk_settings.get("voxtral_model"),
             "reference_sample": spk_settings.get("reference_sample"),
             "preview_url": preview_url,
-            "has_latent": _voice_has_latent(d.name),
+            "asset_base_url": _voice_asset_base_url(d),
+            "has_latent": _voice_has_latent(name),
             "is_ready": False,
             "readiness_message": "",
         }
@@ -370,8 +444,8 @@ def api_list_characters(project_id: str):
 
 @router.post("/api/projects/{project_id}/characters")
 def api_create_character_route(
-    project_id: str, 
-    name: str = Form(...), 
+    project_id: str,
+    name: str = Form(...),
     speaker_profile_name: Optional[str] = Form(None),
     color: Optional[str] = Form(None)
 ):
@@ -403,7 +477,7 @@ def api_delete_character_route(character_id: str):
 
 @router.get("/api/speakers")
 def api_list_speakers_route():
-    repair_speakers_from_profiles()
+    sync_speakers_from_profiles()
     return JSONResponse(list_speakers())
 
 @router.post("/api/speakers")
@@ -417,6 +491,37 @@ def api_create_speaker_route(name: str = Form(...), default_profile_name: Option
 def _rename_profile_folders(old_name: str, new_name: str):
     """Helper to rename all profile folders on disk starting with a speaker name."""
     try:
+        # 0. Voice Root (v2)
+        old_root = VOICES_DIR / old_name
+        new_root = VOICES_DIR / new_name
+        if old_root.exists() and old_root.is_dir() and (old_root / "voice.json").exists():
+            if not new_root.exists():
+                old_root.rename(new_root)
+                # Update references for all variants within this root
+                for sub in new_root.iterdir():
+                    if sub.is_dir() and (sub / "profile.json").exists():
+                        old_vname = f"{old_name} - {sub.name}"
+                        new_vname = f"{new_name} - {sub.name}"
+                        update_voice_profile_references(old_vname, new_vname)
+
+                        # Update speaker_id in profile.json
+                        meta_path = sub / "profile.json"
+                        try:
+                            import json as _json
+                            meta = _json.loads(meta_path.read_text())
+                            if meta.get("speaker_id") == old_name:
+                                meta["speaker_id"] = new_name
+                                meta_path.write_text(_json.dumps(meta, indent=2))
+                        except Exception:
+                            logger.warning("Failed to update speaker_id in %s", meta_path)
+
+                # Update voice.json
+                from ...domain.voices.manifest import load_voice_manifest, save_voice_manifest
+                manifest = load_voice_manifest(new_root)
+                manifest["name"] = new_name
+                save_voice_manifest(new_root, manifest)
+                return
+
         voice_dirs = _voice_dirs_map()
         old_dir = voice_dirs.get(_valid_profile_name(old_name))
         new_dir = voice_dirs.get(_valid_profile_name(new_name)) or _new_voice_profile_dir(new_name)
@@ -472,8 +577,8 @@ def _rename_profile_folders(old_name: str, new_name: str):
 @router.post("/api/speakers/{speaker_id}")
 @router.patch("/api/speakers/{speaker_id}")
 def api_update_speaker_route(
-    speaker_id: str, 
-    name: Optional[str] = Form(None), 
+    speaker_id: str,
+    name: Optional[str] = Form(None),
     new_name: Optional[str] = Form(None), # Alias for name
     default_profile_name: Optional[str] = Form(None),
 ):
@@ -553,6 +658,9 @@ def api_assign_profile_to_speaker(
         if new_dir != old_dir:
             old_dir.rename(new_dir)
             update_voice_profile_references(profile_name, new_profile_name)
+            # Cleanup old voice root if empty
+            if old_dir.parent != VOICES_DIR:
+                _cleanup_voice_root(old_dir.parent)
 
         # Update profile.json with new speaker_id and variant_name
         new_meta_path = _voice_file_map(new_dir).get("profile.json") or _new_voice_sample_path(new_dir, "profile.json")
@@ -802,7 +910,10 @@ def delete_speaker_profile(
 
         if path:
             if path.is_relative_to(VOICES_DIR.resolve()):
+                parent = path.parent
                 shutil.rmtree(path)
+                if parent != VOICES_DIR:
+                    _cleanup_voice_root(parent)
             else:
                 logger.warning("Blocking profile delete outside voices root: %s", path)
                 return JSONResponse({"status": "error", "message": "Invalid profile path"}, status_code=403)
@@ -840,7 +951,7 @@ def test_speaker_profile(name: str):
     enqueue(j)
     preview_url = _voice_preview_url(name)
     return JSONResponse({
-        "status": "ok", 
+        "status": "ok",
         "job_id": jid,
         "audio_url": preview_url or f"/out/voices/{name}/sample.wav"
     })

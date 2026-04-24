@@ -157,9 +157,6 @@ def api_home(
             entry.is_dir() and entry.name == "Default"
             for entry in voices_dir.iterdir()
         ) if voices_dir.exists() else False,
-        "xtts_mp3": [],
-        "xtts_wav_only": [],
-        "audiobooks": [],
         "speaker_profiles": profiles,
         "speakers": speakers,
         "projects": projects,

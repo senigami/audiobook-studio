@@ -5,17 +5,20 @@
 Finish the visible Studio 2.0 shell and the highest-value product seams before opening the system outward. Phase 8 starts with the queue moving into the right-side companion drawer so users can manage work without losing page context.
 
 ## Deliverables
-
-- queue drawer cutover as the primary queue surface
-- queue tab opens the right-side drawer without navigating away from the current page
-- `/queue` remains as a compatibility/deep-link entry that resolves into the queue drawer behavior
-- queue-related actions open or focus the drawer instead of redirecting the user to a dedicated queue page
-- `GlobalQueue` is adapted for drawer density, scrolling, and constrained-width controls
-- project snapshot and export-manifest foundation is implemented in the project domain
-- dated project backup/export bundle foundation is implemented with clear artifact-included vs regenerate-on-import reporting
-- plugin setup, dependency, and recovery diagnostics are clearer in the schema-driven engine settings surface
-- fake, stale, or misleading legacy repair/backfill paths are retired, deprecated, or replaced with explicit behavior
-- phase docs and product docs are synchronized with the post-Phase-7 settings and shell reality
+- [x] queue drawer cutover as the primary queue surface
+- [x] queue tab opens the right-side drawer without navigating away from the current page
+- [x] `/queue` remains as a compatibility/deep-link entry that resolves into the queue drawer behavior
+- [x] queue-related actions open or focus the drawer instead of redirecting the user to a dedicated queue page
+- [x] `GlobalQueue` is adapted for drawer density, scrolling, and constrained-width controls
+- [x] project snapshot and export-manifest foundation is implemented in the project domain
+- [x] dated project backup/export bundle foundation is implemented with clear artifact-included vs regenerate-on-import reporting
+- [x] plugin setup, dependency, and recovery diagnostics are clearer in the schema-driven engine settings surface
+- [x] fake, stale, or misleading legacy repair/backfill paths are retired, deprecated, or replaced with explicit behavior
+- [x] phase docs and product docs are synchronized with the post-Phase-7 settings and shell reality
+- [x] **Storage Normalization**: project and voice asset storage moved to versioned nested layouts (v2)
+- [x] **Project Manifest Enrichment**: `project.json` now includes version, title, author, and series metadata (backfilled for v2)
+- [x] **Asset Cleanup**: legacy flat audio/text residues are removed after successful v2 chapter migration
+- [x] **One-time Backfill**: v2 voice roots normalized with `default_variant` and metadata reconciled to prevent stale status
 
 ## Deliverables Checklist
 
@@ -30,76 +33,30 @@ Finish the visible Studio 2.0 shell and the highest-value product seams before o
 - [x] Plugin setup and diagnostics UX hardened without engine-specific UI branches
 - [x] Legacy backfill/repair placeholders audited and explicitly handled
 - [x] Phase and product docs updated to match shipped behavior
+- [x] Project storage normalized around per-chapter asset folders (v2)
+- [x] Voice storage normalized around nested voice/variant roots (v2)
+- [x] Cleanup sweep for legacy chapter audio/text residues implemented
 
-## Deferred Follow-Up: Storage Normalization
+## Verified Storage Normalization (v2)
 
-The current backup implementation is acceptable as an interim project safety feature: text metadata and chapter-level WAV masters are portable, while segment-level audio remains in the existing project audio layout.
-The storage migration should be versioned: detect `v1`, migrate to `v2`, and then operate on the new layout rather than maintaining long-lived dual paths.
+The project and voice storage migration was implemented as a versioned cutover (v1 to v2) and verified against both targeted regression tests and live workspace data.
 
-Before restore/import becomes a first-class workflow, the project file layout should be normalized around per-chapter asset folders:
+### Project & Chapter Migration
+- [x] Define the `v1` and `v2` project manifest/version contract.
+- [x] Add the root `project.json` manifest with schema/version metadata (enriched with DB metadata).
+- [x] Migrate `v1` chapter assets into the `v2` folder structure (`chapters/{id}/`).
+- [x] Add compatibility reads for existing flat chapter audio paths.
+- [x] Move chapter write paths to per-chapter folders.
+- [x] Update cleanup/trash behavior to group assets under chapter folders.
+- [x] Implement residue cleanup (removal of legacy `audio/` and `text/` folders) after successful migration.
 
-```text
-project/
-  backups/
-  m4b/
-  trash/
-  cover/
-  chapters/
-    {chapter_id}/
-      chapter.txt
-      chapter.wav
-      chapter.m4a
-      chapter.json
-      segments/
-        {segment_id}.wav
-```
-
-This should be planned as a storage migration slice, not a backup-only cleanup. It needs compatibility reads for existing flat audio paths, generation/write-path updates, cleanup/trash handling, backup packaging updates, and regression coverage for existing projects.
-
-### Migration Checkpoints
-
-- [ ] Define the `v1` and `v2` project manifest/version contract.
-- [ ] Add the root `project.json` manifest with schema/version metadata.
-- [ ] Migrate `v1` chapter assets into the `v2` folder structure.
-- [ ] Migrate `v1` voice assets into the nested `v2` structure.
-- [ ] Add regression tests for version detection and one-time migration.
-
-### Storage Migration Checklist
-
-- [ ] Add compatibility reads for existing flat chapter audio paths while the new chapter folder layout is introduced.
-- [ ] Move chapter write paths to per-chapter folders with room for text, chapter masters, segment WAVs, and future chapter metadata.
-- [ ] Update cleanup/trash behavior so chapter assets remain safely grouped under the chapter folder.
-- [ ] Update backup packaging so the new chapter structure is preserved cleanly.
-- [ ] Add regression tests for mixed old/new chapter layouts during migration.
-
-Issue #38 should be folded into the same structural portability track for voice storage. Voice assets should move away from flat variant-encoded folders like `Dracula - Angry` toward explicit voice roots with variant subfolders:
-
-```text
-voices/
-  {voice_name_or_id}/
-    voice.json
-    Default/
-      profile.json
-      latent.pth
-      sample.mp3
-      samples/
-    {variant_name_or_id}/
-      profile.json
-      latent.pth
-      sample.mp3
-      samples/
-```
-
-This voice migration should preserve the generic plugin/engine model: `voice.json` owns voice-level portable metadata, `profile.json` owns variant-level metadata, and the database remains useful for indexing, assignments, and fast lookup. It should include nested-layout read support, flat-folder compatibility, migration helpers, rename/import/export updates, and assignment regression tests.
-
-### Voice Migration Checklist
-
-- [ ] Add nested voice/variant folder read support without breaking existing flat folders.
-- [ ] Introduce `voice.json` for voice-level portable metadata.
-- [ ] Keep `profile.json` as the variant-level metadata boundary.
-- [ ] Add migration helpers for existing flat variant-encoded folders.
-- [ ] Update rename, move, import, and export flows for the nested voice structure.
-- [ ] Add regression tests for default resolution and assignment behavior across both layouts.
+### Voice Migration
+- [x] Add nested voice/variant folder read support (v2) without breaking legacy flat folders (v1).
+- [x] Introduce `voice.json` for voice-root portable metadata.
+- [x] Keep `profile.json` as the variant-level metadata boundary.
+- [x] Add migration helpers for legacy flat variant-encoded folders.
+- [x] Handle root-to-Default migration (e.g., `voices/Test` -> `voices/Test/Default`).
+- [x] Update rename, move, and assignment flows for the nested structure.
 
 ## Progress Notes
 
@@ -108,7 +65,9 @@ This voice migration should preserve the generic plugin/engine model: `voice.jso
 - Project tabs now expose Chapters, Assemblies, Backups, and Characters in the live shell.
 - Project management ergonomics finalized: Chapters tab now owns the primary assembly creation flow, the action bar is responsive at narrow widths, and Assemblies/Backups support inline description editing.
 - Backup archival corrected: Archives now strictly include WAV-only assets when audio inclusion is enabled, verified by zip-content regression tests.
-- Chapter-folder and voice-folder storage normalization have been captured as follow-up candidates; current backups intentionally preserve chapter-level WAV masters only until segment storage is migrated.
+- **Storage Normalization Complete**: Chapter and voice storage have been successfully migrated to v2 nested structures.
+- **Cleanup Verified**: Legacy chapter residues (`audio/`, `text/`) are automatically removed after migration, confirmed on live data.
+- **Voice Relocation Verified**: Root-level voices and flat variant folders are correctly moved to nested roots with `voice.json` manifests.
 - Plugin diagnostics and recovery UX have been hardened, and legacy placeholders (like "Safe Mode") have been replaced with clearer terminology ("Stability Mode").
 - Structural legacy paths (backfill/repair) have been audited and confirmed as isolated system utilities.
 - Character assignment "None / Default" tool has been restored with a "No-Op" policy.

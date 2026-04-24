@@ -1,3 +1,4 @@
+from __future__ import annotations
 import time
 import os
 import re
@@ -265,7 +266,7 @@ def worker_loop(q):
         jid = q.get()
         try:
             j = get_jobs().get(jid)
-            if not j or j.id == "mp3-backfill-task":
+            if not j:
                 continue
 
             while pause_flag.is_set() and not j.bypass_pause and j.engine != "audiobook":
@@ -503,9 +504,9 @@ def worker_loop(q):
 
                     eta = _estimate_seconds(chars, cps, group_count=seg_count, robust_params=robust_params)
                     update_job(
-                        jid, 
-                        status="running", 
-                        progress=prog, 
+                        jid,
+                        status="running",
+                        progress=prog,
                         started_at=j.started_at,
                         eta_seconds=eta,
                     )
@@ -565,16 +566,24 @@ def worker_loop(q):
             if j.engine == "audiobook":
                 handle_audiobook_job(jid, j, start, on_output, cancel_check)
             elif j.engine == "xtts":
-                from ..config import get_project_audio_dir
-                pdir = get_project_audio_dir(j.project_id) if j.project_id else XTTS_OUT_DIR
+                from ..config import get_project_audio_dir, get_chapter_dir, get_project_storage_version
+
+                if j.project_id and j.chapter_id and get_project_storage_version(j.project_id) >= 2:
+                    pdir = get_chapter_dir(j.project_id, j.chapter_id)
+                    out_wav = pdir / "chapter.wav"
+                    out_mp3 = pdir / "chapter.mp3"
+                else:
+                    pdir = get_project_audio_dir(j.project_id) if j.project_id else XTTS_OUT_DIR
+                    out_wav = pdir / f"{Path(j.chapter_file).stem}.wav"
+                    out_mp3 = pdir / f"{Path(j.chapter_file).stem}.mp3"
+
                 pdir.mkdir(parents=True, exist_ok=True)
-                out_wav = pdir / f"{Path(j.chapter_file).stem}.wav"
-                out_mp3 = pdir / f"{Path(j.chapter_file).stem}.mp3"
 
                 sw = get_speaker_wavs(j.speaker_profile)
                 spk = get_speaker_settings(j.speaker_profile)
 
-                handle_xtts_job(jid, j, start, on_output, cancel_check, sw, spk["speed"], pdir, out_wav, out_mp3, text=text)
+                version = get_project_storage_version(j.project_id) if j.project_id else 1
+                handle_xtts_job(jid, j, start, on_output, cancel_check, sw, spk["speed"], pdir, out_wav, out_mp3, text=text, storage_version=version)
                 _record_xtts_sample(j, start, chars, perf, eta_unit_count)
             elif j.engine == "voxtral":
                 result = handle_voxtral_job(jid, j, start, on_output, cancel_check, text=text)
@@ -588,7 +597,10 @@ def worker_loop(q):
                     _record_xtts_sample(j, start, chars, perf, eta_unit_count)
             elif j.engine in ("voice_build", "voice_test"):
                 from ..config import VOICES_DIR
-                pdir = VOICES_DIR / j.speaker_profile
+                try:
+                    pdir = get_voice_profile_dir(j.speaker_profile)
+                except ValueError:
+                    pdir = VOICES_DIR / j.speaker_profile
                 pdir.mkdir(parents=True, exist_ok=True)
 
                 # For voice_test or missing sample.wav, generate one. voice_build always rebuilds.
@@ -698,7 +710,7 @@ def worker_loop(q):
         except Exception:
             tb = traceback.format_exc()
             logger.error(f"Worker crashed for job {jid}:\n{tb}")
-            try: 
+            try:
                 _mark_queue_failed(jid, "Worker crashed.")
             except Exception:
                 logger.critical(f"FATAL: could not update job {jid} failure state")

@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Literal, NotRequired, TypedDict
+import sys
+if sys.version_info >= (3, 11):
+    from typing import Literal, NotRequired, TypedDict
+else:
+    from typing import Literal, TypedDict
+    from typing_extensions import NotRequired
 
 StudioJobStatus = Literal["queued", "preparing", "running", "finalizing", "done", "failed", "cancelled"]
 StudioJobEventScope = Literal["job", "queue", "chapter", "segment", "export", "voice_test", "voice_build"]

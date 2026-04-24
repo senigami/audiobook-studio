@@ -211,6 +211,7 @@ export interface SpeakerProfile {
   voxtral_model?: string | null;
   reference_sample?: string | null;
   preview_url: string | null;
+  asset_base_url?: string | null;
   has_latent?: boolean;
   is_rebuild_required?: boolean;
   samples_detailed?: Array<{ name: string; is_new: boolean }>;
@@ -322,9 +323,6 @@ export interface GlobalState {
   engines: TtsEngine[];
   paused: boolean;
   chapters: Chapter[];
-  audiobooks: Audiobook[];
-  xtts_mp3: string[];
-  xtts_wav_only: string[];
   narrator_ok: boolean;
   speaker_profiles: SpeakerProfile[];
   speakers: Speaker[];

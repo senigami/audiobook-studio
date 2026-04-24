@@ -121,13 +121,14 @@ export function useVariantActions(
 
         setPlayingSample(s);
         if (sampleAudioRef.current) {
-            sampleAudioRef.current.src = `/out/voices/${encodeURIComponent(profile.name)}/${encodeURIComponent(s)}?t=${Date.now()}`;
+            const baseUrl = profile.asset_base_url || `/out/voices/${encodeURIComponent(profile.name)}`;
+            sampleAudioRef.current.src = `${baseUrl}/${encodeURIComponent(s)}?t=${Date.now()}`;
             sampleAudioRef.current.play().catch(err => {
                 console.error("Playback failed", err);
                 setPlayingSample(null);
             });
         }
-    }, [profile.name, playingSample, isPlaying]);
+    }, [profile.name, profile.asset_base_url, playingSample, isPlaying]);
 
     const handleSpeedChange = useCallback((val: number) => {
         if (speedTimeoutRef.current) clearTimeout(speedTimeoutRef.current);

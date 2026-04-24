@@ -30,6 +30,17 @@ def _profile_name_or_error(profile_name: str) -> str:
 
 def _candidate_voice_profile_dir(profile_name: str) -> Path:
     profile_name = _profile_name_or_error(profile_name)
+
+    # If it's a nested-style name "Dracula - Angry", prefer Dracula/Angry if Dracula is a v2 voice
+    if " - " in profile_name:
+        v_name, var_name = profile_name.split(" - ", 1)
+        v_name = v_name.strip()
+        var_name = var_name.strip()
+
+        from ..config import get_voice_storage_version
+        if get_voice_storage_version(v_name) >= 2:
+            return VOICES_DIR / v_name / var_name
+
     base_dir = os.path.abspath(os.path.normpath(os.fspath(VOICES_DIR)))
     fullpath = os.path.abspath(os.path.normpath(os.path.join(base_dir, profile_name)))
     if not fullpath.startswith(base_dir + os.sep):
@@ -41,12 +52,32 @@ def _find_existing_voice_profile_dir(profile_name: str) -> Optional[Path]:
     profile_name = _profile_name_or_error(profile_name)
     if not VOICES_DIR.exists():
         return None
-    try:
-        for entry in VOICES_DIR.iterdir():
-            if entry.is_dir() and entry.name == profile_name:
-                return entry.resolve()
-    except FileNotFoundError:
-        return None
+
+    # 1. Exact match (legacy flat OR intentional nested path)
+    exact = VOICES_DIR / profile_name
+    if exact.exists() and exact.is_dir():
+        # A valid profile directory must have profile.json
+        if (exact / "profile.json").exists():
+            return exact
+
+        # If it's a voice root (has voice.json), try to find the Default variant
+        if (exact / "voice.json").exists():
+            nested_default = exact / "Default"
+            if nested_default.exists() and nested_default.is_dir():
+                return nested_default
+
+    # 2. Nested resolution: "Dracula - Angry" -> voices/Dracula/Angry
+    if " - " in profile_name:
+        v_name, var_name = profile_name.split(" - ", 1)
+        nested = VOICES_DIR / v_name.strip() / var_name.strip()
+        if nested.exists() and nested.is_dir() and (nested / "profile.json").exists():
+            return nested
+
+    # 3. Base voice default: "Dracula" -> voices/Dracula/Default (Fallback)
+    nested_default = VOICES_DIR / profile_name / "Default"
+    if nested_default.exists() and nested_default.is_dir() and (nested_default / "profile.json").exists():
+        return nested_default
+
     return None
 
 
@@ -128,9 +159,17 @@ def _resolve_existing_profile_name(profile_name_or_id: str) -> Optional[str]:
 
     prefix_source = speaker_name or (None if _is_uuid(target_profile) else target_profile)
     if prefix_source and VOICES_DIR.exists():
+        # Flat layout candidates
         for d in sorted(VOICES_DIR.iterdir(), key=lambda p: p.name):
             if d.is_dir() and d.name.startswith(prefix_source + " - "):
                 add_candidate(d.name)
+
+        # Nested layout candidates
+        v_dir = VOICES_DIR / prefix_source
+        if v_dir.exists() and v_dir.is_dir():
+            for d in sorted(v_dir.iterdir(), key=lambda p: p.name):
+                if d.is_dir() and (d / "profile.json").exists():
+                    add_candidate(f"{prefix_source} - {d.name}")
 
     for candidate in candidates:
         try:
@@ -174,10 +213,10 @@ DEFAULT_SPEAKER_TEST_TEXT = (
 )
 
 
-def _read_profile_metadata(profile_name: str, meta_path: Path, *, repair: bool = False) -> dict:
+def _read_profile_metadata(profile_name: str, meta_path: Path, *, fix_schema: bool = False) -> dict:
     if not meta_path.exists():
         meta = normalize_profile_metadata(profile_name, {}, persist=False)
-        if repair:
+        if fix_schema:
             try:
                 meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
             except Exception:
@@ -195,11 +234,11 @@ def _read_profile_metadata(profile_name: str, meta_path: Path, *, repair: bool =
         meta = {}
 
     normalized = normalize_profile_metadata(profile_name, meta, persist=False)
-    if repair and normalized != meta:
+    if fix_schema and normalized != meta:
         try:
             meta_path.write_text(json.dumps(normalized, indent=2), encoding="utf-8")
         except Exception:
-            logger.warning("Failed to repair speaker metadata at %s", meta_path, exc_info=True)
+            logger.warning("Failed to fix speaker metadata schema at %s", meta_path, exc_info=True)
     return normalized
 
 def get_speaker_settings(profile_name_or_id: str) -> dict:
@@ -232,7 +271,7 @@ def get_speaker_settings(profile_name_or_id: str) -> dict:
         return res
     if not meta_path:
         return res
-    meta = _read_profile_metadata(target_profile, meta_path, repair=True)
+    meta = _read_profile_metadata(target_profile, meta_path, fix_schema=True)
     if "speed" in meta:
         res["speed"] = meta["speed"]
     if "test_text" in meta:
@@ -272,12 +311,12 @@ def update_speaker_settings(profile_name: str, **updates):
         return False
 
     try:
-        meta_path = _existing_profile_metadata_path(profile_name)
+        profile_dir = get_voice_profile_dir(profile_name)
+        meta_path = profile_dir / "profile.json"
     except ValueError:
         return False
-    if not meta_path:
-        return False
-    meta = _read_profile_metadata(profile_name, meta_path, repair=False)
+
+    meta = _read_profile_metadata(profile_name, meta_path, fix_schema=False)
 
     for k, v in updates.items():
         if v is None:

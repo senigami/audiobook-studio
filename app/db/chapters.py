@@ -256,6 +256,13 @@ def move_chapter_artifacts_to_trash(
             except Exception:
                 logger.warning("Failed to move artifact %s to trash", src, exc_info=True)
 
+    # 4. If using nested layout and it's empty now (or we want to move the whole folder if it's a full delete)
+    # Actually, move_chapter_artifacts_to_trash is often called for specific subsets.
+    # If it's a full chapter delete, we might want to move the whole folder.
+    # But delete_chapter calls this first, then deletes DB.
+    # Let's check if the nested dir still exists and move it if it's a full delete intent.
+    # For now, the file-by-file move is safer to avoid moving unrelated files if they somehow got in there.
+
     return True
 
 def create_chapter(project_id: str, title: str, text_content: Optional[str] = None, sort_order: int = 0, predicted_audio_length: float = 0.0, char_count: int = 0, word_count: int = 0) -> str:
@@ -275,6 +282,13 @@ def create_chapter(project_id: str, title: str, text_content: Optional[str] = No
                 sync_chapter_segments(chapter_id, text_content, conn=conn)
 
             conn.commit()
+
+            # Ensure nested directory exists immediately
+            from ..config import get_chapter_dir
+            nested_dir = get_chapter_dir(project_id, chapter_id)
+            nested_dir.mkdir(parents=True, exist_ok=True)
+            (nested_dir / "segments").mkdir(exist_ok=True)
+
             return chapter_id
 
 def get_chapter_segments_counts(chapter_id: str) -> tuple[int, int]:
@@ -283,7 +297,7 @@ def get_chapter_segments_counts(chapter_id: str) -> tuple[int, int]:
         with get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT 
+                SELECT
                     (SELECT COUNT(*) FROM chapter_segments WHERE chapter_id = ? AND audio_status = 'done') as done_count,
                     (SELECT COUNT(*) FROM chapter_segments WHERE chapter_id = ?) as total_count
             """, (chapter_id, chapter_id))
@@ -328,11 +342,11 @@ def list_chapters(project_id: str) -> List[Dict[str, Any]]:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                SELECT c.*, 
+                SELECT c.*,
                 (SELECT COUNT(*) FROM chapter_segments WHERE chapter_id = c.id) as total_segments_count,
                 (SELECT COUNT(*) FROM chapter_segments WHERE chapter_id = c.id AND audio_status = 'done') as done_segments_count
-                FROM chapters c 
-                WHERE project_id = ? 
+                FROM chapters c
+                WHERE project_id = ?
                 ORDER BY sort_order ASC
             """,
                 (project_id,),
@@ -465,11 +479,11 @@ def reset_chapter_audio(chapter_id: str):
 
             # 3. Reset database fields for chapter
             cursor.execute("""
-                UPDATE chapters 
-                SET audio_status = 'unprocessed', 
-                    audio_file_path = NULL, 
-                    audio_generated_at = NULL, 
-                    audio_length_seconds = NULL 
+                UPDATE chapters
+                SET audio_status = 'unprocessed',
+                    audio_file_path = NULL,
+                    audio_generated_at = NULL,
+                    audio_length_seconds = NULL
                 WHERE id = ?
             """, (chapter_id,))
 

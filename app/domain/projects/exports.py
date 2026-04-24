@@ -3,6 +3,7 @@
 This module will own export intent and export manifest assembly for projects.
 """
 
+from __future__ import annotations
 from collections.abc import Sequence
 
 from .models import ProjectExportManifestModel, ProjectModel
