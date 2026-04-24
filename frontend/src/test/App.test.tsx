@@ -204,7 +204,7 @@ describe('App', () => {
       expect(screen.getByRole('heading', { name: 'API' })).toBeTruthy()
     })
 
-    expect(screen.getByText('Studio API')).toBeTruthy()
+    expect(screen.getByText('Developer Integration Guide')).toBeTruthy()
   })
 
   it('opens a chapter route by resolving the parent project from chapter details', async () => {
