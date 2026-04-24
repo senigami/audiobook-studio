@@ -16,9 +16,17 @@ interface GlobalQueueProps {
     queue: ProcessingQueueItem[];
     loading?: boolean;
     onRefresh?: () => void;
+    compact?: boolean;
 }
 
-export const GlobalQueue: React.FC<GlobalQueueProps> = ({ paused = false, jobs = {}, queue: initialQueue, loading = false, onRefresh }) => {
+export const GlobalQueue: React.FC<GlobalQueueProps> = ({
+    paused = false,
+    jobs = {},
+    queue: initialQueue,
+    loading = false,
+    onRefresh,
+    compact = false
+}) => {
     const {
         queue,
         localPaused,
@@ -57,41 +65,51 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({ paused = false, jobs =
     if (loading) return <div style={{ padding: '2rem' }}>Loading Queue...</div>;
 
     return (
-        <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '2rem', minHeight: '100%', paddingBottom: '4rem' }}>
-            <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', paddingBottom: '1rem', borderBottom: '1px solid var(--border)' }}>
+        <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: compact ? '1rem' : '2rem', minHeight: '100%', paddingBottom: compact ? '2rem' : '4rem' }}>
+            <header style={{
+                display: 'flex',
+                flexDirection: compact ? 'column' : 'row',
+                justifyContent: 'space-between',
+                alignItems: compact ? 'flex-start' : 'flex-end',
+                paddingBottom: '1rem',
+                borderBottom: '1px solid var(--border)',
+                gap: compact ? '1rem' : '0'
+            }}>
                 <div>
-                    <h2 style={{ fontSize: '1.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <Layers size={24} strokeWidth={2} color="var(--accent)" /> Global Processing Queue
+                    <h2 style={{ fontSize: compact ? '1.25rem' : '1.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '10px', margin: 0 }}>
+                        <Layers size={compact ? 20 : 24} strokeWidth={2} color="var(--accent)" /> Global Queue
                     </h2>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px' }}>
-                        <p style={{ color: 'var(--text-muted)', margin: 0 }}>Manage your batch audio generation tasks</p>
+                        {!compact && <p style={{ color: 'var(--text-muted)', margin: 0 }}>Manage your batch audio generation tasks</p>}
                         {queue.some(q => ['queued', 'preparing', 'running', 'finalizing'].includes(q.status)) && (
                             <QueueStats queue={queue} jobs={jobs} />
                         )}
                     </div>
                 </div>
-                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', width: compact ? '100%' : 'auto' }}>
                     <button
                         onClick={handlePauseToggle}
                         className={localPaused ? "btn-success" : "btn-primary"}
-                        style={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            gap: '8px', 
-                            padding: '10px 20px', 
-                            borderRadius: '12px', 
-                            fontSize: '0.9rem',
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            padding: compact ? '8px 12px' : '10px 20px',
+                            borderRadius: '10px',
+                            fontSize: '0.85rem',
                             fontWeight: 600,
                             boxShadow: 'var(--shadow-sm)',
                             transition: 'all 0.2s ease',
                             border: 'none',
-                            cursor: 'pointer'
+                            cursor: 'pointer',
+                            flex: compact ? 1 : 'none'
                         }}
                     >
-                        {localPaused ? <Play size={18} strokeWidth={2} fill="currentColor" /> : <Pause size={18} strokeWidth={2} fill="currentColor" />}
-                        {localPaused ? 'Resume Processing' : 'Pause All Jobs'}
+                        {localPaused ? <Play size={16} strokeWidth={2} fill="currentColor" /> : <Pause size={16} strokeWidth={2} fill="currentColor" />}
+                        {localPaused ? (compact ? 'Resume' : 'Resume Processing') : (compact ? 'Pause All' : 'Pause All Jobs')}
                     </button>
-                    <ActionMenu 
+                    <ActionMenu
                         items={[
                             { label: 'Clear Completed', icon: CheckCircle, onClick: handleClearCompleted },
                             { label: 'Clear All Jobs', icon: Trash2, onClick: handleClearAll, isDestructive: true }
@@ -136,6 +154,7 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({ paused = false, jobs =
                                         formatJobTitle={formatJobTitle}
                                         formatTime={formatTime}
                                         onRemove={handleRemove}
+                                        compact={compact}
                                     />
                                 ))}
                             </div>
@@ -147,29 +166,30 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({ paused = false, jobs =
                             <h3 style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '1rem' }}>
                                 Up Next ({pendingJobs.length})
                             </h3>
-                            <Reorder.Group 
-                                axis="y" 
-                                values={pendingJobs} 
-                                onReorder={handleReorder} 
-                                style={{ 
-                                    listStyle: 'none', 
-                                    margin: 0, 
-                                    padding: 0, 
-                                    display: 'flex', 
-                                    flexDirection: 'column', 
+                            <Reorder.Group
+                                axis="y"
+                                values={pendingJobs}
+                                onReorder={handleReorder}
+                                style={{
+                                    listStyle: 'none',
+                                    margin: 0,
+                                    padding: 0,
+                                    display: 'flex',
+                                    flexDirection: 'column',
                                     gap: '1rem',
                                     position: 'relative', // Ensure coordinate space is local
                                     minHeight: '50px' // Prevent collapse if empty during drag
                                 }}
                             >
                     {pendingJobs.map(job => (
-                        <ReorderableQueueItem 
+                        <ReorderableQueueItem
                             key={job.id}
                             job={job}
                             formatJobTitle={formatJobTitle}
                             handleRemove={handleRemove}
                             handleDragStart={handleDragStart}
                             handleDragEnd={handleDragEnd}
+                            compact={compact}
                         />
                     ))}
                             </Reorder.Group>

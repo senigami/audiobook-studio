@@ -41,6 +41,7 @@ interface ProjectViewProps {
   segmentUpdate?: { chapterId: string; tick: number };
   chapterUpdate?: { chapterId: string; tick: number };
   shellState?: StudioShellState;
+  onOpenQueue?: () => void;
 }
 
 export const ProjectView: React.FC<ProjectViewProps> = ({ 
@@ -53,7 +54,8 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
   refreshTrigger = 0, 
   segmentUpdate, 
   chapterUpdate,
-  shellState
+  shellState,
+  onOpenQueue
 }) => {
   const RECENT_DONE_WINDOW_SECONDS = 60;
   const { projectId: routeProjectId, chapterId: routeChapterId } = useParams() as { projectId?: string, chapterId?: string };
@@ -137,7 +139,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
     handleQueueAllUnprocessed,
     handleAssembleProject,
     handleDeleteAudiobook
-  } = useProjectActions(effectiveProjectId, loadData, navigate);
+  } = useProjectActions(effectiveProjectId, loadData, navigate, onOpenQueue);
 
   useEffect(() => { 
     const isTransition = project?.id !== effectiveProjectId;

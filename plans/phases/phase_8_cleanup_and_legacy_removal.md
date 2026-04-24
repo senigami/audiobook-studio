@@ -1,85 +1,73 @@
-# Phase 8: Cleanup And Legacy Removal
+# Phase 8: Shell Cutover And Product Hardening
 
 ## Objective
 
-Remove legacy dependencies only after their replacements are proven. Document the plugin system and TTS API for contributors and users.
+Finish the visible Studio 2.0 shell and the highest-value product seams before opening the system outward. Phase 8 starts with the queue moving into the right-side companion drawer so users can manage work without losing page context.
 
 ## Deliverables
 
-- export and repair/backfill finalization under 2.0 architecture
-- legacy code removal
-- final path consolidation
-- docs and changelog completion
-- plugin developer guide (`docs/plugin-guide.md`)
-- plugin template folder (`docs/plugin-template/`) with example manifest, engine, and settings schema
-- TTS API documentation (auto-generated OpenAPI from FastAPI routes)
-- CONTRIBUTING.md updated with plugin contribution workflow
-- wiki pages updated to reflect 2.0 architecture, plugin system, and TTS API
+- queue drawer cutover as the primary queue surface
+- queue tab opens the right-side drawer without navigating away from the current page
+- `/queue` remains as a compatibility/deep-link entry that resolves into the queue drawer behavior
+- queue-related actions open or focus the drawer instead of redirecting the user to a dedicated queue page
+- `GlobalQueue` is adapted for drawer density, scrolling, and constrained-width controls
+- project snapshot and export-manifest foundation is implemented in the project domain
+- dated project backup/export bundle foundation is implemented with clear artifact-included vs regenerate-on-import reporting
+- plugin setup, dependency, and recovery diagnostics are clearer in the schema-driven engine settings surface
+- fake, stale, or misleading legacy repair/backfill paths are retired, deprecated, or replaced with explicit behavior
+- phase docs and product docs are synchronized with the post-Phase-7 settings and shell reality
 
 ## Deliverables Checklist
 
-- [ ] Export finalization under 2.0 architecture completed
-- [ ] Repair/backfill flow finalized under 2.0 architecture
-- [ ] Legacy code removed
-- [ ] Final path consolidation completed
-- [ ] Docs and changelog completed
-- [ ] Plugin developer guide written with step-by-step instructions
-- [ ] Plugin template folder created with working example
-- [ ] TTS API documentation generated and accessible at /api/v1/tts/docs
-- [ ] CONTRIBUTING.md updated with plugin contribution section
-- [ ] Wiki pages updated for 2.0 architecture
-
-## Plugin Developer Guide Requirements
-
-The guide (`docs/plugin-guide.md`) must cover:
-
-1. **Quick start**: Create a minimal plugin in 5 minutes
-2. **Manifest reference**: Every field explained with examples
-3. **Contract walkthrough**: Each `StudioTTSEngine` method with expected behavior
-4. **Settings schema**: How to define configurable settings with JSON Schema
-5. **Testing instructions**: How to test a plugin outside of Studio
-6. **Dependency management**: How to specify and manage pip dependencies
-7. **Submission guidelines**: How to submit a plugin for community review
-8. **Security notice**: What users should know before installing third-party plugins
-
-The plugin template (`docs/plugin-template/`) must be a working, minimal plugin that contributors can copy and modify:
-
-```text
-docs/plugin-template/
-├── manifest.json         # Pre-filled with placeholder values
-├── engine.py             # Implements StudioTTSEngine with stub methods
-├── settings_schema.json  # Example schema with one setting
-├── requirements.txt      # Empty, with comments explaining format
-└── README.md             # Template README for plugin authors
-```
+- [ ] Queue drawer shell behavior implemented
+- [ ] Queue tab opens the drawer while preserving the current route
+- [ ] Queue compatibility route/deep link behavior implemented
+- [ ] Queue action flows updated to focus the drawer
+- [ ] Drawer-optimized queue layout and controls implemented
+- [ ] Project snapshot creation implemented through the project domain
+- [ ] Project export manifest implemented through the project domain
+- [ ] First backup/export bundle mode implemented
+- [ ] Plugin setup and diagnostics UX hardened without engine-specific UI branches
+- [ ] Legacy backfill/repair placeholders audited and explicitly handled
+- [ ] Phase and product docs updated to match shipped behavior
 
 ## Scope
 
-- cleanup is only allowed after proof, not as a speculative simplification
-- legacy import-time worker startup, startup reconciliation, config-sync middleware, and listener-registration side effects must be removed only after explicit 2.0 replacements are proven
-- documentation is part of the work, not cleanup to be done later
+- preserve the generic plugin and engine model
+- keep settings schema-driven and plugin-owned
+- do not reintroduce `SettingsTray`
+- treat the queue as a global companion surface, not a destination-first page
+- prioritize concrete user-visible product improvements over cleanup for its own sake
+- only remove legacy paths after the replacement behavior is proven
+- project portability work should start with clear metadata and manifest contracts before full restore UX
 
 ## Tests
 
-- regression suite
-- recovery validation
-- export validation
-- legacy removal validation
-- startup lifecycle replacement validation
-- plugin template validation (template plugin can be loaded by TTS Server)
+- shell/navigation tests for queue drawer open/close behavior
+- compatibility tests for `/queue` deep links and refresh behavior
+- targeted queue component tests in drawer-width conditions
+- enqueue and queue-focus interaction tests from project and chapter surfaces
+- project snapshot and export manifest tests
+- backup/export bundle validation tests
+- plugin diagnostics and engine-card behavior tests
+- frontend build
+- targeted backend regression suite
 
 ## Verification Checklist
 
-- [ ] Regression suite passes
-- [ ] Recovery validation passes
-- [ ] Export validation passes
-- [ ] Legacy removal validation passes
-- [ ] Startup lifecycle replacement validation passes
-- [ ] Plugin template loads successfully in TTS Server
-- [ ] Plugin developer guide reviewed for completeness
+- [ ] Queue drawer navigation tests pass
+- [ ] Queue compatibility/deep-link tests pass
+- [ ] Queue component tests pass in the drawer layout
+- [ ] Project snapshot tests pass
+- [ ] Project export manifest tests pass
+- [ ] Backup/export bundle validation passes
+- [ ] Plugin diagnostics tests pass
+- [ ] Frontend build passes
+- [ ] Targeted backend regression passes
 
 ## Exit Gate
 
-- Studio 2.0 is the active architecture and legacy paths are no longer required
-- plugin system and TTS API are documented for contributors and users
-
+- the queue is a stable right-side companion surface that does not pull users away from their current work
+- Studio has a real project snapshot/export foundation for portability and backup work
+- plugin setup and recovery UX are clear without breaking the generic schema-driven model
+- stale legacy placeholders no longer misrepresent product behavior

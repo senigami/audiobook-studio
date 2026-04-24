@@ -112,7 +112,8 @@ describe('useProjectActions', () => {
 
   it('handles queueAllUnprocessed', async () => {
     (api.addProcessingQueue as any).mockResolvedValue({ status: 'success' });
-    const { result } = renderHook(() => useProjectActions(projectId, onDataRefresh, navigate));
+    const onOpenQueue = vi.fn();
+    const { result } = renderHook(() => useProjectActions(projectId, onDataRefresh, navigate, onOpenQueue));
     
     const chapters = [
         { id: 'c1', audio_status: 'unprocessed' },
@@ -128,7 +129,8 @@ describe('useProjectActions', () => {
     expect((res as any).success).toBe(true);
     expect(api.addProcessingQueue).toHaveBeenCalledTimes(1); // Only c1
     expect(api.addProcessingQueue).toHaveBeenCalledWith(projectId, 'c1', 0, undefined);
-    expect(navigate).toHaveBeenCalledWith('/queue');
+    expect(onOpenQueue).toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalledWith('/queue');
   });
 
   it('handles assembleProject', async () => {

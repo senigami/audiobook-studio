@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation, useMatch } from 'react-router-dom';
 import { api } from './api';
 import { Layout } from './components/Layout';
@@ -18,6 +18,7 @@ import { QueueRoute } from './features/queue/routes/QueueRoute';
 import { SettingsRoute } from './features/settings/routes';
 import type { Chapter, Project } from './types';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Drawer } from './components/voices/VoiceUtils';
 
 function App() {
   const navigate = useNavigate();
@@ -27,8 +28,8 @@ function App() {
   const projectIdFromRoute = projectMatch?.params.projectId;
   const chapterIdFromRoute = chapterMatch?.params.chapterId;
   const [queueRefreshTrigger, setQueueRefreshTrigger] = useState(0);
-  const { 
-    queue: mergedQueue, 
+  const {
+    queue: mergedQueue,
     queueCount,
     loading: queueLoading,
     connected,
@@ -56,8 +57,8 @@ function App() {
   const [chapterRouteData, setChapterRouteData] = useState<Chapter | null>(null);
   const [chapterRouteLoading, setChapterRouteLoading] = useState(false);
   const { jobs, refreshJobs, testProgress, segmentProgress } = useJobs(
-    () => { refetchHome(); refreshQueue('refresh'); }, 
-    () => { refreshQueue('refresh'); }, 
+    () => { refetchHome(); refreshQueue('refresh'); },
+    () => { refreshQueue('refresh'); },
     () => refetchHome(),
     (chapterId: string) => { setSegmentUpdate(prev => ({ chapterId, tick: prev.tick + 1 })); },
     (chapterId: string) => { setChapterUpdate(prev => ({ chapterId, tick: prev.tick + 1 })); }
@@ -97,9 +98,9 @@ function App() {
       cancelled = true;
     };
   }, [chapterIdFromRoute]);
-  
+
   const [previewFilename, setPreviewFilename] = useState<string | null>(null);
-  
+
   const [confirmConfig, setConfirmConfig] = useState<{
     title: string;
     message: string;
@@ -114,6 +115,19 @@ function App() {
     setToast({ message, visible: true });
     setTimeout(() => setToast(prev => prev ? { ...prev, visible: false } : null), 4000);
   };
+
+  const [isQueueDrawerOpen, setIsQueueDrawerOpen] = useState(false);
+  const prevPathRef = useRef(location.pathname);
+
+  useEffect(() => {
+    if (location.pathname === '/queue') {
+      setIsQueueDrawerOpen(true);
+      const target = prevPathRef.current === '/queue' ? '/' : prevPathRef.current;
+      navigate(target, { replace: true });
+    } else {
+      prevPathRef.current = location.pathname;
+    }
+  }, [location.pathname, navigate]);
 
   const handleRefresh = async () => {
     setRefreshingSource('refresh');
@@ -140,6 +154,8 @@ function App() {
       <Layout
         queueCount={queueCount}
         shellState={shellState}
+        onToggleQueue={() => setIsQueueDrawerOpen(!isQueueDrawerOpen)}
+        isQueueOpen={isQueueDrawerOpen}
       >
         <div style={{
           flex: 1,
@@ -153,7 +169,7 @@ function App() {
             <Routes>
               <Route path="/" element={<ProjectLibrary onSelectProject={(id) => navigate(`/project/${id}`)} />} />
               <Route path="/project/:projectId" element={
-              <ProjectViewRoute 
+              <ProjectViewRoute
                   loading={initialLoading || queueLoading}
                   connected={connected}
                   isReconnecting={isReconnecting}
@@ -163,7 +179,7 @@ function App() {
                   chapterTitle={initialData?.chapters?.find((c: any) => c.id === chapterIdFromRoute)?.title}
                 >
                   {({ shellState }) => (
-                    <ProjectView 
+                    <ProjectView
                       key={shellState.navigation.activeProjectId}
                       jobs={jobs}
                       segmentProgress={segmentProgress}
@@ -175,13 +191,14 @@ function App() {
                       segmentUpdate={segmentUpdate}
                       chapterUpdate={chapterUpdate}
                       shellState={shellState}
+                      onOpenQueue={() => setIsQueueDrawerOpen(true)}
                     />
                   )}
                 </ProjectViewRoute>
               } />
               {/* Separate Chapter route if needed, though ProjectView handles it via state right now */}
               <Route path="/chapter/:chapterId" element={
-                <ProjectViewRoute 
+                <ProjectViewRoute
                   loading={initialLoading || queueLoading || chapterRouteLoading}
                   connected={connected}
                   isReconnecting={isReconnecting}
@@ -192,7 +209,7 @@ function App() {
                   chapterTitle={chapterRouteData?.title || initialData?.chapters?.find((c: any) => c.id === chapterIdFromRoute)?.title}
                 >
                   {({ shellState }) => (
-                    <ProjectView 
+                    <ProjectView
                       key={shellState.navigation.activeProjectId}
                       jobs={jobs}
                       segmentProgress={segmentProgress}
@@ -204,6 +221,7 @@ function App() {
                       segmentUpdate={segmentUpdate}
                       chapterUpdate={chapterUpdate}
                       shellState={shellState}
+                      onOpenQueue={() => setIsQueueDrawerOpen(true)}
                     />
                   )}
                 </ProjectViewRoute>
@@ -216,8 +234,8 @@ function App() {
                   refreshingSource={activeSource || refreshingSource}
                 >
                   {() => (
-                    <GlobalQueue 
-                      paused={initialData?.paused || false} 
+                    <GlobalQueue
+                      paused={initialData?.paused || false}
                       jobs={jobs}
                       queue={mergedQueue}
                       loading={queueLoading}
@@ -302,6 +320,21 @@ function App() {
         filename={previewFilename || ''}
       />
 
+      <Drawer
+        isOpen={isQueueDrawerOpen}
+        onClose={() => setIsQueueDrawerOpen(false)}
+        title="Processing Queue"
+      >
+        <GlobalQueue
+          paused={initialData?.paused || false}
+          jobs={jobs}
+          queue={mergedQueue}
+          loading={queueLoading}
+          onRefresh={() => refreshQueue('refresh')}
+          compact={true}
+        />
+      </Drawer>
+
       <ConfirmModal
         isOpen={!!confirmConfig}
         title={confirmConfig?.title || ''}
@@ -344,16 +377,16 @@ function App() {
             }}
           >
             <span>{toast.message}</span>
-            <button 
+            <button
               onClick={() => {
                 setToast(null);
-                navigate('/queue');
+                setIsQueueDrawerOpen(true);
               }}
-              style={{ 
-                background: 'var(--accent)', 
-                color: 'white', 
-                padding: '4px 10px', 
-                borderRadius: '6px', 
+              style={{
+                background: 'var(--accent)',
+                color: 'white',
+                padding: '4px 10px',
+                borderRadius: '6px',
                 fontSize: '0.75rem',
                 border: 'none',
                 cursor: 'pointer'

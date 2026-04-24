@@ -2,7 +2,12 @@ import { useState, useRef } from 'react';
 import { api } from '../api';
 import type { Chapter } from '../types';
 
-export function useProjectActions(projectId: string, onDataRefresh: () => Promise<void>, navigate: (path: string) => void) {
+export function useProjectActions(
+  projectId: string,
+  onDataRefresh: () => Promise<void>,
+  navigate: (path: string) => void,
+  onOpenQueue?: () => void
+) {
   const [submitting, setSubmitting] = useState(false);
   const reorderTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -119,7 +124,11 @@ export function useProjectActions(projectId: string, onDataRefresh: () => Promis
             await api.addProcessingQueue(projectId, chap.id, 0, selectedVoice || undefined);
         }
         await onDataRefresh();
-        navigate('/queue');
+        if (onOpenQueue) {
+            onOpenQueue();
+        } else {
+            navigate('/queue');
+        }
         return { success: true };
     } catch (e) {
         console.error("Failed to enqueue all", e);
