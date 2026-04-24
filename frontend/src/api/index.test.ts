@@ -87,16 +87,16 @@ describe('api methods', () => {
         expect(global.fetch).toHaveBeenCalledWith('/api/job/f1')
 
         await api.fetchPreview('f1', true)
-        expect(global.fetch).toHaveBeenCalledWith('/api/preview/f1?processed=true')
+        expect(global.fetch).toHaveBeenCalledWith('/api/chapters/f1/preview?processed=true')
 
         await api.enqueueSingle('f1', 'xtts', 'v1')
         expect(global.fetch).toHaveBeenCalledWith('/api/queue/single', expect.objectContaining({ method: 'POST' }))
 
         await api.cancelPending()
-        expect(global.fetch).toHaveBeenCalledWith('/api/queue/cancel_pending', expect.objectContaining({ method: 'POST' }))
+        expect(global.fetch).toHaveBeenCalledWith('/api/generation/cancel-all', expect.objectContaining({ method: 'POST' }))
 
         await api.exportSample('f1')
-        expect(global.fetch).toHaveBeenCalledWith('/api/chapter/f1/export-sample', expect.objectContaining({ method: 'POST' }))
+        expect(global.fetch).toHaveBeenCalledWith('/api/chapters/f1/export-sample', expect.objectContaining({ method: 'POST' }))
 
         await api.getProcessingQueue()
         expect(global.fetch).toHaveBeenCalledWith('/api/processing_queue')
@@ -117,10 +117,10 @@ describe('api methods', () => {
         expect(global.fetch).toHaveBeenCalledWith('/api/processing_queue', expect.objectContaining({ method: 'DELETE' }))
 
         await api.toggleQueuePause(true)
-        expect(global.fetch).toHaveBeenCalledWith('/queue/pause', expect.objectContaining({ method: 'POST' }))
+        expect(global.fetch).toHaveBeenCalledWith('/api/generation/pause', expect.objectContaining({ method: 'POST' }))
 
         await api.toggleQueuePause(false)
-        expect(global.fetch).toHaveBeenCalledWith('/queue/resume', expect.objectContaining({ method: 'POST' }))
+        expect(global.fetch).toHaveBeenCalledWith('/api/generation/resume', expect.objectContaining({ method: 'POST' }))
     })
 
     it('throws helpful errors for blocked generation requests', async () => {

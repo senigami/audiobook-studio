@@ -173,6 +173,7 @@ describe('ScriptView', () => {
         onGenerateBatch={onGenerateBatch} 
         pendingSpanIds={new Set()}
         onPlaySpan={onPlaySpan}
+        engines={[{ engine_id: 'xtts', enabled: true, status: 'ready' } as any]}
       />
     );
 
@@ -251,7 +252,7 @@ describe('ScriptView', () => {
       />
     );
 
-    const compactButton = screen.getByText('Clean Up');
+    const compactButton = screen.getByText('Consolidate');
     fireEvent.click(compactButton);
     expect(onCompact).toHaveBeenCalled();
   });
@@ -268,7 +269,7 @@ describe('ScriptView', () => {
       />
     );
 
-    expect(screen.getByText('Cleaning...')).toBeInTheDocument();
-    expect(screen.getByText('Cleaning...').closest('button')).toBeDisabled();
+    expect(screen.getByText('Consolidating...')).toBeInTheDocument();
+    expect(screen.getByText('Consolidating...').closest('button')).toBeDisabled();
   });
 });

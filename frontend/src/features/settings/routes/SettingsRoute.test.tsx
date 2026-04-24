@@ -282,7 +282,7 @@ describe('SettingsRoute', () => {
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
-        '/settings',
+        '/api/settings',
         expect.objectContaining({ method: 'POST' })
       );
       expect(defaultProps.onRefresh).toHaveBeenCalled();

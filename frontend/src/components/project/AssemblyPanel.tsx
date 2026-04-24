@@ -1,5 +1,6 @@
 import React from 'react';
-import { Download, Trash2, Image as ImageIcon, CheckCircle, Edit2, Book } from 'lucide-react';
+import { Download, Trash2, Image as ImageIcon, CheckCircle, Book } from 'lucide-react';
+import { InlineEdit } from '../InlineEdit';
 import type { Audiobook } from '../../types';
 
 interface AssemblyPanelProps {
@@ -21,19 +22,16 @@ export const AssemblyPanel: React.FC<AssemblyPanelProps> = ({
   formatFileSize,
   formatRelativeTime
 }) => {
-  const [editingFile, setEditingFile] = React.useState<string | null>(null);
-  const [editValue, setEditValue] = React.useState('');
   const [localAudiobooks, setLocalAudiobooks] = React.useState(availableAudiobooks);
 
   React.useEffect(() => {
     setLocalAudiobooks(availableAudiobooks);
   }, [availableAudiobooks]);
 
-  const handleUpdateDescription = async (filename: string) => {
-    const success = await onUpdateMetadata(filename, editValue);
+  const handleUpdateDescription = async (filename: string, newValue: string) => {
+    const success = await onUpdateMetadata(filename, newValue);
     if (success) {
-        setLocalAudiobooks(prev => prev.map(a => a.filename === filename ? { ...a, description: editValue } : a));
-        setEditingFile(null);
+        setLocalAudiobooks(prev => prev.map(a => a.filename === filename ? { ...a, description: newValue } : a));
     }
   };
   return (
@@ -63,15 +61,16 @@ export const AssemblyPanel: React.FC<AssemblyPanelProps> = ({
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                         <div style={{
                             width: '40px',
-                            height: '40px',
-                            borderRadius: '6px',
+                            aspectRatio: '2/3',
+                            borderRadius: '4px',
                             overflow: 'hidden',
                             background: 'var(--surface-light)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             flexShrink: 0,
-                            border: '1px solid var(--border)'
+                            border: '1px solid var(--border)',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
                         }}>
                             {a.cover_url ? (
                                 <img src={a.cover_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
@@ -83,52 +82,17 @@ export const AssemblyPanel: React.FC<AssemblyPanelProps> = ({
                             <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {a.title || a.filename}
                             </span>
-                            {editingFile === a.filename ? (
-                                <input
-                                    autoFocus
-                                    value={editValue}
-                                    onChange={e => setEditValue(e.target.value)}
-                                    onKeyDown={e => {
-                                        if (e.key === 'Enter') handleUpdateDescription(a.filename);
-                                        if (e.key === 'Escape') setEditingFile(null);
-                                    }}
-                                    placeholder="Add description..."
-                                    style={{
-                                        background: 'var(--surface)',
-                                        border: '1px solid var(--accent)',
-                                        borderRadius: '4px',
-                                        padding: '0.1rem 0.4rem',
-                                        fontSize: '0.75rem',
-                                        width: '100%',
-                                        color: 'var(--text-primary)',
-                                        marginTop: '2px'
-                                    }}
-                                />
-                            ) : (
-                                <div
-                                    onDoubleClick={() => {
-                                        setEditingFile(a.filename);
-                                        setEditValue(a.description || '');
-                                    }}
-                                    className="editable-cell"
-                                    style={{
-                                        fontSize: '0.75rem',
-                                        color: a.description ? 'var(--text-primary)' : 'var(--text-muted)',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                        whiteSpace: 'nowrap',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '0.4rem',
-                                        marginTop: '2px',
-                                        minHeight: '1.1rem'
-                                    }}
-                                    title={a.description || 'Double-click to add description'}
-                                >
-                                    {a.description || 'No description'}
-                                    <Edit2 size={10} style={{ opacity: 0.4 }} className="show-on-hover" />
-                                </div>
-                            )}
+                            <InlineEdit
+                                value={a.description || ''}
+                                onSave={(val) => handleUpdateDescription(a.filename, val)}
+                                placeholder="Add description..."
+                                style={{
+                                    fontSize: '0.75rem',
+                                    color: a.description ? 'var(--text-primary)' : 'var(--text-muted)',
+                                    marginTop: '2px',
+                                    minHeight: '1.1rem'
+                                }}
+                            />
                             <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '1px' }}>
                                 {a.filename}
                             </span>

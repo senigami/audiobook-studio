@@ -210,7 +210,7 @@ describe('Voices Tab Components', () => {
                     onRenameClick={vi.fn()}
                     isExpanded={true}
                     onToggleExpand={vi.fn()}
-                    engines={[{ engine_id: 'voxtral', display_name: 'Voxtral', enabled: true, verified: true } as any]}
+                    engines={[{ engine_id: 'voxtral', display_name: 'Voxtral', enabled: true, verified: true, cloud: true } as any]}
                 />
             );
 
@@ -241,10 +241,11 @@ describe('Voices Tab Components', () => {
                     onRenameClick={vi.fn()}
                     isExpanded={true}
                     onToggleExpand={vi.fn()}
+                    engines={[{ engine_id: 'voxtral', display_name: 'Voxtral', enabled: true, verified: true, cloud: true } as any]}
                 />
             );
 
-            expect(screen.getByText('PREVIEW OUT OF DATE')).toBeInTheDocument();
+            expect(screen.getByText(/PREVIEW OUT OF DATE/i)).toBeInTheDocument();
             expect(screen.getByText('Regenerate')).toBeInTheDocument();
             expect(screen.getByTitle('Play Sample')).not.toBeDisabled();
         });
@@ -268,13 +269,13 @@ describe('Voices Tab Components', () => {
                     onRenameClick={vi.fn()}
                     isExpanded={true}
                     onToggleExpand={vi.fn()}
-                    engines={[{ engine_id: 'voxtral', display_name: 'Voxtral', enabled: false, verified: true } as any]}
+                    engines={[{ engine_id: 'voxtral', display_name: 'Voxtral', enabled: false, verified: true, cloud: true } as any]}
                 />
             );
 
             expect(screen.getByTitle('Play Sample')).not.toBeDisabled();
             expect(screen.getByRole('button', { name: /Regenerate/i })).toBeDisabled();
-            expect(screen.getByText(/turned off in Settings/i)).toBeInTheDocument();
+            expect(screen.getByText(/disabled or unavailable/i)).toBeInTheDocument();
         });
     });
 

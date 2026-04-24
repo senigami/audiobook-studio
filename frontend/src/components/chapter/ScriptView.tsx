@@ -252,14 +252,10 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
 
   const renderBook = () => {
     return data.paragraphs.map(para => {
-      const firstSpan = spanMap.get(para.span_ids[0]);
-      const char = firstSpan?.character_id ? charMap.get(firstSpan.character_id) : null;
-
       return (
         <div
           key={para.id}
           className={`book-paragraph ${activeCharacterId !== undefined ? 'is-paintable' : ''}`}
-          style={char ? ({ '--book-paragraph-accent': char.color } as React.CSSProperties) : undefined}
           onClick={() => {
              // If we have a selection, don't trigger whole-paragraph assignment
              const selection = window.getSelection();
@@ -361,11 +357,11 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
           <button
             className={`script-view-pill-toggle ${isCompacting ? 'is-loading' : ''}`}
             onClick={onCompact}
-            title="Clean up and merge compatible spans"
+            title="Consolidate adjacent segments with the same voice (Note: Merged segments will need to be re-rendered)"
             disabled={isCompacting}
           >
             <Sparkles size={16} className={isCompacting ? 'animate-spin' : ''} />
-            <span>{isCompacting ? 'Cleaning...' : 'Clean Up'}</span>
+            <span>{isCompacting ? 'Consolidating...' : 'Consolidate'}</span>
           </button>
         </div>
       </div>

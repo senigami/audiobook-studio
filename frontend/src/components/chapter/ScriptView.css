@@ -152,8 +152,8 @@
 .book-paragraph .script-span.is-assigned .script-span-text {
   text-decoration-line: underline;
   text-decoration-thickness: 0.12em;
-  text-underline-offset: 0.12em;
-  text-decoration-color: var(--book-paragraph-accent, currentColor);
+  text-underline-offset: 0.25em;
+  text-decoration-color: var(--script-span-accent, currentColor);
   text-decoration-skip-ink: auto;
 }
 

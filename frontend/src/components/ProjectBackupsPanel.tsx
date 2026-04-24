@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Database, Download, Plus, Clock, Loader2, Trash2, CheckSquare, Square, Edit2 } from 'lucide-react';
+import { Database, Download, Plus, Clock, Loader2, Trash2, CheckSquare, Square } from 'lucide-react';
+import { InlineEdit } from './InlineEdit';
 import { api } from '../api';
 import type { StoredBackup } from '../types';
 import { ConfirmModal } from './ConfirmModal';
@@ -25,8 +26,6 @@ export const ProjectBackupsPanel: React.FC<ProjectBackupsPanelProps> = ({
   const [includeAudio, setIncludeAudio] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [deletingFile, setDeletingFile] = useState<string | null>(null);
-  const [editingFile, setEditingFile] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [fileToDelete, setFileToDelete] = useState<string | null>(null);
 
@@ -77,11 +76,10 @@ export const ProjectBackupsPanel: React.FC<ProjectBackupsPanelProps> = ({
     }
   };
 
-  const handleUpdateComment = async (filename: string) => {
-    const success = await onUpdateMetadata(filename, editValue);
+  const handleUpdateComment = async (filename: string, newValue: string) => {
+    const success = await onUpdateMetadata(filename, newValue);
     if (success) {
-        setBackups(prev => prev.map(b => b.filename === filename ? { ...b, comment: editValue } : b));
-        setEditingFile(null);
+        setBackups(prev => prev.map(b => b.filename === filename ? { ...b, comment: newValue } : b));
     }
   };
 
@@ -198,47 +196,15 @@ export const ProjectBackupsPanel: React.FC<ProjectBackupsPanelProps> = ({
                     </div>
                   </td>
                   <td style={{ padding: '1rem', fontSize: '0.9rem' }}>
-                    {editingFile === b.filename ? (
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <input
-                                autoFocus
-                                value={editValue}
-                                onChange={e => setEditValue(e.target.value)}
-                                onKeyDown={e => {
-                                    if (e.key === 'Enter') handleUpdateComment(b.filename);
-                                    if (e.key === 'Escape') setEditingFile(null);
-                                }}
-                                style={{
-                                    background: 'var(--surface)',
-                                    border: '1px solid var(--accent)',
-                                    borderRadius: '4px',
-                                    padding: '0.25rem 0.5rem',
-                                    fontSize: '0.9rem',
-                                    width: '100%',
-                                    color: 'var(--text-primary)'
-                                }}
-                            />
-                        </div>
-                    ) : (
-                        <div
-                            onDoubleClick={() => {
-                                setEditingFile(b.filename);
-                                setEditValue(b.comment || '');
-                            }}
-                            className="editable-cell"
-                            style={{
-                                cursor: 'text',
-                                color: b.comment ? 'var(--text-primary)' : 'var(--text-muted)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.5rem',
-                                minHeight: '1.25rem'
-                            }}
-                        >
-                            {b.comment || 'No description provided'}
-                            <Edit2 size={12} style={{ opacity: 0.4 }} className="show-on-hover" />
-                        </div>
-                    )}
+                    <InlineEdit
+                        value={b.comment || ''}
+                        onSave={(val) => handleUpdateComment(b.filename, val)}
+                        placeholder="No description provided"
+                        style={{
+                            color: b.comment ? 'var(--text-primary)' : 'var(--text-muted)',
+                            minHeight: '1.25rem'
+                        }}
+                    />
                   </td>
                   <td style={{ padding: '1rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>{formatFileSize(b.size_bytes)}</td>
                   <td style={{ padding: '1rem', textAlign: 'right' }}>

@@ -22,16 +22,16 @@ describe('StatusOrb', () => {
     audio_length_seconds: 0
   }
 
-  it('renders correct tooltip with M4A and MP3 status', () => {
+  it('renders correct tooltip with M4A status', () => {
     const chap = { ...baseChapter, has_m4a: true, has_mp3: false }
     const { container } = render(<StatusOrb chap={chap} />)
     const orb = container.firstChild as HTMLElement
     
     expect(orb.getAttribute('title')).toContain('M4A cached: yes')
-    expect(orb.getAttribute('title')).toContain('MP3 available: no')
+    expect(orb.getAttribute('title')).not.toContain('MP3 available')
   })
 
-  it('renders arcs with correct opacity based on presence', () => {
+  it('renders ring with correct opacity based on presence', () => {
     const chap = { 
       ...baseChapter, 
       has_m4a: true, 
@@ -42,17 +42,14 @@ describe('StatusOrb', () => {
     
     // Find circles with ringRadius 10.2 in SVG
     const circles = container.querySelectorAll('circle')
-    const arcs = Array.from(circles).filter(c => c.getAttribute('r') === '10.2')
+    const rings = Array.from(circles).filter(c => c.getAttribute('r') === '10.2')
     
-    expect(arcs.length).toBe(2)
+    expect(rings.length).toBe(1)
     
-    // Find M4A arc (left/offset based)
-    const m4aArc = arcs.find(a => a.getAttribute('stroke')?.includes('var(--accent)'))
-    // Find MP3 arc (right/offset based)
-    const mp3Arc = arcs.find(a => a.getAttribute('stroke')?.includes('var(--border)'))
+    // Find M4A ring
+    const m4aRing = rings.find(a => a.getAttribute('stroke')?.includes('var(--accent)'))
     
-    expect(m4aArc?.getAttribute('style')).toContain('opacity: 0.8')
-    expect(mp3Arc?.getAttribute('style')).toContain('opacity: 0.3')
+    expect(m4aRing?.getAttribute('style')).toContain('opacity: 0.8')
   })
 
   it('renders success fill when complete', () => {
