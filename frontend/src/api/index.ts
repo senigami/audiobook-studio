@@ -301,8 +301,8 @@ export const api = {
     const res = await fetch(`/api/job/${encodeURIComponent(filename)}`);
     return res.json();
   },
-  fetchPreview: async (filename: string, processed: boolean = false): Promise<{ text: string; error?: string }> => {
-    const res = await fetch(`/api/preview/${encodeURIComponent(filename)}?processed=${processed}`);
+  fetchPreview: async (chapterId: string, processed: boolean = false): Promise<{ text: string; error?: string }> => {
+    const res = await fetch(`/api/chapters/${chapterId}/preview?processed=${processed}`);
     return res.json();
   },
   updateTitle: async (filename: string, newTitle: string): Promise<any> => {
@@ -329,11 +329,11 @@ export const api = {
     return res.json();
   },
   cancelPending: async (): Promise<any> => {
-    const res = await fetch('/api/queue/cancel_pending', { method: 'POST' });
+    const res = await fetch('/api/generation/cancel-all', { method: 'POST' });
     return res.json();
   },
-  exportSample: async (filename: string, projectId?: string): Promise<{ url: string; status?: string; message?: string }> => {
-    const url = `/api/chapter/${encodeURIComponent(filename)}/export-sample${projectId ? `?project_id=${projectId}` : ''}`;
+  exportSample: async (chapterId: string, projectId?: string): Promise<{ url: string; status?: string; message?: string }> => {
+    const url = `/api/chapters/${chapterId}/export-sample${projectId ? `?project_id=${projectId}` : ''}`;
     const res = await fetch(url, { method: 'POST' });
     return res.json();
   },
@@ -381,7 +381,7 @@ export const api = {
     return res.json();
   },
   toggleQueuePause: async (paused: boolean): Promise<any> => {
-    const endpoint = paused ? '/queue/pause' : '/queue/resume';
+    const endpoint = paused ? '/api/generation/pause' : '/api/generation/resume';
     const res = await fetch(endpoint, { method: 'POST' });
     return res.json();
   },

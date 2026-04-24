@@ -49,7 +49,8 @@ def test_bake_chapter_mixed_engines_use_mixed_worker(clean_db, client):
     pid = create_project("P1")
     cid = create_chapter(pid, "C1", "Hello world. Goodbye world.")
     sync_chapter_segments(cid, "Hello world. Goodbye world.")
-    client.post("/api/settings", data={"mistral_api_key": "abc123"})
+    from app.state import update_settings
+    update_settings({"mistral_api_key": "abc123"})
 
     with patch("app.api.routers.generation.get_chapter_segments", return_value=[
         {"speaker_profile_name": "XTTS Voice", "audio_status": "done", "audio_file_path": "seg_1.wav"},
@@ -74,7 +75,8 @@ def test_bake_chapter_voxtral_uses_mixed_worker(clean_db, client):
     pid = create_project("P1")
     cid = create_chapter(pid, "C1", "Hello world.")
     sync_chapter_segments(cid, "Hello world.")
-    client.post("/api/settings", data={"mistral_api_key": "abc123"})
+    from app.state import update_settings
+    update_settings({"mistral_api_key": "abc123"})
 
     with patch("app.api.routers.generation.put_job") as mock_put_job, \
          patch("app.api.routers.generation.enqueue"), \
@@ -311,7 +313,8 @@ def test_queue_chapter_resolves_voxtral_engine_from_profile(clean_db, client):
     pid = create_project("P1")
     cid = create_chapter(pid, "C1", "Hello world.")
     sync_chapter_segments(cid, "Hello world.")
-    client.post("/api/settings", data={"mistral_api_key": "abc123"})
+    from app.state import update_settings
+    update_settings({"mistral_api_key": "abc123"})
 
     with patch("app.api.routers.generation.put_job") as mock_put_job, \
          patch("app.api.routers.generation.enqueue"), \
@@ -331,7 +334,8 @@ def test_queue_chapter_mixed_engines_use_mixed_worker(clean_db, client):
     cid = create_chapter(pid, "C1", "Hello world. Goodbye world.")
     sync_chapter_segments(cid, "Hello world. Goodbye world.")
 
-    client.post("/api/settings", data={"mistral_api_key": "abc123"})
+    from app.state import update_settings
+    update_settings({"mistral_api_key": "abc123"})
 
     with patch("app.api.routers.generation.get_chapter_segments", return_value=[
         {"speaker_profile_name": "XTTS Voice", "audio_status": "unprocessed", "audio_file_path": None},
@@ -358,7 +362,8 @@ def test_queue_chapter_detects_mixed_engines_from_character_voice_assignments(cl
     segs = get_chapter_segments(cid)
     char_id = create_character(pid, "Dracula", "XTTS Voice")
     update_segment(segs[1]["id"], character_id=char_id)
-    client.post("/api/settings", data={"mistral_api_key": "abc123"})
+    from app.state import update_settings
+    update_settings({"mistral_api_key": "abc123"})
 
     with patch("app.api.routers.generation.put_job") as mock_put_job, \
          patch("app.api.routers.generation.enqueue"), \
@@ -379,7 +384,8 @@ def test_generate_segments_resolves_voxtral_engine(clean_db, client):
     sync_chapter_segments(cid, "Hello world.")
     segs = get_chapter_segments(cid)
     sid = segs[0]['id']
-    client.post("/api/settings", data={"mistral_api_key": "abc123"})
+    from app.state import update_settings
+    update_settings({"mistral_api_key": "abc123"})
 
     with patch("app.api.routers.generation.put_job") as mock_put_job, \
          patch("app.api.routers.generation.enqueue"), \
@@ -399,7 +405,8 @@ def test_generate_segments_mixed_engines_use_mixed_worker(clean_db, client):
     cid = create_chapter(pid, "C1", "Hello world. Goodbye world.")
     sync_chapter_segments(cid, "Hello world. Goodbye world.")
     segs = get_chapter_segments(cid)
-    client.post("/api/settings", data={"mistral_api_key": "abc123"})
+    from app.state import update_settings
+    update_settings({"mistral_api_key": "abc123"})
 
     with patch("app.api.routers.generation.get_chapter_segments", return_value=[
         {**segs[0], "speaker_profile_name": "XTTS Voice"},

@@ -152,13 +152,9 @@ def test_create_character_blank_voice_uses_default(clean_db, voices_root, client
 
 def test_create_profile_persists_engine_metadata(clean_db, voices_root, client):
     voices_root.mkdir()
-    # Enable voxtral in settings
-    client.post("/api/settings", data={
-        "mistral_api_key": "abc123",
-        "enabled_plugins": json.dumps({"voxtral": True})
-    })
 
-    response = client.post("/api/speaker-profiles", data={"speaker_id": "S1", "variant_name": "Vox", "engine": "voxtral"})
+    with patch("app.api.routers.voices._is_engine_active", return_value=True):
+        response = client.post("/api/speaker-profiles", data={"speaker_id": "S1", "variant_name": "Vox", "engine": "voxtral"})
     assert response.status_code == 200
 
     name = response.json()["name"]
@@ -168,10 +164,9 @@ def test_create_profile_persists_engine_metadata(clean_db, voices_root, client):
 
 def test_create_voxtral_profile_requires_api_key(clean_db, voices_root, client, monkeypatch):
     voices_root.mkdir()
-    # Ensure it's disabled by providing no key or explicitly disabling
-    client.post("/api/settings", data={"mistral_api_key": ""})
 
-    response = client.post("/api/speaker-profiles", data={"speaker_id": "S1", "variant_name": "Vox", "engine": "voxtral"})
+    with patch("app.api.routers.voices._is_engine_active", return_value=False):
+        response = client.post("/api/speaker-profiles", data={"speaker_id": "S1", "variant_name": "Vox", "engine": "voxtral"})
     assert response.status_code == 400
     assert "not enabled" in response.json()["message"]
 
@@ -182,11 +177,8 @@ def test_update_profile_engine(clean_db, voices_root, client):
     profile_dir.mkdir()
     (profile_dir / "profile.json").write_text(json.dumps({"variant_name": "Default"}))
 
-    client.post("/api/settings", data={
-        "mistral_api_key": "abc123",
-        "enabled_plugins": json.dumps({"voxtral": True})
-    })
-    response = client.post("/api/speaker-profiles/SpeakerA/engine", data={"engine": "voxtral"})
+    with patch("app.api.routers.voices._is_engine_active", return_value=True):
+        response = client.post("/api/speaker-profiles/SpeakerA/engine", data={"engine": "voxtral"})
     assert response.status_code == 200
     assert response.json()["engine"] == "voxtral"
 
@@ -199,9 +191,9 @@ def test_update_voxtral_engine_requires_api_key(clean_db, voices_root, client, m
     profile_dir = voices_root / "SpeakerA"
     profile_dir.mkdir()
     (profile_dir / "profile.json").write_text(json.dumps({"variant_name": "Default", "engine": "xtts"}))
-    client.post("/api/settings", data={"mistral_api_key": ""})
 
-    response = client.post("/api/speaker-profiles/SpeakerA/engine", data={"engine": "voxtral"})
+    with patch("app.api.routers.voices._is_engine_active", return_value=False):
+        response = client.post("/api/speaker-profiles/SpeakerA/engine", data={"engine": "voxtral"})
     assert response.status_code == 400
     assert "not enabled" in response.json()["message"]
 
@@ -223,11 +215,8 @@ def test_update_profile_reference_sample(clean_db, voices_root, client):
     (profile_dir / "profile.json").write_text(json.dumps({"variant_name": "Default", "engine": "voxtral"}))
     (profile_dir / "sample1.wav").write_text("audio")
 
-    client.post("/api/settings", data={
-        "mistral_api_key": "abc123",
-        "enabled_plugins": json.dumps({"voxtral": True})
-    })
-    response = client.post("/api/speaker-profiles/SpeakerA/reference-sample", data={"sample_name": "sample1.wav"})
+    with patch("app.api.routers.voices._is_engine_active", return_value=True):
+        response = client.post("/api/speaker-profiles/SpeakerA/reference-sample", data={"sample_name": "sample1.wav"})
     assert response.status_code == 200
     assert response.json()["reference_sample"] == "sample1.wav"
 
@@ -241,11 +230,8 @@ def test_update_profile_voxtral_voice_id(clean_db, voices_root, client):
     profile_dir.mkdir()
     (profile_dir / "profile.json").write_text(json.dumps({"variant_name": "Default", "engine": "voxtral"}))
 
-    client.post("/api/settings", data={
-        "mistral_api_key": "abc123",
-        "enabled_plugins": json.dumps({"voxtral": True})
-    })
-    response = client.post("/api/speaker-profiles/SpeakerA/voxtral-voice-id", data={"voice_id": "voice_123"})
+    with patch("app.api.routers.voices._is_engine_active", return_value=True):
+        response = client.post("/api/speaker-profiles/SpeakerA/voxtral-voice-id", data={"voice_id": "voice_123"})
     assert response.status_code == 200
     assert response.json()["voxtral_voice_id"] == "voice_123"
 
@@ -261,12 +247,9 @@ def test_voxtral_profile_test_accepts_saved_voice_id_without_samples(clean_db, v
         "engine": "voxtral",
         "voxtral_voice_id": "voice_123",
     }))
-    client.post("/api/settings", data={
-        "mistral_api_key": "abc123",
-        "enabled_plugins": json.dumps({"voxtral": True})
-    })
 
-    response = client.post("/api/speaker-profiles/SpeakerA/test")
+    with patch("app.api.routers.voices._is_engine_active", return_value=True), patch("app.api.routers.voices.put_job"), patch("app.api.routers.voices.enqueue"):
+        response = client.post("/api/speaker-profiles/SpeakerA/test")
 
     assert response.status_code == 200
     assert response.json()["status"] == "ok"

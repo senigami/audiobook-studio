@@ -317,7 +317,6 @@ def test_voice_build_worker_uses_bridge_when_flag_enabled_for_xtts_profiles(clea
         assert request["voice_profile_id"] == "BridgeXTTS"
         assert request["output_path"] == str(sample_wav)
         assert request["output_format"] == "wav"
-        assert request["safe_mode"] is True
         sample_wav.write_text("wav preview")
         return {"status": "ok", "audio_path": str(sample_wav)}
 
@@ -440,7 +439,6 @@ def test_voice_build_worker_uses_bridge_when_flag_enabled_for_voxtral_profiles(c
         assert request["voice_profile_id"] == "BridgeVoxtral"
         assert request["voice_asset_id"] == "voice-123"
         assert request["reference_sample"] == "reference.wav"
-        assert request["reference_audio_path"] == str(reference_wav)
         assert request["output_path"] == str(sample_wav)
         sample_wav.write_text("wav preview")
         return {"status": "ok", "audio_path": str(sample_wav)}

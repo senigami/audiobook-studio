@@ -236,7 +236,7 @@ const GeneralSettingsPanel: React.FC<SettingsRouteProps> = ({ settings, speakerP
     try {
       const formData = new URLSearchParams();
       formData.append(key, (!currentValue).toString());
-      await fetch('/settings', { method: 'POST', body: formData });
+      await fetch('/api/settings', { method: 'POST', body: formData });
       onRefresh();
     } catch (error) {
       console.error('Failed to update setting', error);
@@ -256,7 +256,7 @@ const GeneralSettingsPanel: React.FC<SettingsRouteProps> = ({ settings, speakerP
       } else {
         const formData = new URLSearchParams();
         formData.append(key, value);
-        await fetch('/settings', { method: 'POST', body: formData });
+        await fetch('/api/settings', { method: 'POST', body: formData });
       }
       onRefresh();
     } catch (error) {
@@ -469,6 +469,7 @@ const EngineCard: React.FC<{
   onShowNotification?: (message: string) => void;
 }> = ({ engine, onUpdate, onShowNotification }) => {
   const [saving, setSaving] = useState(false);
+  const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
   const engineUi = getEngineUi(engine.settings_schema);
   const tone = engine.status === 'ready'
     ? 'blue'
@@ -627,7 +628,7 @@ const EngineCard: React.FC<{
             type="button"
             className="btn-glass"
             title="Run a test synthesis to verify engine output"
-            onClick={() => onShowNotification?.(`Test synthesis for ${engine.display_name} is not wired on the engine card yet. Use the Voices tab test controls for live output.`)}
+            onClick={() => onShowNotification?.(`Test synthesis for ${engine.display_name} is available in the Voices tab. Global verification tests from this card are coming soon.`)}
             style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.8rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 800 }}
           >
             <Play size={14} /> Test
@@ -700,26 +701,35 @@ const EngineCard: React.FC<{
               type="button"
               className="btn-glass"
               title="Remove this plugin"
-              onClick={async () => {
-                if (!window.confirm(`Are you sure you want to remove the ${engine.display_name} plugin? This will delete its folder.`)) return;
-                try {
-                  const res = await api.removeEnginePlugin(engine.engine_id);
-                  if (res.ok) {
-                    onShowNotification?.('Plugin removed successfully.');
-                    await onUpdate();
-                  } else {
-                    onShowNotification?.(res.message || 'Removal failed.');
-                  }
-                } catch (err) {
-                  onShowNotification?.('Failed to remove plugin.');
-                }
-              }}
+              onClick={() => setRemoveConfirmOpen(true)}
               style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.8rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 800, color: '#b91c1c' }}
             >
               <Trash2 size={14} /> Remove
             </button>
           )}
         </div>
+        <ConfirmModal
+          isOpen={removeConfirmOpen}
+          onCancel={() => setRemoveConfirmOpen(false)}
+          onConfirm={async () => {
+            setRemoveConfirmOpen(false);
+            try {
+              const res = await api.removeEnginePlugin(engine.engine_id);
+              if (res.ok) {
+                onShowNotification?.('Plugin removed successfully.');
+                await onUpdate();
+              } else {
+                onShowNotification?.(res.message || 'Removal failed.');
+              }
+            } catch (err) {
+              onShowNotification?.('Failed to remove plugin.');
+            }
+          }}
+          title="Remove Plugin"
+          message={`Are you sure you want to remove the ${engine.display_name} plugin? This will delete its folder.`}
+          confirmText="Remove Plugin"
+          isDestructive={true}
+        />
       </div>
     </details>
   );

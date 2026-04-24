@@ -36,8 +36,8 @@ def test_metadata_clearing_on_requeue():
     # but first let's set it to 'queued' to simulate a restart where it was saved as done but we want to re-run
     update_job(jid, status="queued")
 
-    response = client.post("/queue/start_xtts")
-    assert response.status_code == 200
+    from app.jobs import requeue
+    requeue(jid)
 
     # 3. Verify it's reset
     j = get_jobs().get(jid)

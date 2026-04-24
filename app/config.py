@@ -117,6 +117,148 @@ def get_project_trash_dir(project_id: str) -> Path:
     project_dir = get_project_dir(project_id)
     return project_dir / "trash"
 
+
+def get_chapter_dir(project_id: str, chapter_id: str) -> Path:
+    project_dir = get_project_dir(project_id)
+    return project_dir / "chapters" / chapter_id
+
+
+def resolve_chapter_asset_path(
+    project_id: Optional[str],
+    chapter_id: str,
+    asset_type: str,
+    filename: Optional[str] = None,
+    fallback_dir: Optional[Path] = None,
+) -> Optional[Path]:
+    """Resolves a chapter asset path by checking the new nested layout first,
+    then falling back to the legacy flat layout.
+
+    Supported asset_types: 'text', 'audio', 'segment'
+    """
+    if asset_type == "text":
+        # New: project/chapters/{chapter_id}/chapter.txt
+        # Old: project/text/{chapter_id}.txt or {chapter_id}_0.txt
+        # Global: fallback_dir or CHAPTER_DIR/{chapter_id}.txt
+        if project_id:
+            nested_dir = get_chapter_dir(project_id, chapter_id)
+            new_path = nested_dir / "chapter.txt"
+            if new_path.exists():
+                return new_path
+
+            text_dir = get_project_text_dir(project_id)
+            for cand in [f"{chapter_id}.txt", f"{chapter_id}_0.txt"]:
+                old_path = text_dir / cand
+                if old_path.exists():
+                    return old_path
+
+        # Fallback to global
+        text_dirs = [CHAPTER_DIR]
+        if fallback_dir:
+            text_dirs.insert(0, fallback_dir)
+
+        for text_dir in text_dirs:
+            for cand in [f"{chapter_id}.txt", f"{chapter_id}_0.txt"]:
+                global_path = text_dir / cand
+                if global_path.exists():
+                    return global_path
+
+    elif asset_type == "audio":
+        # New: project/chapters/{chapter_id}/chapter.wav (or chapter.m4a/mp3)
+        # Old: project/audio/{audio_file_path or chapter_id.wav}
+        # Global: fallback_dir or XTTS_OUT_DIR/{filename or chapter_id.wav}
+        if project_id:
+            nested_dir = get_chapter_dir(project_id, chapter_id)
+            if filename:
+                new_path = nested_dir / filename
+                if new_path.exists():
+                    return new_path
+                # Map chapter_id.wav -> chapter.wav in new layout if chapter.wav exists
+                if filename == f"{chapter_id}.wav":
+                    new_main = nested_dir / "chapter.wav"
+                    if new_main.exists():
+                        return new_main
+
+                old_path = get_project_audio_dir(project_id) / filename
+                if old_path.exists():
+                    return old_path
+            else:
+                # Try standard names in nested dir
+                for ext in [".wav", ".m4a", ".mp3"]:
+                    new_path = nested_dir / f"chapter{ext}"
+                    if new_path.exists():
+                        return new_path
+
+                # Fallback to standard legacy names
+                audio_dir = get_project_audio_dir(project_id)
+                for cand in [
+                    f"{chapter_id}.wav",
+                    f"{chapter_id}_0.wav",
+                    f"{chapter_id}.mp3",
+                    f"{chapter_id}_0.mp3",
+                ]:
+                    old_path = audio_dir / cand
+                    if old_path.exists():
+                        return old_path
+
+        # Fallback to global
+        audio_dirs = [XTTS_OUT_DIR]
+        if fallback_dir:
+            audio_dirs.insert(0, fallback_dir)
+
+        for audio_dir in audio_dirs:
+            if filename:
+                cand = audio_dir / filename
+                if cand.exists():
+                    return cand
+
+            for cand in [
+                f"{chapter_id}.wav",
+                f"{chapter_id}_0.wav",
+                f"{chapter_id}.mp3",
+                f"{chapter_id}_0.mp3",
+            ]:
+                old_path = audio_dir / cand
+                if old_path.exists():
+                    return old_path
+
+    elif asset_type == "segment":
+        # New: project/chapters/{chapter_id}/segments/{segment_id}.wav
+        # Old: project/audio/chunk_{segment_id}.wav
+        # Global: fallback_dir or XTTS_OUT_DIR/chunk_{segment_id}.wav
+        if project_id:
+            nested_dir = get_chapter_dir(project_id, chapter_id)
+            if filename:
+                # If it's a full chunk filename, extract the segment ID
+                if filename.startswith("chunk_"):
+                    sid = filename.replace("chunk_", "").replace(".wav", "")
+                else:
+                    sid = filename.replace(".wav", "")
+
+                new_path = nested_dir / "segments" / f"{sid}.wav"
+                if new_path.exists():
+                    return new_path
+
+                old_path = get_project_audio_dir(project_id) / (
+                    filename if filename.startswith("chunk_") else f"chunk_{filename}.wav"
+                )
+                if old_path.exists():
+                    return old_path
+
+        # Fallback to global
+        audio_dirs = [XTTS_OUT_DIR]
+        if fallback_dir:
+            audio_dirs.insert(0, fallback_dir)
+
+        for audio_dir in audio_dirs:
+            if filename:
+                old_path = audio_dir / (
+                    filename if filename.startswith("chunk_") else f"chunk_{filename}.wav"
+                )
+                if old_path.exists():
+                    return old_path
+
+    return None
+
 # XTTS warning threshold you saw
 SENT_CHAR_LIMIT = 500
 SAFE_SPLIT_TARGET = 450

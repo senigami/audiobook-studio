@@ -27,13 +27,14 @@ Finish the visible Studio 2.0 shell and the highest-value product seams before o
 - [x] Project snapshot creation implemented through the project domain
 - [x] Project export manifest implemented through the project domain
 - [x] First backup/export bundle mode implemented
-- [ ] Plugin setup and diagnostics UX hardened without engine-specific UI branches
-- [ ] Legacy backfill/repair placeholders audited and explicitly handled
-- [ ] Phase and product docs updated to match shipped behavior
+- [x] Plugin setup and diagnostics UX hardened without engine-specific UI branches
+- [x] Legacy backfill/repair placeholders audited and explicitly handled
+- [x] Phase and product docs updated to match shipped behavior
 
 ## Deferred Follow-Up: Storage Normalization
 
 The current backup implementation is acceptable as an interim project safety feature: text metadata and chapter-level WAV masters are portable, while segment-level audio remains in the existing project audio layout.
+The storage migration should be versioned: detect `v1`, migrate to `v2`, and then operate on the new layout rather than maintaining long-lived dual paths.
 
 Before restore/import becomes a first-class workflow, the project file layout should be normalized around per-chapter asset folders:
 
@@ -54,6 +55,14 @@ project/
 ```
 
 This should be planned as a storage migration slice, not a backup-only cleanup. It needs compatibility reads for existing flat audio paths, generation/write-path updates, cleanup/trash handling, backup packaging updates, and regression coverage for existing projects.
+
+### Migration Checkpoints
+
+- [ ] Define the `v1` and `v2` project manifest/version contract.
+- [ ] Add the root `project.json` manifest with schema/version metadata.
+- [ ] Migrate `v1` chapter assets into the `v2` folder structure.
+- [ ] Migrate `v1` voice assets into the nested `v2` structure.
+- [ ] Add regression tests for version detection and one-time migration.
 
 ### Storage Migration Checklist
 
@@ -126,15 +135,15 @@ This voice migration should preserve the generic plugin/engine model: `voice.jso
 
 ## Verification Checklist
 
-- [ ] Queue drawer navigation tests pass
-- [ ] Queue compatibility/deep-link tests pass
-- [ ] Queue component tests pass in the drawer layout
-- [ ] Project snapshot tests pass
-- [ ] Project export manifest tests pass
-- [ ] Backup/export bundle validation passes
-- [ ] Plugin diagnostics tests pass
-- [ ] Frontend build passes
-- [ ] Targeted backend regression passes
+- [x] Queue drawer navigation tests pass
+- [x] Queue compatibility/deep-link tests pass
+- [x] Queue component tests pass in the drawer layout
+- [x] Project snapshot tests pass
+- [x] Project export manifest tests pass
+- [x] Backup/export bundle validation passes
+- [x] Plugin diagnostics tests pass
+- [x] Frontend build passes
+- [x] Targeted backend regression passes
 
 ## Exit Gate
 

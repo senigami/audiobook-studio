@@ -18,7 +18,7 @@ def test_clear_all_history():
     assert jid in state["jobs"]
 
     # 2. Call clear
-    response = client.post("/queue/clear")
+    response = client.post("/api/generation/cancel-all")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
 

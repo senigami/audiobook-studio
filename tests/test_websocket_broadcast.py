@@ -25,7 +25,7 @@ def test_websocket_broadcast():
 def test_queue_start_not_redirect():
     client = TestClient(app)
     # This should return JSON now, not a redirect
-    response = client.post("/queue/start_xtts")
+    response = client.post("/api/generation/resume")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
 

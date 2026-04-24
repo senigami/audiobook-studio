@@ -916,28 +916,30 @@ def _clean_optional_text(value: Any) -> str | None:
 
 
 def _resolve_canonical_wav_path(*, chapter_id: str, chapter_row: Mapping[str, Any]) -> Path | None:
+    from app import config
+
     project_id = _clean_optional_text(chapter_row.get("project_id"))
-    audio_dir = find_existing_project_subdir(project_id, "audio") if project_id else XTTS_OUT_DIR
-    if not audio_dir or not audio_dir.exists():
-        return None
-
-    audio_files = {
-        entry.name: entry.resolve()
-        for entry in audio_dir.iterdir()
-        if entry.is_file() and entry.suffix.lower() in {".wav", ".mp3", ".m4a"}
-    }
-
-    candidates: list[str] = []
     audio_file_path = _clean_optional_text(chapter_row.get("audio_file_path"))
-    if audio_file_path:
-        safe_name = safe_basename(audio_file_path)
-        if safe_name.lower().endswith(".wav"):
-            candidates.append(safe_name)
-    candidates.extend([f"{chapter_id}.wav", f"{chapter_id}_0.wav"])
 
-    for candidate in candidates:
-        path = audio_files.get(candidate)
-        if path and path.suffix.lower() == ".wav":
-            return path
+    # 1. Try resolution helper with explicit path
+    resolved = config.resolve_chapter_asset_path(
+        project_id, chapter_id, "audio", filename=audio_file_path
+    )
+    if resolved and resolved.suffix.lower() == ".wav":
+        return resolved
+
+    # 2. Try resolution helper with standard names
+    resolved = config.resolve_chapter_asset_path(project_id, chapter_id, "audio")
+    if resolved and resolved.suffix.lower() == ".wav":
+        return resolved
+
+    # 3. Fallback to legacy _0.wav pattern if not handled by standard resolution
+    audio_dir = (
+        find_existing_project_subdir(project_id, "audio") if project_id else XTTS_OUT_DIR
+    )
+    if audio_dir and audio_dir.exists():
+        legacy_path = audio_dir / f"{chapter_id}_0.wav"
+        if legacy_path.exists():
+            return legacy_path
 
     return None

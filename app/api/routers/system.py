@@ -171,7 +171,6 @@ def api_home(
 async def save_settings(
     request: Request,
     safe_mode: Optional[Any] = Form(None),
-    voxtral_enabled: Optional[Any] = Form(None),
     enabled_plugins: Optional[str] = Form(None)
 ):
     updates = {}
@@ -189,17 +188,12 @@ async def save_settings(
         try:
             body = await request.json()
             if isinstance(body, dict):
-                for k in ["safe_mode", "voxtral_enabled"]:
-                    if k in body:
-                        val = to_bool(body[k])
-                        if val is not None:
-                            updates[k] = val
+                if "safe_mode" in body:
+                    val = to_bool(body["safe_mode"])
+                    if val is not None:
+                        updates["safe_mode"] = val
                 if "default_engine" in body and str(body["default_engine"]).strip():
                     updates["default_engine"] = str(body["default_engine"]).strip().lower()
-                if "voxtral_model" in body:
-                    updates["voxtral_model"] = str(body["voxtral_model"] or "").strip()
-                if "mistral_api_key" in body:
-                    updates["mistral_api_key"] = str(body["mistral_api_key"] or "").strip()
                 if "enabled_plugins" in body and isinstance(body["enabled_plugins"], dict):
                     updates["enabled_plugins"] = body["enabled_plugins"]
         except Exception:
@@ -210,17 +204,12 @@ async def save_settings(
     except Exception:
         form = None
     if form:
-        for k in ["safe_mode", "voxtral_enabled"]:
-            if k not in updates and form.get(k) is not None:
-                val = to_bool(form.get(k))
-                if val is not None:
-                    updates[k] = val
+        if "safe_mode" not in updates and form.get("safe_mode") is not None:
+            val = to_bool(form.get("safe_mode"))
+            if val is not None:
+                updates["safe_mode"] = val
         if "default_engine" not in updates and form.get("default_engine") is not None:
             updates["default_engine"] = str(form.get("default_engine") or "").strip().lower()
-        if "voxtral_model" not in updates and form.get("voxtral_model") is not None:
-            updates["voxtral_model"] = str(form.get("voxtral_model") or "").strip()
-        if "mistral_api_key" not in updates and form.get("mistral_api_key") is not None:
-            updates["mistral_api_key"] = str(form.get("mistral_api_key") or "").strip()
         if "enabled_plugins" not in updates and form.get("enabled_plugins") is not None:
             try:
                 updates["enabled_plugins"] = json.loads(form.get("enabled_plugins"))
@@ -231,17 +220,6 @@ async def save_settings(
     if "safe_mode" not in updates and safe_mode is not None:
         val = to_bool(safe_mode)
         if val is not None: updates["safe_mode"] = val
-
-    if "voxtral_enabled" not in updates and voxtral_enabled is not None:
-        val = to_bool(voxtral_enabled)
-        if val is not None: updates["voxtral_enabled"] = val
-
-    if updates and "voxtral_enabled" not in updates and "mistral_api_key" in updates:
-        current_settings = get_settings()
-        had_api_key = bool(str(current_settings.get("mistral_api_key") or "").strip())
-        incoming_api_key = bool(str(updates.get("mistral_api_key") or "").strip())
-        if incoming_api_key and not had_api_key:
-            updates["voxtral_enabled"] = True
 
     if updates:
         update_settings(updates)
@@ -265,128 +243,13 @@ def api_restart_tts_server():
     watchdog.restart()
     return JSONResponse({"status": "ok", "message": "TTS Server restart requested."})
 
-@router.post("/system/import-legacy")
-def api_import_legacy():
-    from ...db import migrate_state_json_to_db
-    migrate_state_json_to_db()
-    return JSONResponse({"status": "ok"})
 
-@router.post("/upload")
-async def upload(
-    file: UploadFile = File(...),
-    mode: str = "parts",
-    max_chars: Optional[int] = None,
-    upload_dir: Path = Depends(get_upload_dir),
-    chapter_dir: Path = Depends(get_chapter_dir)
-):
-    file_content = await file.read()
-    # Safe basename for protection
-    safe_filename = safe_basename(file.filename)
 
-    def process_file():
-        try:
-            upload_dir.mkdir(parents=True, exist_ok=True)
-            temp_path = safe_join_flat(upload_dir, safe_filename)
-            temp_path.write_bytes(file_content)
-        except Exception as e:
-            if isinstance(e, HTTPException): raise
-            logger.error(f"Upload failed for {file.filename}: {e}")
-            raise HTTPException(status_code=500, detail="Upload failed")
 
-        # Logic to split file
-        content = temp_path.read_text(encoding="utf-8", errors="replace")
-        import re
-        chapter_filenames = []
-        chapter_dir.mkdir(parents=True, exist_ok=True)
 
-        # Simple split: "Chapter X:" or similar
-        parts = re.split(r'(?i)(Chapter\s+\d+.*?(?:\n|$))', content)
-        if len(parts) > 1:
-            # Re-assemble
-            for i in range(1, len(parts), 2):
-                header = parts[i]
-                body = parts[i+1] if i+1 < len(parts) else ""
-                fname = f"part_{len(chapter_filenames)+1:04d}.txt"
-                safe_join_flat(chapter_dir, fname).write_text(
-                    header + body, encoding="utf-8"
-                )
-                chapter_filenames.append(fname)
-        else:
-            fname = "part_0001.txt"
-            safe_join_flat(chapter_dir, fname).write_text(content, encoding="utf-8")
-            chapter_filenames.append(fname)
-        return chapter_filenames
 
-    chapter_filenames = await anyio.to_thread.run_sync(process_file)
 
-    return JSONResponse({
-        "status": "success",
-        "filename": safe_filename,
-        "chapters": chapter_filenames
-    })
 
-@router.post("/create_audiobook")
-async def create_audiobook(
-    title: str = Form(...),
-    author: str = Form(None),
-    narrator: str = Form(None),
-    chapters: str = Form("[]"),
-    cover: Optional[UploadFile] = File(None),
-):
-    try:
-        chapter_list = json.loads(chapters)
-    except Exception:
-        logger.warning("Invalid chapters payload for audiobook creation", exc_info=True)
-        chapter_list = []
-
-    cover_dir = config.COVER_DIR
-    audiobook_dir = config.AUDIOBOOK_DIR
-    cover_dir.mkdir(parents=True, exist_ok=True)
-    audiobook_dir.mkdir(parents=True, exist_ok=True)
-
-    cover_path = None
-    if cover:
-        try:
-            # Use safe basename for filename
-            safe_cover_filename = safe_basename(cover.filename)
-            ext = Path(safe_cover_filename).suffix
-            cover_filename = f"{uuid.uuid4().hex}{ext}"
-            dest = safe_join_flat(cover_dir, cover_filename)
-            cover_path = str(dest)
-            cover_content = await cover.read()
-
-            def save_cover():
-                dest.write_bytes(cover_content)
-
-            await anyio.to_thread.run_sync(save_cover)
-        except Exception as e:
-            if isinstance(e, HTTPException): raise
-            logger.error(f"Error saving cover: {e}")
-            raise HTTPException(status_code=500, detail="Cover save failed")
-
-    jid = uuid.uuid4().hex[:12]
-    j = Job(
-        id=jid,
-        engine="audiobook",
-        chapter_file=title,
-        custom_title=title,
-        status="queued",
-        created_at=time.time(),
-        author_meta=author,
-        narrator_meta=narrator,
-        chapter_list=chapter_list,
-        cover_path=cover_path
-    )
-    put_job(j)
-    enqueue(j)
-    update_job(jid, force_broadcast=True, status="queued")
-    return JSONResponse({"status": "ok", "job_id": jid})
-
-@router.get("/audiobook/prepare")
-def api_audiobook_prepare():
-    from ..utils import legacy_list_chapters
-    chapters = [p.name for p in legacy_list_chapters()]
-    return JSONResponse({"status": "ok", "chapters": chapters, "total_duration": 0.0})
 @router.post("/settings/default-speaker")
 def set_default_speaker_settings(name: str = Form(...)):
     update_settings({"default_speaker_profile": name})

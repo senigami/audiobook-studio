@@ -51,7 +51,7 @@ def test_export_sample_with_project_context(client):
     wav_path.write_text("fake audio data")
 
     # 3. Call the export endpoint with project_id
-    res = client.post(f"/api/chapter/{cid}/export-sample?project_id={pid}")
+    res = client.post(f"/api/chapters/{cid}/export-sample?project_id={pid}")
 
     # We expect success if the file is found
     assert res.status_code in [200, 500] 

@@ -66,9 +66,13 @@ export function useChapterPlayback(
     const mp3Path = audioPath.replace(/\.[^.]+$/, '.mp3');
     
     const urls = [
-      projectId ? `/projects/${projectId}/audio/${audioPath}` : `/out/xtts/${audioPath}`,
-      projectId ? `/projects/${projectId}/audio/${wavPath}` : `/out/xtts/${wavPath}`,
-      projectId ? `/projects/${projectId}/audio/${mp3Path}` : `/out/xtts/${mp3Path}`,
+      `/api/projects/${projectId}/chapters/${seg.chapter_id}/assets/audio?filename=${encodeURIComponent(audioPath)}`,
+      `/api/projects/${projectId}/chapters/${seg.chapter_id}/assets/audio?filename=${encodeURIComponent(wavPath)}`,
+      `/api/projects/${projectId}/chapters/${seg.chapter_id}/assets/audio?filename=${encodeURIComponent(mp3Path)}`,
+      // Legacy fallbacks for direct project mounts
+      `/projects/${projectId}/audio/${audioPath}`,
+      `/projects/${projectId}/audio/${wavPath}`,
+      `/projects/${projectId}/audio/${mp3Path}`,
       `/out/xtts/${audioPath}`,
       `/out/xtts/${wavPath}`,
       `/out/xtts/${mp3Path}`

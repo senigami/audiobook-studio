@@ -439,118 +439,43 @@ async def api_sync_segments(chapter_id: str, request: Request):
     if text is not None:
         await anyio.to_thread.run_sync(sync_chapter_segments, chapter_id, text)
     return JSONResponse({"status": "ok"})
-
-
-@router.post("/chapter/reset")
-def reset_chapter_legacy(
-    chapter_file: str = Form(...),
-    xtts_out_dir: Path = Depends(get_xtts_out_dir)
-):
-    try:
-        existing = get_jobs()
-        # Construct and resolve path
-        safe_base = safe_basename(chapter_file)
-        # Cancel any active jobs for this chapter file
-        for jid, j in existing.items():
-            if j.chapter_file == safe_base:
-                cancel_job(jid)
-                update_job(jid, status="cancelled", log="Cancelled by chapter reset.")
-
-        # However, for reset we check both Chapter existence and Output existence
-        # Check output stem
-        stem = Path(safe_base).stem
-
-        # Security: ensure we aren't leaking out
-        for ext in [".wav", ".mp3", ".m4a"]:
-            try:
-                safe_join_flat(xtts_out_dir, f"{stem}{ext}")
-            except ValueError:
-                logger.warning(f"Blocking reset traversal attempt: {chapter_file}")
-                return JSONResponse({"status": "error", "message": "Invalid chapter file"}, status_code=403)
-
-        count = 0
-        audio_files = _named_audio_file_map(xtts_out_dir)
-        for ext in [".wav", ".mp3", ".m4a"]:
-            f = audio_files.get(f"{stem}{ext}")
-            if f:
-                f.unlink()
-                count += 1
-        return JSONResponse({
-            "status": "ok",
-            "message": f"Reset {safe_base}, deleted {count} files"
-        })
-    except Exception:
-        logger.error("Error resetting chapter %s", chapter_file, exc_info=True)
-        return JSONResponse({"status": "error", "message": "Reset failed"}, status_code=500)
-
-@router.delete("/chapter/{filename}")
-def api_delete_legacy_chapter(
-    filename: str,
-    chapter_dir: Path = Depends(get_chapter_dir),
-    xtts_out_dir: Path = Depends(get_xtts_out_dir)
-):
-    try:
-        safe_filename = safe_basename(filename)
-        path = _named_file(chapter_dir, safe_filename, (".txt",))
-        if safe_filename != filename and not path:
-            logger.warning(f"Blocking delete traversal attempt: {filename}")
-            return JSONResponse({"status": "error", "message": "Invalid filename"}, status_code=403)
-
-        stem = Path(safe_filename).stem
-        audio_files = _named_audio_file_map(xtts_out_dir)
-        for ext in [".wav", ".mp3"]:
-            f = audio_files.get(f"{stem}{ext}")
-            if f:
-                f.unlink()
-
-        existing = get_jobs()
-        to_del = []
-        for jid, j in existing.items():
-            if j.chapter_file == safe_filename:
-                cancel_job(jid)
-                to_del.append(jid)
-
-        if to_del:
-            delete_jobs(to_del)
-
-        if path:
-            path.unlink()
-            return JSONResponse({
-                "status": "ok",
-                "message": f"Deleted chapter {safe_filename}"
-            })
-
-    except Exception as e:
-        logger.error(f"Error deleting chapter {filename}: {e}")
-        return JSONResponse({"status": "error", "message": "Delete failed"}, status_code=500)
-
-    return JSONResponse(
-        {"status": "error", "message": "Chapter not found"},
-        status_code=404
-    )
-
-@router.get("/preview/{chapter_file}")
-def api_preview(
-    chapter_file: str,
+@router.get("/chapters/{chapter_id}/preview")
+def api_get_chapter_preview(
+    chapter_id: str,
     processed: bool = False,
-    chapter_dir: Path = Depends(get_chapter_dir)
 ):
     from ..utils import read_preview
     import re
 
-    try:
-        safe_filename = safe_basename(chapter_file)
-        p = _named_file(chapter_dir, safe_filename, (".txt",))
-        if safe_filename != chapter_file and not p:
-            logger.warning(f"Blocking preview traversal attempt: {chapter_file}")
-            return JSONResponse({"error": "invalid path"}, status_code=403)
-        if not p:
-            return JSONResponse({"error": "not found"}, status_code=404)
-    except Exception as e:
-        logger.error(f"Error resolving preview path {chapter_file}: {e}")
-        return JSONResponse({"error": "invalid path"}, status_code=403)
+    chapter = get_chapter(chapter_id)
+    if not chapter:
+        return JSONResponse({"error": "not found"}, status_code=404)
 
-    text = read_preview(p, max_chars=1000000)
+    project_id = chapter.get("project_id")
+
+    # Use compatibility resolution for text
+    p = config.resolve_chapter_asset_path(project_id, chapter_id, "text")
+
+    text = ""
+    if p and p.exists():
+        text = read_preview(p, max_chars=1000000)
+    else:
+        # Fallback to legacy _0.txt if not resolved by helper
+        text_dir = (
+            find_existing_project_subdir(project_id, "text")
+            if project_id
+            else config.CHAPTER_DIR
+        )
+        if text_dir:
+            legacy_p = text_dir / f"{chapter_id}_0.txt"
+            if legacy_p.exists():
+                text = read_preview(legacy_p, max_chars=1000000)
+
+    if not text:
+        text = chapter.get("text_content") or ""
+
+    if not text and (not p or not p.exists()):
+        return JSONResponse({"error": "not found"}, status_code=404)
     analysis = None
 
     if processed:
@@ -565,70 +490,130 @@ def api_preview(
         text = pack_text_to_limit(text, pad=True)
 
     return JSONResponse({"text": text, "analysis": analysis})
-@router.post("/chapter/{chapter_id}/export-sample")
+
+
+@router.get("/projects/{project_id}/chapters/{chapter_id}/assets/{asset_type}")
+def api_get_chapter_asset(
+    project_id: str,
+    chapter_id: str,
+    asset_type: Literal["audio", "text", "segment"],
+    filename: Optional[str] = None,
+):
+    """
+    Layout-agnostic chapter asset endpoint.
+    Resolves assets by checking the new nested folder first, then the legacy flat folders.
+    """
+    resolved = config.resolve_chapter_asset_path(
+        project_id, chapter_id, asset_type, filename=filename
+    )
+    if not resolved or not resolved.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"Asset {asset_type} not found for chapter {chapter_id}",
+        )
+
+    # Basic media type resolution
+    ext = resolved.suffix.lower()
+    if ext == ".wav":
+        media_type = "audio/wav"
+    elif ext == ".mp3":
+        media_type = "audio/mpeg"
+    elif ext == ".m4a":
+        media_type = "audio/mp4"
+    elif ext == ".txt":
+        media_type = "text/plain"
+    else:
+        media_type = "application/octet-stream"
+
+    return FileResponse(resolved, media_type=media_type)
+
+
+@router.post("/chapters/{chapter_id}/export-sample")
 async def api_export_chapter_sample(
     chapter_id: str,
     project_id: Optional[str] = None,
-    xtts_out_dir: Path = Depends(get_xtts_out_dir)
+    xtts_out_dir: Path = Depends(get_xtts_out_dir),
 ):
     chapter = get_chapter(chapter_id)
-    pdir = (
-        find_existing_project_subdir(project_id, "audio") if project_id else xtts_out_dir
+    if not chapter:
+        return JSONResponse(
+            {"status": "error", "message": "Chapter not found"}, status_code=404
+        )
+
+    if not project_id:
+        project_id = chapter.get("project_id")
+
+    # Use resolution helper
+    wav_path = config.resolve_chapter_asset_path(
+        project_id,
+        chapter_id,
+        "audio",
+        filename=chapter.get("audio_file_path"),
+        fallback_dir=xtts_out_dir,
     )
+    if not wav_path:
+        wav_path = config.resolve_chapter_asset_path(
+            project_id, chapter_id, "audio", fallback_dir=xtts_out_dir
+        )
 
-    wav_path = None
-    audio_files = _named_audio_file_map(pdir)
-    if chapter and chapter.get("audio_file_path"):
-        wav_path = audio_files.get(chapter["audio_file_path"])
+    # Legacy fallback for _0 pattern
+    if not wav_path:
+        pdir = find_existing_project_subdir(project_id, "audio")
+        if pdir:
+            for cand in [f"{chapter_id}_0.wav", f"{chapter_id}_0.mp3"]:
+                if (pdir / cand).exists():
+                    wav_path = pdir / cand
+                    break
 
     if not wav_path:
-        for candidate_name in (
-            f"{chapter_id}.wav",
-            f"{chapter_id}.mp3",
-            f"{chapter_id}_0.wav",
-            f"{chapter_id}_0.mp3",
-        ):
-            wav_path = audio_files.get(candidate_name)
-            if wav_path:
-                break
+        return JSONResponse(
+            {"status": "error", "message": "Audio not found"}, status_code=404
+        )
 
-    if not wav_path:
-        return JSONResponse({"status": "error", "message": "Audio not found"}, status_code=404)
-
-    rel_path = f"/api/chapters/{chapter_id}/stream"
-    if project_id:
-        rel_path += f"?project_id={project_id}"
+    rel_path = f"/api/projects/{project_id}/chapters/{chapter_id}/assets/audio"
+    if chapter.get("audio_file_path"):
+        rel_path += f"?filename={chapter['audio_file_path']}"
 
     return JSONResponse({"status": "ok", "url": rel_path})
+
 
 @router.get("/chapters/{chapter_id}/stream")
 def api_stream_chapter(
     chapter_id: str,
     project_id: Optional[str] = None,
-    xtts_out_dir: Path = Depends(get_xtts_out_dir)
+    xtts_out_dir: Path = Depends(get_xtts_out_dir),
 ):
     chapter = get_chapter(chapter_id)
-    pdir = (
-        find_existing_project_subdir(project_id, "audio") if project_id else xtts_out_dir
+    if not chapter:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+
+    if not project_id:
+        project_id = chapter.get("project_id")
+
+    wav_path = config.resolve_chapter_asset_path(
+        project_id,
+        chapter_id,
+        "audio",
+        filename=chapter.get("audio_file_path"),
+        fallback_dir=xtts_out_dir,
     )
+    if not wav_path:
+        wav_path = config.resolve_chapter_asset_path(
+            project_id, chapter_id, "audio", fallback_dir=xtts_out_dir
+        )
 
-    wav_path = None
-    audio_files = _named_audio_file_map(pdir)
-    if chapter and chapter.get("audio_file_path"):
-        wav_path = audio_files.get(chapter["audio_file_path"])
+    # Legacy fallback for _0 pattern
+    if not wav_path:
+        pdir = find_existing_project_subdir(project_id, "audio")
+        if pdir:
+            for cand in [f"{chapter_id}_0.wav", f"{chapter_id}_0.mp3"]:
+                if (pdir / cand).exists():
+                    wav_path = pdir / cand
+                    break
 
     if not wav_path:
-        for candidate_name in (
-            f"{chapter_id}.wav",
-            f"{chapter_id}.mp3",
-            f"{chapter_id}_0.wav",
-            f"{chapter_id}_0.mp3",
-        ):
-            wav_path = audio_files.get(candidate_name)
-            if wav_path:
-                break
-
-    if not wav_path:
-         return JSONResponse({"status": "error", "message": "Audio not found"}, status_code=404)
+        return JSONResponse(
+            {"status": "error", "message": "Audio not found"}, status_code=404
+        )
 
     return FileResponse(wav_path)

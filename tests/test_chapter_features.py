@@ -27,7 +27,7 @@ def test_export_sample_404():
     pid = create_project("Export Test")
     cid = create_chapter(pid, "C1", "Some text")
 
-    res = client.post(f"/api/chapter/{cid}/export-sample?project_id={pid}")
+    res = client.post(f"/api/chapters/{cid}/export-sample?project_id={pid}")
     assert res.status_code == 404
     assert "Audio not found" in res.json()["message"]
 
