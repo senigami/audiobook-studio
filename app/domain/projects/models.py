@@ -78,3 +78,14 @@ class ProjectBackupBundleModel:
     created_at: datetime = field(default_factory=_utc_now)
     comment: str | None = None
     chapter_map: dict[str, dict[str, Any]] = field(default_factory=dict)
+
+
+@dataclass
+class StoredBackupModel:
+    """Portable metadata for a persisted backup file."""
+
+    filename: str
+    created_at: datetime
+    size_bytes: int
+    comment: str | None = None
+    download_url: str | None = None

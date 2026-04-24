@@ -10,7 +10,7 @@ from typing import Optional, List
 import zipfile
 import io
 from fastapi import APIRouter, Form, File, UploadFile, Request, Query
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.encoders import jsonable_encoder
 from ...db import (
     create_project,
@@ -501,6 +501,110 @@ def api_download_project_backup_bundle(project_id: str, comment: Optional[str] =
         return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
     except Exception as e:
         logger.error(f"Failed to package backup bundle for project {project_id}: {e}", exc_info=True)
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+
+@router.post("/{project_id}/backup-bundle/save")
+def api_save_project_backup_bundle(project_id: str, comment: Optional[str] = Query(None)):
+    """Create and persist a backup bundle under the project backups directory."""
+    service = _get_project_service()
+    try:
+        # 1. Create the bundle plan
+        bundle = service.create_backup_bundle(project_id, comment=comment)
+
+        # 2. Package it
+        archive_buf = _create_backup_archive(bundle)
+
+        # 3. Save to project backups directory
+        project_dir = find_existing_project_dir(project_id) or get_project_dir(project_id)
+        backups_dir = project_dir / "backups"
+        backups_dir.mkdir(parents=True, exist_ok=True)
+
+        backup_path = backups_dir / bundle.bundle_name
+        backup_path.write_bytes(archive_buf.getvalue())
+
+        return JSONResponse({
+            "status": "ok",
+            "filename": bundle.bundle_name,
+            "created_at": bundle.created_at.isoformat(),
+            "size_bytes": backup_path.stat().st_size
+        })
+    except KeyError:
+        return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
+    except Exception as e:
+        logger.error(f"Failed to save backup bundle for project {project_id}: {e}", exc_info=True)
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+
+@router.get("/{project_id}/backups")
+def api_list_project_backups(project_id: str):
+    """List saved backups for a project with portable metadata."""
+    try:
+        if get_project(project_id) is None:
+            return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
+
+        project_dir = find_existing_project_dir(project_id) or get_project_dir(project_id)
+        backups_dir = project_dir / "backups"
+
+        backups = []
+        if backups_dir.exists():
+            for p in backups_dir.iterdir():
+                if p.is_file() and p.suffix.lower() == ".abf":
+                    st = p.stat()
+                    comment = None
+                    # Try to extract comment from bundle.json inside the zip
+                    try:
+                        with zipfile.ZipFile(p, "r") as zf:
+                            if "bundle.json" in zf.namelist():
+                                bundle_data = json.loads(zf.read("bundle.json"))
+                                comment = bundle_data.get("comment")
+                    except Exception:
+                        pass
+
+                    backups.append({
+                        "filename": p.name,
+                        "created_at": datetime.fromtimestamp(st.st_mtime, timezone.utc).isoformat(),
+                        "size_bytes": st.st_size,
+                        "comment": comment,
+                        "download_url": f"/api/projects/{project_id}/backups/{urllib.parse.quote(p.name)}/download"
+                    })
+
+        backups.sort(key=lambda x: x["created_at"], reverse=True)
+        return JSONResponse(backups)
+    except Exception as e:
+        logger.error(f"Failed to list backups for project {project_id}: {e}", exc_info=True)
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+
+@router.get("/{project_id}/backups/{filename}/download")
+def api_download_saved_backup(project_id: str, filename: str):
+    """Download a previously saved backup file."""
+    try:
+        if get_project(project_id) is None:
+            return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
+
+        project_dir = find_existing_project_dir(project_id) or get_project_dir(project_id)
+        backups_dir = project_dir / "backups"
+
+        # Validation
+        if not filename.endswith(".abf") or "/" in filename or "\\" in filename:
+            return JSONResponse({"status": "error", "message": "Invalid filename"}, status_code=400)
+
+        backup_path = backups_dir / filename
+        if not backup_path.exists() or not backup_path.is_file():
+            return JSONResponse({"status": "error", "message": "Backup not found"}, status_code=404)
+
+        # Security: Ensure it's still under backups_dir
+        if not os.path.abspath(backup_path).startswith(os.fspath(backups_dir.resolve()) + os.sep):
+            return JSONResponse({"status": "error", "message": "Access denied"}, status_code=403)
+
+        return FileResponse(
+            backup_path,
+            media_type="application/x-audiobook-factory-bundle",
+            filename=filename,
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}"
+            }
+        )
+    except Exception as e:
+        logger.error(f"Failed to download saved backup {filename} for project {project_id}: {e}", exc_info=True)
         return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 
 def _create_backup_archive(bundle: ProjectBackupBundleModel) -> io.BytesIO:

@@ -188,6 +188,60 @@ def test_backup_bundle_chapter_text_and_sanitization(clean_db, client):
         assert chapter_map[cid]["text_path"] == "chapters/01_Chapter_One.txt"
         assert chapter_map[cid]["title"] == "Chapter @ One!"
 
+def test_backup_history_save_list_download(clean_db, client):
+    import zipfile
+    import io
+
+    # 1. Setup project
+    pid = create_project("History Project")
+    comment = "Historical backup"
+
+    # 2. Save a backup
+    save_response = client.post(f"/api/projects/{pid}/backup-bundle/save?comment={comment}")
+    assert save_response.status_code == 200
+    save_data = save_response.json()
+    assert save_data["status"] == "ok"
+    filename = save_data["filename"]
+    assert filename.startswith("History_Project_")
+
+    # 3. List backups
+    list_response = client.get(f"/api/projects/{pid}/backups")
+    assert list_response.status_code == 200
+    backups = list_response.json()
+    assert len(backups) == 1
+    assert backups[0]["filename"] == filename
+    assert backups[0]["comment"] == comment
+    assert "download_url" in backups[0]
+
+    # 4. Download from history
+    download_url = backups[0]["download_url"]
+    download_response = client.get(download_url)
+    assert download_response.status_code == 200
+    assert download_response.headers["content-type"] == "application/x-audiobook-factory-bundle"
+
+    with zipfile.ZipFile(io.BytesIO(download_response.content)) as zf:
+        bundle_data = json.loads(zf.read("bundle.json"))
+        assert bundle_data["comment"] == comment
+
+def test_backup_download_security(clean_db, client):
+    pid = create_project("Security Project")
+
+    # Attempt directory traversal
+    response = client.get(f"/api/projects/{pid}/backups/../../etc/passwd/download")
+    assert response.status_code in (400, 404) # 400 because of our validation or 404 if not found
+
+    # Attempt arbitrary file read in backups dir (if we somehow put one there)
+    # But our validation checks for .abf suffix
+    response = client.get(f"/api/projects/{pid}/backups/some_other_file.txt/download")
+    assert response.status_code == 400
+
+def test_backup_history_missing_project_returns_404(clean_db, client):
+    list_response = client.get("/api/projects/missing-project/backups")
+    assert list_response.status_code == 404
+
+    download_response = client.get("/api/projects/missing-project/backups/missing.abf/download")
+    assert download_response.status_code == 404
+
 def test_backup_bundle_disambiguates_chapter_filename_collisions(clean_db, client):
     import zipfile
     import io
