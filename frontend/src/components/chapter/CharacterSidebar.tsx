@@ -85,7 +85,7 @@ export const CharacterSidebar: React.FC<CharacterSidebarProps> = ({
                     <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--text-muted)' }} />
                     <div style={{ flex: 1 }}>
                         <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>None / Default</div>
-                        <div style={{ fontSize: '0.7rem', opacity: 0.6 }}>{selectedCharacterId === 'CLEAR_ASSIGNMENT' ? 'Click lines to clear' : 'Normal selection mode'}</div>
+                        <div style={{ fontSize: '0.7rem', opacity: 0.6 }}>{selectedCharacterId === 'CLEAR_ASSIGNMENT' ? 'Click lines to clear' : 'Explicit clear mode'}</div>
                     </div>
                     {selectedCharacterId === 'CLEAR_ASSIGNMENT' && (
                         <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--accent)', position: 'absolute', top: '8px', right: '8px' }} />

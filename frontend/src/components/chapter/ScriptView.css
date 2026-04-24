@@ -145,8 +145,16 @@
   background: transparent;
 }
 
+.book-paragraph .script-span.is-highlighted {
+  background: color-mix(in srgb, var(--script-span-accent) 10%, transparent);
+}
+
 .book-paragraph .script-span:hover {
   background: transparent;
+}
+
+.book-paragraph .script-span.is-highlighted:hover {
+  background: color-mix(in srgb, var(--script-span-accent) 15%, transparent);
 }
 
 .book-paragraph .script-span.is-assigned .script-span-text {
@@ -305,6 +313,28 @@
 .span-control-btn:hover {
   background: var(--accent-glow);
   color: var(--accent);
+}
+
+.span-control-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  background: var(--surface-alt);
+  padding: 0 8px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  margin-right: 4px;
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.script-span.is-highlighted {
+  background: color-mix(in srgb, var(--script-span-accent) 10%, transparent);
+}
+
+.script-span.is-highlighted:hover {
+  background: color-mix(in srgb, var(--script-span-accent) 15%, transparent);
 }
 
 /* Selection Popover */
