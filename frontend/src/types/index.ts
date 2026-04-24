@@ -214,6 +214,7 @@ export interface SpeakerProfile {
   asset_base_url?: string | null;
   has_latent?: boolean;
   is_rebuild_required?: boolean;
+  rebuild_reasons?: string[];
   samples_detailed?: Array<{ name: string; is_new: boolean }>;
   is_ready?: boolean;
   readiness_message?: string;

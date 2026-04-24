@@ -332,9 +332,6 @@ def list_speaker_profiles():
             samples.append({"name": w, "is_new": is_new})
             if is_new: is_rebuild_required = True
 
-        if len([b for b in built_samples if SAFE_SAMPLE_NAME_RE.fullmatch(b) and (d / b).exists()]) < len(built_samples):
-             is_rebuild_required = True
-
         preview_url = _voice_preview_url(name)
         preview_signature_stale = False
         if preview_url:
@@ -359,6 +356,17 @@ def list_speaker_profiles():
                         or spk_settings.get("preview_voxtral_voice_id") != spk_settings.get("voxtral_voice_id")
                         or spk_settings.get("preview_voxtral_model") != spk_settings.get("voxtral_model")
                     )
+
+        rebuild_reasons = []
+        if any(s['is_new'] for s in samples):
+            rebuild_reasons.append("new_samples")
+        if len([b for b in built_samples if SAFE_SAMPLE_NAME_RE.fullmatch(b) and (d / b).exists()]) < len(built_samples):
+            rebuild_reasons.append("samples_missing")
+        if preview_signature_stale:
+            rebuild_reasons.append("settings_changed")
+        if not preview_url and len(raw_wavs) > 0:
+            rebuild_reasons.append("no_preview")
+
         if preview_signature_stale:
             is_rebuild_required = True
         if not preview_url and len(raw_wavs) > 0:
@@ -371,6 +379,7 @@ def list_speaker_profiles():
             "samples_detailed": samples,
             "samples": raw_wavs,
             "is_rebuild_required": is_rebuild_required,
+            "rebuild_reasons": rebuild_reasons,
             "speed": spk_settings["speed"],
             "test_text": spk_settings["test_text"],
             "speaker_id": spk_settings.get("speaker_id"),
