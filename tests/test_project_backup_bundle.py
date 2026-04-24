@@ -1,6 +1,7 @@
 import pytest
 import os
 import re
+import json
 from fastapi.testclient import TestClient
 from app.web import app
 from app.db.core import init_db
@@ -91,3 +92,46 @@ def test_backup_bundle_safe_title_normalization(clean_db, client):
     assert "$" not in bundle_name
     assert "%" not in bundle_name
     assert "!" not in bundle_name
+
+def test_backup_bundle_download(clean_db, client):
+    import zipfile
+    import io
+
+    # 1. Setup a project with a chapter and "done" audio
+    pid = create_project("Download Project")
+    from app.db.chapters import create_chapter, update_chapter
+    cid = create_chapter(pid, "Chapter 1", "Content")
+
+    # Mock some audio file existence
+    from app.config import XTTS_OUT_DIR
+    XTTS_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    audio_file = XTTS_OUT_DIR / "test_audio.wav"
+    audio_file.write_bytes(b"fake wav data")
+
+    update_chapter(cid, audio_status="done", audio_file_path="test_audio.wav")
+
+    # 2. Download the bundle
+    response = client.get(f"/api/projects/{pid}/backup-bundle/download")
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/x-audiobook-factory-bundle"
+    assert "attachment" in response.headers["content-disposition"]
+    assert ".abf" in response.headers["content-disposition"]
+
+    # 3. Verify ZIP content
+    with zipfile.ZipFile(io.BytesIO(response.content)) as zf:
+        file_list = zf.namelist()
+        assert "bundle.json" in file_list
+        assert "manifest.json" in file_list
+        assert "snapshot.json" in file_list
+        assert f"chapters/{cid}.wav" in file_list
+
+        # Verify metadata content
+        bundle_data = json.loads(zf.read("bundle.json"))
+        assert bundle_data["project_id"] == pid
+        assert bundle_data["snapshot"]["id"] == json.loads(zf.read("snapshot.json"))["id"]
+
+        # Verify audio content
+        assert zf.read(f"chapters/{cid}.wav") == b"fake wav data"
+
+    # Cleanup
+    audio_file.unlink()

@@ -7,8 +7,10 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, List
+import zipfile
+import io
 from fastapi import APIRouter, Form, File, UploadFile, Request, Query
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.encoders import jsonable_encoder
 from ...db import (
     create_project,
@@ -475,6 +477,66 @@ def api_create_project_backup_bundle(project_id: str):
     except Exception as e:
         logger.error(f"Failed to create backup bundle for project {project_id}: {e}", exc_info=True)
         return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+
+@router.get("/{project_id}/backup-bundle/download")
+def api_download_project_backup_bundle(project_id: str):
+    """Create and download a project backup bundle as a .abf (ZIP) archive."""
+    service = _get_project_service()
+    try:
+        # 1. Create the bundle plan (snapshot + manifest)
+        bundle = service.create_backup_bundle(project_id)
+
+        # 2. Package it into an archive
+        archive_buf = _create_backup_archive(bundle)
+
+        # 3. Return as a downloadable file
+        return StreamingResponse(
+            archive_buf,
+            media_type="application/x-audiobook-factory-bundle",
+            headers={
+                "Content-Disposition": f"attachment; filename={bundle.bundle_name}"
+            }
+        )
+    except KeyError:
+        return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
+    except Exception as e:
+        logger.error(f"Failed to package backup bundle for project {project_id}: {e}", exc_info=True)
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+
+def _create_backup_archive(bundle: ProjectBackupBundleModel) -> io.BytesIO:
+    """Helper to assemble a portable ZIP archive from a backup bundle plan."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        # 1. Metadata files (portable JSON)
+        zf.writestr("bundle.json", json.dumps(jsonable_encoder(bundle), indent=2))
+        zf.writestr("manifest.json", json.dumps(jsonable_encoder(bundle.export_manifest), indent=2))
+        zf.writestr("snapshot.json", json.dumps(jsonable_encoder(bundle.snapshot), indent=2))
+
+        # 2. Project Assets
+        project_id = bundle.project_id
+        project_dir = find_existing_project_dir(project_id) or get_project_dir(project_id)
+
+        # Cover art
+        cover_dir = project_dir / "cover"
+        if cover_dir.exists():
+            for p in cover_dir.iterdir():
+                # Any file in the cover directory named 'cover' with a supported extension
+                if p.is_file() and p.stem == "cover":
+                    zf.write(p, arcname=f"cover{p.suffix}")
+                    break
+
+        # Chapter audio
+        if bundle.export_manifest.include_audio:
+            for chapter_id in bundle.snapshot.chapter_ids:
+                chapter = get_chapter(chapter_id)
+                if chapter and chapter.get("audio_file_path") and chapter.get("audio_status") == "done":
+                    audio_path = safe_join_flat(XTTS_OUT_DIR, chapter["audio_file_path"])
+                    if audio_path.exists():
+                        # Use chapter_id for portable naming inside the archive
+                        zf.write(audio_path, arcname=f"chapters/{chapter_id}{audio_path.suffix}")
+
+    buf.seek(0)
+    return buf
 
 @router.get("/audiobook/prepare")
 def prepare_audiobook():
