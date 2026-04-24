@@ -222,7 +222,7 @@ describe('Voices Tab Components', () => {
             expect(screen.getAllByTitle('Generate Sample').length).toBe(2);
         });
 
-        it('shows preview-out-of-date status and regenerate action for stale Voxtral previews', () => {
+        it('shows rebuild required status and regenerate action for stale Voxtral previews', () => {
             render(
                 <NarratorCard
                     speaker={mockSpeaker}
@@ -245,7 +245,7 @@ describe('Voices Tab Components', () => {
                 />
             );
 
-            expect(screen.getByText(/PREVIEW OUT OF DATE/i)).toBeInTheDocument();
+            expect(screen.getByText(/PREVIEW STALE/i)).toBeInTheDocument();
             expect(screen.getByText('Regenerate')).toBeInTheDocument();
             expect(screen.getByTitle('Play Sample')).not.toBeDisabled();
         });

@@ -194,7 +194,7 @@ describe('SettingsRoute', () => {
 
     expect(screen.getByRole('heading', { name: 'Settings' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'General' })).toBeTruthy();
-    expect(screen.getByText('Safe Mode')).toBeTruthy();
+    expect(screen.getByText('Stability Mode')).toBeTruthy();
     expect(screen.getByText('Default Voice')).toBeTruthy();
     expect(screen.getByDisplayValue('V1')).toBeTruthy();
   });
@@ -209,8 +209,8 @@ describe('SettingsRoute', () => {
     
     const verifyBtn = (await screen.findAllByText(/Verify/i))[0];
     fireEvent.click(verifyBtn);
-    
-    expect(mockVerify).toHaveBeenCalledWith('xtts-local');
+
+    await waitFor(() => expect(mockVerify).toHaveBeenCalledWith('xtts-local'));
   });
 
   it('shows installation instructions when Install Plugin is clicked', async () => {
