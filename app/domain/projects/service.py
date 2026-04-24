@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import uuid
 
-from .models import ProjectExportManifestModel, ProjectModel, ProjectSnapshotModel
+from .models import ProjectBackupBundleModel, ProjectExportManifestModel, ProjectModel, ProjectSnapshotModel
 from .exports import build_project_export_manifest
 from .repository import ProjectRepository
 from .snapshots import build_project_snapshot
@@ -162,6 +162,43 @@ class ProjectService:
             include_cover_art=include_cover_art,
             include_audio=True, # Defaulting to True for now as per requirements
             snapshot_id=None # First slice manifest is metadata-first from current state
+        )
+
+    def create_backup_bundle(self, project_id: str) -> ProjectBackupBundleModel:
+        """Assemble a dated backup bundle description for a project.
+
+        Args:
+            project_id: Stable project identifier.
+
+        Returns:
+            ProjectBackupBundleModel: Dated bundle contract ready for packaging.
+        """
+        project = self._load_project(project_id=project_id)
+
+        # 1. Create a snapshot to anchor the backup to a stable revision
+        snapshot = self.create_snapshot(project_id, include_chapter_audio=True)
+
+        # 2. Build export manifest linked to this snapshot
+        manifest = build_project_export_manifest(
+            project=project,
+            format_id="backup",
+            chapter_ids=snapshot.chapter_ids,
+            include_cover_art=True,
+            include_audio=True,
+            snapshot_id=snapshot.id
+        )
+
+        # 3. Assemble dated bundle description
+        timestamp = snapshot.created_at.strftime("%Y%m%d_%H%M%S")
+        safe_title = "".join(c if c.isalnum() else "_" for c in project.title)
+        bundle_name = f"{safe_title}_{timestamp}.abf"
+
+        return ProjectBackupBundleModel(
+            project_id=project_id,
+            bundle_name=bundle_name,
+            snapshot=snapshot,
+            export_manifest=manifest,
+            created_at=snapshot.created_at
         )
 
     def _load_project(self, *, project_id: str) -> ProjectModel:

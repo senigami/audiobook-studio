@@ -65,3 +65,14 @@ class ProjectExportManifestModel:
     include_cover_art: bool = True
     include_audio: bool = True
     snapshot_id: str | None = None
+
+
+@dataclass
+class ProjectBackupBundleModel:
+    """Dated portable backup bundle description."""
+
+    project_id: str
+    bundle_name: str
+    snapshot: ProjectSnapshotModel
+    export_manifest: ProjectExportManifestModel
+    created_at: datetime = field(default_factory=_utc_now)

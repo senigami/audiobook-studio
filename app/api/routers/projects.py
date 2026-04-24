@@ -30,7 +30,7 @@ from ...pathing import safe_basename, safe_join, safe_join_flat
 from ...api.utils import SAFE_FILE_RE, preferred_audiobook_download_filename, probe_audiobook_metadata
 from ...constants import DEFAULT_VOICE_SENTINEL
 from ...domain.projects.service import create_project_service, ProjectService
-from ...domain.projects.models import ProjectModel, ProjectSnapshotModel
+from ...domain.projects.models import ProjectModel, ProjectSnapshotModel, ProjectBackupBundleModel
 from ...domain.chapters.models import ChapterModel
 from ...db.core import _db_lock, get_connection
 
@@ -461,6 +461,19 @@ def api_create_project_snapshot(project_id: str):
         return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
     except Exception as e:
         logger.error(f"Failed to create snapshot for project {project_id}: {e}", exc_info=True)
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+
+@router.post("/{project_id}/backup-bundle")
+def api_create_project_backup_bundle(project_id: str):
+    """Create a new dated backup bundle for the project."""
+    service = _get_project_service()
+    try:
+        bundle = service.create_backup_bundle(project_id)
+        return JSONResponse(jsonable_encoder(bundle))
+    except KeyError:
+        return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
+    except Exception as e:
+        logger.error(f"Failed to create backup bundle for project {project_id}: {e}", exc_info=True)
         return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 
 @router.get("/audiobook/prepare")
