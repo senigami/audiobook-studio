@@ -68,8 +68,8 @@ export const deriveNavigationState = (pathname: string, search?: string, project
       routeKind = 'project-chapters'; 
       activeProjectSubnavId = 'project-characters';
     } else {
-      // Fallback or keep as requested tab, though most are being removed from UI
-      activeProjectSubnavId = tab;
+      // Keep tab ids aligned with the project subnav contract.
+      activeProjectSubnavId = `project-${tab}`;
     }
   } else if (parts[0] === 'chapter' && parts[1]) {
     routeKind = 'chapter-editor';

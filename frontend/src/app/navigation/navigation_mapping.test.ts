@@ -33,6 +33,14 @@ describe('navigation mapping', () => {
     expect(state.activeProjectId).toBe('p123');
   });
 
+  it('identifies project subnav tabs from query params', () => {
+    const assemblies = deriveNavigationState('/project/p123', '?tab=assemblies');
+    expect(assemblies.activeProjectSubnavId).toBe('project-assemblies');
+
+    const backups = deriveNavigationState('/project/p123', '?tab=backups');
+    expect(backups.activeProjectSubnavId).toBe('project-backups');
+  });
+
   it('identifies chapter-specific routes', () => {
     const state = deriveNavigationState('/chapter/c456');
     expect(state.routeKind).toBe('chapter-editor');
