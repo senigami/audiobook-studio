@@ -65,6 +65,31 @@ export const api = {
     const res = await fetch(`/api/projects/${projectId}/assemble`, { method: 'POST', body: formData });
     return res.json();
   },
+  // --- Backups ---
+  fetchProjectBackups: async (projectId: string): Promise<import('../types').StoredBackup[]> => {
+    const res = await fetch(`/api/projects/${projectId}/backups`);
+    return parseApiResponse(res);
+  },
+  saveProjectBackup: async (projectId: string, comment?: string, includeAudio: boolean = true): Promise<any> => {
+    const params = new URLSearchParams();
+    if (comment) params.append('comment', comment);
+    params.append('include_audio', includeAudio.toString());
+    const url = `/api/projects/${projectId}/backup-bundle/save?${params.toString()}`;
+    const res = await fetch(url, { method: 'POST' });
+    return parseApiResponse(res);
+  },
+  deleteProjectBackup: async (projectId: string, filename: string): Promise<any> => {
+    const res = await fetch(`/api/projects/${projectId}/backups/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+    return parseApiResponse(res);
+  },
+  updateProjectBackupMetadata: async (projectId: string, filename: string, comment: string): Promise<any> => {
+    const res = await fetch(`/api/projects/${projectId}/backups/${encodeURIComponent(filename)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ comment })
+    });
+    return parseApiResponse(res);
+  },
 
   // --- Characters ---
   fetchCharacters: async (projectId: string): Promise<import('../types').Character[]> => {
@@ -359,6 +384,15 @@ export const api = {
     const endpoint = paused ? '/queue/pause' : '/queue/resume';
     const res = await fetch(endpoint, { method: 'POST' });
     return res.json();
+  },
+
+  updateAudiobookMetadata: async (projectId: string, filename: string, description: string): Promise<any> => {
+    const res = await fetch(`/api/projects/${projectId}/audiobooks/${encodeURIComponent(filename)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description })
+    });
+    return parseApiResponse(res);
   },
 
   // --- Engines ---

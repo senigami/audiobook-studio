@@ -163,6 +163,51 @@ export function useProjectActions(
     }
   };
 
+  const handleSaveBackup = async (comment?: string, includeAudio: boolean = true) => {
+    setSubmitting(true);
+    try {
+      await api.saveProjectBackup(projectId, comment, includeAudio);
+      await onDataRefresh();
+      return true;
+    } catch (e) {
+      console.error("Backup failed", e);
+      return false;
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteBackup = async (filename: string) => {
+    try {
+      await api.deleteProjectBackup(projectId, filename);
+      await onDataRefresh();
+      return true;
+    } catch (e) {
+      console.error("Backup delete failed", e);
+      return false;
+    }
+  };
+
+  const handleUpdateBackupMetadata = async (filename: string, comment: string) => {
+    try {
+      await api.updateProjectBackupMetadata(projectId, filename, comment);
+      return true;
+    } catch (e) {
+      console.error("Failed to update backup comment", e);
+      return false;
+    }
+  };
+
+  const handleUpdateAudiobookMetadata = async (filename: string, description: string) => {
+    try {
+      await api.updateAudiobookMetadata(projectId, filename, description);
+      return true;
+    } catch (e) {
+      console.error("Failed to update audiobook description", e);
+      return false;
+    }
+  };
+
   return {
     submitting,
     handleCreateChapter,
@@ -173,6 +218,10 @@ export function useProjectActions(
     handleResetChapterAudio,
     handleQueueAllUnprocessed,
     handleAssembleProject,
-    handleDeleteAudiobook
+    handleDeleteAudiobook,
+    handleSaveBackup,
+    handleDeleteBackup,
+    handleUpdateBackupMetadata,
+    handleUpdateAudiobookMetadata
   };
 }

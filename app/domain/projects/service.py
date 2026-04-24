@@ -164,12 +164,13 @@ class ProjectService:
             snapshot_id=None # First slice manifest is metadata-first from current state
         )
 
-    def create_backup_bundle(self, project_id: str, comment: str | None = None) -> ProjectBackupBundleModel:
+    def create_backup_bundle(self, project_id: str, comment: str | None = None, include_audio: bool = True) -> ProjectBackupBundleModel:
         """Assemble a dated backup bundle description for a project.
 
         Args:
             project_id: Stable project identifier.
             comment: Optional label or description for the backup.
+            include_audio: Whether chapter audio artifacts should be included.
 
         Returns:
             ProjectBackupBundleModel: Dated bundle contract ready for packaging.
@@ -177,7 +178,7 @@ class ProjectService:
         project = self._load_project(project_id=project_id)
 
         # 1. Create a snapshot to anchor the backup to a stable revision
-        snapshot = self.create_snapshot(project_id, include_chapter_audio=True)
+        snapshot = self.create_snapshot(project_id, include_chapter_audio=include_audio)
 
         # 2. Build export manifest linked to this snapshot
         manifest = build_project_export_manifest(
@@ -185,14 +186,14 @@ class ProjectService:
             format_id="backup",
             chapter_ids=snapshot.chapter_ids,
             include_cover_art=True,
-            include_audio=True,
+            include_audio=include_audio,
             snapshot_id=snapshot.id
         )
 
         # 3. Assemble dated bundle description
         timestamp = snapshot.created_at.strftime("%Y%m%d_%H%M%S")
         safe_title = "".join(c if c.isalnum() else "_" for c in project.title)
-        bundle_name = f"{safe_title}_{timestamp}.abf"
+        bundle_name = f"{safe_title}_{timestamp}.zip"
 
         return ProjectBackupBundleModel(
             project_id=project_id,

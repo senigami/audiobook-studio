@@ -47,7 +47,7 @@ def test_backup_bundle_creation(clean_db, client):
     assert bundle["project_id"] == pid
     assert "bundle_name" in bundle
     assert bundle["bundle_name"].startswith("My_Backup_Project_")
-    assert bundle["bundle_name"].endswith(".abf")
+    assert bundle["bundle_name"].endswith(".zip")
     assert re.search(r"\d{8}_\d{6}", bundle["bundle_name"]) # Date-stamped naming
 
     # 4. Verify snapshot foundation
@@ -104,9 +104,10 @@ def test_backup_bundle_download(clean_db, client):
     cid = create_chapter(pid, "Chapter 1", "Content")
 
     # Mock some audio file existence
-    from app.config import XTTS_OUT_DIR
-    XTTS_OUT_DIR.mkdir(parents=True, exist_ok=True)
-    audio_file = XTTS_OUT_DIR / "test_audio.wav"
+    from app.config import get_project_audio_dir
+    audio_dir = get_project_audio_dir(pid)
+    audio_dir.mkdir(parents=True, exist_ok=True)
+    audio_file = audio_dir / "test_audio.wav"
     audio_file.write_bytes(b"fake wav data")
 
     update_chapter(cid, audio_status="done", audio_file_path="test_audio.wav")
@@ -114,9 +115,9 @@ def test_backup_bundle_download(clean_db, client):
     # 2. Download the bundle
     response = client.get(f"/api/projects/{pid}/backup-bundle/download")
     assert response.status_code == 200
-    assert response.headers["content-type"] == "application/x-audiobook-factory-bundle"
+    assert response.headers["content-type"] == "application/zip"
     assert "attachment" in response.headers["content-disposition"]
-    assert ".abf" in response.headers["content-disposition"]
+    assert ".zip" in response.headers["content-disposition"]
 
     # 3. Verify ZIP content
     with zipfile.ZipFile(io.BytesIO(response.content)) as zf:
@@ -146,6 +147,68 @@ def test_backup_bundle_download(clean_db, client):
 
     # Cleanup
     audio_file.unlink()
+
+def test_backup_bundle_wav_only_enforcement(clean_db, client):
+    import zipfile
+    import io
+
+    # 1. Setup a project with a chapter pointing to MP3 (but WAV exists)
+    pid = create_project("WAV Only Project")
+    from app.db.chapters import create_chapter, update_chapter
+    cid = create_chapter(pid, "Chapter 1", "Content")
+
+    # Mock audio files: both WAV and MP3
+    from app.config import get_project_audio_dir
+    audio_dir = get_project_audio_dir(pid)
+    audio_dir.mkdir(parents=True, exist_ok=True)
+    wav_file = audio_dir / "test_audio.wav"
+    wav_file.write_bytes(b"wav data")
+    mp3_file = audio_dir / "test_audio.mp3"
+    mp3_file.write_bytes(b"mp3 data")
+
+    # Point chapter to MP3
+    update_chapter(cid, audio_status="done", audio_file_path="test_audio.mp3")
+
+    # 2. Download the bundle
+    response = client.get(f"/api/projects/{pid}/backup-bundle/download")
+    assert response.status_code == 200
+
+    # 3. Verify ZIP content only has WAV
+    with zipfile.ZipFile(io.BytesIO(response.content)) as zf:
+        file_list = zf.namelist()
+        assert "chapters/01_Chapter_1.wav" in file_list
+        assert "chapters/01_Chapter_1.mp3" not in file_list
+        assert zf.read("chapters/01_Chapter_1.wav") == b"wav data"
+
+    # Cleanup
+    wav_file.unlink()
+    mp3_file.unlink()
+
+def test_backup_bundle_no_audio_exclusion(clean_db, client):
+    import zipfile
+    import io
+
+    pid = create_project("No Audio Project")
+    from app.db.chapters import create_chapter, update_chapter
+    cid = create_chapter(pid, "Chapter 1", "Content")
+
+    from app.config import get_project_audio_dir
+    audio_dir = get_project_audio_dir(pid)
+    audio_dir.mkdir(parents=True, exist_ok=True)
+    wav_file = audio_dir / "test_audio.wav"
+    wav_file.write_bytes(b"wav data")
+    update_chapter(cid, audio_status="done", audio_file_path="test_audio.wav")
+
+    # Download with include_audio=false
+    response = client.get(f"/api/projects/{pid}/backup-bundle/download?include_audio=false")
+    assert response.status_code == 200
+
+    with zipfile.ZipFile(io.BytesIO(response.content)) as zf:
+        file_list = zf.namelist()
+        assert "chapters/01_Chapter_1.txt" in file_list
+        assert "chapters/01_Chapter_1.wav" not in file_list
+
+    wav_file.unlink()
 
 def test_backup_bundle_with_comment(clean_db, client):
     pid = create_project("Comment Project")
@@ -217,7 +280,7 @@ def test_backup_history_save_list_download(clean_db, client):
     download_url = backups[0]["download_url"]
     download_response = client.get(download_url)
     assert download_response.status_code == 200
-    assert download_response.headers["content-type"] == "application/x-audiobook-factory-bundle"
+    assert download_response.headers["content-type"] == "application/zip"
 
     with zipfile.ZipFile(io.BytesIO(download_response.content)) as zf:
         bundle_data = json.loads(zf.read("bundle.json"))
@@ -231,7 +294,7 @@ def test_backup_download_security(clean_db, client):
     assert response.status_code in (400, 404) # 400 because of our validation or 404 if not found
 
     # Attempt arbitrary file read in backups dir (if we somehow put one there)
-    # But our validation checks for .abf suffix
+    # But our validation checks for .zip suffix
     response = client.get(f"/api/projects/{pid}/backups/some_other_file.txt/download")
     assert response.status_code == 400
 
@@ -239,7 +302,7 @@ def test_backup_history_missing_project_returns_404(clean_db, client):
     list_response = client.get("/api/projects/missing-project/backups")
     assert list_response.status_code == 404
 
-    download_response = client.get("/api/projects/missing-project/backups/missing.abf/download")
+    download_response = client.get("/api/projects/missing-project/backups/missing.zip/download")
     assert download_response.status_code == 404
 
 def test_backup_bundle_disambiguates_chapter_filename_collisions(clean_db, client):

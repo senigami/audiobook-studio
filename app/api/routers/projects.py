@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Optional, List
 import zipfile
 import io
-from fastapi import APIRouter, Form, File, UploadFile, Request, Query
+from fastapi import APIRouter, Form, File, UploadFile, Request, Query, Body
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.encoders import jsonable_encoder
 from ...db import (
@@ -22,7 +22,7 @@ from ...db import (
     list_chapters as db_list_chapters,
     reorder_chapters,
 )
-from ...config import COVER_DIR, XTTS_OUT_DIR, get_project_dir, get_project_cover_dir, find_existing_project_dir, find_existing_project_subdir
+from ...config import COVER_DIR, XTTS_OUT_DIR, get_project_dir, get_project_cover_dir, find_existing_project_dir, find_existing_project_subdir, get_project_audio_dir
 import urllib.parse
 from ...jobs import enqueue
 from ...engines import get_audio_duration
@@ -353,6 +353,14 @@ def api_list_project_audiobooks(project_id: str):
 
         item["download_filename"] = preferred_audiobook_download_filename(item["title"], p.name)
 
+        # Read description from sidecar file if it exists
+        description_path = p.with_suffix(p.suffix + ".description")
+        if description_path.exists():
+            try:
+                item["description"] = description_path.read_text(encoding="utf-8").strip()
+            except Exception:
+                pass
+
         # Look for cover image with multiple extensions
         item["cover_url"] = None
         for ext in [".jpg", ".png", ".jpeg", ".webp"]:
@@ -466,11 +474,11 @@ def api_create_project_snapshot(project_id: str):
         return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 
 @router.post("/{project_id}/backup-bundle")
-def api_create_project_backup_bundle(project_id: str, comment: Optional[str] = Query(None)):
+def api_create_project_backup_bundle(project_id: str, comment: Optional[str] = Query(None), include_audio: bool = Query(True)):
     """Create a new dated backup bundle for the project."""
     service = _get_project_service()
     try:
-        bundle = service.create_backup_bundle(project_id, comment=comment)
+        bundle = service.create_backup_bundle(project_id, comment=comment, include_audio=include_audio)
         return JSONResponse(jsonable_encoder(bundle))
     except KeyError:
         return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
@@ -479,12 +487,12 @@ def api_create_project_backup_bundle(project_id: str, comment: Optional[str] = Q
         return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 
 @router.get("/{project_id}/backup-bundle/download")
-def api_download_project_backup_bundle(project_id: str, comment: Optional[str] = Query(None)):
-    """Create and download a project backup bundle as a .abf (ZIP) archive."""
+def api_download_project_backup_bundle(project_id: str, comment: Optional[str] = Query(None), include_audio: bool = Query(True)):
+    """Create and download a project backup bundle as a ZIP archive."""
     service = _get_project_service()
     try:
         # 1. Create the bundle plan (snapshot + manifest)
-        bundle = service.create_backup_bundle(project_id, comment=comment)
+        bundle = service.create_backup_bundle(project_id, comment=comment, include_audio=include_audio)
 
         # 2. Package it into an archive
         archive_buf = _create_backup_archive(bundle)
@@ -492,7 +500,7 @@ def api_download_project_backup_bundle(project_id: str, comment: Optional[str] =
         # 3. Return as a downloadable file
         return StreamingResponse(
             archive_buf,
-            media_type="application/x-audiobook-factory-bundle",
+            media_type="application/zip",
             headers={
                 "Content-Disposition": f"attachment; filename={bundle.bundle_name}"
             }
@@ -504,12 +512,12 @@ def api_download_project_backup_bundle(project_id: str, comment: Optional[str] =
         return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 
 @router.post("/{project_id}/backup-bundle/save")
-def api_save_project_backup_bundle(project_id: str, comment: Optional[str] = Query(None)):
+def api_save_project_backup_bundle(project_id: str, comment: Optional[str] = Query(None), include_audio: bool = Query(True)):
     """Create and persist a backup bundle under the project backups directory."""
     service = _get_project_service()
     try:
         # 1. Create the bundle plan
-        bundle = service.create_backup_bundle(project_id, comment=comment)
+        bundle = service.create_backup_bundle(project_id, comment=comment, include_audio=include_audio)
 
         # 2. Package it
         archive_buf = _create_backup_archive(bundle)
@@ -547,7 +555,7 @@ def api_list_project_backups(project_id: str):
         backups = []
         if backups_dir.exists():
             for p in backups_dir.iterdir():
-                if p.is_file() and p.suffix.lower() == ".abf":
+                if p.is_file() and p.suffix.lower() in (".zip", ".abf"):
                     st = p.stat()
                     comment = None
                     # Try to extract comment from bundle.json inside the zip
@@ -584,7 +592,7 @@ def api_download_saved_backup(project_id: str, filename: str):
         backups_dir = project_dir / "backups"
 
         # Validation
-        if not filename.endswith(".abf") or "/" in filename or "\\" in filename:
+        if not (filename.endswith(".zip") or filename.endswith(".abf")) or "/" in filename or "\\" in filename:
             return JSONResponse({"status": "error", "message": "Invalid filename"}, status_code=400)
 
         backup_path = backups_dir / filename
@@ -595,9 +603,11 @@ def api_download_saved_backup(project_id: str, filename: str):
         if not os.path.abspath(backup_path).startswith(os.fspath(backups_dir.resolve()) + os.sep):
             return JSONResponse({"status": "error", "message": "Access denied"}, status_code=403)
 
+        media_type = "application/zip" if filename.endswith(".zip") else "application/x-audiobook-factory-bundle"
+
         return FileResponse(
             backup_path,
-            media_type="application/x-audiobook-factory-bundle",
+            media_type=media_type,
             filename=filename,
             headers={
                 "Content-Disposition": f"attachment; filename={filename}"
@@ -605,6 +615,113 @@ def api_download_saved_backup(project_id: str, filename: str):
         )
     except Exception as e:
         logger.error(f"Failed to download saved backup {filename} for project {project_id}: {e}", exc_info=True)
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+
+@router.patch("/{project_id}/backups/{filename}")
+def api_update_project_backup_metadata(project_id: str, filename: str, comment: str = Body(..., embed=True)):
+    """Update metadata (comment) for a saved backup."""
+    try:
+        if get_project(project_id) is None:
+            return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
+
+        project_dir = find_existing_project_dir(project_id) or get_project_dir(project_id)
+        backups_dir = project_dir / "backups"
+
+        # Validation
+        if not (filename.endswith(".zip") or filename.endswith(".abf")) or "/" in filename or "\\" in filename:
+            return JSONResponse({"status": "error", "message": "Invalid filename"}, status_code=400)
+
+        backup_path = backups_dir / filename
+        if not backup_path.exists() or not backup_path.is_file():
+            return JSONResponse({"status": "error", "message": "Backup not found"}, status_code=404)
+
+        # Security: Ensure it's still under backups_dir
+        if not os.path.abspath(backup_path).startswith(os.fspath(backups_dir.resolve()) + os.sep):
+            return JSONResponse({"status": "error", "message": "Access denied"}, status_code=403)
+
+        # Update bundle.json inside the ZIP
+        import tempfile
+        import shutil
+
+        fd, temp_path = tempfile.mkstemp()
+        try:
+            os.close(fd)
+            with zipfile.ZipFile(backup_path, "r") as zin:
+                with zipfile.ZipFile(temp_path, "w", zipfile.ZIP_DEFLATED) as zout:
+                    for item in zin.infolist():
+                        if item.filename == "bundle.json":
+                            data = json.loads(zin.read(item.filename))
+                            data["comment"] = comment
+                            zout.writestr(item.filename, json.dumps(data, indent=2))
+                        else:
+                            zout.writestr(item, zin.read(item.filename))
+            shutil.move(temp_path, backup_path)
+        finally:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+
+        return JSONResponse({"status": "ok"})
+    except Exception as e:
+        logger.error(f"Failed to update backup metadata for {filename}: {e}", exc_info=True)
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+
+@router.patch("/{project_id}/audiobooks/{filename}")
+def api_update_audiobook_metadata(project_id: str, filename: str, description: str = Body(..., embed=True)):
+    """Update metadata (description) for a project assembly."""
+    try:
+        if get_project(project_id) is None:
+            return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
+
+        project_dir = find_existing_project_dir(project_id) or get_project_dir(project_id)
+        m4b_dir = project_dir / "m4b"
+
+        # Validation
+        if not filename.endswith(".m4b") or "/" in filename or "\\" in filename:
+            return JSONResponse({"status": "error", "message": "Invalid filename"}, status_code=400)
+
+        audiobook_path = m4b_dir / filename
+        if not audiobook_path.exists() or not audiobook_path.is_file():
+            return JSONResponse({"status": "error", "message": "Audiobook not found"}, status_code=404)
+
+        # Security
+        if not os.path.abspath(audiobook_path).startswith(os.fspath(m4b_dir.resolve()) + os.sep):
+            return JSONResponse({"status": "error", "message": "Access denied"}, status_code=403)
+
+        # Store description in sidecar file
+        description_path = audiobook_path.with_suffix(audiobook_path.suffix + ".description")
+        description_path.write_text(description, encoding="utf-8")
+
+        return JSONResponse({"status": "ok"})
+    except Exception as e:
+        logger.error(f"Failed to update audiobook metadata for {filename}: {e}", exc_info=True)
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+
+@router.delete("/{project_id}/backups/{filename}")
+def api_delete_project_backup(project_id: str, filename: str):
+    """Delete a saved project backup."""
+    try:
+        if get_project(project_id) is None:
+            return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
+
+        project_dir = find_existing_project_dir(project_id) or get_project_dir(project_id)
+        backups_dir = project_dir / "backups"
+
+        # Validation
+        if not (filename.endswith(".zip") or filename.endswith(".abf")) or "/" in filename or "\\" in filename:
+            return JSONResponse({"status": "error", "message": "Invalid filename"}, status_code=400)
+
+        backup_path = backups_dir / filename
+        if not backup_path.exists() or not backup_path.is_file():
+            return JSONResponse({"status": "error", "message": "Backup not found"}, status_code=404)
+
+        # Security: Ensure it's still under backups_dir
+        if not os.path.abspath(backup_path).startswith(os.fspath(backups_dir.resolve()) + os.sep):
+            return JSONResponse({"status": "error", "message": "Access denied"}, status_code=403)
+
+        backup_path.unlink()
+        return JSONResponse({"status": "ok"})
+    except Exception as e:
+        logger.error(f"Failed to delete backup {filename} for project {project_id}: {e}", exc_info=True)
         return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 
 def _create_backup_archive(bundle: ProjectBackupBundleModel) -> io.BytesIO:
@@ -653,11 +770,23 @@ def _create_backup_archive(bundle: ProjectBackupBundleModel) -> io.BytesIO:
                 "text_path": f"chapters/{text_filename}"
             }
 
-            # Optional Chapter Audio
+            # Optional Chapter Audio (WAV-only)
             if bundle.export_manifest.include_audio and chapter.get("audio_file_path") and chapter.get("audio_status") == "done":
-                audio_path = safe_join_flat(XTTS_OUT_DIR, chapter["audio_file_path"])
-                if audio_path.exists():
-                    audio_ext = audio_path.suffix or ".wav"
+                # Find the WAV asset specifically
+                raw_path = chapter["audio_file_path"]
+                wav_path = raw_path
+                if not raw_path.lower().endswith(".wav"):
+                    # Try to find corresponding .wav if path points to .mp3 or similar
+                    wav_path = str(Path(raw_path).with_suffix(".wav"))
+
+                audio_dir = get_project_audio_dir(project_id)
+                audio_path = audio_dir / wav_path
+                if not audio_path.exists():
+                    # Fallback to the original path if wav not found (might already be wav)
+                    audio_path = audio_dir / raw_path
+
+                if audio_path.exists() and audio_path.suffix.lower() == ".wav":
+                    audio_ext = ".wav"
                     # Use the same base filename as the text for easy pairing
                     audio_filename = f"{Path(text_filename).stem}{audio_ext}"
                     zf.write(audio_path, arcname=f"chapters/{audio_filename}")

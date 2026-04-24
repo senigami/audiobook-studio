@@ -35,6 +35,7 @@ export interface Project {
   cover_image_path: string | null;
   created_at: number;
   updated_at: number;
+  chapter_map?: Record<string, any>;
 }
 
 export interface Character {
@@ -293,6 +294,15 @@ export interface Audiobook {
   created_at?: number;
   size_bytes?: number;
   duration_seconds?: number;
+  description?: string | null;
+}
+
+export interface StoredBackup {
+  filename: string;
+  created_at: string; // ISO timestamp from backend
+  size_bytes: number;
+  comment: string | null;
+  download_url: string;
 }
 
 export interface AssemblyChapter {

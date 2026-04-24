@@ -82,15 +82,9 @@ describe('Project Library Components', () => {
                     project={fullProject as any}
                     totalRuntime={0}
                     totalPredicted={0}
-                    availableAudiobooks={[]}
-                    onBack={vi.fn()}
                     onEditMetadata={vi.fn()}
                     onShowCover={vi.fn()}
-                    onStartAssembly={vi.fn()}
-                    onDeleteAudiobook={vi.fn()}
-                    formatLength={(s) => `${s}s`}
-                    formatFileSize={(b) => `${b}b`}
-                    formatRelativeTime={(t) => `time ${t}`}
+                    formatLength={(s: number) => `${s}s`}
                 />
             );
 

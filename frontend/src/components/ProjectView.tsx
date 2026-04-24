@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { Plus, Zap, ArrowUpDown } from 'lucide-react';
+import { Plus, Zap, ArrowUpDown, Book } from 'lucide-react';
 import { api } from '../api';
-import type { 
-  Project, 
-  Chapter, 
-  Job, 
-  Audiobook, 
-  SpeakerProfile, 
-  Settings, 
+import type {
+  Project,
+  Chapter,
+  Job,
+  Audiobook,
+  SpeakerProfile,
+  Settings,
   SegmentProgress,
   TtsEngine
 } from '../types';
@@ -23,6 +23,8 @@ import { ChapterList } from './project/ChapterList';
 import { AddChapterModal, EditProjectModal, CoverImageModal } from './project/ProjectModals';
 import { ChapterEditor } from './ChapterEditor';
 import { CharactersTab } from './CharactersTab';
+import { AssemblyPanel } from './project/AssemblyPanel';
+import { ProjectBackupsPanel } from './ProjectBackupsPanel';
 import { ConfirmModal } from './ConfirmModal';
 
 // Extracted Hooks
@@ -44,15 +46,15 @@ interface ProjectViewProps {
   onOpenQueue?: () => void;
 }
 
-export const ProjectView: React.FC<ProjectViewProps> = ({ 
-  jobs, 
-  segmentProgress = {}, 
-  speakerProfiles, 
-  speakers, 
+export const ProjectView: React.FC<ProjectViewProps> = ({
+  jobs,
+  segmentProgress = {},
+  speakerProfiles,
+  speakers,
   settings,
   engines = [],
-  refreshTrigger = 0, 
-  segmentUpdate, 
+  refreshTrigger = 0,
+  segmentUpdate,
   chapterUpdate,
   shellState,
   onOpenQueue
@@ -64,17 +66,26 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
 
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   const [project, setProject] = useState<Project | null>(null);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentTab, setCurrentTab] = useState<'chapters' | 'characters'>('chapters');
+  const [currentTab, setCurrentTab] = useState<'chapters' | 'characters' | 'assemblies' | 'backups'>('chapters');
   const [availableAudiobooks, setAvailableAudiobooks] = useState<Audiobook[]>([]);
   const [isAssemblyMode, setIsAssemblyMode] = useState(false);
   const [selectedChapters, setSelectedChapters] = useState<Set<string>>(new Set());
   const [selectedVoice, setSelectedVoice] = useState<string>('');
   const [hasResolvedInitialVoice, setHasResolvedInitialVoice] = useState(false);
   const [isExporting, setIsExporting] = useState<string | null>(null);
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const showTooltips = windowWidth <= 1250;
   const anyEnginesEnabled = React.useMemo(
     () => (engines || []).length === 0 || (engines || []).some(e => e.enabled && e.status === 'ready'),
     [engines]
@@ -121,10 +132,10 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
         const audiobooksData = await api.fetchProjectAudiobooks(effectiveProjectId);
         setAvailableAudiobooks(audiobooksData || []);
       } catch (err) { setAvailableAudiobooks([]); }
-    } catch (e) { 
-      console.error(e); 
-    } finally { 
-      setLoading(false); 
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -138,16 +149,20 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
     handleResetChapterAudio,
     handleQueueAllUnprocessed,
     handleAssembleProject,
-    handleDeleteAudiobook
+    handleDeleteAudiobook,
+    handleSaveBackup,
+    handleDeleteBackup,
+    handleUpdateBackupMetadata,
+    handleUpdateAudiobookMetadata
   } = useProjectActions(effectiveProjectId, loadData, navigate, onOpenQueue);
 
-  useEffect(() => { 
+  useEffect(() => {
     const isTransition = project?.id !== effectiveProjectId;
     if (isTransition) {
       setProject(null);
       setChapters([]);
     }
-    loadData(isTransition); 
+    loadData(isTransition);
   }, [effectiveProjectId, refreshTrigger]);
 
   // Sync currentTab with shellState or URL fallback
@@ -156,14 +171,23 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
     if (subnavId) {
       if (subnavId === 'project-characters') {
         setCurrentTab('characters');
+      } else if (subnavId === 'project-assemblies') {
+        setCurrentTab('assemblies');
+      } else if (subnavId === 'project-backups') {
+        setCurrentTab('backups');
       } else {
         setCurrentTab('chapters');
       }
     } else {
       // Fallback for tests or non-shell usage
       const params = new URLSearchParams(location.search);
-      if (params.get('tab') === 'characters') {
+      const tab = params.get('tab');
+      if (tab === 'characters') {
         setCurrentTab('characters');
+      } else if (tab === 'assemblies') {
+        setCurrentTab('assemblies');
+      } else if (tab === 'backups') {
+        setCurrentTab('backups');
       } else {
         setCurrentTab('chapters');
       }
@@ -255,13 +279,13 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
   const activeIdx = chapters.findIndex(c => c.id === editingChapterId);
 
   return (
-    <div 
-      className="project-view-root animate-in" 
-      style={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
+    <div
+      className="project-view-root animate-in"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
         minHeight: editingChapterId ? 'calc(100vh - 72px)' : 'none',
-        height: editingChapterId ? 'calc(100vh - 72px)' : 'auto', 
+        height: editingChapterId ? 'calc(100vh - 72px)' : 'auto',
         overflow: editingChapterId ? 'hidden' : 'visible',
         marginTop: '-3rem', // Align breadcrumb strip to top of Layout padding
         position: 'relative'
@@ -277,11 +301,11 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
         onNavigateChapter={(id) => navigate(`/chapter/${id}`)}
       />
 
-      <div 
-        className="project-view-content" 
-        style={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
+      <div
+        className="project-view-content"
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
           flex: editingChapterId ? 1 : 'none',
           minHeight: 0,
           padding: '0 2.5rem',
@@ -289,29 +313,21 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
           gap: editingChapterId ? 0 : '1.5rem'
         }}
       >
-        <ProjectHeader 
-          project={project} 
-          totalRuntime={totalRuntime} 
-          totalPredicted={totalPredicted} 
-          availableAudiobooks={availableAudiobooks}
-          onEditMetadata={() => setShowEditProjectModal(true)} 
+        <ProjectHeader
+          project={project}
+          totalRuntime={totalRuntime}
+          totalPredicted={totalPredicted}
+          onEditMetadata={() => setShowEditProjectModal(true)}
           onShowCover={() => setShowCoverModal(true)}
-          onStartAssembly={() => { 
-            setSelectedChapters(new Set(chapters.filter(c => c.audio_status === 'done').map(c => c.id))); 
-            setIsAssemblyMode(true); 
-          }}
-          onDeleteAudiobook={handleDeleteAudiobook} 
-          formatLength={formatLength} 
-          formatFileSize={formatFileSize} 
-          formatRelativeTime={formatRelativeTime}
+          formatLength={formatLength}
           compact={!!editingChapterId}
         />
 
         {editingChapterId ? (
-          <ChapterEditor 
-            chapterId={editingChapterId} 
-            projectId={effectiveProjectId} 
-            speakerProfiles={speakerProfiles} 
+          <ChapterEditor
+            chapterId={editingChapterId}
+            projectId={effectiveProjectId}
+            speakerProfiles={speakerProfiles}
             speakers={speakers}
             engines={engines}
             job={pickRelevantJob(chapterRenderJobs, includeDoneForEditor)}
@@ -325,27 +341,57 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
           />
         ) : (
           <>
-            <AssemblyProgress 
-              project={project} 
+            <AssemblyProgress
+              project={project}
               activeAssemblyJob={pickLatestJob(j => j.engine === 'audiobook' && j.project_id === effectiveProjectId, false)}
               finishedAssemblyJob={pickLatestJob(j => j.engine === 'audiobook' && j.project_id === effectiveProjectId, true)}
             />
 
-            <ProjectSubnav 
+            <ProjectSubnav
               items={shellState?.projectSubnav || [
                 { id: 'project-chapters', label: 'Chapters', href: `/project/${effectiveProjectId}` },
+                { id: 'project-assemblies', label: 'Assemblies', href: `/project/${effectiveProjectId}?tab=assemblies` },
+                { id: 'project-backups', label: 'Backups', href: `/project/${effectiveProjectId}?tab=backups` },
                 { id: 'project-characters', label: 'Characters', href: `/project/${effectiveProjectId}?tab=characters` },
-              ]} 
-              activeId={shellState?.navigation.activeProjectSubnavId || (currentTab === 'characters' ? 'project-characters' : 'project-chapters')} 
+              ]}
+              activeId={shellState?.navigation.activeProjectSubnavId || (
+                currentTab === 'characters' ? 'project-characters' :
+                currentTab === 'assemblies' ? 'project-assemblies' :
+                currentTab === 'backups' ? 'project-backups' :
+                'project-chapters'
+              )}
             />
 
             {currentTab === 'characters' ? (
               <CharactersTab projectId={effectiveProjectId} speakers={speakers} speakerProfiles={speakerProfiles} />
+            ) : currentTab === 'assemblies' ? (
+              <AssemblyPanel
+                availableAudiobooks={availableAudiobooks}
+                onStartAssembly={() => {
+                  setCurrentTab('chapters');
+                  setSelectedChapters(new Set(chapters.filter(c => c.audio_status === 'done').map(c => c.id)));
+                  setIsAssemblyMode(true);
+                  navigate(`/project/${effectiveProjectId}`);
+                }}
+                onDeleteAudiobook={handleDeleteAudiobook}
+                onUpdateMetadata={handleUpdateAudiobookMetadata}
+                formatLength={formatLength}
+                formatFileSize={formatFileSize}
+                formatRelativeTime={formatRelativeTime}
+              />
+            ) : currentTab === 'backups' ? (
+              <ProjectBackupsPanel
+                projectId={effectiveProjectId}
+                onSaveBackup={handleSaveBackup}
+                onDeleteBackup={handleDeleteBackup}
+                onUpdateMetadata={handleUpdateBackupMetadata}
+                submitting={submitting}
+              />
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
                   <h3 style={{ fontSize: '1.25rem', fontWeight: 600 }}>{isAssemblyMode ? 'Select Chapters for Assembly' : 'Chapters'}</h3>
-                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                  <div className="project-action-bar" style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
                     {isAssemblyMode ? (
                       <>
                         <button onClick={() => setIsAssemblyMode(false)} className="btn-ghost" style={{ fontSize: '0.85rem' }}>Cancel</button>
@@ -353,38 +399,73 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
                       </>
                     ) : (
                       <>
-                        <button 
-                          onClick={() => handleQueueAllUnprocessed(chapters, jobs, effectiveProjectVoice)} 
-                          className="btn-ghost" 
-                          disabled={!anyEnginesEnabled}
-                          title={!anyEnginesEnabled ? 'All TTS engines are disabled in Settings' : 'Queue all unprocessed chapters'}
-                          style={{ border: '1px solid var(--border)', color: anyEnginesEnabled ? 'var(--accent)' : 'var(--text-muted)', fontSize: '0.85rem' }}
+                        <button
+                          onClick={() => {
+                            setSelectedChapters(new Set(chapters.filter(c => c.audio_status === 'done').map(c => c.id)));
+                            setIsAssemblyMode(true);
+                          }}
+                          className="btn-ghost"
+                          title={showTooltips ? "Assemble Project" : undefined}
+                          style={{ border: '1px solid var(--border)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                         >
-                          <Zap size={16} /> Queue Remaining
+                          <Book size={16} /> <span className="hide-on-mobile">Assemble Project</span>
                         </button>
-                        <select value={selectedVoice} onChange={e => { void handleProjectVoiceChange(e.target.value); }} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '0.85rem', padding: '0.25rem 0.5rem' }}>
-                          {selectedVoice && !availableVoiceNames.has(selectedVoice) && (
-                            <option value={selectedVoice} disabled>
-                              {getVoiceOptionLabel(selectedVoice, speakerProfiles, speakers, engines) || selectedVoice}
-                            </option>
-                          )}
-                          <option value="">{projectDefaultVoiceLabel}</option>
-                          {mergedVoices.map(v => <option key={v.id} value={v.value}>{v.name}</option>)}
-                        </select>
-                        <button onClick={() => handleReorderChapters([...chapters].sort((a,b) => a.title.localeCompare(b.title, undefined, {numeric: true})))} className="btn-ghost" style={{ border: '1px solid var(--border)', fontSize: '0.85rem' }}><ArrowUpDown size={16} /> Sort A-Z</button>
-                        <button onClick={() => setShowAddModal(true)} className="btn-primary" style={{ fontSize: '0.85rem' }}><Plus size={16} /> Add Chapter</button>
+                        <button
+                          onClick={() => handleQueueAllUnprocessed(chapters, jobs, effectiveProjectVoice)}
+                          className="btn-ghost"
+                          disabled={!anyEnginesEnabled}
+                          title={!anyEnginesEnabled ? 'All TTS engines are disabled in Settings' : (showTooltips ? 'Queue all unprocessed chapters' : undefined)}
+                          style={{ border: '1px solid var(--border)', color: anyEnginesEnabled ? 'var(--accent)' : 'var(--text-muted)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                        >
+                          <Zap size={16} /> <span className="hide-on-mobile">Queue Remaining</span>
+                        </button>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--surface-light)', padding: '2px 8px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Speaker:</span>
+                            <select
+                                value={selectedVoice}
+                                onChange={e => { void handleProjectVoiceChange(e.target.value); }}
+                                style={{ background: 'transparent', border: 'none', fontSize: '0.85rem', padding: '0.25rem 0', fontWeight: 500, color: 'var(--text-primary)', outline: 'none', maxWidth: '150px' }}
+                            >
+                              {selectedVoice && !availableVoiceNames.has(selectedVoice) && (
+                                <option value={selectedVoice} disabled>
+                                  {getVoiceOptionLabel(selectedVoice, speakerProfiles, speakers, engines) || selectedVoice}
+                                </option>
+                              )}
+                              <option value="">{projectDefaultVoiceLabel}</option>
+                              {mergedVoices.map(v => <option key={v.id} value={v.value}>{v.name}</option>)}
+                            </select>
+                        </div>
+
+                        <button
+                            onClick={() => handleReorderChapters([...chapters].sort((a,b) => a.title.localeCompare(b.title, undefined, {numeric: true})))}
+                            className="btn-ghost"
+                            title={showTooltips ? "Sort A-Z" : undefined}
+                            style={{ border: '1px solid var(--border)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                        >
+                            <ArrowUpDown size={16} /> <span className="hide-on-mobile">Sort</span>
+                        </button>
+
+                        <button
+                            onClick={() => setShowAddModal(true)}
+                            className="btn-primary"
+                            title={showTooltips ? "Add Chapter" : undefined}
+                            style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                        >
+                            <Plus size={16} /> <span className="hide-on-mobile">Add Chapter</span>
+                        </button>
                       </>
                     )}
                   </div>
                 </div>
 
-                <ChapterList 
+                <ChapterList
                   chapters={chapters} projectId={effectiveProjectId} jobs={jobs} isAssemblyMode={isAssemblyMode} selectedChapters={selectedChapters}
                   anyEnginesEnabled={anyEnginesEnabled}
                   onSelectChapter={id => setSelectedChapters(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; })}
                   onSelectAll={() => { const allDone = chapters.filter(c => c.audio_status === 'done').map(c => c.id); setSelectedChapters(selectedChapters.size === allDone.length ? new Set() : new Set(allDone)); }}
                   onReorder={(newOrder) => { setChapters(newOrder); handleReorderChapters(newOrder); }}
-                  onEditChapter={id => navigate(`/chapter/${id}`)} 
+                  onEditChapter={id => navigate(`/chapter/${id}`)}
                   onRenameChapter={async (id, title) => { await api.updateChapter(id, { title }); await loadData(); }}
                   onQueueChapter={chap => { if (chap.char_count > 50000) setConfirmConfig({ title: 'Large Chapter', message: 'Chapter is long. Queue anyway?', onConfirm: () => handleQueueChapter(chap.id, effectiveProjectVoice) }); else handleQueueChapter(chap.id, effectiveProjectVoice); }}
                   onResetAudio={id => setConfirmConfig({ title: 'Reset Audio', message: 'Delete all audio for this chapter?', isDestructive: true, onConfirm: () => handleResetChapterAudio(id) })}
