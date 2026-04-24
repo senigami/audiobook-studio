@@ -4,9 +4,7 @@ import { User, RefreshCw, ChevronUp, Star, FileEdit, Trash2, Plus } from 'lucide
 import { motion, AnimatePresence } from 'framer-motion';
 import { ActionMenu } from '../ActionMenu';
 import { VariantEditor } from './VariantEditor';
-import { getDefaultVoiceProfileName } from '../../utils/voiceProfiles';
-
-const formatEngineLabel = (engine: string) => (engine === 'xtts' ? 'XTTS' : engine.charAt(0).toUpperCase() + engine.slice(1));
+import { formatVoiceEngineLabel, getDefaultVoiceProfileName, getVoiceProfileEngine, isVoiceProfileSelectable } from '../../utils/voiceProfiles';
 
 interface NarratorCardProps {
     speaker: Speaker;
@@ -63,34 +61,53 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
     }, [profiles, activeProfileId, defaultProfile]);
 
     const activeProfile = profiles.find(p => p.name === activeProfileId) || defaultProfile;
-    const activeEngine = activeProfile?.engine || 'xtts';
+    const activeEngine = getVoiceProfileEngine(activeProfile) || 'unknown';
     const activeEngineInfo = engines.find(e => e.engine_id === activeEngine);
-    const isCloudEngine = activeEngineInfo
-        ? activeEngineInfo.local === false || (activeEngineInfo.local === undefined && activeEngine !== 'xtts')
-        : activeEngine !== 'xtts';
+    const activeEngineSelectable = isVoiceProfileSelectable(activeProfile, engines);
+    const isCloudEngine = activeEngineInfo?.cloud === true;
     const activeEngineBadge = {
-        label: activeEngineInfo?.display_name || formatEngineLabel(activeEngine),
-        bg: isCloudEngine ? 'rgba(14, 165, 233, 0.12)' : 'rgba(var(--accent-rgb), 0.12)',
-        color: isCloudEngine ? '#0ea5e9' : 'var(--accent)'
+        label: activeEngineInfo?.display_name || formatVoiceEngineLabel(activeEngine),
+        bg: !activeEngineSelectable
+            ? 'rgba(var(--accent-rgb), 0.08)'
+            : (isCloudEngine ? 'rgba(14, 165, 233, 0.12)' : 'rgba(var(--accent-rgb), 0.12)'),
+        color: !activeEngineSelectable
+            ? 'var(--text-muted)'
+            : (isCloudEngine ? '#0ea5e9' : 'var(--accent)')
     };
 
     const handleAddVariant = () => onAddVariantClick(speaker, profiles.length);
 
     const getStatusInfo = (p: SpeakerProfile | undefined) => {
         if (!p) return { label: 'NO SAMPLES', color: 'var(--text-muted)', bg: 'var(--surface-alt)' };
-        const engine = p.engine || 'xtts';
-        const hasPreviewInputs = engine === 'voxtral'
-            ? ((p.wav_count || 0) > 0 || !!p.voxtral_voice_id)
-            : ((p.wav_count || 0) > 0 || !!p.has_latent);
+        const engineId = getVoiceProfileEngine(p) || 'unknown';
+        const engineInfo = engines.find(e => e.engine_id === engineId);
+        const selectable = isVoiceProfileSelectable(p, engines);
+        
         if (buildingProfiles[p.name]) return { label: 'BUILDING...', color: 'var(--accent)', bg: 'rgba(var(--accent-rgb), 0.1)' };
-        if (!hasPreviewInputs && !p.preview_url) return { label: 'NO SAMPLES', color: 'var(--text-muted)', bg: 'var(--surface-alt)' };
-        if (p.is_rebuild_required) {
-            return engine === 'voxtral'
-                ? { label: 'PREVIEW OUT OF DATE', color: 'var(--warning-text)', bg: 'rgba(var(--warning-rgb), 0.1)' }
-                : { label: 'REBUILD REQUIRED', color: 'var(--warning-text)', bg: 'rgba(var(--warning-rgb), 0.1)' };
+
+        if (!selectable) {
+            return { label: 'DISABLED', color: 'var(--text-muted)', bg: 'var(--surface-alt)' };
         }
-        if (!p.preview_url) return { label: 'BUILD TO TEST', color: 'var(--accent)', bg: 'rgba(var(--accent-rgb), 0.1)' };
-        return { label: 'BUILT', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' };
+        
+        // Use the readiness hook result from the backend
+        if (!p.is_ready && !p.preview_url) {
+            return { label: 'NOT READY', color: 'var(--text-muted)', bg: 'var(--surface-alt)' };
+        }
+        
+        if (p.is_rebuild_required) {
+            const isRebuildEngine = engineInfo?.capabilities?.includes('voice_build');
+            return isRebuildEngine
+                ? { label: 'REBUILD REQUIRED', color: 'var(--warning-text)', bg: 'rgba(var(--warning-rgb), 0.1)' }
+                : { label: 'PREVIEW OUT OF DATE', color: 'var(--warning-text)', bg: 'rgba(var(--warning-rgb), 0.1)' };
+        }
+        
+        if (!p.preview_url) {
+            const isRebuildEngine = engineInfo?.capabilities?.includes('voice_build');
+            return isRebuildEngine
+                ? { label: 'BUILD TO TEST', color: 'var(--accent)', bg: 'rgba(var(--accent-rgb), 0.1)' }
+                : { label: 'GENERATE PREVIEW', color: 'var(--accent)', bg: 'rgba(var(--accent-rgb), 0.1)' };
+        }
+        return { label: 'READY', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' };
     };
 
     const status = getStatusInfo(activeProfile as SpeakerProfile);
@@ -284,12 +301,12 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
                                                 fontWeight: 800,
                                                 background: isActive
                                                     ? 'rgba(255,255,255,0.2)'
-                                                    : ((p.engine || 'xtts') === 'voxtral' ? 'rgba(14, 165, 233, 0.12)' : 'rgba(var(--accent-rgb), 0.12)'),
+                                                    : (engines.find(e => e.engine_id === (getVoiceProfileEngine(p) || 'unknown'))?.cloud ? 'rgba(14, 165, 233, 0.12)' : 'rgba(var(--accent-rgb), 0.12)'),
                                                 color: isActive
                                                     ? 'white'
-                                                    : ((p.engine || 'xtts') === 'voxtral' ? '#0ea5e9' : 'var(--accent)')
+                                                    : (engines.find(e => e.engine_id === (getVoiceProfileEngine(p) || 'unknown'))?.cloud ? '#0ea5e9' : 'var(--accent)')
                                             }}>
-                                                {(p.engine || 'xtts') === 'voxtral' ? 'VX' : 'XT'}
+                                                {(engines.find(e => e.engine_id === (getVoiceProfileEngine(p) || 'unknown'))?.display_name || formatVoiceEngineLabel(getVoiceProfileEngine(p))).substring(0, 2).toUpperCase()}
                                             </span>
                                         </button>
                                     );

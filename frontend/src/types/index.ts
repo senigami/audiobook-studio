@@ -1,5 +1,5 @@
 export type Engine = 'xtts' | 'voxtral' | 'mixed' | 'audiobook' | 'voice_build' | 'voice_test';
-export type VoiceEngine = 'xtts' | 'voxtral';
+export type VoiceEngine = 'xtts' | 'voxtral' | string;
 
 export interface TtsEngine {
   engine_id: string;
@@ -16,6 +16,8 @@ export interface TtsEngine {
   resource: Record<string, any>;
   author: string;
   homepage: string;
+  can_enable?: boolean;
+  enablement_message?: string;
   help_text?: string;
   privacy_text?: string;
   settings_schema: any;
@@ -211,6 +213,8 @@ export interface SpeakerProfile {
   has_latent?: boolean;
   is_rebuild_required?: boolean;
   samples_detailed?: Array<{ name: string; is_new: boolean }>;
+  is_ready?: boolean;
+  readiness_message?: string;
 }
 
 export interface Speaker {
@@ -272,7 +276,6 @@ export interface SegmentProgress {
 
 export interface Settings {
   safe_mode: boolean;
-  make_mp3: boolean;
   default_engine: Engine;
   default_speaker_profile?: string;
   voxtral_enabled?: boolean;
@@ -316,4 +319,43 @@ export interface GlobalState {
   speaker_profiles: SpeakerProfile[];
   speakers: Speaker[];
   projects: Project[];
+  render_stats?: RenderStats;
+  runtime_services?: RuntimeService[];
+  system_info?: {
+    backend_mode?: string;
+    orchestrator?: string;
+    api_base_url?: string;
+  };
+}
+
+export interface RenderStats {
+  sample_count: number;
+  word_count: number;
+  chars: number;
+  audio_duration_seconds: number;
+  render_duration_seconds: number;
+  audio_hours_rendered: number;
+  render_hours_spent: number;
+  since_timestamp?: number | null;
+  since_date?: string | null;
+  by_engine: Array<{
+    engine: string;
+    sample_count: number;
+    audio_duration_seconds: number;
+    render_duration_seconds: number;
+  }>;
+}
+
+export interface RuntimeService {
+  id: string;
+  label: string;
+  kind: 'api' | 'tts_server' | 'frontend' | string;
+  url?: string | null;
+  port?: number | null;
+  healthy?: boolean;
+  pingable?: boolean;
+  status?: string;
+  message?: string | null;
+  can_restart?: boolean;
+  circuit_open?: boolean;
 }

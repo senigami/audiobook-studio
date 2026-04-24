@@ -8,8 +8,7 @@ import { motion } from 'framer-motion';
 import { SpeedPopover } from './VoiceUtils';
 import { useVariantActions } from '../../hooks/useVariantActions';
 import { SampleManager } from './SampleManager';
-
-const formatEngineLabel = (engine: string) => (engine === 'xtts' ? 'XTTS' : engine.charAt(0).toUpperCase() + engine.slice(1));
+import { formatVoiceEngineLabel, getVoiceProfileEngine } from '../../utils/voiceProfiles';
 
 interface VariantEditorProps {
     profile: SpeakerProfile;
@@ -33,15 +32,17 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
     onEditTestText, onBuildNow, requestConfirm, testStatus,
     voiceName, showControlsInline = false, buildingProfiles, engines = []
 }) => {
-    const engine = profile.engine || 'xtts';
+    const engine = getVoiceProfileEngine(profile) || 'unknown';
     const activeEngine = engines.find(e => e.engine_id === engine);
-    const isCloudEngine = activeEngine
-        ? activeEngine.local === false || (activeEngine.local === undefined && engine !== 'xtts')
-        : engine !== 'xtts';
-    const engineUsable = !activeEngine || activeEngine.enabled;
-    const hasSamples = (profile.wav_count || 0) > 0;
-    const hasReferenceMaterial = hasSamples || !!profile.has_latent || !!profile.voxtral_voice_id;
-    const canGeneratePreview = hasReferenceMaterial && engineUsable;
+    const engineUsable = activeEngine?.enabled && activeEngine?.status === 'ready';
+    const isRebuildEngine = activeEngine?.capabilities?.includes('voice_build');
+    const isCloudEngine = activeEngine?.cloud === true;
+    
+    // Use the readiness hook result from the backend
+    const isReady = profile.is_ready ?? false;
+    const readinessMessage = profile.readiness_message || "Voice is not ready";
+    
+    const canGeneratePreview = isReady && engineUsable;
     const canPreviewOrGenerate = !!profile.preview_url || canGeneratePreview;
 
     const {
@@ -67,7 +68,7 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
     const speed = localSpeed ?? profile.speed;
     const playIconColor = isPlaying ? 'var(--surface)' : 'var(--text-primary)';
     const engineBadge = {
-        label: activeEngine?.display_name || formatEngineLabel(engine),
+        label: activeEngine?.display_name || formatVoiceEngineLabel(engine),
         bg: isCloudEngine ? 'rgba(14, 165, 233, 0.12)' : 'rgba(var(--accent-rgb), 0.12)',
         color: isCloudEngine ? '#0ea5e9' : 'var(--accent)'
     };
@@ -150,11 +151,9 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                             className="btn-ghost hover-bg-subtle"
                         disabled={!canPreviewOrGenerate || isTesting}
                         title={!canPreviewOrGenerate
-                            ? (isCloudEngine
-                            ? (engineUsable
-                                    ? `Add a reference sample or saved voice id before generating a ${activeEngine?.display_name || formatEngineLabel(engine)} preview`
-                                    : `Turn ${activeEngine?.display_name || formatEngineLabel(engine)} back on in Settings or switch this voice to XTTS before generating a new preview`)
-                                : "Add at least one sample or keep a latent before generating a preview")
+                            ? (!engineUsable 
+                                ? `Engine ${activeEngine?.display_name || formatVoiceEngineLabel(engine)} is disabled or unavailable.` 
+                                : readinessMessage)
                             : profile.preview_url
                                 ? (isPlaying ? "Pause Sample" : "Play Sample")
                                 : "Generate Sample"}
@@ -270,10 +269,10 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                     
                     {!isCloudEngine && (
                         <button 
-                            disabled={!hasReferenceMaterial || isBuilding || isTesting}
+                            disabled={!isReady || isBuilding || isTesting}
                             className={isRebuildRequired ? "btn-primary" : "btn-ghost hover-bg-subtle"}
                             onClick={(e) => { e.stopPropagation(); handleRebuild(); }} 
-                            title={!hasReferenceMaterial ? "Add at least one sample or keep a latent before rebuilding this voice" : "Rebuild Voice Model"}
+                            title={!isReady ? readinessMessage : "Rebuild Voice Model"}
                             style={{ 
                                 padding: '8px 12px', 
                                 height: '36px', 
@@ -312,9 +311,9 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                             className={isRebuildRequired ? "btn-primary" : "btn-ghost hover-bg-subtle"}
                             onClick={handleGeneratePreview}
                             title={!engineUsable
-                                ? `Turn ${activeEngine?.display_name || formatEngineLabel(engine)} back on in Settings or switch this voice to XTTS before generating a new preview`
-                                : !hasReferenceMaterial
-                                    ? `Add a reference sample or saved voice id before generating a ${activeEngine?.display_name || formatEngineLabel(engine)} preview`
+                                ? `Engine ${activeEngine?.display_name || engine} is disabled or unavailable.`
+                                : !isReady
+                                    ? readinessMessage
                                     : profile.preview_url ? "Regenerate Sample" : "Generate Sample"}
                             style={{
                                 padding: '8px 12px',
@@ -353,8 +352,10 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                     lineHeight: 1.5
                 }}>
                     {engineUsable
-                        ? `${activeEngine?.display_name || formatEngineLabel(engine)} profiles use reference audio or a saved voice id instead of XTTS latent rebuilds. Use play to hear the current preview, and use regenerate when you want to refresh that preview after changing the script or reference settings.`
-                        : `This voice is still assigned to ${activeEngine?.display_name || formatEngineLabel(engine)}, but it is turned off in Settings. You can still play any existing preview, but new generation is blocked until you turn it back on or switch this voice to XTTS.`}
+                        ? (isRebuildEngine 
+                            ? `${activeEngine?.display_name || engine} uses local rebuilds to prepare high-quality voice latents. Click Rebuild after adding samples to update the model.`
+                            : `${activeEngine?.display_name || engine} uses reference audio or direct voice IDs for synthesis. Use play to hear the current preview, and regenerate to refresh it after changes.`)
+                        : `This voice is assigned to ${activeEngine?.display_name || engine}, but it is currently disabled or unavailable. You can play existing previews, but new generation is blocked.`}
                 </div>
             )}
 

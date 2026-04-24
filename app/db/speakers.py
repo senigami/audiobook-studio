@@ -15,6 +15,24 @@ DEFAULT_PROFILE_ENGINE = "xtts"
 VALID_PROFILE_ENGINES = {DEFAULT_PROFILE_ENGINE, "voxtral"}
 
 
+def _infer_profile_engine(meta: Optional[Dict[str, Any]] = None) -> str:
+    meta = dict(meta or {})
+    explicit_engine = str(meta.get("engine") or "").strip().lower()
+    if explicit_engine in VALID_PROFILE_ENGINES:
+        return explicit_engine
+
+    voxtral_fields = (
+        "voxtral_voice_id",
+        "voxtral_model",
+        "preview_voxtral_voice_id",
+        "preview_voxtral_model",
+    )
+    if any(str(meta.get(field) or "").strip() for field in voxtral_fields):
+        return "voxtral"
+
+    return DEFAULT_PROFILE_ENGINE
+
+
 def _profile_name_or_error(profile_name: str) -> str:
     if not SAFE_PROFILE_NAME_RE.fullmatch(profile_name):
         raise ValueError(f"Invalid profile name: {profile_name}")
@@ -79,8 +97,7 @@ def normalize_profile_metadata(profile_name: str, meta: Optional[Dict[str, Any]]
     meta = dict(meta or {})
     if "variant_name" not in meta or not meta.get("variant_name"):
         meta["variant_name"] = infer_variant_name(profile_name)
-    if meta.get("engine") not in VALID_PROFILE_ENGINES:
-        meta["engine"] = DEFAULT_PROFILE_ENGINE
+    meta["engine"] = _infer_profile_engine(meta)
 
     if persist:
         profile_dir = _existing_profile_dir(config.VOICES_DIR, profile_name)

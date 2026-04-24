@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ConfirmModal } from './ConfirmModal';
 import { api } from '../api';
-import type { Chapter, SpeakerProfile, Job, Character, ChapterSegment, SegmentProgress, ProductionBlock, ProductionRenderBatch, ProductionBlocksResponse, ScriptViewResponse, ScriptRangeAssignment } from '../types';
+import type { Chapter, SpeakerProfile, Job, Character, ChapterSegment, SegmentProgress, ProductionBlock, ProductionRenderBatch, ProductionBlocksResponse, ScriptViewResponse, ScriptRangeAssignment, TtsEngine } from '../types';
 
 // Extracted Components
 import { ChapterHeader } from './chapter/ChapterHeader';
@@ -17,9 +17,8 @@ import { CharacterSidebar } from './chapter/CharacterSidebar';
 // Extracted Hooks
 import { useChapterPlayback } from '../hooks/useChapterPlayback';
 import { useChapterAnalysis } from '../hooks/useChapterAnalysis';
-import { buildVoiceOptions } from '../utils/voiceProfiles';
+import { buildVoiceOptions, getDefaultVoiceProfileName, getVoiceOptionLabel, getVoiceProfileEngine, formatVoiceEngineLabel } from '../utils/voiceProfiles';
 import { buildChunkGroups } from '../utils/chunkGroups';
-import { getDefaultVoiceProfileName, getVoiceOptionLabel } from '../utils/voiceProfiles';
 import { pickRelevantJob } from '../utils/jobSelection';
 
 interface ChapterEditorProps {
@@ -27,6 +26,7 @@ interface ChapterEditorProps {
   projectId: string;
   speakerProfiles: SpeakerProfile[];
   speakers: import('../types').Speaker[];
+  engines?: TtsEngine[];
   job?: Job;
   chapterJobs?: Job[];
   segmentProgress?: Record<string, SegmentProgress>;
@@ -43,6 +43,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   projectId, 
   speakerProfiles, 
   speakers, 
+  engines = [],
   job, 
   chapterJobs = [],
   segmentProgress = {},
@@ -74,10 +75,12 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   const [hoveredBlockId, setHoveredBlockId] = useState<string | null>(null);
   const [exportingFormat, setExportingFormat] = useState<'wav' | 'mp3' | null>(null);
   const [scriptViewData, setScriptViewData] = useState<ScriptViewResponse | null>(null);
+  const [scriptViewLoading, setScriptViewLoading] = useState(true);
   const [compacting, setCompacting] = useState(false);
   const [resyncPreviewData, setResyncPreviewData] = useState<ResyncPreviewData | null>(null);
   const [isPreviewingResync, setIsPreviewingResync] = useState(false);
   const [isResyncing, setIsResyncing] = useState(false);
+  const [sourceTextMode, setSourceTextMode] = useState<'view' | 'edit'>('view');
   
   const [confirmConfig, setConfirmConfig] = useState<{
     title: string;
@@ -92,9 +95,14 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   const effectiveSelectedVoice = chapterVoice || projectVoice;
   const chapterDefaultVoiceLabel = React.useMemo(() => {
     const fallbackVoiceValue = projectVoice || getDefaultVoiceProfileName(speakerProfiles || []) || '';
-    const fallbackVoiceLabel = getVoiceOptionLabel(fallbackVoiceValue, speakerProfiles || [], speakers || []);
+    const fallbackVoiceLabel = getVoiceOptionLabel(fallbackVoiceValue, speakerProfiles || [], speakers || [], engines);
     return fallbackVoiceLabel ? `Use Project Default (${fallbackVoiceLabel})` : 'Use Project Default';
-  }, [projectVoice, speakerProfiles, speakers]);
+  }, [projectVoice, speakerProfiles, speakers, engines]);
+  const selectedVoiceLabel = React.useMemo(() => {
+    const selected = chapterVoice || projectVoice;
+    if (!selected) return '';
+    return getVoiceOptionLabel(selected, speakerProfiles || [], speakers || [], engines) || selected;
+  }, [chapterVoice, projectVoice, speakerProfiles, speakers, engines]);
   const handleVoiceChange = async (voice: string) => {
       const previousVoice = localVoice;
       const previousChapterVoice = chapter?.speaker_profile_name ?? null;
@@ -125,8 +133,56 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   const completionPollAttemptsRef = useRef(0);
 
   const availableVoices = React.useMemo(() => {
-    return buildVoiceOptions(speakerProfiles || [], speakers || []);
-  }, [speakers, speakerProfiles]);
+    return buildVoiceOptions(speakerProfiles || [], speakers || [], engines);
+  }, [speakers, speakerProfiles, engines]);
+
+  const resolveVoiceEngineStatus = React.useCallback((voiceName: string | null | undefined) => {
+    const targetVoice = (voiceName || '').trim();
+    if (!targetVoice) {
+      return {
+        profileName: null as string | null,
+        engineId: null as string | null,
+        engineLabel: null as string | null,
+        enabled: true,
+        message: null as string | null,
+      };
+    }
+
+    if (!engines || engines.length === 0) {
+      return {
+        profileName: targetVoice,
+        engineId: null,
+        engineLabel: null,
+        enabled: true,
+        message: null as string | null,
+      };
+    }
+
+    const profile = speakerProfiles.find(profile => profile.name === targetVoice);
+    const engineId = getVoiceProfileEngine(profile);
+    const engineLabel = formatVoiceEngineLabel(engineId);
+    if (!profile || !engineId) {
+      return {
+        profileName: targetVoice,
+        engineId: null,
+        engineLabel,
+        enabled: false,
+        message: `${targetVoice} is unavailable. Choose an available voice or enable its engine in Settings.`,
+      };
+    }
+
+    const engine = engines.find(engine => engine.engine_id === engineId);
+    const enabled = Boolean(engine?.enabled && engine.status === 'ready');
+    return {
+      profileName: targetVoice,
+      engineId,
+      engineLabel,
+      enabled,
+      message: enabled
+        ? null
+        : `${targetVoice} is a ${engineLabel} voice, but ${engineLabel} is disabled in Settings. Enable the engine or choose an available voice.`,
+    };
+  }, [engines, speakerProfiles]);
 
   const buildFallbackProductionBlocks = React.useCallback((sourceSegments: ChapterSegment[]): ProductionBlock[] => {
     return [...sourceSegments]
@@ -183,6 +239,27 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     });
 
     if (freshIds.length === 0) return;
+
+    const requiredVoiceNames = Array.from(new Set(
+      freshIds
+        .map(id => {
+          const seg = segments.find(segment => segment.id === id);
+          return (seg?.speaker_profile_name || effectiveSelectedVoice || getDefaultVoiceProfileName(speakerProfiles || []) || '').trim();
+        })
+        .filter(Boolean)
+    ));
+    const blockedVoice = requiredVoiceNames
+      .map(name => resolveVoiceEngineStatus(name))
+      .find(status => !status.enabled);
+    if (blockedVoice) {
+      setConfirmConfig({
+        title: 'Generation Blocked',
+        message: blockedVoice.message || 'This voice is unavailable. Enable the engine or choose another voice before generating.',
+        onConfirm: () => {},
+        confirmText: 'OK'
+      });
+      return;
+    }
 
     const now = Date.now();
     freshIds.forEach(id => {
@@ -255,6 +332,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
 
   const loadChapter = async (_source: string = 'unknown') => {
     try {
+      setScriptViewLoading(true);
       const chapters = await api.fetchChapters(projectId);
       const target = chapters.find(c => c.id === chapterId);
       if (target) {
@@ -272,6 +350,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
       setSegments(segs);
       setCharacters(chars);
       if (scriptView) setScriptViewData(scriptView);
+      else setScriptViewData(null);
       if (production?.blocks?.length) {
         syncProductionBlocks(production);
       } else {
@@ -300,6 +379,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
       console.error(e);
     } finally {
       setLoading(false);
+      setScriptViewLoading(false);
     }
   };
 
@@ -675,9 +755,22 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   const rawQueueLocked = queuePending || submitting || chapter?.audio_status === 'processing' || hasLiveJob || jobLooksPendingCompletion;
   const [heldQueueLocked, setHeldQueueLocked] = useState(false);
   const queueLockReleaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isQueueLocked = rawQueueLocked || heldQueueLocked;
-  const queueButtonLabel = shouldWarnBeforeRequeue ? 'Rebuild' : hasPartialSegmentProgress ? 'Complete' : 'Queue';
-  const queueButtonTitle = shouldWarnBeforeRequeue ? 'Rebuild Chapter' : hasPartialSegmentProgress ? 'Complete Chapter Audio' : 'Queue Chapter';
+  const anyEnginesEnabled = React.useMemo(() => {
+    if (!engines || engines.length === 0) return true;
+    return engines.some(e => e.enabled && e.status === 'ready');
+  }, [engines]);
+  const isQueueLocked = rawQueueLocked || heldQueueLocked || !anyEnginesEnabled;
+  const queueVoiceStatus = resolveVoiceEngineStatus(effectiveSelectedVoice || getDefaultVoiceProfileName(speakerProfiles || []));
+  const queueButtonLabel = !anyEnginesEnabled
+    ? 'Disabled'
+    : !queueVoiceStatus.enabled
+      ? 'Unavailable'
+      : (shouldWarnBeforeRequeue ? 'Rebuild' : hasPartialSegmentProgress ? 'Complete' : 'Queue');
+  const queueButtonTitle = !anyEnginesEnabled
+    ? 'All TTS engines are disabled in Settings'
+    : (queueVoiceStatus.enabled
+      ? (shouldWarnBeforeRequeue ? 'Rebuild Chapter' : hasPartialSegmentProgress ? 'Complete Chapter Audio' : 'Queue Chapter')
+      : queueVoiceStatus.message || 'Selected voice is unavailable');
 
   const prevRawQueueLockedRef = useRef(rawQueueLocked);
 
@@ -773,6 +866,16 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   }, [needsCompletionRefresh, chapterId, job?.id, job?.status]);
 
   const executeQueue = async () => {
+    const queueVoiceStatus = resolveVoiceEngineStatus(effectiveSelectedVoice || getDefaultVoiceProfileName(speakerProfiles || []));
+    if (!queueVoiceStatus.enabled) {
+      setConfirmConfig({
+        title: 'Queue Blocked',
+        message: queueVoiceStatus.message || 'The selected voice is unavailable. Enable the engine or choose an available voice before queueing.',
+        onConfirm: () => {},
+        confirmText: 'OK'
+      });
+      return;
+    }
     if (queueSyncTimerRef.current) {
       clearTimeout(queueSyncTimerRef.current);
       queueSyncTimerRef.current = null;
@@ -831,7 +934,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         chapter={chapter} title={title} setTitle={setTitle} saving={saving} hasUnsavedChanges={hasUnsavedChanges}
         onPrev={onPrev ? async () => { await handleSave(); onPrev(); } : undefined}
         onNext={onNext ? async () => { await handleSave(); onNext(); } : undefined}
-        selectedVoice={chapterVoice} onVoiceChange={handleVoiceChange} availableVoices={availableVoices} defaultVoiceLabel={chapterDefaultVoiceLabel}
+        selectedVoice={chapterVoice} selectedVoiceLabel={selectedVoiceLabel} onVoiceChange={handleVoiceChange} availableVoices={availableVoices} defaultVoiceLabel={chapterDefaultVoiceLabel}
         submitting={submitting} queueLocked={isQueueLocked} queuePending={queuePending} job={job} generatingJob={generatingSegmentJob} generatingSegmentIdsCount={effectivePendingSegmentIds.size}
         queueLabel={queueButtonLabel}
         queueTitle={queueButtonTitle}
@@ -862,7 +965,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
             catch (e) { console.error("Cancel failed", e); }
         }}
         onCommitSourceText={handleRequestResyncPreview}
-        canCommitSourceText={editorTab === 'edit' && (text !== chapter?.text_content)}
+        canCommitSourceText={editorTab === 'edit' && sourceTextMode === 'edit' && (text !== chapter?.text_content)}
       />
 
       <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
@@ -871,29 +974,37 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                 <EditorTabs 
                   editorTab={editorTab} setEditorTab={(tab) => {
                     if (tab === 'edit') {
-                      setConfirmConfig({
-                        title: 'Edit Source Text',
-                        message: 'Caution: Modifying the source text here will force a complete resynchronization of ALL segments, which may clobber granular assignments and render status if text is shifted. Are you sure you want to proceed?',
-                        onConfirm: () => {
-                          setConfirmConfig(null);
-                          setEditorTab('edit');
-                        },
-                        confirmText: 'Continue to Source Text',
-                        isDestructive: true
-                      });
+                      setEditorTab('edit');
+                      setSourceTextMode('view');
                     } else {
                       setEditorTab(tab);
+                      setSourceTextMode('view');
                     }
                   }} onSave={handleSave} 
                   onEnsureVoiceChunks={() => ensureVoiceChunks(handleSave)}
+                  onRequestEditSourceText={() => {
+                    setConfirmConfig({
+                      title: 'Edit Source Text',
+                      message: 'Caution: Modifying the source text here will force a complete resynchronization of ALL segments, which may clobber granular assignments and render status if text is shifted. Are you sure you want to proceed?',
+                      onConfirm: () => {
+                        setConfirmConfig(null);
+                        setSourceTextMode('edit');
+                      },
+                      confirmText: 'Continue to Edit',
+                      isDestructive: true
+                    });
+                  }}
                   analysis={analysis} loadingVoiceChunks={loadingVoiceChunks}
+                  sourceTextMode={sourceTextMode}
                 />
                 
                 {editorTab === 'script' && scriptViewData && (
-                  <ScriptView 
+                  <ScriptView
                     data={scriptViewData}
                     characters={characters}
-                    onGenerateBatch={handleGenerate}
+                    engines={engines}
+                    speakerProfiles={speakerProfiles}
+                    onGenerateBatch={!isQueueLocked ? handleGenerate : undefined}
                     pendingSpanIds={effectivePendingSegmentIds}
                     playingSpanId={playingSegmentId}
                     playingSpanIds={playingSegmentIds}
@@ -906,15 +1017,35 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                   />
                 )}
                 {editorTab === 'script' && !scriptViewData && (
-                  <div style={{ padding: '2rem', textAlign: 'center', opacity: 0.7 }}>
-                    Loading script view...
+                  <div style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <div style={{ padding: '1rem', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--surface-light)', color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.6 }}>
+                      {scriptViewLoading
+                        ? 'Loading script view. The chapter text is shown below so you can keep reading while the richer script layout arrives.'
+                        : 'Script view is unavailable right now, so the chapter text is shown below instead.'}
+                    </div>
+                    <pre style={{
+                      margin: 0,
+                      padding: '1.25rem',
+                      borderRadius: '12px',
+                      border: '1px solid var(--border)',
+                      background: 'var(--surface)',
+                      color: 'var(--text-primary)',
+                      fontSize: '1rem',
+                      lineHeight: 1.7,
+                      whiteSpace: 'pre-wrap',
+                      overflow: 'auto',
+                      fontFamily: 'system-ui, -apple-system, sans-serif',
+                    }}>
+                      {chapter?.text_content || text || 'No chapter text available.'}
+                    </pre>
                   </div>
                 )}
                 {editorTab === 'edit' && (
                   <EditTab 
                     text={text} setText={setText} analysis={analysis} setAnalysis={setAnalysis} 
                     analyzing={analyzing} chapter={chapter} segmentsCount={segments.length} 
-                    hasUnsavedChanges={hasUnsavedChanges} 
+                    hasUnsavedChanges={hasUnsavedChanges}
+                    sourceTextMode={sourceTextMode}
                   />
                 )}
                 {editorTab === 'performance' && (

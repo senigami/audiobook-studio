@@ -16,6 +16,7 @@ import logging
 from typing import Any
 
 from app.core.feature_flags import use_tts_server
+from app.engines.enablement import can_enable_engine
 from app.engines.errors import (
     EngineNotReadyError,
     EngineRequestError,
@@ -202,6 +203,7 @@ class VoiceBridge:
                 return SynthesisPlan()
 
         registration = self._resolve_registration(request=request)
+        self._validate_request(registration=registration, request=request)
         from app.engines.voice.sdk import TTSRequest
         req = TTSRequest(
             engine_id=registration.manifest.engine_id,
@@ -244,6 +246,15 @@ class VoiceBridge:
             # Default to enabled for built-ins/verified, disabled for others
             default_enabled = registration.manifest.built_in or registration.manifest.verified
             data["enabled"] = bool(enabled_plugins.get(engine_id, default_enabled))
+            can_enable, reason = can_enable_engine(
+                engine_id,
+                current_settings=settings,
+                built_in=registration.manifest.built_in,
+                verified=registration.manifest.verified,
+                status=registration.health.status,
+            )
+            data["can_enable"] = can_enable
+            data["enablement_message"] = reason
             results.append(data)
 
         return results
@@ -275,13 +286,21 @@ class VoiceBridge:
              enabled_val = settings.get("voxtral_enabled")
 
         if enabled_val is not None:
-            # Enforcement: unverified plugins cannot be turned on
+            # Enforcement: the plugin must be eligible to turn on.
             if bool(enabled_val):
                 registry = self.registry_loader()
                 registration = registry.get(engine_id)
-                if registration and not (registration.manifest.built_in or registration.manifest.verified):
+                current_settings = get_settings()
+                can_enable, reason = can_enable_engine(
+                    engine_id,
+                    current_settings=current_settings,
+                    built_in=bool(registration.manifest.built_in) if registration else False,
+                    verified=bool(registration.manifest.verified) if registration else False,
+                    status=getattr(registration.health, "status", None) if registration else None,
+                )
+                if not can_enable:
                     raise EngineUnavailableError(
-                        f"Cannot enable unverified engine {engine_id}. Verification required."
+                        reason or f"Cannot enable engine {engine_id}."
                     )
 
             current_settings = get_settings()
@@ -319,6 +338,59 @@ class VoiceBridge:
             "ok": True,
             "message": "Plugin refresh is only supported when running with TTS Server.",
             "loaded_count": len(self.registry_loader()),
+        }
+
+    def verify_engine(self, engine_id: str) -> dict[str, Any]:
+        """Trigger verification synthesis for an engine."""
+        if use_tts_server():
+            return self._get_tts_client().verify_engine(engine_id)
+
+        return {
+            "ok": False,
+            "message": "Engine verification is only supported via TTS Server path.",
+        }
+
+    def install_dependencies(self, engine_id: str) -> dict[str, Any]:
+        """Trigger dependency installation for an engine."""
+        if use_tts_server():
+            # Future: TTS Server can handle its own plugin environments.
+            return {
+                "ok": False,
+                "message": "Remote dependency installation is not yet supported.",
+            }
+
+        # Legacy in-process: some engines might have a setup hook.
+        return {
+            "ok": False,
+            "message": f"In-process dependency install not implemented for {engine_id}.",
+        }
+
+    def remove_plugin(self, engine_id: str) -> dict[str, Any]:
+        """Uninstall a plugin by removing its directory."""
+        if use_tts_server():
+            # For now, we don't allow remote deletions for safety.
+            return {
+                "ok": False,
+                "message": "Remote plugin removal is disabled for safety.",
+            }
+
+        return {
+            "ok": False,
+            "message": f"Plugin removal not implemented for {engine_id}.",
+        }
+
+    def install_plugin(self) -> dict[str, Any]:
+        """Provide instructions or trigger automated plugin install."""
+        return {
+            "ok": False,
+            "message": "Automated plugin installation is not yet supported. Please place plugin folders in the 'plugins/' directory manually and click 'Refresh Plugins'.",
+        }
+
+    def get_logs(self, engine_id: str) -> dict[str, Any]:
+        """Fetch recent logs for an engine."""
+        return {
+            "ok": True,
+            "logs": "Log streaming coming in a later update.",
         }
 
     # ------------------------------------------------------------------

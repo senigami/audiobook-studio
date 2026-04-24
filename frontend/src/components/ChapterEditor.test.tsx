@@ -259,10 +259,14 @@ describe('ChapterEditor', () => {
       expect(screen.queryByText('Loading editor...')).not.toBeInTheDocument();
     });
 
-    // Source Text Tab (with warning)
+    // Source Text Tab (read-only until explicitly edited)
     fireEvent.click(screen.getByText('Source Text'));
+    expect(await screen.findByText('Once upon a time.')).toBeInTheDocument();
+    expect(screen.queryByText(/Caution: Modifying the source text here will force a complete resynchronization/i)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Source Text' }));
     expect(await screen.findByText(/Caution: Modifying the source text here will force a complete resynchronization/i)).toBeInTheDocument();
-    fireEvent.click(screen.getByText('Continue to Source Text'));
+    fireEvent.click(screen.getByText('Continue to Edit'));
+    expect(await screen.findByPlaceholderText(/Start typing your chapter text here/i)).toBeInTheDocument();
     expect(await screen.findByDisplayValue('Once upon a time.')).toBeInTheDocument();
 
     // Production Tab
@@ -1025,7 +1029,9 @@ describe('ChapterEditor', () => {
 
     // Go to edit tab
     fireEvent.click(screen.getByText('Source Text'));
-    fireEvent.click(screen.getByText('Continue to Source Text'));
+    expect(screen.getByText('Once upon a time.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Source Text' }));
+    fireEvent.click(screen.getByText('Continue to Edit'));
 
     vi.useFakeTimers();
 
@@ -1071,7 +1077,8 @@ describe('ChapterEditor', () => {
 
     // Go to edit tab
     fireEvent.click(screen.getByText('Source Text'));
-    fireEvent.click(screen.getByText('Continue to Source Text'));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Source Text' }));
+    fireEvent.click(screen.getByText('Continue to Edit'));
 
     const textarea = screen.getByPlaceholderText(/Start typing your chapter text/i);
     fireEvent.change(textarea, { target: { value: 'New Text.' } });

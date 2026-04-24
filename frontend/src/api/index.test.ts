@@ -35,6 +35,9 @@ describe('api methods', () => {
         await api.fetchChapters('1')
         expect(global.fetch).toHaveBeenCalledWith('/api/projects/1/chapters')
 
+        await api.fetchChapter('c1')
+        expect(global.fetch).toHaveBeenCalledWith('/api/chapters/c1')
+
         await api.createChapter('1', { title: 'Chapter 1', text_content: 'hello' })
         expect(global.fetch).toHaveBeenCalledWith('/api/projects/1/chapters', expect.anything())
 

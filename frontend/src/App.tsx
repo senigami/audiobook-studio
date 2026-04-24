@@ -1,5 +1,6 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation, useMatch } from 'react-router-dom';
+import { api } from './api';
 import { Layout } from './components/Layout';
 import { PreviewModal } from './components/PreviewModal';
 import { VoicesTab } from './components/VoicesTab';
@@ -15,7 +16,7 @@ import { createStudioShellState } from './app/layout/StudioShell';
 import { ProjectViewRoute } from './features/project-view/routes/ProjectViewRoute';
 import { QueueRoute } from './features/queue/routes/QueueRoute';
 import { SettingsRoute } from './features/settings/routes';
-import type { Project } from './types';
+import type { Chapter, Project } from './types';
 import { motion, AnimatePresence } from 'framer-motion';
 
 function App() {
@@ -52,6 +53,8 @@ function App() {
 
   const [segmentUpdate, setSegmentUpdate] = useState<{ chapterId: string; tick: number }>({ chapterId: '', tick: 0 });
   const { data: initialData, loading: initialLoading, refetch: refetchHome } = useInitialData();
+  const [chapterRouteData, setChapterRouteData] = useState<Chapter | null>(null);
+  const [chapterRouteLoading, setChapterRouteLoading] = useState(false);
   const { jobs, refreshJobs, testProgress, segmentProgress } = useJobs(
     () => { refetchHome(); refreshQueue('refresh'); }, 
     () => { refreshQueue('refresh'); }, 
@@ -60,6 +63,40 @@ function App() {
     (chapterId: string) => { setChapterUpdate(prev => ({ chapterId, tick: prev.tick + 1 })); }
   );
   const chapterProjectIdFromRoute = initialData?.chapters?.find((c: any) => c.id === chapterIdFromRoute)?.project_id;
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!chapterIdFromRoute) {
+      setChapterRouteData(null);
+      setChapterRouteLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setChapterRouteLoading(true);
+    api.fetchChapter(chapterIdFromRoute)
+      .then(chapter => {
+        if (!cancelled) {
+          setChapterRouteData(chapter);
+        }
+      })
+      .catch(err => {
+        if (!cancelled) {
+          console.error('Failed to load chapter route data', err);
+          setChapterRouteData(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setChapterRouteLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [chapterIdFromRoute]);
   
   const [previewFilename, setPreviewFilename] = useState<string | null>(null);
   
@@ -116,7 +153,7 @@ function App() {
             <Routes>
               <Route path="/" element={<ProjectLibrary onSelectProject={(id) => navigate(`/project/${id}`)} />} />
               <Route path="/project/:projectId" element={
-                <ProjectViewRoute 
+              <ProjectViewRoute 
                   loading={initialLoading || queueLoading}
                   connected={connected}
                   isReconnecting={isReconnecting}
@@ -132,6 +169,7 @@ function App() {
                       segmentProgress={segmentProgress}
                       speakerProfiles={initialData?.speaker_profiles || []}
                       speakers={initialData?.speakers || []}
+                      engines={initialData?.engines || []}
                       settings={initialData?.settings}
                       refreshTrigger={queueRefreshTrigger}
                       segmentUpdate={segmentUpdate}
@@ -144,14 +182,14 @@ function App() {
               {/* Separate Chapter route if needed, though ProjectView handles it via state right now */}
               <Route path="/chapter/:chapterId" element={
                 <ProjectViewRoute 
-                  loading={initialLoading || queueLoading}
+                  loading={initialLoading || queueLoading || chapterRouteLoading}
                   connected={connected}
                   isReconnecting={isReconnecting}
                   refreshingSource={activeSource || refreshingSource}
                   // We might need to resolve projectId from chapter's parent here
-                  projectId={chapterProjectIdFromRoute}
-                  projectTitle={initialData?.projects?.find((p: Project) => p.id === initialData?.chapters?.find((c: any) => c.id === chapterIdFromRoute)?.project_id)?.name}
-                  chapterTitle={initialData?.chapters?.find((c: any) => c.id === chapterIdFromRoute)?.title}
+                  projectId={chapterRouteData?.project_id || chapterProjectIdFromRoute}
+                  projectTitle={initialData?.projects?.find((p: Project) => p.id === (chapterRouteData?.project_id || chapterProjectIdFromRoute))?.name}
+                  chapterTitle={chapterRouteData?.title || initialData?.chapters?.find((c: any) => c.id === chapterIdFromRoute)?.title}
                 >
                   {({ shellState }) => (
                     <ProjectView 
@@ -160,6 +198,7 @@ function App() {
                       segmentProgress={segmentProgress}
                       speakerProfiles={initialData?.speaker_profiles || []}
                       speakers={initialData?.speakers || []}
+                      engines={initialData?.engines || []}
                       settings={initialData?.settings}
                       refreshTrigger={queueRefreshTrigger}
                       segmentUpdate={segmentUpdate}
@@ -200,6 +239,8 @@ function App() {
               <Route path="/settings/*" element={
                 <SettingsRoute
                   settings={initialData?.settings}
+                  speakerProfiles={initialData?.speaker_profiles || []}
+                  engines={initialData?.engines || []}
                   onRefresh={handleRefresh}
                   onShowNotification={showToast}
                 />

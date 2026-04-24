@@ -24,6 +24,7 @@ from app.tts_server.health import (
     build_health_response,
     engine_status,
 )
+from app.engines.enablement import can_enable_engine
 from app.tts_server.plugin_loader import LoadedPlugin, discover_plugins
 from app.tts_server.settings_store import load_settings, merge_settings, save_settings
 from app.tts_server.verification import verify_all, verify_plugin
@@ -175,6 +176,20 @@ def update_engine_settings(
             status_code=422,
             detail={"message": "Settings validation failed", "errors": errors},
         )
+
+    enabled_val = merged.get("enabled")
+    if enabled_val is None and "voxtral_enabled" in merged:
+        enabled_val = merged.get("voxtral_enabled")
+    if bool(enabled_val):
+        can_enable, reason = can_enable_engine(
+            plugin.engine_id,
+            current_settings=merged,
+            built_in=bool(getattr(plugin.manifest, "built_in", False)),
+            verified=bool(getattr(plugin.manifest, "verified", False)),
+            status=engine_status(plugin),
+        )
+        if not can_enable:
+            raise HTTPException(status_code=400, detail=reason or "Engine cannot be enabled yet.")
 
     try:
         save_settings(plugin.plugin_dir, merged)

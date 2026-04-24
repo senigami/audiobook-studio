@@ -28,10 +28,12 @@ describe('ProjectSubnav', () => {
     );
 
     const chaptersLink = screen.getByText('Chapters');
-    expect(chaptersLink).toHaveClass('btn-primary');
+    expect(chaptersLink.style.color).toBe('var(--accent)');
+    expect(chaptersLink.style.borderBottom).toBe('2px solid var(--accent)');
     
     const overviewLink = screen.getByText('Overview');
-    expect(overviewLink).toHaveClass('btn-ghost');
+    expect(overviewLink.style.color).toBe('var(--text-muted)');
+    expect(overviewLink.style.borderBottom).toBe('2px solid transparent');
   });
 
   it('returns null if no items provided', () => {

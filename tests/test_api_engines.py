@@ -1,4 +1,5 @@
 import os
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -88,7 +89,14 @@ def test_update_engine_settings_and_refresh_delegate_to_bridge(clean_db, client)
 def test_in_process_voxtral_engine_settings_roundtrip(monkeypatch):
     from app.engines.bridge import VoiceBridge
 
-    bridge = VoiceBridge(registry_loader=lambda: {})
+    bridge = VoiceBridge(
+        registry_loader=lambda: {
+            "voxtral": SimpleNamespace(
+                manifest=SimpleNamespace(engine_id="voxtral", built_in=False, verified=True),
+                health=SimpleNamespace(status="ready"),
+            )
+        }
+    )
 
     captured_updates: dict[str, object] = {}
 

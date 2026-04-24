@@ -113,8 +113,12 @@ def get_script_view_payload(chapter_id: str) -> dict[str, Any]:
 
         if sig not in chunk_cache:
             eid = _resolve_engine_from_profile(span["speaker_profile_name"])
-            plan = bridge.get_synthesis_plan({"engine_id": eid})
-            chunk_cache[sig] = plan.chunk_size or SENT_CHAR_LIMIT
+            try:
+                plan = bridge.get_synthesis_plan({"engine_id": eid})
+                chunk_cache[sig] = plan.chunk_size or SENT_CHAR_LIMIT
+            except Exception:
+                # Handle disabled/missing engines gracefully by falling back to default limit
+                chunk_cache[sig] = SENT_CHAR_LIMIT
 
         chunk_limit = chunk_cache[sig]
 
@@ -277,8 +281,7 @@ def save_script_assignments(
                 for sid in span_ids:
                     flat_assignments.append((char_id, prof_name, str(sid)))
 
-            if flat_assignments:
-                cursor.executemany(
+            cursor.executemany(
                     """
                     UPDATE chapter_segments
                     SET character_id = ?,
@@ -292,7 +295,7 @@ def save_script_assignments(
                     [(char_id, prof_name, char_id, prof_name, span_id, chapter_id) for char_id, prof_name, span_id in flat_assignments],
                 )
 
-            return get_script_view_payload(chapter_id)
+    return get_script_view_payload(chapter_id)
 
 
 def get_resync_preview(chapter_id: str, new_text: str) -> dict[str, Any]:
@@ -817,9 +820,10 @@ def _resolve_engine_from_profile(profile_name: str | None) -> str:
     from app.jobs.speaker import get_speaker_settings
     try:
         settings = get_speaker_settings(profile_name or "")
-        return settings.get("engine", "xtts")
+        engine = str(settings.get("engine") or "").strip().lower()
+        return engine or "unknown"
     except Exception:
-        return "xtts"
+        return "unknown"
 
 
 def _normalize_block_payload(block: Mapping[str, Any], *, order_index: int) -> dict[str, Any]:

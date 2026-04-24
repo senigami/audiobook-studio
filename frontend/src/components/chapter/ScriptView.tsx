@@ -13,16 +13,19 @@ import {
 import type {
   ScriptViewResponse,
   Character,
+  SpeakerProfile,
   ScriptSpan,
   ScriptRenderBatch,
   ScriptRangeAssignment,
+  TtsEngine,
 } from '../../types';
+import { getVoiceProfileEngine, formatVoiceEngineLabel } from '../../utils/voiceProfiles';
 import './ScriptView.css';
 
 interface ScriptViewProps {
   data: ScriptViewResponse;
   characters: Character[];
-  onGenerateBatch: (spanIds: string[]) => void;
+  onGenerateBatch?: (spanIds: string[]) => void | Promise<void>;
   pendingSpanIds: Set<string>;
   playingSpanId?: string | null;
   playingSpanIds?: Set<string>;
@@ -32,6 +35,8 @@ interface ScriptViewProps {
   activeCharacterId?: string | null;
   onCompact?: () => void;
   isCompacting?: boolean;
+  engines?: TtsEngine[];
+  speakerProfiles?: SpeakerProfile[];
 }
 
 export const ScriptView: React.FC<ScriptViewProps> = ({
@@ -47,7 +52,10 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
   activeCharacterId,
   onCompact,
   isCompacting = false,
+  engines = [],
+  speakerProfiles = [],
 }) => {
+  const anyEnginesEnabled = useMemo(() => engines.some(e => e.enabled && e.status === 'ready'), [engines]);
   const [viewMode, setViewMode] = useState<'book' | 'script'>('book');
   const [showSafeText, setShowSafeText] = useState(false);
   const [showNumbers, setShowNumbers] = useState(false);
@@ -74,6 +82,39 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
     });
     return map;
   }, [data.render_batches]);
+
+  const profileEngineMap = useMemo(() => {
+    return new Map(
+      speakerProfiles
+        .filter(profile => !!profile?.name)
+        .map(profile => [profile.name, getVoiceProfileEngine(profile) || 'unknown'])
+    );
+  }, [speakerProfiles]);
+
+  const engineIsEnabled = (engineId: string | null | undefined) => {
+    if (engines.length === 0) {
+      return true;
+    }
+    if (!engineId || engineId === 'unknown') {
+      return anyEnginesEnabled;
+    }
+    return engines.some(engine => engine.engine_id === engineId && engine.enabled && engine.status === 'ready');
+  };
+
+  const batchEngineStatus = (spanIds: string[]) => {
+    const enginesForBatch = new Set<string>();
+    spanIds.forEach(spanId => {
+      const span = spanMap.get(spanId);
+      const engineId = span?.speaker_profile_name ? profileEngineMap.get(span.speaker_profile_name) || null : null;
+      if (engineId) enginesForBatch.add(engineId);
+    });
+
+    const unavailable = Array.from(enginesForBatch).find(engineId => !engineIsEnabled(engineId));
+    return {
+      canGenerate: unavailable ? false : anyEnginesEnabled,
+      unavailableEngine: unavailable,
+    };
+  };
 
   const isPlayingSpan = (spanId: string) => {
     if (playingSpanIds) return playingSpanIds.has(spanId);
@@ -146,6 +187,7 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
     const isPlaying = isPlayingSpan(span.id);
     const isReady = span.status === 'rendered';
     const displayText = showSafeText ? (span.sanitized_text || span.text) : span.text;
+    const batchStatus = batch ? batchEngineStatus(batch.span_ids) : { canGenerate: false, unavailableEngine: null as string | null };
 
     const textClassName = [
       'script-span-text',
@@ -192,10 +234,14 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
             className="span-control-btn"
             onClick={(e) => {
               e.stopPropagation();
-              if (batch) onGenerateBatch(batch.span_ids);
+              if (batch && batchStatus.canGenerate) onGenerateBatch?.(batch.span_ids);
             }}
-            title={span.status === 'rendered' ? 'Rebuild' : 'Generate'}
-            disabled={isPending}
+            title={!batchStatus.canGenerate
+              ? (batchStatus.unavailableEngine
+                  ? `Engine ${formatVoiceEngineLabel(batchStatus.unavailableEngine)} is disabled in Settings`
+                  : 'All engines disabled')
+              : (!anyEnginesEnabled ? 'All engines disabled' : (span.status === 'rendered' ? 'Rebuild' : 'Generate'))}
+            disabled={isPending || !batchStatus.canGenerate || !onGenerateBatch}
           >
             {span.status === 'rendered' ? <RotateCcw size={14} /> : <WandSparkles size={14} />}
           </button>

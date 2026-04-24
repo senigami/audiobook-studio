@@ -65,8 +65,6 @@ def _normalize_profile_engine(engine: Optional[str]) -> str:
 
 
 def _is_engine_active(engine_id: str) -> bool:
-    if engine_id == "xtts":
-        return True
     bridge = create_voice_bridge()
     engines = bridge.describe_registry()
     for e in engines:
@@ -159,9 +157,8 @@ def _voice_has_generation_material(name: str) -> bool:
     settings = get_speaker_settings(name)
     engine = settings.get("engine", DEFAULT_PROFILE_ENGINE)
 
-    if engine != "xtts":
-        if not _is_engine_active(engine):
-            return False
+    if not _is_engine_active(engine):
+        return False
 
     bridge = create_voice_bridge()
     try:
@@ -294,7 +291,7 @@ def list_speaker_profiles():
         if not preview_url and len(raw_wavs) > 0:
             is_rebuild_required = True
 
-        profiles.append({
+        profile_data = {
             "name": d.name,
             "is_default": d.name == default_speaker,
             "wav_count": len(raw_wavs),
@@ -311,7 +308,26 @@ def list_speaker_profiles():
             "reference_sample": spk_settings.get("reference_sample"),
             "preview_url": preview_url,
             "has_latent": _voice_has_latent(d.name),
-        })
+            "is_ready": False,
+            "readiness_message": "",
+        }
+
+        # Calculate readiness using the bridge
+        bridge = create_voice_bridge()
+        try:
+            is_ready, msg = bridge.check_readiness(
+                engine_id=profile_data["engine"],
+                profile_id=d.name,
+                settings=spk_settings,
+                profile_dir=str(d.resolve())
+            )
+            profile_data["is_ready"] = is_ready
+            profile_data["readiness_message"] = msg
+        except Exception as exc:
+            profile_data["is_ready"] = False
+            profile_data["readiness_message"] = str(exc)
+
+        profiles.append(profile_data)
     return profiles
 
 @router.post("/api/speaker-profiles")
@@ -323,7 +339,7 @@ def api_create_speaker_profile(
     logger.info(f"Creating profile for speaker_id='{speaker_id}', variant_name='{variant_name}', engine='{engine}'")
     try:
         normalized_engine = _normalize_profile_engine(engine)
-        if normalized_engine != "xtts" and not _is_engine_active(normalized_engine):
+        if not _is_engine_active(normalized_engine):
             return JSONResponse({"status": "error", "message": f"Engine {normalized_engine} is not enabled in Settings."}, status_code=400)
         # Try to use speaker name instead of ID if possible for folder name
         spk = get_speaker(speaker_id)
@@ -579,6 +595,20 @@ def reset_speaker_test_text(name: str):
     update_speaker_settings(name, test_text=None)
     return JSONResponse({"status": "ok", "test_text": DEFAULT_SPEAKER_TEST_TEXT})
 
+@router.post("/api/speaker-profiles/{name}/settings")
+async def api_update_profile_settings(name: str, request: Request):
+    try:
+        settings = await request.json()
+    except Exception:
+        # Fallback for form data if needed, but JSON is preferred
+        form = await request.form()
+        settings = dict(form)
+
+    if not update_speaker_settings(name, **settings):
+         return JSONResponse({"status": "error", "message": "Profile not found"}, status_code=404)
+    return {"status": "ok"}
+
+
 @router.post("/api/speaker-profiles/{name}/speed")
 def update_speaker_speed(name: str, speed: float = Form(...)):
     update_speaker_settings(name, speed=speed)
@@ -598,7 +628,7 @@ def update_speaker_engine(name: str, engine: str = Form(...)):
     except ValueError:
         return JSONResponse({"status": "error", "message": "Invalid profile engine"}, status_code=400)
 
-    if normalized_engine != "xtts" and not _is_engine_active(normalized_engine):
+    if not _is_engine_active(normalized_engine):
         return JSONResponse({"status": "error", "message": f"Engine {normalized_engine} is not enabled in Settings."}, status_code=400)
 
     if not update_speaker_settings(name, engine=normalized_engine):
@@ -787,7 +817,7 @@ def delete_speaker_profile(
 def test_speaker_profile(name: str):
     settings = get_speaker_settings(name)
     engine = settings.get("engine", DEFAULT_PROFILE_ENGINE)
-    if engine != "xtts" and not _is_engine_active(engine):
+    if not _is_engine_active(engine):
         return JSONResponse({"status": "error", "message": f"Engine {engine} is not enabled in Settings."}, status_code=400)
 
     if not _voice_has_generation_material(name):

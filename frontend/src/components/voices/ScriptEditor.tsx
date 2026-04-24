@@ -69,9 +69,7 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({
                             fontSize: '0.95rem',
                         }}
                     >
-                        <option value="xtts">XTTS</option>
                         {engines.map(e => {
-                            if (e.engine_id === 'xtts') return null;
                             const isSelected = engine === e.engine_id;
                             if (!e.enabled && !isSelected) return null;
                             return (
@@ -83,10 +81,10 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({
                     </select>
                     {(() => {
                         const activeEngine = engines.find(e => e.engine_id === engine);
-                        if (engine !== 'xtts' && activeEngine && !activeEngine.enabled) {
+                        if (activeEngine && !activeEngine.enabled) {
                             return (
                                 <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                                    This profile is assigned to {activeEngine.display_name}, but it is currently turned off in Settings. You can keep it as-is or switch back to XTTS.
+                                    This profile is assigned to {activeEngine.display_name}, but it is currently turned off in Settings. New generation is blocked until you turn it back on.
                                 </p>
                             );
                         }
@@ -94,41 +92,47 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({
                     })()}
                 </div>
 
-                {engine === 'voxtral' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>REFERENCE SAMPLE</label>
-                            <select
-                                aria-label="Reference Sample"
-                                value={referenceSample}
-                                onChange={(e) => onReferenceSampleChange(e.target.value)}
-                                style={{
-                                    width: '100%',
-                                    padding: '10px 14px',
-                                    borderRadius: '12px',
-                                    border: '1px solid var(--border)',
-                                    background: 'var(--surface)',
-                                    color: 'var(--text)',
-                                    fontSize: '0.95rem',
-                                }}
-                            >
-                                <option value="">Use profile samples automatically</option>
-                                {availableSamples.map((sample) => (
-                                    <option key={sample} value={sample}>{sample}</option>
-                                ))}
-                            </select>
-                        </div>
+                {(() => {
+                    const activeEngine = engines.find(e => e.engine_id === engine);
+                    if (activeEngine?.cloud) {
+                        return (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                    <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>REFERENCE SAMPLE</label>
+                                    <select
+                                        aria-label="Reference Sample"
+                                        value={referenceSample}
+                                        onChange={(e) => onReferenceSampleChange(e.target.value)}
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px 14px',
+                                            borderRadius: '12px',
+                                            border: '1px solid var(--border)',
+                                            background: 'var(--surface)',
+                                            color: 'var(--text)',
+                                            fontSize: '0.95rem',
+                                        }}
+                                    >
+                                        <option value="">Use profile samples automatically</option>
+                                        {availableSamples.map((sample) => (
+                                            <option key={sample} value={sample}>{sample}</option>
+                                        ))}
+                                    </select>
+                                </div>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>SAVED VOXTRAL VOICE ID</label>
-                            <GlassInput
-                                placeholder="Optional saved voice id"
-                                value={voxtralVoiceId}
-                                onChange={(e) => onVoxtralVoiceIdChange(e.target.value)}
-                            />
-                        </div>
-                    </div>
-                )}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                    <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>SAVED VOICE ID</label>
+                                    <GlassInput
+                                        placeholder="Optional saved voice id"
+                                        value={voxtralVoiceId}
+                                        onChange={(e) => onVoxtralVoiceIdChange(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                        );
+                    }
+                    return null;
+                })()}
 
                 {(() => {
                     const activeEngine = engines.find(e => e.engine_id === engine);

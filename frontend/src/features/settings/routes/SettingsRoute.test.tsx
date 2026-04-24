@@ -10,16 +10,27 @@ vi.mock('../../../api', () => ({
     fetchEngines: vi.fn(),
     refreshPlugins: vi.fn(),
     updateEngineSettings: vi.fn(),
+    verifyEngine: vi.fn(),
+    installEngineDependencies: vi.fn(),
+    removeEnginePlugin: vi.fn(),
+    fetchEngineLogs: vi.fn(),
+    installPlugin: vi.fn(),
+    resetRenderStats: vi.fn(),
+    restartTtsServer: vi.fn(),
   },
 }));
 
 const defaultProps = {
   settings: {
     safe_mode: true,
-    make_mp3: true,
     mistral_api_key: 'test-key',
     voxtral_enabled: true,
+    default_speaker_profile: 'V1',
   } as any,
+  speakerProfiles: [
+    { name: 'V1', speed: 1.0, wav_count: 1, is_default: true, preview_url: null },
+    { name: 'V2', speed: 1.0, wav_count: 2, is_default: false, preview_url: null }
+  ] as any,
   onRefresh: vi.fn(),
   onShowNotification: vi.fn(),
 };
@@ -40,6 +51,7 @@ const mockedEngines = [
     resource: { gpu: false, vram_mb: 0, cpu_heavy: true },
     author: 'Studio',
     homepage: 'https://example.com/xtts',
+    can_enable: true,
     settings_schema: {
       properties: {
         temperature: { type: 'number', title: 'Temperature', default: 0.7, minimum: 0, maximum: 1 },
@@ -66,6 +78,8 @@ const mockedEngines = [
     resource: { gpu: false, vram_mb: 0, cpu_heavy: false },
     author: 'Mistral',
     homepage: '',
+    can_enable: false,
+    enablement_message: 'Add a Mistral API key before enabling Voxtral.',
     settings_schema: {
       properties: {
         enabled: {
@@ -118,6 +132,49 @@ describe('SettingsRoute', () => {
     }) as any;
     vi.mocked(api.fetchHome).mockResolvedValue({
       version: '1.8.4',
+      engines: mockedEngines as any,
+      render_stats: {
+        sample_count: 4,
+        word_count: 1234,
+        chars: 5678,
+        audio_duration_seconds: 7200,
+        render_duration_seconds: 8100,
+        audio_hours_rendered: 2,
+        render_hours_spent: 2.25,
+        since_timestamp: 1710000000,
+        since_date: '2024-03-09T00:00:00.000Z',
+        by_engine: [
+          { engine: 'xtts', sample_count: 3, audio_duration_seconds: 5400, render_duration_seconds: 6000 },
+          { engine: 'voxtral', sample_count: 1, audio_duration_seconds: 1800, render_duration_seconds: 2100 },
+        ],
+      },
+      runtime_services: [
+        {
+          id: 'backend',
+          label: 'Backend API',
+          kind: 'api',
+          url: 'http://127.0.0.1:8000',
+          port: 8000,
+          healthy: true,
+          pingable: true,
+          status: 'online',
+          message: 'Responding to Studio API requests.',
+          can_restart: false,
+        },
+        {
+          id: 'tts_server',
+          label: 'TTS Server',
+          kind: 'tts_server',
+          url: 'http://127.0.0.1:7862',
+          port: 7862,
+          healthy: true,
+          pingable: true,
+          status: 'healthy',
+          message: 'Loaded plugins responded successfully.',
+          can_restart: true,
+          circuit_open: false,
+        },
+      ],
       system_info: {
         backend_mode: 'Direct-In-Process',
         orchestrator: 'Studio 2.0',
@@ -138,7 +195,41 @@ describe('SettingsRoute', () => {
     expect(screen.getByRole('heading', { name: 'Settings' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'General' })).toBeTruthy();
     expect(screen.getByText('Safe Mode')).toBeTruthy();
-    expect(screen.getByText('Produce MP3')).toBeTruthy();
+    expect(screen.getByText('Default Voice')).toBeTruthy();
+    expect(screen.getByDisplayValue('V1')).toBeTruthy();
+  });
+
+  it('triggers engine verification via API', async () => {
+    const mockVerify = vi.spyOn(api, 'verifyEngine').mockResolvedValue({ ok: true });
+    render(
+      <MemoryRouter initialEntries={['/settings/engines']}>
+        <SettingsRoute {...defaultProps} />
+      </MemoryRouter>
+    );
+    
+    const verifyBtn = (await screen.findAllByText(/Verify/i))[0];
+    fireEvent.click(verifyBtn);
+    
+    expect(mockVerify).toHaveBeenCalledWith('xtts-local');
+  });
+
+  it('shows installation instructions when Install Plugin is clicked', async () => {
+    const mockInstall = vi.spyOn(api, 'installPlugin').mockResolvedValue({ 
+      ok: false, 
+      message: 'Place your plugin folder in the plugins/ directory.' 
+    });
+    
+    render(
+      <MemoryRouter initialEntries={['/settings/engines']}>
+        <SettingsRoute {...defaultProps} />
+      </MemoryRouter>
+    );
+    
+    const installBtn = await screen.findByText(/Install Plugin/i);
+    fireEvent.click(installBtn);
+    
+    expect(mockInstall).toHaveBeenCalled();
+    expect(await screen.findByText(/Place your plugin folder in the plugins\/ directory./i)).toBeTruthy();
   });
 
   it('renders deep-linked engine settings cards and schema-driven controls', async () => {
@@ -152,11 +243,13 @@ describe('SettingsRoute', () => {
     expect(screen.getByText('Voxtral Cloud Voices', { selector: 'h4' })).toBeTruthy();
     expect(screen.getByText('READY')).toBeTruthy();
     expect(screen.getByText('VERIFIED')).toBeTruthy();
-
     fireEvent.click(screen.getByText('XTTS Local'));
-
-    expect(await screen.findByText('Temperature')).toBeTruthy();
-    expect(screen.getByText('Speaker Name')).toBeTruthy();
+    
+    expect(screen.getAllByText(/Test/i)[0]).toBeTruthy();
+    expect(screen.getAllByText(/Verify/i)[0]).toBeTruthy();
+    expect(screen.getAllByText(/Logs/i)[0]).toBeTruthy();
+    expect(screen.getByText(/Temperature/i)).toBeTruthy();
+    expect(screen.getByText(/Speaker Name/i)).toBeTruthy();
 
     fireEvent.click(screen.getByRole('heading', { name: 'Voxtral Cloud Voices', level: 3 }));
     expect(await screen.findByRole('heading', { name: 'Voxtral Cloud Voices', level: 4 })).toBeTruthy();
@@ -235,12 +328,19 @@ describe('SettingsRoute', () => {
     expect(await screen.findByRole('heading', { name: 'About' })).toBeTruthy();
     expect(screen.getByText('Studio Version')).toBeTruthy();
     expect(screen.getByText('1.8.4')).toBeTruthy();
-    expect(screen.getByText('TTS Server')).toBeTruthy();
-    expect(screen.getByText(/2 engine\(s\) discovered/i)).toBeTruthy();
-    expect(screen.getByText('Backend Mode')).toBeTruthy();
-    expect(screen.getByText('Direct-In-Process')).toBeTruthy();
+    expect(screen.getByText('Engine Plugins')).toBeTruthy();
+    expect(screen.getByText(/2 loaded/i)).toBeTruthy();
+    expect(screen.getByText(/XTTS Local .* Voxtral Cloud Voices/i)).toBeTruthy();
+    expect(screen.getByText('Audio Rendered')).toBeTruthy();
+    expect(screen.getByText(/1,234 words \(5,678 chars\)/i)).toBeTruthy();
+    expect(screen.getAllByText('Backend API').length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/127.0.0.1:8000/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('online').length).toBeGreaterThan(0);
     expect(screen.getByText('Orchestrator')).toBeTruthy();
     expect(screen.getByText('Studio 2.0')).toBeTruthy();
+    expect(screen.getByText('Reset Stats')).toBeTruthy();
+    expect(screen.getByText('TTS Server')).toBeTruthy();
+    expect(screen.getByText(/healthy/i)).toBeTruthy();
   });
 
   it('renders the api tab as integration guidance', async () => {
@@ -252,8 +352,12 @@ describe('SettingsRoute', () => {
 
     expect(await screen.findByRole('heading', { name: 'API' })).toBeTruthy();
     expect(screen.getByText('Studio API')).toBeTruthy();
+    expect(screen.getByText('Integration guide')).toBeTruthy();
     expect(screen.getByText('/api/home')).toBeTruthy();
-    expect(screen.getByText('/api/engines')).toBeTruthy();
-    expect(screen.getByText('Read only')).toBeTruthy();
+    expect(screen.getAllByText('/api/engines').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('/api/speaker-profiles').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('POST /api/processing_queue').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('POST /synthesize').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('output_path').length).toBeGreaterThan(0);
   });
 });

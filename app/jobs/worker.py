@@ -203,6 +203,15 @@ def _record_xtts_sample(job, start: float, chars: int, perf: dict, source_segmen
 
     segment_count = max(1, int(source_segment_count or 0))
     chapter_id = _job_field(persisted, "chapter_id", _job_field(job, "chapter_id"))
+    word_count = 0
+    if chapter_id:
+        try:
+            from ..db.chapters import get_chapter
+            chapter_row = get_chapter(chapter_id) or {}
+            chapter_text = str(chapter_row.get("text_content") or "")
+            word_count = len(chapter_text.split())
+        except Exception:
+            logger.debug("Failed to calculate chapter word count for history recording", exc_info=True)
 
     if not source_segment_count and chapter_id:
         try:
@@ -225,6 +234,7 @@ def _record_xtts_sample(job, start: float, chars: int, perf: dict, source_segmen
     record_render_sample(
         engine=engine,
         chars=chars,
+        word_count=word_count,
         segment_count=segment_count,
         duration_seconds=round(dur, 2),
         cps=round(base_cps, 2),

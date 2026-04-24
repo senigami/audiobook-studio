@@ -34,7 +34,6 @@ def test_home_endpoint(clean_db, client):
 def test_settings_get_and_update(clean_db, client):
     response = client.post("/api/settings", json={
         "safe_mode": True,
-        "make_mp3": False,
         "voxtral_enabled": True,
         "voxtral_model": "voxtral-mini-tts-2603",
         "mistral_api_key": "abc123",
@@ -42,7 +41,6 @@ def test_settings_get_and_update(clean_db, client):
     assert response.status_code == 200
     data = response.json()["settings"]
     assert data["safe_mode"] is True
-    assert data["make_mp3"] is False
     assert data["voxtral_enabled"] is True
     assert data["voxtral_model"] == "voxtral-mini-tts-2603"
     assert data["mistral_api_key"] == "abc123"

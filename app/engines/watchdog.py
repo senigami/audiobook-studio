@@ -202,12 +202,27 @@ class TtsServerWatchdog:
         with self._lock:
             return f"http://{self._host}:{self._port}"
 
+    def get_port(self) -> int:
+        """Return the current bound port for the TTS Server."""
+        with self._lock:
+            return self._port
+
     def get_client(self) -> TtsClient:
         """Return a TtsClient bound to the current TTS Server address."""
         with self._lock:
             if self._client is None:
                 self._client = TtsClient(f"http://{self._host}:{self._port}")
             return self._client
+
+    def restart(self) -> None:
+        """Manually restart the TTS Server and clear failure history."""
+        logger.info("Manual TTS Server restart requested.")
+        with self._lock:
+            self._circuit_open = False
+            self._restart_times.clear()
+            self._consecutive_failures = 0
+        self.stop()
+        self.start()
 
     # ------------------------------------------------------------------
     # Private: spawn & lifecycle

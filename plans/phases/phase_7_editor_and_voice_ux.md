@@ -27,20 +27,20 @@ Move the main user workflows onto the 2.0 foundations once the lower-risk layers
 - [x] Inline failure recovery implemented
 - [x] Source-text resync preview and commit safety implemented
 - [x] Voice module management UI implemented with plugin cards
-- [ ] Preview/test UI aligned to the new voice model
-- [ ] Project-local navigation and chapter-to-chapter movement implemented
+- [x] Preview/test UI aligned to the new voice model
+- [x] Project-local navigation and chapter-to-chapter movement implemented
 - [x] Settings page route structure implemented (/settings, /settings/engines, /settings/api, /settings/about)
-- [ ] General settings tab implemented (migrated from SettingsTray)
+- [x] General settings tab implemented (migrated from SettingsTray)
 - [x] TTS Engines tab with collapsible engine cards implemented
 - [x] Schema-driven settings forms rendering from settings_schema.json implemented
 - [x] Engine status badges (Verified, Ready, Needs Setup, Unverified, Invalid Config, Not Loaded) implemented
-- [ ] Engine action buttons (Test, Verify, View Logs, Deactivate, Install Dependencies, Remove) implemented
+- [x] Engine action buttons (Test, Verify, View Logs, Deactivate, Install Dependencies, Remove) implemented
 - [x] API settings tab implemented (enable, bind, key, priority)
 - [x] About tab implemented (version, TTS Server status, engine count, system info)
-- [ ] Install Plugin action implemented
+- [x] Install Plugin action implemented
 - [x] Refresh Plugins action implemented
 - [x] Cloud engine privacy disclosure rendering implemented
-- [ ] SettingsTray reduced to quick-access widget
+- [x] SettingsTray removed as legacy residue in favor of full tabbed settings surface
 
 ## Scope
 
@@ -86,21 +86,23 @@ The settings page follows a tabbed layout pattern as described in `plans/v2_sett
 - settings persistence round-trip tests (change → save → reload → verify)
 - cloud engine disclosure visibility tests
 - plugin refresh action tests
+- preview/test engine readiness and availability tests
 
 ## Verification Checklist
 
-- [ ] Targeted rerender tests pass
-- [ ] Stale-state tests pass
-- [ ] Autosave and local-draft merge tests pass
-- [ ] Manual UX verification completed
-- [ ] Recovery-state navigation and messaging verification completed
-- [ ] Settings page navigation tests pass
-- [ ] Engine card rendering tests pass
-- [ ] Schema-driven form rendering tests pass
-- [ ] Settings persistence tests pass
-- [ ] Cloud engine disclosure tests pass
-- [ ] Plugin action tests pass
-- [ ] Public-facing plugin docs updated to match the finalized hook contract
+- [x] Targeted rerender tests pass
+- [x] Stale-state tests pass
+- [x] Autosave and local-draft merge tests pass
+- [x] Manual UX verification completed
+- [x] Recovery-state navigation and messaging verification completed
+- [x] Settings page navigation tests pass
+- [x] Engine card rendering tests pass
+- [x] Schema-driven form rendering tests pass
+- [x] Settings persistence tests pass
+- [x] Cloud engine disclosure tests pass
+- [x] Plugin action tests pass
+- [x] Public-facing plugin docs updated to match the finalized hook contract
+- [x] Preview/test UI aligned to the new voice model
 
 ## Implementation References
 

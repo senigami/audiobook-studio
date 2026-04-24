@@ -75,7 +75,26 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({
 
       {/* Project Metadata */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          {!compact && (
+          {compact ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <span style={{ 
+                fontSize: '0.75rem', 
+                fontWeight: 700, 
+                color: 'var(--accent)', 
+                background: 'var(--accent-glow)', 
+                padding: '2px 8px', 
+                borderRadius: '4px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em'
+              }}>
+                Project
+              </span>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>{project.name}</h2>
+              {project.series && (
+                <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>• {project.series}</span>
+              )}
+            </div>
+          ) : (
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
                   <div style={{ background: 'var(--surface-light)', padding: '0.25rem 0.75rem', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'inline-block' }}>

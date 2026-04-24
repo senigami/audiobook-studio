@@ -179,7 +179,7 @@ async def legacy_settings_handler(request: Request):
     if request.method == "POST":
         from .api.routers.system import save_settings
         form = await request.form()
-        return await save_settings(request, safe_mode=form.get("safe_mode"), make_mp3=form.get("make_mp3"))
+        return await save_settings(request, safe_mode=form.get("safe_mode"))
 
     # GET: Serve React index
     index_file = FRONTEND_DIST / "index.html"

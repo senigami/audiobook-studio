@@ -38,6 +38,28 @@ describe('App', () => {
           json: () => Promise.resolve([])
         })
       }
+      if (url === '/api/projects/p1') {
+        return Promise.resolve({
+          json: () => Promise.resolve({ id: 'p1', name: 'Project 1', series: null, author: null, speaker_profile_name: null })
+        })
+      }
+      if (url === '/api/projects/p1/chapters') {
+        return Promise.resolve({
+          json: () => Promise.resolve([
+            { id: 'c1', project_id: 'p1', title: 'Chapter 1', sort_order: 0, audio_status: 'done', predicted_audio_length: 0, char_count: 0, word_count: 0 }
+          ])
+        })
+      }
+      if (url === '/api/projects/p1/audiobooks') {
+        return Promise.resolve({
+          json: () => Promise.resolve([])
+        })
+      }
+      if (url === '/api/chapters/c1') {
+        return Promise.resolve({
+          json: () => Promise.resolve({ id: 'c1', project_id: 'p1', title: 'Chapter 1', sort_order: 0, audio_status: 'done' })
+        })
+      }
       if (url === '/api/speakers') {
         return Promise.resolve({
           json: () => Promise.resolve([])
@@ -183,5 +205,19 @@ describe('App', () => {
     })
 
     expect(screen.getByText('Studio API')).toBeTruthy()
+  })
+
+  it('opens a chapter route by resolving the parent project from chapter details', async () => {
+    render(
+      <MemoryRouter initialEntries={['/chapter/c1']}>
+        <App />
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText(/Chapter 1/i)).toBeTruthy()
+    })
+
+    expect(screen.queryByText('Loading chapter...')).toBeFalsy()
   })
 })

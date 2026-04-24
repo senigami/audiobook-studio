@@ -16,6 +16,14 @@ export const api = {
     const res = await fetch('/api/home');
     return res.json();
   },
+  resetRenderStats: async (): Promise<any> => {
+    const res = await fetch('/api/system/render-stats/reset', { method: 'POST' });
+    return res.json();
+  },
+  restartTtsServer: async (): Promise<any> => {
+    const res = await fetch('/api/system/tts-server/restart', { method: 'POST' });
+    return res.json();
+  },
   // --- Projects ---
   fetchProjects: async (): Promise<Project[]> => {
     const res = await fetch('/api/projects');
@@ -91,6 +99,10 @@ export const api = {
   // --- Chapters ---
   fetchChapters: async (projectId: string): Promise<Chapter[]> => {
     const res = await fetch(`/api/projects/${projectId}/chapters`);
+    return res.json();
+  },
+  fetchChapter: async (chapterId: string): Promise<Chapter> => {
+    const res = await fetch(`/api/chapters/${chapterId}`);
     return res.json();
   },
   createChapter: async (projectId: string, data: { title: string; text_content?: string; sort_order?: number; file?: File }): Promise<{status: string, chapter: Chapter}> => {
@@ -364,6 +376,26 @@ export const api = {
   },
   refreshPlugins: async (): Promise<any> => {
     const res = await fetch('/api/engines/refresh', { method: 'POST' });
+    return parseApiResponse(res);
+  },
+  verifyEngine: async (engineId: string): Promise<any> => {
+    const res = await fetch(`/api/engines/${encodeURIComponent(engineId)}/verify`, { method: 'POST' });
+    return parseApiResponse(res);
+  },
+  installEngineDependencies: async (engineId: string): Promise<any> => {
+    const res = await fetch(`/api/engines/${encodeURIComponent(engineId)}/install`, { method: 'POST' });
+    return parseApiResponse(res);
+  },
+  removeEnginePlugin: async (engineId: string): Promise<any> => {
+    const res = await fetch(`/api/engines/${encodeURIComponent(engineId)}`, { method: 'DELETE' });
+    return parseApiResponse(res);
+  },
+  fetchEngineLogs: async (engineId: string): Promise<any> => {
+    const res = await fetch(`/api/engines/${encodeURIComponent(engineId)}/logs`);
+    return parseApiResponse(res);
+  },
+  installPlugin: async (): Promise<any> => {
+    const res = await fetch('/api/engines/install', { method: 'POST' });
     return parseApiResponse(res);
   },
 };

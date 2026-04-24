@@ -1,5 +1,5 @@
 import React from 'react';
-import { RefreshCw, Zap, CheckCircle, AlertTriangle, Download } from 'lucide-react';
+import { RefreshCw, Zap, CheckCircle, AlertTriangle, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Chapter, Job } from '../../types';
 import { PredictiveProgressBar } from '../PredictiveProgressBar';
 
@@ -18,6 +18,7 @@ interface ChapterHeaderProps {
   onVoiceChange: (voice: string) => void;
   availableVoices: { id: string; name: string; value: string; is_speaker: boolean }[];
   defaultVoiceLabel?: string;
+  selectedVoiceLabel?: string;
   submitting: boolean;
   queueLocked?: boolean;
   queuePending?: boolean;
@@ -47,6 +48,7 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
   onVoiceChange,
   availableVoices,
   defaultVoiceLabel = 'Use Project Default',
+  selectedVoiceLabel,
   submitting,
   queueLocked = false,
   queuePending = false,
@@ -149,24 +151,46 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
       background: 'var(--bg)',
       flexShrink: 0
     }}>
-      <div style={{ display: 'flex', gap: '0.25rem' }}>
+      <div style={{ display: 'flex', gap: '0.35rem' }}>
         <button 
           onClick={onPrev} 
           disabled={!onPrev} 
           className="btn-ghost" 
-          style={{ padding: '0.4rem', opacity: !onPrev ? 0.3 : 1, cursor: !onPrev ? 'not-allowed' : 'pointer', border: '1px solid var(--border)', borderRadius: '8px' }}
+          style={{ 
+            padding: '0.4rem', 
+            opacity: !onPrev ? 0.3 : 1, 
+            cursor: !onPrev ? 'not-allowed' : 'pointer', 
+            border: '1px solid var(--border)', 
+            borderRadius: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '36px',
+            height: '36px'
+          }}
           title="Save & Previous Chapter"
         >
-          ← Prev
+          <ChevronLeft size={18} />
         </button>
         <button 
           onClick={onNext} 
           disabled={!onNext} 
           className="btn-ghost" 
-          style={{ padding: '0.4rem', opacity: !onNext ? 0.3 : 1, cursor: !onNext ? 'not-allowed' : 'pointer', border: '1px solid var(--border)', borderRadius: '8px' }}
+          style={{ 
+            padding: '0.4rem', 
+            opacity: !onNext ? 0.3 : 1, 
+            cursor: !onNext ? 'not-allowed' : 'pointer', 
+            border: '1px solid var(--border)', 
+            borderRadius: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '36px',
+            height: '36px'
+          }}
           title="Save & Next Chapter"
         >
-          Next →
+          <ChevronRight size={18} />
         </button>
       </div>
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '1rem', minWidth: 0 }}>
@@ -292,6 +316,11 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
                   }}
                   title="Select Voice Profile for this chapter"
               >
+                  {selectedVoice && !availableVoices.some(v => v.value === selectedVoice) && (
+                    <option value={selectedVoice} disabled>
+                      {selectedVoiceLabel || selectedVoice}
+                    </option>
+                  )}
                   <option value="">{defaultVoiceLabel}</option>
                   {availableVoices.map(v => (
                       <option key={v.id} value={v.value}>{v.name}</option>

@@ -64,7 +64,6 @@ def _default_state() -> Dict[str, Any]:
         "jobs": {},
         "settings": {
             "safe_mode": True,
-            "make_mp3": False,
             "default_engine": "xtts",
             "voxtral_enabled": False,
             "voxtral_model": "voxtral-mini-tts-2603",
@@ -85,7 +84,7 @@ def _normalize_settings(
     incoming_updates = incoming_updates or {}
 
     normalized["safe_mode"] = bool(normalized.get("safe_mode", defaults["safe_mode"]))
-    normalized["make_mp3"] = bool(normalized.get("make_mp3", defaults["make_mp3"]))
+    normalized.pop("make_mp3", None)
     normalized["default_engine"] = normalize_tts_engine(normalized.get("default_engine"), defaults["default_engine"])
 
     mistral_api_key = str(normalized.get("mistral_api_key") or "").strip()
@@ -262,6 +261,7 @@ def _ensure_settings_table(cursor) -> None:
             engine TEXT NOT NULL,
             speaker_profile TEXT,
             chars INTEGER NOT NULL,
+            word_count INTEGER DEFAULT 0,
             segment_count INTEGER NOT NULL,
             render_group_count INTEGER DEFAULT 0,
             duration_seconds REAL NOT NULL,
@@ -270,6 +270,10 @@ def _ensure_settings_table(cursor) -> None:
             completed_at REAL NOT NULL
         )
     """)
+    try:
+        cursor.execute("ALTER TABLE render_performance_samples ADD COLUMN word_count INTEGER DEFAULT 0")
+    except Exception:
+        pass
     cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_render_performance_completed_at
         ON render_performance_samples (completed_at)
@@ -324,6 +328,7 @@ def _record_legacy_performance_history(history: list[Dict[str, Any]]) -> None:
         record_render_sample(
             engine=str(sample.get("engine") or "xtts"),
             chars=int(sample.get("chars") or 0),
+            word_count=int(sample.get("word_count") or 0),
             segment_count=max(1, int(sample.get("segment_count") or 1)),
             duration_seconds=float(sample.get("duration_seconds") or 0),
             cps=float(sample["cps"]) if sample.get("cps") is not None else None,

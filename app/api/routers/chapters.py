@@ -296,6 +296,9 @@ def api_get_script_view(chapter_id: str):
         return JSONResponse(get_script_view_payload(chapter_id))
     except KeyError:
         return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
+    except Exception as e:
+        logger.error(f"Script view payload failed for {chapter_id}: {e}", exc_info=True)
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 
 
 @router.post("/chapters/{chapter_id}/source-text/preview", response_model=ResyncPreviewResponse)

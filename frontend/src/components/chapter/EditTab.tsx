@@ -11,6 +11,8 @@ interface EditTabProps {
   chapter: Chapter;
   segmentsCount: number;
   hasUnsavedChanges: boolean;
+  sourceTextMode?: 'view' | 'edit';
+  onRequestEdit?: () => void;
 }
 
 export const EditTab: React.FC<EditTabProps> = ({
@@ -21,13 +23,15 @@ export const EditTab: React.FC<EditTabProps> = ({
   analyzing,
   chapter,
   segmentsCount,
-  hasUnsavedChanges
+  hasUnsavedChanges,
+  sourceTextMode = 'view',
 }) => {
   const isTextChanged = (text || "").replace(/\r\n/g, '\n') !== (chapter.text_content || "").replace(/\r\n/g, '\n');
+  const isEditable = sourceTextMode === 'edit';
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.75rem', minHeight: 0 }}>
-      {hasUnsavedChanges && isTextChanged && (
+      {isEditable && hasUnsavedChanges && isTextChanged && (
           <div style={{ 
               display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', 
               background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.3)', 
@@ -39,25 +43,52 @@ export const EditTab: React.FC<EditTabProps> = ({
               </div>
           </div>
       )}
-      <textarea 
-          value={text}
-          onChange={e => setText(e.target.value)}
-          placeholder="Start typing your chapter text here..."
-          style={{
-              flex: 1,
-              background: 'var(--bg)',
-              border: '1px solid var(--border)',
-              borderRadius: '12px',
-              padding: '1.5rem',
-              fontSize: '1.05rem',
-              lineHeight: 1.6,
-              color: 'var(--text-primary)',
-              outline: 'none',
-              resize: 'none',
-              fontFamily: 'system-ui, -apple-system, sans-serif',
-              overflowY: 'auto'
-          }}
-      />
+      {isEditable ? (
+        <textarea 
+            value={text}
+            onChange={e => setText(e.target.value)}
+            placeholder="Start typing your chapter text here..."
+            style={{
+                flex: 1,
+                background: 'var(--bg)',
+                border: '1px solid var(--border)',
+                borderRadius: '12px',
+                padding: '1.5rem',
+                fontSize: '1.05rem',
+                lineHeight: 1.6,
+                color: 'var(--text-primary)',
+                outline: 'none',
+                resize: 'none',
+                fontFamily: 'system-ui, -apple-system, sans-serif',
+                overflowY: 'auto'
+            }}
+        />
+      ) : (
+        <div style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 0,
+          gap: '0.75rem',
+        }}>
+          <pre style={{
+            flex: 1,
+            margin: 0,
+            background: 'var(--bg)',
+            border: '1px solid var(--border)',
+            borderRadius: '12px',
+            padding: '1.5rem',
+            fontSize: '1.02rem',
+            lineHeight: 1.7,
+            color: 'var(--text-primary)',
+            overflow: 'auto',
+            whiteSpace: 'pre-wrap',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+          }}>
+            {text}
+          </pre>
+        </div>
+      )}
       {/* Analysis Stats Strip */}
       <div style={{ flexShrink: 0, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '0.6rem 1rem', display: 'flex', gap: '1.25rem', alignItems: 'center', flexWrap: 'wrap' }}>
           {/* Spinner or icon */}

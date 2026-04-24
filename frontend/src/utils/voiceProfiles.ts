@@ -1,10 +1,23 @@
-import type { SpeakerProfile, Speaker } from '../types';
+import type { SpeakerProfile, Speaker, TtsEngine, VoiceEngine } from '../types';
 
 export interface VoiceOption {
     id: string;
     name: string;
     value: string;
     is_speaker: boolean;
+}
+
+export function getVoiceProfileEngine(profile?: Pick<SpeakerProfile, 'engine'> | null): VoiceEngine | null {
+    const engine = typeof profile?.engine === 'string' ? profile.engine.trim().toLowerCase() : '';
+    return engine || null;
+}
+
+export function formatVoiceEngineLabel(engine?: string | null): string {
+    const normalized = (engine || '').trim();
+    if (!normalized) return 'Unavailable';
+    if (normalized === 'xtts') return 'XTTS';
+    if (normalized === 'voxtral') return 'Voxtral';
+    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }
 
 export function getVariantDisplayName(profile?: Pick<SpeakerProfile, 'name' | 'variant_name'> | null): string {
@@ -31,11 +44,29 @@ export function getDefaultVoiceProfileName(profiles: SpeakerProfile[]): string |
     );
 }
 
-export function buildVoiceOptions(speakerProfiles: SpeakerProfile[], speakers: Speaker[]): VoiceOption[] {
+export function isVoiceProfileSelectable(profile: SpeakerProfile, engines?: TtsEngine[]): boolean {
+    if (!engines || engines.length === 0) {
+        return true;
+    }
+    const engineId = getVoiceProfileEngine(profile);
+    if (!engineId) {
+        return true;
+    }
+    const matchingEngine = engines.find(engine => engine.engine_id === engineId);
+    if (!matchingEngine) {
+        return false;
+    }
+    return Boolean(matchingEngine.enabled && matchingEngine.status === 'ready');
+}
+
+export function buildVoiceOptions(speakerProfiles: SpeakerProfile[], speakers: Speaker[], engines?: TtsEngine[]): VoiceOption[] {
     const speakerMap = new Map(speakers.map(speaker => [speaker.id, speaker]));
     const groupedProfiles = new Map<string, SpeakerProfile[]>();
 
     for (const profile of speakerProfiles || []) {
+        if (!isVoiceProfileSelectable(profile, engines)) {
+            continue;
+        }
         const speakerId = profile.speaker_id || '';
         if (!speakerId) continue;
         const group = groupedProfiles.get(speakerId) || [];
@@ -52,7 +83,8 @@ export function buildVoiceOptions(speakerProfiles: SpeakerProfile[], speakers: S
 
         for (const profile of sortedProfiles) {
             const variant = getVariantDisplayName(profile);
-            const engineLabel = (profile.engine || 'xtts').toUpperCase();
+            const engineId = getVoiceProfileEngine(profile);
+            const engineLabel = formatVoiceEngineLabel(engineId);
             const sameVariantCount = sortedProfiles.filter(p => getVariantDisplayName(p) === variant).length;
 
             let label = speaker.name;
@@ -60,7 +92,7 @@ export function buildVoiceOptions(speakerProfiles: SpeakerProfile[], speakers: S
                 if (variant !== 'Default') {
                     label = `${speaker.name} - ${variant}`;
                 }
-                if (sameVariantCount > 1 || profile.engine === 'voxtral') {
+                if (sameVariantCount > 1 || engineId === 'voxtral') {
                     label = `${label} (${engineLabel})`;
                 }
             }
@@ -75,6 +107,7 @@ export function buildVoiceOptions(speakerProfiles: SpeakerProfile[], speakers: S
     }
 
     const orphanOptions: VoiceOption[] = (speakerProfiles || [])
+        .filter(profile => isVoiceProfileSelectable(profile, engines))
         .filter(profile => !profile.speaker_id || !speakerMap.has(profile.speaker_id))
         .map(profile => ({
             id: `unassigned-${profile.name}`,
@@ -90,10 +123,26 @@ export function getVoiceOptionLabel(
     value: string | null | undefined,
     speakerProfiles: SpeakerProfile[],
     speakers: Speaker[],
+    engines?: TtsEngine[],
 ): string | null {
     const targetValue = (value || '').trim();
     if (!targetValue) return null;
 
-    const match = buildVoiceOptions(speakerProfiles, speakers).find(option => option.value === targetValue);
-    return match?.name || targetValue;
+    // Check all profiles, including filtered ones
+    const profile = speakerProfiles.find(p => p.name === targetValue);
+    if (profile) {
+        const match = buildVoiceOptions(speakerProfiles, speakers, engines).find(option => option.value === targetValue);
+        
+        if (match) return match.name;
+        const labelMatch = buildVoiceOptions(speakerProfiles, speakers, engines).find(option => option.name === targetValue);
+        if (labelMatch) return labelMatch.name;
+        
+        // If profile exists but not selectable, show name with (Unavailable)
+        const engineLabel = formatVoiceEngineLabel(getVoiceProfileEngine(profile));
+        return engineLabel === 'Unavailable'
+            ? `${targetValue} (Unavailable)`
+            : `${targetValue} (Unavailable: ${engineLabel})`;
+    }
+
+    return targetValue;
 }

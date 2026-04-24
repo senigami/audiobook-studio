@@ -1,9 +1,11 @@
 {
   "engine_id": "xtts",
   "display_name": "XTTS",
-  "phase": "phase-1-scaffold",
+  "phase": "phase-7-hardened",
+  "capabilities": ["voice_build", "speed_control"],
+  "local": true,
+  "cloud": false,
   "notes": [
-    "Placeholder manifest for Studio 2.0 engine discovery.",
-    "Real capability and health metadata will be defined in a later phase."
+    "High-quality local TTS engine with voice cloning support."
   ]
 }

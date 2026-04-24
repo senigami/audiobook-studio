@@ -414,6 +414,23 @@ def test_build_and_test_require_samples(clean_db, voices_root, client):
             assert response.status_code == 400
             assert "sample" in response.json()["message"].lower()
 
+
+def test_xtts_voice_actions_reject_when_disabled(clean_db, voices_root, client):
+    voices_dir = voices_root
+    profile_dir = voices_dir / "SpeakerA"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "profile.json").write_text(json.dumps({
+        "variant_name": "Default",
+        "engine": "xtts",
+    }))
+    (profile_dir / "1.wav").write_text("fake wav content")
+
+    with patch("app.api.routers.voices._is_engine_active", return_value=False):
+        response = client.post("/api/speaker-profiles/SpeakerA/test")
+
+    assert response.status_code == 400
+    assert "enabled in Settings" in response.json()["message"]
+
 def test_legacy_build_and_rename(clean_db, voices_root, client):
     voices_dir = voices_root
     voices_dir.mkdir()
