@@ -61,3 +61,67 @@ class TTSResult:
     duration_sec: float | None = None
     warnings: list[str] = field(default_factory=list)
     error: str | None = None
+
+
+@dataclass(frozen=True)
+class SynthesisPlan:
+    """A processing plan returned by a plugin hook to influence generation.
+
+    Attributes:
+        chunk_size: Suggested maximum character count per synthesis chunk.
+        speed_factor: Relative speed adjustment (1.0 = normal).
+        requires_cleanup: Whether the caller should scrub artifacts after completion.
+        metadata: Any engine-specific context to carry forward to synthesis.
+    """
+    chunk_size: int | None = None
+    speed_factor: float = 1.0
+    emotion: str | None = None
+    requires_cleanup: bool = False
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+class VoiceProcessingHooks:
+    """Optional hooks for customizing the audio generation lifecycle.
+
+    Plugins can implement these hooks to influence how Studio prepares,
+    executes, and finalizes voice synthesis.
+    """
+
+    def plan_synthesis(self, req: TTSRequest) -> SynthesisPlan:
+        """Called before synthesis to determine chunking and scaling policy.
+
+        Default implementation returns a standard plan with no overrides.
+        """
+        return SynthesisPlan()
+
+    def preprocess_request(self, request: dict[str, Any]) -> None:
+        """Optional hook to modify the raw request dictionary before dispatch.
+
+        Use this to resolve engine-specific paths, apply defaults, or transform
+        request parameters before validation.
+        """
+        pass
+
+    def select_voice(self, profile_id: str, settings: dict[str, Any]) -> str | None:
+        """Resolve a speaker profile into an engine-specific voice identifier.
+
+        Returns None to use the default voice.
+        """
+        return None
+
+    def postprocess_audio(self, output_path: str, settings: dict[str, Any]) -> None:
+        """Called after synthesis to apply engine-specific cleanup or effects."""
+        pass
+
+    def check_readiness(self, profile_id: str, settings: dict[str, Any], profile_dir: str | None) -> tuple[bool, str]:
+        """Check if a voice profile has sufficient material for synthesis.
+
+        Returns (True, "OK") if ready, or (False, "Error message") otherwise.
+        Default implementation checks for raw samples in the profile directory.
+        """
+        import os
+        if profile_dir and os.path.isdir(profile_dir):
+            wavs = [f for f in os.listdir(profile_dir) if f.lower().endswith(".wav") and f != "sample.wav"]
+            if wavs:
+                return True, "OK"
+        return False, "No samples found in profile."

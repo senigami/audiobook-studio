@@ -14,23 +14,24 @@ from ...jobs import enqueue, cancel as cancel_job_worker, set_paused, clear_job_
 from ...models import Job
 from ...state import put_job, update_job, get_settings, get_jobs
 from ...config import XTTS_OUT_DIR, find_existing_project_dir, find_existing_project_subdir
-from ...voice_engines import resolve_tts_engine_for_profiles, normalize_tts_engine
+from ...voice_engines import resolve_profile_engine, resolve_tts_engine_for_profiles, normalize_tts_engine
+from ...engines.bridge import create_voice_bridge
 from ..ws import broadcast_chapter_updated, broadcast_queue_update
 
 router = APIRouter(prefix="/api", tags=["generation"])
 logger = logging.getLogger(__name__)
 
 
-def _voxtral_configured(settings: Optional[dict] = None) -> bool:
-    active_settings = settings or get_settings()
-    return bool(str(active_settings.get("mistral_api_key") or "").strip()) and bool(active_settings.get("voxtral_enabled"))
-
-
-def _voxtral_disabled_error():
+def _engine_usable_error(engine_id: str):
+    display_name = engine_id.capitalize()
+    if engine_id == "xtts":
+        display_name = "XTTS"
+    if engine_id == "voxtral":
+        display_name = "Voxtral"
     return JSONResponse(
         {
             "status": "error",
-            "message": "Enable Voxtral in Settings and add a Mistral API key to use cloud voices."
+            "message": f"Enable {display_name} in Settings to use these voices."
         },
         status_code=400,
     )
@@ -50,6 +51,42 @@ def _resolved_segment_profiles(chapter_id: str, only_segment_ids: Optional[set[s
     if only_segment_ids:
         segments = [segment for segment in segments if segment["id"] in only_segment_ids]
     return [segment.get("speaker_profile_name") for segment in segments]
+
+
+def _ensure_engines_enabled(engine_ids: list[str]) -> Optional[JSONResponse]:
+    bridge = create_voice_bridge()
+    registry = {entry.get("engine_id"): entry for entry in bridge.describe_registry()}
+    for engine_id in engine_ids:
+        entry = registry.get(engine_id)
+        if not entry:
+            if not bridge.is_engine_enabled(engine_id):
+                return _engine_usable_error(engine_id)
+            continue
+        if entry.get("can_enable") is False:
+            return JSONResponse(
+                {
+                    "status": "error",
+                    "message": entry.get("enablement_message") or f"Enable {engine_id} in Settings to use these voices.",
+                },
+                status_code=400,
+            )
+        if not bridge.is_engine_enabled(engine_id):
+            return _engine_usable_error(engine_id)
+    return None
+
+
+def _engines_for_profiles(profile_names: list[Optional[str]], fallback_engine: Optional[str]) -> list[str]:
+    engines: list[str] = []
+    seen: set[str] = set()
+    for profile_name in profile_names:
+        if not profile_name:
+            continue
+        engine_id = resolve_profile_engine(profile_name, fallback_engine)
+        if engine_id in seen:
+            continue
+        seen.add(engine_id)
+        engines.append(engine_id)
+    return engines
 
 @router.post("/processing_queue")
 def api_add_to_queue(
@@ -118,8 +155,13 @@ def api_add_to_queue(
                 default_profile=active_profile,
                 fallback_engine=settings.get("default_engine"),
             )
-            if (mixed_engines or resolved_engine == "voxtral") and not _voxtral_configured(settings):
-                return _voxtral_disabled_error()
+            engines_to_check = _engines_for_profiles(
+                _resolved_segment_profiles(chapter_id),
+                settings.get("default_engine"),
+            ) or [resolved_engine]
+            engine_error = _ensure_engines_enabled(engines_to_check)
+            if engine_error:
+                return engine_error
             queue_engine = "mixed" if mixed_engines else resolved_engine
 
             j = Job(
@@ -190,8 +232,13 @@ def api_bake_chapter(chapter_id: str):
         default_profile=active_profile,
         fallback_engine=settings.get("default_engine"),
     )
-    if (mixed_engines or resolved_engine == "voxtral") and not _voxtral_configured(settings):
-        return _voxtral_disabled_error()
+    engines_to_check = _engines_for_profiles(
+        _resolved_segment_profiles(chapter_id),
+        settings.get("default_engine"),
+    ) or [resolved_engine]
+    engine_error = _ensure_engines_enabled(engines_to_check)
+    if engine_error:
+        return engine_error
 
     queue_engine = "mixed" if mixed_engines or resolved_engine == "voxtral" else resolved_engine
 
@@ -266,6 +313,9 @@ def cancel_chapter_generation(chapter_id: str):
 @router.post("/generation/enqueue-single")
 def enqueue_single(chapter_file: str = Form(...), engine: str = Form("xtts")):
     normalized_engine = normalize_tts_engine(engine, engine)
+    engine_error = _ensure_engines_enabled([normalized_engine])
+    if engine_error:
+        return engine_error
     jid = f"job-{uuid.uuid4().hex[:8]}"
     j = Job(
         id=jid,
@@ -309,13 +359,16 @@ def api_generate_segments(segment_ids: str = Form(...), speaker_profile: Optiona
 
     settings = get_settings()
     active_profile = speaker_profile or settings.get("default_speaker_profile")
+    segment_profiles = _resolved_segment_profiles(chapter_id, set(sids))
     resolved_engine, mixed_engines = resolve_tts_engine_for_profiles(
-        _resolved_segment_profiles(chapter_id, set(sids)),
+        segment_profiles,
         default_profile=active_profile,
         fallback_engine=settings.get("default_engine"),
     )
-    if (mixed_engines or resolved_engine == "voxtral") and not _voxtral_configured(settings):
-        return _voxtral_disabled_error()
+    engines_to_check = _engines_for_profiles(segment_profiles, settings.get("default_engine")) or [resolved_engine]
+    engine_error = _ensure_engines_enabled(engines_to_check)
+    if engine_error:
+        return engine_error
     # Performance-tab segment generation should always use the chunk-aware mixed handler
     # so displayed groups render as one unit even when they are pure XTTS.
     queue_engine = "mixed"

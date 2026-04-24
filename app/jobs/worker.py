@@ -150,24 +150,17 @@ def _generate_voice_sample_via_bridge(
         "output_format": "wav",
         "on_output": on_output,
         "cancel_check": cancel_check,
+        "reference_sample": reference_sample,
     }
-    if engine == "xtts":
-        request["safe_mode"] = True
+    # Pass through additional context that hooks might need
+    if speed is not None:
         request["speed"] = speed
-        if reference_sample:
-            request["reference_sample"] = reference_sample
-    elif engine == "voxtral":
+    if voxtral_model:
         request["voxtral_model"] = voxtral_model
+    if voxtral_voice_id:
         request["voice_asset_id"] = voxtral_voice_id
-        resolved_reference = _resolve_voxtral_reference_audio_path(
-            pdir=voice_profile_dir or out_wav.parent,
-            reference_sample=reference_sample,
-            speaker_wavs=speaker_wavs,
-        )
-        if resolved_reference:
-            request["reference_audio_path"] = resolved_reference
-        if reference_sample:
-            request["reference_sample"] = reference_sample
+    if voice_profile_dir:
+        request["voice_profile_dir"] = str(voice_profile_dir)
 
     response = bridge.synthesize(request)
     if response.get("audio_path") and Path(str(response["audio_path"])) != out_wav:
@@ -210,6 +203,15 @@ def _record_xtts_sample(job, start: float, chars: int, perf: dict, source_segmen
 
     segment_count = max(1, int(source_segment_count or 0))
     chapter_id = _job_field(persisted, "chapter_id", _job_field(job, "chapter_id"))
+    word_count = 0
+    if chapter_id:
+        try:
+            from ..db.chapters import get_chapter
+            chapter_row = get_chapter(chapter_id) or {}
+            chapter_text = str(chapter_row.get("text_content") or "")
+            word_count = len(chapter_text.split())
+        except Exception:
+            logger.debug("Failed to calculate chapter word count for history recording", exc_info=True)
 
     if not source_segment_count and chapter_id:
         try:
@@ -232,6 +234,7 @@ def _record_xtts_sample(job, start: float, chars: int, perf: dict, source_segmen
     record_render_sample(
         engine=engine,
         chars=chars,
+        word_count=word_count,
         segment_count=segment_count,
         duration_seconds=round(dur, 2),
         cps=round(base_cps, 2),

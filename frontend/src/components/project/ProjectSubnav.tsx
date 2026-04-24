@@ -1,9 +1,9 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
-import { LAYERS } from '../../app/layout/layering';
+import { Link } from 'react-router-dom';
+import type { ProjectSubnavItem } from '../../app/navigation/project-subnav';
 
 interface ProjectSubnavProps {
-  items: { id: string; label: string; href?: string }[];
+  items: ProjectSubnavItem[];
   activeId?: string;
 }
 
@@ -12,37 +12,38 @@ export const ProjectSubnav: React.FC<ProjectSubnavProps> = ({ items, activeId })
 
   return (
     <nav 
-      aria-label="Project Sub-navigation" 
       style={{ 
         display: 'flex', 
-        gap: '0.75rem', 
-        padding: '0 0.5rem',
-        borderBottom: '1px solid var(--border)',
-        marginBottom: '1rem'
+        gap: '1rem', 
+        padding: '0 0.75rem 0.25rem', 
+        marginBottom: '0.75rem', 
+        borderBottom: '1px solid var(--border)' 
       }}
     >
       {items.map((item) => {
-        const isActive = item.id === activeId;
+        const isActive = activeId === item.id;
         
         return (
-          <NavLink
+          <Link
             key={item.id}
             to={item.href || '#'}
-            className={isActive ? 'btn-primary' : 'btn-ghost'}
             style={{ 
-              fontWeight: 700, 
-              fontSize: '0.9rem',
-              padding: '0.5rem 1rem',
+              background: 'none', 
+              border: 'none', 
+              padding: '4px 10px', 
               borderRadius: '8px 8px 0 0',
+              fontSize: '0.9rem', 
+              fontWeight: 700,
+              color: isActive ? 'var(--accent)' : 'var(--text-muted)',
+              borderBottom: isActive ? '2px solid var(--accent)' : '2px solid transparent',
+              cursor: 'pointer',
               textDecoration: 'none',
-              marginBottom: '-1px',
-              border: isActive ? '1px solid var(--border)' : '1px solid transparent',
-              borderBottom: isActive ? '1px solid var(--surface)' : '1px solid transparent',
-              zIndex: isActive ? LAYERS.TAB_ACTIVE : LAYERS.TAB_INACTIVE
+              transition: 'all 0.2s ease'
             }}
+            className={isActive ? '' : 'hover-text-primary'}
           >
             {item.label}
-          </NavLink>
+          </Link>
         );
       })}
     </nav>

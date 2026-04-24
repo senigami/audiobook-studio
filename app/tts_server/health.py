@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import Any, TYPE_CHECKING
 
+from app.engines.enablement import can_enable_engine
+
 if TYPE_CHECKING:
     from app.tts_server.plugin_loader import LoadedPlugin
 
@@ -89,6 +91,13 @@ def build_engine_detail(
     """
     manifest = plugin.manifest
     status = engine_status(plugin)
+    can_enable, enablement_message = can_enable_engine(
+        plugin.engine_id,
+        current_settings=current_settings,
+        built_in=bool(getattr(manifest, "built_in", False)),
+        verified=bool(getattr(manifest, "verified", False)),
+        status=status,
+    )
 
     try:
         info_extra = plugin.engine.info()
@@ -99,6 +108,8 @@ def build_engine_detail(
         schema = plugin.engine.settings_schema()
     except Exception:
         schema = {}
+    if not schema and getattr(plugin, "settings_schema", None):
+        schema = plugin.settings_schema
 
     return {
         "engine_id": plugin.engine_id,
@@ -114,6 +125,8 @@ def build_engine_detail(
         "resource": manifest.get("resource", {}),
         "author": manifest.get("author", ""),
         "homepage": manifest.get("homepage", ""),
+        "can_enable": can_enable,
+        "enablement_message": enablement_message,
         "settings_schema": schema,
         "current_settings": current_settings,
         **info_extra,

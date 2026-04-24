@@ -64,22 +64,27 @@ def _default_state() -> Dict[str, Any]:
         "jobs": {},
         "settings": {
             "safe_mode": True,
-            "make_mp3": False,
             "default_engine": "xtts",
             "voxtral_enabled": False,
             "voxtral_model": "voxtral-mini-tts-2603",
+            "enabled_plugins": {},
         },
     }
 
 
-def _normalize_settings(settings: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+def _normalize_settings(
+    settings: Optional[Dict[str, Any]],
+    *,
+    incoming_updates: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     defaults = _default_state()["settings"].copy()
     normalized = defaults.copy()
     if settings:
         normalized.update(settings)
+    incoming_updates = incoming_updates or {}
 
     normalized["safe_mode"] = bool(normalized.get("safe_mode", defaults["safe_mode"]))
-    normalized["make_mp3"] = bool(normalized.get("make_mp3", defaults["make_mp3"]))
+    normalized.pop("make_mp3", None)
     normalized["default_engine"] = normalize_tts_engine(normalized.get("default_engine"), defaults["default_engine"])
 
     mistral_api_key = str(normalized.get("mistral_api_key") or "").strip()
@@ -88,13 +93,49 @@ def _normalize_settings(settings: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     else:
         normalized.pop("mistral_api_key", None)
 
-    if settings and "voxtral_enabled" in settings:
+    explicit_voxtral_flag = "voxtral_enabled" in incoming_updates
+    explicit_enabled_plugins = isinstance(incoming_updates.get("enabled_plugins"), dict) and "voxtral" in incoming_updates.get("enabled_plugins", {})
+
+    if explicit_voxtral_flag:
         voxtral_enabled = bool(normalized.get("voxtral_enabled"))
-    else:
+    elif explicit_enabled_plugins:
+        voxtral_enabled = bool((incoming_updates.get("enabled_plugins") or {}).get("voxtral"))
+    elif incoming_updates:
+        # Fresh write without an explicit toggle: keep legacy compatibility by
+        # backfilling Voxtral on when the API key is present, even if the
+        # persisted state was previously disabled.
         voxtral_enabled = bool(mistral_api_key)
+    else:
+        # Pure read / normalization of persisted state.
+        voxtral_enabled = bool(normalized.get("voxtral_enabled"))
+        if not voxtral_enabled:
+            voxtral_enabled = bool(mistral_api_key)
+
+    # Sync with enabled_plugins map
+    enabled_plugins = normalized.get("enabled_plugins")
+    if not isinstance(enabled_plugins, dict):
+        enabled_plugins = {}
+
+    # Prefer enabled_plugins["voxtral"] if it exists, otherwise fallback to voxtral_enabled
+    if explicit_enabled_plugins:
+        enabled_plugins["voxtral"] = bool((incoming_updates.get("enabled_plugins") or {}).get("voxtral"))
+    elif explicit_voxtral_flag:
+        enabled_plugins["voxtral"] = bool(voxtral_enabled)
+    elif incoming_updates:
+        enabled_plugins["voxtral"] = voxtral_enabled
+    elif "voxtral" in enabled_plugins:
+        # Preserve a previously explicit generic toggle on reads.
+        voxtral_enabled = bool(enabled_plugins["voxtral"])
+    else:
+        enabled_plugins["voxtral"] = voxtral_enabled
+
+    # Ensure mistral_api_key requirement is respected
     if not mistral_api_key:
         voxtral_enabled = False
+        enabled_plugins["voxtral"] = False
+
     normalized["voxtral_enabled"] = voxtral_enabled
+    normalized["enabled_plugins"] = enabled_plugins
 
     voxtral_model = str(normalized.get("voxtral_model") or "").strip() or defaults["voxtral_model"]
     if voxtral_model == "voxtral-tts":
@@ -169,11 +210,13 @@ def update_settings(updates: dict = None, **kwargs) -> None:
     with _STATE_LOCK:
         state = _load_state_no_lock()
         state.setdefault("settings", {})
+        merged_updates: Dict[str, Any] = {}
         if updates:
-            state["settings"].update(updates)
+            merged_updates.update(updates)
         if kwargs:
-            state["settings"].update(kwargs)
-        state["settings"] = _normalize_settings(state["settings"])
+            merged_updates.update(kwargs)
+        state["settings"].update(merged_updates)
+        state["settings"] = _normalize_settings(state["settings"], incoming_updates=merged_updates)
         _atomic_write_text(STATE_FILE, json.dumps(state, indent=2))
 
 
@@ -218,6 +261,7 @@ def _ensure_settings_table(cursor) -> None:
             engine TEXT NOT NULL,
             speaker_profile TEXT,
             chars INTEGER NOT NULL,
+            word_count INTEGER DEFAULT 0,
             segment_count INTEGER NOT NULL,
             render_group_count INTEGER DEFAULT 0,
             duration_seconds REAL NOT NULL,
@@ -226,6 +270,10 @@ def _ensure_settings_table(cursor) -> None:
             completed_at REAL NOT NULL
         )
     """)
+    try:
+        cursor.execute("ALTER TABLE render_performance_samples ADD COLUMN word_count INTEGER DEFAULT 0")
+    except Exception:
+        pass
     cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_render_performance_completed_at
         ON render_performance_samples (completed_at)
@@ -280,6 +328,7 @@ def _record_legacy_performance_history(history: list[Dict[str, Any]]) -> None:
         record_render_sample(
             engine=str(sample.get("engine") or "xtts"),
             chars=int(sample.get("chars") or 0),
+            word_count=int(sample.get("word_count") or 0),
             segment_count=max(1, int(sample.get("segment_count") or 1)),
             duration_seconds=float(sample.get("duration_seconds") or 0),
             cps=float(sample["cps"]) if sample.get("cps") is not None else None,

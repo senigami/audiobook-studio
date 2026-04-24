@@ -38,6 +38,28 @@ describe('App', () => {
           json: () => Promise.resolve([])
         })
       }
+      if (url === '/api/projects/p1') {
+        return Promise.resolve({
+          json: () => Promise.resolve({ id: 'p1', name: 'Project 1', series: null, author: null, speaker_profile_name: null })
+        })
+      }
+      if (url === '/api/projects/p1/chapters') {
+        return Promise.resolve({
+          json: () => Promise.resolve([
+            { id: 'c1', project_id: 'p1', title: 'Chapter 1', sort_order: 0, audio_status: 'done', predicted_audio_length: 0, char_count: 0, word_count: 0 }
+          ])
+        })
+      }
+      if (url === '/api/projects/p1/audiobooks') {
+        return Promise.resolve({
+          json: () => Promise.resolve([])
+        })
+      }
+      if (url === '/api/chapters/c1') {
+        return Promise.resolve({
+          json: () => Promise.resolve({ id: 'c1', project_id: 'p1', title: 'Chapter 1', sort_order: 0, audio_status: 'done' })
+        })
+      }
       if (url === '/api/speakers') {
         return Promise.resolve({
           json: () => Promise.resolve([])
@@ -69,36 +91,6 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByTestId('layout-root')).toHaveAttribute('data-shell-hydration', 'ready')
     })
-  })
-
-  it('reports refreshing status during manual refresh', async () => {
-    render(
-      <MemoryRouter>
-        <App />
-      </MemoryRouter>
-    )
-    
-    await waitFor(() => {
-      expect(screen.getByTestId('layout-root')).toHaveAttribute('data-shell-hydration', 'ready')
-    })
-
-    // Find the refresh button in SettingsTray
-    const settingsButton = screen.getByTitle(/Synthesis Preferences/i)
-    fireEvent.click(settingsButton)
-    
-    const refreshButton = screen.getByText(/Refresh All Data/i)
-    
-    // We need to delay the fetch response to see the refreshing state
-    let resolveRefresh: any;
-    global.fetch = vi.fn().mockReturnValue(new Promise(resolve => { resolveRefresh = resolve; }));
-
-    fireEvent.click(refreshButton)
-    
-    await waitFor(() => {
-      expect(screen.getByTestId('layout-root')).toHaveAttribute('data-shell-hydration', 'refreshing')
-    })
-
-    resolveRefresh({ ok: true, json: () => Promise.resolve([]) });
   })
 
   it('reports reconnecting and recovering statuses during WS loss', async () => {
@@ -185,5 +177,47 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByText('Progress Bar Test')).toBeTruthy()
     })
+  })
+
+  it('opens the deep-linked settings engines page', async () => {
+    render(
+      <MemoryRouter initialEntries={['/settings/engines']}>
+        <App />
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'TTS Engines' })).toBeTruthy()
+    })
+
+    expect(screen.getByRole('button', { name: /Settings/i })).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('opens deep-linked settings tabs directly on first load', async () => {
+    render(
+      <MemoryRouter initialEntries={['/settings/api/']}>
+        <App />
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'API' })).toBeTruthy()
+    })
+
+    expect(screen.getByText('Developer Integration Guide')).toBeTruthy()
+  })
+
+  it('opens a chapter route by resolving the parent project from chapter details', async () => {
+    render(
+      <MemoryRouter initialEntries={['/chapter/c1']}>
+        <App />
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText(/Chapter 1/i)).toBeTruthy()
+    })
+
+    expect(screen.queryByText('Loading chapter...')).toBeFalsy()
   })
 })

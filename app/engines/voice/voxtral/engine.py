@@ -6,15 +6,19 @@ contract without leaking engine-specific request handling into orchestration.
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import tempfile
+from functools import lru_cache
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from app.config import VOICES_DIR
 from app.engines.errors import EngineExecutionError, EngineRequestError
 from app.engines.voice.base import BaseVoiceEngine
+from app.engines.voice.sdk import TTSRequest, TTSResult, VoiceProcessingHooks, SynthesisPlan
 from app.engines.models import EngineHealthModel, EngineManifestModel
 
 INTENDED_UPSTREAM_CALLERS = (
@@ -60,6 +64,15 @@ def resolve_voxtral_model() -> str:
     return legacy_resolver()
 
 
+@lru_cache(maxsize=1)
+def _load_settings_schema() -> dict[str, object]:
+    schema_path = Path(__file__).with_name("settings_schema.json")
+    try:
+        return json.loads(schema_path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
 def voxtral_generate(
     *,
     text: str,
@@ -93,6 +106,10 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
     def __init__(self, *, manifest: EngineManifestModel):
         self.manifest = manifest
 
+    def hooks(self) -> VoiceProcessingHooks:
+        """Return Voxtral-specific processing hooks."""
+        return VoxtralProcessingHooks()
+
     def describe_health(self) -> EngineHealthModel:
         """Summarize Voxtral adapter readiness without triggering side effects."""
 
@@ -114,6 +131,22 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
                 "model": resolve_voxtral_model(),
             },
         )
+
+    def settings_schema(self) -> dict[str, object]:
+        """Return the Voxtral settings schema used by the Settings UI."""
+        schema = _load_settings_schema()
+        return dict(schema) if isinstance(schema, dict) else {}
+
+    def current_settings(self) -> dict[str, object]:
+        """Return the current Voxtral-related settings snapshot."""
+        from app.state import get_settings  # noqa: PLC0415
+
+        settings = get_settings()
+        return {
+            "enabled": bool(settings.get("voxtral_enabled")),
+            "mistral_api_key": str(settings.get("mistral_api_key") or ""),
+            "voxtral_model": str(settings.get("voxtral_model") or ""),
+        }
 
     def validate_environment(self) -> None:
         """Describe Voxtral environment validation."""
@@ -162,6 +195,11 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
         cleanup_root: Path | None = None
         temp_wav: Path | None = None
         profile_name = voice_profile_id
+
+        # Priority 1: Resolved voice_id from hook (becomes voice_asset_id for Voxtral)
+        if request.get("voice_id"):
+             voice_asset_id = str(request["voice_id"])
+
         render_wav_path = output_path
         if reference_audio_path:
             cleanup_root, profile_name, reference_sample = self._stage_reference_audio(
@@ -361,3 +399,68 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
         if not callable(cancel_check):
             raise EngineRequestError("Voxtral cancel_check callback must be callable.")
         return cancel_check
+
+class VoxtralProcessingHooks(VoiceProcessingHooks):
+    """Voxtral-specific processing hooks for Studio 2.0."""
+
+    def plan_synthesis(self, req: TTSRequest) -> SynthesisPlan:
+        """Return a synthesis plan for Voxtral.
+
+        Voxtral handles long context well, so we don't enforce small chunks.
+        """
+        return SynthesisPlan(metadata={"engine": "voxtral"})
+
+    def preprocess_request(self, request: dict[str, Any]) -> None:
+        """Apply Voxtral-specific logic to the raw request."""
+        # 1. Resolve reference audio path if not provided
+        if not request.get("reference_audio_path"):
+            profile_id = request.get("voice_profile_id")
+            if profile_id:
+                from app.jobs.speaker import get_speaker_wavs
+                from app.jobs.worker import _resolve_voxtral_reference_audio_path
+                try:
+                    sw = get_speaker_wavs(str(profile_id))
+                    # Fallback to output_path parent for pdir if needed
+                    pdir = Path(str(request.get("output_path", "."))).parent
+                    resolved = _resolve_voxtral_reference_audio_path(
+                        pdir=pdir,
+                        reference_sample=request.get("reference_sample"),
+                        speaker_wavs=sw
+                    )
+                    if resolved:
+                        request["reference_audio_path"] = resolved
+                except Exception:
+                    pass
+
+        # 2. Apply model from settings if not in request
+        if not request.get("voxtral_model"):
+            from app.state import get_settings
+            settings = get_settings()
+            request["voxtral_model"] = settings.get("voxtral_model")
+
+    def select_voice(self, profile_id: str, settings: dict[str, Any]) -> str | None:
+        """Resolve a Voxtral speaker profile into a voice ID."""
+        from app.jobs.speaker import get_speaker_settings
+        try:
+            spk = get_speaker_settings(profile_id)
+            return spk.get("voxtral_voice_id")
+        except Exception:
+            return None
+
+    def check_readiness(self, profile_id: str, settings: dict[str, Any], profile_dir: str | None) -> tuple[bool, str]:
+        """Voxtral is ready if it has a voice ID, a reference sample, or raw samples."""
+        import os
+
+        if settings.get("voxtral_voice_id"):
+            return True, "OK"
+
+        ref_sample = settings.get("reference_sample")
+        if ref_sample and profile_dir and os.path.exists(os.path.join(profile_dir, ref_sample)):
+            return True, "OK"
+
+        if profile_dir and os.path.isdir(profile_dir):
+            wavs = [f for f in os.listdir(profile_dir) if f.lower().endswith(".wav") and f != "sample.wav"]
+            if wavs:
+                return True, "OK"
+
+        return False, "Add at least one sample or a voice ID before using this voice."

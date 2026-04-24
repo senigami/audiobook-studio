@@ -45,11 +45,13 @@ class LoadedPlugin:
         plugin_dir: Path,
         manifest: dict[str, Any],
         engine: Any,
+        settings_schema: dict[str, Any] | None = None,
     ) -> None:
         self.folder_name = folder_name
         self.plugin_dir = plugin_dir
         self.manifest = manifest
         self.engine = engine
+        self.settings_schema = settings_schema or {}
         self.verified: bool = False
         self.verification_error: str | None = None
 
@@ -178,11 +180,14 @@ def _load_plugin(*, plugin_dir: Path, folder_name: str) -> LoadedPlugin:
         )
         # Still return the plugin — it will show in Settings as "needs_setup".
 
+    settings_schema = _load_optional_json(plugin_dir / "settings_schema.json")
+
     return LoadedPlugin(
         folder_name=folder_name,
         plugin_dir=plugin_dir,
         manifest=manifest,
         engine=engine,
+        settings_schema=settings_schema,
     )
 
 
@@ -257,6 +262,19 @@ def _validate_manifest(*, manifest: dict[str, Any], folder_name: str) -> None:
         raise PluginLoadError(
             f"capabilities must include 'synthesis' in {folder_name}"
         )
+
+
+def _load_optional_json(path: Path) -> dict[str, Any]:
+    """Load JSON from ``path`` when present, otherwise return an empty dict."""
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise PluginLoadError(
+            f"{path.name} is not valid JSON: {exc}"
+        ) from exc
+    return data if isinstance(data, dict) else {}
 
 
 def _import_engine_class(

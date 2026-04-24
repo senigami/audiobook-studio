@@ -18,7 +18,7 @@ def clean_db(tmp_path):
     app.db.core.init_db()
 
     from app.state import update_settings
-    update_settings({"default_speaker_profile": "Voice1"})
+    update_settings({"default_speaker_profile": "Voice1", "mistral_api_key": ""})
 
     yield
 
@@ -130,6 +130,17 @@ def test_enqueue_single_sets_descriptive_custom_title(clean_db, client):
     assert response.status_code == 200
     job = mock_put_job.call_args.args[0]
     assert job.custom_title == "Generating audio for chapter_01"
+
+
+def test_enqueue_single_rejects_disabled_xtts(clean_db, client):
+    bridge = MagicMock()
+    bridge.is_engine_enabled.return_value = False
+
+    with patch("app.api.routers.generation.create_voice_bridge", return_value=bridge):
+        response = client.post("/api/generation/enqueue-single", data={"chapter_file": "chapter_01.txt", "engine": "xtts"})
+
+    assert response.status_code == 400
+    assert "Enable" in response.json()["message"]
 
 
 def test_generate_segments_pure_xtts_use_mixed_worker(clean_db, client):

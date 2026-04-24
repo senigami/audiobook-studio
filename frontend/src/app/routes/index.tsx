@@ -15,6 +15,7 @@ import { createChapterEditorRoute } from '../../features/chapter-editor/routes/C
 import { createProjectLibraryRoute } from '../../features/project-library/routes/ProjectLibraryRoute';
 import { createProjectViewRoute } from '../../features/project-view/routes/ProjectViewRoute';
 import { createQueueRoute } from '../../features/queue/routes/QueueRoute';
+import { createSettingsRoute } from '../../features/settings/routes';
 import { createVoiceModulesRoute } from '../../features/settings/voice-modules/routes/VoiceModulesRoute';
 
 const INTENDED_UPSTREAM_CALLERS = ['frontend/src/main.tsx', 'frontend/src/App.tsx'];
@@ -26,6 +27,7 @@ const INTENDED_DOWNSTREAM_DEPENDENCIES = [
   'frontend/src/features/project-view/routes/ProjectViewRoute.tsx',
   'frontend/src/features/chapter-editor/routes/ChapterEditorRoute.tsx',
   'frontend/src/features/queue/routes/QueueRoute.tsx',
+  'frontend/src/features/settings/routes/SettingsRoute.tsx',
   'frontend/src/features/settings/voice-modules/routes/VoiceModulesRoute.tsx',
 ];
 const FORBIDDEN_DIRECT_IMPORTS = [
@@ -52,6 +54,7 @@ export const createStudioRoutes = () => {
     createProjectViewRoute,
     createChapterEditorRoute,
     createQueueRoute,
+    createSettingsRoute,
     createVoiceModulesRoute,
   ]);
   return [];

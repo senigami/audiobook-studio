@@ -9,12 +9,14 @@ import type {
   Audiobook, 
   SpeakerProfile, 
   Settings, 
-  SegmentProgress 
+  SegmentProgress,
+  TtsEngine
 } from '../types';
 import type { StudioShellState } from '../app/navigation/model';
 
 // Extracted Components
 import { ProjectBreadcrumbs } from './project/ProjectBreadcrumbs';
+import { ProjectSubnav } from './project/ProjectSubnav';
 import { ProjectHeader } from './project/ProjectHeader';
 import { AssemblyProgress } from './project/AssemblyProgress';
 import { ChapterList } from './project/ChapterList';
@@ -34,6 +36,7 @@ interface ProjectViewProps {
   speakerProfiles: SpeakerProfile[];
   speakers: import('../types').Speaker[];
   settings?: Settings;
+  engines?: TtsEngine[];
   refreshTrigger?: number;
   segmentUpdate?: { chapterId: string; tick: number };
   chapterUpdate?: { chapterId: string; tick: number };
@@ -45,14 +48,18 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
   segmentProgress = {}, 
   speakerProfiles, 
   speakers, 
-  settings, 
+  settings,
+  engines = [],
   refreshTrigger = 0, 
   segmentUpdate, 
   chapterUpdate,
   shellState
 }) => {
   const RECENT_DONE_WINDOW_SECONDS = 60;
-  const { projectId } = useParams() as { projectId: string };
+  const { projectId: routeProjectId, chapterId: routeChapterId } = useParams() as { projectId?: string, chapterId?: string };
+  const effectiveProjectId = routeProjectId || shellState?.navigation.activeProjectId || "";
+  const editingChapterId = routeChapterId || shellState?.navigation.activeChapterId || null;
+
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -60,13 +67,16 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentTab, setCurrentTab] = useState<'chapters' | 'characters'>('chapters');
-  const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
   const [availableAudiobooks, setAvailableAudiobooks] = useState<Audiobook[]>([]);
   const [isAssemblyMode, setIsAssemblyMode] = useState(false);
   const [selectedChapters, setSelectedChapters] = useState<Set<string>>(new Set());
   const [selectedVoice, setSelectedVoice] = useState<string>('');
   const [hasResolvedInitialVoice, setHasResolvedInitialVoice] = useState(false);
   const [isExporting, setIsExporting] = useState<string | null>(null);
+  const anyEnginesEnabled = React.useMemo(
+    () => (engines || []).length === 0 || (engines || []).some(e => e.enabled && e.status === 'ready'),
+    [engines]
+  );
 
   const pickLatestJob = React.useCallback((predicate: (job: Job) => boolean, includeDone = false) => {
     return pickRelevantJob(Object.values(jobs).filter(predicate), includeDone);
@@ -88,27 +98,25 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
     if (!project || speakerProfiles.length === 0) return;
 
     const projectProfile = project.speaker_profile_name || '';
-    const normalizedProjectProfile = projectProfile && speakerProfiles.some(p => p.name === projectProfile)
-      ? projectProfile
-      : '';
 
-    if (selectedVoice !== normalizedProjectProfile || !hasResolvedInitialVoice) {
-      setSelectedVoice(normalizedProjectProfile);
+    if (selectedVoice !== projectProfile || !hasResolvedInitialVoice) {
+      setSelectedVoice(projectProfile);
       setHasResolvedInitialVoice(true);
     }
   }, [project, speakerProfiles, selectedVoice, settings?.default_speaker_profile, hasResolvedInitialVoice]);
 
   const loadData = async (isTransition = false) => {
+    if (!effectiveProjectId) return;
     if (isTransition) setLoading(true);
     try {
       const [projData, chapsData] = await Promise.all([
-        api.fetchProject(projectId),
-        api.fetchChapters(projectId)
+        api.fetchProject(effectiveProjectId),
+        api.fetchChapters(effectiveProjectId)
       ]);
       setProject(projData);
       setChapters(chapsData);
       try {
-        const audiobooksData = await api.fetchProjectAudiobooks(projectId);
+        const audiobooksData = await api.fetchProjectAudiobooks(effectiveProjectId);
         setAvailableAudiobooks(audiobooksData || []);
       } catch (err) { setAvailableAudiobooks([]); }
     } catch (e) { 
@@ -129,16 +137,16 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
     handleQueueAllUnprocessed,
     handleAssembleProject,
     handleDeleteAudiobook
-  } = useProjectActions(projectId, loadData, navigate);
+  } = useProjectActions(effectiveProjectId, loadData, navigate);
 
   useEffect(() => { 
-    const isTransition = project?.id !== projectId;
+    const isTransition = project?.id !== effectiveProjectId;
     if (isTransition) {
       setProject(null);
       setChapters([]);
     }
     loadData(isTransition); 
-  }, [projectId, refreshTrigger]);
+  }, [effectiveProjectId, refreshTrigger]);
 
   // Sync currentTab with shellState or URL fallback
   useEffect(() => {
@@ -168,7 +176,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
     setSelectedVoice(voice);
     setProject(prev => prev ? { ...prev, speaker_profile_name: voice || null } : prev);
     try {
-      await api.updateProject(projectId, { speaker_profile_name: voice || null });
+      await api.updateProject(effectiveProjectId, { speaker_profile_name: voice || null });
     } catch (e) {
       console.error(e);
       setSelectedVoice(previousVoice);
@@ -176,21 +184,22 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
     }
   };
 
-  const mergedVoices = buildVoiceOptions(speakerProfiles || [], speakers || []);
+  const mergedVoices = React.useMemo(
+    () => buildVoiceOptions(speakerProfiles || [], speakers || [], engines),
+    [speakerProfiles, speakers, engines]
+  );
+  const availableVoiceNames = React.useMemo(() => new Set(mergedVoices.map(v => v.value)), [mergedVoices]);
   const effectiveProjectVoice = React.useMemo(() => {
-    if (project?.speaker_profile_name && speakerProfiles.some(p => p.name === project.speaker_profile_name)) {
-      return project.speaker_profile_name;
-    }
-    const savedDefault = settings?.default_speaker_profile || '';
-    if (savedDefault && speakerProfiles.some(p => p.name === savedDefault)) {
-      return savedDefault;
-    }
-    return getDefaultVoiceProfileName(speakerProfiles) || '';
-  }, [project?.speaker_profile_name, settings?.default_speaker_profile, speakerProfiles]);
+    return selectedVoice
+      || project?.speaker_profile_name
+      || settings?.default_speaker_profile
+      || getDefaultVoiceProfileName(speakerProfiles)
+      || '';
+  }, [selectedVoice, project?.speaker_profile_name, settings?.default_speaker_profile, speakerProfiles]);
   const projectDefaultVoiceLabel = React.useMemo(() => {
-    const fallbackVoiceLabel = getVoiceOptionLabel(effectiveProjectVoice, speakerProfiles, speakers);
+    const fallbackVoiceLabel = getVoiceOptionLabel(effectiveProjectVoice, speakerProfiles, speakers, engines);
     return fallbackVoiceLabel ? `Default Speaker (${fallbackVoiceLabel})` : 'Default Speaker';
-  }, [effectiveProjectVoice, speakerProfiles, speakers]);
+  }, [effectiveProjectVoice, speakerProfiles, speakers, engines]);
 
   const formatLength = (seconds: number) => {
     if (seconds < 60) return `${Math.round(seconds)}s`;
@@ -216,7 +225,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
     return new Date(timestamp * 1000).toLocaleDateString();
   };
 
-  if (loading) return <div style={{ padding: '2rem' }}>Loading project...</div>;
+  if (loading) return <div style={{ padding: '2rem' }}>{editingChapterId ? 'Loading chapter...' : 'Loading project...'}</div>;
   if (!project) return <div style={{ padding: '2rem' }}>Project not found.</div>;
 
   const totalRuntime = (Array.isArray(chapters) ? chapters : []).reduce((acc, c) => acc + (c.audio_status === 'done' ? (c.audio_length_seconds || c.predicted_audio_length || 0) : 0), 0);
@@ -225,7 +234,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
 
   // Derive editor state
   const matchingChapterJobs = Object.values(jobs).filter(j =>
-    j.project_id === projectId &&
+    j.project_id === effectiveProjectId &&
     (j.chapter_id === editingChapterId || j.chapter_file?.includes(editingChapterId || 'none'))
   );
   const chapterRenderJobs = matchingChapterJobs.filter(isChapterScopedJob);
@@ -257,13 +266,13 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
       }}
     >
       <ProjectBreadcrumbs
-        projectId={projectId}
+        projectId={effectiveProjectId}
         projectTitle={project.name}
         chapterTitle={activeChapter?.title || undefined}
         selectedChapterId={editingChapterId || undefined}
         chapters={chapters}
-        onProjectClick={editingChapterId ? () => { setEditingChapterId(null); loadData(); } : undefined}
-        onNavigateChapter={(id) => setEditingChapterId(id)}
+        onProjectClick={editingChapterId ? () => navigate(`/project/${effectiveProjectId}`) : undefined}
+        onNavigateChapter={(id) => navigate(`/chapter/${id}`)}
       />
 
       <div 
@@ -299,15 +308,16 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
         {editingChapterId ? (
           <ChapterEditor 
             chapterId={editingChapterId} 
-            projectId={projectId} 
+            projectId={effectiveProjectId} 
             speakerProfiles={speakerProfiles} 
             speakers={speakers}
+            engines={engines}
             job={pickRelevantJob(chapterRenderJobs, includeDoneForEditor)}
             chapterJobs={segmentJobs}
             segmentProgress={segmentProgress}
             selectedVoice={effectiveProjectVoice}
-            onNext={activeIdx < chapters.length - 1 ? () => setEditingChapterId(chapters[activeIdx + 1].id) : undefined}
-            onPrev={activeIdx > 0 ? () => setEditingChapterId(chapters[activeIdx - 1].id) : undefined}
+            onNext={activeIdx < chapters.length - 1 ? () => navigate(`/chapter/${chapters[activeIdx + 1].id}`) : undefined}
+            onPrev={activeIdx > 0 ? () => navigate(`/chapter/${chapters[activeIdx - 1].id}`) : undefined}
             segmentUpdate={segmentUpdate}
             chapterUpdate={chapterUpdate}
           />
@@ -315,39 +325,20 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
           <>
             <AssemblyProgress 
               project={project} 
-              activeAssemblyJob={pickLatestJob(j => j.engine === 'audiobook' && j.project_id === projectId, false)} 
-              finishedAssemblyJob={pickLatestJob(j => j.engine === 'audiobook' && j.project_id === projectId, true)} 
+              activeAssemblyJob={pickLatestJob(j => j.engine === 'audiobook' && j.project_id === effectiveProjectId, false)}
+              finishedAssemblyJob={pickLatestJob(j => j.engine === 'audiobook' && j.project_id === effectiveProjectId, true)}
             />
 
-            <nav style={{ display: 'flex', gap: '1rem', padding: '0 0.75rem 0.25rem', marginBottom: '0.75rem', borderBottom: '1px solid var(--border)' }}>
-              <button 
-                onClick={() => navigate(`/project/${projectId}?tab=chapters`)}
-                style={{ 
-                  background: 'none', border: 'none', padding: '4px 10px', borderRadius: '8px 8px 0 0',
-                  fontSize: '0.9rem', fontWeight: 700,
-                  color: currentTab === 'chapters' ? 'var(--accent)' : 'var(--text-muted)',
-                  borderBottom: currentTab === 'chapters' ? '2px solid var(--accent)' : '2px solid transparent',
-                  cursor: 'pointer'
-                }}
-              >
-                Chapters
-              </button>
-              <button 
-                onClick={() => navigate(`/project/${projectId}?tab=characters`)}
-                style={{ 
-                  background: 'none', border: 'none', padding: '4px 10px', borderRadius: '8px 8px 0 0',
-                  fontSize: '0.9rem', fontWeight: 700,
-                  color: currentTab === 'characters' ? 'var(--accent)' : 'var(--text-muted)',
-                  borderBottom: currentTab === 'characters' ? '2px solid var(--accent)' : '2px solid transparent',
-                  cursor: 'pointer'
-                }}
-              >
-                Characters
-              </button>
-            </nav>
+            <ProjectSubnav 
+              items={shellState?.projectSubnav || [
+                { id: 'project-chapters', label: 'Chapters', href: `/project/${effectiveProjectId}` },
+                { id: 'project-characters', label: 'Characters', href: `/project/${effectiveProjectId}?tab=characters` },
+              ]} 
+              activeId={shellState?.navigation.activeProjectSubnavId || (currentTab === 'characters' ? 'project-characters' : 'project-chapters')} 
+            />
 
             {currentTab === 'characters' ? (
-              <CharactersTab projectId={projectId} speakers={speakers} speakerProfiles={speakerProfiles} />
+              <CharactersTab projectId={effectiveProjectId} speakers={speakers} speakerProfiles={speakerProfiles} />
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
@@ -360,8 +351,21 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
                       </>
                     ) : (
                       <>
-                        <button onClick={() => handleQueueAllUnprocessed(chapters, jobs, effectiveProjectVoice)} className="btn-ghost" style={{ border: '1px solid var(--border)', color: 'var(--accent)', fontSize: '0.85rem' }}><Zap size={16} /> Queue Remaining</button>
+                        <button 
+                          onClick={() => handleQueueAllUnprocessed(chapters, jobs, effectiveProjectVoice)} 
+                          className="btn-ghost" 
+                          disabled={!anyEnginesEnabled}
+                          title={!anyEnginesEnabled ? 'All TTS engines are disabled in Settings' : 'Queue all unprocessed chapters'}
+                          style={{ border: '1px solid var(--border)', color: anyEnginesEnabled ? 'var(--accent)' : 'var(--text-muted)', fontSize: '0.85rem' }}
+                        >
+                          <Zap size={16} /> Queue Remaining
+                        </button>
                         <select value={selectedVoice} onChange={e => { void handleProjectVoiceChange(e.target.value); }} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '0.85rem', padding: '0.25rem 0.5rem' }}>
+                          {selectedVoice && !availableVoiceNames.has(selectedVoice) && (
+                            <option value={selectedVoice} disabled>
+                              {getVoiceOptionLabel(selectedVoice, speakerProfiles, speakers, engines) || selectedVoice}
+                            </option>
+                          )}
                           <option value="">{projectDefaultVoiceLabel}</option>
                           {mergedVoices.map(v => <option key={v.id} value={v.value}>{v.name}</option>)}
                         </select>
@@ -373,16 +377,17 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
                 </div>
 
                 <ChapterList 
-                  chapters={chapters} projectId={projectId} jobs={jobs} isAssemblyMode={isAssemblyMode} selectedChapters={selectedChapters}
+                  chapters={chapters} projectId={effectiveProjectId} jobs={jobs} isAssemblyMode={isAssemblyMode} selectedChapters={selectedChapters}
+                  anyEnginesEnabled={anyEnginesEnabled}
                   onSelectChapter={id => setSelectedChapters(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; })}
                   onSelectAll={() => { const allDone = chapters.filter(c => c.audio_status === 'done').map(c => c.id); setSelectedChapters(selectedChapters.size === allDone.length ? new Set() : new Set(allDone)); }}
                   onReorder={(newOrder) => { setChapters(newOrder); handleReorderChapters(newOrder); }}
-                  onEditChapter={setEditingChapterId} 
+                  onEditChapter={id => navigate(`/chapter/${id}`)} 
                   onRenameChapter={async (id, title) => { await api.updateChapter(id, { title }); await loadData(); }}
                   onQueueChapter={chap => { if (chap.char_count > 50000) setConfirmConfig({ title: 'Large Chapter', message: 'Chapter is long. Queue anyway?', onConfirm: () => handleQueueChapter(chap.id, effectiveProjectVoice) }); else handleQueueChapter(chap.id, effectiveProjectVoice); }}
                   onResetAudio={id => setConfirmConfig({ title: 'Reset Audio', message: 'Delete all audio for this chapter?', isDestructive: true, onConfirm: () => handleResetChapterAudio(id) })}
                   onDeleteChapter={id => setConfirmConfig({ title: 'Delete Chapter', message: 'Permanently delete this chapter?', isDestructive: true, onConfirm: () => handleDeleteChapter(id) })}
-                  onExportSample={async chap => { setIsExporting(chap.id); const res = await api.exportSample(chap.id, projectId); if (res.url) window.open(res.url, '_blank'); setIsExporting(null); }}
+                  onExportSample={async chap => { setIsExporting(chap.id); const res = await api.exportSample(chap.id, effectiveProjectId); if (res.url) window.open(res.url, '_blank'); setIsExporting(null); }}
                   isExporting={isExporting} formatLength={formatLength}
                 />
               </div>
@@ -392,8 +397,8 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
       </div>
 
       <AddChapterModal isOpen={showAddModal} onClose={() => setShowAddModal(false)} onSubmit={async (t, tx, f) => { if (await handleCreateChapter(t, tx, f, chapters.length)) setShowAddModal(false); }} submitting={submitting} />
-      <EditProjectModal isOpen={showEditProjectModal} onClose={() => setShowEditProjectModal(false)} project={project} onSubmit={async d => { if (await handleUpdateProject(d)) setShowEditProjectModal(false); }} submitting={submitting} />
-      <CoverImageModal isOpen={showCoverModal} onClose={() => setShowCoverModal(false)} imagePath={project.cover_image_path || ''} />
+      <EditProjectModal isOpen={showEditProjectModal} onClose={() => setShowEditProjectModal(false)} project={project!} onSubmit={async d => { if (await handleUpdateProject(d)) setShowEditProjectModal(false); }} submitting={submitting} />
+      <CoverImageModal isOpen={showCoverModal} onClose={() => setShowCoverModal(false)} imagePath={project?.cover_image_path || ''} />
 
       <ConfirmModal isOpen={!!confirmConfig} title={confirmConfig?.title || ''} message={confirmConfig?.message || ''} onConfirm={() => { confirmConfig?.onConfirm(); setConfirmConfig(null); }} onCancel={() => setConfirmConfig(null)} isDestructive={confirmConfig?.isDestructive} confirmText={confirmConfig?.confirmText} />
     </div>

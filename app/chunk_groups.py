@@ -46,7 +46,7 @@ def build_chunk_groups(segments: list[dict], default_profile: str | None) -> lis
             continue
 
         profile_name = resolve_segment_profile_name(segment, default_profile)
-        engine = resolve_profile_engine(profile_name, "xtts")
+        engine = resolve_profile_engine(profile_name, "unknown")
         text_length = len(text)
 
         last_group = groups[-1] if groups else None

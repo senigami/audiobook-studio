@@ -27,7 +27,6 @@ def test_save_settings_ignores_deprecated_speed(client, clean_state):
     # 1. Update settings with deprecated field
     response = client.post("/settings", data={
         "safe_mode": "false",
-        "make_mp3": "true",
         "xtts_speed": "1.5"
     })
     assert response.status_code == 200
@@ -35,7 +34,6 @@ def test_save_settings_ignores_deprecated_speed(client, clean_state):
 
     # 2. Check that valid fields updated
     assert data["safe_mode"] is False
-    assert data["make_mp3"] is True
 
     # 3. Check that xtts_speed was ignored/not saved
     assert "xtts_speed" not in data
@@ -51,11 +49,12 @@ def test_get_speaker_settings_uses_hardcoded_fallback(clean_state):
 def test_api_home_reflects_new_state_structure(client, clean_state):
     response = client.get("/api/home")
     assert response.status_code == 200
-    settings = response.json()["settings"]
+    payload = response.json()
+    settings = payload["settings"]
 
-    assert "make_mp3" in settings
     assert "safe_mode" in settings
     assert "xtts_speed" not in settings
+    assert "render_stats" in payload
 
 
 def test_get_settings_does_not_persist_normalization_on_read(clean_state):

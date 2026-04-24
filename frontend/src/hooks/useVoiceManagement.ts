@@ -269,6 +269,23 @@ export function useVoiceManagement(
         return false;
     }, [onRefresh]);
 
+    const handleUpdateSettings = useCallback(async (name: string, settings: Record<string, any>) => {
+        try {
+            const resp = await fetch(`/api/speaker-profiles/${encodeURIComponent(name)}/settings`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(settings)
+            });
+            if (resp.ok) {
+                onRefresh();
+                return true;
+            }
+        } catch (err) {
+            console.error('Failed to update profile settings', err);
+        }
+        return false;
+    }, [onRefresh]);
+
     // Expose a boolean-compatible version of buildingProfiles for consumers
     const buildingProfilesBool: Record<string, boolean> = Object.fromEntries(
         Object.keys(buildingProfiles).map(k => [k, true])
@@ -285,6 +302,7 @@ export function useVoiceManagement(
         handleUpdateEngine,
         handleUpdateReferenceSample,
         handleUpdateVoxtralVoiceId,
+        handleUpdateSettings,
         formatError
     };
 }

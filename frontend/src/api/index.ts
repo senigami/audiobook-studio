@@ -1,15 +1,29 @@
-import type { Job, Project, Chapter } from '../types';
+import type { Job, Project, Chapter, ProductionBlocksResponse, ProductionBlock, ScriptViewResponse, ScriptAssignmentsUpdate } from '../types';
 import { DEFAULT_VOICE_SENTINEL } from '../constants/api';
 
 const parseApiResponse = async (res: Response) => {
   const data = await res.json();
   if (!res.ok || data?.status === 'error') {
-    throw new Error(data?.message || 'Request failed');
+    const error = new Error(data?.message || 'Request failed') as Error & { status?: number };
+    error.status = res.status;
+    throw error;
   }
   return data;
 };
 
 export const api = {
+  fetchHome: async (): Promise<any> => {
+    const res = await fetch('/api/home');
+    return res.json();
+  },
+  resetRenderStats: async (): Promise<any> => {
+    const res = await fetch('/api/system/render-stats/reset', { method: 'POST' });
+    return res.json();
+  },
+  restartTtsServer: async (): Promise<any> => {
+    const res = await fetch('/api/system/tts-server/restart', { method: 'POST' });
+    return res.json();
+  },
   // --- Projects ---
   fetchProjects: async (): Promise<Project[]> => {
     const res = await fetch('/api/projects');
@@ -87,6 +101,10 @@ export const api = {
     const res = await fetch(`/api/projects/${projectId}/chapters`);
     return res.json();
   },
+  fetchChapter: async (chapterId: string): Promise<Chapter> => {
+    const res = await fetch(`/api/chapters/${chapterId}`);
+    return res.json();
+  },
   createChapter: async (projectId: string, data: { title: string; text_content?: string; sort_order?: number; file?: File }): Promise<{status: string, chapter: Chapter}> => {
     const formData = new FormData();
     formData.append('title', data.title);
@@ -117,6 +135,91 @@ export const api = {
   analyzeChapter: async (chapterId: string): Promise<any> => {
     const res = await fetch(`/api/chapters/${chapterId}/analyze`);
     return res.json();
+  },
+  fetchProductionBlocks: async (chapterId: string): Promise<ProductionBlocksResponse> => {
+    const res = await fetch(`/api/chapters/${chapterId}/production-blocks`);
+    return parseApiResponse(res);
+  },
+  fetchScriptView: async (chapterId: string): Promise<ScriptViewResponse> => {
+    const res = await fetch(`/api/chapters/${chapterId}/script-view`);
+    return parseApiResponse(res);
+  },
+  saveScriptAssignments: async (chapterId: string, payload: ScriptAssignmentsUpdate): Promise<ScriptViewResponse> => {
+    const res = await fetch(`/api/chapters/${chapterId}/script-view/assignments`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (res.status === 409) {
+      const errorData = await res.json();
+      const err = new Error(errorData.message || 'Revision mismatch');
+      (err as any).status = 409;
+      (err as any).expected_base_revision_id = errorData.expected_base_revision_id;
+      (err as any).base_revision_id = errorData.base_revision_id;
+      throw err;
+    }
+    return parseApiResponse(res);
+  },
+  compactScriptView: async (chapterId: string, baseRevisionId?: string): Promise<ScriptViewResponse> => {
+    const res = await fetch(`/api/chapters/${chapterId}/script-view/compact`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ base_revision_id: baseRevisionId })
+    });
+    if (res.status === 409) {
+      const errorData = await res.json();
+      const err = new Error(errorData.message || 'Revision mismatch');
+      (err as any).status = 409;
+      (err as any).expected_base_revision_id = errorData.expected_base_revision_id;
+      (err as any).base_revision_id = errorData.base_revision_id;
+      throw err;
+    }
+    return parseApiResponse(res);
+  },
+  previewSourceTextResync: async (chapterId: string, textContent: string): Promise<{
+    total_segments_before: number;
+    total_segments_after: number;
+    preserved_assignments_count: number;
+    lost_assignments_count: number;
+    affected_character_names: string[];
+    is_destructive: boolean;
+  }> => {
+    const res = await fetch(`/api/chapters/${chapterId}/source-text/preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text_content: textContent })
+    });
+    return parseApiResponse(res);
+  },
+  updateProductionBlocks: async (
+    chapterId: string,
+    data: { base_revision_id?: string; blocks: ProductionBlock[] }
+  ): Promise<ProductionBlocksResponse> => {
+    const res = await fetch(`/api/chapters/${chapterId}/production-blocks`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        base_revision_id: data.base_revision_id,
+        blocks: data.blocks,
+      }),
+    });
+    return parseApiResponse(res);
+  },
+  exportChapterAudio: async (chapterId: string, format: 'wav' | 'mp3'): Promise<Blob> => {
+    const res = await fetch(`/api/chapters/${chapterId}/export-audio`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ format }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      throw new Error(data?.message || 'Audio export failed');
+    }
+    return res.blob();
   },
 
   // --- Segments ---
@@ -256,5 +359,43 @@ export const api = {
     const endpoint = paused ? '/queue/pause' : '/queue/resume';
     const res = await fetch(endpoint, { method: 'POST' });
     return res.json();
+  },
+
+  // --- Engines ---
+  fetchEngines: async (): Promise<any[]> => {
+    const res = await fetch('/api/engines');
+    return parseApiResponse(res);
+  },
+  updateEngineSettings: async (engineId: string, settings: Record<string, any>): Promise<any> => {
+    const res = await fetch(`/api/engines/${encodeURIComponent(engineId)}/settings`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(settings),
+    });
+    return parseApiResponse(res);
+  },
+  refreshPlugins: async (): Promise<any> => {
+    const res = await fetch('/api/engines/refresh', { method: 'POST' });
+    return parseApiResponse(res);
+  },
+  verifyEngine: async (engineId: string): Promise<any> => {
+    const res = await fetch(`/api/engines/${encodeURIComponent(engineId)}/verify`, { method: 'POST' });
+    return parseApiResponse(res);
+  },
+  installEngineDependencies: async (engineId: string): Promise<any> => {
+    const res = await fetch(`/api/engines/${encodeURIComponent(engineId)}/install`, { method: 'POST' });
+    return parseApiResponse(res);
+  },
+  removeEnginePlugin: async (engineId: string): Promise<any> => {
+    const res = await fetch(`/api/engines/${encodeURIComponent(engineId)}`, { method: 'DELETE' });
+    return parseApiResponse(res);
+  },
+  fetchEngineLogs: async (engineId: string): Promise<any> => {
+    const res = await fetch(`/api/engines/${encodeURIComponent(engineId)}/logs`);
+    return parseApiResponse(res);
+  },
+  installPlugin: async (): Promise<any> => {
+    const res = await fetch('/api/engines/install', { method: 'POST' });
+    return parseApiResponse(res);
   },
 };

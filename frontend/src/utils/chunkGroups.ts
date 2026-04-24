@@ -1,5 +1,6 @@
 import type { ChapterSegment, Character, SpeakerProfile, VoiceEngine } from '../types';
 import { CHUNK_CHAR_LIMIT } from '../constants/audio';
+import { getVoiceProfileEngine } from './voiceProfiles';
 
 export interface ChunkGroup {
   characterId: string | null;
@@ -28,14 +29,14 @@ export function buildChunkGroups(
   const profileEngineMap = new Map<string, VoiceEngine>(
     speakerProfiles
       .filter((profile): profile is SpeakerProfile & { name: string } => !!profile?.name)
-      .map(profile => [profile.name, profile.engine || 'xtts'])
+      .map(profile => [profile.name, getVoiceProfileEngine(profile) || 'unknown'])
   );
 
   segments.forEach(seg => {
     const text = (seg.text_content || '').trim();
     if (!text) return;
     const profileName = resolveSegmentProfileName(seg, characters, defaultProfile);
-    const engine = profileName ? (profileEngineMap.get(profileName) || 'xtts') : 'xtts';
+    const engine = profileName ? (profileEngineMap.get(profileName) || 'unknown') : 'unknown';
     const lastGroup = groups[groups.length - 1];
 
     if (

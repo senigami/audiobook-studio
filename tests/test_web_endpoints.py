@@ -157,6 +157,24 @@ def test_serves_nested_frontend_dist_files_with_containment(monkeypatch, tmp_pat
     assert client.get("/images/../secret.txt").status_code == 404
 
 
+def test_serves_spa_shell_with_no_store_headers(monkeypatch, tmp_path):
+    dist_dir = tmp_path / "dist"
+    dist_dir.mkdir()
+    (dist_dir / "index.html").write_text("<html><body>shell</body></html>", encoding="utf-8")
+
+    monkeypatch.setattr("app.web.FRONTEND_DIST", dist_dir)
+
+    res = client.get("/settings/engines")
+    assert res.status_code == 200
+    assert "no-store" in res.headers.get("cache-control", "")
+    assert res.headers.get("pragma") == "no-cache"
+    assert res.headers.get("expires") == "0"
+
+    root_res = client.get("/")
+    assert root_res.status_code == 200
+    assert "no-store" in root_res.headers.get("cache-control", "")
+
+
 def test_serves_legacy_output_files_without_precreated_mounts(monkeypatch, tmp_path):
     xtts_dir = tmp_path / "xtts_audio"
     audiobook_dir = tmp_path / "audiobooks"

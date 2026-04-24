@@ -210,10 +210,11 @@ describe('Voices Tab Components', () => {
                     onRenameClick={vi.fn()}
                     isExpanded={true}
                     onToggleExpand={vi.fn()}
+                    engines={[{ engine_id: 'voxtral', display_name: 'Voxtral', enabled: true, verified: true } as any]}
                 />
             );
 
-            expect(screen.getAllByText('Voxtral').length).toBeGreaterThan(0);
+            expect(screen.getAllByText(/voxtral/i).length).toBeGreaterThan(0);
             expect(screen.queryByText('1.00x')).not.toBeInTheDocument();
             expect(screen.queryByText('Rebuild')).not.toBeInTheDocument();
             expect(screen.getByText('BUILD TO TEST')).toBeInTheDocument();
@@ -267,13 +268,13 @@ describe('Voices Tab Components', () => {
                     onRenameClick={vi.fn()}
                     isExpanded={true}
                     onToggleExpand={vi.fn()}
-                    voxtralAvailable={false}
+                    engines={[{ engine_id: 'voxtral', display_name: 'Voxtral', enabled: false, verified: true } as any]}
                 />
             );
 
             expect(screen.getByTitle('Play Sample')).not.toBeDisabled();
             expect(screen.getByRole('button', { name: /Regenerate/i })).toBeDisabled();
-            expect(screen.getByText(/Voxtral is turned off in Settings/i)).toBeInTheDocument();
+            expect(screen.getByText(/turned off in Settings/i)).toBeInTheDocument();
         });
     });
 

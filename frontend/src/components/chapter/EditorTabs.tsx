@@ -2,12 +2,14 @@ import React from 'react';
 import { RefreshCw } from 'lucide-react';
 
 interface EditorTabsProps {
-  editorTab: 'edit' | 'preview' | 'production' | 'performance';
-  setEditorTab: (tab: 'edit' | 'preview' | 'production' | 'performance') => void;
+  editorTab: 'script' | 'edit' | 'preview' | 'production' | 'performance';
+  setEditorTab: (tab: 'script' | 'edit' | 'preview' | 'production' | 'performance') => void;
   onSave: () => Promise<boolean>;
   onEnsureVoiceChunks: () => Promise<void>;
+  onRequestEditSourceText?: () => void;
   analysis?: any;
   loadingVoiceChunks: boolean;
+  sourceTextMode?: 'view' | 'edit';
 }
 
 export const EditorTabs: React.FC<EditorTabsProps> = ({
@@ -15,39 +17,49 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
   setEditorTab,
   onSave,
   onEnsureVoiceChunks,
+  onRequestEditSourceText,
   analysis,
-  loadingVoiceChunks
+  loadingVoiceChunks,
+  sourceTextMode = 'view'
 }) => {
   return (
-    <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem', flexShrink: 0 }}>
-      <button 
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', marginBottom: '1rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem', flexShrink: 0 }}>
+      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+        <button 
+          onClick={() => setEditorTab('script')} 
+          className={editorTab === 'script' ? 'btn-primary' : 'btn-ghost'}
+          style={{ padding: '8px 16px', fontSize: '0.9rem', borderRadius: '8px' }}
+        >
+            Script
+        </button>
+        <button 
           onClick={() => setEditorTab('edit')} 
           className={editorTab === 'edit' ? 'btn-primary' : 'btn-ghost'}
           style={{ padding: '8px 16px', fontSize: '0.9rem', borderRadius: '8px' }}
-      >
-          Edit Text
-      </button>
-      <button 
+        >
+            Source Text
+        </button>
+        <button 
           onClick={async () => {
               await onSave();
               setEditorTab('production');
           }} 
           className={editorTab === 'production' ? 'btn-primary' : 'btn-ghost'}
           style={{ padding: '8px 16px', fontSize: '0.9rem', borderRadius: '8px' }}
-      >
-          Production
-      </button>
-      <button 
+        >
+            Production
+        </button>
+        <button 
           onClick={async () => {
               await onSave();
               setEditorTab('performance');
           }} 
           className={editorTab === 'performance' ? 'btn-primary' : 'btn-ghost'}
           style={{ padding: '8px 16px', fontSize: '0.9rem', borderRadius: '8px' }}
-      >
-          Performance
-      </button>
-      <button 
+        >
+            Performance
+        </button>
+        <button 
           onClick={async () => {
               if (!analysis?.voice_chunks && !analysis?.safe_text) {
                   alert("Please wait for text to be analyzed...");
@@ -59,10 +71,21 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
           className={editorTab === 'preview' ? 'btn-primary' : 'btn-ghost'}
           style={{ padding: '8px 16px', fontSize: '0.9rem', borderRadius: '8px' }}
           disabled={(!analysis?.safe_text && !analysis?.voice_chunks && !analysis?.char_count) || loadingVoiceChunks}
-      >
-          {loadingVoiceChunks ? <RefreshCw size={14} className="animate-spin" style={{ display: 'inline', marginRight: '6px' }} /> : null}
-          Preview Safe Output
-      </button>
+        >
+            {loadingVoiceChunks ? <RefreshCw size={14} className="animate-spin" style={{ display: 'inline', marginRight: '6px' }} /> : null}
+            Preview Safe Output
+        </button>
+      </div>
+      {editorTab === 'edit' && sourceTextMode === 'view' && onRequestEditSourceText && (
+        <button
+          type="button"
+          className="btn-glass"
+          style={{ padding: '8px 14px', fontSize: '0.85rem', borderRadius: '8px', fontWeight: 800, whiteSpace: 'nowrap' }}
+          onClick={onRequestEditSourceText}
+        >
+          Edit Source Text
+        </button>
+      )}
     </div>
   );
 };

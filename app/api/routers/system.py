@@ -12,9 +12,11 @@ from ... import config
 from ...state import get_settings, update_settings, get_jobs, put_job, update_job
 from ...jobs import paused, set_paused, cleanup_and_reconcile, enqueue
 from ...db import list_speakers
+from ...db.performance import get_render_stats, reset_render_stats
 from ...models import Job
 from ...pathing import safe_basename, safe_join_flat
 from ..utils import read_preview
+from ...core.feature_flags import use_tts_server, use_studio_orchestrator
 
 # Compatibility for tests that monkeypatch these
 UPLOAD_DIR = config.UPLOAD_DIR
@@ -52,8 +54,74 @@ def get_xtts_out_dir() -> Path:
 
 router = APIRouter(prefix="/api", tags=["system"])
 
+
+def _build_runtime_services(request: Request) -> list[dict[str, Any]]:
+    from ...engines.watchdog import get_watchdog
+
+    services: list[dict[str, Any]] = []
+    api_base_url = str(request.base_url).rstrip("/")
+    services.append({
+        "id": "backend",
+        "label": "Backend API",
+        "kind": "api",
+        "url": api_base_url,
+        "port": request.url.port,
+        "healthy": True,
+        "pingable": True,
+        "status": "online",
+        "message": "Responding to Studio API requests.",
+        "can_restart": False,
+    })
+
+    watchdog = get_watchdog()
+    if use_tts_server():
+        if watchdog is None:
+            services.append({
+                "id": "tts_server",
+                "label": "TTS Server",
+                "kind": "tts_server",
+                "url": None,
+                "port": None,
+                "healthy": False,
+                "pingable": False,
+                "status": "not running",
+                "message": "TTS Server mode is enabled, but the watchdog has not started yet.",
+                "can_restart": False,
+            })
+        else:
+            healthy = watchdog.is_healthy()
+            services.append({
+                "id": "tts_server",
+                "label": "TTS Server",
+                "kind": "tts_server",
+                "url": watchdog.get_url(),
+                "port": watchdog.get_port(),
+                "healthy": healthy,
+                "pingable": healthy,
+                "status": "healthy" if healthy else "unhealthy",
+                "message": "Loaded plugins responded successfully." if healthy else "The TTS Server has stopped responding to health checks.",
+                "can_restart": True,
+                "circuit_open": watchdog.is_circuit_open(),
+            })
+    else:
+        services.append({
+            "id": "tts_server",
+            "label": "TTS Server",
+            "kind": "tts_server",
+            "url": None,
+            "port": None,
+            "healthy": True,
+            "pingable": False,
+            "status": "not launched",
+            "message": "Studio is running in direct in-process mode.",
+            "can_restart": False,
+        })
+
+    return services
+
 @router.get("/home")
 def api_home(
+    request: Request,
     voices_dir: Path = Depends(get_voices_dir),
 ):
     """Returns initial data for the React SPA."""
@@ -67,11 +135,24 @@ def api_home(
     from ...db import list_projects
     projects = list_projects()
 
+    from ...engines.bridge import create_voice_bridge
+    bridge = create_voice_bridge()
+    engines = bridge.describe_registry()
+    render_stats = get_render_stats()
+
     return {
         "chapters": [],
         "jobs": jobs,
         "settings": settings,
+        "engines": engines,
         "paused": paused(),
+        "version": "1.8.4",
+        "system_info": {
+            "backend_mode": "TTS-Server-Subprocess" if use_tts_server() else "Direct-In-Process",
+            "orchestrator": "Studio 2.0" if use_studio_orchestrator() else "Legacy (app.jobs)",
+            "api_base_url": str(request.base_url).rstrip("/"),
+        },
+        "runtime_services": _build_runtime_services(request),
         "narrator_ok": any(
             entry.is_dir() and entry.name == "Default"
             for entry in voices_dir.iterdir()
@@ -82,6 +163,7 @@ def api_home(
         "speaker_profiles": profiles,
         "speakers": speakers,
         "projects": projects,
+        "render_stats": render_stats,
     }
 
 
@@ -89,8 +171,8 @@ def api_home(
 async def save_settings(
     request: Request,
     safe_mode: Optional[Any] = Form(None),
-    make_mp3: Optional[Any] = Form(None),
-    voxtral_enabled: Optional[Any] = Form(None)
+    voxtral_enabled: Optional[Any] = Form(None),
+    enabled_plugins: Optional[str] = Form(None)
 ):
     updates = {}
 
@@ -107,7 +189,7 @@ async def save_settings(
         try:
             body = await request.json()
             if isinstance(body, dict):
-                for k in ["safe_mode", "make_mp3", "voxtral_enabled"]:
+                for k in ["safe_mode", "voxtral_enabled"]:
                     if k in body:
                         val = to_bool(body[k])
                         if val is not None:
@@ -118,6 +200,8 @@ async def save_settings(
                     updates["voxtral_model"] = str(body["voxtral_model"] or "").strip()
                 if "mistral_api_key" in body:
                     updates["mistral_api_key"] = str(body["mistral_api_key"] or "").strip()
+                if "enabled_plugins" in body and isinstance(body["enabled_plugins"], dict):
+                    updates["enabled_plugins"] = body["enabled_plugins"]
         except Exception:
             logger.warning("Failed to parse JSON settings payload", exc_info=True)
 
@@ -126,7 +210,7 @@ async def save_settings(
     except Exception:
         form = None
     if form:
-        for k in ["safe_mode", "make_mp3", "voxtral_enabled"]:
+        for k in ["safe_mode", "voxtral_enabled"]:
             if k not in updates and form.get(k) is not None:
                 val = to_bool(form.get(k))
                 if val is not None:
@@ -137,15 +221,16 @@ async def save_settings(
             updates["voxtral_model"] = str(form.get("voxtral_model") or "").strip()
         if "mistral_api_key" not in updates and form.get("mistral_api_key") is not None:
             updates["mistral_api_key"] = str(form.get("mistral_api_key") or "").strip()
+        if "enabled_plugins" not in updates and form.get("enabled_plugins") is not None:
+            try:
+                updates["enabled_plugins"] = json.loads(form.get("enabled_plugins"))
+            except Exception:
+                logger.warning("Failed to parse enabled_plugins from form")
 
     # 2. Try Form parameters (either from FastAPI's parsing or manual fallback)
     if "safe_mode" not in updates and safe_mode is not None:
         val = to_bool(safe_mode)
         if val is not None: updates["safe_mode"] = val
-
-    if "make_mp3" not in updates and make_mp3 is not None:
-        val = to_bool(make_mp3)
-        if val is not None: updates["make_mp3"] = val
 
     if "voxtral_enabled" not in updates and voxtral_enabled is not None:
         val = to_bool(voxtral_enabled)
@@ -162,6 +247,23 @@ async def save_settings(
         update_settings(updates)
 
     return JSONResponse({"status": "ok", "settings": get_settings()})
+
+
+@router.post("/system/render-stats/reset")
+def api_reset_render_stats():
+    stats = reset_render_stats()
+    return JSONResponse({"status": "ok", "render_stats": stats})
+
+
+@router.post("/system/tts-server/restart")
+def api_restart_tts_server():
+    from ...engines.watchdog import get_watchdog
+
+    watchdog = get_watchdog()
+    if watchdog is None:
+        raise HTTPException(status_code=503, detail="TTS Server watchdog is not running.")
+    watchdog.restart()
+    return JSONResponse({"status": "ok", "message": "TTS Server restart requested."})
 
 @router.post("/system/import-legacy")
 def api_import_legacy():

@@ -291,6 +291,8 @@ def _load_engine_manifest(*, manifest_path: Path) -> EngineManifestModel:
             for capability in payload.get("capabilities", [])
             if str(capability).strip()
         ),
+        built_in=True,
+        verified=True,
     )
 
 

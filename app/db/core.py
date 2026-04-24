@@ -178,6 +178,7 @@ def init_db():
                     engine TEXT NOT NULL,
                     speaker_profile TEXT,
                     chars INTEGER NOT NULL,
+                    word_count INTEGER DEFAULT 0,
                     segment_count INTEGER NOT NULL,
                     render_group_count INTEGER DEFAULT 0,
                     started_at REAL,
@@ -216,6 +217,7 @@ def init_db():
             add_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN chapter_id TEXT", "render_performance_samples.chapter_id")
             add_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN started_at REAL", "render_performance_samples.started_at")
             add_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN audio_duration_seconds REAL", "render_performance_samples.audio_duration_seconds")
+            add_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN word_count INTEGER DEFAULT 0", "render_performance_samples.word_count")
             add_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN make_mp3 INTEGER DEFAULT 0", "render_performance_samples.make_mp3")
 
             # Migration: Ensure project_id and chapter_id allow NULLs for system tasks

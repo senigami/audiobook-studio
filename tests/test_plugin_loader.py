@@ -13,6 +13,7 @@ from app.tts_server.plugin_loader import (
     discover_plugins,
     _PLUGIN_FOLDER_RE,
 )
+from app.tts_server.health import build_engine_detail
 
 
 # ---------------------------------------------------------------------------
@@ -43,7 +44,13 @@ class TestFolderNameRegex:
 # Manifest-based discovery
 # ---------------------------------------------------------------------------
 
-def _make_plugin_dir(tmp_path: Path, folder_name: str, manifest: dict, engine_src: str = "") -> Path:
+def _make_plugin_dir(
+    tmp_path: Path,
+    folder_name: str,
+    manifest: dict,
+    engine_src: str = "",
+    settings_schema: dict | None = None,
+) -> Path:
     """Helper to create a plugin directory with a manifest."""
     plugin_dir = tmp_path / folder_name
     plugin_dir.mkdir()
@@ -53,6 +60,10 @@ def _make_plugin_dir(tmp_path: Path, folder_name: str, manifest: dict, engine_sr
     if engine_src:
         (plugin_dir / "engine.py").write_text(
             textwrap.dedent(engine_src), encoding="utf-8"
+        )
+    if settings_schema is not None:
+        (plugin_dir / "settings_schema.json").write_text(
+            json.dumps(settings_schema), encoding="utf-8"
         )
     return plugin_dir
 
@@ -77,6 +88,18 @@ class MockEngine(StudioTTSEngine):
     def check_request(self, req): return True, "OK"
     def synthesize(self, req): return TTSResult(ok=True, output_path=req.output_path)
     def settings_schema(self): return {}
+"""
+
+
+def _mock_engine_without_schema_src():
+    return """
+from app.engines.voice.sdk import TTSRequest, TTSResult
+
+class MockEngine:
+    def info(self): return {}
+    def check_env(self): return True, "OK"
+    def check_request(self, req): return True, "OK"
+    def synthesize(self, req): return TTSResult(ok=True, output_path=req.output_path)
 """
 
 
@@ -145,6 +168,32 @@ class TestDiscoverPlugins:
         result = discover_plugins(tmp_path)
         assert len(result) == 1
         assert result[0].engine_id == "good"
+
+    def test_plugin_settings_schema_file_is_exposed_when_engine_lacks_method(self, tmp_path):
+        schema = {
+            "title": "Voxtral Cloud Voices",
+            "x-ui": {
+                "help_label": "Open Mistral API key instructions",
+                "help_url": "https://help.mistral.ai/en/articles/347464-how-do-i-create-api-keys-within-a-workspace",
+                "privacy_notice": "Privacy note: turning on Voxtral sends the text you synthesize, and any selected reference audio, to Mistral's servers.",
+            },
+            "properties": {
+                "mistral_api_key": {"type": "string", "title": "Mistral API Key"},
+            },
+        }
+        _make_plugin_dir(
+            tmp_path,
+            "tts_voxtral",
+            _minimal_manifest("voxtral"),
+            _mock_engine_without_schema_src(),
+            settings_schema=schema,
+        )
+
+        result = discover_plugins(tmp_path)
+        assert len(result) == 1
+        detail = build_engine_detail(result[0], {})
+        assert detail["settings_schema"]["x-ui"]["help_label"] == "Open Mistral API key instructions"
+        assert detail["settings_schema"]["x-ui"]["privacy_notice"].startswith("Privacy note:")
 
 
 class TestManifestValidation:

@@ -1,5 +1,28 @@
 export type Engine = 'xtts' | 'voxtral' | 'mixed' | 'audiobook' | 'voice_build' | 'voice_test';
-export type VoiceEngine = 'xtts' | 'voxtral';
+export type VoiceEngine = 'xtts' | 'voxtral' | string;
+
+export interface TtsEngine {
+  engine_id: string;
+  display_name: string;
+  status: 'ready' | 'needs_setup' | 'unverified' | 'not_loaded' | 'invalid_config';
+  verified: boolean;
+  enabled: boolean;
+  version: string;
+  local: boolean;
+  cloud: boolean;
+  network: boolean;
+  languages: string[];
+  capabilities: string[];
+  resource: Record<string, any>;
+  author: string;
+  homepage: string;
+  can_enable?: boolean;
+  enablement_message?: string;
+  help_text?: string;
+  privacy_text?: string;
+  settings_schema: any;
+  current_settings?: Record<string, any>;
+}
 
 export type Status = 'queued' | 'preparing' | 'running' | 'finalizing' | 'done' | 'failed' | 'cancelled' | 'error';
 
@@ -34,6 +57,85 @@ export interface ChapterSegment {
   audio_file_path: string | null;
   audio_status: 'unprocessed' | 'processing' | 'done' | 'error' | 'failed' | 'cancelled';
   audio_generated_at: number | null;
+}
+
+export interface ProductionBlock {
+  id: string;
+  order_index: number;
+  text: string;
+  character_id: string | null;
+  speaker_profile_name: string | null;
+  status: string;
+  source_segment_ids: string[];
+}
+
+export interface ProductionRenderBatch {
+  id: string;
+  block_ids: string[];
+  status: string;
+  estimated_work_weight: number;
+}
+
+export interface ProductionBlocksResponse {
+  chapter_id: string;
+  base_revision_id: string | null;
+  blocks: ProductionBlock[];
+  render_batches: ProductionRenderBatch[];
+}
+
+export interface ScriptSpan {
+  id: string;
+  order_index: number;
+  text: string;
+  sanitized_text: string;
+  character_id: string | null;
+  speaker_profile_name: string | null;
+  status: string;
+  audio_file_path: string | null;
+  audio_generated_at: number | null;
+  char_count: number;
+  sanitized_char_count: number;
+}
+
+export interface ScriptParagraph {
+  id: string;
+  span_ids: string[];
+}
+
+export interface ScriptRenderBatch {
+  id: string;
+  span_ids: string[];
+  status: string;
+  estimated_work_weight: number;
+}
+
+export interface ScriptViewResponse {
+  chapter_id: string;
+  base_revision_id: string | null;
+  paragraphs: ScriptParagraph[];
+  spans: ScriptSpan[];
+  render_batches: ScriptRenderBatch[];
+}
+
+export interface ScriptAssignment {
+  span_ids: string[];
+  character_id?: string | null;
+  speaker_profile_name?: string | null;
+}
+
+export interface ScriptRangeAssignment {
+  start_span_id: string;
+  start_offset: number;
+  end_span_id: string;
+  end_offset: number;
+  character_id?: string | null;
+  speaker_profile_name?: string | null;
+}
+
+export interface ScriptAssignmentsUpdate {
+  assignments: ScriptAssignment[];
+  range_assignments?: ScriptRangeAssignment[];
+  base_revision_id: string | null;
 }
 
 export interface Chapter {
@@ -111,6 +213,8 @@ export interface SpeakerProfile {
   has_latent?: boolean;
   is_rebuild_required?: boolean;
   samples_detailed?: Array<{ name: string; is_new: boolean }>;
+  is_ready?: boolean;
+  readiness_message?: string;
 }
 
 export interface Speaker {
@@ -172,10 +276,10 @@ export interface SegmentProgress {
 
 export interface Settings {
   safe_mode: boolean;
-  make_mp3: boolean;
   default_engine: Engine;
   default_speaker_profile?: string;
   voxtral_enabled?: boolean;
+  enabled_plugins?: Record<string, boolean>;
   voxtral_model?: string;
   mistral_api_key?: string;
 }
@@ -205,6 +309,7 @@ export interface AssemblyPrep {
 export interface GlobalState {
   jobs: Record<string, Job>;
   settings: Settings;
+  engines: TtsEngine[];
   paused: boolean;
   chapters: Chapter[];
   audiobooks: Audiobook[];
@@ -214,4 +319,43 @@ export interface GlobalState {
   speaker_profiles: SpeakerProfile[];
   speakers: Speaker[];
   projects: Project[];
+  render_stats?: RenderStats;
+  runtime_services?: RuntimeService[];
+  system_info?: {
+    backend_mode?: string;
+    orchestrator?: string;
+    api_base_url?: string;
+  };
+}
+
+export interface RenderStats {
+  sample_count: number;
+  word_count: number;
+  chars: number;
+  audio_duration_seconds: number;
+  render_duration_seconds: number;
+  audio_hours_rendered: number;
+  render_hours_spent: number;
+  since_timestamp?: number | null;
+  since_date?: string | null;
+  by_engine: Array<{
+    engine: string;
+    sample_count: number;
+    audio_duration_seconds: number;
+    render_duration_seconds: number;
+  }>;
+}
+
+export interface RuntimeService {
+  id: string;
+  label: string;
+  kind: 'api' | 'tts_server' | 'frontend' | string;
+  url?: string | null;
+  port?: number | null;
+  healthy?: boolean;
+  pingable?: boolean;
+  status?: string;
+  message?: string | null;
+  can_restart?: boolean;
+  circuit_open?: boolean;
 }

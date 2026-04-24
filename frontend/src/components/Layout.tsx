@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mic, Zap, Library } from 'lucide-react';
+import { Mic, Settings as SettingsIcon, Zap, Library } from 'lucide-react';
 import { BrandLogo } from './BrandLogo';
 import { useLocation, useNavigate } from 'react-router-dom';
 import type { StudioShellState } from '../app/navigation/model';
@@ -21,7 +21,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, headerRight, queueCoun
     if (shellState) {
       if (shellState.navigation.routeKind === 'queue') return 'queue';
       if (shellState.navigation.routeKind === 'voices') return 'voices';
-      if (shellState.navigation.routeKind === 'settings') return 'library';
+      if (shellState.navigation.routeKind === 'settings') return 'settings';
       if (shellState.navigation.routeKind === 'library') return 'library';
       if (
         shellState.navigation.routeKind === 'project-overview' ||
@@ -39,7 +39,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, headerRight, queueCoun
     if (path === '/' || path.startsWith('/project/')) return 'library';
     if (path.startsWith('/queue')) return 'queue';
     if (path.startsWith('/voices')) return 'voices';
-    if (path.startsWith('/settings')) return 'library';
+    if (path.startsWith('/settings')) return 'settings';
     return 'library';
   };
 
@@ -49,6 +49,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, headerRight, queueCoun
     { id: 'library', label: 'Library', icon: Library, path: '/' },
     { id: 'queue', label: 'Queue', icon: Zap, path: '/queue' },
     { id: 'voices', label: 'Voices', icon: Mic, path: '/voices' },
+    { id: 'settings', label: 'Settings', icon: SettingsIcon, path: '/settings' },
   ];
 
   return (

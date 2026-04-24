@@ -92,6 +92,9 @@ def test_voice_bridge_rejects_registered_engine_that_is_not_ready() -> None:
 
 def test_voice_bridge_routes_voxtral_preview_when_ready(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.engines.voice.voxtral.engine.resolve_mistral_api_key", lambda: "token")
+    from app.state import get_settings  # noqa: PLC0415
+    original_settings = get_settings()
+    monkeypatch.setattr("app.state.get_settings", lambda: {**original_settings, "voxtral_enabled": True, "enabled_plugins": {"voxtral": True}})
     load_engine_registry.cache_clear()
 
     def fake_voxtral_generate(*, text, out_wav, profile_name, voice_id=None, model=None, reference_sample=None):
@@ -127,6 +130,9 @@ def test_voice_bridge_routes_voxtral_synthesize_when_ready(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setattr("app.engines.voice.voxtral.engine.resolve_mistral_api_key", lambda: "token")
+    from app.state import get_settings  # noqa: PLC0415
+    original_settings = get_settings()
+    monkeypatch.setattr("app.state.get_settings", lambda: {**original_settings, "voxtral_enabled": True, "enabled_plugins": {"voxtral": True}})
     load_engine_registry.cache_clear()
 
     output_path = tmp_path / "sample.wav"
@@ -177,6 +183,9 @@ def test_voice_bridge_preserves_voxtral_reference_sample_for_synthesis(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setattr("app.engines.voice.voxtral.engine.resolve_mistral_api_key", lambda: "token")
+    from app.state import get_settings  # noqa: PLC0415
+    original_settings = get_settings()
+    monkeypatch.setattr("app.state.get_settings", lambda: {**original_settings, "voxtral_enabled": True, "enabled_plugins": {"voxtral": True}})
     load_engine_registry.cache_clear()
 
     output_path = tmp_path / "sample.wav"
@@ -219,6 +228,9 @@ def test_voice_bridge_routes_voxtral_mp3_synthesize_when_ready(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setattr("app.engines.voice.voxtral.engine.resolve_mistral_api_key", lambda: "token")
+    from app.state import get_settings  # noqa: PLC0415
+    original_settings = get_settings()
+    monkeypatch.setattr("app.state.get_settings", lambda: {**original_settings, "voxtral_enabled": True, "enabled_plugins": {"voxtral": True}})
     load_engine_registry.cache_clear()
 
     output_path = tmp_path / "sample.mp3"
@@ -489,6 +501,9 @@ def test_engine_registry_refreshes_voxtral_health_without_cache_clear(
 
 def test_voice_bridge_rejects_non_wav_voxtral_preview(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.engines.voice.voxtral.engine.resolve_mistral_api_key", lambda: "token")
+    from app.state import get_settings  # noqa: PLC0415
+    original_settings = get_settings()
+    monkeypatch.setattr("app.state.get_settings", lambda: {**original_settings, "voxtral_enabled": True, "enabled_plugins": {"voxtral": True}})
 
     bridge = create_voice_bridge()
 

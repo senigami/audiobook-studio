@@ -20,6 +20,12 @@ describe('navigation mapping', () => {
     expect(state.activeGlobalId).toBe('voices');
   });
 
+  it('identifies nested settings routes', () => {
+    const state = deriveNavigationState('/settings/engines');
+    expect(state.routeKind).toBe('settings');
+    expect(state.activeGlobalId).toBe('settings');
+  });
+
   it('identifies project-specific routes', () => {
     const state = deriveNavigationState('/project/p123');
     expect(state.routeKind).toBe('project-chapters');

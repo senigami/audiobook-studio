@@ -10,6 +10,7 @@ export function useChapterPlayback(
   onGenerate: (sids: string[]) => Promise<void>
 ) {
   const [playingSegmentId, setPlayingSegmentId] = useState<string | null>(null);
+  const [playingSegmentIds, setPlayingSegmentIds] = useState<Set<string>>(new Set());
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
   const playbackQueueRef = useRef<string[]>([]);
   const isPlayingRef = useRef<boolean>(false);
@@ -41,6 +42,7 @@ export function useChapterPlayback(
     if (!seg) return;
 
     setPlayingSegmentId(currentId);
+    setPlayingSegmentIds(new Set(getGroupSegmentIds(idx, queue)));
 
     if (!seg.audio_file_path || seg.audio_status !== 'done') {
       const groupIds = getGroupSegmentIds(idx, queue);
@@ -133,6 +135,7 @@ export function useChapterPlayback(
       audioPlayerRef.current = null;
     }
     setPlayingSegmentId(null);
+    setPlayingSegmentIds(new Set());
     isPlayingRef.current = false;
     playbackQueueRef.current = [];
     pendingPlaybackRef.current = null;
@@ -176,6 +179,7 @@ export function useChapterPlayback(
 
   return {
     playingSegmentId,
+    playingSegmentIds,
     playSegment,
     stopPlayback,
     togglePause,

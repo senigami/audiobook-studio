@@ -1,10 +1,20 @@
 import anyio
 import logging
 from pathlib import Path
-from typing import Optional, List, Literal
+from typing import Optional, List, Literal, Sequence, Mapping
 from pydantic import BaseModel, Field
-from fastapi import APIRouter, Form, File, UploadFile, Request, Depends, Body
+from fastapi import APIRouter, Form, File, UploadFile, Request, Depends, Body, HTTPException
 from fastapi.responses import JSONResponse, FileResponse
+from ...domain.chapters.compatibility import (
+    get_production_blocks_payload,
+    save_production_blocks_payload,
+    get_script_view_payload,
+    save_script_assignments,
+    get_resync_preview,
+    compact_script_view,
+    CompatibilityRevisionMismatch,
+    export_chapter_audio,
+)
 from ...db import (
     list_chapters, reconcile_project_audio, create_chapter, update_chapter, 
     get_chapter, delete_chapter, reorder_chapters, get_chapter_segments, 
@@ -58,6 +68,98 @@ def _named_audio_file_map(base_dir: Optional[Path]) -> dict[str, Path]:
         for entry in base_dir.iterdir()
         if entry.is_file() and entry.suffix.lower() in (".wav", ".mp3", ".m4a")
     }
+
+
+class BulkStatusUpdate(BaseModel):
+    segment_ids: List[str]
+    status: Literal["unprocessed", "processing", "done", "failed", "cancelled", "error"]
+
+
+class BulkSegmentsUpdate(BaseModel):
+    segment_ids: List[str]
+    updates: dict
+
+
+class ProductionBlocksUpdate(BaseModel):
+    blocks: list[dict]
+    base_revision_id: Optional[str] = None
+
+
+class AudioExportRequest(BaseModel):
+    format: Literal["wav", "mp3"]
+
+
+class ScriptSpan(BaseModel):
+    id: str
+    order_index: int
+    text: str
+    sanitized_text: str
+    character_id: Optional[str] = None
+    speaker_profile_name: Optional[str] = None
+    status: str
+    audio_file_path: Optional[str] = None
+    audio_generated_at: Optional[float] = None
+    char_count: int
+    sanitized_char_count: int
+
+
+class ScriptParagraph(BaseModel):
+    id: str
+    span_ids: List[str]
+
+
+class ScriptRenderBatch(BaseModel):
+    id: str
+    span_ids: List[str]
+    status: str
+    estimated_work_weight: int
+
+
+class ScriptViewResponse(BaseModel):
+    chapter_id: str
+    base_revision_id: str
+    paragraphs: List[ScriptParagraph]
+    spans: List[ScriptSpan]
+    render_batches: List[ScriptRenderBatch]
+
+
+class ScriptAssignment(BaseModel):
+    span_ids: List[str]
+    character_id: Optional[str] = None
+    speaker_profile_name: Optional[str] = None
+
+
+class ScriptRangeAssignment(BaseModel):
+    start_span_id: str
+    start_offset: int
+    end_span_id: str
+    end_offset: int
+    character_id: Optional[str] = None
+    speaker_profile_name: Optional[str] = None
+
+
+class CompactionRequest(BaseModel):
+    base_revision_id: Optional[str] = None
+
+
+class ScriptAssignmentsUpdate(BaseModel):
+    assignments: List[ScriptAssignment] = []
+    range_assignments: List[ScriptRangeAssignment] = []
+    base_revision_id: Optional[str] = None
+
+
+class ResyncPreviewRequest(BaseModel):
+    text_content: str
+
+
+class ResyncPreviewResponse(BaseModel):
+    total_segments_before: int
+    total_segments_after: int
+    preserved_assignments_count: int
+    lost_assignments_count: int
+    affected_character_names: List[str]
+    is_destructive: bool
+
 
 router = APIRouter(prefix="/api", tags=["chapters"])
 
@@ -179,6 +281,124 @@ def cancel_chapter_generation_route(chapter_id: str):
 def api_get_segments(chapter_id: str):
     return JSONResponse({"segments": get_chapter_segments(chapter_id)})
 
+
+@router.get("/chapters/{chapter_id}/production-blocks")
+def api_get_production_blocks(chapter_id: str):
+    try:
+        return JSONResponse(get_production_blocks_payload(chapter_id))
+    except KeyError:
+        return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
+
+
+@router.get("/chapters/{chapter_id}/script-view")
+def api_get_script_view(chapter_id: str):
+    try:
+        return JSONResponse(get_script_view_payload(chapter_id))
+    except KeyError:
+        return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
+    except Exception as e:
+        logger.error(f"Script view payload failed for {chapter_id}: {e}", exc_info=True)
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+
+
+@router.post("/chapters/{chapter_id}/source-text/preview", response_model=ResyncPreviewResponse)
+def api_get_resync_preview(chapter_id: str, payload: ResyncPreviewRequest):
+    try:
+        return JSONResponse(get_resync_preview(chapter_id, payload.text_content))
+    except KeyError:
+        return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
+    except Exception as e:
+        logger.error(f"Error generating resync preview: {e}")
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+
+
+@router.put("/chapters/{chapter_id}/production-blocks")
+def api_save_production_blocks(chapter_id: str, payload: ProductionBlocksUpdate):
+    try:
+        return JSONResponse(
+            save_production_blocks_payload(
+                chapter_id,
+                blocks=payload.blocks,
+                base_revision_id=payload.base_revision_id,
+            )
+        )
+    except CompatibilityRevisionMismatch as exc:
+        return JSONResponse(
+            {
+                "status": "error",
+                "message": "Chapter production blocks were updated by someone else. Reload before saving again.",
+                "expected_base_revision_id": exc.expected_revision_id,
+                "base_revision_id": exc.actual_revision_id,
+            },
+            status_code=409,
+        )
+    except KeyError:
+        return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
+
+
+@router.put("/chapters/{chapter_id}/script-view/assignments", response_model=ScriptViewResponse)
+def api_save_script_assignments(chapter_id: str, payload: ScriptAssignmentsUpdate):
+    try:
+        data = save_script_assignments(
+            chapter_id,
+            assignments=[a.model_dump() for a in payload.assignments],
+            range_assignments=[a.model_dump() for a in payload.range_assignments],
+            base_revision_id=payload.base_revision_id
+        )
+        return JSONResponse(data)
+    except CompatibilityRevisionMismatch as exc:
+        return JSONResponse(
+            {
+                "status": "error",
+                "message": "Chapter script view was updated by someone else. Reload before saving again.",
+                "expected_base_revision_id": exc.expected_revision_id,
+                "base_revision_id": exc.actual_revision_id,
+            },
+            status_code=409,
+        )
+    except KeyError as e:
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=404)
+    except Exception as e:
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+
+
+@router.post("/chapters/{chapter_id}/script-view/compact", response_model=ScriptViewResponse)
+def api_compact_script_view(chapter_id: str, payload: CompactionRequest):
+    try:
+        data = compact_script_view(
+            chapter_id,
+            base_revision_id=payload.base_revision_id
+        )
+        return JSONResponse(data)
+    except CompatibilityRevisionMismatch as exc:
+        return JSONResponse(
+            {
+                "status": "error",
+                "message": "Chapter script view was updated by someone else. Reload before compacting.",
+                "expected_base_revision_id": exc.expected_revision_id,
+                "base_revision_id": exc.actual_revision_id,
+            },
+            status_code=409,
+        )
+    except KeyError as e:
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=404)
+    except Exception as e:
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+
+
+@router.post("/chapters/{chapter_id}/export-audio")
+def api_export_chapter_audio(chapter_id: str, payload: AudioExportRequest):
+    try:
+        export_path, media_type = export_chapter_audio(chapter_id, format=payload.format)
+    except KeyError:
+        return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
+    except FileNotFoundError as exc:
+        return JSONResponse({"status": "error", "message": str(exc)}, status_code=404)
+    except ValueError as exc:
+        return JSONResponse({"status": "error", "message": str(exc)}, status_code=400)
+
+    return FileResponse(export_path, media_type=media_type, filename=export_path.name)
+
 @router.put("/segments/{segment_id}")
 async def api_update_segment_route(segment_id: str, request: Request):
     updates = {}
@@ -200,18 +420,10 @@ async def api_update_segment_route(segment_id: str, request: Request):
     )
     return JSONResponse({"status": "ok" if success else "error"})
 
-class BulkStatusUpdate(BaseModel):
-    segment_ids: List[str]
-    status: Literal["unprocessed", "processing", "done", "failed", "cancelled", "error"]
-
 @router.post("/chapters/{chapter_id}/segments/bulk-status")
 def api_bulk_update_segment_status(chapter_id: str, req: BulkStatusUpdate):
     update_segments_status_bulk(req.segment_ids, chapter_id, req.status)
     return JSONResponse({"status": "ok"})
-
-class BulkSegmentsUpdate(BaseModel):
-    segment_ids: List[str]
-    updates: dict
 
 @router.post("/segments/bulk-update")
 async def api_bulk_update_segments(req: BulkSegmentsUpdate):

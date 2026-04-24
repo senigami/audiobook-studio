@@ -50,7 +50,7 @@ export const deriveNavigationState = (pathname: string, search?: string, project
   } else if (pathname === '/voices') {
     routeKind = 'voices';
     activeGlobalId = 'voices';
-  } else if (pathname === '/settings') {
+  } else if (parts[0] === 'settings') {
     routeKind = 'settings';
     activeGlobalId = 'settings';
   } else if (parts[0] === 'project' && parts[1]) {

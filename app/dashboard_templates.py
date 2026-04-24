@@ -57,13 +57,11 @@ uvicorn app:app --reload --port 8123</div>
     <hr/>
     <p class="small">
       Default settings:
-      <b>Safe Mode:</b> {{ "ON" if settings.safe_mode else "OFF" }} |
-      <b>MP3:</b> {{ "ON" if settings.make_mp3 else "OFF" }}
+      <b>Safe Mode:</b> {{ "ON" if settings.safe_mode else "OFF" }}
     </p>
 
     <form method="post" action="/settings" class="small">
       <label><input type="checkbox" name="safe_mode" value="1" {% if settings.safe_mode %}checked{% endif %}/> Safe Mode (split long sentences)</label><br/>
-      <label><input type="checkbox" name="make_mp3" value="1" {% if settings.make_mp3 %}checked{% endif %}/> Convert WAV → MP3</label><br/>
       <button type="submit">Save settings</button>
     </form>
 

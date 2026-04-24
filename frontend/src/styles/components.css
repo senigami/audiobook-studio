@@ -140,6 +140,23 @@
   box-shadow: var(--shadow-md);
 }
 
+@media (max-width: 800px) {
+  .settings-route-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .settings-route-nav {
+    position: static !important;
+    flex-direction: row !important;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .settings-route-nav a {
+    flex: 0 0 auto;
+  }
+}
+
 .input-group {
   display: flex;
   flex-direction: column;

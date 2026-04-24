@@ -113,15 +113,47 @@ class EngineRegistrationModel:
     health: EngineHealthModel
 
     def to_dict(self) -> dict[str, Any]:
-        return {
-            "manifest": {
-                "engine_id": self.manifest.engine_id,
-                "display_name": self.manifest.display_name,
-                "phase": self.manifest.phase,
-                "module_path": self.manifest.module_path,
-                "notes": list(self.manifest.notes),
-                "capabilities": list(self.manifest.capabilities),
-                "built_in": self.manifest.built_in,
-            },
+        from dataclasses import asdict  # noqa: PLC0415
+
+        data = {
+            "manifest": asdict(self.manifest),
             "health": self.health.to_dict(),
         }
+
+        # Flatten manifest for top-level compatibility with TTS Server detail shape
+        flattened = {
+            "engine_id": self.manifest.engine_id,
+            "display_name": self.manifest.display_name,
+            "status": self.health.status,
+            "verified": self.manifest.verified,
+            "version": self.manifest.version,
+            "local": self.manifest.local,
+            "cloud": self.manifest.cloud,
+            "network": self.manifest.network,
+            "languages": list(self.manifest.languages),
+            "capabilities": list(self.manifest.capabilities),
+            "resource": asdict(self.manifest.resource),
+            "author": self.manifest.author,
+            "homepage": self.manifest.homepage,
+        }
+
+        try:
+            if hasattr(self.engine, "current_settings"):
+                flattened["current_settings"] = self.engine.current_settings()
+            else:
+                flattened["current_settings"] = {}
+        except Exception:
+            flattened["current_settings"] = {}
+
+        # Add settings_schema if the engine supports it (StudioTTSEngine contract)
+        try:
+            if hasattr(self.engine, "settings_schema"):
+                flattened["settings_schema"] = self.engine.settings_schema()
+            else:
+                flattened["settings_schema"] = {}
+        except Exception:
+            flattened["settings_schema"] = {}
+
+        # Merge in the flattened manifest fields
+        data.update(flattened)
+        return data

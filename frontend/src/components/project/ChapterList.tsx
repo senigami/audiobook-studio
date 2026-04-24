@@ -24,6 +24,7 @@ interface ChapterListProps {
   onExportSample: (chap: Chapter) => void;
   isExporting: string | null;
   formatLength: (seconds: number) => string;
+  anyEnginesEnabled?: boolean;
 }
 
 export const ChapterList: React.FC<ChapterListProps> = ({
@@ -42,7 +43,8 @@ export const ChapterList: React.FC<ChapterListProps> = ({
   onDeleteChapter,
   onExportSample,
   isExporting,
-  formatLength
+  formatLength,
+  anyEnginesEnabled = true
 }) => {
   const RECENT_COMPLETION_WINDOW_SECONDS = 60;
   const [editingTitleId, setEditingTitleId] = React.useState<string | null>(null);
@@ -172,7 +174,13 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                   onOpenChange={(open) => setOpenMenuRowId(open ? chap.id : null)}
                   trigger={<StatusOrb chap={chap} activeJob={activeJob} doneSegments={chap.done_segments_count} totalSegments={chap.total_segments_count} />}
                   items={[
-                    { label: queueActionLabel, icon: RefreshCw, onClick: () => onQueueChapter(chap) }
+                    { 
+                      label: queueActionLabel, 
+                      icon: RefreshCw, 
+                      disabled: !anyEnginesEnabled,
+                      title: !anyEnginesEnabled ? 'All engines disabled' : undefined,
+                      onClick: () => onQueueChapter(chap) 
+                    }
                   ].filter(() => {
                     const isStale = chap.text_last_modified && chap.audio_generated_at && (chap.text_last_modified > chap.audio_generated_at);
                     const isPartial = (chap.done_segments_count || 0) > 0 && (chap.done_segments_count || 0) < (chap.total_segments_count || 0) && !chap.has_wav;
@@ -269,7 +277,15 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                 {!isAssemblyMode && (
                   <>
                     <div style={{ display: 'flex', gap: '0.15rem', borderLeft: '1px solid var(--border)', paddingLeft: '1rem' }}>
-                      <button onClick={e => { e.stopPropagation(); onQueueChapter(chap); }} className="btn-ghost" disabled={chap.audio_status === 'processing'} style={{ padding: '0.4rem', color: 'var(--accent)' }}><Zap size={16} /></button>
+                      <button 
+                        onClick={e => { e.stopPropagation(); onQueueChapter(chap); }} 
+                        className="btn-ghost" 
+                        disabled={chap.audio_status === 'processing' || !anyEnginesEnabled} 
+                        title={!anyEnginesEnabled ? 'All TTS engines are disabled in Settings' : (chap.audio_status === 'processing' ? 'Processing' : queueActionLabel)}
+                        style={{ padding: '0.4rem', color: anyEnginesEnabled ? 'var(--accent)' : 'var(--text-muted)' }}
+                      >
+                        <Zap size={16} />
+                      </button>
                       <button onClick={e => { e.stopPropagation(); onEditChapter(chap.id); }} className="btn-ghost" style={{ padding: '0.4rem', color: 'var(--text-secondary)' }}><Edit3 size={16} /></button>
                     </div>
                     <ActionMenu 
