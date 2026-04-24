@@ -76,3 +76,5 @@ class ProjectBackupBundleModel:
     snapshot: ProjectSnapshotModel
     export_manifest: ProjectExportManifestModel
     created_at: datetime = field(default_factory=_utc_now)
+    comment: str | None = None
+    chapter_map: dict[str, dict[str, Any]] = field(default_factory=dict)

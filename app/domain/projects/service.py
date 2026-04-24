@@ -164,11 +164,12 @@ class ProjectService:
             snapshot_id=None # First slice manifest is metadata-first from current state
         )
 
-    def create_backup_bundle(self, project_id: str) -> ProjectBackupBundleModel:
+    def create_backup_bundle(self, project_id: str, comment: str | None = None) -> ProjectBackupBundleModel:
         """Assemble a dated backup bundle description for a project.
 
         Args:
             project_id: Stable project identifier.
+            comment: Optional label or description for the backup.
 
         Returns:
             ProjectBackupBundleModel: Dated bundle contract ready for packaging.
@@ -198,7 +199,8 @@ class ProjectService:
             bundle_name=bundle_name,
             snapshot=snapshot,
             export_manifest=manifest,
-            created_at=snapshot.created_at
+            created_at=snapshot.created_at,
+            comment=comment
         )
 
     def _load_project(self, *, project_id: str) -> ProjectModel:

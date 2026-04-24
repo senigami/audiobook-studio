@@ -466,11 +466,11 @@ def api_create_project_snapshot(project_id: str):
         return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 
 @router.post("/{project_id}/backup-bundle")
-def api_create_project_backup_bundle(project_id: str):
+def api_create_project_backup_bundle(project_id: str, comment: Optional[str] = Query(None)):
     """Create a new dated backup bundle for the project."""
     service = _get_project_service()
     try:
-        bundle = service.create_backup_bundle(project_id)
+        bundle = service.create_backup_bundle(project_id, comment=comment)
         return JSONResponse(jsonable_encoder(bundle))
     except KeyError:
         return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
@@ -479,12 +479,12 @@ def api_create_project_backup_bundle(project_id: str):
         return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 
 @router.get("/{project_id}/backup-bundle/download")
-def api_download_project_backup_bundle(project_id: str):
+def api_download_project_backup_bundle(project_id: str, comment: Optional[str] = Query(None)):
     """Create and download a project backup bundle as a .abf (ZIP) archive."""
     service = _get_project_service()
     try:
         # 1. Create the bundle plan (snapshot + manifest)
-        bundle = service.create_backup_bundle(project_id)
+        bundle = service.create_backup_bundle(project_id, comment=comment)
 
         # 2. Package it into an archive
         archive_buf = _create_backup_archive(bundle)
@@ -506,37 +506,88 @@ def api_download_project_backup_bundle(project_id: str):
 def _create_backup_archive(bundle: ProjectBackupBundleModel) -> io.BytesIO:
     """Helper to assemble a portable ZIP archive from a backup bundle plan."""
     buf = io.BytesIO()
+
+    # Track paths and handle collisions for the bundle metadata
+    chapter_map = {}
+    used_filenames = set()
+
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        # 1. Metadata files (portable JSON)
+        # 1. Project Assets (Process chapters first to build the mapping)
+        project_id = bundle.project_id
+        project_dir = find_existing_project_dir(project_id) or get_project_dir(project_id)
+
+        for idx, chapter_id in enumerate(bundle.snapshot.chapter_ids, 1):
+            chapter = get_chapter(chapter_id)
+            if not chapter:
+                continue
+
+            title = chapter.get("title") or f"Chapter {idx}"
+            sanitized_title = _sanitize_filename(title)
+
+            # Filename format: {order:02d}_{sanitized_title}.txt
+            base_filename = f"{idx:02d}_{sanitized_title}"
+            if not sanitized_title:
+                base_filename = f"{idx:02d}_Chapter"
+
+            text_filename = f"{base_filename}.txt"
+
+            # Disambiguate if collision
+            counter = 1
+            while text_filename in used_filenames:
+                text_filename = f"{base_filename}_{counter}.txt"
+                counter += 1
+
+            used_filenames.add(text_filename)
+
+            # Include Chapter Text
+            text_content = chapter.get("text_content", "")
+            zf.writestr(f"chapters/{text_filename}", text_content.encode("utf-8"))
+
+            chapter_info = {
+                "title": title,
+                "order": idx,
+                "text_path": f"chapters/{text_filename}"
+            }
+
+            # Optional Chapter Audio
+            if bundle.export_manifest.include_audio and chapter.get("audio_file_path") and chapter.get("audio_status") == "done":
+                audio_path = safe_join_flat(XTTS_OUT_DIR, chapter["audio_file_path"])
+                if audio_path.exists():
+                    audio_ext = audio_path.suffix or ".wav"
+                    # Use the same base filename as the text for easy pairing
+                    audio_filename = f"{Path(text_filename).stem}{audio_ext}"
+                    zf.write(audio_path, arcname=f"chapters/{audio_filename}")
+                    chapter_info["audio_path"] = f"chapters/{audio_filename}"
+
+            chapter_map[chapter_id] = chapter_info
+
+        # Attach the resolved map to the bundle before serialization
+        bundle.chapter_map = chapter_map
+
+        # 2. Metadata files (portable JSON)
         zf.writestr("bundle.json", json.dumps(jsonable_encoder(bundle), indent=2))
         zf.writestr("manifest.json", json.dumps(jsonable_encoder(bundle.export_manifest), indent=2))
         zf.writestr("snapshot.json", json.dumps(jsonable_encoder(bundle.snapshot), indent=2))
 
-        # 2. Project Assets
-        project_id = bundle.project_id
-        project_dir = find_existing_project_dir(project_id) or get_project_dir(project_id)
-
-        # Cover art
+        # 3. Cover art
         cover_dir = project_dir / "cover"
         if cover_dir.exists():
             for p in cover_dir.iterdir():
-                # Any file in the cover directory named 'cover' with a supported extension
                 if p.is_file() and p.stem == "cover":
                     zf.write(p, arcname=f"cover{p.suffix}")
                     break
 
-        # Chapter audio
-        if bundle.export_manifest.include_audio:
-            for chapter_id in bundle.snapshot.chapter_ids:
-                chapter = get_chapter(chapter_id)
-                if chapter and chapter.get("audio_file_path") and chapter.get("audio_status") == "done":
-                    audio_path = safe_join_flat(XTTS_OUT_DIR, chapter["audio_file_path"])
-                    if audio_path.exists():
-                        # Use chapter_id for portable naming inside the archive
-                        zf.write(audio_path, arcname=f"chapters/{chapter_id}{audio_path.suffix}")
-
     buf.seek(0)
     return buf
+
+def _sanitize_filename(name: str) -> str:
+    """Sanitize a string for use as a filesystem filename."""
+    # Replace non-alphanumeric (except . - _) with underscores
+    s = re.sub(r'[^a-zA-Z0-9._-]', '_', name)
+    # Collapse multiple underscores
+    s = re.sub(r'_+', '_', s)
+    # Strip leading/trailing underscores
+    return s.strip('_')
 
 @router.get("/audiobook/prepare")
 def prepare_audiobook():

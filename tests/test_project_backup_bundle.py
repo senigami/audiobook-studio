@@ -2,6 +2,7 @@ import pytest
 import os
 import re
 import json
+import urllib.parse
 from fastapi.testclient import TestClient
 from app.web import app
 from app.db.core import init_db
@@ -123,15 +124,89 @@ def test_backup_bundle_download(clean_db, client):
         assert "bundle.json" in file_list
         assert "manifest.json" in file_list
         assert "snapshot.json" in file_list
-        assert f"chapters/{cid}.wav" in file_list
+
+        # Chapter 1 should be 01_Chapter_1.txt/wav
+        assert "chapters/01_Chapter_1.txt" in file_list
+        assert "chapters/01_Chapter_1.wav" in file_list
 
         # Verify metadata content
         bundle_data = json.loads(zf.read("bundle.json"))
         assert bundle_data["project_id"] == pid
         assert bundle_data["snapshot"]["id"] == json.loads(zf.read("snapshot.json"))["id"]
 
-        # Verify audio content
-        assert zf.read(f"chapters/{cid}.wav") == b"fake wav data"
+        # Verify chapter map
+        chapter_map = bundle_data["chapter_map"]
+        assert cid in chapter_map
+        assert chapter_map[cid]["text_path"] == "chapters/01_Chapter_1.txt"
+        assert chapter_map[cid]["audio_path"] == "chapters/01_Chapter_1.wav"
+
+        # Verify file content
+        assert zf.read("chapters/01_Chapter_1.txt").decode("utf-8") == "Content"
+        assert zf.read("chapters/01_Chapter_1.wav") == b"fake wav data"
 
     # Cleanup
     audio_file.unlink()
+
+def test_backup_bundle_with_comment(clean_db, client):
+    pid = create_project("Comment Project")
+    comment = "This is a test backup comment."
+    encoded_comment = urllib.parse.quote(comment)
+
+    response = client.post(f"/api/projects/{pid}/backup-bundle?comment={encoded_comment}")
+    assert response.status_code == 200
+    assert response.json()["comment"] == comment
+
+    # Also verify download includes it
+    response = client.get(f"/api/projects/{pid}/backup-bundle/download?comment={encoded_comment}")
+    assert response.status_code == 200
+    import zipfile
+    import io
+    with zipfile.ZipFile(io.BytesIO(response.content)) as zf:
+        bundle_data = json.loads(zf.read("bundle.json"))
+        assert bundle_data["comment"] == comment
+
+def test_backup_bundle_chapter_text_and_sanitization(clean_db, client):
+    import zipfile
+    import io
+
+    pid = create_project("Text Project")
+    # Chapter with special characters in title
+    create_chapter(pid, "Chapter @ One!", "Chapter one text content.")
+
+    response = client.get(f"/api/projects/{pid}/backup-bundle/download")
+    assert response.status_code == 200
+
+    with zipfile.ZipFile(io.BytesIO(response.content)) as zf:
+        file_list = zf.namelist()
+        # Should be sanitized to 01_Chapter_One.txt
+        assert "chapters/01_Chapter_One.txt" in file_list
+        assert zf.read("chapters/01_Chapter_One.txt").decode("utf-8") == "Chapter one text content."
+
+        bundle_data = json.loads(zf.read("bundle.json"))
+        chapter_map = bundle_data["chapter_map"]
+        cid = list(chapter_map.keys())[0]
+        assert chapter_map[cid]["text_path"] == "chapters/01_Chapter_One.txt"
+        assert chapter_map[cid]["title"] == "Chapter @ One!"
+
+def test_backup_bundle_disambiguates_chapter_filename_collisions(clean_db, client):
+    import zipfile
+    import io
+
+    pid = create_project("Collision Project")
+    first_id = create_chapter(pid, "Chapter One!", "First version.")
+    second_id = create_chapter(pid, "Chapter One?", "Second version.")
+
+    response = client.get(f"/api/projects/{pid}/backup-bundle/download")
+    assert response.status_code == 200
+
+    with zipfile.ZipFile(io.BytesIO(response.content)) as zf:
+        file_list = zf.namelist()
+        assert "chapters/01_Chapter_One.txt" in file_list
+        assert "chapters/02_Chapter_One.txt" in file_list
+        assert zf.read("chapters/01_Chapter_One.txt").decode("utf-8") == "First version."
+        assert zf.read("chapters/02_Chapter_One.txt").decode("utf-8") == "Second version."
+
+        bundle_data = json.loads(zf.read("bundle.json"))
+        chapter_map = bundle_data["chapter_map"]
+        assert chapter_map[first_id]["text_path"] == "chapters/01_Chapter_One.txt"
+        assert chapter_map[second_id]["text_path"] == "chapters/02_Chapter_One.txt"
