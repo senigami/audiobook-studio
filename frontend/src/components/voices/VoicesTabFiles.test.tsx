@@ -210,7 +210,7 @@ describe('Voices Tab Components', () => {
                     onRenameClick={vi.fn()}
                     isExpanded={true}
                     onToggleExpand={vi.fn()}
-                    engines={[{ engine_id: 'voxtral', display_name: 'Voxtral', enabled: true, verified: true, cloud: true } as any]}
+                    engines={[{ engine_id: 'voxtral', display_name: 'Voxtral', enabled: true, verified: true, cloud: true, status: 'ready' } as any]}
                 />
             );
 
@@ -241,7 +241,7 @@ describe('Voices Tab Components', () => {
                     onRenameClick={vi.fn()}
                     isExpanded={true}
                     onToggleExpand={vi.fn()}
-                    engines={[{ engine_id: 'voxtral', display_name: 'Voxtral', enabled: true, verified: true, cloud: true } as any]}
+                    engines={[{ engine_id: 'voxtral', display_name: 'Voxtral', enabled: true, verified: true, cloud: true, status: 'ready' } as any]}
                 />
             );
 
@@ -269,7 +269,7 @@ describe('Voices Tab Components', () => {
                     onRenameClick={vi.fn()}
                     isExpanded={true}
                     onToggleExpand={vi.fn()}
-                    engines={[{ engine_id: 'voxtral', display_name: 'Voxtral', enabled: false, verified: true, cloud: true } as any]}
+                    engines={[{ engine_id: 'voxtral', display_name: 'Voxtral', enabled: false, verified: true, cloud: true, status: 'ready' } as any]}
                 />
             );
 

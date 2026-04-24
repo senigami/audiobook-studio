@@ -938,8 +938,13 @@ def _resolve_canonical_wav_path(*, chapter_id: str, chapter_row: Mapping[str, An
         find_existing_project_subdir(project_id, "audio") if project_id else XTTS_OUT_DIR
     )
     if audio_dir and audio_dir.exists():
-        legacy_path = audio_dir / f"{chapter_id}_0.wav"
-        if legacy_path.exists():
-            return legacy_path
+        for candidate in (
+            f"{chapter_id}.wav",
+            f"{chapter_id}_0.wav",
+            "chapter.wav",
+        ):
+            legacy_path = audio_dir / candidate
+            if legacy_path.exists():
+                return legacy_path
 
     return None

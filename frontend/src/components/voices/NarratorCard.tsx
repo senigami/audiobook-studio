@@ -82,6 +82,14 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
         const engineId = getVoiceProfileEngine(p) || 'unknown';
         const engineInfo = engines.find(e => e.engine_id === engineId);
         const selectable = isVoiceProfileSelectable(p, engines);
+        const hasBuildMaterial = Boolean(
+            p.is_ready ||
+            p.has_latent ||
+            p.voxtral_voice_id ||
+            p.reference_sample ||
+            p.wav_count > 0 ||
+            (p.samples?.length || 0) > 0
+        );
         
         if (buildingProfiles[p.name]) return { label: 'BUILDING...', color: 'var(--accent)', bg: 'rgba(var(--accent-rgb), 0.1)' };
 
@@ -90,10 +98,6 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
         }
         
         // Use the readiness hook result from the backend
-        if (!p.is_ready && !p.preview_url) {
-            return { label: 'NOT READY', color: 'var(--text-muted)', bg: 'var(--surface-alt)' };
-        }
-        
         if (p.is_rebuild_required) {
             const isRebuildEngine = engineInfo?.capabilities?.includes('voice_build');
             return isRebuildEngine
@@ -102,10 +106,10 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
         }
         
         if (!p.preview_url) {
-            const isRebuildEngine = engineInfo?.capabilities?.includes('voice_build');
-            return isRebuildEngine
-                ? { label: 'BUILD TO TEST', color: 'var(--accent)', bg: 'rgba(var(--accent-rgb), 0.1)' }
-                : { label: 'GENERATE PREVIEW', color: 'var(--accent)', bg: 'rgba(var(--accent-rgb), 0.1)' };
+            if (!hasBuildMaterial) {
+                return { label: 'NOT READY', color: 'var(--text-muted)', bg: 'var(--surface-alt)' };
+            }
+            return { label: 'BUILD TO TEST', color: 'var(--accent)', bg: 'rgba(var(--accent-rgb), 0.1)' };
         }
         return { label: 'READY', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' };
     };

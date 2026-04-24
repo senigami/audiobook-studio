@@ -31,6 +31,28 @@ def _canonical_chapter_id(chapter_id: str) -> str:
         raise ValueError(f"Invalid chapter id: {chapter_id}")
 
 
+def _detect_audio_flags(chapter_id: str, audio_file_path: Optional[str], resolved_path: Optional[Path]) -> Dict[str, bool]:
+    flags = {"has_wav": False, "has_mp3": False, "has_m4a": False}
+
+    names = {chapter_id, "chapter"}
+    if audio_file_path:
+        names.add(Path(audio_file_path).stem)
+        names.add(audio_file_path.rsplit(".", 1)[0] if "." in audio_file_path else audio_file_path)
+
+    for base_name in filter(None, names):
+        for ext in (".wav", ".mp3", ".m4a"):
+            candidate = resolved_path.parent / f"{base_name}{ext}" if resolved_path else None
+            if candidate and candidate.exists():
+                flags[f"has_{ext.lstrip('.')}"] = True
+
+    if resolved_path:
+        ext = resolved_path.suffix.lower()
+        if ext in (".wav", ".mp3", ".m4a"):
+            flags[f"has_{ext.lstrip('.')}"] = True
+
+    return flags
+
+
 def cleanup_chapter_audio_files(
     project_id: Optional[str],
     chapter_id: str,
@@ -284,9 +306,6 @@ def get_chapter(chapter_id: str) -> Optional[Dict[str, Any]]:
     from .. import config
 
     path = chap.get("audio_file_path")
-    chap["has_wav"] = False
-    chap["has_mp3"] = False
-    chap["has_m4a"] = False
 
     resolved = config.resolve_chapter_asset_path(
         chap["project_id"], chap["id"], "audio", filename=path
@@ -294,14 +313,8 @@ def get_chapter(chapter_id: str) -> Optional[Dict[str, Any]]:
     if not resolved and not path:
         resolved = config.resolve_chapter_asset_path(chap["project_id"], chap["id"], "audio")
 
-    if resolved:
-        ext = resolved.suffix.lower()
-        if ext == ".wav":
-            chap["has_wav"] = True
-        elif ext == ".mp3":
-            chap["has_mp3"] = True
-        elif ext == ".m4a":
-            chap["has_m4a"] = True
+    flags = _detect_audio_flags(chap["id"], path, resolved)
+    chap.update(flags)
 
     if chap["audio_status"] == "done" and not chap["has_wav"]:
         if chap["has_mp3"] or chap["has_m4a"]:
@@ -330,9 +343,6 @@ def list_chapters(project_id: str) -> List[Dict[str, Any]]:
 
     for chap in rows:
         path = chap.get("audio_file_path")
-        chap["has_wav"] = False
-        chap["has_mp3"] = False
-        chap["has_m4a"] = False
 
         resolved = config.resolve_chapter_asset_path(
             chap["project_id"], chap["id"], "audio", filename=path
@@ -342,14 +352,8 @@ def list_chapters(project_id: str) -> List[Dict[str, Any]]:
                 chap["project_id"], chap["id"], "audio"
             )
 
-        if resolved:
-            ext = resolved.suffix.lower()
-            if ext == ".wav":
-                chap["has_wav"] = True
-            elif ext == ".mp3":
-                chap["has_mp3"] = True
-            elif ext == ".m4a":
-                chap["has_m4a"] = True
+        flags = _detect_audio_flags(chap["id"], path, resolved)
+        chap.update(flags)
 
         if chap["audio_status"] == "done" and not chap["has_wav"]:
             if chap["has_mp3"] or chap["has_m4a"]:

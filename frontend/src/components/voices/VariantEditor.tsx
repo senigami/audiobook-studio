@@ -34,15 +34,19 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
 }) => {
     const engine = getVoiceProfileEngine(profile) || 'unknown';
     const activeEngine = engines.find(e => e.engine_id === engine);
-    const engineUsable = activeEngine?.enabled && activeEngine?.status === 'ready';
+    const engineUsable = engines.length === 0 ? true : Boolean(activeEngine?.enabled && activeEngine?.status === 'ready');
     const isRebuildEngine = activeEngine?.capabilities?.includes('voice_build');
     const isCloudEngine = activeEngine?.cloud === true;
     
-    // Use the readiness hook result from the backend
-    const isReady = profile.is_ready ?? false;
-    const readinessMessage = profile.readiness_message || "Voice is not ready";
+    const hasBuildMaterial = Boolean(
+        profile.has_latent ||
+        profile.voxtral_voice_id ||
+        profile.reference_sample ||
+        (profile.wav_count > 0) ||
+        (profile.samples?.length || 0) > 0
+    );
     
-    const canGeneratePreview = isReady && engineUsable;
+    const canGeneratePreview = hasBuildMaterial && engineUsable;
     const canPreviewOrGenerate = !!profile.preview_url || canGeneratePreview;
 
     const {
@@ -148,15 +152,15 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                     <div style={{ flexShrink: 0 }}>
                         <button 
                             onClick={handlePlayClick}
-                            className="btn-ghost hover-bg-subtle"
+                        className="btn-ghost hover-bg-subtle"
                         disabled={!canPreviewOrGenerate || isTesting}
-                        title={!canPreviewOrGenerate
-                            ? (!engineUsable 
-                                ? `Engine ${activeEngine?.display_name || formatVoiceEngineLabel(engine)} is disabled or unavailable.` 
-                                : readinessMessage)
-                            : profile.preview_url
-                                ? (isPlaying ? "Pause Sample" : "Play Sample")
-                                : "Generate Sample"}
+                        title={!profile.preview_url && !engineUsable
+                            ? `Engine ${activeEngine?.display_name || formatVoiceEngineLabel(engine)} is disabled or unavailable.`
+                            : !hasBuildMaterial
+                                ? 'Add at least one sample or keep a latent before generating a preview'
+                                : profile.preview_url
+                                    ? (isPlaying ? "Pause Sample" : "Play Sample")
+                                    : "Generate Sample"}
                             style={{ 
                                 width: '40px', 
                                 height: '40px', 
@@ -269,10 +273,14 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                     
                     {!isCloudEngine && (
                         <button 
-                            disabled={!isReady || isBuilding || isTesting}
+                            disabled={!hasBuildMaterial || !engineUsable || isBuilding || isTesting}
                             className={isRebuildRequired ? "btn-primary" : "btn-ghost hover-bg-subtle"}
                             onClick={(e) => { e.stopPropagation(); handleRebuild(); }} 
-                            title={!isReady ? readinessMessage : "Rebuild Voice Model"}
+                            title={!engineUsable
+                                ? `Engine ${activeEngine?.display_name || formatVoiceEngineLabel(engine)} is disabled or unavailable.`
+                                : !hasBuildMaterial
+                                    ? 'Add at least one sample or keep a latent before rebuilding this voice'
+                                    : "Rebuild Voice Model"}
                             style={{ 
                                 padding: '8px 12px', 
                                 height: '36px', 
@@ -312,8 +320,8 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                             onClick={handleGeneratePreview}
                             title={!engineUsable
                                 ? `Engine ${activeEngine?.display_name || engine} is disabled or unavailable.`
-                                : !isReady
-                                    ? readinessMessage
+                                : !hasBuildMaterial
+                                    ? 'Add at least one sample or keep a latent before generating a preview'
                                     : profile.preview_url ? "Regenerate Sample" : "Generate Sample"}
                             style={{
                                 padding: '8px 12px',
