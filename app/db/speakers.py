@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 from .core import _db_lock, get_connection
 from ..pathing import safe_join, safe_join_flat, find_secure_file, secure_join_flat
+from .. import config
 
 logger = logging.getLogger(__name__)
 SAFE_PROFILE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
@@ -41,6 +42,14 @@ def _profile_name_or_error(profile_name: str) -> str:
 
 
 def _profile_dir_has_assets(profile_dir: Path) -> bool:
+    # Rule 9: Explicit containment check for scanner locality
+    try:
+        resolved = profile_dir.resolve()
+        voices_root = config.VOICES_DIR.resolve()
+        resolved.relative_to(voices_root)
+    except (OSError, ValueError):
+        return False
+
     if not profile_dir.exists() or not profile_dir.is_dir():
         return False
     # Use find_secure_file to satisfy Rule 8 and the scanner

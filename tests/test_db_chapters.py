@@ -124,7 +124,8 @@ def test_reset_chapter_audio_deletes_chunk_files(db_conn, tmp_path):
     pid = create_project("P2B", "/tmp")
     cid = create_chapter(pid, "C1", "One. Two.")
 
-    with patch("app.config.get_project_audio_dir", return_value=tmp_path), \
+    with patch("app.config.PROJECTS_DIR", tmp_path), \
+         patch("app.config.get_project_audio_dir", return_value=tmp_path), \
          patch("app.config.find_existing_project_subdir", side_effect=_existing_project_audio_dir(tmp_path)):
         sync_chapter_segments(cid, "One. Two.")
         segs = get_chapter_segments(cid)
@@ -147,7 +148,8 @@ def test_update_segment_only_cleans_edited_segment_files(db_conn, tmp_path):
     pid = create_project("P3", "/tmp")
     cid = create_chapter(pid, "C3", "One. Two.")
 
-    with patch("app.config.get_project_audio_dir", return_value=tmp_path), \
+    with patch("app.config.PROJECTS_DIR", tmp_path), \
+         patch("app.config.get_project_audio_dir", return_value=tmp_path), \
          patch("app.config.find_existing_project_subdir", side_effect=_existing_project_audio_dir(tmp_path)):
         sync_chapter_segments(cid, "One. Two.")
         segs = get_chapter_segments(cid)
@@ -200,7 +202,8 @@ def test_delete_chapter_deletes_chapter_and_chunk_audio_files(db_conn, tmp_path)
         mapping = {"audio": audio_dir, "text": text_dir, "trash": trash_dir}
         return mapping.get(dirname)
 
-    with patch("app.config.get_project_audio_dir", return_value=audio_dir), \
+    with patch("app.config.PROJECTS_DIR", tmp_path), \
+         patch("app.config.get_project_audio_dir", return_value=audio_dir), \
          patch("app.config.get_project_text_dir", return_value=text_dir), \
          patch("app.config.get_project_trash_dir", return_value=trash_dir), \
          patch("app.config.find_existing_project_subdir", side_effect=_subdir):
@@ -251,7 +254,8 @@ def test_move_chapter_artifacts_to_trash_rejects_invalid_chapter_id(db_conn, tmp
         mapping = {"audio": audio_dir, "text": text_dir, "trash": trash_dir}
         return mapping.get(dirname)
 
-    with patch("app.config.get_project_audio_dir", return_value=audio_dir), \
+    with patch("app.config.PROJECTS_DIR", tmp_path), \
+         patch("app.config.get_project_audio_dir", return_value=audio_dir), \
          patch("app.config.get_project_text_dir", return_value=text_dir), \
          patch("app.config.get_project_trash_dir", return_value=trash_dir), \
          patch("app.config.find_existing_project_subdir", side_effect=_subdir):
@@ -278,7 +282,8 @@ def test_move_chapter_artifacts_to_trash_rejects_non_uuid_chapter_id(db_conn, tm
         mapping = {"audio": audio_dir, "text": text_dir, "trash": trash_dir}
         return mapping.get(dirname)
 
-    with patch("app.config.get_project_audio_dir", return_value=audio_dir), \
+    with patch("app.config.PROJECTS_DIR", tmp_path), \
+         patch("app.config.get_project_audio_dir", return_value=audio_dir), \
          patch("app.config.get_project_text_dir", return_value=text_dir), \
          patch("app.config.get_project_trash_dir", return_value=trash_dir), \
          patch("app.config.find_existing_project_subdir", side_effect=_subdir):
@@ -300,7 +305,8 @@ def test_cleanup_chapter_audio_files_rejects_traversal_names(db_conn, tmp_path):
     escaped = tmp_path / "escape.wav"
     escaped.write_text("escape")
 
-    with patch("app.config.get_project_audio_dir", return_value=audio_dir), \
+    with patch("app.config.PROJECTS_DIR", tmp_path), \
+         patch("app.config.get_project_audio_dir", return_value=audio_dir), \
          patch("app.config.find_existing_project_subdir", side_effect=_existing_project_audio_dir(audio_dir)):
         cleanup_chapter_audio_files(pid, cid, explicit_files=["../escape.wav"])
 
@@ -316,7 +322,8 @@ def test_update_chapter_text_change_preserves_stale_chapter_audio_until_rebuild(
     pid = create_project("P6", "/tmp")
     cid = create_chapter(pid, "C6", "One. Two.")
 
-    with patch("app.config.get_project_audio_dir", return_value=tmp_path), \
+    with patch("app.config.PROJECTS_DIR", tmp_path), \
+         patch("app.config.get_project_audio_dir", return_value=tmp_path), \
          patch("app.config.find_existing_project_subdir", side_effect=_existing_project_audio_dir(tmp_path)):
         sync_chapter_segments(cid, "One. Two.")
         segs = get_chapter_segments(cid)
@@ -360,7 +367,8 @@ def test_sync_chapter_segments_preserves_rendered_file_links(db_conn, tmp_path):
     pid = create_project("P4", "/tmp")
     cid = create_chapter(pid, "C4", "One. Two.")
 
-    with patch("app.config.get_project_audio_dir", return_value=tmp_path), \
+    with patch("app.config.PROJECTS_DIR", tmp_path), \
+         patch("app.config.get_project_audio_dir", return_value=tmp_path), \
          patch("app.config.find_existing_project_subdir", side_effect=_existing_project_audio_dir(tmp_path)):
         sync_chapter_segments(cid, "One. Two.")
         segs = get_chapter_segments(cid)
@@ -394,7 +402,8 @@ def test_sync_chapter_segments_does_not_cross_match_reordered_duplicates(db_conn
     pid = create_project("P5", "/tmp")
     cid = create_chapter(pid, "C5", "Repeat. Middle. Repeat.")
 
-    with patch("app.config.get_project_audio_dir", return_value=tmp_path), \
+    with patch("app.config.PROJECTS_DIR", tmp_path), \
+         patch("app.config.get_project_audio_dir", return_value=tmp_path), \
          patch("app.config.find_existing_project_subdir", side_effect=_existing_project_audio_dir(tmp_path)):
         sync_chapter_segments(cid, "Repeat. Middle. Repeat.")
         segs = get_chapter_segments(cid)
@@ -433,7 +442,8 @@ def test_sync_chapter_segments_preserves_unchanged_trailing_segments_after_local
     pid = create_project("P6", "/tmp")
     cid = create_chapter(pid, "C6", "Alpha. Bravo. Charlie. Delta.")
 
-    with patch("app.config.get_project_audio_dir", return_value=tmp_path), \
+    with patch("app.config.PROJECTS_DIR", tmp_path), \
+         patch("app.config.get_project_audio_dir", return_value=tmp_path), \
          patch("app.config.find_existing_project_subdir", side_effect=_existing_project_audio_dir(tmp_path)):
         sync_chapter_segments(cid, "Alpha. Bravo. Charlie. Delta.")
         segs = get_chapter_segments(cid)
@@ -486,7 +496,8 @@ def test_sync_chapter_segments_invalidates_preserved_rows_that_shared_a_chunk_wi
     pid = create_project("P7", "/tmp")
     cid = create_chapter(pid, "C7", "Alpha. Bravo. Charlie.")
 
-    with patch("app.config.get_project_audio_dir", return_value=tmp_path), \
+    with patch("app.config.PROJECTS_DIR", tmp_path), \
+         patch("app.config.get_project_audio_dir", return_value=tmp_path), \
          patch("app.config.find_existing_project_subdir", side_effect=_existing_project_audio_dir(tmp_path)):
         sync_chapter_segments(cid, "Alpha. Bravo. Charlie.")
         segs = get_chapter_segments(cid)

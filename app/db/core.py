@@ -37,15 +37,9 @@ def _assert_safe_db_path_for_tests(db_path: Path) -> None:
         resolved_db_path = raw_db_path.resolve()
         raw_temp_root = Path(tempfile.gettempdir())
         resolved_temp_root = raw_temp_root.resolve()
-        raw_db_path_str = os.path.abspath(os.fspath(raw_db_path))
-        raw_temp_root_str = os.path.abspath(os.fspath(raw_temp_root))
         if (
-            raw_db_path_str.startswith("/tmp/")
-            or raw_db_path_str == "/tmp"
-            or raw_db_path_str.startswith(raw_temp_root_str + os.sep)
-            or raw_db_path_str == raw_temp_root_str
-            or raw_temp_root in raw_db_path.parents
-            or resolved_temp_root in resolved_db_path.parents
+            resolved_db_path.is_relative_to(resolved_temp_root)
+            or resolved_db_path.is_relative_to("/tmp")
         ):
             return
     except Exception:

@@ -123,29 +123,39 @@ def _new_voice_profile_dir(name: str) -> Path:
         from ...config import get_voice_storage_version
         if get_voice_storage_version(voice_name) >= 2:
             # Rule 9: Explicit containment for dynamic names
+            # Create the nested destination for new variant-style names.
             try:
                 voice_root = secure_join_flat(VOICES_DIR, voice_name)
+                # Rule 9: Explicit containment check for scanner locality
+                voice_root.resolve().relative_to(VOICES_DIR.resolve())
+
+                voice_root.mkdir(parents=True, exist_ok=True)
+                from ...domain.voices.manifest import save_voice_manifest
                 if not find_secure_file(voice_root, "voice.json"):
-                    voice_root.mkdir(parents=True, exist_ok=True)
-                    from ...domain.voices.manifest import save_voice_manifest
                     save_voice_manifest(voice_root, {"version": 2, "name": voice_name})
-                return secure_join_flat(voice_root, variant_name)
-            except ValueError as e:
+
+                dest = secure_join_flat(voice_root, variant_name)
+                dest.resolve().relative_to(voice_root.resolve())
+                return dest
+            except (ValueError, OSError, RuntimeError) as e:
                  raise ValueError(str(e))
 
-        # Collision check
+        # Collision check for legacy flat name
         if find_secure_file(VOICES_DIR, candidate):
              return secure_join_flat(VOICES_DIR, candidate)
 
-        # Create the nested destination for new variant-style names.
+        # Force nested layout for new variants
         try:
             voice_root = secure_join_flat(VOICES_DIR, voice_name)
+            voice_root.resolve().relative_to(VOICES_DIR.resolve())
             voice_root.mkdir(parents=True, exist_ok=True)
             from ...domain.voices.manifest import save_voice_manifest
             if not find_secure_file(voice_root, "voice.json"):
                 save_voice_manifest(voice_root, {"version": 2, "name": voice_name})
-            return secure_join_flat(voice_root, variant_name)
-        except ValueError as e:
+            dest = secure_join_flat(voice_root, variant_name)
+            dest.resolve().relative_to(voice_root.resolve())
+            return dest
+        except (ValueError, OSError, RuntimeError) as e:
              raise ValueError(str(e))
 
     return secure_join_flat(VOICES_DIR, candidate)
@@ -178,7 +188,13 @@ def _voice_file_map(profile_dir: Optional[Path]) -> Dict[str, Path]:
     files: Dict[str, Path] = {}
     for entry in profile_dir.iterdir():
         if entry.is_file():
-            files[entry.name] = entry.resolve()
+            try:
+                # Rule 8: Enumerate and match
+                res = entry.resolve()
+                res.relative_to(profile_dir.resolve())
+                files[entry.name] = res
+            except (ValueError, OSError, RuntimeError):
+                continue
     return files
 
 
@@ -284,10 +300,12 @@ def download_voice_bundle(voice_name: str, include_source_wavs: bool = False):
             include_source_wavs=include_source_wavs,
         )
     except VoiceBundleError as exc:
-        return JSONResponse({"status": "error", "message": str(exc)}, status_code=400)
-    except Exception:
+        msg = str(exc) if not any(c in str(exc) for c in ["/", "\\", ":"]) else "Voice export failed due to invalid bundle structure"
+        return JSONResponse({"status": "error", "message": msg}, status_code=400)
+    except Exception as e:
         logger.exception("Failed to export voice bundle for %s", voice_name)
-        return JSONResponse({"status": "error", "message": "Voice export failed"}, status_code=500)
+        msg = str(e) if isinstance(e, (ValueError, KeyError)) and not any(c in str(e) for c in ["/", "\\", ":"]) else "Voice export failed"
+        return JSONResponse({"status": "error", "message": msg}, status_code=500)
 
     safe_filename = safe_basename(f"{voice_name}.voice.zip")
     return Response(
@@ -307,10 +325,12 @@ async def import_voice_bundle_route(file: UploadFile = File(...)):
         sync_speakers_from_profiles(VOICES_DIR)
         return JSONResponse({"status": "ok", **result})
     except VoiceBundleError as exc:
-        return JSONResponse({"status": "error", "message": str(exc)}, status_code=400)
-    except Exception:
+        msg = str(exc) if not any(c in str(exc) for c in ["/", "\\", ":"]) else "Voice import failed due to invalid bundle structure"
+        return JSONResponse({"status": "error", "message": msg}, status_code=400)
+    except Exception as e:
         logger.exception("Failed to import voice bundle %s", file.filename)
-        return JSONResponse({"status": "error", "message": "Voice import failed"}, status_code=500)
+        msg = str(e) if isinstance(e, (ValueError, KeyError)) and not any(c in str(e) for c in ["/", "\\", ":"]) else "Voice import failed"
+        return JSONResponse({"status": "error", "message": msg}, status_code=500)
 
 
 def _ensure_default_speaker_profile(speaker_id: str, speaker_name: str, default_profile_name: Optional[str]) -> str:
@@ -468,7 +488,7 @@ def list_speaker_profiles():
         except Exception as exc:
             profile_data["is_ready"] = False
             # Rule: avoid information exposure through exception messages
-            msg = str(exc) if isinstance(exc, (ValueError, KeyError)) else "Internal error during readiness check"
+            msg = str(exc) if isinstance(exc, (ValueError, KeyError)) and not any(c in str(exc) for c in ["/", "\\", ":"]) else "Internal error during readiness check"
             profile_data["readiness_message"] = msg
 
         profiles.append(profile_data)
@@ -560,10 +580,25 @@ def api_create_speaker_route(name: str = Form(...), default_profile_name: Option
 
 def _rename_profile_folders(old_name: str, new_name: str):
     """Helper to rename all profile folders on disk starting with a speaker name."""
+    # 0. Validate names
+    if not (config.SAFE_PROJECT_ID_RE.fullmatch(old_name) and config.SAFE_PROJECT_ID_RE.fullmatch(new_name)):
+         # If not simple IDs, check if they are valid profile names (could contain spaces/hyphens)
+         if not (SAFE_PROFILE_NAME_RE.fullmatch(old_name) and SAFE_PROFILE_NAME_RE.fullmatch(new_name)):
+              logger.warning(f"Blocking invalid profile rename attempt: {old_name} -> {new_name}")
+              raise HTTPException(status_code=403, detail="Invalid profile name format")
+
     try:
         # 0. Voice Root (v2)
-        old_root = VOICES_DIR / old_name
-        new_root = VOICES_DIR / new_name
+        old_root = secure_join_flat(VOICES_DIR, old_name)
+        new_root = secure_join_flat(VOICES_DIR, new_name)
+
+        # Rule 9: Explicit containment check for scanner locality
+        try:
+            old_root.resolve().relative_to(VOICES_DIR.resolve())
+            new_root.resolve().relative_to(VOICES_DIR.resolve())
+        except (ValueError, OSError, RuntimeError):
+             raise HTTPException(status_code=403, detail="Invalid profile name")
+
         if old_root.exists() and old_root.is_dir() and find_secure_file(old_root, "voice.json"):
             if not new_root.exists():
                 old_root.rename(new_root)
@@ -595,6 +630,13 @@ def _rename_profile_folders(old_name: str, new_name: str):
         voice_dirs = _voice_dirs_map()
         old_dir = voice_dirs.get(_valid_profile_name(old_name))
         new_dir = voice_dirs.get(_valid_profile_name(new_name)) or _new_voice_profile_dir(new_name)
+
+        # Rule 9: Explicit containment check for scanner locality
+        try:
+            if old_dir: old_dir.resolve().relative_to(VOICES_DIR.resolve())
+            if new_dir: new_dir.resolve().relative_to(VOICES_DIR.resolve())
+        except (ValueError, OSError, RuntimeError):
+             raise HTTPException(status_code=403, detail="Invalid profile name")
     except ValueError:
         logger.warning(f"Blocking profile rename traversal attempt: {old_name} -> {new_name}")
         raise HTTPException(status_code=403, detail="Invalid profile name")
@@ -745,7 +787,8 @@ def api_assign_profile_to_speaker(
         return JSONResponse({"status": "ok", "new_profile_name": new_profile_name})
     except Exception as e:
         logger.error(f"Error assigning profile {profile_name}: {e}")
-        return JSONResponse({"status": "error", "message": "Assign failed"}, status_code=500)
+        msg = str(e) if isinstance(e, (ValueError, KeyError)) and not any(c in str(e) for c in ["/", "\\", ":"]) else "Assign failed"
+        return JSONResponse({"status": "error", "message": msg}, status_code=500)
 
 @router.post("/api/voices/rename-profile")
 def api_rename_voice_profile(

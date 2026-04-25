@@ -49,10 +49,18 @@ def find_existing_project_dir(project_id: str) -> Optional[Path]:
     canonical_project_id = _canonical_project_id(project_id)
     if not PROJECTS_DIR.exists():
         return None
+
+    # Rule 8: Enumerate trusted root and match by entry.name
     try:
         for entry in PROJECTS_DIR.iterdir():
             if entry.is_dir() and entry.name == canonical_project_id:
-                return entry.resolve()
+                # Explicit containment check for scanner locality
+                resolved = entry.resolve()
+                try:
+                    resolved.relative_to(PROJECTS_DIR.resolve())
+                    return resolved
+                except ValueError:
+                    continue
     except OSError:
         return None
     return None
@@ -63,9 +71,16 @@ def find_existing_project_subdir(project_id: str, dirname: str) -> Optional[Path
     if not project_dir or not project_dir.exists():
         return None
     try:
+        # Rule 8: Enumerate trusted root
         for entry in project_dir.iterdir():
             if entry.is_dir() and entry.name == dirname:
-                return entry.resolve()
+                # Explicit containment check for scanner locality
+                resolved = entry.resolve()
+                try:
+                    resolved.relative_to(project_dir.resolve())
+                    return resolved
+                except ValueError:
+                    continue
     except OSError:
         return None
     return None
@@ -151,9 +166,16 @@ def _find_file(directory: Path, filename: str) -> Optional[Path]:
     try:
         if not directory.exists() or not directory.is_dir():
             return None
+        # Rule 8: Enumerate trusted root
         for entry in directory.iterdir():
             if entry.is_file() and entry.name == filename:
-                return entry.resolve()
+                # Explicit containment check for scanner locality
+                resolved = entry.resolve()
+                try:
+                    resolved.relative_to(directory.resolve())
+                    return resolved
+                except ValueError:
+                    continue
     except OSError:
         pass
     return None

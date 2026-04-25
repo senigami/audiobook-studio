@@ -37,8 +37,16 @@ def probe_audiobook_metadata(root: Path, filename: str) -> dict:
     trusted_path = _contained_audiobook_path(root, filename)
     if not trusted_path:
         return {}
+    try:
+        resolved = trusted_path.resolve()
+        base_resolved = root.resolve()
+        resolved.relative_to(base_resolved)
+    except (OSError, ValueError, RuntimeError):
+         logger.error(f"Blocking out-of-bounds metadata probe: {trusted_path}")
+         return {}
+
     probe_res = subprocess.run(
-        [*FFPROBE_AUDIOBOOK_CMD, os.fspath(trusted_path)],
+        [*FFPROBE_AUDIOBOOK_CMD, os.fspath(resolved)],
         capture_output=True,
         text=True,
         check=True,
@@ -181,7 +189,16 @@ def list_audiobooks():
         p = _contained_audiobook_path(root_dir, filename)
         if p is None:
             continue
-        st = p.stat()
+
+        # Rule 9: Explicit containment check for scanner locality before stat sink
+        try:
+            resolved = p.resolve()
+            base_resolved = root_dir.resolve()
+            resolved.relative_to(base_resolved)
+        except (OSError, ValueError, RuntimeError):
+             continue
+
+        st = resolved.stat()
         item = {
             "filename": p.name, 
             "title": p.name, 

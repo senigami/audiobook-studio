@@ -938,6 +938,20 @@ def _resolve_canonical_wav_path(*, chapter_id: str, chapter_row: Mapping[str, An
         find_existing_project_subdir(project_id, "audio") if project_id else XTTS_OUT_DIR
     )
     if audio_dir and audio_dir.exists():
+        # Explicit containment check for scanner locality
+        try:
+            res_audio_dir = audio_dir.resolve()
+            projects_root = config.PROJECTS_DIR.resolve()
+            xtts_root = config.XTTS_OUT_DIR.resolve()
+            try:
+                res_audio_dir.relative_to(projects_root)
+            except ValueError:
+                if res_audio_dir != xtts_root:
+                    audio_dir = None
+        except (OSError, ValueError):
+             audio_dir = None
+
+    if audio_dir and audio_dir.exists():
         for candidate in (
             f"{chapter_id}.wav",
             f"{chapter_id}_0.wav",
@@ -946,10 +960,10 @@ def _resolve_canonical_wav_path(*, chapter_id: str, chapter_row: Mapping[str, An
             legacy_path = find_secure_file(audio_dir, candidate)
             if legacy_path:
                 # Rule 9: Explicit containment check for scanner locality
-                import os
-                base_dir = os.path.abspath(os.path.normpath(os.fspath(audio_dir)))
-                fullpath = os.path.abspath(os.path.normpath(os.fspath(legacy_path)))
-                if fullpath.startswith(base_dir + os.sep) or fullpath == base_dir:
+                try:
+                    legacy_path.resolve().relative_to(audio_dir.resolve())
                     return legacy_path
+                except (ValueError, OSError):
+                    pass
 
     return None

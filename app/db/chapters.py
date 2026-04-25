@@ -76,17 +76,35 @@ def cleanup_chapter_audio_files(
     nested_pdir = config.get_chapter_dir(project_id, chapter_id) if project_id else None
 
     target_dirs = []
-    if legacy_pdir and legacy_pdir.exists():
-        target_dirs.append(legacy_pdir)
-    if nested_pdir and nested_pdir.exists():
-        target_dirs.append(nested_pdir)
-        # Rule 9: Secure join for literal subdirectory
-        try:
-            seg_dir = secure_join_flat(nested_pdir, "segments")
-            if seg_dir.exists():
-                target_dirs.append(seg_dir)
-        except ValueError:
-            pass
+    # Explicit containment check for scanner locality
+    try:
+        projects_root = config.PROJECTS_DIR.resolve()
+        if legacy_pdir and legacy_pdir.exists():
+            res_legacy = legacy_pdir.resolve()
+            try:
+                res_legacy.relative_to(projects_root)
+                target_dirs.append(legacy_pdir)
+            except ValueError:
+                if res_legacy == config.XTTS_OUT_DIR.resolve():
+                    target_dirs.append(legacy_pdir)
+
+        if nested_pdir and nested_pdir.exists():
+            res_nested = nested_pdir.resolve()
+            try:
+                res_nested.relative_to(projects_root)
+                target_dirs.append(nested_pdir)
+
+                # Rule 9: Secure join for literal subdirectory
+                try:
+                    seg_dir = secure_join_flat(nested_pdir, "segments")
+                    if seg_dir.exists():
+                        target_dirs.append(seg_dir)
+                except ValueError:
+                    pass
+            except ValueError:
+                pass
+    except (OSError, ValueError):
+        pass
 
     if not target_dirs:
         return True
@@ -167,6 +185,17 @@ def move_chapter_artifacts_to_trash(
         # Use project-aware trash dir resolution
         base_trash_path = config.get_project_trash_dir(project_id) or config.TRASH_DIR
         trash_root = secure_join_flat(base_trash_path, chapter_id)
+
+        # Explicit containment check for scanner locality
+        resolved_trash = trash_root.resolve()
+        # It should be under its own base trash path (project-specific or global)
+        trash_base_resolved = base_trash_path.resolve()
+        try:
+            resolved_trash.relative_to(trash_base_resolved)
+        except ValueError:
+             # Also check PROJECTS_DIR if it's a project-specific trash
+             projects_root = config.PROJECTS_DIR.resolve()
+             resolved_trash.relative_to(projects_root)
     except Exception:
         logger.warning("Skipping trash move for invalid chapter id %s", chapter_id)
         return False

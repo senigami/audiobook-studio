@@ -298,7 +298,7 @@ def api_get_script_view(chapter_id: str):
         return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
     except Exception as e:
         logger.error(f"Script view payload failed for {chapter_id}: {e}", exc_info=True)
-        msg = str(e) if isinstance(e, (ValueError, KeyError)) else "Internal server error during script view fetch"
+        msg = str(e) if isinstance(e, (ValueError, KeyError)) and not any(c in str(e) for c in ["/", "\\", ":"]) else "Internal server error during script view fetch"
         return JSONResponse({"status": "error", "message": msg}, status_code=500)
 
 
@@ -310,7 +310,7 @@ def api_get_resync_preview(chapter_id: str, payload: ResyncPreviewRequest):
         return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
     except Exception as e:
         logger.error(f"Error generating resync preview: {e}")
-        msg = str(e) if isinstance(e, (ValueError, KeyError)) else "Internal server error during resync preview"
+        msg = str(e) if isinstance(e, (ValueError, KeyError)) and not any(c in str(e) for c in ["/", "\\", ":"]) else "Internal server error during resync preview"
         return JSONResponse({"status": "error", "message": msg}, status_code=500)
 
 
@@ -362,7 +362,7 @@ def api_save_script_assignments(chapter_id: str, payload: ScriptAssignmentsUpdat
         return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
     except Exception as e:
         logger.error(f"Failed to save script view for chapter {chapter_id}: {e}", exc_info=True)
-        msg = str(e) if isinstance(e, (ValueError, KeyError)) else "Internal server error during script save"
+        msg = str(e) if isinstance(e, (ValueError, KeyError)) and not any(c in str(e) for c in ["/", "\\", ":"]) else "Internal server error during script save"
         return JSONResponse({"status": "error", "message": msg}, status_code=500)
 
 
@@ -388,7 +388,7 @@ def api_compact_script_view(chapter_id: str, payload: CompactionRequest):
         return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
     except Exception as e:
         logger.error(f"Failed to compact script view for chapter {chapter_id}: {e}", exc_info=True)
-        msg = str(e) if isinstance(e, (ValueError, KeyError)) else "Internal server error during compaction"
+        msg = str(e) if isinstance(e, (ValueError, KeyError)) and not any(c in str(e) for c in ["/", "\\", ":"]) else "Internal server error during compaction"
         return JSONResponse({"status": "error", "message": msg}, status_code=500)
 
 
@@ -399,11 +399,27 @@ def api_export_chapter_audio(chapter_id: str, payload: AudioExportRequest):
     except KeyError:
         return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
     except FileNotFoundError as exc:
-        return JSONResponse({"status": "error", "message": str(exc)}, status_code=404)
+        logger.warning(f"Export file not found for {chapter_id}: {exc}")
+        return JSONResponse({"status": "error", "message": "Export file not found"}, status_code=404)
     except ValueError as exc:
-        return JSONResponse({"status": "error", "message": str(exc)}, status_code=400)
+        logger.warning(f"Invalid export request for {chapter_id}: {exc}")
+        return JSONResponse({"status": "error", "message": "Invalid export request"}, status_code=400)
 
-    return FileResponse(export_path, media_type=media_type, filename=export_path.name)
+    # Rule 9: Explicit containment check for FileResponse sink
+    try:
+        resolved = export_path.resolve()
+        # Must be under PROJECTS_DIR or CHAPTER_DIR
+        projects_root = config.PROJECTS_DIR.resolve()
+        legacy_root = config.CHAPTER_DIR.resolve()
+        try:
+            resolved.relative_to(projects_root)
+        except ValueError:
+            resolved.relative_to(legacy_root)
+    except (OSError, ValueError, RuntimeError):
+         logger.error(f"Blocking out-of-bounds FileResponse: {export_path}")
+         raise HTTPException(status_code=403, detail="Access denied")
+
+    return FileResponse(resolved, media_type=media_type, filename=resolved.name)
 
 @router.put("/segments/{segment_id}")
 async def api_update_segment_route(segment_id: str, request: Request):
@@ -532,10 +548,14 @@ def api_get_chapter_asset(
         media_type = "application/octet-stream"
 
     # Rule 9: Explicit containment check for scanner locality
-    if not str(resolved.resolve()).startswith(str(config.PROJECTS_DIR.resolve())):
-         # Might be in CHAPTER_DIR (legacy)
-         if not str(resolved.resolve()).startswith(str(config.CHAPTER_DIR.resolve())):
-              raise HTTPException(status_code=403, detail="Asset path out of bounds")
+    try:
+        res_resolved = resolved.resolve()
+        try:
+            res_resolved.relative_to(config.PROJECTS_DIR.resolve())
+        except ValueError:
+             res_resolved.relative_to(config.CHAPTER_DIR.resolve())
+    except (OSError, ValueError, RuntimeError):
+         raise HTTPException(status_code=403, detail="Asset path out of bounds")
 
     return FileResponse(resolved, media_type=media_type)
 

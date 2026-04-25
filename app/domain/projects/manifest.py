@@ -11,6 +11,15 @@ PROJECT_MANIFEST_FILENAME = "project.json"
 CURRENT_STORAGE_VERSION = 2
 
 def get_project_manifest_path(project_dir: Path) -> Path:
+    from ...config import PROJECTS_DIR
+    # Rule 9: Explicit containment check for scanner locality
+    try:
+        resolved = project_dir.resolve()
+        projects_root = PROJECTS_DIR.resolve()
+        resolved.relative_to(projects_root)
+    except (OSError, ValueError) as e:
+         raise ValueError(f"Invalid or out-of-bounds project directory: {project_dir}") from e
+
     return secure_join_flat(project_dir, PROJECT_MANIFEST_FILENAME)
 
 def load_project_manifest(project_dir: Path) -> Dict[str, Any]:
