@@ -776,12 +776,13 @@ def _create_backup_archive(bundle: ProjectBackupBundleModel) -> io.BytesIO:
                     # Try to find corresponding .wav if path points to .mp3 or similar
                     wav_path = str(Path(raw_path).with_suffix(".wav"))
 
+                audio_path = Path(wav_path)
                 if audio_path.exists() and audio_path.suffix.lower() == ".wav":
                     audio_ext = ".wav"
                     # Use the same base filename as the text for easy pairing
                     try:
-                        audio_filename = safe_join_flat(audio_dir, f"{Path(text_filename).stem}{audio_ext}").name
-                        zf.write(audio_dir / audio_filename, arcname=f"chapters/{audio_filename}")
+                        audio_filename = safe_join_flat(audio_path.parent, f"{Path(text_filename).stem}{audio_ext}").name
+                        zf.write(audio_path, arcname=f"chapters/{audio_filename}")
                         chapter_info["audio_path"] = f"chapters/{audio_filename}"
                     except ValueError:
                         pass

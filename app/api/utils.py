@@ -166,7 +166,7 @@ def process_and_split_file(filename: str, mode: str = "parts", max_chars: int = 
             raise ValueError("No chapter markers found. Expected: Chapter 1: Title")
         return write_chapters_to_folder(chapters, config.CHAPTER_DIR, prefix="chapter", include_heading=True)
     else:
-        stem = Path(safe_filename).stem
+        stem = path.stem
         chapters = split_into_parts(full_text, max_chars, start_index=1)
         return write_chapters_to_folder(chapters, config.CHAPTER_DIR, prefix=stem, include_heading=False)
 
