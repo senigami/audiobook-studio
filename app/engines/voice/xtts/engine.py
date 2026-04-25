@@ -194,7 +194,7 @@ class XttsVoiceEngine(BaseVoiceEngine):
                 voice_profile_dir=voice_profile_dir,
             )
         except Exception as exc:
-            raise EngineExecutionError(f"XTTS synthesis failed: {exc}") from exc
+            raise EngineExecutionError(f"XTTS synthesis failed - {exc}") from exc
 
         if rc != 0 or not render_wav_path.exists():
             raise EngineExecutionError("XTTS synthesis did not produce an audio file.")
@@ -284,7 +284,7 @@ class XttsVoiceEngine(BaseVoiceEngine):
                 voice_profile_dir=voice_profile_dir,
             )
         except Exception as exc:
-            raise EngineExecutionError(f"XTTS preview failed: {exc}") from exc
+            raise EngineExecutionError(f"XTTS preview failed - {exc}") from exc
 
         if rc != 0 or not out_wav.exists():
             raise EngineExecutionError("XTTS preview did not produce an audio file.")

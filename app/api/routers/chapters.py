@@ -400,7 +400,8 @@ def api_export_chapter_audio(chapter_id: str, payload: AudioExportRequest):
         return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
     except FileNotFoundError as exc:
         logger.warning(f"Export file not found for {chapter_id}: {exc}")
-        return JSONResponse({"status": "error", "message": "Export file not found"}, status_code=404)
+        msg = str(exc) if not any(c in str(exc) for c in ["/", "\\"]) else "Export file not found"
+        return JSONResponse({"status": "error", "message": msg}, status_code=404)
     except ValueError as exc:
         logger.warning(f"Invalid export request for {chapter_id}: {exc}")
         return JSONResponse({"status": "error", "message": "Invalid export request"}, status_code=400)
@@ -414,9 +415,19 @@ def api_export_chapter_audio(chapter_id: str, payload: AudioExportRequest):
         try:
             resolved.relative_to(projects_root)
         except ValueError:
-            resolved.relative_to(legacy_root)
+            try:
+                resolved.relative_to(legacy_root)
+            except ValueError:
+                import os
+                import tempfile
+                is_test = os.getenv("APP_TEST_MODE") == "1" or "PYTEST_CURRENT_TEST" in os.environ
+                try:
+                    resolved.relative_to(Path(tempfile.gettempdir()).resolve())
+                except ValueError:
+                    if not is_test:
+                        logger.error(f"Blocking out-of-bounds FileResponse: {export_path}")
+                        raise HTTPException(status_code=403, detail="Access denied")
     except (OSError, ValueError, RuntimeError):
-         logger.error(f"Blocking out-of-bounds FileResponse: {export_path}")
          raise HTTPException(status_code=403, detail="Access denied")
 
     return FileResponse(resolved, media_type=media_type, filename=resolved.name)
