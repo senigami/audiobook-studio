@@ -85,6 +85,7 @@ interface VoicesModalsProps {
     includeSourceWavs: boolean;
     setIncludeSourceWavs: (include: boolean) => void;
     handleConfirmExportVoice: () => void;
+    exportVoiceOptions: Array<{ value: string; label: string }>;
 }
 
 export const VoicesModals: React.FC<VoicesModalsProps> = (props) => {
@@ -209,9 +210,34 @@ export const VoicesModals: React.FC<VoicesModalsProps> = (props) => {
                                 Export Voice Bundle
                             </h3>
                             <p style={{ fontSize: '0.925rem', color: 'var(--text-muted)', lineHeight: 1.5, margin: 0 }}>
-                                Export "{props.exportVoiceName}" with all variants, metadata, previews, and model files.
+                                Export a voice bundle with all variants, metadata, previews, and model files.
                             </p>
                         </div>
+
+                        <label style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                Voice to export
+                            </span>
+                            <select
+                                value={props.exportVoiceName || ''}
+                                onChange={(event) => props.setExportVoiceName(event.target.value || null)}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.85rem 1rem',
+                                    borderRadius: '12px',
+                                    border: '1px solid var(--border)',
+                                    background: 'var(--surface-light)',
+                                    color: 'var(--text-primary)',
+                                    fontWeight: 600
+                                }}
+                            >
+                                {props.exportVoiceOptions.map(option => (
+                                    <option key={option.value} value={option.value}>
+                                        {option.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
 
                         <label style={{
                             display: 'flex',
@@ -244,6 +270,7 @@ export const VoicesModals: React.FC<VoicesModalsProps> = (props) => {
                             <button
                                 onClick={props.handleConfirmExportVoice}
                                 className="btn-primary"
+                                disabled={!props.exportVoiceName}
                                 style={{ flex: 1, padding: '0.75rem', borderRadius: '12px' }}
                             >
                                 Download Bundle

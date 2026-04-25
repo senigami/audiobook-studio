@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
-    Search, Plus, User, Info, Upload
+    Search, Plus, User, Info, Upload, Download
 } from 'lucide-react';
 import type { Speaker, SpeakerProfile, Job, VoiceEngine, Settings, TtsEngine } from '../types';
 import { GlassInput } from './GlassInput';
@@ -435,6 +435,19 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
     const activeVoices = buildVoiceGroups(activeSpeakerProfiles);
     const disabledVoices = buildVoiceGroups(disabledSpeakerProfiles);
     const allVoices = activeVoices;
+    const exportVoiceOptions = activeVoices
+        .filter(voice => !(voice as any).isUnassigned)
+        .map(voice => ({
+            value: voice.name,
+            label: voice.name
+        }))
+        .filter((option, index, self) => self.findIndex(candidate => candidate.value === option.value) === index);
+    if (exportVoiceName && !exportVoiceOptions.some(option => option.value === exportVoiceName)) {
+        exportVoiceOptions.unshift({
+            value: exportVoiceName,
+            label: exportVoiceName
+        });
+    }
     const voices = engineFilter === 'disabled' ? disabledVoices : activeVoices;
 
     const filteredVoices = voices.filter(v => {
@@ -523,6 +536,16 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                         aria-label="Import voice bundle file"
                         style={{ display: 'none' }}
                         onChange={(event) => void handleImportVoiceBundle(event.target.files?.[0] || null)}
+                    />
+                    <GhostButton
+                        onClick={() => {
+                            if (exportVoiceOptions.length === 0) return;
+                            setExportVoiceName(exportVoiceOptions[0].value);
+                            setIncludeSourceWavs(false);
+                        }}
+                        icon={Download}
+                        label="Export Voice"
+                        disabled={exportVoiceOptions.length === 0}
                     />
                     <GhostButton
                         onClick={() => importInputRef.current?.click()}
@@ -700,6 +723,7 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 includeSourceWavs={includeSourceWavs}
                 setIncludeSourceWavs={setIncludeSourceWavs}
                 handleConfirmExportVoice={handleConfirmExportVoice}
+                exportVoiceOptions={exportVoiceOptions}
             />
         </div>
     );

@@ -66,6 +66,8 @@ describe('Voices Tab Components', () => {
             render(<VoicesTab onRefresh={vi.fn()} speakerProfiles={[mockProfile]} testProgress={{}} />);
             expect(screen.getByText('Voices')).toBeInTheDocument();
             expect(screen.getByPlaceholderText('Search voices...')).toBeInTheDocument();
+            expect(screen.getByText('Export Voice')).toBeInTheDocument();
+            expect(screen.getByText('Import Voice')).toBeInTheDocument();
         });
 
         it('renders list of voices', () => {
@@ -361,6 +363,16 @@ describe('Voices Tab Components', () => {
             expect(input).toHaveAttribute('accept', '.zip,application/zip');
         });
 
+        it('renders Export Voice button and opens export modal', () => {
+            render(<VoicesTab onRefresh={vi.fn()} speakerProfiles={[mockProfile]} testProgress={{}} />);
+            const exportBtn = screen.getByText('Export Voice');
+            expect(exportBtn).toBeInTheDocument();
+
+            fireEvent.click(exportBtn);
+            expect(screen.getByText('Export Voice Bundle')).toBeInTheDocument();
+            expect(screen.getByLabelText('Voice to export')).toBeInTheDocument();
+        });
+
         it('shows Export Voice Bundle in NarratorCard ActionMenu', () => {
             const onExport = vi.fn();
             render(
@@ -403,7 +415,8 @@ describe('Voices Tab Components', () => {
 
             // Modal should appear
             expect(screen.getByText('Export Voice Bundle')).toBeInTheDocument();
-            expect(screen.getByText(/Export "Speaker One" with all variants/)).toBeInTheDocument();
+            expect(screen.getByText(/Export a voice bundle with all variants/)).toBeInTheDocument();
+            expect(screen.getByLabelText('Voice to export')).toHaveValue('Speaker One');
 
             const toggle = screen.getByLabelText(/Include source WAV samples/);
             expect(toggle).toBeInTheDocument();
