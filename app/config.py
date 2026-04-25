@@ -4,6 +4,8 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
+from .pathing import safe_join_flat
+
 BASE_DIR = Path(os.getenv("AUDIOBOOK_BASE_DIR", str(Path(__file__).resolve().parents[1])))
 
 DEFAULT_CHAPTER_DIR = (
@@ -206,7 +208,10 @@ def resolve_chapter_asset_path(
         if project_id:
             nested_dir = get_chapter_dir(project_id, chapter_id)
             if filename:
-                new_path = nested_dir / filename
+                try:
+                    new_path = safe_join_flat(nested_dir, filename)
+                except ValueError:
+                    return None
                 if new_path.exists():
                     return new_path
                 # Map chapter_id.wav -> chapter.wav in new layout if chapter.wav exists
@@ -215,7 +220,10 @@ def resolve_chapter_asset_path(
                     if new_main.exists():
                         return new_main
 
-                old_path = get_project_audio_dir(project_id) / filename
+                try:
+                    old_path = safe_join_flat(get_project_audio_dir(project_id), filename)
+                except ValueError:
+                    return None
                 if old_path.exists():
                     return old_path
             else:
@@ -244,7 +252,10 @@ def resolve_chapter_asset_path(
 
         for audio_dir in audio_dirs:
             if filename:
-                cand = audio_dir / filename
+                try:
+                    cand = safe_join_flat(audio_dir, filename)
+                except ValueError:
+                    return None
                 if cand.exists():
                     return cand
 
@@ -271,13 +282,18 @@ def resolve_chapter_asset_path(
                 else:
                     sid = filename.replace(".wav", "")
 
-                new_path = nested_dir / "segments" / f"{sid}.wav"
+                try:
+                    new_path = safe_join_flat(nested_dir / "segments", f"{sid}.wav")
+                except ValueError:
+                    return None
                 if new_path.exists():
                     return new_path
 
-                old_path = get_project_audio_dir(project_id) / (
-                    filename if filename.startswith("chunk_") else f"chunk_{filename}.wav"
-                )
+                legacy_name = filename if filename.startswith("chunk_") else f"chunk_{filename}.wav"
+                try:
+                    old_path = safe_join_flat(get_project_audio_dir(project_id), legacy_name)
+                except ValueError:
+                    return None
                 if old_path.exists():
                     return old_path
 
@@ -288,9 +304,11 @@ def resolve_chapter_asset_path(
 
         for audio_dir in audio_dirs:
             if filename:
-                old_path = audio_dir / (
-                    filename if filename.startswith("chunk_") else f"chunk_{filename}.wav"
-                )
+                legacy_name = filename if filename.startswith("chunk_") else f"chunk_{filename}.wav"
+                try:
+                    old_path = safe_join_flat(audio_dir, legacy_name)
+                except ValueError:
+                    return None
                 if old_path.exists():
                     return old_path
 

@@ -31,7 +31,6 @@ from ...jobs import cancel as cancel_job, get_jobs
 from ...state import update_job, delete_jobs, get_settings
 from ...constants import DEFAULT_VOICE_SENTINEL
 from ..ws import broadcast_chapter_updated, broadcast_queue_update
-from ...pathing import safe_basename, safe_join_flat
 
 # Compatibility for tests that monkeypatch these
 CHAPTER_DIR = config.CHAPTER_DIR

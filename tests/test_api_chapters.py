@@ -150,3 +150,19 @@ def test_export_and_stream(clean_db, tmp_path, client):
     assert response.json()["url"].startswith(expected_url)
 
     fastapi_app.dependency_overrides = {}
+
+
+def test_chapter_asset_route_rejects_path_traversal(clean_db, client):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "T1")
+
+    for asset_type in ("audio", "segment"):
+        response = client.get(
+            f"/api/projects/{pid}/chapters/{cid}/assets/{asset_type}",
+            params={"filename": "../../etc/passwd"},
+        )
+
+        assert response.status_code == 404
