@@ -14,7 +14,7 @@ from typing import Any
 from app.config import XTTS_OUT_DIR, find_existing_project_subdir
 from app.db.core import _db_lock, get_connection
 from app.db.segments import sync_chapter_segments
-from app.pathing import safe_basename, safe_join_flat
+from app.pathing import safe_basename, safe_join_flat, find_secure_file, secure_join_flat
 from app.textops import compute_chapter_metrics, split_sentences, SENT_CHAR_LIMIT
 
 
@@ -573,7 +573,7 @@ def export_chapter_audio(chapter_id: str, *, format: str) -> tuple[Path, str]:
     if format != "mp3":
         raise ValueError(f"Unsupported export format: {format}")
 
-    mp3_path = safe_join_flat(wav_path.parent, f"{wav_path.stem}.mp3")
+    mp3_path = secure_join_flat(wav_path.parent, f"{wav_path.stem}.mp3")
     if mp3_path.exists():
         return mp3_path, "audio/mpeg"
 
@@ -943,11 +943,8 @@ def _resolve_canonical_wav_path(*, chapter_id: str, chapter_row: Mapping[str, An
             f"{chapter_id}_0.wav",
             "chapter.wav",
         ):
-            try:
-                legacy_path = safe_join_flat(audio_dir, candidate)
-                if legacy_path.exists():
-                    return legacy_path
-            except ValueError:
-                continue
+            legacy_path = find_secure_file(audio_dir, candidate)
+            if legacy_path:
+                return legacy_path
 
     return None

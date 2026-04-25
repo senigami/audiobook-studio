@@ -143,6 +143,19 @@ def get_variant_dir(voice_name: str, variant_name: str) -> Path:
     """Returns the directory for a voice variant in nested layout."""
     return safe_join(get_voice_dir(voice_name), variant_name)
 
+def _find_file(directory: Path, filename: str) -> Optional[Path]:
+    """Rule 8: Enumerate trusted root and match by entry.name for existing files."""
+    try:
+        if not directory.exists() or not directory.is_dir():
+            return None
+        for entry in directory.iterdir():
+            if entry.is_file() and entry.name == filename:
+                return entry.resolve()
+    except OSError:
+        pass
+    return None
+
+
 def get_voice_storage_version(voice_name: str) -> int:
     """Returns the storage version of a voice (1 for legacy flat, 2 for nested)."""
     try:
@@ -176,21 +189,15 @@ def resolve_chapter_asset_path(
         # Global: fallback_dir or CHAPTER_DIR/{chapter_id}.txt
         if project_id:
             nested_dir = get_chapter_dir(project_id, chapter_id)
-            try:
-                new_path = safe_join_flat(nested_dir, "chapter.txt")
-                if new_path.exists():
-                    return new_path
-            except ValueError:
-                pass
+            new_path = _find_file(nested_dir, "chapter.txt")
+            if new_path:
+                return new_path
 
             text_dir = get_project_text_dir(project_id)
             for cand in [f"{chapter_id}.txt", f"{chapter_id}_0.txt"]:
-                try:
-                    old_path = safe_join_flat(text_dir, cand)
-                    if old_path.exists():
-                        return old_path
-                except ValueError:
-                    continue
+                old_path = _find_file(text_dir, cand)
+                if old_path:
+                    return old_path
 
         # Fallback to global
         text_dirs = [CHAPTER_DIR]
@@ -199,12 +206,9 @@ def resolve_chapter_asset_path(
 
         for text_dir in text_dirs:
             for cand in [f"{chapter_id}.txt", f"{chapter_id}_0.txt"]:
-                try:
-                    global_path = safe_join_flat(text_dir, cand)
-                    if global_path.exists():
-                        return global_path
-                except ValueError:
-                    continue
+                global_path = _find_file(text_dir, cand)
+                if global_path:
+                    return global_path
 
     elif asset_type == "audio":
         # New: project/chapters/{chapter_id}/chapter.wav (or chapter.m4a/mp3)
@@ -213,36 +217,25 @@ def resolve_chapter_asset_path(
         if project_id:
             nested_dir = get_chapter_dir(project_id, chapter_id)
             if filename:
-                try:
-                    new_path = safe_join_flat(nested_dir, filename)
-                except ValueError:
-                    return None
-                if new_path.exists():
+                new_path = _find_file(nested_dir, filename)
+                if new_path:
                     return new_path
+
                 # Map chapter_id.wav -> chapter.wav in new layout if chapter.wav exists
                 if filename == f"{chapter_id}.wav":
-                    try:
-                        new_main = safe_join_flat(nested_dir, "chapter.wav")
-                        if new_main.exists():
-                            return new_main
-                    except ValueError:
-                        pass
+                    new_main = _find_file(nested_dir, "chapter.wav")
+                    if new_main:
+                        return new_main
 
-                try:
-                    old_path = safe_join_flat(get_project_audio_dir(project_id), filename)
-                except ValueError:
-                    return None
-                if old_path.exists():
+                old_path = _find_file(get_project_audio_dir(project_id), filename)
+                if old_path:
                     return old_path
             else:
                 # Try standard names in nested dir
                 for ext in [".wav", ".m4a", ".mp3"]:
-                    try:
-                        new_path = safe_join_flat(nested_dir, f"chapter{ext}")
-                        if new_path.exists():
-                            return new_path
-                    except ValueError:
-                        continue
+                    new_path = _find_file(nested_dir, f"chapter{ext}")
+                    if new_path:
+                        return new_path
 
                 # Fallback to standard legacy names
                 audio_dir = get_project_audio_dir(project_id)
@@ -252,12 +245,9 @@ def resolve_chapter_asset_path(
                     f"{chapter_id}.mp3",
                     f"{chapter_id}_0.mp3",
                 ]:
-                    try:
-                        old_path = safe_join_flat(audio_dir, cand)
-                        if old_path.exists():
-                            return old_path
-                    except ValueError:
-                        continue
+                    old_path = _find_file(audio_dir, cand)
+                    if old_path:
+                        return old_path
 
         # Fallback to global
         audio_dirs = [XTTS_OUT_DIR]
@@ -266,25 +256,19 @@ def resolve_chapter_asset_path(
 
         for audio_dir in audio_dirs:
             if filename:
-                try:
-                    cand = safe_join_flat(audio_dir, filename)
-                except ValueError:
-                    return None
-                if cand.exists():
+                cand = _find_file(audio_dir, filename)
+                if cand:
                     return cand
 
-            for cand in [
+            for cand_name in [
                 f"{chapter_id}.wav",
                 f"{chapter_id}_0.wav",
                 f"{chapter_id}.mp3",
                 f"{chapter_id}_0.mp3",
             ]:
-                try:
-                    old_path = safe_join_flat(audio_dir, cand)
-                    if old_path.exists():
-                        return old_path
-                except ValueError:
-                    continue
+                old_path = _find_file(audio_dir, cand_name)
+                if old_path:
+                    return old_path
 
     elif asset_type == "segment":
         # New: project/chapters/{chapter_id}/segments/{segment_id}.wav
@@ -299,19 +283,18 @@ def resolve_chapter_asset_path(
                 else:
                     sid = filename.replace(".wav", "")
 
+                # Rule: match from subfolder
                 try:
-                    new_path = safe_join(nested_dir, f"segments/{sid}.wav")
-                except ValueError:
-                    return None
-                if new_path.exists():
-                    return new_path
+                    seg_dir = nested_dir / "segments"
+                    new_path = _find_file(seg_dir, f"{sid}.wav")
+                    if new_path:
+                        return new_path
+                except OSError:
+                    pass
 
                 legacy_name = filename if filename.startswith("chunk_") else f"chunk_{filename}.wav"
-                try:
-                    old_path = safe_join_flat(get_project_audio_dir(project_id), legacy_name)
-                except ValueError:
-                    return None
-                if old_path.exists():
+                old_path = _find_file(get_project_audio_dir(project_id), legacy_name)
+                if old_path:
                     return old_path
 
         # Fallback to global
@@ -322,11 +305,8 @@ def resolve_chapter_asset_path(
         for audio_dir in audio_dirs:
             if filename:
                 legacy_name = filename if filename.startswith("chunk_") else f"chunk_{filename}.wav"
-                try:
-                    old_path = safe_join_flat(audio_dir, legacy_name)
-                except ValueError:
-                    return None
-                if old_path.exists():
+                old_path = _find_file(audio_dir, legacy_name)
+                if old_path:
                     return old_path
 
     return None

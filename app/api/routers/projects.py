@@ -28,7 +28,7 @@ from ...jobs import enqueue
 from ...engines import get_audio_duration
 from ...state import put_job, update_job, get_jobs
 from ...models import Job
-from ...pathing import safe_basename, safe_join, safe_join_flat
+from ...pathing import safe_basename, safe_join, safe_join_flat, find_secure_file, secure_join_flat
 from ...api.utils import SAFE_FILE_RE, preferred_audiobook_download_filename, probe_audiobook_metadata
 from ...constants import DEFAULT_VOICE_SENTINEL
 from ...domain.projects.service import create_project_service, ProjectService
@@ -204,14 +204,12 @@ async def _store_project_cover(project_id: str, project_dir: Path, cover: Upload
     safe_cover_name = safe_basename(cover.filename)
     ext = Path(safe_cover_name).suffix.lower() or ".jpg"
     project_root = project_dir.resolve()
-    try:
-        cover_dir = safe_join_flat(project_root, "cover")
-    except ValueError:
-        raise ValueError(f"Invalid project cover directory for id: {project_id}")
+    # Literals are safe
+    cover_dir = project_root / "cover"
     cover_dir.mkdir(parents=True, exist_ok=True)
     cover_filename = f"cover{ext}"
     try:
-        cover_p = safe_join_flat(cover_dir, cover_filename)
+        cover_p = secure_join_flat(cover_dir, cover_filename)
     except ValueError:
         raise ValueError(f"Invalid project cover filename for id: {project_id}")
 
@@ -325,15 +323,16 @@ def api_list_project_audiobooks(project_id: str):
             unique_files.append((filename, url))
 
     res = []
-    unique_files.sort(key=lambda x: safe_join_flat(m4b_dir, x[0]).stat().st_mtime, reverse=True)
-
+    # Sort unique files by mtime
+    valid_files = []
     for filename, url in unique_files:
-        try:
-            p = safe_join_flat(m4b_dir, filename)
-        except ValueError:
-            continue
-        if not p.is_file():
-            continue
+        p = find_secure_file(m4b_dir, filename)
+        if p:
+            valid_files.append((filename, url, p))
+
+    valid_files.sort(key=lambda x: x[2].stat().st_mtime, reverse=True)
+
+    for filename, url, p in valid_files:
         st = p.stat()
         item = {
             "filename": p.name,
@@ -423,10 +422,16 @@ def assemble_project(project_id: str, chapter_ids: Optional[str] = Form(None)):
     if cover_path:
         if cover_path.startswith('/out/covers/'):
             filename = cover_path.replace('/out/covers/', '')
-            cover_path = str(safe_join_flat(COVER_DIR, filename))
+            cover_p = find_secure_file(COVER_DIR, filename)
+            cover_path = str(cover_p) if cover_p else None
         elif cover_path.startswith(f'/projects/{project_id}/'):
             filename = cover_path.replace(f'/projects/{project_id}/', '')
-            cover_path = str(safe_join(get_project_dir(project_id), filename))
+            # If it's a nested path like 'cover/cover.jpg', we use safe_join
+            try:
+                cover_p = safe_join(get_project_dir(project_id), filename)
+                cover_path = str(cover_p) if cover_p.exists() else None
+            except ValueError:
+                cover_path = None
 
     j = Job(
         id=jid,
@@ -528,10 +533,11 @@ def api_save_project_backup_bundle(project_id: str, comment: Optional[str] = Que
 
         # 3. Save to project backups directory
         project_dir = find_existing_project_dir(project_id) or get_project_dir(project_id)
+        # Literals are safe
+        backups_dir = project_dir / "backups"
+        backups_dir.mkdir(parents=True, exist_ok=True)
         try:
-            backups_dir = safe_join_flat(project_dir, "backups")
-            backups_dir.mkdir(parents=True, exist_ok=True)
-            backup_path = safe_join_flat(backups_dir, bundle.bundle_name)
+            backup_path = secure_join_flat(backups_dir, bundle.bundle_name)
         except ValueError:
             raise ValueError(f"Invalid backup path for project {project_id}")
         backup_path.write_bytes(archive_buf.getvalue())
@@ -556,10 +562,8 @@ def api_list_project_backups(project_id: str):
             return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
 
         project_dir = find_existing_project_dir(project_id) or get_project_dir(project_id)
-        try:
-            backups_dir = safe_join_flat(project_dir, "backups")
-        except ValueError:
-            backups_dir = project_dir / "backups" # Fallback if for some reason it's invalid
+        # Literals are safe
+        backups_dir = project_dir / "backups"
 
         backups = []
         if backups_dir.exists():
@@ -604,12 +608,9 @@ def api_download_saved_backup(project_id: str, filename: str):
         if not (filename.endswith(".zip") or filename.endswith(".abf")):
             return JSONResponse({"status": "error", "message": "Invalid filename extension"}, status_code=400)
 
-        try:
-            backup_path = safe_join_flat(backups_dir, filename)
-        except ValueError:
-            return JSONResponse({"status": "error", "message": "Invalid filename"}, status_code=400)
-
-        if not backup_path.exists() or not backup_path.is_file():
+        # Rule 8: match from backups dir
+        backup_path = find_secure_file(backups_dir, filename)
+        if not backup_path:
             return JSONResponse({"status": "error", "message": "Backup not found"}, status_code=404)
 
         media_type = "application/zip" if filename.endswith(".zip") else "application/x-audiobook-factory-bundle"
@@ -640,12 +641,9 @@ def api_update_project_backup_metadata(project_id: str, filename: str, comment: 
         if not (filename.endswith(".zip") or filename.endswith(".abf")):
             return JSONResponse({"status": "error", "message": "Invalid filename extension"}, status_code=400)
 
-        try:
-            backup_path = safe_join_flat(backups_dir, filename)
-        except ValueError:
-            return JSONResponse({"status": "error", "message": "Invalid filename"}, status_code=400)
-
-        if not backup_path.exists() or not backup_path.is_file():
+        # Rule 8: match from backups dir
+        backup_path = find_secure_file(backups_dir, filename)
+        if not backup_path:
             return JSONResponse({"status": "error", "message": "Backup not found"}, status_code=404)
 
         # Update bundle.json inside the ZIP
@@ -685,10 +683,10 @@ def api_update_audiobook_metadata(project_id: str, filename: str, description: s
         m4b_dir = project_dir / "m4b"
 
         # Validation
-        try:
-            audiobook_path = safe_join_flat(m4b_dir, filename)
-        except ValueError:
-            return JSONResponse({"status": "error", "message": "Invalid filename"}, status_code=400)
+        # Rule 8: match from m4b dir
+        audiobook_path = find_secure_file(m4b_dir, filename)
+        if not audiobook_path:
+            return JSONResponse({"status": "error", "message": "Audiobook not found"}, status_code=404)
 
         if not audiobook_path.exists() or not audiobook_path.is_file():
             return JSONResponse({"status": "error", "message": "Audiobook not found"}, status_code=404)
@@ -716,12 +714,9 @@ def api_delete_project_backup(project_id: str, filename: str):
         if not (filename.endswith(".zip") or filename.endswith(".abf")):
             return JSONResponse({"status": "error", "message": "Invalid filename extension"}, status_code=400)
 
-        try:
-            backup_path = safe_join_flat(backups_dir, filename)
-        except ValueError:
-            return JSONResponse({"status": "error", "message": "Invalid filename"}, status_code=400)
-
-        if not backup_path.exists() or not backup_path.is_file():
+        # Rule 8: match from backups dir
+        backup_path = find_secure_file(backups_dir, filename)
+        if not backup_path:
             return JSONResponse({"status": "error", "message": "Backup not found"}, status_code=404)
 
         backup_path.unlink()
@@ -796,7 +791,7 @@ def _create_backup_archive(bundle: ProjectBackupBundleModel) -> io.BytesIO:
                     audio_ext = ".wav"
                     # Use the same base filename as the text for easy pairing
                     try:
-                        audio_filename = safe_join_flat(audio_dir, f"{Path(text_filename).stem}{audio_ext}").name
+                        audio_filename = secure_join_flat(audio_dir, f"{Path(text_filename).stem}{audio_ext}").name
                         zf.write(audio_path, arcname=f"chapters/{audio_filename}")
                         chapter_info["audio_path"] = f"chapters/{audio_filename}"
                     except ValueError:
