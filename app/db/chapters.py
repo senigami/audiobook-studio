@@ -161,7 +161,7 @@ def move_chapter_artifacts_to_trash(
 
     # Rule 9: Explicit containment for dynamic chapter_id
     try:
-        base_trash = os.path.abspath(os.path.normpath(os.fspath(trash_root_base)))
+        base_trash = os.path.abspath(os.path.normpath(os.fspath(config.TRASH_DIR)))
         trash_root_str = os.path.abspath(os.path.normpath(os.path.join(base_trash, chapter_id)))
         if not trash_root_str.startswith(base_trash + os.sep) and trash_root_str != base_trash:
              raise ValueError("Invalid trash root")

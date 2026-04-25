@@ -8,7 +8,7 @@ import sqlite3
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from .core import _db_lock, get_connection
-from ..pathing import safe_join, safe_join_flat
+from ..pathing import safe_join, safe_join_flat, find_secure_file, secure_join_flat
 
 logger = logging.getLogger(__name__)
 SAFE_PROFILE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
