@@ -298,8 +298,7 @@ def api_get_script_view(chapter_id: str):
         return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
     except Exception as e:
         logger.error(f"Script view payload failed for {chapter_id}: {e}", exc_info=True)
-        msg = str(e) if isinstance(e, (ValueError, KeyError)) and not any(c in str(e) for c in ["/", "\\", ":"]) else "Internal server error during script view fetch"
-        return JSONResponse({"status": "error", "message": msg}, status_code=500)
+        return JSONResponse({"status": "error", "message": "Internal server error during script view fetch"}, status_code=500)
 
 
 @router.post("/chapters/{chapter_id}/source-text/preview", response_model=ResyncPreviewResponse)
@@ -310,8 +309,7 @@ def api_get_resync_preview(chapter_id: str, payload: ResyncPreviewRequest):
         return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
     except Exception as e:
         logger.error(f"Error generating resync preview: {e}")
-        msg = str(e) if isinstance(e, (ValueError, KeyError)) and not any(c in str(e) for c in ["/", "\\", ":"]) else "Internal server error during resync preview"
-        return JSONResponse({"status": "error", "message": msg}, status_code=500)
+        return JSONResponse({"status": "error", "message": "Internal server error during resync preview"}, status_code=500)
 
 
 @router.put("/chapters/{chapter_id}/production-blocks")
@@ -362,8 +360,7 @@ def api_save_script_assignments(chapter_id: str, payload: ScriptAssignmentsUpdat
         return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
     except Exception as e:
         logger.error(f"Failed to save script view for chapter {chapter_id}: {e}", exc_info=True)
-        msg = str(e) if isinstance(e, (ValueError, KeyError)) and not any(c in str(e) for c in ["/", "\\", ":"]) else "Internal server error during script save"
-        return JSONResponse({"status": "error", "message": msg}, status_code=500)
+        return JSONResponse({"status": "error", "message": "Internal server error during script save"}, status_code=500)
 
 
 @router.post("/chapters/{chapter_id}/script-view/compact", response_model=ScriptViewResponse)
@@ -388,8 +385,7 @@ def api_compact_script_view(chapter_id: str, payload: CompactionRequest):
         return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
     except Exception as e:
         logger.error(f"Failed to compact script view for chapter {chapter_id}: {e}", exc_info=True)
-        msg = str(e) if isinstance(e, (ValueError, KeyError)) and not any(c in str(e) for c in ["/", "\\", ":"]) else "Internal server error during compaction"
-        return JSONResponse({"status": "error", "message": msg}, status_code=500)
+        return JSONResponse({"status": "error", "message": "Internal server error during compaction"}, status_code=500)
 
 
 @router.post("/chapters/{chapter_id}/export-audio")
@@ -398,10 +394,8 @@ def api_export_chapter_audio(chapter_id: str, payload: AudioExportRequest):
         export_path, media_type = export_chapter_audio(chapter_id, format=payload.format)
     except KeyError:
         return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
-    except FileNotFoundError as exc:
-        logger.warning(f"Export file not found for {chapter_id}: {exc}")
-        msg = str(exc) if not any(c in str(exc) for c in ["/", "\\"]) else "Export file not found"
-        return JSONResponse({"status": "error", "message": msg}, status_code=404)
+    except FileNotFoundError:
+        return JSONResponse({"status": "error", "message": "No canonical WAV exists for this chapter yet. Render the chapter first before exporting audio."}, status_code=404)
     except ValueError as exc:
         logger.warning(f"Invalid export request for {chapter_id}: {exc}")
         return JSONResponse({"status": "error", "message": "Invalid export request"}, status_code=400)

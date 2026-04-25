@@ -20,9 +20,8 @@ def update_engine_settings(engine_id: str, settings: dict[str, Any] = Body(...))
     try:
         result = bridge.update_engine_settings(engine_id, settings)
         return JSONResponse(result)
-    except NotImplementedError as exc:
-        msg = str(exc) if not any(c in str(exc) for c in ["/", "\\", ":"]) else "Feature not implemented"
-        return JSONResponse({"status": "error", "message": msg}, status_code=501)
+    except NotImplementedError:
+        return JSONResponse({"status": "error", "message": "Feature not implemented"}, status_code=501)
     except Exception as exc:
         import logging
         logging.getLogger(__name__).error(f"Engine settings update failed: {exc}")

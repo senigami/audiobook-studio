@@ -300,12 +300,12 @@ def download_voice_bundle(voice_name: str, include_source_wavs: bool = False):
             include_source_wavs=include_source_wavs,
         )
     except VoiceBundleError as exc:
+        # Rule: allow sanitized domain errors (like 'missing voice.json') while blocking path leaks
         msg = str(exc) if not any(c in str(exc) for c in ["/", "\\", ":"]) else "Voice export failed due to invalid bundle structure"
         return JSONResponse({"status": "error", "message": msg}, status_code=400)
     except Exception as e:
         logger.exception("Failed to export voice bundle for %s", voice_name)
-        msg = str(e) if isinstance(e, (ValueError, KeyError)) and not any(c in str(e) for c in ["/", "\\", ":"]) else "Voice export failed"
-        return JSONResponse({"status": "error", "message": msg}, status_code=500)
+        return JSONResponse({"status": "error", "message": "Voice export failed"}, status_code=500)
 
     safe_filename = safe_basename(f"{voice_name}.voice.zip")
     return Response(
@@ -325,12 +325,12 @@ async def import_voice_bundle_route(file: UploadFile = File(...)):
         sync_speakers_from_profiles(VOICES_DIR)
         return JSONResponse({"status": "ok", **result})
     except VoiceBundleError as exc:
+        # Rule: allow sanitized domain errors (like 'missing voice.json') while blocking path leaks
         msg = str(exc) if not any(c in str(exc) for c in ["/", "\\", ":"]) else "Voice import failed due to invalid bundle structure"
         return JSONResponse({"status": "error", "message": msg}, status_code=400)
     except Exception as e:
         logger.exception("Failed to import voice bundle %s", file.filename)
-        msg = str(e) if isinstance(e, (ValueError, KeyError)) and not any(c in str(e) for c in ["/", "\\", ":"]) else "Voice import failed"
-        return JSONResponse({"status": "error", "message": msg}, status_code=500)
+        return JSONResponse({"status": "error", "message": "Voice import failed"}, status_code=500)
 
 
 def _ensure_default_speaker_profile(speaker_id: str, speaker_name: str, default_profile_name: Optional[str]) -> str:
@@ -485,11 +485,9 @@ def list_speaker_profiles():
             )
             profile_data["is_ready"] = is_ready
             profile_data["readiness_message"] = msg
-        except Exception as exc:
+        except Exception:
             profile_data["is_ready"] = False
-            # Rule: avoid information exposure through exception messages
-            msg = str(exc) if isinstance(exc, (ValueError, KeyError)) and not any(c in str(exc) for c in ["/", "\\", ":"]) else "Internal error during readiness check"
-            profile_data["readiness_message"] = msg
+            profile_data["readiness_message"] = "Internal error during readiness check"
 
         profiles.append(profile_data)
     return profiles
@@ -787,8 +785,7 @@ def api_assign_profile_to_speaker(
         return JSONResponse({"status": "ok", "new_profile_name": new_profile_name})
     except Exception as e:
         logger.error(f"Error assigning profile {profile_name}: {e}")
-        msg = str(e) if isinstance(e, (ValueError, KeyError)) and not any(c in str(e) for c in ["/", "\\", ":"]) else "Assign failed"
-        return JSONResponse({"status": "error", "message": msg}, status_code=500)
+        return JSONResponse({"status": "error", "message": "Assign failed"}, status_code=500)
 
 @router.post("/api/voices/rename-profile")
 def api_rename_voice_profile(

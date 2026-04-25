@@ -468,14 +468,11 @@ def api_get_project_export_manifest(project_id: str, format_id: str = Query("aud
         return JSONResponse(jsonable_encoder(manifest))
     except KeyError:
         return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
-    except NotImplementedError as e:
-        msg = str(e) if not any(c in str(e) for c in ["/", "\\", ":"]) else "Feature not implemented for this format"
-        return JSONResponse({"status": "error", "message": msg}, status_code=501)
+    except NotImplementedError:
+        return JSONResponse({"status": "error", "message": "Feature not implemented for this format"}, status_code=501)
     except Exception as e:
         logger.error(f"Failed to build export manifest for project {project_id}: {e}", exc_info=True)
-        # Rule: avoid information exposure
-        msg = str(e) if isinstance(e, (ValueError, KeyError)) and not any(c in str(e) for c in ["/", "\\", ":"]) else "Internal server error during export manifest build"
-        return JSONResponse({"status": "error", "message": msg}, status_code=500)
+        return JSONResponse({"status": "error", "message": "Internal server error during export manifest build"}, status_code=500)
 
 @router.post("/{project_id}/snapshots")
 def api_create_project_snapshot(project_id: str):
@@ -488,8 +485,7 @@ def api_create_project_snapshot(project_id: str):
         return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
     except Exception as e:
         logger.error(f"Failed to create snapshot for project {project_id}: {e}", exc_info=True)
-        msg = str(e) if isinstance(e, (ValueError, KeyError)) and not any(c in str(e) for c in ["/", "\\", ":"]) else "Internal server error during snapshot creation"
-        return JSONResponse({"status": "error", "message": msg}, status_code=500)
+        return JSONResponse({"status": "error", "message": "Internal server error during snapshot creation"}, status_code=500)
 
 @router.post("/{project_id}/backup-bundle")
 def api_create_project_backup_bundle(project_id: str, comment: Optional[str] = Query(None), include_audio: bool = Query(True)):
@@ -502,8 +498,7 @@ def api_create_project_backup_bundle(project_id: str, comment: Optional[str] = Q
         return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
     except Exception as e:
         logger.error(f"Failed to create backup bundle for project {project_id}: {e}", exc_info=True)
-        msg = str(e) if isinstance(e, (ValueError, KeyError)) and not any(c in str(e) for c in ["/", "\\", ":"]) else "Internal server error during backup bundle creation"
-        return JSONResponse({"status": "error", "message": msg}, status_code=500)
+        return JSONResponse({"status": "error", "message": "Internal server error during backup bundle creation"}, status_code=500)
 
 @router.get("/{project_id}/backup-bundle/download")
 def api_download_project_backup_bundle(project_id: str, comment: Optional[str] = Query(None), include_audio: bool = Query(True)):
@@ -528,8 +523,7 @@ def api_download_project_backup_bundle(project_id: str, comment: Optional[str] =
         return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
     except Exception as e:
         logger.error(f"Failed to package backup bundle for project {project_id}: {e}", exc_info=True)
-        msg = str(e) if isinstance(e, (ValueError, KeyError)) and not any(c in str(e) for c in ["/", "\\", ":"]) else "Internal server error during backup packaging"
-        return JSONResponse({"status": "error", "message": msg}, status_code=500)
+        return JSONResponse({"status": "error", "message": "Internal server error during backup packaging"}, status_code=500)
 
 @router.post("/{project_id}/backup-bundle/save")
 def api_save_project_backup_bundle(project_id: str, comment: Optional[str] = Query(None), include_audio: bool = Query(True)):
@@ -566,8 +560,7 @@ def api_save_project_backup_bundle(project_id: str, comment: Optional[str] = Que
         return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
     except Exception as e:
         logger.error(f"Failed to save backup bundle for project {project_id}: {e}", exc_info=True)
-        msg = str(e) if isinstance(e, (ValueError, KeyError)) and not any(c in str(e) for c in ["/", "\\", ":"]) else "Internal server error during backup save"
-        return JSONResponse({"status": "error", "message": msg}, status_code=500)
+        return JSONResponse({"status": "error", "message": "Internal server error during backup save"}, status_code=500)
 
 @router.get("/{project_id}/backups")
 def api_list_project_backups(project_id: str):
@@ -610,8 +603,7 @@ def api_list_project_backups(project_id: str):
         return JSONResponse(backups)
     except Exception as e:
         logger.error(f"Failed to list backups for project {project_id}: {e}", exc_info=True)
-        msg = str(e) if isinstance(e, (ValueError, KeyError)) and not any(c in str(e) for c in ["/", "\\", ":"]) else "Internal server error during backup listing"
-        return JSONResponse({"status": "error", "message": msg}, status_code=500)
+        return JSONResponse({"status": "error", "message": "Internal server error during backup listing"}, status_code=500)
 
 @router.get("/{project_id}/backups/{filename}/download")
 def api_download_saved_backup(project_id: str, filename: str):
@@ -647,8 +639,7 @@ def api_download_saved_backup(project_id: str, filename: str):
         )
     except Exception as e:
         logger.error(f"Failed to download saved backup {filename} for project {project_id}: {e}", exc_info=True)
-        msg = str(e) if isinstance(e, (ValueError, KeyError)) and not any(c in str(e) for c in ["/", "\\", ":"]) else "Internal server error during backup download"
-        return JSONResponse({"status": "error", "message": msg}, status_code=500)
+        return JSONResponse({"status": "error", "message": "Internal server error during backup download"}, status_code=500)
 
 @router.patch("/{project_id}/backups/{filename}")
 def api_update_project_backup_metadata(project_id: str, filename: str, comment: str = Body(..., embed=True)):
@@ -696,8 +687,7 @@ def api_update_project_backup_metadata(project_id: str, filename: str, comment: 
         return JSONResponse({"status": "ok"})
     except Exception as e:
         logger.error(f"Failed to update backup metadata for {filename}: {e}", exc_info=True)
-        msg = str(e) if isinstance(e, (ValueError, KeyError)) and not any(c in str(e) for c in ["/", "\\", ":"]) else "Internal server error during backup metadata update"
-        return JSONResponse({"status": "error", "message": msg}, status_code=500)
+        return JSONResponse({"status": "error", "message": "Internal server error during backup metadata update"}, status_code=500)
 
 @router.patch("/{project_id}/audiobooks/{filename}")
 def api_update_audiobook_metadata(project_id: str, filename: str, description: str = Body(..., embed=True)):
@@ -741,8 +731,7 @@ def api_update_audiobook_metadata(project_id: str, filename: str, description: s
         return JSONResponse({"status": "ok"})
     except Exception as e:
         logger.error(f"Failed to update audiobook metadata for {filename}: {e}", exc_info=True)
-        msg = str(e) if isinstance(e, (ValueError, KeyError)) and not any(c in str(e) for c in ["/", "\\", ":"]) else "Internal server error during audiobook metadata update"
-        return JSONResponse({"status": "error", "message": msg}, status_code=500)
+        return JSONResponse({"status": "error", "message": "Internal server error during audiobook metadata update"}, status_code=500)
 
 @router.delete("/{project_id}/backups/{filename}")
 def api_delete_project_backup(project_id: str, filename: str):
@@ -776,8 +765,7 @@ def api_delete_project_backup(project_id: str, filename: str):
         return JSONResponse({"status": "ok"})
     except Exception as e:
         logger.error(f"Failed to delete backup {filename} for project {project_id}: {e}", exc_info=True)
-        msg = str(e) if isinstance(e, (ValueError, KeyError)) and not any(c in str(e) for c in ["/", "\\", ":"]) else "Internal server error during backup deletion"
-        return JSONResponse({"status": "error", "message": msg}, status_code=500)
+        return JSONResponse({"status": "error", "message": "Internal server error during backup deletion"}, status_code=500)
 
 def _create_backup_archive(bundle: ProjectBackupBundleModel) -> io.BytesIO:
     """Helper to assemble a portable ZIP archive from a backup bundle plan."""

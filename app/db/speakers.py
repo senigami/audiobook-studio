@@ -124,23 +124,21 @@ def _existing_profile_dir(voices_dir: Path, profile_name: str) -> Optional[Path]
 def _new_profile_dir(voices_dir: Path, profile_name: str) -> Path:
     name = _profile_name_or_error(profile_name)
 
-    # Rule 9: Explicit containment pattern for new paths
-    base_dir = os.path.abspath(os.path.normpath(os.fspath(voices_dir)))
-
-    if " - " in name:
-        parts = [s.strip() for s in name.split(" - ", 1)]
-        if len(parts) == 2:
-            rel_path = os.path.join(parts[0], parts[1])
+    # Rule 9: Explicit containment check via relative_to
+    try:
+        if " - " in name:
+            parts = [s.strip() for s in name.split(" - ", 1)]
+            if len(parts) == 2:
+                fullpath = (voices_dir / parts[0] / parts[1]).resolve()
+            else:
+                fullpath = (voices_dir / name).resolve()
         else:
-            rel_path = name
-    else:
-        rel_path = name
+            fullpath = (voices_dir / name).resolve()
 
-    fullpath = os.path.abspath(os.path.normpath(os.path.join(base_dir, rel_path)))
-    if not fullpath.startswith(base_dir + os.sep):
+        fullpath.relative_to(voices_dir.resolve())
+        return fullpath
+    except (OSError, ValueError, RuntimeError):
         raise ValueError(f"Invalid profile path: {profile_name}")
-
-    return Path(fullpath)
 
 
 def infer_variant_name(profile_name: str) -> str:
