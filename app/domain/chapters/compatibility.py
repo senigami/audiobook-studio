@@ -943,8 +943,11 @@ def _resolve_canonical_wav_path(*, chapter_id: str, chapter_row: Mapping[str, An
             f"{chapter_id}_0.wav",
             "chapter.wav",
         ):
-            legacy_path = audio_dir / candidate
-            if legacy_path.exists():
-                return legacy_path
+            try:
+                legacy_path = safe_join_flat(audio_dir, candidate)
+                if legacy_path.exists():
+                    return legacy_path
+            except ValueError:
+                continue
 
     return None

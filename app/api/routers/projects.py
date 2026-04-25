@@ -203,17 +203,17 @@ def _get_project_service() -> ProjectService:
 async def _store_project_cover(project_id: str, project_dir: Path, cover: UploadFile) -> str:
     safe_cover_name = safe_basename(cover.filename)
     ext = Path(safe_cover_name).suffix.lower() or ".jpg"
-    project_root = os.path.abspath(os.path.normpath(os.fspath(project_dir)))
-    cover_dir_path = os.path.abspath(os.path.normpath(os.path.join(project_root, "cover")))
-    if not cover_dir_path.startswith(project_root + os.sep):
+    project_root = project_dir.resolve()
+    try:
+        cover_dir = safe_join_flat(project_root, "cover")
+    except ValueError:
         raise ValueError(f"Invalid project cover directory for id: {project_id}")
-    cover_dir = Path(cover_dir_path)
     cover_dir.mkdir(parents=True, exist_ok=True)
     cover_filename = f"cover{ext}"
-    cover_path_str = os.path.abspath(os.path.normpath(os.path.join(cover_dir_path, cover_filename)))
-    if not cover_path_str.startswith(cover_dir_path + os.sep):
+    try:
+        cover_p = safe_join_flat(cover_dir, cover_filename)
+    except ValueError:
         raise ValueError(f"Invalid project cover filename for id: {project_id}")
-    cover_p = Path(cover_path_str)
 
     for existing in cover_dir.iterdir():
         if existing.is_file() and existing.name != cover_filename:
@@ -325,16 +325,15 @@ def api_list_project_audiobooks(project_id: str):
             unique_files.append((filename, url))
 
     res = []
-    unique_files.sort(key=lambda x: (m4b_dir / x[0]).stat().st_mtime, reverse=True)
+    unique_files.sort(key=lambda x: safe_join_flat(m4b_dir, x[0]).stat().st_mtime, reverse=True)
 
     for filename, url in unique_files:
-        if m4b_dir is None:
+        try:
+            p = safe_join_flat(m4b_dir, filename)
+        except ValueError:
             continue
-        probe_target = os.path.abspath(os.path.normpath(os.path.join(os.fspath(m4b_dir), filename)))
-        trusted_root = os.path.abspath(os.path.normpath(os.fspath(m4b_dir)))
-        if not probe_target.startswith(trusted_root + os.sep) or not os.path.isfile(probe_target):
+        if not p.is_file():
             continue
-        p = Path(probe_target)
         st = p.stat()
         item = {
             "filename": p.name,
@@ -529,10 +528,12 @@ def api_save_project_backup_bundle(project_id: str, comment: Optional[str] = Que
 
         # 3. Save to project backups directory
         project_dir = find_existing_project_dir(project_id) or get_project_dir(project_id)
-        backups_dir = project_dir / "backups"
-        backups_dir.mkdir(parents=True, exist_ok=True)
-
-        backup_path = backups_dir / bundle.bundle_name
+        try:
+            backups_dir = safe_join_flat(project_dir, "backups")
+            backups_dir.mkdir(parents=True, exist_ok=True)
+            backup_path = safe_join_flat(backups_dir, bundle.bundle_name)
+        except ValueError:
+            raise ValueError(f"Invalid backup path for project {project_id}")
         backup_path.write_bytes(archive_buf.getvalue())
 
         return JSONResponse({
@@ -555,7 +556,10 @@ def api_list_project_backups(project_id: str):
             return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
 
         project_dir = find_existing_project_dir(project_id) or get_project_dir(project_id)
-        backups_dir = project_dir / "backups"
+        try:
+            backups_dir = safe_join_flat(project_dir, "backups")
+        except ValueError:
+            backups_dir = project_dir / "backups" # Fallback if for some reason it's invalid
 
         backups = []
         if backups_dir.exists():
@@ -597,16 +601,13 @@ def api_download_saved_backup(project_id: str, filename: str):
         backups_dir = project_dir / "backups"
 
         # Validation
-        if not (filename.endswith(".zip") or filename.endswith(".abf")) or "/" in filename or "\\" in filename:
+        try:
+            backup_path = safe_join_flat(backups_dir, filename)
+        except ValueError:
             return JSONResponse({"status": "error", "message": "Invalid filename"}, status_code=400)
 
-        backup_path = backups_dir / filename
         if not backup_path.exists() or not backup_path.is_file():
             return JSONResponse({"status": "error", "message": "Backup not found"}, status_code=404)
-
-        # Security: Ensure it's still under backups_dir
-        if not os.path.abspath(backup_path).startswith(os.fspath(backups_dir.resolve()) + os.sep):
-            return JSONResponse({"status": "error", "message": "Access denied"}, status_code=403)
 
         media_type = "application/zip" if filename.endswith(".zip") else "application/x-audiobook-factory-bundle"
 
@@ -633,16 +634,13 @@ def api_update_project_backup_metadata(project_id: str, filename: str, comment: 
         backups_dir = project_dir / "backups"
 
         # Validation
-        if not (filename.endswith(".zip") or filename.endswith(".abf")) or "/" in filename or "\\" in filename:
+        try:
+            backup_path = safe_join_flat(backups_dir, filename)
+        except ValueError:
             return JSONResponse({"status": "error", "message": "Invalid filename"}, status_code=400)
 
-        backup_path = backups_dir / filename
         if not backup_path.exists() or not backup_path.is_file():
             return JSONResponse({"status": "error", "message": "Backup not found"}, status_code=404)
-
-        # Security: Ensure it's still under backups_dir
-        if not os.path.abspath(backup_path).startswith(os.fspath(backups_dir.resolve()) + os.sep):
-            return JSONResponse({"status": "error", "message": "Access denied"}, status_code=403)
 
         # Update bundle.json inside the ZIP
         import tempfile
@@ -681,16 +679,13 @@ def api_update_audiobook_metadata(project_id: str, filename: str, description: s
         m4b_dir = project_dir / "m4b"
 
         # Validation
-        if not filename.endswith(".m4b") or "/" in filename or "\\" in filename:
+        try:
+            audiobook_path = safe_join_flat(m4b_dir, filename)
+        except ValueError:
             return JSONResponse({"status": "error", "message": "Invalid filename"}, status_code=400)
 
-        audiobook_path = m4b_dir / filename
         if not audiobook_path.exists() or not audiobook_path.is_file():
             return JSONResponse({"status": "error", "message": "Audiobook not found"}, status_code=404)
-
-        # Security
-        if not os.path.abspath(audiobook_path).startswith(os.fspath(m4b_dir.resolve()) + os.sep):
-            return JSONResponse({"status": "error", "message": "Access denied"}, status_code=403)
 
         # Store description in sidecar file
         description_path = audiobook_path.with_suffix(audiobook_path.suffix + ".description")
@@ -712,16 +707,13 @@ def api_delete_project_backup(project_id: str, filename: str):
         backups_dir = project_dir / "backups"
 
         # Validation
-        if not (filename.endswith(".zip") or filename.endswith(".abf")) or "/" in filename or "\\" in filename:
+        try:
+            backup_path = safe_join_flat(backups_dir, filename)
+        except ValueError:
             return JSONResponse({"status": "error", "message": "Invalid filename"}, status_code=400)
 
-        backup_path = backups_dir / filename
         if not backup_path.exists() or not backup_path.is_file():
             return JSONResponse({"status": "error", "message": "Backup not found"}, status_code=404)
-
-        # Security: Ensure it's still under backups_dir
-        if not os.path.abspath(backup_path).startswith(os.fspath(backups_dir.resolve()) + os.sep):
-            return JSONResponse({"status": "error", "message": "Access denied"}, status_code=403)
 
         backup_path.unlink()
         return JSONResponse({"status": "ok"})
@@ -784,18 +776,15 @@ def _create_backup_archive(bundle: ProjectBackupBundleModel) -> io.BytesIO:
                     # Try to find corresponding .wav if path points to .mp3 or similar
                     wav_path = str(Path(raw_path).with_suffix(".wav"))
 
-                audio_dir = get_project_audio_dir(project_id)
-                audio_path = audio_dir / wav_path
-                if not audio_path.exists():
-                    # Fallback to the original path if wav not found (might already be wav)
-                    audio_path = audio_dir / raw_path
-
                 if audio_path.exists() and audio_path.suffix.lower() == ".wav":
                     audio_ext = ".wav"
                     # Use the same base filename as the text for easy pairing
-                    audio_filename = f"{Path(text_filename).stem}{audio_ext}"
-                    zf.write(audio_path, arcname=f"chapters/{audio_filename}")
-                    chapter_info["audio_path"] = f"chapters/{audio_filename}"
+                    try:
+                        audio_filename = safe_join_flat(audio_dir, f"{Path(text_filename).stem}{audio_ext}").name
+                        zf.write(audio_dir / audio_filename, arcname=f"chapters/{audio_filename}")
+                        chapter_info["audio_path"] = f"chapters/{audio_filename}"
+                    except ValueError:
+                        pass
 
             chapter_map[chapter_id] = chapter_info
 

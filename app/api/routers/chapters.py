@@ -29,6 +29,7 @@ from ...textops import (
 )
 from ...jobs import cancel as cancel_job, get_jobs
 from ...state import update_job, delete_jobs, get_settings
+from ...pathing import safe_join_flat
 from ...constants import DEFAULT_VOICE_SENTINEL
 from ..ws import broadcast_chapter_updated, broadcast_queue_update
 
@@ -466,9 +467,12 @@ def api_get_chapter_preview(
             else config.CHAPTER_DIR
         )
         if text_dir:
-            legacy_p = text_dir / f"{chapter_id}_0.txt"
-            if legacy_p.exists():
-                text = read_preview(legacy_p, max_chars=1000000)
+            try:
+                legacy_p = safe_join_flat(text_dir, f"{chapter_id}_0.txt")
+                if legacy_p.exists():
+                    text = read_preview(legacy_p, max_chars=1000000)
+            except ValueError:
+                pass
 
     if not text:
         text = chapter.get("text_content") or ""
@@ -560,9 +564,13 @@ async def api_export_chapter_sample(
         pdir = find_existing_project_subdir(project_id, "audio")
         if pdir:
             for cand in [f"{chapter_id}_0.wav", f"{chapter_id}_0.mp3"]:
-                if (pdir / cand).exists():
-                    wav_path = pdir / cand
-                    break
+                try:
+                    p = safe_join_flat(pdir, cand)
+                    if p.exists():
+                        wav_path = p
+                        break
+                except ValueError:
+                    continue
 
     if not wav_path:
         return JSONResponse(
@@ -606,9 +614,13 @@ def api_stream_chapter(
         pdir = find_existing_project_subdir(project_id, "audio")
         if pdir:
             for cand in [f"{chapter_id}_0.wav", f"{chapter_id}_0.mp3"]:
-                if (pdir / cand).exists():
-                    wav_path = pdir / cand
-                    break
+                try:
+                    p = safe_join_flat(pdir, cand)
+                    if p.exists():
+                        wav_path = p
+                        break
+                except ValueError:
+                    continue
 
     if not wav_path:
         return JSONResponse(

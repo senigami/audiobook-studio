@@ -7,6 +7,7 @@ import uuid
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from .core import _db_lock, get_connection
+from ..pathing import safe_join, safe_join_flat
 
 logger = logging.getLogger(__name__)
 SAFE_AUDIO_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
@@ -41,9 +42,12 @@ def _detect_audio_flags(chapter_id: str, audio_file_path: Optional[str], resolve
 
     for base_name in filter(None, names):
         for ext in (".wav", ".mp3", ".m4a"):
-            candidate = resolved_path.parent / f"{base_name}{ext}" if resolved_path else None
-            if candidate and candidate.exists():
-                flags[f"has_{ext.lstrip('.')}"] = True
+            try:
+                candidate = safe_join_flat(resolved_path.parent, f"{base_name}{ext}") if resolved_path else None
+                if candidate and candidate.exists():
+                    flags[f"has_{ext.lstrip('.')}"] = True
+            except ValueError:
+                continue
 
     if resolved_path:
         ext = resolved_path.suffix.lower()
@@ -76,9 +80,12 @@ def cleanup_chapter_audio_files(
         target_dirs.append(legacy_pdir)
     if nested_pdir and nested_pdir.exists():
         target_dirs.append(nested_pdir)
-        seg_dir = nested_pdir / "segments"
-        if seg_dir.exists():
-            target_dirs.append(seg_dir)
+        try:
+            seg_dir = safe_join_flat(nested_pdir, "segments")
+            if seg_dir.exists():
+                target_dirs.append(seg_dir)
+        except ValueError:
+            pass
 
     if not target_dirs:
         return True
@@ -154,37 +161,23 @@ def move_chapter_artifacts_to_trash(
         logger.warning("Skipping trash move for invalid chapter id %s", chapter_id)
         return False
 
-    trash_root_base = os.path.abspath(
-        os.path.normpath(os.fspath(config.get_project_trash_dir(project_id)))
-    )
-    trash_root_str = os.path.abspath(
-        os.path.normpath(os.path.join(trash_root_base, chapter_id))
-    )
-    if not trash_root_str.startswith(trash_root_base + os.sep):
+    trash_root_base = config.get_project_trash_dir(project_id)
+    try:
+        trash_root = safe_join(trash_root_base, chapter_id)
+    except ValueError:
         logger.warning(
             "Skipping trash move outside trash root for chapter %s", chapter_id
         )
         return False
 
-    trash_audio_dir_str = os.path.abspath(
-        os.path.normpath(os.path.join(trash_root_str, "audio"))
-    )
-    trash_text_dir_str = os.path.abspath(
-        os.path.normpath(os.path.join(trash_root_str, "text"))
-    )
-    if not trash_audio_dir_str.startswith(trash_root_str + os.sep):
+    try:
+        trash_audio_dir = safe_join_flat(trash_root, "audio")
+        trash_text_dir = safe_join_flat(trash_root, "text")
+    except ValueError:
         logger.warning(
-            "Skipping invalid trash audio directory for chapter %s", chapter_id
+            "Skipping invalid trash directory for chapter %s", chapter_id
         )
         return False
-    if not trash_text_dir_str.startswith(trash_root_str + os.sep):
-        logger.warning(
-            "Skipping invalid trash text directory for chapter %s", chapter_id
-        )
-        return False
-
-    trash_audio_dir = Path(trash_audio_dir_str)
-    trash_text_dir = Path(trash_text_dir_str)
     trash_audio_dir.mkdir(parents=True, exist_ok=True)
     trash_text_dir.mkdir(parents=True, exist_ok=True)
 
@@ -208,11 +201,14 @@ def move_chapter_artifacts_to_trash(
                     source_files.append((d, entry))
             # Also check segments subdir if nested
             if d == nested_dir:
-                seg_dir = d / "segments"
-                if seg_dir.exists():
-                    for entry in seg_dir.iterdir():
-                        if entry.is_file():
-                            source_files.append((seg_dir, entry))
+                try:
+                    seg_dir = safe_join_flat(d, "segments")
+                    if seg_dir.exists():
+                        for entry in seg_dir.iterdir():
+                            if entry.is_file():
+                                source_files.append((seg_dir, entry))
+                except ValueError:
+                    pass
 
     # 3. Filter and move
     audio_moved = 0
@@ -245,10 +241,10 @@ def move_chapter_artifacts_to_trash(
 
         if should_move:
             try:
-                dest = target_dir / name
+                dest = safe_join_flat(target_dir, name)
                 # Ensure unique destination name if multiple sources have same filename
                 if dest.exists():
-                    dest = target_dir / f"{uuid.uuid4().hex}_{name}"
+                    dest = safe_join_flat(target_dir, f"{uuid.uuid4().hex}_{name}")
 
                 shutil.move(str(src), str(dest))
                 if is_audio: audio_moved += 1
@@ -287,7 +283,10 @@ def create_chapter(project_id: str, title: str, text_content: Optional[str] = No
             from ..config import get_chapter_dir
             nested_dir = get_chapter_dir(project_id, chapter_id)
             nested_dir.mkdir(parents=True, exist_ok=True)
-            (nested_dir / "segments").mkdir(exist_ok=True)
+            try:
+                safe_join_flat(nested_dir, "segments").mkdir(exist_ok=True)
+            except ValueError:
+                pass
 
             return chapter_id
 

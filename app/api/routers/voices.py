@@ -32,7 +32,7 @@ from ...engines.bridge import create_voice_bridge
 from ... import config
 from ...state import get_settings, update_settings, get_jobs, put_job, update_job
 from ...models import Job
-from ...pathing import safe_basename
+from ...pathing import safe_basename, safe_join, safe_join_flat
 from ...domain.voices.bundles import VoiceBundleError, export_voice_bundle, import_voice_bundle
 
 # Compatibility for tests that monkeypatch these
@@ -62,9 +62,9 @@ def _valid_sample_name(sample_name: str) -> str:
 def _profile_dir_has_assets(profile_dir: Path) -> bool:
     if not profile_dir.exists() or not profile_dir.is_dir():
         return False
-    if (profile_dir / "profile.json").exists():
+    if safe_join_flat(profile_dir, "profile.json").exists():
         return True
-    if (profile_dir / "voice.json").exists():
+    if safe_join_flat(profile_dir, "voice.json").exists():
         return False
     return True
 
@@ -92,7 +92,7 @@ def _voice_dirs_map() -> Dict[str, Path]:
     for entry in VOICES_DIR.iterdir():
         if entry.is_dir() and SAFE_PROFILE_NAME_RE.fullmatch(entry.name):
             # 1. Nested Voice Roots (v2)
-            if (entry / "voice.json").exists():
+            if safe_join_flat(entry, "voice.json").exists():
                 for sub in entry.iterdir():
                     if sub.is_dir() and _profile_dir_has_assets(sub):
                         name = f"{entry.name} - {sub.name}"
@@ -122,30 +122,26 @@ def _new_voice_profile_dir(name: str) -> Path:
         from ...config import get_voice_storage_version
         if get_voice_storage_version(voice_name) >= 2:
             # Ensure voice root has a manifest if we create it
-            voice_root = VOICES_DIR / voice_name
-            if not (voice_root / "voice.json").exists():
+            voice_root = safe_join(VOICES_DIR, voice_name)
+            if not safe_join_flat(voice_root, "voice.json").exists():
                 voice_root.mkdir(parents=True, exist_ok=True)
                 from ...domain.voices.manifest import save_voice_manifest
                 save_voice_manifest(voice_root, {"version": 2, "name": voice_name})
-            return voice_root / variant_name
+            return safe_join_flat(voice_root, variant_name)
 
         # Collision check: don't allow creating if a FLAT folder exists with the same name
-        if (VOICES_DIR / candidate).exists():
-             return VOICES_DIR / candidate
+        if safe_join_flat(VOICES_DIR, candidate).exists():
+             return safe_join_flat(VOICES_DIR, candidate)
 
         # Create the nested destination for new variant-style names.
-        voice_root = VOICES_DIR / voice_name
+        voice_root = safe_join(VOICES_DIR, voice_name)
         voice_root.mkdir(parents=True, exist_ok=True)
         from ...domain.voices.manifest import save_voice_manifest
-        if not (voice_root / "voice.json").exists():
+        if not safe_join_flat(voice_root, "voice.json").exists():
             save_voice_manifest(voice_root, {"version": 2, "name": voice_name})
-        return voice_root / variant_name
+        return safe_join_flat(voice_root, variant_name)
 
-    base_dir = os.path.abspath(os.path.normpath(os.fspath(VOICES_DIR)))
-    fullpath = os.path.abspath(os.path.normpath(os.path.join(base_dir, candidate)))
-    if not fullpath.startswith(base_dir + os.sep):
-        raise ValueError(f"Invalid profile name: {name}")
-    return Path(fullpath)
+    return safe_join(VOICES_DIR, candidate)
 
 
 def _cleanup_voice_root(root: Path):
@@ -156,7 +152,7 @@ def _cleanup_voice_root(root: Path):
     # A v2 voice root is empty of variants if no subdirs have profile.json
     has_variants = False
     for sub in root.iterdir():
-        if sub.is_dir() and (sub / "profile.json").exists():
+        if sub.is_dir() and safe_join_flat(sub, "profile.json").exists():
             has_variants = True
             break
 
@@ -184,12 +180,7 @@ def _existing_voice_sample_path(name: str, sample_name: str) -> Optional[Path]:
 
 
 def _new_voice_sample_path(profile_dir: Path, sample_name: str) -> Path:
-    candidate = _valid_sample_name(sample_name)
-    base_dir = os.path.abspath(os.path.normpath(os.fspath(profile_dir)))
-    fullpath = os.path.abspath(os.path.normpath(os.path.join(base_dir, candidate)))
-    if not fullpath.startswith(base_dir + os.sep):
-        raise ValueError(f"Invalid sample name: {sample_name}")
-    return Path(fullpath)
+    return safe_join_flat(profile_dir, sample_name)
 
 
 def _voice_raw_sample_count(name: str) -> int:
@@ -421,7 +412,7 @@ def list_speaker_profiles():
         rebuild_reasons = []
         if any(s['is_new'] for s in samples):
             rebuild_reasons.append("new_samples")
-        if len([b for b in built_samples if SAFE_SAMPLE_NAME_RE.fullmatch(b) and (d / b).exists()]) < len(built_samples):
+        if len([b for b in built_samples if SAFE_SAMPLE_NAME_RE.fullmatch(b) and safe_join_flat(d, b).exists()]) < len(built_samples):
             rebuild_reasons.append("samples_missing")
         if preview_signature_stale:
             rebuild_reasons.append("settings_changed")
@@ -569,7 +560,7 @@ def _rename_profile_folders(old_name: str, new_name: str):
                 old_root.rename(new_root)
                 # Update references for all variants within this root
                 for sub in new_root.iterdir():
-                    if sub.is_dir() and (sub / "profile.json").exists():
+                    if sub.is_dir() and safe_join_flat(sub, "profile.json").exists():
                         old_vname = f"{old_name} - {sub.name}"
                         new_vname = f"{new_name} - {sub.name}"
                         update_voice_profile_references(old_vname, new_vname)
@@ -604,7 +595,7 @@ def _rename_profile_folders(old_name: str, new_name: str):
         if " - " in old_name and " - " in new_name and old_dir.parent == VOICES_DIR:
             # Preserve the legacy flat layout for flat variant folders when only the
             # variant label changes. New base->variant renames still use the nested path.
-            new_dir = VOICES_DIR / new_name
+            new_dir = safe_join_flat(VOICES_DIR, new_name)
         old_dir.rename(new_dir)
         update_voice_profile_references(old_name, new_name)
         # Update meta if exists

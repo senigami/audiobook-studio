@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 from typing import Optional, List
 from .. import config
+from ..pathing import safe_join, safe_join_flat
 from ..subprocess_utils import coerce_subprocess_output, write_subprocess_output
 from ..textops import split_by_chapter_markers, write_chapters_to_folder, split_into_parts
 
@@ -29,13 +30,13 @@ def _contained_audiobook_path(root: Path, filename: str) -> Optional[Path]:
         return None
     if Path(filename).suffix.lower() != ".m4b":
         return None
-    root_path = os.path.abspath(os.path.normpath(os.fspath(root)))
-    candidate_path = os.path.abspath(os.path.normpath(os.path.join(root_path, filename)))
-    if not candidate_path.startswith(root_path + os.sep):
+    try:
+        candidate_path = safe_join_flat(root, filename)
+        if not candidate_path.is_file():
+            return None
+        return candidate_path
+    except (ValueError, OSError):
         return None
-    if not os.path.isfile(candidate_path):
-        return None
-    return Path(candidate_path)
 
 
 def probe_audiobook_metadata(root: Path, filename: str) -> dict:
@@ -87,9 +88,16 @@ def output_exists(engine: str, chapter_file: str):
         return False
     chapter_name = Path(chapter_file).stem
     if engine in ("xtts", "voxtral", "mixed"):
-        return (config.XTTS_OUT_DIR / f"{chapter_name}.wav").exists() or (config.XTTS_OUT_DIR / f"{chapter_name}.mp3").exists()
+        try:
+            return safe_join_flat(config.XTTS_OUT_DIR, f"{chapter_name}.wav").exists() or \
+                   safe_join_flat(config.XTTS_OUT_DIR, f"{chapter_name}.mp3").exists()
+        except ValueError:
+            return False
     elif engine == "audiobook":
-        return (config.AUDIOBOOK_DIR / f"{chapter_name}.m4b").exists()
+        try:
+            return safe_join_flat(config.AUDIOBOOK_DIR, f"{chapter_name}.m4b").exists()
+        except ValueError:
+            return False
     return False
 
 def xtts_outputs_for(chapter_file: str, project_id: Optional[str] = None):
@@ -99,17 +107,23 @@ def xtts_outputs_for(chapter_file: str, project_id: Optional[str] = None):
     chapter_name = chapter_file
     # Check global
     for ext in [".wav", ".mp3"]:
-        p = config.XTTS_OUT_DIR / f"{chapter_name}{ext}"
-        if p.exists():
-            outputs.append(f"/out/xtts/{chapter_name}{ext}")
+        try:
+            p = safe_join_flat(config.XTTS_OUT_DIR, f"{chapter_name}{ext}")
+            if p.exists():
+                outputs.append(f"/out/xtts/{chapter_name}{ext}")
+        except ValueError:
+            continue
 
     # Check project
     if project_id:
-        proj_audio = config.get_project_audio_dir(project_id)
-        for ext in [".wav", ".mp3"]:
-            p = proj_audio / f"{chapter_name}{ext}"
-            if p.exists():
-                outputs.append(f"/out/projects/{project_id}/audio/{chapter_name}{ext}")
+        try:
+            proj_audio = config.get_project_audio_dir(project_id)
+            for ext in [".wav", ".mp3"]:
+                p = safe_join_flat(proj_audio, f"{chapter_name}{ext}")
+                if p.exists():
+                    outputs.append(f"/out/projects/{project_id}/audio/{chapter_name}{ext}")
+        except (ValueError, OSError):
+            pass
 
     return outputs
 
@@ -136,10 +150,12 @@ def process_and_split_file(filename: str, mode: str = "parts", max_chars: int = 
 
     if not SAFE_FILE_RE.fullmatch(filename):
         raise FileNotFoundError(f"Upload not found: {filename}")
-    safe_filename = filename
-    path = config.UPLOAD_DIR / safe_filename
-    if not path.exists():
-        raise FileNotFoundError(f"Upload not found: {safe_filename}")
+    try:
+        path = safe_join_flat(config.UPLOAD_DIR, filename)
+        if not path.exists():
+            raise FileNotFoundError(f"Upload not found: {filename}")
+    except ValueError:
+        raise FileNotFoundError(f"Upload not found: {filename}")
 
     full_text = path.read_text(encoding="utf-8", errors="replace")
     mode_clean = str(mode).strip().lower()
