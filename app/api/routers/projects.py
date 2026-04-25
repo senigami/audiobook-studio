@@ -326,6 +326,7 @@ def api_list_project_audiobooks(project_id: str):
     # Sort unique files by mtime
     valid_files = []
     for filename, url in unique_files:
+        # Rule 8 match
         p = find_secure_file(m4b_dir, filename)
         if p:
             valid_files.append((filename, url, p))
@@ -428,6 +429,7 @@ def assemble_project(project_id: str, chapter_ids: Optional[str] = Form(None)):
             filename = cover_path.replace(f'/projects/{project_id}/', '')
             # If it's a nested path like 'cover/cover.jpg', we use safe_join
             try:
+                # Rule 9: containment check
                 cover_p = safe_join(get_project_dir(project_id), filename)
                 cover_path = str(cover_p) if cover_p.exists() else None
             except ValueError:
@@ -782,12 +784,13 @@ def _create_backup_archive(bundle: ProjectBackupBundleModel) -> io.BytesIO:
 
                 from app.config import get_project_audio_dir
                 audio_dir = get_project_audio_dir(project_id)
-                audio_path = audio_dir / wav_path
-                if not audio_path.exists():
+                # Rule 8: Enumerate and match
+                audio_path = find_secure_file(audio_dir, wav_path)
+                if not audio_path:
                     # Fallback to the original path if wav not found (might already be wav)
-                    audio_path = audio_dir / raw_path
+                    audio_path = find_secure_file(audio_dir, raw_path)
 
-                if audio_path.exists() and audio_path.suffix.lower() == ".wav":
+                if audio_path and audio_path.exists() and audio_path.suffix.lower() == ".wav":
                     audio_ext = ".wav"
                     # Use the same base filename as the text for easy pairing
                     try:

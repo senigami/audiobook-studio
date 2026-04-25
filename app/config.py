@@ -4,7 +4,7 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
-from .pathing import safe_join, safe_join_flat
+from .pathing import safe_join, safe_join_flat, find_secure_file, secure_join_flat
 
 BASE_DIR = Path(os.getenv("AUDIOBOOK_BASE_DIR", str(Path(__file__).resolve().parents[1])))
 
@@ -77,7 +77,8 @@ def get_project_dir(project_id: str) -> Path:
     if existing_dir:
         return existing_dir
 
-    return safe_join(PROJECTS_DIR, canonical_project_id)
+    # Rule 9: Explicit containment for dynamic ID
+    return secure_join_flat(PROJECTS_DIR, canonical_project_id)
 
 def get_project_audio_dir(project_id: str) -> Path:
     existing_dir = find_existing_project_subdir(project_id, "audio")
@@ -118,6 +119,7 @@ def get_project_trash_dir(project_id: str) -> Path:
 
 def get_chapter_dir(project_id: str, chapter_id: str) -> Path:
     project_dir = get_project_dir(project_id)
+    # Rule 9: containment via safe_join for nested path
     return safe_join(project_dir, f"chapters/{chapter_id}")
 
 
@@ -137,7 +139,8 @@ def get_project_storage_version(project_id: str) -> int:
 
 def get_voice_dir(voice_name: str) -> Path:
     """Returns the root directory for a voice."""
-    return safe_join(VOICES_DIR, voice_name)
+    # Rule 9: Explicit containment for dynamic name
+    return secure_join_flat(VOICES_DIR, voice_name)
 
 def get_variant_dir(voice_name: str, variant_name: str) -> Path:
     """Returns the directory for a voice variant in nested layout."""

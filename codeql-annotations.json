@@ -1,0 +1,802 @@
+[
+  {
+    "path": "app/db/speakers.py",
+    "start_line": 56,
+    "end_line": 56,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).",
+    "level": "failure"
+  },
+  {
+    "path": "app/db/speakers.py",
+    "start_line": 47,
+    "end_line": 47,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).\nThis path depends on a [user-provided value](8).\nThis path depends on a [user-provided value](9).\nThis path depends on a [user-provided value](10).\nThis path depends on a [user-provided value](11).\nThis path depends on a [user-provided value](12).\nThis path depends on a [user-provided value](13).\nThis path depends on a [user-provided value](14).\nThis path depends on a [user-provided value](15).\nThis path depends on a [user-provided value](16).\nThis path depends on a [user-provided value](17).\nThis path depends on a [user-provided value](18).",
+    "level": "failure"
+  },
+  {
+    "path": "app/db/speakers.py",
+    "start_line": 45,
+    "end_line": 45,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).\nThis path depends on a [user-provided value](8).\nThis path depends on a [user-provided value](9).\nThis path depends on a [user-provided value](10).\nThis path depends on a [user-provided value](11).\nThis path depends on a [user-provided value](12).\nThis path depends on a [user-provided value](13).\nThis path depends on a [user-provided value](14).\nThis path depends on a [user-provided value](15).\nThis path depends on a [user-provided value](16).\nThis path depends on a [user-provided value](17).\nThis path depends on a [user-provided value](18).",
+    "level": "failure"
+  },
+  {
+    "path": "app/db/speakers.py",
+    "start_line": 43,
+    "end_line": 43,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).\nThis path depends on a [user-provided value](8).\nThis path depends on a [user-provided value](9).\nThis path depends on a [user-provided value](10).\nThis path depends on a [user-provided value](11).\nThis path depends on a [user-provided value](12).\nThis path depends on a [user-provided value](13).\nThis path depends on a [user-provided value](14).\nThis path depends on a [user-provided value](15).\nThis path depends on a [user-provided value](16).\nThis path depends on a [user-provided value](17).\nThis path depends on a [user-provided value](18).",
+    "level": "failure"
+  },
+  {
+    "path": "app/db/speakers.py",
+    "start_line": 43,
+    "end_line": 43,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).\nThis path depends on a [user-provided value](8).\nThis path depends on a [user-provided value](9).\nThis path depends on a [user-provided value](10).\nThis path depends on a [user-provided value](11).\nThis path depends on a [user-provided value](12).\nThis path depends on a [user-provided value](13).\nThis path depends on a [user-provided value](14).\nThis path depends on a [user-provided value](15).\nThis path depends on a [user-provided value](16).\nThis path depends on a [user-provided value](17).\nThis path depends on a [user-provided value](18).",
+    "level": "failure"
+  },
+  {
+    "path": "app/db/chapters.py",
+    "start_line": 112,
+    "end_line": 112,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).",
+    "level": "failure"
+  },
+  {
+    "path": "app/db/chapters.py",
+    "start_line": 80,
+    "end_line": 80,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).",
+    "level": "failure"
+  },
+  {
+    "path": "app/db/chapters.py",
+    "start_line": 77,
+    "end_line": 77,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).",
+    "level": "failure"
+  },
+  {
+    "path": "app/config.py",
+    "start_line": 312,
+    "end_line": 312,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).",
+    "level": "failure"
+  },
+  {
+    "path": "app/config.py",
+    "start_line": 297,
+    "end_line": 297,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).",
+    "level": "failure"
+  },
+  {
+    "path": "app/config.py",
+    "start_line": 289,
+    "end_line": 289,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).\nThis path depends on a [user-provided value](8).\nThis path depends on a [user-provided value](9).\nThis path depends on a [user-provided value](10).",
+    "level": "failure"
+  },
+  {
+    "path": "app/config.py",
+    "start_line": 259,
+    "end_line": 259,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).",
+    "level": "failure"
+  },
+  {
+    "path": "app/config.py",
+    "start_line": 245,
+    "end_line": 245,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).\nThis path depends on a [user-provided value](8).\nThis path depends on a [user-provided value](9).",
+    "level": "failure"
+  },
+  {
+    "path": "app/config.py",
+    "start_line": 233,
+    "end_line": 233,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).\nThis path depends on a [user-provided value](8).\nThis path depends on a [user-provided value](9).",
+    "level": "failure"
+  },
+  {
+    "path": "app/config.py",
+    "start_line": 227,
+    "end_line": 227,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).",
+    "level": "failure"
+  },
+  {
+    "path": "app/config.py",
+    "start_line": 220,
+    "end_line": 220,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).\nThis path depends on a [user-provided value](8).\nThis path depends on a [user-provided value](9).",
+    "level": "failure"
+  },
+  {
+    "path": "app/config.py",
+    "start_line": 215,
+    "end_line": 215,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).\nThis path depends on a [user-provided value](8).\nThis path depends on a [user-provided value](9).\nThis path depends on a [user-provided value](10).",
+    "level": "failure"
+  },
+  {
+    "path": "app/config.py",
+    "start_line": 190,
+    "end_line": 190,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).\nThis path depends on a [user-provided value](8).\nThis path depends on a [user-provided value](9).",
+    "level": "failure"
+  },
+  {
+    "path": "app/config.py",
+    "start_line": 184,
+    "end_line": 184,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).\nThis path depends on a [user-provided value](8).\nThis path depends on a [user-provided value](9).",
+    "level": "failure"
+  },
+  {
+    "path": "app/config.py",
+    "start_line": 158,
+    "end_line": 158,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).\nThis path depends on a [user-provided value](8).\nThis path depends on a [user-provided value](9).\nThis path depends on a [user-provided value](10).\nThis path depends on a [user-provided value](11).\nThis path depends on a [user-provided value](12).\nThis path depends on a [user-provided value](13).\nThis path depends on a [user-provided value](14).\nThis path depends on a [user-provided value](15).\nThis path depends on a [user-provided value](16).\nThis path depends on a [user-provided value](17).\nThis path depends on a [user-provided value](18).\nThis path depends on a [user-provided value](19).\nThis path depends on a [user-provided value](20).",
+    "level": "failure"
+  },
+  {
+    "path": "app/config.py",
+    "start_line": 155,
+    "end_line": 155,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).\nThis path depends on a [user-provided value](8).\nThis path depends on a [user-provided value](9).\nThis path depends on a [user-provided value](10).\nThis path depends on a [user-provided value](11).\nThis path depends on a [user-provided value](12).\nThis path depends on a [user-provided value](13).\nThis path depends on a [user-provided value](14).\nThis path depends on a [user-provided value](15).\nThis path depends on a [user-provided value](16).\nThis path depends on a [user-provided value](17).\nThis path depends on a [user-provided value](18).\nThis path depends on a [user-provided value](19).\nThis path depends on a [user-provided value](20).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/utils.py",
+    "start_line": 19,
+    "end_line": 19,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/utils.py",
+    "start_line": 16,
+    "end_line": 16,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/voices.py",
+    "start_line": 603,
+    "end_line": 603,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/voices.py",
+    "start_line": 569,
+    "end_line": 569,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).",
+    "level": "failure"
+  },
+  {
+    "path": "app/domain/projects/manifest.py",
+    "start_line": 34,
+    "end_line": 34,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).",
+    "level": "failure"
+  },
+  {
+    "path": "app/domain/projects/manifest.py",
+    "start_line": 22,
+    "end_line": 22,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).",
+    "level": "failure"
+  },
+  {
+    "path": "app/domain/projects/manifest.py",
+    "start_line": 18,
+    "end_line": 18,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).",
+    "level": "failure"
+  },
+  {
+    "path": "app/domain/chapters/compatibility.py",
+    "start_line": 947,
+    "end_line": 947,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).",
+    "level": "failure"
+  },
+  {
+    "path": "app/domain/chapters/compatibility.py",
+    "start_line": 592,
+    "end_line": 592,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](1).",
+    "level": "failure"
+  },
+  {
+    "path": "app/domain/chapters/compatibility.py",
+    "start_line": 590,
+    "end_line": 590,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](1).",
+    "level": "failure"
+  },
+  {
+    "path": "app/domain/chapters/compatibility.py",
+    "start_line": 587,
+    "end_line": 587,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).",
+    "level": "failure"
+  },
+  {
+    "path": "app/domain/chapters/compatibility.py",
+    "start_line": 587,
+    "end_line": 587,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).",
+    "level": "failure"
+  },
+  {
+    "path": "app/domain/chapters/compatibility.py",
+    "start_line": 585,
+    "end_line": 585,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).",
+    "level": "failure"
+  },
+  {
+    "path": "app/domain/chapters/compatibility.py",
+    "start_line": 577,
+    "end_line": 577,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).",
+    "level": "failure"
+  },
+  {
+    "path": "app/db/speakers.py",
+    "start_line": 82,
+    "end_line": 82,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).\nThis path depends on a [user-provided value](8).\nThis path depends on a [user-provided value](9).\nThis path depends on a [user-provided value](10).\nThis path depends on a [user-provided value](11).\nThis path depends on a [user-provided value](12).\nThis path depends on a [user-provided value](13).\nThis path depends on a [user-provided value](14).\nThis path depends on a [user-provided value](15).\nThis path depends on a [user-provided value](16).\nThis path depends on a [user-provided value](17).\nThis path depends on a [user-provided value](18).",
+    "level": "failure"
+  },
+  {
+    "path": "app/db/speakers.py",
+    "start_line": 81,
+    "end_line": 81,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).\nThis path depends on a [user-provided value](8).\nThis path depends on a [user-provided value](9).\nThis path depends on a [user-provided value](10).\nThis path depends on a [user-provided value](11).\nThis path depends on a [user-provided value](12).\nThis path depends on a [user-provided value](13).\nThis path depends on a [user-provided value](14).\nThis path depends on a [user-provided value](15).\nThis path depends on a [user-provided value](16).\nThis path depends on a [user-provided value](17).\nThis path depends on a [user-provided value](18).",
+    "level": "failure"
+  },
+  {
+    "path": "app/db/speakers.py",
+    "start_line": 81,
+    "end_line": 81,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).\nThis path depends on a [user-provided value](8).\nThis path depends on a [user-provided value](9).\nThis path depends on a [user-provided value](10).\nThis path depends on a [user-provided value](11).\nThis path depends on a [user-provided value](12).\nThis path depends on a [user-provided value](13).\nThis path depends on a [user-provided value](14).\nThis path depends on a [user-provided value](15).\nThis path depends on a [user-provided value](16).\nThis path depends on a [user-provided value](17).\nThis path depends on a [user-provided value](18).",
+    "level": "failure"
+  },
+  {
+    "path": "app/db/speakers.py",
+    "start_line": 77,
+    "end_line": 77,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).\nThis path depends on a [user-provided value](8).\nThis path depends on a [user-provided value](9).\nThis path depends on a [user-provided value](10).\nThis path depends on a [user-provided value](11).\nThis path depends on a [user-provided value](12).\nThis path depends on a [user-provided value](13).\nThis path depends on a [user-provided value](14).\nThis path depends on a [user-provided value](15).\nThis path depends on a [user-provided value](16).\nThis path depends on a [user-provided value](17).\nThis path depends on a [user-provided value](18).",
+    "level": "failure"
+  },
+  {
+    "path": "app/db/speakers.py",
+    "start_line": 76,
+    "end_line": 76,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).\nThis path depends on a [user-provided value](8).\nThis path depends on a [user-provided value](9).\nThis path depends on a [user-provided value](10).\nThis path depends on a [user-provided value](11).\nThis path depends on a [user-provided value](12).\nThis path depends on a [user-provided value](13).\nThis path depends on a [user-provided value](14).\nThis path depends on a [user-provided value](15).\nThis path depends on a [user-provided value](16).\nThis path depends on a [user-provided value](17).\nThis path depends on a [user-provided value](18).",
+    "level": "failure"
+  },
+  {
+    "path": "app/db/speakers.py",
+    "start_line": 76,
+    "end_line": 76,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).\nThis path depends on a [user-provided value](8).\nThis path depends on a [user-provided value](9).\nThis path depends on a [user-provided value](10).\nThis path depends on a [user-provided value](11).\nThis path depends on a [user-provided value](12).\nThis path depends on a [user-provided value](13).\nThis path depends on a [user-provided value](14).\nThis path depends on a [user-provided value](15).\nThis path depends on a [user-provided value](16).\nThis path depends on a [user-provided value](17).\nThis path depends on a [user-provided value](18).",
+    "level": "failure"
+  },
+  {
+    "path": "app/db/speakers.py",
+    "start_line": 70,
+    "end_line": 70,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).\nThis path depends on a [user-provided value](8).\nThis path depends on a [user-provided value](9).\nThis path depends on a [user-provided value](10).\nThis path depends on a [user-provided value](11).\nThis path depends on a [user-provided value](12).\nThis path depends on a [user-provided value](13).\nThis path depends on a [user-provided value](14).\nThis path depends on a [user-provided value](15).\nThis path depends on a [user-provided value](16).\nThis path depends on a [user-provided value](17).\nThis path depends on a [user-provided value](18).",
+    "level": "failure"
+  },
+  {
+    "path": "app/db/speakers.py",
+    "start_line": 69,
+    "end_line": 69,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).\nThis path depends on a [user-provided value](8).\nThis path depends on a [user-provided value](9).\nThis path depends on a [user-provided value](10).\nThis path depends on a [user-provided value](11).\nThis path depends on a [user-provided value](12).\nThis path depends on a [user-provided value](13).\nThis path depends on a [user-provided value](14).\nThis path depends on a [user-provided value](15).\nThis path depends on a [user-provided value](16).\nThis path depends on a [user-provided value](17).\nThis path depends on a [user-provided value](18).",
+    "level": "failure"
+  },
+  {
+    "path": "app/db/speakers.py",
+    "start_line": 69,
+    "end_line": 69,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).\nThis path depends on a [user-provided value](8).\nThis path depends on a [user-provided value](9).\nThis path depends on a [user-provided value](10).\nThis path depends on a [user-provided value](11).\nThis path depends on a [user-provided value](12).\nThis path depends on a [user-provided value](13).\nThis path depends on a [user-provided value](14).\nThis path depends on a [user-provided value](15).\nThis path depends on a [user-provided value](16).\nThis path depends on a [user-provided value](17).\nThis path depends on a [user-provided value](18).",
+    "level": "failure"
+  },
+  {
+    "path": "app/db/speakers.py",
+    "start_line": 67,
+    "end_line": 67,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).\nThis path depends on a [user-provided value](8).\nThis path depends on a [user-provided value](9).\nThis path depends on a [user-provided value](10).\nThis path depends on a [user-provided value](11).\nThis path depends on a [user-provided value](12).\nThis path depends on a [user-provided value](13).\nThis path depends on a [user-provided value](14).\nThis path depends on a [user-provided value](15).\nThis path depends on a [user-provided value](16).\nThis path depends on a [user-provided value](17).\nThis path depends on a [user-provided value](18).",
+    "level": "failure"
+  },
+  {
+    "path": "app/db/speakers.py",
+    "start_line": 64,
+    "end_line": 64,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).\nThis path depends on a [user-provided value](8).\nThis path depends on a [user-provided value](9).\nThis path depends on a [user-provided value](10).\nThis path depends on a [user-provided value](11).\nThis path depends on a [user-provided value](12).\nThis path depends on a [user-provided value](13).\nThis path depends on a [user-provided value](14).\nThis path depends on a [user-provided value](15).\nThis path depends on a [user-provided value](16).\nThis path depends on a [user-provided value](17).\nThis path depends on a [user-provided value](18).",
+    "level": "failure"
+  },
+  {
+    "path": "app/db/speakers.py",
+    "start_line": 61,
+    "end_line": 61,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).\nThis path depends on a [user-provided value](8).\nThis path depends on a [user-provided value](9).\nThis path depends on a [user-provided value](10).\nThis path depends on a [user-provided value](11).\nThis path depends on a [user-provided value](12).\nThis path depends on a [user-provided value](13).\nThis path depends on a [user-provided value](14).\nThis path depends on a [user-provided value](15).\nThis path depends on a [user-provided value](16).\nThis path depends on a [user-provided value](17).\nThis path depends on a [user-provided value](18).",
+    "level": "failure"
+  },
+  {
+    "path": "app/db/speakers.py",
+    "start_line": 60,
+    "end_line": 60,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).\nThis path depends on a [user-provided value](8).\nThis path depends on a [user-provided value](9).\nThis path depends on a [user-provided value](10).\nThis path depends on a [user-provided value](11).\nThis path depends on a [user-provided value](12).\nThis path depends on a [user-provided value](13).\nThis path depends on a [user-provided value](14).\nThis path depends on a [user-provided value](15).\nThis path depends on a [user-provided value](16).\nThis path depends on a [user-provided value](17).\nThis path depends on a [user-provided value](18).",
+    "level": "failure"
+  },
+  {
+    "path": "app/db/speakers.py",
+    "start_line": 59,
+    "end_line": 59,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).\nThis path depends on a [user-provided value](8).\nThis path depends on a [user-provided value](9).\nThis path depends on a [user-provided value](10).\nThis path depends on a [user-provided value](11).\nThis path depends on a [user-provided value](12).\nThis path depends on a [user-provided value](13).\nThis path depends on a [user-provided value](14).\nThis path depends on a [user-provided value](15).\nThis path depends on a [user-provided value](16).\nThis path depends on a [user-provided value](17).\nThis path depends on a [user-provided value](18).",
+    "level": "failure"
+  },
+  {
+    "path": "app/db/speakers.py",
+    "start_line": 59,
+    "end_line": 59,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).\nThis path depends on a [user-provided value](8).\nThis path depends on a [user-provided value](9).\nThis path depends on a [user-provided value](10).\nThis path depends on a [user-provided value](11).\nThis path depends on a [user-provided value](12).\nThis path depends on a [user-provided value](13).\nThis path depends on a [user-provided value](14).\nThis path depends on a [user-provided value](15).\nThis path depends on a [user-provided value](16).\nThis path depends on a [user-provided value](17).\nThis path depends on a [user-provided value](18).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/voices.py",
+    "start_line": 568,
+    "end_line": 568,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/projects.py",
+    "start_line": 688,
+    "end_line": 688,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/projects.py",
+    "start_line": 688,
+    "end_line": 688,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/projects.py",
+    "start_line": 663,
+    "end_line": 663,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/projects.py",
+    "start_line": 644,
+    "end_line": 644,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/projects.py",
+    "start_line": 640,
+    "end_line": 640,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/projects.py",
+    "start_line": 640,
+    "end_line": 640,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/projects.py",
+    "start_line": 614,
+    "end_line": 614,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/projects.py",
+    "start_line": 608,
+    "end_line": 608,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/projects.py",
+    "start_line": 604,
+    "end_line": 604,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/projects.py",
+    "start_line": 604,
+    "end_line": 604,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/projects.py",
+    "start_line": 561,
+    "end_line": 561,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/projects.py",
+    "start_line": 542,
+    "end_line": 542,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/projects.py",
+    "start_line": 536,
+    "end_line": 536,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/projects.py",
+    "start_line": 533,
+    "end_line": 533,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/chapters.py",
+    "start_line": 527,
+    "end_line": 527,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/chapters.py",
+    "start_line": 508,
+    "end_line": 508,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/chapters.py",
+    "start_line": 476,
+    "end_line": 476,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](1).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/chapters.py",
+    "start_line": 470,
+    "end_line": 470,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](1).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/chapters.py",
+    "start_line": 459,
+    "end_line": 459,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](1).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/chapters.py",
+    "start_line": 399,
+    "end_line": 399,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](1).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/voices.py",
+    "start_line": 567,
+    "end_line": 567,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/voices.py",
+    "start_line": 567,
+    "end_line": 567,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/voices.py",
+    "start_line": 567,
+    "end_line": 567,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/voices.py",
+    "start_line": 317,
+    "end_line": 317,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/voices.py",
+    "start_line": 173,
+    "end_line": 173,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/voices.py",
+    "start_line": 140,
+    "end_line": 140,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).\nThis path depends on a [user-provided value](8).\nThis path depends on a [user-provided value](9).\nThis path depends on a [user-provided value](10).\nThis path depends on a [user-provided value](11).\nThis path depends on a [user-provided value](12).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/voices.py",
+    "start_line": 138,
+    "end_line": 138,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).\nThis path depends on a [user-provided value](8).\nThis path depends on a [user-provided value](9).\nThis path depends on a [user-provided value](10).\nThis path depends on a [user-provided value](11).\nThis path depends on a [user-provided value](12).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/voices.py",
+    "start_line": 133,
+    "end_line": 133,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).\nThis path depends on a [user-provided value](8).\nThis path depends on a [user-provided value](9).\nThis path depends on a [user-provided value](10).\nThis path depends on a [user-provided value](11).\nThis path depends on a [user-provided value](12).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/voices.py",
+    "start_line": 127,
+    "end_line": 127,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).\nThis path depends on a [user-provided value](8).\nThis path depends on a [user-provided value](9).\nThis path depends on a [user-provided value](10).\nThis path depends on a [user-provided value](11).\nThis path depends on a [user-provided value](12).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/projects.py",
+    "start_line": 692,
+    "end_line": 692,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/projects.py",
+    "start_line": 697,
+    "end_line": 697,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/projects.py",
+    "start_line": 719,
+    "end_line": 719,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/projects.py",
+    "start_line": 719,
+    "end_line": 719,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/projects.py",
+    "start_line": 723,
+    "end_line": 723,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/projects.py",
+    "start_line": 726,
+    "end_line": 726,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/voices.py",
+    "start_line": 126,
+    "end_line": 126,
+    "title": "Uncontrolled data used in path expression",
+    "message": "This path depends on a [user-provided value](1).\nThis path depends on a [user-provided value](2).\nThis path depends on a [user-provided value](3).\nThis path depends on a [user-provided value](4).\nThis path depends on a [user-provided value](5).\nThis path depends on a [user-provided value](6).\nThis path depends on a [user-provided value](7).\nThis path depends on a [user-provided value](8).\nThis path depends on a [user-provided value](9).\nThis path depends on a [user-provided value](10).\nThis path depends on a [user-provided value](11).\nThis path depends on a [user-provided value](12).",
+    "level": "failure"
+  },
+  {
+    "path": "app/api/routers/projects.py",
+    "start_line": 548,
+    "end_line": 548,
+    "title": "Information exposure through an exception",
+    "message": "[Stack trace information](1) flows to this location and may be exposed to an external user.",
+    "level": "warning"
+  },
+  {
+    "path": "app/api/routers/projects.py",
+    "start_line": 587,
+    "end_line": 587,
+    "title": "Information exposure through an exception",
+    "message": "[Stack trace information](1) flows to this location and may be exposed to an external user.",
+    "level": "warning"
+  },
+  {
+    "path": "app/api/routers/voices.py",
+    "start_line": 289,
+    "end_line": 289,
+    "title": "Information exposure through an exception",
+    "message": "[Stack trace information](1) flows to this location and may be exposed to an external user.",
+    "level": "warning"
+  },
+  {
+    "path": "app/api/routers/projects.py",
+    "start_line": 517,
+    "end_line": 517,
+    "title": "Information exposure through an exception",
+    "message": "[Stack trace information](1) flows to this location and may be exposed to an external user.",
+    "level": "warning"
+  },
+  {
+    "path": "app/api/routers/projects.py",
+    "start_line": 492,
+    "end_line": 492,
+    "title": "Information exposure through an exception",
+    "message": "[Stack trace information](1) flows to this location and may be exposed to an external user.",
+    "level": "warning"
+  },
+  {
+    "path": "app/api/routers/projects.py",
+    "start_line": 479,
+    "end_line": 479,
+    "title": "Information exposure through an exception",
+    "message": "[Stack trace information](1) flows to this location and may be exposed to an external user.",
+    "level": "warning"
+  },
+  {
+    "path": "app/api/routers/projects.py",
+    "start_line": 466,
+    "end_line": 466,
+    "title": "Information exposure through an exception",
+    "message": "[Stack trace information](1) flows to this location and may be exposed to an external user.",
+    "level": "warning"
+  },
+  {
+    "path": "app/api/routers/projects.py",
+    "start_line": 463,
+    "end_line": 463,
+    "title": "Information exposure through an exception",
+    "message": "[Stack trace information](1) flows to this location and may be exposed to an external user.",
+    "level": "warning"
+  },
+  {
+    "path": "app/api/routers/voices.py",
+    "start_line": 312,
+    "end_line": 312,
+    "title": "Information exposure through an exception",
+    "message": "[Stack trace information](1) flows to this location and may be exposed to an external user.",
+    "level": "warning"
+  },
+  {
+    "path": "app/api/routers/projects.py",
+    "start_line": 623,
+    "end_line": 623,
+    "title": "Information exposure through an exception",
+    "message": "[Stack trace information](1) flows to this location and may be exposed to an external user.",
+    "level": "warning"
+  },
+  {
+    "path": "app/api/routers/projects.py",
+    "start_line": 671,
+    "end_line": 671,
+    "title": "Information exposure through an exception",
+    "message": "[Stack trace information](1) flows to this location and may be exposed to an external user.",
+    "level": "warning"
+  },
+  {
+    "path": "app/api/routers/projects.py",
+    "start_line": 702,
+    "end_line": 702,
+    "title": "Information exposure through an exception",
+    "message": "[Stack trace information](1) flows to this location and may be exposed to an external user.",
+    "level": "warning"
+  },
+  {
+    "path": "app/api/routers/projects.py",
+    "start_line": 730,
+    "end_line": 730,
+    "title": "Information exposure through an exception",
+    "message": "[Stack trace information](1) flows to this location and may be exposed to an external user.",
+    "level": "warning"
+  }
+]

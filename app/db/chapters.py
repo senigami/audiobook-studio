@@ -161,7 +161,9 @@ def move_chapter_artifacts_to_trash(
 
     # Rule 9: Explicit containment for dynamic chapter_id
     try:
-        base_trash = os.path.abspath(os.path.normpath(os.fspath(config.TRASH_DIR)))
+        # Use project-aware trash dir resolution
+        base_trash_path = config.get_project_trash_dir(project_id) or config.TRASH_DIR
+        base_trash = os.path.abspath(os.path.normpath(os.fspath(base_trash_path)))
         trash_root_str = os.path.abspath(os.path.normpath(os.path.join(base_trash, chapter_id)))
         if not trash_root_str.startswith(base_trash + os.sep) and trash_root_str != base_trash:
              raise ValueError("Invalid trash root")
@@ -232,28 +234,30 @@ def move_chapter_artifacts_to_trash(
                     should_move = True
                     break
 
-        if should_move:
-            try:
-                # Rule 9 for dynamic name
-                if not SAFE_AUDIO_NAME_RE.fullmatch(name) and not SAFE_TEXT_NAME_RE.fullmatch(name):
-                     continue
+        if not should_move:
+            continue
 
-                base_target = os.path.abspath(os.path.normpath(os.fspath(target_dir)))
-                dest_str = os.path.abspath(os.path.normpath(os.path.join(base_target, name)))
-                if not dest_str.startswith(base_target + os.sep) and dest_str != base_target:
-                     continue
+        try:
+            # Rule 9 for dynamic name
+            if not SAFE_AUDIO_NAME_RE.fullmatch(name) and not SAFE_TEXT_NAME_RE.fullmatch(name):
+                 continue
 
-                dest = Path(dest_str)
-                # Ensure unique destination name if multiple sources have same filename
-                if dest.exists():
-                    unique_name = f"{uuid.uuid4().hex}_{name}"
-                    dest = Path(os.path.abspath(os.path.normpath(os.path.join(base_target, unique_name))))
+            base_target = os.path.abspath(os.path.normpath(os.fspath(target_dir)))
+            dest_str = os.path.abspath(os.path.normpath(os.path.join(base_target, name)))
+            if not dest_str.startswith(base_target + os.sep) and dest_str != base_target:
+                 continue
 
-                shutil.move(str(src), str(dest))
-                if is_audio: audio_moved += 1
-                else: text_moved += 1
-            except Exception:
-                logger.warning("Failed to move artifact %s to trash", src, exc_info=True)
+            dest = Path(dest_str)
+            # Ensure unique destination name if multiple sources have same filename
+            if dest.exists():
+                unique_name = f"{uuid.uuid4().hex}_{name}"
+                dest = Path(os.path.abspath(os.path.normpath(os.path.join(base_target, unique_name))))
+
+            shutil.move(str(src), str(dest))
+            if is_audio: audio_moved += 1
+            else: text_moved += 1
+        except Exception as e:
+            logger.warning("Failed to move artifact %s to trash: %s", src, e, exc_info=True)
 
     # 4. If using nested layout and it's empty now (or we want to move the whole folder if it's a full delete)
     # Actually, move_chapter_artifacts_to_trash is often called for specific subsets.
