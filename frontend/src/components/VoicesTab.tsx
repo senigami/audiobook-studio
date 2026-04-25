@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
-    Search, Plus, User, Info
+    Search, Plus, User, Info, Upload
 } from 'lucide-react';
 import type { Speaker, SpeakerProfile, Job, VoiceEngine, Settings, TtsEngine } from '../types';
 import { GlassInput } from './GlassInput';
@@ -9,6 +9,7 @@ import { NarratorCard } from './voices/NarratorCard';
 import { useVoiceManagement } from '../hooks/useVoiceManagement';
 import { VoicesModals } from './VoicesModals';
 import { formatVoiceEngineLabel, getVariantDisplayName, getVoiceProfileEngine, isDefaultVoiceProfile, isVoiceProfileSelectable } from '../utils/voiceProfiles';
+import { api } from '../api';
 
 interface VoicesTabProps {
     onRefresh: () => void | Promise<void>;
@@ -99,6 +100,10 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
     const [selectedMoveSpeakerId, setSelectedMoveSpeakerId] = useState<string>('');
     const [isMovingVariant, setIsMovingVariant] = useState(false);
     const [engineFilter, setEngineFilter] = useState<'all' | 'disabled' | VoiceEngine>('all');
+    const [exportVoiceName, setExportVoiceName] = useState<string | null>(null);
+    const [includeSourceWavs, setIncludeSourceWavs] = useState(false);
+    const [isImportingVoice, setIsImportingVoice] = useState(false);
+    const importInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         const isEngineActive = (eid: string) => {
@@ -356,6 +361,41 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
         }
     };
 
+    const handleConfirmExportVoice = () => {
+        if (!exportVoiceName) return;
+        const url = api.exportVoiceBundleUrl(exportVoiceName, includeSourceWavs);
+        window.open(url, '_blank');
+        setExportVoiceName(null);
+        setIncludeSourceWavs(false);
+    };
+
+    const handleImportVoiceBundle = async (file: File | null) => {
+        if (!file) return;
+        setIsImportingVoice(true);
+        try {
+            const result = await api.importVoiceBundle(file);
+            await Promise.all([Promise.resolve(onRefresh()), fetchSpeakers()]);
+            handleRequestConfirm({
+                title: 'Voice Imported',
+                message: result.was_renamed
+                    ? `Imported "${result.original_voice_name}" as "${result.voice_name}".`
+                    : `Imported "${result.voice_name}".`,
+                onConfirm: () => {},
+                isAlert: true
+            });
+        } catch (err: any) {
+            handleRequestConfirm({
+                title: 'Import Failed',
+                message: err?.message || 'The selected voice bundle could not be imported.',
+                onConfirm: () => {},
+                isAlert: true
+            });
+        } finally {
+            setIsImportingVoice(false);
+            if (importInputRef.current) importInputRef.current.value = '';
+        }
+    };
+
     // --- Data Processing ---
     const buildVoiceGroups = (profiles: SpeakerProfile[]) => {
         const groupedVoices = (speakers || []).map(speaker => {
@@ -476,6 +516,21 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <input
+                        ref={importInputRef}
+                        type="file"
+                        accept=".zip,application/zip"
+                        aria-label="Import voice bundle file"
+                        style={{ display: 'none' }}
+                        onChange={(event) => void handleImportVoiceBundle(event.target.files?.[0] || null)}
+                    />
+                    <GhostButton
+                        onClick={() => importInputRef.current?.click()}
+                        icon={Upload}
+                        label={isImportingVoice ? 'Importing...' : 'Import Voice'}
+                        disabled={isImportingVoice}
+                    />
+
                     <GhostButton 
                         onClick={() => setIsCreateModalOpen(true)} 
                         icon={Plus}
@@ -573,6 +628,10 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                                         setNewSpeakerName(s.name);
                                         setIsRenameModalOpen(true);
                                     }}
+                                    onExportVoice={(voiceName) => {
+                                        setExportVoiceName(voiceName);
+                                        setIncludeSourceWavs(false);
+                                    }}
                                     isExpanded={expandedVoiceId === voice.id}
                                     onToggleExpand={() => setExpandedVoiceId(expandedVoiceId === voice.id ? null : voice.id)}
                                     engines={engines}
@@ -636,6 +695,11 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 handleSaveTestText={handleSaveTestText}
                 confirmConfig={confirmConfig}
                 setConfirmConfig={setConfirmConfig}
+                exportVoiceName={exportVoiceName}
+                setExportVoiceName={setExportVoiceName}
+                includeSourceWavs={includeSourceWavs}
+                setIncludeSourceWavs={setIncludeSourceWavs}
+                handleConfirmExportVoice={handleConfirmExportVoice}
             />
         </div>
     );

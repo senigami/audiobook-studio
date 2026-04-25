@@ -30,10 +30,10 @@ vi.mock('../../hooks/useVoiceManagement', () => ({
 global.fetch = vi.fn();
 
 describe('Voices Tab Components', () => {
-    const mockProfile: SpeakerProfile = { 
-        name: 'Profile 1', 
-        speaker_id: 'speaker-1', 
-        variant_name: 'Default', 
+    const mockProfile: SpeakerProfile = {
+        name: 'Profile 1',
+        speaker_id: 'speaker-1',
+        variant_name: 'Default',
         provider: 'elevenlabs',
         speed: 1.0,
         wav_count: 1,
@@ -53,12 +53,12 @@ describe('Voices Tab Components', () => {
         samples_detailed: []
     } as any;
 
-    const mockSpeaker: Speaker = { 
-        id: 'speaker-1', 
-        name: 'Speaker One', 
-        default_profile_name: 'Profile 1', 
-        created_at: Date.now(), 
-        updated_at: Date.now() 
+    const mockSpeaker: Speaker = {
+        id: 'speaker-1',
+        name: 'Speaker One',
+        default_profile_name: 'Profile 1',
+        created_at: Date.now(),
+        updated_at: Date.now()
     };
 
     describe('VoicesTab', () => {
@@ -83,7 +83,7 @@ describe('Voices Tab Components', () => {
     describe('NarratorCard', () => {
         it('renders narrator info and profiles', () => {
             render(
-                <NarratorCard 
+                <NarratorCard
                     speaker={mockSpeaker}
                     profiles={[mockProfile]}
                     onRefresh={vi.fn()}
@@ -285,7 +285,7 @@ describe('Voices Tab Components', () => {
                 { id: 'sample-1', speaker_id: 'speaker-1', name: 'Sample 1', path: '/path/1', created_at: Date.now(), profile_name: 'Profile 1' }
             ] as any;
             render(
-                <SampleManager 
+                <SampleManager
                     profile={{ ...mockProfile, samples_detailed: mockSamples }}
                     isSamplesExpanded={true}
                     setIsSamplesExpanded={vi.fn()}
@@ -323,7 +323,7 @@ describe('Voices Tab Components', () => {
     describe('VariantEditor', () => {
         it('renders editor with speed and script button', () => {
             render(
-                <VariantEditor 
+                <VariantEditor
                     profile={mockProfile}
                     isTesting={false}
                     onTest={vi.fn()}
@@ -345,6 +345,73 @@ describe('Voices Tab Components', () => {
             expect(screen.getByRole('button', { name: '1.00x' })).toHaveClass('hover-bg-subtle');
             expect(screen.getByRole('button', { name: 'Script' })).toHaveClass('hover-bg-subtle');
             expect(screen.getByRole('button', { name: 'Move Variant' })).toHaveClass('hover-bg-subtle');
+        });
+    });
+
+    describe('Voice Portability (Import/Export)', () => {
+        it('renders Import Voice button and handles file selection', () => {
+            render(<VoicesTab onRefresh={vi.fn()} speakerProfiles={[mockProfile]} testProgress={{}} />);
+            const importBtn = screen.getByText('Import Voice');
+            expect(importBtn).toBeInTheDocument();
+
+            // The button clicks a hidden input
+            const input = screen.getByLabelText('Import voice bundle file');
+            expect(input).toBeInTheDocument();
+            expect(input).toHaveAttribute('type', 'file');
+            expect(input).toHaveAttribute('accept', '.zip,application/zip');
+        });
+
+        it('shows Export Voice Bundle in NarratorCard ActionMenu', () => {
+            const onExport = vi.fn();
+            render(
+                <NarratorCard
+                    speaker={mockSpeaker}
+                    profiles={[mockProfile]}
+                    onRefresh={vi.fn()}
+                    onTest={vi.fn()}
+                    onDelete={vi.fn()}
+                    onMoveVariant={vi.fn()}
+                    onEditTestText={vi.fn()}
+                    onBuildNow={vi.fn()}
+                    testProgress={{}}
+                    requestConfirm={vi.fn()}
+                    buildingProfiles={{}}
+                    onAddVariantClick={vi.fn()}
+                    onSetDefaultClick={vi.fn()}
+                    onRenameClick={vi.fn()}
+                    onExportVoice={onExport}
+                    isExpanded={true}
+                    onToggleExpand={vi.fn()}
+                />
+            );
+
+            // Open ActionMenu
+            fireEvent.click(screen.getByLabelText('More actions'));
+            expect(screen.getByText('Export Voice Bundle')).toBeInTheDocument();
+
+            fireEvent.click(screen.getByText('Export Voice Bundle'));
+            expect(onExport).toHaveBeenCalledWith('Speaker One');
+        });
+
+        it('shows export confirmation modal with source WAV toggle', () => {
+            const mockRefresh = vi.fn();
+            render(<VoicesTab onRefresh={mockRefresh} speakerProfiles={[mockProfile]} testProgress={{}} />);
+
+            // Trigger export via NarratorCard (which is rendered inside VoicesTab)
+            fireEvent.click(screen.getByLabelText('More actions'));
+            fireEvent.click(screen.getByText('Export Voice Bundle'));
+
+            // Modal should appear
+            expect(screen.getByText('Export Voice Bundle')).toBeInTheDocument();
+            expect(screen.getByText(/Export "Speaker One" with all variants/)).toBeInTheDocument();
+
+            const toggle = screen.getByLabelText(/Include source WAV samples/);
+            expect(toggle).toBeInTheDocument();
+            expect(toggle).not.toBeChecked();
+
+            // Cancel button
+            fireEvent.click(screen.getByText('Cancel'));
+            expect(screen.queryByText(/Export "Speaker One"/)).not.toBeInTheDocument();
         });
     });
 });

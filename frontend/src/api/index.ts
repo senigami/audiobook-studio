@@ -432,4 +432,16 @@ export const api = {
     const res = await fetch('/api/engines/install', { method: 'POST' });
     return parseApiResponse(res);
   },
+
+  exportVoiceBundleUrl: (voiceName: string, includeSourceWavs: boolean = false): string => {
+    const params = new URLSearchParams({ include_source_wavs: String(includeSourceWavs) });
+    return `/api/voices/${encodeURIComponent(voiceName)}/bundle/download?${params.toString()}`;
+  },
+
+  importVoiceBundle: async (file: File): Promise<{ status: string; voice_name: string; original_voice_name: string; was_renamed: boolean; variants: string[] }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch('/api/voices/bundle/import', { method: 'POST', body: formData });
+    return parseApiResponse(res);
+  },
 };

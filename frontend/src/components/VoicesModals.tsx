@@ -78,6 +78,13 @@ interface VoicesModalsProps {
     // Global Confirm
     confirmConfig: any;
     setConfirmConfig: (config: any) => void;
+
+    // Voice Bundle Export
+    exportVoiceName: string | null;
+    setExportVoiceName: (name: string | null) => void;
+    includeSourceWavs: boolean;
+    setIncludeSourceWavs: (include: boolean) => void;
+    handleConfirmExportVoice: () => void;
 }
 
 export const VoicesModals: React.FC<VoicesModalsProps> = (props) => {
@@ -164,6 +171,87 @@ export const VoicesModals: React.FC<VoicesModalsProps> = (props) => {
                     isSaving={props.isSavingText}
                 />
             </Drawer>
+
+            {props.exportVoiceName && (
+                <div style={{
+                    position: 'fixed',
+                    inset: 0,
+                    zIndex: 1900,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '1.5rem'
+                }}>
+                    <div
+                        onClick={() => props.setExportVoiceName(null)}
+                        style={{
+                            position: 'absolute',
+                            inset: 0,
+                            background: 'rgba(15, 23, 42, 0.4)',
+                            backdropFilter: 'blur(8px)'
+                        }}
+                    />
+                    <div style={{
+                        position: 'relative',
+                        width: '100%',
+                        maxWidth: '440px',
+                        background: 'var(--surface)',
+                        borderRadius: '20px',
+                        boxShadow: 'var(--shadow-xl)',
+                        border: '1px solid var(--border)',
+                        padding: '2rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '1.25rem'
+                    }}>
+                        <div>
+                            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: '0 0 0.5rem', color: 'var(--text-primary)' }}>
+                                Export Voice Bundle
+                            </h3>
+                            <p style={{ fontSize: '0.925rem', color: 'var(--text-muted)', lineHeight: 1.5, margin: 0 }}>
+                                Export "{props.exportVoiceName}" with all variants, metadata, previews, and model files.
+                            </p>
+                        </div>
+
+                        <label style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            padding: '12px',
+                            borderRadius: '12px',
+                            border: '1px solid var(--border)',
+                            background: 'var(--surface-light)',
+                            cursor: 'pointer'
+                        }}>
+                            <input
+                                type="checkbox"
+                                checked={props.includeSourceWavs}
+                                onChange={(event) => props.setIncludeSourceWavs(event.target.checked)}
+                            />
+                            <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                Include source WAV samples
+                            </span>
+                        </label>
+
+                        <div style={{ display: 'flex', gap: '12px', marginTop: '0.25rem' }}>
+                            <button
+                                onClick={() => props.setExportVoiceName(null)}
+                                className="btn-ghost"
+                                style={{ flex: 1, padding: '0.75rem', borderRadius: '12px' }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={props.handleConfirmExportVoice}
+                                className="btn-primary"
+                                style={{ flex: 1, padding: '0.75rem', borderRadius: '12px' }}
+                            >
+                                Download Bundle
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <ConfirmModal
                 isOpen={!!props.confirmConfig}

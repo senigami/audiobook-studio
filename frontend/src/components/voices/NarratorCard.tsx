@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { Speaker, SpeakerProfile, TtsEngine } from '../../types';
-import { User, RefreshCw, ChevronUp, Star, FileEdit, Trash2, Plus } from 'lucide-react';
+import { User, RefreshCw, ChevronUp, Star, FileEdit, Trash2, Plus, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ActionMenu } from '../ActionMenu';
 import { VariantEditor } from './VariantEditor';
@@ -19,6 +19,7 @@ interface NarratorCardProps {
     requestConfirm: (config: { title: string; message: string; onConfirm: () => void; isDestructive?: boolean; isAlert?: boolean }) => void;
     onAddVariantClick: (speaker: Speaker, profileCount: number) => void;
     onRenameClick: (speaker: Speaker) => void;
+    onExportVoice?: (voiceName: string) => void;
     onSetDefaultClick: (profileName: string) => void;
     isExpanded: boolean;
     onToggleExpand: () => void;
@@ -30,7 +31,7 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
     speaker, profiles, testProgress,
     onTest, onDelete, onRefresh,
     onEditTestText, onBuildNow, requestConfirm,
-    onAddVariantClick, onRenameClick, onSetDefaultClick, isExpanded, onToggleExpand, onMoveVariant,
+    onAddVariantClick, onRenameClick, onExportVoice, onSetDefaultClick, isExpanded, onToggleExpand, onMoveVariant,
     buildingProfiles,
     engines = []
 }) => {
@@ -239,6 +240,11 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
                                 label: 'Rename Voice',
                                 icon: FileEdit,
                                 onClick: () => onRenameClick(speaker)
+                            },
+                            {
+                                label: 'Export Voice Bundle',
+                                icon: Download,
+                                onClick: () => onExportVoice?.(speaker.name)
                             },
                             {
                                 label: 'Delete Voice (all variants)',

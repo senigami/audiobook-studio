@@ -10,7 +10,7 @@ import urllib.parse
 from pathlib import Path
 from typing import Optional, List, Dict
 from fastapi import APIRouter, Form, File, UploadFile, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from ...db import (
     get_characters, create_character, update_character, delete_character,
     list_speakers, create_speaker, get_speaker, update_speaker, delete_speaker,
@@ -33,6 +33,7 @@ from ... import config
 from ...state import get_settings, update_settings, get_jobs, put_job, update_job
 from ...models import Job
 from ...pathing import safe_basename
+from ...domain.voices.bundles import VoiceBundleError, export_voice_bundle, import_voice_bundle
 
 # Compatibility for tests that monkeypatch these
 VOICES_DIR = config.VOICES_DIR
@@ -252,6 +253,47 @@ def _voice_job_title(name: str, action: str = "Building voice for") -> str:
     return f"{action} {speaker_name}: {variant_name}"
 
 router = APIRouter(tags=["voices"])
+
+
+@router.get("/api/voices/{voice_name}/bundle/download")
+def download_voice_bundle(voice_name: str, include_source_wavs: bool = False):
+    from ...domain.voices.migration import migrate_voices_to_v2
+    migrate_voices_to_v2()
+
+    try:
+        bundle = export_voice_bundle(
+            VOICES_DIR,
+            voice_name,
+            include_source_wavs=include_source_wavs,
+        )
+    except VoiceBundleError as exc:
+        return JSONResponse({"status": "error", "message": str(exc)}, status_code=400)
+    except Exception:
+        logger.exception("Failed to export voice bundle for %s", voice_name)
+        return JSONResponse({"status": "error", "message": "Voice export failed"}, status_code=500)
+
+    safe_filename = safe_basename(f"{voice_name}.voice.zip")
+    return Response(
+        bundle,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{safe_filename}"'},
+    )
+
+
+@router.post("/api/voices/bundle/import")
+async def import_voice_bundle_route(file: UploadFile = File(...)):
+    if not file.filename or not file.filename.lower().endswith(".zip"):
+        return JSONResponse({"status": "error", "message": "Upload a .zip voice bundle."}, status_code=400)
+
+    try:
+        result = import_voice_bundle(VOICES_DIR, await file.read())
+        sync_speakers_from_profiles(VOICES_DIR)
+        return JSONResponse({"status": "ok", **result})
+    except VoiceBundleError as exc:
+        return JSONResponse({"status": "error", "message": str(exc)}, status_code=400)
+    except Exception:
+        logger.exception("Failed to import voice bundle %s", file.filename)
+        return JSONResponse({"status": "error", "message": "Voice import failed"}, status_code=500)
 
 
 def _ensure_default_speaker_profile(speaker_id: str, speaker_name: str, default_profile_name: Optional[str]) -> str:
