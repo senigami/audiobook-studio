@@ -44,7 +44,7 @@ class ExampleProcessingHooks(VoiceProcessingHooks):
 
     def check_readiness(self, profile_id: str, settings: dict[str, Any], profile_dir: str | None) -> tuple[bool, str]:
         """Check if a voice profile is ready for synthesis.
-        
+
         Template implementation requires at least one .wav file in the profile.
         """
         import os

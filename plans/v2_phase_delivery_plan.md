@@ -223,26 +223,59 @@ Move the core production workflows onto the 2.0 foundation.
 
 - the main user workflow runs on 2.0 architecture
 
-## Phase 8: Cleanup And Hardening
+## Phase 8: Shell Cutover And Product Hardening
 
 ### Objective
 
-Remove legacy paths only after proven replacement.
+Finish the visible Studio 2.0 shell and the highest-value product seams before opening the system outward.
 
 ### Scope
 
-- legacy deletion
-- final path consolidation
-- documentation completion
+- queue companion drawer cutover
+- queue route and shell semantics that preserve current page context
+- project snapshot and export-manifest foundation
+- first project backup/export bundle mode
+- plugin setup and recovery diagnostics hardening
+- explicit retirement of fake or stale legacy paths after replacements are proven
 
 ### Key tests
 
-- regression suite
-- end-to-end recovery/export validation
+- shell/navigation queue drawer tests
+- compatibility tests for `/queue` deep links
+- queue component tests under constrained drawer layout
+- project snapshot/export tests
+- regression and export validation
 
 ### Completion criteria
 
-- legacy dependencies are gone without functionality loss
+- the queue is a stable companion surface and Studio has the portability and product-hardening foundations needed before external ecosystem work
+
+## Phase 9: Plugin Ecosystem And External TTS API
+
+### Objective
+
+Open the stabilized Studio 2.0 architecture outward to contributors and external clients.
+
+### Scope
+
+- pip entry-point discovery
+- guided plugin dependency/install flow
+- plugin security boundary docs
+- external API authentication and rate limiting
+- local-only vs LAN access control
+- OpenAPI/docs and contributor submission flow
+
+### Key tests
+
+- entry-point discovery tests
+- dependency/install-guidance tests
+- API auth tests
+- rate limiting tests
+- OpenAPI validation
+
+### Completion criteria
+
+- community plugins and external clients can use the same hardened Studio surface without special-case architecture
 
 ## Debugging Discipline Across All Phases
 

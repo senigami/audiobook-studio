@@ -65,6 +65,31 @@ export const api = {
     const res = await fetch(`/api/projects/${projectId}/assemble`, { method: 'POST', body: formData });
     return res.json();
   },
+  // --- Backups ---
+  fetchProjectBackups: async (projectId: string): Promise<import('../types').StoredBackup[]> => {
+    const res = await fetch(`/api/projects/${projectId}/backups`);
+    return parseApiResponse(res);
+  },
+  saveProjectBackup: async (projectId: string, comment?: string, includeAudio: boolean = true): Promise<any> => {
+    const params = new URLSearchParams();
+    if (comment) params.append('comment', comment);
+    params.append('include_audio', includeAudio.toString());
+    const url = `/api/projects/${projectId}/backup-bundle/save?${params.toString()}`;
+    const res = await fetch(url, { method: 'POST' });
+    return parseApiResponse(res);
+  },
+  deleteProjectBackup: async (projectId: string, filename: string): Promise<any> => {
+    const res = await fetch(`/api/projects/${projectId}/backups/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+    return parseApiResponse(res);
+  },
+  updateProjectBackupMetadata: async (projectId: string, filename: string, comment: string): Promise<any> => {
+    const res = await fetch(`/api/projects/${projectId}/backups/${encodeURIComponent(filename)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ comment })
+    });
+    return parseApiResponse(res);
+  },
 
   // --- Characters ---
   fetchCharacters: async (projectId: string): Promise<import('../types').Character[]> => {
@@ -276,8 +301,8 @@ export const api = {
     const res = await fetch(`/api/job/${encodeURIComponent(filename)}`);
     return res.json();
   },
-  fetchPreview: async (filename: string, processed: boolean = false): Promise<{ text: string; error?: string }> => {
-    const res = await fetch(`/api/preview/${encodeURIComponent(filename)}?processed=${processed}`);
+  fetchPreview: async (chapterId: string, processed: boolean = false): Promise<{ text: string; error?: string }> => {
+    const res = await fetch(`/api/chapters/${chapterId}/preview?processed=${processed}`);
     return res.json();
   },
   updateTitle: async (filename: string, newTitle: string): Promise<any> => {
@@ -304,11 +329,11 @@ export const api = {
     return res.json();
   },
   cancelPending: async (): Promise<any> => {
-    const res = await fetch('/api/queue/cancel_pending', { method: 'POST' });
+    const res = await fetch('/api/generation/cancel-all', { method: 'POST' });
     return res.json();
   },
-  exportSample: async (filename: string, projectId?: string): Promise<{ url: string; status?: string; message?: string }> => {
-    const url = `/api/chapter/${encodeURIComponent(filename)}/export-sample${projectId ? `?project_id=${projectId}` : ''}`;
+  exportSample: async (chapterId: string, projectId?: string): Promise<{ url: string; status?: string; message?: string }> => {
+    const url = `/api/chapters/${chapterId}/export-sample${projectId ? `?project_id=${projectId}` : ''}`;
     const res = await fetch(url, { method: 'POST' });
     return res.json();
   },
@@ -356,9 +381,18 @@ export const api = {
     return res.json();
   },
   toggleQueuePause: async (paused: boolean): Promise<any> => {
-    const endpoint = paused ? '/queue/pause' : '/queue/resume';
+    const endpoint = paused ? '/api/generation/pause' : '/api/generation/resume';
     const res = await fetch(endpoint, { method: 'POST' });
     return res.json();
+  },
+
+  updateAudiobookMetadata: async (projectId: string, filename: string, description: string): Promise<any> => {
+    const res = await fetch(`/api/projects/${projectId}/audiobooks/${encodeURIComponent(filename)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description })
+    });
+    return parseApiResponse(res);
   },
 
   // --- Engines ---
@@ -396,6 +430,18 @@ export const api = {
   },
   installPlugin: async (): Promise<any> => {
     const res = await fetch('/api/engines/install', { method: 'POST' });
+    return parseApiResponse(res);
+  },
+
+  exportVoiceBundleUrl: (voiceName: string, includeSourceWavs: boolean = false): string => {
+    const params = new URLSearchParams({ include_source_wavs: String(includeSourceWavs) });
+    return `/api/voices/${encodeURIComponent(voiceName)}/bundle/download?${params.toString()}`;
+  },
+
+  importVoiceBundle: async (file: File): Promise<{ status: string; voice_name: string; original_voice_name: string; was_renamed: boolean; variants: string[] }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch('/api/voices/bundle/import', { method: 'POST', body: formData });
     return parseApiResponse(res);
   },
 };

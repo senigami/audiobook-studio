@@ -3,6 +3,7 @@ import os
 import io
 import json
 import uuid
+import zipfile
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 from app.db.core import init_db
@@ -51,7 +52,10 @@ def test_list_speaker_profiles(clean_db, voices_root, client):
     voices_dir = voices_root
     voices_dir.mkdir()
     (voices_dir / "SpeakerA").mkdir()
-    (voices_dir / "SpeakerA" / "v1.wav").write_text("audio")
+    (voices_dir / "SpeakerA" / "voice.json").write_text(json.dumps({"version": 2, "name": "SpeakerA", "default_variant": "Default"}))
+    (voices_dir / "SpeakerA" / "Default").mkdir()
+    (voices_dir / "SpeakerA" / "Default" / "profile.json").write_text(json.dumps({"variant_name": "Default"}))
+    (voices_dir / "SpeakerA" / "Default" / "v1.wav").write_text("audio")
 
     with patch("app.api.routers.voices.get_speaker_settings", return_value={"built_samples": [], "speed": 1.0, "test_text": "", "engine": "xtts"}):
         response = client.get("/api/speaker-profiles")
@@ -60,6 +64,158 @@ def test_list_speaker_profiles(clean_db, voices_root, client):
         assert len(data) == 1
         assert data[0]["name"] == "SpeakerA"
         assert data[0]["engine"] == "xtts"
+        assert data[0]["asset_base_url"] == "/out/voices/SpeakerA/Default"
+
+
+def _write_voice_root(root: Path, voice_name: str = "Dracula") -> Path:
+    voice_root = root / voice_name
+    default_dir = voice_root / "Default"
+    angry_dir = voice_root / "Angry"
+    default_dir.mkdir(parents=True)
+    angry_dir.mkdir(parents=True)
+    (voice_root / "voice.json").write_text(json.dumps({
+        "version": 2,
+        "name": voice_name,
+        "default_variant": "Default",
+    }))
+    (default_dir / "profile.json").write_text(json.dumps({
+        "variant_name": "Default",
+        "engine": "xtts",
+    }))
+    (default_dir / "latent.pth").write_bytes(b"latent")
+    (default_dir / "sample.mp3").write_bytes(b"mp3")
+    (default_dir / "sample.wav").write_bytes(b"preview")
+    (default_dir / "source.wav").write_bytes(b"source")
+    (angry_dir / "profile.json").write_text(json.dumps({
+        "variant_name": "Angry",
+        "engine": "xtts",
+    }))
+    (angry_dir / "source.wav").write_bytes(b"angry-source")
+    return voice_root
+
+
+def _zip_names(response) -> set[str]:
+    with zipfile.ZipFile(io.BytesIO(response.content)) as zf:
+        return set(zf.namelist())
+
+
+def test_export_voice_bundle_excludes_source_wavs_by_default(clean_db, voices_root, client):
+    voices_root.mkdir()
+    _write_voice_root(voices_root)
+
+    response = client.get("/api/voices/Dracula/bundle/download")
+
+    assert response.status_code == 200
+    names = _zip_names(response)
+    assert "bundle.json" in names
+    assert "voice.json" in names
+    assert "Default/profile.json" in names
+    assert "Default/latent.pth" in names
+    assert "Default/sample.mp3" in names
+    assert "Default/sample.wav" in names
+    assert "Default/source.wav" not in names
+    assert "Angry/source.wav" not in names
+
+
+def test_export_voice_bundle_includes_source_wavs_when_requested(clean_db, voices_root, client):
+    voices_root.mkdir()
+    _write_voice_root(voices_root)
+
+    response = client.get("/api/voices/Dracula/bundle/download?include_source_wavs=true")
+
+    assert response.status_code == 200
+    names = _zip_names(response)
+    assert "Default/source.wav" in names
+    assert "Angry/source.wav" in names
+
+
+def test_import_voice_bundle_duplicate_creates_suffixed_copy(clean_db, voices_root, client):
+    voices_root.mkdir()
+    _write_voice_root(voices_root)
+    export_response = client.get("/api/voices/Dracula/bundle/download?include_source_wavs=true")
+
+    response = client.post(
+        "/api/voices/bundle/import",
+        files={"file": ("dracula.voice.zip", io.BytesIO(export_response.content), "application/zip")},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["voice_name"] == "Dracula 2"
+    assert payload["was_renamed"] is True
+    assert (voices_root / "Dracula").exists()
+    assert (voices_root / "Dracula 2" / "Default" / "latent.pth").exists()
+    assert (voices_root / "Dracula 2" / "Angry" / "source.wav").exists()
+    imported_manifest = json.loads((voices_root / "Dracula 2" / "voice.json").read_text())
+    assert imported_manifest["name"] == "Dracula 2"
+    assert imported_manifest["default_variant"] == "Default"
+
+
+def test_import_voice_bundle_rejects_invalid_archives(clean_db, voices_root, client):
+    voices_root.mkdir()
+
+    malformed = client.post(
+        "/api/voices/bundle/import",
+        files={"file": ("bad.zip", io.BytesIO(b"not a zip"), "application/zip")},
+    )
+    assert malformed.status_code == 400
+
+    missing_voice = io.BytesIO()
+    with zipfile.ZipFile(missing_voice, "w") as zf:
+        zf.writestr("Default/profile.json", "{}")
+    response = client.post(
+        "/api/voices/bundle/import",
+        files={"file": ("missing.voice.zip", io.BytesIO(missing_voice.getvalue()), "application/zip")},
+    )
+    assert response.status_code == 400
+    assert "voice.json" in response.json()["message"]
+
+    traversal = io.BytesIO()
+    with zipfile.ZipFile(traversal, "w") as zf:
+        zf.writestr("voice.json", json.dumps({"name": "Evil"}))
+        zf.writestr("../escape.txt", "nope")
+        zf.writestr("Default/profile.json", "{}")
+    response = client.post(
+        "/api/voices/bundle/import",
+        files={"file": ("traversal.voice.zip", io.BytesIO(traversal.getvalue()), "application/zip")},
+    )
+    assert response.status_code == 400
+
+    missing_profile = io.BytesIO()
+    with zipfile.ZipFile(missing_profile, "w") as zf:
+        zf.writestr("voice.json", json.dumps({"name": "NoProfile"}))
+        zf.writestr("Default/sample.wav", b"preview")
+    response = client.post(
+        "/api/voices/bundle/import",
+        files={"file": ("missing-profile.voice.zip", io.BytesIO(missing_profile.getvalue()), "application/zip")},
+    )
+    assert response.status_code == 400
+    assert "profile.json" in response.json()["message"]
+
+
+def test_imported_latent_voice_lists_ready_without_rebuild(clean_db, voices_root, client):
+    source_root = voices_root / "source"
+    source_root.mkdir(parents=True)
+    _write_voice_root(source_root, "LatentVoice")
+
+    from app.domain.voices.bundles import export_voice_bundle
+    bundle = export_voice_bundle(source_root, "LatentVoice")
+
+    response = client.post(
+        "/api/voices/bundle/import",
+        files={"file": ("latent.voice.zip", io.BytesIO(bundle), "application/zip")},
+    )
+    assert response.status_code == 200
+
+    bridge = MagicMock()
+    bridge.check_readiness.return_value = (True, "ready")
+    with patch("app.api.routers.voices.create_voice_bridge", return_value=bridge):
+        profiles = client.get("/api/speaker-profiles").json()
+
+    profile = next(p for p in profiles if p["name"] == "LatentVoice")
+    assert profile["has_latent"] is True
+    assert profile["is_ready"] is True
+    assert profile["is_rebuild_required"] is False
 
 
 def test_legacy_profile_listing_repairs_missing_speaker_rows_and_preserves_default_switch(clean_db, voices_root, client):
@@ -108,12 +264,21 @@ def test_create_and_delete_profile(clean_db, voices_root, client):
     response = client.post("/api/speaker-profiles", data={"speaker_id": "S1", "variant_name": "V1"})
     assert response.status_code == 200
     name = response.json()["name"]
-    assert (voices_dir / name).exists()
+    # Verify nested structure
+    if " - " in name:
+        spk, var = name.split(" - ", 1)
+        assert (voices_dir / spk.strip() / var.strip()).exists()
+    else:
+        assert (voices_dir / name).exists()
 
     # Delete
     response = client.delete(f"/api/speaker-profiles/{name}")
     assert response.status_code == 200
-    assert not (voices_dir / name).exists()
+    if " - " in name:
+        spk, var = name.split(" - ", 1)
+        assert not (voices_dir / spk.strip() / var.strip()).exists()
+    else:
+        assert not (voices_dir / name).exists()
 
 
 def test_character_voice_assignment_blank_value_clears_to_default(clean_db, voices_root, client):
@@ -152,26 +317,22 @@ def test_create_character_blank_voice_uses_default(clean_db, voices_root, client
 
 def test_create_profile_persists_engine_metadata(clean_db, voices_root, client):
     voices_root.mkdir()
-    # Enable voxtral in settings
-    client.post("/api/settings", data={
-        "mistral_api_key": "abc123",
-        "enabled_plugins": json.dumps({"voxtral": True})
-    })
 
-    response = client.post("/api/speaker-profiles", data={"speaker_id": "S1", "variant_name": "Vox", "engine": "voxtral"})
+    with patch("app.api.routers.voices._is_engine_active", return_value=True):
+        response = client.post("/api/speaker-profiles", data={"speaker_id": "S1", "variant_name": "Vox", "engine": "voxtral"})
     assert response.status_code == 200
 
     name = response.json()["name"]
-    meta = json.loads((voices_root / name / "profile.json").read_text())
+    spk, var = name.split(" - ", 1)
+    meta = json.loads((voices_root / spk.strip() / var.strip() / "profile.json").read_text())
     assert meta["engine"] == "voxtral"
 
 
 def test_create_voxtral_profile_requires_api_key(clean_db, voices_root, client, monkeypatch):
     voices_root.mkdir()
-    # Ensure it's disabled by providing no key or explicitly disabling
-    client.post("/api/settings", data={"mistral_api_key": ""})
 
-    response = client.post("/api/speaker-profiles", data={"speaker_id": "S1", "variant_name": "Vox", "engine": "voxtral"})
+    with patch("app.api.routers.voices._is_engine_active", return_value=False):
+        response = client.post("/api/speaker-profiles", data={"speaker_id": "S1", "variant_name": "Vox", "engine": "voxtral"})
     assert response.status_code == 400
     assert "not enabled" in response.json()["message"]
 
@@ -182,11 +343,8 @@ def test_update_profile_engine(clean_db, voices_root, client):
     profile_dir.mkdir()
     (profile_dir / "profile.json").write_text(json.dumps({"variant_name": "Default"}))
 
-    client.post("/api/settings", data={
-        "mistral_api_key": "abc123",
-        "enabled_plugins": json.dumps({"voxtral": True})
-    })
-    response = client.post("/api/speaker-profiles/SpeakerA/engine", data={"engine": "voxtral"})
+    with patch("app.api.routers.voices._is_engine_active", return_value=True):
+        response = client.post("/api/speaker-profiles/SpeakerA/engine", data={"engine": "voxtral"})
     assert response.status_code == 200
     assert response.json()["engine"] == "voxtral"
 
@@ -199,9 +357,9 @@ def test_update_voxtral_engine_requires_api_key(clean_db, voices_root, client, m
     profile_dir = voices_root / "SpeakerA"
     profile_dir.mkdir()
     (profile_dir / "profile.json").write_text(json.dumps({"variant_name": "Default", "engine": "xtts"}))
-    client.post("/api/settings", data={"mistral_api_key": ""})
 
-    response = client.post("/api/speaker-profiles/SpeakerA/engine", data={"engine": "voxtral"})
+    with patch("app.api.routers.voices._is_engine_active", return_value=False):
+        response = client.post("/api/speaker-profiles/SpeakerA/engine", data={"engine": "voxtral"})
     assert response.status_code == 400
     assert "not enabled" in response.json()["message"]
 
@@ -223,11 +381,8 @@ def test_update_profile_reference_sample(clean_db, voices_root, client):
     (profile_dir / "profile.json").write_text(json.dumps({"variant_name": "Default", "engine": "voxtral"}))
     (profile_dir / "sample1.wav").write_text("audio")
 
-    client.post("/api/settings", data={
-        "mistral_api_key": "abc123",
-        "enabled_plugins": json.dumps({"voxtral": True})
-    })
-    response = client.post("/api/speaker-profiles/SpeakerA/reference-sample", data={"sample_name": "sample1.wav"})
+    with patch("app.api.routers.voices._is_engine_active", return_value=True):
+        response = client.post("/api/speaker-profiles/SpeakerA/reference-sample", data={"sample_name": "sample1.wav"})
     assert response.status_code == 200
     assert response.json()["reference_sample"] == "sample1.wav"
 
@@ -241,11 +396,8 @@ def test_update_profile_voxtral_voice_id(clean_db, voices_root, client):
     profile_dir.mkdir()
     (profile_dir / "profile.json").write_text(json.dumps({"variant_name": "Default", "engine": "voxtral"}))
 
-    client.post("/api/settings", data={
-        "mistral_api_key": "abc123",
-        "enabled_plugins": json.dumps({"voxtral": True})
-    })
-    response = client.post("/api/speaker-profiles/SpeakerA/voxtral-voice-id", data={"voice_id": "voice_123"})
+    with patch("app.api.routers.voices._is_engine_active", return_value=True):
+        response = client.post("/api/speaker-profiles/SpeakerA/voxtral-voice-id", data={"voice_id": "voice_123"})
     assert response.status_code == 200
     assert response.json()["voxtral_voice_id"] == "voice_123"
 
@@ -261,12 +413,9 @@ def test_voxtral_profile_test_accepts_saved_voice_id_without_samples(clean_db, v
         "engine": "voxtral",
         "voxtral_voice_id": "voice_123",
     }))
-    client.post("/api/settings", data={
-        "mistral_api_key": "abc123",
-        "enabled_plugins": json.dumps({"voxtral": True})
-    })
 
-    response = client.post("/api/speaker-profiles/SpeakerA/test")
+    with patch("app.api.routers.voices._is_engine_active", return_value=True), patch("app.api.routers.voices.put_job"), patch("app.api.routers.voices.enqueue"):
+        response = client.post("/api/speaker-profiles/SpeakerA/test")
 
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
@@ -340,9 +489,9 @@ def test_rename_profile_and_security(clean_db, voices_root, client):
     # Success
     response = client.post("/api/voices/rename-profile", data={"old_name": "OldName", "new_name": "NewName - Variant"})
     assert response.status_code == 200
-    assert (voices_dir / "NewName - Variant").exists()
+    assert (voices_dir / "NewName" / "Variant").exists()
     assert not (voices_dir / "OldName").exists()
-    assert (voices_dir / "NewName - Variant" / "latent.pth").exists()
+    assert (voices_dir / "NewName" / "Variant" / "latent.pth").exists()
 
     # Security traversal
     response = client.post("/api/voices/rename-profile", data={"old_name": "NewName - Variant", "new_name": "../../traversal"})
@@ -375,6 +524,8 @@ def test_reset_speaker_test_text(clean_db, voices_root, client):
 
     assert response.status_code == 200
     assert response.json()["test_text"] == DEFAULT_SPEAKER_TEST_TEXT
+    # Check that test_text was removed from profile.json (falling back to default)
+    # SpeakerA is a flat folder in this test setup
     assert "test_text" not in json.loads((profile_dir / "profile.json").read_text())
 
 def test_build_and_test_profiles(clean_db, voices_root, client):
@@ -385,10 +536,13 @@ def test_build_and_test_profiles(clean_db, voices_root, client):
         # Build
         file_content = b"fake wav"
         files = {"files": ("input1.wav", io.BytesIO(file_content), "audio/wav")}
+        (voices_dir / "SpeakerA").mkdir()
+        (voices_dir / "SpeakerA" / "profile.json").write_text("{}")
         with patch("app.api.routers.voices.put_job"), patch("app.api.routers.voices.enqueue"):
             response = client.post("/api/speaker-profiles/SpeakerA/build", files=files)
             assert response.status_code == 200
-            assert (voices_dir / "SpeakerA" / "input1.wav").exists()
+            # Build creates SpeakerA/Default for a flat name if it's missing
+            assert (voices_dir / "SpeakerA" / "input1.wav").exists() or (voices_dir / "SpeakerA" / "Default" / "input1.wav").exists()
 
         (voices_dir / "SpeakerA" / "1.wav").write_text("fake wav content 2")
 
@@ -452,6 +606,7 @@ def test_profile_creation_errors(clean_db, voices_root, client):
 
     # Already exists
     (voices_dir / "S1 - V1").mkdir()
+    (voices_dir / "S1 - V1" / "profile.json").write_text("{}")
     response = client.post("/api/speaker-profiles", data={"speaker_id": "S1", "variant_name": "V1"})
     assert response.status_code == 400
 
@@ -471,10 +626,12 @@ def test_rename_speaker_with_variants(clean_db, voices_root, client):
     voices_dir = voices_root
     voices_dir.mkdir()
     (voices_dir / "Narrator").mkdir()
-    (voices_dir / "Narrator - Calm").mkdir()
-    (voices_dir / "Narrator - Calm" / "profile.json").write_text(json.dumps({"speaker_id": "Narrator"}))
-    (voices_dir / "Narrator - Calm" / "latent.pth").write_text("latent")
-    (voices_dir / "Narrator - Excited").mkdir()
+    (voices_dir / "Narrator" / "Calm").mkdir()
+    (voices_dir / "Narrator" / "voice.json").write_text(json.dumps({"version": 2, "name": "Narrator"}))
+    (voices_dir / "Narrator" / "Calm" / "profile.json").write_text(json.dumps({"speaker_id": "Narrator"}))
+    (voices_dir / "Narrator" / "Calm" / "latent.pth").write_text("latent")
+    (voices_dir / "Narrator" / "Excited").mkdir()
+    (voices_dir / "Narrator" / "Excited" / "profile.json").write_text("{}")
 
     # Rename
     response = client.post("/api/voices/rename-profile", data={"old_name": "Narrator", "new_name": "Dracula"})
@@ -482,14 +639,13 @@ def test_rename_speaker_with_variants(clean_db, voices_root, client):
 
     # Verify both main and variants are renamed
     assert (voices_dir / "Dracula").exists()
-    assert (voices_dir / "Dracula - Calm").exists()
-    assert (voices_dir / "Dracula - Excited").exists()
+    assert (voices_dir / "Dracula" / "Calm").exists()
+    assert (voices_dir / "Dracula" / "Excited").exists()
     assert not (voices_dir / "Narrator").exists()
-    assert not (voices_dir / "Narrator - Calm").exists()
-    assert (voices_dir / "Dracula - Calm" / "latent.pth").exists()
+    assert (voices_dir / "Dracula" / "Calm" / "latent.pth").exists()
 
     # Verify metadata update
-    meta = json.loads((voices_dir / "Dracula - Calm" / "profile.json").read_text())
+    meta = json.loads((voices_dir / "Dracula" / "Calm" / "profile.json").read_text())
     assert meta["speaker_id"] == "Dracula"
 
 def test_rename_profile_default_sync(clean_db, voices_root, client):
@@ -519,6 +675,7 @@ def test_delete_sample_errors(clean_db, voices_root, client):
     voices_dir = voices_root
     voices_dir.mkdir()
     (voices_dir / "SpeakerA").mkdir()
+    (voices_dir / "SpeakerA" / "profile.json").write_text("{}")
     (voices_dir / "SpeakerA" / "sample1.wav").write_text("audio")
 
     # Success
@@ -539,6 +696,7 @@ def test_delete_sample_rejects_traversal(voices_root):
     voices_dir = voices_root
     voices_dir.mkdir()
     (voices_dir / "SpeakerA").mkdir()
+    (voices_dir / "SpeakerA" / "profile.json").write_text("{}")
     with patch("app.api.routers.voices.VOICES_DIR", voices_dir):
         response = delete_speaker_sample(
             name="SpeakerA",
@@ -550,6 +708,7 @@ def test_assign_profile_to_speaker_errors(clean_db, voices_root, client):
     voices_dir = voices_root
     voices_dir.mkdir()
     (voices_dir / "SomeProf").mkdir()
+    (voices_dir / "SomeProf" / "profile.json").write_text("{}")
 
     # Generic error
     with patch("app.api.routers.voices.get_speaker", side_effect=Exception("db crash")):

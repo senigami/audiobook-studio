@@ -20,17 +20,28 @@ def temp_chapter():
     if test_path.exists():
         test_path.unlink()
 
-def test_api_preview_raw(temp_chapter):
-    response = client.get(f"/api/preview/{temp_chapter}")
+def test_api_preview_raw():
+    res = client.post("/api/projects", data={"name": "Preview Project"})
+    pid = res.json()["project_id"]
+    res = client.post(f"/api/projects/{pid}/chapters", data={"title": "Preview Chapter", "text_content": "Hello world"})
+    cid = res.json()["chapter"]["id"]
+
+    response = client.get(f"/api/chapters/{cid}/preview")
     assert response.status_code == 200
     assert response.json()["text"] == "Hello world"
 
-def test_api_preview_processed(temp_chapter):
+def test_api_preview_processed():
+    res = client.post("/api/projects", data={"name": "Preview Project 2"})
+    pid = res.json()["project_id"]
+    res = client.post(f"/api/projects/{pid}/chapters", data={"title": "Preview Chapter 2", "text_content": "Hello world"})
+    cid = res.json()["chapter"]["id"]
+
     # This should trigger sanitization (adding period)
-    response = client.get(f"/api/preview/{temp_chapter}?processed=true")
+    response = client.get(f"/api/chapters/{cid}/preview?processed=true")
     assert response.status_code == 200
     # Processed output should have a period and may be padded
     assert response.json()["text"].strip() == "Hello world."
+
 
 def test_api_jobs_list():
     response = client.get("/api/jobs")
@@ -38,77 +49,14 @@ def test_api_jobs_list():
     data = response.json()
     assert isinstance(data, list)
 
-def test_api_audiobook_prepare_empty():
-    # If no audio files, should return chapters list
-    response = client.get("/api/audiobook/prepare")
-    assert response.status_code == 200
-    data = response.json()
-    assert "chapters" in data
-    assert isinstance(data["chapters"], list)
+
 
 def test_api_active_job():
     response = client.get("/api/active_job")
     assert response.status_code == 200
 
-def test_backfill_surgical_logic(temp_chapter, monkeypatch):
-    from app.config import XTTS_OUT_DIR
-    from app.state import put_job, get_jobs, delete_jobs
-    from app.models import Job
-    import time
 
-    def mock_wav_to_mp3(wav_path, mp3_path):
-        mp3_path.write_text("fake mp3 content")
-        return 0
 
-    monkeypatch.setattr("app.engines.wav_to_mp3", mock_wav_to_mp3)
-
-    # 1. Force a job into state for our temp chapter
-    jid = "test_backfill_jid"
-    # Cleanup any previous test run
-    delete_jobs([jid])
-
-    job = Job(
-        id=jid,
-        engine="xtts",
-        chapter_file=temp_chapter,
-        status="done",
-        make_mp3=True,
-        created_at=time.time()
-    )
-    put_job(job)
-
-    # 2. Create only the WAV file
-    stem = Path(temp_chapter).stem
-    wav_path = XTTS_OUT_DIR / f"{stem}.wav"
-    mp3_path = XTTS_OUT_DIR / f"{stem}.mp3"
-    XTTS_OUT_DIR.mkdir(parents=True, exist_ok=True)
-    wav_path.write_text("fake wav content", encoding="utf-8")
-    if mp3_path.exists(): mp3_path.unlink()
-
-    # 3. Call backfill endpoint (now starts a background thread)
-    response = client.post("/queue/backfill_mp3")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "success"
-
-    # 4. Wait for the background process to finish surgical backfill
-    # Since it's in a thread, we poll until the job status becomes 'done'
-    max_wait = 5.0
-    start_wait = time.time()
-    while time.time() - start_wait < max_wait:
-        job = get_jobs().get(jid)
-        if job and job.status == "done":
-            break
-        time.sleep(0.1)
-
-    # 5. Check that the job status is indeed 'done'
-    job = get_jobs().get(jid)
-    assert job is not None
-    assert job.status == "done"
-
-    # Cleanup files
-    if mp3_path.exists(): mp3_path.unlink()
-    delete_jobs([jid])
 
 def test_queue_uniqueness():
     """

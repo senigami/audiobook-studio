@@ -33,6 +33,7 @@ describe('EditTab', () => {
                 chapter={mockChapter} 
                 segmentsCount={0} 
                 hasUnsavedChanges={false}
+                sourceTextMode="edit"
             />
         );
 
@@ -160,6 +161,7 @@ describe('EditTab', () => {
                 chapter={mockChapter} 
                 segmentsCount={0} 
                 hasUnsavedChanges={true}
+                sourceTextMode="edit"
             />
         );
         expect(screen.getByText(/Unsaved changes detected/i)).toBeInTheDocument();

@@ -4,8 +4,10 @@ import { createProjectSubnav } from './project-subnav';
 describe('project subnav builders', () => {
   it('creates stable subnav items for a project', () => {
     const items = createProjectSubnav('p123');
-    expect(items).toHaveLength(2);
+    expect(items).toHaveLength(4);
     expect(items.find(i => i.id === 'project-chapters')?.href).toBe('/project/p123');
+    expect(items.find(i => i.id === 'project-assemblies')?.href).toBe('/project/p123?tab=assemblies');
+    expect(items.find(i => i.id === 'project-backups')?.href).toBe('/project/p123?tab=backups');
     expect(items.find(i => i.id === 'project-characters')?.href).toBe('/project/p123?tab=characters');
   });
 

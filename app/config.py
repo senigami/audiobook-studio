@@ -4,6 +4,8 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
+from .pathing import safe_join_flat
+
 BASE_DIR = Path(os.getenv("AUDIOBOOK_BASE_DIR", str(Path(__file__).resolve().parents[1])))
 
 DEFAULT_CHAPTER_DIR = (
@@ -116,6 +118,201 @@ def get_project_trash_dir(project_id: str) -> Path:
         return existing_dir
     project_dir = get_project_dir(project_id)
     return project_dir / "trash"
+
+
+def get_chapter_dir(project_id: str, chapter_id: str) -> Path:
+    project_dir = get_project_dir(project_id)
+    return project_dir / "chapters" / chapter_id
+
+
+def get_project_storage_version(project_id: str) -> int:
+    """Returns the storage version of the project (1 for legacy, 2 for nested)."""
+    try:
+        project_dir = get_project_dir(project_id)
+        manifest_path = project_dir / "project.json"
+        if not manifest_path.exists():
+            return 1
+        import json
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return int(data.get("version", 1))
+    except Exception:
+        return 1
+
+def get_voice_dir(voice_name: str) -> Path:
+    """Returns the root directory for a voice."""
+    return VOICES_DIR / voice_name
+
+def get_variant_dir(voice_name: str, variant_name: str) -> Path:
+    """Returns the directory for a voice variant in nested layout."""
+    return get_voice_dir(voice_name) / variant_name
+
+def get_voice_storage_version(voice_name: str) -> int:
+    """Returns the storage version of a voice (1 for legacy flat, 2 for nested)."""
+    try:
+        voice_root = get_voice_dir(voice_name)
+        manifest_path = voice_root / "voice.json"
+        if not manifest_path.exists():
+            return 1
+        import json
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return int(data.get("version", 1))
+    except Exception:
+        return 1
+
+
+def resolve_chapter_asset_path(
+    project_id: Optional[str],
+    chapter_id: str,
+    asset_type: str,
+    filename: Optional[str] = None,
+    fallback_dir: Optional[Path] = None,
+) -> Optional[Path]:
+    """Resolves a chapter asset path by checking the new nested layout first,
+    then falling back to the legacy flat layout.
+
+    Supported asset_types: 'text', 'audio', 'segment'
+    """
+    if asset_type == "text":
+        # New: project/chapters/{chapter_id}/chapter.txt
+        # Old: project/text/{chapter_id}.txt or {chapter_id}_0.txt
+        # Global: fallback_dir or CHAPTER_DIR/{chapter_id}.txt
+        if project_id:
+            nested_dir = get_chapter_dir(project_id, chapter_id)
+            new_path = nested_dir / "chapter.txt"
+            if new_path.exists():
+                return new_path
+
+            text_dir = get_project_text_dir(project_id)
+            for cand in [f"{chapter_id}.txt", f"{chapter_id}_0.txt"]:
+                old_path = text_dir / cand
+                if old_path.exists():
+                    return old_path
+
+        # Fallback to global
+        text_dirs = [CHAPTER_DIR]
+        if fallback_dir:
+            text_dirs.insert(0, fallback_dir)
+
+        for text_dir in text_dirs:
+            for cand in [f"{chapter_id}.txt", f"{chapter_id}_0.txt"]:
+                global_path = text_dir / cand
+                if global_path.exists():
+                    return global_path
+
+    elif asset_type == "audio":
+        # New: project/chapters/{chapter_id}/chapter.wav (or chapter.m4a/mp3)
+        # Old: project/audio/{audio_file_path or chapter_id.wav}
+        # Global: fallback_dir or XTTS_OUT_DIR/{filename or chapter_id.wav}
+        if project_id:
+            nested_dir = get_chapter_dir(project_id, chapter_id)
+            if filename:
+                try:
+                    new_path = safe_join_flat(nested_dir, filename)
+                except ValueError:
+                    return None
+                if new_path.exists():
+                    return new_path
+                # Map chapter_id.wav -> chapter.wav in new layout if chapter.wav exists
+                if filename == f"{chapter_id}.wav":
+                    new_main = nested_dir / "chapter.wav"
+                    if new_main.exists():
+                        return new_main
+
+                try:
+                    old_path = safe_join_flat(get_project_audio_dir(project_id), filename)
+                except ValueError:
+                    return None
+                if old_path.exists():
+                    return old_path
+            else:
+                # Try standard names in nested dir
+                for ext in [".wav", ".m4a", ".mp3"]:
+                    new_path = nested_dir / f"chapter{ext}"
+                    if new_path.exists():
+                        return new_path
+
+                # Fallback to standard legacy names
+                audio_dir = get_project_audio_dir(project_id)
+                for cand in [
+                    f"{chapter_id}.wav",
+                    f"{chapter_id}_0.wav",
+                    f"{chapter_id}.mp3",
+                    f"{chapter_id}_0.mp3",
+                ]:
+                    old_path = audio_dir / cand
+                    if old_path.exists():
+                        return old_path
+
+        # Fallback to global
+        audio_dirs = [XTTS_OUT_DIR]
+        if fallback_dir:
+            audio_dirs.insert(0, fallback_dir)
+
+        for audio_dir in audio_dirs:
+            if filename:
+                try:
+                    cand = safe_join_flat(audio_dir, filename)
+                except ValueError:
+                    return None
+                if cand.exists():
+                    return cand
+
+            for cand in [
+                f"{chapter_id}.wav",
+                f"{chapter_id}_0.wav",
+                f"{chapter_id}.mp3",
+                f"{chapter_id}_0.mp3",
+            ]:
+                old_path = audio_dir / cand
+                if old_path.exists():
+                    return old_path
+
+    elif asset_type == "segment":
+        # New: project/chapters/{chapter_id}/segments/{segment_id}.wav
+        # Old: project/audio/chunk_{segment_id}.wav
+        # Global: fallback_dir or XTTS_OUT_DIR/chunk_{segment_id}.wav
+        if project_id:
+            nested_dir = get_chapter_dir(project_id, chapter_id)
+            if filename:
+                # If it's a full chunk filename, extract the segment ID
+                if filename.startswith("chunk_"):
+                    sid = filename.replace("chunk_", "").replace(".wav", "")
+                else:
+                    sid = filename.replace(".wav", "")
+
+                try:
+                    new_path = safe_join_flat(nested_dir / "segments", f"{sid}.wav")
+                except ValueError:
+                    return None
+                if new_path.exists():
+                    return new_path
+
+                legacy_name = filename if filename.startswith("chunk_") else f"chunk_{filename}.wav"
+                try:
+                    old_path = safe_join_flat(get_project_audio_dir(project_id), legacy_name)
+                except ValueError:
+                    return None
+                if old_path.exists():
+                    return old_path
+
+        # Fallback to global
+        audio_dirs = [XTTS_OUT_DIR]
+        if fallback_dir:
+            audio_dirs.insert(0, fallback_dir)
+
+        for audio_dir in audio_dirs:
+            if filename:
+                legacy_name = filename if filename.startswith("chunk_") else f"chunk_{filename}.wav"
+                try:
+                    old_path = safe_join_flat(audio_dir, legacy_name)
+                except ValueError:
+                    return None
+                if old_path.exists():
+                    return old_path
+
+    return None
 
 # XTTS warning threshold you saw
 SENT_CHAR_LIMIT = 500

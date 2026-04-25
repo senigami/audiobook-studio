@@ -34,45 +34,13 @@ def test_home_endpoint(clean_db, client):
 def test_settings_get_and_update(clean_db, client):
     response = client.post("/api/settings", json={
         "safe_mode": True,
-        "voxtral_enabled": True,
-        "voxtral_model": "voxtral-mini-tts-2603",
-        "mistral_api_key": "abc123",
+        "default_engine": "xtts"
     })
     assert response.status_code == 200
     data = response.json()["settings"]
     assert data["safe_mode"] is True
-    assert data["voxtral_enabled"] is True
-    assert data["voxtral_model"] == "voxtral-mini-tts-2603"
-    assert data["mistral_api_key"] == "abc123"
-
-def test_settings_accept_form_encoded_voxtral_config(clean_db, client):
-    response = client.post("/api/settings", data={"mistral_api_key": "form-key", "voxtral_model": "voxtral-custom", "voxtral_enabled": "true"})
-    assert response.status_code == 200
-    data = response.json()["settings"]
-    assert data["mistral_api_key"] == "form-key"
-    assert data["voxtral_model"] == "voxtral-custom"
-    assert data["voxtral_enabled"] is True
-
-def test_settings_upgrade_legacy_voxtral_model_name(clean_db, client):
-    response = client.post("/api/settings", json={"voxtral_model": "voxtral-tts", "mistral_api_key": "abc123"})
-    assert response.status_code == 200
-    data = response.json()["settings"]
-    assert data["voxtral_model"] == "voxtral-mini-tts-2603"
-
-def test_settings_normalize_default_engine_when_voxtral_disabled(clean_db, client, monkeypatch):
-    monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
-    response = client.post("/api/settings", json={"default_engine": "voxtral", "mistral_api_key": "", "voxtral_enabled": True})
-    assert response.status_code == 200
-    data = response.json()["settings"]
     assert data["default_engine"] == "xtts"
-    assert data["voxtral_enabled"] is False
-    assert "mistral_api_key" not in data
-
-def test_settings_backfill_voxtral_enabled_when_key_exists(clean_db, client):
-    response = client.post("/api/settings", json={"mistral_api_key": "abc123"})
-    assert response.status_code == 200
-    data = response.json()["settings"]
-    assert data["voxtral_enabled"] is True
+    assert data["default_engine"] == "xtts"
 
 def test_default_speaker_setting(clean_db, client, tmp_path, monkeypatch):
     # POST /api/settings/default-speaker
@@ -111,13 +79,4 @@ def test_audiobooks_list(clean_db, client, tmp_path, monkeypatch):
     assert isinstance(response.json(), list)
     assert response.json() == []
 
-def test_system_integrations(clean_db, client):
-    # Trigger backfill
-    response = client.post("/api/trigger_backfill")
-    assert response.status_code == 200
-    assert response.json()["status"] == "ok"
 
-    # Import legacy - needs some form data
-    response = client.post("/api/system/import-legacy", data={"legacy_path": "/tmp/nonexistent"})
-    # It might return 200 even if path doesn't exist depending on implementation
-    assert response.status_code in (200, 400)

@@ -12,6 +12,7 @@ interface QueueItemProps {
     formatJobTitle: (job: any) => string;
     formatTime: (ts: number | null | undefined) => string;
     onRemove: (id: string) => void;
+    compact?: boolean;
 }
 
 export const QueueItem: React.FC<QueueItemProps> = ({
@@ -20,7 +21,8 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     localPaused,
     formatJobTitle,
     formatTime,
-    onRemove
+    onRemove,
+    compact = false
 }) => {
     const status = job.status;
     const isTrulyActive = ['preparing', 'running', 'processing', 'finalizing'].includes(status);
@@ -106,63 +108,63 @@ export const QueueItem: React.FC<QueueItemProps> = ({
 
     return (
         <div style={{
-            background: 'var(--surface)', 
+            background: 'var(--surface)',
             border: '1px solid var(--accent)',
-            borderRadius: '16px', 
-            padding: '1.5rem', 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '1.5rem',
+            borderRadius: compact ? '12px' : '16px',
+            padding: compact ? '0.75rem 1rem' : '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: compact ? '1rem' : '1.5rem',
             boxShadow: 'var(--shadow-md)',
             position: 'relative',
             overflow: 'hidden'
         }}>
-            <div style={{ 
-                position: 'absolute', 
-                left: 0, 
-                top: 0, 
-                bottom: 0, 
-                width: '6px', 
-                background: 'var(--accent)' 
+            <div style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: '6px',
+                background: 'var(--accent)'
             }} />
-            
-            <div style={{ 
-                width: '48px', 
-                height: '48px', 
-                borderRadius: '12px', 
-                background: 'var(--accent-tint)', 
-                display: 'flex', 
-                alignItems: 'center', 
+
+            <div style={{
+                width: compact ? '36px' : '48px',
+                height: compact ? '36px' : '48px',
+                borderRadius: compact ? '8px' : '12px',
+                background: 'var(--accent-tint)',
+                display: 'flex',
+                alignItems: 'center',
                 justifyContent: 'center',
                 flexShrink: 0
             }}>
                 {localPaused ? (
-                    <Pause size={24} strokeWidth={2} color="var(--accent)" />
+                    <Pause size={compact ? 18 : 24} strokeWidth={2} color="var(--accent)" />
                 ) : (
-                    <Play size={24} strokeWidth={2} color="var(--accent)" className="animate-pulse" />
+                    <Play size={compact ? 18 : 24} strokeWidth={2} color="var(--accent)" className="animate-pulse" />
                 )}
             </div>
 
             <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: compact ? '4px' : '12px' }}>
                     <div style={{ minWidth: 0 }}>
-                        <h4 style={{ fontWeight: 700, fontSize: '1.1rem', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <h4 style={{ fontWeight: 700, fontSize: compact ? '0.95rem' : '1.1rem', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {formatJobTitle(job)}
                         </h4>
-                        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={!job.project_name ? { color: 'var(--accent)', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' } : undefined}>
+                        <div style={{ fontSize: compact ? '0.75rem' : '0.85rem', color: 'var(--text-secondary)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={!job.project_name ? { color: 'var(--accent)', fontWeight: 700, fontSize: compact ? '0.65rem' : '0.75rem', textTransform: 'uppercase' } : undefined}>
                                 {formatQueueContext(job)}
                             </span>
                             {started && (
                                 <>
                                     <span style={{ width: '3px', height: '3px', borderRadius: '50%', background: 'var(--text-muted)' }} />
-                                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Started {formatTime(started)}</span>
+                                    <span style={{ fontSize: compact ? '0.7rem' : '0.8rem', color: 'var(--text-muted)' }}>Started {formatTime(started)}</span>
                                 </>
                             )}
                         </div>
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
-                        <button 
+                        <button
                             onClick={(e) => { e.stopPropagation(); onRemove(job.id); }}
                             style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '6px', borderRadius: '8px' }}
                             className="hover-bg-destructive"
@@ -172,7 +174,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                         </button>
                     </div>
                 </div>
-                <PredictiveProgressBar 
+                <PredictiveProgressBar
                     progress={progress}
                     startedAt={started}
                     etaSeconds={etaSeconds}

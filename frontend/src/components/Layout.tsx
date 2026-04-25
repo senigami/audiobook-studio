@@ -10,14 +10,17 @@ interface LayoutProps {
   headerRight?: React.ReactNode;
   queueCount?: number;
   shellState?: Pick<StudioShellState, 'navigation' | 'hydration'>;
+  onToggleQueue?: () => void;
+  isQueueOpen?: boolean;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children, headerRight, queueCount, shellState }) => {
+export const Layout: React.FC<LayoutProps> = ({ children, headerRight, queueCount, shellState, onToggleQueue, isQueueOpen }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [hoveredTab, setHoveredTab] = useState<string | null>(null);
 
   const getActiveTab = () => {
+    if (isQueueOpen) return 'queue';
     if (shellState) {
       if (shellState.navigation.routeKind === 'queue') return 'queue';
       if (shellState.navigation.routeKind === 'voices') return 'voices';
@@ -47,7 +50,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, headerRight, queueCoun
 
   const navItems = [
     { id: 'library', label: 'Library', icon: Library, path: '/' },
-    { id: 'queue', label: 'Queue', icon: Zap, path: '/queue' },
+    { id: 'queue', label: 'Queue', icon: Zap, path: '/queue', isToggle: true },
     { id: 'voices', label: 'Voices', icon: Mic, path: '/voices' },
     { id: 'settings', label: 'Settings', icon: SettingsIcon, path: '/settings' },
   ];
@@ -87,7 +90,13 @@ export const Layout: React.FC<LayoutProps> = ({ children, headerRight, queueCoun
             {navItems.map((item) => (
               <button
                 key={item.id}
-                onClick={() => navigate(item.path)}
+                onClick={() => {
+                  if (item.id === 'queue' && onToggleQueue) {
+                    onToggleQueue();
+                  } else {
+                    navigate(item.path);
+                  }
+                }}
                 onMouseEnter={() => setHoveredTab(item.id)}
                 onMouseLeave={() => setHoveredTab(null)}
                 aria-current={activeTab === item.id ? 'page' : undefined}

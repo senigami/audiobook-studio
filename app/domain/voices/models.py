@@ -1,53 +1,44 @@
-"""Voice domain models."""
-
-from __future__ import annotations
-
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any
+from typing import List, Optional, Dict, Any
 
+@dataclass
+class VoiceModel:
+    id: str
+    name: str
+    version: int = 2
+    default_variant: str = "Default"
+    description: Optional[str] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
-def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
-
+@dataclass
+class VariantModel:
+    id: str
+    voice_id: str
+    name: str
+    engine: str = "xtts"
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class VoiceProfileModel:
-    """Reusable voice identity shared across chapters and preview flows."""
-
     id: str
     name: str
-    default_engine_id: str | None = None
-    capabilities: list[str] = field(default_factory=list)
-    labels: list[str] = field(default_factory=list)
-    created_at: datetime = field(default_factory=_utc_now)
-    updated_at: datetime = field(default_factory=_utc_now)
-
+    default_engine_id: Optional[str] = None
+    settings: Dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class VoiceAssetModel:
-    """Engine-specific voice asset or training output."""
-
     id: str
     voice_profile_id: str
     engine_id: str
-    engine_version: str | None = None
-    asset_type: str = "reference"
-    path_ref: str | None = None
-    metadata: dict[str, Any] = field(default_factory=dict)
-    status: str = "ready"
-    created_at: datetime = field(default_factory=_utc_now)
-    updated_at: datetime = field(default_factory=_utc_now)
-
+    path: Optional[str] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class VoicePreviewRequestModel:
-    """Preview/test request assembled before it reaches the engine bridge."""
-
     voice_profile_id: str
     script_text: str
-    engine_id: str | None = None
-    reference_text: str | None = None
-    reference_audio_path: str | None = None
-    voice_asset_id: str | None = None
+    engine_id: Optional[str] = None
+    reference_text: Optional[str] = None
+    reference_audio_path: Optional[str] = None
+    voice_asset_id: Optional[str] = None
     output_format: str = "wav"

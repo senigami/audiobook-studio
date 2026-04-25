@@ -31,6 +31,28 @@ def _canonical_chapter_id(chapter_id: str) -> str:
         raise ValueError(f"Invalid chapter id: {chapter_id}")
 
 
+def _detect_audio_flags(chapter_id: str, audio_file_path: Optional[str], resolved_path: Optional[Path]) -> Dict[str, bool]:
+    flags = {"has_wav": False, "has_mp3": False, "has_m4a": False}
+
+    names = {chapter_id, "chapter"}
+    if audio_file_path:
+        names.add(Path(audio_file_path).stem)
+        names.add(audio_file_path.rsplit(".", 1)[0] if "." in audio_file_path else audio_file_path)
+
+    for base_name in filter(None, names):
+        for ext in (".wav", ".mp3", ".m4a"):
+            candidate = resolved_path.parent / f"{base_name}{ext}" if resolved_path else None
+            if candidate and candidate.exists():
+                flags[f"has_{ext.lstrip('.')}"] = True
+
+    if resolved_path:
+        ext = resolved_path.suffix.lower()
+        if ext in (".wav", ".mp3", ".m4a"):
+            flags[f"has_{ext.lstrip('.')}"] = True
+
+    return flags
+
+
 def cleanup_chapter_audio_files(
     project_id: Optional[str],
     chapter_id: str,
@@ -41,59 +63,76 @@ def cleanup_chapter_audio_files(
     """Delete chapter-level and selected segment audio files without touching DB state."""
     from .. import config
 
-    pdir = config.find_existing_project_subdir(project_id, "audio") if project_id else config.XTTS_OUT_DIR
-    if project_id and not pdir:
-        return True
-    resolved_root = pdir.resolve()
-    known_files = {
-        entry.name: entry.resolve()
-        for entry in pdir.iterdir()
-        if entry.is_file() and entry.suffix.lower() in (".wav", ".mp3", ".m4a")
-    } if pdir.exists() else {}
+    # 1. Identify all candidate directories
+    legacy_pdir = (
+        config.find_existing_project_subdir(project_id, "audio")
+        if project_id
+        else config.XTTS_OUT_DIR
+    )
+    nested_pdir = config.get_chapter_dir(project_id, chapter_id) if project_id else None
 
+    target_dirs = []
+    if legacy_pdir and legacy_pdir.exists():
+        target_dirs.append(legacy_pdir)
+    if nested_pdir and nested_pdir.exists():
+        target_dirs.append(nested_pdir)
+        seg_dir = nested_pdir / "segments"
+        if seg_dir.exists():
+            target_dirs.append(seg_dir)
+
+    if not target_dirs:
+        return True
+
+    # 2. Collect all files from all target directories
+    known_files: List[tuple[Path, Path]] = []  # (root, file_path)
+    for d in target_dirs:
+        resolved_root = d.resolve()
+        for entry in d.iterdir():
+            if entry.is_file() and entry.suffix.lower() in (".wav", ".mp3", ".m4a"):
+                known_files.append((resolved_root, entry))
+
+    # 3. Cleanup explicit files
     for raw_path in explicit_files or []:
         if not raw_path:
             continue
-        if not _is_safe_flat_name(raw_path, SAFE_AUDIO_NAME_RE):
-            logger.warning("Skipping invalid explicit audio file %s", raw_path)
-            continue
-
-        resolved = known_files.get(raw_path)
-        if not resolved:
-            continue
-        if not resolved.is_relative_to(resolved_root):
-            logger.warning("Skipping explicit audio file outside root %s", resolved)
-            continue
-        try:
-            resolved.unlink()
-            known_files.pop(raw_path, None)
-        except Exception:
-            logger.warning("Failed to delete explicit audio file %s", resolved, exc_info=True)
-
-    if delete_chapter_outputs:
-        for name, p in list(known_files.items()):
-            if not p.is_relative_to(resolved_root) or not name.startswith(chapter_id):
-                continue
-            if p.suffix.lower() in (".wav", ".mp3", ".m4a"):
+        # For explicit files, we check if they exist in any of our target dirs
+        for root, p in list(known_files):
+            if p.name == raw_path:
                 try:
                     p.unlink()
-                    known_files.pop(name, None)
+                    known_files.remove((root, p))
+                except Exception:
+                    logger.warning("Failed to delete explicit audio file %s", p, exc_info=True)
+
+    # 4. Cleanup chapter outputs
+    if delete_chapter_outputs:
+        for root, p in list(known_files):
+            # In legacy, they start with chapter_id. In nested, they might be "chapter.wav" or chapter_id.wav
+            is_legacy_match = p.name.startswith(chapter_id)
+            is_nested_match = root == nested_pdir.resolve() and (
+                p.name.startswith("chapter.") or p.name.startswith(chapter_id)
+            )
+
+            if is_legacy_match or is_nested_match:
+                try:
+                    p.unlink()
+                    known_files.remove((root, p))
                 except Exception:
                     logger.warning("Failed to delete chapter audio file %s", p, exc_info=True)
 
+    # 5. Cleanup segment files
     for sid in segment_ids or []:
         if not SAFE_SEGMENT_PREFIX_RE.fullmatch(sid):
             logger.warning("Skipping invalid segment id %s", sid)
             continue
-        prefixes = (f"seg_{sid}", f"chunk_{sid}")
-        for name, s_path in list(known_files.items()):
-            try:
-                if not s_path.is_relative_to(resolved_root) or not any(name.startswith(prefix) for prefix in prefixes):
-                    continue
-                s_path.unlink()
-                known_files.pop(name, None)
-            except Exception:
-                logger.warning("Failed to delete segment audio file %s", s_path, exc_info=True)
+        prefixes = (f"seg_{sid}", f"chunk_{sid}", f"{sid}.")
+        for root, p in list(known_files):
+            if any(p.name.startswith(prefix) for prefix in prefixes):
+                try:
+                    p.unlink()
+                    known_files.remove((root, p))
+                except Exception:
+                    logger.warning("Failed to delete segment audio file %s", p, exc_info=True)
 
     return True
 
@@ -115,19 +154,33 @@ def move_chapter_artifacts_to_trash(
         logger.warning("Skipping trash move for invalid chapter id %s", chapter_id)
         return False
 
-    trash_root_base = os.path.abspath(os.path.normpath(os.fspath(config.get_project_trash_dir(project_id))))
-    trash_root_str = os.path.abspath(os.path.normpath(os.path.join(trash_root_base, chapter_id)))
+    trash_root_base = os.path.abspath(
+        os.path.normpath(os.fspath(config.get_project_trash_dir(project_id)))
+    )
+    trash_root_str = os.path.abspath(
+        os.path.normpath(os.path.join(trash_root_base, chapter_id))
+    )
     if not trash_root_str.startswith(trash_root_base + os.sep):
-        logger.warning("Skipping trash move outside trash root for chapter %s", chapter_id)
+        logger.warning(
+            "Skipping trash move outside trash root for chapter %s", chapter_id
+        )
         return False
 
-    trash_audio_dir_str = os.path.abspath(os.path.normpath(os.path.join(trash_root_str, "audio")))
-    trash_text_dir_str = os.path.abspath(os.path.normpath(os.path.join(trash_root_str, "text")))
+    trash_audio_dir_str = os.path.abspath(
+        os.path.normpath(os.path.join(trash_root_str, "audio"))
+    )
+    trash_text_dir_str = os.path.abspath(
+        os.path.normpath(os.path.join(trash_root_str, "text"))
+    )
     if not trash_audio_dir_str.startswith(trash_root_str + os.sep):
-        logger.warning("Skipping invalid trash audio directory for chapter %s", chapter_id)
+        logger.warning(
+            "Skipping invalid trash audio directory for chapter %s", chapter_id
+        )
         return False
     if not trash_text_dir_str.startswith(trash_root_str + os.sep):
-        logger.warning("Skipping invalid trash text directory for chapter %s", chapter_id)
+        logger.warning(
+            "Skipping invalid trash text directory for chapter %s", chapter_id
+        )
         return False
 
     trash_audio_dir = Path(trash_audio_dir_str)
@@ -135,70 +188,80 @@ def move_chapter_artifacts_to_trash(
     trash_audio_dir.mkdir(parents=True, exist_ok=True)
     trash_text_dir.mkdir(parents=True, exist_ok=True)
 
-    audio_dir = config.find_existing_project_subdir(project_id, "audio") or config.get_project_audio_dir(project_id)
-    text_dir = config.find_existing_project_subdir(project_id, "text") or config.get_project_text_dir(project_id)
+    # 1. Identify all source candidates
+    legacy_audio_dir = (
+        config.find_existing_project_subdir(project_id, "audio")
+        or config.get_project_audio_dir(project_id)
+    )
+    legacy_text_dir = (
+        config.find_existing_project_subdir(project_id, "text")
+        or config.get_project_text_dir(project_id)
+    )
+    nested_dir = config.get_chapter_dir(project_id, chapter_id)
 
-    known_audio = {
-        entry.name: entry.resolve()
-        for entry in audio_dir.iterdir()
-        if entry.is_file()
-    } if audio_dir.exists() else {}
+    # 2. Collect all potential files
+    source_files: List[tuple[Path, Path]] = []  # (root, file_path)
+    for d in [legacy_audio_dir, legacy_text_dir, nested_dir]:
+        if d and d.exists():
+            for entry in d.iterdir():
+                if entry.is_file():
+                    source_files.append((d, entry))
+            # Also check segments subdir if nested
+            if d == nested_dir:
+                seg_dir = d / "segments"
+                if seg_dir.exists():
+                    for entry in seg_dir.iterdir():
+                        if entry.is_file():
+                            source_files.append((seg_dir, entry))
 
-    audio_names: set[str] = set()
-    for raw_path in explicit_audio_files or []:
-        if not raw_path:
-            continue
-        if not _is_safe_flat_name(raw_path, SAFE_AUDIO_NAME_RE):
-            continue
-        if raw_path in known_audio:
-            audio_names.add(raw_path)
+    # 3. Filter and move
+    audio_moved = 0
+    text_moved = 0
 
-    for name in known_audio:
-        if name.startswith(chapter_id):
-            audio_names.add(name)
+    segment_ids_set = set(segment_ids or [])
+    explicit_audio_set = set(explicit_audio_files or [])
 
-    for sid in segment_ids or []:
-        if not SAFE_SEGMENT_PREFIX_RE.fullmatch(sid):
-            continue
-        prefixes = (f"seg_{sid}", f"chunk_{sid}")
-        for name in known_audio:
-            if any(name.startswith(prefix) for prefix in prefixes):
-                audio_names.add(name)
+    for root, src in source_files:
+        name = src.name
+        is_audio = src.suffix.lower() in (".wav", ".mp3", ".m4a")
+        is_text = src.suffix.lower() == ".txt"
 
-    for name in sorted(audio_names):
-        src = known_audio.get(name)
-        if not src or not src.exists():
-            continue
-        try:
-            if not _is_safe_flat_name(name, SAFE_AUDIO_NAME_RE):
-                logger.warning("Skipping invalid trash audio filename %s", name)
-                continue
-            trash_audio_root = os.path.abspath(os.path.normpath(os.fspath(trash_audio_dir)))
-            dest_audio = os.path.abspath(os.path.normpath(os.path.join(trash_audio_root, name)))
-            if not dest_audio.startswith(trash_audio_root + os.sep):
-                logger.warning("Skipping trash audio move outside root for %s", name)
-                continue
-            shutil.move(str(src), dest_audio)
-        except Exception:
-            logger.warning("Failed to move chapter audio file %s to trash", src, exc_info=True)
+        should_move = False
+        target_dir = trash_audio_dir if is_audio else trash_text_dir
 
-    if text_dir.exists():
-        for entry in text_dir.iterdir():
-            if not entry.is_file():
-                continue
-            if not SAFE_TEXT_NAME_RE.fullmatch(entry.name):
-                continue
-            if not entry.name.startswith(chapter_id):
-                continue
+        # Match logic
+        if name in explicit_audio_set:
+            should_move = True
+        elif name.startswith(chapter_id):
+            should_move = True
+        elif name == "chapter.wav" or name == "chapter.txt":
+            should_move = True
+        elif is_audio:
+            # Check segments
+            for sid in segment_ids_set:
+                if name.startswith(f"seg_{sid}") or name.startswith(f"chunk_{sid}") or name == f"{sid}.wav":
+                    should_move = True
+                    break
+
+        if should_move:
             try:
-                trash_text_root = os.path.abspath(os.path.normpath(os.fspath(trash_text_dir)))
-                dest_text = os.path.abspath(os.path.normpath(os.path.join(trash_text_root, entry.name)))
-                if not dest_text.startswith(trash_text_root + os.sep):
-                    logger.warning("Skipping trash text move outside root for %s", entry.name)
-                    continue
-                shutil.move(str(entry.resolve()), dest_text)
+                dest = target_dir / name
+                # Ensure unique destination name if multiple sources have same filename
+                if dest.exists():
+                    dest = target_dir / f"{uuid.uuid4().hex}_{name}"
+
+                shutil.move(str(src), str(dest))
+                if is_audio: audio_moved += 1
+                else: text_moved += 1
             except Exception:
-                logger.warning("Failed to move chapter text file %s to trash", entry, exc_info=True)
+                logger.warning("Failed to move artifact %s to trash", src, exc_info=True)
+
+    # 4. If using nested layout and it's empty now (or we want to move the whole folder if it's a full delete)
+    # Actually, move_chapter_artifacts_to_trash is often called for specific subsets.
+    # If it's a full chapter delete, we might want to move the whole folder.
+    # But delete_chapter calls this first, then deletes DB.
+    # Let's check if the nested dir still exists and move it if it's a full delete intent.
+    # For now, the file-by-file move is safer to avoid moving unrelated files if they somehow got in there.
 
     return True
 
@@ -219,6 +282,13 @@ def create_chapter(project_id: str, title: str, text_content: Optional[str] = No
                 sync_chapter_segments(chapter_id, text_content, conn=conn)
 
             conn.commit()
+
+            # Ensure nested directory exists immediately
+            from ..config import get_chapter_dir
+            nested_dir = get_chapter_dir(project_id, chapter_id)
+            nested_dir.mkdir(parents=True, exist_ok=True)
+            (nested_dir / "segments").mkdir(exist_ok=True)
+
             return chapter_id
 
 def get_chapter_segments_counts(chapter_id: str) -> tuple[int, int]:
@@ -227,7 +297,7 @@ def get_chapter_segments_counts(chapter_id: str) -> tuple[int, int]:
         with get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT 
+                SELECT
                     (SELECT COUNT(*) FROM chapter_segments WHERE chapter_id = ? AND audio_status = 'done') as done_count,
                     (SELECT COUNT(*) FROM chapter_segments WHERE chapter_id = ?) as total_count
             """, (chapter_id, chapter_id))
@@ -242,31 +312,23 @@ def get_chapter(chapter_id: str) -> Optional[Dict[str, Any]]:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM chapters WHERE id = ?", (chapter_id,))
             row = cursor.fetchone()
-            if not row: return None
+            if not row:
+                return None
             chap = dict(row)
 
     # Rule 3: Disk as Source of Truth - Outside Lock
     from .. import config
-    pdir = config.find_existing_project_subdir(chap["project_id"], "audio") if chap["project_id"] else config.XTTS_OUT_DIR
-    existing_names = {
-        entry.name
-        for entry in pdir.iterdir()
-        if entry.is_file() and entry.suffix.lower() in (".wav", ".mp3", ".m4a")
-    } if pdir and pdir.exists() else set()
+
     path = chap.get("audio_file_path")
-    chap["has_wav"] = False
-    chap["has_mp3"] = False
-    chap["has_m4a"] = False
 
-    if path and path in existing_names:
-        if path.endswith(".wav"): chap["has_wav"] = True
-        elif path.endswith(".mp3"): chap["has_mp3"] = True
-        elif path.endswith(".m4a"): chap["has_m4a"] = True
+    resolved = config.resolve_chapter_asset_path(
+        chap["project_id"], chap["id"], "audio", filename=path
+    )
+    if not resolved and not path:
+        resolved = config.resolve_chapter_asset_path(chap["project_id"], chap["id"], "audio")
 
-    stem = chap["id"]
-    if not chap["has_wav"] and f"{stem}.wav" in existing_names: chap["has_wav"] = True
-    if not chap["has_mp3"] and f"{stem}.mp3" in existing_names: chap["has_mp3"] = True
-    if not chap["has_m4a"] and f"{stem}.m4a" in existing_names: chap["has_m4a"] = True
+    flags = _detect_audio_flags(chap["id"], path, resolved)
+    chap.update(flags)
 
     if chap["audio_status"] == "done" and not chap["has_wav"]:
         if chap["has_mp3"] or chap["has_m4a"]:
@@ -278,44 +340,38 @@ def list_chapters(project_id: str) -> List[Dict[str, Any]]:
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
-                SELECT c.*, 
+            cursor.execute(
+                """
+                SELECT c.*,
                 (SELECT COUNT(*) FROM chapter_segments WHERE chapter_id = c.id) as total_segments_count,
                 (SELECT COUNT(*) FROM chapter_segments WHERE chapter_id = c.id AND audio_status = 'done') as done_segments_count
-                FROM chapters c 
-                WHERE project_id = ? 
+                FROM chapters c
+                WHERE project_id = ?
                 ORDER BY sort_order ASC
-            """, (project_id,))
+            """,
+                (project_id,),
+            )
             rows = [dict(row) for row in cursor.fetchall()]
 
     from .. import config
-    pdir = config.find_existing_project_subdir(project_id, "audio") if project_id else config.XTTS_OUT_DIR
-
-    existing_names = {
-        entry.name
-        for entry in pdir.iterdir()
-        if entry.is_file() and entry.suffix.lower() in (".wav", ".mp3", ".m4a")
-    } if pdir and pdir.exists() else set()
 
     for chap in rows:
         path = chap.get("audio_file_path")
-        chap["has_wav"] = False
-        chap["has_mp3"] = False
-        chap["has_m4a"] = False
 
-        if path and path in existing_names:
-            if path.endswith(".wav"): chap["has_wav"] = True
-            elif path.endswith(".mp3"): chap["has_mp3"] = True
-            elif path.endswith(".m4a"): chap["has_m4a"] = True
+        resolved = config.resolve_chapter_asset_path(
+            chap["project_id"], chap["id"], "audio", filename=path
+        )
+        if not resolved and not path:
+            resolved = config.resolve_chapter_asset_path(
+                chap["project_id"], chap["id"], "audio"
+            )
 
-        stem = chap["id"]
-        if not chap["has_wav"] and f"{stem}.wav" in existing_names: chap["has_wav"] = True
-        if not chap["has_mp3"] and f"{stem}.mp3" in existing_names: chap["has_mp3"] = True
-        if not chap["has_m4a"] and f"{stem}.m4a" in existing_names: chap["has_m4a"] = True
+        flags = _detect_audio_flags(chap["id"], path, resolved)
+        chap.update(flags)
 
         if chap["audio_status"] == "done" and not chap["has_wav"]:
             if chap["has_mp3"] or chap["has_m4a"]:
-                 chap["has_wav"] = True
+                chap["has_wav"] = True
 
     return rows
 
@@ -423,11 +479,11 @@ def reset_chapter_audio(chapter_id: str):
 
             # 3. Reset database fields for chapter
             cursor.execute("""
-                UPDATE chapters 
-                SET audio_status = 'unprocessed', 
-                    audio_file_path = NULL, 
-                    audio_generated_at = NULL, 
-                    audio_length_seconds = NULL 
+                UPDATE chapters
+                SET audio_status = 'unprocessed',
+                    audio_file_path = NULL,
+                    audio_generated_at = NULL,
+                    audio_length_seconds = NULL
                 WHERE id = ?
             """, (chapter_id,))
 

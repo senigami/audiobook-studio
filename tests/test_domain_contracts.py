@@ -378,6 +378,9 @@ def test_preview_voice_profile_rejects_non_wav_bridge_format(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr("app.engines.voice.voxtral.engine.resolve_mistral_api_key", lambda: "token")
+    monkeypatch.setattr("app.state.get_settings", lambda: {"voxtral_enabled": True})
+    from app.engines.registry import load_engine_registry
+    load_engine_registry.cache_clear()
 
     response = preview_voice_profile(
         VoicePreviewRequestModel(

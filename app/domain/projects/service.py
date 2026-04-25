@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import uuid
 
-from .models import ProjectExportManifestModel, ProjectModel, ProjectSnapshotModel
+from .models import ProjectBackupBundleModel, ProjectExportManifestModel, ProjectModel, ProjectSnapshotModel
 from .exports import build_project_export_manifest
 from .repository import ProjectRepository
 from .snapshots import build_project_snapshot
+from ..chapters.repository import ChapterRepository
 
 INTENDED_UPSTREAM_CALLERS = (
     "app.api.routers.projects",
@@ -35,8 +36,9 @@ FORBIDDEN_DIRECT_IMPORTS = (
 class ProjectService:
     """Placeholder service showing the intended project-domain entry points."""
 
-    def __init__(self, repository: ProjectRepository):
+    def __init__(self, repository: ProjectRepository, chapter_repository: ChapterRepository):
         self.repository = repository
+        self.chapter_repository = chapter_repository
 
     def list_projects(self) -> list[ProjectModel]:
         """List library-visible projects through the project domain.
@@ -112,11 +114,17 @@ class ProjectService:
             NotImplementedError: Phase 1 scaffold only.
         """
         project = self._load_project(project_id=project_id)
-        _ = self._collect_snapshot_inputs(
+        inputs = self._collect_snapshot_inputs(
             project=project,
             include_chapter_audio=include_chapter_audio,
         )
-        raise NotImplementedError("Studio 2.0 snapshot creation is not implemented yet.")
+        snapshot = build_project_snapshot(
+            project=project,
+            revision_id=str(inputs["revision_id"]),
+            chapter_ids=list(inputs["chapter_ids"]),  # type: ignore
+            artifact_hashes=list(inputs["artifact_hashes"]),  # type: ignore
+        )
+        return self.repository.save_snapshot(snapshot)
 
     def build_export_manifest(
         self,
@@ -142,12 +150,59 @@ class ProjectService:
             NotImplementedError: Phase 1 scaffold only.
         """
         project = self._load_project(project_id=project_id)
-        _ = self._resolve_export_inputs(
+        inputs = self._resolve_export_inputs(
             project=project,
             format_id=format_id,
             include_cover_art=include_cover_art,
         )
-        raise NotImplementedError("Studio 2.0 export manifests are not implemented yet.")
+        return build_project_export_manifest(
+            project=project,
+            format_id=format_id,
+            chapter_ids=list(inputs["chapter_ids"]),  # type: ignore
+            include_cover_art=include_cover_art,
+            include_audio=True, # Defaulting to True for now as per requirements
+            snapshot_id=None # First slice manifest is metadata-first from current state
+        )
+
+    def create_backup_bundle(self, project_id: str, comment: str | None = None, include_audio: bool = True) -> ProjectBackupBundleModel:
+        """Assemble a dated backup bundle description for a project.
+
+        Args:
+            project_id: Stable project identifier.
+            comment: Optional label or description for the backup.
+            include_audio: Whether chapter audio artifacts should be included.
+
+        Returns:
+            ProjectBackupBundleModel: Dated bundle contract ready for packaging.
+        """
+        project = self._load_project(project_id=project_id)
+
+        # 1. Create a snapshot to anchor the backup to a stable revision
+        snapshot = self.create_snapshot(project_id, include_chapter_audio=include_audio)
+
+        # 2. Build export manifest linked to this snapshot
+        manifest = build_project_export_manifest(
+            project=project,
+            format_id="backup",
+            chapter_ids=snapshot.chapter_ids,
+            include_cover_art=True,
+            include_audio=include_audio,
+            snapshot_id=snapshot.id
+        )
+
+        # 3. Assemble dated bundle description
+        timestamp = snapshot.created_at.strftime("%Y%m%d_%H%M%S")
+        safe_title = "".join(c if c.isalnum() else "_" for c in project.title)
+        bundle_name = f"{safe_title}_{timestamp}.zip"
+
+        return ProjectBackupBundleModel(
+            project_id=project_id,
+            bundle_name=bundle_name,
+            snapshot=snapshot,
+            export_manifest=manifest,
+            created_at=snapshot.created_at,
+            comment=comment
+        )
 
     def _load_project(self, *, project_id: str) -> ProjectModel:
         """Load project context before project-domain operations run.
@@ -211,8 +266,25 @@ class ProjectService:
         Raises:
             NotImplementedError: Phase 1 scaffold only.
         """
-        _ = self.repository
-        raise NotImplementedError("Studio 2.0 snapshot input collection is not implemented yet.")
+        chapters = list(self.chapter_repository.list_by_project(project.id))
+        chapter_ids = [c.id for c in chapters]
+        artifact_hashes = []
+
+        if include_chapter_audio:
+            # First slice foundation: use audio_file_path as placeholder for real artifact hashes
+            for c in chapters:
+                # We only snapshot chapters that have audio
+                if hasattr(c, "audio_file_path") and getattr(c, "audio_file_path"):
+                    artifact_hashes.append(getattr(c, "audio_file_path"))
+                elif hasattr(c, "id"):
+                    # Fallback to chapter ID if no audio path but we want to represent the intent
+                    artifact_hashes.append(f"audio_{c.id}")
+
+        return {
+            "revision_id": uuid.uuid4().hex[:8],
+            "chapter_ids": chapter_ids,
+            "artifact_hashes": artifact_hashes,
+        }
 
     def _resolve_export_inputs(
         self,
@@ -234,18 +306,28 @@ class ProjectService:
         Raises:
             NotImplementedError: Phase 1 scaffold only.
         """
-        _ = self.repository
-        raise NotImplementedError("Studio 2.0 export input resolution is not implemented yet.")
+        chapters = list(self.chapter_repository.list_by_project(project.id))
+        return {
+            "chapter_ids": [c.id for c in chapters],
+            "include_cover_art": include_cover_art,
+            "format_id": format_id,
+        }
 
 
-def create_project_service(repository: ProjectRepository) -> ProjectService:
-    """Create the project-domain service shell used by future routes.
+def create_project_service(
+    repository: ProjectRepository,
+    chapter_repository: ChapterRepository
+) -> ProjectService:
+    """Create the project-domain service used by routes.
 
     Args:
-        repository: Persistence adapter implementing the project repository
-            contract.
+        repository: Persistence adapter for project data.
+        chapter_repository: Persistence adapter for chapter data.
 
     Returns:
         ProjectService: Service shell with repository dependency wiring.
     """
-    return ProjectService(repository=repository)
+    return ProjectService(
+        repository=repository,
+        chapter_repository=chapter_repository
+    )

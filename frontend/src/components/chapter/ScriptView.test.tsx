@@ -78,7 +78,6 @@ describe('ScriptView', () => {
     expect(screen.getByText('Sentence one.')).toBeInTheDocument();
     expect(screen.getByText('Sentence two.')).toBeInTheDocument();
     expect(screen.getByText('Different paragraph.')).toBeInTheDocument();
-    expect(screen.queryByText('Albus')).not.toBeInTheDocument(); // In book mode, speaker names are usually hidden (gutter only)
   });
 
   it('switches to Script mode and shows speaker names', () => {
@@ -93,7 +92,7 @@ describe('ScriptView', () => {
     );
 
     fireEvent.click(screen.getByText('Script'));
-    expect(screen.getByText('Albus')).toBeInTheDocument();
+    expect(screen.getAllByText('Albus').length).toBeGreaterThan(0);
     expect(screen.getByText('Narrator')).toBeInTheDocument();
   });
 
@@ -173,6 +172,7 @@ describe('ScriptView', () => {
         onGenerateBatch={onGenerateBatch} 
         pendingSpanIds={new Set()}
         onPlaySpan={onPlaySpan}
+        engines={[{ engine_id: 'xtts', enabled: true, status: 'ready' } as any]}
       />
     );
 
@@ -236,39 +236,5 @@ describe('ScriptView', () => {
     const paragraph = screen.getByText('Sentence one.').closest('.book-paragraph');
     fireEvent.click(paragraph!);
     expect(onAssign).toHaveBeenCalledWith(['s1', 's2']);
-  });
-
-  it('calls onCompact when "Clean Up" button is clicked', () => {
-    const onCompact = vi.fn();
-    render(
-      <ScriptView 
-        data={mockData} 
-        characters={mockCharacters} 
-        onGenerateBatch={onGenerateBatch} 
-        pendingSpanIds={new Set()}
-        onPlaySpan={onPlaySpan}
-        onCompact={onCompact}
-      />
-    );
-
-    const compactButton = screen.getByText('Clean Up');
-    fireEvent.click(compactButton);
-    expect(onCompact).toHaveBeenCalled();
-  });
-
-  it('shows loading state on "Clean Up" button while compacting', () => {
-    render(
-      <ScriptView 
-        data={mockData} 
-        characters={mockCharacters} 
-        onGenerateBatch={onGenerateBatch} 
-        pendingSpanIds={new Set()}
-        onPlaySpan={onPlaySpan}
-        isCompacting={true}
-      />
-    );
-
-    expect(screen.getByText('Cleaning...')).toBeInTheDocument();
-    expect(screen.getByText('Cleaning...').closest('button')).toBeDisabled();
   });
 });

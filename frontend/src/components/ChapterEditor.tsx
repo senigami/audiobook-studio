@@ -76,7 +76,6 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   const [exportingFormat, setExportingFormat] = useState<'wav' | 'mp3' | null>(null);
   const [scriptViewData, setScriptViewData] = useState<ScriptViewResponse | null>(null);
   const [scriptViewLoading, setScriptViewLoading] = useState(true);
-  const [compacting, setCompacting] = useState(false);
   const [resyncPreviewData, setResyncPreviewData] = useState<ResyncPreviewData | null>(null);
   const [isPreviewingResync, setIsPreviewingResync] = useState(false);
   const [isResyncing, setIsResyncing] = useState(false);
@@ -555,9 +554,10 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   };
 
   const handleParagraphBulkAssign = async (segmentIds: string[]) => {
+    if (!selectedCharacterId) return;
     const isClearing = selectedCharacterId === 'CLEAR_ASSIGNMENT';
     const characterId = isClearing ? null : selectedCharacterId;
-    const profileName = isClearing ? null : (selectedCharacterId ? (selectedProfileName || resolveDefaultVariantName(selectedCharacterId)) : null);
+    const profileName = isClearing ? null : (selectedProfileName || resolveDefaultVariantName(selectedCharacterId));
     
     setSegments(prev => prev.map(s => segmentIds.includes(s.id) ? { 
         ...s, character_id: characterId, speaker_profile_name: profileName, 
@@ -598,10 +598,10 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   }, [chapterId, productionBaseRevisionId, syncProductionBlocks]);
   
   const handleScriptAssign = React.useCallback(async (spanIds: string[]) => {
-    if (!scriptViewData) return;
+    if (!scriptViewData || !selectedCharacterId) return;
     const isClearing = selectedCharacterId === 'CLEAR_ASSIGNMENT';
     const characterId = isClearing ? null : selectedCharacterId;
-    const profileName = isClearing ? null : (selectedCharacterId ? (selectedProfileName || resolveDefaultVariantName(selectedCharacterId)) : null);
+    const profileName = isClearing ? null : (selectedProfileName || resolveDefaultVariantName(selectedCharacterId));
 
     // Optimistic update
     setScriptViewData(prev => {
@@ -645,10 +645,10 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   }, [chapterId, scriptViewData, selectedCharacterId, selectedProfileName, resolveDefaultVariantName, loadChapter]);
 
   const handleScriptAssignRange = React.useCallback(async (range: ScriptRangeAssignment) => {
-    if (!scriptViewData) return;
+    if (!scriptViewData || !selectedCharacterId) return;
     const isClearing = selectedCharacterId === 'CLEAR_ASSIGNMENT';
     const characterId = isClearing ? null : selectedCharacterId;
-    const profileName = isClearing ? null : (selectedCharacterId ? (selectedProfileName || resolveDefaultVariantName(selectedCharacterId)) : null);
+    const profileName = isClearing ? null : (selectedProfileName || resolveDefaultVariantName(selectedCharacterId));
 
     try {
         const result = await api.saveScriptAssignments(chapterId, {
@@ -677,39 +677,6 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         }
     }
   }, [chapterId, scriptViewData, selectedCharacterId, selectedProfileName, resolveDefaultVariantName, loadChapter]);
-
-  const handleScriptCompact = React.useCallback(async () => {
-    if (!scriptViewData) return;
-    setCompacting(true);
-    try {
-      const result = await api.compactScriptView(chapterId, scriptViewData?.base_revision_id || undefined);
-      setScriptViewData(result);
-      setCompacting(false);
-      // Also refresh segments to stay in sync
-      const updatedSegs = await api.fetchSegments(chapterId);
-      setSegments(updatedSegs);
-    } catch (e: any) {
-      setCompacting(false);
-      console.error("Script compaction failed", e);
-      if (e.status === 409) {
-        setConfirmConfig({
-          title: 'Compaction Conflict',
-          message: 'The chapter was modified by another process. Please reload before cleaning up.',
-          onConfirm: () => { setConfirmConfig(null); loadChapter('conflict-reload'); },
-          confirmText: 'Reload Now'
-        });
-      } else {
-        setConfirmConfig({
-          title: 'Compaction Failed',
-          message: e instanceof Error ? e.message : 'Could not clean up script spans.',
-          onConfirm: () => {},
-          confirmText: 'OK'
-        });
-      }
-    } finally {
-      setCompacting(false);
-    }
-  }, [chapterId, scriptViewData, loadChapter]);
 
   const reloadLatestBlocks = React.useCallback(async (): Promise<ProductionBlocksResponse | null> => {
     setSaveConflictError(null);
@@ -1012,8 +979,6 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                     onAssign={handleScriptAssign}
                     onAssignRange={handleScriptAssignRange}
                     activeCharacterId={selectedCharacterId}
-                    onCompact={handleScriptCompact}
-                    isCompacting={compacting}
                   />
                 )}
                 {editorTab === 'script' && !scriptViewData && (

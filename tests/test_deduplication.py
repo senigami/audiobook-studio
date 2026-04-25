@@ -9,7 +9,7 @@ def test_deduplication():
     clear_all_jobs()
 
     # 1. Start XTTS queue
-    client.post("/queue/start_xtts")
+    client.post("/api/generation/resume")
     jobs_v1 = get_jobs()
     [j.chapter_file for j in jobs_v1.values()]
     set(jobs_v1.keys())
@@ -17,7 +17,7 @@ def test_deduplication():
     # 2. Start XTTS queue again
     # It should prune the old jobs (which are likely finished/failed unless worker is active)
     # Actually, worker will be active in background if uvicorn is running, but in TestClient it depends.
-    client.post("/queue/start_xtts")
+    client.post("/api/generation/resume")
     jobs_v2 = get_jobs()
     files_v2 = [j.chapter_file for j in jobs_v2.values()]
     set(jobs_v2.keys())
@@ -38,6 +38,6 @@ def test_deduplication():
 def test_clear_with_active_processes():
     client = TestClient(app)
     # Simply verify the endpoint returns correctly
-    response = client.post("/queue/clear")
+    response = client.post("/api/generation/cancel-all")
     assert response.status_code == 200
     assert "processes stopped" in response.json()["message"]

@@ -385,3 +385,19 @@
 .active\:scale-95:active { transform: scale(0.95); }
 .custom-scrollbar::-webkit-scrollbar { width: 6px; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
+
+/* Responsive Action Bar */
+@media (max-width: 1250px) {
+  .hide-on-mobile {
+    display: none !important;
+  }
+}
+
+.show-on-hover {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.editable-cell:hover .show-on-hover {
+    opacity: 0.6;
+}

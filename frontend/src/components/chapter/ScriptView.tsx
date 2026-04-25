@@ -8,7 +8,6 @@ import {
   WandSparkles,
   RotateCcw,
   UserPlus,
-  Sparkles,
 } from 'lucide-react';
 import type {
   ScriptViewResponse,
@@ -33,8 +32,6 @@ interface ScriptViewProps {
   onAssign?: (spanIds: string[]) => void;
   onAssignRange?: (range: ScriptRangeAssignment) => void;
   activeCharacterId?: string | null;
-  onCompact?: () => void;
-  isCompacting?: boolean;
   engines?: TtsEngine[];
   speakerProfiles?: SpeakerProfile[];
 }
@@ -50,8 +47,6 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
   onAssign,
   onAssignRange,
   activeCharacterId,
-  onCompact,
-  isCompacting = false,
   engines = [],
   speakerProfiles = [],
 }) => {
@@ -189,6 +184,8 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
     const displayText = showSafeText ? (span.sanitized_text || span.text) : span.text;
     const batchStatus = batch ? batchEngineStatus(batch.span_ids) : { canGenerate: false, unavailableEngine: null as string | null };
 
+    const isHighlighted = char && activeCharacterId === char.id;
+
     const textClassName = [
       'script-span-text',
       isPlaying ? 'script-span-text-playing' : '',
@@ -199,14 +196,14 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
       <span
         key={span.id}
         data-span-id={span.id}
-        className={`script-span ${char ? 'is-assigned' : ''} ${isPlaying ? 'is-playing' : ''} ${activeCharacterId !== undefined ? 'is-paintable' : ''}`}
+        className={`script-span ${char ? 'is-assigned' : ''} ${isHighlighted ? 'is-highlighted' : ''} ${isPlaying ? 'is-playing' : ''} ${activeCharacterId ? 'is-paintable' : ''}`}
         style={char ? ({ '--script-span-accent': char.color } as React.CSSProperties) : undefined}
         onClick={(e) => {
           // If we have a selection, don't trigger whole-span assignment yet
           const selection = window.getSelection();
           if (selection && !selection.isCollapsed) return;
 
-          if (activeCharacterId !== undefined) {
+          if (activeCharacterId) {
             e.stopPropagation();
             onAssign?.([span.id]);
           }
@@ -219,6 +216,7 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
         <span className={textClassName}>{displayText}</span>
 
         <div className="span-controls">
+          {char && <div className="span-control-label">{char.name}</div>}
           <button
             className="span-control-btn"
             onClick={(e) => {
@@ -252,20 +250,16 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
 
   const renderBook = () => {
     return data.paragraphs.map(para => {
-      const firstSpan = spanMap.get(para.span_ids[0]);
-      const char = firstSpan?.character_id ? charMap.get(firstSpan.character_id) : null;
-
       return (
         <div
           key={para.id}
-          className={`book-paragraph ${activeCharacterId !== undefined ? 'is-paintable' : ''}`}
-          style={char ? ({ '--book-paragraph-accent': char.color } as React.CSSProperties) : undefined}
+          className={`book-paragraph ${activeCharacterId ? 'is-paintable' : ''}`}
           onClick={() => {
              // If we have a selection, don't trigger whole-paragraph assignment
              const selection = window.getSelection();
              if (selection && !selection.isCollapsed) return;
 
-             if (activeCharacterId !== undefined) {
+             if (activeCharacterId) {
                onAssign?.(para.span_ids);
              }
           }}
@@ -357,16 +351,6 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
             <Hash size={16} />
             <span>Numbers</span>
           </button>
-
-          <button
-            className={`script-view-pill-toggle ${isCompacting ? 'is-loading' : ''}`}
-            onClick={onCompact}
-            title="Clean up and merge compatible spans"
-            disabled={isCompacting}
-          >
-            <Sparkles size={16} className={isCompacting ? 'animate-spin' : ''} />
-            <span>{isCompacting ? 'Cleaning...' : 'Clean Up'}</span>
-          </button>
         </div>
       </div>
 
@@ -385,24 +369,26 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
             zIndex: 1000,
           }}
         >
-          <button 
-            className="btn-primary selection-assign-btn"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (activeCharacterId !== undefined) {
-                onAssignRange?.({
-                   ...pendingSelection,
-                   character_id: activeCharacterId
-                });
-              }
-              setPendingSelection(null);
-              setPopoverPos(null);
-              window.getSelection()?.removeAllRanges();
-            }}
-          >
-            <UserPlus size={14} style={{ marginRight: '6px' }} />
-            Assign {activeCharacterId ? (charMap.get(activeCharacterId)?.name || 'Character') : 'Narrator'}
-          </button>
+          {activeCharacterId && (
+            <button
+              className="btn-primary selection-assign-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (activeCharacterId) {
+                  onAssignRange?.({
+                    ...pendingSelection,
+                    character_id: activeCharacterId
+                  });
+                }
+                setPendingSelection(null);
+                setPopoverPos(null);
+                window.getSelection()?.removeAllRanges();
+              }}
+            >
+              <UserPlus size={14} style={{ marginRight: '6px' }} />
+              {activeCharacterId === 'CLEAR_ASSIGNMENT' ? 'Clear Assignment' : `Assign ${charMap.get(activeCharacterId)?.name || 'Character'}`}
+            </button>
+          )}
         </div>
       )}
     </div>

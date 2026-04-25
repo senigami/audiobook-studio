@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { SpeakerProfile, TtsEngine } from '../../types';
-import { 
-    Trash2, Play, Loader2, RefreshCw, FileEdit, 
+import {
+    Trash2, Play, Loader2, RefreshCw, FileEdit,
     Pause, Sliders
 } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -27,22 +27,26 @@ interface VariantEditorProps {
     engines?: TtsEngine[];
 }
 
-export const VariantEditor: React.FC<VariantEditorProps> = ({ 
-    profile, isTesting, onTest, onDeleteVariant, onMoveVariant, onRefresh, 
+export const VariantEditor: React.FC<VariantEditorProps> = ({
+    profile, isTesting, onTest, onDeleteVariant, onMoveVariant, onRefresh,
     onEditTestText, onBuildNow, requestConfirm, testStatus,
     voiceName, showControlsInline = false, buildingProfiles, engines = []
 }) => {
     const engine = getVoiceProfileEngine(profile) || 'unknown';
     const activeEngine = engines.find(e => e.engine_id === engine);
-    const engineUsable = activeEngine?.enabled && activeEngine?.status === 'ready';
+    const engineUsable = engines.length === 0 ? true : Boolean(activeEngine?.enabled && activeEngine?.status === 'ready');
     const isRebuildEngine = activeEngine?.capabilities?.includes('voice_build');
     const isCloudEngine = activeEngine?.cloud === true;
-    
-    // Use the readiness hook result from the backend
-    const isReady = profile.is_ready ?? false;
-    const readinessMessage = profile.readiness_message || "Voice is not ready";
-    
-    const canGeneratePreview = isReady && engineUsable;
+
+    const hasBuildMaterial = Boolean(
+        profile.has_latent ||
+        profile.voxtral_voice_id ||
+        profile.reference_sample ||
+        (profile.wav_count > 0) ||
+        (profile.samples?.length || 0) > 0
+    );
+
+    const canGeneratePreview = hasBuildMaterial && engineUsable;
     const canPreviewOrGenerate = !!profile.preview_url || canGeneratePreview;
 
     const {
@@ -90,7 +94,7 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
     const [showSpeedPopover, setShowSpeedPopover] = useState(false);
     const [isSamplesExpanded, setIsSamplesExpanded] = useState(profile.wav_count === 0 || profile.samples?.length === 0);
     const [isRebuildRequired, setIsRebuildRequired] = useState(profile.is_rebuild_required || false);
-    
+
     useEffect(() => {
         setIsRebuildRequired(profile.is_rebuild_required || false);
     }, [profile.is_rebuild_required, profile.name]);
@@ -103,6 +107,30 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
 
     const renderControls = () => (
         <div style={{ padding: '0 1.25rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            {isRebuildRequired && profile.rebuild_reasons && profile.rebuild_reasons.length > 0 && (
+                <div style={{
+                    padding: '8px 12px',
+                    background: 'rgba(var(--warning-rgb), 0.05)',
+                    border: '1px solid rgba(var(--warning-rgb), 0.2)',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    marginBottom: '4px'
+                }}>
+                    <div style={{ color: 'var(--warning-text)' }}>
+                        <RefreshCw size={14} className={isBuilding ? "animate-spin" : ""} />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--warning-text)', lineHeight: 1.2 }}>
+                            Rebuild Recommended
+                        </span>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', lineHeight: 1.2 }}>
+                            {profile.rebuild_reasons.map(r => r.replace('_', ' ').charAt(0).toUpperCase() + r.replace('_', ' ').slice(1)).join(', ')}
+                        </span>
+                    </div>
+                </div>
+            )}
             <SampleManager
                 profile={profile}
                 title={isCloudEngine ? 'Reference Samples' : 'Samples'}
@@ -119,25 +147,25 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
 
     return (
         <div className={showControlsInline ? "" : "glass-panel animate-in"} style={showControlsInline ? {} : { padding: '0', display: 'flex', flexDirection: 'column', position: 'relative' }}>
-            <audio 
+            <audio
                 ref={audioRef}
                 src={profile.preview_url ? `${profile.preview_url}?t=${cacheBuster}` : undefined}
                 onPlay={() => setIsPlaying(true)}
                 onPause={() => setIsPlaying(false)}
                 onEnded={() => setIsPlaying(false)}
             />
-            <audio 
+            <audio
                 ref={sampleAudioRef}
                 onPlay={() => {}} // Hook handles state
-                onPause={() => {}} 
+                onPause={() => {}}
                 onEnded={() => {}}
             />
 
-            <div 
-                style={{ 
+            <div
+                style={{
                     padding: '0.75rem 1.25rem',
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
+                    display: 'flex',
+                    justifyContent: 'space-between',
                     alignItems: 'center',
                     borderBottom: 'none',
                     transition: 'border-bottom 0.2s',
@@ -146,20 +174,20 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
             >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
                     <div style={{ flexShrink: 0 }}>
-                        <button 
+                        <button
                             onClick={handlePlayClick}
-                            className="btn-ghost hover-bg-subtle"
+                        className="btn-ghost hover-bg-subtle"
                         disabled={!canPreviewOrGenerate || isTesting}
-                        title={!canPreviewOrGenerate
-                            ? (!engineUsable 
-                                ? `Engine ${activeEngine?.display_name || formatVoiceEngineLabel(engine)} is disabled or unavailable.` 
-                                : readinessMessage)
-                            : profile.preview_url
-                                ? (isPlaying ? "Pause Sample" : "Play Sample")
-                                : "Generate Sample"}
-                            style={{ 
-                                width: '40px', 
-                                height: '40px', 
+                        title={!profile.preview_url && !engineUsable
+                            ? `Engine ${activeEngine?.display_name || formatVoiceEngineLabel(engine)} is disabled or unavailable.`
+                            : !hasBuildMaterial
+                                ? 'Add at least one sample or keep a latent before generating a preview'
+                                : profile.preview_url
+                                    ? (isPlaying ? "Pause Sample" : "Play Sample")
+                                    : "Generate Sample"}
+                            style={{
+                                width: '40px',
+                                height: '40px',
                                 padding: 0,
                                 borderRadius: '12px',
                                 background: isPlaying ? 'var(--accent)' : 'var(--surface)',
@@ -257,7 +285,7 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                         {engineBadge.label}
                     </span>
 
-                    <button 
+                    <button
                         onClick={() => onEditTestText(profile)}
                         className="btn-ghost hover-bg-subtle"
                         title="Edit Preview Script"
@@ -266,21 +294,27 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                         <FileEdit size={16} />
                         Script
                     </button>
-                    
+
                     {!isCloudEngine && (
-                        <button 
-                            disabled={!isReady || isBuilding || isTesting}
+                        <button
+                            disabled={!hasBuildMaterial || !engineUsable || isBuilding || isTesting}
                             className={isRebuildRequired ? "btn-primary" : "btn-ghost hover-bg-subtle"}
-                            onClick={(e) => { e.stopPropagation(); handleRebuild(); }} 
-                            title={!isReady ? readinessMessage : "Rebuild Voice Model"}
-                            style={{ 
-                                padding: '8px 12px', 
-                                height: '36px', 
-                                borderRadius: '10px', 
-                                fontSize: '0.85rem', 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                gap: '8px', 
+                            onClick={(e) => { e.stopPropagation(); handleRebuild(); }}
+                            title={!engineUsable
+                                ? `Engine ${activeEngine?.display_name || formatVoiceEngineLabel(engine)} is disabled or unavailable.`
+                                : !hasBuildMaterial
+                                    ? 'Add at least one sample or keep a latent before rebuilding this voice'
+                                    : isRebuildRequired && profile.rebuild_reasons?.length
+                                        ? `Rebuild Required: ${profile.rebuild_reasons.map(r => r.replace('_', ' ')).join(', ')}`
+                                        : "Rebuild Voice Model"}
+                            style={{
+                                padding: '8px 12px',
+                                height: '36px',
+                                borderRadius: '10px',
+                                fontSize: '0.85rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
                                 ...(isRebuildRequired ? {} : {background: 'var(--surface)', border: '1px solid var(--border)'}),
                                 minWidth: '110px',
                                 justifyContent: 'center'
@@ -312,9 +346,11 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                             onClick={handleGeneratePreview}
                             title={!engineUsable
                                 ? `Engine ${activeEngine?.display_name || engine} is disabled or unavailable.`
-                                : !isReady
-                                    ? readinessMessage
-                                    : profile.preview_url ? "Regenerate Sample" : "Generate Sample"}
+                                : !hasBuildMaterial
+                                    ? 'Add at least one sample or keep a latent before generating a preview'
+                                    : isRebuildRequired && profile.rebuild_reasons?.length
+                                        ? `Regeneration Required: ${profile.rebuild_reasons.map(r => r.replace('_', ' ')).join(', ')}`
+                                        : (profile.preview_url ? "Regenerate Sample" : "Generate Sample")}
                             style={{
                                 padding: '8px 12px',
                                 height: '36px',
@@ -352,7 +388,7 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                     lineHeight: 1.5
                 }}>
                     {engineUsable
-                        ? (isRebuildEngine 
+                        ? (isRebuildEngine
                             ? `${activeEngine?.display_name || engine} uses local rebuilds to prepare high-quality voice latents. Click Rebuild after adding samples to update the model.`
                             : `${activeEngine?.display_name || engine} uses reference audio or direct voice IDs for synthesis. Use play to hear the current preview, and regenerate to refresh it after changes.`)
                         : `This voice is assigned to ${activeEngine?.display_name || engine}, but it is currently disabled or unavailable. You can play existing previews, but new generation is blocked.`}
@@ -369,9 +405,9 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
 
             {renderControls()}
 
-            <div style={{ 
-                padding: '1.25rem', 
-                borderTop: '1px solid var(--border-light)', 
+            <div style={{
+                padding: '1.25rem',
+                borderTop: '1px solid var(--border-light)',
                 background: 'rgba(239, 68, 68, 0.02)',
                 display: 'flex',
                 justifyContent: 'space-between',
@@ -383,7 +419,7 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                     <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Move this variant to another voice or delete it.</span>
                 </div>
                 <div style={{ display: 'flex', gap: '10px' }}>
-                    <button 
+                    <button
                         onClick={() => onMoveVariant(profile)}
                         className="btn-ghost hover-bg-subtle"
                         style={{ gap: '6px', fontSize: '0.8rem', padding: '0 12px', height: '32px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--surface)' }}
@@ -391,7 +427,7 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                         <RefreshCw size={14} />
                         Move Variant
                     </button>
-                    <button 
+                    <button
                         onClick={() => {
                             requestConfirm({
                                 title: 'Delete variant?',

@@ -1,21 +1,15 @@
 import React from 'react';
-import { Clock, CheckCircle, Edit3, Image as ImageIcon, Download, Trash2 } from 'lucide-react';
-import { ActionMenu } from '../ActionMenu';
-import type { Project, Audiobook } from '../../types';
+import { Clock, CheckCircle, Edit3, Image as ImageIcon } from 'lucide-react';
+import type { Project } from '../../types';
 
 interface ProjectHeaderProps {
   project: Project;
   totalRuntime: number;
   totalPredicted: number;
-  availableAudiobooks: Audiobook[];
   onBack?: () => void;
   onEditMetadata: () => void;
   onShowCover: () => void;
-  onStartAssembly: () => void;
-  onDeleteAudiobook: (filename: string) => void;
   formatLength: (seconds: number) => string;
-  formatFileSize: (bytes?: number) => string;
-  formatRelativeTime: (timestamp?: number) => string;
   compact?: boolean;
 }
 
@@ -23,19 +17,14 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({
   project,
   totalRuntime,
   totalPredicted,
-  availableAudiobooks,
   onEditMetadata,
   onShowCover,
-  onStartAssembly,
-  onDeleteAudiobook,
   formatLength,
-  formatFileSize,
-  formatRelativeTime,
   compact = false
 }) => {
   return (
     <header style={{ 
-        padding: compact ? '1rem 0' : '2rem 0',
+        padding: compact ? '0rem 0' : '1rem 0',
         display: 'flex', 
         gap: compact ? '1rem' : '2rem',
         alignItems: 'center',
@@ -128,141 +117,6 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({
             </>
           )}
       </div>
-
-      {/* Action Buttons & History */}
-      {!compact && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: '220px' }}>
-          {availableAudiobooks.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '-0.25rem' }}>
-                      <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                          Assemblies ({availableAudiobooks.length})
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }} title="Total storage used by these local exports">
-                          Total: {formatFileSize(availableAudiobooks.reduce((acc, a) => acc + (a.size_bytes || 0), 0))}
-                      </div>
-                  </div>
-                  <div style={{ 
-                      maxHeight: '240px', 
-                      overflowY: 'auto', 
-                      display: 'flex', 
-                      flexDirection: 'column', 
-                      gap: '0.5rem',
-                      paddingRight: '4px',
-                      scrollbarWidth: 'thin'
-                  }}>
-                      {availableAudiobooks.map((a, i) => (
-                          <div key={i} className="hover-bg-subtle" style={{ 
-                              background: 'var(--surface)',
-                              border: '1px solid var(--border)',
-                              borderRadius: '8px',
-                              padding: '0.6rem 0.8rem',
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                              gap: '1rem',
-                              position: 'relative',
-                              transition: 'all 0.2s ease'
-                          }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', minWidth: 0, flex: 1 }}>
-                                  <div style={{ 
-                                      width: '40px', 
-                                      height: '40px', 
-                                      borderRadius: '4px', 
-                                      overflow: 'hidden', 
-                                      background: 'rgba(0,0,0,0.05)',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      flexShrink: 0,
-                                      border: '1px solid var(--border)'
-                                  }}>
-                                      {a.cover_url ? (
-                                          <img src={a.cover_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
-                                      ) : (
-                                          <ImageIcon size={16} style={{ opacity: 0.3 }} />
-                                      )}
-                                  </div>
-                                  <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                          <span style={{ 
-                                              fontSize: '0.8rem', 
-                                              fontWeight: 600, 
-                                              color: 'var(--text-primary)',
-                                              whiteSpace: 'nowrap',
-                                              overflow: 'hidden',
-                                              textOverflow: 'ellipsis'
-                                          }}>
-                                              {a.title || a.filename}
-                                          </span>
-                                          {i === 0 && (
-                                              <span style={{ 
-                                                  fontSize: '0.65rem', 
-                                                  fontWeight: 600, 
-                                                  padding: '2px 6px', 
-                                                  borderRadius: '4px', 
-                                                  background: 'var(--surface-light)', 
-                                                  color: 'var(--text-secondary)',
-                                                  border: '1px solid var(--border)'
-                                              }}>
-                                                  Latest
-                                              </span>
-                                          )}
-                                      </div>
-                                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                                          <span>{formatRelativeTime(a.created_at)}</span>
-                                          {a.duration_seconds && <span>• {formatLength(a.duration_seconds)}</span>}
-                                          {a.size_bytes && <span>• {formatFileSize(a.size_bytes)}</span>}
-                                      </div>
-                                  </div>
-                              </div>
-                              <ActionMenu 
-                                  items={[
-                                      { label: 'Download', icon: Download, onClick: () => {
-                                          const link = document.createElement('a');
-                                          link.href = a.url || `/out/audiobook/${a.filename}`;
-                                          link.download = a.download_filename || a.filename;
-                                          link.click();
-                                      }},
-                                      { label: 'Delete', icon: Trash2, isDestructive: true, onClick: () => onDeleteAudiobook(a.filename) }
-                                  ]}
-                              />
-                          </div>
-                      ))}
-                  </div>
-              </div>
-          ) : (
-              <div style={{ 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  padding: '2rem 1rem', 
-                  background: 'var(--surface-light)', 
-                  borderRadius: '12px', 
-                  border: '1px dashed var(--border)',
-                  textAlign: 'center',
-                  gap: '0.5rem'
-              }}>
-                  <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>No assemblies yet</span>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', padding: '0 1rem' }}>Export an audiobook to see it here.</span>
-              </div>
-          )}
-
-          <button
-              className="btn-ghost"
-              onClick={onStartAssembly}
-              style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                  border: '1px solid var(--border)', padding: '0.75rem',
-                  borderRadius: '12px'
-              }}
-          >   
-              <CheckCircle size={16} />
-              Assemble Project
-          </button>
-        </div>
-      )}
     </header>
   );
 };

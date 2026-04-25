@@ -1,3 +1,4 @@
+from __future__ import annotations
 import queue
 import threading
 from typing import Dict

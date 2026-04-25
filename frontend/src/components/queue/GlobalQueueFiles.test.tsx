@@ -303,7 +303,7 @@ describe('Global Queue Components', () => {
                 />
             );
 
-            expect(screen.getByText('Global Processing Queue')).toBeInTheDocument();
+            expect(screen.getByText('Global Queue')).toBeInTheDocument();
         });
 
         it('shows empty state', () => {

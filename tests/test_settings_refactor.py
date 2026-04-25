@@ -25,7 +25,7 @@ def test_default_settings_refactor(client, clean_state):
 
 def test_save_settings_ignores_deprecated_speed(client, clean_state):
     # 1. Update settings with deprecated field
-    response = client.post("/settings", data={
+    response = client.post("/api/settings", data={
         "safe_mode": "false",
         "xtts_speed": "1.5"
     })

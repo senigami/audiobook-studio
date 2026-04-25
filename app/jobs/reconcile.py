@@ -79,8 +79,6 @@ def cleanup_and_reconcile():
                 text_path = safe_join(CHAPTER_DIR, j.chapter_file)
 
             if not text_path.exists():
-                if j.id == "mp3-backfill-task" or "Backfill" in j.chapter_file:
-                    continue
                 stale_ids.append(jid)
         else:
             try:
@@ -103,7 +101,7 @@ def cleanup_and_reconcile():
     reset_ids = []
     for jid, j in all_jobs.items():
         if j.status == "done":
-            if j.engine in ("audiobook", "voice_build", "voice_test") or j.id == "mp3-backfill-task" or "Backfill" in (j.chapter_file or ""):
+            if j.engine in ("audiobook", "voice_build", "voice_test"):
                 continue
 
             if j.segment_ids:

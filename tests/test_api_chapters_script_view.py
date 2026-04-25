@@ -99,8 +99,8 @@ def test_script_view_render_batches_grouping_and_limit(clean_db, client, monkeyp
         _assign_segment(s["id"], char_id, "Profile")
 
     # Mock a very small limit to force batch splitting
-    import app.textops
-    monkeypatch.setattr(app.textops, "SENT_CHAR_LIMIT", 15)
+    import app.domain.chapters.compatibility
+    monkeypatch.setattr(app.domain.chapters.compatibility, "SENT_CHAR_LIMIT", 15)
 
     response = client.get(f"/api/chapters/{cid}/script-view")
     data = response.json()
@@ -110,7 +110,7 @@ def test_script_view_render_batches_grouping_and_limit(clean_db, client, monkeyp
     assert len(data["render_batches"]) > 1
 
     # Check that compatible adjacent spans are grouped when under limit
-    monkeypatch.setattr(app.textops, "SENT_CHAR_LIMIT", 1000)
+    monkeypatch.setattr(app.domain.chapters.compatibility, "SENT_CHAR_LIMIT", 1000)
     response = client.get(f"/api/chapters/{cid}/script-view")
     data = response.json()
     assert len(data["render_batches"]) == 1

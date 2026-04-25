@@ -113,13 +113,13 @@ def test_queue_endpoints():
     res = client.get("/api/processing_queue")
     assert res.status_code == 200
 
-    res = client.post("/queue/pause")
+    res = client.post("/api/generation/pause")
     assert res.status_code in [200, 422, 405]
 
-    res = client.post("/queue/resume")
+    res = client.post("/api/generation/resume")
     assert res.status_code in [200, 422, 405]
 
-    res = client.post("/api/queue/cancel_pending")
+    res = client.post("/api/generation/cancel-all")
     assert res.status_code in [200, 422, 405]
 
 def test_audiobooks_endpoints():

@@ -10,6 +10,7 @@ interface ReorderableQueueItemProps {
     handleRemove: (id: string) => void;
     handleDragStart: () => void;
     handleDragEnd: () => void;
+    compact?: boolean;
 }
 
 export const ReorderableQueueItem: React.FC<ReorderableQueueItemProps> = React.memo(({
@@ -17,7 +18,8 @@ export const ReorderableQueueItem: React.FC<ReorderableQueueItemProps> = React.m
     formatJobTitle,
     handleRemove,
     handleDragStart,
-    handleDragEnd
+    handleDragEnd,
+    compact = false
 }) => {
     const dragControls = useDragControls();
     const [isHovered, setIsHovered] = React.useState(false);
@@ -35,7 +37,7 @@ export const ReorderableQueueItem: React.FC<ReorderableQueueItemProps> = React.m
     };
 
     return (
-        <Reorder.Item 
+        <Reorder.Item
             value={job}
             dragListener={false}
             dragControls={dragControls}
@@ -49,13 +51,13 @@ export const ReorderableQueueItem: React.FC<ReorderableQueueItemProps> = React.m
             }}
             transition={{ duration: isDragging ? 0 : 0.2 }}
             style={{
-                background: 'var(--surface)', 
-                borderRadius: '12px', 
-                padding: '1rem 1.25rem', 
-                border: '1px solid var(--border)', 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '1.25rem', 
+                background: 'var(--surface)',
+                borderRadius: compact ? '10px' : '12px',
+                padding: compact ? '0.5rem 0.75rem' : '1rem 1.25rem',
+                border: '1px solid var(--border)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: compact ? '0.75rem' : '1.25rem',
                 cursor: 'default',
                 position: 'relative',
                 userSelect: 'none'
@@ -63,39 +65,39 @@ export const ReorderableQueueItem: React.FC<ReorderableQueueItemProps> = React.m
             onDragStart={onStart}
             onDragEnd={onEnd}
         >
-            <div 
+            <div
                 onPointerDown={(e) => dragControls.start(e)}
-                style={{ 
-                    color: 'var(--text-muted)', 
-                    display: 'flex', 
-                    alignItems: 'center', 
+                style={{
+                    color: 'var(--text-muted)',
+                    display: 'flex',
+                    alignItems: 'center',
                     cursor: isDragging ? 'grabbing' : 'grab',
                     padding: '4px'
-                }} 
+                }}
                 title="Drag to reorder"
             >
                 <GripVertical size={18} strokeWidth={2} style={{ pointerEvents: 'none' }} />
             </div>
-            <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'var(--surface-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-                <Clock size={18} strokeWidth={2} />
+            <div style={{ width: compact ? '30px' : '36px', height: compact ? '30px' : '36px', borderRadius: '8px', background: 'var(--surface-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+                <Clock size={compact ? 14 : 18} strokeWidth={2} />
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-                <h4 style={{ fontWeight: 600, fontSize: '0.95rem', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{formatJobTitle(job)}</h4>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 500 }}>{formatQueueContext(job)}</div>
+                <h4 style={{ fontWeight: 600, fontSize: compact ? '0.85rem' : '0.95rem', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{formatJobTitle(job)}</h4>
+                <div style={{ fontSize: compact ? '0.7rem' : '0.8rem', color: 'var(--text-secondary)', fontWeight: 500 }}>{formatQueueContext(job)}</div>
             </div>
-            <button 
-                onClick={(e) => { e.stopPropagation(); handleRemove(job.id); }} 
-                className="hover-bg-destructive" 
-                style={{ 
-                    background: 'none', 
-                    border: 'none', 
-                    padding: '8px', 
-                    borderRadius: '8px', 
-                    cursor: 'pointer', 
-                    color: isHovered ? 'var(--error)' : 'var(--text-muted)', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center', 
+            <button
+                onClick={(e) => { e.stopPropagation(); handleRemove(job.id); }}
+                className="hover-bg-destructive"
+                style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: '8px',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    color: isHovered ? 'var(--error)' : 'var(--text-muted)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                     transition: 'all 0.2s ease',
                     opacity: isHovered ? 1 : 0.6
                 }}

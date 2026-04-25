@@ -47,6 +47,10 @@ const mockUseProjectActions = vi.hoisted(() =>
     handleQueueAllUnprocessed: vi.fn(),
     handleAssembleProject: vi.fn(),
     handleDeleteAudiobook: vi.fn(),
+    handleSaveBackup: vi.fn(),
+    handleDeleteBackup: vi.fn(),
+    handleUpdateBackupMetadata: vi.fn(),
+    handleUpdateAudiobookMetadata: vi.fn(),
   }))
 );
 
@@ -61,6 +65,9 @@ vi.mock('../api', () => ({
     updateChapter: vi.fn(),
     updateProject: vi.fn(),
     exportSample: vi.fn(),
+    fetchProjectBackups: vi.fn().mockResolvedValue([]),
+    updateProjectBackupMetadata: vi.fn().mockResolvedValue({ status: 'ok' }),
+    updateAudiobookMetadata: vi.fn().mockResolvedValue({ status: 'ok' }),
   },
 }));
 
@@ -79,6 +86,7 @@ vi.mock('lucide-react', () => ({
   Zap: () => <div data-testid="zap-icon" />,
   ArrowUpDown: () => <div data-testid="arrow-up-down-icon" />,
   MoreVertical: () => <div data-testid="more-vertical-icon" />,
+  Book: () => <div data-testid="book-icon" />,
   FileText: () => <div />,
   GripVertical: () => <div />,
   CheckSquare: () => <div />,
@@ -105,6 +113,7 @@ vi.mock('lucide-react', () => ({
   ArrowLeft: () => <div />,
   Clock: () => <div />,
   CheckCircle: () => <div />,
+  Database: () => <div />,
 }));
 
 // Mock framer-motion
@@ -258,6 +267,23 @@ describe('ProjectView', () => {
     expect(await screen.findByText('Characters & Voices')).toBeInTheDocument();
   });
 
+  it('switches to assemblies tab', async () => {
+    renderProjectView();
+    await screen.findAllByText('Test Project');
+
+    fireEvent.click(screen.getByRole('link', { name: /^Assemblies$/i }));
+    expect(await screen.findByRole('heading', { name: /Project Assemblies/i })).toBeInTheDocument();
+  });
+
+  it('switches to backups tab', async () => {
+    (api.fetchProjectBackups as any).mockResolvedValue([]);
+    renderProjectView();
+    await screen.findAllByText('Test Project');
+
+    fireEvent.click(screen.getByRole('link', { name: /^Backups$/i }));
+    expect(await screen.findByRole('heading', { name: /Backups/i })).toBeInTheDocument();
+  });
+
   it('opens add chapter modal', async () => {
     renderProjectView();
 
@@ -279,10 +305,11 @@ describe('ProjectView', () => {
 
   it('enters assembly mode', async () => {
     renderProjectView();
-
     await waitFor(() => screen.findAllByText('Test Project'));
 
-    fireEvent.click(screen.getByText('Assemble Project'));
+    // The Assemble Project button is now in the Chapters action bar, icon-only on mobile
+    // We search for it by text or title
+    fireEvent.click(screen.getByTitle('Assemble Project'));
     expect(screen.getByText('Select Chapters for Assembly')).toBeInTheDocument();
     expect(screen.getByText('Confirm Assembly')).toBeInTheDocument();
   });

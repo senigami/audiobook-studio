@@ -35,6 +35,7 @@ export interface Project {
   cover_image_path: string | null;
   created_at: number;
   updated_at: number;
+  chapter_map?: Record<string, any>;
 }
 
 export interface Character {
@@ -210,8 +211,10 @@ export interface SpeakerProfile {
   voxtral_model?: string | null;
   reference_sample?: string | null;
   preview_url: string | null;
+  asset_base_url?: string | null;
   has_latent?: boolean;
   is_rebuild_required?: boolean;
+  rebuild_reasons?: string[];
   samples_detailed?: Array<{ name: string; is_new: boolean }>;
   is_ready?: boolean;
   readiness_message?: string;
@@ -293,6 +296,15 @@ export interface Audiobook {
   created_at?: number;
   size_bytes?: number;
   duration_seconds?: number;
+  description?: string | null;
+}
+
+export interface StoredBackup {
+  filename: string;
+  created_at: string; // ISO timestamp from backend
+  size_bytes: number;
+  comment: string | null;
+  download_url: string;
 }
 
 export interface AssemblyChapter {
@@ -312,9 +324,6 @@ export interface GlobalState {
   engines: TtsEngine[];
   paused: boolean;
   chapters: Chapter[];
-  audiobooks: Audiobook[];
-  xtts_mp3: string[];
-  xtts_wav_only: string[];
   narrator_ok: boolean;
   speaker_profiles: SpeakerProfile[];
   speakers: Speaker[];

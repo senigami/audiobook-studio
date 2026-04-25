@@ -43,17 +43,40 @@ def _existing_profile_dir(voices_dir: Path, profile_name: str) -> Optional[Path]
     profile_name = _profile_name_or_error(profile_name)
     if not voices_dir.exists():
         return None
-    try:
-        for entry in voices_dir.iterdir():
-            if entry.is_dir() and entry.name == profile_name:
-                return entry.resolve()
-    except FileNotFoundError:
-        return None
+
+    # 1. Exact match (flat or intentional nested)
+    exact = voices_dir / profile_name
+    if exact.exists() and exact.is_dir():
+        if (exact / "profile.json").exists():
+            return exact.resolve()
+
+        # If voice root, look for Default
+        if (exact / "voice.json").exists():
+            nested_default = exact / "Default"
+            if nested_default.exists() and nested_default.is_dir():
+                return nested_default.resolve()
+
+    # 2. Nested resolution: "Dracula - Angry" -> voices/Dracula/Angry
+    if " - " in profile_name:
+        v_name, var_name = profile_name.split(" - ", 1)
+        nested = voices_dir / v_name.strip() / var_name.strip()
+        if nested.exists() and nested.is_dir() and (nested / "profile.json").exists():
+            return nested.resolve()
+
+    # 3. Base voice default: "Dracula" -> voices/Dracula/Default (Fallback)
+    nested_default = voices_dir / profile_name / "Default"
+    if nested_default.exists() and nested_default.is_dir() and (nested_default / "profile.json").exists():
+        return nested_default.resolve()
+
     return None
 
 
 def _new_profile_dir(voices_dir: Path, profile_name: str) -> Path:
-    return voices_dir / _profile_name_or_error(profile_name)
+    name = _profile_name_or_error(profile_name)
+    if " - " in name:
+        v_name, var_name = name.split(" - ", 1)
+        return voices_dir / v_name.strip() / var_name.strip()
+    return voices_dir / name
 
 
 def infer_variant_name(profile_name: str) -> str:
@@ -194,17 +217,33 @@ def list_speakers() -> List[Dict[str, Any]]:
             return [dict(row) for row in cursor.fetchall()]
 
 
-def repair_speakers_from_profiles(voices_dir: Optional[Path] = None) -> None:
+def sync_speakers_from_profiles(voices_dir: Optional[Path] = None) -> None:
     from .. import config
 
     root = voices_dir or config.VOICES_DIR
     if not root.exists():
         return
 
-    voice_dirs = sorted([
-        entry for entry in root.iterdir()
-        if entry.is_dir() and SAFE_PROFILE_NAME_RE.fullmatch(entry.name)
-    ], key=lambda entry: entry.name.lower())
+    # Gather all profile directories (flat and nested)
+    all_profile_dirs = []
+    for entry in root.iterdir():
+        if not entry.is_dir() or not SAFE_PROFILE_NAME_RE.fullmatch(entry.name):
+            continue
+
+        # Check if it's a voice root (has voice.json)
+        if (entry / "voice.json").exists():
+            for sub in entry.iterdir():
+                if sub.is_dir() and (sub / "profile.json").exists():
+                    all_profile_dirs.append(sub)
+
+        # Check if it's a profile directory directly (flat layout or default variant)
+        if (entry / "profile.json").exists():
+            all_profile_dirs.append(entry)
+
+    if not all_profile_dirs:
+        return
+
+    voice_dirs = sorted(all_profile_dirs, key=lambda entry: entry.name.lower())
 
     if not voice_dirs:
         return
@@ -219,6 +258,14 @@ def repair_speakers_from_profiles(voices_dir: Optional[Path] = None) -> None:
             speakers_by_name = {speaker["name"]: speaker for speaker in speakers}
 
             for profile_dir in voice_dirs:
+                # Calculate effective profile name for virtual flat compatibility
+                if profile_dir.parent == root:
+                    profile_name = profile_dir.name
+                else:
+                    profile_name = f"{profile_dir.parent.name} - {profile_dir.name}"
+                    if profile_dir.name == "Default":
+                        profile_name = profile_dir.parent.name
+
                 meta_path = profile_dir / "profile.json"
                 meta: Dict[str, Any] = {}
                 if meta_path.exists():
@@ -228,10 +275,10 @@ def repair_speakers_from_profiles(voices_dir: Optional[Path] = None) -> None:
                         logger.warning("Failed to read legacy speaker metadata for %s", meta_path, exc_info=True)
                         meta = {}
 
-                meta = normalize_profile_metadata(profile_dir.name, meta, persist=False)
-                speaker_name = infer_speaker_name(profile_dir.name, meta)
-                is_default_profile = is_default_profile_name(profile_dir.name, meta)
-                desired_default_profile_name = profile_dir.name if is_default_profile else None
+                meta = normalize_profile_metadata(profile_name, meta, persist=False)
+                speaker_name = infer_speaker_name(profile_name, meta)
+                is_default_profile = is_default_profile_name(profile_name, meta)
+                desired_default_profile_name = profile_name if is_default_profile else None
 
                 raw_speaker_id = meta.get("speaker_id")
                 speaker: Optional[Dict[str, Any]] = None
@@ -245,7 +292,7 @@ def repair_speakers_from_profiles(voices_dir: Optional[Path] = None) -> None:
                     try:
                         created_id = create_speaker(
                             speaker_name,
-                            default_profile_name=desired_default_profile_name or profile_dir.name,
+                            default_profile_name=desired_default_profile_name or profile_name,
                             speaker_id=desired_id,
                         )
                         speaker = get_speaker(created_id)
@@ -262,7 +309,7 @@ def repair_speakers_from_profiles(voices_dir: Optional[Path] = None) -> None:
                 if desired_default_profile_name and speaker.get("default_profile_name") != desired_default_profile_name:
                     updates["default_profile_name"] = desired_default_profile_name
                 elif not speaker.get("default_profile_name"):
-                    updates["default_profile_name"] = profile_dir.name
+                    updates["default_profile_name"] = profile_name
 
                 if updates:
                     update_speaker(speaker["id"], **updates)
@@ -275,7 +322,7 @@ def repair_speakers_from_profiles(voices_dir: Optional[Path] = None) -> None:
                     try:
                         meta_path.write_text(json.dumps(meta, indent=2))
                     except Exception:
-                        logger.warning("Failed to persist repaired speaker metadata for %s", meta_path, exc_info=True)
+                        logger.warning("Failed to persist synchronized speaker metadata for %s", meta_path, exc_info=True)
 
 def update_speaker(speaker_id: str, **updates) -> bool:
     if not updates: return False
@@ -307,22 +354,48 @@ def delete_speaker(speaker_id: str) -> bool:
             # We look for any directory in VOICES_DIR containing a profile.json with matching speaker_id
             if config.VOICES_DIR.exists():
                 for d in config.VOICES_DIR.iterdir():
-                    if d.is_dir():
+                    if not d.is_dir():
+                        continue
+
+                    # 1. Voice Root (v2)
+                    if (d / "voice.json").exists():
                         try:
-                            safe_dir = _existing_profile_dir(config.VOICES_DIR, d.name)
-                        except ValueError:
-                            logger.warning("Skipping invalid voice profile directory %s", d, exc_info=True)
-                            continue
-                        if not safe_dir:
-                            continue
-                        meta_path = safe_dir / "profile.json"
-                        if meta_path.exists():
-                            try:
+                            from ..domain.voices.manifest import load_voice_manifest
+                            manifest = load_voice_manifest(d)
+                            if manifest.get("id") == speaker_id:
+                                shutil.rmtree(d)
+                                continue
+                        except Exception:
+                            pass
+
+                    # 2. Legacy Flat or Nested Variants (Fallback check)
+                    # We check all profile.json files in this directory and its subdirectories
+                    # actually simpler to just check if it's a profile dir
+                    try:
+                        profile_dirs = []
+                        if (d / "profile.json").exists():
+                            profile_dirs.append(d)
+                        else:
+                            # Check subdirs for nested variants
+                            for sub in d.iterdir():
+                                if sub.is_dir() and (sub / "profile.json").exists():
+                                    profile_dirs.append(sub)
+
+                        for pdir in profile_dirs:
+                            meta_path = pdir / "profile.json"
+                            if meta_path.exists():
                                 meta = json.loads(meta_path.read_text())
                                 if meta.get("speaker_id") == speaker_id:
-                                    shutil.rmtree(safe_dir)
-                            except Exception:
-                                logger.debug("Failed to inspect voice profile metadata for %s", meta_path, exc_info=True)
+                                    # If it's a nested variant, we only delete the variant.
+                                    # If it's a flat folder, we delete the folder.
+                                    shutil.rmtree(pdir)
+                                    # If the parent is now empty (except for voice.json), delete it too
+                                    if pdir.parent != config.VOICES_DIR:
+                                        remaining = [f for f in pdir.parent.iterdir() if f.name != "voice.json"]
+                                        if not remaining:
+                                            shutil.rmtree(pdir.parent)
+                    except Exception:
+                        logger.debug("Failed to inspect voice profile metadata for %s", d, exc_info=True)
 
             cursor.execute("DELETE FROM speakers WHERE id = ?", (speaker_id,))
             conn.commit()

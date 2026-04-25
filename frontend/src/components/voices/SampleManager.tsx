@@ -30,7 +30,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
     const [hoveredSampleIdx, setHoveredSampleIdx] = useState<number | null>(null);
 
     return (
-        <div 
+        <div
             onDragOver={(e) => {
                 e.preventDefault();
                 setIsDragging(true);
@@ -43,12 +43,12 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
                     uploadFiles(e.dataTransfer.files);
                 }
             }}
-            style={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
-                border: isDragging ? '1px solid var(--accent)' : '1px solid var(--border-light)', 
-                borderRadius: '12px', 
-                background: isDragging ? 'var(--accent-glow)' : 'var(--surface)', 
+            style={{
+                display: 'flex',
+                flexDirection: 'column',
+                border: isDragging ? '1px solid var(--accent)' : '1px solid var(--border-light)',
+                borderRadius: '12px',
+                background: isDragging ? 'var(--accent-glow)' : 'var(--surface)',
                 overflow: 'hidden',
                 position: 'relative',
                 transition: 'all 0.2s'
@@ -75,7 +75,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
                 </div>
             )}
 
-            <div 
+            <div
                 style={{
                     width: '100%',
                     padding: '10px 16px',
@@ -93,11 +93,11 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
                     type="button"
                     onClick={() => setIsSamplesExpanded(!isSamplesExpanded)}
                     className="btn-ghost hover-bg-subtle"
-                    style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '10px', 
-                        color: 'var(--text-secondary)', 
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        color: 'var(--text-secondary)',
                         flex: 1,
                         height: '100%',
                         padding: '4px 0',
@@ -106,33 +106,39 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
                 >
                     <Music size={14} className="text-accent" />
                     <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>{title} ({profile.samples?.length || 0})</span>
-                    {isRebuildRequired && <span title="Rebuild required to reflect recent sample changes"><AlertTriangle size={12} className="text-warning" /></span>}
+                    {isRebuildRequired && (
+                        <span title={profile.rebuild_reasons?.length
+                            ? `Rebuild Required: ${profile.rebuild_reasons.map(r => r.replace('_', ' ')).join(', ')}`
+                            : "Rebuild required to reflect recent sample changes"}>
+                            <AlertTriangle size={12} className="text-warning" />
+                        </span>
+                    )}
                 </button>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <input 
-                        type="file" 
-                        multiple 
-                        accept=".wav" 
+                    <input
+                        type="file"
+                        multiple
+                        accept=".wav"
                         onChange={(e) => {
                             if (e.target.files) uploadFiles(e.target.files);
-                        }} 
-                        style={{ display: 'none' }} 
+                        }}
+                        style={{ display: 'none' }}
                         id={`file-input-${profile.name.replace(/\s+/g, '-')}`}
                     />
-                    <button 
+                    <button
                         onClick={(e) => {
                             e.stopPropagation();
                             e.preventDefault();
                             document.getElementById(`file-input-${profile.name.replace(/\s+/g, '-')}`)?.click();
                         }}
-                        className="btn-ghost hover-bg-subtle" 
-                        title="Add Samples Manually" 
-                        style={{ 
-                            padding: '4px', 
-                            height: '28px', 
-                            width: '28px', 
-                            borderRadius: '8px', 
+                        className="btn-ghost hover-bg-subtle"
+                        title="Add Samples Manually"
+                        style={{
+                            padding: '4px',
+                            height: '28px',
+                            width: '28px',
+                            borderRadius: '8px',
                             background: 'var(--surface)',
                             border: '1px solid var(--border)',
                             display: 'flex',
@@ -144,14 +150,14 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
                     >
                         <Plus size={16} />
                     </button>
-                    
+
                     <button
                         type="button"
                         onClick={() => setIsSamplesExpanded(!isSamplesExpanded)}
                         className="btn-ghost hover-bg-subtle"
                         aria-label={isSamplesExpanded ? 'Collapse samples' : 'Expand samples'}
-                        style={{ 
-                            padding: '6px', 
+                        style={{
+                            padding: '6px',
                             width: '28px',
                             height: '28px',
                             borderRadius: '8px',
@@ -161,13 +167,13 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
                             transition: 'transform 0.2s'
                         }}
                     >
-                        <ChevronUp 
-                            size={16} 
-                            style={{ 
-                                transform: isSamplesExpanded ? 'none' : 'rotate(180deg)', 
+                        <ChevronUp
+                            size={16}
+                            style={{
+                                transform: isSamplesExpanded ? 'none' : 'rotate(180deg)',
                                 transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                                 color: 'var(--text-muted)'
-                            }} 
+                            }}
                         />
                     </button>
                 </div>
@@ -185,14 +191,14 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
                             {profile.samples_detailed && profile.samples_detailed.length > 0 ? (
                                 <>
                                     {profile.samples_detailed.map((s, idx) => (
-                                        <div 
-                                            key={idx} 
-                                            className="sample-row" 
+                                        <div
+                                            key={idx}
+                                            className="sample-row"
                                             onMouseEnter={() => setHoveredSampleIdx(idx)}
                                             onMouseLeave={() => setHoveredSampleIdx(null)}
-                                            style={{ 
-                                                display: 'flex', 
-                                                alignItems: 'center', 
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
                                                 justifyContent: 'space-between',
                                                 fontSize: '0.8rem',
                                                 padding: '6px 10px',
@@ -238,16 +244,16 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
                                             </div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                 <span style={{ color: 'var(--text-muted)', fontSize: '0.65rem' }}>WAV</span>
-                                                <button 
+                                                <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         handleDeleteSample(s.name);
                                                     }}
                                                     className="btn-ghost"
-                                                    style={{ 
-                                                        padding: '4px', 
-                                                        borderRadius: '4px', 
-                                                        color: 'var(--text-muted)', 
+                                                    style={{
+                                                        padding: '4px',
+                                                        borderRadius: '4px',
+                                                        color: 'var(--text-muted)',
                                                         opacity: hoveredSampleIdx === idx ? 1 : 0,
                                                         pointerEvents: hoveredSampleIdx === idx ? 'auto' : 'none',
                                                         transition: 'all 0.2s'

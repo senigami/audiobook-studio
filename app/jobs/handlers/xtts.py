@@ -1,3 +1,4 @@
+from __future__ import annotations
 import json
 import time
 from pathlib import Path
@@ -120,7 +121,7 @@ def _segment_group_weight(group: list[dict]) -> int:
     return max(1, sum(len((segment.get("text_content") or "").strip()) for segment in group))
 
 
-def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, pdir, out_wav, out_mp3, text=None):
+def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, pdir, out_wav, out_mp3, text=None, storage_version=1):
     from ...db import get_connection, update_segment, get_chapter_segments, update_segments_status_bulk, update_queue_item
     from ...db.segments import cleanup_orphaned_segments
 
@@ -169,7 +170,11 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
                     combined_text = sanitize_for_xtts(combined_text)
                     combined_text = safe_split_long_sentences(combined_text, target=SENT_CHAR_LIMIT)
                 sid = group["segments"][0]['id']
-                seg_out = pdir / f"chunk_{sid}.wav"
+                if storage_version >= 2:
+                    seg_out = pdir / "segments" / f"{sid}.wav"
+                    seg_out.parent.mkdir(parents=True, exist_ok=True)
+                else:
+                    seg_out = pdir / f"chunk_{sid}.wav"
                 save_path_str = str(seg_out.absolute())
                 script_entry = {"text": combined_text, "speaker_wav": sw, "save_path": save_path_str, "id": sid}
                 if voice_profile_dir:
@@ -323,7 +328,11 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
                 combined_text = sanitize_for_xtts(combined_text)
                 combined_text = safe_split_long_sentences(combined_text, target=SENT_CHAR_LIMIT)
             first_sid = group[0]['id']
-            seg_out = pdir / f"chunk_{first_sid}.wav"
+            if storage_version >= 2:
+                seg_out = pdir / "segments" / f"{first_sid}.wav"
+                seg_out.parent.mkdir(parents=True, exist_ok=True)
+            else:
+                seg_out = pdir / f"chunk_{first_sid}.wav"
             save_path_str = str(seg_out.absolute())
             script_entry = {"text": combined_text, "speaker_wav": sw, "save_path": save_path_str, "id": group[0]['id']}
             if voice_profile_dir:
@@ -416,7 +425,7 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
             try:
                 from ...api.ws import broadcast_segments_updated
                 broadcast_segments_updated(j.chapter_id)
-            except Exception: 
+            except Exception:
                 pass
 
         # Accurate Resumption: Update progress based on total segments
@@ -504,7 +513,13 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
                     if j.safe_mode:
                         processed = sanitize_for_xtts(processed)
                         processed = safe_split_long_sentences(processed, target=SENT_CHAR_LIMIT)
-                    seg_out = pdir / f"chunk_{first['id']}.wav"
+
+                    if storage_version >= 2:
+                        seg_out = pdir / "segments" / f"{first['id']}.wav"
+                        seg_out.parent.mkdir(parents=True, exist_ok=True)
+                    else:
+                        seg_out = pdir / f"chunk_{first['id']}.wav"
+
                     save_path_str = str(seg_out.absolute())
                     script_entry = {"text": processed, "speaker_wav": sw, "id": first["id"], "save_path": save_path_str}
                     if voice_profile_dir:
@@ -640,7 +655,11 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
                     segment_paths = []
                     last_path = None
                     for group in build_chunk_groups(load_chunk_segments(j.chapter_id), j.speaker_profile):
-                        group_path = pdir / f"chunk_{group['segments'][0]['id']}.wav"
+                        if storage_version >= 2:
+                            group_path = pdir / "segments" / f"{group['segments'][0]['id']}.wav"
+                        else:
+                            group_path = pdir / f"chunk_{group['segments'][0]['id']}.wav"
+
                         if group_path.exists() and group_path != last_path:
                             segment_paths.append(group_path)
                             last_path = group_path
