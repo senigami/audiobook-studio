@@ -248,7 +248,7 @@ def move_chapter_artifacts_to_trash(
             # Ensure unique destination name if multiple sources have same filename
             if dest.exists():
                 unique_name = f"{uuid.uuid4().hex}_{name}"
-                dest = Path(os.path.abspath(os.path.normpath(os.path.join(base_target, unique_name))))
+                dest = secure_join_flat(target_dir, unique_name)
 
             shutil.move(str(src), str(dest))
             if is_audio: audio_moved += 1
