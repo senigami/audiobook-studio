@@ -945,6 +945,11 @@ def _resolve_canonical_wav_path(*, chapter_id: str, chapter_row: Mapping[str, An
         ):
             legacy_path = find_secure_file(audio_dir, candidate)
             if legacy_path:
-                return legacy_path
+                # Rule 9: Explicit containment check for scanner locality
+                import os
+                base_dir = os.path.abspath(os.path.normpath(os.fspath(audio_dir)))
+                fullpath = os.path.abspath(os.path.normpath(os.fspath(legacy_path)))
+                if fullpath.startswith(base_dir + os.sep) or fullpath == base_dir:
+                    return legacy_path
 
     return None

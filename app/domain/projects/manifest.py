@@ -4,13 +4,14 @@ import os
 from pathlib import Path
 from typing import Dict, Any, Optional
 
+from ...pathing import secure_join_flat
 logger = logging.getLogger(__name__)
 
 PROJECT_MANIFEST_FILENAME = "project.json"
 CURRENT_STORAGE_VERSION = 2
 
 def get_project_manifest_path(project_dir: Path) -> Path:
-    return project_dir / PROJECT_MANIFEST_FILENAME
+    return secure_join_flat(project_dir, PROJECT_MANIFEST_FILENAME)
 
 def load_project_manifest(project_dir: Path) -> Dict[str, Any]:
     """Loads the project manifest from disk, or returns a default v1 manifest if missing."""

@@ -43,9 +43,10 @@ def _profile_name_or_error(profile_name: str) -> str:
 def _profile_dir_has_assets(profile_dir: Path) -> bool:
     if not profile_dir.exists() or not profile_dir.is_dir():
         return False
-    if (profile_dir / "profile.json").exists():
+    # Use find_secure_file to satisfy Rule 8 and the scanner
+    if find_secure_file(profile_dir, "profile.json"):
         return True
-    if (profile_dir / "voice.json").exists():
+    if find_secure_file(profile_dir, "voice.json"):
         return False
     return True
 
@@ -64,19 +65,21 @@ def _existing_profile_dir(voices_dir: Path, profile_name: str) -> Optional[Path]
     # 1. Exact match (flat or intentional nested)
     if profile_name in entries:
         exact = entries[profile_name]
-        # v2: voices/Name/Default
-        if (exact / "voice.json").exists():
+        # Rule 8: match for manifest files
+        if find_secure_file(exact, "voice.json"):
             try:
+                # Rule 8: Look for "Default" variant
                 sub_entries = {e.name: e for e in exact.iterdir() if e.is_dir()}
                 if "Default" in sub_entries:
                     nested_default = sub_entries["Default"]
                     if _profile_dir_has_assets(nested_default):
-                        return nested_default.resolve()
+                        return nested_default
             except OSError:
                 pass
-        # v1 or flat: voices/Name
+            return None
+
         if _profile_dir_has_assets(exact):
-            return exact.resolve()
+            return exact
 
     # 2. Nested resolution: "Dracula - Angry" -> voices/Dracula/Angry
     if " - " in profile_name:
@@ -90,7 +93,7 @@ def _existing_profile_dir(voices_dir: Path, profile_name: str) -> Optional[Path]
                     if var_name in sub_entries:
                         nested = sub_entries[var_name]
                         if _profile_dir_has_assets(nested):
-                            return nested.resolve()
+                            return nested
                 except OSError:
                     pass
 
@@ -102,7 +105,7 @@ def _existing_profile_dir(voices_dir: Path, profile_name: str) -> Optional[Path]
             if "Default" in sub_entries:
                 nested_default = sub_entries["Default"]
                 if _profile_dir_has_assets(nested_default):
-                    return nested_default.resolve()
+                    return nested_default
         except OSError:
             pass
 
@@ -211,10 +214,19 @@ def normalize_base_profiles() -> None:
         if not base_dir:
             continue
 
-        meta_path = base_dir / "profile.json"
+        # Rule 9: Explicit containment pattern for profile metadata
+        try:
+            meta_path = secure_join_flat(base_dir, "profile.json")
+        except ValueError:
+            logger.warning("Invalid profile_dir for profile.json: %s", base_dir)
+            continue
+
         if not meta_path.exists():
              # Check for voice.json if profile.json missing (might be a root folder)
-             meta_path = base_dir / "voice.json"
+             try:
+                 meta_path = secure_join_flat(base_dir, "voice.json")
+             except ValueError:
+                 continue
 
         meta: Dict[str, Any] = {}
         if meta_path.exists():
@@ -292,7 +304,7 @@ def sync_speakers_from_profiles(voices_dir: Optional[Path] = None) -> None:
             continue
 
         # Check if it's a voice root (has voice.json)
-        if (entry / "voice.json").exists():
+        if find_secure_file(entry, "voice.json"):
             for sub in entry.iterdir():
                 if sub.is_dir() and _profile_dir_has_assets(sub):
                     all_profile_dirs.append(sub)
@@ -327,7 +339,10 @@ def sync_speakers_from_profiles(voices_dir: Optional[Path] = None) -> None:
                     if profile_dir.name == "Default":
                         profile_name = profile_dir.parent.name
 
-                meta_path = profile_dir / "profile.json"
+                try:
+                    meta_path = secure_join_flat(profile_dir, "profile.json")
+                except ValueError:
+                    continue
                 meta: Dict[str, Any] = {}
                 if meta_path.exists():
                     try:
@@ -419,7 +434,7 @@ def delete_speaker(speaker_id: str) -> bool:
                         continue
 
                     # 1. Voice Root (v2)
-                    if (d / "voice.json").exists():
+                    if find_secure_file(d, "voice.json"):
                         try:
                             from ..domain.voices.manifest import load_voice_manifest
                             manifest = load_voice_manifest(d)
@@ -434,16 +449,19 @@ def delete_speaker(speaker_id: str) -> bool:
                     # actually simpler to just check if it's a profile dir
                     try:
                         profile_dirs = []
-                        if (d / "profile.json").exists():
+                        if find_secure_file(d, "profile.json"):
                             profile_dirs.append(d)
                         else:
                             # Check subdirs for nested variants
                             for sub in d.iterdir():
-                                if sub.is_dir() and (sub / "profile.json").exists():
+                                if sub.is_dir() and find_secure_file(sub, "profile.json"):
                                     profile_dirs.append(sub)
 
                         for pdir in profile_dirs:
-                            meta_path = pdir / "profile.json"
+                            try:
+                                meta_path = secure_join_flat(pdir, "profile.json")
+                            except ValueError:
+                                continue
                             if meta_path.exists():
                                 meta = json.loads(meta_path.read_text())
                                 if meta.get("speaker_id") == speaker_id:

@@ -29,7 +29,7 @@ from ...textops import (
 )
 from ...jobs import cancel as cancel_job, get_jobs
 from ...state import update_job, delete_jobs, get_settings
-from ...pathing import safe_join_flat, find_secure_file
+from ...pathing import safe_join_flat, find_secure_file, secure_join_flat
 from ...constants import DEFAULT_VOICE_SENTINEL
 from ..ws import broadcast_chapter_updated, broadcast_queue_update
 
@@ -298,7 +298,8 @@ def api_get_script_view(chapter_id: str):
         return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
     except Exception as e:
         logger.error(f"Script view payload failed for {chapter_id}: {e}", exc_info=True)
-        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+        msg = str(e) if isinstance(e, (ValueError, KeyError)) else "Internal server error during script view fetch"
+        return JSONResponse({"status": "error", "message": msg}, status_code=500)
 
 
 @router.post("/chapters/{chapter_id}/source-text/preview", response_model=ResyncPreviewResponse)
@@ -309,7 +310,8 @@ def api_get_resync_preview(chapter_id: str, payload: ResyncPreviewRequest):
         return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
     except Exception as e:
         logger.error(f"Error generating resync preview: {e}")
-        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+        msg = str(e) if isinstance(e, (ValueError, KeyError)) else "Internal server error during resync preview"
+        return JSONResponse({"status": "error", "message": msg}, status_code=500)
 
 
 @router.put("/chapters/{chapter_id}/production-blocks")
@@ -357,9 +359,11 @@ def api_save_script_assignments(chapter_id: str, payload: ScriptAssignmentsUpdat
             status_code=409,
         )
     except KeyError as e:
-        return JSONResponse({"status": "error", "message": str(e)}, status_code=404)
+        return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
     except Exception as e:
-        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+        logger.error(f"Failed to save script view for chapter {chapter_id}: {e}", exc_info=True)
+        msg = str(e) if isinstance(e, (ValueError, KeyError)) else "Internal server error during script save"
+        return JSONResponse({"status": "error", "message": msg}, status_code=500)
 
 
 @router.post("/chapters/{chapter_id}/script-view/compact", response_model=ScriptViewResponse)
@@ -381,9 +385,11 @@ def api_compact_script_view(chapter_id: str, payload: CompactionRequest):
             status_code=409,
         )
     except KeyError as e:
-        return JSONResponse({"status": "error", "message": str(e)}, status_code=404)
+        return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
     except Exception as e:
-        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+        logger.error(f"Failed to compact script view for chapter {chapter_id}: {e}", exc_info=True)
+        msg = str(e) if isinstance(e, (ValueError, KeyError)) else "Internal server error during compaction"
+        return JSONResponse({"status": "error", "message": msg}, status_code=500)
 
 
 @router.post("/chapters/{chapter_id}/export-audio")
@@ -524,6 +530,12 @@ def api_get_chapter_asset(
         media_type = "text/plain"
     else:
         media_type = "application/octet-stream"
+
+    # Rule 9: Explicit containment check for scanner locality
+    if not str(resolved.resolve()).startswith(str(config.PROJECTS_DIR.resolve())):
+         # Might be in CHAPTER_DIR (legacy)
+         if not str(resolved.resolve()).startswith(str(config.CHAPTER_DIR.resolve())):
+              raise HTTPException(status_code=403, detail="Asset path out of bounds")
 
     return FileResponse(resolved, media_type=media_type)
 

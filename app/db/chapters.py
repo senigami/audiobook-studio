@@ -7,7 +7,7 @@ import uuid
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from .core import _db_lock, get_connection
-from ..pathing import safe_join, safe_join_flat
+from ..pathing import safe_join, safe_join_flat, find_secure_file, secure_join_flat
 
 logger = logging.getLogger(__name__)
 SAFE_AUDIO_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
@@ -80,10 +80,13 @@ def cleanup_chapter_audio_files(
         target_dirs.append(legacy_pdir)
     if nested_pdir and nested_pdir.exists():
         target_dirs.append(nested_pdir)
-        # Literals are safe
-        seg_dir = nested_pdir / "segments"
-        if seg_dir.exists():
-            target_dirs.append(seg_dir)
+        # Rule 9: Secure join for literal subdirectory
+        try:
+            seg_dir = secure_join_flat(nested_pdir, "segments")
+            if seg_dir.exists():
+                target_dirs.append(seg_dir)
+        except ValueError:
+            pass
 
     if not target_dirs:
         return True
@@ -163,18 +166,14 @@ def move_chapter_artifacts_to_trash(
     try:
         # Use project-aware trash dir resolution
         base_trash_path = config.get_project_trash_dir(project_id) or config.TRASH_DIR
-        base_trash = os.path.abspath(os.path.normpath(os.fspath(base_trash_path)))
-        trash_root_str = os.path.abspath(os.path.normpath(os.path.join(base_trash, chapter_id)))
-        if not trash_root_str.startswith(base_trash + os.sep) and trash_root_str != base_trash:
-             raise ValueError("Invalid trash root")
-        trash_root = Path(trash_root_str)
+        trash_root = secure_join_flat(base_trash_path, chapter_id)
     except Exception:
         logger.warning("Skipping trash move for invalid chapter id %s", chapter_id)
         return False
 
-    # Literals are safe
-    trash_audio_dir = trash_root / "audio"
-    trash_text_dir = trash_root / "text"
+    # Rule 9: secure_join_flat for literals
+    trash_audio_dir = secure_join_flat(trash_root, "audio")
+    trash_text_dir = secure_join_flat(trash_root, "text")
 
     trash_audio_dir.mkdir(parents=True, exist_ok=True)
     trash_text_dir.mkdir(parents=True, exist_ok=True)
@@ -199,11 +198,14 @@ def move_chapter_artifacts_to_trash(
                     source_files.append((d, entry))
             # Also check segments subdir if nested
             if d == nested_dir:
-                seg_dir = d / "segments"
-                if seg_dir.exists():
-                    for entry in seg_dir.iterdir():
-                        if entry.is_file():
-                            source_files.append((seg_dir, entry))
+                try:
+                    seg_dir = secure_join_flat(d, "segments")
+                    if seg_dir.exists():
+                        for entry in seg_dir.iterdir():
+                            if entry.is_file():
+                                source_files.append((seg_dir, entry))
+                except ValueError:
+                    pass
 
     # 3. Filter and move
     audio_moved = 0
@@ -242,12 +244,7 @@ def move_chapter_artifacts_to_trash(
             if not SAFE_AUDIO_NAME_RE.fullmatch(name) and not SAFE_TEXT_NAME_RE.fullmatch(name):
                  continue
 
-            base_target = os.path.abspath(os.path.normpath(os.fspath(target_dir)))
-            dest_str = os.path.abspath(os.path.normpath(os.path.join(base_target, name)))
-            if not dest_str.startswith(base_target + os.sep) and dest_str != base_target:
-                 continue
-
-            dest = Path(dest_str)
+            dest = secure_join_flat(target_dir, name)
             # Ensure unique destination name if multiple sources have same filename
             if dest.exists():
                 unique_name = f"{uuid.uuid4().hex}_{name}"
@@ -290,7 +287,7 @@ def create_chapter(project_id: str, title: str, text_content: Optional[str] = No
             from ..config import get_chapter_dir
             nested_dir = get_chapter_dir(project_id, chapter_id)
             nested_dir.mkdir(parents=True, exist_ok=True)
-            (nested_dir / "segments").mkdir(exist_ok=True)
+            secure_join_flat(nested_dir, "segments").mkdir(exist_ok=True)
 
             return chapter_id
 

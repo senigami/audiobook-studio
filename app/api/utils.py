@@ -165,7 +165,10 @@ def list_audiobooks():
     if config.PROJECTS_DIR.exists():
         for proj_dir in config.PROJECTS_DIR.iterdir():
             if proj_dir.is_dir():
-                m4b_dir = proj_dir / "m4b"
+                try:
+                    m4b_dir = secure_join_flat(proj_dir, "m4b")
+                except ValueError:
+                    continue
                 if m4b_dir.exists():
                     for p in m4b_dir.glob("*.m4b"):
                         if not SAFE_FILE_RE.fullmatch(p.name):

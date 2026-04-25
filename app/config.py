@@ -85,28 +85,28 @@ def get_project_audio_dir(project_id: str) -> Path:
     if existing_dir:
         return existing_dir
     project_dir = get_project_dir(project_id)
-    return project_dir / "audio"
+    return secure_join_flat(project_dir, "audio")
 
 def get_project_text_dir(project_id: str) -> Path:
     existing_dir = find_existing_project_subdir(project_id, "text")
     if existing_dir:
         return existing_dir
     project_dir = get_project_dir(project_id)
-    return project_dir / "text"
+    return secure_join_flat(project_dir, "text")
 
 def get_project_m4b_dir(project_id: str) -> Path:
     existing_dir = find_existing_project_subdir(project_id, "m4b")
     if existing_dir:
         return existing_dir
     project_dir = get_project_dir(project_id)
-    return project_dir / "m4b"
+    return secure_join_flat(project_dir, "m4b")
 
 def get_project_cover_dir(project_id: str) -> Path:
     existing_dir = find_existing_project_subdir(project_id, "cover")
     if existing_dir:
         return existing_dir
     project_dir = get_project_dir(project_id)
-    return project_dir / "cover"
+    return secure_join_flat(project_dir, "cover")
 
 
 def get_project_trash_dir(project_id: str) -> Path:
@@ -114,7 +114,7 @@ def get_project_trash_dir(project_id: str) -> Path:
     if existing_dir:
         return existing_dir
     project_dir = get_project_dir(project_id)
-    return project_dir / "trash"
+    return secure_join_flat(project_dir, "trash")
 
 
 def get_chapter_dir(project_id: str, chapter_id: str) -> Path:
@@ -127,8 +127,8 @@ def get_project_storage_version(project_id: str) -> int:
     """Returns the storage version of the project (1 for legacy, 2 for nested)."""
     try:
         project_dir = get_project_dir(project_id)
-        manifest_path = project_dir / "project.json"
-        if not manifest_path.exists():
+        manifest_path = find_secure_file(project_dir, "project.json")
+        if not manifest_path:
             return 1
         import json
         with open(manifest_path, "r", encoding="utf-8") as f:
@@ -163,8 +163,8 @@ def get_voice_storage_version(voice_name: str) -> int:
     """Returns the storage version of a voice (1 for legacy flat, 2 for nested)."""
     try:
         voice_root = get_voice_dir(voice_name)
-        manifest_path = voice_root / "voice.json"
-        if not manifest_path.exists():
+        manifest_path = find_secure_file(voice_root, "voice.json")
+        if not manifest_path:
             return 1
         import json
         with open(manifest_path, "r", encoding="utf-8") as f:
@@ -288,11 +288,11 @@ def resolve_chapter_asset_path(
 
                 # Rule: match from subfolder
                 try:
-                    seg_dir = nested_dir / "segments"
+                    seg_dir = secure_join_flat(nested_dir, "segments")
                     new_path = _find_file(seg_dir, f"{sid}.wav")
                     if new_path:
                         return new_path
-                except OSError:
+                except (OSError, ValueError):
                     pass
 
                 legacy_name = filename if filename.startswith("chunk_") else f"chunk_{filename}.wav"
