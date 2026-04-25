@@ -39,6 +39,16 @@ def _profile_name_or_error(profile_name: str) -> str:
     return profile_name
 
 
+def _profile_dir_has_assets(profile_dir: Path) -> bool:
+    if not profile_dir.exists() or not profile_dir.is_dir():
+        return False
+    if (profile_dir / "profile.json").exists():
+        return True
+    if (profile_dir / "voice.json").exists():
+        return False
+    return True
+
+
 def _existing_profile_dir(voices_dir: Path, profile_name: str) -> Optional[Path]:
     profile_name = _profile_name_or_error(profile_name)
     if not voices_dir.exists():
@@ -50,22 +60,25 @@ def _existing_profile_dir(voices_dir: Path, profile_name: str) -> Optional[Path]
         if (exact / "profile.json").exists():
             return exact.resolve()
 
+        if _profile_dir_has_assets(exact):
+            return exact.resolve()
+
         # If voice root, look for Default
         if (exact / "voice.json").exists():
             nested_default = exact / "Default"
-            if nested_default.exists() and nested_default.is_dir():
+            if nested_default.exists() and nested_default.is_dir() and _profile_dir_has_assets(nested_default):
                 return nested_default.resolve()
 
     # 2. Nested resolution: "Dracula - Angry" -> voices/Dracula/Angry
     if " - " in profile_name:
         v_name, var_name = profile_name.split(" - ", 1)
         nested = voices_dir / v_name.strip() / var_name.strip()
-        if nested.exists() and nested.is_dir() and (nested / "profile.json").exists():
+        if nested.exists() and nested.is_dir() and _profile_dir_has_assets(nested):
             return nested.resolve()
 
     # 3. Base voice default: "Dracula" -> voices/Dracula/Default (Fallback)
     nested_default = voices_dir / profile_name / "Default"
-    if nested_default.exists() and nested_default.is_dir() and (nested_default / "profile.json").exists():
+    if nested_default.exists() and nested_default.is_dir() and _profile_dir_has_assets(nested_default):
         return nested_default.resolve()
 
     return None
@@ -233,11 +246,11 @@ def sync_speakers_from_profiles(voices_dir: Optional[Path] = None) -> None:
         # Check if it's a voice root (has voice.json)
         if (entry / "voice.json").exists():
             for sub in entry.iterdir():
-                if sub.is_dir() and (sub / "profile.json").exists():
+                if sub.is_dir() and _profile_dir_has_assets(sub):
                     all_profile_dirs.append(sub)
 
         # Check if it's a profile directory directly (flat layout or default variant)
-        if (entry / "profile.json").exists():
+        if _profile_dir_has_assets(entry):
             all_profile_dirs.append(entry)
 
     if not all_profile_dirs:

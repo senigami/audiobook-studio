@@ -59,6 +59,16 @@ def _valid_sample_name(sample_name: str) -> str:
     return sample_name
 
 
+def _profile_dir_has_assets(profile_dir: Path) -> bool:
+    if not profile_dir.exists() or not profile_dir.is_dir():
+        return False
+    if (profile_dir / "profile.json").exists():
+        return True
+    if (profile_dir / "voice.json").exists():
+        return False
+    return True
+
+
 def _normalize_profile_engine(engine: Optional[str]) -> str:
     normalized = (engine or DEFAULT_PROFILE_ENGINE).strip().lower()
     if normalized not in VALID_PROFILE_ENGINES:
@@ -84,14 +94,14 @@ def _voice_dirs_map() -> Dict[str, Path]:
             # 1. Nested Voice Roots (v2)
             if (entry / "voice.json").exists():
                 for sub in entry.iterdir():
-                    if sub.is_dir() and (sub / "profile.json").exists():
+                    if sub.is_dir() and _profile_dir_has_assets(sub):
                         name = f"{entry.name} - {sub.name}"
                         if sub.name == "Default":
                             name = entry.name
                         dirs[name] = sub.resolve()
 
             # 2. Legacy Flat or Default Variant at Root
-            if (entry / "profile.json").exists():
+            if _profile_dir_has_assets(entry):
                 dirs[entry.name] = entry.resolve()
     return dirs
 
@@ -109,17 +119,26 @@ def _new_voice_profile_dir(name: str) -> Path:
         voice_name = voice_name.strip()
         variant_name = variant_name.strip()
 
+        from ...config import get_voice_storage_version
+        if get_voice_storage_version(voice_name) >= 2:
+            # Ensure voice root has a manifest if we create it
+            voice_root = VOICES_DIR / voice_name
+            if not (voice_root / "voice.json").exists():
+                voice_root.mkdir(parents=True, exist_ok=True)
+                from ...domain.voices.manifest import save_voice_manifest
+                save_voice_manifest(voice_root, {"version": 2, "name": voice_name})
+            return voice_root / variant_name
+
         # Collision check: don't allow creating if a FLAT folder exists with the same name
         if (VOICES_DIR / candidate).exists():
              return VOICES_DIR / candidate
 
-        # Ensure voice root has a manifest if we create it
+        # Create the nested destination for new variant-style names.
         voice_root = VOICES_DIR / voice_name
+        voice_root.mkdir(parents=True, exist_ok=True)
+        from ...domain.voices.manifest import save_voice_manifest
         if not (voice_root / "voice.json").exists():
-             voice_root.mkdir(parents=True, exist_ok=True)
-             from ...domain.voices.manifest import save_voice_manifest
-             save_voice_manifest(voice_root, {"version": 2, "name": voice_name})
-
+            save_voice_manifest(voice_root, {"version": 2, "name": voice_name})
         return voice_root / variant_name
 
     base_dir = os.path.abspath(os.path.normpath(os.fspath(VOICES_DIR)))
@@ -582,6 +601,10 @@ def _rename_profile_folders(old_name: str, new_name: str):
 
     # 1. Exact match (unassigned profile or narrator-identical name)
     if old_dir and not new_dir.exists():
+        if " - " in old_name and " - " in new_name and old_dir.parent == VOICES_DIR:
+            # Preserve the legacy flat layout for flat variant folders when only the
+            # variant label changes. New base->variant renames still use the nested path.
+            new_dir = VOICES_DIR / new_name
         old_dir.rename(new_dir)
         update_voice_profile_references(old_name, new_name)
         # Update meta if exists
