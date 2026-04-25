@@ -601,6 +601,9 @@ def api_download_saved_backup(project_id: str, filename: str):
         backups_dir = project_dir / "backups"
 
         # Validation
+        if not (filename.endswith(".zip") or filename.endswith(".abf")):
+            return JSONResponse({"status": "error", "message": "Invalid filename extension"}, status_code=400)
+
         try:
             backup_path = safe_join_flat(backups_dir, filename)
         except ValueError:
@@ -634,6 +637,9 @@ def api_update_project_backup_metadata(project_id: str, filename: str, comment: 
         backups_dir = project_dir / "backups"
 
         # Validation
+        if not (filename.endswith(".zip") or filename.endswith(".abf")):
+            return JSONResponse({"status": "error", "message": "Invalid filename extension"}, status_code=400)
+
         try:
             backup_path = safe_join_flat(backups_dir, filename)
         except ValueError:
@@ -707,6 +713,9 @@ def api_delete_project_backup(project_id: str, filename: str):
         backups_dir = project_dir / "backups"
 
         # Validation
+        if not (filename.endswith(".zip") or filename.endswith(".abf")):
+            return JSONResponse({"status": "error", "message": "Invalid filename extension"}, status_code=400)
+
         try:
             backup_path = safe_join_flat(backups_dir, filename)
         except ValueError:
@@ -776,12 +785,18 @@ def _create_backup_archive(bundle: ProjectBackupBundleModel) -> io.BytesIO:
                     # Try to find corresponding .wav if path points to .mp3 or similar
                     wav_path = str(Path(raw_path).with_suffix(".wav"))
 
-                audio_path = Path(wav_path)
+                from app.config import get_project_audio_dir
+                audio_dir = get_project_audio_dir(project_id)
+                audio_path = audio_dir / wav_path
+                if not audio_path.exists():
+                    # Fallback to the original path if wav not found (might already be wav)
+                    audio_path = audio_dir / raw_path
+
                 if audio_path.exists() and audio_path.suffix.lower() == ".wav":
                     audio_ext = ".wav"
                     # Use the same base filename as the text for easy pairing
                     try:
-                        audio_filename = safe_join_flat(audio_path.parent, f"{Path(text_filename).stem}{audio_ext}").name
+                        audio_filename = safe_join_flat(audio_dir, f"{Path(text_filename).stem}{audio_ext}").name
                         zf.write(audio_path, arcname=f"chapters/{audio_filename}")
                         chapter_info["audio_path"] = f"chapters/{audio_filename}"
                     except ValueError:
