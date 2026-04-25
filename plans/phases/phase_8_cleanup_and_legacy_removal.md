@@ -20,6 +20,7 @@ Finish the visible Studio 2.0 shell and the highest-value product seams before o
 - [x] **Asset Cleanup**: legacy flat audio/text residues are removed after successful v2 chapter migration
 - [x] **One-time Backfill**: v2 voice roots normalized with `default_variant` and metadata reconciled to prevent stale status
 - [x] **Voice Portability (Issue #39)**: Whole-voice bundle export/import (metadata, model assets, and optional source WAVs)
+- [x] **Voice Portability UX**: Export and import are surfaced directly in the Voices header, with per-voice export preserved as a shortcut
 
 ## Deliverables Checklist
 
@@ -74,6 +75,7 @@ The project and voice storage migration was implemented as a versioned cutover (
 - Structural legacy paths (backfill/repair) have been audited and confirmed as isolated system utilities.
 - Character assignment "None / Default" tool has been restored with a "No-Op" policy.
 - **Voice Portability (Issue #39)**: Whole-voice export/import implemented. Zip bundles include `voice.json`, `bundle.json`, variant profiles, model latents, and preview assets. Source WAV inclusion is optional via export toggle. Import handles duplicates via safe suffixing (e.g., "Voice 2").
+- **Voice Portability UX**: Export and import are visible from the Voices header so the bundle workflow is discoverable without opening the voice action menu.
 - All Phase 8 cleanup and diagnostic audit items are complete.
 
 ## Scope
