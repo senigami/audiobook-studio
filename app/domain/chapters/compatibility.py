@@ -1,4 +1,4 @@
-\"\"\"Compatibility facade for the Phase 7 production-block bridge.\"\"\"
+"""Compatibility facade for the Phase 7 production-block bridge."""
 
 from __future__ import annotations
 

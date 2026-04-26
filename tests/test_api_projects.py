@@ -97,7 +97,7 @@ def test_project_audiobooks_and_assemble(clean_db, client):
 
     # Assemble
     from unittest.mock import patch
-    with patch("app.api.routers.projects.put_job") as mock_put_job, patch("app.api.routers.projects.enqueue") as mock_enqueue:
+    with patch("app.api.routers.projects_assembly.put_job") as mock_put_job, patch("app.api.routers.projects_assembly.enqueue") as mock_enqueue:
         # We don't send 'chapters' list explicitly if we want it to use all chapters from project
         response = client.post(f"/api/projects/{pid}/assemble", 
                                data={"title": "Book", "author": "Me", "narrator": "V1"})

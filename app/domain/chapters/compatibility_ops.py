@@ -172,7 +172,7 @@ def save_production_blocks_payload(
             existing_blocks = blocks._group_segments_into_blocks(chapter_id=chapter_id, segment_rows=current_segments)
             metrics = compute_chapter_metrics(raw_text)
             cursor.execute(
-                \"\"\"
+                """
                 UPDATE chapters
                 SET text_content = ?,
                     text_last_modified = ?,
@@ -184,7 +184,7 @@ def save_production_blocks_payload(
                     word_count = ?,
                     predicted_audio_length = ?
                 WHERE id = ?
-                \"\"\",
+                """,
                 (
                     raw_text,
                     time.time(),
@@ -243,7 +243,7 @@ def save_script_assignments(
                     flat_assignments.append((char_id, prof_name, str(sid)))
 
             cursor.executemany(
-                    \"\"\"
+                    """
                     UPDATE chapter_segments
                     SET character_id = ?,
                         speaker_profile_name = ?,
@@ -252,7 +252,7 @@ def save_script_assignments(
                             ELSE audio_status
                         END
                     WHERE id = ? AND chapter_id = ?
-                    \"\"\",
+                    """,
                     [(char_id, prof_name, char_id, prof_name, span_id, chapter_id) for char_id, prof_name, span_id in flat_assignments],
                 )
 
@@ -266,13 +266,13 @@ def get_resync_preview(chapter_id: str, new_text: str) -> dict[str, Any]:
     with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            \"\"\"
+            """
             SELECT s.text_content, s.character_id, s.speaker_profile_name, c.name as character_name
             FROM chapter_segments s
             LEFT JOIN characters c ON s.character_id = c.id
             WHERE s.chapter_id = ? 
             ORDER BY s.segment_order ASC
-            \"\"\",
+            """,
             (chapter_id,),
         )
         existing = [dict(row) for row in cursor.fetchall()]
@@ -344,14 +344,14 @@ def compact_script_view(chapter_id: str, base_revision_id: str | None = None) ->
                 if is_compatible:
                     new_text = (s1.get("text_content") or "") + (s2.get("text_content") or "")
                     cursor.execute(
-                        \"\"\"
+                        """
                         UPDATE chapter_segments 
                         SET text_content = ?, 
                             audio_status = 'unprocessed', 
                             audio_file_path = NULL, 
                             audio_generated_at = NULL 
                         WHERE id = ?
-                        \"\"\",
+                        """,
                         (new_text, s1["id"])
                     )
                     cursor.execute("DELETE FROM chapter_segments WHERE id = ?", (s2["id"],))
@@ -440,7 +440,7 @@ def _apply_range_assignment(conn, chapter_id: str, range_req: Mapping[str, Any])
 
     if assign_ids:
         cursor.executemany(
-            \"\"\"
+            """
             UPDATE chapter_segments
             SET character_id = ?,
                 speaker_profile_name = ?,
@@ -448,7 +448,7 @@ def _apply_range_assignment(conn, chapter_id: str, range_req: Mapping[str, Any])
                 audio_file_path = NULL,
                 audio_generated_at = NULL
             WHERE id = ? AND chapter_id = ?
-            \"\"\",
+            """,
             [(character_id, speaker_profile_name, sid, chapter_id) for sid in assign_ids]
         )
 
@@ -479,12 +479,12 @@ def _split_segment_at_offset(conn, chapter_id: str, segment_id: str, offset: int
         (chapter_id, order)
     )
     cursor.execute(
-        \"\"\"
+        """
         INSERT INTO chapter_segments (
             id, chapter_id, segment_order, text_content, character_id, 
             speaker_profile_name, audio_status, audio_file_path, audio_generated_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        \"\"\",
+        """,
         (
             right_id, chapter_id, order + 1, right_text, seg["character_id"],
             seg["speaker_profile_name"], "unprocessed", None, None
