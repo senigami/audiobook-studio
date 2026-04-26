@@ -302,8 +302,9 @@ export const useChapterEditor = (
     } catch (e: any) {
       if (e.status === 409) {
         setSaveConflictError(e.message || "A conflict occurred while saving. The chapter was modified by another process.");
+      } else {
+        throw e;
       }
-      throw e;
     }
   }, [chapterId, productionBaseRevisionId, syncProductionBlocks]);
 
@@ -343,10 +344,10 @@ export const useChapterEditor = (
         const updatedSegs = await api.fetchSegments(chapterId);
         setSegments(updatedSegs);
     } catch (e: any) {
-        console.error("Script assignment failed", e);
         if (e.status === 409) {
             onConflict?.();
         } else {
+            console.error("Script assignment failed", e);
             loadChapter('assignment-error-rollback');
         }
     }

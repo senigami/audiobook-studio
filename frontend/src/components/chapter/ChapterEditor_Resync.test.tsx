@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Mock API
-vi.mock('../api', () => ({
+vi.mock('../../api', () => ({
   api: {
     fetchChapters: vi.fn(),
     fetchSegments: vi.fn(),
@@ -24,7 +24,7 @@ vi.mock('../api', () => ({
 }));
 
 // Mock hooks
-vi.mock('../hooks/useChapterAnalysis', () => ({
+vi.mock('../../hooks/useChapterAnalysis', () => ({
   useChapterAnalysis: () => ({
     analysis: null,
     setAnalysis: vi.fn(),
@@ -35,7 +35,7 @@ vi.mock('../hooks/useChapterAnalysis', () => ({
   }),
 }));
 
-vi.mock('../hooks/useChapterPlayback', () => ({
+vi.mock('../../hooks/useChapterPlayback', () => ({
   useChapterPlayback: () => ({
     playingSegmentId: null,
     playingSegmentIds: new Set(),
@@ -44,7 +44,7 @@ vi.mock('../hooks/useChapterPlayback', () => ({
   }),
 }));
 
-import { stripMotionProps } from './chapter/chapterEditorFixtures';
+import { stripMotionProps } from './chapterEditorFixtures';
 // Mock framer-motion
 vi.mock('framer-motion', () => ({
   motion: {
@@ -54,19 +54,21 @@ vi.mock('framer-motion', () => ({
 }));
 
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
-import { ChapterEditor } from './ChapterEditor';
-import { api } from '../api';
+import { ChapterEditor } from '../ChapterEditor';
+import { api } from '../../api';
 import { 
   mockChapterId, 
   mockProjectId, 
   mockChapter, 
+  mockSpeakerProfiles, 
+  mockSpeakers,
   mockSegments,
   mockProductionBlocks,
   mockRenderBatches,
   mockScriptView
-} from './chapter/chapterEditorFixtures';
+} from './chapterEditorFixtures';
 
-describe('ChapterEditor - Core Orchestration', () => {
+describe('ChapterEditor - Source Text & Resync', () => {
   let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
@@ -90,87 +92,14 @@ describe('ChapterEditor - Core Orchestration', () => {
     consoleErrorSpy.mockRestore();
   });
 
-  it('renders loading state then editor', async () => {
-    render(
-      <ChapterEditor 
-        chapterId={mockChapterId} 
-        projectId={mockProjectId} 
-        speakerProfiles={[]} 
-        speakers={[]} 
-        onBack={vi.fn()} 
-      />
-    );
-    expect(screen.getByText('Loading editor...')).toBeInTheDocument();
-    
-    await waitFor(() => {
-      expect(screen.queryByText('Loading editor...')).not.toBeInTheDocument();
-    });
-    
-    expect(screen.getByDisplayValue('Test Chapter')).toBeInTheDocument();
-  });
-
-  it('switches between tabs correctly', async () => {
-    render(
-      <ChapterEditor 
-        chapterId={mockChapterId} 
-        projectId={mockProjectId} 
-        speakerProfiles={[]} 
-        speakers={[]} 
-        onBack={vi.fn()} 
-      />
-    );
-
-    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
-    
-    fireEvent.click(screen.getByText('Source Text'));
-    expect(screen.getByText('Source Text (Full)')).toBeInTheDocument();
-    
-    fireEvent.click(screen.getByText('Performance'));
-    expect(screen.getByText(/Total Segments:/)).toBeInTheDocument();
-    
-    fireEvent.click(screen.getByText('Production'));
-    expect(screen.getByText('Production Blocks')).toBeInTheDocument();
-  });
-
-  it('handles title changes and auto-save', async () => {
-    (api.updateChapter as any).mockResolvedValue({ chapter: { ...mockChapter, title: 'Updated Title' } });
-    
-    render(
-      <ChapterEditor 
-        chapterId={mockChapterId} 
-        projectId={mockProjectId} 
-        speakerProfiles={[]} 
-        speakers={[]} 
-        onBack={vi.fn()} 
-      />
-    );
-
-    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
-    
-    vi.useFakeTimers();
-    const titleInput = screen.getByDisplayValue('Test Chapter');
-    
-    await act(async () => {
-      fireEvent.change(titleInput, { target: { value: 'Updated Title' } });
-    });
-
-    // Fast-forward timers for auto-save
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(2000);
-    });
-
-    expect(api.updateChapter).toHaveBeenCalledWith(mockChapterId, expect.objectContaining({
-      title: 'Updated Title'
-    }));
-  });
-
-  it('handles tab switching reseting text mode', async () => {
+  it('disables auto-save for text in edit tab', async () => {
+    (api.updateChapter as any).mockResolvedValue({ chapter: mockChapter });
     render(
       <ChapterEditor
         chapterId={mockChapterId}
         projectId={mockProjectId}
-        speakerProfiles={[]}
-        speakers={[]}
+        speakerProfiles={mockSpeakerProfiles as any}
+        speakers={mockSpeakers as any}
         onBack={vi.fn()}
       />
     );
@@ -180,11 +109,63 @@ describe('ChapterEditor - Core Orchestration', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Edit Source Text' }));
     fireEvent.click(screen.getByText('Continue to Edit'));
 
-    expect(screen.getByPlaceholderText(/Start typing your chapter text/i)).toBeInTheDocument();
+    vi.useFakeTimers();
+    const textarea = screen.getByPlaceholderText(/Start typing your chapter text/i);
+    await act(async () => {
+      fireEvent.change(textarea, { target: { value: 'Completely different text.' } });
+    });
 
-    fireEvent.click(screen.getByText('Script View'));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+
+    expect(api.updateChapter).not.toHaveBeenCalledWith(mockChapterId, expect.objectContaining({
+      text_content: 'Completely different text.'
+    }));
+  });
+
+  it('handles source text resync preview and commit', async () => {
+    const previewData = {
+      total_segments_before: 1,
+      total_segments_after: 2,
+      preserved_assignments_count: 0,
+      lost_assignments_count: 5,
+      affected_character_names: ['Impacted Character A'],
+      is_destructive: true
+    };
+    (api.previewSourceTextResync as any).mockResolvedValue(previewData);
+    (api.updateChapter as any).mockResolvedValue({ chapter: { ...mockChapter, text_content: 'New Text.' } });
+
+    render(
+      <ChapterEditor
+        chapterId={mockChapterId}
+        projectId={mockProjectId}
+        speakerProfiles={mockSpeakerProfiles as any}
+        speakers={mockSpeakers as any}
+        onBack={vi.fn()}
+      />
+    );
+
+    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
     fireEvent.click(screen.getByText('Source Text'));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Source Text' }));
+    fireEvent.click(screen.getByText('Continue to Edit'));
 
-    expect(screen.queryByPlaceholderText(/Start typing your chapter text/i)).not.toBeInTheDocument();
+    const textarea = screen.getByPlaceholderText(/Start typing your chapter text/i);
+    fireEvent.change(textarea, { target: { value: 'New Text.' } });
+
+    fireEvent.click(screen.getByText('Commit Changes'));
+    await waitFor(() => {
+      expect(api.previewSourceTextResync).toHaveBeenCalledWith(mockChapterId, 'New Text.');
+    });
+
+    expect(await screen.findByText('Source Text Resync Preview')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Confirm Resync'));
+
+    await waitFor(() => {
+      expect(api.updateChapter).toHaveBeenCalledWith(mockChapterId, expect.objectContaining({
+        text_content: 'New Text.'
+      }));
+    });
   });
 });

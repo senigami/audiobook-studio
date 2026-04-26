@@ -274,7 +274,6 @@ export const useProductionTab = ({
       ].join('::');
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Unable to save production blocks.');
-      throw error;
     } finally {
       setSaving(false);
     }

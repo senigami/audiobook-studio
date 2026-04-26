@@ -32,6 +32,7 @@ describe('ChapterHeader', () => {
         queueTitle="Queue Chapter"
         onQueue={vi.fn()}
         onStopAll={vi.fn()}
+        generatingSegmentIdsCount={0}
       />
     );
 
