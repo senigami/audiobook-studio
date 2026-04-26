@@ -8,6 +8,16 @@ from .pathing import safe_join, safe_join_flat, find_secure_file, secure_join_fl
 
 BASE_DIR = Path(os.getenv("AUDIOBOOK_BASE_DIR", str(Path(__file__).resolve().parents[1])))
 
+# XTTS warning threshold
+SENT_CHAR_LIMIT = 500
+SAFE_SPLIT_TARGET = 450
+
+PART_CHAR_LIMIT = 30000
+MAKE_MP3_DEFAULT = False
+MP3_QUALITY = "2"  # ffmpeg -q:a 2
+AUDIOBOOK_BITRATE = "64k"
+BASELINE_XTTS_CPS = 16.7
+
 DEFAULT_CHAPTER_DIR = (
     BASE_DIR / "chapters_out"
     if (BASE_DIR / "chapters_out").exists() and not (BASE_DIR / "chapters").exists()
@@ -336,12 +346,3 @@ def resolve_chapter_asset_path(
 
     return None
 
-# XTTS warning threshold you saw
-SENT_CHAR_LIMIT = 500
-SAFE_SPLIT_TARGET = 450
-
-PART_CHAR_LIMIT = 30000
-MAKE_MP3_DEFAULT = False
-MP3_QUALITY = "2"  # ffmpeg -q:a 2
-AUDIOBOOK_BITRATE = "64k"
-BASELINE_XTTS_CPS = 16.7
