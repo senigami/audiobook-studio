@@ -123,13 +123,16 @@ describe('ChapterEditor - Core Orchestration', () => {
     await waitFor(() => screen.findByDisplayValue('Test Chapter'));
     
     fireEvent.click(screen.getByText('Source Text'));
-    expect(screen.getByText('Source Text (Full)')).toBeInTheDocument();
+    expect(await screen.findByText('Analysis')).toBeInTheDocument();
     
     fireEvent.click(screen.getByText('Performance'));
-    expect(screen.getByText(/Total Segments:/)).toBeInTheDocument();
+    expect(await screen.findByText('Performance View')).toBeInTheDocument();
     
     fireEvent.click(screen.getByText('Production'));
-    expect(screen.getByText('Production Blocks')).toBeInTheDocument();
+    expect(await screen.findByText('Production Blocks')).toBeInTheDocument();
+    
+    fireEvent.click(screen.getByText('Preview Safe Output'));
+    expect(await screen.findByText('Preview Safe Output')).toBeInTheDocument();
   });
 
   it('handles title changes and auto-save', async () => {
@@ -182,7 +185,7 @@ describe('ChapterEditor - Core Orchestration', () => {
 
     expect(screen.getByPlaceholderText(/Start typing your chapter text/i)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByText('Script View'));
+    fireEvent.click(screen.getByText('Script'));
     fireEvent.click(screen.getByText('Source Text'));
 
     expect(screen.queryByPlaceholderText(/Start typing your chapter text/i)).not.toBeInTheDocument();
