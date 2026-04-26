@@ -2,12 +2,6 @@
 
 This is the only place that should route a voice request to a concrete engine
 implementation.
-
-Phase 5 migration note:
-    When ``USE_TTS_SERVER=true``, the bridge routes all synthesis and preview
-    calls through the TTS Server HTTP client instead of calling engine adapters
-    in-process.  All callers see the same interface regardless of which path is
-    active.  The legacy in-process path remains the default.
 """
 
 from __future__ import annotations
@@ -16,153 +10,56 @@ import logging
 from typing import Any
 
 from app.core.feature_flags import use_tts_server
-from app.engines.enablement import can_enable_engine
-from app.engines.errors import (
-    EngineNotReadyError,
-    EngineRequestError,
-    EngineUnavailableError,
-)
 from app.engines.registry import load_engine_registry
-from app.engines.models import EngineRegistrationModel
+from app.engines.bridge_local import LocalBridgeHandler
+from app.engines.bridge_remote import RemoteBridgeHandler
 
 logger = logging.getLogger(__name__)
-
-INTENDED_UPSTREAM_CALLERS = (
-    "app.domain.voices.preview",
-    "app.orchestration.scheduler.orchestrator",
-    "app.orchestration.tasks",
-)
-INTENDED_DOWNSTREAM_DEPENDENCIES = (
-    "app.engines.registry.load_engine_registry",
-    "app.engines.voice.base.BaseVoiceEngine",
-    "app.engines.tts_client.TtsClient",
-)
-FORBIDDEN_DIRECT_IMPORTS = (
-    "app.api.routers",
-    "app.db",
-    "app.jobs",
-)
 
 
 class VoiceBridge:
     """Routes voice requests to the correct engine adapter or TTS Server.
 
     When ``USE_TTS_SERVER`` is enabled the bridge calls the TTS Server over
-    HTTP.  Otherwise it dispatches directly to the in-process engine adapter.
-    The caller-facing contract is identical in both modes.
+    HTTP. Otherwise it dispatches directly to the in-process engine adapter.
     """
 
     def __init__(self, *, registry_loader, tts_client_factory=None):
-        self.registry_loader = registry_loader
-        self._tts_client_factory = tts_client_factory
+        self.local = LocalBridgeHandler(registry_loader=registry_loader)
+        self.remote = RemoteBridgeHandler(tts_client_factory=tts_client_factory)
 
-    def synthesize(self, request: dict[str, object]) -> dict[str, object]:
-        """Route a synthesis request through the registry.
+    @property
+    def registry_loader(self):
+        """Getter for legacy test monkeypatching."""
+        return self.local.registry_loader
 
-        Args:
-            request: Canonical synthesis request payload from orchestration.
+    @registry_loader.setter
+    def registry_loader(self, value):
+        """Setter for legacy test monkeypatching."""
+        self.local.registry_loader = value
 
-        Returns:
-            dict[str, object]: Synthesis result payload.
-        """
+    def synthesize(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Route synthesis request."""
         if use_tts_server():
-            return self._synthesize_via_tts_server(request)
+            return self.remote.synthesize(request)
+        return self.local.synthesize(request)
 
-        registration = self._resolve_registration(request=request)
-        self._validate_request(registration=registration, request=request)
-
-        engine = registration.engine
-        h = engine.hooks()
-
-        # Hook: preprocess_request
-        h.preprocess_request(request)
-
-        # Hook: select_voice
-        profile_id = str(request.get("voice_profile_id") or "").strip()
-        settings = request.get("settings") or {}
-        if profile_id:
-            resolved = h.select_voice(profile_id, settings)  # type: ignore[arg-type]
-            if resolved:
-                request["voice_id"] = resolved
-
-        result = engine.synthesize(request)
-
-        # Hook: postprocess_audio
-        if result.get("status") == "ok" and result.get("audio_path"):
-            h.postprocess_audio(str(result["audio_path"]), settings)  # type: ignore[arg-type]
-
-        return result
-
-    def preview(self, request: dict[str, object]) -> dict[str, object]:
-        """Route a preview/test request through the registry.
-
-        Args:
-            request: Canonical preview request payload from the voice domain.
-
-        Returns:
-            dict[str, object]: Preview result payload.
-        """
+    def preview(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Route preview request."""
         if use_tts_server():
-            return self._preview_via_tts_server(request)
+            return self.remote.preview(request)
+        return self.local.preview(request)
 
-        registration = self._resolve_registration(request=request)
-        self._validate_request(registration=registration, request=request)
-
-        engine = registration.engine
-        h = engine.hooks()
-
-        # Hook: preprocess_request
-        h.preprocess_request(request)
-
-        # Hook: select_voice
-        profile_id = str(request.get("voice_profile_id") or "").strip()
-        settings = request.get("settings") or {}
-        if profile_id:
-            resolved = h.select_voice(profile_id, settings)  # type: ignore[arg-type]
-            if resolved:
-                request["voice_id"] = resolved
-
-        result = engine.preview(request)
-
-        # Hook: postprocess_audio
-        if result.get("status") == "ok" and result.get("audio_path"):
-            h.postprocess_audio(str(result["audio_path"]), settings)  # type: ignore[arg-type]
-
-        return result
-
-    def build_voice_asset(self, request: dict[str, object]) -> dict[str, object]:
-        """Route a voice-asset build request through the registry.
-
-        Args:
-            request: Canonical voice-asset build payload from the voice domain.
-
-        Returns:
-            dict[str, object]: Voice-asset build result payload.
-
-        Raises:
-            NotImplementedError: TTS Server path does not yet support asset builds.
-        """
+    def build_voice_asset(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Route voice-asset build request."""
         if use_tts_server():
-            raise NotImplementedError(
-                "build_voice_asset is not yet implemented via TTS Server path."
-            )
-
-        registration = self._resolve_registration(request=request)
-        self._validate_request(registration=registration, request=request)
-        return registration.engine.build_voice_asset(request)
+            raise NotImplementedError("build_voice_asset is not yet implemented via TTS Server path.")
+        return self.local.build_voice_asset(request)
 
     def is_engine_enabled(self, engine_id: str) -> bool:
-        """Check whether an engine is enabled in settings.
-
-        Args:
-            engine_id: Target engine identifier.
-
-        Returns:
-            bool: True if enabled, False otherwise.
-        """
-        from app.state import get_settings  # noqa: PLC0415
-
-        registry = self.registry_loader()
+        """Check whether an engine is enabled in settings."""
+        from app.state import get_settings
+        registry = self.local.registry_loader()
         registration = registry.get(engine_id)
         if not registration:
             return False
@@ -173,214 +70,57 @@ class VoiceBridge:
         return bool(enabled_plugins.get(engine_id, default_enabled))
 
     def get_synthesis_plan(self, request: dict[str, Any]) -> Any:
-        """Query an engine for its preferred synthesis plan.
-
-        Args:
-            request: Canonical synthesis request payload.
-
-        Returns:
-            SynthesisPlan: Engine-specific processing plan.
-        """
+        """Query an engine for its preferred synthesis plan."""
         if use_tts_server():
-            try:
-                client = self._get_tts_client()
-                engine_id = self._extract_engine_id(request)
-                payload = client.plan_synthesis(
-                    engine_id=engine_id,
-                    text=str(request.get("script_text", "")),
-                    output_path=str(request.get("output_path", "")),
-                    voice_ref=request.get("reference_audio_path") or None,
-                    settings=self._extract_synthesis_settings(request),
-                    language=str(request.get("language", "en")),
-                )
-                from app.engines.voice.sdk import SynthesisPlan
+            return self.remote.get_synthesis_plan(request)
+        return self.local.get_synthesis_plan(request)
 
-                return SynthesisPlan(**payload)
-            except Exception as exc:
-                logger.warning("Failed to fetch synthesis plan from TTS Server: %s", exc)
-                from app.engines.voice.sdk import SynthesisPlan
-
-                return SynthesisPlan()
-
-        registration = self._resolve_registration(request=request)
-        self._validate_request(registration=registration, request=request)
-        from app.engines.voice.sdk import TTSRequest
-        req = TTSRequest(
-            engine_id=registration.manifest.engine_id,
-            script_text=str(request.get("script_text", "")),
-            output_path=str(request.get("output_path", "")),
-            voice_profile_id=str(request.get("voice_profile_id", "")),
-            language=str(request.get("language", "en")),
-            settings=request.get("settings", {}),
-        )
-        return registration.engine.hooks().plan_synthesis(req)
-
-    def check_readiness(self, engine_id: str, profile_id: str, settings: dict[str, Any], profile_dir: str | None) -> tuple[bool, str]:
-        """Check if a voice profile is ready for synthesis with the given engine."""
+    def check_readiness(
+        self, engine_id: str, profile_id: str, settings: dict[str, Any], profile_dir: str | None
+    ) -> tuple[bool, str]:
+        """Check if a voice profile is ready."""
         if use_tts_server():
-            # For now, we assume True if engine is active.
             return True, "Assumed ready (TTS Server)"
+        return self.local.check_readiness(engine_id, profile_id, settings, profile_dir)
 
-        registry = self.registry_loader()
-        registration = registry.get(engine_id)
-        if not registration:
-            return False, f"Engine {engine_id} not found"
-
-        return registration.engine.hooks().check_readiness(profile_id, settings, profile_dir)
-
-    def describe_registry(self) -> list[dict[str, object]]:
+    def describe_registry(self) -> list[dict[str, Any]]:
         """Return discovery metadata for all registered engines."""
-        from app.state import get_settings  # noqa: PLC0415
-
         if use_tts_server():
-            return self._describe_registry_via_tts_server()
+            return self.remote.describe_registry()
+        return self.local.describe_registry()
 
-        registry = self.registry_loader()
-        settings = get_settings()
-        enabled_plugins = settings.get("enabled_plugins") or {}
-
-        results = []
-        for registration in registry.values():
-            data = registration.to_dict()
-            engine_id = registration.manifest.engine_id
-            # Default to enabled for built-ins/verified, disabled for others
-            default_enabled = registration.manifest.built_in or registration.manifest.verified
-            data["enabled"] = bool(enabled_plugins.get(engine_id, default_enabled))
-            can_enable, reason = can_enable_engine(
-                engine_id,
-                current_settings=settings,
-                built_in=registration.manifest.built_in,
-                verified=registration.manifest.verified,
-                status=registration.health.status,
-            )
-            data["can_enable"] = can_enable
-            data["enablement_message"] = reason
-            results.append(data)
-
-        return results
-
-    def update_engine_settings(
-        self, engine_id: str, settings: dict[str, Any]
-    ) -> dict[str, Any]:
-        """Update and persist settings for an engine.
-
-        Args:
-            engine_id: Target engine identifier.
-            settings: Partial or full settings to merge.
-
-        Returns:
-            dict[str, Any]: Status and updated settings.
-        """
+    def update_engine_settings(self, engine_id: str, settings: dict[str, Any]) -> dict[str, Any]:
+        """Update and persist settings for an engine."""
         if use_tts_server():
-            return self._get_tts_client().update_settings(engine_id, settings)
-
-        from app.state import get_settings, update_settings  # noqa: PLC0415
-
-        updates: dict[str, Any] = {}
-
-        normalized_engine_id = engine_id.lower()
-
-        # Handle generic enablement toggle
-        enabled_val = settings.get("enabled")
-        if enabled_val is None and "voxtral" in normalized_engine_id:
-             enabled_val = settings.get("voxtral_enabled")
-
-        if enabled_val is not None:
-            # Enforcement: the plugin must be eligible to turn on.
-            if bool(enabled_val):
-                registry = self.registry_loader()
-                registration = registry.get(engine_id)
-                current_settings = get_settings()
-                can_enable, reason = can_enable_engine(
-                    engine_id,
-                    current_settings=current_settings,
-                    built_in=bool(registration.manifest.built_in) if registration else False,
-                    verified=bool(registration.manifest.verified) if registration else False,
-                    status=getattr(registration.health, "status", None) if registration else None,
-                )
-                if not can_enable:
-                    raise EngineUnavailableError(
-                        reason or f"Cannot enable engine {engine_id}."
-                    )
-
-            current_settings = get_settings()
-            enabled_plugins = dict(current_settings.get("enabled_plugins") or {})
-            enabled_plugins[engine_id] = bool(enabled_val)
-            updates["enabled_plugins"] = enabled_plugins
-            if "voxtral" in normalized_engine_id:
-                 updates["voxtral_enabled"] = bool(enabled_val)
-
-        if "voxtral" in normalized_engine_id:
-            for key in {"mistral_api_key", "voxtral_model"}:
-                if key in settings:
-                    updates[key] = settings[key]
-
-        if updates:
-            update_settings(updates)
-            return {"ok": True, "settings": get_settings()}
-
-        if not updates and settings:
-             # If no updates were identified but settings were provided, 
-             # the engine doesn't support these settings or isn't handled yet.
-             raise NotImplementedError(
-                f"update_engine_settings is not yet implemented for in-process engine {engine_id!r} "
-                f"with settings keys: {list(settings.keys())}"
-            )
-
-        return {"ok": True, "settings": get_settings()}
+            return self.remote.update_settings(engine_id, settings)
+        return self.local.update_engine_settings(engine_id, settings)
 
     def refresh_plugins(self) -> dict[str, Any]:
-        """Re-scan for new plugins (TTS Server path only)."""
+        """Re-scan for new plugins."""
         if use_tts_server():
-            return self._get_tts_client().refresh_plugins()
-
+            return self.remote.refresh_plugins()
         return {
             "ok": True,
             "message": "Plugin refresh is only supported when running with TTS Server.",
-            "loaded_count": len(self.registry_loader()),
+            "loaded_count": len(self.local.registry_loader()),
         }
 
     def verify_engine(self, engine_id: str) -> dict[str, Any]:
-        """Trigger verification synthesis for an engine."""
+        """Trigger verification synthesis."""
         if use_tts_server():
-            return self._get_tts_client().verify_engine(engine_id)
-
-        return {
-            "ok": False,
-            "message": "Engine verification is only supported via TTS Server path.",
-        }
+            return self.remote.verify_engine(engine_id)
+        return {"ok": False, "message": "Engine verification is only supported via TTS Server path."}
 
     def install_dependencies(self, engine_id: str) -> dict[str, Any]:
-        """Trigger dependency installation for an engine."""
-        if use_tts_server():
-            # Future: TTS Server can handle its own plugin environments.
-            return {
-                "ok": False,
-                "message": "Remote dependency installation is not yet supported.",
-            }
-
-        # Legacy in-process: some engines might have a setup hook.
-        return {
-            "ok": False,
-            "message": f"In-process dependency install not implemented for {engine_id}.",
-        }
+        """Trigger dependency installation."""
+        return {"ok": False, "message": f"In-process dependency install not implemented for {engine_id}."}
 
     def remove_plugin(self, engine_id: str) -> dict[str, Any]:
-        """Uninstall a plugin by removing its directory."""
-        if use_tts_server():
-            # For now, we don't allow remote deletions for safety.
-            return {
-                "ok": False,
-                "message": "Remote plugin removal is disabled for safety.",
-            }
-
-        return {
-            "ok": False,
-            "message": f"Plugin removal not implemented for {engine_id}.",
-        }
+        """Uninstall a plugin."""
+        return {"ok": False, "message": f"Plugin removal not implemented for {engine_id}."}
 
     def install_plugin(self) -> dict[str, Any]:
-        """Provide instructions or trigger automated plugin install."""
+        """Provide instructions for manual install."""
         return {
             "ok": False,
             "message": "Automated plugin installation is not yet supported. Please place plugin folders in the 'plugins/' directory manually and click 'Refresh Plugins'.",
@@ -388,194 +128,9 @@ class VoiceBridge:
 
     def get_logs(self, engine_id: str) -> dict[str, Any]:
         """Fetch recent logs for an engine."""
-        return {
-            "ok": True,
-            "logs": "Log streaming coming in a later update.",
-        }
-
-    # ------------------------------------------------------------------
-    # TTS Server path
-    # ------------------------------------------------------------------
-
-    def _get_tts_client(self):
-        """Return a TtsClient connected to the active TTS Server."""
-        if self._tts_client_factory is not None:
-            return self._tts_client_factory()
-        # Default: get the client from the global watchdog.
-        from app.engines.watchdog import _global_watchdog  # noqa: PLC0415
-        if _global_watchdog is None:
-            raise EngineUnavailableError(
-                "TTS Server watchdog has not been started. "
-                "Ensure the Studio boot sequence initialised the watchdog."
-            )
-        return _global_watchdog.get_client()
-
-    def _synthesize_via_tts_server(
-        self, request: dict[str, object]
-    ) -> dict[str, object]:
-        """Route synthesis to the TTS Server and adapt the response."""
-        from app.engines.tts_client import TtsServerError  # noqa: PLC0415
-
-        engine_id = self._extract_engine_id(request)
-        client = self._get_tts_client()
-
-        try:
-            result = client.synthesize(
-                engine_id=engine_id,
-                text=str(request.get("script_text", "")),
-                output_path=str(request.get("output_path", "")),
-                voice_ref=request.get("reference_audio_path") or None,  # type: ignore[arg-type]
-                settings=self._extract_synthesis_settings(request),
-                language=str(request.get("language", "en")),
-            )
-        except TtsServerError as exc:
-            raise EngineUnavailableError(
-                f"TTS Server synthesis failed: {exc}"
-            ) from exc
-
-        return {
-            "status": "ok",
-            "bridge": "tts-server-bridge",
-            "engine_id": engine_id,
-            "ephemeral": False,
-            "audio_path": result.get("output_path"),
-            "audio_format": self._infer_format(str(request.get("output_path", ""))),
-            "request_fingerprint": request.get("request_fingerprint"),
-            "synthesis_request": {
-                "engine_id": engine_id,
-                "script_text": request.get("script_text"),
-                "output_path": request.get("output_path"),
-            },
-            "tts_server_result": result,
-        }
-
-    def _preview_via_tts_server(
-        self, request: dict[str, object]
-    ) -> dict[str, object]:
-        """Route preview to the TTS Server and adapt the response."""
-        from app.engines.tts_client import TtsServerError  # noqa: PLC0415
-
-        engine_id = self._extract_engine_id(request)
-        client = self._get_tts_client()
-
-        try:
-            result = client.preview(
-                engine_id=engine_id,
-                text=str(request.get("script_text", "")),
-                output_path=str(request.get("output_path", "")),
-                voice_ref=request.get("reference_audio_path") or None,  # type: ignore[arg-type]
-                settings=self._extract_synthesis_settings(request),
-                language=str(request.get("language", "en")),
-            )
-        except TtsServerError as exc:
-            raise EngineUnavailableError(
-                f"TTS Server preview failed: {exc}"
-            ) from exc
-
-        return {
-            "status": "ok",
-            "bridge": "tts-server-preview-bridge",
-            "engine_id": engine_id,
-            "ephemeral": True,
-            "audio_path": result.get("output_path"),
-            "audio_format": "wav",
-            "tts_server_result": result,
-        }
-
-    def _describe_registry_via_tts_server(self) -> list[dict[str, object]]:
-        """Return engine list from the TTS Server."""
-        from app.engines.tts_client import TtsServerError  # noqa: PLC0415
-
-        client = self._get_tts_client()
-        try:
-            return client.get_engines()
-        except TtsServerError as exc:
-            raise EngineUnavailableError(
-                f"Could not retrieve engine list from TTS Server: {exc}"
-            ) from exc
-
-    # ------------------------------------------------------------------
-    # Shared helpers
-    # ------------------------------------------------------------------
-
-    def _extract_engine_id(self, request: dict[str, object]) -> str:
-        engine_id = str(request.get("engine_id") or "").strip()
-        if not engine_id:
-            raise EngineRequestError("Voice requests must include engine_id.")
-        return engine_id
-
-    @staticmethod
-    def _extract_synthesis_settings(
-        request: dict[str, object],
-    ) -> dict[str, object]:
-        """Extract per-request synthesis settings for the TTS Server path."""
-        settings: dict[str, object] = {}
-        if "voice_profile_id" in request:
-            settings["voice_profile_id"] = request["voice_profile_id"]
-        if "voice_asset_id" in request:
-            settings["voice_asset_id"] = request["voice_asset_id"]
-        if "speed" in request:
-            settings["speed"] = request["speed"]
-        if "safe_mode" in request:
-            settings["safe_mode"] = request["safe_mode"]
-        if "output_format" in request:
-            settings["output_format"] = request["output_format"]
-        return settings
-
-    @staticmethod
-    def _infer_format(output_path: str) -> str:
-        return "mp3" if output_path.lower().endswith(".mp3") else "wav"
-
-    # ------------------------------------------------------------------
-    # In-process (legacy) path helpers
-    # ------------------------------------------------------------------
-
-    def _resolve_registration(
-        self, *, request: dict[str, object]
-    ) -> EngineRegistrationModel:
-        """Resolve the concrete engine adapter for a canonical request."""
-        engine_id = self._extract_engine_id(request)
-        registry = self.registry_loader()
-        try:
-            return registry[engine_id]
-        except KeyError as exc:
-            raise EngineRequestError(f"Unknown voice engine: {engine_id}") from exc
-
-    def _validate_request(
-        self, *, registration: EngineRegistrationModel, request: dict[str, object]
-    ) -> None:
-        """Validate request before engine execution begins."""
-        _ = request
-        if registration.manifest.engine_id != str(request.get("engine_id") or "").strip():
-            raise EngineRequestError("Request engine_id does not match the registered engine.")
-
-        from app.state import get_settings  # noqa: PLC0415
-        settings = get_settings()
-        enabled_plugins = settings.get("enabled_plugins") or {}
-
-        default_enabled = registration.manifest.built_in or registration.manifest.verified
-        if not bool(enabled_plugins.get(registration.manifest.engine_id, default_enabled)):
-            raise EngineUnavailableError(
-                f"Engine {registration.manifest.engine_id} is disabled in Settings."
-            )
-
-        if not registration.health.available:
-            raise EngineUnavailableError(
-                f"Engine {registration.manifest.engine_id} is unavailable: "
-                f"{registration.health.message or 'unknown'}"
-            )
-        if not registration.health.ready:
-            raise EngineNotReadyError(
-                f"Engine {registration.manifest.engine_id} is not ready: "
-                f"{registration.health.message or 'unknown'}"
-            )
-        registration.engine.validate_request(request)
+        return {"ok": True, "logs": "Log streaming coming in a later update."}
 
 
 def create_voice_bridge() -> VoiceBridge:
-    """Create the voice bridge with registry dependency wiring.
-
-    Returns:
-        VoiceBridge: Bridge used by voice and orchestration services.
-    """
+    """Create the voice bridge with registry dependency wiring."""
     return VoiceBridge(registry_loader=load_engine_registry)
