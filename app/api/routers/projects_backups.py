@@ -101,7 +101,7 @@ def api_save_project_backup_bundle(project_id: str, comment: Optional[str] = Que
 
         # Rule 9: Locally visible safe-path pattern
         import os
-        trusted_root = os.path.abspath(os.fspath(project_dir_path))
+        trusted_root = os.path.abspath(os.path.realpath(os.fspath(project_dir_path)))
         backups_dir_path = os.path.normpath(os.path.join(trusted_root, "backups"))
 
         if not backups_dir_path.startswith(trusted_root + os.sep) and backups_dir_path != trusted_root:
@@ -125,7 +125,7 @@ def api_save_project_backup_bundle(project_id: str, comment: Optional[str] = Que
             "status": "ok",
             "filename": bundle.bundle_name,
             "created_at": bundle.created_at.isoformat(),
-            "size_bytes": backup_path.stat().st_size
+            "size_bytes": os.path.getsize(backup_full_path)
         })
     except KeyError:
         return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
@@ -144,6 +144,7 @@ def api_list_project_backups(project_id: str):
         # Rule 9: Secure join for literal subdirectory
         try:
             backups_dir = secure_join_flat(project_dir, "backups")
+            backups_dir_path = os.path.abspath(os.path.realpath(os.fspath(backups_dir)))
         except ValueError:
              return JSONResponse({"status": "error", "message": "Invalid backups directory"}, status_code=403)
 
@@ -153,7 +154,7 @@ def api_list_project_backups(project_id: str):
             for entry in os.scandir(backups_dir_path):
                 if entry.is_file() and entry.name.lower().endswith((".zip", ".abf")):
                     # Prove containment for entry
-                    entry_path = os.path.abspath(entry.path)
+                    entry_path = os.path.abspath(os.path.realpath(entry.path))
                     if not entry_path.startswith(backups_dir_path + os.sep):
                         continue
 
@@ -192,6 +193,7 @@ def api_download_saved_backup(project_id: str, filename: str):
         project_dir = find_existing_project_dir(project_id) or get_project_dir(project_id)
         try:
             backups_dir = secure_join_flat(project_dir, "backups")
+            backups_dir_path = os.path.abspath(os.path.realpath(os.fspath(backups_dir)))
         except ValueError:
              return JSONResponse({"status": "error", "message": "Invalid backups directory"}, status_code=403)
 
@@ -203,7 +205,7 @@ def api_download_saved_backup(project_id: str, filename: str):
         backup_found_path = None
         for entry in os.scandir(backups_dir_path):
             if entry.is_file() and entry.name == filename:
-                cand_path = os.path.abspath(entry.path)
+                cand_path = os.path.abspath(os.path.realpath(entry.path))
                 if cand_path.startswith(backups_dir_path + os.sep):
                     backup_found_path = cand_path
                     break
@@ -235,6 +237,7 @@ def api_update_project_backup_metadata(project_id: str, filename: str, comment: 
         project_dir = find_existing_project_dir(project_id) or get_project_dir(project_id)
         try:
             backups_dir = secure_join_flat(project_dir, "backups")
+            backups_dir_path = os.path.abspath(os.path.realpath(os.fspath(backups_dir)))
         except ValueError:
              return JSONResponse({"status": "error", "message": "Invalid backups directory"}, status_code=403)
 
@@ -246,7 +249,7 @@ def api_update_project_backup_metadata(project_id: str, filename: str, comment: 
         backup_found_path = None
         for entry in os.scandir(backups_dir_path):
             if entry.is_file() and entry.name == filename:
-                cand_path = os.path.abspath(entry.path)
+                cand_path = os.path.abspath(os.path.realpath(entry.path))
                 if cand_path.startswith(backups_dir_path + os.sep):
                     backup_found_path = cand_path
                     break
@@ -263,8 +266,8 @@ def api_update_project_backup_metadata(project_id: str, filename: str, comment: 
         try:
             os.close(fd)
             # Proof both sides independently for move
-            source_abs = os.path.abspath(temp_path)
-            dest_abs = os.path.abspath(backup_found_path)
+            source_abs = os.path.abspath(os.path.realpath(temp_path))
+            dest_abs = os.path.abspath(os.path.realpath(backup_found_path))
 
             if not source_abs.startswith(backups_dir_path + os.sep) or not dest_abs.startswith(backups_dir_path + os.sep):
                  raise ValueError("Invalid operation path")
@@ -299,6 +302,7 @@ def api_delete_project_backup(project_id: str, filename: str):
         project_dir = find_existing_project_dir(project_id) or get_project_dir(project_id)
         try:
             backups_dir = secure_join_flat(project_dir, "backups")
+            backups_dir_path = os.path.abspath(os.path.realpath(os.fspath(backups_dir)))
         except ValueError:
              return JSONResponse({"status": "error", "message": "Invalid backups directory"}, status_code=403)
 
@@ -310,7 +314,7 @@ def api_delete_project_backup(project_id: str, filename: str):
         backup_found_path = None
         for entry in os.scandir(backups_dir_path):
             if entry.is_file() and entry.name == filename:
-                cand_path = os.path.abspath(entry.path)
+                cand_path = os.path.abspath(os.path.realpath(entry.path))
                 if cand_path.startswith(backups_dir_path + os.sep):
                     backup_found_path = cand_path
                     break

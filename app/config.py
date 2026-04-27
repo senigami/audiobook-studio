@@ -62,7 +62,7 @@ def find_existing_project_dir(project_id: str) -> Optional[Path]:
 
     # Rule 8: Enumerate trusted root and match by entry.name
     import os
-    trusted_projects_root = os.path.abspath(os.fspath(PROJECTS_DIR))
+    trusted_projects_root = os.path.abspath(os.path.realpath(os.fspath(PROJECTS_DIR)))
     try:
         for entry in os.scandir(trusted_projects_root):
             if entry.is_dir() and entry.name == canonical_project_id:
@@ -82,7 +82,7 @@ def find_existing_project_subdir(project_id: str, dirname: str) -> Optional[Path
     try:
         # Rule 8: Enumerate trusted root
         import os
-        trusted_project_root = os.path.abspath(os.fspath(project_dir))
+        trusted_project_root = os.path.abspath(os.path.realpath(os.fspath(project_dir)))
         for entry in os.scandir(trusted_project_root):
             if entry.is_dir() and entry.name == dirname:
                 # Explicit containment check for scanner locality
@@ -187,7 +187,7 @@ def _find_file(directory: Path, filename: str) -> Optional[Path]:
             return None
         # Rule 8: Enumerate trusted root
         import os
-        trusted_dir = os.path.abspath(os.fspath(directory))
+        trusted_dir = os.path.abspath(os.path.realpath(os.fspath(directory)))
         for entry in os.scandir(trusted_dir):
             if entry.is_file() and entry.name == filename:
                 # Explicit containment check for scanner locality

@@ -185,7 +185,7 @@ def _get_project_service() -> ProjectService:
 async def _store_project_cover(project_id: str, project_dir: Path, cover):
     import os
     # Rule 9: Locally visible safe-path pattern
-    trusted_root = os.path.abspath(os.fspath(project_dir))
+    trusted_root = os.path.abspath(os.path.realpath(os.fspath(project_dir)))
 
     # 1. Validate filename
     safe_cover_name = safe_basename(cover.filename)
@@ -209,7 +209,10 @@ async def _store_project_cover(project_id: str, project_dir: Path, cover):
     for entry in os.scandir(cover_dir_path):
         if entry.is_file() and entry.name != cover_filename:
             try:
-                os.unlink(entry.path)
+                # Rule 8: Explicit containment proof for each entry
+                res_path = os.path.abspath(os.path.realpath(entry.path))
+                if res_path.startswith(cover_dir_path + os.sep):
+                    os.unlink(res_path)
             except OSError:
                 pass
 
@@ -288,8 +291,8 @@ def _create_backup_archive(bundle: ProjectBackupBundleModel) -> io.BytesIO:
                 if audio_path and audio_path.exists() and audio_path.suffix.lower() == ".wav":
                     # Locally visible containment check for zf.write sink
                     import os
-                    trusted_audio_root = os.path.abspath(os.fspath(audio_root))
-                    resolved_audio_path = os.path.abspath(os.fspath(audio_path))
+                    trusted_audio_root = os.path.abspath(os.path.realpath(os.fspath(audio_root)))
+                    resolved_audio_path = os.path.abspath(os.path.realpath(os.fspath(audio_path)))
 
                     if resolved_audio_path.startswith(trusted_audio_root + os.sep):
                         audio_ext = ".wav"
@@ -310,7 +313,7 @@ def _create_backup_archive(bundle: ProjectBackupBundleModel) -> io.BytesIO:
 
         # 3. Cover art
         import os
-        trusted_project_root = os.path.abspath(os.fspath(project_dir))
+        trusted_project_root = os.path.abspath(os.path.realpath(os.fspath(project_dir)))
         cover_dir_path = os.path.normpath(os.path.join(trusted_project_root, "cover"))
 
         if os.path.exists(cover_dir_path) and cover_dir_path.startswith(trusted_project_root + os.sep):

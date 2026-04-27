@@ -20,13 +20,13 @@ def safe_join(root: Path, value: str) -> Path:
     """
     try:
         # 1. Normalize and resolve the root
-        base_dir = root.resolve()
-        # 2. Join and resolve the candidate
-        # Path.joinpath handles absolute 'value' by ignoring 'base_dir'
-        candidate = base_dir.joinpath(value).resolve()
-        # 3. Prove containment via relative_to()
-        candidate.relative_to(base_dir)
-        return candidate
+        base_dir = os.path.abspath(os.path.realpath(os.fspath(root)))
+        # 2. Join and normalize the candidate
+        candidate = os.path.abspath(os.path.realpath(os.path.join(base_dir, value)))
+        # 3. Prove containment
+        if not candidate.startswith(base_dir + os.sep) and candidate != base_dir:
+             raise ValueError(f"Path escapes root: {value}")
+        return Path(candidate)
     except (ValueError, OSError, RuntimeError) as e:
         raise ValueError(f"Path escapes root or is invalid: {value}") from e
 
@@ -48,10 +48,11 @@ def find_secure_file(directory: Path, filename: str) -> Optional[Path]:
         for entry in directory.iterdir():
             if entry.is_file() and entry.name == filename:
                 # Prove containment for the entry we just found
-                base_dir = directory.resolve()
-                res = entry.resolve()
-                res.relative_to(base_dir)
-                return res
+                base_dir = os.path.abspath(os.path.realpath(os.fspath(directory)))
+                res = os.path.abspath(os.path.realpath(os.fspath(entry)))
+                if not res.startswith(base_dir + os.sep):
+                    continue
+                return Path(res)
     except (OSError, ValueError):
         pass
     return None
@@ -63,9 +64,10 @@ def secure_join_flat(root: Path, filename: str) -> Path:
          raise ValueError(f"Invalid filename: {filename}")
 
     try:
-        base_dir = root.resolve()
-        candidate = base_dir.joinpath(filename).resolve()
-        candidate.relative_to(base_dir)
-        return candidate
+        base_dir = os.path.abspath(os.path.realpath(os.fspath(root)))
+        candidate = os.path.abspath(os.path.realpath(os.path.join(base_dir, filename)))
+        if not candidate.startswith(base_dir + os.sep):
+             raise ValueError(f"Path escapes root: {filename}")
+        return Path(candidate)
     except (ValueError, OSError, RuntimeError) as e:
         raise ValueError(f"Path escapes root or is invalid: {filename}") from e
