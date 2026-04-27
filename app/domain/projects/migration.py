@@ -23,11 +23,13 @@ def migrate_project_to_v2(project_id: str) -> bool:
             logger.warning("Skipping project migration for invalid project id: %r", project_id)
             return False
 
-    projects_root = os.path.abspath(str(config.PROJECTS_DIR))
+    # Rule 9: Locally visible containment proof for projects root
+    projects_root = os.path.abspath(os.path.realpath(os.fspath(config.PROJECTS_DIR)))
+    projects_root_prefix = projects_root if projects_root.endswith(os.sep) else projects_root + os.sep
+
     project_dir_path = os.path.abspath(
         os.path.normpath(os.path.join(projects_root, canonical_project_id))
     )
-    projects_root_prefix = projects_root if projects_root.endswith(os.sep) else projects_root + os.sep
     if project_dir_path != projects_root and not project_dir_path.startswith(projects_root_prefix):
         logger.warning("Skipping project migration outside projects root: %r", project_id)
         return False
@@ -52,23 +54,40 @@ def migrate_project_to_v2(project_id: str) -> bool:
 
         for chap in chapters:
             chapter_id = chap["id"]
-            nested_dir = project_dir / "chapters" / chapter_id
+
+            # Rule 9: Prove containment for dynamic chapter folder
+            nested_dir_path = os.path.abspath(
+                os.path.normpath(os.path.join(project_dir_path, "chapters", chapter_id))
+            )
+            if not nested_dir_path.startswith(project_dir_path + os.sep):
+                logger.warning("Skipping malicious chapter ID: %r", chapter_id)
+                continue
+
+            nested_dir = Path(nested_dir_path)
             nested_dir.mkdir(parents=True, exist_ok=True)
-            segments_dir = nested_dir / "segments"
+
+            segments_dir_path = os.path.abspath(
+                os.path.normpath(os.path.join(nested_dir_path, "segments"))
+            )
+            if not segments_dir_path.startswith(nested_dir_path + os.sep):
+                logger.warning("Skipping malicious segments path for chapter: %r", chapter_id)
+                continue
+            segments_dir = Path(segments_dir_path)
             segments_dir.mkdir(exist_ok=True)
-            nested_root = os.path.abspath(str(nested_dir))
+
+            nested_root = nested_dir_path
             nested_root_prefix = nested_root if nested_root.endswith(os.sep) else nested_root + os.sep
 
             # 1. Move text files
-            # Try {chapter_id}.txt and {chapter_id}_0.txt
-            text_root = os.path.abspath(str(text_dir))
+            text_root = os.path.abspath(os.path.realpath(os.fspath(text_dir)))
             text_root_prefix = text_root if text_root.endswith(os.sep) else text_root + os.sep
             for text_index, cand_name in enumerate([f"{chapter_id}.txt", f"{chapter_id}_0.txt"]):
                 src_path = None
                 if text_dir.exists() and text_dir.is_dir():
-                    for entry in text_dir.iterdir():
+                    # Rule 8: Enumerate trusted root and match by entry.name
+                    for entry in os.scandir(text_root):
                         if entry.is_file() and entry.name == cand_name:
-                            candidate_src_path = os.path.abspath(os.path.normpath(str(entry)))
+                            candidate_src_path = os.path.abspath(os.path.realpath(entry.path))
                             if (
                                 candidate_src_path != text_root
                                 and candidate_src_path.startswith(text_root_prefix)
@@ -96,16 +115,16 @@ def migrate_project_to_v2(project_id: str) -> bool:
                         shutil.move(src_path, fallback_path)
 
             # 2. Move main audio files
-            # Try {chapter_id}.wav, .mp3, .m4a
-            audio_root = os.path.abspath(str(audio_dir))
+            audio_root = os.path.abspath(os.path.realpath(os.fspath(audio_dir)))
             audio_root_prefix = audio_root if audio_root.endswith(os.sep) else audio_root + os.sep
             for ext in [".wav", ".mp3", ".m4a"]:
                 for audio_index, cand_name in enumerate([f"{chapter_id}{ext}", f"{chapter_id}_0{ext}"]):
                     src_path = None
                     if audio_dir.exists() and audio_dir.is_dir():
-                        for entry in audio_dir.iterdir():
+                        # Rule 8: Enumerate trusted root
+                        for entry in os.scandir(audio_root):
                             if entry.is_file() and entry.name == cand_name:
-                                candidate_src_path = os.path.abspath(os.path.normpath(str(entry)))
+                                candidate_src_path = os.path.abspath(os.path.realpath(entry.path))
                                 if (
                                     candidate_src_path != audio_root
                                     and candidate_src_path.startswith(audio_root_prefix)
@@ -137,17 +156,14 @@ def migrate_project_to_v2(project_id: str) -> bool:
             segments = get_chapter_segments(chapter_id)
             for segment_index, seg in enumerate(segments):
                 sid = str(seg["id"])
-                audio_root = os.path.abspath(str(audio_dir))
-                segments_root = os.path.abspath(str(segments_dir))
+                segments_root = os.path.abspath(os.path.realpath(os.fspath(segments_dir)))
                 legacy_name = f"chunk_{sid}.wav"
                 src_path = None
                 if audio_dir.exists() and audio_dir.is_dir():
-                    for entry in audio_dir.iterdir():
+                    # Rule 8: Enumerate trusted root
+                    for entry in os.scandir(audio_root):
                         if entry.is_file() and entry.name == legacy_name:
-                            candidate_src_path = os.path.abspath(
-                                os.path.normpath(str(entry))
-                            )
-                            audio_root_prefix = audio_root if audio_root.endswith(os.sep) else audio_root + os.sep
+                            candidate_src_path = os.path.abspath(os.path.realpath(entry.path))
                             if (
                                 candidate_src_path != audio_root
                                 and candidate_src_path.startswith(audio_root_prefix)
@@ -193,18 +209,18 @@ def migrate_project_to_v2(project_id: str) -> bool:
         try:
             if audio_dir.exists() and audio_dir.is_dir():
                 # Double check: only remove if it's actually the legacy 'audio' dir under project
-                cleanup_audio_dir = os.path.abspath(os.path.normpath(str(audio_dir)))
+                cleanup_audio_dir = os.path.abspath(os.path.realpath(os.fspath(audio_dir)))
                 if (
                     audio_dir.name == "audio"
-                    and audio_dir.parent == project_dir
+                    and os.path.abspath(os.path.realpath(os.fspath(audio_dir.parent))) == project_dir_path
                     and cleanup_audio_dir.startswith(projects_root_prefix)
                 ):
                     shutil.rmtree(cleanup_audio_dir, ignore_errors=True)
             if text_dir.exists() and text_dir.is_dir():
-                cleanup_text_dir = os.path.abspath(os.path.normpath(str(text_dir)))
+                cleanup_text_dir = os.path.abspath(os.path.realpath(os.fspath(text_dir)))
                 if (
                     text_dir.name == "text"
-                    and text_dir.parent == project_dir
+                    and os.path.abspath(os.path.realpath(os.fspath(text_dir.parent))) == project_dir_path
                     and cleanup_text_dir.startswith(projects_root_prefix)
                 ):
                     shutil.rmtree(cleanup_text_dir, ignore_errors=True)
