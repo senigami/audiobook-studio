@@ -56,30 +56,80 @@ def migrate_project_to_v2(project_id: str) -> bool:
             nested_dir.mkdir(parents=True, exist_ok=True)
             segments_dir = nested_dir / "segments"
             segments_dir.mkdir(exist_ok=True)
+            nested_root = os.path.abspath(str(nested_dir))
+            nested_root_prefix = nested_root if nested_root.endswith(os.sep) else nested_root + os.sep
 
             # 1. Move text files
             # Try {chapter_id}.txt and {chapter_id}_0.txt
-            for cand_name in [f"{chapter_id}.txt", f"{chapter_id}_0.txt"]:
-                src = text_dir / cand_name
-                if src.exists():
-                    dest = nested_dir / "chapter.txt"
-                    if not dest.exists():
-                        shutil.move(str(src), str(dest))
+            text_root = os.path.abspath(str(text_dir))
+            text_root_prefix = text_root if text_root.endswith(os.sep) else text_root + os.sep
+            for text_index, cand_name in enumerate([f"{chapter_id}.txt", f"{chapter_id}_0.txt"]):
+                src_path = None
+                if text_dir.exists() and text_dir.is_dir():
+                    for entry in text_dir.iterdir():
+                        if entry.is_file() and entry.name == cand_name:
+                            candidate_src_path = os.path.abspath(os.path.normpath(str(entry)))
+                            if (
+                                candidate_src_path != text_root
+                                and candidate_src_path.startswith(text_root_prefix)
+                                and candidate_src_path.startswith(projects_root_prefix)
+                            ):
+                                src_path = candidate_src_path
+                            break
+
+                if src_path and os.path.exists(src_path):
+                    dest_filename = "chapter.txt"
+                    dest_path = os.path.abspath(os.path.normpath(os.path.join(nested_root, dest_filename)))
+                    if not dest_path.startswith(nested_root_prefix) or not dest_path.startswith(projects_root_prefix):
+                        logger.warning("Skipping text migration outside project root: %s", dest_filename)
+                        continue
+
+                    if not os.path.exists(dest_path):
+                        shutil.move(src_path, dest_path)
                     else:
                         # If destination exists, keep both but log warning
-                        shutil.move(str(src), str(nested_dir / cand_name))
+                        fallback_filename = f"legacy_text_{text_index}.txt"
+                        fallback_path = os.path.abspath(os.path.normpath(os.path.join(nested_root, fallback_filename)))
+                        if not fallback_path.startswith(nested_root_prefix) or not fallback_path.startswith(projects_root_prefix):
+                            logger.warning("Skipping text fallback migration outside project root: %s", fallback_filename)
+                            continue
+                        shutil.move(src_path, fallback_path)
 
             # 2. Move main audio files
             # Try {chapter_id}.wav, .mp3, .m4a
+            audio_root = os.path.abspath(str(audio_dir))
+            audio_root_prefix = audio_root if audio_root.endswith(os.sep) else audio_root + os.sep
             for ext in [".wav", ".mp3", ".m4a"]:
-                for cand_name in [f"{chapter_id}{ext}", f"{chapter_id}_0{ext}"]:
-                    src = audio_dir / cand_name
-                    if src.exists():
-                        dest = nested_dir / f"chapter{ext}"
-                        if not dest.exists():
-                            shutil.move(str(src), str(dest))
+                for audio_index, cand_name in enumerate([f"{chapter_id}{ext}", f"{chapter_id}_0{ext}"]):
+                    src_path = None
+                    if audio_dir.exists() and audio_dir.is_dir():
+                        for entry in audio_dir.iterdir():
+                            if entry.is_file() and entry.name == cand_name:
+                                candidate_src_path = os.path.abspath(os.path.normpath(str(entry)))
+                                if (
+                                    candidate_src_path != audio_root
+                                    and candidate_src_path.startswith(audio_root_prefix)
+                                    and candidate_src_path.startswith(projects_root_prefix)
+                                ):
+                                    src_path = candidate_src_path
+                                break
+
+                    if src_path and os.path.exists(src_path):
+                        dest_filename = f"chapter{ext}"
+                        dest_path = os.path.abspath(os.path.normpath(os.path.join(nested_root, dest_filename)))
+                        if not dest_path.startswith(nested_root_prefix) or not dest_path.startswith(projects_root_prefix):
+                            logger.warning("Skipping audio migration outside project root: %s", dest_filename)
+                            continue
+
+                        if not os.path.exists(dest_path):
+                            shutil.move(src_path, dest_path)
                         else:
-                            shutil.move(str(src), str(nested_dir / cand_name))
+                            fallback_filename = f"legacy_audio_{audio_index}{ext}"
+                            fallback_path = os.path.abspath(os.path.normpath(os.path.join(nested_root, fallback_filename)))
+                            if not fallback_path.startswith(nested_root_prefix) or not fallback_path.startswith(projects_root_prefix):
+                                logger.warning("Skipping audio fallback migration outside project root: %s", fallback_filename)
+                                continue
+                            shutil.move(src_path, fallback_path)
 
             # 3. Move segment audio files (chunk_*.wav)
             from app.db.segments import get_chapter_segments
@@ -143,11 +193,21 @@ def migrate_project_to_v2(project_id: str) -> bool:
         try:
             if audio_dir.exists() and audio_dir.is_dir():
                 # Double check: only remove if it's actually the legacy 'audio' dir under project
-                if audio_dir.name == "audio" and audio_dir.parent == project_dir:
-                    shutil.rmtree(audio_dir, ignore_errors=True)
+                cleanup_audio_dir = os.path.abspath(os.path.normpath(str(audio_dir)))
+                if (
+                    audio_dir.name == "audio"
+                    and audio_dir.parent == project_dir
+                    and cleanup_audio_dir.startswith(projects_root_prefix)
+                ):
+                    shutil.rmtree(cleanup_audio_dir, ignore_errors=True)
             if text_dir.exists() and text_dir.is_dir():
-                if text_dir.name == "text" and text_dir.parent == project_dir:
-                    shutil.rmtree(text_dir, ignore_errors=True)
+                cleanup_text_dir = os.path.abspath(os.path.normpath(str(text_dir)))
+                if (
+                    text_dir.name == "text"
+                    and text_dir.parent == project_dir
+                    and cleanup_text_dir.startswith(projects_root_prefix)
+                ):
+                    shutil.rmtree(cleanup_text_dir, ignore_errors=True)
         except Exception as e:
             logger.warning("Failed to clean up legacy residue for project %s: %s", project_id, e)
 
