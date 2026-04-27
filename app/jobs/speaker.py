@@ -17,6 +17,22 @@ def _abspath_realpath(value) -> str:
     return os.path.abspath(os.path.realpath(os.fspath(value)))
 
 
+def _resolve_profile_metadata_path_or_error(profile_name: str, meta_path: Path) -> str:
+    """Return a canonical, safe metadata path within VOICES_DIR for profile.json."""
+    voices_root = VOICES_DIR.resolve(strict=False)
+    resolved_meta = Path(meta_path).resolve(strict=False)
+
+    try:
+        resolved_meta.relative_to(voices_root)
+    except ValueError as exc:
+        raise ValueError(f"Invalid profile metadata path for: {profile_name}") from exc
+
+    if resolved_meta.name != "profile.json":
+        raise ValueError(f"Invalid profile metadata filename for: {profile_name}")
+
+    return os.fspath(resolved_meta)
+
+
 def _scandir_names_within_root(root_dir, *parts: str) -> Optional[set[str]]:
     """Rule 9: Locally visible containment proof for discovery sink."""
     root = os.path.abspath(os.path.realpath(os.fspath(root_dir)))
@@ -278,17 +294,8 @@ DEFAULT_SPEAKER_TEST_TEXT = (
     trusted_meta_path = _existing_profile_metadata_path(profile_name)
     if not trusted_meta_path:
 
-    meta_path_final = os.path.abspath(os.path.realpath(os.fspath(meta_path)))
-    meta_path_final = os.path.abspath(os.path.realpath(os.fspath(trusted_meta_path)))
+    meta_path_final = _resolve_profile_metadata_path_or_error(profile_name, meta_path)
 
-    if meta_path_final != voices_root and not meta_path_final.startswith(voices_root_prefix):
-        raise ValueError(f"Invalid profile metadata path for: {profile_name}")
-
-    # Metadata access is restricted to the canonical profile.json only.
-    if os.path.basename(meta_path_final) != "profile.json":
-        raise ValueError(f"Invalid profile metadata filename for: {profile_name}")
-
-    if not os.path.isfile(meta_path_final):
         meta = normalize_profile_metadata(profile_name, {}, persist=False)
         if fix_schema:
             try:
