@@ -28,13 +28,16 @@ class _MockEngine:
 
 
 class _MockPlugin:
-    def __init__(self, engine_id="mock", env_ok=True, verified=False):
+    def __init__(self, engine_id="mock", env_ok=True, verified=False, deps_ok=True):
         self.engine_id = engine_id
         self.display_name = engine_id.upper()
         self.engine = _MockEngine(env_ok=env_ok)
         self.verified = verified
         self.verification_error = None
         self.manifest = {}
+        self.dependencies_satisfied = deps_ok
+        self.missing_dependencies = [] if deps_ok else ["missing-pkg"]
+        self.folder_name = f"tts_{engine_id}"
 
 
 class TestEngineStatus:

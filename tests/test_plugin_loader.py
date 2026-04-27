@@ -414,3 +414,91 @@ class TestDependencies:
         result = discover_plugins(tmp_path)
         assert len(result) == 1
         assert result[0].dependencies_satisfied is True
+
+
+# ---------------------------------------------------------------------------
+# Plugin Isolation / Crash Containment
+# ---------------------------------------------------------------------------
+
+class TestPluginIsolation:
+    def test_import_crash_isolated(self, tmp_path):
+        """A plugin that crashes during module import should be skipped."""
+        _make_plugin_dir(
+            tmp_path, "tts_crash_import",
+            _minimal_manifest("crash_import"),
+            "raise RuntimeError('import crash')"
+        )
+        # Good plugin as a control
+        _make_plugin_dir(
+            tmp_path, "tts_good",
+            _minimal_manifest("good"),
+            _mock_engine_src()
+        )
+
+        result = discover_plugins(tmp_path)
+        assert len(result) == 1
+        assert result[0].engine_id == "good"
+
+    def test_instantiation_crash_isolated(self, tmp_path):
+        """A plugin that crashes in __init__ should be skipped."""
+        src = """
+        class MockEngine:
+            def __init__(self):
+                raise RuntimeError('init crash')
+        """
+        _make_plugin_dir(
+            tmp_path, "tts_crash_init",
+            _minimal_manifest("crash_init"),
+            src
+        )
+        # Good plugin
+        _make_plugin_dir(
+            tmp_path, "tts_good",
+            _minimal_manifest("good"),
+            _mock_engine_src()
+        )
+
+        result = discover_plugins(tmp_path)
+        assert len(result) == 1
+        assert result[0].engine_id == "good"
+
+    def test_check_env_crash_isolated(self, tmp_path):
+        """A plugin that crashes in check_env() should be skipped."""
+        src = """
+        class MockEngine:
+            def check_env(self):
+                raise RuntimeError('check_env crash')
+        """
+        _make_plugin_dir(
+            tmp_path, "tts_crash_env",
+            _minimal_manifest("crash_env"),
+            src
+        )
+        # Good plugin
+        _make_plugin_dir(
+            tmp_path, "tts_good",
+            _minimal_manifest("good"),
+            _mock_engine_src()
+        )
+
+        result = discover_plugins(tmp_path)
+        assert len(result) == 1
+        assert result[0].engine_id == "good"
+
+    def test_syntax_error_isolated(self, tmp_path):
+        """A plugin with a syntax error should be skipped."""
+        _make_plugin_dir(
+            tmp_path, "tts_syntax",
+            _minimal_manifest("syntax"),
+            "class MockEngine: invalid syntax here !!!"
+        )
+        # Good plugin
+        _make_plugin_dir(
+            tmp_path, "tts_good",
+            _minimal_manifest("good"),
+            _mock_engine_src()
+        )
+
+        result = discover_plugins(tmp_path)
+        assert len(result) == 1
+        assert result[0].engine_id == "good"

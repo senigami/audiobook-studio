@@ -36,7 +36,7 @@ Open the stabilized Studio 2.0 architecture outward to contributors and external
 - [x] Studio-as-TTS-gateway documentation written
 - [x] Example third-party plugin created and tested
 - [x] OpenAPI/Swagger documentation generated and accessible
-- [ ] Plugin submission guidelines published
+- [x] Plugin submission guidelines published
 - [x] CONTRIBUTING.md updated with plugin contribution workflow
 
 ## Scope
@@ -63,7 +63,7 @@ Open the stabilized Studio 2.0 architecture outward to contributors and external
 - [x] Plugin dependency guidance tests pass
 - [x] API key authentication tests pass
 - [x] Rate limiting tests pass
-- [ ] Plugin isolation tests pass
+- [x] Plugin isolation tests pass
 - [x] OpenAPI spec is valid and accessible
 - [x] LAN binding test passes
 
