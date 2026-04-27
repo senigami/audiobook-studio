@@ -155,9 +155,15 @@ def get_chapter_dir(project_id: str, chapter_id: str) -> Path:
 def get_project_storage_version(project_id: str) -> int:
     """Returns the storage version of the project (1 for legacy, 2 for nested)."""
     try:
-        project_dir = get_project_dir(project_id)
-        import os
-        trusted_pdir = os.path.abspath(os.fspath(project_dir))
+        canonical_project_id = _canonical_project_id(project_id)
+        projects_root = os.path.abspath(os.path.realpath(os.fspath(PROJECTS_DIR)))
+        trusted_pdir = os.path.abspath(
+            os.path.normpath(os.path.join(projects_root, canonical_project_id))
+        )
+        projects_root_prefix = projects_root if projects_root.endswith(os.sep) else projects_root + os.sep
+        if trusted_pdir != projects_root and not trusted_pdir.startswith(projects_root_prefix):
+            return 1
+
         # Rule 8: Local proof for existence and containment
         manifest_path_full = None
         for entry in os.scandir(trusted_pdir):
@@ -189,26 +195,33 @@ def get_variant_dir(voice_name: str, variant_name: str) -> Path:
 def _find_file(directory: Path, filename: str) -> Optional[Path]:
     """Rule 8: Enumerate trusted root and match by entry.name for existing files."""
     try:
-        # Rule 8: Enumerate trusted root, but prove the root first for scanner locality.
         trusted_dir = os.path.abspath(os.path.realpath(os.fspath(directory)))
-        trusted_roots = [
-            os.path.abspath(os.path.realpath(os.fspath(CHAPTER_DIR))),
-            os.path.abspath(os.path.realpath(os.fspath(XTTS_OUT_DIR))),
-            os.path.abspath(os.path.realpath(os.fspath(VOICES_DIR))),
-            os.path.abspath(os.path.realpath(os.fspath(PROJECTS_DIR))),
-        ]
-        if not any(trusted_dir == root or trusted_dir.startswith(root + os.sep) for root in trusted_roots):
+        chapter_root = os.path.abspath(os.path.realpath(os.fspath(CHAPTER_DIR)))
+        xtts_root = os.path.abspath(os.path.realpath(os.fspath(XTTS_OUT_DIR)))
+        voices_root = os.path.abspath(os.path.realpath(os.fspath(VOICES_DIR)))
+        projects_root = os.path.abspath(os.path.realpath(os.fspath(PROJECTS_DIR)))
+
+        if trusted_dir == chapter_root or trusted_dir.startswith(chapter_root + os.sep):
+            safe_dir = trusted_dir
+        elif trusted_dir == xtts_root or trusted_dir.startswith(xtts_root + os.sep):
+            safe_dir = trusted_dir
+        elif trusted_dir == voices_root or trusted_dir.startswith(voices_root + os.sep):
+            safe_dir = trusted_dir
+        elif trusted_dir == projects_root or trusted_dir.startswith(projects_root + os.sep):
+            safe_dir = trusted_dir
+        else:
             import tempfile
             is_test = os.getenv("APP_TEST_MODE") == "1" or "PYTEST_CURRENT_TEST" in os.environ
             temp_root = os.path.abspath(os.path.realpath(tempfile.gettempdir()))
             if not is_test or not (trusted_dir == temp_root or trusted_dir.startswith(temp_root + os.sep)):
                 return None
+            safe_dir = trusted_dir
 
-        for entry in os.scandir(trusted_dir):
+        for entry in os.scandir(safe_dir):
             if entry.is_file() and entry.name == filename:
                 # Explicit containment check for scanner locality
                 res_path = os.path.abspath(entry.path)
-                if res_path.startswith(trusted_dir + os.sep):
+                if res_path.startswith(safe_dir + os.sep):
                     return Path(res_path)
     except OSError:
         pass
@@ -218,9 +231,18 @@ def _find_file(directory: Path, filename: str) -> Optional[Path]:
 def get_voice_storage_version(voice_name: str) -> int:
     """Returns the storage version of a voice (1 for legacy flat, 2 for nested)."""
     try:
-        voice_root = get_voice_dir(voice_name)
-        import os
-        trusted_vroot = os.path.abspath(os.fspath(voice_root))
+        safe_voice_name = os.path.basename(voice_name)
+        if voice_name != safe_voice_name or "/" in voice_name or "\\" in voice_name:
+            return 1
+
+        voices_root = os.path.abspath(os.path.realpath(os.fspath(VOICES_DIR)))
+        trusted_vroot = os.path.abspath(
+            os.path.normpath(os.path.join(voices_root, safe_voice_name))
+        )
+        voices_root_prefix = voices_root if voices_root.endswith(os.sep) else voices_root + os.sep
+        if trusted_vroot != voices_root and not trusted_vroot.startswith(voices_root_prefix):
+            return 1
+
         # Rule 8: Local proof for existence and containment
         manifest_path_full = None
         for entry in os.scandir(trusted_vroot):
