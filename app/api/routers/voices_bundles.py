@@ -47,9 +47,11 @@ async def import_voice_bundle_route(file: UploadFile = File(...)):
         sync_speakers_from_profiles(get_voices_dir())
         return JSONResponse({"status": "ok", **result})
     except VoiceBundleError as exc:
-        # Rule: allow sanitized domain errors (like 'missing voice.json') while blocking path leaks
-        msg = str(exc) if not any(c in str(exc) for c in ["/", "\\", ":"]) else "Voice import failed due to invalid bundle structure"
-        return JSONResponse({"status": "error", "message": msg}, status_code=400)
+        logger.warning("Voice bundle validation/import error for %s: %s", file.filename, exc)
+        return JSONResponse(
+            {"status": "error", "message": "Voice import failed due to invalid bundle structure"},
+            status_code=400,
+        )
     except Exception as e:
         logger.exception("Failed to import voice bundle %s", file.filename)
         return JSONResponse({"status": "error", "message": "Voice import failed"}, status_code=500)
