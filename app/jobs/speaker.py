@@ -289,17 +289,24 @@ DEFAULT_SPEAKER_TEST_TEXT = (
     "cold breeze carried the scent of wet earth and weathered stone."
 )
 
+def _read_profile_metadata(profile_name: str, meta_path: Path, *, fix_schema: bool = False) -> dict:
+    profile_name = _profile_name_or_error(profile_name)
 
-    # Ignore caller-provided path for sink selection; derive trusted canonical path locally.
-    trusted_meta_path = _existing_profile_metadata_path(profile_name)
-    if not trusted_meta_path:
+    # Rule 9: Locally visible containment proof for file reading sinks
+    voices_root = os.path.abspath(os.path.realpath(os.fspath(VOICES_DIR)))
+    voices_root_prefix = voices_root if voices_root.endswith(os.sep) else voices_root + os.sep
 
-    meta_path_final = _resolve_profile_metadata_path_or_error(profile_name, meta_path)
+    meta_path_final = os.path.abspath(os.path.realpath(os.fspath(meta_path)))
+    if meta_path_final != voices_root and not meta_path_final.startswith(voices_root_prefix):
+        raise ValueError(f"Invalid profile metadata path for: {profile_name}")
 
+    if os.path.basename(meta_path_final) != "profile.json":
+        raise ValueError(f"Invalid profile metadata filename for: {profile_name}")
+
+    if not os.path.isfile(meta_path_final):
         meta = normalize_profile_metadata(profile_name, {}, persist=False)
         if fix_schema:
             try:
-                # SINK: Proof is locally visible
                 with open(meta_path_final, "w", encoding="utf-8") as fp:
                     fp.write(json.dumps(meta, indent=2))
             except Exception:
@@ -307,7 +314,6 @@ DEFAULT_SPEAKER_TEST_TEXT = (
         return meta
 
     try:
-        # SINK: Proof is locally visible
         with open(meta_path_final, "r", encoding="utf-8", errors="replace") as fp:
             raw = fp.read().strip()
         meta = json.loads(raw) if raw else {}
@@ -323,7 +329,6 @@ DEFAULT_SPEAKER_TEST_TEXT = (
     normalized = normalize_profile_metadata(profile_name, meta, persist=False)
     if fix_schema and normalized != meta:
         try:
-            # SINK: Proof is locally visible
             with open(meta_path_final, "w", encoding="utf-8") as fp:
                 fp.write(json.dumps(normalized, indent=2))
         except Exception:
