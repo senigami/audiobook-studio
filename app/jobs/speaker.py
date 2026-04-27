@@ -66,6 +66,9 @@ def _profile_dir_has_assets(profile_dir: Path) -> bool:
 def _candidate_voice_profile_dir(profile_name: str) -> Path:
     profile_name = _profile_name_or_error(profile_name)
 
+    voices_root = os.path.abspath(os.path.realpath(os.fspath(VOICES_DIR)))
+    voices_root_prefix = voices_root if voices_root.endswith(os.sep) else voices_root + os.sep
+
     # If it's a nested-style name "Dracula - Angry", prefer Dracula/Angry if Dracula is a v2 voice
     if " - " in profile_name:
         v_name, var_name = profile_name.split(" - ", 1)
@@ -75,10 +78,10 @@ def _candidate_voice_profile_dir(profile_name: str) -> Path:
         from ..config import get_voice_storage_version
 
         if get_voice_storage_version(v_name) >= 2:
-            return VOICES_DIR / v_name / var_name
-
-    voices_root = os.path.abspath(os.path.realpath(os.fspath(VOICES_DIR)))
-    voices_root_prefix = voices_root if voices_root.endswith(os.sep) else voices_root + os.sep
+            fullpath = os.path.abspath(os.path.realpath(os.path.join(voices_root, v_name, var_name)))
+            if fullpath != voices_root and not fullpath.startswith(voices_root_prefix):
+                raise ValueError(f"Invalid profile name: {profile_name}")
+            return Path(fullpath)
 
     fullpath = os.path.abspath(os.path.realpath(os.path.join(voices_root, profile_name)))
     if fullpath != voices_root and not fullpath.startswith(voices_root_prefix):
