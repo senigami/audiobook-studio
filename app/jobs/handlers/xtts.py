@@ -2,11 +2,34 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from ...engines import wav_to_mp3
+from ...chunk_groups import build_chunk_groups, load_chunk_segments
+from ...db import get_chapter_segments, update_queue_item, update_segment, update_segments_status_bulk
+from ...engines import get_audio_duration, stitch_segments, wav_to_mp3, xtts_generate, xtts_generate_script
+from ..speaker import get_speaker_wavs, get_voice_profile_dir
 from ...state import update_job
 from .xtts_bake import handle_xtts_bake
 from .xtts_segments import handle_xtts_segments
 from .xtts_standard import handle_xtts_standard
+from .xtts_helpers import _group_job_progress
+
+__all__ = [
+    "handle_xtts_job",
+    "_group_job_progress",
+    "build_chunk_groups",
+    "load_chunk_segments",
+    "get_chapter_segments",
+    "update_queue_item",
+    "update_segment",
+    "update_segments_status_bulk",
+    "get_audio_duration",
+    "stitch_segments",
+    "wav_to_mp3",
+    "xtts_generate",
+    "xtts_generate_script",
+    "get_speaker_wavs",
+    "get_voice_profile_dir",
+    "update_job",
+]
 
 
 def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, pdir, out_wav, out_mp3, text=None, storage_version=1):

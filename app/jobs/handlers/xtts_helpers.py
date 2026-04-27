@@ -1,29 +1,32 @@
 from __future__ import annotations
 from typing import Dict, Any, Optional
 
-from ...state import update_job
-from ...engines import xtts_generate
-from ..speaker import get_speaker_wavs, get_voice_profile_dir
+from . import xtts as xtts_facade
 
 
 def _profile_inputs_for_segment(char_profile, job_default_profile, default_sw):
     profile_name = char_profile or job_default_profile
-    sw = get_speaker_wavs(char_profile) if char_profile else default_sw
+    sw = default_sw
+    if char_profile:
+        try:
+            sw = xtts_facade.get_speaker_wavs(char_profile)
+        except Exception:
+            sw = default_sw
     voice_profile_dir = None
     if profile_name:
         try:
-            voice_profile_dir = str(get_voice_profile_dir(profile_name))
-        except ValueError:
+            voice_profile_dir = str(xtts_facade.get_voice_profile_dir(profile_name))
+        except Exception:
             voice_profile_dir = None
     return sw, voice_profile_dir
 
 
 def _generate_direct_xtts(text, j, out_wav, on_output, cancel_check, default_sw, speed):
     try:
-        voice_profile_dir = str(get_voice_profile_dir(j.speaker_profile)) if j.speaker_profile else None
-    except ValueError:
+        voice_profile_dir = str(xtts_facade.get_voice_profile_dir(j.speaker_profile)) if j.speaker_profile else None
+    except Exception:
         voice_profile_dir = None
-    return xtts_generate(
+    return xtts_facade.xtts_generate(
         text=text,
         out_wav=out_wav,
         safe_mode=j.safe_mode,

@@ -4,11 +4,9 @@ import time
 from pathlib import Path
 
 from ...config import SENT_CHAR_LIMIT
-from ...chunk_groups import build_chunk_groups, load_chunk_segments
-from ...state import update_job
-from ...engines import xtts_generate_script, stitch_segments
+from ...chunk_groups import build_chunk_groups
 from ...textops import sanitize_for_xtts, safe_split_long_sentences
-from ..speaker import get_speaker_wavs, get_voice_profile_dir
+from . import xtts as xtts_facade
 from .xtts_helpers import (
     _generate_direct_xtts,
 )
@@ -18,7 +16,7 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
     from ...db import update_segment
 
     if j.chapter_id:
-        groups = build_chunk_groups(load_chunk_segments(j.chapter_id), j.speaker_profile)
+        groups = build_chunk_groups(xtts_facade.load_chunk_segments(j.chapter_id), j.speaker_profile)
         if groups:
             def _group_weight(g: dict) -> int:
                 return max(1, int(g.get("text_length") or 0))
@@ -67,12 +65,15 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
 
                 first = group["segments"][0]
                 profile_name = group["profile_name"]
-                sw = get_speaker_wavs(profile_name) if profile_name else default_sw
+                try:
+                    sw = xtts_facade.get_speaker_wavs(profile_name) if profile_name else default_sw
+                except Exception:
+                    sw = default_sw
                 voice_profile_dir = None
                 if profile_name:
                     try:
-                        voice_profile_dir = str(get_voice_profile_dir(profile_name))
-                    except ValueError:
+                        voice_profile_dir = str(xtts_facade.get_voice_profile_dir(profile_name))
+                    except Exception:
                         voice_profile_dir = None
                 processed = " ".join(group["text_parts"]).strip()
                 if j.safe_mode:
@@ -109,7 +110,7 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
             j.render_group_count = total_groups
             j.completed_render_groups = done_count
             j.active_render_group_index = done_count
-            update_job(
+            xtts_facade.update_job(
                 jid,
                 completed_render_groups=done_count,
                 render_group_count=total_groups,
@@ -135,7 +136,7 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                     active_save_path[0] = matched_path
                     j.active_render_group_index = min(completed_count[0] + 1, total_groups)
                     prog = _progress_from_weight(0.0)
-                    update_job(
+                    xtts_facade.update_job(
                         jid,
                         force_broadcast=True,
                         progress=prog,
@@ -165,7 +166,7 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                         j.active_render_group_index = 0
                         active_save_path[0] = None
                         prog = _progress_from_weight()
-                        update_job(
+                        xtts_facade.update_job(
                             jid,
                             progress=prog,
                             active_segment_id=None,
@@ -184,7 +185,7 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                         p_str = line.split("[PROGRESS]")[1].split("%")[0].strip()
                         segment_progress = float(p_str) / 100.0
                         prog = _progress_from_weight(segment_progress, active_save_path[0])
-                        update_job(
+                        xtts_facade.update_job(
                             jid,
                             force_broadcast=True,
                             progress=prog,
@@ -201,7 +202,7 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
 
             scratch_wav = pdir / f"output_{j.id}.wav"
             try:
-                rc = xtts_generate_script(script_json_path=script_path, out_wav=scratch_wav, on_output=chapter_on_output, cancel_check=cancel_check, speed=speed)
+                rc = xtts_facade.xtts_generate_script(script_json_path=script_path, out_wav=scratch_wav, on_output=chapter_on_output, cancel_check=cancel_check, speed=speed)
             finally:
                 if script_path.exists():
                     script_path.unlink()
@@ -209,13 +210,13 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                     scratch_wav.unlink()
 
             if rc == 0:
-                update_job(jid, status="finalizing", progress=0.91,
+                xtts_facade.update_job(jid, status="finalizing", progress=0.91,
                            completed_render_groups=total_groups, render_group_count=total_groups,
                            total_render_weight=total_weight, completed_render_weight=total_weight,
                            active_render_group_weight=0, grouped_progress=_RENDER_LIMIT)
                 segment_paths = []
                 last_path = None
-                for group in build_chunk_groups(load_chunk_segments(j.chapter_id), j.speaker_profile):
+                for group in build_chunk_groups(xtts_facade.load_chunk_segments(j.chapter_id), j.speaker_profile):
                     storage_version = getattr(j, "storage_version", 1)
                     if storage_version >= 2:
                         group_path = pdir / "segments" / f"{group['segments'][0]['id']}.wav"
@@ -226,9 +227,9 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                         segment_paths.append(group_path)
                         last_path = group_path
                 if not segment_paths:
-                    update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error="No valid segment audio was available to stitch.")
+                    xtts_facade.update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error="No valid segment audio was available to stitch.")
                     return 1
-                rc = stitch_segments(pdir, segment_paths, out_wav, on_output, cancel_check)
+                rc = xtts_facade.stitch_segments(pdir, segment_paths, out_wav, on_output, cancel_check)
                 return rc
             return rc
         else:

@@ -5,9 +5,8 @@ from pathlib import Path
 
 from ...config import SENT_CHAR_LIMIT
 from ...chunk_groups import build_chunk_groups
-from ...state import update_job
-from ...engines import xtts_generate_script, stitch_segments, get_audio_duration
 from ...textops import sanitize_for_xtts, safe_split_long_sentences
+from . import xtts as xtts_facade
 from .xtts_helpers import (
     _profile_inputs_for_segment, 
     _segment_group_weight, 
@@ -17,7 +16,7 @@ from .xtts_helpers import (
 
 
 def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, pdir, out_wav):
-    from ...db import update_segment, get_chapter_segments
+    from ...db import get_chapter_segments, update_segment
 
     on_output(f"Baking Chapter {j.chapter_id} starting...\n")
     segs = get_chapter_segments(j.chapter_id)
@@ -75,7 +74,7 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
         j.render_group_count = total_missing_groups
         j.completed_render_groups = offset
         j.active_render_group_index = offset
-        update_job(jid, **_group_display_updates(offset, total_missing_groups, 0.0, limit=0.9, active_index=offset, group_weights=missing_group_weights))
+        xtts_facade.update_job(jid, **_group_display_updates(offset, total_missing_groups, 0.0, limit=0.9, active_index=offset, group_weights=missing_group_weights))
 
         def bake_on_output(line):
             on_output(line)
@@ -96,7 +95,7 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
                         limit=0.9,
                         group_weights=missing_group_weights,
                     )
-                    update_job(
+                    xtts_facade.update_job(
                         jid,
                         progress=prog,
                         active_segment_id=None,
@@ -114,7 +113,7 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
                     limit=0.9,
                     group_weights=missing_group_weights,
                 )
-                update_job(
+                xtts_facade.update_job(
                     jid,
                     force_broadcast=True,
                     progress=base_progress,
@@ -134,7 +133,7 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
                         limit=0.9,
                         group_weights=missing_group_weights,
                     )
-                    update_job(
+                    xtts_facade.update_job(
                         jid,
                         force_broadcast=True,
                         progress=overall_progress,
@@ -145,14 +144,14 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
 
         scratch_wav = pdir / f"output_{j.id}.wav"
         try:
-            xtts_generate_script(script_json_path=script_path, out_wav=scratch_wav, on_output=bake_on_output, cancel_check=cancel_check, speed=speed)
+            xtts_facade.xtts_generate_script(script_json_path=script_path, out_wav=scratch_wav, on_output=bake_on_output, cancel_check=cancel_check, speed=speed)
         finally:
             if script_path.exists(): script_path.unlink()
             if scratch_wav.exists(): scratch_wav.unlink()
 
     # Final Stitch
     if cancel_check(): return
-    update_job(jid, status="finalizing", progress=0.91, **_group_display_updates(total_missing_groups, total_missing_groups, 0.0, limit=0.9, group_weights=missing_group_weights if missing_groups else []))
+    xtts_facade.update_job(jid, status="finalizing", progress=0.91, **_group_display_updates(total_missing_groups, total_missing_groups, 0.0, limit=0.9, group_weights=missing_group_weights if missing_groups else []))
     fresh_segs = get_chapter_segments(j.chapter_id)
     segment_paths = []
     last_path = None
@@ -164,15 +163,15 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
                 last_path = spath
 
     if not segment_paths:
-        update_job(jid, status="failed", error="No valid audio segments found to stitch.")
+        xtts_facade.update_job(jid, status="failed", error="No valid audio segments found to stitch.")
         return
 
-    rc = stitch_segments(pdir, segment_paths, out_wav, on_output, cancel_check)
+    rc = xtts_facade.stitch_segments(pdir, segment_paths, out_wav, on_output, cancel_check)
     if rc == 0 and out_wav.exists():
-        duration = get_audio_duration(out_wav)
+        duration = xtts_facade.get_audio_duration(out_wav)
         from ...db import update_queue_item
         update_queue_item(jid, "done", audio_length_seconds=duration)
         return 0
     else:
-        update_job(jid, status="failed", error=f"Stitching failed (rc={rc})")
+        xtts_facade.update_job(jid, status="failed", error=f"Stitching failed (rc={rc})")
         return rc

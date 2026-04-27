@@ -4,9 +4,8 @@ import time
 from pathlib import Path
 
 from ...config import SENT_CHAR_LIMIT
-from ...state import update_job
-from ...engines import xtts_generate_script
 from ...textops import sanitize_for_xtts, safe_split_long_sentences
+from . import xtts as xtts_facade
 from .xtts_helpers import (
     _profile_inputs_for_segment, 
     _segment_group_weight, 
@@ -16,13 +15,13 @@ from .xtts_helpers import (
 
 
 def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, speed, pdir):
-    from ...db import update_segment, get_chapter_segments
+    from ...db import get_chapter_segments, update_segment
 
     all_segs = get_chapter_segments(j.chapter_id)
     requested_ids = set(j.segment_ids)
     segs_to_gen = [s for s in all_segs if s['id'] in requested_ids]
     if not segs_to_gen:
-        update_job(jid, status="done", progress=1.0)
+        xtts_facade.update_job(jid, status="done", progress=1.0)
         return 0
 
     gen_groups = []
@@ -76,7 +75,7 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
     j.render_group_count = total_requested_groups
     j.completed_render_groups = 0
     j.active_render_group_index = 0
-    update_job(jid, **_group_display_updates(0, total_requested_groups, 0.0, limit=1.0, group_weights=requested_group_weights))
+    xtts_facade.update_job(jid, **_group_display_updates(0, total_requested_groups, 0.0, limit=1.0, group_weights=requested_group_weights))
 
     def gen_on_output(line):
         on_output(line)
@@ -97,7 +96,7 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
                     limit=1.0,
                     group_weights=requested_group_weights,
                 )
-                update_job(
+                xtts_facade.update_job(
                     jid,
                     progress=prog,
                     active_segment_id=None,
@@ -115,7 +114,7 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
                 limit=1.0,
                 group_weights=requested_group_weights,
             )
-            update_job(
+            xtts_facade.update_job(
                 jid,
                 force_broadcast=True,
                 progress=base_progress,
@@ -135,7 +134,7 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
                     limit=1.0,
                     group_weights=requested_group_weights,
                 )
-                update_job(
+                xtts_facade.update_job(
                     jid,
                     force_broadcast=True,
                     progress=overall_progress,
@@ -145,7 +144,7 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
             except: pass
 
     try:
-        rc = xtts_generate_script(script_json_path=script_path, out_wav=pdir / f"output_{j.id}.wav", on_output=gen_on_output, cancel_check=cancel_check, speed=speed)
+        rc = xtts_facade.xtts_generate_script(script_json_path=script_path, out_wav=pdir / f"output_{j.id}.wav", on_output=gen_on_output, cancel_check=cancel_check, speed=speed)
     finally:
         if script_path.exists(): script_path.unlink()
         scratch = pdir / f"output_{j.id}.wav"
@@ -162,7 +161,7 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
         from ...db.chapters import get_chapter_segments_counts
         done_c, total_c = get_chapter_segments_counts(j.chapter_id)
         final_p = round(done_c / total_c, 2) if total_c > 0 else 1.0
-        update_job(jid, status="done", progress=final_p, finished_at=time.time())
+        xtts_facade.update_job(jid, status="done", progress=final_p, finished_at=time.time())
     except Exception:
-        update_job(jid, status="done", progress=1.0, finished_at=time.time())
+        xtts_facade.update_job(jid, status="done", progress=1.0, finished_at=time.time())
     return rc
