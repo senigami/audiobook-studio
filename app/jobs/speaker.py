@@ -282,7 +282,20 @@ def _read_profile_metadata(profile_name: str, meta_path: Path, *, fix_schema: bo
     if meta_path_final != voices_root and not meta_path_final.startswith(voices_root_prefix):
         raise ValueError(f"Invalid profile metadata path for: {profile_name}")
 
-    if not os.path.exists(meta_path_final):
+    meta_dir = os.path.dirname(meta_path_final)
+    meta_name = os.path.basename(meta_path_final)
+    meta_entry_path: Optional[str] = None
+    if os.path.isdir(meta_dir):
+        for entry in os.scandir(meta_dir):
+            if entry.name != meta_name or not entry.is_file():
+                continue
+            cand = os.path.abspath(os.path.realpath(entry.path))
+            if cand != meta_dir and not cand.startswith(meta_dir + os.sep):
+                continue
+            meta_entry_path = cand
+            break
+
+    if not meta_entry_path:
         meta = normalize_profile_metadata(profile_name, {}, persist=False)
         if fix_schema:
             try:
@@ -295,16 +308,16 @@ def _read_profile_metadata(profile_name: str, meta_path: Path, *, fix_schema: bo
 
     try:
         # SINK: Proof is locally visible
-        with open(meta_path_final, "r", encoding="utf-8", errors="replace") as fp:
+        with open(meta_entry_path, "r", encoding="utf-8", errors="replace") as fp:
             raw = fp.read().strip()
         meta = json.loads(raw) if raw else {}
     except JSONDecodeError:
         logger.warning(
-            "Speaker metadata was blank or invalid JSON at %s; rebuilding defaults.", meta_path_final, exc_info=True
+            "Speaker metadata was blank or invalid JSON at %s; rebuilding defaults.", meta_entry_path, exc_info=True
         )
         meta = {}
     except Exception:
-        logger.warning("Failed to read speaker metadata from %s", meta_path_final, exc_info=True)
+        logger.warning("Failed to read speaker metadata from %s", meta_entry_path, exc_info=True)
         meta = {}
 
     normalized = normalize_profile_metadata(profile_name, meta, persist=False)
