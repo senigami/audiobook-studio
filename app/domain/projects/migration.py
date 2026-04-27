@@ -87,13 +87,23 @@ def migrate_project_to_v2(project_id: str) -> bool:
             segments = get_chapter_segments(chapter_id)
             for segment_index, seg in enumerate(segments):
                 sid = str(seg["id"])
+                audio_root = os.path.abspath(str(audio_dir))
                 segments_root = os.path.abspath(str(segments_dir))
                 legacy_name = f"chunk_{sid}.wav"
-                src = None
+                src_path = None
                 if audio_dir.exists() and audio_dir.is_dir():
                     for entry in audio_dir.iterdir():
                         if entry.is_file() and entry.name == legacy_name:
-                            src = entry
+                            candidate_src_path = os.path.abspath(
+                                os.path.normpath(str(entry))
+                            )
+                            audio_root_prefix = audio_root if audio_root.endswith(os.sep) else audio_root + os.sep
+                            if (
+                                candidate_src_path != audio_root
+                                and candidate_src_path.startswith(audio_root_prefix)
+                                and candidate_src_path.startswith(projects_root_prefix)
+                            ):
+                                src_path = candidate_src_path
                             break
 
                 dest_filename = f"seg_{segment_index}.wav"
@@ -111,9 +121,9 @@ def migrate_project_to_v2(project_id: str) -> bool:
                     logger.warning("Skipping generated segment audio path outside migration root: %s", dest_filename)
                     continue
 
-                if src and src.exists():
+                if src_path and os.path.exists(src_path):
                     if not os.path.exists(dest_path):
-                        shutil.move(str(src), dest_path)
+                        shutil.move(src_path, dest_path)
                         update_segment(sid, broadcast=False, audio_status="done", audio_file_path=dest_filename)
 
         # 4. Update manifest
