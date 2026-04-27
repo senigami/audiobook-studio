@@ -30,4 +30,9 @@ Use this file for request-derived filesystem paths, scanned directories, and con
 - **Extreme Hardening for Sinks**: Standard `Path` object methods like `.exists()`, `.is_dir()`, and `.mkdir()` are treated as sinks. CodeQL often ignores containment proofs on the parent `Path` object if the child path is derived and then checked via these methods.
   - **Solution**: Convert all `Path` sinks to string-based `os.path` sinks (`os.path.exists`, `os.path.isdir`, `os.makedirs`).
   - **Pattern**: Resolve the final string using `os.path.abspath(os.path.realpath(os.fspath(path)))` and perform the `startswith(trusted_prefix)` check immediately before the sink in the same local block.
-- **`realpath` Consistency**: On macOS, `/var` is a symlink to `/private/var`. Containment checks (`startswith`) MUST use `os.path.realpath` on both the trusted root and the candidate path to ensure prefix matching is mathematical and consistent across symlinked system volumes.
+- **Source Sanitization is King**: While sink-level proofs are required for completeness, sanitizing user-provided strings (e.g., validating UUIDs or using strict regex) at the **API entry point** is the most effective way to break the taint chain early.
+  - **Pattern**: Use a public helper like `config.canonical_chapter_id(id)` that raises `ValueError` on anything except a valid UUID before passing the ID to any domain logic.
+- **Unrolled Proofs for Linear Path Analysis**: CodeQL's path-sensitive analysis frequently fails to follow containment proofs through loops (e.g., `for root in trusted_roots:`). 
+  - **Solution**: Explicitly "unroll" these checks into `if/elif` blocks for each trusted root. This provides a clear, linear path for the scanner to follow from the proof to the sink.
+- **Taint Persistence in Objects**: CodeQL often tracks taint through `pathlib.Path` objects even after a containment check. 
+  - **Pattern**: For high-risk sinks, convert the `Path` to a string (`os.fspath`), resolve it fully (`abspath/realpath`), and perform a fresh `startswith()` check immediately before the sink in the same local block.

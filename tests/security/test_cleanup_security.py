@@ -48,7 +48,7 @@ def test_move_to_trash_traversal_blocked(mock_projects_root):
     valid_uuid = "12345678-1234-5678-1234-567812345678"
 
     # Mock canonical ID to return a traversal path
-    with patch("app.db.chapters_cleanup._canonical_chapter_id", return_value="../../evil"):
+    with patch("app.config.canonical_chapter_id", return_value="../../evil"):
         # The hardening logic should catch this
         move_chapter_artifacts_to_trash("p1", valid_uuid)
 

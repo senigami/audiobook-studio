@@ -149,14 +149,22 @@ def get_project_trash_dir(project_id: str) -> Path:
     return secure_join_flat(project_dir, "trash")
 
 
+def canonical_chapter_id(chapter_id: str) -> str:
+    try:
+        return str(uuid.UUID(chapter_id))
+    except (ValueError, TypeError, AttributeError):
+        # We only accept UUIDs for chapter IDs in version 2 storage
+        raise ValueError(f"Invalid chapter id: {chapter_id}")
+
+
 def get_chapter_dir(project_id: str, chapter_id: str) -> Path:
+    c_id = canonical_chapter_id(chapter_id)
     project_dir = get_project_dir(project_id)
-    project_root = os.path.abspath(os.path.realpath(os.fspath(project_dir)))
-    chapter_root = os.path.abspath(os.path.normpath(os.path.join(project_root, "chapters", chapter_id)))
-    project_root_prefix = project_root if project_root.endswith(os.sep) else project_root + os.sep
-    if chapter_root != project_root and not chapter_root.startswith(project_root_prefix):
-        raise ValueError(f"Path escapes root or is invalid: chapters/{chapter_id}")
-    return Path(chapter_root)
+
+    # Nested layout: projects/{project_id}/chapters/{chapter_id}
+    # Rule 9: Use secure_join_flat for the literals 'chapters' and chapter_id
+    chapters_base = secure_join_flat(project_dir, "chapters")
+    return secure_join_flat(chapters_base, c_id)
 
 
 def get_project_storage_version(project_id: str) -> int:

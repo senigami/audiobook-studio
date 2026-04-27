@@ -35,6 +35,8 @@ router = APIRouter()
 @router.post("/chapters/{chapter_id}/export-audio")
 def api_export_chapter_audio(chapter_id: str, payload: AudioExportRequest):
     try:
+        # Rule 9: Early validation of user-provided ID
+        chapter_id = config.canonical_chapter_id(chapter_id)
         export_path, media_type = export_chapter_audio(chapter_id, format=payload.format)
     except KeyError:
         return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
@@ -77,6 +79,8 @@ def api_get_chapter_preview(
 ):
     from ..utils import read_preview
 
+    # Rule 9: Early validation
+    chapter_id = config.canonical_chapter_id(chapter_id)
     chapter = get_chapter(chapter_id)
     if not chapter:
         return JSONResponse({"error": "not found"}, status_code=404)
@@ -128,6 +132,8 @@ def api_get_chapter_asset(
     asset_type: Literal["audio", "text", "segment"],
     filename: Optional[str] = None,
 ):
+    # Rule 9: Early validation
+    chapter_id = config.canonical_chapter_id(chapter_id)
     resolved = config.resolve_chapter_asset_path(
         project_id, chapter_id, asset_type, filename=filename
     )
@@ -170,6 +176,8 @@ async def api_export_chapter_sample(
     xtts_out_dir: Path = Depends(get_xtts_out_dir),
 ):
 
+    # Rule 9: Early validation
+    chapter_id = config.canonical_chapter_id(chapter_id)
     chapter = get_chapter(chapter_id)
     if not chapter:
         return JSONResponse(
@@ -221,6 +229,8 @@ def api_stream_chapter(
     xtts_out_dir: Path = Depends(get_xtts_out_dir),
 ):
 
+    # Rule 9: Early validation
+    chapter_id = config.canonical_chapter_id(chapter_id)
     chapter = get_chapter(chapter_id)
     if not chapter:
         raise HTTPException(status_code=404, detail="Chapter not found")

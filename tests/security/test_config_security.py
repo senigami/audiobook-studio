@@ -8,16 +8,19 @@ def test_get_chapter_dir_traversal_blocked(tmp_path):
     mock_projects = tmp_path / "projects"
     mock_projects.mkdir()
 
+    valid_proj = "12345678-1234-5678-1234-567812345678"
+    valid_chap = "87654321-4321-8765-4321-876543210987"
+
     with pytest.MonkeyPatch.context() as m:
         m.setattr("app.config.PROJECTS_DIR", mock_projects)
 
         # Valid ID
-        p_dir = get_chapter_dir("proj1", "chap1")
-        assert "proj1/chapters/chap1" in str(p_dir)
+        p_dir = get_chapter_dir(valid_proj, valid_chap)
+        assert f"{valid_proj}/chapters/{valid_chap}" in str(p_dir).replace("\\", "/")
 
-        # Traversal ID
-        with pytest.raises(ValueError, match="Path escapes root"):
-            get_chapter_dir("proj1", "../../evil")
+        # Traversal ID (caught by UUID check)
+        with pytest.raises(ValueError, match="Invalid chapter id"):
+            get_chapter_dir(valid_proj, "../../evil")
 
 def test_find_file_traversal_blocked(tmp_path):
     # Setup mock roots

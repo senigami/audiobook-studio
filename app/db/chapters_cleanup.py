@@ -7,7 +7,6 @@ from typing import List, Optional
 
 from ..pathing import secure_join_flat
 from .chapters_helpers import (
-    _canonical_chapter_id, 
     SAFE_SEGMENT_PREFIX_RE, 
     SAFE_AUDIO_NAME_RE, 
     SAFE_TEXT_NAME_RE
@@ -25,6 +24,12 @@ def cleanup_chapter_audio_files(
 ) -> bool:
     """Delete chapter-level and selected segment audio files without touching DB state."""
     from .. import config
+
+    try:
+        chapter_id = config.canonical_chapter_id(chapter_id)
+    except ValueError:
+        logger.warning("Skipping cleanup for invalid chapter id %s", chapter_id)
+        return False
 
     # 1. Identify all candidate directories
     legacy_pdir = config.find_existing_project_subdir(project_id, "audio") if project_id else config.XTTS_OUT_DIR
@@ -136,7 +141,7 @@ def move_chapter_artifacts_to_trash(
         return True
 
     try:
-        chapter_id = _canonical_chapter_id(chapter_id)
+        chapter_id = config.canonical_chapter_id(chapter_id)
     except ValueError:
         logger.warning("Skipping trash move for invalid chapter id %s", chapter_id)
         return False
