@@ -140,6 +140,12 @@ def api_home(
     engines = bridge.describe_registry()
     render_stats = get_render_stats()
 
+    from ...engines.watchdog import get_watchdog
+    watchdog = get_watchdog()
+    server_info = ""
+    if use_tts_server() and watchdog:
+        server_info = f" (Watchdog @ {watchdog.get_port()})"
+
     return {
         "chapters": [],
         "jobs": jobs,
@@ -148,9 +154,10 @@ def api_home(
         "paused": paused(),
         "version": "1.8.4",
         "system_info": {
-            "backend_mode": "TTS-Server-Subprocess" if use_tts_server() else "Direct-In-Process",
+            "backend_mode": ("Managed Subprocess" + server_info) if use_tts_server() else "Direct-In-Process",
             "orchestrator": "Studio 2.0" if use_studio_orchestrator() else "Legacy (app.jobs)",
             "api_base_url": str(request.base_url).rstrip("/"),
+            "tts_server_url": watchdog.get_url() if (use_tts_server() and watchdog) else None,
         },
         "runtime_services": _build_runtime_services(request),
         "narrator_ok": any(

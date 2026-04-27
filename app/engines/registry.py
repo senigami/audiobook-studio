@@ -93,11 +93,16 @@ def _load_tts_server_registry() -> dict[str, EngineRegistrationModel]:
         return {}
 
     watchdog = get_watchdog()
-    if watchdog is None or not watchdog.is_healthy():
-        logger.warning(
-            "TTS Server registry: watchdog not running or unhealthy. "
-            "Returning empty registry."
-        )
+    if watchdog is None:
+        logger.debug("TTS Server registry: watchdog not yet initialized. Discovery deferred.")
+        return {}
+
+    if not watchdog.is_healthy():
+        # If the circuit is open, we've failed definitively.
+        if watchdog.is_circuit_open():
+            logger.error("TTS Server registry: circuit breaker is OPEN. Discovery disabled.")
+        else:
+            logger.debug("TTS Server registry: watchdog is booting or heartbeat failed. Discovery deferred.")
         return {}
 
     server_url = watchdog.get_url()
