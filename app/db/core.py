@@ -39,7 +39,8 @@ def _assert_safe_db_path_for_tests(db_path: Path) -> None:
         resolved_temp_root = raw_temp_root.resolve()
         if (
             resolved_db_path.is_relative_to(resolved_temp_root)
-            or resolved_db_path.is_relative_to("/tmp")
+            or resolved_db_path.is_relative_to(Path("/tmp").resolve())
+            or resolved_db_path.is_relative_to(Path("/var").resolve())
         ):
             return
     except Exception:

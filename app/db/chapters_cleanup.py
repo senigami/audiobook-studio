@@ -36,21 +36,26 @@ def cleanup_chapter_audio_files(
     nested_pdir = config.get_chapter_dir(project_id, chapter_id) if project_id else None
 
     target_dirs: List[str] = []
-    # Explicit containment check for scanner locality
+    # Rule 9: Explicit containment check for scanner locality
     try:
         p_root = os.path.abspath(os.path.realpath(os.fspath(config.PROJECTS_DIR)))
         x_root = os.path.abspath(os.path.realpath(os.fspath(config.XTTS_OUT_DIR)))
 
+        def is_safe(path_str: str) -> bool:
+            if path_str == p_root or path_str.startswith(p_root + os.sep):
+                return True
+            if path_str == x_root or path_str.startswith(x_root + os.sep):
+                return True
+            return False
+
         if legacy_pdir:
             l_path = os.path.abspath(os.path.realpath(os.fspath(legacy_pdir)))
-            if l_path == x_root or l_path.startswith(x_root + os.sep):
-                target_dirs.append(l_path)
-            elif l_path == p_root or l_path.startswith(p_root + os.sep):
+            if is_safe(l_path):
                 target_dirs.append(l_path)
 
         if nested_pdir:
             n_path = os.path.abspath(os.path.realpath(os.fspath(nested_pdir)))
-            if n_path == p_root or n_path.startswith(p_root + os.sep):
+            if is_safe(n_path):
                 target_dirs.append(n_path)
                 # Check segments subdir
                 s_path = os.path.abspath(os.path.realpath(os.path.join(n_path, "segments")))
@@ -68,8 +73,7 @@ def cleanup_chapter_audio_files(
     for d_path in target_dirs:
         try:
             # Rule 9: Locally visible proof for discovery sink
-            # (Already proven in target_dirs loop above, but we re-prove for absolute locality)
-            if not (d_path == x_root or d_path.startswith(x_root + os.sep) or d_path.startswith(p_root + os.sep)):
+            if not is_safe(d_path):
                 continue
 
             for entry in os.scandir(d_path):
@@ -154,11 +158,16 @@ def move_chapter_artifacts_to_trash(
 
         # Explicit containment check for scanner locality
         trash_base_resolved = os.path.abspath(os.path.realpath(os.fspath(base_trash_path)))
-        if not (trash_root_path == trash_base_resolved or trash_root_path.startswith(trash_base_resolved + os.sep)):
-             # Also check PROJECTS_DIR if it's a project-specific trash
-             p_root = os.path.abspath(os.path.realpath(os.fspath(config.PROJECTS_DIR)))
-             if not (trash_root_path == p_root or trash_root_path.startswith(p_root + os.sep)):
-                 raise ValueError("Trash path escape")
+
+        def is_trash_safe(path_str: str) -> bool:
+            if path_str == trash_base_resolved or path_str.startswith(trash_base_resolved + os.sep):
+                return True
+            if path_str == p_root or path_str.startswith(p_root + os.sep):
+                return True
+            return False
+
+        if not is_trash_safe(trash_root_path):
+            raise ValueError("Trash path escape")
     except Exception:
         logger.warning("Skipping trash move for invalid chapter id %s", chapter_id)
         return False

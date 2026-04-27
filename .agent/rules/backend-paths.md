@@ -36,3 +36,8 @@ Use this file for request-derived filesystem paths, scanned directories, and con
   - **Solution**: Explicitly "unroll" these checks into `if/elif` blocks for each trusted root. This provides a clear, linear path for the scanner to follow from the proof to the sink.
 - **Taint Persistence in Objects**: CodeQL often tracks taint through `pathlib.Path` objects even after a containment check. 
   - **Pattern**: For high-risk sinks, convert the `Path` to a string (`os.fspath`), resolve it fully (`abspath/realpath`), and perform a fresh `startswith()` check immediately before the sink in the same local block.
+- **Test-Mode Database Safety**: When running tests, a safety guard should prevent connecting to non-test databases. 
+  - **Pattern**: Resolve the `DB_PATH` and the system temp roots (including symlinks like `/tmp` -> `/private/tmp` on macOS) fully before comparison. Use `Path(path).resolve()` on both sides to ensure consistent behavior across platforms.
+- **Temp Dir Containment Traps**: Be careful when allowing `tempfile.gettempdir()` in containment proofs to support tests.
+  - **Risk**: Allowing the entire temp root can permit "traversal" between unrelated test directories (e.g., from `tmp/project_a` to `tmp/project_b`), which security tests correctly identify as a vulnerability.
+  - **Solution**: Instead of allowing the broad temp root, ensure that tests correctly patch the `PROJECTS_DIR` and `XTTS_OUT_DIR` to their specific temp workspaces. The standard `startswith(p_root)` check will then naturally allow the test paths without compromising security.

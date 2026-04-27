@@ -11,6 +11,7 @@ from ... import jobs
 from ... import state
 from ... import models
 from ... import pathing
+from ... import config
 from ...db.speakers import DEFAULT_PROFILE_ENGINE
 
 logger = logging.getLogger(__name__)
@@ -20,21 +21,21 @@ router = APIRouter()
 @router.post("/{name}/test-text")
 def update_speaker_test_text(name: str, text: str = Form(...)):
     # Rule 9: Early validation
-    name = state.config.canonical_voice_name(name)
+    name = config.canonical_voice_name(name)
     jobs.update_speaker_settings(name, test_text=text)
     return JSONResponse({"status": "ok", "test_text": text})
 
 @router.post("/{name}/reset-test-text")
 def reset_speaker_test_text(name: str):
     # Rule 9: Early validation
-    name = state.config.canonical_voice_name(name)
+    name = config.canonical_voice_name(name)
     jobs.update_speaker_settings(name, test_text=None)
     return JSONResponse({"status": "ok", "test_text": jobs.DEFAULT_SPEAKER_TEST_TEXT})
 
 @router.post("/{name}/settings")
 async def api_update_profile_settings(name: str, request: Request):
     # Rule 9: Early validation
-    name = state.config.canonical_voice_name(name)
+    name = config.canonical_voice_name(name)
     try:
         settings = await request.json()
     except Exception:
@@ -50,14 +51,14 @@ async def api_update_profile_settings(name: str, request: Request):
 @router.post("/{name}/speed")
 def update_speaker_speed(name: str, speed: float = Form(...)):
     # Rule 9: Early validation
-    name = state.config.canonical_voice_name(name)
+    name = config.canonical_voice_name(name)
     jobs.update_speaker_settings(name, speed=speed)
     return JSONResponse({"status": "ok", "speed": speed})
 
 @router.post("/{name}/variant-name")
 def update_speaker_variant_name(name: str, variant_name: str = Form(...)):
     # Rule 9: Early validation
-    name = state.config.canonical_voice_name(name)
+    name = config.canonical_voice_name(name)
     clean_variant_name = (variant_name or "").strip() or "Default"
     jobs.update_speaker_settings(name, variant_name=None if clean_variant_name == "Default" else clean_variant_name)
     return JSONResponse({"status": "ok", "variant_name": clean_variant_name})
@@ -66,7 +67,7 @@ def update_speaker_variant_name(name: str, variant_name: str = Form(...)):
 @router.post("/{name}/engine")
 def update_speaker_engine(name: str, engine: str = Form(...)):
     # Rule 9: Early validation
-    name = state.config.canonical_voice_name(name)
+    name = config.canonical_voice_name(name)
     try:
         normalized_engine = voices_helpers._normalize_profile_engine(engine)
     except ValueError:
@@ -84,7 +85,7 @@ def update_speaker_engine(name: str, engine: str = Form(...)):
 @router.post("/{name}/reference-sample")
 def update_speaker_reference_sample(name: str, sample_name: str = Form("")):
     # Rule 9: Early validation
-    name = state.config.canonical_voice_name(name)
+    name = config.canonical_voice_name(name)
     if not voices_helpers._is_engine_active("voxtral"):
         return JSONResponse({"status": "error", "message": "Enable Voxtral in Settings to configure metadata."}, status_code=400)
 
@@ -107,7 +108,7 @@ def update_speaker_reference_sample(name: str, sample_name: str = Form("")):
 @router.post("/{name}/voxtral-voice-id")
 def update_speaker_voxtral_voice_id(name: str, voice_id: str = Form("")):
     # Rule 9: Early validation
-    name = state.config.canonical_voice_name(name)
+    name = config.canonical_voice_name(name)
     if not voices_helpers._is_engine_active("voxtral"):
         return JSONResponse({"status": "error", "message": "Enable Voxtral in Settings to configure metadata."}, status_code=400)
 
@@ -123,7 +124,7 @@ async def build_speaker_profile(
     files: List[UploadFile] = File(default=[]),
 ):
     # Rule 9: Early validation
-    name = state.config.canonical_voice_name(name)
+    name = config.canonical_voice_name(name)
     try:
         try:
             path = voices_helpers._existing_voice_profile_dir(name) or voices_helpers._new_voice_profile_dir(name)
@@ -202,7 +203,7 @@ async def upload_speaker_samples(
     files: List[UploadFile] = File(...),
 ):
     # Rule 9: Early validation
-    name = state.config.canonical_voice_name(name)
+    name = config.canonical_voice_name(name)
     try:
         try:
             path = voices_helpers._existing_voice_profile_dir(name) or voices_helpers._new_voice_profile_dir(name)
@@ -239,13 +240,13 @@ def delete_speaker_sample_route(
     sample_name: str,
 ):
     # Rule 9: Early validation
-    name = state.config.canonical_voice_name(name)
+    name = config.canonical_voice_name(name)
     return voices_helpers.delete_speaker_sample(name, sample_name)
 
 @router.post("/{name}/test")
 def test_speaker_profile(name: str):
     # Rule 9: Early validation
-    name = state.config.canonical_voice_name(name)
+    name = config.canonical_voice_name(name)
     settings = jobs.get_speaker_settings(name)
     engine = settings.get("engine", DEFAULT_PROFILE_ENGINE)
     if not voices_helpers._is_engine_active(engine):
