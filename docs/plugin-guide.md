@@ -283,17 +283,26 @@ Suggested test order:
 
 If your plugin ships a template or example, include a tiny regression test that imports the engine class and exercises `check_env()` and `settings_schema()`.
 
-## Security Notes
+## Security Boundary and Trust Model
 
-Plugins are trusted user-level code. Studio does not sandbox them.
+Audiobook Studio uses a **User-Trust Model** for plugins, similar to systems like Stable Diffusion extensions, VS Code extensions, or Home Assistant integrations.
 
-Important boundaries:
+### Key Security Principles
 
-- plugins run in the TTS Server subprocess, not the web server process
-- plugins should not import `app.*`
-- plugins should not write outside their plugin folder or the requested output path
-- disabled plugins are ignored by Studio
-- unverified plugins should remain off until verified
+1.  **Process Isolation**: Plugins run in the **TTS Server subprocess**, not the main web server process. If a plugin crashes or leaks memory, it affects the synthesis worker but does not take down the entire Studio application or the database.
+2.  **No Automatic Execution**: Studio discovers plugins but does not enable them automatically. Users must intentionally enable a plugin in the Settings UI.
+3.  **No Studio Core Imports**: Plugins are strictly forbidden from importing `app.*` or accessing Studio's internal database and domain services. They interact with Studio exclusively through the defined SDK contract.
+4.  **Narrow File Access**: While not strictly sandboxed by the OS, the contract requires that plugins:
+    *   Only write audio output to the requested `output_path`.
+    *   Only persist settings to their own `settings.json` within their plugin folder.
+    *   Do not read or write files outside their plugin folder or authorized asset paths.
+5.  **Verified Execution**: The **Verification Synthesis** step ensures that an engine can produce valid audio in the current environment before it is ever used for production rendering.
+
+### User Guidance
+
+*   **Install from Trusted Sources**: Only install plugins from authors or repositories you trust. Because plugins are raw Python code, they have the same permissions as your user account.
+*   **Audit requirements.txt**: Before clicking "Install Dependencies", review the `requirements.txt` file in the plugin folder to see what packages will be added to your environment.
+*   **Security Reporting**: If you find a plugin that violates these boundaries or attempts malicious behavior, please report it to the maintainers.
 
 ## Submission Checklist
 
@@ -305,8 +314,8 @@ Before sharing a plugin with someone else:
 - preview works
 - synthesis works
 - the settings schema renders cleanly in Studio
-- the README explains required dependencies and setup
 - the plugin includes any special voice or privacy notes users need
+- the plugin respects the file access and import boundaries defined in the Security section
 
 ## Where To Look In Studio
 

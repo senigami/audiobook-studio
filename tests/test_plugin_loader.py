@@ -6,6 +6,7 @@ import json
 import textwrap
 from pathlib import Path
 
+from unittest.mock import MagicMock, patch
 import pytest
 
 from app.tts_server.plugin_loader import (
@@ -195,6 +196,27 @@ class TestDiscoverPlugins:
         assert detail["settings_schema"]["x-ui"]["help_label"] == "Open Mistral API key instructions"
         assert detail["settings_schema"]["x-ui"]["privacy_notice"].startswith("Privacy note:")
 
+    def test_dotted_entry_class_in_folder(self, tmp_path):
+        plugins_dir = tmp_path / "plugins"
+        plugins_dir.mkdir()
+        (plugins_dir / "tts_dotted").mkdir()
+        (plugins_dir / "tts_dotted" / "pkg").mkdir()
+        (plugins_dir / "tts_dotted" / "pkg" / "mod.py").write_text("""
+class Engine:
+    def check_env(self): return True, "OK"
+""")
+        (plugins_dir / "tts_dotted" / "manifest.json").write_text(json.dumps({
+            "engine_id": "dotted",
+            "display_name": "Dotted Engine",
+            "entry_class": "pkg.mod:Engine",
+            "capabilities": ["synthesis"]
+        }))
+
+        result = discover_plugins(plugins_dir)
+        assert len(result) == 1
+        assert result[0].engine_id == "dotted"
+        assert result[0].folder_name == "tts_dotted"
+
 
 class TestManifestValidation:
     def test_missing_engine_id_raises(self, tmp_path):
@@ -223,3 +245,172 @@ class TestManifestValidation:
         _make_plugin_dir(tmp_path, "tts_test", manifest)
         result = discover_plugins(tmp_path)
         assert result == []
+
+
+# ---------------------------------------------------------------------------
+# Pip-installed plugin discovery
+# ---------------------------------------------------------------------------
+
+class TestPipDiscovery:
+    def test_entry_point_discovery_mock(self, tmp_path):
+        # Create a dummy folder-dropin plugin
+        plugins_dir = tmp_path / "plugins"
+        plugins_dir.mkdir()
+        (plugins_dir / "tts_folder").mkdir()
+        (plugins_dir / "tts_folder" / "manifest.json").write_text(json.dumps({
+            "engine_id": "folderengine",
+            "display_name": "Folder Engine",
+            "entry_class": "engine:Engine",
+            "capabilities": ["synthesis"]
+        }))
+        (plugins_dir / "tts_folder" / "engine.py").write_text("""
+class Engine:
+    def check_env(self): return True, "OK"
+""")
+
+        # Mock entry points
+        mock_ep = MagicMock()
+        mock_ep.name = "pipengine"
+        mock_ep.value = "pip_package.module:Engine"
+
+        # Mock distribution for manifest
+        mock_dist = MagicMock()
+        mock_dist.read_text.return_value = json.dumps({
+            "engine_id": "pipengine",
+            "display_name": "Pip Engine",
+            "entry_class": "pip_package.module:Engine",
+            "capabilities": ["synthesis"]
+        })
+        mock_ep.dist = mock_dist
+
+        # Mock load()
+        mock_engine_cls = MagicMock()
+        mock_engine_cls.__name__ = "PipEngine"
+        mock_instance = MagicMock()
+        mock_instance.check_env.return_value = (True, "OK")
+        mock_engine_cls.return_value = mock_instance
+        mock_ep.load.return_value = mock_engine_cls
+
+        with patch("importlib.metadata.entry_points") as mock_entry_points:
+            def side_effect(group=None):
+                if group == "studio.tts":
+                    return [mock_ep]
+                return {"studio.tts": [mock_ep]}
+            mock_entry_points.side_effect = side_effect
+
+            plugins = discover_plugins(plugins_dir)
+
+            assert len(plugins) == 2
+            engine_ids = [p.engine_id for p in plugins]
+            assert "folderengine" in engine_ids
+            assert "pipengine" in engine_ids
+
+    def test_folder_precedence_over_pip(self, tmp_path):
+        plugins_dir = tmp_path / "plugins"
+        plugins_dir.mkdir()
+
+        # Folder plugin with engine_id="clash"
+        (plugins_dir / "tts_clash").mkdir()
+        (plugins_dir / "tts_clash" / "manifest.json").write_text(json.dumps({
+            "engine_id": "clash",
+            "display_name": "Folder Clash",
+            "entry_class": "engine:Engine",
+            "capabilities": ["synthesis"]
+        }))
+        (plugins_dir / "tts_clash" / "engine.py").write_text("""
+class Engine:
+    def check_env(self): return True, "OK"
+""")
+
+        # Pip plugin also named "clash"
+        mock_ep = MagicMock()
+        mock_ep.name = "clash"
+
+        with patch("importlib.metadata.entry_points") as mock_entry_points:
+            def side_effect(group=None):
+                if group == "studio.tts":
+                    return [mock_ep]
+                return {"studio.tts": [mock_ep]}
+            mock_entry_points.side_effect = side_effect
+
+            plugins = discover_plugins(plugins_dir)
+
+            assert len(plugins) == 1
+            assert plugins[0].display_name == "Folder Clash"
+            assert not mock_ep.load.called
+
+    def test_pip_plugin_creates_settings_dir(self, tmp_path):
+        plugins_dir = tmp_path / "plugins"
+        plugins_dir.mkdir()
+
+        mock_ep = MagicMock()
+        mock_ep.name = "pipdirtest"
+        mock_ep.value = "pkg.mod:Class"
+        del mock_ep.module
+        del mock_ep.attr
+        mock_ep.dist = None
+
+        # Mock load() and engine behavior
+        mock_engine_cls = MagicMock()
+        mock_engine_cls.__name__ = "TestEngine"
+        mock_instance = MagicMock()
+        mock_instance.check_env.return_value = (True, "OK")
+        mock_engine_cls.return_value = mock_instance
+        mock_ep.load.return_value = mock_engine_cls
+
+        with patch("importlib.metadata.entry_points") as mock_entry_points:
+            def side_effect(group=None):
+                print(f"DEBUG: mock side_effect called with group={group}")
+                if group == "studio.tts":
+                    return [mock_ep]
+                return {"studio.tts": [mock_ep]}
+            mock_entry_points.side_effect = side_effect
+            discover_plugins(plugins_dir)
+
+        assert (plugins_dir / "tts_pipdirtest").is_dir()
+
+
+# ---------------------------------------------------------------------------
+# Dependency detection
+# ---------------------------------------------------------------------------
+
+class TestDependencies:
+    def test_requirements_satisfied(self, tmp_path):
+        _make_plugin_dir(
+            tmp_path, "tts_deps",
+            _minimal_manifest("deps"),
+            _mock_engine_src(),
+        )
+        # 'pytest' and 'httpx' should be in the test environment.
+        (tmp_path / "tts_deps" / "requirements.txt").write_text("pytest\nhttpx", encoding="utf-8")
+
+        result = discover_plugins(tmp_path)
+        assert len(result) == 1
+        assert result[0].dependencies_satisfied is True
+        assert result[0].missing_dependencies == []
+
+    def test_requirements_missing(self, tmp_path):
+        _make_plugin_dir(
+            tmp_path, "tts_missing",
+            _minimal_manifest("missing"),
+            _mock_engine_src(),
+        )
+        (tmp_path / "tts_missing" / "requirements.txt").write_text("nonexistent-pkg-999", encoding="utf-8")
+
+        result = discover_plugins(tmp_path)
+        assert len(result) == 1
+        assert result[0].dependencies_satisfied is False
+        assert "nonexistent-pkg-999" in result[0].missing_dependencies
+
+    def test_malformed_requirements_graceful(self, tmp_path):
+        _make_plugin_dir(
+            tmp_path, "tts_malformed",
+            _minimal_manifest("malformed"),
+            _mock_engine_src(),
+        )
+        (tmp_path / "tts_malformed" / "requirements.txt").write_text("-e .", encoding="utf-8")
+
+        # Should not crash, and might just skip the weird line.
+        result = discover_plugins(tmp_path)
+        assert len(result) == 1
+        assert result[0].dependencies_satisfied is True

@@ -134,3 +134,15 @@ def test_in_process_voxtral_engine_settings_roundtrip(monkeypatch):
     assert result["settings"]["voxtral_enabled"] is True
     assert result["settings"]["mistral_api_key"] == "workspace-key"
     assert result["settings"]["voxtral_model"] == "voxtral-mini-tts-2603"
+
+
+def test_install_engine_dependencies_delegates_to_bridge(clean_db, client):
+    bridge = MagicMock()
+    bridge.install_dependencies.return_value = {"ok": True, "message": "Installed"}
+
+    with patch("app.api.routers.engines.create_voice_bridge", return_value=bridge):
+        response = client.post("/api/engines/mock-engine/install")
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True, "message": "Installed"}
+    bridge.install_dependencies.assert_called_once_with("mock-engine")

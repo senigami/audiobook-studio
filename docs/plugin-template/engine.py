@@ -55,20 +55,27 @@ class ExampleProcessingHooks(VoiceProcessingHooks):
         return False, "Add at least one sample before using this voice."
 
 
-class ExampleTTSEngine(StudioTTSEngine):
-    """Tiny example engine that writes silence so the plugin loads cleanly."""
+class CloudMockEngine(StudioTTSEngine):
+    """Concrete proof-of-concept engine that mocks a cloud synthesis API.
+
+    This engine demonstrates how a third-party plugin can use hooks for request
+    shaping, settings validation, and environment checks while keeping the
+    main synthesis loop small and isolated.
+    """
 
     def hooks(self) -> VoiceProcessingHooks:
         return ExampleProcessingHooks()
 
     def info(self) -> dict[str, Any]:
         return {
-            "engine_family": "example",
-            "runtime": "template",
+            "engine_family": "mock",
+            "runtime": "cloud-poc",
             "supports_preview": True,
+            "api_endpoint": "https://api.mock-tts.example/v1",
         }
 
     def check_env(self) -> tuple[bool, str]:
+        # PoC: In a real cloud plugin, check for API keys here.
         return True, "OK"
 
     def check_request(self, req: TTSRequest) -> tuple[bool, str]:
@@ -79,17 +86,21 @@ class ExampleTTSEngine(StudioTTSEngine):
         return True, "OK"
 
     def synthesize(self, req: TTSRequest) -> TTSResult:
+        """Mock cloud synthesis by writing silence."""
         output_path = Path(req.output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         settings = req.settings or {}
         sample_rate = int(settings.get("sample_rate", 22050))
         speed_factor = float(settings.get("speed_factor", 1.0))
-        seconds = max(0.25, min(3.0, len(req.text) / 80.0))
+
+        # Calculate mock duration based on text length.
+        seconds = max(0.5, min(5.0, len(req.text) / 50.0))
         if speed_factor > 0:
             seconds /= speed_factor
         frame_count = max(1, math.floor(sample_rate * seconds))
 
+        # Write a valid (but silent) WAV file.
         with wave.open(str(output_path), "wb") as wav_file:
             wav_file.setnchannels(1)
             wav_file.setsampwidth(2)
@@ -100,7 +111,7 @@ class ExampleTTSEngine(StudioTTSEngine):
             ok=True,
             output_path=str(output_path),
             duration_sec=seconds,
-            warnings=[],
+            warnings=["Cloud-Mock: No real network request was made (PoC Mode)."],
         )
 
     def settings_schema(self) -> dict[str, Any]:
@@ -122,6 +133,12 @@ class ExampleTTSEngine(StudioTTSEngine):
                     "minimum": 0.5,
                     "maximum": 2.0,
                 },
+                "api_key": {
+                    "type": "string",
+                    "title": "API Key",
+                    "format": "password",
+                    "description": "Mock API key (any value works for this PoC).",
+                },
                 "voice_id": {
                     "type": "string",
                     "title": "Default Voice ID",
@@ -132,7 +149,6 @@ class ExampleTTSEngine(StudioTTSEngine):
         }
 
     def preview(self, req: TTSRequest) -> TTSResult:
-        # Template preview just uses the same simple synthesis path.
         return self.synthesize(req)
 
     def shutdown(self) -> None:

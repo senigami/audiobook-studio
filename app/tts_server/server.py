@@ -199,6 +199,46 @@ def update_engine_settings(
     return {"ok": True, "settings": merged}
 
 
+@app.post("/engines/{engine_id}/install")
+def install_dependencies(engine_id: str) -> dict[str, Any]:
+    """Trigger dependency installation for an engine."""
+    plugin = _plugin_by_id(engine_id)
+    req_file = plugin.plugin_dir / "requirements.txt"
+    if not req_file.is_file():
+        return {"ok": True, "message": "No requirements.txt found for this engine."}
+
+    import subprocess
+    import sys
+    from app.tts_server.plugin_loader import _check_dependencies
+
+    logger.info("Installing dependencies for %s from %s", engine_id, req_file)
+    try:
+        # Use sys.executable to ensure we use the same venv.
+        cmd = [sys.executable, "-m", "pip", "install", "-r", str(req_file)]
+        # We use check_call for simplicity, but in a real app we might want to stream logs.
+        subprocess.check_call(cmd)
+
+        # Re-check dependencies and update plugin state.
+        deps_ok, missing = _check_dependencies(plugin.plugin_dir)
+        plugin.dependencies_satisfied = deps_ok
+        plugin.missing_dependencies = missing
+
+        return {
+            "ok": True,
+            "message": f"Successfully installed dependencies for {engine_id}",
+            "dependencies_satisfied": deps_ok,
+            "missing_dependencies": missing,
+        }
+    except subprocess.CalledProcessError as exc:
+        logger.error("Pip install failed for %s: %s", engine_id, exc)
+        raise HTTPException(
+            status_code=500, detail=f"Dependency installation failed: {exc}"
+        ) from exc
+    except Exception as exc:
+        logger.exception("Unexpected error installing dependencies for %s", engine_id)
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {exc}") from exc
+
+
 @app.post("/engines/{engine_id}/verify")
 def reverify_engine(engine_id: str) -> dict[str, Any]:
     """Re-run verification synthesis for an engine."""

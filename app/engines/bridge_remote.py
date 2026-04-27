@@ -123,6 +123,10 @@ class RemoteBridgeHandler:
         """Verify engine via TTS Server."""
         return self._get_tts_client().verify_engine(engine_id)
 
+    def install_dependencies(self, engine_id: str) -> dict[str, Any]:
+        """Install dependencies via TTS Server."""
+        return self._get_tts_client().install_dependencies(engine_id)
+
     def _get_tts_client(self) -> Any:
         """Connect to global watchdog client."""
         if self._tts_client_factory is not None:

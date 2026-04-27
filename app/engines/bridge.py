@@ -113,6 +113,8 @@ class VoiceBridge:
 
     def install_dependencies(self, engine_id: str) -> dict[str, Any]:
         """Trigger dependency installation."""
+        if use_tts_server():
+            return self.remote.install_dependencies(engine_id)
         return {"ok": False, "message": f"In-process dependency install not implemented for {engine_id}."}
 
     def remove_plugin(self, engine_id: str) -> dict[str, Any]:

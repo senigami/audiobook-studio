@@ -38,6 +38,9 @@ def engine_status(plugin: "LoadedPlugin") -> str:
     if not ok:
         return STATUS_NEEDS_SETUP
 
+    if not plugin.dependencies_satisfied:
+        return STATUS_NEEDS_SETUP
+
     if not plugin.verified:
         return STATUS_UNVERIFIED
 
@@ -129,5 +132,7 @@ def build_engine_detail(
         "enablement_message": enablement_message,
         "settings_schema": schema,
         "current_settings": current_settings,
+        "dependencies_satisfied": plugin.dependencies_satisfied,
+        "missing_dependencies": plugin.missing_dependencies,
         **info_extra,
     }
