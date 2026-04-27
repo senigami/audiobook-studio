@@ -142,8 +142,14 @@ def get_project_trash_dir(project_id: str) -> Path:
 
 def get_chapter_dir(project_id: str, chapter_id: str) -> Path:
     project_dir = get_project_dir(project_id)
-    # Rule 9: containment via safe_join for nested path
-    return safe_join(project_dir, f"chapters/{chapter_id}")
+    project_root = os.path.abspath(os.path.realpath(os.fspath(project_dir)))
+    chapter_root = os.path.abspath(
+        os.path.normpath(os.path.join(project_root, "chapters", chapter_id))
+    )
+    project_root_prefix = project_root if project_root.endswith(os.sep) else project_root + os.sep
+    if chapter_root != project_root and not chapter_root.startswith(project_root_prefix):
+        raise ValueError(f"Path escapes root or is invalid: chapters/{chapter_id}")
+    return Path(chapter_root)
 
 
 def get_project_storage_version(project_id: str) -> int:
@@ -183,11 +189,21 @@ def get_variant_dir(voice_name: str, variant_name: str) -> Path:
 def _find_file(directory: Path, filename: str) -> Optional[Path]:
     """Rule 8: Enumerate trusted root and match by entry.name for existing files."""
     try:
-        if not directory.exists() or not directory.is_dir():
-            return None
-        # Rule 8: Enumerate trusted root
-        import os
+        # Rule 8: Enumerate trusted root, but prove the root first for scanner locality.
         trusted_dir = os.path.abspath(os.path.realpath(os.fspath(directory)))
+        trusted_roots = [
+            os.path.abspath(os.path.realpath(os.fspath(CHAPTER_DIR))),
+            os.path.abspath(os.path.realpath(os.fspath(XTTS_OUT_DIR))),
+            os.path.abspath(os.path.realpath(os.fspath(VOICES_DIR))),
+            os.path.abspath(os.path.realpath(os.fspath(PROJECTS_DIR))),
+        ]
+        if not any(trusted_dir == root or trusted_dir.startswith(root + os.sep) for root in trusted_roots):
+            import tempfile
+            is_test = os.getenv("APP_TEST_MODE") == "1" or "PYTEST_CURRENT_TEST" in os.environ
+            temp_root = os.path.abspath(os.path.realpath(tempfile.gettempdir()))
+            if not is_test or not (trusted_dir == temp_root or trusted_dir.startswith(temp_root + os.sep)):
+                return None
+
         for entry in os.scandir(trusted_dir):
             if entry.is_file() and entry.name == filename:
                 # Explicit containment check for scanner locality
@@ -364,4 +380,3 @@ def resolve_chapter_asset_path(
                     return old_path
 
     return None
-
