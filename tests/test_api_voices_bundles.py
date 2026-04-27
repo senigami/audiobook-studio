@@ -68,6 +68,14 @@ def test_export_voice_bundle_includes_source_wavs_when_requested(clean_db, voice
     assert "Angry/source.wav" in names
 
 
+def test_export_voice_bundle_rejects_traversal(clean_db, voices_root, client):
+    voices_root.mkdir()
+    from app.domain.voices.bundles import VoiceBundleError, export_voice_bundle
+
+    with pytest.raises(VoiceBundleError):
+        export_voice_bundle(voices_root, "../escape")
+
+
 def test_import_voice_bundle_duplicate_creates_suffixed_copy(clean_db, voices_root, client):
     voices_root.mkdir()
     _write_voice_root(voices_root)
