@@ -158,6 +158,7 @@ def move_chapter_artifacts_to_trash(
 
         # Explicit containment check for scanner locality
         trash_base_resolved = os.path.abspath(os.path.realpath(os.fspath(base_trash_path)))
+        p_root = os.path.abspath(os.path.realpath(os.fspath(config.PROJECTS_DIR)))
 
         def is_trash_safe(path_str: str) -> bool:
             if path_str == trash_base_resolved or path_str.startswith(trash_base_resolved + os.sep):
