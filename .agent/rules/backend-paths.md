@@ -26,3 +26,4 @@ Use this file for request-derived filesystem paths, scanned directories, and con
 - For moves/copies, prove both sides independently. The source and destination can produce separate CodeQL findings even when they appear on the same line.
 - When migrating legacy files named from DB values, prefer enumerating the trusted directory and matching `entry.name`; then normalize and contain-check the matched `entry` before using it.
 - If a destination filename does not need to preserve a user/DB identifier, generate a deterministic safe filename such as `seg_{index}.wav` and persist that mapping instead of embedding the untrusted ID in the path.
+- For speaker-profile resolution and metadata files, prove the profile root locally in the same function, then use trusted `os.scandir(...)` results or direct string-based `open(...)` on the proved path instead of `Path.exists()`, `Path.read_text()`, or `Path.write_text()`.
