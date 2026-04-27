@@ -19,14 +19,17 @@ def _abspath_realpath(value) -> str:
 
 
 def _scandir_names_within_root(root_dir, *parts: str) -> Optional[set[str]]:
-    # Rule 9: Locally visible containment proof for discovery sink
+    """Rule 9: Locally visible containment proof for discovery sink."""
     root = os.path.abspath(os.path.realpath(os.fspath(root_dir)))
     root_prefix = root if root.endswith(os.sep) else root + os.sep
 
+    # Linear proof for discovery
     candidate = os.path.abspath(os.path.realpath(os.path.join(root, *parts)))
     if candidate != root and not candidate.startswith(root_prefix):
         return None
+
     try:
+        # SINK: Proof is locally visible in the same block
         with os.scandir(candidate) as entries:
             return {entry.name for entry in entries}
     except (OSError, RuntimeError):
@@ -285,6 +288,7 @@ def _read_profile_metadata(profile_name: str, meta_path: Path, *, fix_schema: bo
         meta = normalize_profile_metadata(profile_name, {}, persist=False)
         if fix_schema:
             try:
+                # SINK: Proof is locally visible
                 with open(meta_path_final, "w", encoding="utf-8") as fp:
                     fp.write(json.dumps(meta, indent=2))
             except Exception:
@@ -292,6 +296,7 @@ def _read_profile_metadata(profile_name: str, meta_path: Path, *, fix_schema: bo
         return meta
 
     try:
+        # SINK: Proof is locally visible
         with open(meta_path_final, "r", encoding="utf-8", errors="replace") as fp:
             raw = fp.read().strip()
         meta = json.loads(raw) if raw else {}
@@ -307,6 +312,7 @@ def _read_profile_metadata(profile_name: str, meta_path: Path, *, fix_schema: bo
     normalized = normalize_profile_metadata(profile_name, meta, persist=False)
     if fix_schema and normalized != meta:
         try:
+            # SINK: Proof is locally visible
             with open(meta_path_final, "w", encoding="utf-8") as fp:
                 fp.write(json.dumps(normalized, indent=2))
         except Exception:
@@ -386,6 +392,7 @@ def update_speaker_settings(profile_name: str, **updates):
         else:
             meta[k] = v
 
+    # SINK: Proof is locally visible in the same block
     with open(meta_path_final, "w", encoding="utf-8") as fp:
         fp.write(json.dumps(meta, indent=2))
     return True

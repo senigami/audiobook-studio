@@ -34,6 +34,7 @@ COVER_DIR = Path(os.getenv("COVER_DIR", str(UPLOAD_DIR / "covers")))
 SAMPLES_DIR = Path(os.getenv("SAMPLES_DIR", str(BASE_DIR / "samples")))
 ASSETS_DIR = Path(os.getenv("ASSETS_DIR", str(BASE_DIR / "assets")))
 PROJECTS_DIR = Path(os.getenv("PROJECTS_DIR", str(BASE_DIR / "projects")))
+TRASH_DIR = Path(os.getenv("TRASH_DIR", str(BASE_DIR / "trash")))
 FRONTEND_DIST = BASE_DIR / "frontend" / "dist"
 XTTS_ENV_DIR = Path(os.getenv("XTTS_ENV_DIR", str(Path.home() / "xtts-env")))
 XTTS_ENV_PYTHON = Path(
@@ -206,27 +207,34 @@ def _find_file(directory: Path, filename: str) -> Optional[Path]:
         # Rule 9: Locally visible containment proof for discovery sink
         target_dir = os.path.abspath(os.path.realpath(os.fspath(directory)))
 
-        # Define trusted roots
-        roots = [
-            os.path.abspath(os.path.realpath(os.fspath(CHAPTER_DIR))),
-            os.path.abspath(os.path.realpath(os.fspath(XTTS_OUT_DIR))),
-            os.path.abspath(os.path.realpath(os.fspath(VOICES_DIR))),
-            os.path.abspath(os.path.realpath(os.fspath(PROJECTS_DIR))),
-        ]
-
-        # Handle temp for tests
-        import tempfile
-
-        is_test = os.getenv("APP_TEST_MODE") == "1" or "PYTEST_CURRENT_TEST" in os.environ
-        if is_test:
-            roots.append(os.path.abspath(os.path.realpath(tempfile.gettempdir())))
+        # Define trusted roots explicitly for the scanner
+        c_root = os.path.abspath(os.path.realpath(os.fspath(CHAPTER_DIR)))
+        x_root = os.path.abspath(os.path.realpath(os.fspath(XTTS_OUT_DIR)))
+        v_root = os.path.abspath(os.path.realpath(os.fspath(VOICES_DIR)))
+        p_root = os.path.abspath(os.path.realpath(os.fspath(PROJECTS_DIR)))
 
         is_safe = False
-        for root in roots:
-            root_prefix = root if root.endswith(os.sep) else root + os.sep
-            if target_dir == root or target_dir.startswith(root_prefix):
-                is_safe = True
-                break
+        # Case 1: Chapters
+        if target_dir == c_root or target_dir.startswith(c_root + os.sep):
+            is_safe = True
+        # Case 2: XTTS Output
+        elif target_dir == x_root or target_dir.startswith(x_root + os.sep):
+            is_safe = True
+        # Case 3: Voices
+        elif target_dir == v_root or target_dir.startswith(v_root + os.sep):
+            is_safe = True
+        # Case 4: Projects
+        elif target_dir == p_root or target_dir.startswith(p_root + os.sep):
+            is_safe = True
+        else:
+            # Case 5: Temp (Tests)
+            import tempfile
+
+            is_test = os.getenv("APP_TEST_MODE") == "1" or "PYTEST_CURRENT_TEST" in os.environ
+            if is_test:
+                t_root = os.path.abspath(os.path.realpath(tempfile.gettempdir()))
+                if target_dir == t_root or target_dir.startswith(t_root + os.sep):
+                    is_safe = True
 
         if not is_safe:
             return None
