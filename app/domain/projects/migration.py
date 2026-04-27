@@ -5,6 +5,8 @@ import shutil
 from pathlib import Path
 from typing import List, Dict, Any
 
+from werkzeug.utils import secure_filename
+
 from app.config import get_project_dir, get_project_audio_dir, get_project_text_dir
 from app.db.chapters import list_chapters
 from .manifest import load_project_manifest, save_project_manifest, CURRENT_STORAGE_VERSION
@@ -70,7 +72,8 @@ def migrate_project_to_v2(project_id: str) -> bool:
             segments = get_chapter_segments(chapter_id)
             for seg in segments:
                 sid = str(seg["id"])
-                if not SAFE_SEGMENT_AUDIO_ID_RE.fullmatch(sid):
+                safe_sid = secure_filename(sid)
+                if safe_sid != sid or not SAFE_SEGMENT_AUDIO_ID_RE.fullmatch(safe_sid):
                     logger.warning("Skipping unsafe segment audio id during project migration: %r", sid)
                     continue
 
@@ -79,10 +82,10 @@ def migrate_project_to_v2(project_id: str) -> bool:
 
                 # Legacy naming: chunk_{sid}.wav
                 src_path = os.path.abspath(
-                    os.path.normpath(os.path.join(audio_root, f"chunk_{sid}.wav"))
+                    os.path.normpath(os.path.join(audio_root, f"chunk_{safe_sid}.wav"))
                 )
                 dest_path = os.path.abspath(
-                    os.path.normpath(os.path.join(segments_root, f"{sid}.wav"))
+                    os.path.normpath(os.path.join(segments_root, f"{safe_sid}.wav"))
                 )
                 if (
                     os.path.commonpath([audio_root, src_path]) != audio_root

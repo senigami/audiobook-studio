@@ -9,6 +9,7 @@ watchdog
 ruff
 pytest-cov
 mistralai
+Werkzeug
 
 # XTTS requirements (Managed separately for compatibility)
 # See requirements-xtts.txt
