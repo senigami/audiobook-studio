@@ -9,7 +9,7 @@ import shutil
 from pathlib import Path
 from typing import Any, Callable
 
-from app.config import BASE_DIR, XTTS_ENV_ACTIVATE, XTTS_ENV_PYTHON
+from app import config as app_config
 from app.textops import pack_text_to_limit, safe_split_long_sentences, sanitize_for_xtts
 
 
@@ -24,10 +24,14 @@ def xtts_generate(
     voice_profile_dir: Path | None = None,
 ) -> int:
     """Invoke XTTS inference via subprocess."""
-    from app.engines import XTTS_ENV_ACTIVATE, XTTS_ENV_PYTHON, run_cmd_stream
+    from app.engines import (
+        XTTS_ENV_ACTIVATE as engine_xtts_env_activate,
+        XTTS_ENV_PYTHON as engine_xtts_env_python,
+        run_cmd_stream,
+    )
 
-    if not XTTS_ENV_ACTIVATE.exists():
-        on_output(f"[error] XTTS activate not found: {XTTS_ENV_ACTIVATE}\n")
+    if not engine_xtts_env_activate.exists():
+        on_output(f"[error] XTTS activate not found: {engine_xtts_env_activate}\n")
         return 1
 
     sw = speaker_wav
@@ -47,8 +51,8 @@ def xtts_generate(
     text = pack_text_to_limit(text, pad=True) or " "
 
     cmd = [
-        str(XTTS_ENV_PYTHON),
-        str(BASE_DIR / "app" / "xtts_inference.py"),
+        str(engine_xtts_env_python),
+        str(app_config.BASE_DIR / "app" / "xtts_inference.py"),
         "--text",
         text,
         "--language",
@@ -79,15 +83,19 @@ def xtts_generate_script(
     voice_profile_dir: Path | None = None,
 ) -> int:
     """Invoke XTTS script-based inference via subprocess."""
-    from app.engines import XTTS_ENV_ACTIVATE, XTTS_ENV_PYTHON, run_cmd_stream
+    from app.engines import (
+        XTTS_ENV_ACTIVATE as engine_xtts_env_activate,
+        XTTS_ENV_PYTHON as engine_xtts_env_python,
+        run_cmd_stream,
+    )
 
-    if not XTTS_ENV_ACTIVATE.exists():
-        on_output(f"[error] XTTS activate not found: {XTTS_ENV_ACTIVATE}\n")
+    if not engine_xtts_env_activate.exists():
+        on_output(f"[error] XTTS activate not found: {engine_xtts_env_activate}\n")
         return 1
 
     cmd = [
-        str(XTTS_ENV_PYTHON),
-        str(BASE_DIR / "app" / "xtts_inference.py"),
+        str(engine_xtts_env_python),
+        str(app_config.BASE_DIR / "app" / "xtts_inference.py"),
         "--script_json",
         str(script_json_path),
         "--language",

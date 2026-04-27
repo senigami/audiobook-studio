@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ChapterSegment, Job, SegmentProgress } from '../types';
 import { shouldShowIndeterminateProgress } from '../utils/jobSelection';
 import { 

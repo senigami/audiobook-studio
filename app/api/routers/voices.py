@@ -1,6 +1,15 @@
 import logging
 from fastapi import APIRouter
 
+# Assemble the API surface from sub-routers
+from . import (
+    voices_bundles,
+    voices_management,
+    voices_actions,
+    voices_characters,
+    voices_narrators,
+)
+
 # Re-export internal helpers and settings used by tests and other modules
 from .voices_helpers import (
     VOICES_DIR,
@@ -19,15 +28,6 @@ from ...state import put_job
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["voices"])
-
-# Assemble the API surface from sub-routers
-from . import (
-    voices_bundles,
-    voices_management,
-    voices_actions,
-    voices_characters,
-    voices_narrators
-)
 
 # Management routes (profiles)
 router.include_router(voices_management.router, prefix="/api")
