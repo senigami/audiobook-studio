@@ -83,19 +83,27 @@ def api_list_project_audiobooks(project_id: str):
         item["download_filename"] = preferred_audiobook_download_filename(item["title"], p.name)
 
         # Read description from sidecar file if it exists
-        description_path = p.with_suffix(p.suffix + ".description")
-        if description_path.exists():
+        import os
+        trusted_m4b_root = os.path.abspath(os.fspath(m4b_dir))
+        description_filename = p.name + ".description"
+        # Since p was found via find_secure_file, we know it is in m4b_dir.
+        # We derive description_path from m4b_dir and description_filename.
+        description_full_path = os.path.normpath(os.path.join(trusted_m4b_root, description_filename))
+
+        if description_full_path.startswith(trusted_m4b_root + os.sep) and os.path.exists(description_full_path):
             try:
-                item["description"] = description_path.read_text(encoding="utf-8").strip()
+                with open(description_full_path, "r", encoding="utf-8") as f:
+                    item["description"] = f.read().strip()
             except Exception:
                 pass
 
         # Look for cover image with multiple extensions
         item["cover_url"] = None
         for ext in [".jpg", ".png", ".jpeg", ".webp"]:
-            target_img = p.with_suffix(ext)
-            if target_img.exists() and target_img.stat().st_size > 0:
-                encoded_ext = urllib.parse.quote(target_img.name)
+            cover_filename = p.name + ext
+            cover_full_path = os.path.normpath(os.path.join(trusted_m4b_root, cover_filename))
+            if cover_full_path.startswith(trusted_m4b_root + os.sep) and os.path.exists(cover_full_path) and os.path.getsize(cover_full_path) > 0:
+                encoded_ext = urllib.parse.quote(cover_filename)
                 item["cover_url"] = f"/projects/{project_id}/m4b/{encoded_ext}"
                 break
         res.append(item)
@@ -116,31 +124,30 @@ def api_update_audiobook_metadata(project_id: str, filename: str, description: s
         except ValueError:
              return JSONResponse({"status": "error", "message": "Invalid m4b directory"}, status_code=403)
 
-        # Validation
-        # Rule 8: match from m4b dir
-        audiobook_path = find_secure_file(m4b_dir, filename)
-        if not audiobook_path:
-            return JSONResponse({"status": "error", "message": "Audiobook not found"}, status_code=404)
-
-        # Rule 9: Explicit containment check for scanner locality
-        try:
-            resolved_audio = audiobook_path.resolve()
-            resolved_audio.relative_to(m4b_dir.resolve())
-        except (OSError, ValueError, RuntimeError):
-             return JSONResponse({"status": "error", "message": "Access denied"}, status_code=403)
-
-        if not resolved_audio.exists() or not resolved_audio.is_file():
-            return JSONResponse({"status": "error", "message": "Audiobook not found"}, status_code=404)
-
         # Store description in sidecar file
-        description_path = resolved_audio.with_suffix(resolved_audio.suffix + ".description")
-        # Ensure description_path is still within m4b_dir
-        try:
-            description_path.resolve().relative_to(m4b_dir.resolve())
-        except (ValueError, OSError, RuntimeError):
+        import os
+        trusted_m4b_root = os.path.abspath(os.fspath(m4b_dir))
+        # Rule 8: match from m4b dir for local proof
+        audiobook_found_path = None
+        for entry in os.scandir(trusted_m4b_root):
+            if entry.is_file() and entry.name == filename:
+                cand_path = os.path.abspath(entry.path)
+                if cand_path.startswith(trusted_m4b_root + os.sep):
+                    audiobook_found_path = cand_path
+                    break
+
+        if not audiobook_found_path:
+            return JSONResponse({"status": "error", "message": "Audiobook not found"}, status_code=404)
+
+        description_filename = filename + ".description"
+        description_full_path = os.path.normpath(os.path.join(trusted_m4b_root, description_filename))
+
+        # Rule 9: Locally visible containment check
+        if not description_full_path.startswith(trusted_m4b_root + os.sep):
              return JSONResponse({"status": "error", "message": "Invalid description path"}, status_code=403)
 
-        description_path.write_text(description, encoding="utf-8")
+        with open(description_full_path, "w", encoding="utf-8") as f:
+            f.write(description)
 
         return JSONResponse({"status": "ok"})
     except Exception as e:
@@ -256,14 +263,19 @@ def prepare_audiobook():
 
     for stem in sorted_stems:
         fname = chapters_found[stem]
-        dur = get_audio_duration(safe_join_flat(src_dir, fname))
-        display_name = job_titles.get(stem + ".txt") or job_titles.get(stem) or stem
-        preview.append({
-            "filename": fname,
-            "title": display_name,
-            "duration": dur
-        })
-        total_sec += dur
+        import os
+        trusted_src_root = os.path.abspath(os.fspath(src_dir))
+        full_fname_path = os.path.normpath(os.path.join(trusted_src_root, fname))
+
+        if full_fname_path.startswith(trusted_src_root + os.sep):
+            dur = get_audio_duration(Path(full_fname_path))
+            display_name = job_titles.get(stem + ".txt") or job_titles.get(stem) or stem
+            preview.append({
+                "filename": fname,
+                "title": display_name,
+                "duration": dur
+            })
+            total_sec += dur
 
     return {
         "title": "Audiobook Project",

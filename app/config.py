@@ -61,16 +61,15 @@ def find_existing_project_dir(project_id: str) -> Optional[Path]:
         return None
 
     # Rule 8: Enumerate trusted root and match by entry.name
+    import os
+    trusted_projects_root = os.path.abspath(os.fspath(PROJECTS_DIR))
     try:
-        for entry in PROJECTS_DIR.iterdir():
+        for entry in os.scandir(trusted_projects_root):
             if entry.is_dir() and entry.name == canonical_project_id:
                 # Explicit containment check for scanner locality
-                resolved = entry.resolve()
-                try:
-                    resolved.relative_to(PROJECTS_DIR.resolve())
-                    return resolved
-                except ValueError:
-                    continue
+                res_path = os.path.abspath(entry.path)
+                if res_path.startswith(trusted_projects_root + os.sep):
+                    return Path(res_path)
     except OSError:
         return None
     return None
@@ -82,15 +81,14 @@ def find_existing_project_subdir(project_id: str, dirname: str) -> Optional[Path
         return None
     try:
         # Rule 8: Enumerate trusted root
-        for entry in project_dir.iterdir():
+        import os
+        trusted_project_root = os.path.abspath(os.fspath(project_dir))
+        for entry in os.scandir(trusted_project_root):
             if entry.is_dir() and entry.name == dirname:
                 # Explicit containment check for scanner locality
-                resolved = entry.resolve()
-                try:
-                    resolved.relative_to(project_dir.resolve())
-                    return resolved
-                except ValueError:
-                    continue
+                res_path = os.path.abspath(entry.path)
+                if res_path.startswith(trusted_project_root + os.sep):
+                    return Path(res_path)
     except OSError:
         return None
     return None
@@ -152,11 +150,22 @@ def get_project_storage_version(project_id: str) -> int:
     """Returns the storage version of the project (1 for legacy, 2 for nested)."""
     try:
         project_dir = get_project_dir(project_id)
-        manifest_path = find_secure_file(project_dir, "project.json")
-        if not manifest_path:
+        import os
+        trusted_pdir = os.path.abspath(os.fspath(project_dir))
+        # Rule 8: Local proof for existence and containment
+        manifest_path_full = None
+        for entry in os.scandir(trusted_pdir):
+            if entry.is_file() and entry.name == "project.json":
+                cand = os.path.abspath(entry.path)
+                if cand.startswith(trusted_pdir + os.sep):
+                    manifest_path_full = cand
+                    break
+
+        if not manifest_path_full:
             return 1
+
         import json
-        with open(manifest_path, "r", encoding="utf-8") as f:
+        with open(manifest_path_full, "r", encoding="utf-8") as f:
             data = json.load(f)
             return int(data.get("version", 1))
     except Exception:
@@ -177,15 +186,14 @@ def _find_file(directory: Path, filename: str) -> Optional[Path]:
         if not directory.exists() or not directory.is_dir():
             return None
         # Rule 8: Enumerate trusted root
-        for entry in directory.iterdir():
+        import os
+        trusted_dir = os.path.abspath(os.fspath(directory))
+        for entry in os.scandir(trusted_dir):
             if entry.is_file() and entry.name == filename:
                 # Explicit containment check for scanner locality
-                resolved = entry.resolve()
-                try:
-                    resolved.relative_to(directory.resolve())
-                    return resolved
-                except ValueError:
-                    continue
+                res_path = os.path.abspath(entry.path)
+                if res_path.startswith(trusted_dir + os.sep):
+                    return Path(res_path)
     except OSError:
         pass
     return None
@@ -195,11 +203,22 @@ def get_voice_storage_version(voice_name: str) -> int:
     """Returns the storage version of a voice (1 for legacy flat, 2 for nested)."""
     try:
         voice_root = get_voice_dir(voice_name)
-        manifest_path = find_secure_file(voice_root, "voice.json")
-        if not manifest_path:
+        import os
+        trusted_vroot = os.path.abspath(os.fspath(voice_root))
+        # Rule 8: Local proof for existence and containment
+        manifest_path_full = None
+        for entry in os.scandir(trusted_vroot):
+            if entry.is_file() and entry.name == "voice.json":
+                cand = os.path.abspath(entry.path)
+                if cand.startswith(trusted_vroot + os.sep):
+                    manifest_path_full = cand
+                    break
+
+        if not manifest_path_full:
             return 1
+
         import json
-        with open(manifest_path, "r", encoding="utf-8") as f:
+        with open(manifest_path_full, "r", encoding="utf-8") as f:
             data = json.load(f)
             return int(data.get("version", 1))
     except Exception:

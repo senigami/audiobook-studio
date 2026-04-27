@@ -183,27 +183,40 @@ def _get_project_service() -> ProjectService:
 
 
 async def _store_project_cover(project_id: str, project_dir: Path, cover):
+    import os
+    # Rule 9: Locally visible safe-path pattern
+    trusted_root = os.path.abspath(os.fspath(project_dir))
+
+    # 1. Validate filename
     safe_cover_name = safe_basename(cover.filename)
     ext = Path(safe_cover_name).suffix.lower() or ".jpg"
-    project_root = project_dir.resolve()
-    # Rule 9: Secure join for literal subdirectory
-    try:
-        cover_dir = secure_join_flat(project_root, "cover")
-    except ValueError:
-        raise ValueError(f"Invalid cover directory for project: {project_id}")
-    cover_dir.mkdir(parents=True, exist_ok=True)
     cover_filename = f"cover{ext}"
-    try:
-        cover_p = secure_join_flat(cover_dir, cover_filename)
-    except ValueError:
-        raise ValueError(f"Invalid project cover filename for id: {project_id}")
 
-    for existing in cover_dir.iterdir():
-        if existing.is_file() and existing.name != cover_filename:
-            existing.unlink(missing_ok=True)
+    # 2. Derive and normalize paths
+    cover_dir_path = os.path.normpath(os.path.join(trusted_root, "cover"))
+    cover_full_path = os.path.normpath(os.path.join(cover_dir_path, cover_filename))
+
+    # 3. Prove containment
+    if not cover_dir_path.startswith(trusted_root + os.sep) and cover_dir_path != trusted_root:
+        raise ValueError(f"Invalid cover directory for project: {project_id}")
+    if not cover_full_path.startswith(cover_dir_path + os.sep):
+        raise ValueError(f"Invalid cover path for project: {project_id}")
+
+    # 4. Perform filesystem operations using proven paths
+    os.makedirs(cover_dir_path, exist_ok=True)
+
+    # Cleanup old covers
+    for entry in os.scandir(cover_dir_path):
+        if entry.is_file() and entry.name != cover_filename:
+            try:
+                os.unlink(entry.path)
+            except OSError:
+                pass
 
     content = await cover.read()
-    cover_p.write_bytes(content)
+    with open(cover_full_path, "wb") as f:
+        f.write(content)
+
     return f"/projects/{project_id}/cover/{cover_filename}"
 
 
@@ -265,22 +278,25 @@ def _create_backup_archive(bundle: ProjectBackupBundleModel) -> io.BytesIO:
                     wav_path = str(Path(raw_path).with_suffix(".wav"))
 
                 from app.config import get_project_audio_dir
-                audio_dir = get_project_audio_dir(project_id)
-                # Rule 8: Enumerate and match
-                audio_path = find_secure_file(audio_dir, wav_path)
+                audio_root = get_project_audio_dir(project_id)
+
+                # Rule 8: Enumerate and match to find the file safely
+                audio_path = find_secure_file(audio_root, wav_path)
                 if not audio_path:
-                    # Fallback to the original path if wav not found (might already be wav)
-                    audio_path = find_secure_file(audio_dir, raw_path)
+                    audio_path = find_secure_file(audio_root, raw_path)
 
                 if audio_path and audio_path.exists() and audio_path.suffix.lower() == ".wav":
-                    audio_ext = ".wav"
-                    # Use the same base filename as the text for easy pairing
-                    try:
-                        audio_filename = secure_join_flat(audio_dir, f"{Path(text_filename).stem}{audio_ext}").name
-                        zf.write(audio_path, arcname=f"chapters/{audio_filename}")
-                        chapter_info["audio_path"] = f"chapters/{audio_filename}"
-                    except ValueError:
-                        pass
+                    # Locally visible containment check for zf.write sink
+                    import os
+                    trusted_audio_root = os.path.abspath(os.fspath(audio_root))
+                    resolved_audio_path = os.path.abspath(os.fspath(audio_path))
+
+                    if resolved_audio_path.startswith(trusted_audio_root + os.sep):
+                        audio_ext = ".wav"
+                        # Safe stem pairing
+                        stem_name = Path(text_filename).stem
+                        zf.write(resolved_audio_path, arcname=f"chapters/{stem_name}{audio_ext}")
+                        chapter_info["audio_path"] = f"chapters/{stem_name}{audio_ext}"
 
             chapter_map[chapter_id] = chapter_info
 
@@ -293,16 +309,17 @@ def _create_backup_archive(bundle: ProjectBackupBundleModel) -> io.BytesIO:
         zf.writestr("snapshot.json", json.dumps(jsonable_encoder(bundle.snapshot), indent=2))
 
         # 3. Cover art
-        # Rule 9: Secure join for literal subdirectory
-        try:
-            cover_dir = secure_join_flat(project_dir, "cover")
-        except ValueError:
-            pass
-        else:
-            if cover_dir.exists():
-                for p in cover_dir.iterdir():
-                    if p.is_file() and p.stem == "cover":
-                        zf.write(p, arcname=f"cover{p.suffix}")
+        import os
+        trusted_project_root = os.path.abspath(os.fspath(project_dir))
+        cover_dir_path = os.path.normpath(os.path.join(trusted_project_root, "cover"))
+
+        if os.path.exists(cover_dir_path) and cover_dir_path.startswith(trusted_project_root + os.sep):
+            for entry in os.scandir(cover_dir_path):
+                if entry.is_file() and entry.name.startswith("cover"):
+                    # Local containment proof for each entry
+                    entry_path = os.path.abspath(entry.path)
+                    if entry_path.startswith(cover_dir_path + os.sep):
+                        zf.write(entry_path, arcname=f"cover{Path(entry_path).suffix}")
                         break
 
     buf.seek(0)

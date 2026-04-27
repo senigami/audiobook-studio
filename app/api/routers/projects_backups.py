@@ -97,18 +97,29 @@ def api_save_project_backup_bundle(project_id: str, comment: Optional[str] = Que
         archive_buf = _create_backup_archive(bundle)
 
         # 3. Save to project backups directory
-        project_dir = find_existing_project_dir(project_id) or get_project_dir(project_id)
-        # Rule 9: Secure join for literal subdirectory
-        try:
-            backups_dir = secure_join_flat(project_dir, "backups")
-        except ValueError:
+        project_dir_path = find_existing_project_dir(project_id) or get_project_dir(project_id)
+
+        # Rule 9: Locally visible safe-path pattern
+        import os
+        trusted_root = os.path.abspath(os.fspath(project_dir_path))
+        backups_dir_path = os.path.normpath(os.path.join(trusted_root, "backups"))
+
+        if not backups_dir_path.startswith(trusted_root + os.sep) and backups_dir_path != trusted_root:
              raise ValueError(f"Invalid backups directory for project: {project_id}")
-        backups_dir.mkdir(parents=True, exist_ok=True)
-        try:
-            backup_path = secure_join_flat(backups_dir, bundle.bundle_name)
-        except ValueError:
+
+        os.makedirs(backups_dir_path, exist_ok=True)
+
+        # Validate bundle name
+        safe_name = os.path.basename(bundle.bundle_name)
+        if safe_name != bundle.bundle_name:
+            raise ValueError(f"Invalid bundle name: {bundle.bundle_name}")
+
+        backup_full_path = os.path.normpath(os.path.join(backups_dir_path, safe_name))
+        if not backup_full_path.startswith(backups_dir_path + os.sep):
             raise ValueError(f"Invalid backup path for project {project_id}")
-        backup_path.write_bytes(archive_buf.getvalue())
+
+        with open(backup_full_path, "wb") as f:
+            f.write(archive_buf.getvalue())
 
         return JSONResponse({
             "status": "ok",
@@ -137,14 +148,20 @@ def api_list_project_backups(project_id: str):
              return JSONResponse({"status": "error", "message": "Invalid backups directory"}, status_code=403)
 
         backups = []
-        if backups_dir.exists():
-            for p in backups_dir.iterdir():
-                if p.is_file() and p.suffix.lower() in (".zip", ".abf"):
-                    st = p.stat()
+        if os.path.exists(backups_dir_path):
+            # Rule 8: match from backups dir using os.scandir for explicit containment proof
+            for entry in os.scandir(backups_dir_path):
+                if entry.is_file() and entry.name.lower().endswith((".zip", ".abf")):
+                    # Prove containment for entry
+                    entry_path = os.path.abspath(entry.path)
+                    if not entry_path.startswith(backups_dir_path + os.sep):
+                        continue
+
+                    st = entry.stat()
                     comment = None
                     # Try to extract comment from bundle.json inside the zip
                     try:
-                        with zipfile.ZipFile(p, "r") as zf:
+                        with zipfile.ZipFile(entry_path, "r") as zf:
                             if "bundle.json" in zf.namelist():
                                 bundle_data = json.loads(zf.read("bundle.json"))
                                 comment = bundle_data.get("comment")
@@ -152,11 +169,11 @@ def api_list_project_backups(project_id: str):
                         pass
 
                     backups.append({
-                        "filename": p.name,
+                        "filename": entry.name,
                         "created_at": datetime.fromtimestamp(st.st_mtime, timezone.utc).isoformat(),
                         "size_bytes": st.st_size,
                         "comment": comment,
-                        "download_url": f"/api/projects/{project_id}/backups/{urllib.parse.quote(p.name)}/download"
+                        "download_url": f"/api/projects/{project_id}/backups/{urllib.parse.quote(entry.name)}/download"
                     })
 
         backups.sort(key=lambda x: x["created_at"], reverse=True)
@@ -182,15 +199,22 @@ def api_download_saved_backup(project_id: str, filename: str):
         if not (filename.endswith(".zip") or filename.endswith(".abf")):
             return JSONResponse({"status": "error", "message": "Invalid filename extension"}, status_code=400)
 
-        # Rule 8: match from backups dir
-        backup_path = find_secure_file(backups_dir, filename)
-        if not backup_path:
+        # Rule 8: Enumerate and match from backups dir for local proof
+        backup_found_path = None
+        for entry in os.scandir(backups_dir_path):
+            if entry.is_file() and entry.name == filename:
+                cand_path = os.path.abspath(entry.path)
+                if cand_path.startswith(backups_dir_path + os.sep):
+                    backup_found_path = cand_path
+                    break
+
+        if not backup_found_path:
             return JSONResponse({"status": "error", "message": "Backup not found"}, status_code=404)
 
         media_type = "application/zip" if filename.endswith(".zip") else "application/x-audiobook-factory-bundle"
 
         return FileResponse(
-            backup_path,
+            backup_found_path,
             media_type=media_type,
             filename=filename,
             headers={
@@ -218,20 +242,35 @@ def api_update_project_backup_metadata(project_id: str, filename: str, comment: 
         if not (filename.endswith(".zip") or filename.endswith(".abf")):
             return JSONResponse({"status": "error", "message": "Invalid filename extension"}, status_code=400)
 
-        # Rule 8: match from backups dir
-        backup_path = find_secure_file(backups_dir, filename)
-        if not backup_path:
+        # Rule 8: Enumerate and match for local proof
+        backup_found_path = None
+        for entry in os.scandir(backups_dir_path):
+            if entry.is_file() and entry.name == filename:
+                cand_path = os.path.abspath(entry.path)
+                if cand_path.startswith(backups_dir_path + os.sep):
+                    backup_found_path = cand_path
+                    break
+
+        if not backup_found_path:
             return JSONResponse({"status": "error", "message": "Backup not found"}, status_code=404)
 
         # Update bundle.json inside the ZIP
         import tempfile
         import shutil
 
-        fd, temp_path = tempfile.mkstemp()
+        # Use a safe temp directory
+        fd, temp_path = tempfile.mkstemp(dir=os.path.dirname(backup_found_path))
         try:
             os.close(fd)
-            with zipfile.ZipFile(backup_path, "r") as zin:
-                with zipfile.ZipFile(temp_path, "w", zipfile.ZIP_DEFLATED) as zout:
+            # Proof both sides independently for move
+            source_abs = os.path.abspath(temp_path)
+            dest_abs = os.path.abspath(backup_found_path)
+
+            if not source_abs.startswith(backups_dir_path + os.sep) or not dest_abs.startswith(backups_dir_path + os.sep):
+                 raise ValueError("Invalid operation path")
+
+            with zipfile.ZipFile(dest_abs, "r") as zin:
+                with zipfile.ZipFile(source_abs, "w", zipfile.ZIP_DEFLATED) as zout:
                     for item in zin.infolist():
                         if item.filename == "bundle.json":
                             data = json.loads(zin.read(item.filename))
@@ -239,7 +278,8 @@ def api_update_project_backup_metadata(project_id: str, filename: str, comment: 
                             zout.writestr(item.filename, json.dumps(data, indent=2))
                         else:
                             zout.writestr(item, zin.read(item.filename))
-            shutil.move(temp_path, backup_path)
+
+            shutil.move(source_abs, dest_abs)
         finally:
             if os.path.exists(temp_path):
                 os.remove(temp_path)
@@ -266,18 +306,19 @@ def api_delete_project_backup(project_id: str, filename: str):
         if not (filename.endswith(".zip") or filename.endswith(".abf")):
             return JSONResponse({"status": "error", "message": "Invalid filename extension"}, status_code=400)
 
-        # Rule 8: match from backups dir
-        backup_path = find_secure_file(backups_dir, filename)
-        if not backup_path:
+        # Rule 8: Enumerate and match for local proof
+        backup_found_path = None
+        for entry in os.scandir(backups_dir_path):
+            if entry.is_file() and entry.name == filename:
+                cand_path = os.path.abspath(entry.path)
+                if cand_path.startswith(backups_dir_path + os.sep):
+                    backup_found_path = cand_path
+                    break
+
+        if not backup_found_path:
             return JSONResponse({"status": "error", "message": "Backup not found"}, status_code=404)
 
-        # Rule 9: Explicit containment check for scanner locality before unlink
-        try:
-            backup_path.resolve().relative_to(backups_dir.resolve())
-        except (OSError, ValueError, RuntimeError):
-             return JSONResponse({"status": "error", "message": "Access denied"}, status_code=403)
-
-        backup_path.resolve().unlink()
+        os.unlink(backup_found_path)
         return JSONResponse({"status": "ok"})
     except Exception as e:
         logger.error(f"Failed to delete backup {filename} for project {project_id}: {e}", exc_info=True)

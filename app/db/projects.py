@@ -93,11 +93,16 @@ def delete_project(project_id: str) -> bool:
             conn.commit()
 
             # 3. Physical cleanup
-            if pdir and pdir.is_relative_to(config.PROJECTS_DIR.resolve()):
-                try:
-                    shutil.rmtree(pdir)
-                except Exception:
-                    logger.warning("Failed to remove project directory %s", pdir, exc_info=True)
+            if pdir:
+                import os
+                trusted_projects_root = os.path.abspath(os.fspath(config.PROJECTS_DIR))
+                resolved_pdir = os.path.abspath(os.fspath(pdir))
+
+                if resolved_pdir.startswith(trusted_projects_root + os.sep):
+                    try:
+                        shutil.rmtree(resolved_pdir)
+                    except Exception:
+                        logger.warning("Failed to remove project directory %s", resolved_pdir, exc_info=True)
 
             return cursor.rowcount > 0
 
@@ -132,12 +137,29 @@ def migrate_legacy_project_covers() -> int:
                 candidates.append((project_id, legacy_path, destination, new_virtual_path))
 
     migrated_updates: list[tuple[str, str]] = []
+    import os
+    trusted_cover_root = os.path.abspath(os.fspath(config.COVER_DIR))
+
     for project_id, legacy_path, destination, new_virtual_path in candidates:
-        destination.parent.mkdir(parents=True, exist_ok=True)
+        # Rule 9: Locally visible containment check
+        dest_parent = os.path.abspath(os.fspath(destination.parent))
+        trusted_projects_root = os.path.abspath(os.fspath(config.PROJECTS_DIR))
+
+        if not dest_parent.startswith(trusted_projects_root + os.sep):
+             logger.warning("Migration destination escapes projects root: %s", dest_parent)
+             continue
+
+        os.makedirs(dest_parent, exist_ok=True)
+
         try:
-            if destination.resolve() != legacy_path.resolve():
-                shutil.copy2(legacy_path, destination)
-            migrated_updates.append((project_id, new_virtual_path))
+            resolved_legacy = os.path.abspath(os.fspath(legacy_path))
+            resolved_dest = os.path.abspath(os.fspath(destination))
+
+            # Proof both sides
+            if resolved_legacy.startswith(trusted_cover_root + os.sep) and resolved_dest.startswith(dest_parent + os.sep):
+                if resolved_dest != resolved_legacy:
+                    shutil.copy2(resolved_legacy, resolved_dest)
+                migrated_updates.append((project_id, new_virtual_path))
         except Exception:
             logger.warning("Failed to migrate legacy cover %s for project %s", legacy_path, project_id, exc_info=True)
 

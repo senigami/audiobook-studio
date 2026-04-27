@@ -147,11 +147,16 @@ def _cleanup_voice_root(root: Path):
     if not has_variants:
         remaining = [f for f in root.iterdir() if f.name != ".DS_Store"]
         if not remaining or (len(remaining) == 1 and remaining[0].name == "voice.json"):
-            try:
-                import shutil
-                shutil.rmtree(root)
-            except Exception:
-                logger.warning("Failed to cleanup empty voice root: %s", root)
+            import os
+            import shutil
+            trusted_voices_root = os.path.abspath(os.fspath(get_voices_dir()))
+            resolved_root = os.path.abspath(os.fspath(root))
+
+            if resolved_root.startswith(trusted_voices_root + os.sep) and resolved_root != trusted_voices_root:
+                try:
+                    shutil.rmtree(resolved_root)
+                except Exception:
+                    logger.warning("Failed to cleanup empty voice root: %s", resolved_root)
 
 def _voice_file_map(profile_dir: Optional[Path]) -> Dict[str, Path]:
     if not profile_dir or not profile_dir.exists():
@@ -257,14 +262,28 @@ def delete_speaker_sample(
     try:
         try:
             profile_dir = _existing_voice_profile_dir(name)
-            path = _voice_file_map(profile_dir).get(_valid_sample_name(sample_name)) if profile_dir else None
+            if not profile_dir:
+                 return JSONResponse({"status": "error", "message": "Profile not found"}, status_code=404)
+
+            import os
+            trusted_voices_root = os.path.abspath(os.fspath(get_voices_dir()))
+            resolved_pdir = os.path.abspath(os.fspath(profile_dir))
+
+            if not resolved_pdir.startswith(trusted_voices_root + os.sep):
+                 return JSONResponse({"status": "error", "message": "Access denied"}, status_code=403)
+
+            sample_filename = _valid_sample_name(sample_name)
+            target_path = os.path.normpath(os.path.join(resolved_pdir, sample_filename))
+
+            if not target_path.startswith(resolved_pdir + os.sep):
+                 return JSONResponse({"status": "error", "message": "Invalid sample path"}, status_code=403)
+
+            if os.path.exists(target_path) and os.path.isfile(target_path):
+                os.unlink(target_path)
+                return JSONResponse({"status": "ok"})
+            return JSONResponse({"status": "error", "message": "File not found"}, status_code=404)
         except ValueError:
             return JSONResponse({"status": "error", "message": "Invalid path"}, status_code=403)
-
-        if path:
-            path.unlink()
-            return JSONResponse({"status": "ok"})
-        return JSONResponse({"status": "error", "message": "File not found"}, status_code=404)
     except Exception as e:
         logger.error(f"Delete failed for {name}/{sample_name}: {e}")
         return JSONResponse({"status": "error", "message": "Delete failed"}, status_code=500)

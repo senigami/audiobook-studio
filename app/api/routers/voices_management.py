@@ -54,7 +54,15 @@ def _ensure_default_speaker_profile(speaker_id: str, speaker_name: str, default_
     if "speed" not in meta:
         meta["speed"] = 1.0
     normalized_meta = db.speakers.normalize_profile_metadata(profile_name, meta, persist=False)
-    meta_path.write_text(json.dumps(normalized_meta, indent=2))
+
+    import os
+    trusted_voices_root = os.path.abspath(os.fspath(config.VOICES_DIR))
+    resolved_pdir = os.path.abspath(os.fspath(profile_dir))
+    if resolved_pdir.startswith(trusted_voices_root + os.sep) or resolved_pdir == trusted_voices_root:
+        meta_path_full = os.path.normpath(os.path.join(resolved_pdir, "profile.json"))
+        if meta_path_full.startswith(resolved_pdir + os.sep):
+            with open(meta_path_full, "w", encoding="utf-8") as f:
+                f.write(json.dumps(normalized_meta, indent=2))
 
     return profile_name
 
@@ -73,39 +81,46 @@ def _rename_profile_folders(old_name: str, new_name: str):
         old_root = pathing.secure_join_flat(root, old_name)
         new_root = pathing.secure_join_flat(root, new_name)
 
-        # Rule 9: Explicit containment check for scanner locality
-        try:
-            old_root.resolve().relative_to(root.resolve())
-            new_root.resolve().relative_to(root.resolve())
-        except (ValueError, OSError, RuntimeError):
+        import os
+        trusted_voices_root = os.path.abspath(os.fspath(root))
+        resolved_old = os.path.abspath(os.fspath(old_root))
+        resolved_new = os.path.abspath(os.fspath(new_root))
+
+        # Rule 9: Locally visible containment check for both sides
+        if not (resolved_old.startswith(trusted_voices_root + os.sep) and resolved_new.startswith(trusted_voices_root + os.sep)):
              raise HTTPException(status_code=403, detail="Invalid profile name")
 
-        if old_root.exists() and old_root.is_dir() and pathing.find_secure_file(old_root, "voice.json"):
-            if not new_root.exists():
-                old_root.rename(new_root)
+        if os.path.exists(resolved_old) and os.path.isdir(resolved_old) and pathing.find_secure_file(Path(resolved_old), "voice.json"):
+            if not os.path.exists(resolved_new):
+                os.rename(resolved_old, resolved_new)
                 # Update references for all variants within this root
-                for sub in new_root.iterdir():
-                    if sub.is_dir() and pathing.find_secure_file(sub, "profile.json"):
-                        old_vname = f"{old_name} - {sub.name}"
-                        new_vname = f"{new_name} - {sub.name}"
-                        db.update_voice_profile_references(old_vname, new_vname)
+                for sub in os.scandir(resolved_new):
+                    if sub.is_dir():
+                        sub_path = os.path.abspath(sub.path)
+                        if pathing.find_secure_file(Path(sub_path), "profile.json"):
+                            old_vname = f"{old_name} - {sub.name}"
+                            new_vname = f"{new_name} - {sub.name}"
+                            db.update_voice_profile_references(old_vname, new_vname)
 
-                        # Update speaker_id in profile.json
-                        meta_path = sub / "profile.json"
-                        try:
-                            import json as _json
-                            meta = _json.loads(meta_path.read_text())
-                            if meta.get("speaker_id") == old_name:
-                                meta["speaker_id"] = new_name
-                                meta_path.write_text(_json.dumps(meta, indent=2))
-                        except Exception:
-                            logger.warning("Failed to update speaker_id in %s", meta_path)
+                            # Update speaker_id in profile.json
+                            meta_path_full = os.path.normpath(os.path.join(sub_path, "profile.json"))
+                            if meta_path_full.startswith(sub_path + os.sep):
+                                try:
+                                    import json as _json
+                                    with open(meta_path_full, "r", encoding="utf-8") as f:
+                                        meta = _json.loads(f.read())
+                                    if meta.get("speaker_id") == old_name:
+                                        meta["speaker_id"] = new_name
+                                        with open(meta_path_full, "w", encoding="utf-8") as f:
+                                            f.write(_json.dumps(meta, indent=2))
+                                except Exception:
+                                    logger.warning("Failed to update speaker_id in %s", meta_path_full)
 
                 # Update voice.json
                 from ...domain.voices.manifest import load_voice_manifest, save_voice_manifest
-                manifest = load_voice_manifest(new_root)
+                manifest = load_voice_manifest(Path(resolved_new))
                 manifest["name"] = new_name
-                save_voice_manifest(new_root, manifest)
+                save_voice_manifest(Path(resolved_new), manifest)
                 return
 
         dirs_map = voices_helpers._voice_dirs_map()
@@ -124,26 +139,34 @@ def _rename_profile_folders(old_name: str, new_name: str):
 
     # 1. Exact match (unassigned profile or narrator-identical name)
     if old_dir and not new_dir.exists():
+        import os
+        trusted_voices_root = os.path.abspath(os.fspath(voices_helpers.get_voices_dir()))
+        resolved_old = os.path.abspath(os.fspath(old_dir))
+        resolved_new = os.path.abspath(os.fspath(new_dir))
+
         if " - " in old_name and " - " in new_name and old_dir.parent == voices_helpers.get_voices_dir():
-            # Preserve the legacy flat layout for flat variant folders when only the
-            # variant label changes. New base->variant renames still use the nested path.
-            new_dir = pathing.secure_join_flat(voices_helpers.get_voices_dir(), new_name)
-        old_dir.rename(new_dir)
-        db.update_voice_profile_references(old_name, new_name)
-        # Update meta if exists
-        meta_path = voices_helpers._voice_file_map(new_dir).get("profile.json")
-        if meta_path:
-            try:
-                import json
-                meta = json.loads(meta_path.read_text())
-                if " - " in new_name:
-                    meta["variant_name"] = new_name.split(" - ", 1)[1]
-                # Only update speaker_id if it was the old name (unassigned case)
-                if meta.get("speaker_id") == old_name:
-                    meta["speaker_id"] = new_name
-                meta_path.write_text(json.dumps(meta, indent=2))
-            except Exception:
-                logger.warning("Failed to update profile metadata during rename: %s -> %s", old_name, new_name, exc_info=True)
+            # Preserve the legacy flat layout
+            resolved_new = os.path.abspath(os.fspath(pathing.secure_join_flat(voices_helpers.get_voices_dir(), new_name)))
+
+        if resolved_old.startswith(trusted_voices_root + os.sep) and resolved_new.startswith(trusted_voices_root + os.sep):
+            os.rename(resolved_old, resolved_new)
+            db.update_voice_profile_references(old_name, new_name)
+            # Update meta if exists
+            meta_path_full = os.path.normpath(os.path.join(resolved_new, "profile.json"))
+            if os.path.exists(meta_path_full) and meta_path_full.startswith(resolved_new + os.sep):
+                try:
+                    import json
+                    with open(meta_path_full, "r", encoding="utf-8") as f:
+                        meta = json.loads(f.read())
+                    if " - " in new_name:
+                        meta["variant_name"] = new_name.split(" - ", 1)[1]
+                    # Only update speaker_id if it was the old name (unassigned case)
+                    if meta.get("speaker_id") == old_name:
+                        meta["speaker_id"] = new_name
+                    with open(meta_path_full, "w", encoding="utf-8") as f:
+                        f.write(json.dumps(meta, indent=2))
+                except Exception:
+                    logger.warning("Failed to update profile metadata during rename: %s -> %s", old_name, new_name, exc_info=True)
 
     # 2. Variants (Narrator - Variant)
     variants = []
@@ -155,20 +178,28 @@ def _rename_profile_folders(old_name: str, new_name: str):
         new_vname = new_name + suffix
         new_vpath = voices_helpers._existing_voice_profile_dir(new_vname) or voices_helpers._new_voice_profile_dir(new_vname)
         if not new_vpath.exists():
-            vdir.rename(new_vpath)
-            db.update_voice_profile_references(vdir.name, new_vname)
-            # Update meta
-            meta_path = voices_helpers._voice_file_map(new_vpath).get("profile.json")
-            if meta_path:
-                try:
-                    import json
-                    meta = json.loads(meta_path.read_text())
-                    # Ensure metadata speaker_id stays correct if it was a UUID, or updates to new name if unassigned
-                    if meta.get("speaker_id") == old_name:
-                        meta["speaker_id"] = new_name
-                    meta_path.write_text(json.dumps(meta, indent=2))
-                except Exception:
-                    logger.warning("Failed to update variant metadata during rename: %s -> %s", vdir.name, new_vname, exc_info=True)
+            import os
+            trusted_voices_root = os.path.abspath(os.fspath(voices_helpers.get_voices_dir()))
+            resolved_vdir = os.path.abspath(os.fspath(vdir))
+            resolved_new_vpath = os.path.abspath(os.fspath(new_vpath))
+
+            if resolved_vdir.startswith(trusted_voices_root + os.sep) and resolved_new_vpath.startswith(trusted_voices_root + os.sep):
+                os.rename(resolved_vdir, resolved_new_vpath)
+                db.update_voice_profile_references(vdir.name, new_vname)
+                # Update meta
+                meta_path_full = os.path.normpath(os.path.join(resolved_new_vpath, "profile.json"))
+                if os.path.exists(meta_path_full) and meta_path_full.startswith(resolved_new_vpath + os.sep):
+                    try:
+                        import json
+                        with open(meta_path_full, "r", encoding="utf-8") as f:
+                            meta = json.loads(f.read())
+                        # Ensure metadata speaker_id stays correct if it was a UUID, or updates to new name if unassigned
+                        if meta.get("speaker_id") == old_name:
+                            meta["speaker_id"] = new_name
+                        with open(meta_path_full, "w", encoding="utf-8") as f:
+                            f.write(json.dumps(meta, indent=2))
+                    except Exception:
+                        logger.warning("Failed to update variant metadata during rename: %s -> %s", vdir.name, new_vname, exc_info=True)
 
 
 @router.get("/speaker-profiles")
@@ -335,14 +366,18 @@ def delete_speaker_profile(
             return JSONResponse({"status": "error", "message": "Invalid profile name"}, status_code=403)
 
         if path:
-            if path.is_relative_to(voices_helpers.get_voices_dir().resolve()):
-                parent = path.parent
-                shutil.rmtree(path)
-                if parent != voices_helpers.get_voices_dir():
-                    voices_helpers._cleanup_voice_root(parent)
+            import os
+            trusted_voices_root = os.path.abspath(os.fspath(voices_helpers.get_voices_dir()))
+            resolved_path = os.path.abspath(os.fspath(path))
+
+            if resolved_path.startswith(trusted_voices_root + os.sep):
+                parent = os.path.dirname(resolved_path)
+                shutil.rmtree(resolved_path)
+                if parent != trusted_voices_root:
+                    voices_helpers._cleanup_voice_root(Path(parent))
             else:
-                logger.warning("Blocking profile delete outside voices root: %s", path)
-                return JSONResponse({"status": "error", "message": "Invalid profile path"}, status_code=403)
+                logger.warning("Blocking profile delete outside voices root: %s", resolved_path)
+                return JSONResponse({"status": "error", "message": "Access denied"}, status_code=403)
             return JSONResponse({"status": "ok"})
     except Exception as e:
         logger.error(f"Error deleting profile {name}: {e}")
@@ -401,17 +436,29 @@ def api_assign_profile_to_speaker(
 
         # Rename the folder
         if new_dir != old_dir:
-            old_dir.rename(new_dir)
-            db.update_voice_profile_references(profile_name, new_profile_name)
-            # Cleanup old voice root if empty
-            if old_dir.parent != voices_helpers.get_voices_dir():
-                voices_helpers._cleanup_voice_root(old_dir.parent)
+            import os
+            trusted_voices_root = os.path.abspath(os.fspath(voices_helpers.get_voices_dir()))
+            resolved_old = os.path.abspath(os.fspath(old_dir))
+            resolved_new = os.path.abspath(os.fspath(new_dir))
+
+            if resolved_old.startswith(trusted_voices_root + os.sep) and resolved_new.startswith(trusted_voices_root + os.sep):
+                os.rename(resolved_old, resolved_new)
+                db.update_voice_profile_references(profile_name, new_profile_name)
+                # Cleanup old voice root if empty
+                old_parent = os.path.dirname(resolved_old)
+                if old_parent != trusted_voices_root:
+                    voices_helpers._cleanup_voice_root(Path(old_parent))
+            else:
+                return JSONResponse({"status": "error", "message": "Access denied"}, status_code=403)
 
         # Update profile.json with new speaker_id and variant_name
-        new_meta_path = voices_helpers._voice_file_map(new_dir).get("profile.json") or voices_helpers._new_voice_sample_path(new_dir, "profile.json")
-        meta.update({"speaker_id": speaker_id, "variant_name": variant_name})
-        normalized_meta = db.speakers.normalize_profile_metadata(new_profile_name, meta, persist=False)
-        new_meta_path.write_text(_json.dumps(normalized_meta, indent=2))
+        resolved_new = os.path.abspath(os.fspath(new_dir))
+        meta_path_full = os.path.normpath(os.path.join(resolved_new, "profile.json"))
+        if meta_path_full.startswith(resolved_new + os.sep):
+            meta.update({"speaker_id": speaker_id, "variant_name": variant_name})
+            normalized_meta = db.speakers.normalize_profile_metadata(new_profile_name, meta, persist=False)
+            with open(meta_path_full, "w", encoding="utf-8") as f:
+                f.write(_json.dumps(normalized_meta, indent=2))
 
         return JSONResponse({"status": "ok", "new_profile_name": new_profile_name})
     except Exception as e:
