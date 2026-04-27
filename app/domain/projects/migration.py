@@ -1,12 +1,12 @@
 import logging
 import os
 import shutil
+import uuid
 from pathlib import Path
 from typing import List, Dict, Any
 
-from app.config import get_project_dir, get_project_audio_dir, get_project_text_dir
+from app import config
 from app.db.chapters import list_chapters
-from app.pathing import secure_join_flat
 from .manifest import load_project_manifest, save_project_manifest, CURRENT_STORAGE_VERSION
 
 logger = logging.getLogger(__name__)
@@ -14,7 +14,25 @@ logger = logging.getLogger(__name__)
 
 def migrate_project_to_v2(project_id: str) -> bool:
     """Migrates a project from flat v1 layout to nested v2 chapter folders."""
-    project_dir = get_project_dir(project_id)
+    try:
+        canonical_project_id = str(uuid.UUID(project_id))
+    except (ValueError, TypeError, AttributeError):
+        if isinstance(project_id, str) and config.SAFE_PROJECT_ID_RE.fullmatch(project_id):
+            canonical_project_id = project_id
+        else:
+            logger.warning("Skipping project migration for invalid project id: %r", project_id)
+            return False
+
+    projects_root = os.path.abspath(str(config.PROJECTS_DIR))
+    project_dir_path = os.path.abspath(
+        os.path.normpath(os.path.join(projects_root, canonical_project_id))
+    )
+    projects_root_prefix = projects_root if projects_root.endswith(os.sep) else projects_root + os.sep
+    if project_dir_path != projects_root and not project_dir_path.startswith(projects_root_prefix):
+        logger.warning("Skipping project migration outside projects root: %r", project_id)
+        return False
+
+    project_dir = Path(project_dir_path)
     manifest = load_project_manifest(project_dir)
 
     current_version = int(manifest.get("version", 1))
@@ -29,8 +47,8 @@ def migrate_project_to_v2(project_id: str) -> bool:
 
     try:
         chapters = list_chapters(project_id)
-        audio_dir = get_project_audio_dir(project_id)
-        text_dir = get_project_text_dir(project_id)
+        audio_dir = project_dir / "audio"
+        text_dir = project_dir / "text"
 
         for chap in chapters:
             chapter_id = chap["id"]
@@ -82,14 +100,20 @@ def migrate_project_to_v2(project_id: str) -> bool:
                 dest_path = os.path.abspath(
                     os.path.normpath(os.path.join(segments_root, dest_filename))
                 )
-                if os.path.commonpath([segments_root, dest_path]) != segments_root:
+                segments_root_prefix = segments_root if segments_root.endswith(os.sep) else segments_root + os.sep
+                if (
+                    dest_path != segments_root
+                    and not dest_path.startswith(segments_root_prefix)
+                ) or (
+                    dest_path != projects_root
+                    and not dest_path.startswith(projects_root_prefix)
+                ):
                     logger.warning("Skipping generated segment audio path outside migration root: %s", dest_filename)
                     continue
 
                 if src and src.exists():
-                    dest = secure_join_flat(segments_dir, dest_filename)
-                    if not dest.exists():
-                        shutil.move(str(src), str(dest))
+                    if not os.path.exists(dest_path):
+                        shutil.move(str(src), dest_path)
                         update_segment(sid, broadcast=False, audio_status="done", audio_file_path=dest_filename)
 
         # 4. Update manifest
