@@ -1,4 +1,6 @@
 import logging
+import os
+import re
 import shutil
 from pathlib import Path
 from typing import List, Dict, Any
@@ -8,6 +10,9 @@ from app.db.chapters import list_chapters
 from .manifest import load_project_manifest, save_project_manifest, CURRENT_STORAGE_VERSION
 
 logger = logging.getLogger(__name__)
+
+SAFE_SEGMENT_AUDIO_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+
 
 def migrate_project_to_v2(project_id: str) -> bool:
     """Migrates a project from flat v1 layout to nested v2 chapter folders."""
@@ -64,11 +69,31 @@ def migrate_project_to_v2(project_id: str) -> bool:
             from app.db.segments import get_chapter_segments
             segments = get_chapter_segments(chapter_id)
             for seg in segments:
-                sid = seg["id"]
+                sid = str(seg["id"])
+                if not SAFE_SEGMENT_AUDIO_ID_RE.fullmatch(sid):
+                    logger.warning("Skipping unsafe segment audio id during project migration: %r", sid)
+                    continue
+
+                audio_root = os.path.abspath(str(audio_dir))
+                segments_root = os.path.abspath(str(segments_dir))
+
                 # Legacy naming: chunk_{sid}.wav
-                src = audio_dir / f"chunk_{sid}.wav"
+                src_path = os.path.abspath(
+                    os.path.normpath(os.path.join(audio_root, f"chunk_{sid}.wav"))
+                )
+                dest_path = os.path.abspath(
+                    os.path.normpath(os.path.join(segments_root, f"{sid}.wav"))
+                )
+                if (
+                    os.path.commonpath([audio_root, src_path]) != audio_root
+                    or os.path.commonpath([segments_root, dest_path]) != segments_root
+                ):
+                    logger.warning("Skipping segment audio path outside migration roots: %r", sid)
+                    continue
+
+                src = Path(src_path)
                 if src.exists():
-                    dest = segments_dir / f"{sid}.wav"
+                    dest = Path(dest_path)
                     if not dest.exists():
                         shutil.move(str(src), str(dest))
 

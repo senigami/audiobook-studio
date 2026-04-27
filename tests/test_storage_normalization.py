@@ -81,6 +81,29 @@ def test_migration_v1_to_v2(clean_db):
     assert asset_path.exists()
     assert str(asset_path).endswith("chapter.wav")
 
+
+def test_migration_skips_unsafe_segment_audio_id(clean_db):
+    pid = create_project("Unsafe Segment Project")
+    cid = create_chapter(pid, "Chapter 1", "Hello world.")
+
+    audio_dir = get_project_audio_dir(pid)
+    text_dir = get_project_text_dir(pid)
+    audio_dir.mkdir(parents=True, exist_ok=True)
+    text_dir.mkdir(parents=True, exist_ok=True)
+
+    unsafe_sid = "../escape"
+    with patch("app.db.segments.get_chapter_segments", return_value=[{"id": unsafe_sid}]):
+        (audio_dir / "chunk_..").mkdir()
+        (audio_dir / "chunk_.." / "escape.wav").write_text("segment data")
+
+        success = migrate_project_to_v2(pid)
+
+    nested_dir = get_chapter_dir(pid, cid)
+    assert success is True
+    assert not (nested_dir / "escape.wav").exists()
+    assert not (nested_dir / "segments" / "escape.wav").exists()
+
+
 def test_idempotent_migration(clean_db):
     pid = create_project("Idempotent Project")
     project_dir = get_project_dir(pid)
