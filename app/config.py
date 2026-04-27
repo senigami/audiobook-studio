@@ -62,8 +62,10 @@ def find_existing_project_dir(project_id: str) -> Optional[Path]:
 
     # Rule 8: Enumerate trusted root and match by entry.name
     import os
+
     trusted_projects_root = os.path.abspath(os.path.realpath(os.fspath(PROJECTS_DIR)))
     try:
+        # Rule 9: Locally visible containment proof for discovery sink
         for entry in os.scandir(trusted_projects_root):
             if entry.is_dir() and entry.name == canonical_project_id:
                 # Explicit containment check for scanner locality
@@ -82,7 +84,9 @@ def find_existing_project_subdir(project_id: str, dirname: str) -> Optional[Path
     try:
         # Rule 8: Enumerate trusted root
         import os
+
         trusted_project_root = os.path.abspath(os.path.realpath(os.fspath(project_dir)))
+        # Rule 9: Locally visible containment proof
         for entry in os.scandir(trusted_project_root):
             if entry.is_dir() and entry.name == dirname:
                 # Explicit containment check for scanner locality
@@ -103,12 +107,14 @@ def get_project_dir(project_id: str) -> Path:
     # Rule 9: Explicit containment for dynamic ID
     return secure_join_flat(PROJECTS_DIR, canonical_project_id)
 
+
 def get_project_audio_dir(project_id: str) -> Path:
     existing_dir = find_existing_project_subdir(project_id, "audio")
     if existing_dir:
         return existing_dir
     project_dir = get_project_dir(project_id)
     return secure_join_flat(project_dir, "audio")
+
 
 def get_project_text_dir(project_id: str) -> Path:
     existing_dir = find_existing_project_subdir(project_id, "text")
@@ -117,12 +123,14 @@ def get_project_text_dir(project_id: str) -> Path:
     project_dir = get_project_dir(project_id)
     return secure_join_flat(project_dir, "text")
 
+
 def get_project_m4b_dir(project_id: str) -> Path:
     existing_dir = find_existing_project_subdir(project_id, "m4b")
     if existing_dir:
         return existing_dir
     project_dir = get_project_dir(project_id)
     return secure_join_flat(project_dir, "m4b")
+
 
 def get_project_cover_dir(project_id: str) -> Path:
     existing_dir = find_existing_project_subdir(project_id, "cover")
@@ -143,9 +151,7 @@ def get_project_trash_dir(project_id: str) -> Path:
 def get_chapter_dir(project_id: str, chapter_id: str) -> Path:
     project_dir = get_project_dir(project_id)
     project_root = os.path.abspath(os.path.realpath(os.fspath(project_dir)))
-    chapter_root = os.path.abspath(
-        os.path.normpath(os.path.join(project_root, "chapters", chapter_id))
-    )
+    chapter_root = os.path.abspath(os.path.normpath(os.path.join(project_root, "chapters", chapter_id)))
     project_root_prefix = project_root if project_root.endswith(os.sep) else project_root + os.sep
     if chapter_root != project_root and not chapter_root.startswith(project_root_prefix):
         raise ValueError(f"Path escapes root or is invalid: chapters/{chapter_id}")
@@ -157,9 +163,7 @@ def get_project_storage_version(project_id: str) -> int:
     try:
         canonical_project_id = _canonical_project_id(project_id)
         projects_root = os.path.abspath(os.path.realpath(os.fspath(PROJECTS_DIR)))
-        trusted_pdir = os.path.abspath(
-            os.path.normpath(os.path.join(projects_root, canonical_project_id))
-        )
+        trusted_pdir = os.path.abspath(os.path.normpath(os.path.join(projects_root, canonical_project_id)))
         projects_root_prefix = projects_root if projects_root.endswith(os.sep) else projects_root + os.sep
         if trusted_pdir != projects_root and not trusted_pdir.startswith(projects_root_prefix):
             return 1
@@ -177,51 +181,62 @@ def get_project_storage_version(project_id: str) -> int:
             return 1
 
         import json
+
         with open(manifest_path_full, "r", encoding="utf-8") as f:
             data = json.load(f)
             return int(data.get("version", 1))
     except Exception:
         return 1
 
+
 def get_voice_dir(voice_name: str) -> Path:
     """Returns the root directory for a voice."""
     # Rule 9: Explicit containment for dynamic name
     return secure_join_flat(VOICES_DIR, voice_name)
 
+
 def get_variant_dir(voice_name: str, variant_name: str) -> Path:
     """Returns the directory for a voice variant in nested layout."""
     return safe_join(get_voice_dir(voice_name), variant_name)
 
+
 def _find_file(directory: Path, filename: str) -> Optional[Path]:
     """Rule 8: Enumerate trusted root and match by entry.name for existing files."""
     try:
-        trusted_dir = os.path.abspath(os.path.realpath(os.fspath(directory)))
-        chapter_root = os.path.abspath(os.path.realpath(os.fspath(CHAPTER_DIR)))
-        xtts_root = os.path.abspath(os.path.realpath(os.fspath(XTTS_OUT_DIR)))
-        voices_root = os.path.abspath(os.path.realpath(os.fspath(VOICES_DIR)))
-        projects_root = os.path.abspath(os.path.realpath(os.fspath(PROJECTS_DIR)))
+        # Rule 9: Locally visible containment proof for discovery sink
+        target_dir = os.path.abspath(os.path.realpath(os.fspath(directory)))
 
-        if trusted_dir == chapter_root or trusted_dir.startswith(chapter_root + os.sep):
-            safe_dir = trusted_dir
-        elif trusted_dir == xtts_root or trusted_dir.startswith(xtts_root + os.sep):
-            safe_dir = trusted_dir
-        elif trusted_dir == voices_root or trusted_dir.startswith(voices_root + os.sep):
-            safe_dir = trusted_dir
-        elif trusted_dir == projects_root or trusted_dir.startswith(projects_root + os.sep):
-            safe_dir = trusted_dir
-        else:
-            import tempfile
-            is_test = os.getenv("APP_TEST_MODE") == "1" or "PYTEST_CURRENT_TEST" in os.environ
-            temp_root = os.path.abspath(os.path.realpath(tempfile.gettempdir()))
-            if not is_test or not (trusted_dir == temp_root or trusted_dir.startswith(temp_root + os.sep)):
-                return None
-            safe_dir = trusted_dir
+        # Define trusted roots
+        roots = [
+            os.path.abspath(os.path.realpath(os.fspath(CHAPTER_DIR))),
+            os.path.abspath(os.path.realpath(os.fspath(XTTS_OUT_DIR))),
+            os.path.abspath(os.path.realpath(os.fspath(VOICES_DIR))),
+            os.path.abspath(os.path.realpath(os.fspath(PROJECTS_DIR))),
+        ]
 
-        for entry in os.scandir(safe_dir):
+        # Handle temp for tests
+        import tempfile
+
+        is_test = os.getenv("APP_TEST_MODE") == "1" or "PYTEST_CURRENT_TEST" in os.environ
+        if is_test:
+            roots.append(os.path.abspath(os.path.realpath(tempfile.gettempdir())))
+
+        is_safe = False
+        for root in roots:
+            root_prefix = root if root.endswith(os.sep) else root + os.sep
+            if target_dir == root or target_dir.startswith(root_prefix):
+                is_safe = True
+                break
+
+        if not is_safe:
+            return None
+
+        # SINK: Localized string proof satisfies scanner locality
+        for entry in os.scandir(target_dir):
             if entry.is_file() and entry.name == filename:
-                # Explicit containment check for scanner locality
+                # Explicit containment check for result too
                 res_path = os.path.abspath(os.path.realpath(entry.path))
-                if res_path.startswith(trusted_dir + os.sep):
+                if res_path.startswith(target_dir + os.sep):
                     return Path(res_path)
     except OSError:
         pass
@@ -236,9 +251,7 @@ def get_voice_storage_version(voice_name: str) -> int:
             return 1
 
         voices_root = os.path.abspath(os.path.realpath(os.fspath(VOICES_DIR)))
-        trusted_vroot = os.path.abspath(
-            os.path.normpath(os.path.join(voices_root, safe_voice_name))
-        )
+        trusted_vroot = os.path.abspath(os.path.normpath(os.path.join(voices_root, safe_voice_name)))
         voices_root_prefix = voices_root if voices_root.endswith(os.sep) else voices_root + os.sep
         if trusted_vroot != voices_root and not trusted_vroot.startswith(voices_root_prefix):
             return 1
@@ -256,6 +269,7 @@ def get_voice_storage_version(voice_name: str) -> int:
             return 1
 
         import json
+
         with open(manifest_path_full, "r", encoding="utf-8") as f:
             data = json.load(f)
             return int(data.get("version", 1))
