@@ -22,9 +22,11 @@ def download_voice_bundle_route(voice_name: str, include_source_wavs: bool = Fal
             include_source_wavs=include_source_wavs,
         )
     except VoiceBundleError as exc:
-        # Rule: allow sanitized domain errors (like 'missing voice.json') while blocking path leaks
-        msg = str(exc) if not any(c in str(exc) for c in ["/", "\\", ":"]) else "Voice export failed due to invalid bundle structure"
-        return JSONResponse({"status": "error", "message": msg}, status_code=400)
+        logger.warning("Voice bundle export error for %s: %s", voice_name, exc)
+        return JSONResponse(
+            {"status": "error", "message": "Voice export failed due to invalid bundle structure"},
+            status_code=400,
+        )
     except Exception as e:
         logger.exception("Failed to export voice bundle for %s", voice_name)
         return JSONResponse({"status": "error", "message": "Voice export failed"}, status_code=500)
