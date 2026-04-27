@@ -29,6 +29,13 @@ Audiobook Studio supports a modular plugin architecture for TTS engines. If you 
 *   **Security Boundary**: Review the [Security Boundary and Trust Model](docs/plugin-guide.md#security-boundary-and-trust-model) before writing code. Plugins are trusted user-level code and must respect Studio's isolation boundaries.
 *   **Use the Template**: Start by copying the [Plugin Template](docs/plugin-template/) as a proof-of-concept.
 
+## 🌐 TTS Gateway Integration
+
+If you are building an external tool that needs to use Studio's high-performance TTS engines:
+
+*   **Read the API Guide**: See [Studio as a Local TTS Gateway](docs/studio-as-tts-gateway.md) for configuration and usage examples.
+*   **Interactive Docs**: Once Studio is running, visit `/api/v1/tts/docs` for the full OpenAPI/Swagger surface.
+
 ## 🐛 Reporting Bugs & Suggestions
 
 * **Check Existing Issues**: Before opening a new issue, please search to see if it has already been reported.
