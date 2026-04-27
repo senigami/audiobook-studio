@@ -274,14 +274,13 @@ DEFAULT_SPEAKER_TEST_TEXT = (
 )
 
 
-def _read_profile_metadata(profile_name: str, meta_path: Path, *, fix_schema: bool = False) -> dict:
-    profile_name = _profile_name_or_error(profile_name)
-
-    # Rule 9: Locally visible containment proof for file reading sinks
-    voices_root = os.path.abspath(os.path.realpath(os.fspath(VOICES_DIR)))
-    voices_root_prefix = voices_root if voices_root.endswith(os.sep) else voices_root + os.sep
+    # Ignore caller-provided path for sink selection; derive trusted canonical path locally.
+    trusted_meta_path = _existing_profile_metadata_path(profile_name)
+    if not trusted_meta_path:
 
     meta_path_final = os.path.abspath(os.path.realpath(os.fspath(meta_path)))
+    meta_path_final = os.path.abspath(os.path.realpath(os.fspath(trusted_meta_path)))
+
     if meta_path_final != voices_root and not meta_path_final.startswith(voices_root_prefix):
         raise ValueError(f"Invalid profile metadata path for: {profile_name}")
 
