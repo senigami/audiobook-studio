@@ -16,6 +16,7 @@ from .config import (
 )
 from .db import init_db
 from .api import projects, chapters, voices, queue, settings, generation, system, analysis, jobs, migration, manager, engines
+from .api.tts_api import tts_app
 from .api.routers.analysis import AnalysisError
 
 logger = logging.getLogger(__name__)
@@ -309,6 +310,27 @@ async def sync_config_middleware(request: Request, call_next):
 
     return await call_next(request)
 
+
+@app.middleware("http")
+async def lan_protection_middleware(request: Request, call_next):
+    """Enforce 'local_only' vs 'lan' binding controls at the application level."""
+    # Only protect the external TTS API and sensitive system endpoints.
+    # The main UI is often bound to 0.0.0.0 for convenience, but the API
+    # gateway should be explicit.
+    if request.url.path.startswith("/api/v1/tts"):
+        from app.state import get_settings  # noqa: PLC0415
+        settings = get_settings()
+        if not settings.get("lan_binding_enabled"):
+            client_host = request.client.host if request.client else "127.0.0.1"
+            # Basic loopback check.
+            if client_host not in ("127.0.0.1", "localhost", "::1", "testclient"):
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "LAN access to TTS API is disabled in Studio settings."}
+                )
+
+    return await call_next(request)
+
 # --- Include Routers ---
 app.include_router(projects.router)
 app.include_router(chapters.router)
@@ -321,6 +343,9 @@ app.include_router(analysis.router)
 app.include_router(jobs.router)
 app.include_router(migration.router)
 app.include_router(engines.router)
+
+# --- External TTS API ---
+app.mount("/api/v1/tts", tts_app)
 
 # --- Catch-all for React Router ---
 @app.get("/{full_path:path}")

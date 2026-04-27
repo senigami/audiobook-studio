@@ -101,7 +101,7 @@ class OrchestratorHelpersMixin:
         allow_progress_regression: bool = False,
         force: bool = False,
     ) -> None:
-        """Publish a progress event through the ProgressService."""
+        """Publish a progress event through the ProgressService and sync with state."""
         try:
             # self.progress_service must be available on the target class
             self.progress_service.publish(
@@ -116,6 +116,33 @@ class OrchestratorHelpersMixin:
                 allow_progress_regression=allow_progress_regression,
                 force=force,
             )
+
+            # Sync with the persistent state.json for UI visibility and polling.
+            # We import lazily to stay behind the state boundary.
+            from app.state import get_jobs, put_job, update_job, Job  # noqa: PLC0415
+
+            # Initialize job state if this is the first event (usually 'queued')
+            if not get_jobs().get(context.task_id):
+                job = Job(
+                    id=context.task_id,
+                    engine=getattr(context, "task_type", "synthesis"),  # type: ignore[arg-type]
+                    status=status,  # type: ignore[arg-type]
+                    created_at=time.time(),
+                    project_id=context.project_id,
+                    chapter_id=context.chapter_id,
+                )
+                put_job(job)
+            else:
+                update_job(
+                    context.task_id,
+                    status=status,
+                    progress=progress,
+                    message=message,
+                    reason_code=reason_code,
+                    started_at=started_at,
+                    force_broadcast=force,
+                )
+
         except Exception:
             logger.exception(
                 "Failed to publish progress event for task %s (status=%s).",

@@ -14,6 +14,11 @@ def _default_state() -> Dict[str, Any]:
             "voxtral_enabled": False,
             "voxtral_model": "voxtral-mini-tts-2603",
             "enabled_plugins": {},
+            "tts_api_enabled": False,
+            "tts_api_key": "",
+            "tts_api_rate_limit": 10,
+            "lan_binding_enabled": False,
+            "api_priority_mode": "studio_first",
         },
     }
 
@@ -96,6 +101,17 @@ def _normalize_settings(
         normalized["default_speaker_profile"] = default_speaker
     else:
         normalized.pop("default_speaker_profile", None)
+
+    # External TTS API settings
+    normalized["tts_api_enabled"] = bool(normalized.get("tts_api_enabled", defaults["tts_api_enabled"]))
+    normalized["tts_api_key"] = str(normalized.get("tts_api_key") or "").strip()
+    normalized["tts_api_rate_limit"] = int(normalized.get("tts_api_rate_limit", defaults["tts_api_rate_limit"]))
+    normalized["lan_binding_enabled"] = bool(normalized.get("lan_binding_enabled", defaults["lan_binding_enabled"]))
+
+    priority_mode = str(normalized.get("api_priority_mode") or defaults["api_priority_mode"])
+    if priority_mode not in ("studio_first", "equal", "api_first"):
+        priority_mode = defaults["api_priority_mode"]
+    normalized["api_priority_mode"] = priority_mode
 
     return normalized
 
