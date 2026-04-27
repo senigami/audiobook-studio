@@ -37,12 +37,11 @@ export const usePerformanceTab = ({
     return () => window.clearInterval(timer);
   }, [activeJobIsLive, voxtralJob, generatingJob?.id, generatingJob?.status, generatingJob?.started_at, generatingJob?.eta_seconds, generatingJob?.progress, activeSegmentId, segmentProgress]);
 
-  const lastActiveGroupIndexRef = useRef(-1);
+  const [lastValidIndex, setLastValidIndex] = useState(-1);
   const activeGroupIndex = useMemo(() => {
     if (activeSegmentId) {
       const byActiveSegment = chunkGroups.findIndex(group => group.segments.some(segment => segment.id === activeSegmentId));
       if (byActiveSegment !== -1) {
-        lastActiveGroupIndexRef.current = byActiveSegment;
         return byActiveSegment;
       }
     }
@@ -53,7 +52,6 @@ export const usePerformanceTab = ({
         group.segments.some(segment => targetIds.has(segment.id))
       );
       if (byTargetSegments !== -1) {
-        lastActiveGroupIndexRef.current = byTargetSegments;
         return byTargetSegments;
       }
     }
@@ -62,28 +60,30 @@ export const usePerformanceTab = ({
       group.segments.some(segment => segment.audio_status === 'processing' || generatingSegmentIds.has(segment.id))
     );
     if (byProcessingSegment !== -1) {
-      lastActiveGroupIndexRef.current = byProcessingSegment;
       return byProcessingSegment;
     }
 
     if (activeJobIsLive) {
-      if (lastActiveGroupIndexRef.current !== -1) {
-        return lastActiveGroupIndexRef.current;
+      if (lastValidIndex !== -1) {
+        return lastValidIndex;
       }
       const firstIncomplete = chunkGroups.findIndex(group => group.segments.some(segment => segment.audio_status !== 'done'));
       if (firstIncomplete !== -1) {
-        lastActiveGroupIndexRef.current = firstIncomplete;
         return firstIncomplete;
       }
       if (chunkGroups.length > 0) {
-        lastActiveGroupIndexRef.current = 0;
         return 0;
       }
     }
 
-    lastActiveGroupIndexRef.current = -1;
     return -1;
-  }, [activeJobIsLive, activeSegmentId, generatingJob?.segment_ids, chunkGroups, generatingSegmentIds]);
+  }, [activeJobIsLive, activeSegmentId, generatingJob?.segment_ids, chunkGroups, generatingSegmentIds, lastValidIndex]);
+
+  useEffect(() => {
+    if (activeGroupIndex !== -1) {
+      setLastValidIndex(activeGroupIndex);
+    }
+  }, [activeGroupIndex]);
 
   const getActiveProgressForGroup = (gidx: number) => {
     const isActiveGroup = gidx === activeGroupIndex;

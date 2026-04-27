@@ -12,6 +12,8 @@ try:
 except ImportError:  # pragma: no cover
     fcntl = None
 
+pytest_plugins = ["tests.api_voices_fixtures"]
+
 # 1. Create a session-wide temp directory for storage isolation
 _temp_dir = tempfile.TemporaryDirectory()
 atexit.register(_temp_dir.cleanup)

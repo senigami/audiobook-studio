@@ -2,7 +2,7 @@ import pytest
 import json
 import uuid
 from unittest.mock import patch
-from .api_voices_fixtures import client, clean_db, voices_root
+
 
 def test_create_and_delete_profile(clean_db, voices_root, client):
     voices_dir = voices_root

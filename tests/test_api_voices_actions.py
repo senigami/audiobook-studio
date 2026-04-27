@@ -3,7 +3,7 @@ import json
 import io
 from pathlib import Path
 from unittest.mock import patch
-from .api_voices_fixtures import client, clean_db, voices_root
+
 
 def test_create_profile_persists_engine_metadata(clean_db, voices_root, client):
     voices_root.mkdir()
