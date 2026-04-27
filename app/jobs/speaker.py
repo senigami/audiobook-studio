@@ -11,7 +11,6 @@ from ..state import get_settings
 from ..db.speakers import infer_variant_name, normalize_profile_metadata, DEFAULT_PROFILE_ENGINE
 
 logger = logging.getLogger(__name__)
-SAFE_PROFILE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
 
 
 def _abspath_realpath(value) -> str:
@@ -53,9 +52,8 @@ def _is_uuid(value: str) -> bool:
 
 
 def _profile_name_or_error(profile_name: str) -> str:
-    if not SAFE_PROFILE_NAME_RE.fullmatch(profile_name):
-        raise ValueError(f"Invalid profile name: {profile_name}")
-    return profile_name
+    from .. import config
+    return config.canonical_voice_name(profile_name)
 
 
 def _profile_dir_has_assets(profile_dir: Path) -> bool:

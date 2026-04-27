@@ -16,7 +16,7 @@ from .manifest import (
     save_voice_manifest,
 )
 
-SAFE_VOICE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
+from ...config import SAFE_VOICE_NAME_RE
 BUNDLE_SCHEMA_VERSION = 1
 BUNDLE_MANIFEST_FILENAME = "bundle.json"
 VOICE_MANIFEST_FILENAME = "voice.json"

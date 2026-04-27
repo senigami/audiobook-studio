@@ -45,6 +45,16 @@ XTTS_ENV_PYTHON = Path(
 )
 XTTS_ENV_ACTIVATE = XTTS_ENV_DIR / ("Scripts/Activate.ps1" if os.name == "nt" else "bin/activate")
 SAFE_PROJECT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
+SAFE_VOICE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
+
+
+def canonical_voice_name(name: str) -> str:
+    if not name or not isinstance(name, str):
+         raise ValueError("Invalid voice name")
+    clean = name.strip()
+    if not SAFE_VOICE_NAME_RE.fullmatch(clean):
+        raise ValueError(f"Invalid voice name: {name}")
+    return clean
 
 
 def _canonical_project_id(project_id: str) -> str:
@@ -262,33 +272,33 @@ def _find_file(directory: Path, filename: str) -> Optional[Path]:
 def get_voice_storage_version(voice_name: str) -> int:
     """Returns the storage version of a voice (1 for legacy flat, 2 for nested)."""
     try:
-        safe_voice_name = os.path.basename(voice_name)
-        if voice_name != safe_voice_name or "/" in voice_name or "\\" in voice_name:
-            return 1
+        # Rule 9: Early validation of user-provided ID
+        safe_voice_name = canonical_voice_name(voice_name)
 
+        # Rule 9: Locally visible containment proof for discovery sink
         voices_root = os.path.abspath(os.path.realpath(os.fspath(VOICES_DIR)))
         trusted_vroot = os.path.abspath(os.path.normpath(os.path.join(voices_root, safe_voice_name)))
         voices_root_prefix = voices_root if voices_root.endswith(os.sep) else voices_root + os.sep
-        if trusted_vroot != voices_root and not trusted_vroot.startswith(voices_root_prefix):
-            return 1
 
-        # Rule 8: Local proof for existence and containment
-        manifest_path_full = None
-        for entry in os.scandir(trusted_vroot):
-            if entry.is_file() and entry.name == "voice.json":
-                cand = os.path.abspath(os.path.realpath(entry.path))
-                if cand.startswith(trusted_vroot + os.sep):
-                    manifest_path_full = cand
-                    break
+        # UNROLLED PROOF: Explicit check for containment
+        if trusted_vroot == voices_root or trusted_vroot.startswith(voices_root_prefix):
+            # SINK: Proof is locally visible in the same block
+            manifest_path_full = None
+            for entry in os.scandir(trusted_vroot):
+                if entry.is_file() and entry.name == "voice.json":
+                    cand = os.path.abspath(os.path.realpath(entry.path))
+                    if cand.startswith(trusted_vroot + os.sep):
+                        manifest_path_full = cand
+                        break
 
-        if not manifest_path_full:
-            return 1
+            if manifest_path_full:
+                import json
 
-        import json
+                with open(manifest_path_full, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    return int(data.get("version", 1))
 
-        with open(manifest_path_full, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            return int(data.get("version", 1))
+        return 1
     except Exception:
         return 1
 
