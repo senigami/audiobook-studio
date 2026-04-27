@@ -1,19 +1,15 @@
 import logging
 import os
-import re
 import shutil
 from pathlib import Path
 from typing import List, Dict, Any
 
-from werkzeug.utils import secure_filename
-
 from app.config import get_project_dir, get_project_audio_dir, get_project_text_dir
 from app.db.chapters import list_chapters
+from app.pathing import secure_join_flat
 from .manifest import load_project_manifest, save_project_manifest, CURRENT_STORAGE_VERSION
 
 logger = logging.getLogger(__name__)
-
-SAFE_SEGMENT_AUDIO_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 
 def migrate_project_to_v2(project_id: str) -> bool:
@@ -69,36 +65,32 @@ def migrate_project_to_v2(project_id: str) -> bool:
 
             # 3. Move segment audio files (chunk_*.wav)
             from app.db.segments import get_chapter_segments
+            from app.db.segments import update_segment
             segments = get_chapter_segments(chapter_id)
-            for seg in segments:
+            for segment_index, seg in enumerate(segments):
                 sid = str(seg["id"])
-                safe_sid = secure_filename(sid)
-                if safe_sid != sid or not SAFE_SEGMENT_AUDIO_ID_RE.fullmatch(safe_sid):
-                    logger.warning("Skipping unsafe segment audio id during project migration: %r", sid)
-                    continue
-
-                audio_root = os.path.abspath(str(audio_dir))
                 segments_root = os.path.abspath(str(segments_dir))
+                legacy_name = f"chunk_{sid}.wav"
+                src = None
+                if audio_dir.exists() and audio_dir.is_dir():
+                    for entry in audio_dir.iterdir():
+                        if entry.is_file() and entry.name == legacy_name:
+                            src = entry
+                            break
 
-                # Legacy naming: chunk_{sid}.wav
-                src_path = os.path.abspath(
-                    os.path.normpath(os.path.join(audio_root, f"chunk_{safe_sid}.wav"))
-                )
+                dest_filename = f"seg_{segment_index}.wav"
                 dest_path = os.path.abspath(
-                    os.path.normpath(os.path.join(segments_root, f"{safe_sid}.wav"))
+                    os.path.normpath(os.path.join(segments_root, dest_filename))
                 )
-                if (
-                    os.path.commonpath([audio_root, src_path]) != audio_root
-                    or os.path.commonpath([segments_root, dest_path]) != segments_root
-                ):
-                    logger.warning("Skipping segment audio path outside migration roots: %r", sid)
+                if os.path.commonpath([segments_root, dest_path]) != segments_root:
+                    logger.warning("Skipping generated segment audio path outside migration root: %s", dest_filename)
                     continue
 
-                src = Path(src_path)
-                if src.exists():
-                    dest = Path(dest_path)
+                if src and src.exists():
+                    dest = secure_join_flat(segments_dir, dest_filename)
                     if not dest.exists():
                         shutil.move(str(src), str(dest))
+                        update_segment(sid, broadcast=False, audio_status="done", audio_file_path=dest_filename)
 
         # 4. Update manifest
         from app.db.projects import get_project
