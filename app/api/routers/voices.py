@@ -16,6 +16,7 @@ from .voices_helpers import (
     _is_engine_active,
     delete_speaker_sample,
 )
+from .voices_management import list_speaker_profiles as _list_speaker_profiles
 from ...jobs import (
     get_speaker_settings,
     update_speaker_settings,
@@ -28,6 +29,8 @@ from ...state import put_job
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["voices"])
+
+list_speaker_profiles = _list_speaker_profiles
 
 # Management routes (profiles)
 router.include_router(voices_management.router, prefix="/api")

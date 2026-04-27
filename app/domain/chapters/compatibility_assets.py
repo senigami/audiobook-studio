@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from typing import Any
 from app import config
-from app.config import XTTS_OUT_DIR, find_existing_project_subdir
+from app.config import XTTS_OUT_DIR
 from app.pathing import find_secure_file, secure_join_flat
 from . import compatibility_helpers as helpers
 
@@ -50,6 +50,8 @@ def export_chapter_audio(chapter_id: str, *, format: str) -> tuple[Path, str]:
 
 
 def _resolve_canonical_wav_path(*, chapter_id: str, chapter_row: dict[str, Any]) -> Path | None:
+    from . import compatibility as compatibility_facade
+
     project_id = helpers._clean_optional_text(chapter_row.get("project_id"))
     audio_file_path = helpers._clean_optional_text(chapter_row.get("audio_file_path"))
 
@@ -67,7 +69,7 @@ def _resolve_canonical_wav_path(*, chapter_id: str, chapter_row: dict[str, Any])
 
     # 3. Fallback to legacy _0.wav pattern if not handled by standard resolution
     audio_dir = (
-        find_existing_project_subdir(project_id, "audio") if project_id else XTTS_OUT_DIR
+        compatibility_facade.find_existing_project_subdir(project_id, "audio") if project_id else XTTS_OUT_DIR
     )
     if audio_dir and audio_dir.exists():
         # Explicit containment check for scanner locality

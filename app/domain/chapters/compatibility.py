@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 # Re-export public API from specialized modules
+from app.config import find_existing_project_subdir as _find_existing_project_subdir
+from app.textops import SENT_CHAR_LIMIT as _SENT_CHAR_LIMIT
+
 from .compatibility_helpers import (
     CompatibilityRevisionMismatch,
     _load_chapter_row,
@@ -47,3 +50,6 @@ from .compatibility_ops import (
     _apply_range_assignment,
     _split_segment_at_offset,
 )
+
+find_existing_project_subdir = _find_existing_project_subdir
+SENT_CHAR_LIMIT = _SENT_CHAR_LIMIT

@@ -11,17 +11,27 @@ from app.config import VOICES_DIR
 client = TestClient(app)
 
 @pytest.fixture
-def mock_voices(tmp_path):
-    # The app uses app.config.VOICES_DIR which is set via env in conftest.py
-    # But for extra safety in this test we can patch it if we wanted to be sure
-    # However, conftest.py already points it to a temp dir.
-    # Let's just use the one from config.
-    yield VOICES_DIR
+def mock_voices(tmp_path, monkeypatch):
+    import app.config
+    import app.web
+    import app.api.routers.voices
+    import app.api.routers.voices_helpers
+    import app.jobs.speaker
+
+    voices_dir = (tmp_path / "voices").resolve()
+    voices_dir.mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setattr(app.web, "VOICES_DIR", voices_dir)
+    monkeypatch.setattr(app.config, "VOICES_DIR", voices_dir)
+    monkeypatch.setattr(app.api.routers.voices, "VOICES_DIR", voices_dir)
+    monkeypatch.setattr(app.api.routers.voices_helpers, "VOICES_DIR", voices_dir)
+    monkeypatch.setattr(app.jobs.speaker, "VOICES_DIR", voices_dir)
+    return voices_dir
 
 def test_create_speaker_auto_links_existing_unassigned_profile(mock_voices):
     # 1. Create an unassigned profile directory on disk
     profile_name = "UnassignedSpeaker"
-    profile_dir = VOICES_DIR / profile_name
+    profile_dir = mock_voices / profile_name
     profile_dir.mkdir(parents=True, exist_ok=True)
 
     meta = {
@@ -57,7 +67,7 @@ def test_create_speaker_creates_default_profile(mock_voices):
     speaker_id = response.json()["id"]
 
     # 2. Verify profile directory was created automatically
-    profile_dir = VOICES_DIR / speaker_name
+    profile_dir = mock_voices / speaker_name
     assert profile_dir.exists()
 
     # 3. Verify profile.json contains correct mapping
@@ -69,7 +79,7 @@ def test_create_speaker_creates_default_profile(mock_voices):
 def test_create_speaker_handles_collision(mock_voices):
     # 1. Create an ALREADY ASSIGNED profile directory on disk
     existing_name = "CollisionTest"
-    profile_dir = VOICES_DIR / existing_name
+    profile_dir = mock_voices / existing_name
     profile_dir.mkdir(parents=True, exist_ok=True)
 
     meta = {
@@ -87,7 +97,7 @@ def test_create_speaker_handles_collision(mock_voices):
     speaker_id = response.json()["id"]
 
     # 3. Verify a NEW profile directory was created with a suffix
-    new_profile_dir = VOICES_DIR / f"{existing_name}_1"
+    new_profile_dir = mock_voices / f"{existing_name}_1"
     assert new_profile_dir.exists()
 
     new_meta = json.loads((new_profile_dir / "profile.json").read_text())

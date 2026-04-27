@@ -2,18 +2,22 @@ from __future__ import annotations
 import time
 import logging
 
-from ..state import get_jobs, get_performance_metrics, update_performance_metrics
+from ..state import update_performance_metrics as _update_performance_metrics
 from .core import BASELINE_XTTS_CPS, get_robust_eta_params
 from .worker_helpers import _job_field
 
 logger = logging.getLogger(__name__)
 
+update_performance_metrics = _update_performance_metrics
+
 
 def _record_xtts_sample(job, start: float, chars: int, perf: dict, source_segment_count: int | None = None):
+    from . import worker as worker_facade
+
     # Only train on the persisted terminal job, not the stale in-memory object.
     # Cancelled, failed, or partial jobs must not poison history.
     job_id = _job_field(job, "id")
-    persisted = get_jobs().get(job_id) if job_id else None
+    persisted = worker_facade.get_jobs().get(job_id) if job_id else None
     status = _job_field(persisted, "status", _job_field(job, "status"))
     if status != "done":
         return
@@ -85,7 +89,7 @@ def _record_xtts_sample(job, start: float, chars: int, perf: dict, source_segmen
 
     # Re-derive robust CPS for legacy field compatibility
     # We still keep xtts_cps in settings because workers use it for quick lookups
-    current_perf = get_performance_metrics()
+    current_perf = worker_facade.get_performance_metrics()
     history = current_perf.get("xtts_render_history") or []
     robust_params = get_robust_eta_params(history, current_perf.get("xtts_cps", BASELINE_XTTS_CPS))
     robust_cps = robust_params[0] if robust_params else current_perf.get("xtts_cps", BASELINE_XTTS_CPS)

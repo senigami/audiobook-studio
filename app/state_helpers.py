@@ -21,6 +21,17 @@ _JOB_LISTENERS = []
 _LISTENER_SNAPSHOT_SUPPORT: dict[object, bool] = {}
 
 
+def get_state_file() -> Path:
+    try:
+        from . import state as state_module
+        patched = getattr(state_module, "STATE_FILE", None)
+        if isinstance(patched, Path):
+            return patched
+    except Exception:
+        pass
+    return STATE_FILE
+
+
 def add_job_listener(callback):
     """Register a callback to be notified of job updates."""
     _cache_listener_snapshot_support(callback)
@@ -75,28 +86,30 @@ def _load_state_no_lock() -> Dict[str, Any]:
     """
     Internal helper: assumes caller already holds _STATE_LOCK.
     """
-    if not STATE_FILE.exists():
+    state_file = get_state_file()
+
+    if not state_file.exists():
         state = _default_state_minimal()
-        _atomic_write_text(STATE_FILE, json.dumps(state, indent=2))
+        _atomic_write_text(state_file, json.dumps(state, indent=2))
         return state
 
-    raw = STATE_FILE.read_text(encoding="utf-8", errors="replace").strip()
+    raw = state_file.read_text(encoding="utf-8", errors="replace").strip()
     if not raw:
         state = _default_state_minimal()
-        _atomic_write_text(STATE_FILE, json.dumps(state, indent=2))
+        _atomic_write_text(state_file, json.dumps(state, indent=2))
         return state
 
     try:
         return json.loads(raw)
     except JSONDecodeError:
         # Backup corrupt file and reset
-        backup = STATE_FILE.with_name("state.json.corrupt")
+        backup = state_file.with_name("state.json.corrupt")
         try:
-            os.replace(STATE_FILE, backup)
+            os.replace(state_file, backup)
         except Exception:
-            logger.warning("Failed to back up corrupt state file %s", STATE_FILE, exc_info=True)
+            logger.warning("Failed to back up corrupt state file %s", state_file, exc_info=True)
         state = _default_state_minimal()
-        _atomic_write_text(STATE_FILE, json.dumps(state, indent=2))
+        _atomic_write_text(state_file, json.dumps(state, indent=2))
         return state
 
 
@@ -107,4 +120,4 @@ def load_state() -> Dict[str, Any]:
 
 def save_state(state: Dict[str, Any]) -> None:
     with _STATE_LOCK:
-        _atomic_write_text(STATE_FILE, json.dumps(state, indent=2))
+        _atomic_write_text(get_state_file(), json.dumps(state, indent=2))

@@ -3,7 +3,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 
-from .state_helpers import _STATE_LOCK, _load_state_no_lock, _atomic_write_text, STATE_FILE
+from .state_helpers import _STATE_LOCK, _load_state_no_lock, _atomic_write_text, get_state_file
 
 logger = logging.getLogger(__name__)
 
@@ -236,7 +236,7 @@ def _remove_legacy_performance_metrics_from_state(state: Dict[str, Any]) -> None
     if "performance_metrics" not in state:
         return
     state.pop("performance_metrics", None)
-    _atomic_write_text(STATE_FILE, json.dumps(state, indent=2))
+    _atomic_write_text(get_state_file(), json.dumps(state, indent=2))
 
 
 def get_performance_metrics() -> Dict[str, Any]:

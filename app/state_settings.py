@@ -2,7 +2,7 @@ import json
 from typing import Dict, Any, Optional
 
 from .voice_engines import normalize_tts_engine
-from .state_helpers import _STATE_LOCK, _load_state_no_lock, _atomic_write_text, STATE_FILE
+from .state_helpers import _STATE_LOCK, _load_state_no_lock, _atomic_write_text, get_state_file
 
 
 def _default_state() -> Dict[str, Any]:
@@ -118,4 +118,4 @@ def update_settings(updates: dict = None, **kwargs) -> None:
             merged_updates.update(kwargs)
         state["settings"].update(merged_updates)
         state["settings"] = _normalize_settings(state["settings"], incoming_updates=merged_updates)
-        _atomic_write_text(STATE_FILE, json.dumps(state, indent=2))
+        _atomic_write_text(get_state_file(), json.dumps(state, indent=2))

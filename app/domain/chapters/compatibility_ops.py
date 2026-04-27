@@ -5,9 +5,9 @@ from typing import Any
 
 from app.db.core import _db_lock, get_connection
 from app.db.segments import sync_chapter_segments
-from app.textops import compute_chapter_metrics, SENT_CHAR_LIMIT
+from app.textops import compute_chapter_metrics
 from . import compatibility_helpers as helpers
-from . import compatibility_blocks as blocks
+from . import compatibility_blocks as blocks_module
 
 def get_production_blocks_payload(chapter_id: str) -> dict[str, Any]:
     """Build the compatibility production-block payload for a chapter."""
@@ -18,8 +18,8 @@ def get_production_blocks_payload(chapter_id: str) -> dict[str, Any]:
                 raise KeyError(f"Chapter not found: {chapter_id}")
             segment_rows = helpers._load_segment_rows(conn, chapter_id)
 
-    block_list = blocks._group_segments_into_blocks(chapter_id=chapter_id, segment_rows=segment_rows)
-    render_batches = blocks._derive_render_batches(chapter_id=chapter_id, blocks=block_list)
+    block_list = blocks_module._group_segments_into_blocks(chapter_id=chapter_id, segment_rows=segment_rows)
+    render_batches = blocks_module._derive_render_batches(chapter_id=chapter_id, blocks=block_list)
     return {
         "chapter_id": chapter_id,
         "base_revision_id": helpers._build_base_revision_id(chapter_row, segment_rows),
@@ -31,6 +31,7 @@ def get_production_blocks_payload(chapter_id: str) -> dict[str, Any]:
 def get_script_view_payload(chapter_id: str) -> dict[str, Any]:
     """Build the Phase 7 Script View read model payload for a chapter."""
     from app.textops import sanitize_for_xtts
+    from . import compatibility as compatibility_facade
 
     with _db_lock:
         with get_connection() as conn:
@@ -94,9 +95,9 @@ def get_script_view_payload(chapter_id: str) -> dict[str, Any]:
             eid = helpers._resolve_engine_from_profile(span["speaker_profile_name"])
             try:
                 plan = bridge.get_synthesis_plan({"engine_id": eid})
-                chunk_cache[sig] = plan.chunk_size or SENT_CHAR_LIMIT
+                chunk_cache[sig] = plan.chunk_size or compatibility_facade.SENT_CHAR_LIMIT
             except Exception:
-                chunk_cache[sig] = SENT_CHAR_LIMIT
+                chunk_cache[sig] = compatibility_facade.SENT_CHAR_LIMIT
 
         chunk_limit = chunk_cache[sig]
 
@@ -150,10 +151,18 @@ def _build_script_batch(
 def save_production_blocks_payload(
     chapter_id: str,
     *,
-    blocks_payload: Sequence[Mapping[str, Any]],
+    blocks_payload: Sequence[Mapping[str, Any]] | None = None,
+    blocks: Sequence[Mapping[str, Any]] | None = None,
     base_revision_id: str | None = None,
 ) -> dict[str, Any]:
     """Persist editable production blocks through the compatibility bridge."""
+    if blocks_payload is None:
+        if blocks is None:
+            raise TypeError("save_production_blocks_payload() missing required keyword-only argument: 'blocks'")
+        blocks_payload = blocks
+    elif blocks is not None:
+        raise TypeError("save_production_blocks_payload() received both 'blocks_payload' and 'blocks'")
+
     normalized_blocks = [helpers._normalize_block_payload(block, order_index=index) for index, block in enumerate(blocks_payload)]
     raw_text = helpers._reconstruct_raw_text(normalized_blocks)
 
@@ -169,7 +178,7 @@ def save_production_blocks_payload(
             if base_revision_id and base_revision_id != current_base_revision_id:
                 raise helpers.CompatibilityRevisionMismatch(current_base_revision_id, base_revision_id)
 
-            existing_blocks = blocks._group_segments_into_blocks(chapter_id=chapter_id, segment_rows=current_segments)
+            existing_blocks = blocks_module._group_segments_into_blocks(chapter_id=chapter_id, segment_rows=current_segments)
             metrics = compute_chapter_metrics(raw_text)
             cursor.execute(
                 """
@@ -198,7 +207,7 @@ def save_production_blocks_payload(
             sync_chapter_segments(chapter_id, raw_text, conn=conn)
 
             updated_segments = helpers._load_segment_rows(conn, chapter_id)
-            blocks._preserve_segment_assignments(
+            blocks_module._preserve_segment_assignments(
                 cursor=cursor,
                 chapter_id=chapter_id,
                 updated_segments=updated_segments,

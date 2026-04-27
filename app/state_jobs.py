@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional
 
 from .models import Job
 from .state_helpers import (
-    _STATE_LOCK, _JOB_LISTENERS, _load_state_no_lock, _atomic_write_text, 
+    _STATE_LOCK, _JOB_LISTENERS, _LISTENER_SNAPSHOT_SUPPORT, _load_state_no_lock, _atomic_write_text, get_state_file,
     _cache_listener_snapshot_support, STATE_FILE, SAFE_OUTPUT_FILE_RE
 )
 from .subprocess_utils import probe_audio_duration
@@ -36,7 +36,7 @@ def put_job(job: Job) -> None:
         if job.updated_at is None:
             job.updated_at = job.created_at
         state["jobs"][job.id] = asdict(job)
-        _atomic_write_text(STATE_FILE, json.dumps(state, indent=2))
+        _atomic_write_text(get_state_file(), json.dumps(state, indent=2))
 
 
 def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
@@ -162,7 +162,7 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
 
         if changed_fields:
             jobs[job_id] = j
-            _atomic_write_text(STATE_FILE, json.dumps(state, indent=2))
+            _atomic_write_text(get_state_file(), json.dumps(state, indent=2))
             if j.get("engine") == "voxtral":
                 logger.info(
                     "[voxtral-debug %s] update_job id=%s changed=%s status=%s progress=%s started_at=%s finished_at=%s output_wav=%s output_mp3=%s",
@@ -239,9 +239,20 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
             broadcast_dict.setdefault("updated_at", auto_updated_at)
         if broadcast_dict or force_broadcast:
             job_snapshot = dict(j)
-            for listener in _JOB_LISTENERS:
+            try:
+                from . import state as state_module
+            except Exception:
+                state_module = None
+
+            listeners = getattr(state_module, "_JOB_LISTENERS", _JOB_LISTENERS)
+            snapshot_support = getattr(state_module, "_LISTENER_SNAPSHOT_SUPPORT", _LISTENER_SNAPSHOT_SUPPORT)
+            cache_snapshot_support = getattr(state_module, "_cache_listener_snapshot_support", _cache_listener_snapshot_support)
+
+            for listener in listeners:
                 try:
-                    supports_snapshot = _cache_listener_snapshot_support(listener)
+                    supports_snapshot = snapshot_support.get(listener)
+                    if supports_snapshot is None:
+                        supports_snapshot = cache_snapshot_support(listener)
 
                     if supports_snapshot:
                         listener(job_id, broadcast_dict, job_snapshot)
@@ -288,14 +299,14 @@ def delete_jobs(job_ids: list[str]) -> None:
         for jid in job_ids:
             if jid in jobs:
                 del jobs[jid]
-        _atomic_write_text(STATE_FILE, json.dumps(state, indent=2))
+        _atomic_write_text(get_state_file(), json.dumps(state, indent=2))
 
 
 def clear_all_jobs() -> None:
     with _STATE_LOCK:
         state = _load_state_no_lock()
         state["jobs"] = {}
-        _atomic_write_text(STATE_FILE, json.dumps(state, indent=2))
+        _atomic_write_text(get_state_file(), json.dumps(state, indent=2))
 
 
 def purge_jobs_for_chapter(chapter_id: str) -> None:
@@ -307,5 +318,5 @@ def purge_jobs_for_chapter(chapter_id: str) -> None:
         if to_delete:
             for jid in to_delete:
                 del jobs[jid]
-            _atomic_write_text(STATE_FILE, json.dumps(state, indent=2))
+            _atomic_write_text(get_state_file(), json.dumps(state, indent=2))
             logger.debug("Purged %s stale jobs for chapter %s", len(to_delete), chapter_id)

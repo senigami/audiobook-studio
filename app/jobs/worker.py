@@ -17,7 +17,7 @@ from .handlers.xtts import handle_xtts_job
 from .handlers.voxtral import handle_voxtral_job
 from .handlers.mixed import handle_mixed_job
 from .handlers.audiobook import handle_audiobook_job
-from ..state import get_jobs, update_job, get_performance_metrics
+from ..state import get_jobs, update_job, get_performance_metrics, update_performance_metrics as _update_performance_metrics
 from ..config import CHAPTER_DIR, XTTS_OUT_DIR
 from ..pathing import safe_join
 from .reconcile import _output_exists
@@ -35,6 +35,8 @@ from .worker_metrics import _record_xtts_sample
 from .worker_voice import handle_voice_job
 
 logger = logging.getLogger(__name__)
+
+update_performance_metrics = _update_performance_metrics
 
 
 def worker_loop(q):
