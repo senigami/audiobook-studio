@@ -48,7 +48,7 @@ def _route_preview_to_engine_bridge(*, payload: dict[str, object]) -> dict[str, 
             "status": "error",
             "bridge": "voice-preview-bridge",
             "reason": "engine_execution_failed",
-            "message": str(exc),
+            "message": str(exc) if not any(c in str(exc) for c in ["/", "\\", ":"]) else "Engine execution failed",
             "ephemeral": True,
             "preview_request": payload,
         }
@@ -57,7 +57,7 @@ def _route_preview_to_engine_bridge(*, payload: dict[str, object]) -> dict[str, 
             "status": "error",
             "bridge": "voice-preview-bridge",
             "reason": "engine_bridge_failed",
-            "message": str(exc),
+            "message": str(exc) if not any(c in str(exc) for c in ["/", "\\", ":"]) else "Engine bridge failed",
             "ephemeral": True,
             "preview_request": payload,
         }
@@ -74,7 +74,7 @@ def _build_preview_preflight_response(
 ) -> dict[str, object]:
     """Normalize readiness and availability failures for preview/test callers."""
 
-    message = str(error)
+    message = str(error) if not any(c in str(error) for c in ["/", "\\", ":"]) else "Engine preflight failed"
     if isinstance(error, EngineUnavailableError):
         reason = "engine_unavailable"
     elif isinstance(error, EngineNotReadyError):

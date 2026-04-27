@@ -1,5 +1,6 @@
 import io
 import json
+import os
 import re
 import uuid
 import zipfile
@@ -15,7 +16,7 @@ from .manifest import (
     save_voice_manifest,
 )
 
-SAFE_VOICE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
+from ...config import SAFE_VOICE_NAME_RE
 BUNDLE_SCHEMA_VERSION = 1
 BUNDLE_MANIFEST_FILENAME = "bundle.json"
 VOICE_MANIFEST_FILENAME = "voice.json"
@@ -41,10 +42,29 @@ def _utc_now() -> str:
 
 def _voice_root_or_error(voices_root: Path, voice_name: str) -> Path:
     voice_name = _require_safe_name(voice_name)
-    root = voices_root / voice_name
-    if not root.exists() or not root.is_dir() or not (root / VOICE_MANIFEST_FILENAME).exists():
+
+    # Rule 9: Discover from the trusted root, then match by entry.name.
+    v_root_str = os.path.abspath(os.path.realpath(os.fspath(voices_root)))
+    if not os.path.isdir(v_root_str):
         raise VoiceBundleError("Voice not found")
-    return root
+
+    for entry in os.scandir(v_root_str):
+        if not entry.is_dir() or entry.name != voice_name:
+            continue
+
+        target_root_str = os.path.abspath(os.path.realpath(entry.path))
+        if target_root_str != v_root_str and not target_root_str.startswith(v_root_str + os.sep):
+            continue
+
+        manifest_path = os.path.abspath(os.path.realpath(os.path.join(target_root_str, VOICE_MANIFEST_FILENAME)))
+        if manifest_path != target_root_str and not manifest_path.startswith(target_root_str + os.sep):
+            continue
+        if not os.path.exists(manifest_path):
+            continue
+
+        return Path(target_root_str)
+
+    raise VoiceBundleError("Voice not found")
 
 
 def _variant_dirs(voice_root: Path) -> List[Path]:

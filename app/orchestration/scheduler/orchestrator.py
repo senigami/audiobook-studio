@@ -24,15 +24,16 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any
 
 from app.engines.bridge import create_voice_bridge
 from app.orchestration.progress.service import create_progress_service
-from app.orchestration.tasks.base import StudioTask, TaskContext, TaskResult
+from app.orchestration.tasks.base import StudioTask
 
 from .policies import choose_next_task
 from .recovery import load_recoverable_task_contexts
 from .resources import reserve_task_resources, release_task_resources
+
+from .orchestrator_helpers import OrchestratorHelpersMixin, _claim_to_dict
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +57,7 @@ FORBIDDEN_DIRECT_IMPORTS = (
 )
 
 
-class TaskOrchestrator:
+class TaskOrchestrator(OrchestratorHelpersMixin):
     """Studio 2.0 task orchestrator.
 
     Handles scheduling, dispatch, reconciliation, recovery, cancellation,
@@ -340,164 +341,6 @@ class TaskOrchestrator:
         )
         logger.info("Task %s cancelled.", task_id)
         return True
-
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
-
-    def _reconcile_task(self, context: TaskContext) -> dict[str, Any]:
-        """Call Phase 4 reconciliation for the task's work scope.
-
-        Uses the ProgressService's reconcile method which wraps
-        ``reconcile_work_item()`` from Phase 4.
-
-        The result includes a ``decision`` key:
-        - ``"reuse"``   — all batches have valid artifacts
-        - ``"rerender"`` — some batches have stale artifacts
-        - ``"queue"``   — some batches have missing artifacts
-
-        Args:
-            context: Task identity and payload from ``task.describe()``.
-
-        Returns:
-            dict: Reconciliation summary with ``decision`` and batch details.
-        """
-        payload = context.payload or {}
-        task_revision_id = (
-            payload.get("task_revision_id")
-            or payload.get("source_revision_id")
-            or context.task_id
-        )
-
-        try:
-            result = self.progress_service.reconcile(
-                job_id=context.task_id,
-                task_revision_id=str(task_revision_id),
-                scope=payload.get("scope", "job"),
-                requested_revision=payload.get("requested_revision"),
-                artifact_hash=payload.get("artifact_hash"),
-            )
-        except Exception:
-            logger.exception(
-                "Reconciliation failed for task %s; defaulting to queue.",
-                context.task_id,
-            )
-            return {"decision": "queue", "unresolved_count": 1, "artifact_state": "unknown"}
-
-        artifact_state = result.get("artifact_state", "unknown")
-        can_reuse = result.get("can_reuse", False)
-
-        if can_reuse or artifact_state == "valid":
-            decision = "reuse"
-        elif artifact_state == "stale":
-            decision = "rerender"
-        else:
-            decision = "queue"
-
-        return {
-            "decision": decision,
-            "artifact_state": artifact_state,
-            "can_reuse": can_reuse,
-            "unresolved_count": 0 if decision == "reuse" else 1,
-            "reconciliation": result,
-        }
-
-    def _dispatch(self, *, task: StudioTask, context: TaskContext) -> TaskResult:
-        """Dispatch the task to execution through the orchestrator-owned bridge.
-
-        For tasks that implement ``to_bridge_request()`` (the standard synthesis
-        contract), the orchestrator routes the request through its injected
-        ``voice_bridge``.  This keeps engine-routing ownership in the
-        orchestrator and makes transport control consistent.
-
-        Tasks that do not implement ``to_bridge_request()`` are dispatched via
-        ``task.run()`` directly — they own their own execution.
-
-        Args:
-            task: The validated, admitted task.
-            context: Task identity and metadata.
-
-        Returns:
-            TaskResult: Execution outcome.
-        """
-        # If the task exposes a bridge request, route through the injected bridge.
-        bridge_request_fn = getattr(task, "to_bridge_request", None)
-        if callable(bridge_request_fn):
-            try:
-                request = bridge_request_fn()
-                result = self.voice_bridge.synthesize(request)
-                ok = result.get("status", "ok") == "ok"
-                return TaskResult(
-                    status="completed" if ok else "failed",
-                    message=result.get("message"),
-                )
-            except Exception as exc:
-                logger.exception("Task %s: bridge dispatch raised.", context.task_id)
-                return TaskResult(status="failed", message=str(exc))
-
-        # Fallback: let the task manage its own execution.
-        try:
-            return task.run()
-        except Exception as exc:
-            logger.exception("Task %s: dispatch raised an exception.", context.task_id)
-            return TaskResult(status="failed", message=str(exc))
-
-    def _publish(
-        self,
-        *,
-        context: TaskContext,
-        status: str,
-        progress: float | None = None,
-        message: str | None = None,
-        reason_code: str | None = None,
-        waiting_reason: str | None = None,
-        started_at: float | None = None,
-        allow_progress_regression: bool = False,
-        force: bool = False,
-    ) -> None:
-        """Publish a progress event through the ProgressService.
-
-        Args:
-            context: Task identity.
-            status: Canonical queue status string.
-            progress: Optional normalized progress (0–1).
-            message: Optional user-facing status message.
-            reason_code: Optional machine-readable reason.
-            waiting_reason: Optional resource-wait explanation.
-            started_at: Optional wall-clock start timestamp.
-            allow_progress_regression: Pass through to ProgressService.
-            force: Emit even if payload is unchanged.
-        """
-        try:
-            self.progress_service.publish(
-                job_id=context.task_id,
-                status=status,
-                parent_job_id=context.project_id,
-                progress=progress,
-                message=message,
-                reason_code=reason_code,
-                waiting_reason=waiting_reason,
-                started_at=started_at,
-                allow_progress_regression=allow_progress_regression,
-                force=force,
-            )
-        except Exception:
-            logger.exception(
-                "Failed to publish progress event for task %s (status=%s).",
-                context.task_id,
-                status,
-            )
-
-
-def _claim_to_dict(claim: object | None) -> dict[str, object]:
-    """Convert a ResourceClaim to the dict format expected by reserve_task_resources."""
-    if claim is None:
-        return {}
-    return {
-        "gpu": getattr(claim, "gpu", False),
-        "vram_mb": getattr(claim, "vram_mb", 0),
-        "cpu_heavy": getattr(claim, "cpu_heavy", False),
-    }
 
 
 def create_orchestrator() -> TaskOrchestrator:

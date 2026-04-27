@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Optional
 
 
 def safe_basename(value: str) -> str:
@@ -17,11 +18,17 @@ def safe_join(root: Path, value: str) -> Path:
     This preserves legitimate subdirectories under the root, while rejecting any
     attempt to escape via ".." segments or absolute paths.
     """
-    base_dir = os.path.abspath(os.path.normpath(os.fspath(root)))
-    fullpath = os.path.abspath(os.path.normpath(os.path.join(base_dir, value)))
-    if not fullpath.startswith(base_dir + os.sep) and fullpath != base_dir:
-        raise ValueError(f"Path escapes root: {value}")
-    return Path(fullpath)
+    try:
+        # 1. Normalize and resolve the root
+        base_dir = os.path.abspath(os.path.realpath(os.fspath(root)))
+        # 2. Join and normalize the candidate
+        candidate = os.path.abspath(os.path.realpath(os.path.join(base_dir, value)))
+        # 3. Prove containment
+        if not candidate.startswith(base_dir + os.sep) and candidate != base_dir:
+             raise ValueError(f"Path escapes root: {value}")
+        return Path(candidate)
+    except (ValueError, OSError, RuntimeError) as e:
+        raise ValueError(f"Path escapes root or is invalid: {value}") from e
 
 
 def safe_join_flat(root: Path, value: str) -> Path:
@@ -30,3 +37,37 @@ def safe_join_flat(root: Path, value: str) -> Path:
     if value != safe_name or "/" in value or "\\" in value:
         raise ValueError(f"Path must be a single filename: {value}")
     return safe_join(root, safe_name)
+
+
+def find_secure_file(directory: Path, filename: str) -> Optional[Path]:
+    """Rule 8: Enumerate trusted root and match by entry.name for existing files."""
+    try:
+        if not directory.exists() or not directory.is_dir():
+            return None
+        # Rule 8: match by entry.name against iterdir() to prove existence in root
+        for entry in directory.iterdir():
+            if entry.is_file() and entry.name == filename:
+                # Prove containment for the entry we just found
+                base_dir = os.path.abspath(os.path.realpath(os.fspath(directory)))
+                res = os.path.abspath(os.path.realpath(os.fspath(entry)))
+                if not res.startswith(base_dir + os.sep):
+                    continue
+                return Path(res)
+    except (OSError, ValueError):
+        pass
+    return None
+
+
+def secure_join_flat(root: Path, filename: str) -> Path:
+    """Rule 9: Explicit containment pattern for a single filename."""
+    if filename != os.path.basename(filename) or "/" in filename or "\\" in filename:
+         raise ValueError(f"Invalid filename: {filename}")
+
+    try:
+        base_dir = os.path.abspath(os.path.realpath(os.fspath(root)))
+        candidate = os.path.abspath(os.path.realpath(os.path.join(base_dir, filename)))
+        if not candidate.startswith(base_dir + os.sep):
+             raise ValueError(f"Path escapes root: {filename}")
+        return Path(candidate)
+    except (ValueError, OSError, RuntimeError) as e:
+        raise ValueError(f"Path escapes root or is invalid: {filename}") from e

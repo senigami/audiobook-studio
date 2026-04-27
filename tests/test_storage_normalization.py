@@ -9,6 +9,7 @@ from app.db.core import init_db
 from app.db.projects import create_project
 from app.db.chapters import create_chapter, get_chapter
 from app.db.segments import get_chapter_segments
+from app.db.core import get_connection
 from app.config import get_project_dir, get_project_audio_dir, get_project_text_dir, resolve_chapter_asset_path, get_chapter_dir
 from app.domain.projects.migration import migrate_project_to_v2
 from app.domain.projects.manifest import load_project_manifest
@@ -65,7 +66,13 @@ def test_migration_v1_to_v2(clean_db):
     nested_dir = get_chapter_dir(pid, cid)
     assert (nested_dir / "chapter.wav").exists()
     assert (nested_dir / "chapter.txt").exists()
-    assert (nested_dir / "segments" / f"{sid}.wav").exists()
+    assert (nested_dir / "segments" / "seg_0.wav").exists()
+    with get_connection() as conn:
+        migrated_segment = conn.execute(
+            "SELECT audio_file_path FROM chapter_segments WHERE id = ?",
+            (sid,),
+        ).fetchone()
+    assert migrated_segment["audio_file_path"] == "seg_0.wav"
 
     # Verify legacy files ARE REMOVED
     assert not (audio_dir / f"{cid}.wav").exists()
@@ -80,6 +87,29 @@ def test_migration_v1_to_v2(clean_db):
     asset_path = resolve_chapter_asset_path(pid, cid, "audio")
     assert asset_path.exists()
     assert str(asset_path).endswith("chapter.wav")
+
+
+def test_migration_skips_unsafe_segment_audio_id(clean_db):
+    pid = create_project("Unsafe Segment Project")
+    cid = create_chapter(pid, "Chapter 1", "Hello world.")
+
+    audio_dir = get_project_audio_dir(pid)
+    text_dir = get_project_text_dir(pid)
+    audio_dir.mkdir(parents=True, exist_ok=True)
+    text_dir.mkdir(parents=True, exist_ok=True)
+
+    unsafe_sid = "../escape"
+    with patch("app.db.segments.get_chapter_segments", return_value=[{"id": unsafe_sid}]):
+        (audio_dir / "chunk_..").mkdir()
+        (audio_dir / "chunk_.." / "escape.wav").write_text("segment data")
+
+        success = migrate_project_to_v2(pid)
+
+    nested_dir = get_chapter_dir(pid, cid)
+    assert success is True
+    assert not (nested_dir / "escape.wav").exists()
+    assert not (nested_dir / "segments" / "escape.wav").exists()
+
 
 def test_idempotent_migration(clean_db):
     pid = create_project("Idempotent Project")

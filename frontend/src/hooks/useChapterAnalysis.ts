@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../api';
 
 export function useChapterAnalysis(chapterId: string, text: string) {
@@ -8,7 +8,7 @@ export function useChapterAnalysis(chapterId: string, text: string) {
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const runAnalysis = async (textContent: string) => {
+  const runAnalysis = useCallback(async (textContent: string) => {
     if (!textContent) {
       setAnalysis(null);
       setAnalyzing(false);
@@ -42,9 +42,9 @@ export function useChapterAnalysis(chapterId: string, text: string) {
           setAnalyzing(false);
       }
     }
-  };
+  }, []);
 
-  const ensureVoiceChunks = async (handleSave: () => Promise<boolean>) => {
+  const ensureVoiceChunks = useCallback(async (handleSave: () => Promise<boolean>) => {
     if (analysis?.voice_chunks || !chapterId) return;
     setLoadingVoiceChunks(true);
     try {
@@ -56,7 +56,7 @@ export function useChapterAnalysis(chapterId: string, text: string) {
     } finally {
       setLoadingVoiceChunks(false);
     }
-  };
+  }, [analysis, chapterId]);
 
   useEffect(() => {
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
@@ -73,14 +73,14 @@ export function useChapterAnalysis(chapterId: string, text: string) {
     return () => {
         if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     };
-  }, [text]);
+  }, [text, runAnalysis]);
 
-  return {
+  return useMemo(() => ({
     analysis,
     setAnalysis,
     analyzing,
     loadingVoiceChunks,
     ensureVoiceChunks,
     runAnalysis
-  };
+  }), [analysis, analyzing, loadingVoiceChunks, ensureVoiceChunks, runAnalysis]);
 }

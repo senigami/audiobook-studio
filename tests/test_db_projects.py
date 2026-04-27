@@ -59,7 +59,7 @@ def test_project_crud(db_conn, tmp_path):
          patch("app.config.PROJECTS_DIR", project_root.resolve()):
         success = delete_project(pid)
         assert success is True
-        mock_rm.assert_called_once_with(project_dir.resolve())
+        mock_rm.assert_called_once_with(str(project_dir.resolve()))
 
     assert get_project(pid) is None
 

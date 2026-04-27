@@ -5,10 +5,14 @@ from __future__ import annotations
 import pytest
 
 from app.orchestration.tasks.api_synthesis import ApiSynthesisTask
+from app.orchestration.tasks.base import StudioTask
 from app.orchestration.scheduler.resources import ResourceClaim
 
 
 class TestApiSynthesisTask:
+    def test_is_studio_task_subclass(self):
+        assert issubclass(ApiSynthesisTask, StudioTask)
+
     def test_creation_defaults(self):
         task = ApiSynthesisTask(
             task_id="task-1",
@@ -102,6 +106,48 @@ class TestApiSynthesisTask:
         )
         assert isinstance(task.submitted_at, float)
         assert task.submitted_at > 0
+
+    def test_on_cancel_does_not_raise(self):
+        task = ApiSynthesisTask(
+            task_id="x", engine_id="e", text="t", output_path="/tmp/x.wav"
+        )
+        task.on_cancel()  # Must not raise
+
+    def test_validate_passes_with_valid_fields(self):
+        task = ApiSynthesisTask(
+            task_id="a1", engine_id="xtts", text="Hello", output_path="/tmp/x.wav"
+        )
+        task.validate()  # Should not raise
+
+    def test_validate_raises_without_text(self):
+        task = ApiSynthesisTask(
+            task_id="a2", engine_id="xtts", text="", output_path="/tmp/x.wav"
+        )
+        with pytest.raises(ValueError, match="text"):
+            task.validate()
+
+    def test_validate_raises_without_engine_id(self):
+        task = ApiSynthesisTask(
+            task_id="a3", engine_id="", text="Hello", output_path="/tmp/x.wav"
+        )
+        with pytest.raises(ValueError, match="engine_id"):
+            task.validate()
+
+    def test_validate_raises_without_output_path(self):
+        task = ApiSynthesisTask(
+            task_id="a4", engine_id="xtts", text="Hello", output_path=""
+        )
+        with pytest.raises(ValueError, match="output_path"):
+            task.validate()
+
+    def test_describe_returns_task_context(self):
+        task = ApiSynthesisTask(
+            task_id="a5", engine_id="xtts", text="Hello", output_path="/tmp/x.wav"
+        )
+        ctx = task.describe()
+        assert ctx.task_id == "a5"
+        assert ctx.task_type == "api_synthesis"
+        assert ctx.source == "api"
 
 
 class TestResourceClaim:

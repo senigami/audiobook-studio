@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 from typing import Optional, List
 from .. import config
+from ..pathing import safe_join, safe_join_flat, find_secure_file, secure_join_flat
 from ..subprocess_utils import coerce_subprocess_output, write_subprocess_output
 from ..textops import split_by_chapter_markers, write_chapters_to_folder, split_into_parts
 
@@ -29,21 +30,23 @@ def _contained_audiobook_path(root: Path, filename: str) -> Optional[Path]:
         return None
     if Path(filename).suffix.lower() != ".m4b":
         return None
-    root_path = os.path.abspath(os.path.normpath(os.fspath(root)))
-    candidate_path = os.path.abspath(os.path.normpath(os.path.join(root_path, filename)))
-    if not candidate_path.startswith(root_path + os.sep):
-        return None
-    if not os.path.isfile(candidate_path):
-        return None
-    return Path(candidate_path)
+    return find_secure_file(root, filename)
 
 
 def probe_audiobook_metadata(root: Path, filename: str) -> dict:
     trusted_path = _contained_audiobook_path(root, filename)
     if not trusted_path:
         return {}
+    try:
+        resolved = trusted_path.resolve()
+        base_resolved = root.resolve()
+        resolved.relative_to(base_resolved)
+    except (OSError, ValueError, RuntimeError):
+         logger.error(f"Blocking out-of-bounds metadata probe: {trusted_path}")
+         return {}
+
     probe_res = subprocess.run(
-        [*FFPROBE_AUDIOBOOK_CMD, os.fspath(trusted_path)],
+        [*FFPROBE_AUDIOBOOK_CMD, os.fspath(resolved)],
         capture_output=True,
         text=True,
         check=True,
@@ -87,9 +90,10 @@ def output_exists(engine: str, chapter_file: str):
         return False
     chapter_name = Path(chapter_file).stem
     if engine in ("xtts", "voxtral", "mixed"):
-        return (config.XTTS_OUT_DIR / f"{chapter_name}.wav").exists() or (config.XTTS_OUT_DIR / f"{chapter_name}.mp3").exists()
+        return bool(find_secure_file(config.XTTS_OUT_DIR, f"{chapter_name}.wav")) or \
+               bool(find_secure_file(config.XTTS_OUT_DIR, f"{chapter_name}.mp3"))
     elif engine == "audiobook":
-        return (config.AUDIOBOOK_DIR / f"{chapter_name}.m4b").exists()
+        return bool(find_secure_file(config.AUDIOBOOK_DIR, f"{chapter_name}.m4b"))
     return False
 
 def xtts_outputs_for(chapter_file: str, project_id: Optional[str] = None):
@@ -99,17 +103,20 @@ def xtts_outputs_for(chapter_file: str, project_id: Optional[str] = None):
     chapter_name = chapter_file
     # Check global
     for ext in [".wav", ".mp3"]:
-        p = config.XTTS_OUT_DIR / f"{chapter_name}{ext}"
-        if p.exists():
+        p = find_secure_file(config.XTTS_OUT_DIR, f"{chapter_name}{ext}")
+        if p:
             outputs.append(f"/out/xtts/{chapter_name}{ext}")
 
     # Check project
     if project_id:
-        proj_audio = config.get_project_audio_dir(project_id)
-        for ext in [".wav", ".mp3"]:
-            p = proj_audio / f"{chapter_name}{ext}"
-            if p.exists():
-                outputs.append(f"/out/projects/{project_id}/audio/{chapter_name}{ext}")
+        try:
+            proj_audio = config.get_project_audio_dir(project_id)
+            for ext in [".wav", ".mp3"]:
+                p = find_secure_file(proj_audio, f"{chapter_name}{ext}")
+                if p:
+                    outputs.append(f"/out/projects/{project_id}/audio/{chapter_name}{ext}")
+        except OSError:
+            pass
 
     return outputs
 
@@ -136,10 +143,9 @@ def process_and_split_file(filename: str, mode: str = "parts", max_chars: int = 
 
     if not SAFE_FILE_RE.fullmatch(filename):
         raise FileNotFoundError(f"Upload not found: {filename}")
-    safe_filename = filename
-    path = config.UPLOAD_DIR / safe_filename
-    if not path.exists():
-        raise FileNotFoundError(f"Upload not found: {safe_filename}")
+    path = find_secure_file(config.UPLOAD_DIR, filename)
+    if not path:
+        raise FileNotFoundError(f"Upload not found: {filename}")
 
     full_text = path.read_text(encoding="utf-8", errors="replace")
     mode_clean = str(mode).strip().lower()
@@ -150,7 +156,7 @@ def process_and_split_file(filename: str, mode: str = "parts", max_chars: int = 
             raise ValueError("No chapter markers found. Expected: Chapter 1: Title")
         return write_chapters_to_folder(chapters, config.CHAPTER_DIR, prefix="chapter", include_heading=True)
     else:
-        stem = Path(safe_filename).stem
+        stem = path.stem
         chapters = split_into_parts(full_text, max_chars, start_index=1)
         return write_chapters_to_folder(chapters, config.CHAPTER_DIR, prefix=stem, include_heading=False)
 
@@ -167,7 +173,10 @@ def list_audiobooks():
     if config.PROJECTS_DIR.exists():
         for proj_dir in config.PROJECTS_DIR.iterdir():
             if proj_dir.is_dir():
-                m4b_dir = proj_dir / "m4b"
+                try:
+                    m4b_dir = secure_join_flat(proj_dir, "m4b")
+                except ValueError:
+                    continue
                 if m4b_dir.exists():
                     for p in m4b_dir.glob("*.m4b"):
                         if not SAFE_FILE_RE.fullmatch(p.name):
@@ -180,7 +189,16 @@ def list_audiobooks():
         p = _contained_audiobook_path(root_dir, filename)
         if p is None:
             continue
-        st = p.stat()
+
+        # Rule 9: Explicit containment check for scanner locality before stat sink
+        try:
+            resolved = p.resolve()
+            base_resolved = root_dir.resolve()
+            resolved.relative_to(base_resolved)
+        except (OSError, ValueError, RuntimeError):
+             continue
+
+        st = resolved.stat()
         item = {
             "filename": p.name, 
             "title": p.name, 

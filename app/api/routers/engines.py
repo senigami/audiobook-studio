@@ -20,10 +20,12 @@ def update_engine_settings(engine_id: str, settings: dict[str, Any] = Body(...))
     try:
         result = bridge.update_engine_settings(engine_id, settings)
         return JSONResponse(result)
-    except NotImplementedError as exc:
-        return JSONResponse({"status": "error", "message": str(exc)}, status_code=501)
+    except NotImplementedError:
+        return JSONResponse({"status": "error", "message": "Feature not implemented"}, status_code=501)
     except Exception as exc:
-        return JSONResponse({"status": "error", "message": str(exc)}, status_code=500)
+        import logging
+        logging.getLogger(__name__).error(f"Engine settings update failed: {exc}")
+        return JSONResponse({"status": "error", "message": "Failed to update engine settings"}, status_code=500)
 
 
 @router.post("/refresh")
@@ -34,7 +36,9 @@ def refresh_plugins():
         result = bridge.refresh_plugins()
         return JSONResponse(result)
     except Exception as exc:
-        return JSONResponse({"status": "error", "message": str(exc)}, status_code=500)
+        import logging
+        logging.getLogger(__name__).error(f"Plugin refresh failed: {exc}")
+        return JSONResponse({"status": "error", "message": "Failed to refresh plugins"}, status_code=500)
 
 
 @router.post("/{engine_id}/verify")

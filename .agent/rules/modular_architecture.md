@@ -28,3 +28,10 @@ Use this file when the task crosses domain, queue, engine, frontend state, or mi
 - The shared artifact cache owns immutable generated outputs.
 - Importing a new domain, orchestration, engine, or frontend-support module must not start threads, mutate global settings, register listeners, or reconcile persistent state.
 - If a legacy module has import-time side effects, treat it as an integration boundary and document the dependency explicitly instead of importing it casually from new code.
+
+## File Size Boundaries
+
+- Files over 500 lines should be considered for splitting logic into smaller modules, hooks, helpers, services, or adapters according to normal project boundaries.
+- Files over 600 lines should be refactored to split logic out and reduce file size when touched for meaningful code changes, unless there is a clear, documented reason to defer.
+- Refactors should preserve behavior and move along existing architectural boundaries: routes to services, UI coordinators to hooks/components, domain logic to domain modules, and compatibility logic to explicit adapters.
+- Do not split files mechanically by line count alone; extract cohesive responsibilities and verify the behavior that moved.

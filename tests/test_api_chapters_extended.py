@@ -60,5 +60,7 @@ def test_preview_chapter():
     assert response.status_code == 404
 
 def test_stream_chapter_not_found():
-    response = client.get("/api/chapters/non_existent/stream")
+    import uuid
+    cid = str(uuid.uuid4())
+    response = client.get(f"/api/chapters/{cid}/stream")
     assert response.status_code == 404

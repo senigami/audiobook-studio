@@ -4,6 +4,7 @@ import pytest
 import atexit
 import signal
 import faulthandler
+import shutil
 from pathlib import Path
 import psutil
 
@@ -11,6 +12,8 @@ try:
     import fcntl
 except ImportError:  # pragma: no cover
     fcntl = None
+
+pytest_plugins = ["tests.api_voices_fixtures"]
 
 # 1. Create a session-wide temp directory for storage isolation
 _temp_dir = tempfile.TemporaryDirectory()
@@ -212,6 +215,30 @@ def clean_storage():
     clear_all_jobs()
     clear_job_queue()
     pause_flag.clear()
+
+    # Reset the shared session workspace so tests do not leak filesystem
+    # state into one another. We intentionally operate on the fixed session
+    # root rather than any per-test monkeypatched temp directory.
+    for storage_dir in (
+        SESSION_TEMP / "voices",
+        SESSION_TEMP / "projects",
+        SESSION_TEMP / "chapters_out",
+        SESSION_TEMP / "xtts_audio",
+        SESSION_TEMP / "audiobooks",
+        SESSION_TEMP / "uploads",
+        SESSION_TEMP / "reports",
+        SESSION_TEMP / "samples",
+        SESSION_TEMP / "assets",
+    ):
+        try:
+            if storage_dir.exists():
+                shutil.rmtree(storage_dir)
+        except Exception:
+            pass
+        try:
+            storage_dir.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass
 
     # Clear any dependency overrides that a test may have left behind.
     from app.web import app as fastapi_app
