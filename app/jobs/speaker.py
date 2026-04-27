@@ -283,17 +283,20 @@ def _read_profile_metadata(profile_name: str, meta_path: Path, *, fix_schema: bo
         raise ValueError(f"Invalid profile metadata path for: {profile_name}")
 
     meta_dir = os.path.dirname(meta_path_final)
-    meta_name = os.path.basename(meta_path_final)
+    meta_name = "profile.json"
     meta_entry_path: Optional[str] = None
-    if os.path.isdir(meta_dir):
-        for entry in os.scandir(meta_dir):
-            if entry.name != meta_name or not entry.is_file():
-                continue
-            cand = os.path.abspath(os.path.realpath(entry.path))
-            if cand != meta_dir and not cand.startswith(meta_dir + os.sep):
-                continue
-            meta_entry_path = cand
-            break
+    try:
+        with os.scandir(meta_dir) as entries:
+            for entry in entries:
+                if entry.name != meta_name or not entry.is_file():
+                    continue
+                cand = os.path.abspath(os.path.realpath(entry.path))
+                if cand != meta_dir and not cand.startswith(meta_dir + os.sep):
+                    continue
+                meta_entry_path = cand
+                break
+    except OSError:
+        meta_entry_path = None
 
     if not meta_entry_path:
         meta = normalize_profile_metadata(profile_name, {}, persist=False)
