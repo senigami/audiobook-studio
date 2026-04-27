@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import type { Speaker, SpeakerProfile, VoiceEngine, TtsEngine } from '../types';
 import { formatVoiceEngineLabel, getVariantDisplayName, getVoiceProfileEngine } from '../utils/voiceProfiles';
 
@@ -21,7 +21,7 @@ export function useVoicesData({
     engineFilter,
     exportVoiceName
 }: UseVoicesDataProps) {
-    const buildVoiceGroups = (profiles: SpeakerProfile[]) => {
+    const buildVoiceGroups = useCallback((profiles: SpeakerProfile[]) => {
         const groupedVoices = (speakers || []).map(speaker => {
             const pList = profiles.filter(p => p.speaker_id === speaker.id);
             if (pList.length === 0) return null;
@@ -52,10 +52,10 @@ export function useVoicesData({
         }));
 
         return [...groupedVoices, ...unassignedVoices];
-    };
+    }, [speakers]);
 
-    const activeVoices = useMemo(() => buildVoiceGroups(activeSpeakerProfiles), [speakers, activeSpeakerProfiles]);
-    const disabledVoices = useMemo(() => buildVoiceGroups(disabledSpeakerProfiles), [speakers, disabledSpeakerProfiles]);
+    const activeVoices = useMemo(() => buildVoiceGroups(activeSpeakerProfiles), [buildVoiceGroups, activeSpeakerProfiles]);
+    const disabledVoices = useMemo(() => buildVoiceGroups(disabledSpeakerProfiles), [buildVoiceGroups, disabledSpeakerProfiles]);
     
     const allVoices = activeVoices;
     
