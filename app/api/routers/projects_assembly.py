@@ -84,7 +84,7 @@ def api_list_project_audiobooks(project_id: str):
 
         # Read description from sidecar file if it exists
         import os
-        trusted_m4b_root = os.path.abspath(os.fspath(m4b_dir))
+        trusted_m4b_root = os.path.abspath(os.path.realpath(os.fspath(m4b_dir)))
         description_filename = p.name + ".description"
         # Since p was found via find_secure_file, we know it is in m4b_dir.
         # We derive description_path from m4b_dir and description_filename.
@@ -100,7 +100,7 @@ def api_list_project_audiobooks(project_id: str):
         # Look for cover image with multiple extensions
         item["cover_url"] = None
         for ext in [".jpg", ".png", ".jpeg", ".webp"]:
-            cover_filename = p.name + ext
+            cover_filename = p.stem + ext
             cover_full_path = os.path.normpath(os.path.join(trusted_m4b_root, cover_filename))
             if cover_full_path.startswith(trusted_m4b_root + os.sep) and os.path.exists(cover_full_path) and os.path.getsize(cover_full_path) > 0:
                 encoded_ext = urllib.parse.quote(cover_filename)
@@ -126,12 +126,12 @@ def api_update_audiobook_metadata(project_id: str, filename: str, description: s
 
         # Store description in sidecar file
         import os
-        trusted_m4b_root = os.path.abspath(os.fspath(m4b_dir))
+        trusted_m4b_root = os.path.abspath(os.path.realpath(os.fspath(m4b_dir)))
         # Rule 8: match from m4b dir for local proof
         audiobook_found_path = None
         for entry in os.scandir(trusted_m4b_root):
             if entry.is_file() and entry.name == filename:
-                cand_path = os.path.abspath(entry.path)
+                cand_path = os.path.abspath(os.path.realpath(entry.path))
                 if cand_path.startswith(trusted_m4b_root + os.sep):
                     audiobook_found_path = cand_path
                     break
@@ -264,7 +264,7 @@ def prepare_audiobook():
     for stem in sorted_stems:
         fname = chapters_found[stem]
         import os
-        trusted_src_root = os.path.abspath(os.fspath(src_dir))
+        trusted_src_root = os.path.abspath(os.path.realpath(os.fspath(src_dir)))
         full_fname_path = os.path.normpath(os.path.join(trusted_src_root, fname))
 
         if full_fname_path.startswith(trusted_src_root + os.sep):

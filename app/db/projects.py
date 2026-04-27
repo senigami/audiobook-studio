@@ -95,8 +95,8 @@ def delete_project(project_id: str) -> bool:
             # 3. Physical cleanup
             if pdir:
                 import os
-                trusted_projects_root = os.path.abspath(os.fspath(config.PROJECTS_DIR))
-                resolved_pdir = os.path.abspath(os.fspath(pdir))
+                trusted_projects_root = os.path.abspath(os.path.realpath(os.fspath(config.PROJECTS_DIR)))
+                resolved_pdir = os.path.abspath(os.path.realpath(os.fspath(pdir)))
 
                 if resolved_pdir.startswith(trusted_projects_root + os.sep):
                     try:
@@ -138,12 +138,12 @@ def migrate_legacy_project_covers() -> int:
 
     migrated_updates: list[tuple[str, str]] = []
     import os
-    trusted_cover_root = os.path.abspath(os.fspath(config.COVER_DIR))
+    trusted_cover_root = os.path.abspath(os.path.realpath(os.fspath(config.COVER_DIR)))
 
     for project_id, legacy_path, destination, new_virtual_path in candidates:
         # Rule 9: Locally visible containment check
-        dest_parent = os.path.abspath(os.fspath(destination.parent))
-        trusted_projects_root = os.path.abspath(os.fspath(config.PROJECTS_DIR))
+        dest_parent = os.path.abspath(os.path.realpath(os.fspath(destination.parent)))
+        trusted_projects_root = os.path.abspath(os.path.realpath(os.fspath(config.PROJECTS_DIR)))
 
         if not dest_parent.startswith(trusted_projects_root + os.sep):
              logger.warning("Migration destination escapes projects root: %s", dest_parent)
@@ -152,8 +152,8 @@ def migrate_legacy_project_covers() -> int:
         os.makedirs(dest_parent, exist_ok=True)
 
         try:
-            resolved_legacy = os.path.abspath(os.fspath(legacy_path))
-            resolved_dest = os.path.abspath(os.fspath(destination))
+            resolved_legacy = os.path.abspath(os.path.realpath(os.fspath(legacy_path)))
+            resolved_dest = os.path.abspath(os.path.realpath(os.fspath(destination)))
 
             # Proof both sides
             if resolved_legacy.startswith(trusted_cover_root + os.sep) and resolved_dest.startswith(dest_parent + os.sep):

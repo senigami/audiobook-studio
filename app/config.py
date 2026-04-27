@@ -67,7 +67,7 @@ def find_existing_project_dir(project_id: str) -> Optional[Path]:
         for entry in os.scandir(trusted_projects_root):
             if entry.is_dir() and entry.name == canonical_project_id:
                 # Explicit containment check for scanner locality
-                res_path = os.path.abspath(entry.path)
+                res_path = os.path.abspath(os.path.realpath(entry.path))
                 if res_path.startswith(trusted_projects_root + os.sep):
                     return Path(res_path)
     except OSError:
@@ -86,7 +86,7 @@ def find_existing_project_subdir(project_id: str, dirname: str) -> Optional[Path
         for entry in os.scandir(trusted_project_root):
             if entry.is_dir() and entry.name == dirname:
                 # Explicit containment check for scanner locality
-                res_path = os.path.abspath(entry.path)
+                res_path = os.path.abspath(os.path.realpath(entry.path))
                 if res_path.startswith(trusted_project_root + os.sep):
                     return Path(res_path)
     except OSError:
@@ -168,7 +168,7 @@ def get_project_storage_version(project_id: str) -> int:
         manifest_path_full = None
         for entry in os.scandir(trusted_pdir):
             if entry.is_file() and entry.name == "project.json":
-                cand = os.path.abspath(entry.path)
+                cand = os.path.abspath(os.path.realpath(entry.path))
                 if cand.startswith(trusted_pdir + os.sep):
                     manifest_path_full = cand
                     break
@@ -220,8 +220,8 @@ def _find_file(directory: Path, filename: str) -> Optional[Path]:
         for entry in os.scandir(safe_dir):
             if entry.is_file() and entry.name == filename:
                 # Explicit containment check for scanner locality
-                res_path = os.path.abspath(entry.path)
-                if res_path.startswith(safe_dir + os.sep):
+                res_path = os.path.abspath(os.path.realpath(entry.path))
+                if res_path.startswith(trusted_dir + os.sep):
                     return Path(res_path)
     except OSError:
         pass
@@ -247,7 +247,7 @@ def get_voice_storage_version(voice_name: str) -> int:
         manifest_path_full = None
         for entry in os.scandir(trusted_vroot):
             if entry.is_file() and entry.name == "voice.json":
-                cand = os.path.abspath(entry.path)
+                cand = os.path.abspath(os.path.realpath(entry.path))
                 if cand.startswith(trusted_vroot + os.sep):
                     manifest_path_full = cand
                     break
