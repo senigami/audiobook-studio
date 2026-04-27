@@ -277,26 +277,26 @@ def get_voice_storage_version(voice_name: str) -> int:
 
         # Rule 9: Locally visible containment proof for discovery sink
         voices_root = os.path.abspath(os.path.realpath(os.fspath(VOICES_DIR)))
-        trusted_vroot = os.path.abspath(os.path.normpath(os.path.join(voices_root, safe_voice_name)))
-        voices_root_prefix = voices_root if voices_root.endswith(os.sep) else voices_root + os.sep
+        if not os.path.isdir(voices_root):
+            return 1
 
-        # UNROLLED PROOF: Explicit check for containment
-        if trusted_vroot == voices_root or trusted_vroot.startswith(voices_root_prefix):
-            # SINK: Proof is locally visible in the same block
-            manifest_path_full = None
-            for entry in os.scandir(trusted_vroot):
-                if entry.is_file() and entry.name == "voice.json":
-                    cand = os.path.abspath(os.path.realpath(entry.path))
-                    if cand.startswith(trusted_vroot + os.sep):
-                        manifest_path_full = cand
-                        break
+        for entry in os.scandir(voices_root):
+            if not entry.is_dir() or entry.name != safe_voice_name:
+                continue
 
-            if manifest_path_full:
-                import json
+            # SINK: We only inspect the entry discovered from the trusted root.
+            manifest_path_full = os.path.abspath(os.path.realpath(os.path.join(entry.path, "voice.json")))
+            entry_root = os.path.abspath(os.path.realpath(entry.path))
+            if manifest_path_full != entry_root and not manifest_path_full.startswith(entry_root + os.sep):
+                continue
+            if not os.path.exists(manifest_path_full):
+                continue
 
-                with open(manifest_path_full, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    return int(data.get("version", 1))
+            import json
+
+            with open(manifest_path_full, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                return int(data.get("version", 1))
 
         return 1
     except Exception:
