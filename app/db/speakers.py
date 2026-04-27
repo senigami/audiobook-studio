@@ -42,32 +42,33 @@ def _profile_name_or_error(profile_name: str) -> str:
 
 
 def _profile_dir_has_assets(profile_dir: Path) -> bool:
-    # Rule 9: Explicit containment check for scanner locality
+    # Rule 8: Prove the root locally, then enumerate it directly.
     try:
-        resolved = profile_dir.resolve()
-        voices_root = config.VOICES_DIR.resolve()
-        resolved.relative_to(voices_root)
+        voices_root = os.path.abspath(os.path.realpath(os.fspath(config.VOICES_DIR)))
+        resolved = os.path.abspath(os.path.realpath(os.fspath(profile_dir)))
+        if resolved != voices_root and not resolved.startswith(voices_root + os.sep):
+            return False
     except (OSError, ValueError):
         return False
 
-    if not profile_dir.exists() or not profile_dir.is_dir():
-        return False
-    # Use find_secure_file to satisfy Rule 8 and the scanner
-    if find_secure_file(profile_dir, "profile.json"):
-        return True
-    if find_secure_file(profile_dir, "voice.json"):
+    try:
+        for entry in os.scandir(resolved):
+            if entry.is_file() and entry.name == "profile.json":
+                return True
+            if entry.is_file() and entry.name == "voice.json":
+                return False
+    except OSError:
         return False
     return True
 
 
 def _existing_profile_dir(voices_dir: Path, profile_name: str) -> Optional[Path]:
     profile_name = _profile_name_or_error(profile_name)
-    if not voices_dir.exists() or not voices_dir.is_dir():
-        return None
+    voices_root = os.path.abspath(os.path.realpath(os.fspath(voices_dir)))
 
     # Rule 8: Enumerate trusted root and match by entry.name
     try:
-        entries = {e.name: e for e in voices_dir.iterdir() if e.is_dir()}
+        entries = {e.name: e for e in os.scandir(voices_root) if e.is_dir()}
     except OSError:
         return None
 
@@ -75,16 +76,22 @@ def _existing_profile_dir(voices_dir: Path, profile_name: str) -> Optional[Path]
     if profile_name in entries:
         exact = entries[profile_name]
         # Rule 8: match for manifest files
-        if find_secure_file(exact, "voice.json"):
-            try:
-                # Rule 8: Look for "Default" variant
-                sub_entries = {e.name: e for e in exact.iterdir() if e.is_dir()}
-                if "Default" in sub_entries:
-                    nested_default = sub_entries["Default"]
-                    if _profile_dir_has_assets(nested_default):
-                        return nested_default
-            except OSError:
-                pass
+        try:
+            exact_resolved = os.path.abspath(os.path.realpath(os.fspath(exact)))
+            if exact_resolved != voices_root and not exact_resolved.startswith(voices_root + os.sep):
+                return None
+            if any(entry.is_file() and entry.name == "voice.json" for entry in os.scandir(exact_resolved)):
+                try:
+                    # Rule 8: Look for "Default" variant
+                    sub_entries = {e.name: e for e in os.scandir(exact_resolved) if e.is_dir()}
+                    if "Default" in sub_entries:
+                        nested_default = sub_entries["Default"]
+                        if _profile_dir_has_assets(Path(nested_default.path)):
+                            return Path(nested_default.path)
+                except OSError:
+                    pass
+                return None
+        except OSError:
             return None
 
         if _profile_dir_has_assets(exact):
@@ -98,11 +105,14 @@ def _existing_profile_dir(voices_dir: Path, profile_name: str) -> Optional[Path]
             if v_name in entries:
                 voice_root = entries[v_name]
                 try:
-                    sub_entries = {e.name: e for e in voice_root.iterdir() if e.is_dir()}
+                    voice_root_resolved = os.path.abspath(os.path.realpath(voice_root.path))
+                    if voice_root_resolved != voices_root and not voice_root_resolved.startswith(voices_root + os.sep):
+                        return None
+                    sub_entries = {e.name: e for e in os.scandir(voice_root_resolved) if e.is_dir()}
                     if var_name in sub_entries:
                         nested = sub_entries[var_name]
-                        if _profile_dir_has_assets(nested):
-                            return nested
+                        if _profile_dir_has_assets(Path(nested.path)):
+                            return Path(nested.path)
                 except OSError:
                     pass
 
@@ -110,11 +120,14 @@ def _existing_profile_dir(voices_dir: Path, profile_name: str) -> Optional[Path]
     if profile_name in entries:
         voice_root = entries[profile_name]
         try:
-            sub_entries = {e.name: e for e in voice_root.iterdir() if e.is_dir()}
+            voice_root_resolved = os.path.abspath(os.path.realpath(voice_root.path))
+            if voice_root_resolved != voices_root and not voice_root_resolved.startswith(voices_root + os.sep):
+                return None
+            sub_entries = {e.name: e for e in os.scandir(voice_root_resolved) if e.is_dir()}
             if "Default" in sub_entries:
                 nested_default = sub_entries["Default"]
-                if _profile_dir_has_assets(nested_default):
-                    return nested_default
+                if _profile_dir_has_assets(Path(nested_default.path)):
+                    return Path(nested_default.path)
         except OSError:
             pass
 
