@@ -115,7 +115,9 @@ class ApiSynthesisTask(StudioTask):
                 message=result.get("message"),
             )
         except Exception as exc:
-            return TaskResult(status="failed", message=str(exc))
+            from app.engines.bridge_remote import EngineUnavailableError
+            is_retriable = isinstance(exc, EngineUnavailableError)
+            return TaskResult(status="failed", message=str(exc), retriable=is_retriable)
 
     def on_cancel(self) -> None:
         """Release task-level resources when a task is cancelled.

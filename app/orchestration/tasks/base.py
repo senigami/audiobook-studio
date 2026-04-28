@@ -46,6 +46,7 @@ class TaskResult:
 
     status: str
     message: str | None = None
+    retriable: bool = False
 
 
 class StudioTask:

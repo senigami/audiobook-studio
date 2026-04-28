@@ -24,10 +24,11 @@ from __future__ import annotations
 
 import logging
 import time
+from typing import Optional
 
 from app.engines.bridge import create_voice_bridge
 from app.orchestration.progress.service import create_progress_service
-from app.orchestration.tasks.base import StudioTask
+from app.orchestration.tasks.base import StudioTask, TaskResult
 
 from .policies import choose_next_task
 from .recovery import load_recoverable_task_contexts
@@ -181,12 +182,40 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
         )
 
         # Step 6 — dispatch
-        try:
-            result = self._dispatch(task=task, context=context)
-        finally:
-            # Always release resources — even if dispatch raises.
-            release_task_resources(task_id=task_id, resource_claims=claim_dict)
-            self._active.pop(task_id, None)
+        max_attempts = 3
+        attempt = 0
+        result = TaskResult(status="failed", message="Unknown error")
+
+        while attempt < max_attempts:
+            attempt += 1
+            try:
+                result = self._dispatch(task=task, context=context)
+                if result.status == "completed":
+                    break
+
+                # Check if it's a retriable error (e.g. infrastructure failure)
+                if not getattr(result, "retriable", False):
+                    break
+
+                if attempt < max_attempts:
+                    logger.warning(
+                        "Task %s: retriable failure (attempt %d/%d): %s. Retrying in 2s...",
+                        task_id, attempt, max_attempts, result.message
+                    )
+                    time.sleep(2.0)
+                else:
+                    logger.error(
+                        "Task %s: retriable failure exceeded max attempts (%d).",
+                        task_id, max_attempts
+                    )
+            except Exception as exc:
+                logger.exception("Task %s: unexpected dispatch exception.", task_id)
+                result = TaskResult(status="failed", message=str(exc))
+                break
+
+        # Final cleanup - always release resources after all attempts
+        release_task_resources(task_id=task_id, resource_claims=claim_dict)
+        self._active.pop(task_id, None)
 
         if result.status == "completed":
             self._publish(
@@ -204,11 +233,12 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
                 force=True,
             )
         else:
+            reason_code = "synthesis_error_retriable" if getattr(result, "retriable", False) else "synthesis_error"
             self._publish(
                 context=context,
                 status="failed",
                 message=result.message or "Task failed.",
-                reason_code="synthesis_error",
+                reason_code=reason_code,
                 force=True,
             )
 
@@ -272,7 +302,7 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
             self.progress_service.publish(
                 job_id=task_id,
                 status="queued",
-                message="Unresolved batches re-queued after recovery.",
+                message="Unresolved batches re-queued after recovery. Resuming...",
                 reason_code="recovery_requeued",
                 allow_progress_regression=True,
                 force=True,
@@ -283,9 +313,48 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
                 decision,
                 reconcile_result.get("unresolved_count", 0),
             )
+
+            # Reconstruct and re-submit for execution.
+            try:
+                task = self._reconstruct_task(context)
+                if task:
+                    import threading
+                    # We run submission in a background thread so recovery doesn't block boot.
+                    threading.Thread(
+                        target=self.submit,
+                        args=(task,),
+                        daemon=True,
+                        name=f"recovery-{task_id}"
+                    ).start()
+                    logger.info("Recovery: task %s — submission triggered in background.", task_id)
+                else:
+                    logger.warning("Recovery: task %s — could not reconstruct task object; skipping submission.", task_id)
+            except Exception:
+                logger.exception("Recovery: task %s — failed to trigger re-submission.", task_id)
+
             recovered_ids.append(task_id)
 
         return recovered_ids
+
+    def _reconstruct_task(self, context: TaskContext) -> StudioTask | None:
+        """Internal helper to reconstruct a StudioTask from a context."""
+        task_type = context.task_type
+
+        try:
+            if task_type == "api_synthesis":
+                from app.orchestration.tasks.api_synthesis import ApiSynthesisTask
+                return ApiSynthesisTask.from_task_context(context)
+            elif task_type == "synthesis":
+                from app.orchestration.tasks.synthesis import SynthesisTask
+                return SynthesisTask.from_task_context(context)
+            elif task_type == "mixed_synthesis":
+                from app.orchestration.tasks.mixed_synthesis import MixedSynthesisTask
+                return MixedSynthesisTask.from_task_context(context)
+            # Add other task types as needed...
+        except Exception:
+            logger.exception("Failed to reconstruct task of type %s", task_type)
+
+        return None
 
     def cancel(self, task_id: str) -> bool:
         """Cancel a scheduled or running task.

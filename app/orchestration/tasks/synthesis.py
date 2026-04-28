@@ -130,6 +130,31 @@ class SynthesisTask(StudioTask):
             },
         )
 
+    @classmethod
+    def from_task_context(cls, ctx: TaskContext) -> "SynthesisTask":
+        """Reconstruct a SynthesisTask from a recovered TaskContext.
+
+        Args:
+            ctx: Recovered task context from the scheduler recovery path.
+
+        Returns:
+            SynthesisTask: Reconstructed task.
+        """
+        payload = ctx.payload or {}
+        return cls(
+            task_id=ctx.task_id,
+            engine_id=str(payload.get("engine_id", "")),
+            script_text=str(payload.get("script_text", "")),
+            output_path=str(payload.get("output_path", "")),
+            project_id=ctx.project_id,
+            chapter_id=ctx.chapter_id,
+            voice_profile_id=payload.get("voice_profile_id"),
+            voice_ref=payload.get("reference_audio_path"),
+            language=str(payload.get("language", "en")),
+            requested_revision=payload.get("requested_revision"),
+            render_batch_id=payload.get("render_batch_id"),
+        )
+
     def run(self) -> TaskResult:
         """Execute synthesis as a self-contained fallback.
 
@@ -157,7 +182,9 @@ class SynthesisTask(StudioTask):
                 message=result.get("message"),
             )
         except Exception as exc:
-            return TaskResult(status="failed", message=str(exc))
+            from app.engines.bridge_remote import EngineUnavailableError
+            is_retriable = isinstance(exc, EngineUnavailableError)
+            return TaskResult(status="failed", message=str(exc), retriable=is_retriable)
 
     def on_cancel(self) -> None:
         """Release task-level resources on cancellation.

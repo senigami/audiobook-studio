@@ -37,18 +37,19 @@ Phase 10 is the deliberate default-runtime cutover.
 
 ## Deliverables Checklist
 
-- [ ] TTS Server subprocess boots by default
-- [ ] watchdog restart behavior verified in the default runtime path
-- [ ] About/status reports live TTS Server state instead of direct in-process mode
-- [ ] VoiceBridge uses the TTS Server HTTP path by default
-- [ ] engine registry uses TTS Server `/engines` by default
-- [ ] engine settings, verify, refresh, and dependency install calls route through the TTS Server path
-- [ ] Studio 2.0 orchestrator is the default scheduler for supported work
-- [ ] direct in-process mode is preserved only as an explicit fallback
-- [ ] startup diagnostics explain fallback causes clearly
-- [ ] public `/api/v1/tts` still uses Studio as the external API boundary
-- [ ] TTS Server remains loopback-bound by default
-- [ ] Phase 5 checklist and handoff notes updated to match current reality
+- [x] TTS Server subprocess boots by default
+- [x] watchdog restart behavior verified in the default runtime path
+- [x] About/status reports live TTS Server state instead of direct in-process mode
+- [x] VoiceBridge uses the TTS Server HTTP path by default
+- [x] engine registry uses TTS Server `/engines` by default
+- [x] engine settings, verify, refresh, and dependency install calls route through the TTS Server path
+- [x] Studio 2.0 orchestrator is the default scheduler for supported work
+- [x] direct in-process mode is preserved only as an explicit fallback
+- [x] startup diagnostics explain fallback causes clearly
+- [x] public `/api/v1/tts` still uses Studio as the external API boundary
+- [x] TTS Server remains loopback-bound by default
+- [x] Phase 5 checklist and handoff notes updated to match current reality
+- [x] mid-render failures surface truthful retriable reasons instead of getting stuck
 
 ## Scope
 
@@ -80,17 +81,17 @@ Phase 10 is the deliberate default-runtime cutover.
 
 ## Verification Checklist
 
-- [ ] boot/default-mode tests pass
-- [ ] watchdog lifecycle tests pass
-- [ ] system/About runtime service tests pass
-- [ ] VoiceBridge remote-path tests pass
-- [ ] registry remote-path tests pass
-- [ ] API gateway tests pass
-- [ ] orchestrator/API task tests pass
-- [ ] plugin loader, verification, and isolation tests pass
-- [ ] manual About-page check confirms live TTS Server port and status
-- [ ] manual render smoke test confirms output through managed subprocess
-- [ ] `git diff --check` passes
+- [x] boot/default-mode tests pass
+- [x] watchdog lifecycle tests pass
+- [x] system/About runtime service tests pass
+- [x] VoiceBridge remote-path tests pass
+- [x] registry remote-path tests pass
+- [x] API gateway tests pass
+- [x] orchestrator/API task tests pass
+- [x] plugin loader, verification, and isolation tests pass
+- [x] manual About-page check confirms live TTS Server port and status
+- [x] manual render smoke test confirms output through managed subprocess
+- [x] `git diff --check` passes
 
 ## Manual QA
 

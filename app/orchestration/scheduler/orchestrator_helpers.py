@@ -79,7 +79,9 @@ class OrchestratorHelpersMixin:
                 )
             except Exception as exc:
                 logger.exception("Task %s: bridge dispatch raised.", context.task_id)
-                return TaskResult(status="failed", message=str(exc))
+                from app.engines.bridge_remote import EngineUnavailableError
+                is_retriable = isinstance(exc, EngineUnavailableError)
+                return TaskResult(status="failed", message=str(exc), retriable=is_retriable)
 
         # Fallback: let the task manage its own execution.
         try:

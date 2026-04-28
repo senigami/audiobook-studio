@@ -422,9 +422,15 @@ class TtsServerWatchdog:
 
             if len(self._restart_times) >= _CIRCUIT_MAX_RESTARTS:
                 self._circuit_open = True
+
+                # Explicit fallback to direct-in-process to prevent endless timeouts
+                import os
+                os.environ["USE_TTS_SERVER"] = "0"
+
                 logger.error(
                     "Circuit breaker OPEN: %d restarts in %.0fs. "
-                    "TTS Server will not be restarted automatically.",
+                    "TTS Server will not be restarted automatically. "
+                    "Falling back to legacy in-process mode.",
                     _CIRCUIT_MAX_RESTARTS,
                     _CIRCUIT_PERIOD,
                 )
@@ -446,7 +452,11 @@ class TtsServerWatchdog:
                 self._consecutive_failures = 0
             logger.info("TTS Server restarted successfully.")
         except WatchdogError as exc:
-            logger.error("TTS Server restart failed: %s", exc)
+            logger.error("TTS Server restart failed: %s. Falling back to legacy in-process mode.", exc)
+            with self._lock:
+                self._circuit_open = True
+            import os
+            os.environ["USE_TTS_SERVER"] = "0"
 
     @staticmethod
     def _drain_stderr(proc: subprocess.Popen) -> None:

@@ -149,7 +149,10 @@ def api_home(
         else:
             backend_mode = "Managed Subprocess (Starting/Unhealthy)"
     else:
-        backend_mode = "Direct-In-Process"
+        if watchdog and (watchdog.is_circuit_open() or not getattr(watchdog, "_healthy", True)):
+            backend_mode = "Direct-In-Process (Fallback from Crashed Subprocess)"
+        else:
+            backend_mode = "Direct-In-Process"
 
     return {
         "chapters": [],

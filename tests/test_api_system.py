@@ -57,6 +57,44 @@ def test_home_endpoint(clean_db, client, monkeypatch):
         assert info["orchestrator"] == "Studio 2.0"
         assert info["tts_server_url"] == "http://127.0.0.1:7862"
 
+def test_home_endpoint_degraded(clean_db, client, monkeypatch):
+    """Verify system info when watchdog is starting/unhealthy."""
+    monkeypatch.setenv("USE_TTS_SERVER", "1")
+    monkeypatch.setenv("USE_STUDIO_ORCHESTRATOR", "1")
+
+    from unittest.mock import MagicMock, patch
+    from app.engines.watchdog import TtsServerWatchdog
+    mock_watchdog = MagicMock(spec=TtsServerWatchdog)
+    mock_watchdog.is_healthy.return_value = False
+    mock_watchdog.is_circuit_open.return_value = False
+    mock_watchdog.get_url.return_value = "http://127.0.0.1:7862"
+
+    with patch("app.engines.watchdog.get_watchdog", return_value=mock_watchdog), \
+         patch("app.engines.bridge.VoiceBridge.describe_registry", return_value=[]):
+
+        response = client.get("/api/home")
+        data = response.json()
+        assert "Managed Subprocess (Starting/Unhealthy)" in data["system_info"]["backend_mode"]
+
+def test_home_endpoint_fallback(clean_db, client, monkeypatch):
+    """Verify system info when watchdog circuit trips and triggers explicit fallback."""
+    # When circuit trips, watchdog changes USE_TTS_SERVER to 0
+    monkeypatch.setenv("USE_TTS_SERVER", "0")
+    monkeypatch.setenv("USE_STUDIO_ORCHESTRATOR", "1")
+
+    from unittest.mock import MagicMock, patch
+    from app.engines.watchdog import TtsServerWatchdog
+    mock_watchdog = MagicMock(spec=TtsServerWatchdog)
+    mock_watchdog.is_healthy.return_value = False
+    mock_watchdog.is_circuit_open.return_value = True
+
+    with patch("app.engines.watchdog.get_watchdog", return_value=mock_watchdog), \
+         patch("app.engines.bridge.VoiceBridge.describe_registry", return_value=[]):
+
+        response = client.get("/api/home")
+        data = response.json()
+        assert "Direct-In-Process (Fallback from Crashed Subprocess)" in data["system_info"]["backend_mode"]
+
 def test_settings_get_and_update(clean_db, client):
     # USE_TTS_SERVER=0 is already set by the autouse fixture
     response = client.post("/api/settings", json={

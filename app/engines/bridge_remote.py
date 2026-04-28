@@ -134,4 +134,10 @@ class RemoteBridgeHandler:
         from app.engines.watchdog import _global_watchdog
         if _global_watchdog is None:
             raise EngineUnavailableError("TTS Server watchdog has not been started.")
+
+        if not _global_watchdog.is_healthy():
+            if _global_watchdog.is_circuit_open():
+                raise EngineUnavailableError("TTS Server circuit breaker is OPEN. Synthesis unavailable.")
+            raise EngineUnavailableError("TTS Server is currently unhealthy or restarting.")
+
         return _global_watchdog.get_client()
