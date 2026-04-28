@@ -136,8 +136,12 @@ def api_home(
     projects = list_projects()
 
     from ...engines.bridge import create_voice_bridge
+    from ...engines.errors import EngineUnavailableError
     bridge = create_voice_bridge()
-    engines = bridge.describe_registry()
+    try:
+        engines = bridge.describe_registry()
+    except EngineUnavailableError:
+        engines = []
     render_stats = get_render_stats()
 
     from ...engines.watchdog import get_watchdog

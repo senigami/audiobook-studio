@@ -223,58 +223,72 @@ def normalize_base_profiles() -> None:
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM speakers ORDER BY name ASC")
+            cursor.execute("SELECT id, name, default_profile_name FROM speakers ORDER BY name ASC")
             speakers = [dict(row) for row in cursor.fetchall()]
+
+    if not speakers:
+        return
+
     pending_updates = []
+    trusted_voices_root = os.path.abspath(os.fspath(config.VOICES_DIR))
+
+    # Pre-scan voices root once
+    try:
+        root_entries = {e.name: e for e in os.scandir(trusted_voices_root) if e.is_dir()}
+    except OSError:
+        return
 
     for speaker in speakers:
-        try:
-            base_dir = _existing_profile_dir(config.VOICES_DIR, speaker["name"])
-        except ValueError:
-            logger.warning("Skipping invalid speaker path for %s", speaker["name"])
-            continue
-        if not base_dir:
+        speaker_name = speaker["name"]
+        # Rule 8: Enumerate trusted root and match by entry.name
+        if speaker_name not in root_entries:
             continue
 
-        # Rule 9: Explicit containment pattern for profile metadata
-        trusted_voices_root = os.path.abspath(os.fspath(config.VOICES_DIR))
-        resolved_base = os.path.abspath(os.fspath(base_dir))
+        exact = root_entries[speaker_name]
+        try:
+            resolved_base = os.path.abspath(os.path.realpath(exact.path))
+        except OSError:
+            continue
 
         if not resolved_base.startswith(trusted_voices_root + os.sep):
             continue
 
+        # Check for v2 structure
         meta_path_full = os.path.normpath(os.path.join(resolved_base, "profile.json"))
+        is_v2 = False
         if not os.path.exists(meta_path_full):
-            # Check for voice.json if profile.json missing
-            meta_path_full = os.path.normpath(os.path.join(resolved_base, "voice.json"))
+            # If profile.json missing, check for voice.json (v2 root)
+            voice_json = os.path.join(resolved_base, "voice.json")
+            if os.path.exists(voice_json):
+                is_v2 = True
+                # Use Default variant for base normalization
+                resolved_base = os.path.join(resolved_base, "Default")
+                meta_path_full = os.path.join(resolved_base, "profile.json")
 
-        if not meta_path_full.startswith(resolved_base + os.sep):
+        if not os.path.exists(meta_path_full):
             continue
 
         meta: Dict[str, Any] = {}
-        if os.path.exists(meta_path_full):
-            try:
-                with open(meta_path_full, "r", encoding="utf-8") as f:
-                    meta = json.loads(f.read())
-            except Exception:
-                logger.warning("Failed to read base profile metadata for %s", meta_path_full, exc_info=True)
+        try:
+            with open(meta_path_full, "r", encoding="utf-8") as f:
+                meta = json.loads(f.read())
+        except Exception:
+            logger.warning("Failed to read base profile metadata for %s", meta_path_full, exc_info=True)
+            continue
 
-        meta = normalize_profile_metadata(speaker["name"], meta, persist=False)
+        # Normalize in memory
+        orig_meta = meta.copy()
+        meta = normalize_profile_metadata(speaker_name, meta, persist=False)
 
-        meta_changed = False
-        if meta.get("speaker_id") != speaker["id"]:
-            meta["speaker_id"] = speaker["id"]
-            meta_changed = True
-
-        if meta_changed or not os.path.exists(meta_path_full):
+        if meta != orig_meta:
             try:
                 with open(meta_path_full, "w", encoding="utf-8") as f:
                     f.write(json.dumps(meta, indent=2))
             except Exception:
-                logger.warning("Failed to persist base profile metadata for %s", speaker["name"], exc_info=True)
+                logger.warning("Failed to persist base profile metadata for %s", speaker_name, exc_info=True)
 
-        if speaker.get("default_profile_name") != speaker["name"]:
-            pending_updates.append((speaker["name"], time.time(), speaker["id"]))
+        if speaker.get("default_profile_name") != speaker_name:
+            pending_updates.append((speaker_name, time.time(), speaker["id"]))
 
     if pending_updates:
         with _db_lock:

@@ -261,11 +261,16 @@ def startup_event():
 
     # 5. Studio 2.0 boot sequence — starts feature-flagged subsystems
     #    (e.g. TTS Server watchdog when USE_TTS_SERVER=true).
-    try:
-        from .boot import boot_studio
-        boot_studio()
-    except Exception as e:
-        logger.warning(f"Startup Warning: Studio 2.0 boot sequence failed: {e}")
+    #    Run in a background thread to prevent blocking the web server startup
+    #    while engines are being verified.
+    def _background_boot():
+        try:
+            from .boot import boot_studio
+            boot_studio()
+        except Exception as e:
+            logger.warning(f"Startup Warning: Studio 2.0 boot sequence failed: {e}")
+
+    threading.Thread(target=_background_boot, name="StudioBoot", daemon=True).start()
 
 
 @app.on_event("shutdown")

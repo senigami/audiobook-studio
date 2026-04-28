@@ -105,9 +105,13 @@ class RemoteBridgeHandler:
     def describe_registry(self) -> list[dict[str, Any]]:
         """Fetch engine list from TTS Server."""
         from app.engines.tts_client import TtsServerError
-        client = self._get_tts_client()
+
         try:
+            client = self._get_tts_client()
             return client.get_engines()
+        except EngineUnavailableError as exc:
+            # Re-raise so the API layer can decide how to handle it (e.g. 503)
+            raise exc
         except TtsServerError as exc:
             raise EngineUnavailableError(f"Could not retrieve engine list from TTS Server: {exc}") from exc
 
@@ -133,7 +137,7 @@ class RemoteBridgeHandler:
             return self._tts_client_factory()
         from app.engines.watchdog import _global_watchdog
         if _global_watchdog is None:
-            raise EngineUnavailableError("TTS Server watchdog has not been started.")
+            raise EngineUnavailableError("TTS Server is starting up... please wait a few seconds and try again.")
 
         if not _global_watchdog.is_healthy():
             if _global_watchdog.is_circuit_open():

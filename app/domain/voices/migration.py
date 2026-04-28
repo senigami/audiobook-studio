@@ -36,9 +36,17 @@ def _move_profile_contents(src_dir: Path, dest_dir: Path, *, preserve_names: set
             continue
         shutil.move(str(entry), str(target))
 
+import threading
+
+_migration_lock = threading.Lock()
+
 def migrate_voices_to_v2() -> bool:
     """Migrates all flat voice folders to the nested v2 structure."""
     if not VOICES_DIR.exists():
+        return True
+
+    if not _migration_lock.acquire(blocking=False):
+        # Already migrating in another thread
         return True
 
     try:
@@ -74,6 +82,8 @@ def migrate_voices_to_v2() -> bool:
     except Exception as e:
         logger.error("Failed to migrate voices to v2: %s", e, exc_info=True)
         return False
+    finally:
+        _migration_lock.release()
 
 def _backfill_voice_root(voice_root: Path) -> None:
     """Ensures a v2 voice root manifest is complete and consistent."""
