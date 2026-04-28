@@ -23,6 +23,16 @@ from app.engines.voice.base import StudioTTSEngine
 class VoxtralPlugin(StudioTTSEngine):
     """Voxtral (Mistral AI) speech synthesis plugin for Audiobook Studio."""
 
+    def verify(self, req: TTSRequest) -> VerificationResult:
+        """Perform a fast readiness check without rendering audio."""
+        from app.engines.voice.sdk import VerificationResult  # noqa: PLC0415
+
+        ok, msg = self.check_env()
+        return VerificationResult(
+            ok=ok,
+            message="OK" if ok else msg,
+        )
+
     def info(self) -> dict[str, Any]:
         """Return runtime metadata including detected model."""
         model = self._resolve_model()

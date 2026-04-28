@@ -64,6 +64,21 @@ class TTSResult:
 
 
 @dataclass(frozen=True)
+class VerificationResult:
+    """Result returned by an engine after a fast readiness check (verify).
+
+    Attributes:
+        ok: True when the engine is fully ready for production.
+        message: Human-readable status message or error details.
+        details: Optional additional metadata (e.g. GPU info, model version).
+    """
+
+    ok: bool
+    message: str = "OK"
+    details: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
 class SynthesisPlan:
     """A processing plan returned by a plugin hook to influence generation.
 

@@ -205,6 +205,18 @@ def _load_plugin(*, plugin_dir: Path, folder_name: str) -> LoadedPlugin:
             f"check_env() raised an exception: {exc}"
         ) from exc
 
+    # 5b. Check persisted verification state.
+    from app.tts_server.settings_store import calculate_verification_metadata, load_state # noqa: PLC0415
+    state = load_state(plugin_dir)
+    verified = False
+    if state.get("verified") and ok:
+        # Check if metadata matches to avoid stale verification.
+        current_metadata = calculate_verification_metadata(plugin_dir, manifest)
+        persisted_metadata = state.get("metadata", {})
+        if all(current_metadata.get(k) == persisted_metadata.get(k) for k in current_metadata):
+            verified = True
+            logger.info("Plugin %s has valid persisted verification.", folder_name)
+
     # Still return the plugin — it will show in Settings as "needs_setup".
     # 6. Dependency check (requirements.txt)
     deps_ok, missing = _check_dependencies(plugin_dir)
@@ -231,6 +243,9 @@ def _load_plugin(*, plugin_dir: Path, folder_name: str) -> LoadedPlugin:
         engine=engine,
         settings_schema=settings_schema,
     )
+    plugin.verified = verified
+    if state.get("verification_error") and not verified:
+        plugin.verification_error = state.get("verification_error")
     plugin.dependencies_satisfied = deps_ok
     plugin.missing_dependencies = missing
     plugin.setup_message = setup_message

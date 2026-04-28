@@ -21,7 +21,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from app.engines.models import EngineHealthModel
-from app.engines.voice.sdk import TTSRequest, TTSResult, VoiceProcessingHooks
+from app.engines.voice.sdk import TTSRequest, TTSResult, VerificationResult, VoiceProcessingHooks
 
 
 class BaseVoiceEngine:
@@ -191,11 +191,22 @@ class StudioTTSEngine(ABC):
         """
         ...
 
+    def verify(self, req: TTSRequest) -> VerificationResult:
+        """Perform a fast readiness check without rendering audio.
+
+        By default, engines that do not implement this method are considered
+        unverified but potentially usable via the legacy synthesize path.
+        """
+        return VerificationResult(
+            ok=False,
+            message="This engine does not implement non-rendering verification.",
+        )
+
     @abstractmethod
     def synthesize(self, req: TTSRequest) -> TTSResult:
         """Run TTS synthesis and write audio to ``req.output_path``.
 
-        Must write a valid audio file to ``req.output_path swallow synthesis on success.  On
+        Must write a valid audio file to ``req.output_path`` on success.  On
         failure, return ``TTSResult(ok=False, error=...)`` — do not raise
         unhandled exceptions for normal failure cases.
 

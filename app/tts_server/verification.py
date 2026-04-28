@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 import os
 import tempfile
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -54,7 +55,7 @@ def _resolve_default_voice_reference() -> tuple[str | None, str | None]:
         if sample_path.is_file():
             return str(sample_path), None
 
-    # Prefer latent.pth if present
+    # Prefer latent.pth if present in the resolved directory
     latent_path = profile_dir / "latent.pth"
     if latent_path.is_file():
         return str(latent_path), None
@@ -104,6 +105,7 @@ def verify_plugin(plugin: "LoadedPlugin") -> VerificationResult:
     """
     # Import here to avoid circular dependencies at module level.
     from app.engines.voice.sdk import TTSRequest, TTSResult  # noqa: PLC0415
+    from app.tts_server.settings_store import calculate_verification_metadata, save_state # noqa: PLC0415
 
     engine_id = plugin.engine_id
     test_text = plugin.test_text
@@ -164,9 +166,11 @@ def verify_plugin(plugin: "LoadedPlugin") -> VerificationResult:
             if verify_fn and callable(verify_fn) and not is_mock:
                 exc_prefix = "Verification run raised"
                 result = verify_fn(req)
+                is_specialized_verify = True
             else:
                 exc_prefix = "synthesize() raised"
                 result = plugin.engine.synthesize(req)
+                is_specialized_verify = False
         except Exception as exc:
             return VerificationResult(
                 engine_id=engine_id,
@@ -174,7 +178,7 @@ def verify_plugin(plugin: "LoadedPlugin") -> VerificationResult:
                 error=f"{exc_prefix}: {exc}",
             )
 
-        # Normalize legacy dict results to TTSResult
+        # Normalize legacy dict results or SDK VerificationResult to TTSResult
         if isinstance(result, dict):
             from app.engines.voice.sdk import TTSResult  # noqa: PLC0415
             result = TTSResult(
@@ -182,6 +186,15 @@ def verify_plugin(plugin: "LoadedPlugin") -> VerificationResult:
                 error=result.get("message") or result.get("error"),
                 output_path=result.get("audio_path") or result.get("output_path"),
                 duration_sec=result.get("duration_sec", 0.0)
+            )
+        elif hasattr(result, "message") and not hasattr(result, "output_path"):
+            # This is an SDK VerificationResult
+            from app.engines.voice.sdk import TTSResult  # noqa: PLC0415
+            result = TTSResult(
+                ok=result.ok,
+                error=result.message if not result.ok else None,
+                output_path=None,
+                duration_sec=None
             )
 
         if not result.ok:
@@ -191,13 +204,23 @@ def verify_plugin(plugin: "LoadedPlugin") -> VerificationResult:
                 error=result.error or "Engine reported failure without message.",
             )
 
-        # Validate the output file.
-        if not output_path.exists() or output_path.stat().st_size == 0:
-            return VerificationResult(
-                engine_id=engine_id,
-                ok=False,
-                error="Synthesize wrote an empty or missing output file",
-            )
+        # Validate the output file ONLY if we ran a render path (synthesize/preview)
+        if not is_specialized_verify:
+            if not output_path.exists() or output_path.stat().st_size == 0:
+                return VerificationResult(
+                    engine_id=engine_id,
+                    ok=False,
+                    error="Synthesize wrote an empty or missing output file",
+                )
+
+        # Persist verification state
+        state = {
+            "verified": True,
+            "verification_error": None,
+            "last_verified_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "metadata": calculate_verification_metadata(plugin.plugin_dir, plugin.manifest)
+        }
+        save_state(plugin.plugin_dir, state)
 
         return VerificationResult(
             engine_id=engine_id,
@@ -243,5 +266,15 @@ def verify_all(plugins: "list[LoadedPlugin]") -> list[VerificationResult]:
                 plugin.folder_name,
                 result.error,
             )
+
+            # Persist failure state
+            from app.tts_server.settings_store import calculate_verification_metadata, save_state # noqa: PLC0415
+            state = {
+                "verified": False,
+                "verification_error": result.error,
+                "last_verified_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "metadata": calculate_verification_metadata(plugin.plugin_dir, plugin.manifest)
+            }
+            save_state(plugin.plugin_dir, state)
         results.append(result)
     return results

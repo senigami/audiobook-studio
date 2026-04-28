@@ -177,21 +177,15 @@ class VoiceBridge:
             return {"ok": False, "message": f"Engine '{engine_id}' not found in local registry."}
 
         # Resolve the requirements file path
-        # In-process modules are usually in app/engines/voice/...
-        module_path = reg.manifest.module_path
-        if module_path.startswith("app."):
-            # For built-in engines, we can often find the file relative to the module
-            import importlib.util
-            spec = importlib.util.find_spec(module_path)
-            if spec and spec.origin:
-                req_path = Path(spec.origin).parent / "requirements.txt"
-            else:
-                req_path = Path(module_path.replace(".", "/") + ".py").parent / "requirements.txt"
-        else:
-            req_path = Path(reg.manifest.module_path.replace(".", "/") + ".py").parent / "requirements.txt"
+        req_path = Path(reg.manifest.module_path.replace(".", "/") + ".py").parent / "requirements.txt"
+
+        if not req_path.exists() and engine_id == "xtts":
+            # Fallback for bundled XTTS requirements
+            from app.config import BASE_DIR # noqa: PLC0415
+            req_path = BASE_DIR / "app/engines/voice/xtts/requirements.txt"
 
         if not req_path.exists():
-            return {"ok": False, "message": f"No requirements.txt found for engine '{engine_id}' at {req_path}."}
+            return {"ok": False, "message": f"No requirements.txt found for engine '{engine_id}'."}
 
         import sys
         import subprocess

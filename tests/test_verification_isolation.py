@@ -29,6 +29,71 @@ class TestVerificationIsolation:
         assert result.duration_sec == 1.5
         assert result.error is None
 
+    def test_verify_non_rendering(self, tmp_path):
+        """Plugin-provided verify() should succeed without writing an audio file."""
+        from app.engines.voice.sdk import VerificationResult as SDKVerificationResult
+
+        class MockEngine:
+            def __init__(self):
+                self.verify_called = False
+                self.synthesize_called = False
+
+            def check_request(self, req):
+                return True, "OK"
+
+            def verify(self, req):
+                self.verify_called = True
+                return SDKVerificationResult(ok=True, message="Fast check OK")
+
+            def synthesize(self, req):
+                self.synthesize_called = True
+                return TTSResult(ok=True, output_path=req.output_path)
+
+        engine = MockEngine()
+
+        plugin = LoadedPlugin(
+            folder_name="tts_mock",
+            plugin_dir=tmp_path / "tts_mock",
+            manifest={"engine_id": "mock", "display_name": "Mock"},
+            engine=engine,
+        )
+
+        result = verify_plugin(plugin)
+        assert result.ok is True
+        assert result.error is None
+        # Verify synthesize was NOT called
+        assert engine.synthesize_called is False
+        # Verify verify was called
+        assert engine.verify_called is True
+
+    def test_verify_default_unsupported(self, tmp_path):
+        """Default StudioTTSEngine.verify() should return a clean unsupported result."""
+        from app.engines.voice.base import StudioTTSEngine
+        from app.engines.voice.sdk import TTSRequest
+
+        class MinimalEngine(StudioTTSEngine):
+            def synthesize(self, req):
+                pass
+
+            def check_request(self, req):
+                return True, "OK"
+
+            def check_env(self):
+                return True, "OK"
+
+            def info(self):
+                return {}
+
+            def settings_schema(self):
+                return {}
+
+        engine = MinimalEngine()
+        req = TTSRequest(text="test", output_path="test.wav")
+        result = engine.verify(req)
+
+        assert result.ok is False
+        assert "does not implement" in result.message
+
     def test_verify_uses_default_studio_voice_reference(self, tmp_path):
         """Verification should borrow the Studio default voice sample when available."""
         engine = MagicMock()

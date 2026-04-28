@@ -204,6 +204,11 @@ def install_dependencies(engine_id: str) -> dict[str, Any]:
     """Trigger dependency installation for an engine."""
     plugin = _plugin_by_id(engine_id)
     req_file = plugin.plugin_dir / "requirements.txt"
+    if not req_file.is_file() and engine_id == "xtts":
+        # Fallback for bundled XTTS requirements
+        from app.config import BASE_DIR # noqa: PLC0415
+        req_file = BASE_DIR / "app/engines/voice/xtts/requirements.txt"
+
     if not req_file.is_file():
         return {"ok": True, "message": "No requirements.txt found for this engine."}
 
