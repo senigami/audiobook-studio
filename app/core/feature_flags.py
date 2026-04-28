@@ -36,9 +36,17 @@ USE_TTS_SERVER_ENV = "USE_TTS_SERVER"
 USE_STUDIO_ORCHESTRATOR_ENV = "USE_STUDIO_ORCHESTRATOR"
 
 
-def _normalize_flag_value(value: str | None) -> bool:
-    normalized = str(value or "").strip().lower()
-    return normalized in {"1", "true", "yes", "on"}
+def _normalize_flag_value(value: str | None, default: bool = False) -> bool:
+    if value is None:
+        return default
+    normalized = str(value).strip().lower()
+    if not normalized:
+        return default
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    return default
 
 
 def is_feature_enabled(flag_name: str, default: bool = False) -> bool:
@@ -57,9 +65,7 @@ def is_feature_enabled(flag_name: str, default: bool = False) -> bool:
     if not normalized_flag:
         return False
     val = os.getenv(normalized_flag)
-    if val is None:
-        return default
-    return _normalize_flag_value(val)
+    return _normalize_flag_value(val, default)
 
 
 def use_tts_server() -> bool:

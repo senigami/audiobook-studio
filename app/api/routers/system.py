@@ -142,9 +142,14 @@ def api_home(
 
     from ...engines.watchdog import get_watchdog
     watchdog = get_watchdog()
-    server_info = ""
-    if use_tts_server() and watchdog:
-        server_info = f" (Watchdog @ {watchdog.get_port()})"
+
+    if use_tts_server():
+        if watchdog and watchdog.is_healthy():
+            backend_mode = f"Managed Subprocess (Watchdog @ {watchdog.get_port()})"
+        else:
+            backend_mode = "Managed Subprocess (Starting/Unhealthy)"
+    else:
+        backend_mode = "Direct-In-Process"
 
     return {
         "chapters": [],
@@ -154,10 +159,10 @@ def api_home(
         "paused": paused(),
         "version": "1.8.4",
         "system_info": {
-            "backend_mode": ("Managed Subprocess" + server_info) if use_tts_server() else "Direct-In-Process",
+            "backend_mode": backend_mode,
             "orchestrator": "Studio 2.0" if use_studio_orchestrator() else "Legacy (app.jobs)",
             "api_base_url": str(request.base_url).rstrip("/"),
-            "tts_server_url": watchdog.get_url() if (use_tts_server() and watchdog) else None,
+            "tts_server_url": watchdog.get_url() if (use_tts_server() and watchdog and watchdog.is_healthy()) else None,
         },
         "runtime_services": _build_runtime_services(request),
         "narrator_ok": any(

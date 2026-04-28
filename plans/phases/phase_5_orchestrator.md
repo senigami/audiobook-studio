@@ -21,23 +21,23 @@ Introduce the 2.0 orchestrator under feature flags while the legacy queue still 
 
 ## Deliverables Checklist
 
-- [ ] Task hierarchy implemented
-- [ ] Scheduler policies implemented
-- [ ] Resource claim model implemented
-- [ ] Recovery logic implemented
-- [ ] Mixed job class implemented
-- [ ] Bake job class implemented
-- [ ] Sample build/test job classes implemented
-- [ ] Export repair job class implemented
-- [ ] TTS Server subprocess (`tts_server.py`) implemented
-- [ ] Watchdog health monitor with heartbeat, kill, and restart implemented
-- [ ] VoiceBridge refactored from in-process dispatcher to HTTP client
-- [ ] ApiSynthesisTask task class implemented
-- [ ] Scheduler priority policy (Studio First / Equal / API First) implemented
-- [ ] Plugin folder scanning in TTS Server implemented
-- [ ] Verification synthesis on plugin load implemented
-- [ ] TTS Server startup integrated into Studio boot sequence
-- [ ] Port assignment with sensible default (7862) and auto-increment fallback implemented
+- [x] Task hierarchy implemented
+- [x] Scheduler policies implemented
+- [x] Resource claim model implemented
+- [x] Recovery logic implemented
+- [x] Mixed job class implemented
+- [x] Bake job class implemented
+- [x] Sample build/test job classes implemented
+- [x] Export repair job class implemented
+- [x] TTS Server subprocess (`tts_server.py`) implemented
+- [x] Watchdog health monitor with heartbeat, kill, and restart implemented
+- [x] VoiceBridge refactored from in-process dispatcher to HTTP client
+- [x] ApiSynthesisTask task class implemented
+- [x] Scheduler priority policy (Studio First / Equal / API First) implemented
+- [x] Plugin folder scanning in TTS Server implemented
+- [x] Verification synthesis on plugin load implemented
+- [x] TTS Server startup integrated into Studio boot sequence
+- [x] Port assignment with sensible default (7862) and auto-increment fallback implemented
 
 ## Scope
 
@@ -105,18 +105,18 @@ API synthesis requests from the local TTS API enter the queue as `ApiSynthesisTa
 
 ## Verification Checklist
 
-- [ ] Scheduler fairness tests pass
-- [ ] Recovery tests pass
-- [ ] Cancel/retry tests pass
-- [ ] Mixed/bake/sample/export-repair tests pass
-- [ ] Shadow validation completed where practical
-- [ ] Worker lifecycle and startup-control tests pass
-- [ ] TTS Server lifecycle tests pass
-- [ ] Watchdog tests pass
-- [ ] VoiceBridge HTTP client tests pass
-- [ ] ApiSynthesisTask tests pass
-- [ ] Plugin discovery tests pass
-- [ ] Verification synthesis tests pass
+- [x] Scheduler fairness tests pass
+- [x] Recovery tests pass
+- [x] Cancel/retry tests pass
+- [x] Mixed/bake/sample/export-repair tests pass
+- [x] Shadow validation completed where practical
+- [x] Worker lifecycle and startup-control tests pass
+- [x] TTS Server lifecycle tests pass
+- [x] Watchdog tests pass
+- [x] VoiceBridge HTTP client tests pass
+- [x] ApiSynthesisTask tests pass
+- [x] Plugin discovery tests pass
+- [x] Verification synthesis tests pass
 
 ## Implementation References
 

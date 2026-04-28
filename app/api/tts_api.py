@@ -91,7 +91,7 @@ async def get_engine(engine_id: str):
 @router.post("/synthesize")
 async def synthesize(request: SynthesisRequest, req_context: Request, background_tasks: BackgroundTasks):
     """Submit a synthesis request.
-    
+
     Short text (< 500 chars) returns audio inline.
     Longer text enqueues a background job.
     """

@@ -23,15 +23,42 @@ def clean_db():
     if os.path.exists(db_path):
         os.unlink(db_path)
 
-def test_home_endpoint(clean_db, client):
+@pytest.fixture(autouse=True)
+def disable_tts_v2(monkeypatch):
+    """Disable Studio 2.0 modular paths by default for these legacy tests."""
+    monkeypatch.setenv("USE_TTS_SERVER", "0")
+    monkeypatch.setenv("USE_STUDIO_ORCHESTRATOR", "0")
+
+def test_home_endpoint(clean_db, client, monkeypatch):
     """GET /api/home — the main system info/home endpoint."""
-    response = client.get("/api/home")
-    assert response.status_code == 200
-    data = response.json()
-    assert {"chapters", "jobs", "settings", "speaker_profiles", "speakers"}.issubset(data.keys())
-    assert isinstance(data["speaker_profiles"], list)
+    # Re-enable for this specific test
+    monkeypatch.setenv("USE_TTS_SERVER", "1")
+    monkeypatch.setenv("USE_STUDIO_ORCHESTRATOR", "1")
+
+    # Mock the watchdog so it appears to be running
+    from unittest.mock import MagicMock, patch
+    from app.engines.watchdog import TtsServerWatchdog
+    mock_watchdog = MagicMock(spec=TtsServerWatchdog)
+    mock_watchdog.is_healthy.return_value = True
+    mock_watchdog.get_port.return_value = 7862
+    mock_watchdog.get_url.return_value = "http://127.0.0.1:7862"
+
+    with patch("app.engines.watchdog.get_watchdog", return_value=mock_watchdog), \
+         patch("app.engines.bridge.VoiceBridge.describe_registry", return_value=[]):
+
+        response = client.get("/api/home")
+        assert response.status_code == 200
+        data = response.json()
+        assert {"chapters", "jobs", "settings", "speaker_profiles", "speakers", "system_info", "runtime_services"}.issubset(data.keys())
+
+        # Verify Studio 2.0 system info
+        info = data["system_info"]
+        assert "Managed Subprocess (Watchdog @ 7862)" in info["backend_mode"]
+        assert info["orchestrator"] == "Studio 2.0"
+        assert info["tts_server_url"] == "http://127.0.0.1:7862"
 
 def test_settings_get_and_update(clean_db, client):
+    # USE_TTS_SERVER=0 is already set by the autouse fixture
     response = client.post("/api/settings", json={
         "safe_mode": True,
         "default_engine": "xtts"
