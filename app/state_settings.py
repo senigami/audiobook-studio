@@ -14,6 +14,7 @@ def _default_state() -> Dict[str, Any]:
             "voxtral_enabled": False,
             "voxtral_model": "voxtral-mini-tts-2603",
             "enabled_plugins": {},
+            "verified_plugins": {},
             "tts_api_enabled": False,
             "tts_api_key": "",
             "tts_api_rate_limit": 10,
@@ -87,6 +88,11 @@ def _normalize_settings(
 
     normalized["voxtral_enabled"] = voxtral_enabled
     normalized["enabled_plugins"] = enabled_plugins
+
+    verified_plugins = normalized.get("verified_plugins")
+    if not isinstance(verified_plugins, dict):
+        verified_plugins = {}
+    normalized["verified_plugins"] = verified_plugins
 
     voxtral_model = str(normalized.get("voxtral_model") or "").strip() or defaults["voxtral_model"]
     if voxtral_model == "voxtral-tts":

@@ -54,9 +54,7 @@ def _profile_dir_has_assets(profile_dir: Path) -> bool:
         return False
     if find_secure_file(profile_dir, "profile.json"):
         return True
-    if find_secure_file(profile_dir, "voice.json"):
-        return False
-    return True
+    return False
 
 
 def _normalize_profile_engine(engine: Optional[str]) -> str:

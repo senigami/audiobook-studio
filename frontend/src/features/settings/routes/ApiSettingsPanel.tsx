@@ -131,13 +131,13 @@ Content-Type: application/json
         </section>
       </div>
 
-      <div style={{ padding: '1.25rem', borderRadius: '16px', border: '1px solid var(--border)', background: 'var(--surface-light)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ padding: '1.25rem', borderRadius: '16px', border: '1px solid var(--border)', background: 'var(--surface-light)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <BookOpen size={20} style={{ color: 'var(--accent)' }} />
           <span style={{ fontSize: '0.9rem', fontWeight: 800 }}>Full OpenAPI Schema</span>
         </div>
         <a 
-          href="/docs" 
+          href="/api/v1/tts/docs"
           target="_blank" 
           rel="noreferrer"
           style={{ padding: '0.5rem 1rem', borderRadius: '10px', background: 'var(--accent)', color: 'white', textDecoration: 'none', fontSize: '0.85rem', fontWeight: 800 }}

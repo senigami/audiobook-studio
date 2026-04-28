@@ -58,6 +58,7 @@ class LoadedPlugin:
         self.is_pip: bool = False
         self.dependencies_satisfied: bool = True
         self.missing_dependencies: list[str] = []
+        self.setup_message: str | None = None
 
     @property
     def engine_id(self) -> str:
@@ -207,6 +208,13 @@ def _load_plugin(*, plugin_dir: Path, folder_name: str) -> LoadedPlugin:
     # Still return the plugin — it will show in Settings as "needs_setup".
     # 6. Dependency check (requirements.txt)
     deps_ok, missing = _check_dependencies(plugin_dir)
+    setup_message = None
+    if not ok:
+        setup_message = str(msg or "Resolve engine setup before enabling this plugin.")
+    if not deps_ok:
+        dep_text = ", ".join(missing)
+        dep_message = f"Missing dependencies: {dep_text}."
+        setup_message = f"{setup_message} {dep_message}".strip() if setup_message else dep_message
     if not deps_ok:
         logger.warning(
             "Plugin %s has missing dependencies: %s (marking as needs_setup)",
@@ -225,6 +233,7 @@ def _load_plugin(*, plugin_dir: Path, folder_name: str) -> LoadedPlugin:
     )
     plugin.dependencies_satisfied = deps_ok
     plugin.missing_dependencies = missing
+    plugin.setup_message = setup_message
     return plugin
 
 
@@ -326,6 +335,14 @@ def _load_pip_plugin(ep: Any, plugins_dir: Path) -> LoadedPlugin:
         except Exception:
             pass
 
+    setup_message = None
+    if not ok:
+        setup_message = str(msg or "Resolve engine setup before enabling this plugin.")
+    if not deps_ok:
+        dep_text = ", ".join(missing)
+        dep_message = f"Missing dependencies: {dep_text}."
+        setup_message = f"{setup_message} {dep_message}".strip() if setup_message else dep_message
+
     plugin = LoadedPlugin(
         folder_name=f"pip:{ep.name}",
         plugin_dir=plugin_dir,
@@ -336,6 +353,7 @@ def _load_pip_plugin(ep: Any, plugins_dir: Path) -> LoadedPlugin:
     plugin.is_pip = True
     plugin.dependencies_satisfied = deps_ok
     plugin.missing_dependencies = missing
+    plugin.setup_message = setup_message
     return plugin
 
 

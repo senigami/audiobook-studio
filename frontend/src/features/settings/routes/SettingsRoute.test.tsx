@@ -360,5 +360,57 @@ describe('SettingsRoute', () => {
     expect(screen.getByText('POST /api/processing_queue')).toBeTruthy();
     expect(screen.getByText(/POST http:\/\/localhost:8001\/synthesize/i)).toBeTruthy();
     expect(screen.getByText(/"output_path": "\/path\/to\/output\.wav"/)).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'View Swagger Docs' })).toHaveAttribute('href', '/api/v1/tts/docs');
+  });
+
+  it('shows setup guidance for engines that need setup', async () => {
+    vi.mocked(api.fetchEngines).mockResolvedValue([
+      {
+        ...mockedEngines[0],
+        status: 'needs_setup',
+        verified: false,
+        enabled: false,
+        dependencies_satisfied: false,
+        missing_dependencies: ['torch', 'TTS'],
+        health_message: 'XTTS environment is not configured yet.',
+        enablement_message: 'Resolve XTTS setup before enabling this plugin.',
+      },
+      mockedEngines[1],
+    ] as any);
+
+    render(
+      <MemoryRouter initialEntries={['/settings/engines']}>
+        <SettingsRoute {...defaultProps} />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('XTTS Local')).toBeTruthy();
+    expect(screen.getByText(/XTTS environment is not configured yet\./i)).toBeTruthy();
+    expect(screen.getByText(/Missing dependencies: torch, TTS\./i)).toBeTruthy();
+    expect(screen.getAllByText(/Install Deps installs the Python packages listed for this engine/i)[0]).toBeTruthy();
+    expect(screen.getByText(/XTTS verification uses your Default Voice from General settings/i)).toBeTruthy();
+  });
+
+  it('shows a truthful log summary when engine logs are requested', async () => {
+    vi.mocked(api.fetchEngineLogs).mockResolvedValue({
+      ok: false,
+      message: 'Log streaming is not available yet. Check the logs/ directory in your Studio root.',
+      logs: 'Log streaming is not available yet. Check the logs/ directory in your Studio root.',
+    } as any);
+
+    render(
+      <MemoryRouter initialEntries={['/settings/engines']}>
+        <SettingsRoute {...defaultProps} />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('XTTS Local')).toBeTruthy();
+    fireEvent.click(screen.getAllByRole('button', { name: /Logs/i })[0]);
+
+    await waitFor(() => {
+      expect(defaultProps.onShowNotification).toHaveBeenCalledWith(
+        'Log streaming is not available yet. Check the logs/ directory in your Studio root.'
+      );
+    });
   });
 });

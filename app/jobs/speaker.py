@@ -54,9 +54,7 @@ def _scandir_names_within_root(root_dir, *parts: str) -> Optional[set[str]]:
 def _dir_has_profile_assets(entry_names: set[str]) -> bool:
     if "profile.json" in entry_names:
         return True
-    if "voice.json" in entry_names:
-        return False
-    return True
+    return False
 
 
 def _is_uuid(value: str) -> bool:

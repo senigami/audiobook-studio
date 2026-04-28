@@ -55,11 +55,9 @@ def _profile_dir_has_assets(profile_dir: Path) -> bool:
         for entry in os.scandir(resolved):
             if entry.is_file() and entry.name == "profile.json":
                 return True
-            if entry.is_file() and entry.name == "voice.json":
-                return False
     except OSError:
         return False
-    return True
+    return False
 
 
 def _existing_profile_dir(voices_dir: Path, profile_name: str) -> Optional[Path]:
@@ -207,7 +205,7 @@ def normalize_profile_metadata(profile_name: str, meta: Optional[Dict[str, Any]]
         resolved_pdir = os.path.abspath(os.fspath(profile_dir))
 
         # Rule 9: Locally visible containment check
-        if resolved_pdir.startswith(trusted_voices_root + os.sep) or resolved_pdir == trusted_voices_root:
+        if resolved_pdir.startswith(trusted_voices_root + os.sep):
             meta_path_full = os.path.normpath(os.path.join(resolved_pdir, "profile.json"))
             if meta_path_full.startswith(resolved_pdir + os.sep):
                 try:
@@ -242,7 +240,7 @@ def normalize_base_profiles() -> None:
         trusted_voices_root = os.path.abspath(os.fspath(config.VOICES_DIR))
         resolved_base = os.path.abspath(os.fspath(base_dir))
 
-        if not resolved_base.startswith(trusted_voices_root + os.sep) and resolved_base != trusted_voices_root:
+        if not resolved_base.startswith(trusted_voices_root + os.sep):
             continue
 
         meta_path_full = os.path.normpath(os.path.join(resolved_base, "profile.json"))
@@ -370,7 +368,7 @@ def sync_speakers_from_profiles(voices_dir: Optional[Path] = None) -> None:
                 trusted_voices_root = os.path.abspath(os.fspath(root))
                 resolved_pdir = os.path.abspath(os.fspath(profile_dir))
 
-                if not resolved_pdir.startswith(trusted_voices_root + os.sep) and resolved_pdir != trusted_voices_root:
+                if not resolved_pdir.startswith(trusted_voices_root + os.sep):
                     continue
 
                 meta_path_full = os.path.normpath(os.path.join(resolved_pdir, "profile.json"))

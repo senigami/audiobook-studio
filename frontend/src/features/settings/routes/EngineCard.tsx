@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, Cloud, Play, ShieldCheck, FileText, Download, Trash2 } from 'lucide-react';
+import { ChevronDown, Cloud, Play, ShieldCheck, FileText, Download, Trash2, ShieldAlert } from 'lucide-react';
 import type { TtsEngine } from '../../../types';
 import { api } from '../../../api';
 import { ConfirmModal } from '../../../components/ConfirmModal';
@@ -26,7 +26,14 @@ export const EngineCard: React.FC<{
   const statusLabel = getEngineStatusLabel(engine.status);
   const verificationLabel = engine.verified ? 'VERIFIED' : (engine.status === 'not_loaded' ? 'NOT LOADED' : 'UNVERIFIED');
   const canEnable = engine.can_enable ?? (engine.status === 'ready' || engine.enabled);
-  const enablementMessage = engine.enablement_message || (!engine.enabled && !canEnable ? 'Resolve engine setup before enabling this plugin.' : '');
+  const missingDependencies = Array.isArray(engine.missing_dependencies)
+    ? engine.missing_dependencies.filter((dep): dep is string => Boolean(dep && String(dep).trim()))
+    : [];
+  const dependencyMessage = !engine.dependencies_satisfied && missingDependencies.length > 0
+    ? `Missing dependencies: ${missingDependencies.join(', ')}.`
+    : '';
+  const setupMessage = engine.setup_message || engine.health_message || '';
+  const enablementMessage = engine.enablement_message || setupMessage || dependencyMessage || (!engine.enabled && !canEnable ? 'Resolve engine setup before enabling this plugin.' : '');
 
   const handleSaveSettings = async (settings: Record<string, any>) => {
     setSaving(true);
@@ -154,6 +161,46 @@ export const EngineCard: React.FC<{
           </div>
         )}
 
+        {(setupMessage || dependencyMessage || engine.status === 'needs_setup') && (
+          <div
+            style={{
+              marginBottom: '1.1rem',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '0.75rem',
+              padding: '0.9rem',
+              borderRadius: '12px',
+              border: '1px solid rgba(245, 158, 11, 0.24)',
+              background: 'rgba(245, 158, 11, 0.08)',
+              color: '#92400e',
+              fontSize: '0.82rem',
+              lineHeight: 1.55,
+            }}
+          >
+            <ShieldAlert size={16} style={{ marginTop: '0.1rem', flexShrink: 0 }} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+              <strong style={{ fontSize: '0.86rem' }}>Setup required</strong>
+              <span>
+                {setupMessage || 'This engine is waiting on a setup step before it can be used.'}
+              </span>
+              {dependencyMessage && (
+                <div style={{ marginTop: '0.2rem', padding: '0.4rem 0.6rem', background: 'rgba(0,0,0,0.04)', borderRadius: '6px', fontSize: '0.78rem', fontStyle: 'italic' }}>
+                  Missing: {dependencyMessage}
+                </div>
+              )}
+              <span style={{ marginTop: '0.4rem' }}>
+                Install Deps will attempt to run `pip install` for the requirements.txt found in the engine's directory. 
+                This installs packages into the same environment Studio is running in.
+              </span>
+              {engine.engine_id.toLowerCase().includes('xtts') && (
+                <span>
+                  XTTS verification uses your Default Voice from General settings as the reference sample.
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
         {(engineUi || engine.settings_schema?.description) && (
           <EngineMetadataPanel engine={engine} schema={engine.settings_schema} getBadgeStyles={getBadgeStyles} />
         )}
@@ -172,8 +219,22 @@ export const EngineCard: React.FC<{
           <button
             type="button"
             className="btn-glass"
-            title="Run a test synthesis to verify engine output"
-            onClick={() => onShowNotification?.(`Test synthesis for ${engine.display_name} is available in the Voices tab. Global verification tests from this card are coming soon.`)}
+            title="Run a real sample render using the Studio default voice reference."
+            disabled={saving}
+            onClick={async () => {
+              setSaving(true);
+              try {
+                const blob = await api.testEngine(engine.engine_id);
+                const url = URL.createObjectURL(blob);
+                const audio = new Audio(url);
+                audio.play();
+                onShowNotification?.(`Playing test sample for ${engine.display_name}...`);
+              } catch (err: any) {
+                onShowNotification?.(`Test failed: ${err.message || 'Unknown error'}`);
+              } finally {
+                setSaving(false);
+              }
+            }}
             style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.8rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 800 }}
           >
             <Play size={14} /> Test
@@ -182,7 +243,7 @@ export const EngineCard: React.FC<{
           <button
             type="button"
             className="btn-glass"
-            title="Force a re-verification of the engine"
+            title="Verify this engine using the Studio default voice reference sample."
             disabled={saving}
             onClick={async () => {
               setSaving(true);
@@ -208,11 +269,11 @@ export const EngineCard: React.FC<{
           <button
             type="button"
             className="btn-glass"
-            title="View recent logs for this engine"
+            title="View the latest log summary for this engine."
             onClick={async () => {
               try {
                 const res = await api.fetchEngineLogs(engine.engine_id);
-                onShowNotification?.(res.logs || 'No logs available.');
+                onShowNotification?.(res.logs || res.message || 'No logs available.');
               } catch (err) {
                 onShowNotification?.('Failed to fetch logs.');
               }
@@ -226,18 +287,18 @@ export const EngineCard: React.FC<{
             <button
               type="button"
               className="btn-glass"
-              title="Install missing dependencies"
-              onClick={async () => {
-                try {
-                  const res = await api.installEngineDependencies(engine.engine_id);
-                  onShowNotification?.(res.message || 'Dependency installation triggered.');
+              title="Install the Python packages required by this engine."
+            onClick={async () => {
+              try {
+                const res = await api.installEngineDependencies(engine.engine_id);
+                onShowNotification?.(res.message || 'Dependency installation triggered.');
                 } catch (err) {
                   onShowNotification?.('Failed to trigger installation.');
                 }
-              }}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.8rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 800, color: '#92400e', background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.2)' }}
-            >
-              <Download size={14} /> Install Deps
+            }}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.8rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 800, color: '#92400e', background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.2)' }}
+          >
+            <Download size={14} /> Install Deps
             </button>
           )}
 

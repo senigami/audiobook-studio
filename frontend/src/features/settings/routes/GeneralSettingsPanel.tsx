@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ShieldCheck, PlugZap, Music } from 'lucide-react';
 import type { Settings as AppSettings, SpeakerProfile, TtsEngine } from '../../../types';
-import { isVoiceProfileSelectable } from '../../../utils/voiceProfiles';
+import { isVoiceProfileSelectable, formatVoiceEngineLabel, getVoiceProfileEngine } from '../../../utils/voiceProfiles';
 import { SettingCard, ToggleButton } from './SettingsComponents';
 
 interface GeneralSettingsPanelProps {
@@ -120,9 +120,20 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
                 }}
               >
                 <option value="">(None)</option>
-                {speakerProfiles?.filter(profile => isVoiceProfileSelectable(profile, engines)).map(p => (
-                  <option key={p.name} value={p.name}>{p.name}</option>
-                ))}
+                {speakerProfiles?.map(p => {
+                  const selectable = isVoiceProfileSelectable(p, engines);
+                  const engineLabel = formatVoiceEngineLabel(getVoiceProfileEngine(p));
+                  return (
+                    <option 
+                      key={p.name} 
+                      value={p.name} 
+                      disabled={!selectable}
+                      title={!selectable ? `This voice is unavailable because the ${engineLabel} engine is not ready.` : undefined}
+                    >
+                      {p.name}{!selectable ? ' (🚫 Unavailable)' : ''}
+                    </option>
+                  );
+                })}
               </select>
             }
           />

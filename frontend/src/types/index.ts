@@ -18,6 +18,11 @@ export interface TtsEngine {
   homepage: string;
   can_enable?: boolean;
   enablement_message?: string;
+  setup_message?: string;
+  health_message?: string;
+  health_details?: Record<string, any>;
+  dependencies_satisfied?: boolean;
+  missing_dependencies?: string[];
   help_text?: string;
   privacy_text?: string;
   settings_schema: any;

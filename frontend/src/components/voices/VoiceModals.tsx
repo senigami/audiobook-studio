@@ -75,12 +75,12 @@ export const NewVoiceModal: React.FC<NewVoiceModalProps> = ({ isOpen, onClose, v
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '24px' }}>
                     <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>ENGINE</label>
                     <select value={engine} onChange={(e) => onEngineChange(e.target.value as VoiceEngine)} style={engineSelectStyle}>
-                        {engines.filter(e => e.enabled && e.status === 'ready').length === 0 ? (
+                        {engines.filter(e => e.enabled).length === 0 ? (
                             <option value="">No enabled engines available</option>
                         ) : (
                             <>
-                                {engines.filter(e => e.enabled && e.status === 'ready').map(e => (
-                                    <option key={e.engine_id} value={e.engine_id}>{e.display_name}</option>
+                                {engines.filter(e => e.enabled).map(e => (
+                                    <option key={e.engine_id} value={e.engine_id}>{e.display_name} {e.status !== 'ready' ? '(🚫 Needs Setup)' : ''}</option>
                                 ))}
                             </>
                         )}
@@ -237,12 +237,12 @@ export const AddVariantModal: React.FC<AddVariantModalProps> = ({ isOpen, onClos
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '24px' }}>
                     <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>ENGINE</label>
                     <select value={engine} onChange={(e) => onEngineChange(e.target.value as VoiceEngine)} style={engineSelectStyle}>
-                        {engines.filter(e => e.enabled && e.status === 'ready').length === 0 ? (
+                        {engines.filter(e => e.enabled).length === 0 ? (
                             <option value="">No enabled engines available</option>
                         ) : (
                             <>
-                                {engines.filter(e => e.enabled && e.status === 'ready').map(e => (
-                                    <option key={e.engine_id} value={e.engine_id}>{e.display_name}</option>
+                                {engines.filter(e => e.enabled).map(e => (
+                                    <option key={e.engine_id} value={e.engine_id}>{e.display_name} {e.status !== 'ready' ? '(🚫 Needs Setup)' : ''}</option>
                                 ))}
                             </>
                         )}

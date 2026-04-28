@@ -29,6 +29,42 @@ class TestVerificationIsolation:
         assert result.duration_sec == 1.5
         assert result.error is None
 
+    def test_verify_uses_default_studio_voice_reference(self, tmp_path):
+        """Verification should borrow the Studio default voice sample when available."""
+        engine = MagicMock()
+        engine.check_request.return_value = (True, "OK")
+
+        default_voice_dir = tmp_path / "voices" / "Narrator"
+        default_voice_dir.mkdir(parents=True)
+        reference_sample = default_voice_dir / "sample.wav"
+        reference_sample.write_text("reference audio")
+
+        def mock_synthesize(req):
+            assert req.voice_ref == str(reference_sample)
+            Path(req.output_path).write_text("audio data")
+            return TTSResult(ok=True, output_path=req.output_path, duration_sec=1.5)
+
+        engine.synthesize.side_effect = mock_synthesize
+
+        plugin = LoadedPlugin(
+            folder_name="tts_mock",
+            plugin_dir=tmp_path / "tts_mock",
+            manifest={"engine_id": "mock", "display_name": "Mock"},
+            engine=engine
+        )
+
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setattr("app.state.get_settings", lambda: {"default_speaker_profile": "Narrator"})
+            mp.setattr("app.jobs.speaker.get_speaker_settings", lambda _profile: {"reference_sample": "sample.wav"})
+            mp.setattr("app.jobs.speaker.get_voice_profile_dir", lambda _profile: default_voice_dir)
+
+            result = verify_plugin(plugin)
+
+        assert result.ok is True
+        assert result.duration_sec == 1.5
+        assert result.error is None
+        assert engine.check_request.call_args[0][0].voice_ref == str(reference_sample)
+
     def test_check_request_crash_isolated(self, tmp_path):
         """Exception in check_request() should result in failed verification but no crash."""
         engine = MagicMock()

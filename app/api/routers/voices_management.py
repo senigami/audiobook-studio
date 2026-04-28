@@ -58,7 +58,7 @@ def _ensure_default_speaker_profile(speaker_id: str, speaker_name: str, default_
     import os
     trusted_voices_root = os.path.abspath(os.fspath(config.VOICES_DIR))
     resolved_pdir = os.path.abspath(os.fspath(profile_dir))
-    if resolved_pdir.startswith(trusted_voices_root + os.sep) or resolved_pdir == trusted_voices_root:
+    if resolved_pdir.startswith(trusted_voices_root + os.sep):
         meta_path_full = os.path.normpath(os.path.join(resolved_pdir, "profile.json"))
         if meta_path_full.startswith(resolved_pdir + os.sep):
             with open(meta_path_full, "w", encoding="utf-8") as f:

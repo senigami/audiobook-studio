@@ -63,9 +63,14 @@ def _refresh_registry_health(
     registry: dict[str, EngineRegistrationModel]
 ) -> dict[str, EngineRegistrationModel]:
     """Clone cached registrations with current engine health."""
+    from app.state import get_settings  # noqa: PLC0415
+    verified_plugins = get_settings().get("verified_plugins") or {}
 
     refreshed: dict[str, EngineRegistrationModel] = {}
     for engine_id, registration in registry.items():
+        # Apply persistent verified flag if it exists in settings
+        if verified_plugins.get(engine_id):
+            object.__setattr__(registration.manifest, "verified", True)
         refreshed[engine_id] = EngineRegistrationModel(
             manifest=registration.manifest,
             engine=registration.engine,

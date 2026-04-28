@@ -64,9 +64,6 @@ export function buildVoiceOptions(speakerProfiles: SpeakerProfile[], speakers: S
     const groupedProfiles = new Map<string, SpeakerProfile[]>();
 
     for (const profile of speakerProfiles || []) {
-        if (!isVoiceProfileSelectable(profile, engines)) {
-            continue;
-        }
         const speakerId = profile.speaker_id || '';
         if (!speakerId) continue;
         const group = groupedProfiles.get(speakerId) || [];
@@ -92,9 +89,19 @@ export function buildVoiceOptions(speakerProfiles: SpeakerProfile[], speakers: S
                 if (variant !== 'Default') {
                     label = `${speaker.name} - ${variant}`;
                 }
-                if (sameVariantCount > 1 || engineId === 'voxtral') {
-                    label = `${label} (${engineLabel})`;
-                }
+            }
+
+            const statuses: string[] = [];
+            if (multiProfile && (sameVariantCount > 1 || engineId === 'voxtral')) {
+                statuses.push(engineLabel);
+            }
+
+            if (!isVoiceProfileSelectable(profile, engines)) {
+                statuses.push('🚫 Unavailable');
+            }
+
+            if (statuses.length > 0) {
+                label = `${label} (${statuses.join(', ')})`;
             }
 
             speakerOptions.push({
@@ -107,14 +114,19 @@ export function buildVoiceOptions(speakerProfiles: SpeakerProfile[], speakers: S
     }
 
     const orphanOptions: VoiceOption[] = (speakerProfiles || [])
-        .filter(profile => isVoiceProfileSelectable(profile, engines))
         .filter(profile => !profile.speaker_id || !speakerMap.has(profile.speaker_id))
-        .map(profile => ({
-            id: `unassigned-${profile.name}`,
-            name: profile.name,
-            value: profile.name,
-            is_speaker: false,
-        }));
+        .map(profile => {
+            let label = profile.name;
+            if (!isVoiceProfileSelectable(profile, engines)) {
+                label = `${label} (🚫 Unavailable)`;
+            }
+            return {
+                id: `unassigned-${profile.name}`,
+                name: label,
+                value: profile.name,
+                is_speaker: false,
+            };
+        });
 
     return [...speakerOptions, ...orphanOptions];
 }
@@ -137,11 +149,11 @@ export function getVoiceOptionLabel(
         const labelMatch = buildVoiceOptions(speakerProfiles, speakers, engines).find(option => option.name === targetValue);
         if (labelMatch) return labelMatch.name;
         
-        // If profile exists but not selectable, show name with (Unavailable)
+        // If profile exists but not selectable, show name with (🚫 Unavailable)
         const engineLabel = formatVoiceEngineLabel(getVoiceProfileEngine(profile));
         return engineLabel === 'Unavailable'
-            ? `${targetValue} (Unavailable)`
-            : `${targetValue} (Unavailable: ${engineLabel})`;
+            ? `${targetValue} (🚫 Unavailable)`
+            : `${targetValue} (🚫 Unavailable: ${engineLabel})`;
     }
 
     return targetValue;
