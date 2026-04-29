@@ -72,9 +72,15 @@ class JobStatusResponse(BaseModel):
 @router.get("/engines", response_model=EngineListResponse)
 async def list_engines():
     """List all available TTS engines and their current status."""
+    from app.engines.errors import EngineUnavailableError
     from app.engines.bridge import create_voice_bridge
     bridge = create_voice_bridge()
-    engines = bridge.describe_registry()
+    try:
+        engines = bridge.describe_registry()
+    except EngineUnavailableError:
+        # If the managed TTS Server is still booting, fall back to the local
+        # registry metadata so the API remains responsive during startup.
+        engines = bridge.local.describe_registry()
     return {"engines": engines}
 
 @router.get("/engines/{engine_id}")
