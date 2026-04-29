@@ -120,19 +120,19 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   const effectiveSelectedVoice = localVoice || externalVoice || '';
   const chapterDefaultVoiceLabel = useMemo(() => {
     const fallbackVoiceValue = externalVoice || getDefaultVoiceProfileName(speakerProfiles || []) || '';
-    const fallbackVoiceLabel = getVoiceOptionLabel(fallbackVoiceValue, speakerProfiles || [], speakers || [], engines);
+    const fallbackVoiceLabel = getVoiceOptionLabel(fallbackVoiceValue, speakerProfiles || [], speakers || [], engines, characters);
     return fallbackVoiceLabel ? `Use Project Default (${fallbackVoiceLabel})` : 'Use Project Default';
-  }, [externalVoice, speakerProfiles, speakers, engines]);
+  }, [externalVoice, speakerProfiles, speakers, engines, characters]);
 
   const selectedVoiceLabel = useMemo(() => {
     const selected = localVoice || externalVoice;
     if (!selected) return '';
-    return getVoiceOptionLabel(selected, speakerProfiles || [], speakers || [], engines) || selected;
-  }, [localVoice, externalVoice, speakerProfiles, speakers, engines]);
+    return getVoiceOptionLabel(selected, speakerProfiles || [], speakers || [], engines, characters) || selected;
+  }, [localVoice, externalVoice, speakerProfiles, speakers, engines, characters]);
 
   const availableVoices = useMemo(() => {
-    return buildVoiceOptions(speakerProfiles || [], speakers || [], engines);
-  }, [speakers, speakerProfiles, engines]);
+    return buildVoiceOptions(speakerProfiles || [], speakers || [], engines, characters);
+  }, [speakers, speakerProfiles, engines, characters]);
 
   const chunkGroups = useMemo(() => {
     return buildChunkGroups(segments, characters, effectiveSelectedVoice, speakerProfiles);

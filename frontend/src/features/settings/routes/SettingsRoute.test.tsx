@@ -20,21 +20,6 @@ vi.mock('../../../api', () => ({
   },
 }));
 
-const defaultProps = {
-  settings: {
-    safe_mode: true,
-    mistral_api_key: 'test-key',
-    voxtral_enabled: true,
-    default_speaker_profile: 'V1',
-  } as any,
-  speakerProfiles: [
-    { name: 'V1', speed: 1.0, wav_count: 1, is_default: true, preview_url: null },
-    { name: 'V2', speed: 1.0, wav_count: 2, is_default: false, preview_url: null }
-  ] as any,
-  onRefresh: vi.fn(),
-  onShowNotification: vi.fn(),
-};
-
 const mockedEngines = [
   {
     engine_id: 'xtts-local',
@@ -119,6 +104,22 @@ const mockedEngines = [
     },
   },
 ];
+
+const defaultProps = {
+  settings: {
+    safe_mode: true,
+    mistral_api_key: 'test-key',
+    voxtral_enabled: true,
+    default_speaker_profile: 'V1',
+  } as any,
+  speakerProfiles: [
+    { name: 'V1', speed: 1.0, wav_count: 1, is_default: true, preview_url: null },
+    { name: 'V2', speed: 1.0, wav_count: 2, is_default: false, preview_url: null }
+  ] as any,
+  onRefresh: vi.fn(),
+  onShowNotification: vi.fn(),
+  engines: mockedEngines as any,
+};
 
 describe('SettingsRoute', () => {
   beforeEach(() => {
