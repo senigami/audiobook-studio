@@ -67,7 +67,7 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
           <SettingCard
             icon={ShieldCheck}
             title="Stability Mode"
-            description="Enable advanced text cleaning to improve engine stability and avoid speech artifacts."
+            description="Enable Studio's conservative cleanup pass before synthesis. It can help with odd punctuation, broken markup, and other text that tends to make voices stumble."
             action={
               <ToggleButton
                 enabled={!!settings?.safe_mode}

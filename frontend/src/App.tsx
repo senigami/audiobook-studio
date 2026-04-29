@@ -109,10 +109,10 @@ function App() {
     confirmText?: string;
   } | null>(null);
 
-  const [toast, setToast] = useState<{ message: string; visible: boolean } | null>(null);
+  const [toast, setToast] = useState<{ message: string; visible: boolean; action?: { label: string; onClick: () => void } } | null>(null);
 
-  const showToast = (message: string) => {
-    setToast({ message, visible: true });
+  const showToast = (message: string, action?: { label: string; onClick: () => void }) => {
+    setToast({ message, visible: true, action });
     setTimeout(() => setToast(prev => prev ? { ...prev, visible: false } : null), 4000);
   };
 
@@ -377,23 +377,25 @@ function App() {
             }}
           >
             <span>{toast.message}</span>
-            <button
-              onClick={() => {
-                setToast(null);
-                setIsQueueDrawerOpen(true);
-              }}
-              style={{
-                background: 'var(--accent)',
-                color: 'white',
-                padding: '4px 10px',
-                borderRadius: '6px',
-                fontSize: '0.75rem',
-                border: 'none',
-                cursor: 'pointer'
-              }}
-            >
-              View Queue
-            </button>
+            {toast.action && (
+              <button
+                onClick={() => {
+                  toast.action?.onClick();
+                  setToast(null);
+                }}
+                style={{
+                  background: 'var(--accent)',
+                  color: 'white',
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  fontSize: '0.75rem',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                {toast.action.label}
+              </button>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
