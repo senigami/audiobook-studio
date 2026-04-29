@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { RefreshCw } from 'lucide-react';
 import type { TtsEngine } from '../../../types';
 import { api } from '../../../api';
@@ -8,16 +8,17 @@ import { EngineCard } from './EngineCard';
 interface EnginesPanelProps {
   onShowNotification?: (message: string) => void;
   onRefresh?: () => void | Promise<void>;
+  startupReady?: boolean;
 }
 
-export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, onRefresh }) => {
+export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, onRefresh, startupReady = true }) => {
   const [engines, setEngines] = useState<TtsEngine[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [installModal, setInstallModal] = useState<{ open: boolean; message: string }>({ open: false, message: '' });
 
-  const loadEngines = async () => {
+  const loadEngines = useCallback(async () => {
     try {
       setLoading(true);
       const data = await api.fetchEngines();
@@ -33,11 +34,13 @@ export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, 
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    loadEngines();
-  }, []);
+    if (startupReady) {
+      loadEngines();
+    }
+  }, [startupReady, loadEngines]);
 
   const refreshAppState = async () => {
     await Promise.all([

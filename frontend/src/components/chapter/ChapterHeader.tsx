@@ -16,7 +16,7 @@ interface ChapterHeaderProps {
   onNext?: () => void;
   selectedVoice: string;
   onVoiceChange: (voice: string) => void;
-  availableVoices: { id: string; name: string; value: string; is_speaker: boolean }[];
+  availableVoices: import('../../utils/voiceProfiles').VoiceOption[];
   defaultVoiceLabel?: string;
   selectedVoiceLabel?: string;
   submitting: boolean;
@@ -323,7 +323,7 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
                   )}
                   <option value="">{defaultVoiceLabel}</option>
                   {availableVoices.map(v => (
-                      <option key={v.id} value={v.value}>{v.name}</option>
+                      <option key={v.id} value={v.value} disabled={v.disabled} title={v.disabled_reason}>{v.name}</option>
                   ))}
               </select>
           )}

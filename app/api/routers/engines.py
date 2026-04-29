@@ -16,7 +16,10 @@ def list_engines():
     try:
         return bridge.describe_registry()
     except EngineUnavailableError as exc:
-        return JSONResponse({"status": "error", "message": str(exc)}, status_code=503)
+        # During startup the managed TTS Server can still be warming up.
+        # Fall back to the local registry metadata so Settings can load
+        # without surfacing a transient error.
+        return bridge.local.describe_registry()
 
 
 @router.put("/{engine_id}/settings")

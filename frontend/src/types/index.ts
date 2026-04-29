@@ -345,6 +345,9 @@ export interface GlobalState {
     backend_mode?: string;
     orchestrator?: string;
     api_base_url?: string;
+    startup_ready?: boolean;
+    startup_message?: string;
+    startup_detail?: string;
   };
 }
 

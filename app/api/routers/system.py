@@ -158,6 +158,29 @@ def api_home(
         else:
             backend_mode = "Direct-In-Process"
 
+    if use_tts_server():
+        startup_ready = bool(
+            watchdog
+            and watchdog.is_healthy()
+            and engines
+        )
+        if not watchdog:
+            startup_message = "Starting Audiobook Studio Services"
+            startup_detail = "Waiting for the TTS watchdog to initialize."
+        elif not watchdog.is_healthy():
+            startup_message = "Starting Audiobook Studio Services"
+            startup_detail = "Checking TTS plugins and runtime health."
+        elif not engines:
+            startup_message = "Starting Audiobook Studio Services"
+            startup_detail = "Discovering TTS engines and loading plugin metadata."
+        else:
+            startup_message = "Audiobook Studio is ready."
+            startup_detail = "All services are available."
+    else:
+        startup_ready = True
+        startup_message = "Audiobook Studio is ready."
+        startup_detail = "Running in direct in-process mode."
+
     return {
         "chapters": [],
         "jobs": jobs,
@@ -170,6 +193,9 @@ def api_home(
             "orchestrator": "Studio 2.0" if use_studio_orchestrator() else "Legacy (app.jobs)",
             "api_base_url": str(request.base_url).rstrip("/"),
             "tts_server_url": watchdog.get_url() if (use_tts_server() and watchdog and watchdog.is_healthy()) else None,
+            "startup_ready": startup_ready,
+            "startup_message": startup_message,
+            "startup_detail": startup_detail,
         },
         "runtime_services": _build_runtime_services(request),
         "narrator_ok": any(

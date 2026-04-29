@@ -44,7 +44,7 @@ def test_home_endpoint(clean_db, client, monkeypatch):
     mock_watchdog.get_url.return_value = "http://127.0.0.1:7862"
 
     with patch("app.engines.watchdog.get_watchdog", return_value=mock_watchdog), \
-         patch("app.engines.bridge.VoiceBridge.describe_registry", return_value=[]):
+         patch("app.engines.bridge.VoiceBridge.describe_registry", return_value=[{"engine_id": "xtts"}]):
 
         response = client.get("/api/home")
         assert response.status_code == 200
@@ -56,6 +56,7 @@ def test_home_endpoint(clean_db, client, monkeypatch):
         assert "Managed Subprocess (Watchdog @ 7862)" in info["backend_mode"]
         assert info["orchestrator"] == "Studio 2.0"
         assert info["tts_server_url"] == "http://127.0.0.1:7862"
+        assert info["startup_ready"] is True
 
 def test_home_endpoint_degraded(clean_db, client, monkeypatch):
     """Verify system info when watchdog is starting/unhealthy."""
@@ -75,6 +76,7 @@ def test_home_endpoint_degraded(clean_db, client, monkeypatch):
         response = client.get("/api/home")
         data = response.json()
         assert "Managed Subprocess (Starting/Unhealthy)" in data["system_info"]["backend_mode"]
+        assert data["system_info"]["startup_ready"] is False
 
 def test_home_endpoint_fallback(clean_db, client, monkeypatch):
     """Verify system info when watchdog circuit trips and triggers explicit fallback."""
@@ -94,6 +96,7 @@ def test_home_endpoint_fallback(clean_db, client, monkeypatch):
         response = client.get("/api/home")
         data = response.json()
         assert "Direct-In-Process (Fallback from Crashed Subprocess)" in data["system_info"]["backend_mode"]
+        assert data["system_info"]["startup_ready"] is True
 
 def test_settings_get_and_update(clean_db, client):
     # USE_TTS_SERVER=0 is already set by the autouse fixture
@@ -143,5 +146,3 @@ def test_audiobooks_list(clean_db, client, tmp_path, monkeypatch):
     assert response.status_code == 200
     assert isinstance(response.json(), list)
     assert response.json() == []
-
-

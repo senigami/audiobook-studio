@@ -17,7 +17,9 @@ import { AboutSettingsPanel } from './AboutSettingsPanel';
 interface SettingsRouteProps {
   settings: AppSettings | undefined;
   speakerProfiles?: SpeakerProfile[];
+  speakers?: import('../../../types').Speaker[];
   engines?: TtsEngine[];
+  startupReady?: boolean;
   onRefresh: () => void;
   onShowNotification?: (message: string) => void;
 }
@@ -25,7 +27,9 @@ interface SettingsRouteProps {
 export const SettingsRoute: React.FC<SettingsRouteProps> = ({
   settings,
   speakerProfiles,
+  speakers = [],
   engines = [],
+  startupReady = true,
   onRefresh,
   onShowNotification
 }) => {
@@ -112,12 +116,19 @@ export const SettingsRoute: React.FC<SettingsRouteProps> = ({
             <GeneralSettingsPanel
               settings={settings}
               speakerProfiles={speakerProfiles}
+              speakers={speakers}
               engines={engines}
               onRefresh={onRefresh}
               onShowNotification={onShowNotification}
             />
           )}
-          {activeTab.id === 'engines' && <EnginesPanel onShowNotification={onShowNotification} onRefresh={onRefresh} />}
+          {activeTab.id === 'engines' && (
+            <EnginesPanel
+              onShowNotification={onShowNotification}
+              onRefresh={onRefresh}
+              startupReady={startupReady}
+            />
+          )}
           {activeTab.id === 'api' && <ApiSettingsPanel />}
           {activeTab.id === 'about' && <AboutSettingsPanel onRefresh={onRefresh} />}
         </div>

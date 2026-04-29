@@ -363,7 +363,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
             />
 
             {currentTab === 'characters' ? (
-              <CharactersTab projectId={effectiveProjectId} speakers={speakers} speakerProfiles={speakerProfiles} />
+              <CharactersTab projectId={effectiveProjectId} speakers={speakers} speakerProfiles={speakerProfiles} engines={engines} />
             ) : currentTab === 'assemblies' ? (
               <AssemblyPanel
                 availableAudiobooks={availableAudiobooks}
@@ -433,7 +433,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
                                 </option>
                               )}
                               <option value="">{projectDefaultVoiceLabel}</option>
-                              {mergedVoices.map(v => <option key={v.id} value={v.value}>{v.name}</option>)}
+                              {mergedVoices.map(v => <option key={v.id} value={v.value} disabled={v.disabled} title={v.disabled_reason}>{v.name}</option>)}
                             </select>
                         </div>
 

@@ -387,7 +387,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         </div>
 
         <CharacterSidebar 
-            characters={characters} speakers={speakers} speakerProfiles={speakerProfiles}
+            characters={characters} speakers={speakers} speakerProfiles={speakerProfiles} engines={engines}
             selectedCharacterId={selectedCharacterId} setSelectedCharacterId={setSelectedCharacterId}
             selectedProfileName={selectedProfileName} setSelectedProfileName={setSelectedProfileName}
             expandedCharacterId={expandedCharacterId} setExpandedCharacterId={setExpandedCharacterId}

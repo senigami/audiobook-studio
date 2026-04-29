@@ -63,6 +63,39 @@ def test_list_engines_returns_registry_payload(clean_db, client):
     bridge.describe_registry.assert_called_once()
 
 
+def test_list_engines_falls_back_during_tts_server_startup(clean_db, client):
+    from app.engines.errors import EngineUnavailableError
+
+    engine_payload = [
+        {
+            "engine_id": "xtts-local",
+            "display_name": "XTTS Local",
+            "status": "ready",
+            "verified": True,
+            "version": "1.2.3",
+            "local": True,
+            "cloud": False,
+            "network": False,
+            "languages": ["en"],
+            "capabilities": ["preview"],
+            "resource": {"gpu": False, "vram_mb": 0, "cpu_heavy": True},
+            "author": "Studio",
+            "homepage": "https://example.com/xtts",
+            "settings_schema": {"properties": {}},
+        }
+    ]
+    bridge = MagicMock()
+    bridge.describe_registry.side_effect = EngineUnavailableError("TTS Server is starting up... please wait a few seconds and try again.")
+    bridge.local.describe_registry.return_value = engine_payload
+
+    with patch("app.api.routers.engines.create_voice_bridge", return_value=bridge):
+        response = client.get("/api/engines")
+
+    assert response.status_code == 200
+    assert response.json() == engine_payload
+    bridge.local.describe_registry.assert_called_once()
+
+
 def test_update_engine_settings_and_refresh_delegate_to_bridge(clean_db, client):
     bridge = MagicMock()
     bridge.update_engine_settings.return_value = {"status": "ok", "engine_id": "xtts-local"}

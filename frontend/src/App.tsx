@@ -147,6 +147,24 @@ function App() {
       hydrationSource: activeSource || refreshingSource,
     });
   }, [location.pathname, initialLoading, queueLoading, connected, isReconnecting, activeSource, refreshingSource]);
+  const startupMessage = initialData?.system_info?.startup_message || 'Starting Audiobook Studio Services...';
+  const startupDetail = initialData?.system_info?.startup_detail;
+  const [showStartupCopy, setShowStartupCopy] = useState(false);
+
+  useEffect(() => {
+    if (!initialLoading) {
+      setShowStartupCopy(false);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setShowStartupCopy(true);
+    }, 180);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [initialLoading]);
 
 
   return (
@@ -174,6 +192,7 @@ function App() {
                   connected={connected}
                   isReconnecting={isReconnecting}
                   refreshingSource={activeSource || refreshingSource}
+                  startupReady={initialData?.system_info?.startup_ready !== false}
                   projectId={projectIdFromRoute}
                   projectTitle={initialData?.projects?.find((p: Project) => p.id === projectIdFromRoute)?.name}
                   chapterTitle={initialData?.chapters?.find((c: any) => c.id === chapterIdFromRoute)?.title}
@@ -203,6 +222,7 @@ function App() {
                   connected={connected}
                   isReconnecting={isReconnecting}
                   refreshingSource={activeSource || refreshingSource}
+                  startupReady={initialData?.system_info?.startup_ready !== false}
                   // We might need to resolve projectId from chapter's parent here
                   projectId={chapterRouteData?.project_id || chapterProjectIdFromRoute}
                   projectTitle={initialData?.projects?.find((p: Project) => p.id === (chapterRouteData?.project_id || chapterProjectIdFromRoute))?.name}
@@ -258,7 +278,9 @@ function App() {
                 <SettingsRoute
                   settings={initialData?.settings}
                   speakerProfiles={initialData?.speaker_profiles || []}
+                  speakers={initialData?.speakers || []}
                   engines={initialData?.engines || []}
+                  startupReady={initialData?.system_info?.startup_ready !== false}
                   onRefresh={handleRefresh}
                   onShowNotification={showToast}
                 />
@@ -308,7 +330,14 @@ function App() {
                 borderTopColor: 'var(--accent)',
               }}
             />
-            Loading Audiobook Studio...
+            {showStartupCopy && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', minHeight: '2.1rem' }}>
+                <span>{startupMessage}</span>
+                <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', minHeight: '1.1rem' }}>
+                  {startupDetail || '\u00A0'}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       )}

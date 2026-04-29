@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ShieldCheck, PlugZap, Music } from 'lucide-react';
-import type { Settings as AppSettings, SpeakerProfile, TtsEngine } from '../../../types';
-import { isVoiceProfileSelectable, formatVoiceEngineLabel, getVoiceProfileEngine } from '../../../utils/voiceProfiles';
+import type { Settings as AppSettings, SpeakerProfile, TtsEngine, Speaker } from '../../../types';
+import { buildVoiceOptions } from '../../../utils/voiceProfiles';
 import { SettingCard, ToggleButton } from './SettingsComponents';
 
 interface GeneralSettingsPanelProps {
   settings: AppSettings | undefined;
   speakerProfiles?: SpeakerProfile[];
+  speakers?: Speaker[];
   engines?: TtsEngine[];
   onRefresh: () => void;
   onShowNotification?: (message: string) => void;
@@ -15,11 +16,17 @@ interface GeneralSettingsPanelProps {
 export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({ 
   settings, 
   speakerProfiles, 
+  speakers = [],
   engines = [], 
   onRefresh, 
   onShowNotification 
 }) => {
   const [savingKey, setSavingKey] = useState<string | null>(null);
+
+  const options = useMemo(() =>
+    buildVoiceOptions(speakerProfiles || [], speakers, engines),
+    [speakerProfiles, speakers, engines]
+  );
 
   const updateBooleanSetting = async (key: 'safe_mode', currentValue: boolean) => {
     setSavingKey(key);
@@ -120,20 +127,16 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
                 }}
               >
                 <option value="">(None)</option>
-                {speakerProfiles?.map(p => {
-                  const selectable = isVoiceProfileSelectable(p, engines);
-                  const engineLabel = formatVoiceEngineLabel(getVoiceProfileEngine(p));
-                  return (
-                    <option 
-                      key={p.name} 
-                      value={p.name} 
-                      disabled={!selectable}
-                      title={!selectable ? `This voice is unavailable because the ${engineLabel} engine is not ready.` : undefined}
-                    >
-                      {p.name}{!selectable ? ' 🚫' : ''}
-                    </option>
-                  );
-                })}
+                {options.map(opt => (
+                  <option
+                    key={opt.id}
+                    value={opt.value}
+                    disabled={opt.disabled}
+                    title={opt.disabled_reason}
+                  >
+                    {opt.name}
+                  </option>
+                ))}
               </select>
             }
           />

@@ -5,6 +5,8 @@ export interface VoiceOption {
     name: string;
     value: string;
     is_speaker: boolean;
+    disabled?: boolean;
+    disabled_reason?: string;
 }
 
 export function getVoiceProfileEngine(profile?: Pick<SpeakerProfile, 'engine'> | null): VoiceEngine | null {
@@ -45,12 +47,12 @@ export function getDefaultVoiceProfileName(profiles: SpeakerProfile[]): string |
 }
 
 export function isVoiceProfileSelectable(profile: SpeakerProfile, engines?: TtsEngine[]): boolean {
-    if (!engines || engines.length === 0) {
-        return true;
-    }
     const engineId = getVoiceProfileEngine(profile);
     if (!engineId) {
         return true;
+    }
+    if (!engines) {
+        return false;
     }
     const matchingEngine = engines.find(engine => engine.engine_id === engineId);
     if (!matchingEngine) {
@@ -91,12 +93,13 @@ export function buildVoiceOptions(speakerProfiles: SpeakerProfile[], speakers: S
                 }
             }
 
+            const selectable = isVoiceProfileSelectable(profile, engines);
             const statuses: string[] = [];
             if (multiProfile && (sameVariantCount > 1 || engineId === 'voxtral')) {
                 statuses.push(engineLabel);
             }
 
-            if (!isVoiceProfileSelectable(profile, engines)) {
+            if (!selectable) {
                 statuses.push('🚫');
             }
 
@@ -104,11 +107,25 @@ export function buildVoiceOptions(speakerProfiles: SpeakerProfile[], speakers: S
                 label = `${label} (${statuses.join(', ')})`;
             }
 
+            const matchingEngine = engines?.find(e => e.engine_id === engineId);
+            let disabledReason = '';
+            if (!selectable && engineId) {
+                if (!matchingEngine) {
+                    disabledReason = `Engine ${engineId} not found`;
+                } else if (!matchingEngine.enabled) {
+                    disabledReason = `Engine ${engineLabel} is disabled`;
+                } else {
+                    disabledReason = `Engine ${engineLabel} is ${matchingEngine.status.replace('_', ' ')}`;
+                }
+            }
+
             speakerOptions.push({
                 id: `${speakerId}-${profile.name}`,
                 name: label,
                 value: profile.name,
                 is_speaker: true,
+                disabled: !selectable,
+                disabled_reason: disabledReason,
             });
         }
     }
@@ -116,15 +133,33 @@ export function buildVoiceOptions(speakerProfiles: SpeakerProfile[], speakers: S
     const orphanOptions: VoiceOption[] = (speakerProfiles || [])
         .filter(profile => !profile.speaker_id || !speakerMap.has(profile.speaker_id))
         .map(profile => {
+            const selectable = isVoiceProfileSelectable(profile, engines);
             let label = profile.name;
-            if (!isVoiceProfileSelectable(profile, engines)) {
+            if (!selectable) {
                 label = `${label} 🚫`;
             }
+
+            const engineId = getVoiceProfileEngine(profile);
+            const matchingEngine = engines?.find(e => e.engine_id === engineId);
+            let disabledReason = '';
+            if (!selectable && engineId) {
+                const engineLabel = formatVoiceEngineLabel(engineId);
+                if (!matchingEngine) {
+                    disabledReason = `Engine ${engineId} not found`;
+                } else if (!matchingEngine.enabled) {
+                    disabledReason = `Engine ${engineLabel} is disabled`;
+                } else {
+                    disabledReason = `Engine ${engineLabel} is ${matchingEngine.status.replace('_', ' ')}`;
+                }
+            }
+
             return {
                 id: `unassigned-${profile.name}`,
                 name: label,
                 value: profile.name,
                 is_speaker: false,
+                disabled: !selectable,
+                disabled_reason: disabledReason,
             };
         });
 

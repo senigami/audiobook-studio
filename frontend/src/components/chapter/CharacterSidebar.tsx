@@ -2,12 +2,13 @@ import React from 'react';
 import { User, Info, ChevronRight, ChevronDown } from 'lucide-react';
 import { ColorSwatchPicker } from '../ColorSwatchPicker';
 import type { Character, SpeakerProfile, Speaker } from '../../types';
-import { getDefaultVoiceProfileName, getVariantDisplayName } from '../../utils/voiceProfiles';
+import { getDefaultVoiceProfileName, getVariantDisplayName, isVoiceProfileSelectable } from '../../utils/voiceProfiles';
 
 interface CharacterSidebarProps {
   characters: Character[];
   speakers: Speaker[];
   speakerProfiles: SpeakerProfile[];
+  engines?: import('../../types').TtsEngine[];
   selectedCharacterId: string | null;
   setSelectedCharacterId: (id: string | null) => void;
   selectedProfileName: string | null;
@@ -23,6 +24,7 @@ export const CharacterSidebar: React.FC<CharacterSidebarProps> = ({
   characters,
   speakers,
   speakerProfiles,
+  engines = [],
   selectedCharacterId,
   setSelectedCharacterId,
   selectedProfileName,
@@ -102,7 +104,7 @@ export const CharacterSidebar: React.FC<CharacterSidebarProps> = ({
                         <React.Fragment key={char.id}>
                             <div style={{ display: 'flex', gap: '4px' }}>
                                 {variants.length > 1 ? (
-                                    <button 
+                                    <button
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             toggleCharacterExpansion(char.id);
@@ -119,18 +121,33 @@ export const CharacterSidebar: React.FC<CharacterSidebarProps> = ({
                                     <div style={{ width: '28px', minWidth: '28px' }} />
                                 )}
 
-                                    <div 
+                                    <button
                                     onClick={() => {
+                                        const defaultProfile = resolveDefaultProfileName(char);
+                                        const profileObj = speakerProfiles.find(p => p.name === defaultProfile);
+                                        if (profileObj && !isVoiceProfileSelectable(profileObj, engines)) {
+                                            return;
+                                        }
                                         setSelectedCharacterId(char.id);
-                                        setSelectedProfileName(resolveDefaultProfileName(char));
+                                        setSelectedProfileName(defaultProfile);
                                     }}
+                                    disabled={(() => {
+                                        const defaultProfile = resolveDefaultProfileName(char);
+                                        const profileObj = speakerProfiles.find(p => p.name === defaultProfile);
+                                        return profileObj ? !isVoiceProfileSelectable(profileObj, engines) : false;
+                                    })()}
                                     style={{ 
                                         flex: 1, padding: '0.75rem', borderRadius: '8px', 
                                         border: `1px solid ${isSpeakerSelected ? char.color : 'var(--border)'}`,
                                         background: isSpeakerSelected ? `${char.color}15` : 'transparent',
                                         display: 'flex', alignItems: 'center', gap: '0.75rem',
                                         color: 'var(--text-primary)', textAlign: 'left', cursor: 'pointer', transition: 'all 0.2s',
-                                        minWidth: 0
+                                        minWidth: 0,
+                                        opacity: (() => {
+                                            const defaultProfile = resolveDefaultProfileName(char);
+                                            const profileObj = speakerProfiles.find(p => p.name === defaultProfile);
+                                            return profileObj && !isVoiceProfileSelectable(profileObj, engines) ? 0.4 : 1;
+                                        })()
                                     }}
                                 >
                                     <ColorSwatchPicker 
@@ -139,7 +156,14 @@ export const CharacterSidebar: React.FC<CharacterSidebarProps> = ({
                                         size="sm" 
                                     />
                                     <div style={{ flex: 1, overflow: 'hidden' }}>
-                                        <div style={{ fontWeight: 600, fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{char.name}</div>
+                                        <div style={{ fontWeight: 600, fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            {char.name}
+                                            {(() => {
+                                                const defaultProfile = resolveDefaultProfileName(char);
+                                                const profileObj = speakerProfiles.find(p => p.name === defaultProfile);
+                                                return profileObj && !isVoiceProfileSelectable(profileObj, engines) ? ' 🚫' : '';
+                                            })()}
+                                        </div>
                                         <div style={{ fontSize: '0.7rem', opacity: 0.6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                             {selectedCharacterId === char.id && selectedProfileName
                                                 ? getVariantDisplayName(speakerProfiles.find(p => p.name === selectedProfileName) || { name: selectedProfileName, variant_name: null } as SpeakerProfile)
@@ -151,25 +175,28 @@ export const CharacterSidebar: React.FC<CharacterSidebarProps> = ({
                                             {variants.length}
                                         </div>
                                     )}
-                                </div>
+                                </button>
                             </div>
 
                             {isExpanded && variants.map(variant => {
                                 const isVariantSelected = selectedCharacterId === char.id && selectedProfileName === variant.name;
+                                const selectable = isVoiceProfileSelectable(variant, engines);
                                 return (
                                     <button 
                                         key={variant.name}
                                         onClick={() => {
+                                            if (!selectable) return;
                                             setSelectedCharacterId(char.id);
                                             setSelectedProfileName(variant.name);
                                         }}
+                                        disabled={!selectable}
                                         style={{ 
                                             marginLeft: '36px', padding: '0.5rem 0.75rem', borderRadius: '6px', 
                                             border: `1px solid ${isVariantSelected ? char.color : 'transparent'}`,
                                             background: isVariantSelected ? `${char.color}10` : 'transparent',
                                             display: 'flex', alignItems: 'center', gap: '0.75rem',
                                             color: 'var(--text-primary)', textAlign: 'left', cursor: 'pointer', transition: 'all 0.2s',
-                                            opacity: isVariantSelected ? 1 : 0.7,
+                                            opacity: !selectable ? 0.4 : (isVariantSelected ? 1 : 0.7),
                                             minWidth: 0
                                         }}
                                     >
@@ -180,7 +207,7 @@ export const CharacterSidebar: React.FC<CharacterSidebarProps> = ({
                                             flexShrink: 0
                                         }} />
                                         <div style={{ flex: 1, fontSize: '0.8rem', fontWeight: isVariantSelected ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                            {getVariantDisplayName(variant)}
+                                            {getVariantDisplayName(variant)}{!selectable ? ' 🚫' : ''}
                                         </div>
                                     </button>
                                 );

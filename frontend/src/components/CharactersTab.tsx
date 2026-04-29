@@ -1,17 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import type { Character } from '../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import type { Character, Speaker, SpeakerProfile, TtsEngine } from '../types';
 import { api } from '../api';
 import { Plus, Trash2, User as UserIcon } from 'lucide-react';
 import { ColorSwatchPicker } from './ColorSwatchPicker';
 import { ConfirmModal } from './ConfirmModal';
+import { buildVoiceOptions } from '../utils/voiceProfiles';
 
 interface CharactersTabProps {
   projectId: string;
-  speakers: import('../types').Speaker[];
-  speakerProfiles: import('../types').SpeakerProfile[];
+  speakers: Speaker[];
+  speakerProfiles: SpeakerProfile[];
+  engines?: TtsEngine[];
 }
 
-export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speakers, speakerProfiles }) => {
+export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speakers, speakerProfiles, engines = [] }) => {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -45,13 +47,9 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
   }, [projectId]);
 
   // Compute merged voices groupings
-  const availableVoices = React.useMemo(() => {
-    const list = (speakers || []).map(s => ({ id: s.id, name: s.name, is_speaker: true }));
-    const orphans = (speakerProfiles || [])
-      .filter(p => !p.speaker_id || !speakers.some(s => s.id === p.speaker_id))
-      .map(p => ({ id: `unassigned-${p.name}`, name: p.name, is_speaker: false }));
-    return [...list, ...orphans];
-  }, [speakers, speakerProfiles]);
+  const availableVoices = useMemo(() => {
+    return buildVoiceOptions(speakerProfiles || [], speakers || [], engines);
+  }, [speakerProfiles, speakers, engines]);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -164,7 +162,7 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
               >
                 <option value="">Unassigned (Default Speaker)</option>
                 {availableVoices.map(v => (
-                  <option key={v.id} value={v.name}>{v.name}</option>
+                  <option key={v.id} value={v.value} disabled={v.disabled} title={v.disabled_reason}>{v.name}</option>
                 ))}
               </select>
             </div>
@@ -209,9 +207,9 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
                   style={{ width: '100%' }}
                 >
                   <option value="">Default Speaker</option>
-                          {availableVoices.map(v => (
-                            <option key={v.id} value={v.name}>{v.name}</option>
-                          ))}
+                  {availableVoices.map(v => (
+                    <option key={v.id} value={v.value} disabled={v.disabled} title={v.disabled_reason}>{v.name}</option>
+                  ))}
                 </select>
               </div>
 
