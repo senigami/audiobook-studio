@@ -22,8 +22,8 @@ export const useChapterAssignments = (
     selectedProfileName: string | null,
     onConflict?: () => void
   ) => {
-    if (!scriptViewData || !selectedCharacterId) return;
-    const isClearing = selectedCharacterId === 'CLEAR_ASSIGNMENT';
+    if (!scriptViewData) return;
+    const isClearing = !selectedCharacterId || selectedCharacterId === 'CLEAR_ASSIGNMENT';
     const characterId = isClearing ? null : selectedCharacterId;
     const profileName = isClearing ? null : (selectedProfileName || resolveDefaultVariantName(selectedCharacterId, characters, speakers, speakerProfiles));
 

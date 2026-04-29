@@ -17,8 +17,10 @@ import type {
   ScriptRenderBatch,
   ScriptRangeAssignment,
   TtsEngine,
+  Speaker,
 } from '../../types';
-import { getVoiceProfileEngine, formatVoiceEngineLabel } from '../../utils/voiceProfiles';
+import { getVoiceProfileEngine, formatVoiceEngineLabel, buildVoiceOptions } from '../../utils/voiceProfiles';
+import { VoiceProfileSelect } from './VoiceProfileSelect';
 import './ScriptView.css';
 
 interface ScriptViewProps {
@@ -31,9 +33,11 @@ interface ScriptViewProps {
   onPlaySpan?: (spanId: string) => void;
   onAssign?: (spanIds: string[]) => void;
   onAssignRange?: (range: ScriptRangeAssignment) => void;
+  onAssignToCharacter?: (spanIds: string[], characterId: string | null, profileName: string | null) => void;
   activeCharacterId?: string | null;
   engines?: TtsEngine[];
   speakerProfiles?: SpeakerProfile[];
+  speakers?: Speaker[];
 }
 
 export const ScriptView: React.FC<ScriptViewProps> = ({
@@ -46,9 +50,11 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
   onPlaySpan,
   onAssign,
   onAssignRange,
+  onAssignToCharacter,
   activeCharacterId,
   engines = [],
   speakerProfiles = [],
+  speakers = [],
 }) => {
   const anyEnginesEnabled = useMemo(() => engines.some(e => e.enabled && e.status === 'ready'), [engines]);
   const [viewMode, setViewMode] = useState<'book' | 'script'>('book');
@@ -115,6 +121,22 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
     if (playingSpanIds) return playingSpanIds.has(spanId);
     return playingSpanId === spanId;
   };
+
+  const availableVoices = useMemo(() => {
+    const all = buildVoiceOptions(speakerProfiles, speakers, engines, characters);
+    // For sentence reassignment, only show Default + Characters.
+    // Exclude raw/orphan voices.
+    return all.filter(v => v.character_name !== undefined);
+  }, [speakerProfiles, speakers, engines, characters]);
+
+  const assignableVoices = useMemo(
+    () => availableVoices.map(option => (
+      option.id === 'separator-line'
+        ? option
+        : { ...option, disabled: false }
+    )),
+    [availableVoices]
+  );
 
   const getSpanIdFromNode = (node: Node | null): string | null => {
     let curr = node;
@@ -216,7 +238,16 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
         <span className={textClassName}>{displayText}</span>
 
         <div className="span-controls">
-          {char && <div className="span-control-label">{char.name}</div>}
+          <VoiceProfileSelect
+            value={char?.speaker_profile_name || ''}
+            onChange={(profileName) => {
+              const selectedOption = assignableVoices.find(option => option.value === profileName);
+              onAssignToCharacter?.([span.id], selectedOption?.character_id || null, selectedOption?.profile_name || profileName || null);
+            }}
+            options={assignableVoices}
+            defaultLabel="Default"
+            className="span-control-select"
+          />
           <button
             className="span-control-btn"
             onClick={(e) => {
@@ -309,8 +340,8 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
   };
 
   return (
-    <div 
-      className="script-view-container glass-panel" 
+    <div
+      className="script-view-container glass-panel"
       ref={containerRef}
       onMouseUp={handleSelection}
     >
@@ -359,7 +390,7 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
       </div>
 
       {popoverPos && pendingSelection && (
-        <div 
+        <div
           className="selection-popover fade-in"
           style={{
             position: 'absolute',

@@ -9,6 +9,7 @@ export interface VoiceOption {
     disabled_reason?: string;
     character_name?: string;
     character_color?: string;
+    character_id?: string;
     profile_name?: string;
 }
 
@@ -202,6 +203,7 @@ export function buildVoiceOptions(
             opt.name = opt.disabled ? `${charNames} 🚫` : charNames;
             opt.character_name = charNames;
             opt.character_color = charColor;
+            opt.character_id = assignedChars[0]?.id;
             opt.profile_name = opt.value;
             assigned.push(opt);
         } else {

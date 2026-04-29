@@ -332,7 +332,14 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                       onConfirm: () => { setConfirmConfig(null); loadChapter('conflict-reload'); },
                       confirmText: 'Reload Now'
                     }))}
+                    onAssignToCharacter={(sids, cid, pname) => handleScriptAssign(sids, cid, pname, () => setConfirmConfig({
+                      title: 'Assignment Conflict',
+                      message: 'This chapter was modified by another process. Please reload to see the latest changes.',
+                      onConfirm: () => { setConfirmConfig(null); loadChapter('conflict-reload'); },
+                      confirmText: 'Reload Now'
+                    }))}
                     activeCharacterId={selectedCharacterId}
+                    speakers={speakers}
                   />
                 )}
                 {editorTab === 'script' && !scriptViewData && (

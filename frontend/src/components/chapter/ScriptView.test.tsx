@@ -66,10 +66,10 @@ describe('ScriptView', () => {
 
   it('renders in Book mode by default', () => {
     render(
-      <ScriptView 
-        data={mockData} 
-        characters={mockCharacters} 
-        onGenerateBatch={onGenerateBatch} 
+      <ScriptView
+        data={mockData}
+        characters={mockCharacters}
+        onGenerateBatch={onGenerateBatch}
         pendingSpanIds={new Set()}
         onPlaySpan={onPlaySpan}
       />
@@ -82,10 +82,10 @@ describe('ScriptView', () => {
 
   it('switches to Script mode and shows speaker names', () => {
     render(
-      <ScriptView 
-        data={mockData} 
-        characters={mockCharacters} 
-        onGenerateBatch={onGenerateBatch} 
+      <ScriptView
+        data={mockData}
+        characters={mockCharacters}
+        onGenerateBatch={onGenerateBatch}
         pendingSpanIds={new Set()}
         onPlaySpan={onPlaySpan}
       />
@@ -98,10 +98,10 @@ describe('ScriptView', () => {
 
   it('toggles safe text overlay', () => {
     render(
-      <ScriptView 
-        data={mockData} 
-        characters={mockCharacters} 
-        onGenerateBatch={onGenerateBatch} 
+      <ScriptView
+        data={mockData}
+        characters={mockCharacters}
+        onGenerateBatch={onGenerateBatch}
         pendingSpanIds={new Set()}
         onPlaySpan={onPlaySpan}
       />
@@ -148,10 +148,10 @@ describe('ScriptView', () => {
 
   it('toggles segment numbers', () => {
     render(
-      <ScriptView 
-        data={mockData} 
-        characters={mockCharacters} 
-        onGenerateBatch={onGenerateBatch} 
+      <ScriptView
+        data={mockData}
+        characters={mockCharacters}
+        onGenerateBatch={onGenerateBatch}
         pendingSpanIds={new Set()}
         onPlaySpan={onPlaySpan}
       />
@@ -166,10 +166,10 @@ describe('ScriptView', () => {
 
   it('calls onGenerateBatch when generate button is clicked', () => {
     render(
-      <ScriptView 
-        data={mockData} 
-        characters={mockCharacters} 
-        onGenerateBatch={onGenerateBatch} 
+      <ScriptView
+        data={mockData}
+        characters={mockCharacters}
+        onGenerateBatch={onGenerateBatch}
         pendingSpanIds={new Set()}
         onPlaySpan={onPlaySpan}
         engines={[{ engine_id: 'xtts', enabled: true, status: 'ready' } as any]}
@@ -185,10 +185,10 @@ describe('ScriptView', () => {
 
   it('calls onPlaySpan when play button is clicked', () => {
     render(
-      <ScriptView 
-        data={mockData} 
-        characters={mockCharacters} 
-        onGenerateBatch={onGenerateBatch} 
+      <ScriptView
+        data={mockData}
+        characters={mockCharacters}
+        onGenerateBatch={onGenerateBatch}
         pendingSpanIds={new Set()}
         onPlaySpan={onPlaySpan}
       />
@@ -202,10 +202,10 @@ describe('ScriptView', () => {
   it('calls onAssign when clicking a span in paint mode', () => {
     const onAssign = vi.fn();
     render(
-      <ScriptView 
-        data={mockData} 
-        characters={mockCharacters} 
-        onGenerateBatch={onGenerateBatch} 
+      <ScriptView
+        data={mockData}
+        characters={mockCharacters}
+        onGenerateBatch={onGenerateBatch}
         pendingSpanIds={new Set()}
         onPlaySpan={onPlaySpan}
         onAssign={onAssign}
@@ -221,10 +221,10 @@ describe('ScriptView', () => {
   it('calls onAssign with whole paragraph spans when clicking a paragraph in paint mode', () => {
     const onAssign = vi.fn();
     render(
-      <ScriptView 
-        data={mockData} 
-        characters={mockCharacters} 
-        onGenerateBatch={onGenerateBatch} 
+      <ScriptView
+        data={mockData}
+        characters={mockCharacters}
+        onGenerateBatch={onGenerateBatch}
         pendingSpanIds={new Set()}
         onPlaySpan={onPlaySpan}
         onAssign={onAssign}
@@ -236,5 +236,101 @@ describe('ScriptView', () => {
     const paragraph = screen.getByText('Sentence one.').closest('.book-paragraph');
     fireEvent.click(paragraph!);
     expect(onAssign).toHaveBeenCalledWith(['s1', 's2']);
+  });
+
+  it('filters availableVoices to show only characters in reassignment dropdown', () => {
+    const mockProfiles = [
+      { name: 'V1', speaker_id: 's1' } as any,
+      { name: 'Orphan' } as any,
+    ];
+    const mockSpeakers = [{ id: 's1', name: 'Speaker 1' } as any];
+    const mockEngines = [{ engine_id: 'xtts', enabled: true, status: 'ready' } as any];
+    const mockChars = [{ id: 'char-1', name: 'Albus', speaker_profile_name: 'V1' } as any];
+
+    render(
+      <ScriptView
+        data={mockData}
+        characters={mockChars}
+        speakerProfiles={mockProfiles}
+        speakers={mockSpeakers}
+        engines={mockEngines}
+        onGenerateBatch={onGenerateBatch}
+        pendingSpanIds={new Set()}
+        onPlaySpan={onPlaySpan}
+      />
+    );
+
+    // In a real browser, we'd check the options of the select.
+    // Here we can check if buildVoiceOptions was called and filtered.
+    // Since we're using VoiceProfileSelect, we can check for labels.
+    // The dropdown should contain "Albus" but NOT "Orphan" or "Speaker 1".
+
+    // Switch to script mode to see the dropdown
+    fireEvent.click(screen.getByText('Script'));
+
+    // The select should have "Albus" as an option.
+    const options = screen.getAllByRole('option');
+    const optionLabels = options.map(o => o.textContent);
+
+    expect(optionLabels).toContain('Default');
+    expect(optionLabels).toContain('Albus');
+    expect(optionLabels).not.toContain('Orphan');
+    expect(optionLabels).not.toContain('Speaker 1');
+  });
+
+  it('keeps sentence reassignment options clickable even when the voices are disabled', () => {
+    const mockProfiles = [
+      { name: 'V1', speaker_id: 's1', engine: 'xtts' } as any,
+    ];
+    const mockSpeakers = [{ id: 's1', name: 'Speaker 1' } as any];
+    const mockEngines = [{ engine_id: 'xtts', enabled: false, status: 'needs_setup' } as any];
+    const mockChars = [{ id: 'char-1', name: 'Albus', speaker_profile_name: 'V1' } as any];
+
+    render(
+      <ScriptView
+        data={mockData}
+        characters={mockChars}
+        speakerProfiles={mockProfiles}
+        speakers={mockSpeakers}
+        engines={mockEngines}
+        onGenerateBatch={onGenerateBatch}
+        pendingSpanIds={new Set()}
+        onPlaySpan={onPlaySpan}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Script'));
+
+    const options = screen.getAllByRole('option');
+    const albusOption = options.find(o => o.textContent === 'Albus 🚫');
+    expect(albusOption).toBeTruthy();
+    expect(albusOption).not.toHaveAttribute('disabled');
+  });
+
+  it('assigns the selected character when the sentence dropdown changes', () => {
+    const onAssignToCharacter = vi.fn();
+    const mockProfiles = [
+      { name: 'V1', speaker_id: 's1' } as any,
+    ];
+    const mockSpeakers = [{ id: 's1', name: 'Speaker 1' } as any];
+    const mockChars = [{ id: 'char-1', name: 'Albus', speaker_profile_name: 'V1' } as any];
+
+    render(
+      <ScriptView
+        data={mockData}
+        characters={mockChars}
+        speakerProfiles={mockProfiles}
+        speakers={mockSpeakers}
+        onGenerateBatch={onGenerateBatch}
+        pendingSpanIds={new Set()}
+        onPlaySpan={onPlaySpan}
+        onAssignToCharacter={onAssignToCharacter}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Script'));
+    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'V1' } });
+
+    expect(onAssignToCharacter).toHaveBeenCalledWith(['s1'], 'char-1', 'V1');
   });
 });
