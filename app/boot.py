@@ -25,6 +25,8 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+from app.config import PLUGINS_DIR
+
 logger = logging.getLogger(__name__)
 
 _booted = False
@@ -72,7 +74,7 @@ def boot_tts_server(
         from app.engines.watchdog import start_watchdog  # noqa: PLC0415
 
         start_watchdog(
-            plugins_dir=plugins_dir,
+            plugins_dir=plugins_dir or PLUGINS_DIR,
             port=port,
             host=host,
         )

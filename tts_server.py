@@ -19,6 +19,8 @@ from pathlib import Path
 
 import uvicorn
 
+from app.config import PLUGINS_DIR
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] tts-server %(name)s: %(message)s",
@@ -72,8 +74,8 @@ def main() -> None:
     parser.add_argument(
         "--plugins-dir",
         type=Path,
-        default=Path("plugins"),
-        help="Path to the plugins directory (default: ./plugins)",
+        default=PLUGINS_DIR,
+        help="Path to the plugins directory (default: repo-root plugins/)",
     )
     parser.add_argument(
         "--no-verify",
@@ -88,7 +90,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    # Resolve the plugins directory relative to the CWD.
+    # Resolve the plugins directory to an absolute repo-root path.
     plugins_dir = args.plugins_dir.resolve()
 
     # Find an available port.

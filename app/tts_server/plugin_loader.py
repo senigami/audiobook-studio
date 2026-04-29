@@ -576,3 +576,12 @@ def _import_engine_class(
         )
 
     return engine_cls
+
+
+def get_plugin_dir(engine_id: str) -> Path:
+    \"\"\"Return the expected plugin directory for a given engine_id.
+
+    This uses the default PLUGINS_DIR from app.config.
+    \"\"\"
+    from app.config import PLUGINS_DIR # noqa: PLC0415
+    return PLUGINS_DIR / f"tts_{engine_id}"

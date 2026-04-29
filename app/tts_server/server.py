@@ -19,6 +19,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from app.config import PLUGINS_DIR
 from app.tts_server.health import (
     build_engine_detail,
     build_health_response,
@@ -44,7 +45,7 @@ app = FastAPI(
 # Shared mutable state protected by a lock.
 _state_lock = threading.Lock()
 _plugins: list[LoadedPlugin] = []
-_plugins_dir: Path = Path("plugins")
+_plugins_dir: Path = PLUGINS_DIR
 
 
 def _plugin_by_id(engine_id: str) -> LoadedPlugin:
@@ -65,17 +66,27 @@ def load_plugins(plugins_dir: Path) -> None:
 
     Called by the entry point after the server configuration is applied.
     Thread-safe — writes to the shared plugin list under the lock.
+    Verification runs in a background thread to avoid blocking startup.
 
     Args:
         plugins_dir: Absolute path to the ``plugins/`` directory.
     """
     global _plugins, _plugins_dir
     discovered = discover_plugins(plugins_dir)
-    verify_all(discovered)
+
+    # Update state immediately so discovery results are visible to Studio.
     with _state_lock:
         _plugins = discovered
         _plugins_dir = plugins_dir
-    logger.info("Loaded %d plugin(s) from %s", len(discovered), plugins_dir)
+
+    def _bg_verify():
+        try:
+            verify_all(discovered)
+        except Exception:
+            logger.exception("Unexpected error during background plugin verification")
+
+    threading.Thread(target=_bg_verify, name="TtsPluginVerification", daemon=True).start()
+    logger.info("Discovered %d plugin(s) from %s. Verification started in background.", len(discovered), plugins_dir)
 
 
 # ---------------------------------------------------------------------------

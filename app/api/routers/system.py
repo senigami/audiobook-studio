@@ -159,11 +159,7 @@ def api_home(
             backend_mode = "Direct-In-Process"
 
     if use_tts_server():
-        startup_ready = bool(
-            watchdog
-            and watchdog.is_healthy()
-            and engines
-        )
+        startup_ready = bool(watchdog and watchdog.is_healthy())
         if not watchdog:
             startup_message = "Starting Audiobook Studio Services"
             startup_detail = "Waiting for the TTS watchdog to initialize."
@@ -171,8 +167,8 @@ def api_home(
             startup_message = "Starting Audiobook Studio Services"
             startup_detail = "Checking TTS plugins and runtime health."
         elif not engines:
-            startup_message = "Starting Audiobook Studio Services"
-            startup_detail = "Discovering TTS engines and loading plugin metadata."
+            startup_message = "Audiobook Studio is ready."
+            startup_detail = "TTS runtime is ready."
         else:
             startup_message = "Audiobook Studio is ready."
             startup_detail = "All services are available."

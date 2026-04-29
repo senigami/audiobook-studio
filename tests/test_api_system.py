@@ -58,6 +58,28 @@ def test_home_endpoint(clean_db, client, monkeypatch):
         assert info["tts_server_url"] == "http://127.0.0.1:7862"
         assert info["startup_ready"] is True
 
+def test_home_endpoint_ready_without_engines(clean_db, client, monkeypatch):
+    """Verify startup can complete when the watchdog is healthy even if no engines are exposed yet."""
+    monkeypatch.setenv("USE_TTS_SERVER", "1")
+    monkeypatch.setenv("USE_STUDIO_ORCHESTRATOR", "1")
+
+    from unittest.mock import MagicMock, patch
+    from app.engines.watchdog import TtsServerWatchdog
+    mock_watchdog = MagicMock(spec=TtsServerWatchdog)
+    mock_watchdog.is_healthy.return_value = True
+    mock_watchdog.get_port.return_value = 7862
+    mock_watchdog.get_url.return_value = "http://127.0.0.1:7862"
+
+    with patch("app.engines.watchdog.get_watchdog", return_value=mock_watchdog), \
+         patch("app.engines.bridge.VoiceBridge.describe_registry", return_value=[]):
+
+        response = client.get("/api/home")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["engines"] == []
+        assert data["system_info"]["startup_ready"] is True
+        assert data["system_info"]["startup_message"] == "Audiobook Studio is ready."
+
 def test_home_endpoint_degraded(clean_db, client, monkeypatch):
     """Verify system info when watchdog is starting/unhealthy."""
     monkeypatch.setenv("USE_TTS_SERVER", "1")

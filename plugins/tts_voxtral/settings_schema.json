@@ -4,6 +4,13 @@
   "description": "Configuration for the Voxtral (Mistral AI) speech synthesis engine.",
   "type": "object",
   "properties": {
+    "mistral_api_key": {
+      "type": "string",
+      "title": "Mistral API Key",
+      "description": "Enter your Mistral AI API key. You can get one at console.mistral.ai",
+      "format": "password",
+      "default": ""
+    },
     "model": {
       "type": "string",
       "title": "Model",

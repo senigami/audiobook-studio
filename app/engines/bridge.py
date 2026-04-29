@@ -253,19 +253,34 @@ class VoiceBridge:
 
     def get_logs(self, engine_id: str) -> dict[str, Any]:
         """Fetch recent logs for an engine."""
-        from app.config import BASE_DIR # noqa: PLC0415
-        log_dir = BASE_DIR / "logs"
+        from .watchdog import get_watchdog # noqa: PLC0415
+        watchdog = get_watchdog()
 
-        msg = "Direct log streaming is not available in the UI."
-        if log_dir.exists():
-            msg += f" Please check the '{log_dir}' directory for detailed engine and server output."
-        else:
-            msg += " No 'logs/' directory was found in your Studio root."
+        logs = ""
+        if watchdog:
+            logs = watchdog.get_logs()
+
+        if not logs:
+            from app.config import BASE_DIR # noqa: PLC0415
+            log_dir = BASE_DIR / "logs"
+
+            msg = "Direct log streaming is not available in the UI."
+            if log_dir.exists():
+                msg += f" Please check the '{log_dir}' directory for detailed engine and server output."
+            else:
+                msg += " No 'logs/' directory was found in your Studio root."
+
+            return {
+                "ok": False,
+                "logs": msg,
+                "message": msg,
+                "engine_id": engine_id,
+            }
 
         return {
-            "ok": False,
-            "logs": msg,
-            "message": msg,
+            "ok": True,
+            "logs": logs,
+            "message": "Logs retrieved from TTS Server buffer.",
             "engine_id": engine_id,
         }
 

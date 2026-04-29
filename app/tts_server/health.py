@@ -97,8 +97,8 @@ def build_engine_detail(
     can_enable, enablement_message = can_enable_engine(
         plugin.engine_id,
         current_settings=current_settings,
-        built_in=bool(getattr(manifest, "built_in", False)),
-        verified=bool(getattr(manifest, "verified", False)),
+        built_in=bool(manifest.get("built_in", False)),
+        verified=bool(plugin.verified),
         status=status,
     )
 

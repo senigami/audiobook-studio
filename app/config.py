@@ -36,6 +36,7 @@ SAMPLES_DIR = Path(os.getenv("SAMPLES_DIR", str(BASE_DIR / "samples")))
 ASSETS_DIR = Path(os.getenv("ASSETS_DIR", str(BASE_DIR / "assets")))
 PROJECTS_DIR = Path(os.getenv("PROJECTS_DIR", str(BASE_DIR / "projects")))
 TRASH_DIR = Path(os.getenv("TRASH_DIR", str(BASE_DIR / "trash")))
+PLUGINS_DIR = Path(os.getenv("PLUGINS_DIR", str(BASE_DIR / "plugins")))
 FRONTEND_DIST = BASE_DIR / "frontend" / "dist"
 XTTS_ENV_DIR = Path(os.getenv("XTTS_ENV_DIR", str(Path.home() / "xtts-env")))
 XTTS_ENV_PYTHON = Path(
