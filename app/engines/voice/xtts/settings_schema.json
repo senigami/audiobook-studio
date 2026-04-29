@@ -39,7 +39,7 @@
     "top_p": {
       "type": "number",
       "title": "Top-P",
-      "description": "Lets the model choose from the smallest set of options whose combined probability reaches this value. Lower values are tighter and safer. Higher values are looser and more varied.",
+      "description": "Controls how wide the model can search for the next sound. A good starting point is around 0.9. Lower values keep the voice tighter and more predictable; higher values make it more varied, but can also make it wander.",
       "minimum": 0.01,
       "maximum": 1.0,
       "default": 0.85

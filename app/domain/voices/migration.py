@@ -3,6 +3,7 @@ import os
 import shutil
 import logging
 import re
+import threading
 from pathlib import Path
 from typing import Dict, Any, List
 from .manifest import (
@@ -35,8 +36,6 @@ def _move_profile_contents(src_dir: Path, dest_dir: Path, *, preserve_names: set
             logger.warning("Migration collision: %s already exists. Skipping %s", target, entry)
             continue
         shutil.move(str(entry), str(target))
-
-import threading
 
 _migration_lock = threading.Lock()
 

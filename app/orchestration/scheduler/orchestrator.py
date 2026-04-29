@@ -28,7 +28,7 @@ from typing import Optional
 
 from app.engines.bridge import create_voice_bridge
 from app.orchestration.progress.service import create_progress_service
-from app.orchestration.tasks.base import StudioTask, TaskResult
+from app.orchestration.tasks.base import StudioTask, TaskContext, TaskResult
 
 from .policies import choose_next_task
 from .recovery import load_recoverable_task_contexts
