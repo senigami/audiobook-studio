@@ -146,3 +146,51 @@ def test_install_engine_dependencies_delegates_to_bridge(clean_db, client):
     assert response.status_code == 200
     assert response.json() == {"ok": True, "message": "Installed"}
     bridge.install_dependencies.assert_called_once_with("mock-engine")
+
+
+def test_engine_test_endpoint_delegates_preview_with_engine_id(clean_db, client, tmp_path):
+    bridge = MagicMock()
+
+    with patch("app.api.routers.engines.create_voice_bridge", return_value=bridge), \
+         patch("app.tts_server.verification._resolve_default_voice_reference", return_value=(str(tmp_path / "reference.wav"), None)), \
+         patch("app.config.ENGINE_TEST_DIR", tmp_path):
+
+        # Mock bridge to say it succeeded
+        # The router will check if the file exists at output_path
+        def mock_preview(engine_id, payload):
+            out_path = payload["output_path"]
+            os.makedirs(os.path.dirname(out_path), exist_ok=True)
+            with open(out_path, "wb") as f:
+                f.write(b"wav")
+            return {"ok": True, "audio_path": out_path}
+
+        bridge.preview.side_effect = mock_preview
+
+        response = client.post("/api/engines/mock-engine/test")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["ok"] is True
+    assert "audio_url" in data
+    assert "/api/engines/mock-engine/test/audio" in data["audio_url"]
+    assert "generated_at" in data
+
+    bridge.preview.assert_called_once()
+    engine_id, payload = bridge.preview.call_args.args
+    assert engine_id == "mock-engine"
+    assert payload["script_text"]
+    assert payload["output_path"].endswith("last_test.wav")
+
+
+def test_get_test_audio_returns_file(clean_db, client, tmp_path):
+    safe_engine_id = "mock_engine"
+    engine_test_root = tmp_path / safe_engine_id
+    engine_test_root.mkdir(parents=True, exist_ok=True)
+    audio_path = engine_test_root / "last_test.wav"
+    audio_path.write_bytes(b"wav content")
+
+    with patch("app.config.ENGINE_TEST_DIR", tmp_path):
+        response = client.get(f"/api/engines/{safe_engine_id}/test/audio")
+
+    assert response.status_code == 200
+    assert response.content == b"wav content"

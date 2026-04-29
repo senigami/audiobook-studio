@@ -428,13 +428,9 @@ export const api = {
     const res = await fetch(`/api/engines/${encodeURIComponent(engineId)}/logs`);
     return parseApiResponse(res);
   },
-  testEngine: async (engineId: string): Promise<Blob> => {
+  testEngine: async (engineId: string): Promise<any> => {
     const res = await fetch(`/api/engines/${encodeURIComponent(engineId)}/test`, { method: 'POST' });
-    if (!res.ok) {
-      const data = await res.json().catch(() => null);
-      throw new Error(data?.message || 'Test synthesis failed');
-    }
-    return res.blob();
+    return parseApiResponse(res);
   },
   installPlugin: async (): Promise<any> => {
     const res = await fetch('/api/engines/install', { method: 'POST' });

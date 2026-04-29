@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, Cloud, Play, ShieldCheck, FileText, Download, Trash2, ShieldAlert } from 'lucide-react';
+import { ChevronDown, Cloud, Play, ShieldCheck, FileText, Download, Trash2, ShieldAlert, Loader2 } from 'lucide-react';
 import type { TtsEngine } from '../../../types';
 import { api } from '../../../api';
 import { ConfirmModal } from '../../../components/ConfirmModal';
@@ -14,7 +14,13 @@ export const EngineCard: React.FC<{
   onShowNotification?: (message: string) => void;
 }> = ({ engine, onUpdate, onShowNotification }) => {
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState(engine.last_test);
   const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
+
+  React.useEffect(() => {
+    setTestResult(engine.last_test);
+  }, [engine.last_test]);
   const engineUi = getEngineUi(engine.settings_schema);
   const tone = engine.status === 'ready'
     ? 'blue'
@@ -214,29 +220,42 @@ export const EngineCard: React.FC<{
           />
         </div>
 
+        {testResult && testResult.ok && (
+          <div style={{ marginTop: '1.25rem', padding: '1rem', background: 'rgba(0,0,0,0.02)', borderRadius: '12px', border: '1px solid var(--border)', animation: 'fade-in 0.3s ease-out' }}>
+             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+               <span style={{ fontSize: '0.72rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                 Latest Test Sample
+               </span>
+               <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                 Generated at: {new Date(testResult.generated_at * 1000).toLocaleString()}
+               </span>
+             </div>
+             <audio controls src={testResult.audio_url} style={{ width: '100%', height: '36px' }} />
+          </div>
+        )}
+
         <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border)', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
           <button
             type="button"
             className="btn-glass"
             title="Run a real sample render using the Studio default voice reference."
-            disabled={saving}
+            disabled={saving || testing}
             onClick={async () => {
-              setSaving(true);
+              setTesting(true);
               try {
-                const blob = await api.testEngine(engine.engine_id);
-                const url = URL.createObjectURL(blob);
-                const audio = new Audio(url);
-                audio.play();
-                onShowNotification?.(`Playing test sample for ${engine.display_name}...`);
+                const res = await api.testEngine(engine.engine_id);
+                setTestResult(res);
+                onShowNotification?.(`Test sample generated for ${engine.display_name}.`);
               } catch (err: any) {
                 onShowNotification?.(`Test failed: ${err.message || 'Unknown error'}`);
               } finally {
-                setSaving(false);
+                setTesting(false);
               }
             }}
             style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.8rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 800 }}
           >
-            <Play size={14} /> Test
+            {testing ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+            {testing ? 'Running...' : 'Run Test'}
           </button>
           
           <button

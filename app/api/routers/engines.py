@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 from fastapi import APIRouter, Body
 from fastapi.responses import JSONResponse, FileResponse
 from ...engines.bridge import create_voice_bridge
@@ -63,6 +64,17 @@ def verify_engine(engine_id: str):
         return JSONResponse({"status": "error", "message": str(exc)}, status_code=503)
 
 
+@router.get("/{engine_id}/test/audio")
+def get_test_audio(engine_id: str):
+    """Retrieve the latest test audio for an engine."""
+    from app.config import ENGINE_TEST_DIR  # noqa: PLC0415
+    safe_engine_id = "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in engine_id)
+    audio_path = ENGINE_TEST_DIR / safe_engine_id / "last_test.wav"
+    if not audio_path.exists():
+        return JSONResponse({"ok": False, "message": "No test audio found"}, status_code=404)
+    return FileResponse(audio_path, media_type="audio/wav")
+
+
 @router.post("/{engine_id}/test")
 def test_engine(engine_id: str):
     """Run a real sample render or a minimal playable voice sample path."""
@@ -88,10 +100,21 @@ def test_engine(engine_id: str):
         return JSONResponse({"ok": False, "message": f"Test failed: {error}"}, status_code=400)
 
     try:
+        from app.config import ENGINE_TEST_DIR  # noqa: PLC0415
+        import json
+        import time
+
+        safe_engine_id = "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in engine_id)
+        engine_test_root = ENGINE_TEST_DIR / safe_engine_id
+        engine_test_root.mkdir(parents=True, exist_ok=True)
+
+        output_path = engine_test_root / "last_test.wav"
         res = bridge.preview(engine_id, {
             "script_text": "This is a test of the synthesis engine. How do I sound?",
             "voice_profile_id": "Default", # Placeholder
             "voice_ref": voice_ref,
+            "reference_audio_path": voice_ref,
+            "output_path": str(output_path),
             "output_format": "wav"
         })
     except EngineUnavailableError as exc:
@@ -100,7 +123,16 @@ def test_engine(engine_id: str):
     if res.get("status") == "ok" or res.get("ok"):
         audio_path = res.get("audio_path")
         if audio_path and Path(audio_path).exists():
-            return FileResponse(audio_path, media_type="audio/wav")
+            generated_at = time.time()
+            meta = {
+                "ok": True,
+                "engine_id": engine_id,
+                "audio_url": f"/api/engines/{engine_id}/test/audio?t={generated_at}",
+                "generated_at": generated_at,
+                "message": "Test sample generated successfully."
+            }
+            (engine_test_root / "last_test.json").write_text(json.dumps(meta), encoding="utf-8")
+            return JSONResponse(meta)
 
     return JSONResponse({"ok": False, "message": res.get("message") or "Test synthesis failed."}, status_code=500)
 

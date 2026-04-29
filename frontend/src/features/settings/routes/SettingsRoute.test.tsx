@@ -245,7 +245,7 @@ describe('SettingsRoute', () => {
     expect(screen.getByText('VERIFIED')).toBeTruthy();
     fireEvent.click(screen.getByText('XTTS Local'));
     
-    expect(screen.getAllByText(/Test/i)[0]).toBeTruthy();
+    expect(screen.getAllByText(/Run Test/i)[0]).toBeTruthy();
     expect(screen.getAllByText(/Verify/i)[0]).toBeTruthy();
     expect(screen.getAllByText(/Logs/i)[0]).toBeTruthy();
     expect(screen.getByText(/Temperature/i)).toBeTruthy();

@@ -27,6 +27,12 @@ export interface TtsEngine {
   privacy_text?: string;
   settings_schema: any;
   current_settings?: Record<string, any>;
+  last_test?: {
+    ok: boolean;
+    audio_url: string;
+    generated_at: number;
+    message?: string;
+  };
 }
 
 export type Status = 'queued' | 'preparing' | 'running' | 'finalizing' | 'done' | 'failed' | 'cancelled' | 'error';

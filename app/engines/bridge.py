@@ -7,12 +7,14 @@ implementation.
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 
 from app.core.feature_flags import use_tts_server
 from app.engines.registry import load_engine_registry
 from app.engines.bridge_local import LocalBridgeHandler
 from app.engines.bridge_remote import RemoteBridgeHandler
+from app.engines.voice.base import BaseVoiceEngine
 from app.engines.voice.sdk import TTSRequest, TTSResult
 from app.state import get_settings, update_settings
 
@@ -45,12 +47,6 @@ class VoiceBridge:
         if use_tts_server():
             return self.remote.synthesize(request)
         return self.local.synthesize(request)
-
-    def preview(self, request: dict[str, Any]) -> dict[str, Any]:
-        """Route preview request."""
-        if use_tts_server():
-            return self.remote.preview(request)
-        return self.local.preview(request)
 
     def build_voice_asset(self, request: dict[str, Any]) -> dict[str, Any]:
         """Route voice-asset build request."""
@@ -88,8 +84,26 @@ class VoiceBridge:
     def describe_registry(self) -> list[dict[str, Any]]:
         """Return discovery metadata for all registered engines."""
         if use_tts_server():
-            return self.remote.describe_registry()
-        return self.local.describe_registry()
+            results = self.remote.describe_registry()
+        else:
+            results = self.local.describe_registry()
+
+        # Enrich with last test results
+        from app.config import ENGINE_TEST_DIR  # noqa: PLC0415
+        import json
+        if ENGINE_TEST_DIR.exists():
+            for data in results:
+                engine_id = data.get("engine_id")
+                if not engine_id:
+                    continue
+                safe_id = "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in engine_id)
+                meta_path = ENGINE_TEST_DIR / safe_id / "last_test.json"
+                if meta_path.exists():
+                    try:
+                        data["last_test"] = json.loads(meta_path.read_text(encoding="utf-8"))
+                    except Exception:
+                        pass
+        return results
 
     def update_engine_settings(self, engine_id: str, settings: dict[str, Any]) -> dict[str, Any]:
         """Update and persist settings for an engine."""
@@ -151,20 +165,26 @@ class VoiceBridge:
 
         return {"ok": result.ok, "message": result.error if not result.ok else "Verified successfully", "duration_sec": result.duration_sec}
 
-    def preview(self, engine_id: str, request: dict[str, Any]) -> dict[str, Any]:
-        """Trigger a lightweight preview synthesis."""
+    def preview(
+        self,
+        engine_id_or_request: str | dict[str, Any],
+        request: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Route preview request.
+
+        Most callers pass a complete request payload containing ``engine_id``.
+        The Settings engine test endpoint passes ``engine_id`` separately; this
+        method normalizes both call shapes before routing.
+        """
+        if request is None:
+            payload = dict(engine_id_or_request)
+        else:
+            payload = dict(request)
+            payload.setdefault("engine_id", str(engine_id_or_request))
+
         if use_tts_server():
-            return self.remote.preview(engine_id, request)
-
-        registry = self.local.registry_loader()
-        reg = registry.get(engine_id)
-        if not reg:
-            return {"ok": False, "message": f"Engine '{engine_id}' not found in local registry."}
-
-        try:
-            return reg.engine.preview(request)
-        except Exception as exc:
-            return {"ok": False, "message": str(exc)}
+            return self.remote.preview(payload)
+        return self.local.preview(payload)
 
     def install_dependencies(self, engine_id: str) -> dict[str, Any]:
         """Trigger dependency installation."""
