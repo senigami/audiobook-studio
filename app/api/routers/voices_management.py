@@ -313,9 +313,13 @@ def list_speaker_profiles():
             )
             profile_data["is_ready"] = is_ready
             profile_data["readiness_message"] = msg
-        except Exception:
+        except Exception as e:
+            from ...engines.errors import EngineUnavailableError
             profile_data["is_ready"] = False
-            profile_data["readiness_message"] = "Internal error during readiness check"
+            if isinstance(e, EngineUnavailableError):
+                profile_data["readiness_message"] = "TTS Server is starting up..."
+            else:
+                profile_data["readiness_message"] = f"Internal error during readiness check: {e}"
 
         profiles.append(profile_data)
     return profiles
@@ -348,11 +352,11 @@ def api_create_speaker_profile(
         # Record speaker_id (could be a UUID or a name for unassigned)
         jobs.update_speaker_settings(name, speaker_id=speaker_id, variant_name=variant_name, engine=normalized_engine)
         return JSONResponse({"status": "ok", "name": name})
-    except ValueError:
-        return JSONResponse({"status": "error", "message": "Invalid profile engine"}, status_code=400)
+    except ValueError as e:
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=400)
     except Exception as e:
         logger.error(f"Error creating profile {speaker_id}/{variant_name}: {e}")
-        return JSONResponse({"status": "error", "message": "Creation failed"}, status_code=500)
+        return JSONResponse({"status": "error", "message": f"Creation failed: {e}"}, status_code=500)
 
 @router.delete("/speaker-profiles/{name}")
 def delete_speaker_profile(

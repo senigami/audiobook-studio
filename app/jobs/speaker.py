@@ -54,7 +54,8 @@ def _scandir_names_within_root(root_dir, *parts: str) -> Optional[set[str]]:
 def _dir_has_profile_assets(entry_names: set[str]) -> bool:
     if "profile.json" in entry_names:
         return True
-    return False
+    # Rule 8 fallback for legacy wav discovery
+    return any(name.endswith(".wav") for name in entry_names)
 
 
 def _is_uuid(value: str) -> bool:
@@ -113,33 +114,25 @@ def _find_existing_voice_profile_dir(profile_name: str) -> Optional[Path]:
     exact_names = _scandir_names_within_root(voices_root, profile_name)
     if exact_names is not None:
         exact = Path(os.path.join(voices_root, profile_name))
-        # A valid profile directory must have profile.json
-        if "profile.json" in exact_names:
-            return exact
 
-        if _dir_has_profile_assets(exact_names):
-            return exact
-
-        # If it's a voice root (has voice.json), try to find the Default variant
+        # If it's a voice root (has voice.json), it is NOT a profile directory itself.
+        # We must look for its Default variant.
         if "voice.json" in exact_names:
-            nested_default_names = _scandir_names_within_root(voices_root, profile_name, "Default")
-            if nested_default_names is not None and _dir_has_profile_assets(nested_default_names):
-                nested_default = Path(os.path.join(voices_root, profile_name, "Default"))
-                return nested_default
+            return Path(os.path.join(voices_root, profile_name, "Default"))
+
+        # Otherwise, if it has assets or it's a directory, it's a profile.
+        return exact
 
     # 2. Nested resolution: "Dracula - Angry" -> voices/Dracula/Angry
     if " - " in profile_name:
         v_name, var_name = profile_name.split(" - ", 1)
         nested_names = _scandir_names_within_root(voices_root, v_name.strip(), var_name.strip())
-        if nested_names is not None and _dir_has_profile_assets(nested_names):
-            nested = Path(os.path.join(voices_root, v_name.strip(), var_name.strip()))
-            return nested
+        if nested_names is not None:
+            return Path(os.path.join(voices_root, v_name.strip(), var_name.strip()))
 
-    # 3. Base voice default: "Dracula" -> voices/Dracula/Default (Fallback)
-    nested_default_names = _scandir_names_within_root(voices_root, profile_name, "Default")
-    if nested_default_names is not None and _dir_has_profile_assets(nested_default_names):
-        nested_default = Path(os.path.join(voices_root, profile_name, "Default"))
-        return nested_default
+    # 3. Base voice default fallback: "Dracula" -> voices/Dracula/Default (even if not yet scanned)
+    # This helps when we know it's a v2 voice by name but haven't checked voice.json yet.
+    # However, Section 1 already handles the v2 root case if the directory exists.
 
     return None
 

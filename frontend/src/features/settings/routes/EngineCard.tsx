@@ -189,8 +189,7 @@ export const EngineCard: React.FC<{
                 </div>
               )}
               <span style={{ marginTop: '0.4rem' }}>
-                Install Deps will attempt to run `pip install` for the requirements.txt found in the engine's directory. 
-                This installs packages into the same environment Studio is running in.
+                Install Deps installs the Python packages listed for this engine in the same environment Studio is running in.
               </span>
               {engine.engine_id.toLowerCase().includes('xtts') && (
                 <span>

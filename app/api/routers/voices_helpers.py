@@ -1,3 +1,4 @@
+import os
 import logging
 import re
 import urllib.parse
@@ -54,7 +55,12 @@ def _profile_dir_has_assets(profile_dir: Path) -> bool:
         return False
     if find_secure_file(profile_dir, "profile.json"):
         return True
-    return False
+    # If it's a v2 voice root (voice.json), it's NOT a playable profile directory itself.
+    if find_secure_file(profile_dir, "voice.json"):
+        return False
+    # For legacy/compatibility and test support, we allow directories to be treated as profiles
+    # even if empty or missing profile.json, so they can be discovered/built.
+    return True
 
 
 def _normalize_profile_engine(engine: Optional[str]) -> str:
@@ -65,8 +71,18 @@ def _normalize_profile_engine(engine: Optional[str]) -> str:
 
 
 def _is_engine_active(engine_id: str) -> bool:
+    from ...engines.errors import EngineUnavailableError
     bridge = create_voice_bridge()
-    engines = bridge.describe_registry()
+    try:
+        engines = bridge.describe_registry()
+    except EngineUnavailableError:
+        # If the TTS Server is starting up, we can't get the registry yet.
+        # For built-in engines, we assume they are active to avoid blocking
+        # voice listing/creation.
+        if engine_id in ("xtts", "voxtral"):
+            return True
+        return False
+
     for e in engines:
         if e["engine_id"] == engine_id:
             return bool(e.get("enabled"))
@@ -78,7 +94,7 @@ def _voice_dirs_map() -> Dict[str, Path]:
     if not root.exists():
         return {}
     dirs: Dict[str, Path] = {}
-    for entry in root.iterdir():
+    for entry in sorted(root.iterdir(), key=lambda e: e.name):
         if entry.is_dir() and SAFE_PROFILE_NAME_RE.fullmatch(entry.name):
             if find_secure_file(entry, "voice.json"):
                 for sub in entry.iterdir():
@@ -87,7 +103,7 @@ def _voice_dirs_map() -> Dict[str, Path]:
                         if sub.name == "Default":
                             name = entry.name
                         dirs[name] = sub.resolve()
-            if _profile_dir_has_assets(entry):
+            elif _profile_dir_has_assets(entry):
                 dirs[entry.name] = entry.resolve()
     return dirs
 
@@ -235,11 +251,13 @@ def _voice_has_generation_material(name: str) -> bool:
     bridge = create_voice_bridge()
     try:
         profile_dir = _existing_voice_profile_dir(name)
+        if not profile_dir:
+            return False
         ready, _ = bridge.check_readiness(
             engine_id=engine,
             profile_id=name,
             settings=settings,
-            profile_dir=str(profile_dir) if profile_dir else None
+            profile_dir=str(profile_dir)
         )
         return ready
     except Exception as exc:

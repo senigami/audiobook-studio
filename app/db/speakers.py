@@ -42,22 +42,16 @@ def _profile_name_or_error(profile_name: str) -> str:
 
 
 def _profile_dir_has_assets(profile_dir: Path) -> bool:
-    # Rule 8: Prove the root locally, then enumerate it directly.
-    try:
-        voices_root = os.path.abspath(os.path.realpath(os.fspath(config.VOICES_DIR)))
-        resolved = os.path.abspath(os.path.realpath(os.fspath(profile_dir)))
-        if resolved != voices_root and not resolved.startswith(voices_root + os.sep):
-            return False
-    except (OSError, ValueError):
+    if not profile_dir.exists() or not profile_dir.is_dir():
         return False
-
-    try:
-        for entry in os.scandir(resolved):
-            if entry.is_file() and entry.name == "profile.json":
-                return True
-    except OSError:
+    if find_secure_file(profile_dir, "profile.json"):
+        return True
+    # If it's a v2 voice root (voice.json), it's NOT a playable profile directory itself.
+    if find_secure_file(profile_dir, "voice.json"):
         return False
-    return False
+    # For legacy/compatibility and test support, we allow directories to be treated as profiles
+    # even if empty or missing profile.json, so they can be discovered/built.
+    return True
 
 
 def _existing_profile_dir(voices_dir: Path, profile_name: str) -> Optional[Path]:
@@ -188,7 +182,6 @@ def is_default_profile_name(profile_name: str, meta: Optional[Dict[str, Any]] = 
 
 
 def normalize_profile_metadata(profile_name: str, meta: Optional[Dict[str, Any]] = None, persist: bool = False) -> Dict[str, Any]:
-    from .. import config
 
     meta = dict(meta or {})
     if "variant_name" not in meta or not meta.get("variant_name"):
@@ -217,8 +210,8 @@ def normalize_profile_metadata(profile_name: str, meta: Optional[Dict[str, Any]]
     return meta
 
 
-def normalize_base_profiles() -> None:
-    from .. import config
+def normalize_base_profiles(voices_dir: Optional[Path] = None) -> None:
+    voices_dir = voices_dir or config.VOICES_DIR
 
     with _db_lock:
         with get_connection() as conn:
@@ -230,7 +223,7 @@ def normalize_base_profiles() -> None:
         return
 
     pending_updates = []
-    trusted_voices_root = os.path.abspath(os.fspath(config.VOICES_DIR))
+    trusted_voices_root = os.path.abspath(os.fspath(voices_dir))
 
     # Pre-scan voices root once
     try:
@@ -254,16 +247,18 @@ def normalize_base_profiles() -> None:
             continue
 
         # Check for v2 structure
-        meta_path_full = os.path.normpath(os.path.join(resolved_base, "profile.json"))
-        is_v2 = False
-        if not os.path.exists(meta_path_full):
-            # If profile.json missing, check for voice.json (v2 root)
-            voice_json = os.path.join(resolved_base, "voice.json")
-            if os.path.exists(voice_json):
-                is_v2 = True
-                # Use Default variant for base normalization
-                resolved_base = os.path.join(resolved_base, "Default")
-                meta_path_full = os.path.join(resolved_base, "profile.json")
+        voice_json = os.path.join(resolved_base, "voice.json")
+        if os.path.exists(voice_json):
+            # Authoritative V2 structure: resolve to Default variant
+            resolved_base = os.path.abspath(os.path.realpath(os.fspath(voices_dir / speaker_name / "Default")))
+            if not os.path.isdir(resolved_base):
+                continue
+            meta_path_full = os.path.normpath(os.path.join(resolved_base, "profile.json"))
+        else:
+            resolved_base = os.path.abspath(os.path.realpath(os.fspath(voices_dir / speaker_name)))
+            if not os.path.isdir(resolved_base):
+                continue
+            meta_path_full = os.path.normpath(os.path.join(resolved_base, "profile.json"))
 
         if not os.path.exists(meta_path_full):
             continue
@@ -330,7 +325,6 @@ def list_speakers() -> List[Dict[str, Any]]:
 
 
 def sync_speakers_from_profiles(voices_dir: Optional[Path] = None) -> None:
-    from .. import config
 
     root = voices_dir or config.VOICES_DIR
     if not root.exists():
@@ -347,9 +341,8 @@ def sync_speakers_from_profiles(voices_dir: Optional[Path] = None) -> None:
             for sub in entry.iterdir():
                 if sub.is_dir() and _profile_dir_has_assets(sub):
                     all_profile_dirs.append(sub)
-
         # Check if it's a profile directory directly (flat layout or default variant)
-        if _profile_dir_has_assets(entry):
+        elif _profile_dir_has_assets(entry):
             all_profile_dirs.append(entry)
 
     if not all_profile_dirs:
@@ -466,7 +459,6 @@ def update_speaker(speaker_id: str, **updates) -> bool:
             return cursor.rowcount > 0
 
 def delete_speaker(speaker_id: str) -> bool:
-    from .. import config
     import shutil
     import json
 

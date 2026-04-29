@@ -97,7 +97,7 @@ export function buildVoiceOptions(speakerProfiles: SpeakerProfile[], speakers: S
             }
 
             if (!isVoiceProfileSelectable(profile, engines)) {
-                statuses.push('🚫 Unavailable');
+                statuses.push('🚫');
             }
 
             if (statuses.length > 0) {
@@ -118,7 +118,7 @@ export function buildVoiceOptions(speakerProfiles: SpeakerProfile[], speakers: S
         .map(profile => {
             let label = profile.name;
             if (!isVoiceProfileSelectable(profile, engines)) {
-                label = `${label} (🚫 Unavailable)`;
+                label = `${label} 🚫`;
             }
             return {
                 id: `unassigned-${profile.name}`,
@@ -152,8 +152,8 @@ export function getVoiceOptionLabel(
         // If profile exists but not selectable, show name with (🚫 Unavailable)
         const engineLabel = formatVoiceEngineLabel(getVoiceProfileEngine(profile));
         return engineLabel === 'Unavailable'
-            ? `${targetValue} (🚫 Unavailable)`
-            : `${targetValue} (🚫 Unavailable: ${engineLabel})`;
+            ? `${targetValue} (🚫)`
+            : `${targetValue} (🚫: ${engineLabel})`;
     }
 
     return targetValue;

@@ -188,7 +188,9 @@ def test_build_and_test_require_samples(clean_db, voices_root, client):
     voices_dir = voices_root
     voices_dir.mkdir()
 
-    with patch("app.api.routers.voices_helpers.VOICES_DIR", voices_dir):
+    with patch("app.api.routers.voices_helpers.VOICES_DIR", voices_dir), \
+         patch("app.engines.bridge.use_tts_server", return_value=False), \
+         patch("app.api.routers.voices_helpers._is_engine_active", return_value=True):
         profile_dir = voices_dir / "SpeakerA"
         profile_dir.mkdir(parents=True, exist_ok=True)
 

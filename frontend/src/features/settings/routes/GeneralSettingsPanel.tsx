@@ -130,7 +130,7 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
                       disabled={!selectable}
                       title={!selectable ? `This voice is unavailable because the ${engineLabel} engine is not ready.` : undefined}
                     >
-                      {p.name}{!selectable ? ' (🚫 Unavailable)' : ''}
+                      {p.name}{!selectable ? ' 🚫' : ''}
                     </option>
                   );
                 })}
