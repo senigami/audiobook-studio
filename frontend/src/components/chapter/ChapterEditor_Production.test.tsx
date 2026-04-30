@@ -196,7 +196,7 @@ describe('ChapterEditor - Production & Script Integration', () => {
     );
 
     await waitFor(() => screen.findByDisplayValue('Test Chapter'));
-    fireEvent.click(screen.getByText('Char 1'));
+    fireEvent.click(screen.getByText(/Char 1/));
     const span = screen.getByText('Once upon a time.').closest('.script-span');
     fireEvent.click(span!);
 
@@ -229,7 +229,7 @@ describe('ChapterEditor - Production & Script Integration', () => {
     );
 
     await waitFor(() => screen.findByDisplayValue('Test Chapter'));
-    fireEvent.click(screen.getByText('Char 1'));
+    fireEvent.click(screen.getByText(/Char 1/));
     const span = screen.getByText('Once upon a time.').closest('.script-span');
     
     fireEvent.click(span!);

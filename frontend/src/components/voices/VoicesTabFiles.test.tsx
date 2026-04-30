@@ -26,6 +26,16 @@ vi.mock('../../hooks/useVoiceManagement', () => ({
   }),
 }));
 
+// Mock framer-motion
+vi.mock('framer-motion', () => ({
+  motion: {
+    div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+    button: ({ children, ...props }: any) => <button {...props}>{children}</button>,
+    span: ({ children, ...props }: any) => <span {...props}>{children}</span>,
+  },
+  AnimatePresence: ({ children }: any) => <>{children}</>,
+}));
+
 // Mock fetch for API calls in the component
 global.fetch = vi.fn();
 
@@ -61,9 +71,13 @@ describe('Voices Tab Components', () => {
         updated_at: Date.now()
     };
 
+    const mockEngines = [
+        { engine_id: 'xtts', display_name: 'XTTS', enabled: true, verified: true, status: 'ready' } as any
+    ];
+
     describe('VoicesTab', () => {
         it('renders voice lab header and search bar', () => {
-            render(<VoicesTab onRefresh={vi.fn()} speakerProfiles={[mockProfile]} testProgress={{}} />);
+            render(<VoicesTab onRefresh={vi.fn()} speakerProfiles={[mockProfile]} testProgress={{}} engines={mockEngines} />);
             expect(screen.getByText('Voices')).toBeInTheDocument();
             expect(screen.getByPlaceholderText('Search voices...')).toBeInTheDocument();
             expect(screen.getByText('Export Voice')).toBeInTheDocument();
@@ -71,12 +85,12 @@ describe('Voices Tab Components', () => {
         });
 
         it('renders list of voices', () => {
-            render(<VoicesTab onRefresh={vi.fn()} speakerProfiles={[mockProfile]} testProgress={{}} />);
+            render(<VoicesTab onRefresh={vi.fn()} speakerProfiles={[mockProfile]} testProgress={{}} engines={mockEngines} />);
             expect(screen.getByText('Speaker One')).toBeInTheDocument();
         });
 
         it('opens create voice modal', () => {
-            render(<VoicesTab onRefresh={vi.fn()} speakerProfiles={[mockProfile]} testProgress={{}} />);
+            render(<VoicesTab onRefresh={vi.fn()} speakerProfiles={[mockProfile]} testProgress={{}} engines={mockEngines} />);
             fireEvent.click(screen.getByText('New Voice'));
             expect(screen.getByText('Create New Voice')).toBeInTheDocument();
         });
@@ -102,6 +116,7 @@ describe('Voices Tab Components', () => {
                     onRenameClick={vi.fn()}
                     isExpanded={true}
                     onToggleExpand={vi.fn()}
+                    engines={mockEngines}
                 />
             );
 
@@ -129,6 +144,7 @@ describe('Voices Tab Components', () => {
                     onRenameClick={vi.fn()}
                     isExpanded={true}
                     onToggleExpand={vi.fn()}
+                    engines={mockEngines}
                 />
             );
 
@@ -156,6 +172,7 @@ describe('Voices Tab Components', () => {
                     onRenameClick={vi.fn()}
                     isExpanded={true}
                     onToggleExpand={vi.fn()}
+                    engines={mockEngines}
                 />
             );
 
@@ -187,6 +204,7 @@ describe('Voices Tab Components', () => {
                     onRenameClick={vi.fn()}
                     isExpanded={true}
                     onToggleExpand={vi.fn()}
+                    engines={mockEngines}
                 />
             );
 
@@ -352,7 +370,7 @@ describe('Voices Tab Components', () => {
 
     describe('Voice Portability (Import/Export)', () => {
         it('renders Import Voice button and handles file selection', () => {
-            render(<VoicesTab onRefresh={vi.fn()} speakerProfiles={[mockProfile]} testProgress={{}} />);
+            render(<VoicesTab onRefresh={vi.fn()} speakerProfiles={[mockProfile]} testProgress={{}} engines={mockEngines} />);
             const importBtn = screen.getByText('Import Voice');
             expect(importBtn).toBeInTheDocument();
 
@@ -364,7 +382,7 @@ describe('Voices Tab Components', () => {
         });
 
         it('renders Export Voice button and opens export modal', () => {
-            render(<VoicesTab onRefresh={vi.fn()} speakerProfiles={[mockProfile]} testProgress={{}} />);
+            render(<VoicesTab onRefresh={vi.fn()} speakerProfiles={[mockProfile]} testProgress={{}} engines={mockEngines} />);
             const exportBtn = screen.getByText('Export Voice');
             expect(exportBtn).toBeInTheDocument();
 
@@ -394,6 +412,7 @@ describe('Voices Tab Components', () => {
                     onExportVoice={onExport}
                     isExpanded={true}
                     onToggleExpand={vi.fn()}
+                    engines={mockEngines}
                 />
             );
 
@@ -407,7 +426,7 @@ describe('Voices Tab Components', () => {
 
         it('shows export confirmation modal with source WAV toggle', () => {
             const mockRefresh = vi.fn();
-            render(<VoicesTab onRefresh={mockRefresh} speakerProfiles={[mockProfile]} testProgress={{}} />);
+            render(<VoicesTab onRefresh={mockRefresh} speakerProfiles={[mockProfile]} testProgress={{}} engines={mockEngines} />);
 
             // Trigger export via NarratorCard (which is rendered inside VoicesTab)
             fireEvent.click(screen.getByLabelText('More actions'));
