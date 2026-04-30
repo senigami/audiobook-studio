@@ -63,7 +63,15 @@ class TestTTSServerIsolation:
                 def synthesize(self, req): raise RuntimeError("verify crash")
         """)
 
-        with patch("app.tts_server.server._state_lock"):
+        with patch("app.tts_server.server._state_lock"), \
+             patch("threading.Thread") as mock_thread:
+
+            def run_sync(target, *args, **kwargs):
+                target()
+                return MagicMock()
+
+            mock_thread.side_effect = lambda target=None, **kwargs: MagicMock(start=lambda: target())
+
             load_plugins(tmp_path)
 
             from app.tts_server.server import _plugins

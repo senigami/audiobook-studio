@@ -269,8 +269,30 @@ def mock_tts_server_watchdog(monkeypatch):
     # Mock the client instance
     mock_client = MagicMock()
     mock_client.get_engines.return_value = [
-        {"engine_id": "xtts", "display_name": "XTTS (Mocked)", "verified": True},
-        {"engine_id": "voxtral", "display_name": "Voxtral (Mocked)", "verified": True}
+        {
+            "engine_id": "xtts", 
+            "display_name": "XTTS (Mocked)", 
+            "version": "2.0.0",
+            "status": "ready",
+            "verified": True, 
+            "enabled": True,
+            "local": True,
+            "cloud": False,
+            "languages": ["en"],
+            "capabilities": ["streaming"]
+        },
+        {
+            "engine_id": "voxtral", 
+            "display_name": "Voxtral (Mocked)", 
+            "version": "1.0.0",
+            "status": "ready",
+            "verified": True, 
+            "enabled": True,
+            "local": False,
+            "cloud": True,
+            "languages": ["en"],
+            "capabilities": ["high_quality"]
+        }
     ]
     mock_client.health.return_value = {
         "status": "ok",
@@ -293,7 +315,13 @@ def mock_tts_server_watchdog(monkeypatch):
     # Patch TtsClient class in registry so constructor returns our mock
     mock_client_cls = MagicMock(return_value=mock_client)
     monkeypatch.setattr("app.engines.registry.TtsClient", mock_client_cls)
-    monkeypatch.setattr("app.engines.bridge_remote.RemoteBridgeHandler._get_tts_client", lambda s: mock_client)
+
+    def mocked_get_client_remote(self):
+        if getattr(self, "_tts_client_factory", None) is not None:
+            return self._tts_client_factory()
+        return mock_client
+
+    monkeypatch.setattr("app.engines.bridge_remote.RemoteBridgeHandler._get_tts_client", mocked_get_client_remote)
 
     try:
         yield mock_watchdog
@@ -308,7 +336,7 @@ def bridge_test_isolation(request, monkeypatch):
     These tests are tightly coupled to local adapter mocks.
     """
     path = str(request.node.fspath)
-    if "tests/bridge/" in path or "tests/test_bridge_tts_server.py" in path:
+    if "tests/bridge/" in path or "tests/test_bridge_tts_server.py" in path or "tests/test_domain_contracts.py" in path:
         import app.core.feature_flags
         from app.engines.registry import load_engine_registry
 

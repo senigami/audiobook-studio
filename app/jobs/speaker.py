@@ -118,7 +118,11 @@ def _find_existing_voice_profile_dir(profile_name: str) -> Optional[Path]:
         # If it's a voice root (has voice.json), it is NOT a profile directory itself.
         # We must look for its Default variant.
         if "voice.json" in exact_names:
-            return Path(os.path.join(voices_root, profile_name, "Default"))
+            default_path = Path(os.path.join(voices_root, profile_name, "Default"))
+            if os.path.isdir(default_path):
+                return default_path
+            # If Default is missing, this base path is NOT a valid profile directory.
+            return None
 
         # Otherwise, if it has assets or it's a directory, it's a profile.
         return exact
