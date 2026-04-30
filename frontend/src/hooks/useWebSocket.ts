@@ -44,7 +44,7 @@ export const useWebSocket = (url: string, onMessage: (data: any) => void) => {
       }
     };
 
-    socket.onerror = (err) => {
+    socket.onerror = () => {
       socket.close();
     };
   }, [url]);

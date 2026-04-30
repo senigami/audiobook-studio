@@ -219,7 +219,6 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
     () => buildVoiceOptions(speakerProfiles || [], speakers || [], engines, characters),
     [speakerProfiles, speakers, engines, characters]
   );
-  const availableVoiceNames = React.useMemo(() => new Set(mergedVoices.map(v => v.value)), [mergedVoices]);
   const effectiveProjectVoice = React.useMemo(() => {
     return selectedVoice
       || project?.speaker_profile_name

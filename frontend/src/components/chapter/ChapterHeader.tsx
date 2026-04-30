@@ -19,7 +19,6 @@ interface ChapterHeaderProps {
   onVoiceChange: (voice: string) => void;
   availableVoices: import('../../utils/voiceProfiles').VoiceOption[];
   defaultVoiceLabel?: string;
-  selectedVoiceLabel?: string;
   submitting: boolean;
   queueLocked?: boolean;
   queuePending?: boolean;
@@ -49,7 +48,6 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
   onVoiceChange,
   availableVoices,
   defaultVoiceLabel = 'Use Project Default',
-  selectedVoiceLabel,
   submitting,
   queueLocked = false,
   queuePending = false,

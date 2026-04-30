@@ -124,11 +124,6 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     return fallbackVoiceLabel ? `Use Project Default (${fallbackVoiceLabel})` : 'Use Project Default';
   }, [externalVoice, speakerProfiles, speakers, engines, characters]);
 
-  const selectedVoiceLabel = useMemo(() => {
-    const selected = localVoice || externalVoice;
-    if (!selected) return '';
-    return getVoiceOptionLabel(selected, speakerProfiles || [], speakers || [], engines, characters) || selected;
-  }, [localVoice, externalVoice, speakerProfiles, speakers, engines, characters]);
 
   const availableVoices = useMemo(() => {
     return buildVoiceOptions(speakerProfiles || [], speakers || [], engines, characters);
@@ -245,7 +240,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         chapter={chapter} title={title} setTitle={setTitle} saving={saving} hasUnsavedChanges={hasUnsavedChanges}
         onPrev={onPrev ? async () => { await handleSave(); onPrev(); } : undefined}
         onNext={onNext ? async () => { await handleSave(); onNext(); } : undefined}
-        selectedVoice={localVoice} selectedVoiceLabel={selectedVoiceLabel} 
+        selectedVoice={localVoice} 
         onVoiceChange={(v) => handleVoiceChange(v, (msg) => setConfirmConfig({ title: 'Voice Update Failed', message: msg, onConfirm: () => {}, confirmText: 'OK' }))} 
         availableVoices={availableVoices} defaultVoiceLabel={chapterDefaultVoiceLabel}
         submitting={submitting} queueLocked={submitting || !anyEnginesEnabled} queuePending={false} job={job} generatingJob={generatingSegmentJob} generatingSegmentIdsCount={effectivePendingSegmentIds.size}

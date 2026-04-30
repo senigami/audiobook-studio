@@ -1,5 +1,5 @@
 import React from 'react';
-import { VoiceOption } from '../../utils/voiceProfiles';
+import type { VoiceOption } from '../../utils/voiceProfiles';
 
 interface VoiceProfileSelectProps {
   value: string;

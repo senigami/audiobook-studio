@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, Cloud, Play, ShieldCheck, FileText, Download, Trash2, ShieldAlert, Loader2 } from 'lucide-react';
+import { ChevronDown, Cloud, Play, ShieldCheck, Download, Trash2, ShieldAlert, Loader2 } from 'lucide-react';
 import type { TtsEngine } from '../../../types';
 import { api } from '../../../api';
 import { ConfirmModal } from '../../../components/ConfirmModal';

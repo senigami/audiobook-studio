@@ -16,7 +16,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from app.engines.voice.sdk import TTSRequest, TTSResult
+from app.engines.voice.sdk import TTSRequest, TTSResult, VerificationResult
 from app.engines.voice.base import StudioTTSEngine
 
 
@@ -25,7 +25,6 @@ class VoxtralPlugin(StudioTTSEngine):
 
     def verify(self, req: TTSRequest) -> VerificationResult:
         """Perform a real API connectivity check by listing models."""
-        from app.engines.voice.sdk import VerificationResult  # noqa: PLC0415
         from app.engines_voxtral import list_mistral_models  # noqa: PLC0415
 
         api_key = self._resolve_api_key()

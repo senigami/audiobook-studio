@@ -192,12 +192,13 @@ function App() {
                   connected={connected}
                   isReconnecting={isReconnecting}
                   refreshingSource={activeSource || refreshingSource}
-                  startupReady={initialData?.system_info?.startup_ready !== false}
                   projectId={projectIdFromRoute}
                   projectTitle={initialData?.projects?.find((p: Project) => p.id === projectIdFromRoute)?.name}
                   chapterTitle={initialData?.chapters?.find((c: any) => c.id === chapterIdFromRoute)?.title}
                 >
-                  {({ shellState }) => (
+                  {(props) => {
+                    const { shellState } = props;
+                    return (
                     <ProjectView
                       key={shellState.navigation.activeProjectId}
                       jobs={jobs}
@@ -212,7 +213,7 @@ function App() {
                       shellState={shellState}
                       onOpenQueue={() => setIsQueueDrawerOpen(true)}
                     />
-                  )}
+                  )}}
                 </ProjectViewRoute>
               } />
               {/* Separate Chapter route if needed, though ProjectView handles it via state right now */}
@@ -222,13 +223,14 @@ function App() {
                   connected={connected}
                   isReconnecting={isReconnecting}
                   refreshingSource={activeSource || refreshingSource}
-                  startupReady={initialData?.system_info?.startup_ready !== false}
                   // We might need to resolve projectId from chapter's parent here
                   projectId={chapterRouteData?.project_id || chapterProjectIdFromRoute}
                   projectTitle={initialData?.projects?.find((p: Project) => p.id === (chapterRouteData?.project_id || chapterProjectIdFromRoute))?.name}
                   chapterTitle={chapterRouteData?.title || initialData?.chapters?.find((c: any) => c.id === chapterIdFromRoute)?.title}
                 >
-                  {({ shellState }) => (
+                  {(props) => {
+                    const { shellState } = props;
+                    return (
                     <ProjectView
                       key={shellState.navigation.activeProjectId}
                       jobs={jobs}
@@ -243,7 +245,7 @@ function App() {
                       shellState={shellState}
                       onOpenQueue={() => setIsQueueDrawerOpen(true)}
                     />
-                  )}
+                  )}}
                 </ProjectViewRoute>
               } />
               <Route path="/queue" element={

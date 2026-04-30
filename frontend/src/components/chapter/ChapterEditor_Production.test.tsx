@@ -115,7 +115,7 @@ describe('ChapterEditor - Production & Script Integration', () => {
     fireEvent.click(screen.getByText('Production'));
     const blockEditor = await screen.findByLabelText('Production block 1 text');
     fireEvent.change(blockEditor, { target: { value: 'Updated block text.' } });
-    fireEvent.click(screen.getByRole('button', { name: /save blocks/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /save blocks/i }));
 
     await waitFor(() => {
       expect(api.updateProductionBlocks).toHaveBeenCalledWith(
@@ -164,7 +164,7 @@ describe('ChapterEditor - Production & Script Integration', () => {
       target: { value: 'Dirty edit' }
     });
 
-    fireEvent.click(screen.getByText('Save Blocks'));
+    fireEvent.click(await screen.findByRole('button', { name: /save blocks/i }));
     
     await waitFor(() => screen.findByText(/Save Conflict:/i));
     
