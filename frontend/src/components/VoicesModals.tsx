@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Speaker, SpeakerProfile, VoiceEngine } from '../types';
+import type { Speaker, SpeakerProfile, VoiceEngine, TtsEngine } from '../types';
 import { ConfirmModal } from './ConfirmModal';
 import { RecordingGuide } from './RecordingGuide';
 import {
@@ -20,7 +20,7 @@ interface VoicesModalsProps {
     setNewVoiceName: (name: string) => void;
     newVoiceEngine: VoiceEngine;
     setNewVoiceEngine: (engine: VoiceEngine) => void;
-    voxtralEnabled: boolean;
+    engines: TtsEngine[];
     isCreatingVoice: boolean;
     handleCreateVoice: () => void;
 
@@ -78,6 +78,14 @@ interface VoicesModalsProps {
     // Global Confirm
     confirmConfig: any;
     setConfirmConfig: (config: any) => void;
+
+    // Voice Bundle Export
+    exportVoiceName: string | null;
+    setExportVoiceName: (name: string | null) => void;
+    includeSourceWavs: boolean;
+    setIncludeSourceWavs: (include: boolean) => void;
+    handleConfirmExportVoice: () => void;
+    exportVoiceOptions: Array<{ value: string; label: string }>;
 }
 
 export const VoicesModals: React.FC<VoicesModalsProps> = (props) => {
@@ -90,7 +98,7 @@ export const VoicesModals: React.FC<VoicesModalsProps> = (props) => {
                 onChange={props.setNewVoiceName}
                 engine={props.newVoiceEngine}
                 onEngineChange={props.setNewVoiceEngine}
-                voxtralEnabled={props.voxtralEnabled}
+                engines={props.engines}
                 onSubmit={props.handleCreateVoice}
                 isCreating={props.isCreatingVoice}
             />
@@ -113,7 +121,7 @@ export const VoicesModals: React.FC<VoicesModalsProps> = (props) => {
                 onChange={props.setNewVariantNameModal}
                 engine={props.newVariantEngine}
                 onEngineChange={props.setNewVariantEngine}
-                voxtralEnabled={props.voxtralEnabled}
+                engines={props.engines}
                 isAdding={props.isAddingVariantModal}
                 onSubmit={props.handleAddVariant}
             />
@@ -151,7 +159,7 @@ export const VoicesModals: React.FC<VoicesModalsProps> = (props) => {
                     onVariantNameChange={props.setVariantName}
                     engine={props.editingEngine}
                     onEngineChange={props.setEditingEngine}
-                    voxtralEnabled={props.voxtralEnabled}
+                    engines={props.engines}
                     testText={props.testText}
                     onTestTextChange={props.setTestText}
                     referenceSample={props.referenceSample}
@@ -164,6 +172,113 @@ export const VoicesModals: React.FC<VoicesModalsProps> = (props) => {
                     isSaving={props.isSavingText}
                 />
             </Drawer>
+
+            {props.exportVoiceName && (
+                <div style={{
+                    position: 'fixed',
+                    inset: 0,
+                    zIndex: 1900,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '1.5rem'
+                }}>
+                    <div
+                        onClick={() => props.setExportVoiceName(null)}
+                        style={{
+                            position: 'absolute',
+                            inset: 0,
+                            background: 'rgba(15, 23, 42, 0.4)',
+                            backdropFilter: 'blur(8px)'
+                        }}
+                    />
+                    <div style={{
+                        position: 'relative',
+                        width: '100%',
+                        maxWidth: '440px',
+                        background: 'var(--surface)',
+                        borderRadius: '20px',
+                        boxShadow: 'var(--shadow-xl)',
+                        border: '1px solid var(--border)',
+                        padding: '2rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '1.25rem'
+                    }}>
+                        <div>
+                            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: '0 0 0.5rem', color: 'var(--text-primary)' }}>
+                                Export Voice Bundle
+                            </h3>
+                            <p style={{ fontSize: '0.925rem', color: 'var(--text-muted)', lineHeight: 1.5, margin: 0 }}>
+                                Export a voice bundle with all variants, metadata, previews, and model files.
+                            </p>
+                        </div>
+
+                        <label style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                Voice to export
+                            </span>
+                            <select
+                                value={props.exportVoiceName || ''}
+                                onChange={(event) => props.setExportVoiceName(event.target.value || null)}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.85rem 1rem',
+                                    borderRadius: '12px',
+                                    border: '1px solid var(--border)',
+                                    background: 'var(--surface-light)',
+                                    color: 'var(--text-primary)',
+                                    fontWeight: 600
+                                }}
+                            >
+                                {props.exportVoiceOptions.map(option => (
+                                    <option key={option.value} value={option.value}>
+                                        {option.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+
+                        <label style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            padding: '12px',
+                            borderRadius: '12px',
+                            border: '1px solid var(--border)',
+                            background: 'var(--surface-light)',
+                            cursor: 'pointer'
+                        }}>
+                            <input
+                                type="checkbox"
+                                checked={props.includeSourceWavs}
+                                onChange={(event) => props.setIncludeSourceWavs(event.target.checked)}
+                            />
+                            <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                Include source WAV samples
+                            </span>
+                        </label>
+
+                        <div style={{ display: 'flex', gap: '12px', marginTop: '0.25rem' }}>
+                            <button
+                                onClick={() => props.setExportVoiceName(null)}
+                                className="btn-ghost"
+                                style={{ flex: 1, padding: '0.75rem', borderRadius: '12px' }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={props.handleConfirmExportVoice}
+                                className="btn-primary"
+                                disabled={!props.exportVoiceName}
+                                style={{ flex: 1, padding: '0.75rem', borderRadius: '12px' }}
+                            >
+                                Download Bundle
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <ConfirmModal
                 isOpen={!!props.confirmConfig}

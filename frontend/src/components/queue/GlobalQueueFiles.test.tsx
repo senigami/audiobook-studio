@@ -8,18 +8,16 @@ vi.mock('../PredictiveProgressBar', () => ({
     predictive,
     startedAt,
     etaSeconds,
-    indeterminateRunning,
     status,
-    authoritativeFloor,
+    allowBackwardProgress,
     evidenceWeightFraction
   }: {
     progress: number;
     predictive?: boolean;
     startedAt?: number;
     etaSeconds?: number;
-    indeterminateRunning?: boolean;
     status?: string;
-    authoritativeFloor?: boolean;
+    allowBackwardProgress?: boolean;
     evidenceWeightFraction?: number;
   }) => (
     <div
@@ -28,9 +26,8 @@ vi.mock('../PredictiveProgressBar', () => ({
       data-predictive={String(!!predictive)}
       data-started-at={startedAt ?? ''}
       data-eta-seconds={etaSeconds ?? ''}
-      data-indeterminate-running={String(!!indeterminateRunning)}
       data-status={status ?? ''}
-      data-authoritative-floor={String(!!authoritativeFloor)}
+      data-allow-backward={String(!!allowBackwardProgress)}
       data-evidence-weight-fraction={evidenceWeightFraction ?? ''}
     />
   )
@@ -134,8 +131,7 @@ describe('Global Queue Components', () => {
             );
 
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'true');
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-indeterminate-running', 'true');
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-status', 'running');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-status', 'preparing');
         });
 
         it('uses live segment progress for running voice build jobs', () => {
@@ -165,12 +161,12 @@ describe('Global Queue Components', () => {
         it('keeps voice build progress moving when overall job progress is ahead of sparse segment updates', () => {
             render(
                 <QueueItem
-                    job={{ ...mockJob, engine: 'voice_build', status: 'running', progress: 0.4 } as any}
+                    job={{ ...mockJob, engine: 'voice_build', status: 'running', progress: 0.72 } as any}
                     liveJob={{
                         id: 'job-1',
                         engine: 'voice_build',
                         status: 'running',
-                        progress: 0.72,
+                        progress: 0.4,
                         active_segment_progress: 0.66,
                         started_at: 1000,
                         eta_seconds: 30,
@@ -210,7 +206,7 @@ describe('Global Queue Components', () => {
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'true');
         });
 
-        it('uses render group metadata for mixed chapter queue progress without leaving preparing early', () => {
+        it('preserves grouped progress evidence for mixed chapter jobs while keeping the preparing label', () => {
             render(
                 <QueueItem
                     job={{ ...mockJob, engine: 'mixed', status: 'preparing', progress: 0 } as any}
@@ -237,8 +233,8 @@ describe('Global Queue Components', () => {
             );
 
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-status', 'preparing');
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0');
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-authoritative-floor', 'true');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.7200000000000001');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-allow-backward', 'false');
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-evidence-weight-fraction', '0.4');
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-started-at', '');
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-eta-seconds', '');
@@ -274,6 +270,27 @@ describe('Global Queue Components', () => {
             fireEvent.click(screen.getByTitle('Cancel Job'));
             expect(onRemove).toHaveBeenCalledWith('job-1');
         });
+
+        it('stabilizes grouped-job policy from the first frame by reading render group count from the authoritative queue job', () => {
+             render(
+                <QueueItem 
+                    job={{ 
+                        ...mockJob, 
+                        status: 'running', 
+                        progress: 0,
+                        render_group_count: 5,
+                    } as any}
+                    liveJob={undefined}
+                    localPaused={false}
+                    formatJobTitle={(j) => `Title for ${j.id}`}
+                    formatTime={(t) => `Time ${t}`}
+                    onRemove={vi.fn()}
+                />
+            );
+
+            // Even if liveJob is missing, it should detect grouped progress and disable backward movement
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-allow-backward', 'false');
+        });
     });
 
     describe('GlobalQueue', () => {
@@ -282,10 +299,11 @@ describe('Global Queue Components', () => {
                 <GlobalQueue 
                     paused={false}
                     jobs={{}}
+                    queue={[]}
                 />
             );
 
-            expect(screen.getByText('Global Processing Queue')).toBeInTheDocument();
+            expect(screen.getByText('Global Queue')).toBeInTheDocument();
         });
 
         it('shows empty state', () => {
@@ -293,6 +311,7 @@ describe('Global Queue Components', () => {
                 <GlobalQueue 
                     paused={false}
                     jobs={{}}
+                    queue={[]}
                 />
             );
 

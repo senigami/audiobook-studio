@@ -72,7 +72,4 @@ def delete_audiobook(filename: str, project_id: Optional[str] = Query(None)):
 
     return JSONResponse({"status": "error", "message": "File not found"}, status_code=404)
 
-@router.post("/trigger_backfill")
-def api_trigger_backfill():
-    # Logic to trigger backfill
-    return JSONResponse({"status": "ok"})
+

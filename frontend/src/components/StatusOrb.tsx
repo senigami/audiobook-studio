@@ -29,7 +29,6 @@ export const StatusOrb: React.FC<StatusOrbProps> = ({
   const isPartial = !isStale && !isTrulyProcessing && doneSegments > 0 && doneSegments < totalSegments;
 
   // Ornaments
-  const hasMp3 = chap.has_mp3;
   const hasM4a = chap.has_m4a;
 
   // Render variables
@@ -81,18 +80,11 @@ export const StatusOrb: React.FC<StatusOrbProps> = ({
 
   // Main tooltip base
   const baseTooltip = tooltip;
-  const statusTooltip = `\nM4A cached: ${hasM4a ? 'yes' : 'no'}\nMP3 available: ${hasMp3 ? 'yes' : 'no'}`;
+  const statusTooltip = `\nM4A cached: ${hasM4a ? 'yes' : 'no'}`;
   const combinedTooltip = baseTooltip + statusTooltip;
 
-  // Calculate arc parameters for integrated ring
-  // We'll use a radius of 9.2 (just outside the orb)
-  const ringRadius = 10.2; // Shifted out slightly to accommodate larger orb
-  const ringCircumference = 2 * Math.PI * ringRadius;
-  
-  // Arcs: M4A (left), MP3 (right). 
-  // Each arc segment will be slightly less than half to leave a gap.
-  // We'll use stroke-dasharray for the segments.
-  const segmentLength = (ringCircumference / 2) - 3; // Approx 180deg minus gap
+  // Calculate ring parameters
+  const ringRadius = 10.2;
 
   // Partial Arc progress parameters
   const progressRadius = orbRadius;
@@ -115,29 +107,14 @@ export const StatusOrb: React.FC<StatusOrbProps> = ({
     >
       <div style={{ position: 'relative', width: '24px', height: '24px', willChange: 'transform' }}>
         <svg width="24" height="24" viewBox="0 0 24 24" style={{ position: 'absolute', top: 0, left: 0 }}>
-          {/* Integrated Status Ring (Option A: Split Arcs) */}
-          {/* M4A Arc (Top-Left) */}
+          {/* Integrated Status Ring (M4A only full ring) */}
           <circle
             cx="12" cy="12" r={ringRadius}
             fill="none"
             stroke={hasM4a ? 'var(--accent)' : 'var(--border)'}
             strokeWidth="1.2"
-            strokeDasharray={`${segmentLength} ${ringCircumference - segmentLength}`}
-            strokeDashoffset={segmentLength + 1.5} // Position on left
             strokeLinecap="round"
             style={{ opacity: isStale ? 0 : (hasM4a ? 0.8 : 0.3), transition: 'all 0.3s' }}
-          />
-
-          {/* MP3 Arc (Top-Right) */}
-          <circle
-            cx="12" cy="12" r={ringRadius}
-            fill="none"
-            stroke={hasMp3 ? 'var(--text-secondary)' : 'var(--border)'}
-            strokeWidth="1.2"
-            strokeDasharray={`${segmentLength} ${ringCircumference - segmentLength}`}
-            strokeDashoffset={-1.5} // Position on right
-            strokeLinecap="round"
-            style={{ opacity: isStale ? 0 : (hasMp3 ? 0.8 : 0.3), transition: 'all 0.3s' }}
           />
 
           {/* Base Orb */}

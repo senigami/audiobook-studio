@@ -1,0 +1,5 @@
+# XTTS Local Requirements
+# These are the base packages required to run the XTTS adapter.
+# Actual model dependencies are managed within the Studio XTTS environment.
+requests>=2.31.0
+pydantic>=2.0.0

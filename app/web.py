@@ -15,10 +15,17 @@ from .config import (
     FRONTEND_DIST
 )
 from .db import init_db
-from .api import projects, chapters, voices, queue, settings, generation, system, analysis, jobs, migration, manager
+from .api import projects, chapters, voices, queue, settings, generation, system, analysis, jobs, migration, manager, engines
+from .api.tts_api import tts_app
 from .api.routers.analysis import AnalysisError
 
 logger = logging.getLogger(__name__)
+
+_NO_CACHE_HEADERS = {
+    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+    "Pragma": "no-cache",
+    "Expires": "0",
+}
 
 app = FastAPI()
 
@@ -62,7 +69,7 @@ def _contained_root_file(root: Path, filename: str) -> Optional[Path]:
 def _contained_file(root: Path, relative_path: str) -> Optional[Path]:
     if not root.exists() or not relative_path:
         return None
-    normalized_parts = [part for part in Path(relative_path).parts if part not in ("", ".")]
+    normalized_parts = [part for part in Path(relative_path).parts if part not in ("", ".", "/")]
     if not normalized_parts or any(part == ".." for part in normalized_parts):
         return None
     base_dir = os.path.abspath(os.path.normpath(os.fspath(root)))
@@ -76,7 +83,30 @@ def _contained_file(root: Path, relative_path: str) -> Optional[Path]:
 
 
 def _frontend_dist_file(full_path: str) -> Optional[Path]:
-    return _contained_file(FRONTEND_DIST, full_path)
+    # 1. Try exact match (e.g. "assets/foo.js" or "favicon.ico")
+    file = _contained_file(FRONTEND_DIST, full_path)
+    if file:
+        return file
+
+    # 2. Try stripping known route prefixes if it looks like an asset (e.g. "settings/assets/foo.js")
+    # This handles deep-linked SPA reloads where the browser might request assets relatively.
+    if "/" in full_path:
+        parts = full_path.split("/")
+        # If it looks like a deep link into assets or other dist files
+        if any(p in {"assets", "docs", "static"} for p in parts):
+            # Find the index of the first known asset directory
+            for i, p in enumerate(parts):
+                if p in {"assets", "docs", "static"}:
+                    candidate_path = "/".join(parts[i:])
+                    file = _contained_file(FRONTEND_DIST, candidate_path)
+                    if file:
+                        return file
+
+    return None
+
+
+def _frontend_index_response(index_file: Path) -> FileResponse:
+    return FileResponse(index_file, headers=_NO_CACHE_HEADERS)
 
 # --- Ensure mounted static roots exist before mounting ---
 # StaticFiles raises at startup if the target directory is missing. These are the
@@ -119,99 +149,6 @@ def get_cover_output(filename: str):
     if not file_path:
         raise HTTPException(status_code=404, detail="Not Found")
     return FileResponse(file_path)
-
-# --- Legacy Route Aliases (MUST be before routers to avoid 405 conflicts) ---
-@app.post("/upload")
-async def legacy_upload(request: Request):
-    from .api.routers.system import upload
-    form = await request.form()
-    return await upload(
-        file=form.get("file"),
-        mode=form.get("mode", "parts"),
-        max_chars=form.get("max_chars"),
-        upload_dir=UPLOAD_DIR,
-        chapter_dir=CHAPTER_DIR
-    )
-
-@app.post("/create_audiobook")
-async def legacy_create_audiobook(request: Request):
-    from .api.routers.system import create_audiobook
-    form = await request.form()
-    return await create_audiobook(
-        title=form.get("title"),
-        author=form.get("author"),
-        narrator=form.get("narrator"),
-        chapters=form.get("chapters", "[]"),
-        cover=form.get("cover"),
-    )
-
-@app.post("/settings")
-async def legacy_save_settings(request: Request):
-    from .api.routers.system import save_settings
-    form = await request.form()
-    return await save_settings(request, safe_mode=form.get("safe_mode"), make_mp3=form.get("make_mp3"))
-
-@app.post("/api/settings/default-speaker")
-async def legacy_set_default_speaker(request: Request):
-    from .api.routers.system import set_default_speaker_settings
-    form = await request.form()
-    return set_default_speaker_settings(form.get("name"))
-
-@app.post("/queue/pause")
-async def legacy_pause():
-    from .api.routers.generation import pause_queue
-    return pause_queue()
-
-@app.post("/queue/resume")
-async def legacy_resume():
-    from .api.routers.generation import resume_queue
-    return resume_queue()
-
-@app.post("/queue/clear")
-async def legacy_clear():
-    from .api.routers.generation import cancel_pending
-    return cancel_pending()
-
-@app.post("/api/chapter/reset")
-async def legacy_chapter_reset(
-    request: Request,
-    xtts_out_dir: Path = Depends(chapters.get_xtts_out_dir)
-):
-    from .api.routers.chapters import reset_chapter_legacy
-    form = await request.form()
-    return reset_chapter_legacy(
-        chapter_file=form.get("chapter_file"),
-        xtts_out_dir=xtts_out_dir
-    )
-
-@app.delete("/api/chapter/{filename}")
-async def legacy_delete_chapter(
-    filename: str,
-    chapter_dir: Path = Depends(chapters.get_chapter_dir),
-    xtts_out_dir: Path = Depends(chapters.get_xtts_out_dir)
-):
-    from .api.routers.chapters import api_delete_legacy_chapter
-    return api_delete_legacy_chapter(
-        filename,
-        chapter_dir=chapter_dir,
-        xtts_out_dir=xtts_out_dir
-    )
-
-@app.post("/queue/start_xtts")
-async def legacy_start_xtts():
-    # Reset metadata for queued jobs (as expected by legacy tests)
-    from .state import get_jobs, update_job
-    jobs = get_jobs()
-    for jid, j in jobs.items():
-        if j.status == "queued":
-            update_job(jid, progress=0.0, started_at=None, finished_at=None, log="", error=None, warning_count=0)
-
-    from .api.routers.generation import resume_queue
-    return resume_queue()
-
-@app.post("/queue/backfill_mp3")
-async def legacy_backfill_mp3():
-    return JSONResponse({"status": "success"})
 
 # --- WebSockets ---
 _main_loop = [None]
@@ -309,7 +246,9 @@ def startup_event():
     # 3. Register job listener for WebSocket updates
     from .state import add_job_listener
     from .api.ws import broadcast_job_updated
+    from .orchestration.progress.broadcaster import configure_progress_broadcaster
     add_job_listener(broadcast_job_updated)
+    configure_progress_broadcaster(lambda payload, _channel: manager.broadcast(payload))
     logger.info("Startup: Job listeners registered.")
 
     # 4. Restore Pause State
@@ -320,9 +259,25 @@ def startup_event():
         set_paused(True)
         logger.info("Startup: Queue restored to PAUSED state.")
 
+    # 5. Studio 2.0 boot sequence — starts feature-flagged subsystems
+    #    (e.g. TTS Server watchdog when USE_TTS_SERVER=true).
+    #    Run in a background thread to prevent blocking the web server startup
+    #    while engines are being verified.
+    def _background_boot():
+        try:
+            from .boot import boot_studio
+            boot_studio()
+        except Exception as e:
+            logger.warning(f"Startup Warning: Studio 2.0 boot sequence failed: {e}")
+
+    threading.Thread(target=_background_boot, name="StudioBoot", daemon=True).start()
+
+
 @app.on_event("shutdown")
 def shutdown_event():
+    from .orchestration.progress.broadcaster import configure_progress_broadcaster
     from .engines import terminate_all_subprocesses
+    configure_progress_broadcaster(None)
     terminate_all_subprocesses()
 
 async def xtts_generate(*args, **kwargs):
@@ -360,6 +315,27 @@ async def sync_config_middleware(request: Request, call_next):
 
     return await call_next(request)
 
+
+@app.middleware("http")
+async def lan_protection_middleware(request: Request, call_next):
+    """Enforce 'local_only' vs 'lan' binding controls at the application level."""
+    # Only protect the external TTS API and sensitive system endpoints.
+    # The main UI is often bound to 0.0.0.0 for convenience, but the API
+    # gateway should be explicit.
+    if request.url.path.startswith("/api/v1/tts"):
+        from app.state import get_settings  # noqa: PLC0415
+        settings = get_settings()
+        if not settings.get("lan_binding_enabled"):
+            client_host = request.client.host if request.client else "127.0.0.1"
+            # Basic loopback check.
+            if client_host not in ("127.0.0.1", "localhost", "::1", "testclient"):
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "LAN access to TTS API is disabled in Studio settings."}
+                )
+
+    return await call_next(request)
+
 # --- Include Routers ---
 app.include_router(projects.router)
 app.include_router(chapters.router)
@@ -371,6 +347,10 @@ app.include_router(system.router)
 app.include_router(analysis.router)
 app.include_router(jobs.router)
 app.include_router(migration.router)
+app.include_router(engines.router)
+
+# --- External TTS API ---
+app.mount("/api/v1/tts", tts_app)
 
 # --- Catch-all for React Router ---
 @app.get("/{full_path:path}")
@@ -384,7 +364,7 @@ def catch_all(full_path: str):
 
     index_file = FRONTEND_DIST / "index.html"
     if index_file.exists():
-        return FileResponse(index_file)
+        return _frontend_index_response(index_file)
 
     # If no index, return a basic welcome for the API
     return JSONResponse({

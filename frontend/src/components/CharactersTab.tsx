@@ -1,25 +1,28 @@
-import React, { useState, useEffect } from 'react';
-import type { Character } from '../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import type { Character, Speaker, SpeakerProfile, TtsEngine } from '../types';
 import { api } from '../api';
 import { Plus, Trash2, User as UserIcon } from 'lucide-react';
 import { ColorSwatchPicker } from './ColorSwatchPicker';
 import { ConfirmModal } from './ConfirmModal';
+import { VoiceProfileSelect } from './chapter/VoiceProfileSelect';
+import { buildVoiceOptions } from '../utils/voiceProfiles';
 
 interface CharactersTabProps {
   projectId: string;
-  speakers: import('../types').Speaker[];
-  speakerProfiles: import('../types').SpeakerProfile[];
+  speakers: Speaker[];
+  speakerProfiles: SpeakerProfile[];
+  engines?: TtsEngine[];
 }
 
-export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speakers, speakerProfiles }) => {
+export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speakers, speakerProfiles, engines = [] }) => {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   // New character form
   const [newName, setNewName] = useState('');
   const [newVoice, setNewVoice] = useState('');
   const [newColor, setNewColor] = useState('#8b5cf6');
-  
+
   const [confirmConfig, setConfirmConfig] = useState<{
     title: string;
     message: string;
@@ -45,18 +48,14 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
   }, [projectId]);
 
   // Compute merged voices groupings
-  const availableVoices = React.useMemo(() => {
-    const list = (speakers || []).map(s => ({ id: s.id, name: s.name, is_speaker: true }));
-    const orphans = (speakerProfiles || [])
-      .filter(p => !p.speaker_id || !speakers.some(s => s.id === p.speaker_id))
-      .map(p => ({ id: `unassigned-${p.name}`, name: p.name, is_speaker: false }));
-    return [...list, ...orphans];
-  }, [speakers, speakerProfiles]);
+  const availableVoices = useMemo(() => {
+    return buildVoiceOptions(speakerProfiles || [], speakers || [], engines, characters);
+  }, [speakerProfiles, speakers, engines, characters]);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName.trim()) return;
-    
+
     try {
       await api.createCharacter(projectId, newName.trim(), newVoice || undefined, undefined, newColor);
       setNewName('');
@@ -78,7 +77,7 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
       loadCharacters(); // Revert on failure
     }
   };
-  
+
   const handleUpdateName = async (id: string, newNameStr: string) => {
       if (!newNameStr.trim()) return;
       try {
@@ -156,17 +155,13 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
               SPEAKER
             </label>
             <div className="select-wrapper">
-              <select
-                className="input-field"
+              <VoiceProfileSelect
                 value={newVoice}
-                onChange={e => setNewVoice(e.target.value)}
+                onChange={setNewVoice}
+                options={availableVoices}
+                defaultLabel="Unassigned (Default Speaker)"
                 style={{ width: '100%' }}
-              >
-                <option value="">Unassigned (Default Speaker)</option>
-                {availableVoices.map(v => (
-                  <option key={v.id} value={v.name}>{v.name}</option>
-                ))}
-              </select>
+              />
             </div>
           </div>
           <button type="submit" className="btn-primary" disabled={!newName.trim()} title="Create Character">
@@ -188,12 +183,12 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
         <div style={{ display: 'grid', gap: '0.8rem' }}>
           {characters.map(char => (
             <div key={char.id} style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--surface)', padding: '0.8rem 1rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
-              
+
               <ColorSwatchPicker value={char.color || '#8b5cf6'} onChange={(color) => handleUpdateColor(char.id, color)} size="md" />
 
               <div style={{ flex: 3 }}>
-                  <input 
-                      type="text" 
+                  <input
+                      type="text"
                       defaultValue={char.name}
                       onBlur={(e) => { if (e.target.value !== char.name) handleUpdateName(char.id, e.target.value); }}
                       className="input-field"
@@ -202,20 +197,16 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
               </div>
 
               <div style={{ flex: 2 }} className="select-wrapper">
-                <select
-                  className="input-field"
+                <VoiceProfileSelect
                   value={char.speaker_profile_name || ''}
-                  onChange={e => handleUpdateVoice(char.id, e.target.value)}
+                  onChange={val => handleUpdateVoice(char.id, val)}
+                  options={availableVoices}
+                  defaultLabel="Default Speaker"
                   style={{ width: '100%' }}
-                >
-                  <option value="">Default Speaker</option>
-                          {availableVoices.map(v => (
-                            <option key={v.id} value={v.name}>{v.name}</option>
-                          ))}
-                </select>
+                />
               </div>
 
-              <button 
+              <button
                 onClick={() => handleDelete(char.id, char.name)}
                 className="btn-ghost"
                 style={{ padding: '0.4rem', color: 'var(--text-muted)' }}

@@ -32,6 +32,8 @@ describe('EditTab', () => {
                 analyzing={false} 
                 chapter={mockChapter} 
                 segmentsCount={0} 
+                hasUnsavedChanges={false}
+                sourceTextMode="edit"
             />
         );
 
@@ -50,6 +52,7 @@ describe('EditTab', () => {
                 analyzing={true} 
                 chapter={mockChapter} 
                 segmentsCount={0} 
+                hasUnsavedChanges={false}
             />
         );
         expect(screen.getByText('Analysis')).toBeInTheDocument();
@@ -65,6 +68,7 @@ describe('EditTab', () => {
                 analyzing={false} 
                 chapter={mockChapter} 
                 segmentsCount={0} 
+                hasUnsavedChanges={false}
             />
         );
         expect(screen.getByText('45s')).toBeInTheDocument();
@@ -78,6 +82,7 @@ describe('EditTab', () => {
                 analyzing={false} 
                 chapter={mockChapter} 
                 segmentsCount={0} 
+                hasUnsavedChanges={false}
             />
         );
         expect(screen.getByText('2m 5s')).toBeInTheDocument();
@@ -91,6 +96,7 @@ describe('EditTab', () => {
                 analyzing={false} 
                 chapter={mockChapter} 
                 segmentsCount={0} 
+                hasUnsavedChanges={false}
             />
         );
         expect(screen.getByText('1h 1m')).toBeInTheDocument();
@@ -115,6 +121,7 @@ describe('EditTab', () => {
                 analyzing={false} 
                 chapter={mockChapter} 
                 segmentsCount={10} 
+                hasUnsavedChanges={false}
             />
         );
 
@@ -135,10 +142,29 @@ describe('EditTab', () => {
                 analyzing={false} 
                 chapter={mockChapter} 
                 segmentsCount={10} 
+                hasUnsavedChanges={false}
             />
         );
 
         expect(screen.getByText(/These sentences are still too long/i)).toBeInTheDocument();
         expect(screen.getByText('Very long...')).toBeInTheDocument();
+    });
+
+    it('shows raw text edit warning when changes are unsaved', () => {
+        render(
+            <EditTab 
+                text="Changed text content" 
+                setText={vi.fn()} 
+                analysis={null} 
+                setAnalysis={vi.fn()} 
+                analyzing={false} 
+                chapter={mockChapter} 
+                segmentsCount={0} 
+                hasUnsavedChanges={true}
+                sourceTextMode="edit"
+            />
+        );
+        expect(screen.getByText(/Unsaved changes detected/i)).toBeInTheDocument();
+        expect(screen.getByText(/resync production blocks/i)).toBeInTheDocument();
     });
 });

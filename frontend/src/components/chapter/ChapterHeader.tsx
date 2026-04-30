@@ -1,22 +1,23 @@
 import React from 'react';
-import { ArrowLeft, RefreshCw, Zap, CheckCircle, AlertTriangle } from 'lucide-react';
+import { RefreshCw, Zap, CheckCircle, AlertTriangle, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Chapter, Job } from '../../types';
 import { PredictiveProgressBar } from '../PredictiveProgressBar';
+import { VoiceProfileSelect } from './VoiceProfileSelect';
 
 const RECENT_DONE_WINDOW_SECONDS = 60;
 
 interface ChapterHeaderProps {
   chapter: Chapter;
-  title: string;
-  setTitle: (title: string) => void;
+  title?: string;
+  setTitle?: (title: string) => void;
   saving: boolean;
   hasUnsavedChanges: boolean;
-  onBack: () => void;
+  onBack?: () => void;
   onPrev?: () => void;
   onNext?: () => void;
   selectedVoice: string;
   onVoiceChange: (voice: string) => void;
-  availableVoices: { id: string; name: string; value: string; is_speaker: boolean }[];
+  availableVoices: import('../../utils/voiceProfiles').VoiceOption[];
   defaultVoiceLabel?: string;
   submitting: boolean;
   queueLocked?: boolean;
@@ -26,8 +27,13 @@ interface ChapterHeaderProps {
   generatingSegmentIdsCount: number;
   queueLabel?: string;
   queueTitle?: string;
+  onSaveWav?: () => void;
+  onSaveMp3?: () => void;
+  exportingFormat?: 'wav' | 'mp3' | null;
   onQueue: () => void;
   onStopAll: () => void;
+  onCommitSourceText?: () => void;
+  canCommitSourceText?: boolean;
 }
 
 export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
@@ -36,7 +42,6 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
   setTitle,
   saving,
   hasUnsavedChanges,
-  onBack,
   onPrev,
   onNext,
   selectedVoice,
@@ -51,8 +56,13 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
   generatingSegmentIdsCount,
   queueLabel = 'Queue',
   queueTitle = 'Queue Chapter',
+  onSaveWav,
+  onSaveMp3,
+  exportingFormat = null,
   onQueue,
-  onStopAll
+  onStopAll,
+  onCommitSourceText,
+  canCommitSourceText
 }) => {
   const hasChapterAudio = !!(chapter.has_wav || chapter.has_mp3 || chapter.has_m4a);
   const recentlyFinishedDoneJob = !!(job?.status === 'done' && job?.finished_at && ((Date.now() / 1000) - job.finished_at) <= RECENT_DONE_WINDOW_SECONDS);
@@ -135,47 +145,76 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
   }, []);
 
   return (
-    <header style={{ 
-      display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 1.5rem', 
-      borderBottom: '1px solid var(--border)', background: 'var(--surface)',
+    <header className="chapter-header" style={{
+      display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 0',
+      background: 'var(--bg)',
       flexShrink: 0
     }}>
-      <button onClick={onBack} className="btn-ghost" style={{ padding: '0.5rem' }} title="Save & Back to Project">
-        <ArrowLeft size={18} />
-      </button>
-      <div style={{ display: 'flex', gap: '0.25rem', borderRight: '1px solid var(--border)', paddingRight: '1rem' }}>
-        <button 
-          onClick={onPrev} 
-          disabled={!onPrev} 
-          className="btn-ghost" 
-          style={{ padding: '0.4rem', opacity: !onPrev ? 0.3 : 1, cursor: !onPrev ? 'not-allowed' : 'pointer' }}
+      <div className="chapter-header__nav" style={{ display: 'flex', gap: '0.35rem' }}>
+        <button
+          onClick={onPrev}
+          disabled={!onPrev}
+          className="btn-ghost"
+          style={{
+            padding: '0.4rem',
+            opacity: !onPrev ? 0.3 : 1,
+            cursor: !onPrev ? 'not-allowed' : 'pointer',
+            border: '1px solid var(--border)',
+            borderRadius: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '36px',
+            height: '36px'
+          }}
           title="Save & Previous Chapter"
         >
-          ← Prev
+          <ChevronLeft size={18} />
         </button>
-        <button 
-          onClick={onNext} 
-          disabled={!onNext} 
-          className="btn-ghost" 
-          style={{ padding: '0.4rem', opacity: !onNext ? 0.3 : 1, cursor: !onNext ? 'not-allowed' : 'pointer' }}
+        <button
+          onClick={onNext}
+          disabled={!onNext}
+          className="btn-ghost"
+          style={{
+            padding: '0.4rem',
+            opacity: !onNext ? 0.3 : 1,
+            cursor: !onNext ? 'not-allowed' : 'pointer',
+            border: '1px solid var(--border)',
+            borderRadius: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '36px',
+            height: '36px'
+          }}
           title="Save & Next Chapter"
         >
-          Next →
+          <ChevronRight size={18} />
         </button>
       </div>
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '1rem', minWidth: 0 }}>
-          <input 
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-              style={{
-                  fontSize: '1.25rem', fontWeight: 600, background: 'transparent', border: 'none', 
-                  color: 'var(--text-primary)', outline: 'none', width: '100%',
-                  padding: '0.25rem'
-              }}
-          />
-          
+      <div className="chapter-header__main" style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '1rem', minWidth: 0 }}>
+          {typeof title === 'string' && setTitle && (
+              <input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  aria-label="Chapter Title"
+                  style={{
+                      flex: 1,
+                      minWidth: 0,
+                      padding: '0.55rem 0.8rem',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border)',
+                      background: 'var(--surface)',
+                      color: 'var(--text-primary)',
+                      fontSize: '1rem',
+                      fontWeight: 700,
+                      outline: 'none',
+                  }}
+              />
+          )}
+
           {hasChapterAudio && (
-              <div style={{ paddingLeft: '1rem', borderLeft: '1px solid var(--border)' }}>
+              <div className="chapter-header__audio" style={{ paddingLeft: '1rem', borderLeft: '1px solid var(--border)' }}>
                   {(() => {
                       const audioPath = chapter.audio_file_path;
                       if (!audioPath) {
@@ -194,10 +233,10 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
                       }
                       const wavPath = audioPath.replace(/\.[^.]+$/, '.wav');
                       const mp3Path = audioPath.replace(/\.[^.]+$/, '.mp3');
-                      
+
                       return (
-                          <audio 
-                              controls 
+                          <audio
+                              controls
                               key={chapter.id}
                               style={{ height: '32px', maxWidth: '300px' }}
                           >
@@ -213,27 +252,63 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
               </div>
           )}
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+      <div className="chapter-header__actions" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          {(onSaveWav || onSaveMp3) && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  {onSaveWav && (
+                      <button
+                          type="button"
+                          onClick={onSaveWav}
+                          className="btn-ghost"
+                          style={{
+                              padding: '0.4rem 0.75rem',
+                              fontSize: '0.82rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.4rem',
+                              border: '1px solid var(--border)',
+                              borderRadius: '8px'
+                          }}
+                          title="Export WAV"
+                          disabled={exportingFormat !== null}
+                      >
+                          {exportingFormat === 'wav' ? <RefreshCw size={14} className="animate-spin" /> : <Download size={14} />}
+                          Export WAV
+                      </button>
+                  )}
+                  {onSaveMp3 && (
+                      <button
+                          type="button"
+                          onClick={onSaveMp3}
+                          className="btn-ghost"
+                          style={{
+                              padding: '0.4rem 0.75rem',
+                              fontSize: '0.82rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.4rem',
+                              border: '1px solid var(--border)',
+                              borderRadius: '8px'
+                          }}
+                          title="Export MP3"
+                          disabled={exportingFormat !== null}
+                      >
+                          {exportingFormat === 'mp3' ? <RefreshCw size={14} className="animate-spin" /> : <Download size={14} />}
+                          Export MP3
+                      </button>
+                  )}
+              </div>
+          )}
+
           {availableVoices.length > 0 && (
-              <select
+              <VoiceProfileSelect
                   value={selectedVoice}
-                  onChange={(e) => onVoiceChange(e.target.value)}
-                  style={{
-                      padding: '0.4rem 2rem 0.4rem 0.8rem',
-                      borderRadius: '8px', border: '1px solid var(--border)',
-                      background: 'var(--surface-light)', color: 'var(--text-primary)',
-                      fontSize: '0.85rem', outline: 'none', cursor: 'pointer',
-                      appearance: 'none',
-                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
-                      backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.5rem center'
-                  }}
+                  onChange={onVoiceChange}
+                  options={availableVoices}
+                  defaultLabel={defaultVoiceLabel}
                   title="Select Voice Profile for this chapter"
-              >
-                  <option value="">{defaultVoiceLabel}</option>
-                  {availableVoices.map(v => (
-                      <option key={v.id} value={v.value}>{v.name}</option>
-                  ))}
-              </select>
+                  disabled={submitting}
+              />
           )}
 
               <button
@@ -250,6 +325,21 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
               {submitting ? <RefreshCw size={14} className="animate-spin" /> : <Zap size={14} />}
               {queueLabel}
           </button>
+
+          {canCommitSourceText && onCommitSourceText && (
+              <button
+                  onClick={onCommitSourceText}
+                  className="btn-primary"
+                  style={{
+                      padding: '0.4rem 0.8rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem',
+                      background: 'var(--success)', border: '1px solid var(--success-muted)'
+                  }}
+                  title="Commit Source Text changes and resync segments"
+              >
+                  <CheckCircle size={14} />
+                  Commit Changes
+              </button>
+          )}
 
           {queueStatus && (
               <div style={{
@@ -277,12 +367,17 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
                       progress={liveSegmentProgressValue}
                       startedAt={liveSegmentProgressJob.started_at}
                       etaSeconds={liveSegmentProgressJob.eta_seconds}
+                      etaBasis={liveSegmentProgressJob.eta_basis ?? (liveSegmentProgressJob.eta_seconds != null ? 'remaining_from_update' : undefined)}
+                      updatedAt={liveSegmentProgressJob.updated_at}
                       persistenceKey={`${liveSegmentProgressJob.id}:${liveSegmentProgressJob.active_segment_id || 'none'}`}
-                      status={liveSegmentProgressJob.status === 'preparing' ? 'running' : liveSegmentProgressJob.status}
+                      status={liveSegmentProgressJob.status}
                       label="Segment Progress"
                       predictive={true}
-                      authoritativeFloor={true}
-                      indeterminateRunning={false}
+                      allowBackwardProgress={false}
+                      checkpointMode="segment"
+                      transitionTickCount={3}
+                      backwardTransitionTickCount={2}
+                      tickMs={250}
                       showEta={false}
                   />
               </div>
@@ -293,7 +388,7 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
                   onClick={onStopAll}
                   className="btn-ghost"
                   style={{
-                      padding: '0.4rem 0.8rem', fontSize: '0.85rem', color: 'var(--error)', 
+                      padding: '0.4rem 0.8rem', fontSize: '0.85rem', color: 'var(--error)',
                       border: '1px solid var(--error-muted)', borderRadius: '8px',
                       display: 'flex', alignItems: 'center', gap: '0.4rem'
                   }}

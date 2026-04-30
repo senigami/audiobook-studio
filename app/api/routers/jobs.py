@@ -18,15 +18,7 @@ def api_jobs():
 
     jobs_dict = {j.id: asdict(j) for j in all_jobs.values()}
 
-    # Dynamic progress update based on time
-    now = time.time()
-    for j in jobs_dict.values():
-        if j.get('status') == 'running' and j.get('started_at') and j.get('eta_seconds'):
-            if j.get('active_segment_id') or (j.get('active_segment_progress') or 0) > 0:
-                continue
-            elapsed = now - j['started_at']
-            time_prog = min(0.99, elapsed / float(j['eta_seconds']))
-            j['progress'] = max(j.get('progress', 0.0), time_prog)
+    # Dynamic progress update removed. Frontend handles predictive visual state.
 
     # Auto-discovery
     chapters = [p.name for p in legacy_list_chapters()]

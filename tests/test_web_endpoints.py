@@ -113,13 +113,13 @@ def test_queue_endpoints():
     res = client.get("/api/processing_queue")
     assert res.status_code == 200
 
-    res = client.post("/queue/pause")
+    res = client.post("/api/generation/pause")
     assert res.status_code in [200, 422, 405]
 
-    res = client.post("/queue/resume")
+    res = client.post("/api/generation/resume")
     assert res.status_code in [200, 422, 405]
 
-    res = client.post("/api/queue/cancel_pending")
+    res = client.post("/api/generation/cancel-all")
     assert res.status_code in [200, 422, 405]
 
 def test_audiobooks_endpoints():
@@ -155,6 +155,24 @@ def test_serves_nested_frontend_dist_files_with_containment(monkeypatch, tmp_pat
     assert res.status_code == 200
     assert res.content == b"hero-image"
     assert client.get("/images/../secret.txt").status_code == 404
+
+
+def test_serves_spa_shell_with_no_store_headers(monkeypatch, tmp_path):
+    dist_dir = tmp_path / "dist"
+    dist_dir.mkdir()
+    (dist_dir / "index.html").write_text("<html><body>shell</body></html>", encoding="utf-8")
+
+    monkeypatch.setattr("app.web.FRONTEND_DIST", dist_dir)
+
+    res = client.get("/settings/engines")
+    assert res.status_code == 200
+    assert "no-store" in res.headers.get("cache-control", "")
+    assert res.headers.get("pragma") == "no-cache"
+    assert res.headers.get("expires") == "0"
+
+    root_res = client.get("/")
+    assert root_res.status_code == 200
+    assert "no-store" in root_res.headers.get("cache-control", "")
 
 
 def test_serves_legacy_output_files_without_precreated_mounts(monkeypatch, tmp_path):

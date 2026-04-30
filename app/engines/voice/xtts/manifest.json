@@ -1,0 +1,11 @@
+{
+  "engine_id": "xtts",
+  "display_name": "XTTS",
+  "phase": "phase-7-hardened",
+  "capabilities": ["voice_build", "speed_control"],
+  "local": true,
+  "cloud": false,
+  "notes": [
+    "High-quality local TTS engine with voice cloning support."
+  ]
+}

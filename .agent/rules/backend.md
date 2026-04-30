@@ -1,33 +1,22 @@
 # Backend Rules
 
-## Progress And State Consistency
+Use this file when the task touches backend orchestration, queueing, progress, artifact publication, or filesystem path handling.
 
-- WebSocket progress values must be rounded to exactly 2 decimal places.
-- Only broadcast progress updates when the value advances by at least 1%.
-- When a job is re-queued, reset, or recovered, clear stale metadata such as logs, timestamps, progress, and warnings.
-- Disk state is the source of truth when UI status and actual files disagree.
+## Read The Right Subfile
 
-## Technical Environment
+- [`backend-artifacts.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/backend-artifacts.md) for manifest validation, publish flow, cache immutability, and recovery safety.
+- [`backend-progress.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/backend-progress.md) for progress math, ETA rules, rounding, and update throttling.
+- [`backend-boundaries.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/backend-boundaries.md) for route/service/engine boundaries and migration discipline.
+- [`backend-paths.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/backend-paths.md) for request-derived paths and containment checks.
 
-- Always use the local `./venv` for backend tooling.
-- When worker threads update `j` objects, follow up with `update_job` so the WebSocket bridge receives the change.
+## Load Order
 
-## Path Safety And Code Scanning
+1. [`backend-progress.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/backend-progress.md) for ETA, rounding, and progress consistency.
+1. [`backend-artifacts.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/backend-artifacts.md) for publish/recovery/immutability.
+1. [`backend-paths.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/backend-paths.md) for any request-derived path handling.
+1. [`backend-boundaries.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/backend-boundaries.md) for routing, orchestration, queue policy, and migration shape.
 
-- Treat any filesystem path derived from request data, DB values, uploaded filenames, or user-editable names as untrusted.
-- For existing files or directories, prefer enumerating a trusted root and matching by `entry.name`.
-- For new paths, use the explicit containment pattern that CodeQL recognizes well:
-  1. validate with a strict regex
-  2. build with `os.path.join(...)`
-  3. normalize with `os.path.normpath(...)`
-  4. absolutize with `os.path.abspath(...)`
-  5. verify the result stays under the trusted root before reading or writing
-- For filenames and profile names, require flat single-segment names unless nested paths are truly intentional.
-- Reject traversal-style input instead of silently “fixing” it.
-- Avoid hiding security-critical path creation in generic helpers unless the helper exactly mirrors the accepted containment shape and has already been proven scanner-safe.
-- When code scanning regresses, export the latest `code-scanning-alerts.json`, group by rule and file, and fix the current highest-concentration sink lines directly before broad refactors.
+## Pair With
 
-## Structural Guidance
-
-- If a file exceeds 500 lines, consider splitting it along real logical boundaries.
-- Refactor carefully to avoid circular dependencies or scattering tightly coupled logic across too many files.
+- [`modular_architecture.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/modular_architecture.md) for Studio 2.0 boundary rules.
+- [`verification.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/verification.md) for the required backend test and lint verification.

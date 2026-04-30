@@ -7,75 +7,56 @@ logger = logging.getLogger(__name__)
 
 def reconcile_project_audio(project_id: str):
     """
-    Scans the project's audio directory and updates the database if audio files exist 
+    Scans the project's audio directories and updates the database if audio files exist
     but the chapter status is not 'done'.
     """
-    from ..config import find_existing_project_subdir
-    audio_dir = find_existing_project_subdir(project_id, "audio")
-    if not audio_dir or not audio_dir.exists():
-        return
-
-    all_audio_paths = {
-        entry.name: entry.resolve()
-        for entry in audio_dir.iterdir()
-        if entry.is_file()
-    }
+    from .. import config
 
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT id, audio_status, audio_length_seconds FROM chapters WHERE project_id = ?", (project_id,))
+            cursor.execute(
+                "SELECT id, audio_status, audio_length_seconds, audio_file_path FROM chapters WHERE project_id = ?",
+                (project_id,),
+            )
             chapters = cursor.fetchall()
 
-            for cid, status, length in chapters:
-                if status not in ('done', 'unprocessed'):
-                    continue # Never reconcile while a job is active or failed
+            for cid, status, length, current_path in chapters:
+                if status not in ("done", "unprocessed"):
+                    continue  # Never reconcile while a job is active or failed
 
-                # Find candidate files matching the chapter ID prefix
-                # We filter for common audio extensions and ensure it's not a segment
-                candidates = [
-                    f for f in all_audio_paths
-                    if f.startswith(cid) and f.lower().endswith(('.wav', '.mp3', '.m4a'))
-                ]
+                # 1. Resolve the current asset
+                resolved = config.resolve_chapter_asset_path(
+                    project_id, cid, "audio", filename=current_path
+                )
+                if not resolved and not current_path:
+                    # Try default names
+                    resolved = config.resolve_chapter_asset_path(project_id, cid, "audio")
 
-                if not candidates:
-                    if status == 'done':
+                if not resolved:
+                    if status == "done":
                         cursor.execute(
-                            "UPDATE chapters SET audio_status = 'unprocessed', audio_file_path = NULL, audio_length_seconds = NULL WHERE id = ?", 
-                            (cid,)
+                            "UPDATE chapters SET audio_status = 'unprocessed', audio_file_path = NULL, audio_length_seconds = NULL WHERE id = ?",
+                            (cid,),
                         )
                     continue
 
-                # Prioritize: mp3 > m4a > wav
-                best_file = None
-                for ext in ['.mp3', '.m4a', '.wav']:
-                    for f in candidates:
-                        if f.lower().endswith(ext):
-                            best_file = f
-                            break
-                    if best_file: break
-
-                if not best_file:
-                    best_file = candidates[0]
-
-                cursor.execute("SELECT audio_file_path FROM chapters WHERE id = ?", (cid,))
-                current_path_row = cursor.fetchone()
-                current_path = current_path_row[0] if current_path_row else None
-
-                if status != 'done' or current_path != best_file:
+                best_file = resolved.name
+                if status != "done" or current_path != best_file:
                     duration = length or 0.0
                     if duration == 0.0 or current_path != best_file:
                         try:
-                            audio_path = all_audio_paths.get(best_file)
-                            if not audio_path:
-                                raise FileNotFoundError(best_file)
-                            duration = probe_audio_duration(audio_path)
+                            duration = probe_audio_duration(resolved)
                         except Exception:
-                            logger.debug("Failed to probe audio duration for %s", best_file, exc_info=True)
+                            logger.debug(
+                                "Failed to probe audio duration for %s",
+                                resolved,
+                                exc_info=True,
+                            )
 
                     cursor.execute(
-                        "UPDATE chapters SET audio_status = 'done', audio_file_path = ?, audio_length_seconds = ? WHERE id = ?", 
-                        (best_file, duration, cid)
+                        "UPDATE chapters SET audio_status = 'done', audio_file_path = ?, audio_length_seconds = ? WHERE id = ?",
+                        (best_file, duration, cid),
                     )
             conn.commit()
 

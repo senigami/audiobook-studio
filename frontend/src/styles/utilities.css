@@ -88,15 +88,55 @@
 }
 
 .progress-bar-pending {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.progress-bar-pending::before {
+  content: '';
+  position: absolute;
+  inset: 0;
   background-image: repeating-linear-gradient(
     135deg,
-    rgba(255, 255, 255, 0.12) 0px,
-    rgba(255, 255, 255, 0.12) 10px,
-    rgba(148, 163, 184, 0.28) 10px,
-    rgba(148, 163, 184, 0.28) 20px
+    rgba(255, 255, 255, 0.16) 0px,
+    rgba(255, 255, 255, 0.16) 7px,
+    rgba(255, 255, 255, 0.09) 9px,
+    rgba(148, 163, 184, 0.22) 12px,
+    rgba(148, 163, 184, 0.22) 17px,
+    rgba(148, 163, 184, 0.10) 20px,
+    rgba(255, 255, 255, 0.16) 24px
   );
   background-size: 36px 36px;
   animation: barber-pole 0.7s linear infinite;
+  will-change: background-position;
+  pointer-events: none;
+}
+
+.progress-bar-finalizing {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.progress-bar-finalizing::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgba(96, 165, 250, 0.36) 0px,
+    rgba(96, 165, 250, 0.36) 7px,
+    rgba(96, 165, 250, 0.20) 9px,
+    rgba(219, 234, 254, 0.20) 12px,
+    rgba(219, 234, 254, 0.20) 17px,
+    rgba(219, 234, 254, 0.10) 20px,
+    rgba(96, 165, 250, 0.36) 24px
+  );
+  background-size: 36px 36px;
+  animation: barber-pole 0.7s linear infinite;
+  will-change: background-position;
+  pointer-events: none;
 }
 
 /* Layout & Utils */
@@ -345,3 +385,19 @@
 .active\:scale-95:active { transform: scale(0.95); }
 .custom-scrollbar::-webkit-scrollbar { width: 6px; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
+
+/* Responsive Action Bar */
+@media (max-width: 1250px) {
+  .hide-on-mobile {
+    display: none !important;
+  }
+}
+
+.show-on-hover {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.editable-cell:hover .show-on-hover {
+    opacity: 0.6;
+}

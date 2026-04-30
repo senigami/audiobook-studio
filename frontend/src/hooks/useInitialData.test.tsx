@@ -32,9 +32,9 @@ describe('useInitialData', () => {
     const { result } = renderHook(() => useInitialData());
 
     await waitFor(() => {
-      expect(result.current.loading).toBe(false);
+      expect(global.fetch).toHaveBeenCalledWith('/api/home', { cache: 'no-store' });
     });
-
+    expect(result.current.loading).toBe(true);
     expect(result.current.data).toBeNull();
   });
 
@@ -61,5 +61,41 @@ describe('useInitialData', () => {
 
     expect(result.current.data).toEqual(mockData2);
     expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps loading until startup is ready', async () => {
+    vi.useFakeTimers();
+
+    try {
+      const pendingData = { system_info: { startup_ready: false } };
+      const readyData = { system_info: { startup_ready: true } };
+      (global.fetch as any)
+        .mockResolvedValueOnce({
+          json: () => Promise.resolve(pendingData),
+        })
+        .mockResolvedValueOnce({
+          json: () => Promise.resolve(readyData),
+        });
+
+      const { result } = renderHook(() => useInitialData());
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(result.current.loading).toBe(true);
+
+      await act(async () => {
+        await vi.runOnlyPendingTimersAsync();
+        await Promise.resolve();
+      });
+
+      expect(global.fetch).toHaveBeenCalledTimes(2);
+      expect(result.current.loading).toBe(false);
+
+      expect(result.current.data).toEqual(readyData);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -242,3 +242,59 @@ def test_handle_mixed_job_progress_weights_short_final_group(clean_db, tmp_path)
     ]
     assert 0.45 in progress_updates
     assert 0.85 in progress_updates
+
+
+def test_handle_mixed_segment_job_persists_intermediate_progress(clean_db, tmp_path):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.segments import sync_chapter_segments, get_chapter_segments, update_segment
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "Hello world.")
+    sync_chapter_segments(cid, "Hello world.")
+    segs = get_chapter_segments(cid)
+    segment_id = segs[0]["id"]
+    update_segment(segment_id, speaker_profile_name="XTTS Voice")
+
+    job = Job(
+        id="mixed-segment-job",
+        engine="mixed",
+        chapter_file=f"{cid}_0.txt",
+        status="queued",
+        created_at=time.time(),
+        project_id=pid,
+        chapter_id=cid,
+        speaker_profile="XTTS Voice",
+        segment_ids=[segment_id],
+    )
+
+    audio_dir = tmp_path / "audio"
+    audio_dir.mkdir()
+
+    def fake_xtts_generate(*args, **kwargs):
+        on_output = kwargs["on_output"]
+        on_output("[PROGRESS] 25%\n")
+        on_output("[PROGRESS] 50%\n")
+        Path(kwargs["out_wav"]).write_text("xtts")
+        return 0
+
+    with patch("app.jobs.handlers.mixed.get_project_audio_dir", return_value=audio_dir), \
+         patch("app.config.get_project_audio_dir", return_value=audio_dir), \
+         patch("app.chunk_groups.resolve_profile_engine", return_value="xtts"), \
+         patch("app.jobs.handlers.mixed.get_speaker_settings", return_value={"speed": 1.0}), \
+         patch("app.jobs.handlers.mixed.get_speaker_wavs", return_value="ref.wav"), \
+         patch("app.jobs.handlers.mixed.get_voice_profile_dir", return_value=tmp_path / "voice"), \
+         patch("app.jobs.handlers.mixed.xtts_generate", side_effect=fake_xtts_generate), \
+         patch("app.jobs.handlers.mixed.update_job") as mock_update:
+        result = handle_mixed_job("mixed-segment-job", job, time.time(), lambda _line: None, lambda: False)
+
+    assert result == "done"
+    intermediate_updates = [
+        call.kwargs
+        for call in mock_update.call_args_list
+        if call.kwargs.get("active_segment_id") == segment_id
+        and call.kwargs.get("active_segment_progress", 0) > 0
+    ]
+    assert intermediate_updates
+    assert intermediate_updates[0]["progress"] == 0.25
+    assert intermediate_updates[-1]["progress"] == 0.5

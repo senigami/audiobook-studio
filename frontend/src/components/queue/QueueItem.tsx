@@ -12,6 +12,7 @@ interface QueueItemProps {
     formatJobTitle: (job: any) => string;
     formatTime: (ts: number | null | undefined) => string;
     onRemove: (id: string) => void;
+    compact?: boolean;
 }
 
 export const QueueItem: React.FC<QueueItemProps> = ({
@@ -20,21 +21,25 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     localPaused,
     formatJobTitle,
     formatTime,
-    onRemove
+    onRemove,
+    compact = false
 }) => {
-    const isTrulyActive = ['running', 'processing', 'finalizing'].includes(liveJob?.status ?? job.status);
-    const rawStarted = liveJob?.started_at ?? job.started_at;
-    const rawEtaSeconds = liveJob?.eta_seconds ?? job.eta_seconds;
-    const status = liveJob?.status ?? job.status;
-    const engine = (liveJob?.engine ?? job.engine) || '';
+    const status = job.status;
+    const isTrulyActive = ['preparing', 'running', 'processing', 'finalizing'].includes(status);
+    const rawStarted = job.started_at ?? liveJob?.started_at;
+    const rawEtaSeconds = job.eta_seconds ?? liveJob?.eta_seconds;
+    const etaBasis = job.eta_basis ?? liveJob?.eta_basis ?? (rawEtaSeconds != null ? 'remaining_from_update' : undefined);
+    const estimatedEndAt = job.estimated_end_at ?? liveJob?.estimated_end_at;
+    const updatedAt = job.updated_at ?? liveJob?.updated_at;
+    const engine = job.engine || liveJob?.engine || '';
     const activeSegmentProgress = liveJob?.active_segment_progress;
-    const jobProgress = liveJob?.progress ?? job.progress ?? 0;
-    const renderGroupCount = liveJob?.render_group_count ?? 0;
-    const completedRenderGroups = liveJob?.completed_render_groups ?? 0;
-    const activeRenderGroupIndex = liveJob?.active_render_group_index ?? 0;
-    const totalRenderWeight = liveJob?.total_render_weight ?? 0;
-    const completedRenderWeight = liveJob?.completed_render_weight ?? 0;
-    const activeRenderGroupWeight = liveJob?.active_render_group_weight ?? 0;
+    const jobProgress = job.progress ?? liveJob?.progress ?? 0;
+    const renderGroupCount = job.render_group_count ?? liveJob?.render_group_count ?? 0;
+    const completedRenderGroups = job.completed_render_groups ?? liveJob?.completed_render_groups ?? 0;
+    const activeRenderGroupIndex = job.active_render_group_index ?? liveJob?.active_render_group_index ?? 0;
+    const totalRenderWeight = job.total_render_weight ?? liveJob?.total_render_weight ?? 0;
+    const completedRenderWeight = job.completed_render_weight ?? liveJob?.completed_render_weight ?? 0;
+    const activeRenderGroupWeight = job.active_render_group_weight ?? liveJob?.active_render_group_weight ?? 0;
     const isGroupedChapterJob = renderGroupCount > 0 && !job.segment_ids?.length && !liveJob?.segment_ids?.length;
     const activeGroupProgress = activeRenderGroupIndex > completedRenderGroups
         ? Math.max(0, Math.min(activeSegmentProgress ?? 0, 1))
@@ -56,7 +61,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     const useLiveSegmentProgress = ['voice_build', 'voice_test'].includes(engine)
         && status === 'running'
         && typeof activeSegmentProgress === 'number'
-        && activeSegmentProgress > 0;
+        && activeSegmentProgress >= 0;
     const progress = !isTrulyActive
         ? 0
         : useLiveSegmentProgress
@@ -64,17 +69,17 @@ export const QueueItem: React.FC<QueueItemProps> = ({
         : (isGroupedChapterJob ? Math.max(jobProgress, groupedProgress) : jobProgress);
     const engineType = (liveJob?.engine ?? job.engine) || '';
     const isCloudLike = ['voxtral', 'mixed'].includes(engineType);
-    const showIndeterminateProgress = engineType === 'voxtral' && shouldShowIndeterminateProgress({
-        engine: liveJob?.engine ?? job.engine,
-        segment_ids: liveJob?.segment_ids ?? job.segment_ids,
-        active_segment_id: liveJob?.active_segment_id,
-        custom_title: liveJob?.custom_title ?? job.custom_title,
-    });
+    const showIndeterminateProgress = shouldShowIndeterminateProgress({
+            engine: liveJob?.engine ?? job.engine,
+            segment_ids: liveJob?.segment_ids ?? job.segment_ids,
+            active_segment_id: liveJob?.active_segment_id,
+            custom_title: liveJob?.custom_title ?? job.custom_title,
+        });
     const hasActiveGroupSignal = isGroupedChapterJob && (completedRenderGroups > 0 || activeRenderGroupIndex > 0);
     // Render-group metadata can arrive before the backend flips a grouped chapter job from
     // preparing into running. Keep the queue row in the backend's explicit status so the UI
     // does not start the active animation early just because group bookkeeping showed up.
-    const displayStatus = isCloudLike && status === 'finalizing' ? 'finalizing' : status;
+    const displayStatus = isCloudLike && status === 'finalizing' ? 'finalizing' : (showIndeterminateProgress ? 'preparing' : status);
     const [stableStarted, setStableStarted] = React.useState<number | null | undefined>(rawStarted);
     const [stableEta, setStableEta] = React.useState<number | null | undefined>(rawEtaSeconds);
 
@@ -103,63 +108,63 @@ export const QueueItem: React.FC<QueueItemProps> = ({
 
     return (
         <div style={{
-            background: 'var(--surface)', 
+            background: 'var(--surface)',
             border: '1px solid var(--accent)',
-            borderRadius: '16px', 
-            padding: '1.5rem', 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '1.5rem',
+            borderRadius: compact ? '12px' : '16px',
+            padding: compact ? '0.75rem 1rem' : '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: compact ? '1rem' : '1.5rem',
             boxShadow: 'var(--shadow-md)',
             position: 'relative',
             overflow: 'hidden'
         }}>
-            <div style={{ 
-                position: 'absolute', 
-                left: 0, 
-                top: 0, 
-                bottom: 0, 
-                width: '6px', 
-                background: 'var(--accent)' 
+            <div style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: '6px',
+                background: 'var(--accent)'
             }} />
-            
-            <div style={{ 
-                width: '48px', 
-                height: '48px', 
-                borderRadius: '12px', 
-                background: 'var(--accent-tint)', 
-                display: 'flex', 
-                alignItems: 'center', 
+
+            <div style={{
+                width: compact ? '36px' : '48px',
+                height: compact ? '36px' : '48px',
+                borderRadius: compact ? '8px' : '12px',
+                background: 'var(--accent-tint)',
+                display: 'flex',
+                alignItems: 'center',
                 justifyContent: 'center',
                 flexShrink: 0
             }}>
                 {localPaused ? (
-                    <Pause size={24} strokeWidth={2} color="var(--accent)" />
+                    <Pause size={compact ? 18 : 24} strokeWidth={2} color="var(--accent)" />
                 ) : (
-                    <Play size={24} strokeWidth={2} color="var(--accent)" className="animate-pulse" />
+                    <Play size={compact ? 18 : 24} strokeWidth={2} color="var(--accent)" className="animate-pulse" />
                 )}
             </div>
 
             <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: compact ? '4px' : '12px' }}>
                     <div style={{ minWidth: 0 }}>
-                        <h4 style={{ fontWeight: 700, fontSize: '1.1rem', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <h4 style={{ fontWeight: 700, fontSize: compact ? '0.95rem' : '1.1rem', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {formatJobTitle(job)}
                         </h4>
-                        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={!job.project_name ? { color: 'var(--accent)', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' } : undefined}>
+                        <div style={{ fontSize: compact ? '0.75rem' : '0.85rem', color: 'var(--text-secondary)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={!job.project_name ? { color: 'var(--accent)', fontWeight: 700, fontSize: compact ? '0.65rem' : '0.75rem', textTransform: 'uppercase' } : undefined}>
                                 {formatQueueContext(job)}
                             </span>
                             {started && (
                                 <>
                                     <span style={{ width: '3px', height: '3px', borderRadius: '50%', background: 'var(--text-muted)' }} />
-                                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Started {formatTime(started)}</span>
+                                    <span style={{ fontSize: compact ? '0.7rem' : '0.8rem', color: 'var(--text-muted)' }}>Started {formatTime(started)}</span>
                                 </>
                             )}
                         </div>
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
-                        <button 
+                        <button
                             onClick={(e) => { e.stopPropagation(); onRemove(job.id); }}
                             style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '6px', borderRadius: '8px' }}
                             className="hover-bg-destructive"
@@ -169,17 +174,23 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                         </button>
                     </div>
                 </div>
-                <PredictiveProgressBar 
+                <PredictiveProgressBar
                     progress={progress}
                     startedAt={started}
                     etaSeconds={etaSeconds}
+                    etaBasis={etaBasis}
+                    estimatedEndAt={estimatedEndAt}
+                    updatedAt={updatedAt}
                     persistenceKey={job.id}
                     status={displayStatus}
                     label={displayStatus === 'preparing' ? "Preparing..." : (displayStatus === 'finalizing' ? "Finalizing..." : "Processing...")}
                     predictive={true}
-                    indeterminateRunning={showIndeterminateProgress}
-                    authoritativeFloor={isGroupedChapterJob}
+                    allowBackwardProgress={!isGroupedChapterJob}
+                    checkpointMode={isGroupedChapterJob ? 'queue' : (job.segment_ids?.length || liveJob?.segment_ids?.length || liveJob?.active_segment_id ? 'segment' : 'default')}
                     evidenceWeightFraction={isGroupedChapterJob ? evidenceWeightFraction : 1}
+                    transitionTickCount={isGroupedChapterJob ? 12 : 3}
+                    backwardTransitionTickCount={2}
+                    tickMs={250}
                 />
             </div>
         </div>

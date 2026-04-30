@@ -20,7 +20,6 @@ export const useWebSocket = (url: string, onMessage: (data: any) => void) => {
     socketRef.current = socket;
 
     socket.onopen = () => {
-      console.log('WS Connected');
       setConnected(true);
       if (reconnectTimerRef.current) {
         window.clearTimeout(reconnectTimerRef.current);
@@ -38,7 +37,6 @@ export const useWebSocket = (url: string, onMessage: (data: any) => void) => {
     };
 
     socket.onclose = () => {
-      console.warn('WS Closed, reconnecting...');
       setConnected(false);
       socketRef.current = null;
       if (!reconnectTimerRef.current) {
@@ -46,8 +44,7 @@ export const useWebSocket = (url: string, onMessage: (data: any) => void) => {
       }
     };
 
-    socket.onerror = (err) => {
-      console.error('WS Error', err);
+    socket.onerror = () => {
       socket.close();
     };
   }, [url]);

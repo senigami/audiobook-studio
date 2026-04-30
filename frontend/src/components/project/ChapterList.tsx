@@ -1,6 +1,7 @@
 import React from 'react';
 import { Reorder } from 'framer-motion';
-import { FileText, GripVertical, CheckSquare, Square, RefreshCw, Edit3, Zap, Video, Download, Trash2, Loader2 } from 'lucide-react';
+import { FileText, GripVertical, CheckSquare, Square, RefreshCw, Zap, Video, Download, Trash2, Loader2 } from 'lucide-react';
+import { InlineEdit } from '../InlineEdit';
 import { ActionMenu } from '../ActionMenu';
 import { StatusOrb } from '../StatusOrb';
 import { PredictiveProgressBar } from '../PredictiveProgressBar';
@@ -24,6 +25,7 @@ interface ChapterListProps {
   onExportSample: (chap: Chapter) => void;
   isExporting: string | null;
   formatLength: (seconds: number) => string;
+  anyEnginesEnabled?: boolean;
 }
 
 export const ChapterList: React.FC<ChapterListProps> = ({
@@ -42,13 +44,11 @@ export const ChapterList: React.FC<ChapterListProps> = ({
   onDeleteChapter,
   onExportSample,
   isExporting,
-  formatLength
+  formatLength,
+  anyEnginesEnabled = true
 }) => {
   const RECENT_COMPLETION_WINDOW_SECONDS = 60;
-  const [editingTitleId, setEditingTitleId] = React.useState<string | null>(null);
-  const [tempTitle, setTempTitle] = React.useState('');
   const [openMenuRowId, setOpenMenuRowId] = React.useState<string | null>(null);
-  const skipBlurSaveId = React.useRef<string | null>(null);
 
   const pickActiveJob = React.useCallback((chapterId: string, includeRecentDone = false) => {
     const liveStatuses = new Set(['running', 'preparing', 'finalizing', 'queued']);
@@ -172,7 +172,13 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                   onOpenChange={(open) => setOpenMenuRowId(open ? chap.id : null)}
                   trigger={<StatusOrb chap={chap} activeJob={activeJob} doneSegments={chap.done_segments_count} totalSegments={chap.total_segments_count} />}
                   items={[
-                    { label: queueActionLabel, icon: RefreshCw, onClick: () => onQueueChapter(chap) }
+                    { 
+                      label: queueActionLabel, 
+                      icon: RefreshCw, 
+                      disabled: !anyEnginesEnabled,
+                      title: !anyEnginesEnabled ? 'All engines disabled' : undefined,
+                      onClick: () => onQueueChapter(chap) 
+                    }
                   ].filter(() => {
                     const isStale = chap.text_last_modified && chap.audio_generated_at && (chap.text_last_modified > chap.audio_generated_at);
                     const isPartial = (chap.done_segments_count || 0) > 0 && (chap.done_segments_count || 0) < (chap.total_segments_count || 0) && !chap.has_wav;
@@ -182,39 +188,31 @@ export const ChapterList: React.FC<ChapterListProps> = ({
               )}
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', opacity: isAssemblyMode && chap.audio_status !== 'done' ? 0.4 : 1, cursor: isAssemblyMode ? 'default' : 'pointer', minWidth: '150px', flex: '1 1 0' }} onClick={() => !isAssemblyMode && onEditChapter(chap.id)}>
-                {editingTitleId === chap.id ? (
-                  <input autoFocus value={tempTitle} onChange={e => setTempTitle(e.target.value)} onClick={e => e.stopPropagation()} 
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') { e.preventDefault(); skipBlurSaveId.current = chap.id; onRenameChapter(chap.id, tempTitle); setEditingTitleId(null); }
-                      else if (e.key === 'Escape') { skipBlurSaveId.current = chap.id; setEditingTitleId(null); }
-                    }}
-                    onBlur={() => { if (skipBlurSaveId.current === chap.id) { skipBlurSaveId.current = null; return; } onRenameChapter(chap.id, tempTitle); setEditingTitleId(null); }}
-                    style={{ fontWeight: 500, fontSize: '0.95rem', background: 'var(--surface-light)', border: '1px solid var(--accent)', borderRadius: '4px', color: 'var(--text-primary)', padding: '0 4px', width: '100%', maxWidth: '200px' }}
-                  />
-                ) : (
-                  <>
-                    <h4 onClick={e => { if (!isAssemblyMode) { e.stopPropagation(); setEditingTitleId(chap.id); setTempTitle(chap.title); } }} style={{ fontWeight: 500, fontSize: '0.95rem', cursor: 'text' }}>{chap.title}</h4>
-                    {queueStatus && (
-                      <span style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.35rem',
-                        padding: '0.2rem 0.55rem',
-                        borderRadius: '999px',
-                        background: isQueued ? 'var(--accent)' : 'var(--accent-tint)',
-                        color: isQueued ? 'white' : 'var(--accent)',
-                        fontSize: '0.7rem',
-                        fontWeight: 700,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.04em',
-                        border: '1px solid var(--accent)',
-                        whiteSpace: 'nowrap',
-                        boxShadow: isQueued ? '0 0 0 1px var(--accent-glow)' : 'none'
-                      }}>
-                        {queueStatus}
-                      </span>
-                    )}
-                  </>
+                <InlineEdit
+                  value={chap.title}
+                  onSave={(newTitle) => onRenameChapter(chap.id, newTitle)}
+                  disabled={isAssemblyMode}
+                  style={{ fontWeight: 500, fontSize: '0.95rem' }}
+                />
+                {queueStatus && (
+                  <span style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    padding: '0.2rem 0.55rem',
+                    borderRadius: '999px',
+                    background: isQueued ? 'var(--accent)' : 'var(--accent-tint)',
+                    color: isQueued ? 'white' : 'var(--accent)',
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                    border: '1px solid var(--accent)',
+                    whiteSpace: 'nowrap',
+                    boxShadow: isQueued ? '0 0 0 1px var(--accent-glow)' : 'none'
+                  }}>
+                    {queueStatus}
+                  </span>
                 )}
               </div>
 
@@ -225,13 +223,18 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                           progress={progressValue} 
                           startedAt={activeJob.started_at}
                           etaSeconds={activeJob.eta_seconds}
+                          etaBasis={activeJob.eta_basis ?? (activeJob.eta_seconds != null ? 'remaining_from_update' : undefined)}
+                          updatedAt={activeJob.updated_at}
                           persistenceKey={activeJob.id}
-                          status={displayStatus}
+                          status={showIndeterminateProgress ? 'preparing' : displayStatus}
                           label={displayStatus} 
                           predictive={true}
-                          indeterminateRunning={showIndeterminateProgress}
-                          authoritativeFloor={isGroupedChapterJob}
+                          allowBackwardProgress={!isGroupedChapterJob}
+                          checkpointMode={isGroupedChapterJob ? 'queue' : (isSegmentScopedJob(activeJob) ? 'segment' : 'default')}
                           evidenceWeightFraction={isGroupedChapterJob ? evidenceWeightFraction : 1}
+                          transitionTickCount={isGroupedChapterJob ? 12 : 3}
+                          backwardTransitionTickCount={2}
+                          tickMs={250}
                         />
                     </div>
                 ) : hasChapterAudio && !isAssemblyMode ? (
@@ -264,8 +267,16 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                 {!isAssemblyMode && (
                   <>
                     <div style={{ display: 'flex', gap: '0.15rem', borderLeft: '1px solid var(--border)', paddingLeft: '1rem' }}>
-                      <button onClick={e => { e.stopPropagation(); onQueueChapter(chap); }} className="btn-ghost" disabled={chap.audio_status === 'processing'} style={{ padding: '0.4rem', color: 'var(--accent)' }}><Zap size={16} /></button>
-                      <button onClick={e => { e.stopPropagation(); onEditChapter(chap.id); }} className="btn-ghost" style={{ padding: '0.4rem', color: 'var(--text-secondary)' }}><Edit3 size={16} /></button>
+                      <button 
+                        onClick={e => { e.stopPropagation(); onQueueChapter(chap); }} 
+                        className="btn-ghost" 
+                        disabled={chap.audio_status === 'processing' || !anyEnginesEnabled} 
+                        title={!anyEnginesEnabled ? 'All TTS engines are disabled in Settings' : (chap.audio_status === 'processing' ? 'Processing' : queueActionLabel)}
+                        style={{ padding: '0.4rem', color: anyEnginesEnabled ? 'var(--accent)' : 'var(--text-muted)' }}
+                      >
+                        <Zap size={16} />
+                      </button>
+                      <button onClick={e => { e.stopPropagation(); onEditChapter(chap.id); }} className="btn-ghost" style={{ padding: '0.4rem', color: 'var(--text-secondary)' }}><FileText size={16} /></button>
                     </div>
                     <ActionMenu 
                       onOpenChange={open => setOpenMenuRowId(open ? chap.id : null)}

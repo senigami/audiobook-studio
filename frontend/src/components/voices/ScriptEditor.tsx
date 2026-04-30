@@ -1,14 +1,14 @@
 import React from 'react';
 import { RotateCcw, Loader2 } from 'lucide-react';
 import { GlassInput } from '../GlassInput';
-import type { VoiceEngine } from '../../types';
+import type { VoiceEngine, TtsEngine } from '../../types';
 
 interface ScriptEditorProps {
     variantName: string;
     onVariantNameChange: (val: string) => void;
     engine: VoiceEngine;
     onEngineChange: (val: VoiceEngine) => void;
-    voxtralEnabled: boolean;
+    engines?: TtsEngine[];
     testText: string;
     onTestTextChange: (val: string) => void;
     referenceSample: string;
@@ -26,7 +26,7 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({
     onVariantNameChange,
     engine,
     onEngineChange,
-    voxtralEnabled,
+    engines = [],
     testText,
     onTestTextChange,
     referenceSample,
@@ -69,59 +69,91 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({
                             fontSize: '0.95rem',
                         }}
                     >
-                        <option value="xtts">XTTS</option>
-                        {(voxtralEnabled || engine === 'voxtral') && (
-                            <option value="voxtral">
-                                {voxtralEnabled ? 'Voxtral (Cloud)' : 'Voxtral (Cloud, disabled in Settings)'}
-                            </option>
-                        )}
+                        {engines.map(e => {
+                            const isSelected = engine === e.engine_id;
+                            if (!e.enabled && !isSelected) return null;
+                            return (
+                                <option key={e.engine_id} value={e.engine_id}>
+                                    {e.enabled ? e.display_name : `${e.display_name} (disabled in Settings)`}
+                                </option>
+                            );
+                        })}
                     </select>
-                    {!voxtralEnabled && engine === 'voxtral' && (
-                        <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                            This profile is still assigned to Voxtral, but cloud voices are currently turned off in Settings. You can keep it as-is or switch it back to XTTS manually.
-                        </p>
-                    )}
+                    {(() => {
+                        const activeEngine = engines.find(e => e.engine_id === engine);
+                        if (activeEngine && !activeEngine.enabled) {
+                            return (
+                                <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                                    This profile is assigned to {activeEngine.display_name}, but it is currently turned off in Settings. New generation is blocked until you turn it back on.
+                                </p>
+                            );
+                        }
+                        return null;
+                    })()}
                 </div>
 
-                {engine === 'voxtral' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>REFERENCE SAMPLE</label>
-                            <select
-                                aria-label="Reference Sample"
-                                value={referenceSample}
-                                onChange={(e) => onReferenceSampleChange(e.target.value)}
-                                style={{
-                                    width: '100%',
-                                    padding: '10px 14px',
-                                    borderRadius: '12px',
-                                    border: '1px solid var(--border)',
-                                    background: 'var(--surface)',
-                                    color: 'var(--text)',
-                                    fontSize: '0.95rem',
-                                }}
-                            >
-                                <option value="">Use profile samples automatically</option>
-                                {availableSamples.map((sample) => (
-                                    <option key={sample} value={sample}>{sample}</option>
-                                ))}
-                            </select>
-                        </div>
+                {(() => {
+                    const activeEngine = engines.find(e => e.engine_id === engine);
+                    if (activeEngine?.cloud) {
+                        return (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                    <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>REFERENCE SAMPLE</label>
+                                    <select
+                                        aria-label="Reference Sample"
+                                        value={referenceSample}
+                                        onChange={(e) => onReferenceSampleChange(e.target.value)}
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px 14px',
+                                            borderRadius: '12px',
+                                            border: '1px solid var(--border)',
+                                            background: 'var(--surface)',
+                                            color: 'var(--text)',
+                                            fontSize: '0.95rem',
+                                        }}
+                                    >
+                                        <option value="">Use profile samples automatically</option>
+                                        {availableSamples.map((sample) => (
+                                            <option key={sample} value={sample}>{sample}</option>
+                                        ))}
+                                    </select>
+                                </div>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>SAVED VOXTRAL VOICE ID</label>
-                            <GlassInput
-                                placeholder="Optional saved voice id"
-                                value={voxtralVoiceId}
-                                onChange={(e) => onVoxtralVoiceIdChange(e.target.value)}
-                            />
-                        </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                    <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>SAVED VOICE ID</label>
+                                    <GlassInput
+                                        placeholder="Optional saved voice id"
+                                        value={voxtralVoiceId}
+                                        onChange={(e) => onVoxtralVoiceIdChange(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                        );
+                    }
+                    return null;
+                })()}
 
-                        <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                            Voxtral sends preview text and reference audio to Mistral when used. Leave this voice on XTTS if you want fully local generation.
-                        </p>
-                    </div>
-                )}
+                {(() => {
+                    const activeEngine = engines.find(e => e.engine_id === engine);
+                    if (activeEngine?.help_text || activeEngine?.privacy_text) {
+                        return (
+                            <div style={{ padding: '12px', borderRadius: '12px', background: 'var(--surface-alt)', border: '1px solid var(--border)', marginBottom: '1.5rem' }}>
+                                {activeEngine.help_text && (
+                                    <p style={{ margin: '0 0 8px 0', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                                        {activeEngine.help_text}
+                                    </p>
+                                )}
+                                {activeEngine.privacy_text && (
+                                    <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, lineHeight: 1.5 }}>
+                                        {activeEngine.privacy_text}
+                                    </p>
+                                )}
+                            </div>
+                        );
+                    }
+                    return null;
+                })()}
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                     <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>PREVIEW TEXT SCRIPT</label>

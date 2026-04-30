@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import type { Speaker, SpeakerProfile } from '../../types';
-import { User, RefreshCw, ChevronUp, Star, FileEdit, Trash2, Plus } from 'lucide-react';
+import type { Speaker, SpeakerProfile, TtsEngine } from '../../types';
+import { User, RefreshCw, ChevronUp, Star, FileEdit, Trash2, Plus, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ActionMenu } from '../ActionMenu';
 import { VariantEditor } from './VariantEditor';
-import { getDefaultVoiceProfileName } from '../../utils/voiceProfiles';
+import { formatVoiceEngineLabel, getDefaultVoiceProfileName, getVoiceProfileEngine, isVoiceProfileSelectable } from '../../utils/voiceProfiles';
 
 interface NarratorCardProps {
     speaker: Speaker;
@@ -19,20 +19,21 @@ interface NarratorCardProps {
     requestConfirm: (config: { title: string; message: string; onConfirm: () => void; isDestructive?: boolean; isAlert?: boolean }) => void;
     onAddVariantClick: (speaker: Speaker, profileCount: number) => void;
     onRenameClick: (speaker: Speaker) => void;
+    onExportVoice?: (voiceName: string) => void;
     onSetDefaultClick: (profileName: string) => void;
     isExpanded: boolean;
     onToggleExpand: () => void;
     buildingProfiles: Record<string, boolean>;
-    voxtralAvailable?: boolean;
+    engines?: TtsEngine[];
 }
 
 export const NarratorCard: React.FC<NarratorCardProps> = ({
-    speaker, profiles, testProgress, 
+    speaker, profiles, testProgress,
     onTest, onDelete, onRefresh,
     onEditTestText, onBuildNow, requestConfirm,
-    onAddVariantClick, onRenameClick, onSetDefaultClick, isExpanded, onToggleExpand, onMoveVariant,
+    onAddVariantClick, onRenameClick, onExportVoice, onSetDefaultClick, isExpanded, onToggleExpand, onMoveVariant,
     buildingProfiles,
-    voxtralAvailable = true
+    engines = []
 }) => {
     const defaultProfileName = getDefaultVoiceProfileName(profiles);
     const defaultProfile =
@@ -61,30 +62,66 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
     }, [profiles, activeProfileId, defaultProfile]);
 
     const activeProfile = profiles.find(p => p.name === activeProfileId) || defaultProfile;
-    const activeEngine = activeProfile?.engine || 'xtts';
+    const activeEngine = getVoiceProfileEngine(activeProfile) || 'unknown';
+    const activeEngineInfo = engines.find(e => e.engine_id === activeEngine);
+    const activeEngineSelectable = isVoiceProfileSelectable(activeProfile, engines);
+    const isCloudEngine = activeEngineInfo?.cloud === true;
     const activeEngineBadge = {
-        label: activeEngine === 'voxtral' ? 'Voxtral' : 'XTTS',
-        bg: activeEngine === 'voxtral' ? 'rgba(14, 165, 233, 0.12)' : 'rgba(var(--accent-rgb), 0.12)',
-        color: activeEngine === 'voxtral' ? '#0ea5e9' : 'var(--accent)'
+        label: activeEngineInfo?.display_name || formatVoiceEngineLabel(activeEngine),
+        bg: !activeEngineSelectable
+            ? 'rgba(var(--accent-rgb), 0.08)'
+            : (isCloudEngine ? 'rgba(14, 165, 233, 0.12)' : 'rgba(var(--accent-rgb), 0.12)'),
+        color: !activeEngineSelectable
+            ? 'var(--text-muted)'
+            : (isCloudEngine ? '#0ea5e9' : 'var(--accent)')
     };
 
     const handleAddVariant = () => onAddVariantClick(speaker, profiles.length);
 
     const getStatusInfo = (p: SpeakerProfile | undefined) => {
         if (!p) return { label: 'NO SAMPLES', color: 'var(--text-muted)', bg: 'var(--surface-alt)' };
-        const engine = p.engine || 'xtts';
-        const hasPreviewInputs = engine === 'voxtral'
-            ? ((p.wav_count || 0) > 0 || !!p.voxtral_voice_id)
-            : ((p.wav_count || 0) > 0 || !!p.has_latent);
+        const engineId = getVoiceProfileEngine(p) || 'unknown';
+        const engineInfo = engines.find(e => e.engine_id === engineId);
+        const selectable = isVoiceProfileSelectable(p, engines);
+        const hasBuildMaterial = Boolean(
+            p.is_ready ||
+            p.has_latent ||
+            p.voxtral_voice_id ||
+            p.reference_sample ||
+            p.wav_count > 0 ||
+            (p.samples?.length || 0) > 0
+        );
+
         if (buildingProfiles[p.name]) return { label: 'BUILDING...', color: 'var(--accent)', bg: 'rgba(var(--accent-rgb), 0.1)' };
-        if (!hasPreviewInputs && !p.preview_url) return { label: 'NO SAMPLES', color: 'var(--text-muted)', bg: 'var(--surface-alt)' };
-        if (p.is_rebuild_required) {
-            return engine === 'voxtral'
-                ? { label: 'PREVIEW OUT OF DATE', color: 'var(--warning-text)', bg: 'rgba(var(--warning-rgb), 0.1)' }
-                : { label: 'REBUILD REQUIRED', color: 'var(--warning-text)', bg: 'rgba(var(--warning-rgb), 0.1)' };
+
+        if (!selectable) {
+            return { label: 'DISABLED', color: 'var(--text-muted)', bg: 'var(--surface-alt)' };
         }
-        if (!p.preview_url) return { label: 'BUILD TO TEST', color: 'var(--accent)', bg: 'rgba(var(--accent-rgb), 0.1)' };
-        return { label: 'BUILT', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' };
+
+        // Use the readiness hook result from the backend
+        if (p.is_rebuild_required) {
+            const isRebuildEngine = engineInfo?.capabilities?.includes('voice_build');
+            const reasons = p.rebuild_reasons || [];
+
+            if (reasons.includes('no_preview')) {
+                return { label: 'BUILD TO TEST', color: 'var(--accent)', bg: 'rgba(var(--accent-rgb), 0.1)' };
+            }
+
+            let label = isRebuildEngine ? 'REBUILD REQUIRED' : 'PREVIEW STALE';
+            if (reasons.includes('new_samples')) label = 'NEW SAMPLES';
+            else if (reasons.includes('settings_changed')) label = 'SETTINGS CHANGED';
+            else if (reasons.includes('samples_missing')) label = 'SAMPLES MISSING';
+
+            return { label, color: 'var(--warning-text)', bg: 'rgba(var(--warning-rgb), 0.1)' };
+        }
+
+        if (!p.preview_url) {
+            if (!hasBuildMaterial) {
+                return { label: 'NOT READY', color: 'var(--text-muted)', bg: 'var(--surface-alt)' };
+            }
+            return { label: 'BUILD TO TEST', color: 'var(--accent)', bg: 'rgba(var(--accent-rgb), 0.1)' };
+        }
+        return { label: 'READY', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' };
     };
 
     const status = getStatusInfo(activeProfile as SpeakerProfile);
@@ -92,26 +129,26 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
     return (
         <div className="glass-panel animate-in" style={{ padding: '0', display: 'flex', flexDirection: 'column', overflow: 'hidden', border: isExpanded ? '1px solid var(--accent)' : '1px solid var(--border)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: '80px', padding: '0 1.5rem' }}>
-                <div 
+                <div
                     onClick={onToggleExpand}
-                    style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '16px', 
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '16px',
                         cursor: 'pointer',
                         flex: 1,
                         userSelect: 'none',
                         height: '100%'
                     }}
                 >
-                    <div style={{ 
+                    <div style={{
                         position: 'relative',
-                        width: '40px', 
-                        height: '40px', 
-                        borderRadius: '12px', 
-                        background: 'var(--accent)', 
-                        display: 'flex', 
-                        alignItems: 'center', 
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '12px',
+                        background: 'var(--accent)',
+                        display: 'flex',
+                        alignItems: 'center',
                         justifyContent: 'center',
                         color: 'white',
                         boxShadow: 'var(--shadow-sm)'
@@ -136,7 +173,7 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
                                 <RefreshCw size={10} style={{ width: '10px', height: '10px' }} />
                             </div>
                         )}
-                        <div 
+                        <div
                             style={{
                                 position: 'absolute',
                                 bottom: -4,
@@ -159,7 +196,7 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
                             <ChevronUp size={12} style={{ width: '12px', height: '12px', flexShrink: 0 }} />
                         </div>
                     </div>
-                    
+
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -168,10 +205,10 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
                                     <Star size={16} fill="var(--accent)" color="var(--accent)" />
                                 )}
                             </h3>
-                            <span style={{ 
-                                fontSize: '0.65rem', 
-                                padding: '2px 8px', 
-                                background: status.bg, 
+                            <span style={{
+                                fontSize: '0.65rem',
+                                padding: '2px 8px',
+                                background: status.bg,
                                 color: status.color,
                                 borderRadius: '100px',
                                 fontWeight: 800,
@@ -191,7 +228,7 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <ActionMenu 
+                    <ActionMenu
                         items={[
                             {
                                 label: 'Set as Default',
@@ -204,25 +241,30 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
                                 icon: FileEdit,
                                 onClick: () => onRenameClick(speaker)
                             },
-                            { 
-                                label: 'Delete Voice (all variants)', 
+                            {
+                                label: 'Export Voice Bundle',
+                                icon: Download,
+                                onClick: () => onExportVoice?.(speaker.name)
+                            },
+                            {
+                                label: 'Delete Voice (all variants)',
                                 icon: Trash2,
                                 onClick: () => requestConfirm({
                                     title: 'Delete voice?',
                                     message: `Delete voice '${speaker.name}' and all ${profiles.length} variants? This cannot be undone.`,
                                     isDestructive: true,
                                     onConfirm: () => {
-                                        const deleteUrl = speaker.id 
-                                            ? `/api/speakers/${speaker.id}` 
+                                        const deleteUrl = speaker.id
+                                            ? `/api/speakers/${speaker.id}`
                                             : `/api/speaker-profiles/${encodeURIComponent(profiles[0]?.name)}`;
-                                        
+
                                         fetch(deleteUrl, { method: 'DELETE' })
                                             .then(resp => {
                                                 if (resp.ok) onRefresh();
                                             });
                                     }
                                 }),
-                                isDestructive: true 
+                                isDestructive: true
                             }
                         ]}
                     />
@@ -257,11 +299,11 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
                                                 transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                                                 border: '1px solid',
                                                 borderColor: isActive ? 'var(--accent)' : 'transparent',
-                                                background: isActive 
-                                                    ? 'var(--accent)' 
+                                                background: isActive
+                                                    ? 'var(--accent)'
                                                     : (hoveredProfileId === p.name ? 'var(--accent-glow)' : 'transparent'),
-                                                color: isActive 
-                                                    ? 'white' 
+                                                color: isActive
+                                                    ? 'white'
                                                     : (hoveredProfileId === p.name ? 'var(--text-primary)' : 'var(--text-muted)'),
                                                 display: 'flex',
                                                 alignItems: 'center',
@@ -278,17 +320,17 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
                                                 fontWeight: 800,
                                                 background: isActive
                                                     ? 'rgba(255,255,255,0.2)'
-                                                    : ((p.engine || 'xtts') === 'voxtral' ? 'rgba(14, 165, 233, 0.12)' : 'rgba(var(--accent-rgb), 0.12)'),
+                                                    : (engines.find(e => e.engine_id === (getVoiceProfileEngine(p) || 'unknown'))?.cloud ? 'rgba(14, 165, 233, 0.12)' : 'rgba(var(--accent-rgb), 0.12)'),
                                                 color: isActive
                                                     ? 'white'
-                                                    : ((p.engine || 'xtts') === 'voxtral' ? '#0ea5e9' : 'var(--accent)')
+                                                    : (engines.find(e => e.engine_id === (getVoiceProfileEngine(p) || 'unknown'))?.cloud ? '#0ea5e9' : 'var(--accent)')
                                             }}>
-                                                {(p.engine || 'xtts') === 'voxtral' ? 'VX' : 'XT'}
+                                                {(engines.find(e => e.engine_id === (getVoiceProfileEngine(p) || 'unknown'))?.display_name || formatVoiceEngineLabel(getVoiceProfileEngine(p))).substring(0, 2).toUpperCase()}
                                             </span>
                                         </button>
                                     );
                                 })}
-                                <button 
+                                <button
                                     onClick={handleAddVariant}
                                     style={{
                                         padding: '6px 10px',
@@ -325,7 +367,7 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
                                     voiceName={speaker.name}
                                     showControlsInline={true}
                                     buildingProfiles={buildingProfiles}
-                                    voxtralAvailable={voxtralAvailable}
+                                    engines={engines}
                                 />
                         </div>
                     </motion.div>

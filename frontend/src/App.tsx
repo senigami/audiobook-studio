@@ -1,44 +1,106 @@
-import { useState, useEffect } from 'react';
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation, useMatch } from 'react-router-dom';
+import { api } from './api';
 import { Layout } from './components/Layout';
 import { PreviewModal } from './components/PreviewModal';
 import { VoicesTab } from './components/VoicesTab';
 import { ProjectLibrary } from './components/ProjectLibrary';
 import { ProjectView } from './components/ProjectView';
 import { GlobalQueue } from './components/GlobalQueue';
+import { ProgressBarTestPage } from './components/ProgressBarTestPage';
 import { useJobs } from './hooks/useJobs';
+import { useQueueSync } from './hooks/useQueueSync';
 import { useInitialData } from './hooks/useInitialData';
-import { SettingsTray } from './components/SettingsTray';
 import { ConfirmModal } from './components/ConfirmModal';
+import { createStudioShellState } from './app/layout/StudioShell';
+import { ProjectViewRoute } from './features/project-view/routes/ProjectViewRoute';
+import { QueueRoute } from './features/queue/routes/QueueRoute';
+import { SettingsRoute } from './features/settings/routes';
+import type { Chapter, Project } from './types';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Drawer } from './components/voices/VoiceUtils';
 
 function App() {
   const navigate = useNavigate();
-  const [queueCount, setQueueCount] = useState(0);
+  const location = useLocation();
+  const projectMatch = useMatch('/project/:projectId');
+  const chapterMatch = useMatch('/chapter/:chapterId');
+  const projectIdFromRoute = projectMatch?.params.projectId;
+  const chapterIdFromRoute = chapterMatch?.params.chapterId;
   const [queueRefreshTrigger, setQueueRefreshTrigger] = useState(0);
-  const [chapterUpdate, setChapterUpdate] = useState<{ chapterId: string; tick: number }>({ chapterId: '', tick: 0 });
+  const {
+    queue: mergedQueue,
+    queueCount,
+    loading: queueLoading,
+    connected,
+    isReconnecting,
+    activeSource,
+    refreshQueue: originalRefreshQueue
+  } = useQueueSync();
 
-  const fetchQueueCount = async () => {
+  const [refreshingSource, setRefreshingSource] = useState<'bootstrap' | 'reconnect' | 'refresh' | undefined>(undefined);
+
+  const refreshQueue = useCallback(async (source: 'bootstrap' | 'reconnect' | 'refresh' = 'refresh') => {
+    setRefreshingSource(source);
     try {
-        const res = await fetch('/api/processing_queue');
-        const queueData = await res.json();
-        const active = queueData.filter((q: any) => q.status === 'queued' || q.status === 'preparing' || q.status === 'running' || q.status === 'finalizing');
-        setQueueCount(active.length);
-    } catch(e) { console.error('Failed to get queue count', e); }
-  };
+      await originalRefreshQueue(source);
+    } finally {
+      setRefreshingSource(undefined);
+    }
+    setQueueRefreshTrigger(prev => prev + 1);
+  }, [originalRefreshQueue]);
+
+  const [chapterUpdate, setChapterUpdate] = useState<{ chapterId: string; tick: number }>({ chapterId: '', tick: 0 });
 
   const [segmentUpdate, setSegmentUpdate] = useState<{ chapterId: string; tick: number }>({ chapterId: '', tick: 0 });
   const { data: initialData, loading: initialLoading, refetch: refetchHome } = useInitialData();
+  const [chapterRouteData, setChapterRouteData] = useState<Chapter | null>(null);
+  const [chapterRouteLoading, setChapterRouteLoading] = useState(false);
   const { jobs, refreshJobs, testProgress, segmentProgress } = useJobs(
-    () => { refetchHome(); setQueueRefreshTrigger(prev => prev + 1); }, 
-    () => { fetchQueueCount(); setQueueRefreshTrigger(prev => prev + 1); }, 
+    () => { refetchHome(); refreshQueue('refresh'); },
+    () => { refreshQueue('refresh'); },
     () => refetchHome(),
     (chapterId: string) => { setSegmentUpdate(prev => ({ chapterId, tick: prev.tick + 1 })); },
     (chapterId: string) => { setChapterUpdate(prev => ({ chapterId, tick: prev.tick + 1 })); }
   );
-  
+  const chapterProjectIdFromRoute = initialData?.chapters?.find((c: any) => c.id === chapterIdFromRoute)?.project_id;
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!chapterIdFromRoute) {
+      setChapterRouteData(null);
+      setChapterRouteLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setChapterRouteLoading(true);
+    api.fetchChapter(chapterIdFromRoute)
+      .then(chapter => {
+        if (!cancelled) {
+          setChapterRouteData(chapter);
+        }
+      })
+      .catch(err => {
+        if (!cancelled) {
+          console.error('Failed to load chapter route data', err);
+          setChapterRouteData(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setChapterRouteLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [chapterIdFromRoute]);
+
   const [previewFilename, setPreviewFilename] = useState<string | null>(null);
-  
+
   const [confirmConfig, setConfirmConfig] = useState<{
     title: string;
     message: string;
@@ -47,36 +109,71 @@ function App() {
     confirmText?: string;
   } | null>(null);
 
-  const [toast, setToast] = useState<{ message: string; visible: boolean } | null>(null);
+  const [toast, setToast] = useState<{ message: string; visible: boolean; action?: { label: string; onClick: () => void } } | null>(null);
 
-  const showToast = (message: string) => {
-    setToast({ message, visible: true });
+  const showToast = (message: string, action?: { label: string; onClick: () => void }) => {
+    setToast({ message, visible: true, action });
     setTimeout(() => setToast(prev => prev ? { ...prev, visible: false } : null), 4000);
   };
 
+  const [isQueueDrawerOpen, setIsQueueDrawerOpen] = useState(false);
+  const prevPathRef = useRef(location.pathname);
+
   useEffect(() => {
-     fetchQueueCount();
-     const interval = setInterval(fetchQueueCount, 3000);
-     return () => clearInterval(interval);
-  }, []);
+    if (location.pathname === '/queue') {
+      setIsQueueDrawerOpen(true);
+      const target = prevPathRef.current === '/queue' ? '/' : prevPathRef.current;
+      navigate(target, { replace: true });
+    } else {
+      prevPathRef.current = location.pathname;
+    }
+  }, [location.pathname, navigate]);
 
   const handleRefresh = async () => {
-    await Promise.all([refetchHome(), refreshJobs()]);
+    setRefreshingSource('refresh');
+    try {
+      await Promise.all([refetchHome(), refreshJobs(), refreshQueue('refresh')]);
+    } finally {
+      setRefreshingSource(undefined);
+    }
   };
 
+  const shellState = useMemo(() => {
+    return createStudioShellState({
+      pathname: location.pathname,
+      loading: initialLoading || queueLoading,
+      connected,
+      isReconnecting,
+      hydrationSource: activeSource || refreshingSource,
+    });
+  }, [location.pathname, initialLoading, queueLoading, connected, isReconnecting, activeSource, refreshingSource]);
+  const startupMessage = initialData?.system_info?.startup_message || 'Starting Audiobook Studio Services...';
+  const startupDetail = initialData?.system_info?.startup_detail;
+  const [showStartupCopy, setShowStartupCopy] = useState(false);
+
+  useEffect(() => {
+    if (!initialLoading) {
+      setShowStartupCopy(false);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setShowStartupCopy(true);
+    }, 180);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [initialLoading]);
 
 
   return (
     <div className="app-container">
       <Layout
         queueCount={queueCount}
-        headerRight={
-          <SettingsTray 
-            settings={initialData?.settings}
-            onRefresh={handleRefresh}
-            onShowNotification={showToast}
-          />
-        }
+        shellState={shellState}
+        onToggleQueue={() => setIsQueueDrawerOpen(!isQueueDrawerOpen)}
+        isQueueOpen={isQueueDrawerOpen}
       >
         <div style={{
           flex: 1,
@@ -90,23 +187,84 @@ function App() {
             <Routes>
               <Route path="/" element={<ProjectLibrary onSelectProject={(id) => navigate(`/project/${id}`)} />} />
               <Route path="/project/:projectId" element={
-                <ProjectView 
-                  jobs={jobs}
-                  segmentProgress={segmentProgress}
-                  speakerProfiles={initialData?.speaker_profiles || []}
-                  speakers={initialData?.speakers || []}
-                  settings={initialData?.settings}
-                  refreshTrigger={queueRefreshTrigger}
-                  segmentUpdate={segmentUpdate}
-                  chapterUpdate={chapterUpdate}
-                />
+              <ProjectViewRoute
+                  loading={initialLoading || queueLoading}
+                  connected={connected}
+                  isReconnecting={isReconnecting}
+                  refreshingSource={activeSource || refreshingSource}
+                  projectId={projectIdFromRoute}
+                  projectTitle={initialData?.projects?.find((p: Project) => p.id === projectIdFromRoute)?.name}
+                  chapterTitle={initialData?.chapters?.find((c: any) => c.id === chapterIdFromRoute)?.title}
+                >
+                  {(props) => {
+                    const { shellState } = props;
+                    return (
+                    <ProjectView
+                      key={shellState.navigation.activeProjectId}
+                      jobs={jobs}
+                      segmentProgress={segmentProgress}
+                      speakerProfiles={initialData?.speaker_profiles || []}
+                      speakers={initialData?.speakers || []}
+                      engines={initialData?.engines || []}
+                      settings={initialData?.settings}
+                      refreshTrigger={queueRefreshTrigger}
+                      segmentUpdate={segmentUpdate}
+                      chapterUpdate={chapterUpdate}
+                      shellState={shellState}
+                      onOpenQueue={() => setIsQueueDrawerOpen(true)}
+                    />
+                  )}}
+                </ProjectViewRoute>
+              } />
+              {/* Separate Chapter route if needed, though ProjectView handles it via state right now */}
+              <Route path="/chapter/:chapterId" element={
+                <ProjectViewRoute
+                  loading={initialLoading || queueLoading || chapterRouteLoading}
+                  connected={connected}
+                  isReconnecting={isReconnecting}
+                  refreshingSource={activeSource || refreshingSource}
+                  // We might need to resolve projectId from chapter's parent here
+                  projectId={chapterRouteData?.project_id || chapterProjectIdFromRoute}
+                  projectTitle={initialData?.projects?.find((p: Project) => p.id === (chapterRouteData?.project_id || chapterProjectIdFromRoute))?.name}
+                  chapterTitle={chapterRouteData?.title || initialData?.chapters?.find((c: any) => c.id === chapterIdFromRoute)?.title}
+                >
+                  {(props) => {
+                    const { shellState } = props;
+                    return (
+                    <ProjectView
+                      key={shellState.navigation.activeProjectId}
+                      jobs={jobs}
+                      segmentProgress={segmentProgress}
+                      speakerProfiles={initialData?.speaker_profiles || []}
+                      speakers={initialData?.speakers || []}
+                      engines={initialData?.engines || []}
+                      settings={initialData?.settings}
+                      refreshTrigger={queueRefreshTrigger}
+                      segmentUpdate={segmentUpdate}
+                      chapterUpdate={chapterUpdate}
+                      shellState={shellState}
+                      onOpenQueue={() => setIsQueueDrawerOpen(true)}
+                    />
+                  )}}
+                </ProjectViewRoute>
               } />
               <Route path="/queue" element={
-                <GlobalQueue 
-                  paused={initialData?.paused || false} 
-                  jobs={jobs}
-                  refreshTrigger={queueRefreshTrigger}
-                />
+                <QueueRoute
+                  loading={queueLoading}
+                  connected={connected}
+                  isReconnecting={isReconnecting}
+                  refreshingSource={activeSource || refreshingSource}
+                >
+                  {() => (
+                    <GlobalQueue
+                      paused={initialData?.paused || false}
+                      jobs={jobs}
+                      queue={mergedQueue}
+                      loading={queueLoading}
+                      onRefresh={() => refreshQueue('refresh')}
+                    />
+                  )}
+                </QueueRoute>
               } />
               <Route path="/voices" element={
                 <VoicesTab
@@ -115,8 +273,21 @@ function App() {
                   testProgress={testProgress}
                   jobs={jobs}
                   settings={initialData?.settings}
+                  engines={initialData?.engines || []}
                 />
               } />
+              <Route path="/settings/*" element={
+                <SettingsRoute
+                  settings={initialData?.settings}
+                  speakerProfiles={initialData?.speaker_profiles || []}
+                  speakers={initialData?.speakers || []}
+                  engines={initialData?.engines || []}
+                  startupReady={initialData?.system_info?.startup_ready !== false}
+                  onRefresh={handleRefresh}
+                  onShowNotification={showToast}
+                />
+              } />
+              <Route path="/progress-test" element={<ProgressBarTestPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>
@@ -161,7 +332,14 @@ function App() {
                 borderTopColor: 'var(--accent)',
               }}
             />
-            Loading Audiobook Studio...
+            {showStartupCopy && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', minHeight: '2.1rem' }}>
+                <span>{startupMessage}</span>
+                <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', minHeight: '1.1rem' }}>
+                  {startupDetail || '\u00A0'}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -172,6 +350,21 @@ function App() {
         onClose={() => setPreviewFilename(null)}
         filename={previewFilename || ''}
       />
+
+      <Drawer
+        isOpen={isQueueDrawerOpen}
+        onClose={() => setIsQueueDrawerOpen(false)}
+        title="Processing Queue"
+      >
+        <GlobalQueue
+          paused={initialData?.paused || false}
+          jobs={jobs}
+          queue={mergedQueue}
+          loading={queueLoading}
+          onRefresh={() => refreshQueue('refresh')}
+          compact={true}
+        />
+      </Drawer>
 
       <ConfirmModal
         isOpen={!!confirmConfig}
@@ -215,23 +408,25 @@ function App() {
             }}
           >
             <span>{toast.message}</span>
-            <button 
-              onClick={() => {
-                setToast(null);
-                navigate('/queue');
-              }}
-              style={{ 
-                background: 'var(--accent)', 
-                color: 'white', 
-                padding: '4px 10px', 
-                borderRadius: '6px', 
-                fontSize: '0.75rem',
-                border: 'none',
-                cursor: 'pointer'
-              }}
-            >
-              View Queue
-            </button>
+            {toast.action && (
+              <button
+                onClick={() => {
+                  toast.action?.onClick();
+                  setToast(null);
+                }}
+                style={{
+                  background: 'var(--accent)',
+                  color: 'white',
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  fontSize: '0.75rem',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                {toast.action.label}
+              </button>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

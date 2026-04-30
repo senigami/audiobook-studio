@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "studio_tts_manifest": "1.0",
+  "engine_id": "voxtral",
+  "display_name": "Voxtral (Mistral AI)",
+  "version": "1.0.0",
+  "min_studio": "2.0.0",
+  "entry_class": "engine:VoxtralPlugin",
+  "capabilities": ["synthesis", "preview"],
+  "local": false,
+  "cloud": true,
+  "network": true,
+  "languages": ["en", "fr", "es", "de", "it", "pt"],
+  "resource": {
+    "gpu": false,
+    "vram_mb": 0,
+    "cpu_heavy": false
+  },
+  "author": "Mistral AI",
+  "homepage": "https://mistral.ai",
+  "license": "Commercial API",
+  "test_text": "Hello, this is a verification test of the Voxtral synthesis engine."
+}

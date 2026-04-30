@@ -1,90 +1,141 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { advancePredictiveProgress, buildPredictiveProgressModel } from '../utils/predictiveProgress';
+import {
+    clamp01,
+    formatStatusLabel,
+    formatTime,
+    getBusyStatusText,
+    getProgressInfo,
+    getRemainingTicks,
+    getTerminalFillStyle,
+    getTerminalStatusText,
+    isActiveStatus,
+    isLiveAnimatedStatus,
+    isPreparingStatus,
+    isTerminalStatus,
+    isDoneStatus,
+    isFailedStatus,
+    isQueuedStatus,
+    isCancelledStatus,
+    type ProgressPresentationState,
+} from './predictiveProgressBarHelpers';
+import {
+    buildPredictiveProgressDebugSnapshot,
+    type PredictiveProgressDebugSnapshot,
+} from './predictiveProgressBarDebug';
+
+export type { PredictiveProgressDebugSnapshot } from './predictiveProgressBarDebug';
 
 interface PredictiveProgressBarProps {
     progress: number;
     startedAt?: number;
     etaSeconds?: number;
+    updatedAt?: number;
     persistenceKey?: string;
     label?: string;
     showEta?: boolean;
+    showPercent?: boolean;
+    showLabel?: boolean;
+    barOnly?: boolean;
     status?: string;
+    etaBasis?: 'remaining_from_update' | 'total_from_start';
+    estimatedEndAt?: number;
     predictive?: boolean;
-    indeterminateRunning?: boolean;
+    /** @deprecated Use allowBackwardProgress instead */
     authoritativeFloor?: boolean;
+    /** Explicitly allow the bar to move backward on updates. Default is derived from authoritativeFloor (false). */
+    allowBackwardProgress?: boolean;
+    transitionTickCount?: number;
+    backwardTransitionTickCount?: number;
+    tickMs?: number;
+    checkpointMode?: 'default' | 'queue' | 'segment';
     evidenceWeightFraction?: number;
+    state?: ProgressPresentationState;
+    onDebugSnapshot?: (snapshot: PredictiveProgressDebugSnapshot) => void;
 }
 
 const progressMemory = new Map<string, number>();
-const endTimeMemory = new Map<string, number>();
+
+export const resetPredictiveProgressMemory = (persistenceKey?: string) => {
+    if (!persistenceKey) {
+        progressMemory.clear();
+        return;
+    }
+    for (const key of Array.from(progressMemory.keys())) {
+        if (key.startsWith(`${persistenceKey}:`)) {
+            progressMemory.delete(key);
+        }
+    }
+};
 
 const getProgressMemoryKey = (persistenceKey?: string, startedAt?: number) =>
     persistenceKey ? `${persistenceKey}:${startedAt ?? 0}` : undefined;
+const getRememberedProgress = (memoryKey?: string) =>
+    memoryKey ? (progressMemory.get(memoryKey) ?? 0) : 0;
 
-const isActiveStatus = (status?: string) => status === 'running' || status === 'processing' || status === 'finalizing';
-
-const formatTime = (seconds: number) => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = Math.floor(seconds % 60);
-    if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-    return `${m}:${s.toString().padStart(2, '0')}`;
+type ProgressLane = {
+    startedAtMs: number;
+    startProgress: number;
+    endAtMs: number | null;
 };
 
-const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
-const getMaxVisualStep = (dtSeconds: number) => Math.max(0.006, Math.min(0.012, dtSeconds * 0.012));
-const ETA_TICK_MS = 250;
-const ETA_SMOOTHING_MAX_SECONDS = 3;
-const EARLY_QUEUE_ETA_SMOOTHING_MAX_SECONDS = 5;
-const QUEUE_ETA_SMOOTHING_MAX_SECONDS = 4;
-const ETA_MAX_SMOOTHING_TICKS = Math.max(1, Math.round((ETA_SMOOTHING_MAX_SECONDS * 1000) / ETA_TICK_MS));
-const EARLY_QUEUE_ETA_MAX_SMOOTHING_TICKS = Math.max(1, Math.round((EARLY_QUEUE_ETA_SMOOTHING_MAX_SECONDS * 1000) / ETA_TICK_MS));
-const QUEUE_ETA_MAX_SMOOTHING_TICKS = Math.max(1, Math.round((QUEUE_ETA_SMOOTHING_MAX_SECONDS * 1000) / ETA_TICK_MS));
-const PROGRESS_MAX_SMOOTHING_TICKS = ETA_MAX_SMOOTHING_TICKS;
-const hasRememberedActiveRun = (memoryKey?: string, startedAt?: number) =>
-    !!(memoryKey && (
-        progressMemory.has(memoryKey)
-        || endTimeMemory.has(memoryKey)
-        || (typeof startedAt === 'number' && startedAt > 0)
-    ));
-
-const getInitialDisplayProgress = (
-    progress: number,
-    startedAt?: number,
-    etaSeconds?: number,
-    persistenceKey?: string,
-    predictive?: boolean,
-    status?: string,
-    indeterminateRunning?: boolean,
-) => {
-    if (status === 'finalizing') return 1;
-    if (!isActiveStatus(status)) return 0;
-    if (indeterminateRunning) return 0;
-    // Contract for queue/project progress:
-    // 1. Always start from the authoritative backend progress that already reflects
-    //    completed chapter work, including partial renders and resumed jobs.
-    // 2. Never jump forward on mount just because startedAt/eta imply more elapsed time.
-    // 3. After mount, animate locally from the current displayed position using ETA as a
-    //    pacing hint. Real backend updates should recalculate the remaining time model, not
-    //    teleport the bar to a new percentage.
-    // 4. While a job is active, the displayed bar should be monotonic: corrections change
-    //    future pace, but they should not visually move the bar backward.
-    // 5. Segment-scoped bars follow the same smoothing rule, but their source progress is
-    //    segment progress rather than chapter/job progress.
-    const baseProgress = clamp01(progress);
-    const remembered = progressMemory.get(getProgressMemoryKey(persistenceKey, startedAt) || '');
-    if (!predictive || !startedAt || !etaSeconds) return Math.max(baseProgress, remembered ?? 0);
-    return Math.max(baseProgress, remembered ?? 0);
+type LaneMigration = {
+    startedAtMs: number;
+    durationMs: number;
+    fromLane: ProgressLane;
+    toLane: ProgressLane;
 };
 
-// Grouped chapter progress behavior:
-// - Backend progress is authoritative enough to act as a floor, but not so
-//   absolute that the UI should hard-snap to each update.
-// - Between websocket updates, the bar keeps moving locally from its current
-//   displayed value using the current ETA model so it feels continuous.
-// - ETA corrections are eased toward a new target end time over multiple ticks.
-// - Width transitions stay enabled for active jobs so checkpoint updates remain
-//   visually smooth instead of looking like direct sets.
+const resolveEndAtMs = ({
+    nowMs,
+    startedAt,
+    etaSeconds,
+    etaBasis,
+    estimatedEndAt,
+    updatedAt,
+}: {
+    nowMs: number;
+    startedAt?: number;
+    etaSeconds?: number;
+    etaBasis?: 'remaining_from_update' | 'total_from_start';
+    estimatedEndAt?: number;
+    updatedAt?: number;
+}) => {
+    if (typeof estimatedEndAt === 'number' && estimatedEndAt > 0) {
+        return estimatedEndAt * 1000;
+    }
+
+    if (typeof etaSeconds !== 'number' || etaSeconds < 0) {
+        return null;
+    }
+
+    if (etaBasis === 'remaining_from_update') {
+        const anchorSeconds = updatedAt ?? (nowMs / 1000);
+        return (anchorSeconds + etaSeconds) * 1000;
+    }
+    
+    if (typeof startedAt === 'number' && startedAt > 0) {
+        return (startedAt + etaSeconds) * 1000;
+    }
+
+    return nowMs + (etaSeconds * 1000);
+};
+
+const getLaneProgress = (lane: ProgressLane, nowMs: number) => {
+    if (lane.endAtMs === null) return lane.startProgress;
+    const duration = lane.endAtMs - lane.startedAtMs;
+    if (duration <= 0) return 0.995;
+    const t = Math.max(0, Math.min(1, (nowMs - lane.startedAtMs) / duration));
+    return lane.startProgress + ((0.995 - lane.startProgress) * t);
+};
+
+const getRenderedProgress = (currentLane: ProgressLane | null, migration: LaneMigration | null, nowMs: number, fallback: number) => {
+    if (!currentLane) return fallback;
+    if (!migration) return getLaneProgress(currentLane, nowMs);
+    const oldValue = getLaneProgress(migration.fromLane, nowMs);
+    const desiredValue = getLaneProgress(migration.toLane, nowMs);
+    const t = Math.max(0, Math.min(1, (nowMs - migration.startedAtMs) / migration.durationMs));
+    return oldValue + ((desiredValue - oldValue) * t);
+};
 
 export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     progress,
@@ -93,352 +144,325 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     persistenceKey,
     label = "Progress",
     showEta = true,
+    showPercent = true,
+    showLabel = true,
+    barOnly = false,
     status,
+    etaBasis = 'total_from_start',
+    estimatedEndAt,
+    updatedAt,
     predictive = true,
-    indeterminateRunning = false,
     authoritativeFloor = false,
-    evidenceWeightFraction = 1
+    allowBackwardProgress,
+    transitionTickCount = 8,
+    backwardTransitionTickCount = 2,
+    tickMs = 250,
+    checkpointMode,
+    evidenceWeightFraction, // No-op for compatibility
+    state,
+    onDebugSnapshot,
 }) => {
+    const presentationState = state ?? status;
+    const effectiveAllowBackward = allowBackwardProgress ?? !authoritativeFloor;
     const memoryKey = getProgressMemoryKey(persistenceKey, startedAt);
-    const preserveActiveVisualState = hasRememberedActiveRun(memoryKey, startedAt);
+    const preparingIndeterminate = isPreparingStatus(presentationState);
     const [now, setNow] = useState(Date.now());
-    const [currentEndTime, setCurrentEndTime] = useState<number | null>(null);
-    const [displayProgress, setDisplayProgress] = useState(() => getInitialDisplayProgress(progress, startedAt, etaSeconds, persistenceKey, predictive, status, indeterminateRunning));
-    const lastTickRef = useRef(Date.now());
-    const displayProgressRef = useRef(getInitialDisplayProgress(progress, startedAt, etaSeconds, persistenceKey, predictive, status, indeterminateRunning));
-    const displayedRemainingRef = useRef<number | null>(null);
-    const currentEndTimeRef = useRef<number | null>(null);
-    const targetEndTimeRef = useRef<number | null>(null);
-    const lastRunAnchorRef = useRef<string | null>(null);
-    const pendingRunAnchorRef = useRef<string | null>(null);
+    const [currentLane, setCurrentLane] = useState<ProgressLane | null>(null);
+    const [migration, setMigration] = useState<LaneMigration | null>(null);
+    const [displayProgress, setDisplayProgress] = useState(clamp01(progress));
 
-    useEffect(() => {
-        if (!memoryKey) return;
-        progressMemory.set(memoryKey, Math.max(progressMemory.get(memoryKey) ?? 0, displayProgress));
-    }, [memoryKey, displayProgress]);
+    const currentLaneRef = useRef<ProgressLane | null>(null);
+    const prevPresentationStateRef = useRef<string | null>(presentationState);
+    const migrationRef = useRef<LaneMigration | null>(null);
+    const displayProgressRef = useRef<number>(displayProgress);
 
-    useEffect(() => {
-        if (!memoryKey || currentEndTime === null) return;
-        endTimeMemory.set(memoryKey, currentEndTime);
-    }, [memoryKey, currentEndTime]);
+    const lastDisplayWriteRef = useRef<{ source: string; value: number | null }>({
+        source: 'init',
+        value: clamp01(progress),
+    });
 
-    useEffect(() => {
-        displayProgressRef.current = displayProgress;
-    }, [displayProgress]);
+    const isPhaseHandoff = isPreparingStatus(prevPresentationStateRef.current ?? undefined) && !isPreparingStatus(presentationState);
 
-    useEffect(() => {
-        const runAnchor = `${persistenceKey ?? 'none'}:${startedAt ?? 0}`;
-        if (lastRunAnchorRef.current === runAnchor) {
-            return;
-        }
-        lastRunAnchorRef.current = runAnchor;
-        pendingRunAnchorRef.current = runAnchor;
-        lastTickRef.current = Date.now();
-        const initialEndTime = etaSeconds
-            ? (startedAt ? (startedAt * 1000) + (etaSeconds * 1000) : Date.now() + (etaSeconds * 1000))
-            : null;
-        const rememberedEndTime = memoryKey ? endTimeMemory.get(memoryKey) ?? null : null;
-        const seededEndTime = rememberedEndTime ?? initialEndTime;
-        currentEndTimeRef.current = seededEndTime;
-        targetEndTimeRef.current = initialEndTime;
-        setCurrentEndTime(seededEndTime);
-        setDisplayProgress(getInitialDisplayProgress(
-            progress,
-            startedAt,
-            etaSeconds,
-            persistenceKey,
-            predictive,
-            status,
-            indeterminateRunning,
-        ));
-    }, [progress, startedAt, etaSeconds, persistenceKey, predictive, status, indeterminateRunning]);
+    const lastUpdateMetadataRef = useRef<{
+        incomingProgress: number | null;
+        effectiveTargetProgress: number | null;
+        evidenceWeightFraction: number | null;
+        currentVisualAtUpdate: number | null;
+    }>({
+        incomingProgress: null,
+        effectiveTargetProgress: null,
+        evidenceWeightFraction: null,
+        currentVisualAtUpdate: null,
+    });
 
-    useEffect(() => {
-        lastTickRef.current = Date.now();
-        const interval = setInterval(() => {
-            setNow(Date.now());
-        }, 250);
-        return () => clearInterval(interval);
-    }, []);
+    const updateLaneToTarget = (source: string, nextEndAtMs: number | null, nextProgress: number, instant = false) => {
+        const nowMs = Date.now();
+        const currentVisual = getRenderedProgress(currentLaneRef.current, migrationRef.current, nowMs, displayProgressRef.current);
+        const activeCurrentEndAtMs = migrationRef.current?.toLane.endAtMs ?? currentLaneRef.current?.endAtMs ?? null;
 
-    useEffect(() => {
-        if (status === 'finalizing') {
-            setDisplayProgress(1);
-            return;
-        }
-        if (!isActiveStatus(status) && !preserveActiveVisualState) {
-            setDisplayProgress(0);
-            return;
-        }
-        if (indeterminateRunning) {
-            setDisplayProgress(0);
-            return;
-        }
-        const memoryFloor = memoryKey ? (progressMemory.get(memoryKey) ?? 0) : 0;
-        if (!predictive || !startedAt || !etaSeconds) {
-            setDisplayProgress(prev => {
-                const target = clamp01(progress);
-                const gap = target - prev;
-                if (Math.abs(gap) <= 0.002) return target;
-                return Math.max(memoryFloor, clamp01(prev + (gap * 0.35)));
-            });
-            return;
-        }
-        if (authoritativeFloor) {
-            setDisplayProgress(prev => Math.max(prev, memoryFloor, clamp01(progress)));
-        }
-    }, [progress, startedAt, etaSeconds, predictive, status, indeterminateRunning, authoritativeFloor, preserveActiveVisualState]);
+        const incomingProgress = clamp01(nextProgress);
 
-    useEffect(() => {
-        const tickNow = now;
-        const dt = Math.max(0.05, (tickNow - lastTickRef.current) / 1000);
-        lastTickRef.current = tickNow;
-
-        if (status === 'finalizing') {
-            setDisplayProgress(1);
-            return;
-        }
-        if (!isActiveStatus(status) && !preserveActiveVisualState) {
-            return;
-        }
-        if (indeterminateRunning) {
-            setDisplayProgress(0);
-            return;
-        }
-        if (!predictive) {
-            setDisplayProgress(prev => {
-                const target = indeterminateRunning ? 0 : clamp01(progress);
-                const gap = target - prev;
-                if (Math.abs(gap) <= 0.002) return target;
-                const correctionWindow = gap > 0 ? 0.45 : 0.7;
-                const correctionFraction = Math.min(1, dt / correctionWindow);
-                return clamp01(prev + (gap * correctionFraction));
-            });
-            return;
-        }
-        if (!startedAt || !etaSeconds) {
-            setDisplayProgress(clamp01(progress));
-            return;
-        }
-
-        const runAnchor = `${persistenceKey ?? 'none'}:${startedAt ?? 0}`;
-        const memoryFloor = memoryKey ? (progressMemory.get(memoryKey) ?? 0) : 0;
-        if (pendingRunAnchorRef.current === runAnchor) {
-            pendingRunAnchorRef.current = null;
-            setDisplayProgress(prev => Math.max(prev, memoryFloor, getInitialDisplayProgress(
-                progress,
-                startedAt,
-                etaSeconds,
-                persistenceKey,
-                predictive,
-                status,
-                indeterminateRunning,
-            )));
-            return;
-        }
-
-        setDisplayProgress(prev => {
-            if (authoritativeFloor) {
-                const targetFloor = Math.max(memoryFloor, clamp01(progress));
-                const base = Math.max(prev, memoryFloor);
-                const elapsed = Math.max(0, (tickNow / 1000) - startedAt);
-                const next = advancePredictiveProgress({
-                    authoritativeProgress: progress,
-                    displayedProgress: base,
-                    elapsedSeconds: elapsed,
-                    etaSeconds,
-                    deltaSeconds: dt,
-                    priorProgressBasis: base,
-                    correctionWeightMode: 'queue',
-                    evidenceWeightFraction,
-                });
-                if (prev < targetFloor) {
-                    const gapToTarget = targetFloor - prev;
-                    const minimumCatchupStep = gapToTarget / PROGRESS_MAX_SMOOTHING_TICKS;
-                    const catchupCandidate = prev + Math.max(getMaxVisualStep(dt), minimumCatchupStep);
-                    return clamp01(Math.max(base, Math.min(targetFloor, catchupCandidate), next.nextProgress));
-                }
-                return clamp01(Math.max(base, targetFloor, next.nextProgress));
-            }
-            const elapsed = Math.max(0, (tickNow / 1000) - startedAt);
-            const next = advancePredictiveProgress({
-                authoritativeProgress: progress,
-                displayedProgress: prev,
-                elapsedSeconds: elapsed,
-                etaSeconds,
-                deltaSeconds: dt,
-            })
-            const cappedNext = Math.min(next.nextProgress, prev + getMaxVisualStep(dt))
-            return Math.max(prev, memoryFloor, cappedNext)
-        });
-
-    }, [now, progress, startedAt, etaSeconds, predictive, indeterminateRunning, status, authoritativeFloor, preserveActiveVisualState]);
-
-    const getProgressInfo = () => {
-        const memoryFloor = memoryKey ? (progressMemory.get(memoryKey) ?? 0) : 0;
-        if (status === 'finalizing') {
-            return { remaining: null, localProgress: 1, indeterminate: false };
-        }
-        if (!isActiveStatus(status) && !preserveActiveVisualState) {
-            return { remaining: null, localProgress: 0, indeterminate: false };
-        }
-        if (indeterminateRunning) {
-            return { remaining: null, localProgress: 0, indeterminate: true };
-        }
-        if (!predictive) {
-            return {
-                remaining: null,
-                localProgress: Math.max(memoryFloor, clamp01(displayProgress)),
-                indeterminate: false,
+        if (instant) {
+            const snapLane: ProgressLane = {
+                startedAtMs: nowMs,
+                startProgress: incomingProgress,
+                endAtMs: nextEndAtMs,
             };
-        }
-        if (!startedAt || !etaSeconds) {
-            return { remaining: null, localProgress: Math.max(memoryFloor, displayProgress), indeterminate: false };
+            currentLaneRef.current = snapLane;
+            setCurrentLane(snapLane);
+            setMigration(null);
+            migrationRef.current = null;
+            displayProgressRef.current = incomingProgress;
+            setDisplayProgress(incomingProgress);
+
+            lastUpdateMetadataRef.current = {
+                incomingProgress,
+                effectiveTargetProgress: incomingProgress,
+                evidenceWeightFraction: 1,
+                currentVisualAtUpdate: currentVisual
+            };
+            return;
         }
 
-        const visibleProgress = Math.max(memoryFloor, clamp01(displayProgress));
-        const elapsed = Math.max(0, (now / 1000) - startedAt);
-        const etaProgressBasis = authoritativeFloor ? visibleProgress : progress;
-        const model = buildPredictiveProgressModel({
-            authoritativeProgress: etaProgressBasis,
-            displayedProgress: visibleProgress,
-            elapsedSeconds: elapsed,
-            etaSeconds,
-            priorProgressBasis: authoritativeFloor ? visibleProgress : undefined,
-            correctionWeightMode: authoritativeFloor ? 'queue' : 'default',
-            evidenceWeightFraction,
-        });
+        const confidence = clamp01(evidenceWeightFraction ?? 1);
+        const weightedTargetProgress = currentVisual + ((incomingProgress - currentVisual) * confidence);
 
-        return {
-            remaining: Math.max(0, Math.floor(model.refinedRemainingSeconds)),
-            localProgress: visibleProgress,
-            indeterminate: false
+        let targetProgress = weightedTargetProgress;
+        if (!effectiveAllowBackward) {
+            targetProgress = Math.max(currentVisual, getRememberedProgress(memoryKey), weightedTargetProgress);
+        }
+
+        const isBackwardMigration = effectiveAllowBackward && targetProgress < currentVisual - 0.001;
+        const activeTransitionTickCount = isBackwardMigration ? backwardTransitionTickCount : transitionTickCount;
+
+        if (!currentLaneRef.current) {
+            // Initial mount
+            const desiredLane: ProgressLane = {
+                startedAtMs: nowMs,
+                startProgress: targetProgress,
+                endAtMs: nextEndAtMs,
+            };
+            currentLaneRef.current = desiredLane;
+            setCurrentLane(desiredLane);
+            setMigration(null);
+            migrationRef.current = null;
+            
+            displayProgressRef.current = targetProgress;
+            setDisplayProgress(targetProgress);
+        } else {
+            const desiredLane: ProgressLane = {
+                startedAtMs: nowMs,
+                startProgress: targetProgress,
+                endAtMs: nextEndAtMs,
+            };
+            const newMigration: LaneMigration = {
+                startedAtMs: nowMs,
+                durationMs: activeTransitionTickCount * tickMs,
+                fromLane: { 
+                    startedAtMs: nowMs, 
+                    startProgress: currentVisual, 
+                    endAtMs: activeCurrentEndAtMs 
+                },
+                toLane: desiredLane,
+            };
+            setMigration(newMigration);
+            migrationRef.current = newMigration;
+            
+            // No direct snap. Preserve currentVisual.
+            displayProgressRef.current = currentVisual;
+            setDisplayProgress(currentVisual);
+        }
+        
+        lastDisplayWriteRef.current = { source, value: targetProgress };
+        lastUpdateMetadataRef.current = {
+            incomingProgress,
+            effectiveTargetProgress: targetProgress,
+            evidenceWeightFraction: confidence,
+            currentVisualAtUpdate: currentVisual
         };
     };
 
-    const { localProgress, indeterminate } = getProgressInfo();
-    const shouldAnimateWidth = !indeterminate && isActiveStatus(status);
-
     useEffect(() => {
-        if (!predictive || ((!isActiveStatus(status) && !preserveActiveVisualState)) || indeterminateRunning) {
-            currentEndTimeRef.current = null;
-            targetEndTimeRef.current = null;
-            setCurrentEndTime(null);
-            return;
-        }
-        if (!startedAt || !etaSeconds) {
-            return;
-        }
-        const elapsed = Math.max(0, (Date.now() / 1000) - startedAt);
-        const rememberedProgress = memoryKey ? (progressMemory.get(memoryKey) ?? 0) : 0;
-        const effectiveDisplayedProgress = Math.max(displayProgressRef.current, rememberedProgress);
-        const etaProgressBasis = authoritativeFloor ? effectiveDisplayedProgress : progress;
-        const model = buildPredictiveProgressModel({
-            authoritativeProgress: etaProgressBasis,
-            displayedProgress: effectiveDisplayedProgress,
-            elapsedSeconds: elapsed,
+        const nextEndAtMs = resolveEndAtMs({
+            nowMs: Date.now(),
+            startedAt,
             etaSeconds,
-            priorProgressBasis: authoritativeFloor ? effectiveDisplayedProgress : undefined,
-            correctionWeightMode: authoritativeFloor ? 'queue' : 'default',
-            evidenceWeightFraction,
+            etaBasis,
+            estimatedEndAt,
+            updatedAt,
         });
-        const nextTargetEndTime = Date.now() + (model.refinedRemainingSeconds * 1000);
-        const rememberedEndTime = memoryKey ? (endTimeMemory.get(memoryKey) ?? null) : null;
-        targetEndTimeRef.current = nextTargetEndTime;
-        if (currentEndTimeRef.current === null) {
-            const seededEndTime = rememberedEndTime ?? nextTargetEndTime;
-            currentEndTimeRef.current = seededEndTime;
-            setCurrentEndTime(seededEndTime);
-        }
-    }, [progress, startedAt, etaSeconds, predictive, status, indeterminateRunning, memoryKey, preserveActiveVisualState, authoritativeFloor, evidenceWeightFraction]);
+
+        updateLaneToTarget('prop-sync', nextEndAtMs, progress, isPhaseHandoff);
+        prevPresentationStateRef.current = presentationState;
+    }, [progress, startedAt, etaSeconds, etaBasis, estimatedEndAt, updatedAt, presentationState, isPhaseHandoff]);
 
     useEffect(() => {
-        if (!predictive || ((!isActiveStatus(status) && !preserveActiveVisualState)) || indeterminateRunning) {
-            setCurrentEndTime(null);
-            return;
-        }
-        if (!startedAt || !etaSeconds) {
-            return;
-        }
-        const targetEndTime = targetEndTimeRef.current;
-        const currentEndTime = currentEndTimeRef.current;
+        if (!isLiveAnimatedStatus(presentationState)) return;
+        const interval = setInterval(() => {
+            const nowMs = Date.now();
+            setNow(nowMs);
+            
+            if (migrationRef.current && nowMs >= migrationRef.current.startedAtMs + migrationRef.current.durationMs) {
+                const targetLane = migrationRef.current.toLane;
+                currentLaneRef.current = targetLane;
+                setCurrentLane(targetLane);
+                migrationRef.current = null;
+                setMigration(null);
+            }
 
-        if (targetEndTime === null) {
-            setCurrentEndTime(null);
-            return;
-        }
+            const currentVisual = getRenderedProgress(currentLaneRef.current, migrationRef.current, nowMs, displayProgressRef.current);
+            displayProgressRef.current = currentVisual;
+            setDisplayProgress(currentVisual);
+        }, tickMs);
+        return () => clearInterval(interval);
+    }, [presentationState, tickMs]);
 
-        if (currentEndTime === null) {
-            currentEndTimeRef.current = targetEndTime;
-            setCurrentEndTime(targetEndTime);
-            return;
-        }
+    const { localProgress, indeterminate } = getProgressInfo({
+        presentationState,
+        preparingIndeterminate,
+        displayProgress,
+    });
 
-        const deltaMs = targetEndTime - currentEndTime;
-        const smoothingTicks = authoritativeFloor
-            ? (progress < 0.4 ? EARLY_QUEUE_ETA_MAX_SMOOTHING_TICKS : QUEUE_ETA_MAX_SMOOTHING_TICKS)
-            : ETA_MAX_SMOOTHING_TICKS;
-        const minimumCatchupMs = Math.ceil(Math.abs(deltaMs) / smoothingTicks);
-        const minimumNudgeMs = authoritativeFloor ? 60 : 150;
-        const maxPerTickMs = Math.max(minimumNudgeMs, minimumCatchupMs);
-        const nudgeMs = deltaMs > 0
-            ? Math.min(deltaMs, maxPerTickMs)
-            : Math.max(deltaMs, -maxPerTickMs);
-        const nextEndTime = currentEndTime + nudgeMs;
-
-        currentEndTimeRef.current = nextEndTime;
-        setCurrentEndTime(nextEndTime);
-    }, [now, predictive, startedAt, etaSeconds, status, indeterminateRunning, preserveActiveVisualState, authoritativeFloor, progress]);
-
-    const displayedRemaining = currentEndTime === null
+    const activeTargetLane = migration?.toLane ?? currentLane;
+    const displayedRemaining = activeTargetLane?.endAtMs == null
         ? null
-        : Math.max(0, Math.ceil((currentEndTime - now) / 1000));
-    const queueRemainingFloor = authoritativeFloor && startedAt && etaSeconds
-        ? Math.max(0, Math.ceil(Math.max(0, 1 - localProgress) * etaSeconds))
-        : null;
-    const syncedDisplayedRemaining = queueRemainingFloor === null
-        ? displayedRemaining
-        : (displayedRemaining === null ? queueRemainingFloor : Math.max(displayedRemaining, queueRemainingFloor));
+        : Math.max(0, Math.ceil((activeTargetLane.endAtMs - now) / 1000));
+
+    const autoFinalizing = isLiveAnimatedStatus(presentationState)
+        && (localProgress >= 0.995 || (displayedRemaining !== null && displayedRemaining <= 0))
+        && !isDoneStatus(presentationState)
+        && !isFailedStatus(presentationState)
+        && !isCancelledStatus(presentationState);
 
     useEffect(() => {
-        displayedRemainingRef.current = syncedDisplayedRemaining;
-    }, [syncedDisplayedRemaining]);
+        if (!memoryKey) return;
+        const currentFloor = !effectiveAllowBackward ? Math.max(getRememberedProgress(memoryKey), displayProgress) : clamp01(displayProgress);
+        progressMemory.set(memoryKey, currentFloor);
+    }, [memoryKey, displayProgress, effectiveAllowBackward]);
+
+    const visualState = autoFinalizing ? 'finalizing' : presentationState;
+    const shouldAnimateWidth = !indeterminate && isActiveStatus(visualState);
+    const indeterminateClassName = indeterminate
+        ? (visualState === 'finalizing' ? 'progress-bar-finalizing' : preparingIndeterminate ? 'progress-bar-pending' : 'progress-bar-animated')
+        : undefined;
+    const busyStatusText = getBusyStatusText(visualState, indeterminate);
+    const terminalStatusText = getTerminalStatusText(visualState);
+    const terminalFillStyle = getTerminalFillStyle(visualState);
+
+    // Deriving a stable phase key forces a remount on broad mode transitions (preparing -> active),
+    // which prevents the browser from trying to animate widthRegressions from 100% back to 0.
+    const stablePhaseKey = indeterminate
+        ? (visualState === 'preparing' ? 'preparing-indeterminate' : 'finalizing-indeterminate')
+        : (isActiveStatus(visualState) || visualState === 'running' ? 'determinate-active' : 'terminal');
+
+    useEffect(() => {
+        if (!onDebugSnapshot) return;
+        onDebugSnapshot(buildPredictiveProgressDebugSnapshot({
+            memoryKey,
+            resolvedCheckpointMode: checkpointMode ?? (effectiveAllowBackward ? 'default' : 'queue'),
+            status,
+            progress,
+            startedAt,
+            etaSeconds,
+            predictive,
+            tickLoopActive: isLiveAnimatedStatus(presentationState),
+            preserveMountedProgress: true,
+            preserveActiveVisualState: true,
+            memoryFloor: getRememberedProgress(memoryKey),
+            displayProgress,
+            localProgress,
+            currentLane,
+            desiredLane: migration?.toLane ?? null,
+            migrationProgress: migration ? clamp01((now - migration.startedAtMs) / migration.durationMs) : null,
+            displayedRemaining,
+            remainingTicks: activeTargetLane?.endAtMs == null ? null : getRemainingTicks(now, activeTargetLane.endAtMs),
+            launchEtaOnly: false,
+            allowBackwardProgress: effectiveAllowBackward,
+            lastDisplayWriteSource: lastDisplayWriteRef.current.source,
+            lastDisplayWriteValue: lastDisplayWriteRef.current.value,
+            transitionTickCount,
+            backwardTransitionTickCount,
+            activeTransitionTickCount: migration ? Math.round(migration.durationMs / tickMs) : null,
+            isBackwardMigration: migration ? (migration.toLane.startProgress < migration.fromLane.startProgress - 0.001) : false,
+            tickMs,
+            migrationDurationMs: migration?.durationMs ?? null,
+            migrationElapsedMs: migration ? Math.max(0, now - migration.startedAtMs) : null,
+            migrationTicksTotal: migration ? Math.round(migration.durationMs / tickMs) : transitionTickCount,
+            migrationTicksElapsed: migration ? Math.floor(Math.max(0, now - migration.startedAtMs) / tickMs) : null,
+            evidenceWeightFraction: lastUpdateMetadataRef.current.evidenceWeightFraction,
+            incomingProgress: lastUpdateMetadataRef.current.incomingProgress,
+            effectiveTargetProgress: lastUpdateMetadataRef.current.effectiveTargetProgress,
+            currentVisualAtUpdate: lastUpdateMetadataRef.current.currentVisualAtUpdate,
+        }));
+    }, [
+        onDebugSnapshot, memoryKey, status, progress, startedAt, etaSeconds, predictive, 
+        effectiveAllowBackward, displayProgress, localProgress, displayedRemaining, now, 
+        presentationState, currentLane, migration, activeTargetLane, tickMs
+    ]);
+
+    if (barOnly) {
+        return (
+            <div style={{ height: '6px', background: 'rgba(0,0,0,0.05)', borderRadius: '3px', overflow: 'hidden' }} data-testid="progress-bar-tiny">
+                <div
+                    key={stablePhaseKey}
+                    className={visualState === 'finalizing' ? 'progress-bar-finalizing' : indeterminateClassName}
+                    style={{
+                        height: '100%',
+                        width: indeterminate ? '100%' : visualState === 'finalizing' ? '100%' : terminalStatusText ? (isDoneStatus(visualState) || isFailedStatus(visualState) ? '100%' : '0%') : `${localProgress * 100}%`,
+                        background: visualState === 'finalizing' ? 'rgba(191, 219, 254, 0.34)' : terminalFillStyle?.background ?? 'var(--accent)',
+                        opacity: terminalStatusText && (isQueuedStatus(visualState) || isCancelledStatus(visualState)) ? 0.55 : 1,
+                        boxShadow: terminalFillStyle?.boxShadow ?? (visualState === 'finalizing' ? '0 0 15px rgba(59, 130, 246, 0.45)' : '0 0 15px var(--accent)'),
+                        transition: (shouldAnimateWidth && !isTerminalStatus(visualState)) ? 'width 0.25s linear' : 'none'
+                    }}
+                />
+            </div>
+        );
+    }
 
     return (
         <div style={{ width: '100%' }} data-testid="progress-bar">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600 }}>{label}</span>
-                {showEta && syncedDisplayedRemaining !== null ? (
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
-                            {Math.round(localProgress * 100)}%
-                        </span>
-                        <span style={{
-                            fontSize: '0.65rem',
-                            color: 'var(--accent)',
-                            fontWeight: 700,
-                            fontVariantNumeric: 'tabular-nums'
-                        }}>
-                            ETA: {formatTime(syncedDisplayedRemaining)}
-                        </span>
+            {(showLabel || showPercent || showEta) && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', minWidth: 0 }}>
+                        {showLabel && <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600 }}>{label}</span>}
+                        {visualState && (
+                            <span style={{
+                                fontSize: '0.58rem', textTransform: 'uppercase', letterSpacing: '0.08em',
+                                padding: '0.14rem 0.42rem', borderRadius: '999px', border: '1px solid rgba(0,0,0,0.08)',
+                                background: visualState === 'running' || visualState === 'processing' ? 'rgba(37, 99, 235, 0.10)' : visualState === 'preparing' ? 'rgba(245, 158, 11, 0.12)' : visualState === 'finalizing' ? 'rgba(59, 130, 246, 0.10)' : 'rgba(100, 116, 139, 0.10)',
+                                color: 'var(--text-secondary)', fontWeight: 800, whiteSpace: 'nowrap',
+                            }}>
+                                {formatStatusLabel(visualState)}
+                            </span>
+                        )}
                     </div>
-                ) : (
-                    <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--accent)' }}>
-                        {indeterminate ? 'Working...' : `${Math.round(localProgress * 100)}%`}
-                    </span>
-                )}
-            </div>
+                    <div>
+                        {showEta && displayedRemaining !== null && !terminalStatusText && !busyStatusText ? (
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                {showPercent && <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{Math.round(localProgress * 100)}%</span>}
+                                <span style={{ fontSize: '0.65rem', color: 'var(--accent)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                                    ETA: {formatTime(displayedRemaining)}
+                                </span>
+                            </div>
+                        ) : (
+                            <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--accent)' }}>
+                                {terminalStatusText ?? busyStatusText ?? (showPercent ? `${Math.round(localProgress * 100)}%` : '')}
+                            </span>
+                        )}
+                    </div>
+                </div>
+            )}
             <div style={{ height: '6px', background: 'rgba(0,0,0,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
                 <div
-                    className={indeterminate ? 'progress-bar-animated' : undefined}
+                    key={stablePhaseKey}
+                    className={visualState === 'finalizing' ? 'progress-bar-finalizing' : indeterminateClassName}
                     style={{
                         height: '100%',
-                        width: indeterminate ? '35%' : `${localProgress * 100}%`,
-                        background: 'var(--accent)',
-                        // This bar updates on a ~250ms loop, so the width transition
-                        // should stay close to that cadence: long enough to soften
-                        // visible snaps, but short enough to avoid visible lag.
-                        transition: shouldAnimateWidth ? 'width 0.25s linear' : 'none'
+                        width: indeterminate ? (visualState === 'preparing' || visualState === 'finalizing' ? '100%' : '35%') : visualState === 'finalizing' ? '100%' : terminalStatusText ? (isDoneStatus(visualState) || isFailedStatus(visualState) ? '100%' : '0%') : `${localProgress * 100}%`,
+                        background: visualState === 'finalizing' ? 'rgba(191, 219, 254, 0.34)' : (indeterminate && preparingIndeterminate ? 'rgba(248, 250, 252, 0.96)' : terminalFillStyle?.background ?? 'var(--accent)'),
+                        opacity: terminalStatusText && (isQueuedStatus(visualState) || isCancelledStatus(visualState)) ? 0.55 : 1,
+                        boxShadow: visualState === 'finalizing' ? '0 0 15px rgba(59, 130, 246, 0.45)' : (indeterminate && preparingIndeterminate ? '0 0 10px rgba(226,232,240,0.45)' : terminalFillStyle?.boxShadow ?? '0 0 15px var(--accent)'),
+                        transition: (shouldAnimateWidth && !isTerminalStatus(visualState)) ? 'width 0.25s linear' : 'none'
                     }}
                 />
             </div>

@@ -11,7 +11,51 @@ from ..state import get_settings
 from ..db.speakers import infer_variant_name, normalize_profile_metadata, DEFAULT_PROFILE_ENGINE
 
 logger = logging.getLogger(__name__)
-SAFE_PROFILE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
+
+
+def _abspath_realpath(value) -> str:
+    return os.path.abspath(os.path.realpath(os.fspath(value)))
+
+
+def _resolve_profile_metadata_path_or_error(profile_name: str, meta_path: Path) -> str:
+    """Return a canonical, safe metadata path within VOICES_DIR for profile.json."""
+    voices_root = VOICES_DIR.resolve(strict=False)
+    resolved_meta = Path(meta_path).resolve(strict=False)
+
+    try:
+        resolved_meta.relative_to(voices_root)
+    except ValueError as exc:
+        raise ValueError(f"Invalid profile metadata path for: {profile_name}") from exc
+
+    if resolved_meta.name != "profile.json":
+        raise ValueError(f"Invalid profile metadata filename for: {profile_name}")
+
+    return os.fspath(resolved_meta)
+
+
+def _scandir_names_within_root(root_dir, *parts: str) -> Optional[set[str]]:
+    """Rule 9: Locally visible containment proof for discovery sink."""
+    root = os.path.abspath(os.path.realpath(os.fspath(root_dir)))
+    root_prefix = root if root.endswith(os.sep) else root + os.sep
+
+    # Linear proof for discovery
+    candidate = os.path.abspath(os.path.realpath(os.path.join(root, *parts)))
+    if candidate != root and not candidate.startswith(root_prefix):
+        return None
+
+    try:
+        # SINK: Proof is locally visible in the same block
+        with os.scandir(candidate) as entries:
+            return {entry.name for entry in entries}
+    except (OSError, RuntimeError):
+        return None
+
+
+def _dir_has_profile_assets(entry_names: set[str]) -> bool:
+    if "profile.json" in entry_names:
+        return True
+    # Rule 8 fallback for legacy wav discovery
+    return any(name.endswith(".wav") for name in entry_names)
 
 
 def _is_uuid(value: str) -> bool:
@@ -23,30 +67,77 @@ def _is_uuid(value: str) -> bool:
 
 
 def _profile_name_or_error(profile_name: str) -> str:
-    if not SAFE_PROFILE_NAME_RE.fullmatch(profile_name):
-        raise ValueError(f"Invalid profile name: {profile_name}")
-    return profile_name
+    from .. import config
+    return config.canonical_voice_name(profile_name)
+
+
+def _profile_dir_has_assets(profile_dir: Path) -> bool:
+    entry_names = _scandir_names_within_root(VOICES_DIR, os.fspath(profile_dir))
+    if entry_names is None:
+        return False
+    return _dir_has_profile_assets(entry_names)
 
 
 def _candidate_voice_profile_dir(profile_name: str) -> Path:
     profile_name = _profile_name_or_error(profile_name)
-    base_dir = os.path.abspath(os.path.normpath(os.fspath(VOICES_DIR)))
-    fullpath = os.path.abspath(os.path.normpath(os.path.join(base_dir, profile_name)))
-    if not fullpath.startswith(base_dir + os.sep):
+
+    voices_root = os.path.abspath(os.path.realpath(os.fspath(VOICES_DIR)))
+    voices_root_prefix = voices_root if voices_root.endswith(os.sep) else voices_root + os.sep
+
+    # If it's a nested-style name "Dracula - Angry", prefer Dracula/Angry if Dracula is a v2 voice
+    if " - " in profile_name:
+        v_name, var_name = profile_name.split(" - ", 1)
+        v_name = v_name.strip()
+        var_name = var_name.strip()
+
+        from ..config import get_voice_storage_version
+
+        if get_voice_storage_version(v_name) >= 2:
+            fullpath = os.path.abspath(os.path.realpath(os.path.join(voices_root, v_name, var_name)))
+            if fullpath != voices_root and not fullpath.startswith(voices_root_prefix):
+                raise ValueError(f"Invalid profile name: {profile_name}")
+            return Path(fullpath)
+
+    fullpath = os.path.abspath(os.path.realpath(os.path.join(voices_root, profile_name)))
+    if fullpath != voices_root and not fullpath.startswith(voices_root_prefix):
         raise ValueError(f"Invalid profile name: {profile_name}")
     return Path(fullpath)
 
 
 def _find_existing_voice_profile_dir(profile_name: str) -> Optional[Path]:
     profile_name = _profile_name_or_error(profile_name)
-    if not VOICES_DIR.exists():
+    voices_root = os.path.abspath(os.path.realpath(os.fspath(VOICES_DIR)))
+    if not os.path.isdir(voices_root):
         return None
-    try:
-        for entry in VOICES_DIR.iterdir():
-            if entry.is_dir() and entry.name == profile_name:
-                return entry.resolve()
-    except FileNotFoundError:
-        return None
+
+    # 1. Exact match (legacy flat OR intentional nested path)
+    exact_names = _scandir_names_within_root(voices_root, profile_name)
+    if exact_names is not None:
+        exact = Path(os.path.join(voices_root, profile_name))
+
+        # If it's a voice root (has voice.json), it is NOT a profile directory itself.
+        # We must look for its Default variant.
+        if "voice.json" in exact_names:
+            default_path = Path(os.path.join(voices_root, profile_name, "Default"))
+            if os.path.isdir(default_path):
+                return default_path
+            # If Default is missing, this base path is NOT a valid profile directory.
+            return None
+
+        # Otherwise, if it has assets or it's a directory, it's a profile.
+        return exact
+
+    # 2. Nested resolution: "Dracula - Angry" -> voices/Dracula/Angry
+    if " - " in profile_name:
+        v_name, var_name = profile_name.split(" - ", 1)
+        nested_names = _scandir_names_within_root(voices_root, v_name.strip(), var_name.strip())
+        if nested_names is not None:
+            return Path(os.path.join(voices_root, v_name.strip(), var_name.strip()))
+
+    # 3. Base voice default fallback: "Dracula" -> voices/Dracula/Default (even if not yet scanned)
+    # This helps when we know it's a v2 voice by name but haven't checked voice.json yet.
+    # However, Section 1 already handles the v2 root case if the directory exists.
+
     return None
 
 
@@ -55,10 +146,20 @@ def _existing_profile_metadata_path(profile_name: str) -> Optional[Path]:
     profile_dir = _find_existing_voice_profile_dir(profile_name)
     if not profile_dir:
         return None
-    profile_root = os.path.abspath(os.path.normpath(os.fspath(profile_dir)))
-    meta_path = os.path.abspath(os.path.normpath(os.path.join(profile_root, "profile.json")))
-    if not meta_path.startswith(profile_root + os.sep):
+
+    # Rule 9: Locally visible containment proof
+    voices_root = os.path.abspath(os.path.realpath(os.fspath(VOICES_DIR)))
+    voices_root_prefix = voices_root if voices_root.endswith(os.sep) else voices_root + os.sep
+
+    profile_root = os.path.abspath(os.path.realpath(os.fspath(profile_dir)))
+    if profile_root != voices_root and not profile_root.startswith(voices_root_prefix):
         raise ValueError(f"Invalid profile metadata path for: {profile_name}")
+
+    profile_root_prefix = profile_root if profile_root.endswith(os.sep) else profile_root + os.sep
+    meta_path = os.path.abspath(os.path.realpath(os.path.join(profile_root, "profile.json")))
+    if meta_path != profile_root and not meta_path.startswith(profile_root_prefix):
+        raise ValueError(f"Invalid profile metadata path for: {profile_name}")
+
     return Path(meta_path)
 
 
@@ -80,14 +181,7 @@ def get_voice_profile_latent_path(profile_name: str):
 
 
 def _resolve_existing_profile_name(profile_name_or_id: str) -> Optional[str]:
-    """Resolve a speaker name/ID/profile name to the best existing profile folder.
-
-    Preference order:
-    1. The exact requested folder name, if it exists.
-    2. The speaker's base folder name, if it exists.
-    3. The speaker's configured default profile, if it exists.
-    4. Any existing variant folders for that speaker.
-    """
+    """Resolve a speaker name/ID/profile name to the best existing profile folder."""
     default_settings = get_settings()
     target_profile = profile_name_or_id or default_settings.get("default_speaker_profile") or "Dark Fantasy"
 
@@ -102,14 +196,22 @@ def _resolve_existing_profile_name(profile_name_or_id: str) -> Optional[str]:
     speaker_name: Optional[str] = None
     speaker_default_profile: Optional[str] = None
     if _is_uuid(target_profile):
-        from ..db import get_speaker
-        spk = get_speaker(target_profile)
+        try:
+            from ..db import get_speaker
+
+            spk = get_speaker(target_profile)
+        except Exception:
+            spk = None
         if spk:
             speaker_name = spk.get("name")
             speaker_default_profile = spk.get("default_profile_name")
     else:
-        from ..db import list_speakers
-        spk_match = next((s for s in list_speakers() if s["name"] == target_profile), None)
+        try:
+            from ..db import list_speakers
+
+            spk_match = next((s for s in list_speakers() if s["name"] == target_profile), None)
+        except Exception:
+            spk_match = None
         if spk_match:
             speaker_name = spk_match.get("name")
             speaker_default_profile = spk_match.get("default_profile_name")
@@ -119,20 +221,37 @@ def _resolve_existing_profile_name(profile_name_or_id: str) -> Optional[str]:
     add_candidate(speaker_default_profile)
 
     prefix_source = speaker_name or (None if _is_uuid(target_profile) else target_profile)
-    if prefix_source and VOICES_DIR.exists():
-        for d in sorted(VOICES_DIR.iterdir(), key=lambda p: p.name):
-            if d.is_dir() and d.name.startswith(prefix_source + " - "):
-                add_candidate(d.name)
+    voices_root = os.path.abspath(os.path.realpath(os.fspath(VOICES_DIR)))
+    if prefix_source and os.path.isdir(voices_root):
+        # Flat layout candidates
+        # Rule 8: Enumerate trusted root
+        for entry in sorted(os.scandir(voices_root), key=lambda e: e.name):
+            if entry.is_dir() and entry.name.startswith(prefix_source + " - "):
+                add_candidate(entry.name)
+
+        # Nested layout candidates
+        v_dir_names = _scandir_names_within_root(voices_root, prefix_source)
+        if v_dir_names is not None:
+            # Rule 9: Locally visible containment proof for nested scandir
+            voices_root_prefix = voices_root if voices_root.endswith(os.sep) else voices_root + os.sep
+            v_dir_path = os.path.abspath(os.path.realpath(os.path.join(voices_root, prefix_source)))
+            if v_dir_path.startswith(voices_root_prefix):
+                for entry in sorted(os.scandir(v_dir_path), key=lambda e: e.name):
+                    if entry.is_dir():
+                        entry_names = _scandir_names_within_root(voices_root, prefix_source, entry.name)
+                        if entry_names is not None and "profile.json" in entry_names:
+                            add_candidate(f"{prefix_source} - {entry.name}")
 
     for candidate in candidates:
         try:
             p = _find_existing_voice_profile_dir(candidate)
         except ValueError:
             continue
-        if p and p.exists() and p.is_dir():
+        if p:
             return candidate
 
     return None
+
 
 def get_speaker_wavs(profile_name_or_id: str) -> Optional[str]:
     """Returns a comma-separated string of absolute paths for the given profile or speaker ID."""
@@ -165,34 +284,52 @@ DEFAULT_SPEAKER_TEST_TEXT = (
     "cold breeze carried the scent of wet earth and weathered stone."
 )
 
+def _read_profile_metadata(profile_name: str, meta_path: Path, *, fix_schema: bool = False) -> dict:
+    profile_name = _profile_name_or_error(profile_name)
 
-def _read_profile_metadata(profile_name: str, meta_path: Path, *, repair: bool = False) -> dict:
-    if not meta_path.exists():
+    # Rule 9: Locally visible containment proof for file reading sinks
+    voices_root = os.path.abspath(os.path.realpath(os.fspath(VOICES_DIR)))
+    voices_root_prefix = voices_root if voices_root.endswith(os.sep) else voices_root + os.sep
+
+    meta_path_final = os.path.abspath(os.path.realpath(os.fspath(meta_path)))
+    if meta_path_final != voices_root and not meta_path_final.startswith(voices_root_prefix):
+        raise ValueError(f"Invalid profile metadata path for: {profile_name}")
+
+    if os.path.basename(meta_path_final) != "profile.json":
+        raise ValueError(f"Invalid profile metadata filename for: {profile_name}")
+
+    if not os.path.isfile(meta_path_final):
         meta = normalize_profile_metadata(profile_name, {}, persist=False)
-        if repair:
+        if fix_schema:
             try:
-                meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
+                with open(meta_path_final, "w", encoding="utf-8") as fp:
+                    fp.write(json.dumps(meta, indent=2))
             except Exception:
-                logger.warning("Failed to create default speaker metadata at %s", meta_path, exc_info=True)
+                logger.warning("Failed to create default speaker metadata at %s", meta_path_final, exc_info=True)
         return meta
 
     try:
-        raw = meta_path.read_text(encoding="utf-8", errors="replace").strip()
+        with open(meta_path_final, "r", encoding="utf-8", errors="replace") as fp:
+            raw = fp.read().strip()
         meta = json.loads(raw) if raw else {}
     except JSONDecodeError:
-        logger.warning("Speaker metadata was blank or invalid JSON at %s; rebuilding defaults.", meta_path, exc_info=True)
+        logger.warning(
+            "Speaker metadata was blank or invalid JSON at %s; rebuilding defaults.", meta_path_final, exc_info=True
+        )
         meta = {}
     except Exception:
-        logger.warning("Failed to read speaker metadata from %s", meta_path, exc_info=True)
+        logger.warning("Failed to read speaker metadata from %s", meta_path_final, exc_info=True)
         meta = {}
 
     normalized = normalize_profile_metadata(profile_name, meta, persist=False)
-    if repair and normalized != meta:
+    if fix_schema and normalized != meta:
         try:
-            meta_path.write_text(json.dumps(normalized, indent=2), encoding="utf-8")
+            with open(meta_path_final, "w", encoding="utf-8") as fp:
+                fp.write(json.dumps(normalized, indent=2))
         except Exception:
-            logger.warning("Failed to repair speaker metadata at %s", meta_path, exc_info=True)
+            logger.warning("Failed to fix speaker metadata schema at %s", meta_path_final, exc_info=True)
     return normalized
+
 
 def get_speaker_settings(profile_name_or_id: str) -> dict:
     """Returns metadata (like speed and test text) for a profile or speaker ID, falling back to global settings."""
@@ -224,37 +361,13 @@ def get_speaker_settings(profile_name_or_id: str) -> dict:
         return res
     if not meta_path:
         return res
-    meta = _read_profile_metadata(target_profile, meta_path, repair=True)
-    if "speed" in meta:
-        res["speed"] = meta["speed"]
-    if "test_text" in meta:
-        res["test_text"] = meta["test_text"]
-    if "speaker_id" in meta:
-        res["speaker_id"] = meta["speaker_id"]
-    if "variant_name" in meta:
-        res["variant_name"] = meta["variant_name"]
-    if "built_samples" in meta:
-        res["built_samples"] = meta["built_samples"]
-    if "engine" in meta:
-        res["engine"] = meta["engine"]
-    if "voxtral_voice_id" in meta:
-        res["voxtral_voice_id"] = meta["voxtral_voice_id"]
-    if "voxtral_model" in meta:
-        res["voxtral_model"] = meta["voxtral_model"]
-    if "reference_sample" in meta:
-        res["reference_sample"] = meta["reference_sample"]
-    if "preview_test_text" in meta:
-        res["preview_test_text"] = meta["preview_test_text"]
-    if "preview_engine" in meta:
-        res["preview_engine"] = meta["preview_engine"]
-    if "preview_reference_sample" in meta:
-        res["preview_reference_sample"] = meta["preview_reference_sample"]
-    if "preview_voxtral_voice_id" in meta:
-        res["preview_voxtral_voice_id"] = meta["preview_voxtral_voice_id"]
-    if "preview_voxtral_model" in meta:
-        res["preview_voxtral_model"] = meta["preview_voxtral_model"]
+    meta = _read_profile_metadata(target_profile, meta_path, fix_schema=True)
+    for k in res:
+        if k in meta:
+            res[k] = meta[k]
 
     return res
+
 
 def update_speaker_settings(profile_name: str, **updates):
     """Updates metadata for a profile in its profile.json."""
@@ -264,12 +377,24 @@ def update_speaker_settings(profile_name: str, **updates):
         return False
 
     try:
-        meta_path = _existing_profile_metadata_path(profile_name)
+        profile_dir = get_voice_profile_dir(profile_name)
     except ValueError:
         return False
-    if not meta_path:
+
+    # Rule 9: Locally visible containment proof for file writing sink
+    voices_root = os.path.abspath(os.path.realpath(os.fspath(VOICES_DIR)))
+    voices_root_prefix = voices_root if voices_root.endswith(os.sep) else voices_root + os.sep
+
+    profile_root = os.path.abspath(os.path.realpath(os.fspath(profile_dir)))
+    if profile_root != voices_root and not profile_root.startswith(voices_root_prefix):
         return False
-    meta = _read_profile_metadata(profile_name, meta_path, repair=False)
+
+    profile_root_prefix = profile_root if profile_root.endswith(os.sep) else profile_root + os.sep
+    meta_path_final = os.path.abspath(os.path.realpath(os.path.join(profile_root, "profile.json")))
+    if meta_path_final != profile_root and not meta_path_final.startswith(profile_root_prefix):
+        return False
+
+    meta = _read_profile_metadata(profile_name, Path(meta_path_final), fix_schema=False)
 
     for k, v in updates.items():
         if v is None:
@@ -278,5 +403,7 @@ def update_speaker_settings(profile_name: str, **updates):
         else:
             meta[k] = v
 
-    meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
+    # SINK: Proof is locally visible in the same block
+    with open(meta_path_final, "w", encoding="utf-8") as fp:
+        fp.write(json.dumps(meta, indent=2))
     return True

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "studio_tts_manifest": "1.0",
+  "engine_id": "xtts",
+  "display_name": "XTTS (Local)",
+  "version": "1.0.0",
+  "min_studio": "2.0.0",
+  "entry_class": "engine:XttsPlugin",
+  "capabilities": ["synthesis", "preview", "voice_cloning"],
+  "local": true,
+  "cloud": false,
+  "network": false,
+  "languages": ["en", "es", "fr", "de", "it", "pt", "pl", "tr", "ru", "nl", "cs", "ar", "zh"],
+  "resource": {
+    "gpu": true,
+    "vram_mb": 4000,
+    "cpu_heavy": true
+  },
+  "author": "Coqui AI",
+  "homepage": "https://github.com/coqui-ai/TTS",
+  "license": "CPML-1.0",
+  "test_text": "Hello, this is a verification test of the XTTS synthesis engine."
+}

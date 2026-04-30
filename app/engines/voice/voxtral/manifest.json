@@ -1,0 +1,11 @@
+{
+  "engine_id": "voxtral",
+  "display_name": "Voxtral",
+  "phase": "phase-7-hardened",
+  "capabilities": ["cloud_voice"],
+  "local": false,
+  "cloud": true,
+  "notes": [
+    "Mistral-powered cloud TTS engine."
+  ]
+}

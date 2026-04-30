@@ -1,3 +1,4 @@
+from __future__ import annotations
 import logging
 import time
 from pathlib import Path
@@ -138,6 +139,16 @@ def _render_voxtral_segment(text: str, profile_name: str | None, out_wav: Path, 
         reference_sample=spk.get("reference_sample"),
     )
 
+
+def _parse_xtts_progress(line: str) -> float | None:
+    if "[PROGRESS]" not in line:
+        return None
+    try:
+        progress_value = line.split("[PROGRESS]")[1].split("%")[0].strip()
+        return max(0.0, min(float(progress_value) / 100.0, 1.0))
+    except (TypeError, ValueError, IndexError):
+        return None
+
 def _group_needs_render(group: dict, pdir: Path) -> bool:
     expected_name = _chunk_output_path(pdir, group).name
     expected_path = pdir / expected_name
@@ -225,19 +236,25 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
     if j.segment_ids:
         target_ids = set(j.segment_ids)
         target_groups = [group for group in all_groups if any(segment["id"] in target_ids for segment in group["segments"])]
+        tracking_groups = target_groups
+        offset = 0
     elif j.is_bake:
         target_groups = [group for group in all_groups if _group_needs_render(group, pdir)]
+        tracking_groups = all_groups
+        offset = len(all_groups) - len(target_groups)
     else:
         target_groups = all_groups
+        tracking_groups = all_groups
+        offset = 0
 
-    total_groups = len(target_groups)
+    total_groups = len(tracking_groups)
     j.render_group_count = total_groups
-    j.completed_render_groups = 0
-    j.active_render_group_index = 0
-    weight_updates = _group_weight_updates(target_groups, 0, active_index=0)
+    j.completed_render_groups = offset
+    j.active_render_group_index = offset
+    weight_updates = _group_weight_updates(tracking_groups, offset, active_index=offset)
     j.total_render_weight = weight_updates["total_render_weight"]
-    j.completed_render_weight = 0
-    j.active_render_group_weight = 0
+    j.completed_render_weight = weight_updates["completed_render_weight"]
+    j.active_render_group_weight = weight_updates["active_render_group_weight"]
     update_job(jid, grouped_progress=0.0, **weight_updates)
 
     for index, group in enumerate(target_groups, start=1):
@@ -252,18 +269,19 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
         seg_out = _chunk_output_path(pdir, group)
 
         on_output(f"[START_SEGMENT] {segment_id}\n")
-        j.completed_render_groups = index - 1
-        j.active_render_group_index = index
+        current_completed = offset + index - 1
+        j.completed_render_groups = current_completed
+        j.active_render_group_index = offset + index
         update_job(
             jid,
             active_segment_id=segment_id,
             active_segment_progress=0.0,
             **_grouped_progress_updates(
-                target_groups,
-                index - 1,
+                tracking_groups,
+                current_completed,
                 0.0,
                 limit=1.0 if j.segment_ids else 0.9,
-                active_index=index,
+                active_index=offset + index,
             ),
         )
         for group_segment in group["segments"]:
@@ -281,7 +299,33 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
             if engine == "voxtral":
                 rc = _render_voxtral_segment(chunk_text, profile_name, seg_out, on_output, cancel_check)
             else:
-                rc = _render_xtts_segment(chunk_text, profile_name, seg_out, j.safe_mode, on_output, cancel_check)
+                def xtts_on_output(line: str) -> None:
+                    on_output(line)
+                    segment_progress = _parse_xtts_progress(line)
+                    if segment_progress is None:
+                        return
+                    progress_limit = 1.0 if j.segment_ids else 0.9
+                    update_job(
+                        jid,
+                        force_broadcast=True,
+                        progress=_weighted_group_progress(
+                            tracking_groups,
+                            current_completed,
+                            segment_progress,
+                            limit=progress_limit,
+                        ),
+                        active_segment_id=segment_id,
+                        active_segment_progress=segment_progress,
+                        **_grouped_progress_updates(
+                            tracking_groups,
+                            current_completed,
+                            segment_progress,
+                            limit=progress_limit,
+                            active_index=offset + index,
+                        ),
+                    )
+
+                rc = _render_xtts_segment(chunk_text, profile_name, seg_out, j.safe_mode, xtts_on_output, cancel_check)
         except VoxtralError as exc:
             update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error=str(exc))
             return "failed"
@@ -309,12 +353,12 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
 
         progress_limit = 1.0 if j.segment_ids else 0.9
         progress = _weighted_group_progress(
-            target_groups,
-            index,
+            tracking_groups,
+            offset + index,
             0.0,
             limit=progress_limit,
         )
-        j.completed_render_groups = index
+        j.completed_render_groups = offset + index
         j.active_render_group_index = 0
         update_job(
             jid,
@@ -322,8 +366,8 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
             active_segment_id=None,
             active_segment_progress=0.0,
             **_grouped_progress_updates(
-                target_groups,
-                index,
+                tracking_groups,
+                offset + index,
                 0.0,
                 limit=progress_limit,
                 active_index=0,
@@ -349,7 +393,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
             status="done",
             progress=final_p,
             finished_at=time.time(),
-            **_grouped_progress_updates(target_groups, total_groups, 0.0, limit=1.0, active_index=0),
+            **_grouped_progress_updates(tracking_groups, total_groups, 0.0, limit=1.0, active_index=0),
         )
         return "done"
 
@@ -358,7 +402,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
         jid,
         status="finalizing",
         progress=max(getattr(j, "progress", 0.0), 0.91),
-        **_grouped_progress_updates(target_groups, total_groups, 0.0, limit=0.9, active_index=0),
+        **_grouped_progress_updates(tracking_groups, total_groups, 0.0, limit=0.9, active_index=0),
     )
     segment_paths = []
     fresh_groups = build_chunk_groups(get_chapter_segments(j.chapter_id), j.speaker_profile)
@@ -394,7 +438,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
                 progress=1.0,
                 output_wav=out_wav.name,
                 output_mp3=out_mp3.name,
-                **_group_weight_updates(target_groups, total_groups, active_index=0),
+                **_group_weight_updates(tracking_groups, total_groups, active_index=0),
             )
             return "done"
         _persist_mixed_chapter_output(jid, j.chapter_id, out_wav)
@@ -406,7 +450,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
             progress=1.0,
             output_wav=out_wav.name,
             error="MP3 conversion failed (using WAV fallback)",
-            **_group_weight_updates(target_groups, total_groups, active_index=0),
+            **_group_weight_updates(tracking_groups, total_groups, active_index=0),
         )
         return "done"
 
@@ -419,6 +463,6 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
         finished_at=time.time(),
         progress=1.0,
         output_wav=out_wav.name,
-        **_group_weight_updates(target_groups, total_groups, active_index=0),
+        **_group_weight_updates(tracking_groups, total_groups, active_index=0),
     )
     return "done"

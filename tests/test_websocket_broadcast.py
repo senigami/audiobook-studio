@@ -2,6 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 from app.web import app
 from app.state import update_job
+from app.api.ws import broadcast_job_updated
 
 def test_websocket_broadcast():
     client = TestClient(app)
@@ -24,6 +25,51 @@ def test_websocket_broadcast():
 def test_queue_start_not_redirect():
     client = TestClient(app)
     # This should return JSON now, not a redirect
-    response = client.post("/queue/start_xtts")
+    response = client.post("/api/generation/resume")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
+
+
+def test_broadcast_job_updated_uses_current_job_status_for_normalized_event(monkeypatch):
+    messages = []
+
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    broadcast_job_updated(
+        "job-1",
+        {"progress": 0.5, "eta_seconds": 12},
+        {"status": "running", "progress": 0.5, "eta_seconds": 12},
+    )
+
+    assert messages[0]["type"] == "studio_job_event"
+    assert messages[0]["job_id"] == "job-1"
+    assert messages[0]["status"] == "running"
+    assert messages[0]["progress"] == 0.5
+    assert messages[0]["eta_seconds"] == 12
+    assert messages[1] == {
+        "type": "job_updated",
+        "job_id": "job-1",
+        "updates": {"progress": 0.5, "eta_seconds": 12},
+    }
+
+
+def test_broadcast_job_updated_uses_phase4_progress_rounding(monkeypatch):
+    messages = []
+
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    broadcast_job_updated(
+        "job-2",
+        {"progress": 0.1234},
+        {"status": "running", "progress": 0.1234},
+    )
+
+    assert messages[0]["progress"] == 0.12

@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft-2020-12/schema",
+  "title": "XTTS Local Settings",
+  "description": "XTTS Local is the built-in voice engine. It uses your Studio voice profiles for verification, and it needs the Studio XTTS environment plus the Python packages listed in its requirements before it can be enabled.",
+  "type": "object",
+  "properties": {
+    "speed": {
+      "type": "number",
+      "title": "Speed",
+      "description": "How fast the voice speaks. Use a value below 1.0 for slower, more deliberate speech. Use a value above 1.0 for faster speech.",
+      "minimum": 0.5,
+      "maximum": 2.0,
+      "default": 1.0
+    },
+    "temperature": {
+      "type": "number",
+      "title": "Temperature",
+      "description": "How adventurous the model is when choosing the next sound. Lower values are steadier and more predictable. Higher values add variation, but can also make output less consistent.",
+      "minimum": 0.01,
+      "maximum": 1.0,
+      "default": 0.75
+    },
+    "repetition_penalty": {
+      "type": "number",
+      "title": "Repetition Penalty",
+      "description": "Helps the model avoid repeating the same words or sounds. Raise it if the voice loops or gets stuck repeating itself.",
+      "minimum": 1.0,
+      "maximum": 10.0,
+      "default": 5.0
+    },
+    "top_k": {
+      "type": "integer",
+      "title": "Top-K",
+      "description": "Limits each choice to the top K most likely options. Smaller values are stricter and steadier. Larger values allow more variation.",
+      "minimum": 1,
+      "maximum": 100,
+      "default": 50
+    },
+    "top_p": {
+      "type": "number",
+      "title": "Top-P",
+      "description": "Controls how wide the model can search for the next sound. A good starting point is around 0.9. Lower values keep the voice tighter and more predictable; higher values make it more varied, but can also make it wander.",
+      "minimum": 0.01,
+      "maximum": 1.0,
+      "default": 0.85
+    },
+    "safe_mode": {
+      "type": "boolean",
+      "title": "Safe Mode",
+      "description": "Use a more conservative cleanup path before synthesis. Leave this on if XTTS is unstable or if you want the safest default behavior.",
+      "default": true
+    }
+  },
+  "additionalProperties": true,
+  "x-ui": {
+    "panel_title": "XTTS Local Setup",
+    "summary": "XTTS Local stays on your machine, but it still needs the Studio XTTS runtime and any Python packages listed by the engine before it can be turned on. Good starting values are speed 1.0, temperature around 0.7, top-p around 0.9, top-k around 40 to 50, and a repetition penalty around 1.1 to 1.2. If the card says needs setup, click Install Deps to install the required packages, then verify the engine again using the Default Voice from General settings."
+  }
+}

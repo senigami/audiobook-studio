@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { GlassInput } from '../GlassInput';
-import type { VoiceEngine } from '../../types';
+import type { TtsEngine, VoiceEngine } from '../../types';
 
 const engineSelectStyle: React.CSSProperties = {
     width: '100%',
@@ -22,12 +22,12 @@ interface NewVoiceModalProps {
     onChange: (val: string) => void;
     engine: VoiceEngine;
     onEngineChange: (val: VoiceEngine) => void;
-    voxtralEnabled: boolean;
+    engines?: TtsEngine[];
     onSubmit: () => void;
     isCreating: boolean;
 }
 
-export const NewVoiceModal: React.FC<NewVoiceModalProps> = ({ isOpen, onClose, value, onChange, engine, onEngineChange, voxtralEnabled, onSubmit, isCreating }) => {
+export const NewVoiceModal: React.FC<NewVoiceModalProps> = ({ isOpen, onClose, value, onChange, engine, onEngineChange, engines = [], onSubmit, isCreating }) => {
     if (!isOpen) return null;
     return (
         <div style={{
@@ -75,8 +75,15 @@ export const NewVoiceModal: React.FC<NewVoiceModalProps> = ({ isOpen, onClose, v
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '24px' }}>
                     <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>ENGINE</label>
                     <select value={engine} onChange={(e) => onEngineChange(e.target.value as VoiceEngine)} style={engineSelectStyle}>
-                        <option value="xtts">XTTS</option>
-                        {voxtralEnabled && <option value="voxtral">Voxtral (Cloud)</option>}
+                        {engines.filter(e => e.enabled).length === 0 ? (
+                            <option value="">No enabled engines available</option>
+                        ) : (
+                            <>
+                                {engines.filter(e => e.enabled).map(e => (
+                                    <option key={e.engine_id} value={e.engine_id}>{e.display_name} {e.status !== 'ready' ? '(🚫 Needs Setup)' : ''}</option>
+                                ))}
+                            </>
+                        )}
                     </select>
                 </div>
 
@@ -177,12 +184,12 @@ interface AddVariantModalProps {
     onChange: (val: string) => void;
     engine: VoiceEngine;
     onEngineChange: (val: VoiceEngine) => void;
-    voxtralEnabled: boolean;
+    engines?: TtsEngine[];
     onSubmit: () => void;
     isAdding: boolean;
 }
 
-export const AddVariantModal: React.FC<AddVariantModalProps> = ({ isOpen, onClose, speakerName, value, onChange, engine, onEngineChange, voxtralEnabled, onSubmit, isAdding }) => {
+export const AddVariantModal: React.FC<AddVariantModalProps> = ({ isOpen, onClose, speakerName, value, onChange, engine, onEngineChange, engines = [], onSubmit, isAdding }) => {
     if (!isOpen) return null;
     return (
         <div style={{
@@ -230,8 +237,15 @@ export const AddVariantModal: React.FC<AddVariantModalProps> = ({ isOpen, onClos
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '24px' }}>
                     <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>ENGINE</label>
                     <select value={engine} onChange={(e) => onEngineChange(e.target.value as VoiceEngine)} style={engineSelectStyle}>
-                        <option value="xtts">XTTS</option>
-                        {voxtralEnabled && <option value="voxtral">Voxtral (Cloud)</option>}
+                        {engines.filter(e => e.enabled).length === 0 ? (
+                            <option value="">No enabled engines available</option>
+                        ) : (
+                            <>
+                                {engines.filter(e => e.enabled).map(e => (
+                                    <option key={e.engine_id} value={e.engine_id}>{e.display_name} {e.status !== 'ready' ? '(🚫 Needs Setup)' : ''}</option>
+                                ))}
+                            </>
+                        )}
                     </select>
                 </div>
 

@@ -52,6 +52,11 @@ export default defineConfig({
       '/settings': {
         target: 'http://127.0.0.1:8123',
         changeOrigin: true,
+        bypass: (req) => {
+          if (req.method === 'GET' && req.headers.accept?.includes('text/html')) {
+            return req.url;
+          }
+        }
       },
       '/split': {
         target: 'http://127.0.0.1:8123',

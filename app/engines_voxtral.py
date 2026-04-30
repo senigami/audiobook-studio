@@ -2,8 +2,9 @@ import base64
 import json
 import logging
 import os
+import shutil
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import httpx
 
@@ -31,9 +32,29 @@ def _noop_output(*_args) -> None:
 
 
 def resolve_mistral_api_key() -> Optional[str]:
+    # 1. Check plugin-local settings first. Voxtral-specific settings are
+    # persisted alongside the plugin and should take precedence over global
+    # Studio defaults so the UI-saved key wins.
+    try:
+        from app.config import PLUGINS_DIR  # noqa: PLC0415
+        plugin_settings_path = PLUGINS_DIR / "tts_voxtral" / "settings.json"
+        if plugin_settings_path.exists():
+            import json
+            plugin_settings = json.loads(plugin_settings_path.read_text(encoding="utf-8"))
+            key = str(plugin_settings.get("mistral_api_key") or "").strip()
+            if key:
+                return key
+    except Exception:
+        pass
+
+    # 2. Check global Studio settings
     settings = get_settings()
-    key = str(settings.get("mistral_api_key") or os.getenv("MISTRAL_API_KEY") or "").strip()
-    return key or None
+    key = str(settings.get("mistral_api_key") or "").strip()
+    if key:
+        return key
+
+    # 3. Check environment variable
+    return os.getenv("MISTRAL_API_KEY") or None
 
 
 def resolve_voxtral_model(profile_model: Optional[str] = None) -> str:
@@ -230,7 +251,7 @@ def voxtral_generate(
         tmp_audio.write_bytes(audio_bytes)
         try:
             if _looks_like_wav(audio_bytes):
-                tmp_audio.replace(out_wav)
+                shutil.move(str(tmp_audio), str(out_wav))
                 on_output(f"Saved Voxtral audio to {out_wav.name}.\n")
                 return 0
 
@@ -247,3 +268,68 @@ def voxtral_generate(
                 pass
 
     raise last_error or VoxtralError("Voxtral synthesis failed before any audio was returned.")
+
+
+_models_cache: dict[str, Any] = {"data": [], "timestamp": 0.0, "api_key_hash": ""}
+
+
+def list_mistral_models(strict: bool = False) -> list[str]:
+    """Fetch the list of available TTS models from Mistral AI.
+
+    Requires a valid API key. Returns a subset of models filtered for TTS relevance.
+    Results are cached for 5 minutes to avoid redundant API calls and 401 spam.
+    """
+    import time
+    import hashlib
+
+    api_key = resolve_mistral_api_key()
+    if not api_key:
+        return []
+
+    # Use hash to detect key changes
+    key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+    now = time.time()
+
+    global _models_cache
+    if _models_cache["data"] and _models_cache["api_key_hash"] == key_hash and (now - _models_cache["timestamp"]) < 300:
+        return _models_cache["data"]
+
+    try:
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Accept": "application/json",
+        }
+        with httpx.Client(timeout=10.0) as client:
+            response = client.get("https://api.mistral.ai/v1/models", headers=headers)
+
+        if response.status_code != 200:
+            if response.status_code == 401:
+                logger.debug("Mistral API key is invalid or expired (401).")
+            else:
+                logger.warning(f"Mistral model list failed: {response.status_code}")
+
+            if strict:
+                raise VoxtralError(_extract_error_message(response), status_code=response.status_code)
+
+            # Cache the failure briefly (1 minute) to avoid spamming
+            fallbacks = ["mistral-tts-latest", "mistral-tts-1", "mistral-tts-1-hd", DEFAULT_VOXTRAL_MODEL]
+            _models_cache = {
+                "data": fallbacks,
+                "timestamp": now - 240, # Expire in 60s
+                "api_key_hash": key_hash
+            }
+            return fallbacks
+
+        data = response.json()
+        models = [m["id"] for m in data.get("data", []) if "tts" in m["id"].lower() or "audio" in m["id"].lower() or "voxtral" in m["id"].lower()]
+        result = sorted(models) if models else ["mistral-tts-latest", "mistral-tts-1", "mistral-tts-1-hd", DEFAULT_VOXTRAL_MODEL]
+
+        _models_cache = {
+            "data": result,
+            "timestamp": now,
+            "api_key_hash": key_hash
+        }
+        return result
+    except Exception as exc:
+        logger.warning(f"Could not list Mistral models: {exc}")
+        return []

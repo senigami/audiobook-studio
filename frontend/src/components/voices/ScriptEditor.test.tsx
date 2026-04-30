@@ -15,7 +15,7 @@ describe('ScriptEditor', () => {
                 onVariantNameChange={onVariantNameChange}
                 engine="xtts"
                 onEngineChange={vi.fn()}
-                voxtralEnabled={false}
+                engines={[{ engine_id: 'xtts', display_name: 'XTTS', enabled: true } as any]}
                 testText="Sample script"
                 onTestTextChange={onTestTextChange}
                 referenceSample=""
@@ -53,7 +53,7 @@ describe('ScriptEditor', () => {
                 onVariantNameChange={vi.fn()}
                 engine="xtts"
                 onEngineChange={vi.fn()}
-                voxtralEnabled={false}
+                engines={[{ engine_id: 'xtts', display_name: 'XTTS', enabled: true } as any]}
                 testText=""
                 onTestTextChange={vi.fn()}
                 referenceSample=""
@@ -77,7 +77,7 @@ describe('ScriptEditor', () => {
                 onVariantNameChange={vi.fn()}
                 engine="voxtral"
                 onEngineChange={vi.fn()}
-                voxtralEnabled={true}
+                engines={[{ engine_id: 'voxtral', display_name: 'Voxtral', enabled: true, verified: true, cloud: true } as any]}
                 testText="Preview"
                 onTestTextChange={vi.fn()}
                 referenceSample="sample1.wav"
@@ -103,7 +103,7 @@ describe('ScriptEditor', () => {
                 onVariantNameChange={vi.fn()}
                 engine="xtts"
                 onEngineChange={vi.fn()}
-                voxtralEnabled={false}
+                engines={[{ engine_id: 'xtts', display_name: 'XTTS', enabled: true } as any]}
                 testText="Preview"
                 onTestTextChange={vi.fn()}
                 referenceSample=""
@@ -128,7 +128,7 @@ describe('ScriptEditor', () => {
                 onVariantNameChange={vi.fn()}
                 engine="voxtral"
                 onEngineChange={vi.fn()}
-                voxtralEnabled={false}
+                engines={[{ engine_id: 'voxtral', display_name: 'Voxtral', enabled: false, verified: true, cloud: true } as any]}
                 testText="Preview"
                 onTestTextChange={vi.fn()}
                 referenceSample=""
@@ -143,6 +143,6 @@ describe('ScriptEditor', () => {
         );
 
         expect(screen.getByLabelText('Engine')).toHaveValue('voxtral');
-        expect(screen.getByText(/still assigned to Voxtral, but cloud voices are currently turned off/i)).toBeInTheDocument();
+        expect(screen.getByText(/assigned to Voxtral, but it is currently turned off in Settings/i)).toBeInTheDocument();
     });
 });

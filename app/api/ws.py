@@ -1,7 +1,10 @@
+from __future__ import annotations
 import asyncio
 import logging
 from typing import List
 from fastapi import WebSocket
+
+from .contracts.events import build_studio_job_event
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +24,7 @@ class ConnectionManager:
         # We need to broadcast from a non-async context sometimes (jobs.py or db.py)
         # So we use the bridge approach or create a task
         from ..web import _main_loop
-        if _main_loop[0]:
+        if _main_loop[0] and not _main_loop[0].is_closed():
             _main_loop[0].call_soon_threadsafe(
                 lambda: asyncio.create_task(self._send_to_all(message))
             )
@@ -61,7 +64,26 @@ def broadcast_pause_state(paused: bool):
         "paused": paused
     })
 
-def broadcast_job_updated(job_id: str, updates: dict):
+def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None = None):
+    merged = dict(current_job or {})
+    merged.update(updates or {})
+    normalized = build_studio_job_event(
+        job_id=job_id,
+        status=str(merged.get("status") or "queued"),
+        scope="job",
+        parent_job_id=merged.get("parent_job_id"),
+        progress=merged.get("progress"),
+        eta_seconds=updates.get("eta_seconds"),
+        eta_basis=updates.get("eta_basis"),
+        estimated_end_at=updates.get("estimated_end_at"),
+        message=updates.get("message") or updates.get("log"),
+        reason_code=merged.get("reason_code"),
+        updated_at=merged.get("updated_at"),
+        started_at=merged.get("started_at"),
+        active_render_batch_id=merged.get("active_render_batch_id"),
+        active_render_batch_progress=merged.get("active_render_batch_progress"),
+    )
+    manager.broadcast(normalized)
     manager.broadcast({
         "type": "job_updated",
         "job_id": job_id,

@@ -2,7 +2,7 @@ fastapi
 uvicorn[standard]
 websockets
 jinja2
-python-multipart
+python-multipart>=0.0.26
 httpx
 pytest
 watchdog

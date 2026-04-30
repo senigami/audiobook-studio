@@ -1,22 +1,20 @@
 # Frontend Rules
 
-## Quality
+Use this file when the task touches UI state ownership, overlays, local session state, interaction design, or responsive layouts.
 
-- Prefer project conventions over ad-hoc patterns.
-- When changing UI, account for accessibility, responsiveness, loading states, empty states, and error states.
-- Recommend improvements when a UI request would hurt usability or consistency.
+## Read The Right Subfile
 
-## Interaction Consistency
+- [`frontend-state.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/frontend-state.md) for canonical data, live overlays, and local session state boundaries.
+- [`frontend-ux.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/frontend-ux.md) for loading/error/recovery states, trust, and editor expectations.
+- [`frontend-interactions.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/frontend-interactions.md) for styling, semantics, component boundaries, and responsive behavior.
 
-- Interactive list items, tabs, and menu items should follow the established visual hierarchy:
-  - Selected/active: `background: var(--accent)`
-  - Hovered: `background: var(--accent-glow)`
-  - Default: transparent or `var(--surface)` with muted text
-- Prefer theme variables over hardcoded colors.
-- High-level interaction logic should favor reliable component state over fragile styling hacks.
+## Load Order
 
-## UX Expectations
+1. [`frontend-state.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/frontend-state.md) for state ownership and overlay boundaries.
+1. [`frontend-ux.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/frontend-ux.md) for recovery, waiting, empty, and failure experience.
+1. [`frontend-interactions.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/frontend-interactions.md) for interaction quality, semantics, and responsive layouts.
 
-- Keep layouts responsive across desktop and mobile.
-- Preserve consistent focus behavior and semantics.
-- Make loading, disabled, and error states obvious rather than implicit.
+## Pair With
+
+- [`modular_architecture.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/modular_architecture.md) for Studio 2.0 boundary rules.
+- [`verification.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/verification.md) for the required frontend test and lint verification.

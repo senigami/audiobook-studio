@@ -125,33 +125,6 @@ def test_chapter_cancel_and_reset(clean_db, client):
     response = client.post(f"/api/chapters/{cid}/reset")
     assert response.status_code == 200
 
-def test_legacy_endpoints(clean_db, tmp_path, client):
-    from app.web import app as fastapi_app
-    from app.api.routers.chapters import get_chapter_dir, get_xtts_out_dir
-    fastapi_app.dependency_overrides[get_chapter_dir] = lambda: tmp_path
-    fastapi_app.dependency_overrides[get_xtts_out_dir] = lambda: tmp_path
-
-    # Create a dummy chapter file
-    (tmp_path / "test.txt").write_text("hello")
-
-    # Reset legacy
-    response = client.post("/api/chapter/reset", data={"chapter_file": "test.txt"})
-    assert response.status_code == 200
-    assert not (tmp_path / "test.wav").exists()
-    assert not (tmp_path / "test.mp3").exists()
-
-    # Preview
-    response = client.get("/api/preview/test.txt")
-    assert response.status_code == 200
-
-    # Delete legacy
-    response = client.delete("/api/chapter/test.txt")
-    assert response.status_code == 200
-    assert not (tmp_path / "test.txt").exists()
-
-    # Reset overrides
-    fastapi_app.dependency_overrides = {}
-
 def test_export_and_stream(clean_db, tmp_path, client):
     from app.web import app as fastapi_app
     from app.db.projects import create_project
@@ -171,8 +144,25 @@ def test_export_and_stream(clean_db, tmp_path, client):
     assert response.status_code == 200
 
     # Export sample
-    response = client.post(f"/api/chapter/{cid}/export-sample")
+    response = client.post(f"/api/chapters/{cid}/export-sample")
     assert response.status_code == 200
-    assert response.json()["url"] == f"/api/chapters/{cid}/stream"
+    expected_url = f"/api/projects/{pid}/chapters/{cid}/assets/audio"
+    assert response.json()["url"].startswith(expected_url)
 
     fastapi_app.dependency_overrides = {}
+
+
+def test_chapter_asset_route_rejects_path_traversal(clean_db, client):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "T1")
+
+    for asset_type in ("audio", "segment"):
+        response = client.get(
+            f"/api/projects/{pid}/chapters/{cid}/assets/{asset_type}",
+            params={"filename": "../../etc/passwd"},
+        )
+
+        assert response.status_code == 404

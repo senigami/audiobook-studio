@@ -348,7 +348,7 @@ def test_speaker_listing_normalizes_base_profile_to_default(clean_voices):
         (base_dir / "profile.json").write_text(json.dumps({"built_samples": []}))
         (angry_dir / "profile.json").write_text(json.dumps({"speaker_id": speaker_id, "variant_name": "Angry"}))
 
-        normalize_base_profiles()
+        normalize_base_profiles(voices_dir=clean_voices)
 
         response = client.get("/api/speakers")
         assert response.status_code == 200
@@ -363,7 +363,9 @@ def test_speaker_listing_normalizes_base_profile_to_default(clean_voices):
         assert base_profile["speaker_id"] == speaker_id
         assert base_profile["engine"] == "xtts"
 
-        meta = json.loads((base_dir / "profile.json").read_text())
+        # After migrate_voices_to_v2() (called by listing endpoint), the flat
+        # profile.json is promoted to Default/profile.json.
+        meta = json.loads((base_dir / "Default" / "profile.json").read_text())
         assert meta["variant_name"] == "Default"
         assert meta["speaker_id"] == speaker_id
         assert meta["engine"] == "xtts"

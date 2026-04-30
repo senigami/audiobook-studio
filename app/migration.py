@@ -10,7 +10,17 @@ def import_legacy_filesystem_data():
     Scans CHAPTER_DIR for .txt files and matches them with audio in XTTS_OUT_DIR.
     Creates a 'Legacy Import' project and populates it with chapters.
     """
-    txt_files = [f for f in os.listdir(CHAPTER_DIR) if f.endswith('.txt')]
+    # Rule 8: Enumerate trusted root
+    trusted_chapter_root = os.path.abspath(os.path.realpath(os.fspath(CHAPTER_DIR)))
+    try:
+        txt_files = [
+            entry.name
+            for entry in os.scandir(trusted_chapter_root)
+            if entry.is_file() and entry.name.endswith(".txt")
+        ]
+    except OSError:
+        return {"status": "error", "message": "Could not scan chapter directory."}
+
     if not txt_files:
         return {"status": "success", "message": "No legacy text files found."}
 
@@ -18,7 +28,7 @@ def import_legacy_filesystem_data():
     project_id = create_project(
         name=f"Legacy Import ({time.strftime('%Y-%m-%d %H:%M')})",
         series="Imported",
-        author="System"
+        author="System",
     )
 
     imported_count = 0
@@ -27,11 +37,18 @@ def import_legacy_filesystem_data():
 
         for txt_name in txt_files:
             stem = Path(txt_name).stem
-            txt_path = CHAPTER_DIR / txt_name
+
+            # Rule 9: Locally visible containment proof
+            txt_path_full = os.path.abspath(
+                os.path.realpath(os.path.join(trusted_chapter_root, txt_name))
+            )
+            if not txt_path_full.startswith(trusted_chapter_root + os.sep):
+                continue
 
             # Read content
             try:
-                content = txt_path.read_text(encoding="utf-8", errors="replace")
+                with open(txt_path_full, "r", encoding="utf-8", errors="replace") as f:
+                    content = f.read()
             except Exception:
                 continue
 
@@ -40,14 +57,22 @@ def import_legacy_filesystem_data():
 
             # Look for matching audio
             audio_file = None
-            audio_status = 'unprocessed'
+            audio_status = "unprocessed"
 
+            trusted_xtts_root = os.path.abspath(os.path.realpath(os.fspath(XTTS_OUT_DIR)))
             # Priority .mp3 > .wav
-            for ext in ['.mp3', '.wav']:
-                potential_audio = XTTS_OUT_DIR / f"{stem}{ext}"
-                if potential_audio.exists():
-                    audio_file = potential_audio.name
-                    audio_status = 'done'
+            for ext in [".mp3", ".wav"]:
+                cand_name = f"{stem}{ext}"
+                # Rule 8: Match by name from scanner to prove locality
+                try:
+                    for entry in os.scandir(trusted_xtts_root):
+                        if entry.is_file() and entry.name == cand_name:
+                            audio_file = entry.name
+                            audio_status = "done"
+                            break
+                except OSError:
+                    pass
+                if audio_file:
                     break
 
             chap_id = str(uuid.uuid4())
