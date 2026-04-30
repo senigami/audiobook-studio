@@ -115,8 +115,6 @@ def build_engine_detail(
         schema = plugin.settings_schema
 
     enabled = bool(current_settings.get("enabled"))
-    if not enabled and "voxtral_enabled" in current_settings:
-        enabled = bool(current_settings.get("voxtral_enabled"))
 
     return {
         "engine_id": plugin.engine_id,

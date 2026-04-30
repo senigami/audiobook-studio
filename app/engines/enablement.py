@@ -42,20 +42,7 @@ def can_enable_engine(
 
     # Voxtral specific requirement: Mistral API key
     if normalized_engine_id == "voxtral":
-        # Check both global settings and plugin-specific settings
         api_key = str(settings.get("mistral_api_key") or "").strip()
-        if not api_key:
-            # Try to load from plugin settings as a fallback if the UI saved it there
-            from app.tts_server.settings_store import load_settings # noqa: PLC0415
-            from app.tts_server.plugin_loader import get_plugin_dir # noqa: PLC0415
-            try:
-                p_dir = get_plugin_dir(normalized_engine_id)
-                if p_dir:
-                    p_settings = load_settings(p_dir)
-                    api_key = str(p_settings.get("mistral_api_key") or "").strip()
-            except Exception:
-                pass
-
         if not api_key:
             return False, "Add a Mistral API key in engine settings before enabling Voxtral."
 

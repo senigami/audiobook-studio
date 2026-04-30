@@ -90,8 +90,7 @@ const mockedEngines = [
       },
       'x-ui': {
         panel_title: 'Voxtral Cloud Voices',
-        summary: 'Create a Mistral API key in your workspace settings, paste it here, then turn Voxtral on when you want cloud voices available. Voxtral requests are processed by Mistral instead of staying fully local.',
-        privacy_notice: 'Privacy note: turning on Voxtral sends the text you synthesize, and any selected reference audio, to Mistral\'s servers. Keep voices on XTTS (Local) if you want your workflow to stay fully local.',
+        summary: 'Create a Mistral API key in your workspace settings.',
         privacy_tone: 'warning',
         help_label: 'Open Mistral API key instructions',
         help_url: 'https://help.mistral.ai/en/articles/347464-how-do-i-create-api-keys-within-a-workspace',
@@ -266,7 +265,6 @@ describe('SettingsRoute', () => {
     expect(screen.getByText('Open Mistral API key instructions')).toBeTruthy();
     expect(screen.getByText('Mistral API Key')).toBeTruthy();
     expect(screen.getByText('Voxtral Model')).toBeTruthy();
-    expect(screen.getByText(/Privacy note: turning on Voxtral sends the text you synthesize/i)).toBeTruthy();
     expect(screen.getByRole('button', { name: 'OFF' })).toBeDisabled();
   });
 

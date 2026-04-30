@@ -20,8 +20,4 @@
   "homepage": "https://mistral.ai",
   "license": "Commercial API",
   "test_text": "Hello, this is a verification test of the Voxtral synthesis engine.",
-  "notes": [
-    "Requires a Mistral AI API key set via MISTRAL_API_KEY environment variable.",
-    "Sends text to Mistral AI cloud servers for synthesis. Review Mistral's privacy policy before use."
-  ]
 }

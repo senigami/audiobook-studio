@@ -176,7 +176,6 @@ class TestDiscoverPlugins:
             "x-ui": {
                 "help_label": "Open Mistral API key instructions",
                 "help_url": "https://help.mistral.ai/en/articles/347464-how-do-i-create-api-keys-within-a-workspace",
-                "privacy_notice": "Privacy note: turning on Voxtral sends the text you synthesize, and any selected reference audio, to Mistral's servers.",
             },
             "properties": {
                 "mistral_api_key": {"type": "string", "title": "Mistral API Key"},

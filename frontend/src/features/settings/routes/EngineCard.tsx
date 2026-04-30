@@ -85,6 +85,7 @@ export const EngineCard: React.FC<{
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+          {engine.cloud && <Cloud size={15} color="#92400e" />}
           <div style={{ marginRight: '0.5rem' }}>
             <ToggleButton
               enabled={engine.enabled}
@@ -108,7 +109,6 @@ export const EngineCard: React.FC<{
               }}
             />
           </div>
-          {engine.cloud && <Cloud size={15} color="#92400e" />}
           <span
             style={{
               borderRadius: '999px',
