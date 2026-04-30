@@ -157,39 +157,6 @@ class VoiceBridge:
             "engine_id": engine_id,
         }
 
-class _LegacyEngineShim:
-    """Shim to make BaseVoiceEngine look like StudioTTSEngine for verification."""
-    def __init__(self, engine: BaseVoiceEngine):
-        self.engine = engine
-
-    def check_env(self) -> tuple[bool, str]:
-        health = self.engine.describe_health()
-        return health.ready, health.message or "OK"
-
-    def check_request(self, req: TTSRequest) -> tuple[bool, str]:
-        try:
-            # BaseVoiceEngine.validate_request takes a dict
-            self.engine.validate_request({
-                "script_text": req.text,
-                "output_path": req.output_path,
-                "voice_profile_id": "Default",
-                "voice_ref": req.voice_ref,
-                "engine_id": getattr(self.engine, "manifest", None).engine_id if hasattr(self.engine, "manifest") else None
-            })
-            return True, "OK"
-        except Exception as exc:
-            return False, str(exc)
-
-    def synthesize(self, req: TTSRequest) -> dict[str, Any]:
-        # BaseVoiceEngine.synthesize takes a dict and returns a dict
-        return self.engine.synthesize({
-            "script_text": req.text,
-            "output_path": req.output_path,
-            "voice_profile_id": "Default",
-            "voice_ref": req.voice_ref
-        })
-
-
 def create_voice_bridge() -> VoiceBridge:
     """Create the voice bridge with registry dependency wiring."""
     return VoiceBridge(registry_loader=load_engine_registry)
