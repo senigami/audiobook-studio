@@ -6,11 +6,11 @@ This checklist captures the remaining cleanup work that belongs to the current P
 
 ## Current Cleanup Items
 
-- [ ] Verify the version bump to `2.0.0` is consistent across backend, frontend, and About/settings UI surfaces.
-- [ ] Confirm the runtime status/about panel text still matches the current TTS Server and plugin-backed architecture.
-- [ ] Re-run the remaining Settings/About and engine-related regression tests after the version bump.
-- [ ] Confirm there are no lingering UI strings or docs that still present `1.8.4` as current behavior.
-- [ ] Validate the remaining engine settings and diagnostics surfaces once more before handing off to Phase 11.
+- [x] Verify the version bump to `2.0.0` is consistent across backend, frontend, and About/settings UI surfaces.
+- [x] Confirm the runtime status/about panel text still matches the current TTS Server and plugin-backed architecture.
+- [x] Re-run the remaining Settings/About and engine-related regression tests after the version bump.
+- [x] Confirm there are no lingering UI strings or docs that still present `1.8.4` as current behavior.
+- [x] Validate the remaining engine settings and diagnostics surfaces once more before handing off to Phase 11.
 
 ## Exit Criteria
 
