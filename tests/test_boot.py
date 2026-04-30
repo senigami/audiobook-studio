@@ -35,11 +35,12 @@ def test_boot_studio_is_idempotent():
         mock_start.assert_called_once()
 
 def test_boot_studio_handles_watchdog_failure(monkeypatch):
-    """Verify that boot_studio() handles a failure in start_watchdog gracefully and sets fallback mode."""
+    """Verify that boot_studio() handles a failure in start_watchdog gracefully without silent fallback."""
     monkeypatch.setenv("USE_TTS_SERVER", "1")
     with patch("app.engines.watchdog.start_watchdog", side_effect=Exception("Watchdog crash")):
         boot_studio()
-        assert os.environ.get("USE_TTS_SERVER") == "0"
+        # Should NOT mutate to "0"
+        assert os.environ.get("USE_TTS_SERVER") == "1"
 
 
 def test_boot_tts_server_uses_repo_root_plugins_dir():

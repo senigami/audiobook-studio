@@ -80,9 +80,7 @@ def boot_tts_server(
         )
         logger.info("TTS Server watchdog started via boot sequence.")
     except Exception:
-        import os
-        os.environ["USE_TTS_SERVER"] = "0"
         logger.exception(
             "TTS Server watchdog failed to start during boot. "
-            "Synthesis will fall back to the Single-Process path."
+            "TTS services will be unavailable."
         )

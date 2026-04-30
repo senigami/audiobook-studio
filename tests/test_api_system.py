@@ -101,9 +101,8 @@ def test_home_endpoint_degraded(clean_db, client, monkeypatch):
         assert data["system_info"]["startup_ready"] is False
 
 def test_home_endpoint_fallback(clean_db, client, monkeypatch):
-    """Verify system info when watchdog circuit trips and triggers explicit fallback."""
-    # When circuit trips, watchdog changes USE_TTS_SERVER to 0
-    monkeypatch.setenv("USE_TTS_SERVER", "0")
+    """Verify system info when watchdog circuit trips. It should NOT report ready fallback."""
+    monkeypatch.setenv("USE_TTS_SERVER", "1")
     monkeypatch.setenv("USE_STUDIO_ORCHESTRATOR", "1")
 
     from unittest.mock import MagicMock, patch
@@ -117,8 +116,10 @@ def test_home_endpoint_fallback(clean_db, client, monkeypatch):
 
         response = client.get("/api/home")
         data = response.json()
-        assert "Single-Process (Fallback from Crashed Subprocess)" in data["system_info"]["backend_mode"]
-        assert data["system_info"]["startup_ready"] is True
+        # Should now be reported as offline/crashed, not ready fallback
+        assert "Offline (Subprocess Crashed)" in data["system_info"]["backend_mode"]
+        assert data["system_info"]["startup_ready"] is False
+        assert "Service Unavailable" in data["system_info"]["startup_message"]
 
 def test_settings_get_and_update(clean_db, client):
     # USE_TTS_SERVER=0 is already set by the autouse fixture

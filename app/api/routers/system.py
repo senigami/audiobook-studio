@@ -150,6 +150,8 @@ def api_home(
     if use_tts_server():
         if watchdog and watchdog.is_healthy():
             backend_mode = f"Managed Subprocess (TTS Server @ {watchdog.get_port()})"
+        elif watchdog and watchdog.is_circuit_open():
+            backend_mode = "Offline (Subprocess Crashed)"
         else:
             backend_mode = "Managed Subprocess (Starting/Initializing)"
     else:
@@ -164,8 +166,12 @@ def api_home(
             startup_message = "Starting Audiobook Studio Services"
             startup_detail = "Waiting for the TTS watchdog to initialize."
         elif not watchdog.is_healthy():
-            startup_message = "Starting Audiobook Studio Services"
-            startup_detail = "Checking TTS plugins and runtime health."
+            if watchdog.is_circuit_open():
+                startup_message = "Service Unavailable"
+                startup_detail = "The TTS Server failed to start multiple times and is now offline."
+            else:
+                startup_message = "Starting Audiobook Studio Services"
+                startup_detail = "Checking TTS plugins and runtime health."
         elif not engines:
             startup_message = "Audiobook Studio is ready."
             startup_detail = "TTS runtime is ready."
