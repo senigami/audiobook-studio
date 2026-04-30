@@ -312,6 +312,25 @@ Remove silent v1/in-process TTS fallback behavior after the current wrap-up work
 
 - Studio no longer has two production XTTS/Voxtral runtimes; plugin-backed v2 is the committed runtime path
 
+## Phase 12: Release Documentation And Distribution Polish
+
+### Objective
+
+Document, package, validate, and present the completed Studio 2.0 overhaul as a production-ready release.
+
+### Scope
+
+- audit and update READMEs, wiki pages, docs site, API docs, plugin docs, and install instructions
+- create an in-depth multi-page Studio 2.0 overview
+- refresh live demo pages, screenshots, assets, and optional animations
+- prepare "What's New In Version 2" release and promotional materials
+- verify Pinokio install/launch flows
+- validate macOS, Windows, and Linux first-run behavior
+
+### Completion criteria
+
+- Studio 2.0 is documented, installable, demo-ready, and release-ready for users, contributors, plugin authors, and API clients
+
 ## Debugging Discipline Across All Phases
 
 - Debug the smallest possible module first.

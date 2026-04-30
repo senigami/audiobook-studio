@@ -64,7 +64,7 @@ export const AboutSettingsPanel: React.FC<{ onRefresh?: () => void | Promise<voi
         <StatusCard
           icon={BadgeInfo}
           label="Studio Version"
-          value={data?.version || '1.8.4'}
+          value={data?.version || '2.0.0'}
           subvalue="Release Channel: Stable"
           getBadgeStyles={getBadgeStyles}
         />

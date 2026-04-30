@@ -90,7 +90,7 @@ const mockedEngines = [
       },
       'x-ui': {
         panel_title: 'Voxtral Cloud Voices',
-        summary: 'Create a Mistral API key in your workspace settings.',
+        summary: 'Create a Mistral API key in your workspace settings. Get started by following the instructions in the link below.',
         privacy_tone: 'warning',
         help_label: 'Open Mistral API key instructions',
         help_url: 'https://help.mistral.ai/en/articles/347464-how-do-i-create-api-keys-within-a-workspace',
@@ -131,7 +131,7 @@ describe('SettingsRoute', () => {
       return Promise.resolve({ ok: true, json: () => Promise.resolve({}) }) as any;
     }) as any;
     vi.mocked(api.fetchHome).mockResolvedValue({
-      version: '1.8.4',
+      version: '2.0.0',
       engines: mockedEngines as any,
       render_stats: {
         sample_count: 4,
@@ -334,7 +334,7 @@ describe('SettingsRoute', () => {
 
     expect(await screen.findByRole('heading', { name: 'About' })).toBeTruthy();
     expect(screen.getByText('Studio Version')).toBeTruthy();
-    expect(screen.getByText('1.8.4')).toBeTruthy();
+    expect(screen.getByText('2.0.0')).toBeTruthy();
     expect(screen.getByText('Engine Plugins')).toBeTruthy();
     expect(screen.getByText(/2 loaded/i)).toBeTruthy();
     expect(screen.getByText(/XTTS Local .* Voxtral Cloud Voices/i)).toBeTruthy();

@@ -24,6 +24,10 @@ Now that the v2 runtime is intended to be the product path, fallback should be r
 
 ## Scope
 
+- audit the full codebase for v1-era runtime code, metadata duplication, compatibility shims, feature flags, fallback paths, tests, docs, and scripts
+- build a tracked cleanup inventory that classifies each legacy item by ownership, current references, risk, and removal strategy
+- identify code that is completely severed from production and test references so it can be removed first as useless bloat
+- identify code that is still referenced as fallback/failover and replace those references with committed v2 behavior
 - remove production fallback from `VoiceBridge` remote calls to local in-process adapters
 - remove production registry fallback from TTS Server discovery to built-in engine discovery
 - remove watchdog behavior that silently switches Studio into legacy in-process mode
@@ -32,6 +36,81 @@ Now that the v2 runtime is intended to be the product path, fallback should be r
 - remove or quarantine legacy XTTS/Voxtral adapters after all production references are gone
 - update tests so they assert v2-only behavior rather than fallback behavior
 - retain migration scripts and storage compatibility readers where they protect existing user data
+
+## Phase 11 Work Model
+
+Phase 11 should not begin by deleting files. It should begin with an audit that makes the legacy surface area visible. The cleanup work should then proceed in small, checkpointable slices ordered by risk.
+
+### Step 1: System Audit
+
+Create a complete inventory of v1-era code and transition scaffolding before changing behavior.
+
+Audit targets:
+
+- production imports and runtime paths
+- fallback/failover branches
+- feature flags and environment variables
+- legacy adapters and shims
+- duplicated manifests, settings schemas, metadata, documentation, and UI help text
+- compatibility readers and migration helpers
+- tests that assert legacy behavior or silently rely on fallback
+- scripts, docs, and comments that still describe v1 as active behavior
+
+Suggested search starting points:
+
+- `git grep -n "legacy"`
+- `git grep -n "fallback"`
+- `git grep -n "USE_TTS_SERVER"`
+- `git grep -n "bridge_local"`
+- `git grep -n "app.engines.voice"`
+- `git grep -n "in-process"`
+- `git grep -n "v1"`
+- `git grep -n "compat"`
+
+### Step 2: Legacy Inventory Checklist
+
+Convert the audit into a checklist before removing code. Each discovered item should have enough context to make a safe decision.
+
+Use these classification fields:
+
+- **Path**: file or module that contains the legacy code
+- **Kind**: dead code, production fallback, migration/data compatibility, duplicate metadata, test-only fixture, docs/comment, or unknown
+- **Current references**: what imports/calls/loads it today
+- **Runtime impact**: production path, startup path, settings path, synthesis path, tests only, or no references
+- **Desired outcome**: delete, replace with v2 behavior, keep as migration-only, move to test fixture, or document and defer
+- **Risk**: low, medium, high
+- **Verification**: exact test or manual check that proves removal/replacement is safe
+
+### Step 3: Classification Rules
+
+Use the classification pass to avoid cutting useful migration code while still removing actual bloat.
+
+- **Delete first**: files, functions, docs, or metadata with no production references and no test value.
+- **Replace next**: code still referenced only to provide automatic v1 fallback/failover.
+- **Keep temporarily**: migration scripts and compatibility readers that protect existing user data during load/upgrade.
+- **Move or rewrite**: tests that exist only to prove legacy fallback behavior.
+- **Escalate before deleting**: anything that still writes user data, changes persisted schemas, or handles recovery from old projects/voices.
+
+### Step 4: Dependency-Ordered Cleanup Plan
+
+After the audit inventory exists, turn it into an ordered task list. Prefer this removal order:
+
+1. Remove dead metadata and unused duplicate docs.
+2. Remove severed files with no imports or runtime references.
+3. Update tests that currently encode fallback expectations.
+4. Remove automatic fallback branches in the registry and bridge.
+5. Remove watchdog/boot fallback into legacy mode and replace it with explicit service diagnostics.
+6. Remove or quarantine local XTTS/Voxtral adapters once production imports are gone.
+7. Remove or narrow feature flags that only exist to toggle v1 behavior.
+8. Re-run full boot, settings, verification, preview, synthesis, and failure-mode checks.
+
+### Step 5: Cleanup Tracking Artifact
+
+Create a Phase 11 audit artifact before implementation begins. Suggested path:
+
+- `plans/implementation/phase_11_v1_cleanup_inventory.md`
+
+That inventory should become the working checklist for Phase 11 and should be updated as each item is removed, retained, or deferred.
 
 ## Non-Goals
 
@@ -67,6 +146,10 @@ Now that the v2 runtime is intended to be the product path, fallback should be r
 
 ## Deliverables
 
+- [ ] Phase 11 audit inventory created with every known v1/legacy/fallback item classified.
+- [ ] Dependency-ordered cleanup checklist created from the inventory before behavior changes begin.
+- [ ] Completely severed v1 files and duplicated metadata are removed first.
+- [ ] All remaining v1 references are classified as production fallback, migration/data compatibility, test fixture, docs, or deferred.
 - [ ] Production `VoiceBridge` no longer catches TTS Server unavailability and reroutes to local adapters.
 - [ ] Production engine registry no longer synthesizes XTTS/Voxtral entries from built-in classes when the TTS Server is unavailable.
 - [ ] Watchdog startup failure reports a service error instead of flipping to legacy mode.
@@ -79,6 +162,8 @@ Now that the v2 runtime is intended to be the product path, fallback should be r
 
 ## Verification Checklist
 
+- [ ] Audit inventory includes production imports, fallback branches, feature flags, migration helpers, tests, docs, and duplicated metadata.
+- [ ] Every deleted item has a matching reference check or targeted test.
 - [ ] Normal boot starts the managed TTS Server and discovers XTTS/Voxtral through plugins.
 - [ ] TTS Server startup failure keeps Studio honest: no engine list from v1 fallback, no silent synthesis path.
 - [ ] Settings > TTS Engines shows service diagnostics when plugins cannot be loaded.

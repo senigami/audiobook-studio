@@ -183,7 +183,7 @@ def api_home(
         "settings": settings,
         "engines": engines,
         "paused": paused(),
-        "version": "1.8.4",
+        "version": "2.0.0",
         "system_info": {
             "backend_mode": backend_mode,
             "orchestrator": "Studio 2.0" if use_studio_orchestrator() else "Legacy (app.jobs)",
