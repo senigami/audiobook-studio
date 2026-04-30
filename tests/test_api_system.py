@@ -23,18 +23,8 @@ def clean_db():
     if os.path.exists(db_path):
         os.unlink(db_path)
 
-@pytest.fixture(autouse=True)
-def disable_tts_v2(monkeypatch):
-    """Disable Studio 2.0 modular paths by default for these legacy tests."""
-    monkeypatch.setenv("USE_TTS_SERVER", "0")
-    monkeypatch.setenv("USE_STUDIO_ORCHESTRATOR", "0")
-
-def test_home_endpoint(clean_db, client, monkeypatch):
+def test_home_endpoint(clean_db, client):
     """GET /api/home — the main system info/home endpoint."""
-    # Re-enable for this specific test
-    monkeypatch.setenv("USE_TTS_SERVER", "1")
-    monkeypatch.setenv("USE_STUDIO_ORCHESTRATOR", "1")
-
     # Mock the watchdog so it appears to be running
     from unittest.mock import MagicMock, patch
     from app.engines.watchdog import TtsServerWatchdog
@@ -58,11 +48,8 @@ def test_home_endpoint(clean_db, client, monkeypatch):
         assert info["tts_server_url"] == "http://127.0.0.1:7862"
         assert info["startup_ready"] is True
 
-def test_home_endpoint_ready_without_engines(clean_db, client, monkeypatch):
+def test_home_endpoint_ready_without_engines(clean_db, client):
     """Verify startup can complete when the watchdog is healthy even if no engines are exposed yet."""
-    monkeypatch.setenv("USE_TTS_SERVER", "1")
-    monkeypatch.setenv("USE_STUDIO_ORCHESTRATOR", "1")
-
     from unittest.mock import MagicMock, patch
     from app.engines.watchdog import TtsServerWatchdog
     mock_watchdog = MagicMock(spec=TtsServerWatchdog)
@@ -80,11 +67,8 @@ def test_home_endpoint_ready_without_engines(clean_db, client, monkeypatch):
         assert data["system_info"]["startup_ready"] is True
         assert data["system_info"]["startup_message"] == "Audiobook Studio is ready."
 
-def test_home_endpoint_degraded(clean_db, client, monkeypatch):
+def test_home_endpoint_degraded(clean_db, client):
     """Verify system info when watchdog is starting/unhealthy."""
-    monkeypatch.setenv("USE_TTS_SERVER", "1")
-    monkeypatch.setenv("USE_STUDIO_ORCHESTRATOR", "1")
-
     from unittest.mock import MagicMock, patch
     from app.engines.watchdog import TtsServerWatchdog
     mock_watchdog = MagicMock(spec=TtsServerWatchdog)
@@ -100,11 +84,8 @@ def test_home_endpoint_degraded(clean_db, client, monkeypatch):
         assert "Managed Subprocess (Starting/Initializing)" in data["system_info"]["backend_mode"]
         assert data["system_info"]["startup_ready"] is False
 
-def test_home_endpoint_fallback(clean_db, client, monkeypatch):
+def test_home_endpoint_fallback(clean_db, client):
     """Verify system info when watchdog circuit trips. It should NOT report ready fallback."""
-    monkeypatch.setenv("USE_TTS_SERVER", "1")
-    monkeypatch.setenv("USE_STUDIO_ORCHESTRATOR", "1")
-
     from unittest.mock import MagicMock, patch
     from app.engines.watchdog import TtsServerWatchdog
     mock_watchdog = MagicMock(spec=TtsServerWatchdog)
@@ -122,7 +103,6 @@ def test_home_endpoint_fallback(clean_db, client, monkeypatch):
         assert "Service Unavailable" in data["system_info"]["startup_message"]
 
 def test_settings_get_and_update(clean_db, client):
-    # USE_TTS_SERVER=0 is already set by the autouse fixture
     response = client.post("/api/settings", json={
         "safe_mode": True,
         "default_engine": "xtts"

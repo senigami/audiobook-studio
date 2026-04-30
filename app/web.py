@@ -259,8 +259,7 @@ def startup_event():
         set_paused(True)
         logger.info("Startup: Queue restored to PAUSED state.")
 
-    # 5. Studio 2.0 boot sequence — starts feature-flagged subsystems
-    #    (e.g. TTS Server watchdog when USE_TTS_SERVER=true).
+    # 5. Studio 2.0 boot sequence — starts the TTS Server watchdog explicitly.
     #    Run in a background thread to prevent blocking the web server startup
     #    while engines are being verified.
     def _background_boot():

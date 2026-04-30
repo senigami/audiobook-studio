@@ -15,8 +15,7 @@ from app.engines.models import (
 from app.engines.voice.base import BaseVoiceEngine
 
 # TTS Server dependencies — imported at module level so they are patchable
-# in tests.  Both modules may be absent in minimal environments; the
-# try/except keeps the in-process path working unconditionally.
+# in tests. Both modules may be absent in minimal environments.
 try:
     from app.engines.tts_client import TtsClient
     from app.engines.watchdog import get_watchdog
@@ -31,13 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 def load_engine_registry() -> dict[str, EngineRegistrationModel]:
-    from app.core.feature_flags import use_tts_server  # noqa: PLC0415
-    if use_tts_server():
-        return _load_tts_server_registry()
-
-    # QUARANTINE: Fallback to legacy local discovery (Tests/Dev ONLY).
-    # In production, this path should never be reached as use_tts_server() is True.
-    return _refresh_registry_health(_load_legacy_local_registry())
+    return _load_tts_server_registry()
 
 
 @lru_cache(maxsize=1)
@@ -245,7 +238,7 @@ class _TtsServerEngineProxy:
 
 
 # ---------------------------------------------------------------------------
-# In-process registry path (unchanged)
+# Legacy in-process registry path (retained only for quarantined test/dev use)
 # ---------------------------------------------------------------------------
 
 def _load_builtin_engines() -> dict[str, EngineRegistrationModel]:

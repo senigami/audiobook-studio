@@ -51,9 +51,8 @@ def start_watchdog(
 ) -> "TtsServerWatchdog":
     """Start the global TTS Server watchdog.
 
-    Called by the Studio boot sequence when ``USE_TTS_SERVER=true``.  Returns
-    the running watchdog instance.  Idempotent — returns the existing watchdog
-    if it is already running.
+    Called by the Studio boot sequence. Returns the running watchdog instance.
+    Idempotent — returns the existing watchdog if it is already running.
 
     Args:
         plugins_dir: Path to the ``plugins/`` directory.

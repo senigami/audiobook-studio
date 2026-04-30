@@ -16,8 +16,6 @@ from ...db.performance import get_render_stats, reset_render_stats
 from ...models import Job
 from ...pathing import safe_basename, safe_join_flat
 from ..utils import read_preview
-from ...core.feature_flags import use_tts_server, use_studio_orchestrator
-
 # Compatibility for tests that monkeypatch these
 UPLOAD_DIR = config.UPLOAD_DIR
 CHAPTER_DIR = config.CHAPTER_DIR
@@ -74,47 +72,33 @@ def _build_runtime_services(request: Request) -> list[dict[str, Any]]:
     })
 
     watchdog = get_watchdog()
-    if use_tts_server():
-        if watchdog is None:
-            services.append({
-                "id": "tts_server",
-                "label": "TTS Server",
-                "kind": "tts_server",
-                "url": None,
-                "port": None,
-                "healthy": False,
-                "pingable": False,
-                "status": "not running",
-                "message": "TTS Server mode is enabled, but the watchdog has not started yet.",
-                "can_restart": False,
-            })
-        else:
-            healthy = watchdog.is_healthy()
-            services.append({
-                "id": "tts_server",
-                "label": "TTS Server",
-                "kind": "tts_server",
-                "url": watchdog.get_url(),
-                "port": watchdog.get_port(),
-                "healthy": healthy,
-                "pingable": healthy,
-                "status": "healthy" if healthy else "unhealthy",
-                "message": "Loaded plugins responded successfully." if healthy else "The TTS Server has stopped responding to health checks.",
-                "can_restart": True,
-                "circuit_open": watchdog.is_circuit_open(),
-            })
-    else:
+    if watchdog is None:
         services.append({
             "id": "tts_server",
             "label": "TTS Server",
             "kind": "tts_server",
             "url": None,
             "port": None,
-            "healthy": True,
+            "healthy": False,
             "pingable": False,
-            "status": "not launched",
-            "message": "Running in Single-Process mode (TTS Server disabled).",
+            "status": "not running",
+            "message": "The TTS Server watchdog has not started yet.",
             "can_restart": False,
+        })
+    else:
+        healthy = watchdog.is_healthy()
+        services.append({
+            "id": "tts_server",
+            "label": "TTS Server",
+            "kind": "tts_server",
+            "url": watchdog.get_url(),
+            "port": watchdog.get_port(),
+            "healthy": healthy,
+            "pingable": healthy,
+            "status": "healthy" if healthy else "unhealthy",
+            "message": "Loaded plugins responded successfully." if healthy else "The TTS Server has stopped responding to health checks.",
+            "can_restart": True,
+            "circuit_open": watchdog.is_circuit_open(),
         })
 
     return services
@@ -147,41 +131,30 @@ def api_home(
     from ...engines.watchdog import get_watchdog
     watchdog = get_watchdog()
 
-    if use_tts_server():
-        if watchdog and watchdog.is_healthy():
-            backend_mode = f"Managed Subprocess (TTS Server @ {watchdog.get_port()})"
-        elif watchdog and watchdog.is_circuit_open():
-            backend_mode = "Offline (Subprocess Crashed)"
-        else:
-            backend_mode = "Managed Subprocess (Starting/Initializing)"
+    if watchdog and watchdog.is_healthy():
+        backend_mode = f"Managed Subprocess (TTS Server @ {watchdog.get_port()})"
+    elif watchdog and watchdog.is_circuit_open():
+        backend_mode = "Offline (Subprocess Crashed)"
     else:
-        if watchdog and (watchdog.is_circuit_open() or not getattr(watchdog, "_healthy", True)):
-            backend_mode = "Single-Process (Fallback from Crashed Subprocess)"
-        else:
-            backend_mode = "Single-Process (Legacy Mode)"
+        backend_mode = "Managed Subprocess (Starting/Initializing)"
 
-    if use_tts_server():
-        startup_ready = bool(watchdog and watchdog.is_healthy())
-        if not watchdog:
-            startup_message = "Starting Audiobook Studio Services"
-            startup_detail = "Waiting for the TTS watchdog to initialize."
-        elif not watchdog.is_healthy():
-            if watchdog.is_circuit_open():
-                startup_message = "Service Unavailable"
-                startup_detail = "The TTS Server failed to start multiple times and is now offline."
-            else:
-                startup_message = "Starting Audiobook Studio Services"
-                startup_detail = "Checking TTS plugins and runtime health."
-        elif not engines:
-            startup_message = "Audiobook Studio is ready."
-            startup_detail = "TTS runtime is ready."
+    startup_ready = bool(watchdog and watchdog.is_healthy())
+    if not watchdog:
+        startup_message = "Starting Audiobook Studio Services"
+        startup_detail = "Waiting for the TTS watchdog to initialize."
+    elif not watchdog.is_healthy():
+        if watchdog.is_circuit_open():
+            startup_message = "Service Unavailable"
+            startup_detail = "The TTS Server failed to start multiple times and is now offline."
         else:
-            startup_message = "Audiobook Studio is ready."
-            startup_detail = "All services are available."
-    else:
-        startup_ready = True
+            startup_message = "Starting Audiobook Studio Services"
+            startup_detail = "Checking TTS plugins and runtime health."
+    elif not engines:
         startup_message = "Audiobook Studio is ready."
-        startup_detail = "Running in Single-Process mode."
+        startup_detail = "TTS runtime is ready."
+    else:
+        startup_message = "Audiobook Studio is ready."
+        startup_detail = "All services are available."
 
     return {
         "chapters": [],
@@ -192,9 +165,9 @@ def api_home(
         "version": "2.0.0",
         "system_info": {
             "backend_mode": backend_mode,
-            "orchestrator": "Studio 2.0" if use_studio_orchestrator() else "Legacy (app.jobs)",
+            "orchestrator": "Studio 2.0",
             "api_base_url": str(request.base_url).rstrip("/"),
-            "tts_server_url": watchdog.get_url() if (use_tts_server() and watchdog and watchdog.is_healthy()) else None,
+            "tts_server_url": watchdog.get_url() if (watchdog and watchdog.is_healthy()) else None,
             "startup_ready": startup_ready,
             "startup_message": startup_message,
             "startup_detail": startup_detail,

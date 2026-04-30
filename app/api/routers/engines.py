@@ -89,7 +89,9 @@ def test_engine(engine_id: str):
 
     # If no default voice, look for a bundled sample in the plugin directory
     if error:
-        registry = bridge.registry_loader()
+        from ...engines.registry import load_engine_registry  # noqa: PLC0415
+
+        registry = load_engine_registry()
         reg = registry.get(engine_id)
         if reg:
             plugin_dir = Path(reg.manifest.module_path.replace(".", "/") + ".py").parent

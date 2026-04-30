@@ -35,22 +35,15 @@ _booted = False
 def boot_studio() -> None:
     """Run the full Studio 2.0 boot sequence.
 
-    Idempotent — safe to call multiple times.  Starts feature-flagged
-    subsystems based on environment variables:
-
-    - ``USE_TTS_SERVER=0``: Disables the TTS Server watchdog (development/test override)
-    - ``USE_STUDIO_ORCHESTRATOR=0``: Disables the 2.0 orchestrator (development/test override)
+    Idempotent — safe to call multiple times. Starts the Studio 2.0
+    TTS Server watchdog explicitly from the app entry point.
     """
     global _booted  # noqa: PLW0603
 
     if _booted:
         return
     _booted = True
-
-    from app.core.feature_flags import use_tts_server  # noqa: PLC0415
-
-    if use_tts_server():
-        boot_tts_server()
+    boot_tts_server()
 
 
 def boot_tts_server(

@@ -1,9 +1,9 @@
 import pytest
+
 from app.engines.bridge import create_voice_bridge
 from app.engines.errors import EngineRequestError
 
-def test_voice_bridge_describes_remote_registry_by_default(monkeypatch) -> None:
-    monkeypatch.setattr("app.core.feature_flags.use_tts_server", lambda: True)
+def test_voice_bridge_describes_remote_registry_by_default() -> None:
     bridge = create_voice_bridge()
     summary = bridge.describe_registry()
 

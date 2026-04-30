@@ -380,45 +380,6 @@ def test_preview_voice_profile_rejects_non_wav_bridge_format(
     assert response["preview_request"]["output_format"] == "mp3"
 
 
-def test_preview_voice_profile_maps_xtts_runtime_failures_to_execution_errors(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
-    reference_audio = tmp_path / "reference.wav"
-    reference_audio.write_bytes(b"wav data")
-    activate = tmp_path / "activate"
-    activate.write_text("", encoding="utf-8")
-    python_bin = tmp_path / "python"
-    python_bin.write_text("", encoding="utf-8")
-
-    monkeypatch.setattr("app.engines.voice.xtts.engine.XTTS_ENV_ACTIVATE", activate)
-    monkeypatch.setattr("app.engines.voice.xtts.engine.XTTS_ENV_PYTHON", python_bin)
-    monkeypatch.setattr("app.engines.bridge.use_tts_server", lambda: False)
-    monkeypatch.setattr("app.core.feature_flags.use_tts_server", lambda: False)
-    monkeypatch.setattr(
-        "app.engines.voice.xtts.engine.xtts_generate",
-        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("xtts crashed")),
-    )
-
-    from app.engines.registry import load_engine_registry
-
-    load_engine_registry.cache_clear()
-
-    response = preview_voice_profile(
-        VoicePreviewRequestModel(
-            voice_profile_id="voice-1",
-            script_text="hello world",
-            engine_id="xtts",
-            reference_audio_path=str(reference_audio),
-        )
-    )
-
-    assert response["status"] == "error"
-    assert response["reason"] == "engine_execution_failed"
-    assert "xtts crashed" in response["message"]
-    assert response["bridge"] == "voice-preview-bridge"
-
-
 @pytest.mark.parametrize(
     "module_path",
     [
