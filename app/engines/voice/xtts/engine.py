@@ -139,8 +139,6 @@ class XttsVoiceEngine(BaseVoiceEngine):
             dependencies_satisfied=deps_satisfied,
             missing_dependencies=[],
             details={
-                "module_path": self.manifest.module_path,
-                "capabilities": list(self.manifest.capabilities),
                 "env_activate": str(env_activate),
                 "env_python": str(env_python),
                 "env_dir": str(env_dir),

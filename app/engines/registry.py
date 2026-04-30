@@ -298,6 +298,12 @@ def _load_engine_manifest(*, manifest_path: Path) -> EngineManifestModel:
         ),
         built_in=True,
         verified=True,
+        version=str(payload.get("version", "1.0.0")),
+        local=bool(payload.get("local", True)),
+        cloud=bool(payload.get("cloud", False)),
+        network=bool(payload.get("network", False)),
+        author=str(payload.get("author", "Studio")),
+        homepage=str(payload.get("homepage", "")),
     )
 
 

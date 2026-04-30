@@ -129,8 +129,6 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
                 else "Voxtral adapter requires a configured Mistral API key."
             ),
             details={
-                "module_path": self.manifest.module_path,
-                "capabilities": list(self.manifest.capabilities),
                 "model": resolve_voxtral_model(),
             },
         )
