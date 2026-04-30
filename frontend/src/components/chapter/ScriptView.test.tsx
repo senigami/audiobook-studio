@@ -333,4 +333,39 @@ describe('ScriptView', () => {
 
     expect(onAssignToCharacter).toHaveBeenCalledWith(['s1'], 'char-1', 'V1');
   });
+
+  it('does not trigger paint assignment when using the sentence dropdown', () => {
+    const onAssign = vi.fn();
+    const onAssignToCharacter = vi.fn();
+    const mockProfiles = [
+      { name: 'V1', speaker_id: 's1' } as any,
+    ];
+    const mockSpeakers = [{ id: 's1', name: 'Speaker 1' } as any];
+    const mockChars = [{ id: 'char-1', name: 'Albus', speaker_profile_name: 'V1' } as any];
+
+    render(
+      <ScriptView
+        data={mockData}
+        characters={mockChars}
+        speakerProfiles={mockProfiles}
+        speakers={mockSpeakers}
+        onGenerateBatch={onGenerateBatch}
+        pendingSpanIds={new Set()}
+        onPlaySpan={onPlaySpan}
+        onAssign={onAssign}
+        onAssignToCharacter={onAssignToCharacter}
+        activeCharacterId="char-1"
+      />
+    );
+
+    fireEvent.click(screen.getByText('Script'));
+
+    const select = screen.getAllByRole('combobox')[0];
+    fireEvent.mouseDown(select);
+    fireEvent.click(select);
+    fireEvent.change(select, { target: { value: 'V1' } });
+
+    expect(onAssign).not.toHaveBeenCalled();
+    expect(onAssignToCharacter).toHaveBeenCalledWith(['s1'], 'char-1', 'V1');
+  });
 });

@@ -31,6 +31,9 @@ export const VoiceProfileSelect: React.FC<VoiceProfileSelectProps> = ({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
       className={className}
       style={{
         padding: '0.4rem 2rem 0.4rem 0.8rem',
