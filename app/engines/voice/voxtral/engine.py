@@ -64,10 +64,15 @@ def resolve_voxtral_model() -> str:
 
 
 def _load_settings_schema() -> dict[str, object]:
-    schema_path = Path(__file__).with_name("settings_schema.json")
+    from app.config import PLUGINS_DIR
+    schema_path = PLUGINS_DIR / "tts_voxtral" / "settings_schema.json"
     try:
         return json.loads(schema_path.read_text(encoding="utf-8"))
     except Exception:
+        # Fallback to local if plugin directory is missing (e.g. minimal dev environment)
+        local_path = Path(__file__).with_name("settings_schema.json")
+        if local_path.exists():
+            return json.loads(local_path.read_text(encoding="utf-8"))
         return {}
 
 

@@ -9,7 +9,7 @@ export const EngineMetadataPanel: React.FC<{
   getBadgeStyles: (tone: 'blue' | 'yellow' | 'gray' | 'red') => React.CSSProperties;
 }> = ({ engine, schema, getBadgeStyles }) => {
   const ui = getEngineUi(schema);
-  const helpUrl = ui?.help_url || (engine.engine_id === 'voxtral' ? 'https://help.mistral.ai/en/articles/347464-how-do-i-create-api-keys-within-a-workspace' : null);
+  const helpUrl = ui?.help_url;
   const helpLabel = ui?.help_label || 'Open instructions';
   const panelTitle = ui?.panel_title || `${engine.display_name} Settings`;
   const summary = ui?.summary || schema?.description || engine.homepage || '';
