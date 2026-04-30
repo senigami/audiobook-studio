@@ -119,11 +119,22 @@ def test_xtts_generate_voice_profile_only(mock_on_output, mock_cancel_check):
         assert "--voice_profile_dir" in cmd
 
 def test_xtts_generate_no_activate(mock_on_output, mock_cancel_check):
-    with patch("app.engines.XTTS_ENV_ACTIVATE") as mock_activate:
+    import builtins
+    original_import = builtins.__import__
+    def mocked_import(name, *args, **kwargs):
+        if name == 'TTS':
+            raise ImportError("Mocked")
+        return original_import(name, *args, **kwargs)
+
+    with patch("app.engines.XTTS_ENV_ACTIVATE") as mock_activate, \
+         patch("builtins.__import__", side_effect=mocked_import):
         mock_activate.exists.return_value = False
         rc = xtts_generate("Hello", Path("out.wav"), True, mock_on_output, mock_cancel_check, speaker_wav="spk.wav")
         assert rc == 1
-        mock_on_output.assert_any_call("[error] XTTS activate not found: " + str(mock_activate) + "\n")
+        # The expected message has been updated in the product code
+        msg = mock_on_output.call_args_list[-1][0][0]
+        assert "XTTS activate not found" in msg
+        assert "'TTS' not found in current environment" in msg
 
 def test_get_audio_duration():
     with patch("subprocess.run") as mock_run:

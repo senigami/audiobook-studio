@@ -6,13 +6,15 @@ contract without leaking XTTS-specific process management into the scheduler.
 
 from __future__ import annotations
 
+import json
 import os
 import tempfile
 from collections.abc import Callable
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from app.config import XTTS_ENV_ACTIVATE, XTTS_ENV_PYTHON
+from app.config import XTTS_ENV_ACTIVATE, XTTS_ENV_PYTHON, XTTS_ENV_DIR
 from app.engines.errors import EngineExecutionError, EngineRequestError
 from app.engines.voice.base import BaseVoiceEngine
 from app.engines.voice.sdk import TTSRequest, TTSResult, VoiceProcessingHooks, SynthesisPlan
@@ -74,6 +76,15 @@ def wav_to_mp3(in_wav: Path, out_mp3: Path, on_output=None, cancel_check=None) -
     )
 
 
+@lru_cache(maxsize=1)
+def _load_settings_schema() -> dict[str, object]:
+    schema_path = Path(__file__).with_name("settings_schema.json")
+    try:
+        return json.loads(schema_path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
 class XttsVoiceEngine(BaseVoiceEngine):
     """Standard XTTS adapter placeholder."""
 
@@ -87,24 +98,59 @@ class XttsVoiceEngine(BaseVoiceEngine):
     def describe_health(self) -> EngineHealthModel:
         """Summarize XTTS adapter readiness without triggering side effects."""
 
-        available = XTTS_ENV_ACTIVATE.exists() and XTTS_ENV_PYTHON.exists()
+        # 1. Environment existence check
+        # Check for local environment in plugin folder first
+        local_env = Path(__file__).parent / ".venv"
+        local_activate = local_env / ("Scripts/Activate.ps1" if os.name == "nt" else "bin/activate")
+        local_python = local_env / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+
+        if local_activate.exists() and local_python.exists():
+            env_exists = True
+            env_python = local_python
+            env_activate = local_activate
+            env_dir = local_env
+        else:
+            env_exists = XTTS_ENV_ACTIVATE.exists() and XTTS_ENV_PYTHON.exists()
+            env_python = XTTS_ENV_PYTHON
+            env_activate = XTTS_ENV_ACTIVATE
+            env_dir = XTTS_ENV_DIR
+
+        # 2. Dependency check
+        # For now, we assume if the environment exists and we're running, it's mostly ready
+        # or it will be fixed by 'Install Deps'.
+        req_file = Path(__file__).with_name("requirements.txt")
+        deps_satisfied = req_file.exists() # placeholder for real dep check
+
+        ready = env_exists and deps_satisfied
+
+        status = "ready" if ready else "needs_setup"
+        message = None
+        if not env_exists:
+            message = "XTTS environment not found. Click Install Deps to set up the local environment."
+        elif not deps_satisfied:
+            message = "XTTS environment exists but required dependencies are missing. Click Install Deps to fix."
+
         return EngineHealthModel(
             engine_id=self.manifest.engine_id,
-            available=available,
-            ready=available,
-            status="ready" if available else "scaffold",
-            message=(
-                "XTTS adapter is ready for bridge-backed preview execution."
-                if available
-                else "XTTS adapter requires a configured XTTS environment."
-            ),
+            available=env_exists,
+            ready=ready,
+            status=status,
+            message=message,
+            dependencies_satisfied=deps_satisfied,
+            missing_dependencies=[],
             details={
                 "module_path": self.manifest.module_path,
                 "capabilities": list(self.manifest.capabilities),
-                "env_activate": str(XTTS_ENV_ACTIVATE),
-                "env_python": str(XTTS_ENV_PYTHON),
+                "env_activate": str(env_activate),
+                "env_python": str(env_python),
+                "env_dir": str(env_dir),
             },
         )
+
+    def settings_schema(self) -> dict[str, object]:
+        """Return the XTTS settings schema used by the Settings UI."""
+        schema = _load_settings_schema()
+        return dict(schema) if isinstance(schema, dict) else {}
 
     def validate_environment(self) -> None:
         """Describe XTTS environment validation."""

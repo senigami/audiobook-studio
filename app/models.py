@@ -8,10 +8,10 @@ Status = Literal["queued", "preparing", "running", "finalizing", "done", "failed
 class Job:
     id: str
     engine: Engine
-    chapter_file: str
     status: Status
     created_at: float
 
+    chapter_file: Optional[str] = None
     project_id: Optional[str] = None
     chapter_id: Optional[str] = None
 

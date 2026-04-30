@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { RefreshCw } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { RefreshCw, FileText, Loader2 } from 'lucide-react';
 import type { TtsEngine } from '../../../types';
 import { api } from '../../../api';
 import { ConfirmModal } from '../../../components/ConfirmModal';
@@ -8,16 +8,20 @@ import { EngineCard } from './EngineCard';
 interface EnginesPanelProps {
   onShowNotification?: (message: string) => void;
   onRefresh?: () => void | Promise<void>;
+  startupReady?: boolean;
 }
 
-export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, onRefresh }) => {
+export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, onRefresh, startupReady = true }) => {
   const [engines, setEngines] = useState<TtsEngine[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [installModal, setInstallModal] = useState<{ open: boolean; message: string }>({ open: false, message: '' });
+  const [showLogs, setShowLogs] = useState(false);
+  const [logs, setLogs] = useState<string>('');
+  const [fetchingLogs, setFetchingLogs] = useState(false);
 
-  const loadEngines = async () => {
+  const loadEngines = useCallback(async () => {
     try {
       setLoading(true);
       const data = await api.fetchEngines();
@@ -33,11 +37,13 @@ export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, 
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    loadEngines();
-  }, []);
+    if (startupReady) {
+      loadEngines();
+    }
+  }, [startupReady, loadEngines]);
 
   const refreshAppState = async () => {
     await Promise.all([
@@ -66,6 +72,23 @@ export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, 
       setInstallModal({ open: true, message: res.message || 'Place your plugin folder in the "plugins/" directory and click Refresh.' });
     } catch (err) {
       onShowNotification?.('Failed to retrieve installation instructions.');
+    }
+  };
+
+  const handleFetchLogs = async () => {
+    setFetchingLogs(true);
+    setShowLogs(true);
+    try {
+      // The backend watchdog buffer captures all TTS server output
+      const res = await api.fetchEngineLogs('all');
+      setLogs(res.logs || '');
+      if (!res.logs && res.message) {
+        onShowNotification?.(res.message);
+      }
+    } catch (err) {
+      onShowNotification?.('Failed to fetch diagnostics logs.');
+    } finally {
+      setFetchingLogs(false);
     }
   };
 
@@ -111,7 +134,58 @@ export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, 
         >
           {refreshing ? 'Refreshing...' : 'Refresh Plugins'}
         </button>
+        <button
+          type="button"
+          className="btn-glass"
+          disabled={fetchingLogs}
+          onClick={handleFetchLogs}
+          style={{ padding: '0.65rem 0.9rem', borderRadius: '10px', border: '1px solid var(--border)', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+        >
+          {fetchingLogs ? <Loader2 size={14} className="spin" /> : <FileText size={14} />}
+          {showLogs ? 'Refresh Logs' : 'View Diagnostics'}
+        </button>
       </div>
+
+      {showLogs && (
+        <div style={{ marginTop: '0.5rem', animation: 'fade-in 0.2s ease-out' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <FileText size={14} color="var(--text-muted)" />
+              <span style={{ fontSize: '0.72rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                TTS Server Diagnostics
+              </span>
+            </div>
+            <button
+              onClick={() => setShowLogs(false)}
+              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '0.7rem', cursor: 'pointer', fontWeight: 700 }}
+            >
+              Close Diagnostics
+            </button>
+          </div>
+          <div
+            style={{
+              background: '#1a1a1a',
+              color: '#d4d4d4',
+              padding: '1.25rem',
+              borderRadius: '16px',
+              fontSize: '0.75rem',
+              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+              maxHeight: '400px',
+              overflowY: 'auto',
+              whiteSpace: 'pre-wrap',
+              lineHeight: 1.5,
+              border: '1px solid #333',
+              boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)'
+            }}
+          >
+            {fetchingLogs && !logs ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#666' }}>
+                <Loader2 size={14} className="spin" /> Streaming logs...
+              </div>
+            ) : logs || 'No diagnostics captured yet.'}
+          </div>
+        </div>
+      )}
 
       <ConfirmModal
         isOpen={installModal.open}

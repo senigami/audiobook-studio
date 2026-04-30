@@ -277,6 +277,60 @@ Open the stabilized Studio 2.0 architecture outward to contributors and external
 
 - community plugins and external clients can use the same hardened Studio surface without special-case architecture
 
+## Phase 10: Runtime Cutover And Release Gate
+
+### Objective
+
+Promote the Studio 2.0 execution architecture from an opt-in path to the standard runtime.
+
+### Scope
+
+- managed TTS Server subprocess starts by default
+- VoiceBridge, engine registry, verification, settings, preview, and synthesis use the TTS Server path by default
+- Studio 2.0 orchestrator becomes the default scheduler for supported work
+- runtime diagnostics make service state visible
+- legacy direct in-process mode remains available only as an explicit transition fallback
+
+### Completion criteria
+
+- normal user launch runs through the managed TTS Server architecture and reports truthful runtime diagnostics
+
+## Phase 11: V2-Only Runtime Cleanup
+
+### Objective
+
+Remove silent v1/in-process TTS fallback behavior after the current wrap-up work is complete and the v2 runtime has been verified.
+
+### Scope
+
+- make the TTS Server/plugin runtime the only production XTTS/Voxtral path
+- remove automatic VoiceBridge, registry, and watchdog fallback to local adapters
+- keep migrations and data compatibility readers where they protect existing user data
+- surface TTS Server failures as actionable service errors rather than masking them with v1 behavior
+
+### Completion criteria
+
+- Studio no longer has two production XTTS/Voxtral runtimes; plugin-backed v2 is the committed runtime path
+
+## Phase 12: Release Documentation And Distribution Polish
+
+### Objective
+
+Document, package, validate, and present the completed Studio 2.0 overhaul as a production-ready release.
+
+### Scope
+
+- audit and update READMEs, wiki pages, docs site, API docs, plugin docs, and install instructions
+- create an in-depth multi-page Studio 2.0 overview
+- refresh live demo pages, screenshots, assets, and optional animations
+- prepare "What's New In Version 2" release and promotional materials
+- verify Pinokio install/launch flows
+- validate macOS, Windows, and Linux first-run behavior
+
+### Completion criteria
+
+- Studio 2.0 is documented, installable, demo-ready, and release-ready for users, contributors, plugin authors, and API clients
+
 ## Debugging Discipline Across All Phases
 
 - Debug the smallest possible module first.

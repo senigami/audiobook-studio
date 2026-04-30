@@ -18,10 +18,21 @@ export interface TtsEngine {
   homepage: string;
   can_enable?: boolean;
   enablement_message?: string;
+  setup_message?: string;
+  health_message?: string;
+  health_details?: Record<string, any>;
+  dependencies_satisfied?: boolean;
+  missing_dependencies?: string[];
   help_text?: string;
   privacy_text?: string;
   settings_schema: any;
   current_settings?: Record<string, any>;
+  last_test?: {
+    ok: boolean;
+    audio_url: string;
+    generated_at: number;
+    message?: string;
+  };
 }
 
 export type Status = 'queued' | 'preparing' | 'running' | 'finalizing' | 'done' | 'failed' | 'cancelled' | 'error';
@@ -334,6 +345,9 @@ export interface GlobalState {
     backend_mode?: string;
     orchestrator?: string;
     api_base_url?: string;
+    startup_ready?: boolean;
+    startup_message?: string;
+    startup_detail?: string;
   };
 }
 

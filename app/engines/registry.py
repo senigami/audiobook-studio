@@ -33,18 +33,9 @@ logger = logging.getLogger(__name__)
 
 
 def load_engine_registry() -> dict[str, EngineRegistrationModel]:
-    """Load the engine registry with fresh health snapshots.
-
-    When ``USE_TTS_SERVER`` is enabled the registry is populated from the
-    running TTS Server's ``/engines`` endpoint instead of the in-process
-    adapter path.  When disabled (default), the in-process registry is used.
-
-    Discovery metadata and adapter instances are cached.  Health is refreshed
-    on each call so readiness checks track live configuration changes.
-    """
     from app.core.feature_flags import use_tts_server  # noqa: PLC0415
-
-    if use_tts_server():
+    use_remote = use_tts_server()
+    if use_remote:
         return _load_tts_server_registry()
 
     return _refresh_registry_health(_load_cached_engine_registry())
@@ -63,9 +54,14 @@ def _refresh_registry_health(
     registry: dict[str, EngineRegistrationModel]
 ) -> dict[str, EngineRegistrationModel]:
     """Clone cached registrations with current engine health."""
+    from app.state import get_settings  # noqa: PLC0415
+    verified_plugins = get_settings().get("verified_plugins") or {}
 
     refreshed: dict[str, EngineRegistrationModel] = {}
     for engine_id, registration in registry.items():
+        # Apply persistent verified flag if it exists in settings
+        if verified_plugins.get(engine_id):
+            object.__setattr__(registration.manifest, "verified", True)
         refreshed[engine_id] = EngineRegistrationModel(
             manifest=registration.manifest,
             engine=registration.engine,
@@ -93,11 +89,16 @@ def _load_tts_server_registry() -> dict[str, EngineRegistrationModel]:
         return {}
 
     watchdog = get_watchdog()
-    if watchdog is None or not watchdog.is_healthy():
-        logger.warning(
-            "TTS Server registry: watchdog not running or unhealthy. "
-            "Returning empty registry."
-        )
+    if watchdog is None:
+        logger.debug("TTS Server registry: watchdog not yet initialized. Discovery deferred.")
+        return {}
+
+    if not watchdog.is_healthy():
+        # If the circuit is open, we've failed definitively.
+        if watchdog.is_circuit_open():
+            logger.error("TTS Server registry: circuit breaker is OPEN. Discovery disabled.")
+        else:
+            logger.debug("TTS Server registry: watchdog is booting or heartbeat failed. Discovery deferred.")
         return {}
 
     server_url = watchdog.get_url()

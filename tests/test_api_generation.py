@@ -18,9 +18,41 @@ def clean_db(tmp_path):
     app.db.core.init_db()
 
     from app.state import update_settings
-    update_settings({"default_speaker_profile": "Voice1", "mistral_api_key": ""})
+    update_settings({"default_speaker_profile": "Voice1", "mistral_api_key": "test_key", "voxtral_enabled": True})
 
     yield
+
+
+@pytest.fixture(autouse=True)
+def mock_voxtral_enablement(monkeypatch):
+    """Force Voxtral to be seen as enabled only when settings are valid."""
+    from app.engines.bridge import VoiceBridge
+    from app.state import get_settings
+
+    def mocked_is_enabled(self, engine_id):
+        settings = get_settings()
+        if engine_id == "voxtral":
+            enabled_plugins = settings.get("enabled_plugins") or {}
+            return bool(enabled_plugins.get("voxtral"))
+        return True
+
+    def mocked_describe_registry(self):
+        settings = get_settings()
+        api_key = settings.get("mistral_api_key")
+        enabled_plugins = settings.get("enabled_plugins") or {}
+
+        return [
+            {"engine_id": "xtts", "can_enable": True, "enablement_message": "", "enabled": True},
+            {
+                "engine_id": "voxtral", 
+                "can_enable": bool(api_key), 
+                "enablement_message": "" if api_key else "Mistral API key required", 
+                "enabled": bool(enabled_plugins.get("voxtral"))
+            }
+        ]
+
+    monkeypatch.setattr("app.engines.bridge.VoiceBridge.is_engine_enabled", mocked_is_enabled)
+    monkeypatch.setattr("app.engines.bridge.VoiceBridge.describe_registry", mocked_describe_registry)
 
 def test_queue_and_bake(clean_db, client):
     from app.db.projects import create_project
@@ -42,6 +74,8 @@ def test_queue_and_bake(clean_db, client):
 
 
 def test_bake_chapter_mixed_engines_use_mixed_worker(clean_db, client):
+    from app.state import update_settings
+    update_settings({"voxtral_enabled": True, "enabled_plugins": {"voxtral": True}})
     from app.db.projects import create_project
     from app.db.chapters import create_chapter
     from app.db.segments import sync_chapter_segments
@@ -68,6 +102,8 @@ def test_bake_chapter_mixed_engines_use_mixed_worker(clean_db, client):
 
 
 def test_bake_chapter_voxtral_uses_mixed_worker(clean_db, client):
+    from app.state import update_settings
+    update_settings({"voxtral_enabled": True, "enabled_plugins": {"voxtral": True}})
     from app.db.projects import create_project
     from app.db.chapters import create_chapter
     from app.db.segments import sync_chapter_segments
@@ -95,9 +131,11 @@ def test_bake_chapter_rejects_voxtral_without_api_key(clean_db, client):
     pid = create_project("P1")
     cid = create_chapter(pid, "C1", "Hello world.")
     sync_chapter_segments(cid, "Hello world.")
+    from app.state import update_settings
+    update_settings({"mistral_api_key": ""})
 
     with patch("app.jobs.speaker.get_speaker_settings", return_value={"engine": "voxtral"}), \
-         patch("app.api.routers.generation.get_settings", return_value={"default_speaker_profile": "Voice1", "default_engine": "xtts"}):
+         patch("app.api.routers.generation.get_settings", return_value={"default_speaker_profile": "Voice1", "default_engine": "xtts", "enabled_plugins": {"voxtral": True}}):
         response = client.post(f"/api/generation/bake/{cid}")
         assert response.status_code == 400
         assert "Mistral API key" in response.json()["message"]
@@ -306,6 +344,8 @@ def test_get_chapter_segments_treats_other_segment_audio_paths_as_unprocessed(cl
 
 
 def test_queue_chapter_resolves_voxtral_engine_from_profile(clean_db, client):
+    from app.state import update_settings
+    update_settings({"voxtral_enabled": True, "enabled_plugins": {"voxtral": True}})
     from app.db.projects import create_project
     from app.db.chapters import create_chapter
     from app.db.segments import sync_chapter_segments
@@ -326,6 +366,8 @@ def test_queue_chapter_resolves_voxtral_engine_from_profile(clean_db, client):
 
 
 def test_queue_chapter_mixed_engines_use_mixed_worker(clean_db, client):
+    from app.state import update_settings
+    update_settings({"voxtral_enabled": True, "enabled_plugins": {"voxtral": True}})
     from app.db.projects import create_project
     from app.db.chapters import create_chapter
     from app.db.segments import sync_chapter_segments
@@ -375,6 +417,8 @@ def test_queue_chapter_detects_mixed_engines_from_character_voice_assignments(cl
 
 
 def test_generate_segments_resolves_voxtral_engine(clean_db, client):
+    from app.state import update_settings
+    update_settings({"voxtral_enabled": True, "enabled_plugins": {"voxtral": True}})
     from app.db.projects import create_project
     from app.db.chapters import create_chapter
     from app.db.segments import sync_chapter_segments, get_chapter_segments
@@ -397,6 +441,8 @@ def test_generate_segments_resolves_voxtral_engine(clean_db, client):
 
 
 def test_generate_segments_mixed_engines_use_mixed_worker(clean_db, client):
+    from app.state import update_settings
+    update_settings({"voxtral_enabled": True, "enabled_plugins": {"voxtral": True}})
     from app.db.projects import create_project
     from app.db.chapters import create_chapter
     from app.db.segments import sync_chapter_segments, get_chapter_segments
@@ -429,6 +475,8 @@ def test_queue_chapter_rejects_voxtral_without_api_key(clean_db, client):
     pid = create_project("P1")
     cid = create_chapter(pid, "C1", "Hello world.")
     sync_chapter_segments(cid, "Hello world.")
+    from app.state import update_settings
+    update_settings({"mistral_api_key": ""})
 
     with patch("app.jobs.speaker.get_speaker_settings", return_value={"engine": "voxtral"}), \
          patch("app.api.routers.generation.get_settings", return_value={"safe_mode": True, "make_mp3": False, "default_engine": "xtts"}):

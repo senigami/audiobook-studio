@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, List, Optional
+from typing import Any, List
 
 from .base import StudioTask, TaskContext, TaskResult
 
@@ -85,9 +85,29 @@ class MixedSynthesisTask(StudioTask):
             chapter_id=self.chapter_id,
             payload={
                 "segment_count": len(self.segments),
+                "segments": self.segments,
                 "requested_revision": self.requested_revision,
             },
             submitted_at=self._submitted_at,
+        )
+
+    @classmethod
+    def from_task_context(cls, ctx: TaskContext) -> "MixedSynthesisTask":
+        """Reconstruct a MixedSynthesisTask from a recovered TaskContext.
+
+        Args:
+            ctx: Recovered task context from the scheduler recovery path.
+
+        Returns:
+            MixedSynthesisTask: Reconstructed task.
+        """
+        payload = ctx.payload or {}
+        return cls(
+            task_id=ctx.task_id,
+            chapter_id=str(ctx.chapter_id or ""),
+            segments=payload.get("segments", []),
+            project_id=ctx.project_id,
+            requested_revision=payload.get("requested_revision"),
         )
 
     def run(self) -> TaskResult:
@@ -128,7 +148,9 @@ class MixedSynthesisTask(StudioTask):
 
         except Exception as exc:
             logger.exception("MixedSynthesisTask %s failed", self.task_id)
-            return TaskResult(status="failed", message=str(exc))
+            from app.engines.bridge_remote import EngineUnavailableError
+            is_retriable = isinstance(exc, EngineUnavailableError)
+            return TaskResult(status="failed", message=str(exc), retriable=is_retriable)
 
     def on_cancel(self) -> None:
         """Release multi-engine resources."""

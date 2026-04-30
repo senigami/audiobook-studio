@@ -1,22 +1,22 @@
 {
   "schema_version": "1.0",
-  "engine_id": "exampletts",
-  "display_name": "Example TTS",
-  "version": "0.1.0",
+  "engine_id": "cloudmock",
+  "display_name": "Cloud Mock (PoC)",
+  "version": "1.0.0",
   "min_studio": "2.0.0",
-  "entry_class": "engine:ExampleTTSEngine",
+  "entry_class": "engine:CloudMockEngine",
   "resource": {
     "gpu": false,
     "vram_mb": 0,
     "cpu_heavy": false
   },
-  "languages": ["en"],
-  "local": true,
-  "cloud": false,
-  "network": false,
+  "languages": ["en", "es", "fr"],
+  "local": false,
+  "cloud": true,
+  "network": true,
   "capabilities": ["synthesis", "preview"],
-  "author": "Your Name",
+  "author": "Studio Maintainers",
   "license": "MIT",
-  "homepage": "https://example.com/your-plugin",
-  "test_text": "This is a verification test."
+  "homepage": "https://github.com/senigami/audiobook-factory",
+  "test_text": "This is a cloud-mock verification test."
 }

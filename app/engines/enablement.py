@@ -21,15 +21,29 @@ def can_enable_engine(
     settings = current_settings or {}
     normalized_status = str(status or "").strip().lower()
 
-    if not built_in and not verified:
+    # Status constants are imported here to avoid circular dependencies if needed,
+    # but we can also use literals since they are stable.
+    STATUS_READY = "ready"
+    STATUS_UNVERIFIED = "unverified"
+
+    # Built-in engines are always toggleable if their setup is ready
+    if built_in:
+        if normalized_status == STATUS_READY:
+            return True, ""
+        return False, "Complete the built-in engine setup before enabling."
+
+    # Verification is required for all non-built-in plugins
+    if not verified:
         return False, "Verify this engine before activating the plugin."
 
-    if normalized_status and normalized_status not in {"ready", "unverified"} and not built_in:
+    # Status check
+    if normalized_status and normalized_status not in {STATUS_READY, STATUS_UNVERIFIED}:
         return False, "Resolve the engine setup before enabling it."
 
+    # Voxtral specific requirement: Mistral API key
     if normalized_engine_id == "voxtral":
         api_key = str(settings.get("mistral_api_key") or "").strip()
         if not api_key:
-            return False, "Add a Mistral API key before enabling Voxtral."
+            return False, "Add a Mistral API key in engine settings before enabling Voxtral."
 
     return True, ""

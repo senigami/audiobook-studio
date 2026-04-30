@@ -24,8 +24,9 @@ logger = logging.getLogger(__name__)
 # Matches tts_<name> where <name> is 2–15 lowercase alphanumeric characters.
 _PLUGIN_FOLDER_RE = re.compile(r"^tts_[a-z][a-z0-9]{1,14}$")
 
-# Regex for the entry_class field: "module:ClassName"
-_ENTRY_CLASS_RE = re.compile(r"^[a-z_][a-z0-9_]*:[A-Za-z][A-Za-z0-9_]*$")
+# Regex for the entry_class field: "module:ClassName" or "package.module:ClassName"
+_ENTRY_CLASS_RE = re.compile(r"^[a-z_][a-z0-9_.]*:[A-Za-z][A-Za-z0-9_]*$")
+
 
 # Maximum seconds allowed for a plugin's __init__ / module load.
 _IMPORT_TIMEOUT_SECONDS = 120
@@ -54,6 +55,10 @@ class LoadedPlugin:
         self.settings_schema = settings_schema or {}
         self.verified: bool = False
         self.verification_error: str | None = None
+        self.is_pip: bool = False
+        self.dependencies_satisfied: bool = True
+        self.missing_dependencies: list[str] = []
+        self.setup_message: str | None = None
 
     @property
     def engine_id(self) -> str:
@@ -127,6 +132,34 @@ def discover_plugins(plugins_dir: Path) -> list[LoadedPlugin]:
             engine_id,
         )
 
+    # 2. Discover plugins from pip entry points (group "studio.tts").
+    from importlib.metadata import entry_points
+    try:
+        eps = entry_points(group="studio.tts")
+    except TypeError:
+        # Python 3.9 compatibility
+        all_eps = entry_points()
+        eps = all_eps.get("studio.tts", [])
+
+    for ep in eps:
+        engine_id = ep.name
+        # Precedence: folder-dropin wins over pip package.
+        if engine_id in seen_engine_ids:
+            logger.debug(
+                "Skipping pip plugin %r - folder plugin %s takes precedence",
+                engine_id,
+                seen_engine_ids[engine_id],
+            )
+            continue
+
+        try:
+            plugin = _load_pip_plugin(ep, plugins_dir)
+            loaded.append(plugin)
+            seen_engine_ids[engine_id] = f"pip:{ep.name}"
+            logger.info("Loaded pip plugin %r (engine_id=%r)", ep.name, engine_id)
+        except Exception as exc:
+            logger.warning("Pip plugin %s failed to load: %s", ep.name, exc)
+
     return loaded
 
 
@@ -172,23 +205,171 @@ def _load_plugin(*, plugin_dir: Path, folder_name: str) -> LoadedPlugin:
             f"check_env() raised an exception: {exc}"
         ) from exc
 
+    # 5b. Check persisted verification state.
+    from app.tts_server.settings_store import calculate_verification_metadata, load_state # noqa: PLC0415
+    state = load_state(plugin_dir)
+    verified = False
+    if state.get("verified") and ok:
+        # Check if metadata matches to avoid stale verification.
+        current_metadata = calculate_verification_metadata(plugin_dir, manifest)
+        persisted_metadata = state.get("metadata", {})
+        if all(current_metadata.get(k) == persisted_metadata.get(k) for k in current_metadata):
+            verified = True
+            logger.info("Plugin %s has valid persisted verification.", folder_name)
+
+    # Still return the plugin — it will show in Settings as "needs_setup".
+    # 6. Dependency check (requirements.txt)
+    deps_ok, missing = _check_dependencies(plugin_dir)
+    setup_message = None
     if not ok:
+        setup_message = str(msg or "Resolve engine setup before enabling this plugin.")
+    if not deps_ok:
+        dep_text = ", ".join(missing)
+        dep_message = f"Missing dependencies: {dep_text}."
+        setup_message = f"{setup_message} {dep_message}".strip() if setup_message else dep_message
+    if not deps_ok:
         logger.warning(
-            "Plugin %s check_env() failed: %s (marking as needs_setup)",
+            "Plugin %s has missing dependencies: %s (marking as needs_setup)",
             folder_name,
-            msg,
+            ", ".join(missing),
         )
-        # Still return the plugin — it will show in Settings as "needs_setup".
 
     settings_schema = _load_optional_json(plugin_dir / "settings_schema.json")
 
-    return LoadedPlugin(
+    plugin = LoadedPlugin(
         folder_name=folder_name,
         plugin_dir=plugin_dir,
         manifest=manifest,
         engine=engine,
         settings_schema=settings_schema,
     )
+    plugin.verified = verified
+    if state.get("verification_error") and not verified:
+        plugin.verification_error = state.get("verification_error")
+    plugin.dependencies_satisfied = deps_ok
+    plugin.missing_dependencies = missing
+    plugin.setup_message = setup_message
+    return plugin
+
+
+def _load_pip_plugin(ep: Any, plugins_dir: Path) -> LoadedPlugin:
+    """Load a plugin discovered via pip entry point.
+
+    Args:
+        ep: The entry point object from importlib.metadata.
+        plugins_dir: The global plugins directory (used for settings storage).
+
+    Returns:
+        LoadedPlugin: Successfully loaded plugin.
+    """
+    # 1. Load engine class.
+    try:
+        engine_cls = ep.load()
+    except Exception as exc:
+        raise PluginLoadError(f"Failed to load entry point {ep.name}: {exc}") from exc
+
+    # 2. Instantiate engine.
+    try:
+        engine = engine_cls()
+    except Exception as exc:
+        raise PluginLoadError(
+            f"Failed to instantiate {engine_cls.__name__} from {ep.name}: {exc}"
+        ) from exc
+
+    # 3. Get metadata.
+    # We prioritize manifest.json from the package distribution if available.
+    manifest = {}
+    if hasattr(ep, "dist") and ep.dist:
+        try:
+            manifest_str = ep.dist.read_text("manifest.json")
+            if manifest_str:
+                manifest = json.loads(manifest_str)
+        except Exception:
+            logger.debug("No manifest.json found in distribution for %s", ep.name)
+
+    # Fallback/Required fields synthesis if manifest is missing or partial.
+    if not manifest.get("engine_id"):
+        manifest["engine_id"] = ep.name
+    if not manifest.get("display_name"):
+        manifest["display_name"] = ep.name.title()
+    if not manifest.get("entry_class"):
+        if hasattr(ep, "module"):
+            manifest["entry_class"] = f"{ep.module}:{ep.attr}"
+        else:
+            manifest["entry_class"] = ep.value
+    if not manifest.get("capabilities"):
+        manifest["capabilities"] = ["synthesis"]
+
+    # Validate the result (same rules as folder plugins).
+    _validate_manifest(manifest=manifest, folder_name=f"pip:{ep.name}")
+
+    # 4. Environment check.
+    try:
+        ok, msg = engine.check_env()
+    except Exception as exc:
+        raise PluginLoadError(f"check_env() raised an exception: {exc}") from exc
+
+    if not ok:
+        logger.warning("Pip plugin %s check_env() failed: %s", ep.name, msg)
+
+    # 5. Optional settings schema from distribution.
+    settings_schema = {}
+    if hasattr(ep, "dist") and ep.dist:
+        try:
+            schema_str = ep.dist.read_text("settings_schema.json")
+            if schema_str:
+                settings_schema = json.loads(schema_str)
+        except Exception:
+            pass
+
+    # For pip plugins, we use a folder in plugins_dir for settings persistence.
+    plugin_dir = plugins_dir / f"tts_{ep.name}"
+    plugin_dir.mkdir(parents=True, exist_ok=True)
+
+    # 6. Dependency check (from distribution if available)
+    deps_ok = True
+    missing = []
+    if hasattr(ep, "dist") and ep.dist:
+        try:
+            content = ep.dist.read_text("requirements.txt")
+            if content:
+                # We can't use _check_dependencies directly as it takes a Path
+                import importlib.metadata  # noqa: PLC0415
+                for line in content.splitlines():
+                    line = line.strip()
+                    if not line or line.startswith(("#", "-", "http://", "https://")):
+                        continue
+                    pkg_name = re.split(r"[<>=!~;\[]", line)[0].strip()
+                    if not pkg_name:
+                        continue
+                    try:
+                        importlib.metadata.distribution(pkg_name)
+                    except importlib.metadata.PackageNotFoundError:
+                        missing.append(pkg_name)
+                deps_ok = len(missing) == 0
+        except Exception:
+            pass
+
+    setup_message = None
+    if not ok:
+        setup_message = str(msg or "Resolve engine setup before enabling this plugin.")
+    if not deps_ok:
+        dep_text = ", ".join(missing)
+        dep_message = f"Missing dependencies: {dep_text}."
+        setup_message = f"{setup_message} {dep_message}".strip() if setup_message else dep_message
+
+    plugin = LoadedPlugin(
+        folder_name=f"pip:{ep.name}",
+        plugin_dir=plugin_dir,
+        manifest=manifest,
+        engine=engine,
+        settings_schema=settings_schema,
+    )
+    plugin.is_pip = True
+    plugin.dependencies_satisfied = deps_ok
+    plugin.missing_dependencies = missing
+    plugin.setup_message = setup_message
+    return plugin
 
 
 def _load_manifest(*, plugin_dir: Path, folder_name: str) -> dict[str, Any]:
@@ -263,7 +444,6 @@ def _validate_manifest(*, manifest: dict[str, Any], folder_name: str) -> None:
             f"capabilities must include 'synthesis' in {folder_name}"
         )
 
-
 def _load_optional_json(path: Path) -> dict[str, Any]:
     """Load JSON from ``path`` when present, otherwise return an empty dict."""
     if not path.is_file():
@@ -275,6 +455,49 @@ def _load_optional_json(path: Path) -> dict[str, Any]:
             f"{path.name} is not valid JSON: {exc}"
         ) from exc
     return data if isinstance(data, dict) else {}
+
+
+def _check_dependencies(plugin_dir: Path) -> tuple[bool, list[str]]:
+    """Check whether all packages in requirements.txt are installed.
+
+    Args:
+        plugin_dir: Plugin folder path.
+
+    Returns:
+        tuple[bool, list[str]]: (satisfied, missing_list)
+    """
+    req_file = plugin_dir / "requirements.txt"
+    if not req_file.is_file():
+        return True, []
+
+    missing = []
+    import importlib.metadata  # noqa: PLC0415
+
+    try:
+        content = req_file.read_text(encoding="utf-8")
+        for line in content.splitlines():
+            line = line.strip()
+            # Skip comments, empty lines, and links/flags.
+            if not line or line.startswith(("#", "-", "http://", "https://")):
+                continue
+
+            # Simple split to get package name before any specifiers.
+            # Handles: pkg, pkg==1.0, pkg>=2.0, pkg[extra], pkg ; python_version > '3.7'
+            pkg_name = re.split(r"[<>=!~;\[]", line)[0].strip()
+            if not pkg_name:
+                continue
+
+            try:
+                importlib.metadata.distribution(pkg_name)
+            except importlib.metadata.PackageNotFoundError:
+                missing.append(pkg_name)
+    except Exception as exc:
+        logger.warning(
+            "Failed to parse requirements.txt in %s: %s", plugin_dir.name, exc
+        )
+        return True, []  # Fail safe
+
+    return len(missing) == 0, missing
 
 
 def _import_engine_class(
@@ -298,28 +521,29 @@ def _import_engine_class(
     """
     entry_class = str(manifest["entry_class"]).strip()
     module_name, class_name = entry_class.split(":", 1)
+    module_name = module_name.strip()
 
-    # Build the module file path.  Only allow simple module names (no dots,
-    # no traversal).
-    if not re.match(r"^[a-z_][a-z0-9_]*$", module_name):
+    # Build the module file path. Support dotted module names for submodules.
+    if not re.match(r"^[a-z_][a-z0-9_.]*$", module_name):
         raise PluginLoadError(
-            f"entry_class module name {module_name!r} is not a valid simple module name "
+            f"entry_class module name {module_name!r} is not a valid module name "
             f"in {folder_name}"
         )
 
-    module_path = plugin_dir / f"{module_name}.py"
+    module_parts = module_name.split(".")
+    module_path = plugin_dir.joinpath(*module_parts[:-1], f"{module_parts[-1]}.py")
 
     # Containment check.
     try:
         module_path.resolve().relative_to(plugin_dir.resolve())
-    except ValueError as exc:
+    except (ValueError, RuntimeError) as exc:
         raise PluginLoadError(
             f"entry_class module path escapes plugin directory in {folder_name}"
         ) from exc
 
     if not module_path.is_file():
         raise PluginLoadError(
-            f"entry_class module file not found: {module_path.name} in {folder_name}"
+            f"entry_class module file not found: {module_path.relative_to(plugin_dir)} in {folder_name}"
         )
 
     # Use a unique module spec name to avoid collisions between plugins.
@@ -352,3 +576,12 @@ def _import_engine_class(
         )
 
     return engine_cls
+
+
+def get_plugin_dir(engine_id: str) -> Path:
+    """Return the expected plugin directory for a given engine_id.
+
+    This uses the default PLUGINS_DIR from app.config.
+    """
+    from app.config import PLUGINS_DIR # noqa: PLC0415
+    return PLUGINS_DIR / f"tts_{engine_id}"

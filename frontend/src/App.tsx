@@ -109,10 +109,10 @@ function App() {
     confirmText?: string;
   } | null>(null);
 
-  const [toast, setToast] = useState<{ message: string; visible: boolean } | null>(null);
+  const [toast, setToast] = useState<{ message: string; visible: boolean; action?: { label: string; onClick: () => void } } | null>(null);
 
-  const showToast = (message: string) => {
-    setToast({ message, visible: true });
+  const showToast = (message: string, action?: { label: string; onClick: () => void }) => {
+    setToast({ message, visible: true, action });
     setTimeout(() => setToast(prev => prev ? { ...prev, visible: false } : null), 4000);
   };
 
@@ -147,6 +147,24 @@ function App() {
       hydrationSource: activeSource || refreshingSource,
     });
   }, [location.pathname, initialLoading, queueLoading, connected, isReconnecting, activeSource, refreshingSource]);
+  const startupMessage = initialData?.system_info?.startup_message || 'Starting Audiobook Studio Services...';
+  const startupDetail = initialData?.system_info?.startup_detail;
+  const [showStartupCopy, setShowStartupCopy] = useState(false);
+
+  useEffect(() => {
+    if (!initialLoading) {
+      setShowStartupCopy(false);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setShowStartupCopy(true);
+    }, 180);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [initialLoading]);
 
 
   return (
@@ -178,7 +196,9 @@ function App() {
                   projectTitle={initialData?.projects?.find((p: Project) => p.id === projectIdFromRoute)?.name}
                   chapterTitle={initialData?.chapters?.find((c: any) => c.id === chapterIdFromRoute)?.title}
                 >
-                  {({ shellState }) => (
+                  {(props) => {
+                    const { shellState } = props;
+                    return (
                     <ProjectView
                       key={shellState.navigation.activeProjectId}
                       jobs={jobs}
@@ -193,7 +213,7 @@ function App() {
                       shellState={shellState}
                       onOpenQueue={() => setIsQueueDrawerOpen(true)}
                     />
-                  )}
+                  )}}
                 </ProjectViewRoute>
               } />
               {/* Separate Chapter route if needed, though ProjectView handles it via state right now */}
@@ -208,7 +228,9 @@ function App() {
                   projectTitle={initialData?.projects?.find((p: Project) => p.id === (chapterRouteData?.project_id || chapterProjectIdFromRoute))?.name}
                   chapterTitle={chapterRouteData?.title || initialData?.chapters?.find((c: any) => c.id === chapterIdFromRoute)?.title}
                 >
-                  {({ shellState }) => (
+                  {(props) => {
+                    const { shellState } = props;
+                    return (
                     <ProjectView
                       key={shellState.navigation.activeProjectId}
                       jobs={jobs}
@@ -223,7 +245,7 @@ function App() {
                       shellState={shellState}
                       onOpenQueue={() => setIsQueueDrawerOpen(true)}
                     />
-                  )}
+                  )}}
                 </ProjectViewRoute>
               } />
               <Route path="/queue" element={
@@ -258,7 +280,9 @@ function App() {
                 <SettingsRoute
                   settings={initialData?.settings}
                   speakerProfiles={initialData?.speaker_profiles || []}
+                  speakers={initialData?.speakers || []}
                   engines={initialData?.engines || []}
+                  startupReady={initialData?.system_info?.startup_ready !== false}
                   onRefresh={handleRefresh}
                   onShowNotification={showToast}
                 />
@@ -308,7 +332,14 @@ function App() {
                 borderTopColor: 'var(--accent)',
               }}
             />
-            Loading Audiobook Studio...
+            {showStartupCopy && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', minHeight: '2.1rem' }}>
+                <span>{startupMessage}</span>
+                <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', minHeight: '1.1rem' }}>
+                  {startupDetail || '\u00A0'}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -377,23 +408,25 @@ function App() {
             }}
           >
             <span>{toast.message}</span>
-            <button
-              onClick={() => {
-                setToast(null);
-                setIsQueueDrawerOpen(true);
-              }}
-              style={{
-                background: 'var(--accent)',
-                color: 'white',
-                padding: '4px 10px',
-                borderRadius: '6px',
-                fontSize: '0.75rem',
-                border: 'none',
-                cursor: 'pointer'
-              }}
-            >
-              View Queue
-            </button>
+            {toast.action && (
+              <button
+                onClick={() => {
+                  toast.action?.onClick();
+                  setToast(null);
+                }}
+                style={{
+                  background: 'var(--accent)',
+                  color: 'white',
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  fontSize: '0.75rem',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                {toast.action.label}
+              </button>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

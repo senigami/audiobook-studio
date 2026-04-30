@@ -38,6 +38,9 @@ def engine_status(plugin: "LoadedPlugin") -> str:
     if not ok:
         return STATUS_NEEDS_SETUP
 
+    if not plugin.dependencies_satisfied:
+        return STATUS_NEEDS_SETUP
+
     if not plugin.verified:
         return STATUS_UNVERIFIED
 
@@ -94,8 +97,8 @@ def build_engine_detail(
     can_enable, enablement_message = can_enable_engine(
         plugin.engine_id,
         current_settings=current_settings,
-        built_in=bool(getattr(manifest, "built_in", False)),
-        verified=bool(getattr(manifest, "verified", False)),
+        built_in=bool(manifest.get("built_in", False)),
+        verified=bool(plugin.verified),
         status=status,
     )
 
@@ -111,11 +114,25 @@ def build_engine_detail(
     if not schema and getattr(plugin, "settings_schema", None):
         schema = plugin.settings_schema
 
+    if isinstance(schema, dict):
+        # Inject privacy notice for cloud/network engines if missing from x-ui
+        if manifest.get("cloud") or manifest.get("network"):
+            if "x-ui" not in schema:
+                schema["x-ui"] = {}
+            if "privacy_notice" not in schema["x-ui"]:
+                schema["x-ui"]["privacy_notice"] = (
+                    "Privacy note: This engine sends text and optional reference audio to external servers."
+                )
+                schema["x-ui"]["privacy_tone"] = "warning"
+
+    enabled = bool(current_settings.get("enabled"))
+
     return {
         "engine_id": plugin.engine_id,
         "display_name": plugin.display_name,
         "status": status,
         "verified": plugin.verified,
+        "enabled": enabled,
         "version": manifest.get("version", ""),
         "local": manifest.get("local", True),
         "cloud": manifest.get("cloud", False),
@@ -126,8 +143,12 @@ def build_engine_detail(
         "author": manifest.get("author", ""),
         "homepage": manifest.get("homepage", ""),
         "can_enable": can_enable,
-        "enablement_message": enablement_message,
+        "enablement_message": enablement_message or getattr(plugin, "setup_message", None),
+        "setup_message": getattr(plugin, "setup_message", None),
+        "health_message": getattr(plugin, "setup_message", None),
         "settings_schema": schema,
         "current_settings": current_settings,
+        "dependencies_satisfied": plugin.dependencies_satisfied,
+        "missing_dependencies": plugin.missing_dependencies,
         **info_extra,
     }

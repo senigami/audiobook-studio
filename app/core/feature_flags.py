@@ -36,17 +36,26 @@ USE_TTS_SERVER_ENV = "USE_TTS_SERVER"
 USE_STUDIO_ORCHESTRATOR_ENV = "USE_STUDIO_ORCHESTRATOR"
 
 
-def _normalize_flag_value(value: str | None) -> bool:
-    normalized = str(value or "").strip().lower()
-    return normalized in {"1", "true", "yes", "on"}
+def _normalize_flag_value(value: str | None, default: bool = False) -> bool:
+    if value is None:
+        return default
+    normalized = str(value).strip().lower()
+    if not normalized:
+        return default
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    return default
 
 
-def is_feature_enabled(flag_name: str) -> bool:
+def is_feature_enabled(flag_name: str, default: bool = False) -> bool:
     """Describe feature-flag lookup for Studio 2.0 migration cutovers.
 
     Args:
         flag_name: Stable flag identifier requested by backend or frontend
             wiring.
+        default: Default value if the environment variable is not set.
 
     Returns:
         bool: Whether the named feature flag is enabled.
@@ -55,29 +64,29 @@ def is_feature_enabled(flag_name: str) -> bool:
     normalized_flag = str(flag_name or "").strip()
     if not normalized_flag:
         return False
-    return _normalize_flag_value(os.getenv(normalized_flag))
+    val = os.getenv(normalized_flag)
+    return _normalize_flag_value(val, default)
 
 
 def use_tts_server() -> bool:
     """Return True when the TTS Server synthesis path is enabled.
 
-    Controlled by the ``USE_TTS_SERVER`` environment variable.  Disabled by
-    default during the Phase 5 migration window so the legacy in-process path
-    continues to work until it is explicitly cut over.
+    Controlled by the ``USE_TTS_SERVER`` environment variable.  Defaults to
+    True as of the Studio 2.0 release candidate.  Can be disabled by setting
+    ``USE_TTS_SERVER=0``.
 
     Returns:
         bool: True when the TTS Server path should be used.
     """
-    return is_feature_enabled(USE_TTS_SERVER_ENV)
+    return is_feature_enabled(USE_TTS_SERVER_ENV, default=True)
 
 
 def use_studio_orchestrator() -> bool:
     """Return True when the Studio 2.0 orchestrator is enabled.
 
     Controlled by the ``USE_STUDIO_ORCHESTRATOR`` environment variable.
-    When enabled, the 2.0 TaskOrchestrator handles scheduling, dispatch,
-    and recovery.  When disabled (default), the legacy ``app.jobs`` worker
-    loop runs.
+    Defaults to True as of the Studio 2.0 release candidate.  Can be
+    disabled by setting ``USE_STUDIO_ORCHESTRATOR=0``.
 
     This flag is independent of ``USE_TTS_SERVER`` — they can be enabled
     separately to allow independent testing and rollout.
@@ -85,4 +94,4 @@ def use_studio_orchestrator() -> bool:
     Returns:
         bool: True when the 2.0 orchestrator path should be used.
     """
-    return is_feature_enabled(USE_STUDIO_ORCHESTRATOR_ENV)
+    return is_feature_enabled(USE_STUDIO_ORCHESTRATOR_ENV, default=True)

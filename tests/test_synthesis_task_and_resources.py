@@ -122,6 +122,17 @@ class TestSynthesisTask:
             result = task.run()
         assert result.status == "failed"
         assert "GPU OOM" in (result.message or "")
+        assert result.retriable is False
+
+    def test_run_sets_retriable_on_engine_unavailable(self):
+        task = self._make()
+        mock_bridge = MagicMock()
+        from app.engines.bridge_remote import EngineUnavailableError
+        mock_bridge.synthesize.side_effect = EngineUnavailableError("TTS Server restarting")
+        with patch("app.engines.bridge.create_voice_bridge", return_value=mock_bridge):
+            result = task.run()
+        assert result.status == "failed"
+        assert result.retriable is True
 
     def test_orchestrator_can_submit_synthesis_task(self):
         from app.orchestration.scheduler.orchestrator import TaskOrchestrator
@@ -136,6 +147,26 @@ class TestSynthesisTask:
         assert task_id == "s1"
         # Reuse → no dispatch
         bridge.synthesize.assert_not_called()
+
+    def test_orchestrator_publishes_retriable_reason_code(self):
+        from app.orchestration.scheduler.orchestrator import TaskOrchestrator
+        progress = MagicMock()
+        progress.publish.return_value = None
+        progress.reconcile.return_value = {"artifact_state": "missing", "can_reuse": False}
+
+        bridge = MagicMock()
+        from app.engines.bridge_remote import EngineUnavailableError
+        bridge.synthesize.side_effect = EngineUnavailableError("Network split")
+
+        orch = TaskOrchestrator(progress_service=progress, voice_bridge=bridge)
+        task = self._make()
+
+        # We need to mock resource reservation so it doesn't wait
+        with patch("app.orchestration.scheduler.orchestrator.reserve_task_resources", return_value={"admitted": True}):
+            orch.submit(task)
+
+        published_reasons = [c.kwargs.get("reason_code") for c in progress.publish.call_args_list]
+        assert "synthesis_error_retriable" in published_reasons
 
 
 # ---------------------------------------------------------------------------

@@ -26,8 +26,10 @@ import subprocess
 import sys
 import threading
 import time
+from collections import deque
 from pathlib import Path
 
+from app.config import PLUGINS_DIR
 from app.engines.tts_client import TtsClient
 
 logger = logging.getLogger(__name__)
@@ -67,7 +69,7 @@ def start_watchdog(
         logger.debug("Watchdog already running — returning existing instance.")
         return _global_watchdog
 
-    resolved_plugins = (plugins_dir or Path("plugins")).resolve()
+    resolved_plugins = (plugins_dir or PLUGINS_DIR).resolve()
     watchdog = TtsServerWatchdog(
         plugins_dir=resolved_plugins,
         port=port,
@@ -127,7 +129,7 @@ class TtsServerWatchdog:
         *,
         executable: str = sys.executable,
         server_script: Path | None = None,
-        plugins_dir: Path = Path("plugins"),
+        plugins_dir: Path = PLUGINS_DIR,
         port: int = _DEFAULT_PORT,
         host: str = "127.0.0.1",
     ) -> None:
@@ -149,6 +151,7 @@ class TtsServerWatchdog:
         self._circuit_open: bool = False
         self._client: TtsClient | None = None
         self._stopping: bool = False
+        self._log_buffer: deque[str] = deque(maxlen=200)
 
         # Background watchdog thread.
         self._thread: threading.Thread | None = None
@@ -214,6 +217,11 @@ class TtsServerWatchdog:
                 self._client = TtsClient(f"http://{self._host}:{self._port}")
             return self._client
 
+    def get_logs(self) -> str:
+        """Return the captured stderr logs from the TTS Server."""
+        with self._lock:
+            return "\n".join(self._log_buffer)
+
     def restart(self) -> None:
         """Manually restart the TTS Server and clear failure history."""
         logger.info("Manual TTS Server restart requested.")
@@ -221,6 +229,7 @@ class TtsServerWatchdog:
             self._circuit_open = False
             self._restart_times.clear()
             self._consecutive_failures = 0
+            self._log_buffer.clear()
         self.stop()
         self.start()
 
@@ -306,6 +315,11 @@ class TtsServerWatchdog:
                 continue
 
             line = line.strip()
+            # Capture startup logs in buffer too
+            if line:
+                with self._lock:
+                    self._log_buffer.append(line)
+
             if line.startswith("READY:"):
                 try:
                     port = int(line.split(":", 1)[1])
@@ -422,9 +436,15 @@ class TtsServerWatchdog:
 
             if len(self._restart_times) >= _CIRCUIT_MAX_RESTARTS:
                 self._circuit_open = True
+
+                # Explicit fallback to Single-Process mode to prevent endless timeouts
+                import os
+                os.environ["USE_TTS_SERVER"] = "0"
+
                 logger.error(
                     "Circuit breaker OPEN: %d restarts in %.0fs. "
-                    "TTS Server will not be restarted automatically.",
+                    "TTS Server will not be restarted automatically. "
+                    "Falling back to Single-Process mode.",
                     _CIRCUIT_MAX_RESTARTS,
                     _CIRCUIT_PERIOD,
                 )
@@ -446,14 +466,19 @@ class TtsServerWatchdog:
                 self._consecutive_failures = 0
             logger.info("TTS Server restarted successfully.")
         except WatchdogError as exc:
-            logger.error("TTS Server restart failed: %s", exc)
+            logger.error("TTS Server restart failed: %s. Falling back to Single-Process mode.", exc)
+            with self._lock:
+                self._circuit_open = True
+            import os
+            os.environ["USE_TTS_SERVER"] = "0"
 
-    @staticmethod
-    def _drain_stderr(proc: subprocess.Popen) -> None:
+    def _drain_stderr(self, proc: subprocess.Popen) -> None:
         """Read and log all TTS Server stderr output."""
         if proc.stderr is None:
             return
         for line in proc.stderr:
             line = line.rstrip()
             if line:
+                with self._lock:
+                    self._log_buffer.append(line)
                 logger.debug("[tts-server] %s", line)

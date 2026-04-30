@@ -27,17 +27,17 @@ Open the stabilized Studio 2.0 architecture outward to contributors and external
 
 ## Deliverables Checklist
 
-- [ ] Entry-point discovery via `importlib.metadata` implemented
-- [ ] Plugin dependency detection and guided install flow implemented
-- [ ] Plugin security boundary documented
-- [ ] API key authentication implemented
-- [ ] API rate limiting implemented
-- [ ] LAN binding option with configuration implemented
-- [ ] Studio-as-TTS-gateway documentation written
-- [ ] Example third-party plugin created and tested
-- [ ] OpenAPI/Swagger documentation generated and accessible
-- [ ] Plugin submission guidelines published
-- [ ] CONTRIBUTING.md updated with plugin contribution workflow
+- [x] Entry-point discovery via `importlib.metadata` implemented
+- [x] Plugin dependency detection and guided install flow implemented
+- [x] Plugin security boundary documented
+- [x] API key authentication implemented
+- [x] API rate limiting implemented
+- [x] LAN binding option with configuration implemented
+- [x] Studio-as-TTS-gateway documentation written
+- [x] Example third-party plugin created and tested
+- [x] OpenAPI/Swagger documentation generated and accessible
+- [x] Plugin submission guidelines published
+- [x] CONTRIBUTING.md updated with plugin contribution workflow
 
 ## Scope
 
@@ -59,13 +59,13 @@ Open the stabilized Studio 2.0 architecture outward to contributors and external
 
 ## Verification Checklist
 
-- [ ] Entry-point discovery tests pass
-- [ ] Plugin dependency guidance tests pass
-- [ ] API key authentication tests pass
-- [ ] Rate limiting tests pass
-- [ ] Plugin isolation tests pass
-- [ ] OpenAPI spec is valid and accessible
-- [ ] LAN binding test passes
+- [x] Entry-point discovery tests pass
+- [x] Plugin dependency guidance tests pass
+- [x] API key authentication tests pass
+- [x] Rate limiting tests pass
+- [x] Plugin isolation tests pass
+- [x] OpenAPI spec is valid and accessible
+- [x] LAN binding test passes
 
 ## Exit Gate
 

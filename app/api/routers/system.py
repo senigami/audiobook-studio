@@ -113,7 +113,7 @@ def _build_runtime_services(request: Request) -> list[dict[str, Any]]:
             "healthy": True,
             "pingable": False,
             "status": "not launched",
-            "message": "Studio is running in direct in-process mode.",
+            "message": "Running in Single-Process mode (TTS Server disabled).",
             "can_restart": False,
         })
 
@@ -136,9 +136,46 @@ def api_home(
     projects = list_projects()
 
     from ...engines.bridge import create_voice_bridge
+    from ...engines.errors import EngineUnavailableError
     bridge = create_voice_bridge()
-    engines = bridge.describe_registry()
+    try:
+        engines = bridge.describe_registry()
+    except EngineUnavailableError:
+        engines = []
     render_stats = get_render_stats()
+
+    from ...engines.watchdog import get_watchdog
+    watchdog = get_watchdog()
+
+    if use_tts_server():
+        if watchdog and watchdog.is_healthy():
+            backend_mode = f"Managed Subprocess (TTS Server @ {watchdog.get_port()})"
+        else:
+            backend_mode = "Managed Subprocess (Starting/Initializing)"
+    else:
+        if watchdog and (watchdog.is_circuit_open() or not getattr(watchdog, "_healthy", True)):
+            backend_mode = "Single-Process (Fallback from Crashed Subprocess)"
+        else:
+            backend_mode = "Single-Process (Legacy Mode)"
+
+    if use_tts_server():
+        startup_ready = bool(watchdog and watchdog.is_healthy())
+        if not watchdog:
+            startup_message = "Starting Audiobook Studio Services"
+            startup_detail = "Waiting for the TTS watchdog to initialize."
+        elif not watchdog.is_healthy():
+            startup_message = "Starting Audiobook Studio Services"
+            startup_detail = "Checking TTS plugins and runtime health."
+        elif not engines:
+            startup_message = "Audiobook Studio is ready."
+            startup_detail = "TTS runtime is ready."
+        else:
+            startup_message = "Audiobook Studio is ready."
+            startup_detail = "All services are available."
+    else:
+        startup_ready = True
+        startup_message = "Audiobook Studio is ready."
+        startup_detail = "Running in Single-Process mode."
 
     return {
         "chapters": [],
@@ -146,11 +183,15 @@ def api_home(
         "settings": settings,
         "engines": engines,
         "paused": paused(),
-        "version": "1.8.4",
+        "version": "2.0.0",
         "system_info": {
-            "backend_mode": "TTS-Server-Subprocess" if use_tts_server() else "Direct-In-Process",
+            "backend_mode": backend_mode,
             "orchestrator": "Studio 2.0" if use_studio_orchestrator() else "Legacy (app.jobs)",
             "api_base_url": str(request.base_url).rstrip("/"),
+            "tts_server_url": watchdog.get_url() if (use_tts_server() and watchdog and watchdog.is_healthy()) else None,
+            "startup_ready": startup_ready,
+            "startup_message": startup_message,
+            "startup_detail": startup_detail,
         },
         "runtime_services": _build_runtime_services(request),
         "narrator_ok": any(

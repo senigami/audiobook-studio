@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.0] - 2026-04-30
+
+### Highlights
+
+- **Studio 2.0 Modular Architecture**: Migrated to a decoupled plugin-based architecture where engines (XTTS, Voxtral) operate as independent services through a unified bridge.
+- **Unified Settings Experience**: Redesigned the Settings interface with dedicated tabs for General, TTS Engines, About, and API, featuring a schema-driven engine configuration system.
+- **Engine Registry & Fallback**: Implemented a robust engine registry that supports both remote TTS Server plugins and local in-process fallbacks, ensuring reliability even when the server is unavailable.
+- **Production Tally & Diagnostics**: Added real-time production statistics and runtime diagnostics to the About panel for better visibility into system performance and health.
+- **Version Migration**: Completed the transition from the 1.8.x release line to the 2.0.0 baseline with consistent branding and metadata across all surfaces.
+
 ## [1.8.5] - 2026-04-06
 
 ### Highlights

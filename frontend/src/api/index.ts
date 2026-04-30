@@ -428,6 +428,10 @@ export const api = {
     const res = await fetch(`/api/engines/${encodeURIComponent(engineId)}/logs`);
     return parseApiResponse(res);
   },
+  testEngine: async (engineId: string): Promise<any> => {
+    const res = await fetch(`/api/engines/${encodeURIComponent(engineId)}/test`, { method: 'POST' });
+    return parseApiResponse(res);
+  },
   installPlugin: async (): Promise<any> => {
     const res = await fetch('/api/engines/install', { method: 'POST' });
     return parseApiResponse(res);

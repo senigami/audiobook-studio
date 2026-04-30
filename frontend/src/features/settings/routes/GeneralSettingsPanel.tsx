@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ShieldCheck, PlugZap, Music } from 'lucide-react';
-import type { Settings as AppSettings, SpeakerProfile, TtsEngine } from '../../../types';
-import { isVoiceProfileSelectable } from '../../../utils/voiceProfiles';
+import type { Settings as AppSettings, SpeakerProfile, TtsEngine, Speaker } from '../../../types';
+import { buildVoiceOptions } from '../../../utils/voiceProfiles';
 import { SettingCard, ToggleButton } from './SettingsComponents';
 
 interface GeneralSettingsPanelProps {
   settings: AppSettings | undefined;
   speakerProfiles?: SpeakerProfile[];
+  speakers?: Speaker[];
   engines?: TtsEngine[];
   onRefresh: () => void;
   onShowNotification?: (message: string) => void;
@@ -15,11 +16,17 @@ interface GeneralSettingsPanelProps {
 export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({ 
   settings, 
   speakerProfiles, 
+  speakers = [],
   engines = [], 
   onRefresh, 
   onShowNotification 
 }) => {
   const [savingKey, setSavingKey] = useState<string | null>(null);
+
+  const options = useMemo(() =>
+    buildVoiceOptions(speakerProfiles || [], speakers, engines),
+    [speakerProfiles, speakers, engines]
+  );
 
   const updateBooleanSetting = async (key: 'safe_mode', currentValue: boolean) => {
     setSavingKey(key);
@@ -60,14 +67,19 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <section>
-        <h3 style={{ fontSize: '0.85rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+        <h3 style={{ fontSize: '0.85rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
           Core Synthesis Defaults
         </h3>
+        <div style={{ color: 'var(--text-muted)', fontSize: '0.82rem', fontWeight: 700 }}>
+          Changes auto-save
+        </div>
+      </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
           <SettingCard
             icon={ShieldCheck}
             title="Stability Mode"
-            description="Enable advanced text cleaning to improve engine stability and avoid speech artifacts."
+            description="Enable Studio's conservative cleanup pass before synthesis. It can help with odd punctuation, broken markup, and other text that tends to make voices stumble."
             action={
               <ToggleButton
                 enabled={!!settings?.safe_mode}
@@ -120,8 +132,15 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
                 }}
               >
                 <option value="">(None)</option>
-                {speakerProfiles?.filter(profile => isVoiceProfileSelectable(profile, engines)).map(p => (
-                  <option key={p.name} value={p.name}>{p.name}</option>
+                {options.map(opt => (
+                  <option
+                    key={opt.id}
+                    value={opt.value}
+                    disabled={opt.disabled}
+                    title={opt.disabled_reason}
+                  >
+                    {opt.name}
+                  </option>
                 ))}
               </select>
             }

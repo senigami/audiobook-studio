@@ -42,7 +42,8 @@ def test_legacy_profile_listing_repairs_missing_speaker_rows_and_preserves_defau
     assert profiles_response.status_code == 200
     profiles = profiles_response.json()
 
-    repaired_default = next(p for p in profiles if p["name"] == "Dark Fantasy - Default")
+    # After V2 migration, "Dark Fantasy - Default" is canonicalized to "Dark Fantasy"
+    repaired_default = next(p for p in profiles if p["name"] == "Dark Fantasy")
     repaired_variant = next(p for p in profiles if p["name"] == "Dark Fantasy - Light Narrator")
     assert repaired_default["speaker_id"] == legacy_speaker_id
     assert repaired_variant["speaker_id"] == legacy_speaker_id
@@ -51,11 +52,11 @@ def test_legacy_profile_listing_repairs_missing_speaker_rows_and_preserves_defau
     assert speakers_response.status_code == 200
     repaired_speaker = next(s for s in speakers_response.json() if s["id"] == legacy_speaker_id)
     assert repaired_speaker["name"] == "Dark Fantasy"
-    assert repaired_speaker["default_profile_name"] == "Dark Fantasy - Default"
+    assert repaired_speaker["default_profile_name"] == "Dark Fantasy"
 
-    set_default_response = client.post("/api/settings/default-speaker", data={"name": "Dark Fantasy - Default"})
+    set_default_response = client.post("/api/settings/default-speaker", data={"name": "Dark Fantasy"})
     assert set_default_response.status_code == 200
 
     refreshed_profiles = client.get("/api/speaker-profiles").json()
-    refreshed_default = next(p for p in refreshed_profiles if p["name"] == "Dark Fantasy - Default")
+    refreshed_default = next(p for p in refreshed_profiles if p["name"] == "Dark Fantasy")
     assert refreshed_default["is_default"] is True

@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 # SDK contract types — the only app.* import allowed in plugin code.
-from app.engines.voice.sdk import TTSRequest, TTSResult
+from app.engines.voice.sdk import TTSRequest, TTSResult, VerificationResult
 from app.engines.voice.base import StudioTTSEngine
 
 
@@ -30,33 +30,53 @@ class XttsPlugin(StudioTTSEngine):
         """Return runtime environment metadata."""
         env_activate = os.environ.get("XTTS_ENV_ACTIVATE", "")
         env_python = os.environ.get("XTTS_ENV_PYTHON", "")
+
+        # Check if TTS is installed in current environment
+        try:
+            import TTS # noqa: F401
+            has_tts = True
+        except ImportError:
+            has_tts = False
+
         return {
             "env_activate": env_activate,
             "env_python": env_python,
-            "env_available": bool(env_activate and Path(env_activate).exists()),
+            "env_available": has_tts or bool(env_activate and Path(env_activate).exists()),
+            "bundled_path": str(Path(__file__).parent),
         }
 
     def check_env(self) -> tuple[bool, str]:
-        """Verify the XTTS virtual environment is configured."""
+        """Verify the XTTS runtime environment is ready."""
+        # 1. Check legacy manual environment override
         env_activate = os.environ.get("XTTS_ENV_ACTIVATE", "")
-        env_python = os.environ.get("XTTS_ENV_PYTHON", "")
+        if env_activate:
+            if Path(env_activate).exists():
+                return True, "OK (Manual Environment)"
+            return False, f"XTTS_ENV_ACTIVATE path does not exist: {env_activate}"
 
-        if not env_activate:
-            return False, "XTTS_ENV_ACTIVATE environment variable is not set."
-        if not Path(env_activate).exists():
-            return (
-                False,
-                f"XTTS_ENV_ACTIVATE path does not exist: {env_activate}",
-            )
-        if not env_python:
-            return False, "XTTS_ENV_PYTHON environment variable is not set."
-        if not Path(env_python).exists():
-            return (
-                False,
-                f"XTTS_ENV_PYTHON path does not exist: {env_python}",
-            )
+        # 2. Check current environment for XTTS (normal path)
+        try:
+            import TTS  # noqa: F401, PLC0415
+            return True, "OK"
+        except ImportError:
+            return False, "XTTS dependencies not found. Click 'Install Deps' to set up the built-in engine."
 
-        return True, "OK"
+    def verify(self, req: TTSRequest) -> VerificationResult:
+        """Fast readiness check for XTTS."""
+        ok, msg = self.check_env()
+        if not ok:
+            return VerificationResult(ok=False, message=msg)
+
+        try:
+            # Late import to see if the engine adapter can load its dependencies.
+            # This does not load the heavy model weights into GPU memory.
+            from app.engines import xtts_generate  # noqa: F401, PLC0415
+            return VerificationResult(ok=True, message="XTTS engine is ready.")
+        except Exception as exc:
+            return VerificationResult(
+                ok=False,
+                message=f"XTTS dependencies are present but the engine failed to load: {exc}"
+            )
 
     def check_request(self, req: TTSRequest) -> tuple[bool, str]:
         """Validate an XTTS synthesis request."""

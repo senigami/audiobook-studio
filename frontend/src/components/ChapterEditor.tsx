@@ -120,19 +120,14 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   const effectiveSelectedVoice = localVoice || externalVoice || '';
   const chapterDefaultVoiceLabel = useMemo(() => {
     const fallbackVoiceValue = externalVoice || getDefaultVoiceProfileName(speakerProfiles || []) || '';
-    const fallbackVoiceLabel = getVoiceOptionLabel(fallbackVoiceValue, speakerProfiles || [], speakers || [], engines);
+    const fallbackVoiceLabel = getVoiceOptionLabel(fallbackVoiceValue, speakerProfiles || [], speakers || [], engines, characters);
     return fallbackVoiceLabel ? `Use Project Default (${fallbackVoiceLabel})` : 'Use Project Default';
-  }, [externalVoice, speakerProfiles, speakers, engines]);
+  }, [externalVoice, speakerProfiles, speakers, engines, characters]);
 
-  const selectedVoiceLabel = useMemo(() => {
-    const selected = localVoice || externalVoice;
-    if (!selected) return '';
-    return getVoiceOptionLabel(selected, speakerProfiles || [], speakers || [], engines) || selected;
-  }, [localVoice, externalVoice, speakerProfiles, speakers, engines]);
 
   const availableVoices = useMemo(() => {
-    return buildVoiceOptions(speakerProfiles || [], speakers || [], engines);
-  }, [speakers, speakerProfiles, engines]);
+    return buildVoiceOptions(speakerProfiles || [], speakers || [], engines, characters);
+  }, [speakers, speakerProfiles, engines, characters]);
 
   const chunkGroups = useMemo(() => {
     return buildChunkGroups(segments, characters, effectiveSelectedVoice, speakerProfiles);
@@ -245,7 +240,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         chapter={chapter} title={title} setTitle={setTitle} saving={saving} hasUnsavedChanges={hasUnsavedChanges}
         onPrev={onPrev ? async () => { await handleSave(); onPrev(); } : undefined}
         onNext={onNext ? async () => { await handleSave(); onNext(); } : undefined}
-        selectedVoice={localVoice} selectedVoiceLabel={selectedVoiceLabel} 
+        selectedVoice={localVoice} 
         onVoiceChange={(v) => handleVoiceChange(v, (msg) => setConfirmConfig({ title: 'Voice Update Failed', message: msg, onConfirm: () => {}, confirmText: 'OK' }))} 
         availableVoices={availableVoices} defaultVoiceLabel={chapterDefaultVoiceLabel}
         submitting={submitting} queueLocked={submitting || !anyEnginesEnabled} queuePending={false} job={job} generatingJob={generatingSegmentJob} generatingSegmentIdsCount={effectivePendingSegmentIds.size}
@@ -332,7 +327,14 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                       onConfirm: () => { setConfirmConfig(null); loadChapter('conflict-reload'); },
                       confirmText: 'Reload Now'
                     }))}
+                    onAssignToCharacter={(sids, cid, pname) => handleScriptAssign(sids, cid, pname, () => setConfirmConfig({
+                      title: 'Assignment Conflict',
+                      message: 'This chapter was modified by another process. Please reload to see the latest changes.',
+                      onConfirm: () => { setConfirmConfig(null); loadChapter('conflict-reload'); },
+                      confirmText: 'Reload Now'
+                    }))}
                     activeCharacterId={selectedCharacterId}
+                    speakers={speakers}
                   />
                 )}
                 {editorTab === 'script' && !scriptViewData && (
@@ -387,7 +389,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         </div>
 
         <CharacterSidebar 
-            characters={characters} speakers={speakers} speakerProfiles={speakerProfiles}
+            characters={characters} speakers={speakers} speakerProfiles={speakerProfiles} engines={engines}
             selectedCharacterId={selectedCharacterId} setSelectedCharacterId={setSelectedCharacterId}
             selectedProfileName={selectedProfileName} setSelectedProfileName={setSelectedProfileName}
             expandedCharacterId={expandedCharacterId} setExpandedCharacterId={setExpandedCharacterId}

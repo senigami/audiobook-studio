@@ -317,18 +317,18 @@
   color: var(--accent);
 }
 
-.span-control-label {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--text-secondary);
-  background: var(--surface-alt);
-  padding: 0 8px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  margin-right: 4px;
-  border: 1px solid var(--border);
-  white-space: nowrap;
+.span-control-select {
+  font-size: 0.75rem !important;
+  font-weight: 700 !important;
+  height: 24px !important;
+  padding: 0 1.2rem 0 0.5rem !important;
+  margin-right: 4px !important;
+  background-color: var(--surface-alt) !important;
+  border-color: var(--border) !important;
+  border-radius: 6px !important;
+  max-width: 140px;
+  background-position: right 0.3rem center !important;
+  color: var(--text-secondary) !important;
 }
 
 .script-span.is-highlighted {

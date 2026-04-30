@@ -89,6 +89,8 @@ class EngineHealthModel:
     ready: bool
     status: str
     message: str | None = None
+    dependencies_satisfied: bool = True
+    missing_dependencies: list[str] = field(default_factory=list)
     details: dict[str, Any] = field(default_factory=dict)
     checked_at: datetime = field(default_factory=_utc_now)
 
@@ -100,6 +102,8 @@ class EngineHealthModel:
             "status": self.status,
             "message": self.message,
             "details": dict(self.details),
+            "dependencies_satisfied": self.dependencies_satisfied,
+            "missing_dependencies": self.missing_dependencies,
             "checked_at": self.checked_at.isoformat(),
         }
 
@@ -153,6 +157,12 @@ class EngineRegistrationModel:
                 flattened["settings_schema"] = {}
         except Exception:
             flattened["settings_schema"] = {}
+
+        flattened["health_message"] = self.health.message
+        flattened["health_details"] = dict(self.health.details)
+        flattened["setup_message"] = self.health.message if not self.health.ready else None
+        flattened["dependencies_satisfied"] = self.health.dependencies_satisfied
+        flattened["missing_dependencies"] = list(self.health.missing_dependencies)
 
         # Merge in the flattened manifest fields
         data.update(flattened)

@@ -218,6 +218,13 @@ class TtsClient:
             payload={},
         )
 
+    def install_dependencies(self, engine_id: str) -> dict[str, Any]:
+        """POST /engines/{engine_id}/install — trigger dependency installation."""
+        return self._post(
+            f"/engines/{_safe_id(engine_id)}/install",
+            payload={},
+        )
+
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------

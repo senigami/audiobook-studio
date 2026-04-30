@@ -64,7 +64,7 @@ def test_get_settings_does_not_persist_normalization_on_read(clean_state):
         "jobs": {},
         "settings": {
             "default_engine": "voxtral",
-            "voxtral_enabled": True,
+            "enabled_plugins": {"voxtral": True},
             "mistral_api_key": "   ",
         },
         "performance_metrics": {
@@ -79,6 +79,6 @@ def test_get_settings_does_not_persist_normalization_on_read(clean_state):
     after = clean_state.read_text(encoding="utf-8")
 
     assert settings["default_engine"] == "xtts"
-    assert settings["voxtral_enabled"] is False
+    assert settings.get("enabled_plugins", {}).get("voxtral") is False
     assert "mistral_api_key" not in settings
     assert after == before

@@ -97,6 +97,29 @@ class TestBridgeTtsServerPreview:
         assert result["bridge"] == "tts-server-preview-bridge"
         mock_client.preview.assert_called_once()
 
+    def test_preview_accepts_engine_id_and_payload_shape(self):
+        mock_client = MagicMock()
+        mock_client.preview.return_value = {
+            "ok": True,
+            "output_path": "/tmp/preview.wav",
+            "duration_sec": 0.5,
+            "warnings": [],
+        }
+
+        bridge = _make_bridge_with_client(mock_client)
+
+        with patch(
+            "app.engines.bridge.use_tts_server", return_value=True
+        ):
+            result = bridge.preview("xtts", {
+                "script_text": "Preview text",
+                "output_path": "/tmp/preview.wav",
+            })
+
+        assert result["ephemeral"] is True
+        assert result["engine_id"] == "xtts"
+        mock_client.preview.assert_called_once()
+
 
 class TestBridgeDescribeRegistry:
     def test_describe_registry_via_tts_server(self):
@@ -114,6 +137,30 @@ class TestBridgeDescribeRegistry:
 
         assert len(result) == 1
         assert result[0]["engine_id"] == "xtts"
+
+    def test_describe_registry_enriches_with_test_metadata(self, tmp_path):
+        mock_client = MagicMock()
+        mock_client.get_engines.return_value = [
+            {"engine_id": "xtts", "display_name": "XTTS"}
+        ]
+
+        # Create a mock last_test.json
+        import json
+        engine_id = "xtts"
+        safe_id = "xtts"
+        test_dir = tmp_path / safe_id
+        test_dir.mkdir(parents=True)
+        meta = {"ok": True, "generated_at": 123456789.0, "audio_url": "/test.wav"}
+        (test_dir / "last_test.json").write_text(json.dumps(meta))
+
+        bridge = _make_bridge_with_client(mock_client)
+
+        with patch("app.engines.bridge.use_tts_server", return_value=True), \
+             patch("app.config.ENGINE_TEST_DIR", tmp_path):
+            result = bridge.describe_registry()
+
+        assert len(result) == 1
+        assert result[0]["last_test"] == meta
 
 
 class TestBridgeFeatureFlagOff:

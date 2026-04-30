@@ -30,9 +30,18 @@ def xtts_generate(
         run_cmd_stream,
     )
 
+    import sys
+    python_exe = engine_xtts_env_python
+
     if not engine_xtts_env_activate.exists():
-        on_output(f"[error] XTTS activate not found: {engine_xtts_env_activate}\n")
-        return 1
+        # Fallback: check if TTS is available in the current environment
+        try:
+            import TTS  # noqa: F401, PLC0415
+            python_exe = Path(sys.executable)
+            on_output("XTTS environment not found; falling back to current environment (TTS detected).\n")
+        except ImportError:
+            on_output(f"[error] XTTS activate not found: {engine_xtts_env_activate} and 'TTS' not found in current environment.\n")
+            return 1
 
     sw = speaker_wav
 
@@ -51,7 +60,7 @@ def xtts_generate(
     text = pack_text_to_limit(text, pad=True) or " "
 
     cmd = [
-        str(engine_xtts_env_python),
+        str(python_exe),
         str(app_config.BASE_DIR / "app" / "xtts_inference.py"),
         "--text",
         text,
@@ -89,12 +98,21 @@ def xtts_generate_script(
         run_cmd_stream,
     )
 
+    import sys
+    python_exe = engine_xtts_env_python
+
     if not engine_xtts_env_activate.exists():
-        on_output(f"[error] XTTS activate not found: {engine_xtts_env_activate}\n")
-        return 1
+        # Fallback: check if TTS is available in the current environment
+        try:
+            import TTS  # noqa: F401, PLC0415
+            python_exe = Path(sys.executable)
+            on_output("XTTS environment not found; falling back to current environment (TTS detected).\n")
+        except ImportError:
+            on_output(f"[error] XTTS activate not found: {engine_xtts_env_activate} and 'TTS' not found in current environment.\n")
+            return 1
 
     cmd = [
-        str(engine_xtts_env_python),
+        str(python_exe),
         str(app_config.BASE_DIR / "app" / "xtts_inference.py"),
         "--script_json",
         str(script_json_path),

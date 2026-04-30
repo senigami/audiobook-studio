@@ -10,8 +10,10 @@ being written.  Invalid settings are rejected with a clear error message.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
+import time
 from pathlib import Path
 from typing import Any
 
@@ -57,6 +59,72 @@ def save_settings(plugin_dir: Path, settings: dict[str, Any]) -> None:
         encoding="utf-8",
     )
     logger.debug("Saved settings to %s", settings_path)
+
+
+def load_state(plugin_dir: Path) -> dict[str, Any]:
+    """Load persisted verification state for a plugin.
+
+    Args:
+        plugin_dir: The plugin's folder path.
+
+    Returns:
+        dict[str, Any]: State dict, or empty dict if not found.
+    """
+    state_path = plugin_dir / "state.json"
+    if not state_path.is_file():
+        return {}
+
+    try:
+        return json.loads(state_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def save_state(plugin_dir: Path, state: dict[str, Any]) -> None:
+    """Persist verification state for a plugin.
+
+    Args:
+        plugin_dir: The plugin's folder path.
+        state: State dict to persist.
+    """
+    state_path = plugin_dir / "state.json"
+    plugin_dir.mkdir(parents=True, exist_ok=True)
+    state_path.write_text(
+        json.dumps(state, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+
+def calculate_verification_metadata(plugin_dir: Path, manifest: dict[str, Any]) -> dict[str, str]:
+    """Calculate hashes for plugin version, requirements, and settings.
+
+    Used to invalidate verification when the plugin changes.
+    """
+    engine_id = manifest.get("engine_id")
+    metadata = {
+        "plugin_version": str(manifest.get("version", "0.0.0")),
+    }
+
+    # Hash requirements.txt
+    req_file = plugin_dir / "requirements.txt"
+    if not req_file.is_file() and engine_id == "xtts":
+        # Fallback for bundled XTTS requirements
+        from app.config import BASE_DIR # noqa: PLC0415
+        req_file = BASE_DIR / "app/engines/voice/xtts/requirements.txt"
+
+    if req_file.is_file():
+        metadata["requirements_hash"] = hashlib.sha256(req_file.read_bytes()).hexdigest()
+    else:
+        metadata["requirements_hash"] = "none"
+
+    # Hash settings.json
+    settings_file = plugin_dir / "settings.json"
+    if settings_file.is_file():
+        metadata["settings_hash"] = hashlib.sha256(settings_file.read_bytes()).hexdigest()
+    else:
+        metadata["settings_hash"] = "none"
+
+    return metadata
 
 
 def merge_settings(

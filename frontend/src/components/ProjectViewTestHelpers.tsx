@@ -97,6 +97,7 @@ export const renderProjectView = (props: any = {}) => {
             jobs={{}} 
             speakerProfiles={mockSpeakerProfiles as any} 
             speakers={mockSpeakers as any} 
+            engines={[{ engine_id: 'xtts', enabled: true, status: 'ready' }] as any}
             {...props}
           />
         } />

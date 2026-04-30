@@ -73,9 +73,30 @@ export const JsonSchemaForm: React.FC<{
                 }
                 style={{ width: '100%', height: '6px', accentColor: 'var(--accent)', cursor: 'pointer' }}
               />
+            ) : prop.enum ? (
+              <select
+                value={localValues[key] ?? prop.default ?? ''}
+                disabled={isLocked}
+                onChange={(e) => handleChange(key, e.target.value)}
+                style={{
+                  padding: '0.65rem',
+                  borderRadius: '10px',
+                  border: '1px solid var(--border)',
+                  background: 'var(--background)',
+                  fontSize: '0.85rem',
+                  width: '100%',
+                  cursor: isLocked ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {prop.enum.map((opt: string) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
             ) : (
               <input
-                type="text"
+                type={prop.format === 'password' ? 'password' : 'text'}
                 value={localValues[key] ?? prop.default ?? ''}
                 disabled={isLocked}
                 onChange={(e) => handleChange(key, e.target.value)}

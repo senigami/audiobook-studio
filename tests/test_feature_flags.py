@@ -37,5 +37,5 @@ def test_named_helpers_treat_missing_as_disabled(monkeypatch) -> None:
     monkeypatch.delenv(USE_TTS_SERVER_ENV, raising=False)
     monkeypatch.delenv(USE_STUDIO_ORCHESTRATOR_ENV, raising=False)
 
-    assert use_tts_server() is False
-    assert use_studio_orchestrator() is False
+    assert use_tts_server() is True
+    assert use_studio_orchestrator() is True

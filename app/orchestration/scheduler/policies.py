@@ -40,12 +40,26 @@ _API_SOURCES = {"api", "external"}
 def get_priority_mode() -> str:
     """Return the current task priority mode.
 
-    Read from the ``TTS_API_PRIORITY`` environment variable.  Defaults to
-    ``studio_first`` when the variable is unset or invalid.
+    Priority is determined in order:
+    1. Studio Settings (api_priority_mode)
+    2. TTS_API_PRIORITY environment variable
+    3. Default: studio_first
 
     Returns:
-        str: One of ``"studio_first"``, ``"equal"``, or ``"api_first"``.
+        str: One of "studio_first", "equal", or "api_first".
     """
+    # 1. Check settings
+    try:
+        from app.state import get_settings  # noqa: PLC0415
+
+        settings = get_settings()
+        mode = settings.get("api_priority_mode", "").strip().lower()
+        if mode in _VALID_MODES:
+            return mode
+    except Exception:
+        pass
+
+    # 2. Fallback to env
     raw = os.environ.get("TTS_API_PRIORITY", "").strip().lower()
     if raw in _VALID_MODES:
         return raw

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, Cloud, Play, ShieldCheck, FileText, Download, Trash2 } from 'lucide-react';
+import { ChevronDown, Cloud, Play, ShieldCheck, Download, Trash2, ShieldAlert, Loader2 } from 'lucide-react';
 import type { TtsEngine } from '../../../types';
 import { api } from '../../../api';
 import { ConfirmModal } from '../../../components/ConfirmModal';
@@ -14,7 +14,13 @@ export const EngineCard: React.FC<{
   onShowNotification?: (message: string) => void;
 }> = ({ engine, onUpdate, onShowNotification }) => {
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState(engine.last_test);
   const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
+
+  React.useEffect(() => {
+    setTestResult(engine.last_test);
+  }, [engine.last_test]);
   const engineUi = getEngineUi(engine.settings_schema);
   const tone = engine.status === 'ready'
     ? 'blue'
@@ -26,7 +32,14 @@ export const EngineCard: React.FC<{
   const statusLabel = getEngineStatusLabel(engine.status);
   const verificationLabel = engine.verified ? 'VERIFIED' : (engine.status === 'not_loaded' ? 'NOT LOADED' : 'UNVERIFIED');
   const canEnable = engine.can_enable ?? (engine.status === 'ready' || engine.enabled);
-  const enablementMessage = engine.enablement_message || (!engine.enabled && !canEnable ? 'Resolve engine setup before enabling this plugin.' : '');
+  const missingDependencies = Array.isArray(engine.missing_dependencies)
+    ? engine.missing_dependencies.filter((dep): dep is string => Boolean(dep && String(dep).trim()))
+    : [];
+  const dependencyMessage = !engine.dependencies_satisfied && missingDependencies.length > 0
+    ? `Missing dependencies: ${missingDependencies.join(', ')}.`
+    : '';
+  const setupMessage = engine.setup_message || engine.health_message || '';
+  const enablementMessage = engine.enablement_message || setupMessage || dependencyMessage || (!engine.enabled && !canEnable ? 'Resolve engine setup before enabling this plugin.' : '');
 
   const handleSaveSettings = async (settings: Record<string, any>) => {
     setSaving(true);
@@ -72,6 +85,7 @@ export const EngineCard: React.FC<{
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+          {engine.cloud && <Cloud size={15} color="#92400e" />}
           <div style={{ marginRight: '0.5rem' }}>
             <ToggleButton
               enabled={engine.enabled}
@@ -95,7 +109,6 @@ export const EngineCard: React.FC<{
               }}
             />
           </div>
-          {engine.cloud && <Cloud size={15} color="#92400e" />}
           <span
             style={{
               borderRadius: '999px',
@@ -154,6 +167,45 @@ export const EngineCard: React.FC<{
           </div>
         )}
 
+        {(setupMessage || dependencyMessage || engine.status === 'needs_setup') && (
+          <div
+            style={{
+              marginBottom: '1.1rem',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '0.75rem',
+              padding: '0.9rem',
+              borderRadius: '12px',
+              border: '1px solid rgba(245, 158, 11, 0.24)',
+              background: 'rgba(245, 158, 11, 0.08)',
+              color: '#92400e',
+              fontSize: '0.82rem',
+              lineHeight: 1.55,
+            }}
+          >
+            <ShieldAlert size={16} style={{ marginTop: '0.1rem', flexShrink: 0 }} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+              <strong style={{ fontSize: '0.86rem' }}>Setup required</strong>
+              <span>
+                {setupMessage || 'This engine is waiting on a setup step before it can be used.'}
+              </span>
+              {dependencyMessage && (
+                <div style={{ marginTop: '0.2rem', padding: '0.4rem 0.6rem', background: 'rgba(0,0,0,0.04)', borderRadius: '6px', fontSize: '0.78rem', fontStyle: 'italic' }}>
+                  Missing: {dependencyMessage}
+                </div>
+              )}
+              <span style={{ marginTop: '0.4rem' }}>
+                Install Deps installs the Python packages listed for this engine in the same environment Studio is running in.
+              </span>
+              {engine.engine_id.toLowerCase().includes('xtts') && (
+                <span>
+                  XTTS verification uses your Default Voice from General settings as the reference sample.
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
         {(engineUi || engine.settings_schema?.description) && (
           <EngineMetadataPanel engine={engine} schema={engine.settings_schema} getBadgeStyles={getBadgeStyles} />
         )}
@@ -168,22 +220,50 @@ export const EngineCard: React.FC<{
           />
         </div>
 
+        {testResult && testResult.ok && (
+          <div style={{ marginTop: '1.25rem', padding: '1rem', background: 'rgba(0,0,0,0.02)', borderRadius: '12px', border: '1px solid var(--border)', animation: 'fade-in 0.3s ease-out' }}>
+             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+               <span style={{ fontSize: '0.72rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                 Latest Test Sample
+               </span>
+               <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                 Generated at: {new Date(testResult.generated_at * 1000).toLocaleString()}
+               </span>
+             </div>
+             <audio controls src={testResult.audio_url} style={{ width: '100%', height: '36px' }} />
+          </div>
+        )}
+
+
         <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border)', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
           <button
             type="button"
             className="btn-glass"
-            title="Run a test synthesis to verify engine output"
-            onClick={() => onShowNotification?.(`Test synthesis for ${engine.display_name} is available in the Voices tab. Global verification tests from this card are coming soon.`)}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.8rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 800 }}
+            title="Run a real sample render using the Studio default voice reference."
+            disabled={saving || testing || engine.status !== 'ready'}
+            onClick={async () => {
+              setTesting(true);
+              try {
+                const res = await api.testEngine(engine.engine_id);
+                setTestResult(res);
+                onShowNotification?.(`Test sample generated for ${engine.display_name}.`);
+              } catch (err: any) {
+                onShowNotification?.(`Test failed: ${err.message || 'Unknown error'}`);
+              } finally {
+                setTesting(false);
+              }
+            }}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.8rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 800, opacity: engine.status !== 'ready' ? 0.5 : 1 }}
           >
-            <Play size={14} /> Test
+            {testing ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+            {testing ? 'Running...' : 'Run Test'}
           </button>
           
           <button
             type="button"
             className="btn-glass"
-            title="Force a re-verification of the engine"
-            disabled={saving}
+            title="Verify this engine using the Studio default voice reference sample."
+            disabled={saving || engine.verified}
             onClick={async () => {
               setSaving(true);
               try {
@@ -200,44 +280,28 @@ export const EngineCard: React.FC<{
                 setSaving(false);
               }
             }}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.8rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 800 }}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.8rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 800, opacity: engine.verified ? 0.5 : 1 }}
           >
-            <ShieldCheck size={14} /> Verify
+            <ShieldCheck size={14} /> {engine.verified ? 'Verified' : 'Verify'}
           </button>
 
-          <button
-            type="button"
-            className="btn-glass"
-            title="View recent logs for this engine"
-            onClick={async () => {
-              try {
-                const res = await api.fetchEngineLogs(engine.engine_id);
-                onShowNotification?.(res.logs || 'No logs available.');
-              } catch (err) {
-                onShowNotification?.('Failed to fetch logs.');
-              }
-            }}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.8rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 800 }}
-          >
-            <FileText size={14} /> Logs
-          </button>
 
           {engine.status === 'needs_setup' && (
             <button
               type="button"
               className="btn-glass"
-              title="Install missing dependencies"
-              onClick={async () => {
-                try {
-                  const res = await api.installEngineDependencies(engine.engine_id);
-                  onShowNotification?.(res.message || 'Dependency installation triggered.');
+              title="Install the Python packages required by this engine."
+            onClick={async () => {
+              try {
+                const res = await api.installEngineDependencies(engine.engine_id);
+                onShowNotification?.(res.message || 'Dependency installation triggered.');
                 } catch (err) {
                   onShowNotification?.('Failed to trigger installation.');
                 }
-              }}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.8rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 800, color: '#92400e', background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.2)' }}
-            >
-              <Download size={14} /> Install Deps
+            }}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.8rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 800, color: '#92400e', background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.2)' }}
+          >
+            <Download size={14} /> Install Deps
             </button>
           )}
 

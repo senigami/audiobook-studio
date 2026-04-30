@@ -10,7 +10,8 @@ import type {
   SpeakerProfile,
   Settings,
   SegmentProgress,
-  TtsEngine
+  TtsEngine,
+  Character,
 } from '../types';
 import type { StudioShellState } from '../app/navigation/model';
 
@@ -24,6 +25,7 @@ import { AddChapterModal, EditProjectModal, CoverImageModal } from './project/Pr
 import { ChapterEditor } from './ChapterEditor';
 import { CharactersTab } from './CharactersTab';
 import { AssemblyPanel } from './project/AssemblyPanel';
+import { VoiceProfileSelect } from './chapter/VoiceProfileSelect';
 import { ProjectBackupsPanel } from './ProjectBackupsPanel';
 import { ConfirmModal } from './ConfirmModal';
 
@@ -69,6 +71,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
 
   const [project, setProject] = useState<Project | null>(null);
   const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [characters, setCharacters] = useState<Character[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentTab, setCurrentTab] = useState<'chapters' | 'characters' | 'assemblies' | 'backups'>('chapters');
   const [availableAudiobooks, setAvailableAudiobooks] = useState<Audiobook[]>([]);
@@ -122,12 +125,14 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
     if (!effectiveProjectId) return;
     if (isTransition) setLoading(true);
     try {
-      const [projData, chapsData] = await Promise.all([
+      const [projData, chapsData, charsData] = await Promise.all([
         api.fetchProject(effectiveProjectId),
-        api.fetchChapters(effectiveProjectId)
+        api.fetchChapters(effectiveProjectId),
+        api.fetchCharacters(effectiveProjectId)
       ]);
       setProject(projData);
       setChapters(chapsData);
+      setCharacters(charsData);
       try {
         const audiobooksData = await api.fetchProjectAudiobooks(effectiveProjectId);
         setAvailableAudiobooks(audiobooksData || []);
@@ -211,10 +216,9 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
   };
 
   const mergedVoices = React.useMemo(
-    () => buildVoiceOptions(speakerProfiles || [], speakers || [], engines),
-    [speakerProfiles, speakers, engines]
+    () => buildVoiceOptions(speakerProfiles || [], speakers || [], engines, characters),
+    [speakerProfiles, speakers, engines, characters]
   );
-  const availableVoiceNames = React.useMemo(() => new Set(mergedVoices.map(v => v.value)), [mergedVoices]);
   const effectiveProjectVoice = React.useMemo(() => {
     return selectedVoice
       || project?.speaker_profile_name
@@ -223,9 +227,9 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
       || '';
   }, [selectedVoice, project?.speaker_profile_name, settings?.default_speaker_profile, speakerProfiles]);
   const projectDefaultVoiceLabel = React.useMemo(() => {
-    const fallbackVoiceLabel = getVoiceOptionLabel(effectiveProjectVoice, speakerProfiles, speakers, engines);
+    const fallbackVoiceLabel = getVoiceOptionLabel(effectiveProjectVoice, speakerProfiles, speakers, engines, characters);
     return fallbackVoiceLabel ? `Default Speaker (${fallbackVoiceLabel})` : 'Default Speaker';
-  }, [effectiveProjectVoice, speakerProfiles, speakers, engines]);
+  }, [effectiveProjectVoice, speakerProfiles, speakers, engines, characters]);
 
   const formatLength = (seconds: number) => {
     if (seconds < 60) return `${Math.round(seconds)}s`;
@@ -363,7 +367,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
             />
 
             {currentTab === 'characters' ? (
-              <CharactersTab projectId={effectiveProjectId} speakers={speakers} speakerProfiles={speakerProfiles} />
+              <CharactersTab projectId={effectiveProjectId} speakers={speakers} speakerProfiles={speakerProfiles} engines={engines} />
             ) : currentTab === 'assemblies' ? (
               <AssemblyPanel
                 availableAudiobooks={availableAudiobooks}
@@ -422,19 +426,13 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--surface-light)', padding: '2px 8px', borderRadius: '8px', border: '1px solid var(--border)' }}>
                             <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Speaker:</span>
-                            <select
+                            <VoiceProfileSelect
                                 value={selectedVoice}
-                                onChange={e => { void handleProjectVoiceChange(e.target.value); }}
-                                style={{ background: 'transparent', border: 'none', fontSize: '0.85rem', padding: '0.25rem 0', fontWeight: 500, color: 'var(--text-primary)', outline: 'none', maxWidth: '150px' }}
-                            >
-                              {selectedVoice && !availableVoiceNames.has(selectedVoice) && (
-                                <option value={selectedVoice} disabled>
-                                  {getVoiceOptionLabel(selectedVoice, speakerProfiles, speakers, engines) || selectedVoice}
-                                </option>
-                              )}
-                              <option value="">{projectDefaultVoiceLabel}</option>
-                              {mergedVoices.map(v => <option key={v.id} value={v.value}>{v.name}</option>)}
-                            </select>
+                                onChange={handleProjectVoiceChange}
+                                options={mergedVoices}
+                                defaultLabel={projectDefaultVoiceLabel}
+                                style={{ background: 'transparent', border: 'none', padding: '0.25rem 0', maxWidth: '150px' }}
+                            />
                         </div>
 
                         <button

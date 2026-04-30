@@ -70,6 +70,11 @@ Every phase must produce a deliverable that is:
 - [phase_9_plugins_and_api.md](/Users/stevendunn/GitHub-Steven/audiobook-factory/plans/phases/phase_9_plugins_and_api.md)
   Plugin ecosystem hardening, pip entry-point discovery, external TTS API authentication, rate limiting, and contributor tooling.
 
+### Phase 10
+
+- [phase_10_runtime_cutover.md](/Users/stevendunn/GitHub-Steven/audiobook-factory/plans/phases/phase_10_runtime_cutover.md)
+  Default runtime promotion for the managed TTS Server subprocess, Studio 2.0 orchestrator, watchdog diagnostics, and final release gate.
+
 ## Cross-Phase Rules
 
 - each phase must leave the repo in a working state

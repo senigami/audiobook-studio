@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 import os
 import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +20,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from app.config import PLUGINS_DIR
 from app.tts_server.health import (
     build_engine_detail,
     build_health_response,
@@ -44,7 +46,7 @@ app = FastAPI(
 # Shared mutable state protected by a lock.
 _state_lock = threading.Lock()
 _plugins: list[LoadedPlugin] = []
-_plugins_dir: Path = Path("plugins")
+_plugins_dir: Path = PLUGINS_DIR
 
 
 def _plugin_by_id(engine_id: str) -> LoadedPlugin:
@@ -65,17 +67,27 @@ def load_plugins(plugins_dir: Path) -> None:
 
     Called by the entry point after the server configuration is applied.
     Thread-safe — writes to the shared plugin list under the lock.
+    Verification runs in a background thread to avoid blocking startup.
 
     Args:
         plugins_dir: Absolute path to the ``plugins/`` directory.
     """
     global _plugins, _plugins_dir
     discovered = discover_plugins(plugins_dir)
-    verify_all(discovered)
+
+    # Update state immediately so discovery results are visible to Studio.
     with _state_lock:
         _plugins = discovered
         _plugins_dir = plugins_dir
-    logger.info("Loaded %d plugin(s) from %s", len(discovered), plugins_dir)
+
+    def _bg_verify():
+        try:
+            verify_all(discovered)
+        except Exception:
+            logger.exception("Unexpected error during background plugin verification")
+
+    threading.Thread(target=_bg_verify, name="TtsPluginVerification", daemon=True).start()
+    logger.info("Discovered %d plugin(s) from %s. Verification started in background.", len(discovered), plugins_dir)
 
 
 # ---------------------------------------------------------------------------
@@ -169,7 +181,14 @@ def update_engine_settings(
         )
 
     current = load_settings(plugin.plugin_dir)
-    merged, errors = merge_settings(current, body.settings, schema)
+
+    # Filter out 'enabled' which is handled at the registry level, not engine settings level
+    settings_to_merge = {k: v for k, v in body.settings.items() if k != "enabled"}
+    merged, errors = merge_settings(current, settings_to_merge, schema)
+
+    # Re-inject 'enabled' so can_enable_engine sees it
+    if "enabled" in body.settings:
+        merged["enabled"] = body.settings["enabled"]
 
     if errors:
         raise HTTPException(
@@ -185,18 +204,88 @@ def update_engine_settings(
             plugin.engine_id,
             current_settings=merged,
             built_in=bool(getattr(plugin.manifest, "built_in", False)),
-            verified=bool(getattr(plugin.manifest, "verified", False)),
+            verified=bool(getattr(plugin, "verified", False)),
             status=engine_status(plugin),
         )
         if not can_enable:
             raise HTTPException(status_code=400, detail=reason or "Engine cannot be enabled yet.")
 
     try:
+        # Check if settings changed (excluding enabled state)
+        sensitive_changed = False
+        for k, v in merged.items():
+            if k == "enabled":
+                continue
+            if current.get(k) != v:
+                sensitive_changed = True
+                break
+
         save_settings(plugin.plugin_dir, merged)
+
+        if sensitive_changed:
+            logger.info("Settings changed for %s, clearing verification state", engine_id)
+            plugin.verified = False
+            plugin.verification_error = "Settings changed. Please re-verify."
+
+            # Update state.json
+            from app.tts_server.settings_store import save_state, calculate_verification_metadata  # noqa: PLC0415
+            state = {
+                "verified": False,
+                "verification_error": plugin.verification_error,
+                "last_verified_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "metadata": calculate_verification_metadata(plugin.plugin_dir, plugin.manifest),
+            }
+            save_state(plugin.plugin_dir, state)
+
     except OSError as exc:
         raise HTTPException(status_code=500, detail=f"Could not save settings: {exc}")
 
     return {"ok": True, "settings": merged}
+
+
+@app.post("/engines/{engine_id}/install")
+def install_dependencies(engine_id: str) -> dict[str, Any]:
+    """Trigger dependency installation for an engine."""
+    plugin = _plugin_by_id(engine_id)
+    req_file = plugin.plugin_dir / "requirements.txt"
+    if not req_file.is_file() and engine_id == "xtts":
+        # Fallback for bundled XTTS requirements
+        from app.config import BASE_DIR # noqa: PLC0415
+        req_file = BASE_DIR / "app/engines/voice/xtts/requirements.txt"
+
+    if not req_file.is_file():
+        return {"ok": True, "message": "No requirements.txt found for this engine."}
+
+    import subprocess
+    import sys
+    from app.tts_server.plugin_loader import _check_dependencies
+
+    logger.info("Installing dependencies for %s from %s", engine_id, req_file)
+    try:
+        # Use sys.executable to ensure we use the same venv.
+        cmd = [sys.executable, "-m", "pip", "install", "-r", str(req_file)]
+        # We use check_call for simplicity, but in a real app we might want to stream logs.
+        subprocess.check_call(cmd)
+
+        # Re-check dependencies and update plugin state.
+        deps_ok, missing = _check_dependencies(plugin.plugin_dir)
+        plugin.dependencies_satisfied = deps_ok
+        plugin.missing_dependencies = missing
+
+        return {
+            "ok": True,
+            "message": f"Successfully installed dependencies for {engine_id}",
+            "dependencies_satisfied": deps_ok,
+            "missing_dependencies": missing,
+        }
+    except subprocess.CalledProcessError as exc:
+        logger.error("Pip install failed for %s: %s", engine_id, exc)
+        raise HTTPException(
+            status_code=500, detail=f"Dependency installation failed: {exc}"
+        ) from exc
+    except Exception as exc:
+        logger.exception("Unexpected error installing dependencies for %s", engine_id)
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {exc}") from exc
 
 
 @app.post("/engines/{engine_id}/verify")
@@ -204,6 +293,8 @@ def reverify_engine(engine_id: str) -> dict[str, Any]:
     """Re-run verification synthesis for an engine."""
     plugin = _plugin_by_id(engine_id)
     result = verify_plugin(plugin)
+    plugin.verified = bool(result.ok)
+    plugin.verification_error = None if result.ok else result.error
     return {
         "engine_id": engine_id,
         "ok": result.ok,

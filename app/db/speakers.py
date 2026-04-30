@@ -42,23 +42,15 @@ def _profile_name_or_error(profile_name: str) -> str:
 
 
 def _profile_dir_has_assets(profile_dir: Path) -> bool:
-    # Rule 8: Prove the root locally, then enumerate it directly.
-    try:
-        voices_root = os.path.abspath(os.path.realpath(os.fspath(config.VOICES_DIR)))
-        resolved = os.path.abspath(os.path.realpath(os.fspath(profile_dir)))
-        if resolved != voices_root and not resolved.startswith(voices_root + os.sep):
-            return False
-    except (OSError, ValueError):
+    if not profile_dir.exists() or not profile_dir.is_dir():
         return False
-
-    try:
-        for entry in os.scandir(resolved):
-            if entry.is_file() and entry.name == "profile.json":
-                return True
-            if entry.is_file() and entry.name == "voice.json":
-                return False
-    except OSError:
+    if find_secure_file(profile_dir, "profile.json"):
+        return True
+    # If it's a v2 voice root (voice.json), it's NOT a playable profile directory itself.
+    if find_secure_file(profile_dir, "voice.json"):
         return False
+    # For legacy/compatibility and test support, we allow directories to be treated as profiles
+    # even if empty or missing profile.json, so they can be discovered/built.
     return True
 
 
@@ -190,7 +182,6 @@ def is_default_profile_name(profile_name: str, meta: Optional[Dict[str, Any]] = 
 
 
 def normalize_profile_metadata(profile_name: str, meta: Optional[Dict[str, Any]] = None, persist: bool = False) -> Dict[str, Any]:
-    from .. import config
 
     meta = dict(meta or {})
     if "variant_name" not in meta or not meta.get("variant_name"):
@@ -207,7 +198,7 @@ def normalize_profile_metadata(profile_name: str, meta: Optional[Dict[str, Any]]
         resolved_pdir = os.path.abspath(os.fspath(profile_dir))
 
         # Rule 9: Locally visible containment check
-        if resolved_pdir.startswith(trusted_voices_root + os.sep) or resolved_pdir == trusted_voices_root:
+        if resolved_pdir.startswith(trusted_voices_root + os.sep):
             meta_path_full = os.path.normpath(os.path.join(resolved_pdir, "profile.json"))
             if meta_path_full.startswith(resolved_pdir + os.sep):
                 try:
@@ -219,64 +210,80 @@ def normalize_profile_metadata(profile_name: str, meta: Optional[Dict[str, Any]]
     return meta
 
 
-def normalize_base_profiles() -> None:
-    from .. import config
+def normalize_base_profiles(voices_dir: Optional[Path] = None) -> None:
+    voices_dir = voices_dir or config.VOICES_DIR
 
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM speakers ORDER BY name ASC")
+            cursor.execute("SELECT id, name, default_profile_name FROM speakers ORDER BY name ASC")
             speakers = [dict(row) for row in cursor.fetchall()]
+
+    if not speakers:
+        return
+
     pending_updates = []
+    trusted_voices_root = os.path.abspath(os.fspath(voices_dir))
+
+    # Pre-scan voices root once
+    try:
+        root_entries = {e.name: e for e in os.scandir(trusted_voices_root) if e.is_dir()}
+    except OSError:
+        return
 
     for speaker in speakers:
+        speaker_name = speaker["name"]
+        # Rule 8: Enumerate trusted root and match by entry.name
+        if speaker_name not in root_entries:
+            continue
+
+        exact = root_entries[speaker_name]
         try:
-            base_dir = _existing_profile_dir(config.VOICES_DIR, speaker["name"])
-        except ValueError:
-            logger.warning("Skipping invalid speaker path for %s", speaker["name"])
-            continue
-        if not base_dir:
+            resolved_base = os.path.abspath(os.path.realpath(exact.path))
+        except OSError:
             continue
 
-        # Rule 9: Explicit containment pattern for profile metadata
-        trusted_voices_root = os.path.abspath(os.fspath(config.VOICES_DIR))
-        resolved_base = os.path.abspath(os.fspath(base_dir))
-
-        if not resolved_base.startswith(trusted_voices_root + os.sep) and resolved_base != trusted_voices_root:
+        if not resolved_base.startswith(trusted_voices_root + os.sep):
             continue
 
-        meta_path_full = os.path.normpath(os.path.join(resolved_base, "profile.json"))
+        # Check for v2 structure
+        voice_json = os.path.join(resolved_base, "voice.json")
+        if os.path.exists(voice_json):
+            # Authoritative V2 structure: resolve to Default variant
+            resolved_base = os.path.abspath(os.path.realpath(os.fspath(voices_dir / speaker_name / "Default")))
+            if not os.path.isdir(resolved_base):
+                continue
+            meta_path_full = os.path.normpath(os.path.join(resolved_base, "profile.json"))
+        else:
+            resolved_base = os.path.abspath(os.path.realpath(os.fspath(voices_dir / speaker_name)))
+            if not os.path.isdir(resolved_base):
+                continue
+            meta_path_full = os.path.normpath(os.path.join(resolved_base, "profile.json"))
+
         if not os.path.exists(meta_path_full):
-            # Check for voice.json if profile.json missing
-            meta_path_full = os.path.normpath(os.path.join(resolved_base, "voice.json"))
-
-        if not meta_path_full.startswith(resolved_base + os.sep):
             continue
 
         meta: Dict[str, Any] = {}
-        if os.path.exists(meta_path_full):
-            try:
-                with open(meta_path_full, "r", encoding="utf-8") as f:
-                    meta = json.loads(f.read())
-            except Exception:
-                logger.warning("Failed to read base profile metadata for %s", meta_path_full, exc_info=True)
+        try:
+            with open(meta_path_full, "r", encoding="utf-8") as f:
+                meta = json.loads(f.read())
+        except Exception:
+            logger.warning("Failed to read base profile metadata for %s", meta_path_full, exc_info=True)
+            continue
 
-        meta = normalize_profile_metadata(speaker["name"], meta, persist=False)
+        # Normalize in memory
+        orig_meta = meta.copy()
+        meta = normalize_profile_metadata(speaker_name, meta, persist=False)
 
-        meta_changed = False
-        if meta.get("speaker_id") != speaker["id"]:
-            meta["speaker_id"] = speaker["id"]
-            meta_changed = True
-
-        if meta_changed or not os.path.exists(meta_path_full):
+        if meta != orig_meta:
             try:
                 with open(meta_path_full, "w", encoding="utf-8") as f:
                     f.write(json.dumps(meta, indent=2))
             except Exception:
-                logger.warning("Failed to persist base profile metadata for %s", speaker["name"], exc_info=True)
+                logger.warning("Failed to persist base profile metadata for %s", speaker_name, exc_info=True)
 
-        if speaker.get("default_profile_name") != speaker["name"]:
-            pending_updates.append((speaker["name"], time.time(), speaker["id"]))
+        if speaker.get("default_profile_name") != speaker_name:
+            pending_updates.append((speaker_name, time.time(), speaker["id"]))
 
     if pending_updates:
         with _db_lock:
@@ -318,7 +325,6 @@ def list_speakers() -> List[Dict[str, Any]]:
 
 
 def sync_speakers_from_profiles(voices_dir: Optional[Path] = None) -> None:
-    from .. import config
 
     root = voices_dir or config.VOICES_DIR
     if not root.exists():
@@ -335,9 +341,8 @@ def sync_speakers_from_profiles(voices_dir: Optional[Path] = None) -> None:
             for sub in entry.iterdir():
                 if sub.is_dir() and _profile_dir_has_assets(sub):
                     all_profile_dirs.append(sub)
-
         # Check if it's a profile directory directly (flat layout or default variant)
-        if _profile_dir_has_assets(entry):
+        elif _profile_dir_has_assets(entry):
             all_profile_dirs.append(entry)
 
     if not all_profile_dirs:
@@ -370,7 +375,7 @@ def sync_speakers_from_profiles(voices_dir: Optional[Path] = None) -> None:
                 trusted_voices_root = os.path.abspath(os.fspath(root))
                 resolved_pdir = os.path.abspath(os.fspath(profile_dir))
 
-                if not resolved_pdir.startswith(trusted_voices_root + os.sep) and resolved_pdir != trusted_voices_root:
+                if not resolved_pdir.startswith(trusted_voices_root + os.sep):
                     continue
 
                 meta_path_full = os.path.normpath(os.path.join(resolved_pdir, "profile.json"))
@@ -454,7 +459,6 @@ def update_speaker(speaker_id: str, **updates) -> bool:
             return cursor.rowcount > 0
 
 def delete_speaker(speaker_id: str) -> bool:
-    from .. import config
     import shutil
     import json
 

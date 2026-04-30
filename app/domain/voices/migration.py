@@ -3,6 +3,7 @@ import os
 import shutil
 import logging
 import re
+import threading
 from pathlib import Path
 from typing import Dict, Any, List
 from .manifest import (
@@ -12,7 +13,7 @@ from .manifest import (
     save_variant_manifest,
     CURRENT_VOICE_STORAGE_VERSION
 )
-from ...config import VOICES_DIR
+from ... import config
 
 logger = logging.getLogger(__name__)
 SAFE_PROFILE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
@@ -36,15 +37,21 @@ def _move_profile_contents(src_dir: Path, dest_dir: Path, *, preserve_names: set
             continue
         shutil.move(str(entry), str(target))
 
+_migration_lock = threading.Lock()
+
 def migrate_voices_to_v2() -> bool:
     """Migrates all flat voice folders to the nested v2 structure."""
-    if not VOICES_DIR.exists():
+    if not config.VOICES_DIR.exists():
+        return True
+
+    if not _migration_lock.acquire(blocking=False):
+        # Already migrating in another thread
         return True
 
     try:
         # 1. Identify all candidate folders
         flat_folders = []
-        for entry in VOICES_DIR.iterdir():
+        for entry in config.VOICES_DIR.iterdir():
             if not entry.is_dir():
                 continue
             if not SAFE_PROFILE_NAME_RE.fullmatch(entry.name):
@@ -66,7 +73,7 @@ def migrate_voices_to_v2() -> bool:
             migrate_voice_variant(folder, voice_name, variant_name)
 
         # 2. Backfill existing v2 roots to ensure default_variant and speaker_id consistency
-        for entry in VOICES_DIR.iterdir():
+        for entry in config.VOICES_DIR.iterdir():
             if entry.is_dir() and (entry / "voice.json").exists():
                 _backfill_voice_root(entry)
 
@@ -74,6 +81,8 @@ def migrate_voices_to_v2() -> bool:
     except Exception as e:
         logger.error("Failed to migrate voices to v2: %s", e, exc_info=True)
         return False
+    finally:
+        _migration_lock.release()
 
 def _backfill_voice_root(voice_root: Path) -> None:
     """Ensures a v2 voice root manifest is complete and consistent."""
@@ -84,6 +93,34 @@ def _backfill_voice_root(voice_root: Path) -> None:
     if not manifest.get("name"):
         manifest["name"] = voice_root.name
         changed = True
+
+    # Clean up stale root profile.json (leftover from v1 or manual edit)
+    stale_root_profile = voice_root / "profile.json"
+    if stale_root_profile.exists():
+        default_dir = voice_root / "Default"
+        if not (default_dir / "profile.json").exists():
+            logger.info("Moving stale root profile files to Default for %s", voice_root.name)
+            default_dir.mkdir(parents=True, exist_ok=True)
+            for entry in list(voice_root.iterdir()):
+                if entry.name in {"voice.json", "Default", ".quarantine"}:
+                    continue
+                if entry.is_dir():
+                    # Existing variants must remain siblings of Default.
+                    continue
+                target = default_dir / entry.name
+                if target.exists():
+                    logger.warning("Migration collision: %s already exists. Skipping %s", target, entry)
+                    continue
+                shutil.move(str(entry), str(target))
+        else:
+            # Already have a Default variant, quarantine the root one
+            quarantine_dir = voice_root / ".quarantine"
+            quarantine_dir.mkdir(parents=True, exist_ok=True)
+            import time
+            ts = int(time.time())
+            target = quarantine_dir / f"stale_profile_{ts}.json"
+            logger.warning("Quarantining stale root profile.json for %s -> %s", voice_root.name, target.name)
+            shutil.move(str(stale_root_profile), str(target))
 
     # Sync speaker_id and default_variant if missing
     subdirs = sorted([d for d in voice_root.iterdir() if d.is_dir() and (d / "profile.json").exists()], key=lambda d: d.name)
@@ -110,7 +147,7 @@ def _backfill_voice_root(voice_root: Path) -> None:
 
 def migrate_voice_variant(src_dir: Path, voice_name: str, variant_name: str) -> bool:
     """Migrates a single flat voice folder to its nested destination."""
-    voice_root = VOICES_DIR / voice_name
+    voice_root = config.VOICES_DIR / voice_name
     variant_dir = voice_root / variant_name
 
     # Ensure voice root exists and has a manifest

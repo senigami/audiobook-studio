@@ -25,6 +25,8 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+from app.config import PLUGINS_DIR
+
 logger = logging.getLogger(__name__)
 
 _booted = False
@@ -36,8 +38,8 @@ def boot_studio() -> None:
     Idempotent — safe to call multiple times.  Starts feature-flagged
     subsystems based on environment variables:
 
-    - ``USE_TTS_SERVER=true``: Starts the TTS Server watchdog
-    - ``USE_STUDIO_ORCHESTRATOR=true``: (Future) Activates the 2.0 orchestrator
+    - ``USE_TTS_SERVER=0``: Disables the TTS Server watchdog (emergency fallback)
+    - ``USE_STUDIO_ORCHESTRATOR=0``: Disables the 2.0 orchestrator (emergency fallback)
     """
     global _booted  # noqa: PLW0603
 
@@ -72,13 +74,15 @@ def boot_tts_server(
         from app.engines.watchdog import start_watchdog  # noqa: PLC0415
 
         start_watchdog(
-            plugins_dir=plugins_dir,
+            plugins_dir=plugins_dir or PLUGINS_DIR,
             port=port,
             host=host,
         )
         logger.info("TTS Server watchdog started via boot sequence.")
     except Exception:
+        import os
+        os.environ["USE_TTS_SERVER"] = "0"
         logger.exception(
             "TTS Server watchdog failed to start during boot. "
-            "Synthesis will fall back to the legacy in-process path."
+            "Synthesis will fall back to the Single-Process path."
         )

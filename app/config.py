@@ -28,6 +28,7 @@ CHAPTER_DIR = Path(os.getenv("CHAPTER_DIR", str(DEFAULT_CHAPTER_DIR)))
 UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", str(BASE_DIR / "uploads")))
 REPORT_DIR = Path(os.getenv("REPORT_DIR", str(BASE_DIR / "reports")))
 XTTS_OUT_DIR = Path(os.getenv("XTTS_OUT_DIR", str(BASE_DIR / "xtts_audio")))
+ENGINE_TEST_DIR = Path(os.getenv("ENGINE_TEST_DIR", str(BASE_DIR / "engine_tests")))
 AUDIOBOOK_DIR = Path(os.getenv("AUDIOBOOK_DIR", str(BASE_DIR / "audiobooks")))
 VOICES_DIR = Path(os.getenv("VOICES_DIR", str(BASE_DIR / "voices")))
 COVER_DIR = Path(os.getenv("COVER_DIR", str(UPLOAD_DIR / "covers")))
@@ -35,6 +36,7 @@ SAMPLES_DIR = Path(os.getenv("SAMPLES_DIR", str(BASE_DIR / "samples")))
 ASSETS_DIR = Path(os.getenv("ASSETS_DIR", str(BASE_DIR / "assets")))
 PROJECTS_DIR = Path(os.getenv("PROJECTS_DIR", str(BASE_DIR / "projects")))
 TRASH_DIR = Path(os.getenv("TRASH_DIR", str(BASE_DIR / "trash")))
+PLUGINS_DIR = Path(os.getenv("PLUGINS_DIR", str(BASE_DIR / "plugins")))
 FRONTEND_DIST = BASE_DIR / "frontend" / "dist"
 XTTS_ENV_DIR = Path(os.getenv("XTTS_ENV_DIR", str(Path.home() / "xtts-env")))
 XTTS_ENV_PYTHON = Path(
@@ -237,6 +239,9 @@ def _find_file(directory: Path, filename: str) -> Optional[Path]:
             is_safe = True
         # Case 2: XTTS Output
         elif target_dir == x_root or target_dir.startswith(x_root + os.sep):
+            is_safe = True
+        # Case 2b: Engine Tests
+        elif target_dir == os.path.abspath(os.path.realpath(os.fspath(ENGINE_TEST_DIR))) or target_dir.startswith(os.path.abspath(os.path.realpath(os.fspath(ENGINE_TEST_DIR))) + os.sep):
             is_safe = True
         # Case 3: Voices
         elif target_dir == v_root or target_dir.startswith(v_root + os.sep):

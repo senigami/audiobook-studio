@@ -123,9 +123,9 @@ async def build_speaker_profile(
     name: str,
     files: List[UploadFile] = File(default=[]),
 ):
-    # Rule 9: Early validation
-    name = config.canonical_voice_name(name)
     try:
+        # Rule 9: Early validation
+        name = config.canonical_voice_name(name)
         try:
             path = voices_helpers._existing_voice_profile_dir(name) or voices_helpers._new_voice_profile_dir(name)
         except ValueError:
@@ -153,9 +153,14 @@ async def build_speaker_profile(
                 os.unlink(sample_path_full)
         else:
              return JSONResponse({"status": "error", "message": "Access denied"}, status_code=403)
+    except ValueError as e:
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=400)
     except Exception as e:
+        from ...engines.errors import EngineUnavailableError
+        if isinstance(e, EngineUnavailableError):
+             return JSONResponse({"status": "error", "message": str(e)}, status_code=503)
         logger.error(f"Error preparing path for profile {name}: {e}")
-        return JSONResponse({"status": "error", "message": "Build failed"}, status_code=500)
+        return JSONResponse({"status": "error", "message": f"Build failed: {e}"}, status_code=500)
 
     saved_files = []
     for f in files:
@@ -247,32 +252,39 @@ def delete_speaker_sample_route(
 def test_speaker_profile(name: str):
     # Rule 9: Early validation
     name = config.canonical_voice_name(name)
-    settings = jobs.get_speaker_settings(name)
-    engine = settings.get("engine", DEFAULT_PROFILE_ENGINE)
-    if not voices_helpers._is_engine_active(engine):
-        return JSONResponse({"status": "error", "message": f"Engine {engine} is not enabled in Settings."}, status_code=400)
+    try:
+        settings = jobs.get_speaker_settings(name)
+        engine = settings.get("engine", DEFAULT_PROFILE_ENGINE)
+        if not voices_helpers._is_engine_active(engine):
+            return JSONResponse({"status": "error", "message": f"Engine {engine} is not enabled in Settings."}, status_code=400)
 
-    if not voices_helpers._voice_has_generation_material(name):
-        return JSONResponse(
-            {"status": "error", "message": "Add at least one sample or keep a latent before testing this voice."},
-            status_code=400
+        if not voices_helpers._voice_has_generation_material(name):
+            return JSONResponse(
+                {"status": "error", "message": "Add at least one sample or keep a latent before testing this voice."},
+                status_code=400
+            )
+
+        jid = f"test-{uuid.uuid4().hex[:8]}"
+        j = models.Job(
+            id=jid,
+            engine="voice_test",
+            chapter_file="", # Required by model
+            status="queued",
+            created_at=time.time(),
+            speaker_profile=name,
+            custom_title=voices_helpers._voice_job_title(name),
         )
-
-    jid = f"test-{uuid.uuid4().hex[:8]}"
-    j = models.Job(
-        id=jid,
-        engine="voice_test",
-        chapter_file="", # Required by model
-        status="queued",
-        created_at=time.time(),
-        speaker_profile=name,
-        custom_title=voices_helpers._voice_job_title(name),
-    )
-    state.put_job(j)
-    jobs.enqueue(j)
-    preview_url = voices_helpers._voice_preview_url(name)
-    return JSONResponse({
-        "status": "ok",
-        "job_id": jid,
-        "audio_url": preview_url or f"/out/voices/{name}/sample.wav"
-    })
+        state.put_job(j)
+        jobs.enqueue(j)
+        preview_url = voices_helpers._voice_preview_url(name)
+        return JSONResponse({
+            "status": "ok",
+            "job_id": jid,
+            "audio_url": preview_url or f"/out/voices/{name}/sample.wav"
+        })
+    except Exception as e:
+        from ...engines.errors import EngineUnavailableError
+        if isinstance(e, EngineUnavailableError):
+             return JSONResponse({"status": "error", "message": str(e)}, status_code=503)
+        logger.error(f"Test failed for {name}: {e}")
+        return JSONResponse({"status": "error", "message": "Test failed"}, status_code=500)

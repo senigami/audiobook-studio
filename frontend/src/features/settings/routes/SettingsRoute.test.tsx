@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '../../../api';
@@ -19,21 +19,6 @@ vi.mock('../../../api', () => ({
     restartTtsServer: vi.fn(),
   },
 }));
-
-const defaultProps = {
-  settings: {
-    safe_mode: true,
-    mistral_api_key: 'test-key',
-    voxtral_enabled: true,
-    default_speaker_profile: 'V1',
-  } as any,
-  speakerProfiles: [
-    { name: 'V1', speed: 1.0, wav_count: 1, is_default: true, preview_url: null },
-    { name: 'V2', speed: 1.0, wav_count: 2, is_default: false, preview_url: null }
-  ] as any,
-  onRefresh: vi.fn(),
-  onShowNotification: vi.fn(),
-};
 
 const mockedEngines = [
   {
@@ -105,8 +90,7 @@ const mockedEngines = [
       },
       'x-ui': {
         panel_title: 'Voxtral Cloud Voices',
-        summary: 'Create a Mistral API key in your workspace settings, paste it here, then turn Voxtral on when you want cloud voices available. Voxtral requests are processed by Mistral instead of staying fully local.',
-        privacy_notice: 'Privacy note: turning on Voxtral sends the text you synthesize, and any selected reference audio, to Mistral\'s servers. Keep voices on XTTS (Local) if you want your workflow to stay fully local.',
+        summary: 'Create a Mistral API key in your workspace settings. Get started by following the instructions in the link below.',
         privacy_tone: 'warning',
         help_label: 'Open Mistral API key instructions',
         help_url: 'https://help.mistral.ai/en/articles/347464-how-do-i-create-api-keys-within-a-workspace',
@@ -120,6 +104,22 @@ const mockedEngines = [
   },
 ];
 
+const defaultProps = {
+  settings: {
+    safe_mode: true,
+    mistral_api_key: 'test-key',
+    voxtral_enabled: true,
+    default_speaker_profile: 'V1',
+  } as any,
+  speakerProfiles: [
+    { name: 'V1', speed: 1.0, wav_count: 1, is_default: true, preview_url: null },
+    { name: 'V2', speed: 1.0, wav_count: 2, is_default: false, preview_url: null }
+  ] as any,
+  onRefresh: vi.fn(),
+  onShowNotification: vi.fn(),
+  engines: mockedEngines as any,
+};
+
 describe('SettingsRoute', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -131,7 +131,7 @@ describe('SettingsRoute', () => {
       return Promise.resolve({ ok: true, json: () => Promise.resolve({}) }) as any;
     }) as any;
     vi.mocked(api.fetchHome).mockResolvedValue({
-      version: '1.8.4',
+      version: '2.0.0',
       engines: mockedEngines as any,
       render_stats: {
         sample_count: 4,
@@ -201,13 +201,21 @@ describe('SettingsRoute', () => {
 
   it('triggers engine verification via API', async () => {
     const mockVerify = vi.spyOn(api, 'verifyEngine').mockResolvedValue({ ok: true });
+    vi.mocked(api.fetchEngines).mockResolvedValue([
+      {
+        ...mockedEngines[0],
+        verified: false,
+      },
+      mockedEngines[1],
+    ] as any);
     render(
       <MemoryRouter initialEntries={['/settings/engines']}>
         <SettingsRoute {...defaultProps} />
       </MemoryRouter>
     );
     
-    const verifyBtn = (await screen.findAllByText(/Verify/i))[0];
+    const xttsHeading = await screen.findByRole('heading', { name: 'XTTS Local', level: 3 });
+    const verifyBtn = within(xttsHeading.closest('details') as HTMLElement).getByRole('button', { name: /Verify/i });
     fireEvent.click(verifyBtn);
 
     await waitFor(() => expect(mockVerify).toHaveBeenCalledWith('xtts-local'));
@@ -245,9 +253,9 @@ describe('SettingsRoute', () => {
     expect(screen.getByText('VERIFIED')).toBeTruthy();
     fireEvent.click(screen.getByText('XTTS Local'));
     
-    expect(screen.getAllByText(/Test/i)[0]).toBeTruthy();
+    expect(screen.getAllByText(/Run Test/i)[0]).toBeTruthy();
     expect(screen.getAllByText(/Verify/i)[0]).toBeTruthy();
-    expect(screen.getAllByText(/Logs/i)[0]).toBeTruthy();
+    expect(screen.getByRole('button', { name: /View Diagnostics/i })).toBeTruthy();
     expect(screen.getByText(/Temperature/i)).toBeTruthy();
     expect(screen.getByText(/Speaker Name/i)).toBeTruthy();
 
@@ -257,7 +265,6 @@ describe('SettingsRoute', () => {
     expect(screen.getByText('Open Mistral API key instructions')).toBeTruthy();
     expect(screen.getByText('Mistral API Key')).toBeTruthy();
     expect(screen.getByText('Voxtral Model')).toBeTruthy();
-    expect(screen.getByText(/Privacy note: turning on Voxtral sends the text you synthesize/i)).toBeTruthy();
     expect(screen.getByRole('button', { name: 'OFF' })).toBeDisabled();
   });
 
@@ -300,7 +307,7 @@ describe('SettingsRoute', () => {
     const speakerNameInput = screen.getByDisplayValue('Narrator');
     fireEvent.change(speakerNameInput, { target: { value: 'Narrator Plus' } });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Save Settings' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Save Settings' }));
 
     await waitFor(() => {
       expect(api.updateEngineSettings).toHaveBeenCalledWith('xtts-local', expect.objectContaining({
@@ -327,7 +334,7 @@ describe('SettingsRoute', () => {
 
     expect(await screen.findByRole('heading', { name: 'About' })).toBeTruthy();
     expect(screen.getByText('Studio Version')).toBeTruthy();
-    expect(screen.getByText('1.8.4')).toBeTruthy();
+    expect(screen.getByText('2.0.0')).toBeTruthy();
     expect(screen.getByText('Engine Plugins')).toBeTruthy();
     expect(screen.getByText(/2 loaded/i)).toBeTruthy();
     expect(screen.getByText(/XTTS Local .* Voxtral Cloud Voices/i)).toBeTruthy();
@@ -360,5 +367,57 @@ describe('SettingsRoute', () => {
     expect(screen.getByText('POST /api/processing_queue')).toBeTruthy();
     expect(screen.getByText(/POST http:\/\/localhost:8001\/synthesize/i)).toBeTruthy();
     expect(screen.getByText(/"output_path": "\/path\/to\/output\.wav"/)).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'View Swagger Docs' })).toHaveAttribute('href', '/api/v1/tts/docs');
+  });
+
+  it('shows setup guidance for engines that need setup', async () => {
+    vi.mocked(api.fetchEngines).mockResolvedValue([
+      {
+        ...mockedEngines[0],
+        status: 'needs_setup',
+        verified: false,
+        enabled: false,
+        dependencies_satisfied: false,
+        missing_dependencies: ['torch', 'TTS'],
+        health_message: 'XTTS environment is not configured yet.',
+        enablement_message: 'Resolve XTTS setup before enabling this plugin.',
+      },
+      mockedEngines[1],
+    ] as any);
+
+    render(
+      <MemoryRouter initialEntries={['/settings/engines']}>
+        <SettingsRoute {...defaultProps} />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('XTTS Local')).toBeTruthy();
+    expect(screen.getByText(/XTTS environment is not configured yet\./i)).toBeTruthy();
+    expect(screen.getByText(/Missing dependencies: torch, TTS\./i)).toBeTruthy();
+    expect(screen.getAllByText(/Install Deps installs the Python packages listed for this engine/i)[0]).toBeTruthy();
+    expect(screen.getByText(/XTTS verification uses your Default Voice from General settings/i)).toBeTruthy();
+  });
+
+  it('shows a truthful log summary when engine logs are requested', async () => {
+    vi.mocked(api.fetchEngineLogs).mockResolvedValue({
+      ok: false,
+      message: 'Log streaming is not available yet. Check the logs/ directory in your Studio root.',
+      logs: '',
+    } as any);
+
+    render(
+      <MemoryRouter initialEntries={['/settings/engines']}>
+        <SettingsRoute {...defaultProps} />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('XTTS Local')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /View Diagnostics/i }));
+
+    await waitFor(() => {
+      expect(defaultProps.onShowNotification).toHaveBeenCalledWith(
+        'Log streaming is not available yet. Check the logs/ directory in your Studio root.'
+      );
+    });
   });
 });

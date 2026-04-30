@@ -2,6 +2,7 @@ import React from 'react';
 import { RefreshCw, Zap, CheckCircle, AlertTriangle, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Chapter, Job } from '../../types';
 import { PredictiveProgressBar } from '../PredictiveProgressBar';
+import { VoiceProfileSelect } from './VoiceProfileSelect';
 
 const RECENT_DONE_WINDOW_SECONDS = 60;
 
@@ -16,9 +17,8 @@ interface ChapterHeaderProps {
   onNext?: () => void;
   selectedVoice: string;
   onVoiceChange: (voice: string) => void;
-  availableVoices: { id: string; name: string; value: string; is_speaker: boolean }[];
+  availableVoices: import('../../utils/voiceProfiles').VoiceOption[];
   defaultVoiceLabel?: string;
-  selectedVoiceLabel?: string;
   submitting: boolean;
   queueLocked?: boolean;
   queuePending?: boolean;
@@ -48,7 +48,6 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
   onVoiceChange,
   availableVoices,
   defaultVoiceLabel = 'Use Project Default',
-  selectedVoiceLabel,
   submitting,
   queueLocked = false,
   queuePending = false,
@@ -147,20 +146,20 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
 
   return (
     <header className="chapter-header" style={{
-      display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 0', 
+      display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 0',
       background: 'var(--bg)',
       flexShrink: 0
     }}>
       <div className="chapter-header__nav" style={{ display: 'flex', gap: '0.35rem' }}>
-        <button 
-          onClick={onPrev} 
-          disabled={!onPrev} 
-          className="btn-ghost" 
-          style={{ 
-            padding: '0.4rem', 
-            opacity: !onPrev ? 0.3 : 1, 
-            cursor: !onPrev ? 'not-allowed' : 'pointer', 
-            border: '1px solid var(--border)', 
+        <button
+          onClick={onPrev}
+          disabled={!onPrev}
+          className="btn-ghost"
+          style={{
+            padding: '0.4rem',
+            opacity: !onPrev ? 0.3 : 1,
+            cursor: !onPrev ? 'not-allowed' : 'pointer',
+            border: '1px solid var(--border)',
             borderRadius: '8px',
             display: 'flex',
             alignItems: 'center',
@@ -172,15 +171,15 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
         >
           <ChevronLeft size={18} />
         </button>
-        <button 
-          onClick={onNext} 
-          disabled={!onNext} 
-          className="btn-ghost" 
-          style={{ 
-            padding: '0.4rem', 
-            opacity: !onNext ? 0.3 : 1, 
-            cursor: !onNext ? 'not-allowed' : 'pointer', 
-            border: '1px solid var(--border)', 
+        <button
+          onClick={onNext}
+          disabled={!onNext}
+          className="btn-ghost"
+          style={{
+            padding: '0.4rem',
+            opacity: !onNext ? 0.3 : 1,
+            cursor: !onNext ? 'not-allowed' : 'pointer',
+            border: '1px solid var(--border)',
             borderRadius: '8px',
             display: 'flex',
             alignItems: 'center',
@@ -213,7 +212,7 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
                   }}
               />
           )}
-          
+
           {hasChapterAudio && (
               <div className="chapter-header__audio" style={{ paddingLeft: '1rem', borderLeft: '1px solid var(--border)' }}>
                   {(() => {
@@ -234,10 +233,10 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
                       }
                       const wavPath = audioPath.replace(/\.[^.]+$/, '.wav');
                       const mp3Path = audioPath.replace(/\.[^.]+$/, '.mp3');
-                      
+
                       return (
-                          <audio 
-                              controls 
+                          <audio
+                              controls
                               key={chapter.id}
                               style={{ height: '32px', maxWidth: '300px' }}
                           >
@@ -302,30 +301,14 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
           )}
 
           {availableVoices.length > 0 && (
-              <select
+              <VoiceProfileSelect
                   value={selectedVoice}
-                  onChange={(e) => onVoiceChange(e.target.value)}
-                  style={{
-                      padding: '0.4rem 2rem 0.4rem 0.8rem',
-                      borderRadius: '8px', border: '1px solid var(--border)',
-                      background: 'var(--surface-light)', color: 'var(--text-primary)',
-                      fontSize: '0.85rem', outline: 'none', cursor: 'pointer',
-                      appearance: 'none',
-                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
-                      backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.5rem center'
-                  }}
+                  onChange={onVoiceChange}
+                  options={availableVoices}
+                  defaultLabel={defaultVoiceLabel}
                   title="Select Voice Profile for this chapter"
-              >
-                  {selectedVoice && !availableVoices.some(v => v.value === selectedVoice) && (
-                    <option value={selectedVoice} disabled>
-                      {selectedVoiceLabel || selectedVoice}
-                    </option>
-                  )}
-                  <option value="">{defaultVoiceLabel}</option>
-                  {availableVoices.map(v => (
-                      <option key={v.id} value={v.value}>{v.name}</option>
-                  ))}
-              </select>
+                  disabled={submitting}
+              />
           )}
 
               <button
@@ -405,7 +388,7 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
                   onClick={onStopAll}
                   className="btn-ghost"
                   style={{
-                      padding: '0.4rem 0.8rem', fontSize: '0.85rem', color: 'var(--error)', 
+                      padding: '0.4rem 0.8rem', fontSize: '0.85rem', color: 'var(--error)',
                       border: '1px solid var(--error-muted)', borderRadius: '8px',
                       display: 'flex', alignItems: 'center', gap: '0.4rem'
                   }}
