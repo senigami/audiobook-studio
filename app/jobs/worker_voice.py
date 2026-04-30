@@ -8,8 +8,6 @@ from ..state import update_job
 from ..engines import wav_to_mp3
 from ..engines.bridge import create_voice_bridge
 from ..engines.errors import EngineBridgeError
-from ..engines_voxtral import VoxtralError, voxtral_generate
-from ..core.feature_flags import is_feature_enabled
 from .speaker import get_speaker_wavs, get_speaker_settings, get_voice_profile_dir
 from .worker_helpers import _mark_queue_failed
 
@@ -105,53 +103,24 @@ def handle_voice_job(jid, j, on_output, cancel_check, voice_job_settings=None):
         except ValueError:
             voice_profile_dir = None
         engine = spk.get("engine", "xtts")
-        use_bridge = is_feature_enabled("USE_V2_ENGINE_BRIDGE")
-        if use_bridge:
-            try:
-                rc = _generate_voice_sample_via_bridge(
-                    engine=engine,
-                    profile_name=j.speaker_profile,
-                    test_text=spk["test_text"],
-                    out_wav=sample_path,
-                    on_output=on_output,
-                    cancel_check=cancel_check,
-                    speed=spk.get("speed", 1.0),
-                    speaker_wavs=sw,
-                    voice_profile_dir=voice_profile_dir,
-                    voxtral_voice_id=spk.get("voxtral_voice_id"),
-                    voxtral_model=spk.get("voxtral_model"),
-                    reference_sample=spk.get("reference_sample"),
-                )
-            except EngineBridgeError as exc:
-                _mark_queue_failed(jid, str(exc))
-                return
-        elif engine == "voxtral":
-            try:
-                rc = voxtral_generate(
-                    text=spk["test_text"],
-                    out_wav=sample_path,
-                    on_output=on_output,
-                    cancel_check=cancel_check,
-                    profile_name=j.speaker_profile,
-                    voice_id=spk.get("voxtral_voice_id"),
-                    model=spk.get("voxtral_model"),
-                    reference_sample=spk.get("reference_sample"),
-                )
-            except VoxtralError as exc:
-                _mark_queue_failed(jid, str(exc))
-                return
-        else:
-            from ..engines import xtts_generate
-            rc = xtts_generate(
-                text=spk["test_text"],
+        try:
+            rc = _generate_voice_sample_via_bridge(
+                engine=engine,
+                profile_name=j.speaker_profile,
+                test_text=spk["test_text"],
                 out_wav=sample_path,
-                safe_mode=True,
                 on_output=on_output,
                 cancel_check=cancel_check,
-                speaker_wav=sw,
-                speed=spk["speed"],
-                voice_profile_dir=voice_profile_dir
+                speed=spk.get("speed", 1.0),
+                speaker_wavs=sw,
+                voice_profile_dir=voice_profile_dir,
+                voxtral_voice_id=spk.get("voxtral_voice_id"),
+                voxtral_model=spk.get("voxtral_model"),
+                reference_sample=spk.get("reference_sample"),
             )
+        except EngineBridgeError as exc:
+            _mark_queue_failed(jid, str(exc))
+            return
         if rc != 0:
             _mark_queue_failed(jid, "Voice synthesis failed.")
             return

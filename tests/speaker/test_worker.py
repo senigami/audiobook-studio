@@ -37,60 +37,8 @@ def test_build_clears_sample_wav(clean_db, voices_root, client):
     assert not sample_path.exists(), "sample.wav should have been deleted by the build endpoint"
     assert raw_sample_path.exists(), "raw samples should remain available for the build job"
 
-def test_voice_build_worker_exports_mp3_preview(clean_db, voices_root):
-    """Voice build jobs should leave a reusable sample.mp3 and remove the temp sample.wav."""
-    from app.jobs.worker import worker_loop
-    from app.models import Job
 
-    voices_dir = voices_root
-    profile_dir = voices_dir / "TestBuilt"
-    profile_dir.mkdir(parents=True, exist_ok=True)
-
-    sample_wav = profile_dir / "sample.wav"
-    sample_mp3 = profile_dir / "sample.mp3"
-
-    q = MagicMock()
-    q.get.side_effect = ["test-build", Exception("StopLoop")]
-
-    job = Job(
-        id="test-build",
-        engine="voice_build",
-        speaker_profile="TestBuilt",
-        status="queued",
-        created_at=time.time(),
-        chapter_file="",
-    )
-
-    def fake_xtts_generate(*args, **kwargs):
-        out_wav = kwargs["out_wav"]
-        Path(out_wav).write_text("wav preview")
-        return 0
-
-    def fake_wav_to_mp3(in_wav, out_mp3, on_output=None, cancel_check=None):
-        Path(out_mp3).write_text("mp3 preview")
-        return 0
-
-    with patch("app.config.VOICES_DIR", voices_dir), \
-         patch("app.jobs.worker.get_jobs", return_value={"test-build": job}), \
-         patch("app.jobs.worker.update_job"), \
-         patch("app.jobs.worker.get_performance_metrics", return_value={"xtts_cps": 10.0, "audiobook_speed_multiplier": 1.0}), \
-         patch("app.jobs.worker.get_speaker_settings", return_value={"speed": 1.0, "test_text": "Hello"}), \
-         patch("app.jobs.worker_voice.get_speaker_settings", return_value={"speed": 1.0, "test_text": "Hello"}), \
-         patch("app.jobs.worker_voice.get_speaker_wavs", return_value="ref.wav"), \
-         patch("app.jobs.worker_voice.get_voice_profile_dir", return_value=profile_dir), \
-         patch("app.engines.xtts_generate", side_effect=fake_xtts_generate), \
-         patch("app.jobs.worker_voice.wav_to_mp3", side_effect=fake_wav_to_mp3):
-
-        try:
-            worker_loop(q)
-        except Exception as e:
-            if str(e) != "StopLoop":
-                raise
-
-    assert sample_mp3.exists()
-    assert not sample_wav.exists()
-
-def test_voice_build_worker_uses_bridge_when_flag_enabled_for_xtts_profiles(clean_db, voices_root, monkeypatch):
+def test_voice_build_worker_uses_bridge_for_xtts_profiles(clean_db, voices_root):
     from app.jobs.worker import worker_loop
     from app.models import Job
 
@@ -125,8 +73,6 @@ def test_voice_build_worker_uses_bridge_when_flag_enabled_for_xtts_profiles(clea
         Path(out_mp3).write_text("mp3 preview")
         return 0
 
-    monkeypatch.setenv("USE_V2_ENGINE_BRIDGE", "1")
-
     with patch("app.config.VOICES_DIR", voices_dir), \
          patch("app.jobs.worker.get_jobs", return_value={"test-bridge-xtts": job}), \
          patch("app.jobs.worker.update_job"), \
@@ -151,8 +97,7 @@ def test_voice_build_worker_uses_bridge_when_flag_enabled_for_xtts_profiles(clea
     assert sample_mp3.exists()
     assert not sample_wav.exists()
     mock_bridge.synthesize.assert_called_once()
-
-def test_voice_build_worker_moves_bridge_output_when_path_differs(clean_db, voices_root, monkeypatch):
+def test_voice_build_worker_moves_bridge_output_when_path_differs(clean_db, voices_root):
     from app.jobs.worker import worker_loop
     from app.models import Job
 
@@ -185,8 +130,6 @@ def test_voice_build_worker_moves_bridge_output_when_path_differs(clean_db, voic
         Path(out_mp3).write_text("mp3 preview")
         return 0
 
-    monkeypatch.setenv("USE_V2_ENGINE_BRIDGE", "1")
-
     with patch("app.config.VOICES_DIR", voices_dir), \
          patch("app.jobs.worker.get_jobs", return_value={"test-bridge-move-xtts": job}), \
          patch("app.jobs.worker.update_job"), \
@@ -212,7 +155,7 @@ def test_voice_build_worker_moves_bridge_output_when_path_differs(clean_db, voic
     mock_move.assert_called_once_with(str(bridge_output), str(sample_wav))
     assert sample_mp3.exists()
 
-def test_voice_build_worker_uses_bridge_when_flag_enabled_for_voxtral_profiles(clean_db, voices_root, monkeypatch):
+def test_voice_build_worker_uses_bridge_for_voxtral_profiles(clean_db, voices_root):
     from app.jobs.worker import worker_loop
     from app.models import Job
 
@@ -247,8 +190,6 @@ def test_voice_build_worker_uses_bridge_when_flag_enabled_for_voxtral_profiles(c
     def fake_wav_to_mp3(in_wav, out_mp3, on_output=None, cancel_check=None):
         Path(out_mp3).write_text("mp3 preview")
         return 0
-
-    monkeypatch.setenv("USE_V2_ENGINE_BRIDGE", "1")
 
     with patch("app.config.VOICES_DIR", voices_dir), \
          patch("app.jobs.worker.get_jobs", return_value={"test-bridge-voxtral": job}), \
@@ -294,73 +235,3 @@ def test_voice_build_worker_uses_bridge_when_flag_enabled_for_voxtral_profiles(c
     assert sample_mp3.exists()
     assert not sample_wav.exists()
     mock_bridge.synthesize.assert_called_once()
-
-def test_voice_build_worker_uses_voxtral_for_voxtral_profiles(clean_db, voices_root):
-    from app.jobs.worker import worker_loop
-    from app.models import Job
-
-    voices_dir = voices_root
-    profile_dir = voices_dir / "TestVoxtral"
-    profile_dir.mkdir(parents=True, exist_ok=True)
-
-    sample_wav = profile_dir / "sample.wav"
-    sample_mp3 = profile_dir / "sample.mp3"
-
-    q = MagicMock()
-    q.get.side_effect = ["test-voxtral-build", Exception("StopLoop")]
-
-    job = Job(
-        id="test-voxtral-build",
-        engine="voice_build",
-        speaker_profile="TestVoxtral",
-        status="queued",
-        created_at=time.time(),
-        chapter_file="",
-    )
-
-    def fake_voxtral_generate(*args, **kwargs):
-        out_wav = kwargs["out_wav"]
-        Path(out_wav).write_text("wav preview")
-        return 0
-
-    def fake_wav_to_mp3(in_wav, out_mp3, on_output=None, cancel_check=None):
-        Path(out_mp3).write_text("mp3 preview")
-        return 0
-
-    with patch("app.config.VOICES_DIR", voices_dir), \
-         patch("app.jobs.worker.get_jobs", return_value={"test-voxtral-build": job}), \
-         patch("app.jobs.worker.update_job"), \
-         patch("app.jobs.worker.get_performance_metrics", return_value={"xtts_cps": 10.0, "audiobook_speed_multiplier": 1.0}), \
-         patch(
-             "app.jobs.worker.get_speaker_settings",
-             return_value={
-                 "engine": "voxtral",
-                 "test_text": "Hello",
-                 "voxtral_voice_id": "voice_123",
-                 "voxtral_model": "voxtral-tts",
-                 "reference_sample": None,
-             },
-         ), \
-         patch(
-             "app.jobs.worker_voice.get_speaker_settings",
-             return_value={
-                 "engine": "voxtral",
-                 "test_text": "Hello",
-                 "voxtral_voice_id": "voice_123",
-                 "voxtral_model": "voxtral-tts",
-                 "reference_sample": None,
-             },
-         ), \
-         patch("app.jobs.worker_voice.get_speaker_wavs", return_value=None), \
-         patch("app.jobs.worker_voice.get_voice_profile_dir", return_value=profile_dir), \
-         patch("app.jobs.worker_voice.voxtral_generate", side_effect=fake_voxtral_generate), \
-         patch("app.jobs.worker_voice.wav_to_mp3", side_effect=fake_wav_to_mp3):
-
-        try:
-            worker_loop(q)
-        except Exception as e:
-            if str(e) != "StopLoop":
-                raise
-
-    assert sample_mp3.exists()
-    assert not sample_wav.exists()
