@@ -250,4 +250,78 @@ def clean_storage():
     _cleanup_test_runtime()
 
 
+@pytest.fixture(autouse=True)
+def mock_tts_server_watchdog(monkeypatch):
+    """
+    Ensures that every test sees a healthy TTS Server watchdog by default.
+    This prevents 'EngineUnavailableError' in tests that hit the RemoteBridge.
+    """
+    from unittest.mock import MagicMock
+    import app.engines.watchdog
+    import app.engines.registry
+    import app.engines.bridge_remote
+
+    mock_watchdog = MagicMock()
+    mock_watchdog.is_healthy.return_value = True
+    mock_watchdog.is_circuit_open.return_value = False
+    mock_watchdog.get_url.return_value = "http://127.0.0.1:7862"
+
+    # Mock the client instance
+    mock_client = MagicMock()
+    mock_client.get_engines.return_value = [
+        {"engine_id": "xtts", "display_name": "XTTS (Mocked)", "verified": True},
+        {"engine_id": "voxtral", "display_name": "Voxtral (Mocked)", "verified": True}
+    ]
+    mock_client.health.return_value = {
+        "status": "ok",
+        "engines": [
+            {"engine_id": "xtts", "status": "ready"},
+            {"engine_id": "voxtral", "status": "ready"}
+        ]
+    }
+    mock_client.ping.return_value = True
+    mock_watchdog.get_client.return_value = mock_client
+
+    # Force the global watchdog
+    original_watchdog = app.engines.watchdog._global_watchdog
+    app.engines.watchdog._global_watchdog = mock_watchdog
+
+    # Aggressively patch modules that import these components
+    monkeypatch.setattr("app.engines.watchdog.get_watchdog", lambda: mock_watchdog)
+    monkeypatch.setattr("app.engines.registry.get_watchdog", lambda: mock_watchdog)
+
+    # Patch TtsClient class in registry so constructor returns our mock
+    mock_client_cls = MagicMock(return_value=mock_client)
+    monkeypatch.setattr("app.engines.registry.TtsClient", mock_client_cls)
+    monkeypatch.setattr("app.engines.bridge_remote.RemoteBridgeHandler._get_tts_client", lambda s: mock_client)
+
+    try:
+        yield mock_watchdog
+    finally:
+        app.engines.watchdog._global_watchdog = original_watchdog
+
+
+@pytest.fixture(autouse=True)
+def bridge_test_isolation(request, monkeypatch):
+    """
+    Forces legacy bridge unit tests to use the local in-process path.
+    These tests are tightly coupled to local adapter mocks.
+    """
+    path = str(request.node.fspath)
+    if "tests/bridge/" in path or "tests/test_bridge_tts_server.py" in path:
+        import app.core.feature_flags
+        from app.engines.registry import load_engine_registry
+
+        # Clear any cached registry if the test depends on it
+        if hasattr(load_engine_registry, "cache_clear"):
+            load_engine_registry.cache_clear()
+
+        monkeypatch.setattr("app.core.feature_flags.use_tts_server", lambda: False)
+        monkeypatch.setattr("app.core.feature_flags.use_studio_orchestrator", lambda: False)
+        monkeypatch.setenv("USE_TTS_SERVER", "0")
+        monkeypatch.setenv("USE_STUDIO_ORCHESTRATOR", "0")
+
+    yield
+
+
 atexit.register(_cleanup_test_runtime)

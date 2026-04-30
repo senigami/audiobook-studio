@@ -33,18 +33,9 @@ logger = logging.getLogger(__name__)
 
 
 def load_engine_registry() -> dict[str, EngineRegistrationModel]:
-    """Load the engine registry with fresh health snapshots.
-
-    When ``USE_TTS_SERVER`` is enabled the registry is populated from the
-    running TTS Server's ``/engines`` endpoint instead of the in-process
-    adapter path.  When disabled (default), the in-process registry is used.
-
-    Discovery metadata and adapter instances are cached.  Health is refreshed
-    on each call so readiness checks track live configuration changes.
-    """
     from app.core.feature_flags import use_tts_server  # noqa: PLC0415
-
-    if use_tts_server():
+    use_remote = use_tts_server()
+    if use_remote:
         return _load_tts_server_registry()
 
     return _refresh_registry_health(_load_cached_engine_registry())

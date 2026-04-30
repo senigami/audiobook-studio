@@ -156,7 +156,7 @@ def test_voice_v2_migration(tmp_path):
     (legacy_dir / "sample.wav").write_text("audio")
 
     from app.domain.voices.migration import migrate_voices_to_v2
-    with patch("app.domain.voices.migration.VOICES_DIR", voices_dir):
+    with patch("app.config.VOICES_DIR", voices_dir):
         success = migrate_voices_to_v2()
         assert success is True
 
@@ -197,7 +197,7 @@ def test_voice_v2_migration_root_default_profile(tmp_path):
     (legacy_dir / "1.wav").write_text("sample-a")
 
     from app.domain.voices.migration import migrate_voices_to_v2
-    with patch("app.domain.voices.migration.VOICES_DIR", voices_dir):
+    with patch("app.config.VOICES_DIR", voices_dir):
         success = migrate_voices_to_v2()
         assert success is True
 
@@ -241,7 +241,7 @@ def test_voice_v2_backfill(tmp_path):
     }))
 
     from app.domain.voices.migration import migrate_voices_to_v2
-    with patch("app.domain.voices.migration.VOICES_DIR", voices_dir):
+    with patch("app.config.VOICES_DIR", voices_dir):
         success = migrate_voices_to_v2()
         assert success is True
 

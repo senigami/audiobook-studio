@@ -28,22 +28,27 @@ def _make_ctx(task_id="t1", source="ui", submitted_at=None) -> TaskContext:
 
 class TestGetPriorityMode:
     def test_default_is_studio_first(self, monkeypatch):
+        monkeypatch.setattr("app.state.get_settings", lambda: {})
         monkeypatch.delenv("TTS_API_PRIORITY", raising=False)
         assert get_priority_mode() == STUDIO_FIRST
 
     def test_envvar_studio_first(self, monkeypatch):
+        monkeypatch.setattr("app.state.get_settings", lambda: {})
         monkeypatch.setenv("TTS_API_PRIORITY", "studio_first")
         assert get_priority_mode() == STUDIO_FIRST
 
     def test_envvar_equal(self, monkeypatch):
+        monkeypatch.setattr("app.state.get_settings", lambda: {})
         monkeypatch.setenv("TTS_API_PRIORITY", "equal")
         assert get_priority_mode() == EQUAL
 
     def test_envvar_api_first(self, monkeypatch):
+        monkeypatch.setattr("app.state.get_settings", lambda: {})
         monkeypatch.setenv("TTS_API_PRIORITY", "api_first")
         assert get_priority_mode() == API_FIRST
 
     def test_invalid_envvar_falls_back_to_studio_first(self, monkeypatch):
+        monkeypatch.setattr("app.state.get_settings", lambda: {})
         monkeypatch.setenv("TTS_API_PRIORITY", "invalid_mode")
         assert get_priority_mode() == STUDIO_FIRST
 
@@ -53,12 +58,14 @@ class TestChooseNextTask:
         assert choose_next_task(queued_tasks=[]) is None
 
     def test_single_task_returned(self, monkeypatch):
+        monkeypatch.setattr("app.state.get_settings", lambda: {})
         monkeypatch.setenv("TTS_API_PRIORITY", "studio_first")
         ctx = _make_ctx("t1")
         result = choose_next_task(queued_tasks=[ctx])
         assert result is ctx
 
     def test_studio_first_prefers_studio_task(self, monkeypatch):
+        monkeypatch.setattr("app.state.get_settings", lambda: {})
         monkeypatch.setenv("TTS_API_PRIORITY", "studio_first")
         t = time.monotonic()
         api_task = _make_ctx("api1", source="api", submitted_at=t)
@@ -68,6 +75,7 @@ class TestChooseNextTask:
         assert result is studio_task
 
     def test_api_first_prefers_api_task(self, monkeypatch):
+        monkeypatch.setattr("app.state.get_settings", lambda: {})
         monkeypatch.setenv("TTS_API_PRIORITY", "api_first")
         t = time.monotonic()
         api_task = _make_ctx("api1", source="api", submitted_at=t + 1)
@@ -76,6 +84,7 @@ class TestChooseNextTask:
         assert result is api_task
 
     def test_equal_respects_fifo_order(self, monkeypatch):
+        monkeypatch.setattr("app.state.get_settings", lambda: {})
         monkeypatch.setenv("TTS_API_PRIORITY", "equal")
         t = time.monotonic()
         api_task = _make_ctx("api1", source="api", submitted_at=t)
@@ -85,6 +94,7 @@ class TestChooseNextTask:
         assert result is api_task
 
     def test_studio_first_fifo_within_bucket(self, monkeypatch):
+        monkeypatch.setattr("app.state.get_settings", lambda: {})
         monkeypatch.setenv("TTS_API_PRIORITY", "studio_first")
         t = time.monotonic()
         s1 = _make_ctx("s1", source="ui", submitted_at=t)
