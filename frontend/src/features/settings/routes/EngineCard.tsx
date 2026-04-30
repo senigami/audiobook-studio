@@ -17,9 +17,6 @@ export const EngineCard: React.FC<{
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(engine.last_test);
   const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
-  const [showLogs, setShowLogs] = useState(false);
-  const [logs, setLogs] = useState<string>('');
-  const [fetchingLogs, setFetchingLogs] = useState(false);
 
   React.useEffect(() => {
     setTestResult(engine.last_test);
@@ -237,42 +234,6 @@ export const EngineCard: React.FC<{
           </div>
         )}
 
-        {showLogs && (
-          <div style={{ marginTop: '1.25rem', animation: 'fade-in 0.2s ease-out' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-              <span style={{ fontSize: '0.72rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Engine Diagnostics
-              </span>
-              <button
-                onClick={() => setShowLogs(false)}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '0.7rem', cursor: 'pointer', fontWeight: 700 }}
-              >
-                Close Logs
-              </button>
-            </div>
-            <div
-              style={{
-                background: '#1a1a1a',
-                color: '#d4d4d4',
-                padding: '1rem',
-                borderRadius: '12px',
-                fontSize: '0.75rem',
-                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-                maxHeight: '300px',
-                overflowY: 'auto',
-                whiteSpace: 'pre-wrap',
-                lineHeight: 1.4,
-                border: '1px solid #333'
-              }}
-            >
-              {fetchingLogs ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)' }}>
-                  <Loader2 size={14} className="animate-spin" /> Fetching logs...
-                </div>
-              ) : logs || 'No logs captured yet. Logs are collected while the engine is active.'}
-            </div>
-          </div>
-        )}
 
         <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border)', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
           <button
@@ -324,35 +285,6 @@ export const EngineCard: React.FC<{
             <ShieldCheck size={14} /> {engine.verified ? 'Verified' : 'Verify'}
           </button>
 
-          <button
-            type="button"
-            className="btn-glass"
-            title="View the latest log summary for this engine."
-            disabled={fetchingLogs}
-            onClick={async () => {
-              if (showLogs) {
-                setShowLogs(false);
-                return;
-              }
-              setFetchingLogs(true);
-              setShowLogs(true);
-              try {
-                const res = await api.fetchEngineLogs(engine.engine_id);
-                setLogs(res.logs || '');
-                if (!res.logs && res.message) {
-                  onShowNotification?.(res.message);
-                }
-              } catch (err) {
-                onShowNotification?.('Failed to fetch logs.');
-              } finally {
-                setFetchingLogs(false);
-              }
-            }}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.8rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 800 }}
-          >
-            {fetchingLogs ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
-            Logs
-          </button>
 
           {engine.status === 'needs_setup' && (
             <button

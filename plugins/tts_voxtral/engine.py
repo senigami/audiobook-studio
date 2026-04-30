@@ -24,22 +24,42 @@ class VoxtralPlugin(StudioTTSEngine):
     """Voxtral (Mistral AI) speech synthesis plugin for Audiobook Studio."""
 
     def verify(self, req: TTSRequest) -> VerificationResult:
-        """Perform a fast readiness check without rendering audio."""
+        """Perform a real API connectivity check by listing models."""
         from app.engines.voice.sdk import VerificationResult  # noqa: PLC0415
+        from app.engines_voxtral import list_mistral_models  # noqa: PLC0415
 
-        ok, msg = self.check_env()
+        api_key = self._resolve_api_key()
+        if not api_key:
+            return VerificationResult(
+                ok=False,
+                message="Mistral API key is missing. Set it in settings or environment.",
+            )
+
+        try:
+            models = list_mistral_models(strict=True)
+        except Exception as exc:
+            return VerificationResult(
+                ok=False,
+                message=f"Could not validate API key with Mistral. Please check your key and connectivity. ({exc})",
+            )
+
         return VerificationResult(
-            ok=ok,
-            message="OK" if ok else msg,
+            ok=True,
+            message=f"Successfully connected to Mistral AI. Detected {len(models)} models.",
         )
 
     def info(self) -> dict[str, Any]:
-        """Return runtime metadata including detected model."""
+        """Return runtime metadata including detected model and available models."""
+        from app.engines_voxtral import list_mistral_models  # noqa: PLC0415
         model = self._resolve_model()
         api_key_set = bool(self._resolve_api_key())
+        available_models = list_mistral_models() if api_key_set else []
+
         return {
             "model": model,
             "api_key_configured": api_key_set,
+            "available_models": available_models,
+            "source": "Mistral AI Cloud API",
         }
 
     def check_env(self) -> tuple[bool, str]:
@@ -72,10 +92,20 @@ class VoxtralPlugin(StudioTTSEngine):
         return True, "OK"
 
     def settings_schema(self) -> dict[str, Any]:
-        """Return the Voxtral settings JSON Schema."""
+        """Return the Voxtral settings JSON Schema, injecting discovered models."""
         schema_path = Path(__file__).parent / "settings_schema.json"
         try:
-            return json.loads(schema_path.read_text(encoding="utf-8"))
+            schema = json.loads(schema_path.read_text(encoding="utf-8"))
+
+            # Inject available models into the enum if possible
+            from app.engines_voxtral import list_mistral_models  # noqa: PLC0415
+            models = list_mistral_models()
+            if models and "model" in schema.get("properties", {}):
+                schema["properties"]["model"]["enum"] = models
+                if "mistral-tts-latest" in models:
+                    schema["properties"]["model"]["default"] = "mistral-tts-latest"
+
+            return schema
         except Exception:
             return {"type": "object", "properties": {}}
 

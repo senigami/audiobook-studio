@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 import os
 import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -180,7 +181,14 @@ def update_engine_settings(
         )
 
     current = load_settings(plugin.plugin_dir)
-    merged, errors = merge_settings(current, body.settings, schema)
+
+    # Filter out 'enabled' which is handled at the registry level, not engine settings level
+    settings_to_merge = {k: v for k, v in body.settings.items() if k != "enabled"}
+    merged, errors = merge_settings(current, settings_to_merge, schema)
+
+    # Re-inject 'enabled' so can_enable_engine sees it
+    if "enabled" in body.settings:
+        merged["enabled"] = body.settings["enabled"]
 
     if errors:
         raise HTTPException(
@@ -196,14 +204,39 @@ def update_engine_settings(
             plugin.engine_id,
             current_settings=merged,
             built_in=bool(getattr(plugin.manifest, "built_in", False)),
-            verified=bool(getattr(plugin.manifest, "verified", False)),
+            verified=bool(getattr(plugin, "verified", False)),
             status=engine_status(plugin),
         )
         if not can_enable:
             raise HTTPException(status_code=400, detail=reason or "Engine cannot be enabled yet.")
 
     try:
+        # Check if settings changed (excluding enabled state)
+        sensitive_changed = False
+        for k, v in merged.items():
+            if k == "enabled":
+                continue
+            if current.get(k) != v:
+                sensitive_changed = True
+                break
+
         save_settings(plugin.plugin_dir, merged)
+
+        if sensitive_changed:
+            logger.info("Settings changed for %s, clearing verification state", engine_id)
+            plugin.verified = False
+            plugin.verification_error = "Settings changed. Please re-verify."
+
+            # Update state.json
+            from app.tts_server.settings_store import save_state, calculate_verification_metadata  # noqa: PLC0415
+            state = {
+                "verified": False,
+                "verification_error": plugin.verification_error,
+                "last_verified_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "metadata": calculate_verification_metadata(plugin.plugin_dir, plugin.manifest),
+            }
+            save_state(plugin.plugin_dir, state)
+
     except OSError as exc:
         raise HTTPException(status_code=500, detail=f"Could not save settings: {exc}")
 
@@ -260,6 +293,8 @@ def reverify_engine(engine_id: str) -> dict[str, Any]:
     """Re-run verification synthesis for an engine."""
     plugin = _plugin_by_id(engine_id)
     result = verify_plugin(plugin)
+    plugin.verified = bool(result.ok)
+    plugin.verification_error = None if result.ok else result.error
     return {
         "engine_id": engine_id,
         "ok": result.ok,

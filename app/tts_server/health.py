@@ -114,11 +114,16 @@ def build_engine_detail(
     if not schema and getattr(plugin, "settings_schema", None):
         schema = plugin.settings_schema
 
+    enabled = bool(current_settings.get("enabled"))
+    if not enabled and "voxtral_enabled" in current_settings:
+        enabled = bool(current_settings.get("voxtral_enabled"))
+
     return {
         "engine_id": plugin.engine_id,
         "display_name": plugin.display_name,
         "status": status,
         "verified": plugin.verified,
+        "enabled": enabled,
         "version": manifest.get("version", ""),
         "local": manifest.get("local", True),
         "cloud": manifest.get("cloud", False),

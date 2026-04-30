@@ -10,7 +10,6 @@ import json
 import os
 import shutil
 import tempfile
-from functools import lru_cache
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -64,7 +63,6 @@ def resolve_voxtral_model() -> str:
     return legacy_resolver()
 
 
-@lru_cache(maxsize=1)
 def _load_settings_schema() -> dict[str, object]:
     schema_path = Path(__file__).with_name("settings_schema.json")
     try:

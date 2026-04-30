@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '../../../api';
@@ -202,13 +202,21 @@ describe('SettingsRoute', () => {
 
   it('triggers engine verification via API', async () => {
     const mockVerify = vi.spyOn(api, 'verifyEngine').mockResolvedValue({ ok: true });
+    vi.mocked(api.fetchEngines).mockResolvedValue([
+      {
+        ...mockedEngines[0],
+        verified: false,
+      },
+      mockedEngines[1],
+    ] as any);
     render(
       <MemoryRouter initialEntries={['/settings/engines']}>
         <SettingsRoute {...defaultProps} />
       </MemoryRouter>
     );
     
-    const verifyBtn = (await screen.findAllByText(/Verify/i))[0];
+    const xttsHeading = await screen.findByRole('heading', { name: 'XTTS Local', level: 3 });
+    const verifyBtn = within(xttsHeading.closest('details') as HTMLElement).getByRole('button', { name: /Verify/i });
     fireEvent.click(verifyBtn);
 
     await waitFor(() => expect(mockVerify).toHaveBeenCalledWith('xtts-local'));
@@ -248,7 +256,7 @@ describe('SettingsRoute', () => {
     
     expect(screen.getAllByText(/Run Test/i)[0]).toBeTruthy();
     expect(screen.getAllByText(/Verify/i)[0]).toBeTruthy();
-    expect(screen.getAllByText(/Logs/i)[0]).toBeTruthy();
+    expect(screen.getByRole('button', { name: /View Diagnostics/i })).toBeTruthy();
     expect(screen.getByText(/Temperature/i)).toBeTruthy();
     expect(screen.getByText(/Speaker Name/i)).toBeTruthy();
 
@@ -396,7 +404,7 @@ describe('SettingsRoute', () => {
     vi.mocked(api.fetchEngineLogs).mockResolvedValue({
       ok: false,
       message: 'Log streaming is not available yet. Check the logs/ directory in your Studio root.',
-      logs: 'Log streaming is not available yet. Check the logs/ directory in your Studio root.',
+      logs: '',
     } as any);
 
     render(
@@ -406,7 +414,7 @@ describe('SettingsRoute', () => {
     );
 
     expect(await screen.findByText('XTTS Local')).toBeTruthy();
-    fireEvent.click(screen.getAllByRole('button', { name: /Logs/i })[0]);
+    fireEvent.click(screen.getByRole('button', { name: /View Diagnostics/i }));
 
     await waitFor(() => {
       expect(defaultProps.onShowNotification).toHaveBeenCalledWith(

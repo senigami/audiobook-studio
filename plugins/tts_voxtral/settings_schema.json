@@ -15,8 +15,8 @@
       "type": "string",
       "title": "Model",
       "description": "Mistral TTS model to use for synthesis.",
-      "enum": ["mistral-tts-1", "mistral-tts-1-hd"],
-      "default": "mistral-tts-1"
+      "enum": ["mistral-tts-latest", "mistral-tts-1", "mistral-tts-1-hd", "voxtral-mini-tts-2603"],
+      "default": "mistral-tts-latest"
     },
     "output_format": {
       "type": "string",

@@ -9,6 +9,8 @@ export const EngineMetadataPanel: React.FC<{
   getBadgeStyles: (tone: 'blue' | 'yellow' | 'gray' | 'red') => React.CSSProperties;
 }> = ({ engine, schema, getBadgeStyles }) => {
   const ui = getEngineUi(schema);
+  const helpUrl = ui?.help_url || (engine.engine_id === 'voxtral' ? 'https://help.mistral.ai/en/articles/347464-how-do-i-create-api-keys-within-a-workspace' : null);
+  const helpLabel = ui?.help_label || 'Open instructions';
   const panelTitle = ui?.panel_title || `${engine.display_name} Settings`;
   const summary = ui?.summary || schema?.description || engine.homepage || '';
   const privacyNotice = ui?.privacy_notice;
@@ -42,15 +44,15 @@ export const EngineMetadataPanel: React.FC<{
         )}
       </div>
 
-      {ui?.help_url && (
+      {helpUrl && (
         <a
-          href={ui.help_url}
+          href={helpUrl}
           target="_blank"
           rel="noreferrer"
           style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', color: 'var(--accent)', textDecoration: 'none', fontWeight: 900, fontSize: '0.83rem', marginBottom: '0.9rem', padding: '0.55rem 0.75rem', borderRadius: '999px', border: '1px solid rgba(43, 110, 255, 0.15)', background: 'rgba(255,255,255,0.8)', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)' }}
         >
           <CircleHelp size={14} />
-          {ui.help_label || 'Open instructions'}
+          {helpLabel}
         </a>
       )}
 
