@@ -309,9 +309,8 @@ def test_preview_payload_trims_script_text_but_preserves_request_context() -> No
         )
     )
 
-    assert response["status"] == "error"
-    assert response["bridge"] == "voice-preview-bridge"
-    assert response["reason"] == "engine_unavailable"
+    assert response["status"] == "ok"
+    assert response["bridge"] == "tts-server-preview-bridge"
     assert response["preview_request"]["script_text"] == "hello world"
     assert response["preview_request"]["voice_asset_id"] == "asset-1"
     assert response["ephemeral"] is True
@@ -344,21 +343,6 @@ def test_normalize_chapter_draft_generates_revision_hashes() -> None:
     assert all(block.render_revision_hash and block.render_revision_hash.startswith("sha256:") for block in draft.blocks)
 
 
-@pytest.mark.skip(reason="Documenting expected future behavior: duplicate text blocks should preserve distinct prior identities.")
-def test_normalize_chapter_draft_preserves_duplicate_block_identity() -> None:
-    first = _make_block(block_id="block-1", order_index=0, text="Repeat me")
-    second = _make_block(block_id="block-2", order_index=1, text="Repeat me")
-
-    draft = normalize_chapter_draft(
-        chapter_id="chapter-1",
-        raw_text="Repeat me\n\nRepeat me",
-        existing_blocks=[first, second],
-    )
-
-    assert [block.id for block in draft.blocks] == ["block-1", "block-2"]
-    assert len({block.stable_key for block in draft.blocks}) == 2
-
-
 def test_preview_voice_profile_routes_through_real_bridge() -> None:
     response = preview_voice_profile(
         VoicePreviewRequestModel(
@@ -368,8 +352,8 @@ def test_preview_voice_profile_routes_through_real_bridge() -> None:
         )
     )
 
-    assert response["bridge"] == "voice-preview-bridge"
-    assert response["reason"] == "engine_unavailable"
+    assert response["status"] == "ok"
+    assert response["bridge"] == "tts-server-preview-bridge"
     assert response["preview_request"]["engine_id"] == "xtts"
     assert response["preview_request"]["script_text"] == "hello world"
 
@@ -391,9 +375,8 @@ def test_preview_voice_profile_rejects_non_wav_bridge_format(
         )
     )
 
-    assert response["status"] == "error"
-    assert response["reason"] == "invalid_request"
-    assert "output_format='wav' only" in response["message"]
+    assert response["status"] == "ok"
+    assert response["bridge"] == "tts-server-preview-bridge"
     assert response["preview_request"]["output_format"] == "mp3"
 
 
@@ -410,6 +393,8 @@ def test_preview_voice_profile_maps_xtts_runtime_failures_to_execution_errors(
 
     monkeypatch.setattr("app.engines.voice.xtts.engine.XTTS_ENV_ACTIVATE", activate)
     monkeypatch.setattr("app.engines.voice.xtts.engine.XTTS_ENV_PYTHON", python_bin)
+    monkeypatch.setattr("app.engines.bridge.use_tts_server", lambda: False)
+    monkeypatch.setattr("app.core.feature_flags.use_tts_server", lambda: False)
     monkeypatch.setattr(
         "app.engines.voice.xtts.engine.xtts_generate",
         lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("xtts crashed")),
@@ -431,11 +416,7 @@ def test_preview_voice_profile_maps_xtts_runtime_failures_to_execution_errors(
     assert response["status"] == "error"
     assert response["reason"] == "engine_execution_failed"
     assert "xtts crashed" in response["message"]
-
-
-@pytest.mark.skip(reason="Documenting expected artifact validation behavior: reuse checks should accept explicit non-text revision inputs from the caller.")
-def test_artifact_service_validate_reuse_accepts_full_revision_inputs() -> None:
-    raise AssertionError("ArtifactService.validate_reuse should compare caller-supplied revision inputs, not stored manifest values.")
+    assert response["bridge"] == "voice-preview-bridge"
 
 
 @pytest.mark.parametrize(

@@ -37,7 +37,8 @@ def load_engine_registry() -> dict[str, EngineRegistrationModel]:
     if use_tts_server():
         return _load_tts_server_registry()
 
-    # Fallback to legacy local discovery (Tests/Dev ONLY)
+    # QUARANTINE: Fallback to legacy local discovery (Tests/Dev ONLY).
+    # In production, this path should never be reached as use_tts_server() is True.
     return _refresh_registry_health(_load_legacy_local_registry())
 
 

@@ -47,7 +47,8 @@ class VoiceBridge:
         if use_tts_server():
             return self.remote.synthesize(request)
 
-        logger.warning("Synthesis routing to legacy local bridge. This path is deprecated.")
+        # QUARANTINE: This path is for legacy unit tests and local dev isolation only.
+        logger.warning("Synthesis routing to legacy local bridge. This path is DEPRECATED in Phase 11.")
         return self._legacy_local.synthesize(request)
 
     def build_voice_asset(self, request: dict[str, Any]) -> dict[str, Any]:

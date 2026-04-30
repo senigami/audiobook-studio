@@ -328,34 +328,4 @@ def mock_tts_server_watchdog(monkeypatch):
     finally:
         app.engines.watchdog._global_watchdog = original_watchdog
 
-
-@pytest.fixture(autouse=True)
-def bridge_test_isolation(request, monkeypatch):
-    """
-    Quarantine Seam: Forces legacy bridge unit tests to use the local in-process path.
-    These tests are tightly coupled to local adapter mocks and internal state.
-    """
-    path = str(request.node.fspath)
-    legacy_test_paths = [
-        "tests/bridge/",
-        "tests/test_bridge_tts_server.py",
-        "tests/test_domain_contracts.py"
-    ]
-    if any(p in path for p in legacy_test_paths):
-        import app.core.feature_flags
-        from app.engines.registry import load_engine_registry
-
-        # Clear any cached registry if the test depends on it
-        if hasattr(load_engine_registry, "cache_clear"):
-            load_engine_registry.cache_clear()
-
-        # Force the legacy path for these specific test suites
-        monkeypatch.setattr("app.core.feature_flags.use_tts_server", lambda: False)
-        monkeypatch.setattr("app.core.feature_flags.use_studio_orchestrator", lambda: False)
-        monkeypatch.setenv("USE_TTS_SERVER", "0")
-        monkeypatch.setenv("USE_STUDIO_ORCHESTRATOR", "0")
-
-    yield
-
-
 atexit.register(_cleanup_test_runtime)
