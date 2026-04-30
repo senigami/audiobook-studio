@@ -69,12 +69,14 @@ def _make_plugin_dir(
     return plugin_dir
 
 
-def _minimal_manifest(engine_id="mock", entry_class="engine:MockEngine"):
+def _minimal_manifest(engine_id="mock", entry_class="engine:MockEngine", cloud=False, network=False):
     return {
         "engine_id": engine_id,
         "display_name": "Mock Engine",
         "entry_class": entry_class,
         "capabilities": ["synthesis"],
+        "cloud": cloud,
+        "network": network,
     }
 
 
@@ -184,7 +186,7 @@ class TestDiscoverPlugins:
         _make_plugin_dir(
             tmp_path,
             "tts_voxtral",
-            _minimal_manifest("voxtral"),
+            _minimal_manifest("voxtral", cloud=True),
             _mock_engine_without_schema_src(),
             settings_schema=schema,
         )

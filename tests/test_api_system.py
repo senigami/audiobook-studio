@@ -53,7 +53,7 @@ def test_home_endpoint(clean_db, client, monkeypatch):
 
         # Verify Studio 2.0 system info
         info = data["system_info"]
-        assert "Managed Subprocess (Watchdog @ 7862)" in info["backend_mode"]
+        assert "Managed Subprocess (TTS Server @ 7862)" in info["backend_mode"]
         assert info["orchestrator"] == "Studio 2.0"
         assert info["tts_server_url"] == "http://127.0.0.1:7862"
         assert info["startup_ready"] is True
@@ -97,7 +97,7 @@ def test_home_endpoint_degraded(clean_db, client, monkeypatch):
 
         response = client.get("/api/home")
         data = response.json()
-        assert "Managed Subprocess (Starting/Unhealthy)" in data["system_info"]["backend_mode"]
+        assert "Managed Subprocess (Starting/Initializing)" in data["system_info"]["backend_mode"]
         assert data["system_info"]["startup_ready"] is False
 
 def test_home_endpoint_fallback(clean_db, client, monkeypatch):
@@ -117,7 +117,7 @@ def test_home_endpoint_fallback(clean_db, client, monkeypatch):
 
         response = client.get("/api/home")
         data = response.json()
-        assert "Direct-In-Process (Fallback from Crashed Subprocess)" in data["system_info"]["backend_mode"]
+        assert "Single-Process (Fallback from Crashed Subprocess)" in data["system_info"]["backend_mode"]
         assert data["system_info"]["startup_ready"] is True
 
 def test_settings_get_and_update(clean_db, client):

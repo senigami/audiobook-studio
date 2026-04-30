@@ -1,4 +1,4 @@
-"""In-process (local) voice bridge handler."""
+"""Single-Process (local) voice bridge handler."""
 
 from __future__ import annotations
 import logging
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class LocalBridgeHandler:
-    """Handles voice requests via in-process engine adapters."""
+    """Handles voice requests via Single-Process engine adapters."""
 
     def __init__(self, registry_loader: Callable[[], dict[str, EngineRegistrationModel]]):
         self.registry_loader = registry_loader

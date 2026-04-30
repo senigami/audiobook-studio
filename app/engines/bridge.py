@@ -25,7 +25,7 @@ class VoiceBridge:
     """Routes voice requests to the correct engine adapter or TTS Server.
 
     When ``USE_TTS_SERVER`` is enabled the bridge calls the TTS Server over
-    HTTP. Otherwise it dispatches directly to the in-process engine adapter.
+    HTTP. Otherwise it dispatches directly to the Single-Process engine adapter.
     """
 
     def __init__(self, *, registry_loader, tts_client_factory=None):

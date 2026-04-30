@@ -114,6 +114,17 @@ def build_engine_detail(
     if not schema and getattr(plugin, "settings_schema", None):
         schema = plugin.settings_schema
 
+    if isinstance(schema, dict):
+        # Inject privacy notice for cloud/network engines if missing from x-ui
+        if manifest.get("cloud") or manifest.get("network"):
+            if "x-ui" not in schema:
+                schema["x-ui"] = {}
+            if "privacy_notice" not in schema["x-ui"]:
+                schema["x-ui"]["privacy_notice"] = (
+                    "Privacy note: This engine sends text and optional reference audio to external servers."
+                )
+                schema["x-ui"]["privacy_tone"] = "warning"
+
     enabled = bool(current_settings.get("enabled"))
 
     return {

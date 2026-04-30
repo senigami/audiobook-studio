@@ -84,5 +84,5 @@ def boot_tts_server(
         os.environ["USE_TTS_SERVER"] = "0"
         logger.exception(
             "TTS Server watchdog failed to start during boot. "
-            "Synthesis will fall back to the legacy in-process path."
+            "Synthesis will fall back to the Single-Process path."
         )

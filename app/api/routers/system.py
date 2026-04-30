@@ -113,7 +113,7 @@ def _build_runtime_services(request: Request) -> list[dict[str, Any]]:
             "healthy": True,
             "pingable": False,
             "status": "not launched",
-            "message": "Studio is running in direct in-process mode.",
+            "message": "Running in Single-Process mode (TTS Server disabled).",
             "can_restart": False,
         })
 
@@ -149,14 +149,14 @@ def api_home(
 
     if use_tts_server():
         if watchdog and watchdog.is_healthy():
-            backend_mode = f"Managed Subprocess (Watchdog @ {watchdog.get_port()})"
+            backend_mode = f"Managed Subprocess (TTS Server @ {watchdog.get_port()})"
         else:
-            backend_mode = "Managed Subprocess (Starting/Unhealthy)"
+            backend_mode = "Managed Subprocess (Starting/Initializing)"
     else:
         if watchdog and (watchdog.is_circuit_open() or not getattr(watchdog, "_healthy", True)):
-            backend_mode = "Direct-In-Process (Fallback from Crashed Subprocess)"
+            backend_mode = "Single-Process (Fallback from Crashed Subprocess)"
         else:
-            backend_mode = "Direct-In-Process"
+            backend_mode = "Single-Process (Legacy Mode)"
 
     if use_tts_server():
         startup_ready = bool(watchdog and watchdog.is_healthy())
@@ -175,7 +175,7 @@ def api_home(
     else:
         startup_ready = True
         startup_message = "Audiobook Studio is ready."
-        startup_detail = "Running in direct in-process mode."
+        startup_detail = "Running in Single-Process mode."
 
     return {
         "chapters": [],

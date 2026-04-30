@@ -138,14 +138,14 @@ export const AboutSettingsPanel: React.FC<{ onRefresh?: () => void | Promise<voi
           />
           <DiagnosticRow
             icon={Cpu}
-            label="Backend API"
-            value={data?.system_info?.api_base_url || data?.system_info?.backend_mode || 'Direct-In-Process'}
-            subvalue={data?.system_info?.backend_mode || 'Backend'}
+            label="Backend Runtime"
+            value={data?.system_info?.backend_mode || 'Single-Process (Legacy)'}
+            subvalue="Service Bridge"
           />
           <DiagnosticRow
             icon={Layers}
             label="Orchestrator"
-            value={data?.system_info?.orchestrator || 'Legacy'}
+            value={data?.system_info?.orchestrator || 'Studio 2.0'}
           />
           {runtimeServices.map((service) => (
             <RuntimeServiceRow
@@ -163,9 +163,9 @@ export const AboutSettingsPanel: React.FC<{ onRefresh?: () => void | Promise<voi
 
       <div style={{ padding: '1rem', borderRadius: '14px', border: '1px dashed var(--border)', background: 'var(--background)', color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: 1.6 }}>
         <p style={{ margin: 0 }}>
-          Audiobook Studio 2.0 is a modular synthesis and production platform. 
-          The "About" tab provides real-time readouts of the underlying bridge and engine status.
-          For deeper logs, refer to the <code>logs/</code> directory in your Studio root.
+          Audiobook Studio 2.0 is a modular platform powered by a decoupled TTS Server and plugin architecture. 
+          The "About" tab provides diagnostic visibility into the service bridge, production efficiency, and runtime health.
+          For detailed logs, refer to the global logs at the bottom of the TTS Engines tab or the <code>logs/</code> directory in your Studio root.
         </p>
       </div>
     </div>
