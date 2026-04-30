@@ -67,9 +67,14 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <section>
-        <h3 style={{ fontSize: '0.85rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+        <h3 style={{ fontSize: '0.85rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
           Core Synthesis Defaults
         </h3>
+        <div style={{ color: 'var(--text-muted)', fontSize: '0.82rem', fontWeight: 700 }}>
+          Changes auto-save
+        </div>
+      </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
           <SettingCard
             icon={ShieldCheck}

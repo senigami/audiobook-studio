@@ -79,9 +79,6 @@ export const SettingsRoute: React.FC<SettingsRouteProps> = ({
             </h1>
           </div>
         </div>
-        <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 700 }}>
-          Changes auto-save
-        </div>
       </header>
 
       <div

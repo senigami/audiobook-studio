@@ -19,5 +19,5 @@
   "author": "Coqui AI",
   "homepage": "https://github.com/coqui-ai/TTS",
   "license": "CPML-1.0",
-  "test_text": "Hello, this is a verification test of the XTTS synthesis engine.",
+  "test_text": "Hello, this is a verification test of the XTTS synthesis engine."
 }
