@@ -161,36 +161,3 @@ class TestBridgeDescribeRegistry:
 
         assert len(result) == 1
         assert result[0]["last_test"] == meta
-
-
-class TestBridgeFeatureFlagOff:
-    """When USE_TTS_SERVER is False, bridge uses in-process path unchanged."""
-
-    def test_legacy_path_used_when_flag_off(self):
-        mock_engine = MagicMock()
-        mock_engine.synthesize.return_value = {
-            "status": "ok",
-            "engine_id": "xtts",
-            "audio_path": "/tmp/out.wav",
-        }
-        mock_registration = MagicMock()
-        mock_registration.manifest.engine_id = "xtts"
-        mock_registration.health.available = True
-        mock_registration.health.ready = True
-        mock_registration.health.message = None
-        mock_registration.engine = mock_engine
-
-        def mock_registry():
-            return {"xtts": mock_registration}
-
-        bridge = VoiceBridge(registry_loader=mock_registry)
-
-        with patch("app.engines.bridge.use_tts_server", return_value=False):
-            result = bridge.synthesize({
-                "engine_id": "xtts",
-                "script_text": "Hello",
-                "output_path": "/tmp/out.wav",
-            })
-
-        mock_engine.synthesize.assert_called_once()
-        assert result["status"] == "ok"

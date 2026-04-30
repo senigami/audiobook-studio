@@ -29,35 +29,37 @@ class VoiceBridge:
     """
 
     def __init__(self, *, registry_loader, tts_client_factory=None):
-        self.local = LocalBridgeHandler(registry_loader=registry_loader)
+        self._legacy_local = LocalBridgeHandler(registry_loader=registry_loader)
         self.remote = RemoteBridgeHandler(tts_client_factory=tts_client_factory)
 
     @property
     def registry_loader(self):
         """Getter for legacy test monkeypatching."""
-        return self.local.registry_loader
+        return self._legacy_local.registry_loader
 
     @registry_loader.setter
     def registry_loader(self, value):
         """Setter for legacy test monkeypatching."""
-        self.local.registry_loader = value
+        self._legacy_local.registry_loader = value
 
     def synthesize(self, request: dict[str, Any]) -> dict[str, Any]:
         """Route synthesis request."""
         if use_tts_server():
             return self.remote.synthesize(request)
-        return self.local.synthesize(request)
+
+        logger.warning("Synthesis routing to legacy local bridge. This path is deprecated.")
+        return self._legacy_local.synthesize(request)
 
     def build_voice_asset(self, request: dict[str, Any]) -> dict[str, Any]:
         """Route voice-asset build request."""
         if use_tts_server():
             raise NotImplementedError("build_voice_asset is not yet implemented via TTS Server path.")
-        return self.local.build_voice_asset(request)
+        return self._legacy_local.build_voice_asset(request)
 
     def is_engine_enabled(self, engine_id: str) -> bool:
         """Check whether an engine is enabled in settings."""
         from app.state import get_settings
-        registry = self.local.registry_loader()
+        registry = self._legacy_local.registry_loader()
         registration = registry.get(engine_id)
         if not registration:
             return False
@@ -71,7 +73,7 @@ class VoiceBridge:
         """Query an engine for its preferred synthesis plan."""
         if use_tts_server():
             return self.remote.get_synthesis_plan(request)
-        return self.local.get_synthesis_plan(request)
+        return self._legacy_local.get_synthesis_plan(request)
 
     def check_readiness(
         self, engine_id: str, profile_id: str, settings: dict[str, Any], profile_dir: str | None
@@ -79,14 +81,14 @@ class VoiceBridge:
         """Check if a voice profile is ready."""
         if use_tts_server():
             return True, "Assumed ready (TTS Server)"
-        return self.local.check_readiness(engine_id, profile_id, settings, profile_dir)
+        return self._legacy_local.check_readiness(engine_id, profile_id, settings, profile_dir)
 
     def describe_registry(self) -> list[dict[str, Any]]:
         """Return discovery metadata for all registered engines."""
         if use_tts_server():
             results = self.remote.describe_registry()
         else:
-            results = self.local.describe_registry()
+            results = self._legacy_local.describe_registry()
 
         # Enrich with last test results
         from app.config import ENGINE_TEST_DIR  # noqa: PLC0415
@@ -109,7 +111,7 @@ class VoiceBridge:
         """Update and persist settings for an engine."""
         if use_tts_server():
             return self.remote.update_settings(engine_id, settings)
-        return self.local.update_engine_settings(engine_id, settings)
+        return self._legacy_local.update_engine_settings(engine_id, settings)
 
     def refresh_plugins(self) -> dict[str, Any]:
         """Re-scan for new plugins."""
@@ -117,13 +119,14 @@ class VoiceBridge:
             return self.remote.refresh_plugins()
 
         # For local path, we just clear the registry cache
-        from app.engines.registry import _load_cached_engine_registry # noqa: PLC0415
-        _load_cached_engine_registry.cache_clear()
+        from app.engines.registry import load_engine_registry # noqa: PLC0415
+        if hasattr(load_engine_registry, "cache_clear"):
+            load_engine_registry.cache_clear()
 
         return {
             "ok": True,
-            "message": "Local plugin registry cache cleared.",
-            "loaded_count": len(self.local.registry_loader()),
+            "message": "Local plugin registry cache cleared (Legacy path).",
+            "loaded_count": len(self._legacy_local.registry_loader()),
         }
 
     def verify_engine(self, engine_id: str) -> dict[str, Any]:
@@ -135,7 +138,7 @@ class VoiceBridge:
         from app.tts_server.verification import verify_plugin # noqa: PLC0415
         from app.tts_server.plugin_loader import LoadedPlugin # noqa: PLC0415
 
-        registry = self.local.registry_loader()
+        registry = self._legacy_local.registry_loader()
         reg = registry.get(engine_id)
         if not reg:
             return {"ok": False, "message": f"Engine '{engine_id}' not found in local registry."}
@@ -184,14 +187,14 @@ class VoiceBridge:
 
         if use_tts_server():
             return self.remote.preview(payload)
-        return self.local.preview(payload)
+        return self._legacy_local.preview(payload)
 
     def install_dependencies(self, engine_id: str) -> dict[str, Any]:
         """Trigger dependency installation."""
         if use_tts_server():
             return self.remote.install_dependencies(engine_id)
 
-        registry = self.local.registry_loader()
+        registry = self._legacy_local.registry_loader()
         reg = registry.get(engine_id)
         if not reg:
             return {"ok": False, "message": f"Engine '{engine_id}' not found in local registry."}
@@ -223,7 +226,7 @@ class VoiceBridge:
             )
             if process.returncode == 0:
                 return {
-                    "ok": True, 
+                    "ok": True,
                     "message": f"Dependencies installed successfully for {engine_id}.",
                     "stdout": process.stdout
                 }

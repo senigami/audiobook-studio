@@ -270,11 +270,11 @@ def mock_tts_server_watchdog(monkeypatch):
     mock_client = MagicMock()
     mock_client.get_engines.return_value = [
         {
-            "engine_id": "xtts", 
-            "display_name": "XTTS (Mocked)", 
+            "engine_id": "xtts",
+            "display_name": "XTTS (Mocked)",
             "version": "2.0.0",
             "status": "ready",
-            "verified": True, 
+            "verified": True,
             "enabled": True,
             "local": True,
             "cloud": False,
@@ -282,11 +282,11 @@ def mock_tts_server_watchdog(monkeypatch):
             "capabilities": ["streaming"]
         },
         {
-            "engine_id": "voxtral", 
-            "display_name": "Voxtral (Mocked)", 
+            "engine_id": "voxtral",
+            "display_name": "Voxtral (Mocked)",
             "version": "1.0.0",
             "status": "ready",
-            "verified": True, 
+            "verified": True,
             "enabled": True,
             "local": False,
             "cloud": True,
@@ -332,11 +332,16 @@ def mock_tts_server_watchdog(monkeypatch):
 @pytest.fixture(autouse=True)
 def bridge_test_isolation(request, monkeypatch):
     """
-    Forces legacy bridge unit tests to use the local in-process path.
-    These tests are tightly coupled to local adapter mocks.
+    Quarantine Seam: Forces legacy bridge unit tests to use the local in-process path.
+    These tests are tightly coupled to local adapter mocks and internal state.
     """
     path = str(request.node.fspath)
-    if "tests/bridge/" in path or "tests/test_bridge_tts_server.py" in path or "tests/test_domain_contracts.py" in path:
+    legacy_test_paths = [
+        "tests/bridge/",
+        "tests/test_bridge_tts_server.py",
+        "tests/test_domain_contracts.py"
+    ]
+    if any(p in path for p in legacy_test_paths):
         import app.core.feature_flags
         from app.engines.registry import load_engine_registry
 
@@ -344,6 +349,7 @@ def bridge_test_isolation(request, monkeypatch):
         if hasattr(load_engine_registry, "cache_clear"):
             load_engine_registry.cache_clear()
 
+        # Force the legacy path for these specific test suites
         monkeypatch.setattr("app.core.feature_flags.use_tts_server", lambda: False)
         monkeypatch.setattr("app.core.feature_flags.use_studio_orchestrator", lambda: False)
         monkeypatch.setenv("USE_TTS_SERVER", "0")

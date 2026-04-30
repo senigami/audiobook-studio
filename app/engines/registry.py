@@ -34,17 +34,20 @@ logger = logging.getLogger(__name__)
 
 def load_engine_registry() -> dict[str, EngineRegistrationModel]:
     from app.core.feature_flags import use_tts_server  # noqa: PLC0415
-    use_remote = use_tts_server()
-    if use_remote:
+    if use_tts_server():
         return _load_tts_server_registry()
 
-    return _refresh_registry_health(_load_cached_engine_registry())
+    # Fallback to legacy local discovery (Tests/Dev ONLY)
+    return _refresh_registry_health(_load_legacy_local_registry())
 
 
 @lru_cache(maxsize=1)
-def _load_cached_engine_registry() -> dict[str, EngineRegistrationModel]:
-    """Load and cache discovery metadata plus adapter instances (in-process path)."""
+def _load_legacy_local_registry() -> dict[str, EngineRegistrationModel]:
+    """Load discovery metadata plus adapter instances (Legacy in-process path).
 
+    This path is deprecated in Phase 11 and remains only for test isolation
+    and minimal development environments.
+    """
     registry = _load_builtin_engines()
     registry.update(_load_plugin_engines())
     return registry
@@ -312,4 +315,4 @@ def _manifest_module_path(manifest_path: Path) -> str:
     return f"app.engines.voice.{engine_dir.name}.engine"
 
 
-load_engine_registry.cache_clear = _load_cached_engine_registry.cache_clear
+load_engine_registry.cache_clear = _load_legacy_local_registry.cache_clear
