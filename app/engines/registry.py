@@ -13,8 +13,6 @@ from app.engines.models import (
     EngineRegistrationModel,
 )
 from app.engines.voice.base import BaseVoiceEngine
-from app.engines.voice.voxtral.engine import VoxtralVoiceEngine
-from app.engines.voice.xtts.engine import XttsVoiceEngine
 
 # TTS Server dependencies — imported at module level so they are patchable
 # in tests.  Both modules may be absent in minimal environments; the
@@ -309,6 +307,9 @@ def _load_engine_manifest(*, manifest_path: Path) -> EngineManifestModel:
 
 def _builtin_engine_specs() -> list[tuple[Path, type[BaseVoiceEngine]]]:
     """Return the built-in engine manifests and adapter classes."""
+    from .voice.voxtral.engine import VoxtralVoiceEngine
+    from .voice.xtts.engine import XttsVoiceEngine
+
     base_dir = Path(__file__).resolve().parent / "voice"
     return [
         (base_dir / "xtts" / "manifest.json", XttsVoiceEngine),

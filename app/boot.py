@@ -38,8 +38,8 @@ def boot_studio() -> None:
     Idempotent — safe to call multiple times.  Starts feature-flagged
     subsystems based on environment variables:
 
-    - ``USE_TTS_SERVER=0``: Disables the TTS Server watchdog (emergency fallback)
-    - ``USE_STUDIO_ORCHESTRATOR=0``: Disables the 2.0 orchestrator (emergency fallback)
+    - ``USE_TTS_SERVER=0``: Disables the TTS Server watchdog (development/test override)
+    - ``USE_STUDIO_ORCHESTRATOR=0``: Disables the 2.0 orchestrator (development/test override)
     """
     global _booted  # noqa: PLW0603
 
