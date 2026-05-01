@@ -145,10 +145,10 @@ def test_migration_from_state_json(clean_db, clean_state):
 
     # This should trigger migration
     metrics = get_performance_metrics()
-    assert metrics["xtts_cps"] == 20.0
+    assert metrics["engine_cps"]["xtts"] == 20.0
     assert metrics["audiobook_speed_multiplier"] == 1.1
-    assert len(metrics["xtts_render_history"]) == 1
-    assert metrics["xtts_render_history"][0]["chars"] == 500
+    assert len(metrics["render_history"]) == 1
+    assert metrics["render_history"][0]["chars"] == 500
 
     # Reload and check DB directly
     history_db = get_render_history()
@@ -188,9 +188,9 @@ def test_migration_from_legacy_settings_blob(clean_db, clean_state):
     metrics = get_performance_metrics()
 
     assert metrics["audiobook_speed_multiplier"] == 1.2
-    assert metrics["xtts_cps"] == 19.5
-    assert len(metrics["xtts_render_history"]) == 1
-    assert metrics["xtts_render_history"][0]["chars"] == 750
+    assert metrics["engine_cps"]["xtts"] == 19.5
+    assert len(metrics["render_history"]) == 1
+    assert metrics["render_history"][0]["chars"] == 750
     assert get_render_history()[0]["chars"] == 750
 
     with get_connection() as conn:
@@ -200,7 +200,7 @@ def test_migration_from_legacy_settings_blob(clean_db, clean_state):
 
 
 def test_failed_jobs_do_not_train(clean_db, clean_state):
-    from app.jobs.worker import _record_xtts_sample
+    from app.jobs.worker_metrics import record_engine_sample
     from app.state import put_job
     from app.models import Job
 
@@ -208,13 +208,13 @@ def test_failed_jobs_do_not_train(clean_db, clean_state):
     job = Job(id=jid, engine="xtts", chapter_file="c1", status="failed", created_at=time.time())
     put_job(job)
 
-    _record_xtts_sample(job, time.time() - 60, 1000, {})
+    record_engine_sample(job, time.time() - 60, 1000, {})
 
     history = get_render_history()
     assert len(history) == 0
 
 def test_successful_jobs_train(clean_db, clean_state):
-    from app.jobs.worker import _record_xtts_sample
+    from app.jobs.worker_metrics import record_engine_sample
     from app.state import put_job
     from app.models import Job
 
@@ -224,7 +224,7 @@ def test_successful_jobs_train(clean_db, clean_state):
     job = Job(id=jid, engine="xtts", chapter_file="c1", status="done", created_at=now-30, started_at=now-20, synthesis_started_at=now-10, finished_at=now)
     put_job(job)
 
-    _record_xtts_sample(job, now - 10, 1000, {})
+    record_engine_sample(job, now - 10, 1000, {})
 
     history = get_render_history()
     assert len(history) == 1

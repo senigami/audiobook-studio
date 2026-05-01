@@ -183,7 +183,7 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
         if "status" in changed_fields or "started_at" in changed_fields or force_broadcast:
             try:
                 from .db import update_queue_item
-                from .config import XTTS_OUT_DIR
+                from .config import AUDIO_OUT_DIR
 
                 audio_length = 0.0
                 output_file = None
@@ -201,7 +201,7 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
                             from .config import get_project_audio_dir
                             pdir = get_project_audio_dir(project_id)
                         else:
-                            pdir = XTTS_OUT_DIR
+                            pdir = AUDIO_OUT_DIR
 
                         full_audio_path = None
                         if isinstance(output_file, str) and SAFE_OUTPUT_FILE_RE.fullmatch(output_file):

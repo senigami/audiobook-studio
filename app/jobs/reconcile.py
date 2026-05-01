@@ -1,7 +1,7 @@
 import time
 from .core import job_queue, assembly_queue, cancel_flags
 from ..state import get_jobs, update_job, delete_jobs
-from ..config import CHAPTER_DIR, XTTS_OUT_DIR, AUDIOBOOK_DIR
+from ..config import CHAPTER_DIR, AUDIO_OUT_DIR, AUDIOBOOK_DIR
 from ..pathing import safe_basename, safe_join, safe_stem
 from ..subprocess_utils import probe_audio_duration
 
@@ -34,14 +34,14 @@ def _output_exists(engine: str, chapter_file: str, project_id: str = None, make_
             try:
                 mp3 = safe_join(pdir, f"{chapter_stem}.mp3").exists()
                 if not mp3:
-                    mp3 = safe_join(XTTS_OUT_DIR, f"{chapter_stem}.mp3").exists()
+                    mp3 = safe_join(AUDIO_OUT_DIR, f"{chapter_stem}.mp3").exists()
                 wav = safe_join(pdir, f"{chapter_stem}.wav").exists()
                 if not wav:
-                    wav = safe_join(XTTS_OUT_DIR, f"{chapter_stem}.wav").exists()
+                    wav = safe_join(AUDIO_OUT_DIR, f"{chapter_stem}.wav").exists()
             except ValueError:
                 return False
         else:
-            pdir = XTTS_OUT_DIR
+            pdir = AUDIO_OUT_DIR
             try:
                 mp3 = safe_join(pdir, f"{chapter_stem}.mp3").exists()
                 wav = safe_join(pdir, f"{chapter_stem}.wav").exists()
@@ -134,7 +134,7 @@ def cleanup_and_reconcile():
                     from ..db import update_queue_item
                     audio_length = 0.0
                     from ..config import get_project_audio_dir
-                    pdir = get_project_audio_dir(j.project_id) if j.project_id else XTTS_OUT_DIR
+                    pdir = get_project_audio_dir(j.project_id) if j.project_id else AUDIO_OUT_DIR
                     output_file = j.output_mp3 or j.output_wav
                     if output_file:
                         try:
@@ -143,7 +143,7 @@ def cleanup_and_reconcile():
                             audio_path = None
                         if audio_path is None or not audio_path.exists():
                             try:
-                                audio_path = safe_join(XTTS_OUT_DIR, output_file)
+                                audio_path = safe_join(AUDIO_OUT_DIR, output_file)
                             except ValueError:
                                 audio_path = None
 

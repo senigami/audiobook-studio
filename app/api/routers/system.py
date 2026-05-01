@@ -22,7 +22,7 @@ CHAPTER_DIR = config.CHAPTER_DIR
 COVER_DIR = config.COVER_DIR
 AUDIOBOOK_DIR = config.AUDIOBOOK_DIR
 VOICES_DIR = config.VOICES_DIR
-XTTS_OUT_DIR = config.XTTS_OUT_DIR
+AUDIO_OUT_DIR = config.AUDIO_OUT_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -47,8 +47,8 @@ def get_voices_dir() -> Path:
     return VOICES_DIR
 
 
-def get_xtts_out_dir() -> Path:
-    return XTTS_OUT_DIR
+def get_audio_out_dir() -> Path:
+    return AUDIO_OUT_DIR
 
 router = APIRouter(prefix="/api", tags=["system"])
 

@@ -91,22 +91,22 @@ def output_exists(engine: str, chapter_file: str):
     chapter_name = Path(chapter_file).stem
     from ..voice_engines import is_tts_engine
     if is_tts_engine(engine) or engine == "mixed":
-        return bool(find_secure_file(config.XTTS_OUT_DIR, f"{chapter_name}.wav")) or \
-               bool(find_secure_file(config.XTTS_OUT_DIR, f"{chapter_name}.mp3"))
+        return bool(find_secure_file(config.AUDIO_OUT_DIR, f"{chapter_name}.wav")) or \
+               bool(find_secure_file(config.AUDIO_OUT_DIR, f"{chapter_name}.mp3"))
     elif engine == "audiobook":
         return bool(find_secure_file(config.AUDIOBOOK_DIR, f"{chapter_name}.m4b"))
     return False
 
-def xtts_outputs_for(chapter_file: str, project_id: Optional[str] = None):
+def audio_outputs_for(chapter_file: str, project_id: Optional[str] = None):
     if not SAFE_FILE_RE.fullmatch(chapter_file):
         return []
     outputs = []
     chapter_name = chapter_file
     # Check global
     for ext in [".wav", ".mp3"]:
-        p = find_secure_file(config.XTTS_OUT_DIR, f"{chapter_name}{ext}")
+        p = find_secure_file(config.AUDIO_OUT_DIR, f"{chapter_name}{ext}")
         if p:
-            outputs.append(f"/out/xtts/{chapter_name}{ext}")
+            outputs.append(f"/out/audio/{chapter_name}{ext}")
 
     # Check project
     if project_id:

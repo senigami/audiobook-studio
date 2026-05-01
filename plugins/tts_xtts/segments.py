@@ -2,12 +2,12 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from ...config import SENT_CHAR_LIMIT
-from ...textops import sanitize_for_xtts, safe_split_long_sentences
-from ...engines.errors import EngineBridgeError
-from . import xtts as xtts_facade
-from .bridge_helpers import generate_via_bridge
-from .xtts_helpers import (
+from app.config import SENT_CHAR_LIMIT
+from app.textops import sanitize_for_xtts, safe_split_long_sentences
+from app.engines.errors import EngineBridgeError
+from . import handler as xtts_facade
+from app.jobs.handlers.bridge_helpers import generate_via_bridge
+from .helpers import (
     _profile_inputs_for_segment, 
     _segment_group_weight, 
     _group_display_updates,
@@ -16,7 +16,7 @@ from .xtts_helpers import (
 
 
 def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, speed, pdir):
-    from ...db import get_chapter_segments, update_segment
+    from app.db import get_chapter_segments, update_segment
 
     all_segs = get_chapter_segments(j.chapter_id)
     requested_ids = set(j.segment_ids)
@@ -162,14 +162,14 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
         if scratch.exists(): scratch.unlink()
 
         try:
-            from ...api.ws import broadcast_segments_updated
+            from app.api.ws import broadcast_segments_updated
             broadcast_segments_updated(j.chapter_id)
         except Exception:
             pass
 
     # Accurate Resumption: Update progress based on total segments
     try:
-        from ...db.chapters import get_chapter_segments_counts
+        from app.db.chapters import get_chapter_segments_counts
         done_c, total_c = get_chapter_segments_counts(j.chapter_id)
         final_p = round(done_c / total_c, 2) if total_c > 0 else 1.0
         xtts_facade.update_job(jid, status="done", progress=final_p, finished_at=time.time())

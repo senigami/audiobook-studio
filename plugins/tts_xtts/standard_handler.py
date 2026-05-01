@@ -2,16 +2,16 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from ...config import SENT_CHAR_LIMIT
-from ...chunk_groups import build_chunk_groups
-from ...textops import sanitize_for_xtts, safe_split_long_sentences
-from ...engines.errors import EngineBridgeError
-from . import xtts as xtts_facade
-from .bridge_helpers import generate_via_bridge
+from app.config import SENT_CHAR_LIMIT
+from app.chunk_groups import build_chunk_groups
+from app.textops import sanitize_for_xtts, safe_split_long_sentences
+from app.engines.errors import EngineBridgeError
+from . import handler as xtts_facade
+from app.jobs.handlers.bridge_helpers import generate_via_bridge
 
 
 def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, speed, pdir, out_wav, text=None):
-    from ...db import update_segment
+    from app.db import update_segment
 
     if j.chapter_id:
         groups = build_chunk_groups(xtts_facade.load_chunk_segments(j.chapter_id), j.speaker_profile)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Dict, Any, Optional
 
-from . import xtts as xtts_facade
+from . import handler as xtts_facade
 
 
 def _profile_inputs_for_segment(char_profile, job_default_profile, default_sw):
@@ -22,7 +22,7 @@ def _profile_inputs_for_segment(char_profile, job_default_profile, default_sw):
 
 
 def _generate_direct_xtts(text, j, out_wav, on_output, cancel_check, default_sw, speed):
-    from .bridge_helpers import generate_via_bridge
+    from app.jobs.handlers.bridge_helpers import generate_via_bridge
     return generate_via_bridge(
         engine="xtts",
         text=text,

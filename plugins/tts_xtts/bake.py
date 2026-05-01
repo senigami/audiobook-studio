@@ -2,13 +2,13 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from ...config import SENT_CHAR_LIMIT
-from ...chunk_groups import build_chunk_groups
-from ...textops import sanitize_for_xtts, safe_split_long_sentences
-from ...engines.errors import EngineBridgeError
-from . import xtts as xtts_facade
-from .bridge_helpers import generate_via_bridge
-from .xtts_helpers import (
+from app.config import SENT_CHAR_LIMIT
+from app.chunk_groups import build_chunk_groups
+from app.textops import sanitize_for_xtts, safe_split_long_sentences
+from app.engines.errors import EngineBridgeError
+from . import handler as xtts_facade
+from app.jobs.handlers.bridge_helpers import generate_via_bridge
+from .helpers import (
     _profile_inputs_for_segment, 
     _segment_group_weight, 
     _group_display_updates,
@@ -17,7 +17,7 @@ from .xtts_helpers import (
 
 
 def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, pdir, out_wav):
-    from ...db import get_chapter_segments, update_segment
+    from app.db import get_chapter_segments, update_segment
 
     on_output(f"Baking Chapter {j.chapter_id} starting...\n")
     segs = get_chapter_segments(j.chapter_id)
@@ -179,7 +179,7 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
     rc = xtts_facade.stitch_segments(pdir, segment_paths, out_wav, on_output, cancel_check)
     if rc == 0 and out_wav.exists():
         duration = xtts_facade.get_audio_duration(out_wav)
-        from ...db import update_queue_item
+        from app.db import update_queue_item
         update_queue_item(jid, "done", audio_length_seconds=duration)
         return 0
     else:

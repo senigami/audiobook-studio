@@ -7,7 +7,7 @@ from unittest.mock import patch
 import pytest
 
 from app.models import Job
-from app.jobs.handlers.mixed import handle_mixed_job
+from plugins.synthesis_mixed.handler import handle_mixed_job
 
 
 @pytest.fixture
@@ -63,15 +63,15 @@ def test_handle_mixed_job_renders_and_stitches(clean_db, tmp_path):
         Path(out_wav).write_text("stitched")
         return 0
 
-    with patch("app.jobs.handlers.mixed.get_project_audio_dir", return_value=audio_dir), \
+    with patch("plugins.synthesis_mixed.handler.get_project_audio_dir", return_value=audio_dir), \
          patch("app.config.get_project_audio_dir", return_value=audio_dir), \
          patch("app.chunk_groups.resolve_profile_engine", side_effect=lambda name, _fallback=None: "voxtral" if name == "Voxtral Voice" else "xtts"), \
-         patch("app.jobs.handlers.mixed.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "voice_123"} if name == "Voxtral Voice" else {"speed": 1.0}), \
-         patch("app.jobs.handlers.mixed.get_speaker_wavs", return_value="ref.wav"), \
-         patch("app.jobs.handlers.mixed.get_voice_profile_dir", return_value=tmp_path / "voice"), \
-         patch("app.jobs.handlers.mixed.generate_via_bridge", side_effect=fake_generate_via_bridge), \
-         patch("app.jobs.handlers.mixed.stitch_segments", side_effect=fake_stitch), \
-         patch("app.jobs.handlers.mixed.update_job"):
+         patch("plugins.synthesis_mixed.handler.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "voice_123"} if name == "Voxtral Voice" else {"speed": 1.0}), \
+         patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
+         patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
+         patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
+         patch("plugins.synthesis_mixed.handler.stitch_segments", side_effect=fake_stitch), \
+         patch("plugins.synthesis_mixed.handler.update_job"):
         result = handle_mixed_job("mixed-job", job, time.time(), lambda _line: None, lambda: False)
         refreshed = get_chapter_segments(cid)
         chapter = get_chapter(cid)
@@ -115,14 +115,14 @@ def test_handle_mixed_job_groups_adjacent_segments_into_one_chunk(clean_db, tmp_
         Path(kwargs["out_wav"]).write_text("xtts")
         return 0
 
-    with patch("app.jobs.handlers.mixed.get_project_audio_dir", return_value=audio_dir), \
+    with patch("plugins.synthesis_mixed.handler.get_project_audio_dir", return_value=audio_dir), \
          patch("app.config.get_project_audio_dir", return_value=audio_dir), \
          patch("app.chunk_groups.resolve_profile_engine", return_value="xtts"), \
-         patch("app.jobs.handlers.mixed.get_speaker_settings", return_value={"speed": 1.0}), \
-         patch("app.jobs.handlers.mixed.get_speaker_wavs", return_value="ref.wav"), \
-         patch("app.jobs.handlers.mixed.get_voice_profile_dir", return_value=tmp_path / "voice"), \
-         patch("app.jobs.handlers.mixed.generate_via_bridge", side_effect=fake_generate_via_bridge) as mock_bridge, \
-         patch("app.jobs.handlers.mixed.update_job"):
+         patch("plugins.synthesis_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
+         patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
+         patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
+         patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge) as mock_bridge, \
+         patch("plugins.synthesis_mixed.handler.update_job"):
         result = handle_mixed_job("mixed-job", job, time.time(), lambda _line: None, lambda: False)
         refreshed = get_chapter_segments(cid)
 
@@ -173,15 +173,15 @@ def test_handle_mixed_job_progress_uses_render_group_count(clean_db, tmp_path):
         Path(out_wav).write_text("stitched")
         return 0
 
-    with patch("app.jobs.handlers.mixed.get_project_audio_dir", return_value=audio_dir), \
+    with patch("plugins.synthesis_mixed.handler.get_project_audio_dir", return_value=audio_dir), \
          patch("app.config.get_project_audio_dir", return_value=audio_dir), \
          patch("app.chunk_groups.resolve_profile_engine", side_effect=lambda name, _fallback=None: "voxtral" if name == "Voxtral Voice" else "xtts"), \
-         patch("app.jobs.handlers.mixed.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "voice_123"} if name == "Voxtral Voice" else {"speed": 1.0}), \
-         patch("app.jobs.handlers.mixed.get_speaker_wavs", return_value="ref.wav"), \
-         patch("app.jobs.handlers.mixed.get_voice_profile_dir", return_value=tmp_path / "voice"), \
-         patch("app.jobs.handlers.mixed.generate_via_bridge", side_effect=fake_generate_via_bridge), \
-         patch("app.jobs.handlers.mixed.stitch_segments", side_effect=fake_stitch), \
-         patch("app.jobs.handlers.mixed.update_job") as mock_update:
+         patch("plugins.synthesis_mixed.handler.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "voice_123"} if name == "Voxtral Voice" else {"speed": 1.0}), \
+         patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
+         patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
+         patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
+         patch("plugins.synthesis_mixed.handler.stitch_segments", side_effect=fake_stitch), \
+         patch("plugins.synthesis_mixed.handler.update_job") as mock_update:
         result = handle_mixed_job("mixed-job", job, time.time(), lambda _line: None, lambda: False)
 
     assert result == "done"
@@ -227,14 +227,14 @@ def test_handle_mixed_job_progress_weights_short_final_group(clean_db, tmp_path)
         Path(out_wav).write_text("stitched")
         return 0
 
-    with patch("app.jobs.handlers.mixed.get_project_audio_dir", return_value=audio_dir), \
+    with patch("plugins.synthesis_mixed.handler.get_project_audio_dir", return_value=audio_dir), \
          patch("app.config.get_project_audio_dir", return_value=audio_dir), \
-         patch("app.jobs.handlers.mixed.get_speaker_settings", return_value={"speed": 1.0}), \
-         patch("app.jobs.handlers.mixed.get_speaker_wavs", return_value="ref.wav"), \
-         patch("app.jobs.handlers.mixed.get_voice_profile_dir", return_value=tmp_path / "voice"), \
-         patch("app.jobs.handlers.mixed.generate_via_bridge", side_effect=fake_generate_via_bridge), \
-         patch("app.jobs.handlers.mixed.stitch_segments", side_effect=fake_stitch), \
-         patch("app.jobs.handlers.mixed.update_job") as mock_update:
+         patch("plugins.synthesis_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
+         patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
+         patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
+         patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
+         patch("plugins.synthesis_mixed.handler.stitch_segments", side_effect=fake_stitch), \
+         patch("plugins.synthesis_mixed.handler.update_job") as mock_update:
         result = handle_mixed_job("mixed-job", job, time.time(), lambda _line: None, lambda: False)
 
     assert result == "done"
@@ -282,14 +282,14 @@ def test_handle_mixed_segment_job_persists_intermediate_progress(clean_db, tmp_p
         Path(kwargs["out_wav"]).write_text("xtts")
         return 0
 
-    with patch("app.jobs.handlers.mixed.get_project_audio_dir", return_value=audio_dir), \
+    with patch("plugins.synthesis_mixed.handler.get_project_audio_dir", return_value=audio_dir), \
          patch("app.config.get_project_audio_dir", return_value=audio_dir), \
          patch("app.chunk_groups.resolve_profile_engine", return_value="xtts"), \
-         patch("app.jobs.handlers.mixed.get_speaker_settings", return_value={"speed": 1.0}), \
-         patch("app.jobs.handlers.mixed.get_speaker_wavs", return_value="ref.wav"), \
-         patch("app.jobs.handlers.mixed.get_voice_profile_dir", return_value=tmp_path / "voice"), \
-         patch("app.jobs.handlers.mixed.generate_via_bridge", side_effect=fake_generate_via_bridge), \
-         patch("app.jobs.handlers.mixed.update_job") as mock_update:
+         patch("plugins.synthesis_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
+         patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
+         patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
+         patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
+         patch("plugins.synthesis_mixed.handler.update_job") as mock_update:
         result = handle_mixed_job("mixed-segment-job", job, time.time(), lambda _line: None, lambda: False)
 
     assert result == "done"

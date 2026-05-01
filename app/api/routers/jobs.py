@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 from dataclasses import asdict
 from ...state import get_jobs, update_job as state_update_job
 from ...jobs import cancel as cancel_job_worker
-from ...config import XTTS_OUT_DIR
+from ...config import AUDIO_OUT_DIR
 from ..utils import legacy_list_chapters
 
 router = APIRouter(prefix="/api", tags=["jobs"])
@@ -36,14 +36,14 @@ def api_jobs():
             continue
 
         stem = Path(c).stem
-        x_mp3 = (XTTS_OUT_DIR / f"{stem}.mp3")
-        x_wav = (XTTS_OUT_DIR / f"{stem}.wav")
+        x_mp3 = (AUDIO_OUT_DIR / f"{stem}.mp3")
+        x_wav = (AUDIO_OUT_DIR / f"{stem}.wav")
 
         found_job = {}
         if x_mp3.exists():
-            found_job.update({"status": "done", "engine": "xtts", "output_mp3": x_mp3.name})
+            found_job.update({"status": "done", "engine": "legacy", "output_mp3": x_mp3.name})
         if x_wav.exists():
-            found_job.update({"engine": "xtts", "output_wav": x_wav.name})
+            found_job.update({"engine": "legacy", "output_wav": x_wav.name})
             if not found_job.get("status"):
                 found_job["status"] = "done"
 

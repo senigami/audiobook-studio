@@ -9,20 +9,19 @@ from pathlib import Path
 
 from .core import (
     job_queue, assembly_queue, cancel_flags, pause_flag,
-    BASELINE_XTTS_CPS, _estimate_seconds, calculate_predicted_progress,
+    BASELINE_ENGINE_CPS, _estimate_seconds, calculate_predicted_progress,
     get_robust_eta_params,
     PROGRESS_PREPARE_LIMIT, PROGRESS_PREPARE_STEP, PROGRESS_STITCH_LIMIT
 )
-from .handlers.xtts import handle_xtts_job
-from .handlers.voxtral import handle_voxtral_job
-from .handlers.mixed import handle_mixed_job
-from .handlers.audiobook import handle_audiobook_job
+# Handler Registry
+from .registry import get_handler_registry, initialize_default_handlers
+initialize_default_handlers()
+
 from ..state import get_jobs, update_job, get_performance_metrics, update_performance_metrics as _update_performance_metrics
-from ..config import CHAPTER_DIR, XTTS_OUT_DIR
+from ..config import CHAPTER_DIR, AUDIO_OUT_DIR
 from ..pathing import safe_join
 from .reconcile import _output_exists
-from .speaker import get_speaker_wavs, get_speaker_settings
-from ..engines.behavior import uses_segment_orchestration, supports_standard_rendering
+from ..engines.behavior import uses_segment_orchestration
 
 # New sub-modules
 from .worker_helpers import (
@@ -32,8 +31,6 @@ from .worker_helpers import (
     _looks_like_external_download_progress,
     _mark_queue_failed
 )
-from .worker_metrics import _record_xtts_sample
-from .worker_voice import handle_voice_job
 
 logger = logging.getLogger(__name__)
 
@@ -59,8 +56,12 @@ def worker_loop(q):
             eta_unit_count = 1
             text = None
             perf = get_performance_metrics()
-            cps = perf.get("xtts_cps", BASELINE_XTTS_CPS)
-            history = perf.get("xtts_render_history", [])
+            engine_id = getattr(j, "engine", "xtts")
+            engine_cps_map = perf.get("engine_cps", {})
+            cps = engine_cps_map.get(engine_id, BASELINE_ENGINE_CPS)
+
+            # Filter history for this specific engine to derive robust ETA params
+            history = [s for s in perf.get("render_history", []) if s.get("engine") == engine_id]
             robust_params = get_robust_eta_params(history, cps)
             voice_job_settings = None
 
@@ -68,10 +69,8 @@ def worker_loop(q):
                 voice_job_settings = get_speaker_settings(j.speaker_profile)
                 chars = len((voice_job_settings.get("test_text") or "").strip())
                 from ..engines.behavior import has_behavior
-                engine_id = voice_job_settings.get("engine", "xtts")
-                if chars > 0 and has_behavior(engine_id, "cps_eta"):
-                    perf = get_performance_metrics()
-                    cps = perf.get("xtts_cps", BASELINE_XTTS_CPS)
+                target_engine = voice_job_settings.get("engine", "xtts")
+                if chars > 0 and has_behavior(target_engine, "cps_eta"):
                     eta = _estimate_seconds(chars, cps, group_count=eta_unit_count)
                 else:
                     eta = 0
@@ -120,7 +119,8 @@ def worker_loop(q):
                     except (FileNotFoundError, ValueError) as e:
                         logger.debug("Failed to read chapter text for ETA calculation from %s: %s", text_path, e)
 
-                    robust_params = get_robust_eta_params(perf.get("xtts_render_history", []), cps)
+                    history = [s for s in perf.get("render_history", []) if s.get("engine") == engine_id]
+                    robust_params = get_robust_eta_params(history, cps)
                     if j.chapter_id and (j.engine == "mixed" or uses_segment_orchestration(j.engine)):
                         try:
                             from ..db.chapters import get_chapter_segments_counts
@@ -139,7 +139,7 @@ def worker_loop(q):
                     from ..config import get_project_audio_dir
                     src_dir = get_project_audio_dir(j.project_id)
                 else:
-                    src_dir = XTTS_OUT_DIR
+                    src_dir = AUDIO_OUT_DIR
 
                 if j.chapter_list:
                     audio_files = [c['filename'] for c in j.chapter_list]
@@ -322,37 +322,22 @@ def worker_loop(q):
 
             def cancel_check(): return cancel_ev.is_set()
 
-            if j.engine == "audiobook":
-                handle_audiobook_job(jid, j, start, on_output, cancel_check)
-            elif j.engine == "xtts":
-                from ..config import get_project_audio_dir, get_chapter_dir, get_project_storage_version
+            # Dispatch via Registry
+            handler = get_handler_registry().get_handler(j)
+            if not handler:
+                update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error=f"No handler registered for engine: {j.engine}")
+                continue
 
-                if j.project_id and j.chapter_id and get_project_storage_version(j.project_id) >= 2:
-                    pdir = get_chapter_dir(j.project_id, j.chapter_id)
-                    out_wav = pdir / "chapter.wav"
-                    out_mp3 = pdir / "chapter.mp3"
-                else:
-                    pdir = get_project_audio_dir(j.project_id) if j.project_id else XTTS_OUT_DIR
-                    out_wav = pdir / f"{Path(j.chapter_file).stem}.wav"
-                    out_mp3 = pdir / f"{Path(j.chapter_file).stem}.mp3"
+            # Attach ephemeral context for specialized handlers (e.g. XTTS metrics)
+            j._chars_count = chars
+            j._eta_unit_count = eta_unit_count
 
-                pdir.mkdir(parents=True, exist_ok=True)
-                sw = get_speaker_wavs(j.speaker_profile)
-                spk = get_speaker_settings(j.speaker_profile)
-                version = get_project_storage_version(j.project_id) if j.project_id else 1
-                handle_xtts_job(jid, j, start, on_output, cancel_check, sw, spk["speed"], pdir, out_wav, out_mp3, text=text, storage_version=version)
-                _record_xtts_sample(j, start, chars, perf, eta_unit_count)
-            elif j.engine == "mixed":
-                result = handle_mixed_job(jid, j, start, on_output, cancel_check, text=text)
-                if result == "cancelled":
-                    update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
-            elif supports_standard_rendering(j.engine):
-                # Generic plugin synthesis routing
-                result = handle_voxtral_job(jid, j, start, on_output, cancel_check, text=text)
-                if result == "cancelled":
-                    update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
-            elif j.engine in ("voice_build", "voice_test"):
-                handle_voice_job(jid, j, on_output, cancel_check, voice_job_settings=voice_job_settings)
+            # Execute the handler with a unified signature.
+            # Shims/Adapters registered in the registry handle mapping this to legacy signatures.
+            result = handler(jid, j, start, on_output, cancel_check, text=text, voice_job_settings=voice_job_settings)
+
+            if result == "cancelled":
+                update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
 
         except Exception:
             tb = traceback.format_exc()

@@ -3,7 +3,7 @@ import time
 import logging
 
 from ..state import update_performance_metrics as _update_performance_metrics
-from .core import BASELINE_XTTS_CPS, get_robust_eta_params
+from .core import BASELINE_ENGINE_CPS, get_robust_eta_params
 from .worker_helpers import _job_field
 
 logger = logging.getLogger(__name__)
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 update_performance_metrics = _update_performance_metrics
 
 
-def _record_xtts_sample(job, start: float, chars: int, perf: dict, source_segment_count: int | None = None):
+def record_engine_sample(job, start: float, chars: int, perf: dict, source_segment_count: int | None = None):
     from . import worker as worker_facade
 
     # Only train on the persisted terminal job, not the stale in-memory object.
@@ -29,8 +29,8 @@ def _record_xtts_sample(job, start: float, chars: int, perf: dict, source_segmen
         return
 
     engine = _job_field(persisted, "engine", _job_field(job, "engine"))
-    if engine not in ("xtts", "mixed"):
-        return
+    # We now allow all engines to record samples if they have a non-zero character count.
+    # Mixed chapters are also recorded under the 'mixed' engine ID.
 
     eff_start = _job_field(persisted, "synthesis_started_at", _job_field(job, "synthesis_started_at"))
     eff_start = eff_start or start
@@ -87,13 +87,18 @@ def _record_xtts_sample(job, start: float, chars: int, perf: dict, source_segmen
         make_mp3=_job_field(persisted, "make_mp3", _job_field(job, "make_mp3", False)),
     )
 
-    # Re-derive robust CPS for legacy field compatibility
-    # We still keep xtts_cps in settings because workers use it for quick lookups
+    # Re-derive robust CPS for engine-specific ETA logic
     current_perf = worker_facade.get_performance_metrics()
-    history = current_perf.get("xtts_render_history") or []
-    robust_params = get_robust_eta_params(history, current_perf.get("xtts_cps", BASELINE_XTTS_CPS))
-    robust_cps = robust_params[0] if robust_params else current_perf.get("xtts_cps", BASELINE_XTTS_CPS)
+    all_history = current_perf.get("render_history") or []
+    history = [s for s in all_history if s.get("engine") == engine]
 
+    engine_cps_map = current_perf.get("engine_cps") or {}
+    fallback_cps = engine_cps_map.get(engine, BASELINE_ENGINE_CPS)
+
+    robust_params = get_robust_eta_params(history, fallback_cps)
+    robust_cps = robust_params[0] if robust_params else fallback_cps
+
+    engine_cps_map[engine] = round(robust_cps, 2)
     update_performance_metrics(
-        xtts_cps=round(robust_cps, 2)
+        engine_cps=engine_cps_map
     )

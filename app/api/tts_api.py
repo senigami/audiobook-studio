@@ -14,7 +14,7 @@ from app.core.security import verify_api_key, rate_limit
 from app.orchestration.tasks.api_synthesis import ApiSynthesisTask
 from app.orchestration.scheduler.orchestrator import create_orchestrator
 from app.state import get_settings, get_jobs
-from app.config import XTTS_OUT_DIR
+from app.config import AUDIO_OUT_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +104,7 @@ async def synthesize(request: SynthesisRequest, req_context: Request, background
     task_id = f"api_{uuid.uuid4().hex[:8]}"
 
     # Ensure output directory exists
-    output_dir = XTTS_OUT_DIR / "api"
+    output_dir = AUDIO_OUT_DIR / "api"
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / f"{task_id}.{request.output_format}"
 

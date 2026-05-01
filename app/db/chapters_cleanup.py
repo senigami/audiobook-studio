@@ -32,14 +32,14 @@ def cleanup_chapter_audio_files(
         return False
 
     # 1. Identify all candidate directories
-    legacy_pdir = config.find_existing_project_subdir(project_id, "audio") if project_id else config.XTTS_OUT_DIR
+    legacy_pdir = config.find_existing_project_subdir(project_id, "audio") if project_id else config.AUDIO_OUT_DIR
     nested_pdir = config.get_chapter_dir(project_id, chapter_id) if project_id else None
 
     target_dirs: List[str] = []
     # Rule 9: Explicit containment check for scanner locality
     try:
         p_root = os.path.abspath(os.path.realpath(os.fspath(config.PROJECTS_DIR)))
-        x_root = os.path.abspath(os.path.realpath(os.fspath(config.XTTS_OUT_DIR)))
+        x_root = os.path.abspath(os.path.realpath(os.fspath(config.AUDIO_OUT_DIR)))
 
         def is_safe(path_str: str) -> bool:
             if path_str == p_root or path_str.startswith(p_root + os.sep):

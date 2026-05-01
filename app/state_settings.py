@@ -40,26 +40,19 @@ def _normalize_settings(
     # (Removed hardcoded mistral_api_key cleanup, handled by generic logic below)
 
     # Enforce enabled_plugins as the source of truth for plugin enablement.
-    # Legacy voxtral_enabled is used only for migration.
+    # 1. Migrate legacy settings (one-time migration logic)
+    normalized = _migrate_legacy_settings(normalized)
+
+    # 2. Enforce enabled_plugins as the source of truth for plugin enablement.
     enabled_plugins = normalized.get("enabled_plugins")
     if not isinstance(enabled_plugins, dict):
         enabled_plugins = {}
 
-    # 1. Check for legacy flags and migrate them if not already in enabled_plugins
-    legacy_map = {
-        "voxtral_enabled": "voxtral",
-    }
-    if "xtts_speed" in normalized and "speed" not in normalized:
-        normalized["speed"] = normalized.pop("xtts_speed")
-    for legacy_flag, target_id in legacy_map.items():
-        if legacy_flag in normalized and target_id not in enabled_plugins:
-            enabled_plugins[target_id] = bool(normalized[legacy_flag])
-
-    # 2. Check for explicit incoming updates to the plugin map
+    # 3. Check for explicit incoming updates to the plugin map
     if incoming_updates and isinstance(incoming_updates.get("enabled_plugins"), dict):
         enabled_plugins.update(incoming_updates["enabled_plugins"])
 
-    # 3. Ensure required settings are respected for each enabled plugin
+    # 4. Ensure required settings are respected for each enabled plugin
     from .engines.behavior import required_settings_for
     for engine_id, is_enabled in list(enabled_plugins.items()):
         if not is_enabled:
@@ -78,7 +71,6 @@ def _normalize_settings(
                 normalized[setting_name] = val
 
     normalized["enabled_plugins"] = enabled_plugins
-    normalized.pop("voxtral_enabled", None)
 
     verified_plugins = normalized.get("verified_plugins")
     if not isinstance(verified_plugins, dict):
@@ -105,6 +97,27 @@ def _normalize_settings(
     if priority_mode not in ("studio_first", "equal", "api_first"):
         priority_mode = defaults["api_priority_mode"]
     normalized["api_priority_mode"] = priority_mode
+
+    return normalized
+
+
+def _migrate_legacy_settings(normalized: Dict[str, Any]) -> Dict[str, Any]:
+    """Isolated one-time migration for legacy v1 engine-named settings."""
+    # 1. Migrate xtts_speed -> speed
+    if "xtts_speed" in normalized:
+        if "speed" not in normalized:
+            normalized["speed"] = normalized["xtts_speed"]
+        normalized.pop("xtts_speed", None)
+
+    # 2. Migrate voxtral_enabled -> enabled_plugins['voxtral']
+    if "voxtral_enabled" in normalized:
+        enabled_plugins = normalized.get("enabled_plugins", {})
+        if not isinstance(enabled_plugins, dict):
+            enabled_plugins = {}
+        if "voxtral" not in enabled_plugins:
+            enabled_plugins["voxtral"] = bool(normalized["voxtral_enabled"])
+        normalized["enabled_plugins"] = enabled_plugins
+        normalized.pop("voxtral_enabled", None)
 
     return normalized
 

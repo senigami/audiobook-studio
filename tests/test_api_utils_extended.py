@@ -2,7 +2,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 from app.api.utils import (
-    read_preview, output_exists, xtts_outputs_for, 
+    read_preview, output_exists, audio_outputs_for,
     legacy_list_chapters, is_react_dev_active,
     process_and_split_file, list_audiobooks
 )
@@ -19,12 +19,12 @@ def test_read_preview(tmp_path):
     assert read_preview(non_existent) == ""
 
 def test_output_exists(tmp_path, monkeypatch):
-    monkeypatch.setattr(config, "XTTS_OUT_DIR", tmp_path / "xtts")
+    monkeypatch.setattr(config, "AUDIO_OUT_DIR", tmp_path / "xtts")
     monkeypatch.setattr(config, "AUDIOBOOK_DIR", tmp_path / "audio")
-    config.XTTS_OUT_DIR.mkdir()
+    config.AUDIO_OUT_DIR.mkdir()
     config.AUDIOBOOK_DIR.mkdir()
 
-    (config.XTTS_OUT_DIR / "test.wav").write_text("wav")
+    (config.AUDIO_OUT_DIR / "test.wav").write_text("wav")
     assert output_exists("xtts", "test") is True
     assert output_exists("xtts", "missing") is False
 
@@ -36,15 +36,15 @@ def test_output_exists(tmp_path, monkeypatch):
 
     assert output_exists("invalid", "test") is False
 
-def test_xtts_outputs_for(tmp_path, monkeypatch):
-    monkeypatch.setattr(config, "XTTS_OUT_DIR", tmp_path / "xtts")
-    config.XTTS_OUT_DIR.mkdir()
-    (config.XTTS_OUT_DIR / "c1.mp3").write_text("mp3")
+def test_audio_outputs_for(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "AUDIO_OUT_DIR", tmp_path / "audio_out")
+    config.AUDIO_OUT_DIR.mkdir()
+    (config.AUDIO_OUT_DIR / "c1.mp3").write_text("mp3")
 
     # Global only
-    outputs = xtts_outputs_for("c1")
-    assert "/out/xtts/c1.mp3" in outputs
-    assert xtts_outputs_for("../../c1") == []
+    outputs = audio_outputs_for("c1")
+    assert "/out/audio/c1.mp3" in outputs
+    assert audio_outputs_for("../../c1") == []
 
     # Project specific
     proj_audio = tmp_path / "proj/audio"
@@ -52,8 +52,8 @@ def test_xtts_outputs_for(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "get_project_audio_dir", lambda pid: proj_audio)
     (proj_audio / "c1.wav").write_text("wav")
 
-    outputs = xtts_outputs_for("c1", project_id="p1")
-    assert "/out/xtts/c1.mp3" in outputs
+    outputs = audio_outputs_for("c1", project_id="p1")
+    assert "/out/audio/c1.mp3" in outputs
     assert "/out/projects/p1/audio/c1.wav" in outputs
 
 

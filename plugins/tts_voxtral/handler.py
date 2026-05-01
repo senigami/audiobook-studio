@@ -2,18 +2,18 @@ import time
 import logging
 from pathlib import Path
 
-from ...config import XTTS_OUT_DIR, get_project_audio_dir
-from ...engines import wav_to_mp3
-from ...engines.errors import EngineBridgeError
-from ...state import update_job
-from ..speaker import get_speaker_settings
-from .bridge_helpers import generate_via_bridge
+from app.config import XTTS_OUT_DIR, get_project_audio_dir
+from app.engines import wav_to_mp3
+from app.engines.errors import EngineBridgeError
+from app.state import update_job
+from app.jobs.speaker import get_speaker_settings
+from app.jobs.handlers.bridge_helpers import generate_via_bridge
 
 logger = logging.getLogger(__name__)
 
 
 def _chapter_text_from_segments(chapter_id: str) -> str:
-    from ...db import get_connection
+    from app.db import get_connection
 
     with get_connection() as conn:
         cursor = conn.cursor()
@@ -33,7 +33,7 @@ def _chapter_uses_multiple_profiles(job) -> bool:
     if not job.chapter_id:
         return False
 
-    from ...db import get_connection
+    from app.db import get_connection
 
     with get_connection() as conn:
         cursor = conn.cursor()
@@ -56,7 +56,7 @@ def _chapter_uses_multiple_profiles(job) -> bool:
 
 
 def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
-    from ...db import get_connection, update_segments_status_bulk
+    from app.db import get_connection, update_segments_status_bulk
 
     if cancel_check():
         update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")

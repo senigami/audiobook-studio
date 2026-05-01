@@ -3,7 +3,7 @@ import queue
 import threading
 from typing import Dict
 from ..state import get_settings
-from ..config import BASELINE_XTTS_CPS
+from ..config import BASELINE_ENGINE_CPS
 
 # Queues and Flags
 job_queue: "queue.Queue[str]" = queue.Queue()
@@ -19,7 +19,7 @@ PROGRESS_MAX_PREDICTED = 0.85
 PROGRESS_STITCH_LIMIT = 0.98
 
 # Default fallbacks
-# BASELINE_XTTS_CPS moved to config.py
+# BASELINE_ENGINE_CPS moved to config.py
 
 def paused() -> bool:
     return pause_flag.is_set()

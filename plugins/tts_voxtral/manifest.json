@@ -7,6 +7,14 @@
   "min_studio": "2.0.0",
   "entry_class": "engine:VoxtralPlugin",
   "capabilities": ["synthesis", "preview"],
+  "worker_logic": {
+    "engine_handlers": {
+      "voxtral": "handler:handle_voxtral_job"
+    },
+    "kind_handlers": {
+      "standard": "handler:handle_voxtral_job"
+    }
+  },
   "behavior": {
     "features": [
       "cloud_synthesis",

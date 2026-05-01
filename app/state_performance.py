@@ -10,16 +10,16 @@ logger = logging.getLogger(__name__)
 _PERFORMANCE_METRICS_SETTING_KEY = "performance_metrics"
 _DEFAULT_PERFORMANCE_METRICS = {
     "audiobook_speed_multiplier": 1.0,
-    "xtts_cps": 16.7,
-    "xtts_render_history": [],
+    "engine_cps": {},
+    "render_history": [],
 }
 
 
 def _default_performance_metrics() -> Dict[str, Any]:
     return {
         "audiobook_speed_multiplier": _DEFAULT_PERFORMANCE_METRICS["audiobook_speed_multiplier"],
-        "xtts_cps": _DEFAULT_PERFORMANCE_METRICS["xtts_cps"],
-        "xtts_render_history": [],
+        "engine_cps": {},
+        "render_history": [],
     }
 
 
@@ -33,13 +33,20 @@ def _normalize_performance_metrics(metrics: Optional[Dict[str, Any]]) -> Dict[st
     except (TypeError, ValueError):
         normalized["audiobook_speed_multiplier"] = 1.0
 
-    try:
-        normalized["xtts_cps"] = float(normalized.get("xtts_cps", 16.7))
-    except (TypeError, ValueError):
-        normalized["xtts_cps"] = 16.7
+    if not isinstance(normalized.get("engine_cps"), dict):
+        normalized["engine_cps"] = {}
 
-    history = normalized.get("xtts_render_history")
-    normalized["xtts_render_history"] = history if isinstance(history, list) else []
+    # Migration for legacy top-level xtts_cps
+    if "xtts_cps" in normalized:
+        try:
+            normalized["engine_cps"]["xtts"] = float(normalized.pop("xtts_cps"))
+        except (TypeError, ValueError):
+            pass
+
+    history = normalized.get("render_history") or normalized.get("xtts_render_history")
+    normalized["render_history"] = history if isinstance(history, list) else []
+    normalized.pop("xtts_render_history", None)
+
     return normalized
 
 
@@ -164,8 +171,10 @@ def _read_performance_metrics_from_db() -> Dict[str, Any]:
                     "audiobook_speed_multiplier",
                     metrics["audiobook_speed_multiplier"],
                 )
-                metrics["xtts_cps"] = legacy_metrics.get("xtts_cps", metrics["xtts_cps"])
-                history = legacy_metrics.get("xtts_render_history")
+                if "xtts_cps" in legacy_metrics:
+                    metrics["engine_cps"]["xtts"] = legacy_metrics["xtts_cps"]
+
+                history = legacy_metrics.get("render_history") or legacy_metrics.get("xtts_render_history")
                 if isinstance(history, list):
                     legacy_history = history
 
@@ -175,14 +184,24 @@ def _read_performance_metrics_from_db() -> Dict[str, Any]:
                 "performance_metric:audiobook_speed_multiplier",
                 float(metrics["audiobook_speed_multiplier"]),
             )
-            metrics["xtts_cps"] = _read_setting_float(
-                cursor,
-                "performance_metric:xtts_cps",
-                float(metrics["xtts_cps"]),
-            )
+
+            # Read all engine-specific CPS values
+            cursor.execute("SELECT key, value FROM settings WHERE key LIKE 'performance_metric:cps:%'")
+            for row in cursor.fetchall():
+                key = row["key"] if hasattr(row, "keys") else row[0]
+                val = row["value"] if hasattr(row, "keys") else row[1]
+                engine_id = key.split(":")[-1]
+                try:
+                    metrics["engine_cps"][engine_id] = float(val)
+                except (TypeError, ValueError):
+                    pass
+
+            # Legacy fallback for xtts_cps key
+            if "xtts" not in metrics["engine_cps"]:
+                 metrics["engine_cps"]["xtts"] = _read_setting_float(cursor, "performance_metric:xtts_cps", 16.7)
 
             # 2. Read history from render_performance_samples table
-            metrics["xtts_render_history"] = get_render_history(limit=100)
+            metrics["render_history"] = get_render_history(limit=100)
 
             if legacy_metrics:
                 _write_setting_value(
@@ -190,16 +209,19 @@ def _read_performance_metrics_from_db() -> Dict[str, Any]:
                     "performance_metric:audiobook_speed_multiplier",
                     metrics["audiobook_speed_multiplier"],
                 )
-                _write_setting_value(cursor, "performance_metric:xtts_cps", metrics["xtts_cps"])
+                for eid, cps in metrics["engine_cps"].items():
+                    _write_setting_value(cursor, f"performance_metric:cps:{eid}", cps)
 
-        if legacy_history and not metrics["xtts_render_history"]:
+        if legacy_history and not metrics["render_history"]:
             _record_legacy_performance_history(legacy_history)
-            metrics["xtts_render_history"] = get_render_history(limit=100)
+            metrics["render_history"] = get_render_history(limit=100)
 
         if legacy_metrics_found:
             with get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("DELETE FROM settings WHERE key = ?", (_PERFORMANCE_METRICS_SETTING_KEY,))
+                # Also delete the old xtts_cps key if we migrated it
+                cursor.execute("DELETE FROM settings WHERE key = ?", ("performance_metric:xtts_cps",))
                 conn.commit()
     except Exception:
         logger.warning("Failed to read performance metrics from database", exc_info=True)
@@ -218,13 +240,12 @@ def _write_performance_metrics_to_db(metrics: Dict[str, Any]) -> bool:
                 "performance_metric:audiobook_speed_multiplier",
                 metrics["audiobook_speed_multiplier"],
             )
-            _write_setting_value(
-                cursor,
-                "performance_metric:xtts_cps",
-                metrics["xtts_cps"],
-            )
-            # History is NOT written via this path anymore.
-            # Individual samples are recorded via record_render_sample().
+            for eid, cps in metrics.get("engine_cps", {}).items():
+                _write_setting_value(
+                    cursor,
+                    f"performance_metric:cps:{eid}",
+                    cps,
+                )
             conn.commit()
         return True
     except Exception:
@@ -248,10 +269,13 @@ def get_performance_metrics() -> Dict[str, Any]:
         if legacy_metrics is not None:
             # Migration from state.json
             metrics["audiobook_speed_multiplier"] = legacy_metrics.get("audiobook_speed_multiplier", metrics["audiobook_speed_multiplier"])
-            metrics["xtts_cps"] = legacy_metrics.get("xtts_cps", metrics["xtts_cps"])
 
-            history = legacy_metrics.get("xtts_render_history")
-            if history and isinstance(history, list) and not metrics["xtts_render_history"]:
+            legacy_xtts_cps = legacy_metrics.get("xtts_cps")
+            if legacy_xtts_cps is not None:
+                metrics["engine_cps"]["xtts"] = float(legacy_xtts_cps)
+
+            history = legacy_metrics.get("render_history") or legacy_metrics.get("xtts_render_history")
+            if history and isinstance(history, list) and not metrics["render_history"]:
                 from .db.performance import record_render_sample
                 for sample in history:
                     record_render_sample(**sample)
@@ -272,8 +296,7 @@ def update_performance_metrics(**updates) -> None:
         if "performance_metrics" in state:
             legacy_metrics = _normalize_performance_metrics(state.get("performance_metrics"))
             metrics = _normalize_performance_metrics({**metrics, **legacy_metrics})
-            if legacy_metrics.get("xtts_render_history") and not metrics.get("xtts_render_history"):
-                metrics["xtts_render_history"] = legacy_metrics["xtts_render_history"][-30:]
+
         metrics.update(updates)
         metrics = _normalize_performance_metrics(metrics)
         _write_performance_metrics_to_db(metrics)

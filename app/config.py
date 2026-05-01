@@ -16,7 +16,7 @@ PART_CHAR_LIMIT = 30000
 MAKE_MP3_DEFAULT = False
 MP3_QUALITY = "2"  # ffmpeg -q:a 2
 AUDIOBOOK_BITRATE = "64k"
-BASELINE_XTTS_CPS = 16.7
+BASELINE_ENGINE_CPS = 16.7
 
 DEFAULT_CHAPTER_DIR = (
     BASE_DIR / "chapters_out"
@@ -27,7 +27,7 @@ DEFAULT_CHAPTER_DIR = (
 CHAPTER_DIR = Path(os.getenv("CHAPTER_DIR", str(DEFAULT_CHAPTER_DIR)))
 UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", str(BASE_DIR / "uploads")))
 REPORT_DIR = Path(os.getenv("REPORT_DIR", str(BASE_DIR / "reports")))
-XTTS_OUT_DIR = Path(os.getenv("XTTS_OUT_DIR", str(BASE_DIR / "xtts_audio")))
+AUDIO_OUT_DIR = Path(os.getenv("AUDIO_OUT_DIR", os.getenv("AUDIO_OUT_DIR", str(BASE_DIR / "audio_out"))))
 ENGINE_TEST_DIR = Path(os.getenv("ENGINE_TEST_DIR", str(BASE_DIR / "engine_tests")))
 AUDIOBOOK_DIR = Path(os.getenv("AUDIOBOOK_DIR", str(BASE_DIR / "audiobooks")))
 VOICES_DIR = Path(os.getenv("VOICES_DIR", str(BASE_DIR / "voices")))
@@ -229,7 +229,7 @@ def _find_file(directory: Path, filename: str) -> Optional[Path]:
 
         # Define trusted roots explicitly for the scanner
         c_root = os.path.abspath(os.path.realpath(os.fspath(CHAPTER_DIR)))
-        x_root = os.path.abspath(os.path.realpath(os.fspath(XTTS_OUT_DIR)))
+        a_root = os.path.abspath(os.path.realpath(os.fspath(AUDIO_OUT_DIR)))
         v_root = os.path.abspath(os.path.realpath(os.fspath(VOICES_DIR)))
         p_root = os.path.abspath(os.path.realpath(os.fspath(PROJECTS_DIR)))
 
@@ -237,8 +237,8 @@ def _find_file(directory: Path, filename: str) -> Optional[Path]:
         # Case 1: Chapters
         if target_dir == c_root or target_dir.startswith(c_root + os.sep):
             is_safe = True
-        # Case 2: XTTS Output
-        elif target_dir == x_root or target_dir.startswith(x_root + os.sep):
+        # Case 2: Global Audio Output
+        elif target_dir == a_root or target_dir.startswith(a_root + os.sep):
             is_safe = True
         # Case 2b: Engine Tests
         elif target_dir == os.path.abspath(os.path.realpath(os.fspath(ENGINE_TEST_DIR))) or target_dir.startswith(os.path.abspath(os.path.realpath(os.fspath(ENGINE_TEST_DIR))) + os.sep):
@@ -350,7 +350,7 @@ def resolve_chapter_asset_path(
     elif asset_type == "audio":
         # New: project/chapters/{chapter_id}/chapter.wav (or chapter.m4a/mp3)
         # Old: project/audio/{audio_file_path or chapter_id.wav}
-        # Global: fallback_dir or XTTS_OUT_DIR/{filename or chapter_id.wav}
+        # Global: fallback_dir or AUDIO_OUT_DIR/{filename or chapter_id.wav}
         if project_id:
             nested_dir = get_chapter_dir(project_id, chapter_id)
             if filename:
@@ -387,7 +387,7 @@ def resolve_chapter_asset_path(
                         return old_path
 
         # Fallback to global
-        audio_dirs = [XTTS_OUT_DIR]
+        audio_dirs = [AUDIO_OUT_DIR]
         if fallback_dir:
             audio_dirs.insert(0, fallback_dir)
 
@@ -410,7 +410,7 @@ def resolve_chapter_asset_path(
     elif asset_type == "segment":
         # New: project/chapters/{chapter_id}/segments/{segment_id}.wav
         # Old: project/audio/chunk_{segment_id}.wav
-        # Global: fallback_dir or XTTS_OUT_DIR/chunk_{segment_id}.wav
+        # Global: fallback_dir or AUDIO_OUT_DIR/chunk_{segment_id}.wav
         if project_id:
             nested_dir = get_chapter_dir(project_id, chapter_id)
             if filename:
@@ -435,7 +435,7 @@ def resolve_chapter_asset_path(
                     return old_path
 
         # Fallback to global
-        audio_dirs = [XTTS_OUT_DIR]
+        audio_dirs = [AUDIO_OUT_DIR]
         if fallback_dir:
             audio_dirs.insert(0, fallback_dir)
 

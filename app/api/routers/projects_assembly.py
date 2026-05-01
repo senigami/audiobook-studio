@@ -13,7 +13,7 @@ from ...db import (
     get_chapter,
     list_chapters as db_list_chapters,
 )
-from ...config import COVER_DIR, XTTS_OUT_DIR, get_project_dir, find_existing_project_subdir
+from ...config import COVER_DIR, AUDIO_OUT_DIR, get_project_dir, find_existing_project_subdir
 from ...pathing import safe_join, safe_join_flat, find_secure_file
 from ...api.utils import SAFE_FILE_RE, preferred_audiobook_download_filename, probe_audiobook_metadata
 from ...jobs import enqueue
@@ -237,7 +237,7 @@ def assemble_project(project_id: str, chapter_ids: Optional[str] = Form(None)):
 @router.get("/audiobook/prepare")
 def prepare_audiobook():
     """Scans folders and returns a preview of chapters/durations for the modal."""
-    src_dir = XTTS_OUT_DIR
+    src_dir = AUDIO_OUT_DIR
     if not src_dir.exists():
         return JSONResponse({"title": "", "chapters": []})
 

@@ -12,7 +12,7 @@ from ...textops import (
     find_long_sentences, clean_text_for_tts, safe_split_long_sentences,
     pack_text_to_limit, sanitize_for_xtts, get_text_stats, format_duration
 )
-from ...config import SENT_CHAR_LIMIT, BASELINE_XTTS_CPS
+from ...config import SENT_CHAR_LIMIT, BASELINE_ENGINE_CPS
 from ...pathing import safe_basename, safe_join_flat
 
 logger = logging.getLogger(__name__)
@@ -289,7 +289,7 @@ def _run_analysis(
         f"Word Count        : {stats['word_count']:,}",
         f"Sentence Count    : {stats['sent_count']:,} (approx)",
         f"Predicted Time    : {stats['formatted_duration']} "
-        f"(@ {BASELINE_XTTS_CPS} cps)",
+        f"(@ {BASELINE_ENGINE_CPS} cps)",
     ]
     if len(raw_hits) > 0:
         lines.extend([

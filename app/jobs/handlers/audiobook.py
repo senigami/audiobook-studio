@@ -1,6 +1,6 @@
 import os
 import time
-from ...config import XTTS_OUT_DIR, AUDIOBOOK_DIR
+from ...config import AUDIO_OUT_DIR, AUDIOBOOK_DIR
 from ...state import get_jobs, update_job, update_performance_metrics, get_performance_metrics
 from ...engines import assemble_audiobook
 from ..core import format_seconds
@@ -12,7 +12,7 @@ def handle_audiobook_job(jid, j, start, on_output, cancel_check):
         title = j.custom_title or j.chapter_file 
         out_file = get_project_m4b_dir(j.project_id) / f"{j.chapter_file}.m4b"
     else:
-        src_dir = XTTS_OUT_DIR
+        src_dir = AUDIO_OUT_DIR
         title = j.custom_title or j.chapter_file 
         out_file = AUDIOBOOK_DIR / f"{j.chapter_file}.m4b"
 

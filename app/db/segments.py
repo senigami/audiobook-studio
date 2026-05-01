@@ -115,7 +115,7 @@ def get_chapter_segments(chapter_id: str) -> List[Dict[str, Any]]:
 
     # Rule 3: Disk as Source of Truth - Outside Lock
     from .. import config
-    pdir = config.get_project_audio_dir(project_id) if project_id else config.XTTS_OUT_DIR
+    pdir = config.get_project_audio_dir(project_id) if project_id else config.AUDIO_OUT_DIR
 
     invalid_done_ids: list[str] = []
     for s in rows:
@@ -317,7 +317,7 @@ def cleanup_orphaned_segments(chapter_id: str):
             project_id = crow['project_id'] if crow else None
 
     from .. import config
-    pdir = config.get_project_audio_dir(project_id) if project_id else config.XTTS_OUT_DIR
+    pdir = config.get_project_audio_dir(project_id) if project_id else config.AUDIO_OUT_DIR
 
     if not pdir.exists():
         return

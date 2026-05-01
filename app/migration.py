@@ -2,12 +2,12 @@ import os
 import uuid
 import time
 from pathlib import Path
-from .config import CHAPTER_DIR, XTTS_OUT_DIR
+from .config import CHAPTER_DIR, AUDIO_OUT_DIR
 from .db import get_connection, create_project
 
 def import_legacy_filesystem_data():
     """
-    Scans CHAPTER_DIR for .txt files and matches them with audio in XTTS_OUT_DIR.
+    Scans CHAPTER_DIR for .txt files and matches them with audio in AUDIO_OUT_DIR.
     Creates a 'Legacy Import' project and populates it with chapters.
     """
     # Rule 8: Enumerate trusted root
@@ -59,13 +59,13 @@ def import_legacy_filesystem_data():
             audio_file = None
             audio_status = "unprocessed"
 
-            trusted_xtts_root = os.path.abspath(os.path.realpath(os.fspath(XTTS_OUT_DIR)))
+            trusted_audio_root = os.path.abspath(os.path.realpath(os.fspath(AUDIO_OUT_DIR)))
             # Priority .mp3 > .wav
             for ext in [".mp3", ".wav"]:
                 cand_name = f"{stem}{ext}"
                 # Rule 8: Match by name from scanner to prove locality
                 try:
-                    for entry in os.scandir(trusted_xtts_root):
+                    for entry in os.scandir(trusted_audio_root):
                         if entry.is_file() and entry.name == cand_name:
                             audio_file = entry.name
                             audio_status = "done"

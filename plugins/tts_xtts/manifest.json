@@ -7,6 +7,16 @@
   "min_studio": "2.0.0",
   "entry_class": "engine:XttsPlugin",
   "capabilities": ["synthesis", "preview", "voice_cloning"],
+  "worker_logic": {
+    "engine_handlers": {
+      "xtts": "adapter:xtts_dispatch_adapter"
+    },
+    "kind_handlers": {
+      "voice_build": "voice_adapter:voice_job_dispatch_adapter",
+      "voice_test": "voice_adapter:voice_job_dispatch_adapter",
+      "voice_task": "voice_adapter:voice_job_dispatch_adapter"
+    }
+  },
   "behavior": {
     "features": [
       "script_synthesis",

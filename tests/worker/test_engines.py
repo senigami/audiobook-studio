@@ -14,10 +14,10 @@ def test_worker_loop_xtts_basic(mock_q, sample_job):
          patch("app.jobs.worker.get_project_text_dir", create=True) as mock_text_dir, \
          patch("pathlib.Path.exists", return_value=True), \
          patch("pathlib.Path.read_text", return_value="Hello world"), \
-         patch("app.jobs.worker.handle_xtts_job") as mock_handle, \
-         patch("app.jobs.worker._output_exists", return_value=False), \
-         patch("app.jobs.worker.get_speaker_wavs", return_value=[]), \
-         patch("app.jobs.worker.get_speaker_settings", return_value={"speed": 1.0}):
+         patch("app.jobs.worker.get_handler_registry") as mock_reg, \
+         patch("app.jobs.worker._output_exists", return_value=False):
+
+        mock_handle = mock_reg.return_value.get_handler.return_value
 
         mock_text_dir.return_value = Path("/tmp")
 
@@ -40,7 +40,7 @@ def test_worker_loop_xtts_segments(mock_q, sample_job):
          patch("app.jobs.worker.get_project_text_dir", create=True) as mock_text_dir, \
          patch("pathlib.Path.exists", return_value=False), \
          patch("app.db.get_connection") as mock_conn, \
-         patch("app.jobs.worker.handle_xtts_job"):
+         patch("app.jobs.worker.get_handler_registry"):
 
         mock_text_dir.return_value = Path("/tmp")
         # Mock DB response for segment length
@@ -62,12 +62,14 @@ def test_worker_loop_audiobook_engine(mock_q):
     with patch("app.jobs.worker.get_jobs", return_value={"ajob": j}), \
          patch("app.jobs.worker.update_job"), \
          patch("app.jobs.worker.get_performance_metrics", return_value={"audiobook_speed_multiplier": 1.0}), \
-         patch("app.jobs.worker.get_project_audio_dir", create=True) as mock_audio_dir, \
+         patch("app.config.get_project_audio_dir") as mock_audio_dir, \
          patch("os.listdir", return_value=["1.wav", "2.wav"]), \
          patch("pathlib.Path.exists", return_value=True), \
-         patch("pathlib.Path.stat") as mock_stat, \
-         patch("app.jobs.worker._output_exists", return_value=False), \
-         patch("app.jobs.worker.handle_audiobook_job") as mock_handle:
+        patch("pathlib.Path.stat") as mock_stat, \
+        patch("app.jobs.worker._output_exists", return_value=False), \
+        patch("app.jobs.worker.get_handler_registry") as mock_reg:
+
+        mock_handle = mock_reg.return_value.get_handler.return_value
 
         mock_audio_dir.return_value = Path("/tmp/audio")
         mock_stat.return_value.st_size = 10 * 1024 * 1024 # 10MB each
@@ -90,7 +92,7 @@ def test_worker_loop_xtts_bake(mock_q, sample_job):
          patch("app.jobs.worker.get_project_text_dir", create=True) as mock_text_dir, \
          patch("pathlib.Path.exists", return_value=False), \
          patch("app.db.get_connection") as mock_conn, \
-         patch("app.jobs.worker.handle_xtts_job"):
+         patch("app.jobs.worker.get_handler_registry"):
 
         mock_text_dir.return_value = Path("/tmp")
         mock_conn.return_value.__enter__.return_value.cursor.return_value.fetchone.return_value = [500]
@@ -121,9 +123,12 @@ def test_worker_loop_voxtral_dispatches_handler(mock_q):
          patch("app.jobs.worker.get_project_text_dir", create=True) as mock_text_dir, \
          patch("pathlib.Path.exists", return_value=True), \
          patch("pathlib.Path.read_text", return_value="Hello world"), \
-         patch("app.jobs.worker.handle_voxtral_job", return_value="done") as mock_handle, \
+         patch("app.jobs.worker.get_handler_registry") as mock_reg, \
          patch("app.jobs.worker._mark_queue_failed") as mock_failed, \
          patch("app.jobs.worker._output_exists", return_value=False):
+
+        mock_handle = mock_reg.return_value.get_handler.return_value
+        mock_handle.return_value = "done"
 
         mock_text_dir.return_value = Path("/tmp")
 
@@ -156,7 +161,7 @@ def test_worker_loop_voxtral_does_not_resume_from_segment_completion(mock_q):
          patch("pathlib.Path.exists", return_value=True), \
          patch("pathlib.Path.read_text", return_value="Hello world"), \
          patch("app.db.chapters.get_chapter_segments_counts", return_value=(10, 10)) as mock_counts, \
-         patch("app.jobs.worker.handle_voxtral_job", return_value="done"), \
+         patch("app.jobs.worker.get_handler_registry"), \
          patch("app.jobs.worker._output_exists", return_value=False):
 
         mock_text_dir.return_value = Path("/tmp")

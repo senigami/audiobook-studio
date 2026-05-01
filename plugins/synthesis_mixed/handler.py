@@ -3,14 +3,16 @@ import logging
 import time
 from pathlib import Path
 
-from ...chunk_groups import build_chunk_groups, load_chunk_segments
-from ...config import XTTS_OUT_DIR, SENT_CHAR_LIMIT, get_project_audio_dir
-from ...engines import get_audio_duration, stitch_segments, wav_to_mp3
-from ...engines.errors import EngineBridgeError
-from ...state import update_job
-from ...textops import safe_split_long_sentences, sanitize_for_xtts
-from ..speaker import get_speaker_settings, get_speaker_wavs, get_voice_profile_dir
-from .bridge_helpers import generate_via_bridge
+from app.chunk_groups import build_chunk_groups, load_chunk_segments
+from app.config import XTTS_OUT_DIR, SENT_CHAR_LIMIT, get_project_audio_dir
+from app.engines import get_audio_duration, stitch_segments, wav_to_mp3
+from app.engines.errors import EngineBridgeError
+from app.state import update_job
+from app.textops import safe_split_long_sentences, sanitize_for_xtts
+from app.jobs.speaker import get_speaker_settings, get_speaker_wavs, get_voice_profile_dir
+from app.jobs.handlers.bridge_helpers import generate_via_bridge
+from app.jobs.worker_metrics import record_engine_sample
+from app.state import get_performance_metrics
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +101,7 @@ def _render_segment(engine_id: str, text: str, profile_name: str | None, out_wav
         on_output(f"[error] No profile is assigned for this segment ({engine_id}).\n")
         return 1
 
-    from ..behavior import extract_engine_settings, has_behavior
+    from app.engines.behavior import extract_engine_settings, has_behavior
     spk = get_speaker_settings(profile_name)
     settings = extract_engine_settings(engine_id, spk)
 
@@ -153,7 +155,7 @@ def _group_ready_audio_path(group: dict, pdir: Path) -> Path | None:
 
 
 def _persist_mixed_chapter_output(jid: str, chapter_id: str, output_path: Path) -> None:
-    from ...db import update_chapter, update_queue_item
+    from app.db import update_chapter, update_queue_item
 
     generated_at = time.time()
     duration = get_audio_duration(output_path)
@@ -190,14 +192,14 @@ def _persist_mixed_chapter_output(jid: str, chapter_id: str, output_path: Path) 
 
 
 def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
-    from ...db import (
+    from app.db import (
         clear_duplicate_segment_audio_paths,
         get_chapter_segments,
         get_connection,
         update_segment,
         update_segments_status_bulk,
     )
-    from ...api.ws import broadcast_segments_updated
+    from app.api.ws import broadcast_segments_updated
 
     if cancel_check():
         update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
@@ -359,7 +361,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
             pass
 
         try:
-            from ...db.chapters import get_chapter_segments_counts
+            from app.db.chapters import get_chapter_segments_counts
             done_c, total_c = get_chapter_segments_counts(j.chapter_id)
             final_p = round(done_c / total_c, 2) if total_c > 0 else 1.0
         except Exception:
@@ -443,4 +445,11 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
         output_wav=out_wav.name,
         **_group_weight_updates(tracking_groups, total_groups, active_index=0),
     )
+
+    # Record metrics for the mixed engine performance history
+    chars = getattr(j, "_chars_count", 0)
+    eta_unit_count = getattr(j, "_eta_unit_count", 0)
+    perf = get_performance_metrics()
+    record_engine_sample(j, start, chars, perf, eta_unit_count)
+
     return "done"

@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .config import (
-    XTTS_OUT_DIR, AUDIOBOOK_DIR, VOICES_DIR, SAMPLES_DIR, 
+    AUDIO_OUT_DIR, AUDIOBOOK_DIR, VOICES_DIR, SAMPLES_DIR,
     UPLOAD_DIR, CHAPTER_DIR, REPORT_DIR, COVER_DIR, ASSETS_DIR, PROJECTS_DIR,
     FRONTEND_DIST
 )
@@ -127,9 +127,9 @@ if FRONTEND_DIST.exists():
     app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="assets")
 
 
-@app.get("/out/xtts/{filename}")
-def get_xtts_output(filename: str):
-    file_path = _contained_root_file(XTTS_OUT_DIR, filename)
+@app.get("/out/audio/{filename}")
+def get_audio_output(filename: str):
+    file_path = _contained_root_file(AUDIO_OUT_DIR, filename)
     if not file_path:
         raise HTTPException(status_code=404, detail="Not Found")
     return FileResponse(file_path)
@@ -288,7 +288,7 @@ async def sync_config_middleware(request: Request, call_next):
     # Propagate possibly mocked local variables to the config module (for legacy tests)
     from . import config
     config.CHAPTER_DIR = CHAPTER_DIR
-    config.XTTS_OUT_DIR = XTTS_OUT_DIR
+    config.AUDIO_OUT_DIR = AUDIO_OUT_DIR
     config.AUDIOBOOK_DIR = AUDIOBOOK_DIR
     config.VOICES_DIR = VOICES_DIR
     config.SAMPLES_DIR = SAMPLES_DIR
@@ -307,9 +307,9 @@ async def sync_config_middleware(request: Request, call_next):
     r_system.COVER_DIR = config.COVER_DIR
     r_system.AUDIOBOOK_DIR = config.AUDIOBOOK_DIR
     r_system.VOICES_DIR = config.VOICES_DIR
-    r_system.XTTS_OUT_DIR = config.XTTS_OUT_DIR
+    r_system.AUDIO_OUT_DIR = config.AUDIO_OUT_DIR
     r_chapters.CHAPTER_DIR = config.CHAPTER_DIR
-    r_chapters.XTTS_OUT_DIR = config.XTTS_OUT_DIR
+    r_chapters.AUDIO_OUT_DIR = config.AUDIO_OUT_DIR
     r_voices.VOICES_DIR = config.VOICES_DIR
 
     return await call_next(request)

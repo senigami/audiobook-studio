@@ -13,7 +13,7 @@ from ...db import (
 from ...jobs import enqueue, cancel as cancel_job_worker, set_paused, clear_job_queue
 from ...models import Job
 from ...state import put_job, update_job, get_settings, get_jobs
-from ...config import XTTS_OUT_DIR, find_existing_project_dir, find_existing_project_subdir
+from ...config import AUDIO_OUT_DIR, find_existing_project_dir, find_existing_project_subdir
 from ...voice_engines import resolve_profile_engine, resolve_tts_engine_for_profiles, normalize_tts_engine
 from ...engines.bridge import create_voice_bridge
 from ...engines.behavior import (
@@ -151,17 +151,17 @@ def api_add_to_queue(
                 for entry in pdir.iterdir()
                 if entry.is_file()
             } if pdir.exists() else set()
-            xtts_audio_files = {
+            audio_out_files = {
                 entry.name
-                for entry in XTTS_OUT_DIR.iterdir()
+                for entry in AUDIO_OUT_DIR.iterdir()
                 if entry.is_file()
-            } if XTTS_OUT_DIR.exists() else set()
+            } if AUDIO_OUT_DIR.exists() else set()
             has_bakeable_segments = any(
                 s.get("audio_status") == "done"
                 and s.get("audio_file_path")
                 and (
                     s["audio_file_path"] in project_audio_files
-                    or s["audio_file_path"] in xtts_audio_files
+                    or s["audio_file_path"] in audio_out_files
                 )
                 for s in segs
             )
@@ -328,7 +328,9 @@ def cancel_chapter_generation(chapter_id: str):
     return JSONResponse({"status": "ok"})
 
 @router.post("/generation/enqueue-single")
-def enqueue_single(chapter_file: str = Form(...), engine: str = Form("xtts")):
+def enqueue_single(chapter_file: str = Form(...), engine: Optional[str] = Form(None)):
+    if not engine:
+        engine = get_settings().get("default_engine") or "xtts"
     normalized_engine = normalize_tts_engine(engine, engine)
     engine_error = _ensure_engines_enabled([normalized_engine])
     if engine_error:
@@ -412,7 +414,7 @@ def api_generate_segments(segment_ids: str = Form(...), speaker_profile: Optiona
 
     # Physical Cleanup: Delete existing full-chapter audio files to prevent reconciliation "blink"
     from ... import config
-    project_audio_dir = config.find_existing_project_subdir(project_id, "audio") if project_id else config.XTTS_OUT_DIR
+    project_audio_dir = config.find_existing_project_subdir(project_id, "audio") if project_id else config.AUDIO_OUT_DIR
     if not project_audio_dir:
         project_audio_dir = config.get_project_dir(project_id) / "audio"
     for p in project_audio_dir.iterdir() if project_audio_dir.exists() else ():

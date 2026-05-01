@@ -73,9 +73,9 @@ export function useChapterPlayback(
       `/projects/${projectId}/audio/${audioPath}`,
       `/projects/${projectId}/audio/${wavPath}`,
       `/projects/${projectId}/audio/${mp3Path}`,
-      `/out/xtts/${audioPath}`,
-      `/out/xtts/${wavPath}`,
-      `/out/xtts/${mp3Path}`
+      `/out/audio/${audioPath}`,
+      `/out/audio/${wavPath}`,
+      `/out/audio/${mp3Path}`
     ].filter((v, i, a) => a.indexOf(v) === i);
 
     let urlIdx = 0;

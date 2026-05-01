@@ -16,15 +16,15 @@ from .chapters_models import AudioExportRequest
 
 # Compatibility for tests that monkeypatch these
 CHAPTER_DIR = config.CHAPTER_DIR
-XTTS_OUT_DIR = config.XTTS_OUT_DIR
+AUDIO_OUT_DIR = config.AUDIO_OUT_DIR
 
 
 def get_chapter_dir() -> Path:
     return CHAPTER_DIR
 
 
-def get_xtts_out_dir() -> Path:
-    return XTTS_OUT_DIR
+def get_audio_out_dir() -> Path:
+    return AUDIO_OUT_DIR
 
 
 logger = logging.getLogger(__name__)
@@ -173,7 +173,7 @@ def api_get_chapter_asset(
 async def api_export_chapter_sample(
     chapter_id: str,
     project_id: Optional[str] = None,
-    xtts_out_dir: Path = Depends(get_xtts_out_dir),
+    audio_out_dir: Path = Depends(get_audio_out_dir),
 ):
 
     # Rule 9: Early validation
@@ -193,11 +193,11 @@ async def api_export_chapter_sample(
         chapter_id,
         "audio",
         filename=chapter.get("audio_file_path"),
-        fallback_dir=xtts_out_dir,
+        fallback_dir=audio_out_dir,
     )
     if not wav_path:
         wav_path = config.resolve_chapter_asset_path(
-            project_id, chapter_id, "audio", fallback_dir=xtts_out_dir
+            project_id, chapter_id, "audio", fallback_dir=audio_out_dir
         )
 
     # Legacy fallback for _0 pattern
@@ -226,7 +226,7 @@ async def api_export_chapter_sample(
 def api_stream_chapter(
     chapter_id: str,
     project_id: Optional[str] = None,
-    xtts_out_dir: Path = Depends(get_xtts_out_dir),
+    audio_out_dir: Path = Depends(get_audio_out_dir),
 ):
 
     # Rule 9: Early validation
@@ -243,11 +243,11 @@ def api_stream_chapter(
         chapter_id,
         "audio",
         filename=chapter.get("audio_file_path"),
-        fallback_dir=xtts_out_dir,
+        fallback_dir=audio_out_dir,
     )
     if not wav_path:
         wav_path = config.resolve_chapter_asset_path(
-            project_id, chapter_id, "audio", fallback_dir=xtts_out_dir
+            project_id, chapter_id, "audio", fallback_dir=audio_out_dir
         )
 
     # Legacy fallback for _0 pattern

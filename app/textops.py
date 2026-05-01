@@ -1,4 +1,4 @@
-from .config import BASELINE_XTTS_CPS, SENT_CHAR_LIMIT, SAFE_SPLIT_TARGET
+from .config import BASELINE_ENGINE_CPS, SENT_CHAR_LIMIT, SAFE_SPLIT_TARGET
 from .textops_helpers import (
     CHAPTER_RE,
     normalize_newlines,
@@ -33,7 +33,7 @@ def get_text_stats(text: str) -> dict:
     word_count = len(text.split())
     # Count periods, exclamation marks, and question marks as sentence markers
     sent_count = text.count('.') + text.count('?') + text.count('!')
-    pred_seconds = int(char_count / BASELINE_XTTS_CPS)
+    pred_seconds = int(char_count / BASELINE_ENGINE_CPS)
 
     return {
         "char_count": char_count,
