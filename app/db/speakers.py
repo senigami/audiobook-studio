@@ -23,14 +23,17 @@ def _infer_profile_engine(meta: Optional[Dict[str, Any]] = None) -> str:
     if explicit_engine in VALID_PROFILE_ENGINES:
         return explicit_engine
 
-    voxtral_fields = (
-        "voxtral_voice_id",
-        "voxtral_model",
-        "preview_voxtral_voice_id",
-        "preview_voxtral_model",
-    )
-    if any(str(meta.get(field) or "").strip() for field in voxtral_fields):
-        return "voxtral"
+    from ..engines.behavior import setting_aliases_for
+
+    # Check if any field matches a known alias for a non-default engine
+    for engine_id in VALID_PROFILE_ENGINES:
+        if engine_id == DEFAULT_PROFILE_ENGINE:
+            continue
+
+        aliases = setting_aliases_for(engine_id)
+        for alias_key in aliases:
+            if str(meta.get(alias_key) or "").strip():
+                return engine_id
 
     return DEFAULT_PROFILE_ENGINE
 
@@ -187,6 +190,13 @@ def normalize_profile_metadata(profile_name: str, meta: Optional[Dict[str, Any]]
     if "variant_name" not in meta or not meta.get("variant_name"):
         meta["variant_name"] = infer_variant_name(profile_name)
     meta["engine"] = _infer_profile_engine(meta)
+
+    # Normalize aliases (e.g. voxtral_voice_id -> voice_asset_id)
+    from ..engines.behavior import setting_aliases_for
+    aliases = setting_aliases_for(meta["engine"])
+    for source, target in aliases.items():
+        if source in meta and target not in meta:
+            meta[target] = meta.pop(source)
 
     if persist:
         profile_dir = _existing_profile_dir(config.VOICES_DIR, profile_name)

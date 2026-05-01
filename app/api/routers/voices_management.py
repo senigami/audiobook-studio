@@ -248,8 +248,8 @@ def list_speaker_profiles():
                     "preview_test_text",
                     "preview_engine",
                     "preview_reference_sample",
-                    "preview_voxtral_voice_id",
-                    "preview_voxtral_model",
+                    "preview_voice_asset_id",
+                    "preview_model",
                 )
             )
             if has_preview_signature:
@@ -257,11 +257,14 @@ def list_speaker_profiles():
                     spk_settings.get("preview_test_text") != spk_settings.get("test_text")
                     or spk_settings.get("preview_engine") != spk_settings.get("engine", db.speakers.DEFAULT_PROFILE_ENGINE)
                 )
-                if spk_settings.get("engine") == "voxtral":
+                if voices_helpers._has_behavior(spk_settings.get("engine", db.speakers.DEFAULT_PROFILE_ENGINE), "reference_sample"):
                     preview_signature_stale = preview_signature_stale or (
                         spk_settings.get("preview_reference_sample") != spk_settings.get("reference_sample")
-                        or spk_settings.get("preview_voxtral_voice_id") != spk_settings.get("voxtral_voice_id")
-                        or spk_settings.get("preview_voxtral_model") != spk_settings.get("voxtral_model")
+                    )
+                if voices_helpers._has_behavior(spk_settings.get("engine", db.speakers.DEFAULT_PROFILE_ENGINE), "voice_asset_id"):
+                    preview_signature_stale = preview_signature_stale or (
+                        spk_settings.get("preview_voice_asset_id") != spk_settings.get("voice_asset_id")
+                        or spk_settings.get("preview_model") != spk_settings.get("model")
                     )
 
         rebuild_reasons = []
@@ -292,8 +295,8 @@ def list_speaker_profiles():
             "speaker_id": spk_settings.get("speaker_id"),
             "variant_name": spk_settings.get("variant_name"),
             "engine": spk_settings.get("engine", db.speakers.DEFAULT_PROFILE_ENGINE),
-            "voxtral_voice_id": spk_settings.get("voxtral_voice_id"),
-            "voxtral_model": spk_settings.get("voxtral_model"),
+            "voice_asset_id": spk_settings.get("voice_asset_id"),
+            "model": spk_settings.get("model"),
             "reference_sample": spk_settings.get("reference_sample"),
             "preview_url": preview_url,
             "asset_base_url": voices_helpers._voice_asset_base_url(d),

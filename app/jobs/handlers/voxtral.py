@@ -113,8 +113,8 @@ def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
             profile_name=j.speaker_profile,
             on_output=on_output,
             cancel_check=cancel_check,
-            voice_asset_id=spk.get("voxtral_voice_id"),
-            voxtral_model=spk.get("voxtral_model"),
+            voice_asset_id=spk.get("voice_asset_id"),
+            model=spk.get("model"),
             reference_sample=spk.get("reference_sample"),
         )
         logger.info(

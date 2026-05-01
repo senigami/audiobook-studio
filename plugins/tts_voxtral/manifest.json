@@ -16,7 +16,8 @@
       }
     ],
     "setting_aliases": {
-      "voxtral_model": "model"
+      "voxtral_model": "model",
+      "voxtral_voice_id": "voice_asset_id"
     },
     "synthesis_settings": ["model"]
   },

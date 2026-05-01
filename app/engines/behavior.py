@@ -152,6 +152,11 @@ def _load_manifest_behavior(engine_id: str) -> dict[str, Any]:
     return normalize_behavior(payload.get("behavior"))
 
 
+def is_built_in(engine_id: str) -> bool:
+    """Return whether an engine_id corresponds to a built-in Studio engine."""
+    return str(engine_id or "").strip().lower() in {"xtts", "voxtral"}
+
+
 def _normalize_required_settings(raw_items: Any) -> list[dict[str, str]]:
     """Normalize required settings from simple strings or richer dicts."""
     items = raw_items if isinstance(raw_items, list) else []

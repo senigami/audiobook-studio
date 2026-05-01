@@ -75,8 +75,6 @@ def _default_state_minimal() -> Dict[str, Any]:
         "settings": {
             "safe_mode": True,
             "default_engine": "xtts",
-            "voxtral_enabled": False,
-            "voxtral_model": "voxtral-mini-tts-2603",
             "enabled_plugins": {},
         },
     }

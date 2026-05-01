@@ -89,10 +89,10 @@ def test_update_profile_voxtral_voice_id(clean_db, voices_root, client):
     with patch("app.api.routers.voices_helpers._is_engine_active", return_value=True):
         response = client.post("/api/speaker-profiles/SpeakerA/voxtral-voice-id", data={"voice_id": "voice_123"})
     assert response.status_code == 200
-    assert response.json()["voxtral_voice_id"] == "voice_123"
+    assert response.json()["voice_asset_id"] == "voice_123"
 
     meta = json.loads((profile_dir / "profile.json").read_text())
-    assert meta["voxtral_voice_id"] == "voice_123"
+    assert meta["voice_asset_id"] == "voice_123"
 
 
 def test_voxtral_profile_test_accepts_saved_voice_id_without_samples(clean_db, voices_root, client):
@@ -101,7 +101,7 @@ def test_voxtral_profile_test_accepts_saved_voice_id_without_samples(clean_db, v
     (profile_dir / "profile.json").write_text(json.dumps({
         "variant_name": "Default",
         "engine": "voxtral",
-        "voxtral_voice_id": "voice_123",
+        "voice_asset_id": "voice_123",
     }))
 
     with patch("app.api.routers.voices_helpers._is_engine_active", return_value=True), patch("app.state.put_job"), patch("app.jobs.enqueue"):

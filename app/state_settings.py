@@ -11,7 +11,6 @@ def _default_state() -> Dict[str, Any]:
         "settings": {
             "safe_mode": True,
             "default_engine": "xtts",
-            "voxtral_model": "voxtral-mini-tts-2603",
             "enabled_plugins": {},
             "verified_plugins": {},
             "tts_api_enabled": False,
@@ -44,7 +43,7 @@ def _normalize_settings(
     else:
         normalized.pop("mistral_api_key", None)
 
-    # Enforce enabled_plugins as the source of truth for Voxtral enablement.
+    # Enforce enabled_plugins as the source of truth for plugin enablement.
     # Legacy voxtral_enabled is used only for migration.
     enabled_plugins = normalized.get("enabled_plugins")
     if not isinstance(enabled_plugins, dict):
@@ -58,13 +57,18 @@ def _normalize_settings(
     if incoming_updates and isinstance(incoming_updates.get("enabled_plugins"), dict):
         enabled_plugins.update(incoming_updates["enabled_plugins"])
 
-    # 3. Ensure mistral_api_key requirement is respected
-    if not mistral_api_key:
-        enabled_plugins["voxtral"] = False
-
-    # 4. Final normalization: default to false if still missing
-    if "voxtral" not in enabled_plugins:
-        enabled_plugins["voxtral"] = False
+    # 3. Ensure required settings are respected for each enabled plugin
+    from .engines.behavior import required_settings_for
+    for engine_id, is_enabled in list(enabled_plugins.items()):
+        if not is_enabled:
+            continue
+        requirements = required_settings_for(engine_id)
+        for req in requirements:
+            setting_name = req["name"]
+            if not str(normalized.get(setting_name) or "").strip():
+                logger.info("Disabling plugin %s due to missing required setting %s", engine_id, setting_name)
+                enabled_plugins[engine_id] = False
+                break
 
     normalized["enabled_plugins"] = enabled_plugins
     normalized.pop("voxtral_enabled", None)
@@ -74,12 +78,8 @@ def _normalize_settings(
         verified_plugins = {}
     normalized["verified_plugins"] = verified_plugins
 
-    voxtral_model = str(normalized.get("voxtral_model") or "").strip() or defaults["voxtral_model"]
-    if voxtral_model == "voxtral-tts":
-        voxtral_model = defaults["voxtral_model"]
-    normalized["voxtral_model"] = voxtral_model
-
-    if normalized["default_engine"] == "voxtral" and not normalized.get("mistral_api_key"):
+    # 5. Check if default_engine is still enabled
+    if not enabled_plugins.get(normalized["default_engine"], True):
         normalized["default_engine"] = defaults["default_engine"]
 
     default_speaker = str(normalized.get("default_speaker_profile") or "").strip()

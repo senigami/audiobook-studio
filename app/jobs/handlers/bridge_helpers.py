@@ -21,9 +21,10 @@ def generate_via_bridge(
     voice_profile_dir: Path | None = None,
     voice_asset_id: str | None = None,
     reference_sample: str | None = None,
-    voxtral_model: str | None = None,
+    model: str | None = None,
     safe_mode: bool = True,
     script: list[dict[str, Any]] | None = None,
+    **kwargs,
 ) -> int:
     """Standardized bridge call for legacy-style job handlers.
 
@@ -48,10 +49,13 @@ def generate_via_bridge(
         request["voice_asset_id"] = voice_asset_id
     if reference_sample:
         request["reference_sample"] = reference_sample
-    if voxtral_model:
-        request["voxtral_model"] = voxtral_model
+    if model:
+        request["model"] = model
     if voice_profile_dir:
         request["voice_profile_dir"] = str(voice_profile_dir)
+
+    if kwargs:
+        request.update(kwargs)
 
     try:
         response = bridge.synthesize(request)
