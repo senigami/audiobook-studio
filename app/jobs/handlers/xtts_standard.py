@@ -208,7 +208,7 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                     script=script,
                 )
             except EngineBridgeError as exc:
-                logger.error("Bridge synthesis failed in xtts_standard: %s", exc)
+                xtts_facade.logger.error("Bridge synthesis failed in xtts_standard: %s", exc)
                 return 1
             finally:
                 if scratch_wav.exists():
