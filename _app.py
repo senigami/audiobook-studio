@@ -25,6 +25,7 @@ from app.utils.text_processing import (
 from app.pathing import safe_basename
 from app.dashboard_templates import INDEX_HTML, JOB_HTML
 from app.pathing import safe_join_flat
+from app.voice_engines import DEFAULT_PROFILE_ENGINE
 
 # =======================
 # CONFIG (edit these once)
@@ -337,7 +338,9 @@ def index():
         latest_report=latest_report,
         settings=settings_obj,
         sent_limit=SENT_CHAR_LIMIT,
-        done_xtts=done_xtts
+        done_chapters=done_xtts,
+        default_engine=DEFAULT_PROFILE_ENGINE,
+        audio_output_dir=XTTS_OUT_DIR.name,
     )
     return HTMLResponse(html)
 

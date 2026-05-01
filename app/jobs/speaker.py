@@ -336,7 +336,7 @@ def get_speaker_settings(profile_name_or_id: str) -> dict:
     defaults = get_settings()
 
     res = {
-        "speed": float(defaults.get("xtts_speed", 1.0)),
+        "speed": float(defaults.get("speed", 1.0)),
         "test_text": DEFAULT_SPEAKER_TEST_TEXT,
         "speaker_id": None,
         "variant_name": None,

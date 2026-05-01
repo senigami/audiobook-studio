@@ -49,6 +49,8 @@ def _normalize_settings(
     legacy_map = {
         "voxtral_enabled": "voxtral",
     }
+    if "xtts_speed" in normalized and "speed" not in normalized:
+        normalized["speed"] = normalized.pop("xtts_speed")
     for legacy_flag, target_id in legacy_map.items():
         if legacy_flag in normalized and target_id not in enabled_plugins:
             enabled_plugins[target_id] = bool(normalized[legacy_flag])

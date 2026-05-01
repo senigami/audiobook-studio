@@ -29,17 +29,17 @@ INDEX_HTML = r"""
   <div class="small">
     <ol>
       <li>Put chapter text files in <span class="mono">chapters_out/</span> (one chapter per .txt).</li>
-      <li>Put your XTTS reference voice in <span class="mono">narrator_clean.wav</span> (same folder as this app).</li>
+      <li>Put your reference voice in <span class="mono">narrator_clean.wav</span> (same folder as this app).</li>
       <li>Run the server:
         <div class="mono">cd ~/tts-dashboard
 source venv/bin/activate
 uvicorn app:app --reload --port 8123</div>
       </li>
       <li>Open: <span class="mono">http://127.0.0.1:8123</span></li>
-      <li>Recommended: click <b>Analyze long sentences</b> before generating XTTS.</li>
-          <li>Outputs: <span class="mono">xtts_audio/</span></li>
+      <li>Recommended: click <b>Analyze long sentences</b> before generating audio.</li>
+          <li>Outputs: <span class="mono">{{ audio_output_dir }}/</span></li>
     </ol>
-    <p><b>Why Safe Mode?</b> XTTS may truncate “sentences” longer than {{ sent_limit }} chars. Safe Mode auto-split long sentences before synthesis.</p>
+    <p><b>Why Safe Mode?</b> Some engines may truncate “sentences” longer than {{ sent_limit }} chars. Safe Mode auto-split long sentences before synthesis.</p>
   </div>
 </div>
 
@@ -50,7 +50,7 @@ uvicorn app:app --reload --port 8123</div>
 
     <div class="btnrow">
       <form method="post" action="/analyze"><button type="submit">Analyze long sentences</button></form>
-      <form method="post" action="/enqueue_missing"><button type="submit">Enqueue missing (XTTS)</button></form>
+      <form method="post" action="/enqueue_missing"><button type="submit">Enqueue missing</button></form>
       <form method="post" action="/enqueue_next"><button type="submit">Generate next chapter</button></form>
     </div>
 
@@ -72,13 +72,13 @@ uvicorn app:app --reload --port 8123</div>
       <tr>
         <td>
           {{ c }}
-          {% if c in done_xtts %}<span class="tag ok">XTTS done</span>{% endif %}
+          {% if c in done_chapters %}<span class="tag ok">Done</span>{% endif %}
         </td>
         <td>
           <form method="post" action="/enqueue" style="display:inline">
             <input type="hidden" name="chapter_file" value="{{ c }}"/>
-            <input type="hidden" name="engine" value="xtts"/>
-            <button type="submit">Enqueue XTTS</button>
+            <input type="hidden" name="engine" value="{{ settings.default_engine if settings.default_engine is defined else default_engine }}"/>
+            <button type="submit">Enqueue</button>
           </form>
         </td>
       </tr>
@@ -95,7 +95,7 @@ uvicorn app:app --reload --port 8123</div>
     </div>
 
     <p class="small">
-      <b>XTTS narrator wav:</b>
+      <b>Narrator wav:</b>
       {% if narrator_ok %}<span class="ok">Found</span>{% else %}<span class="warn">Missing (narrator_clean.wav)</span>{% endif %}
       <br/>
       <b>Latest report:</b> {% if latest_report %}<a href="/report/{{ latest_report }}">{{ latest_report }}</a>{% else %}—{% endif %}
