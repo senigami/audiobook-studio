@@ -39,7 +39,7 @@ def wav_to_mp3(
         str(MP3_QUALITY),
         str(out_mp3),
     ]
-    from app.engines import run_cmd_stream
+    from .proc_utils import run_cmd_stream
     return run_cmd_stream(cmd, on_output, cancel_check)
 
 
@@ -91,7 +91,7 @@ def stitch_segments(
             "copy",
             str(output_path),
         ]
-        from app.engines import run_cmd_stream
+        from .proc_utils import run_cmd_stream
         return run_cmd_stream(cmd, on_output, cancel_check)
     finally:
         if list_file.exists():

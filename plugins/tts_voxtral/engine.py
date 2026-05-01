@@ -4,7 +4,7 @@ Implements the ``StudioTTSEngine`` SDK contract.  This module runs inside the
 TTS Server subprocess.  It must NOT import from ``app.api``, ``app.domain``,
 ``app.orchestration``, or ``app.db``.
 
-Delegates to the legacy ``app.engines_voxtral`` helpers via late imports.
+Delegates to the legacy ``app.engines.voice.voxtral.implementation`` helpers via late imports.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ class VoxtralPlugin(StudioTTSEngine):
 
     def verify(self, req: TTSRequest) -> VerificationResult:
         """Perform a real API connectivity check by listing models."""
-        from app.engines_voxtral import list_mistral_models  # noqa: PLC0415
+        from app.engines.voice.voxtral.implementation import list_mistral_models  # noqa: PLC0415
 
         api_key = self._resolve_api_key()
         if not api_key:
@@ -49,7 +49,7 @@ class VoxtralPlugin(StudioTTSEngine):
 
     def info(self) -> dict[str, Any]:
         """Return runtime metadata including detected model and available models."""
-        from app.engines_voxtral import list_mistral_models  # noqa: PLC0415
+        from app.engines.voice.voxtral.implementation import list_mistral_models  # noqa: PLC0415
         model = self._resolve_model()
         api_key_set = bool(self._resolve_api_key())
         available_models = list_mistral_models() if api_key_set else []
@@ -97,7 +97,7 @@ class VoxtralPlugin(StudioTTSEngine):
             schema = json.loads(schema_path.read_text(encoding="utf-8"))
 
             # Inject available models into the enum if possible
-            from app.engines_voxtral import list_mistral_models  # noqa: PLC0415
+            from app.engines.voice.voxtral.implementation import list_mistral_models  # noqa: PLC0415
             models = list_mistral_models()
             if models and "model" in schema.get("properties", {}):
                 schema["properties"]["model"]["enum"] = models
@@ -252,7 +252,7 @@ class VoxtralPlugin(StudioTTSEngine):
     @staticmethod
     def _resolve_api_key() -> str | None:
         try:
-            from app.engines_voxtral import resolve_mistral_api_key  # noqa: PLC0415
+            from app.engines.voice.voxtral.implementation import resolve_mistral_api_key  # noqa: PLC0415
 
             return resolve_mistral_api_key()
         except Exception:
@@ -261,7 +261,7 @@ class VoxtralPlugin(StudioTTSEngine):
     @staticmethod
     def _resolve_model() -> str:
         try:
-            from app.engines_voxtral import resolve_voxtral_model  # noqa: PLC0415
+            from app.engines.voice.voxtral.implementation import resolve_voxtral_model  # noqa: PLC0415
 
             return resolve_voxtral_model()
         except Exception:
@@ -291,7 +291,7 @@ class VoxtralPlugin(StudioTTSEngine):
         model: str | None,
         reference_sample: str | None,
     ) -> int:
-        from app.engines_voxtral import voxtral_generate as _gen  # noqa: PLC0415
+        from app.engines.voice.voxtral.implementation import voxtral_generate as _gen  # noqa: PLC0415
 
         return _gen(
             text=text,

@@ -24,11 +24,8 @@ def xtts_generate(
     voice_profile_dir: Path | None = None,
 ) -> int:
     """Invoke XTTS inference via subprocess."""
-    from app.engines import (
-        XTTS_ENV_ACTIVATE as engine_xtts_env_activate,
-        XTTS_ENV_PYTHON as engine_xtts_env_python,
-        run_cmd_stream,
-    )
+    from app.config import XTTS_ENV_ACTIVATE as engine_xtts_env_activate, XTTS_ENV_PYTHON as engine_xtts_env_python
+    from app.engines.proc_utils import run_cmd_stream
 
     import sys
     python_exe = engine_xtts_env_python
@@ -92,11 +89,8 @@ def xtts_generate_script(
     voice_profile_dir: Path | None = None,
 ) -> int:
     """Invoke XTTS script-based inference via subprocess."""
-    from app.engines import (
-        XTTS_ENV_ACTIVATE as engine_xtts_env_activate,
-        XTTS_ENV_PYTHON as engine_xtts_env_python,
-        run_cmd_stream,
-    )
+    from app.config import XTTS_ENV_ACTIVATE as engine_xtts_env_activate, XTTS_ENV_PYTHON as engine_xtts_env_python
+    from app.engines.proc_utils import run_cmd_stream
 
     import sys
     python_exe = engine_xtts_env_python
@@ -161,7 +155,7 @@ def migrate_speaker_latent_to_profile(speaker_wavs_str: str | list[str] | None, 
     if profile_latent.exists():
         return profile_latent
 
-    from app.engines import get_speaker_latent_path as _get_path
+    _get_path = get_speaker_latent_path
     legacy_latent = _get_path(speaker_wavs_str)
     if legacy_latent and legacy_latent.exists():
         profile_latent.parent.mkdir(parents=True, exist_ok=True)

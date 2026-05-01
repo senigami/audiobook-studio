@@ -27,7 +27,8 @@ def assemble_audiobook(
     cover_path: str | None = None,
 ) -> int:
     """Combine audio segments into a single M4B audiobook with chapters."""
-    from app.engines import _ffmpeg_concat_entry, get_audio_duration, run_cmd_stream
+    from .audio_ops import _ffmpeg_concat_entry, get_audio_duration
+    from .proc_utils import run_cmd_stream
 
     # 1. Gather files
     if chapters:

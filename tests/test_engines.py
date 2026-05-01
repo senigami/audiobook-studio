@@ -37,7 +37,7 @@ def test_run_cmd_stream_success(mock_on_output, mock_cancel_check):
         mock_on_output.assert_any_call("hello\n")
 
 def test_assemble_audiobook(mock_on_output, mock_cancel_check):
-    with patch("app.engines.run_cmd_stream", return_value=0), \
+    with patch("app.engines.proc_utils.run_cmd_stream", return_value=0), \
          patch("app.engines.get_audio_duration", return_value=5.0), \
          patch("pathlib.Path.exists", return_value=True), \
          patch("pathlib.Path.write_text"), \
@@ -60,7 +60,7 @@ def test_assemble_audiobook(mock_on_output, mock_cancel_check):
         assert rc == 0
 
 def test_generate_video_sample(mock_on_output, mock_cancel_check):
-    with patch("app.engines.run_cmd_stream", return_value=0), \
+    with patch("app.engines.proc_utils.run_cmd_stream", return_value=0), \
          patch("pathlib.Path.exists", return_value=True):
         from app.engines import generate_video_sample
         rc = generate_video_sample(
@@ -84,15 +84,15 @@ def test_run_cmd_stream_cancel(mock_on_output, mock_cancel_check):
         mock_proc.terminate.assert_called_once()
 
 def test_wav_to_mp3():
-    with patch("app.engines.run_cmd_stream", return_value=0) as mock_run:
+    with patch("app.engines.proc_utils.run_cmd_stream", return_value=0) as mock_run:
         rc = wav_to_mp3(Path("in.wav"), Path("out.mp3"))
         assert rc == 0
         mock_run.assert_called_once()
         assert "ffmpeg" in mock_run.call_args[0][0]
 
 def test_xtts_generate_success(mock_on_output, mock_cancel_check):
-    with patch("app.engines.XTTS_ENV_ACTIVATE") as mock_activate, \
-         patch("app.engines.run_cmd_stream", return_value=0) as mock_run:
+    with patch("app.config.XTTS_ENV_ACTIVATE") as mock_activate, \
+         patch("app.engines.proc_utils.run_cmd_stream", return_value=0) as mock_run:
         mock_activate.exists.return_value = True
 
         rc = xtts_generate("Hello", Path("out.wav"), True, mock_on_output, mock_cancel_check, speaker_wav="spk.wav", voice_profile_dir=Path("/tmp/voices/VoiceA"))
@@ -100,8 +100,8 @@ def test_xtts_generate_success(mock_on_output, mock_cancel_check):
         assert "--voice_profile_dir" in mock_run.call_args[0][0]
 
 def test_xtts_generate_voice_profile_only(mock_on_output, mock_cancel_check):
-    with patch("app.engines.XTTS_ENV_ACTIVATE") as mock_activate, \
-         patch("app.engines.run_cmd_stream", return_value=0) as mock_run:
+    with patch("app.config.XTTS_ENV_ACTIVATE") as mock_activate, \
+         patch("app.engines.proc_utils.run_cmd_stream", return_value=0) as mock_run:
         mock_activate.exists.return_value = True
 
         rc = xtts_generate(
@@ -126,7 +126,7 @@ def test_xtts_generate_no_activate(mock_on_output, mock_cancel_check):
             raise ImportError("Mocked")
         return original_import(name, *args, **kwargs)
 
-    with patch("app.engines.XTTS_ENV_ACTIVATE") as mock_activate, \
+    with patch("app.config.XTTS_ENV_ACTIVATE") as mock_activate, \
          patch("builtins.__import__", side_effect=mocked_import):
         mock_activate.exists.return_value = False
         rc = xtts_generate("Hello", Path("out.wav"), True, mock_on_output, mock_cancel_check, speaker_wav="spk.wav")
@@ -177,7 +177,7 @@ def test_migrate_speaker_latent_to_profile(tmp_path, monkeypatch):
     legacy_latent.write_text("legacy latent")
     profile_dir = tmp_path / "voices" / "VoiceA"
 
-    monkeypatch.setattr("app.engines.get_speaker_latent_path", lambda *_args, **_kwargs: legacy_latent)
+    monkeypatch.setattr("app.engines.voice.xtts.implementation.get_speaker_latent_path", lambda *_args, **_kwargs: legacy_latent)
 
     migrated = migrate_speaker_latent_to_profile("ref.wav", profile_dir)
     assert migrated == profile_dir / "latent.pth"
@@ -194,7 +194,7 @@ def test_assemble_audiobook_no_files(mock_on_output, mock_cancel_check):
 def test_assemble_audiobook_encode_fail(mock_on_output, mock_cancel_check):
     # side_effect for exists: [False] (m4a not there), then True for rest (files, cleanup)
     exists_vals = [False] + [True] * 50
-    with patch("app.engines.run_cmd_stream", side_effect=[1]), \
+    with patch("app.engines.proc_utils.run_cmd_stream", side_effect=[1]), \
          patch("app.engines.get_audio_duration", return_value=5.0), \
          patch("pathlib.Path.exists", side_effect=exists_vals), \
          patch("pathlib.Path.stat"), \
@@ -207,7 +207,7 @@ def test_assemble_audiobook_encode_fail(mock_on_output, mock_cancel_check):
 @pytest.fixture(autouse=True)
 def mock_audio_ops():
     with patch("os.unlink", return_value=None), \
-         patch("app.engines.XTTS_ENV_ACTIVATE") as mock_act:
+         patch("app.config.XTTS_ENV_ACTIVATE") as mock_act:
         mock_act.exists.return_value = True
         yield
 
@@ -218,7 +218,7 @@ def test_generate_video_sample_no_audio(mock_on_output, mock_cancel_check):
         assert rc == 1
 
 def test_generate_video_sample_no_logo(mock_on_output, mock_cancel_check):
-    with patch("app.engines.run_cmd_stream", return_value=0), \
+    with patch("app.engines.proc_utils.run_cmd_stream", return_value=0), \
          patch("pathlib.Path.exists", side_effect=[True, False, True, True]):
         from app.engines import generate_video_sample
         rc = generate_video_sample(Path("in.wav"), Path("out.mp4"), Path("no-logo.png"), mock_on_output, mock_cancel_check)
@@ -229,14 +229,14 @@ def test_stitch_segments_no_segs(mock_on_output, mock_cancel_check):
     assert rc == 1
 
 def test_xtts_generate_raw_mode(mock_on_output, mock_cancel_check):
-    with patch("app.engines.run_cmd_stream", return_value=0):
+    with patch("app.engines.proc_utils.run_cmd_stream", return_value=0):
         rc = xtts_generate("Hello", Path("out.wav"), False, mock_on_output, mock_cancel_check, speaker_wav="spk.wav")
         assert rc == 0
 
 
 def test_xtts_generate_script_includes_voice_profile_dir(mock_on_output, mock_cancel_check):
-    with patch("app.engines.XTTS_ENV_ACTIVATE") as mock_activate, \
-         patch("app.engines.run_cmd_stream", return_value=0) as mock_run:
+    with patch("app.config.XTTS_ENV_ACTIVATE") as mock_activate, \
+         patch("app.engines.proc_utils.run_cmd_stream", return_value=0) as mock_run:
         mock_activate.exists.return_value = True
 
         rc = xtts_generate_script(
@@ -287,7 +287,7 @@ def test_get_audio_duration_fail():
         assert get_audio_duration(Path("fail.wav")) == 0.0
 
 def test_assemble_audiobook_chapter_titles(mock_on_output, mock_cancel_check):
-    with patch("app.engines.run_cmd_stream", return_value=0), \
+    with patch("app.engines.proc_utils.run_cmd_stream", return_value=0), \
          patch("app.engines.get_audio_duration", return_value=5.0), \
          patch("pathlib.Path.exists", return_value=True), \
          patch("pathlib.Path.write_text"), \

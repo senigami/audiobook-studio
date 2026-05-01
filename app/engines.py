@@ -20,7 +20,7 @@ from app.engines.audio_ops import (
 from app.engines.audiobook_utils import _create_temp_manifest, assemble_audiobook
 from app.engines.proc_utils import _active_processes, run_cmd_stream, terminate_all_subprocesses
 from app.engines.video_utils import generate_video_sample
-from app.engines.xtts_utils import (
+from app.engines.voice.xtts.implementation import (
     get_speaker_latent_path,
     migrate_speaker_latent_to_profile,
     xtts_generate,

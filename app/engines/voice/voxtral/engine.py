@@ -50,7 +50,7 @@ def wav_to_mp3(in_wav: Path, out_mp3: Path, on_output=None, cancel_check=None) -
 def resolve_mistral_api_key() -> str | None:
     """Resolve the Voxtral API key through the legacy helper lazily."""
 
-    from app.engines_voxtral import resolve_mistral_api_key as legacy_resolver
+    from .implementation import resolve_mistral_api_key as legacy_resolver
 
     return legacy_resolver()
 
@@ -58,7 +58,7 @@ def resolve_mistral_api_key() -> str | None:
 def resolve_voxtral_model() -> str:
     """Resolve the Voxtral model name through the legacy helper lazily."""
 
-    from app.engines_voxtral import resolve_voxtral_model as legacy_resolver
+    from .implementation import resolve_voxtral_model as legacy_resolver
 
     return legacy_resolver()
 
@@ -89,7 +89,7 @@ def voxtral_generate(
 ) -> int:
     """Invoke the legacy Voxtral generator lazily."""
 
-    from app.engines_voxtral import voxtral_generate as legacy_generate
+    from .implementation import voxtral_generate as legacy_generate
 
     return legacy_generate(
         text=text,
@@ -228,7 +228,7 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
             render_wav_path = temp_wav
 
         try:
-            from app.engines_voxtral import VoxtralError
+            from .implementation import VoxtralError
 
             rc = voxtral_generate(
                 text=script_text,
@@ -312,7 +312,7 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
         os.close(fd)
         out_wav = Path(out_wav_path)
         try:
-            from app.engines_voxtral import VoxtralError
+            from .implementation import VoxtralError
 
             rc = voxtral_generate(
                 text=script_text,

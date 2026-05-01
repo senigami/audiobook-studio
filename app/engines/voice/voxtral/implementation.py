@@ -8,8 +8,8 @@ from typing import Any, Optional
 
 import httpx
 
-from .engines import convert_to_wav
-from .state import get_settings
+from app.engines import convert_to_wav
+from app.state import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +77,7 @@ def resolve_reference_audio_path(profile_name: Optional[str], reference_sample: 
         return None
 
     try:
-        from .jobs.speaker import get_voice_profile_dir
+        from app.jobs.speaker import get_voice_profile_dir
 
         profile_dir = get_voice_profile_dir(profile_name)
     except Exception:
