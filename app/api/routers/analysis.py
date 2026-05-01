@@ -186,7 +186,8 @@ def api_analyze_chapter(chapter_id: str):
                 "raw_hits": raw_hits,
                 "auto_fixed": auto_fixed,
                 "uncleanable": uncleanable,
-                "cleaned_hits": cleaned_hits
+                "cleaned_hits": cleaned_hits,
+                "chunk_limit": chunk_limit,
             }
 
         res = process_chapter()
@@ -194,7 +195,7 @@ def api_analyze_chapter(chapter_id: str):
         return ChapterAnalysisResponse(
             status="ok",
             voice_chunks=res["voice_chunks"],
-            threshold=chunk_limit,
+            threshold=res["chunk_limit"],
             char_count=res["stats"]["char_count"],
             word_count=res["stats"]["word_count"],
             sent_count=res["stats"]["sent_count"],
