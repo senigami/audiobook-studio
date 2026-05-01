@@ -80,7 +80,9 @@ class XttsPlugin(StudioTTSEngine):
 
     def check_request(self, req: TTSRequest) -> tuple[bool, str]:
         """Validate an XTTS synthesis request."""
-        if not req.text or not req.text.strip():
+        has_text = bool(req.text and req.text.strip())
+        has_script = bool(req.script)
+        if not has_text and not has_script:
             return False, "text must not be empty."
 
         if not req.output_path or not req.output_path.strip():
@@ -120,16 +122,20 @@ class XttsPlugin(StudioTTSEngine):
         speed = float(req.settings.get("speed", 1.0))
         safe_mode = bool(req.settings.get("safe_mode", True))
 
-        # Resolve the speaker WAV and optional voice profile directory.
-        speaker_wav, voice_profile_dir = self._resolve_voice_inputs(req)
-        if speaker_wav is None and voice_profile_dir is None:
-            return TTSResult(
-                ok=False,
-                error=(
-                    "XTTS requires voice_ref (a .wav reference) or a voice profile "
-                    "directory to be configured."
-                ),
-            )
+        speaker_wav: str | None = None
+        voice_profile_dir: Path | None = None
+        if not req.script:
+            # Single-text synthesis still needs a voice source. Script payloads
+            # carry per-segment voice data produced by the job handlers.
+            speaker_wav, voice_profile_dir = self._resolve_voice_inputs(req)
+            if speaker_wav is None and voice_profile_dir is None:
+                return TTSResult(
+                    ok=False,
+                    error=(
+                        "XTTS requires voice_ref (a .wav reference) or a voice profile "
+                        "directory to be configured."
+                    ),
+                )
 
         render_wav_path = output_path
         temp_wav: Path | None = None
@@ -144,17 +150,33 @@ class XttsPlugin(StudioTTSEngine):
             temp_wav = Path(tmp)
             render_wav_path = temp_wav
 
+        rc = 1
         try:
-            rc = self._xtts_generate(
-                text=req.text.strip(),
-                out_wav=render_wav_path,
-                safe_mode=safe_mode,
-                on_output=lambda _: None,
-                cancel_check=lambda: False,
-                speaker_wav=speaker_wav,
-                speed=speed,
-                voice_profile_dir=voice_profile_dir,
-            )
+            if req.script:
+                with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as handle:
+                    json.dump(req.script, handle)
+                    script_path = Path(handle.name)
+                try:
+                    rc = self._xtts_generate_script(
+                        script_json_path=script_path,
+                        out_wav=render_wav_path,
+                        on_output=lambda _: None,
+                        cancel_check=lambda: False,
+                        speed=speed,
+                    )
+                finally:
+                    script_path.unlink(missing_ok=True)
+            else:
+                rc = self._xtts_generate(
+                    text=req.text.strip(),
+                    out_wav=render_wav_path,
+                    safe_mode=safe_mode,
+                    on_output=lambda _: None,
+                    cancel_check=lambda: False,
+                    speaker_wav=speaker_wav,
+                    speed=speed,
+                    voice_profile_dir=voice_profile_dir,
+                )
         except Exception as exc:
             return TTSResult(ok=False, error=f"XTTS synthesis raised: {exc}")
         finally:
@@ -275,6 +297,26 @@ class XttsPlugin(StudioTTSEngine):
             speaker_wav=speaker_wav,
             speed=speed,
             voice_profile_dir=voice_profile_dir,
+        )
+
+    @staticmethod
+    def _xtts_generate_script(
+        *,
+        script_json_path: Path,
+        out_wav: Path,
+        on_output,
+        cancel_check,
+        speed: float,
+    ) -> int:
+        """Delegate script synthesis to the legacy XTTS batch generator."""
+        from app.engines import xtts_generate_script as _gen_script  # noqa: PLC0415
+
+        return _gen_script(
+            script_json_path=script_json_path,
+            out_wav=out_wav,
+            on_output=on_output,
+            cancel_check=cancel_check,
+            speed=speed,
         )
 
     @staticmethod

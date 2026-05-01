@@ -34,6 +34,7 @@ class RemoteBridgeHandler:
                 voice_ref=request.get("reference_audio_path") or None,
                 settings=extract_synthesis_settings(request),
                 language=str(request.get("language", "en")),
+                script=request.get("script"),
             )
         except TtsServerError as exc:
             raise EngineUnavailableError(f"TTS Server synthesis failed: {exc}") from exc
@@ -94,6 +95,7 @@ class RemoteBridgeHandler:
                 voice_ref=request.get("reference_audio_path") or None,
                 settings=extract_synthesis_settings(request),
                 language=str(request.get("language", "en")),
+                script=request.get("script"),
             )
             from app.engines.voice.sdk import SynthesisPlan
             return SynthesisPlan(**payload)

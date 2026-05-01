@@ -29,6 +29,7 @@ class TTSRequest:
             ``settings.json``.  Keys and value types match the engine's own
             ``settings_schema.json``.
         language: BCP-47 language code, e.g. ``"en"``, ``"es"``.
+        script: Optional structured multi-segment script for batch synthesis.
     """
 
     text: str
@@ -36,6 +37,7 @@ class TTSRequest:
     voice_ref: str | None = None
     settings: dict[str, Any] = field(default_factory=dict)
     language: str = "en"
+    script: list[dict[str, Any]] | None = None
 
 
 @dataclass

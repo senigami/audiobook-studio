@@ -4,7 +4,7 @@ from pathlib import Path
 
 from ...chunk_groups import build_chunk_groups, load_chunk_segments
 from ...db import get_chapter_segments, update_queue_item, update_segment, update_segments_status_bulk
-from ...engines import get_audio_duration, stitch_segments, wav_to_mp3, xtts_generate, xtts_generate_script
+from ...engines import get_audio_duration, stitch_segments, wav_to_mp3
 from ..speaker import get_speaker_wavs, get_voice_profile_dir
 from ...state import update_job
 from .xtts_bake import handle_xtts_bake
@@ -24,8 +24,6 @@ __all__ = [
     "get_audio_duration",
     "stitch_segments",
     "wav_to_mp3",
-    "xtts_generate",
-    "xtts_generate_script",
     "get_speaker_wavs",
     "get_voice_profile_dir",
     "update_job",

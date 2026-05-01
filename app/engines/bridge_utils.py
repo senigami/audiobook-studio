@@ -36,6 +36,12 @@ def extract_synthesis_settings(request: dict[str, Any]) -> dict[str, Any]:
         settings["voice_profile_id"] = request["voice_profile_id"]
     if "voice_asset_id" in request:
         settings["voice_asset_id"] = request["voice_asset_id"]
+    if "reference_sample" in request:
+        settings["reference_sample"] = request["reference_sample"]
+    if "voxtral_model" in request:
+        settings["model"] = request["voxtral_model"]
+    if "model" in request:
+        settings["model"] = request["model"]
     if "speed" in request:
         settings["speed"] = request["speed"]
     if "safe_mode" in request:

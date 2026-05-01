@@ -133,6 +133,7 @@ class VoxtralPlugin(StudioTTSEngine):
             )
         else:
             profile_name = str(req.settings.get("voice_profile_id", ""))
+            reference_sample = req.settings.get("reference_sample") or None
 
         if not profile_name:
             return TTSResult(
@@ -208,6 +209,8 @@ class VoxtralPlugin(StudioTTSEngine):
             cleanup_root, profile_name, reference_sample = (
                 self._stage_reference_audio(Path(req.voice_ref))
             )
+        else:
+            reference_sample = req.settings.get("reference_sample") or None
 
         if not profile_name:
             return TTSResult(

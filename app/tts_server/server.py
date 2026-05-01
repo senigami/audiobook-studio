@@ -101,6 +101,7 @@ class SynthesizeRequest(BaseModel):
     voice_ref: str | None = None
     settings: dict[str, Any] = {}
     language: str = "en"
+    script: list[dict[str, Any]] | None = None
 
 
 class PreviewRequest(BaseModel):
@@ -333,6 +334,7 @@ def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
         "reference_audio_path": body.voice_ref,
         "settings": merged_settings,
         "language": body.language,
+        "script": body.script,
     }
     h.preprocess_request(request_dict)
 
@@ -350,6 +352,7 @@ def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
         voice_ref=request_dict.get("reference_audio_path") or body.voice_ref,  # type: ignore[arg-type]
         settings=request_dict.get("settings", merged_settings),  # type: ignore[arg-type]
         language=str(request_dict.get("language", body.language)),
+        script=request_dict.get("script") or body.script,  # type: ignore[arg-type]
     )
 
     ok, msg = plugin.engine.check_request(req)
@@ -458,6 +461,7 @@ def plan_synthesis(engine_id: str, body: SynthesizeRequest) -> dict[str, Any]:
         voice_ref=body.voice_ref,
         settings=merged_settings,
         language=body.language,
+        script=body.script,
     )
 
     plan = plugin.engine.hooks().plan_synthesis(req)

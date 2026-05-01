@@ -28,6 +28,13 @@ class TestTtsRequest:
         assert req.settings == {"speed": 1.5}
         assert req.language == "es"
 
+    def test_script_construction(self):
+        script = [{"text": "Hello", "save_path": "/tmp/seg.wav"}]
+
+        req = TTSRequest(text="", output_path="/tmp/out.wav", script=script)
+
+        assert req.script == script
+
     def test_is_frozen(self):
         req = TTSRequest(text="Test", output_path="/tmp/out.wav")
         with pytest.raises((AttributeError, TypeError)):

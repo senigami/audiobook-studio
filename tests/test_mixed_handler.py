@@ -47,12 +47,16 @@ def test_handle_mixed_job_renders_and_stitches(clean_db, tmp_path):
     audio_dir.mkdir()
     output_wav = audio_dir / f"{cid}_0.wav"
 
-    def fake_xtts_generate(*args, **kwargs):
-        Path(kwargs["out_wav"]).write_text("xtts")
-        return 0
-
-    def fake_voxtral_generate(*args, **kwargs):
-        Path(kwargs["out_wav"]).write_text("voxtral")
+    def fake_generate_via_bridge(**kwargs):
+        engine = kwargs["engine"]
+        out_wav = kwargs["out_wav"]
+        on_output = kwargs.get("on_output")
+        if engine == "xtts":
+            if on_output:
+                on_output("[PROGRESS] 50%\n")
+            Path(out_wav).write_text("xtts")
+        else:
+            Path(out_wav).write_text("voxtral")
         return 0
 
     def fake_stitch(_pdir, _segments, out_wav, _on_output, _cancel_check):
@@ -65,8 +69,7 @@ def test_handle_mixed_job_renders_and_stitches(clean_db, tmp_path):
          patch("app.jobs.handlers.mixed.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "voice_123"} if name == "Voxtral Voice" else {"speed": 1.0}), \
          patch("app.jobs.handlers.mixed.get_speaker_wavs", return_value="ref.wav"), \
          patch("app.jobs.handlers.mixed.get_voice_profile_dir", return_value=tmp_path / "voice"), \
-         patch("app.jobs.handlers.mixed.xtts_generate", side_effect=fake_xtts_generate), \
-         patch("app.jobs.handlers.mixed.voxtral_generate", side_effect=fake_voxtral_generate), \
+         patch("app.jobs.handlers.mixed.generate_via_bridge", side_effect=fake_generate_via_bridge), \
          patch("app.jobs.handlers.mixed.stitch_segments", side_effect=fake_stitch), \
          patch("app.jobs.handlers.mixed.update_job"):
         result = handle_mixed_job("mixed-job", job, time.time(), lambda _line: None, lambda: False)
@@ -108,7 +111,7 @@ def test_handle_mixed_job_groups_adjacent_segments_into_one_chunk(clean_db, tmp_
     audio_dir = tmp_path / "audio"
     audio_dir.mkdir()
 
-    def fake_xtts_generate(*args, **kwargs):
+    def fake_generate_via_bridge(**kwargs):
         Path(kwargs["out_wav"]).write_text("xtts")
         return 0
 
@@ -118,13 +121,13 @@ def test_handle_mixed_job_groups_adjacent_segments_into_one_chunk(clean_db, tmp_
          patch("app.jobs.handlers.mixed.get_speaker_settings", return_value={"speed": 1.0}), \
          patch("app.jobs.handlers.mixed.get_speaker_wavs", return_value="ref.wav"), \
          patch("app.jobs.handlers.mixed.get_voice_profile_dir", return_value=tmp_path / "voice"), \
-         patch("app.jobs.handlers.mixed.xtts_generate", side_effect=fake_xtts_generate) as mock_xtts, \
+         patch("app.jobs.handlers.mixed.generate_via_bridge", side_effect=fake_generate_via_bridge) as mock_bridge, \
          patch("app.jobs.handlers.mixed.update_job"):
         result = handle_mixed_job("mixed-job", job, time.time(), lambda _line: None, lambda: False)
         refreshed = get_chapter_segments(cid)
 
     assert result == "done"
-    assert mock_xtts.call_count == 1
+    assert mock_bridge.call_count == 1
     expected_path = f"chunk_{refreshed[0]['id']}.wav"
     assert refreshed[0]["audio_file_path"] == expected_path
     assert refreshed[1]["audio_file_path"] == expected_path
@@ -157,12 +160,13 @@ def test_handle_mixed_job_progress_uses_render_group_count(clean_db, tmp_path):
     audio_dir = tmp_path / "audio"
     audio_dir.mkdir()
 
-    def fake_xtts_generate(*args, **kwargs):
-        Path(kwargs["out_wav"]).write_text("xtts")
-        return 0
-
-    def fake_voxtral_generate(*args, **kwargs):
-        Path(kwargs["out_wav"]).write_text("voxtral")
+    def fake_generate_via_bridge(**kwargs):
+        engine = kwargs["engine"]
+        out_wav = kwargs["out_wav"]
+        if engine == "xtts":
+             Path(out_wav).write_text("xtts")
+        else:
+             Path(out_wav).write_text("voxtral")
         return 0
 
     def fake_stitch(_pdir, _segments, out_wav, _on_output, _cancel_check):
@@ -175,8 +179,7 @@ def test_handle_mixed_job_progress_uses_render_group_count(clean_db, tmp_path):
          patch("app.jobs.handlers.mixed.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "voice_123"} if name == "Voxtral Voice" else {"speed": 1.0}), \
          patch("app.jobs.handlers.mixed.get_speaker_wavs", return_value="ref.wav"), \
          patch("app.jobs.handlers.mixed.get_voice_profile_dir", return_value=tmp_path / "voice"), \
-         patch("app.jobs.handlers.mixed.xtts_generate", side_effect=fake_xtts_generate), \
-         patch("app.jobs.handlers.mixed.voxtral_generate", side_effect=fake_voxtral_generate), \
+         patch("app.jobs.handlers.mixed.generate_via_bridge", side_effect=fake_generate_via_bridge), \
          patch("app.jobs.handlers.mixed.stitch_segments", side_effect=fake_stitch), \
          patch("app.jobs.handlers.mixed.update_job") as mock_update:
         result = handle_mixed_job("mixed-job", job, time.time(), lambda _line: None, lambda: False)
@@ -216,7 +219,7 @@ def test_handle_mixed_job_progress_weights_short_final_group(clean_db, tmp_path)
     audio_dir = tmp_path / "audio"
     audio_dir.mkdir()
 
-    def fake_xtts_generate(*args, **kwargs):
+    def fake_generate_via_bridge(**kwargs):
         Path(kwargs["out_wav"]).write_text("xtts")
         return 0
 
@@ -229,7 +232,7 @@ def test_handle_mixed_job_progress_weights_short_final_group(clean_db, tmp_path)
          patch("app.jobs.handlers.mixed.get_speaker_settings", return_value={"speed": 1.0}), \
          patch("app.jobs.handlers.mixed.get_speaker_wavs", return_value="ref.wav"), \
          patch("app.jobs.handlers.mixed.get_voice_profile_dir", return_value=tmp_path / "voice"), \
-         patch("app.jobs.handlers.mixed.xtts_generate", side_effect=fake_xtts_generate), \
+         patch("app.jobs.handlers.mixed.generate_via_bridge", side_effect=fake_generate_via_bridge), \
          patch("app.jobs.handlers.mixed.stitch_segments", side_effect=fake_stitch), \
          patch("app.jobs.handlers.mixed.update_job") as mock_update:
         result = handle_mixed_job("mixed-job", job, time.time(), lambda _line: None, lambda: False)
@@ -271,10 +274,11 @@ def test_handle_mixed_segment_job_persists_intermediate_progress(clean_db, tmp_p
     audio_dir = tmp_path / "audio"
     audio_dir.mkdir()
 
-    def fake_xtts_generate(*args, **kwargs):
+    def fake_generate_via_bridge(**kwargs):
         on_output = kwargs["on_output"]
-        on_output("[PROGRESS] 25%\n")
-        on_output("[PROGRESS] 50%\n")
+        if on_output:
+            on_output("[PROGRESS] 25%\n")
+            on_output("[PROGRESS] 50%\n")
         Path(kwargs["out_wav"]).write_text("xtts")
         return 0
 
@@ -284,7 +288,7 @@ def test_handle_mixed_segment_job_persists_intermediate_progress(clean_db, tmp_p
          patch("app.jobs.handlers.mixed.get_speaker_settings", return_value={"speed": 1.0}), \
          patch("app.jobs.handlers.mixed.get_speaker_wavs", return_value="ref.wav"), \
          patch("app.jobs.handlers.mixed.get_voice_profile_dir", return_value=tmp_path / "voice"), \
-         patch("app.jobs.handlers.mixed.xtts_generate", side_effect=fake_xtts_generate), \
+         patch("app.jobs.handlers.mixed.generate_via_bridge", side_effect=fake_generate_via_bridge), \
          patch("app.jobs.handlers.mixed.update_job") as mock_update:
         result = handle_mixed_job("mixed-segment-job", job, time.time(), lambda _line: None, lambda: False)
 

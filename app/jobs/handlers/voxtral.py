@@ -4,9 +4,10 @@ from pathlib import Path
 
 from ...config import XTTS_OUT_DIR, get_project_audio_dir
 from ...engines import wav_to_mp3
-from ...engines_voxtral import VoxtralError, voxtral_generate
+from ...engines.errors import EngineBridgeError
 from ...state import update_job
 from ..speaker import get_speaker_settings
+from .bridge_helpers import generate_via_bridge
 
 logger = logging.getLogger(__name__)
 
@@ -104,26 +105,27 @@ def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
         return "failed"
 
     try:
-        logger.info("[voxtral-debug %s] calling voxtral_generate job=%s", time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()), jid)
-        rc = voxtral_generate(
+        logger.info("[voxtral-debug %s] calling generate_via_bridge (voxtral) job=%s", time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()), jid)
+        rc = generate_via_bridge(
+            engine="voxtral",
             text=render_text,
             out_wav=out_wav,
+            profile_name=j.speaker_profile,
             on_output=on_output,
             cancel_check=cancel_check,
-            profile_name=j.speaker_profile,
-            voice_id=spk.get("voxtral_voice_id"),
-            model=spk.get("voxtral_model"),
+            voice_asset_id=spk.get("voxtral_voice_id"),
+            voxtral_model=spk.get("voxtral_model"),
             reference_sample=spk.get("reference_sample"),
         )
         logger.info(
-            "[voxtral-debug %s] voxtral_generate returned job=%s rc=%s wav_exists=%s",
+            "[voxtral-debug %s] generate_via_bridge returned job=%s rc=%s wav_exists=%s",
             time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
             jid,
             rc,
             out_wav.exists(),
         )
-    except VoxtralError as exc:
-        logger.info("[voxtral-debug %s] voxtral_generate error job=%s error=%s", time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()), jid, exc)
+    except EngineBridgeError as exc:
+        logger.info("[voxtral-debug %s] generate_via_bridge error job=%s error=%s", time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()), jid, exc)
         update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error=str(exc))
         return "failed"
 

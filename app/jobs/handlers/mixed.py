@@ -5,11 +5,12 @@ from pathlib import Path
 
 from ...chunk_groups import build_chunk_groups, load_chunk_segments
 from ...config import XTTS_OUT_DIR, SENT_CHAR_LIMIT, get_project_audio_dir
-from ...engines import get_audio_duration, stitch_segments, wav_to_mp3, xtts_generate
-from ...engines_voxtral import VoxtralError, voxtral_generate
+from ...engines import get_audio_duration, stitch_segments, wav_to_mp3
+from ...engines.errors import EngineBridgeError
 from ...state import update_job
 from ...textops import safe_split_long_sentences, sanitize_for_xtts
 from ..speaker import get_speaker_settings, get_speaker_wavs, get_voice_profile_dir
+from .bridge_helpers import generate_via_bridge
 
 logger = logging.getLogger(__name__)
 
@@ -110,13 +111,14 @@ def _render_xtts_segment(text: str, profile_name: str | None, out_wav: Path, saf
         text = sanitize_for_xtts(text)
         text = safe_split_long_sentences(text, target=SENT_CHAR_LIMIT)
 
-    return xtts_generate(
+    return generate_via_bridge(
+        engine="xtts",
         text=text,
         out_wav=out_wav,
+        profile_name=profile_name,
         safe_mode=safe_mode,
         on_output=on_output,
         cancel_check=cancel_check,
-        speaker_wav=speaker_wav,
         speed=spk.get("speed", 1.0),
         voice_profile_dir=voice_profile_dir,
     )
@@ -128,14 +130,15 @@ def _render_voxtral_segment(text: str, profile_name: str | None, out_wav: Path, 
         return 1
 
     spk = get_speaker_settings(profile_name)
-    return voxtral_generate(
+    return generate_via_bridge(
+        engine="voxtral",
         text=(text or "").strip(),
         out_wav=out_wav,
+        profile_name=profile_name,
         on_output=on_output,
         cancel_check=cancel_check,
-        profile_name=profile_name,
-        voice_id=spk.get("voxtral_voice_id"),
-        model=spk.get("voxtral_model"),
+        voice_asset_id=spk.get("voxtral_voice_id"),
+        voxtral_model=spk.get("voxtral_model"),
         reference_sample=spk.get("reference_sample"),
     )
 
@@ -326,7 +329,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
                     )
 
                 rc = _render_xtts_segment(chunk_text, profile_name, seg_out, j.safe_mode, xtts_on_output, cancel_check)
-        except VoxtralError as exc:
+        except EngineBridgeError as exc:
             update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error=str(exc))
             return "failed"
 
