@@ -5,15 +5,16 @@ This folder is a concrete proof-of-concept for a Studio TTS plugin. It demonstra
 To use this template for your own plugin:
 
 1. Copy this folder to `plugins/tts_<your_engine>/` (e.g., `plugins/tts_elevenlabs/`).
-2. Update `engine_id` and `display_name` in `manifest.json`.
+2. Update `engine_id`, `display_name`, `capabilities`, and any `worker_logic` or `behavior` declarations in `manifest.json`.
 3. Adjust `settings_schema.json` to reflect your engine's configuration (API keys, models, etc).
 4. Replace the mock synthesis logic in `engine.py` with your actual API calls.
 5. List your dependencies in `requirements.txt`.
+6. Keep the template as a concrete example of the declared-hook model, not as a collection of no-op stubs.
 
 ## Features Demonstrated
 
 - **Manifest Metadata**: Clean discovery and display in Studio.
-- **Hook Contract**: Request preprocessing, voice selection, and readiness checks.
+- **Hook Contract**: Request preprocessing, voice selection, readiness checks, and manifest-declared capabilities.
 - **Schema-Driven UI**: Password fields for API keys and range sliders for numeric settings.
 - **Dependency Management**: Working `requirements.txt` detected by Studio's guided install flow.
 - **Environment Checks**: Early validation of API keys or model files.

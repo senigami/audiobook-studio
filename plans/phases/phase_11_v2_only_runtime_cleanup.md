@@ -12,6 +12,18 @@ Complete the Studio 2.0 runtime cutover by making the managed TTS Server, plugin
 
 The app should not ask "is this engine X?" when deciding behavior. Core app code should ask for a capability, setting, job kind, storage contract, or plugin behavior. Specific engine names should remain only in plugins, plugin manifests/schemas, plugin-internal adapters, meaningful tests, or explicitly approved migration scripts.
 
+## Declared Plugin Contract
+
+The plugin template is the canonical example of the contract we want to keep using:
+
+- `manifest.json` declares capabilities, behavior, worker ownership, and entry points.
+- `engine.py` implements the required runtime contract.
+- Optional hook objects or plugin methods are used only when the manifest declares that capability.
+- The app should call the declared hook surface through generic bridge or registry code rather than inventing new engine-specific branches.
+- A plugin that does not support a capability should declare that explicitly instead of relying on a silent no-op method.
+
+This is the direction Phase 11 should keep reinforcing as files move into plugin-owned boundaries.
+
 ## Why This Phase Exists
 
 Studio 2.0 originally carried v1-era escape hatches while the TTS Server and plugin runtime stabilized. Those escape hatches now create long-term risk:
@@ -38,7 +50,7 @@ Phase 11 is the "commit to the new architecture" pass. It removes silent fallbac
 - Migrated voice action, voice profile, queue, generation, worker, and state decisions toward plugin behavior checks.
 - Added the generic `voice-asset-id` route; the old engine-named route remains a removal target, not a desired compatibility seam.
 - Moved old XTTS/Voxtral implementation modules behind adapter package boundaries.
-- Generalized legacy dashboard labels and default setting names while preserving existing output storage paths.
+- Generalized legacy dashboard labels and default setting names, then cut over the output route to generic audio paths.
 
 ## Current Working Definition Of Done
 
