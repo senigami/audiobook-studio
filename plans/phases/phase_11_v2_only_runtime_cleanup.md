@@ -4,13 +4,13 @@
 
 Active, in progress on branch `studio2/phase-11`.
 
-Phase 11 is not complete. The first cleanup wave removed the most dangerous Studio 1.x fallback behavior, but follow-up audits found additional XTTS/Voxtral coupling in app-level routing, worker dispatch, storage naming, metrics, UI URLs, frontend assumptions, bootstrap scripts, and compatibility shims. The remaining work should continue in small verified slices, not broad rewrites.
+Phase 11 is not complete. The first cleanup wave removed the most dangerous Studio 1.x fallback behavior, but follow-up audits found additional engine-name coupling in app-level routing, worker dispatch, storage naming, metrics, UI URLs, frontend assumptions, bootstrap scripts, and compatibility shims. The remaining work should continue in small verified slices, not broad rewrites.
 
 ## Objective
 
 Complete the Studio 2.0 runtime cutover by making the managed TTS Server, plugin manifests, plugin schemas, and plugin-declared behavior the product source of truth.
 
-The app should not ask "is this XTTS?" or "is this Voxtral?" when deciding behavior. Core app code should ask for a capability, setting, job kind, storage contract, or plugin behavior. XTTS and Voxtral names should remain only where they are identity, plugin-internal implementation detail, test fixture data, or temporary compatibility for existing user data and frontend routes.
+The app should not ask "is this engine X?" when deciding behavior. Core app code should ask for a capability, setting, job kind, storage contract, or plugin behavior. Specific engine names should remain only in plugins, plugin manifests/schemas, plugin-internal adapters, meaningful tests, or explicitly approved migration scripts.
 
 ## Why This Phase Exists
 
@@ -36,7 +36,7 @@ Phase 11 is the "commit to the new architecture" pass. It removes silent fallbac
 - Added script payload support so batch/chapter synthesis can route through the bridge path.
 - Added plugin behavior metadata and helper functions for capability and setting decisions.
 - Migrated voice action, voice profile, queue, generation, worker, and state decisions toward plugin behavior checks.
-- Added the generic `voice-asset-id` route while retaining the old Voxtral-named route as a compatibility wrapper.
+- Added the generic `voice-asset-id` route; the old engine-named route remains a removal target, not a desired compatibility seam.
 - Moved old XTTS/Voxtral implementation modules behind adapter package boundaries.
 - Generalized legacy dashboard labels and default setting names while preserving existing output storage paths.
 
@@ -47,34 +47,36 @@ Phase 11 exits only when:
 - Studio has one normal production runtime path for synthesis: TTS Server plus plugin/bridge architecture.
 - No production code silently reroutes to v1/local synthesis when v2 services fail.
 - App-level behavior decisions use plugin behavior metadata, handler registries, job kind, or storage contracts instead of engine-name branches.
-- Remaining `xtts`/`voxtral` references are classified as plugin identity, plugin-internal implementation, test fixture, data migration, public compatibility route, or documented strategy seam.
-- Compatibility shims remain only where they protect existing data or frontend/API compatibility, and each shim has a removal condition.
+- No main app code mentions specific engine names except in explicitly approved migration scripts during the cleanup.
+- Remaining engine-name references are limited to plugin identity, plugin-internal implementation, meaningful tests, or explicitly approved migration scripts.
+- Legacy/backwards-compatibility shims are removed unless the user explicitly approves a specific exception.
 - Frontend and backend agree on generic concepts such as default engine, voice asset, audio output, and job kind.
 - The final audit inventory is updated with what was removed, retained, or deferred.
 
 ## Guardrails
 
-The Antigravity plans are useful, but several proposed actions are too risky if done directly. These guardrails override the raw task lists:
+The Antigravity plans are useful, but execution still needs dependency ordering. These guardrails override the raw task lists:
 
-- Do not delete `xtts_audio/`, `uploads/`, root databases, or other user-data-like paths without a migration and reference audit.
-- Do not rename public routes such as `/out/xtts/...` or `/{name}/voxtral-voice-id` without adding aliases and updating frontend callers first.
-- Do not remove `voxtral_enabled`, `voxtral_voice_id`, `voxtral_model`, or `xtts_speed` readers until stored settings and profile metadata have a verified migration path.
-- Do not remove test references to `xtts` or `voxtral` when they are testing plugin identity, migration behavior, or compatibility. Remove only existence-only or legacy-fallback tests with no product value.
+- Remove engine names from main app code; do not preserve app-level engine-name shims as compatibility features.
+- `xtts_audio/` is engine-test residue, not protected project storage. It may be removed after references are migrated or deleted.
+- Remove engine-named public routes and frontend callers as part of the hard cutover rather than adding long-lived aliases.
+- Remove `voxtral_enabled`, `voxtral_voice_id`, `voxtral_model`, `xtts_speed`, and similar legacy readers unless an explicit migration script is approved for a specific data conversion.
+- Do not remove test references to specific engine names when they are testing plugin identity or plugin behavior. Remove existence-only, compatibility-only, or legacy-fallback tests with no product value.
 - Do not move large handler systems into `plugins/` until a registry contract exists and is tested. Moving files first would create churn without improving the boundary.
-- Do not treat plugin-internal implementation references as app-level coupling. XTTS/Voxtral code is allowed inside `plugins/tts_*` and `app/engines/voice/*` adapter implementation boundaries.
+- Do not treat plugin-internal implementation references as app-level coupling. Engine-specific code is allowed inside plugin packages and adapter implementation boundaries.
 
 ## Reference Classification Rules
 
-Use this classification for every remaining `xtts`, `voxtral`, v1, or fallback reference.
+Use this classification for every remaining specific engine-name, v1, or fallback reference.
 
 | Class | Keep? | Meaning | Examples |
 | --- | --- | --- | --- |
-| Plugin identity | Yes | The engine id, package name, manifest id, schema id, test fixture identity | `plugins/tts_xtts/manifest.json`, `plugins/tts_voxtral/settings_schema.json` |
-| Plugin-internal implementation | Yes | Engine-specific implementation hidden behind adapter/plugin boundary | `app/engines/voice/xtts/implementation.py`, `app/engines/voice/voxtral/implementation.py` |
-| Compatibility shim | Temporarily | Preserves existing settings, profiles, URLs, or frontend API compatibility | `voxtral_enabled`, `voxtral_voice_id`, `/voxtral-voice-id` |
-| Intentional strategy seam | Temporarily or long-term | A documented performance or orchestration choice where a generic contract is not ready yet | optimized XTTS worker path |
-| Test fixture | Yes if meaningful | Uses real built-in engine ids to prove behavior, migration, or compatibility | profile/action tests using `engine="voxtral"` |
-| Obsolete coupling | No | App-level behavior branches by engine name when a behavior/helper/registry check should be used | `if engine == "voxtral"` to decide UI policy |
+| Plugin identity | Yes | The engine id, package name, manifest id, schema id, test fixture identity | plugin manifests, plugin schema files |
+| Plugin-internal implementation | Yes | Engine-specific implementation hidden behind plugin or adapter boundary | plugin implementation modules |
+| Explicit migration script | Only if approved | One-time conversion code that removes old persisted names rather than preserving them indefinitely | focused migration utility |
+| Intentional strategy seam | Temporary | A documented performance or orchestration choice while a generic contract is being introduced | optimized registered handler path |
+| Test fixture | Yes if meaningful | Uses real engine ids to prove plugin identity, plugin behavior, or migration removal | plugin behavior tests |
+| Obsolete coupling | No | Main app behavior branch, route, setting, model, path, metric, or UI URL tied to a specific engine name | engine-named app route or setting |
 | Dead legacy fallback | No | Automatic v1/in-process fallback or flags that hide v2 failures | removed `USE_TTS_SERVER` mutation, removed v2 feature flags |
 
 ## Remaining Work Slices
@@ -95,7 +97,7 @@ Targets:
 Search anchors:
 
 - `USE_TTS_SERVER`, `USE_STUDIO_ORCHESTRATOR`, `USE_V2_`, `feature_flags`, `is_feature_enabled`
-- `xtts`, `voxtral`, `voxtral_enabled`, `voxtral_voice_id`, `voxtral_model`, `xtts_speed`
+- specific engine names, engine-named settings, engine-named routes, engine-named output paths
 - `engines_voxtral`, `xtts_utils`, `xtts_inference`
 - `bridge_local`, `LocalBridgeHandler`, `in-process`, `fallback`, `legacy`, `v1`
 - `/out/xtts`, `voice-asset-id`, `voxtral-voice-id`
@@ -108,12 +110,12 @@ Deliverables:
 
 ### Slice B: Behavior Helper Hardening
 
-Reduce remaining hardcoded behavior maps in `app/engines/behavior.py` where the plugin registry or manifest can answer the question.
+Remove remaining hardcoded behavior maps in `app/engines/behavior.py` where the plugin registry or manifest can answer the question.
 
 Likely work:
 
 - Replace built-in fallback behavior maps with manifest-backed behavior where possible.
-- Keep only minimal compatibility fallbacks for historical profiles or unavailable manifest contexts.
+- Remove compatibility fallbacks for historical profiles unless they are replaced by an explicitly approved one-time migration.
 - Add tests proving a third/fake plugin can opt into behavior without app code changes.
 
 Verification:
@@ -130,7 +132,7 @@ First implementation target:
 - Introduce a small `JobHandlerRegistry` or equivalent inside app job infrastructure.
 - Register existing handlers from their current locations.
 - Make `worker.py` dispatch by job kind, engine id, and declared behavior rather than direct engine-name imports where practical.
-- Keep the optimized XTTS handler path as a documented registered strategy until a plugin-owned replacement exists.
+- Convert optimized engine-specific handler paths into registered strategies so main app code does not import or branch on engine names.
 
 Non-goals:
 
@@ -145,14 +147,14 @@ Verification:
 
 ### Slice D: Plugin-Owned Text, Progress, And Engine Utilities
 
-The core app still has XTTS-specific utility names because XTTS was historically the only local renderer. Convert these by behavior, not by rename-only churn.
+The core app still has engine-specific utility names because one renderer existed first. Convert these by behavior, not by rename-only churn.
 
 Likely work:
 
 - Introduce generic text sanitization hooks or helper methods that can call plugin behavior.
 - Move or wrap `_parse_xtts_progress` behind a plugin/adapter progress parser contract.
 - Keep shared text operations in app-level modules only when they are genuinely engine-agnostic.
-- Move `app/xtts_inference.py` only after the XTTS plugin can invoke it from its new location and tests prove it.
+- Move engine-specific inference scripts only after their plugins can invoke them from the new location and tests prove it.
 
 Verification:
 
@@ -161,21 +163,20 @@ Verification:
 
 ### Slice E: Storage And Output Route Abstraction
 
-The plans are right that storage naming is still engine-shaped. The safe path is compatibility-first, not a hard deletion of old folders.
+The plans are right that storage naming is still engine-shaped. This should be a hard cutover, with tests updated to prove project storage is unaffected.
 
 Likely work:
 
-- Introduce a storage/output helper that can resolve legacy global output paths and project-local output paths behind one API.
-- Add a generic `/out/audio/...` route as an alias before removing `/out/xtts/...`.
-- Update frontend callers to prefer generic audio URLs after the backend alias exists.
-- Keep `XTTS_OUT_DIR` as a compatibility constant until callers are migrated to the storage helper.
-- Preserve the existing `xtts_audio` default path unless a migration copies or maps old files.
+- Introduce a storage/output helper for generic audio outputs.
+- Replace engine-named output routes and frontend callers with generic audio routes.
+- Remove engine-named output constants and test folders after references are migrated.
+- Remove `xtts_audio/`; it is engine-test residue and not project storage.
 
 Non-goals:
 
-- Do not delete `xtts_audio/`.
-- Do not delete `uploads/`.
-- Do not break old `/out/xtts/...` links.
+- Do not delete user project folders or project-local assets.
+- Do not preserve old engine-named routes as permanent aliases.
+- Do not keep engine-named constants in main app code after callers are migrated.
 
 Verification:
 
@@ -185,14 +186,15 @@ Verification:
 
 ### Slice F: State, Settings, And Metrics Rename Migration
 
-The raw plans propose deleting compatibility fields. That is premature. The right move is to make generic fields canonical while keeping readers for old persisted data.
+The raw plans propose deleting compatibility fields. That is the desired direction; do it with explicit conversion tests rather than indefinite readers.
 
 Likely work:
 
 - Make generic settings names canonical in save paths.
-- Continue reading old names such as `xtts_speed`, `voxtral_enabled`, `voxtral_voice_id`, and `voxtral_model` as migration inputs.
-- Move render performance naming from XTTS-specific settings toward per-engine or generic render history where it does not break existing data.
-- Add migration tests for old settings/profile payloads.
+- Remove old engine-named settings/profile readers from runtime code.
+- If existing data must be converted, add a one-time migration path that rewrites it to generic fields and removes old keys.
+- Move render performance naming from engine-specific settings toward per-engine or generic render history.
+- Add tests proving old keys are removed or converted, not preserved as active runtime shims.
 
 Verification:
 
@@ -201,13 +203,13 @@ Verification:
 
 ### Slice G: Frontend Engine-Agnostic Cleanup
 
-Frontend references to XTTS/Voxtral should be classified the same way as backend references.
+Frontend references to specific engines should be classified the same way as backend references.
 
 Likely work:
 
-- Replace hardcoded `/out/xtts` audio source construction after backend provides `/out/audio` aliases.
+- Replace hardcoded engine-named audio source construction with generic audio routes.
 - Replace engine-specific UI variable names when they encode behavior rather than identity.
-- Keep test fixture engine ids where the fixture is intentionally testing built-in plugin behavior.
+- Keep test fixture engine ids only where the fixture is intentionally testing plugin behavior.
 - Keep visible plugin names where they are labels for installed plugins.
 
 Verification:
@@ -221,7 +223,7 @@ Bootstrap scripts and documentation can remain engine-specific only when they ar
 
 Likely work:
 
-- Move XTTS-specific install/venv guidance out of core setup docs and into plugin setup docs.
+- Move engine-specific install/venv guidance out of core setup docs and into plugin setup docs.
 - Convert bootstrap scripts toward plugin setup discovery only after current one-click startup remains verified.
 - Update README/CONTRIBUTING/wiki architecture notes after runtime behavior is actually changed.
 
@@ -233,11 +235,10 @@ Verification:
 
 ## Non-Goals
 
-- Do not remove data migrations needed to read or upgrade existing projects, voices, settings, assignments, or old output links.
+- Do not preserve legacy support or backwards compatibility unless the user explicitly approves a specific exception.
 - Do not remove diagnostics, repair tools, or explicit user-triggered recovery actions.
-- Do not rename public APIs or file-system locations without aliases and migration.
-- Do not start Phase 12 until the Phase 11 final audit and compatibility matrix are complete.
-- Do not treat all string occurrences of `xtts` or `voxtral` as bugs. Identity and migration references are expected.
+- Do not start Phase 12 until the Phase 11 final audit and hard-cutover removal matrix are complete.
+- Do not treat plugin-internal string occurrences of engine names as bugs. Main app occurrences are bugs unless explicitly approved.
 
 ## Likely Hotspots
 
@@ -274,15 +275,15 @@ Verification:
 - [x] Plugin behavior metadata foundation added.
 - [x] Voice/profile/action policy migrated toward behavior metadata.
 - [x] Legacy XTTS/Voxtral implementation modules moved behind adapter boundaries.
-- [x] Legacy dashboard/default labels generalized without breaking storage compatibility.
+- [x] Legacy dashboard/default labels generalized; engine-named storage remains a removal target under the hard cutover.
 - [ ] Final reference audit refresh completed after latest cleanup commits.
-- [ ] Remaining app-level `xtts`/`voxtral` references classified using the table above.
+- [ ] Remaining main app engine-name references classified using the table above.
 - [ ] Behavior helper hardened to rely on manifests/registry instead of built-in fallback maps where safe.
 - [ ] Job dispatch registry introduced or explicitly deferred with rationale.
 - [ ] Text/progress/plugin utility hooks generalized where behavior is not actually XTTS-only.
-- [ ] Storage/output URL abstraction introduced with backwards-compatible aliases.
-- [ ] Settings/performance compatibility shims documented with removal conditions.
-- [ ] Frontend hardcoded output URLs and behavior assumptions migrated after backend aliases exist.
+- [ ] Storage/output URL abstraction introduced and old engine-named output paths removed.
+- [ ] Settings/performance compatibility shims removed or converted through explicit one-time migrations.
+- [ ] Frontend hardcoded output URLs and behavior assumptions migrated to generic contracts.
 - [ ] Bootstrap/docs updated to describe plugin-first setup accurately.
 - [ ] Wasteful tests that only assert legacy existence removed; behavior and migration tests retained.
 - [ ] Full backend and frontend verification run or explicitly scoped with residual risks documented.
@@ -290,18 +291,17 @@ Verification:
 ## Verification Checklist
 
 - [ ] `rg` audit confirms no `USE_TTS_SERVER`, `USE_STUDIO_ORCHESTRATOR`, `USE_V2_`, `feature_flags`, or `is_feature_enabled` active runtime switches.
-- [ ] `rg` audit confirms no `engines_voxtral` or `xtts_utils` app/plugins/tests imports.
-- [ ] Every remaining app-level `xtts`/`voxtral` reference is classified.
+- [ ] `rg` audit confirms no old app-level implementation module imports remain.
+- [ ] Every remaining main app engine-name reference is classified and either removed or explicitly approved.
 - [ ] Normal boot starts the managed TTS Server and discovers engines through plugins.
 - [ ] TTS Server startup failure produces visible unavailable/degraded state, not local synthesis.
 - [ ] Engine list, settings save, verification, test preview, chapter render, and queue render use the Studio 2.0 path.
-- [ ] Existing voice profiles with `voxtral_voice_id`, `voxtral_model`, or old settings still load.
-- [ ] Existing audio links under `/out/xtts/...` still work until frontend/storage migration is complete.
-- [ ] Generic audio routes and frontend callers are tested before any old route removal.
+- [ ] Existing voice profiles use generic settings after conversion; old engine-named keys are not active runtime fields.
+- [ ] Engine-named output links and folders are removed after generic routes and callers are verified.
 - [ ] Backend focused suites pass for affected areas.
 - [ ] Frontend targeted tests and build pass for UI/API URL changes.
 - [ ] `git diff --check` passes.
 
 ## Exit Gate
 
-Studio no longer has two production XTTS/Voxtral runtimes, and core app behavior is engine-agnostic. The managed TTS Server and plugin system are the only normal synthesis path. Failures are surfaced as failures with useful diagnostics. Remaining engine-name references are either plugin identity, plugin-internal implementation, migration/compatibility shims with removal conditions, meaningful tests, or documented strategy seams.
+Studio no longer has two production runtimes, and core app behavior is engine-agnostic. The managed TTS Server and plugin system are the only normal synthesis path. Failures are surfaced as failures with useful diagnostics. Main app code has no specific engine-name references. Remaining engine-name references are limited to plugin identity, plugin-internal implementation, meaningful tests, or explicitly approved one-time migration scripts.
