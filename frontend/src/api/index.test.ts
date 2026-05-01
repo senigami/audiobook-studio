@@ -126,11 +126,11 @@ describe('api methods', () => {
     it('throws helpful errors for blocked generation requests', async () => {
         global.fetch = vi.fn().mockResolvedValue({
             ok: false,
-            json: () => Promise.resolve({ status: 'error', message: 'Enable Voxtral in Settings and add a Mistral API key to use cloud voices.' })
+            json: () => Promise.resolve({ status: 'error', message: 'Enable Cloud Engine in Settings and add an API key to use cloud voices.' })
         }) as any
 
-        await expect(api.generateSegments(['seg-1'], 'Test')).rejects.toThrow(/Enable Voxtral in Settings/i)
-        await expect(api.addProcessingQueue('p1', 'c1', 0, 'Test')).rejects.toThrow(/Enable Voxtral in Settings/i)
+        await expect(api.generateSegments(['seg-1'], 'Test')).rejects.toThrow(/Enable Cloud Engine/i)
+        await expect(api.addProcessingQueue('p1', 'c1', 0, 'Test')).rejects.toThrow(/Enable Cloud Engine/i)
     })
 
     it('rejects production block updates when the backend reports a revision conflict', async () => {

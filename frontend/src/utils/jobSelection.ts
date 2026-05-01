@@ -30,7 +30,6 @@ export function shouldShowIndeterminateProgress(job: SegmentScopedShape & { engi
     const caps = Array.isArray(job.engineMeta.capabilities) ? job.engineMeta.capabilities : [];
     return !!(caps.includes('simulated_finalizing') || job.engineMeta.cloud);
   }
-  if (job.engine === 'voxtral') return true;
   return false;
 }
 

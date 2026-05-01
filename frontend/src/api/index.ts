@@ -1,4 +1,4 @@
-import type { Job, Project, Chapter, ProductionBlocksResponse, ProductionBlock, ScriptViewResponse, ScriptAssignmentsUpdate } from '../types';
+import type { Job, Project, Chapter, ProductionBlocksResponse, ProductionBlock, ScriptViewResponse, ScriptAssignmentsUpdate, Engine } from '../types';
 import { DEFAULT_VOICE_SENTINEL } from '../constants/api';
 
 const parseApiResponse = async (res: Response) => {

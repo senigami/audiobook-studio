@@ -94,7 +94,7 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
             description="Primary synthesis engine for new projects and segments."
             action={
               <select
-                value={settings?.default_engine || 'xtts'}
+                value={settings?.default_engine || ''}
                 onChange={(e) => updateStringSetting('default_engine', e.target.value)}
                 disabled={savingKey === 'default_engine'}
                 style={{
@@ -113,10 +113,7 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
                   </option>
                 ))}
                 {engines.length === 0 && (
-                  <>
-                    <option value="xtts">XTTS (Local)</option>
-                    <option value="voxtral">Voxtral (Cloud)</option>
-                  </>
+                  <option value="">(No engines loaded)</option>
                 )}
               </select>
             }

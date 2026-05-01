@@ -395,7 +395,7 @@ describe('SettingsRoute', () => {
     expect(screen.getByText(/XTTS environment is not configured yet\./i)).toBeTruthy();
     expect(screen.getByText(/Missing dependencies: torch, TTS\./i)).toBeTruthy();
     expect(screen.getAllByText(/Install Deps installs the Python packages listed for this engine/i)[0]).toBeTruthy();
-    expect(screen.getByText(/XTTS verification uses your Default Voice from General settings/i)).toBeTruthy();
+    expect(screen.getByText(/XTTS Local verification uses your Default Voice/i)).toBeTruthy();
   });
 
   it('shows a truthful log summary when engine logs are requested', async () => {

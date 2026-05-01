@@ -71,8 +71,8 @@ export const ApiSettingsPanel: React.FC = () => {
             <pre style={apiExampleStyle}>{`// Response Example
 {
   "engines": [
-    { "engine_id": "voxtral", "enabled": true, "status": "ready" },
-    { "engine_id": "xtts", "enabled": true, "status": "ready" }
+    { "engine_id": "cloud-engine", "enabled": true, "status": "ready" },
+    { "engine_id": "local-engine", "enabled": true, "status": "ready" }
   ]
 }`}</pre>
           </div>
@@ -122,7 +122,7 @@ export const ApiSettingsPanel: React.FC = () => {
 Content-Type: application/json
 
 {
-  "engine_id": "voxtral",
+  "engine_id": "cloud-engine",
   "text": "Hello from the API documentation.",
   "voice_ref": "Dark Fantasy",
   "output_path": "/path/to/output.wav"

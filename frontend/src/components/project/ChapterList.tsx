@@ -5,7 +5,7 @@ import { InlineEdit } from '../InlineEdit';
 import { ActionMenu } from '../ActionMenu';
 import { StatusOrb } from '../StatusOrb';
 import { PredictiveProgressBar } from '../PredictiveProgressBar';
-import type { Chapter, Job } from '../../types';
+import type { Chapter, Job, TtsEngine } from '../../types';
 import { isSegmentScopedJob, shouldShowIndeterminateProgress } from '../../utils/jobSelection';
 
 interface ChapterListProps {

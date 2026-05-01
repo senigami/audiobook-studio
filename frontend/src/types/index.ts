@@ -1,5 +1,5 @@
-export type Engine = 'xtts' | 'voxtral' | 'mixed' | 'audiobook' | 'voice_build' | 'voice_test';
-export type VoiceEngine = 'xtts' | 'voxtral' | string;
+export type Engine = string;
+export type VoiceEngine = string;
 
 export interface TtsEngine {
   engine_id: string;

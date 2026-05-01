@@ -82,6 +82,15 @@ rg -n "bridge_local|LocalBridgeHandler|in-process|fallback|legacy|v1|engine == \
 - [x] Fixed broken imports and patches in `test_xtts_handler.py`.
 - [x] Verified 100% pass rate for relevant test suites.
 
+### Slice I (Frontend Agnosticism) - 2026-05-01
+- [x] Refactored `voiceProfiles.ts` to remove hardcoded engine names and 'xtts' fallbacks.
+- [x] Agnosticized default engine selection in `GeneralSettingsPanel`.
+- [x] Removed hardcoded engine filters from `VoicesTab`.
+- [x] Generalized indeterminate progress logic in `jobSelection.ts` and `QueueItem.tsx`.
+- [x] Replaced hardcoded engine verification messages in `EngineCard`.
+- [x] Updated `Engine` and `VoiceEngine` types to be discovery-driven strings.
+- [x] Cleaned up obsolete `debugVoxtral.ts` and generalized test error messages.
+
 ## Remaining Risks
-- **UI Label Drift**: Frontend still has hardcoded "XTTS" and "Voxtral" strings in some labels; these should come from plugin `display_name`.
-- **Test Coverage**: Many tests still use `"xtts"` as a literal. These should be updated to use engine IDs from discovery or fixtures.
+- **Test Drift**: Some integration tests might still use engine literals like `"xtts"`. These should eventually be parameterized, though the runtime itself is now agnostic.
+- **Plugin Metadata Quality**: The UI now relies heavily on `display_name` from plugins; if a plugin provides a poor label, the UI will reflect it.

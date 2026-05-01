@@ -50,7 +50,7 @@ describe('formatQueueContext', () => {
       created_at: 0,
       completed_at: null,
       engine: 'xtts',
-    })).toBe('XTTS Generation');
+    })).toBe('XTTS Synthesis');
 
     expect(formatQueueContext({
       id: 'job-5',

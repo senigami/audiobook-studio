@@ -107,13 +107,14 @@ export function useVoicesTabActions({
                 body: new URLSearchParams({ name: nameToUse })
             });
             if (resp.ok) {
-                if (state.newVoiceEngine !== 'xtts') {
+                const firstReadyEngine = engines.find(e => e.enabled && e.status === 'ready')?.engine_id || engines?.[0]?.engine_id || '';
+                if (state.newVoiceEngine !== firstReadyEngine) {
                     await handleUpdateEngine(nameToUse, state.newVoiceEngine);
                 }
                 const data = await resp.json();
                 state.setIsCreateModalOpen(false);
                 state.setNewVoiceName('');
-                state.setNewVoiceEngine('xtts');
+                state.setNewVoiceEngine(firstReadyEngine);
                 await fetchSpeakers();
                 if (data.id) state.setExpandedVoiceId(data.id);
             }
@@ -185,7 +186,8 @@ export function useVoicesTabActions({
                 state.setIsAddVariantModalOpen(false);
                 state.setAddVariantSpeaker(null);
                 state.setNewVariantNameModal('');
-                state.setNewVariantEngine('xtts');
+                const firstReadyEngine = engines.find(e => e.enabled && e.status === 'ready')?.engine_id || engines?.[0]?.engine_id || '';
+                state.setNewVariantEngine(firstReadyEngine);
                 const expandedId = (sid.includes('-') && sid.length === 36) ? sid : `unassigned-${sid}`;
                 state.setExpandedVoiceId(expandedId);
                 onRefresh();

@@ -25,7 +25,8 @@ export function useVoicesTabState({ speakerProfiles, engines }: { speakerProfile
     const [editingProfile, setEditingProfile] = useState<SpeakerProfile | null>(null);
     const [testText, setTestText] = useState('');
     const [variantName, setVariantName] = useState('');
-    const [editingEngine, setEditingEngine] = useState<VoiceEngine>('xtts');
+    const firstReadyEngine = useMemo(() => engines.find(e => e.enabled && e.status === 'ready')?.engine_id || engines?.[0]?.engine_id || '', [engines]);
+    const [editingEngine, setEditingEngine] = useState<VoiceEngine>(firstReadyEngine);
     const [referenceSample, setReferenceSample] = useState('');
     const [engineVoiceId, setEngineVoiceId] = useState('');
     const [isSavingText, setIsSavingText] = useState(false);
@@ -38,11 +39,11 @@ export function useVoicesTabState({ speakerProfiles, engines }: { speakerProfile
             setVariantName(getVariantDisplayName(editingProfile));
             setEditingEngine(editingProfile.engine || '');
             setReferenceSample(editingProfile.reference_sample || '');
-            setEngineVoiceId(editingProfile.voice_asset_id || editingProfile.voxtral_voice_id || '');
+            setEngineVoiceId(editingProfile.voice_asset_id || '');
         } else {
             setTestText('');
             setVariantName('');
-            setEditingEngine('xtts');
+            setEditingEngine(firstReadyEngine);
             setReferenceSample('');
             setEngineVoiceId('');
         }
@@ -57,10 +58,10 @@ export function useVoicesTabState({ speakerProfiles, engines }: { speakerProfile
     const [originalSpeakerName, setOriginalSpeakerName] = useState('');
     const [newSpeakerName, setNewSpeakerName] = useState('');
     const [newVoiceName, setNewVoiceName] = useState('');
-    const [newVoiceEngine, setNewVoiceEngine] = useState<VoiceEngine>('xtts');
+    const [newVoiceEngine, setNewVoiceEngine] = useState<VoiceEngine>(firstReadyEngine);
     const [addVariantSpeaker, setAddVariantSpeaker] = useState<{ speaker: Speaker; nextVariantNum: number } | null>(null);
     const [newVariantNameModal, setNewVariantNameModal] = useState('');
-    const [newVariantEngine, setNewVariantEngine] = useState<VoiceEngine>('xtts');
+    const [newVariantEngine, setNewVariantEngine] = useState<VoiceEngine>(firstReadyEngine);
     const [isCreatingVoice, setIsCreatingVoice] = useState(false);
     const [isAddingVariantModal, setIsAddingVariantModal] = useState(false);
     const [isRenamingSpeaker, setIsRenamingSpeaker] = useState(false);
@@ -81,8 +82,8 @@ export function useVoicesTabState({ speakerProfiles, engines }: { speakerProfile
             return Boolean(engine?.enabled && engine.status === 'ready');
         };
 
-        if (!isEngineActive(newVoiceEngine)) setNewVoiceEngine('xtts');
-        if (!isEngineActive(newVariantEngine)) setNewVariantEngine('xtts');
+        if (!isEngineActive(newVoiceEngine)) setNewVoiceEngine(firstReadyEngine);
+        if (!isEngineActive(newVariantEngine)) setNewVariantEngine(firstReadyEngine);
         if (engineFilter === 'disabled') {
             if (disabledSpeakerProfiles.length === 0) setEngineFilter('all');
             return;

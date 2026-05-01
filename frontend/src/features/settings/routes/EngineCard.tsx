@@ -197,9 +197,9 @@ export const EngineCard: React.FC<{
               <span style={{ marginTop: '0.4rem' }}>
                 Install Deps installs the Python packages listed for this engine in the same environment Studio is running in.
               </span>
-              {engine.engine_id.toLowerCase().includes('xtts') && (
+              {engine.verified === false && (
                 <span>
-                  XTTS verification uses your Default Voice from General settings as the reference sample.
+                  {engine.display_name} verification uses your Default Voice from General settings as the reference sample.
                 </span>
               )}
             </div>

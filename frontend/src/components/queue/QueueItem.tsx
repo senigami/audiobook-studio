@@ -73,7 +73,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     const engineMeta = Array.isArray(engines) ? engines.find(e => e && e.engine_id === engineType) : undefined;
     const isCloudLike = engineMeta 
         ? (Array.isArray(engineMeta.capabilities) && engineMeta.capabilities.includes('simulated_finalizing')) || !!engineMeta.cloud
-        : ['voxtral', 'mixed'].includes(engineType);
+        : false;
     const showIndeterminateProgress = shouldShowIndeterminateProgress({
             engine: engineType,
             segment_ids: liveJob?.segment_ids ?? job.segment_ids,

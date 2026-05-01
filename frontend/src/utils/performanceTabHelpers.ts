@@ -74,5 +74,5 @@ export function isIndeterminateProgressJob(job?: Job, engines: import('../types'
     const caps = Array.isArray(engineMeta.capabilities) ? engineMeta.capabilities : [];
     return !!(caps.includes('simulated_finalizing') || engineMeta.cloud);
   }
-  return job.engine === 'voxtral';
+  return false;
 }

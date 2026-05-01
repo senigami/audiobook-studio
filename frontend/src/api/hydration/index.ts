@@ -16,7 +16,7 @@ function hasChapterAudioReady(item: ProcessingQueueItem): boolean {
   return item.chapter_audio_status === 'done' || !!item.chapter_audio_file_path;
 }
 
-const FINALIZING_HOLD_ENGINES = ['voxtral', 'mixed'];
+const FINALIZING_HOLD_ENGINES = ['mixed'];
 
 function shouldHoldCompletedIndeterminateJob(
   item: ProcessingQueueItem,
