@@ -207,6 +207,7 @@ def update_engine_settings(
             built_in=bool(getattr(plugin.manifest, "built_in", False)),
             verified=bool(getattr(plugin, "verified", False)),
             status=engine_status(plugin),
+            behavior=plugin.manifest.get("behavior"),
         )
         if not can_enable:
             raise HTTPException(status_code=400, detail=reason or "Engine cannot be enabled yet.")

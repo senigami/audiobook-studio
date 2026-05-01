@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 from typing import Any
+from app.engines.behavior import extract_engine_settings
 from app.engines.errors import EngineRequestError
 
 INTENDED_UPSTREAM_CALLERS = (
@@ -31,24 +32,7 @@ def extract_engine_id(request: dict[str, Any]) -> str:
 
 def extract_synthesis_settings(request: dict[str, Any]) -> dict[str, Any]:
     """Extract per-request synthesis settings for the TTS Server path."""
-    settings: dict[str, Any] = {}
-    if "voice_profile_id" in request:
-        settings["voice_profile_id"] = request["voice_profile_id"]
-    if "voice_asset_id" in request:
-        settings["voice_asset_id"] = request["voice_asset_id"]
-    if "reference_sample" in request:
-        settings["reference_sample"] = request["reference_sample"]
-    if "voxtral_model" in request:
-        settings["model"] = request["voxtral_model"]
-    if "model" in request:
-        settings["model"] = request["model"]
-    if "speed" in request:
-        settings["speed"] = request["speed"]
-    if "safe_mode" in request:
-        settings["safe_mode"] = request["safe_mode"]
-    if "output_format" in request:
-        settings["output_format"] = request["output_format"]
-    return settings
+    return extract_engine_settings(extract_engine_id(request), request)
 
 
 def infer_audio_format(output_path: str) -> str:

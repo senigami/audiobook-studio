@@ -162,6 +162,7 @@ def _manifest_from_tts_server_payload(data: dict) -> EngineManifestModel:
         built_in=False,
         verified=bool(data.get("verified", False)),
         version=str(data.get("version", "0.0.0")),
+        behavior=dict(data.get("behavior") or {}),
     )
 
 
@@ -295,6 +296,7 @@ def _load_engine_manifest(*, manifest_path: Path) -> EngineManifestModel:
         network=bool(payload.get("network", False)),
         author=str(payload.get("author", "Studio")),
         homepage=str(payload.get("homepage", "")),
+        behavior=dict(payload.get("behavior") or {}),
     )
 
 

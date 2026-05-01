@@ -7,6 +7,19 @@
   "min_studio": "2.0.0",
   "entry_class": "engine:VoxtralPlugin",
   "capabilities": ["synthesis", "preview"],
+  "behavior": {
+    "features": ["cloud_synthesis", "reference_sample", "voice_asset_id"],
+    "required_settings": [
+      {
+        "name": "mistral_api_key",
+        "message": "Add a Mistral API key in engine settings before enabling this engine."
+      }
+    ],
+    "setting_aliases": {
+      "voxtral_model": "model"
+    },
+    "synthesis_settings": ["model"]
+  },
   "local": false,
   "cloud": true,
   "network": true,
