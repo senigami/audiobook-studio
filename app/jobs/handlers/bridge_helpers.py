@@ -26,7 +26,7 @@ def generate_via_bridge(
     script: list[dict[str, Any]] | None = None,
 ) -> int:
     """Standardized bridge call for legacy-style job handlers.
-    
+
     Returns 0 on success, or raises EngineBridgeError.
     """
     bridge = create_voice_bridge()
