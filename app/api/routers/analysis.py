@@ -240,7 +240,8 @@ def api_analyze_text(req: AnalyzeTextRequest):
             "uncleanable": uncleanable,
             "cleaned_hits": cleaned_hits,
             "packed_text": packed_text,
-            "split_text": split_text
+            "split_text": split_text,
+            "chunk_limit": chunk_limit,
         }
 
     res = process_text()
@@ -258,7 +259,7 @@ def api_analyze_text(req: AnalyzeTextRequest):
             UncleanableSentence(length=clen, text=s)
             for idx, clen, start, end, s in res["cleaned_hits"]
         ],
-        threshold=chunk_limit,
+        threshold=res["chunk_limit"],
         safe_text=res["packed_text"],
         split_sentences=res["split_text"].split("\n")
     )

@@ -14,18 +14,18 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from app.engines.errors import EngineExecutionError, EngineRequestError
+from app.engines.models import EngineHealthModel, EngineManifestModel
+from app.engines.voice.base import BaseVoiceEngine
+from app.engines.voice.sdk import TTSRequest, TTSResult, VoiceProcessingHooks, SynthesisPlan
+from app.infra.subprocess import run_managed_subprocess_async
+from app.voice_engines import resolve_xtts_preview_inputs
+
 # Local defaults for XTTS environment
 XTTS_ENV_DIR_DEFAULT = Path.home() / "xtts-env"
 XTTS_ENV_DIR = Path(os.getenv("XTTS_ENV_DIR", str(XTTS_ENV_DIR_DEFAULT)))
 XTTS_ENV_PYTHON = Path(os.getenv("XTTS_ENV_PYTHON", str(XTTS_ENV_DIR / ("Scripts/python.exe" if os.name == "nt" else "bin/python"))))
 XTTS_ENV_ACTIVATE = XTTS_ENV_DIR / ("Scripts/Activate.ps1" if os.name == "nt" else "bin/activate")
-
-from app.engines.errors import EngineExecutionError, EngineRequestError
-from app.engines.voice.base import BaseVoiceEngine
-from app.engines.voice.sdk import TTSRequest, TTSResult, VoiceProcessingHooks, SynthesisPlan
-from app.engines.models import EngineHealthModel, EngineManifestModel
-from app.infra.subprocess import run_managed_subprocess_async
-from app.voice_engines import resolve_xtts_preview_inputs
 
 INTENDED_UPSTREAM_CALLERS = (
     "app.engines.registry",

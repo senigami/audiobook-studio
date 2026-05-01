@@ -7,6 +7,7 @@ import traceback
 import logging
 from pathlib import Path
 
+from ..jobs import get_speaker_settings
 from .core import (
     job_queue, assembly_queue, cancel_flags, pause_flag,
     BASELINE_ENGINE_CPS, _estimate_seconds, calculate_predicted_progress,
@@ -15,7 +16,6 @@ from .core import (
 )
 # Handler Registry
 from .registry import get_handler_registry, initialize_default_handlers
-initialize_default_handlers()
 
 from ..state import get_jobs, update_job, get_performance_metrics, update_performance_metrics as _update_performance_metrics
 from ..config import CHAPTER_DIR, AUDIO_OUT_DIR
@@ -35,6 +35,7 @@ from .worker_helpers import (
 logger = logging.getLogger(__name__)
 
 update_performance_metrics = _update_performance_metrics
+initialize_default_handlers()
 
 
 def worker_loop(q):
