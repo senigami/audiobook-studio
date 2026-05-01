@@ -20,6 +20,7 @@ from app.engines.audio_ops import (
 from app.engines.audiobook_utils import _create_temp_manifest, assemble_audiobook
 from app.engines.proc_utils import _active_processes, run_cmd_stream, terminate_all_subprocesses
 from app.engines.video_utils import generate_video_sample
+from app.engines.voice.xtts.engine import XTTS_ENV_ACTIVATE, XTTS_ENV_PYTHON
 from app.engines.voice.xtts.implementation import (
     get_speaker_latent_path,
     migrate_speaker_latent_to_profile,
@@ -28,9 +29,9 @@ from app.engines.voice.xtts.implementation import (
 )
 
 # Re-export config and utils that were previously available in this module
-from .config import XTTS_ENV_ACTIVATE, XTTS_ENV_PYTHON, MP3_QUALITY, BASE_DIR, AUDIOBOOK_BITRATE
+from .config import MP3_QUALITY, BASE_DIR, AUDIOBOOK_BITRATE
 from .subprocess_utils import coerce_subprocess_output, probe_audio_duration
-from .textops import safe_split_long_sentences, sanitize_for_xtts, pack_text_to_limit
+from .textops import safe_split_long_sentences, sanitize_text as sanitize_for_xtts, pack_text_to_limit
 
 if TYPE_CHECKING:
     from pathlib import Path

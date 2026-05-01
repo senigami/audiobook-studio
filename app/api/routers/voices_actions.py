@@ -107,6 +107,22 @@ def update_speaker_reference_sample(name: str, sample_name: str = Form("")):
     return JSONResponse({"status": "ok", "reference_sample": clean_sample})
 
 
+@router.post("/{name}/voice-asset-id")
+def update_speaker_voice_asset_id(name: str, voice_id: str = Form("")):
+    # Rule 9: Early validation
+    name = config.canonical_voice_name(name)
+    spk_settings = jobs.get_speaker_settings(name)
+    current_engine = spk_settings.get("engine", DEFAULT_PROFILE_ENGINE)
+    if not voices_helpers._has_behavior(current_engine, "voice_asset_id"):
+         return JSONResponse({"status": "error", "message": f"Engine {current_engine} does not support voice asset IDs."}, status_code=400)
+
+    clean_voice_id = (voice_id or "").strip() or None
+    if not jobs.update_speaker_settings(name, voice_asset_id=clean_voice_id):
+        return JSONResponse({"status": "error", "message": "Profile not found"}, status_code=404)
+
+    return JSONResponse({"status": "ok", "voice_asset_id": clean_voice_id})
+
+
 
 @router.post("/{name}/build")
 async def build_speaker_profile(

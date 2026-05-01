@@ -10,9 +10,11 @@ from ... import config
 from ...db import get_chapter, get_chapter_segments, get_characters
 from ...textops import (
     find_long_sentences, clean_text_for_tts, safe_split_long_sentences,
-    pack_text_to_limit, sanitize_for_xtts, get_text_stats, format_duration
+    pack_text_to_limit, sanitize_text, get_text_stats, format_duration
 )
-from ...config import SENT_CHAR_LIMIT, BASELINE_ENGINE_CPS
+from ...config import BASELINE_ENGINE_CPS
+from ...engines.behavior import get_text_chunk_limit, get_text_split_target
+from ... import state
 from ...pathing import safe_basename, safe_join_flat
 
 logger = logging.getLogger(__name__)
@@ -100,6 +102,11 @@ def api_analyze_chapter(chapter_id: str):
             chars = get_characters(chap["project_id"])
             char_map = {c["id"]: c for c in chars}
 
+            # Determine limit based on engine
+            engine_id = chap.get("engine_id") or state.get_settings().get("default_engine", "xtts")
+            chunk_limit = get_text_chunk_limit(engine_id)
+            split_target = get_text_split_target(engine_id)
+
             # 1. Group segments by consecutive character using itertools.groupby
             groups = []
             for char_id, seg_iterator in groupby(
@@ -131,13 +138,13 @@ def api_analyze_chapter(chapter_id: str):
                         len(current_batch_text) + len(curr_seg["text_content"])
                     )
 
-                    if combined_len <= SENT_CHAR_LIMIT:
+                    if combined_len <= chunk_limit:
                         current_batch.append(curr_seg)
                     else:
                         combined = " ".join([s["text_content"] for s in current_batch])
-                        final_text = sanitize_for_xtts(combined)
+                        final_text = sanitize_text(combined)
                         final_text = safe_split_long_sentences(
-                            final_text, target=SENT_CHAR_LIMIT
+                            final_text, target=split_target
                         )
                         voice_chunks.append({
                             "character_name": char_name,
@@ -150,9 +157,9 @@ def api_analyze_chapter(chapter_id: str):
 
                 if current_batch:
                     combined = " ".join([s["text_content"] for s in current_batch])
-                    final_text = sanitize_for_xtts(combined)
+                    final_text = sanitize_text(combined)
                     final_text = safe_split_long_sentences(
-                        final_text, target=SENT_CHAR_LIMIT
+                        final_text, target=split_target
                     )
                     voice_chunks.append({
                         "character_name": char_name,
@@ -187,7 +194,7 @@ def api_analyze_chapter(chapter_id: str):
         return ChapterAnalysisResponse(
             status="ok",
             voice_chunks=res["voice_chunks"],
-            threshold=SENT_CHAR_LIMIT,
+            threshold=chunk_limit,
             char_count=res["stats"]["char_count"],
             word_count=res["stats"]["word_count"],
             sent_count=res["stats"]["sent_count"],
@@ -213,11 +220,15 @@ def api_analyze_text(req: AnalyzeTextRequest):
         text_content = req.text_content
         stats = get_text_stats(text_content)
 
-        raw_hits = find_long_sentences(text_content)
+        engine_id = state.get_settings().get("default_engine", "xtts")
+        chunk_limit = get_text_chunk_limit(engine_id)
+        split_target = get_text_split_target(engine_id)
+
+        raw_hits = find_long_sentences(text_content, threshold=chunk_limit)
         cleaned_text = clean_text_for_tts(text_content)
-        split_text = safe_split_long_sentences(cleaned_text)
-        packed_text = pack_text_to_limit(split_text, pad=True)
-        cleaned_hits = find_long_sentences(split_text)
+        split_text = safe_split_long_sentences(cleaned_text, target=split_target)
+        packed_text = pack_text_to_limit(split_text, limit=chunk_limit, pad=True)
+        cleaned_hits = find_long_sentences(split_text, threshold=chunk_limit)
 
         uncleanable = len(cleaned_hits)
         auto_fixed = len(raw_hits) - uncleanable
@@ -247,7 +258,7 @@ def api_analyze_text(req: AnalyzeTextRequest):
             UncleanableSentence(length=clen, text=s)
             for idx, clen, start, end, s in res["cleaned_hits"]
         ],
-        threshold=SENT_CHAR_LIMIT,
+        threshold=chunk_limit,
         safe_text=res["packed_text"],
         split_sentences=res["split_text"].split("\n")
     )
@@ -271,12 +282,16 @@ def _run_analysis(
         logger.error(f"Error resolving path {chapter_file}: {e}")
         raise AnalysisError("Invalid chapter path", 403)
 
+    engine_id = state.get_settings().get("default_engine", "xtts")
+    chunk_limit = get_text_chunk_limit(engine_id)
+    split_target = get_text_split_target(engine_id)
+
     text = p.read_text(encoding="utf-8", errors="replace")
     stats = get_text_stats(text)
-    raw_hits = find_long_sentences(text)
+    raw_hits = find_long_sentences(text, threshold=chunk_limit)
     cleaned_text = clean_text_for_tts(text)
-    split_text = safe_split_long_sentences(cleaned_text)
-    cleaned_hits = find_long_sentences(split_text)
+    split_text = safe_split_long_sentences(cleaned_text, target=split_target)
+    cleaned_hits = find_long_sentences(split_text, threshold=chunk_limit)
     uncleanable = len(cleaned_hits)
     auto_fixed = len(raw_hits) - uncleanable
 
@@ -294,7 +309,7 @@ def _run_analysis(
     if len(raw_hits) > 0:
         lines.extend([
             "--------------------------------------------------",
-            f"Limit Threshold   : {SENT_CHAR_LIMIT} characters",
+            f"Limit Threshold   : {chunk_limit} characters",
             f"Raw Long Sentences: {len(raw_hits)}",
             f"Auto-Fixable      : {auto_fixed} (handled by Safe Mode)",
             f"Action Required   : {uncleanable} (STILL too long after split!)",

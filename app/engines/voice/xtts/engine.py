@@ -14,7 +14,12 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from app.config import XTTS_ENV_ACTIVATE, XTTS_ENV_PYTHON, XTTS_ENV_DIR
+# Local defaults for XTTS environment
+XTTS_ENV_DIR_DEFAULT = Path.home() / "xtts-env"
+XTTS_ENV_DIR = Path(os.getenv("XTTS_ENV_DIR", str(XTTS_ENV_DIR_DEFAULT)))
+XTTS_ENV_PYTHON = Path(os.getenv("XTTS_ENV_PYTHON", str(XTTS_ENV_DIR / ("Scripts/python.exe" if os.name == "nt" else "bin/python"))))
+XTTS_ENV_ACTIVATE = XTTS_ENV_DIR / ("Scripts/Activate.ps1" if os.name == "nt" else "bin/activate")
+
 from app.engines.errors import EngineExecutionError, EngineRequestError
 from app.engines.voice.base import BaseVoiceEngine
 from app.engines.voice.sdk import TTSRequest, TTSResult, VoiceProcessingHooks, SynthesisPlan
@@ -448,9 +453,10 @@ class XttsProcessingHooks(VoiceProcessingHooks):
         XTTS performs best with shorter sentences; we leverage the established
         SENT_CHAR_LIMIT for chunking.
         """
-        from app.config import SENT_CHAR_LIMIT
+        from ...engines.behavior import get_text_chunk_limit
+        limit = get_text_chunk_limit("xtts")
         return SynthesisPlan(
-            chunk_size=SENT_CHAR_LIMIT,
+            chunk_size=limit,
             metadata={"engine": "xtts"}
         )
 

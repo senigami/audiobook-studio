@@ -135,6 +135,15 @@ def behavior_for_engine(
     return _load_manifest_behavior(engine_id)
 
 
+def get_behavior(
+    engine_id: str,
+    *,
+    behavior: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Backward-compatible alias for behavior resolution within the app."""
+    return behavior_for_engine(engine_id, behavior=behavior)
+
+
 @lru_cache(maxsize=64)
 def _load_manifest_behavior(engine_id: str) -> dict[str, Any]:
     """Load behavior metadata from a local plugin manifest when available."""
@@ -152,55 +161,46 @@ def _load_manifest_behavior(engine_id: str) -> dict[str, Any]:
     return normalize_behavior(payload.get("behavior"))
 
 
-def is_built_in(engine_id: str) -> bool:
-    """Return whether an engine_id corresponds to a built-in Studio engine."""
-    return str(engine_id or "").strip().lower() in {"xtts", "voxtral"}
-
-
 def supports_standard_rendering(engine_id: str) -> bool:
     """Return whether an engine supports full-chapter standard rendering."""
-    # XTTS has a dedicated standard handler. Voxtral has handle_voxtral_job.
-    # We'll default to True for built-ins unless they explicitly opt out,
-    # or let them opt in via manifest.
-    return has_behavior(engine_id, "standard_rendering") or is_built_in(engine_id)
+    return has_behavior(engine_id, "standard_rendering")
 
 
 def supports_segment_rendering(engine_id: str) -> bool:
     """Return whether an engine supports individual segment rendering."""
-    # Both XTTS and Voxtral support this via mixed.py or their own logic.
-    return has_behavior(engine_id, "segment_rendering") or is_built_in(engine_id)
+    return has_behavior(engine_id, "segment_rendering")
 
 
 def supports_bake_rendering(engine_id: str) -> bool:
     """Return whether an engine supports baking segments into a chapter."""
-    # Currently only XTTS has a bake handler.
-    if engine_id == "xtts":
-        return True
     return has_behavior(engine_id, "bake_rendering")
 
 
 def supports_mixed_rendering(engine_id: str) -> bool:
     """Return whether an engine can be part of a mixed-voice chapter."""
-    # Currently only XTTS and Voxtral are supported in mixed.py.
-    return has_behavior(engine_id, "mixed_rendering") or is_built_in(engine_id)
+    return has_behavior(engine_id, "mixed_rendering")
 
 
 def uses_segment_orchestration(engine_id: str) -> bool:
     """Return whether an engine's standard handler uses segment-based orchestration."""
-    # XTTS Standard handler uses segments. Voxtral does not.
-    if engine_id == "xtts":
-        return True
-    if engine_id == "voxtral":
-        return False
     return has_behavior(engine_id, "segment_orchestration")
 
 
 def has_simulated_finalizing(engine_id: str) -> bool:
     """Return whether an engine should show a simulated finalizing state in the UI."""
-    # Voxtral uses this to bridge the gap between synthesis finish and DB sync.
-    if engine_id == "voxtral":
-        return True
     return has_behavior(engine_id, "simulated_finalizing")
+
+
+def get_text_chunk_limit(engine_id: str) -> int:
+    """Return the character limit for text chunks for a given engine."""
+    behavior = get_behavior(engine_id)
+    return behavior.get("text_chunk_limit", 500)
+
+
+def get_text_split_target(engine_id: str) -> int:
+    """Return the target character count when splitting long sentences."""
+    behavior = get_behavior(engine_id)
+    return behavior.get("text_split_target", 450)
 
 
 def _normalize_required_settings(raw_items: Any) -> list[dict[str, str]]:

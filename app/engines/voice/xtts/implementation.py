@@ -10,7 +10,8 @@ from pathlib import Path
 from typing import Any, Callable
 
 from app import config as app_config
-from app.textops import pack_text_to_limit, safe_split_long_sentences, sanitize_for_xtts
+from app.textops import pack_text_to_limit, safe_split_long_sentences, sanitize_text
+from .engine import XTTS_ENV_ACTIVATE, XTTS_ENV_PYTHON
 
 
 def xtts_generate(
@@ -24,7 +25,7 @@ def xtts_generate(
     voice_profile_dir: Path | None = None,
 ) -> int:
     """Invoke XTTS inference via subprocess."""
-    from app.config import XTTS_ENV_ACTIVATE as engine_xtts_env_activate, XTTS_ENV_PYTHON as engine_xtts_env_python
+    from .engine import XTTS_ENV_ACTIVATE as engine_xtts_env_activate, XTTS_ENV_PYTHON as engine_xtts_env_python
     from app.engines.proc_utils import run_cmd_stream
 
     import sys
@@ -47,14 +48,16 @@ def xtts_generate(
         return 1
 
     if safe_mode:
-        text = sanitize_for_xtts(text)
-        text = safe_split_long_sentences(text)
+        text = sanitize_text(text)
+        from ...behavior import get_text_split_target
+        text = safe_split_long_sentences(text, target=get_text_split_target("xtts"))
     else:
         # Raw mode: Absolute bare minimum to prevent speech engine crashes
         text = re.sub(r"[^\x00-\x7F]+", "", text)  # ASCII only
         text = text.strip()
 
-    text = pack_text_to_limit(text, pad=True) or " "
+    from ...behavior import get_text_chunk_limit
+    text = pack_text_to_limit(text, limit=get_text_chunk_limit("xtts"), pad=True) or " "
 
     cmd = [
         str(python_exe),
@@ -89,7 +92,7 @@ def xtts_generate_script(
     voice_profile_dir: Path | None = None,
 ) -> int:
     """Invoke XTTS script-based inference via subprocess."""
-    from app.config import XTTS_ENV_ACTIVATE as engine_xtts_env_activate, XTTS_ENV_PYTHON as engine_xtts_env_python
+    from .engine import XTTS_ENV_ACTIVATE as engine_xtts_env_activate, XTTS_ENV_PYTHON as engine_xtts_env_python
     from app.engines.proc_utils import run_cmd_stream
 
     import sys

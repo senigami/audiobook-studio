@@ -87,7 +87,7 @@ def test_update_profile_voxtral_voice_id(clean_db, voices_root, client):
     (profile_dir / "profile.json").write_text(json.dumps({"variant_name": "Default", "engine": "voxtral"}))
 
     with patch("app.api.routers.voices_helpers._is_engine_active", return_value=True):
-        response = client.post("/api/speaker-profiles/SpeakerA/voxtral-voice-id", data={"voice_id": "voice_123"})
+        response = client.post("/api/speaker-profiles/SpeakerA/voice-asset-id", data={"voice_id": "voice_123"})
     assert response.status_code == 200
     assert response.json()["voice_asset_id"] == "voice_123"
 

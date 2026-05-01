@@ -8,11 +8,10 @@ from .pathing import safe_join, safe_join_flat, find_secure_file, secure_join_fl
 
 BASE_DIR = Path(os.getenv("AUDIOBOOK_BASE_DIR", str(Path(__file__).resolve().parents[1])))
 
-# XTTS warning threshold
-SENT_CHAR_LIMIT = 500
-SAFE_SPLIT_TARGET = 450
-
+# Global limits
 PART_CHAR_LIMIT = 30000
+SENT_CHAR_LIMIT = 500
+SAFE_SPLIT_TARGET = 250
 MAKE_MP3_DEFAULT = False
 MP3_QUALITY = "2"  # ffmpeg -q:a 2
 AUDIOBOOK_BITRATE = "64k"
@@ -38,14 +37,6 @@ PROJECTS_DIR = Path(os.getenv("PROJECTS_DIR", str(BASE_DIR / "projects")))
 TRASH_DIR = Path(os.getenv("TRASH_DIR", str(BASE_DIR / "trash")))
 PLUGINS_DIR = Path(os.getenv("PLUGINS_DIR", str(BASE_DIR / "plugins")))
 FRONTEND_DIST = BASE_DIR / "frontend" / "dist"
-XTTS_ENV_DIR = Path(os.getenv("XTTS_ENV_DIR", str(Path.home() / "xtts-env")))
-XTTS_ENV_PYTHON = Path(
-    os.getenv(
-        "XTTS_ENV_PYTHON",
-        str(XTTS_ENV_DIR / ("Scripts/python.exe" if os.name == "nt" else "bin/python")),
-    )
-)
-XTTS_ENV_ACTIVATE = XTTS_ENV_DIR / ("Scripts/Activate.ps1" if os.name == "nt" else "bin/activate")
 SAFE_PROJECT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
 SAFE_VOICE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
 

@@ -1,5 +1,4 @@
 import re
-from .config import SENT_CHAR_LIMIT
 from .textops_helpers import preprocess_text
 from .textops_splitting import split_sentences
 
@@ -192,9 +191,9 @@ def consolidate_single_word_sentences(text: str) -> str:
     return "\n".join(final_output)
 
 
-def sanitize_for_xtts(text: str) -> str:
+def sanitize_text(text: str) -> str:
     """
-    Advanced sanitization specifically tuned for Coqui XTTS v2.
+    Advanced sanitization for TTS engines.
     It builds on the base cleaning plus specific hallucination prevention.
     """
     # 1. Perform base TTS cleaning
@@ -225,7 +224,7 @@ def sanitize_for_xtts(text: str) -> str:
 
 
 def pack_text_to_limit(
-    text: str, limit: int = SENT_CHAR_LIMIT, pad: bool = False
+    text: str, limit: int = 500, pad: bool = False
 ) -> str:
     """
     Greedily packs sentences into larger chunks as close to the limit

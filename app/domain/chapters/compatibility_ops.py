@@ -31,7 +31,7 @@ def get_production_blocks_payload(chapter_id: str) -> dict[str, Any]:
 
 def get_script_view_payload(chapter_id: str) -> dict[str, Any]:
     """Build the Phase 7 Script View read model payload for a chapter."""
-    from app.textops import sanitize_for_xtts
+    from app.textops import sanitize_text
     from . import compatibility as compatibility_facade
 
     with _db_lock:
@@ -49,7 +49,7 @@ def get_script_view_payload(chapter_id: str) -> dict[str, Any]:
         text = str(row.get("text_content") or "")
         sanitized = helpers._clean_optional_text(row.get("sanitized_text"))
         if sanitized is None:
-            sanitized = sanitize_for_xtts(text)
+            sanitized = sanitize_text(text)
 
         span_id = str(row["id"])
         span_payload = {

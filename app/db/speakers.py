@@ -190,7 +190,7 @@ def normalize_profile_metadata(profile_name: str, meta: Optional[Dict[str, Any]]
         meta["variant_name"] = infer_variant_name(profile_name)
     meta["engine"] = _infer_profile_engine(meta)
 
-    # Normalize aliases (e.g. voxtral_voice_id -> voice_asset_id)
+    # Normalize aliases
     from ..engines.behavior import setting_aliases_for
     aliases = setting_aliases_for(meta["engine"])
     for source, target in aliases.items():

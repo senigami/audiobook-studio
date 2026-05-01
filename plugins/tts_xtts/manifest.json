@@ -27,11 +27,14 @@
       "bake_rendering",
       "mixed_rendering",
       "sanitize_text",
-      "cps_eta"
+      "cps_eta",
+      "segment_orchestration"
     ],
     "required_settings": [],
     "setting_aliases": {},
-    "synthesis_settings": ["temperature", "repetition_penalty", "top_k", "top_p"]
+    "synthesis_settings": ["temperature", "repetition_penalty", "top_k", "top_p"],
+    "text_chunk_limit": 500,
+    "text_split_target": 450
   },
   "local": true,
   "cloud": false,

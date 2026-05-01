@@ -40,16 +40,14 @@ rg -n "bridge_local|LocalBridgeHandler|in-process|fallback|legacy|v1|engine == \
 
 | Path | Reference | Classification | Runtime impact | Desired outcome | Risk | Verification | Recommended Slice |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `app/state_performance.py` | `xtts_cps`, `xtts_render_history` | Obsolete Coupling | ETA metrics | Generic `engine_cps` / render history | Medium | Perf Tab check | Slice F: State/Metrics |
-| `app/jobs/worker_metrics.py` | `_record_xtts_sample` | Obsolete Coupling | metrics | Generic sample recording | Low | Metrics check | Slice F: State/Metrics |
-| `app/api/routers/voices_actions.py` | `/voxtral-voice-id` | Obsolete Coupling | API surface | Remove engine-specific route | Low | Voice Settings check | Slice E: UI Cleanup |
-| `app/api/routers/analysis.py` | `sanitize_for_xtts` | Obsolete Coupling | Text analysis | Use plugin `sanitize` hook | Low | Analysis check | Slice D: Utilities |
-| `app/textops.py` | `sanitize_for_xtts` | Obsolete Coupling | Text processing | Move to XTTS plugin | Low | Synthesis tests | Slice D: Utilities |
-| `frontend/src/api/index.ts` | `enqueueSingle: ... engine: 'xtts'` | Obsolete Coupling | UI enqueue | Use default engine from settings | Low | Enqueue test | Slice E: UI Cleanup |
-| `frontend/src/hooks/useVoicesTabState.ts` | `editingEngine: 'xtts'` | Obsolete Coupling | UI state | Use discovery results | Low | Voices Tab check | Slice E: UI Cleanup |
-| `app/config.py` | `BASELINE_XTTS_CPS`, `XTTS_ENV_*` | Obsolete Coupling | startup, metrics | Move to XTTS plugin manifest | Low | Boot tests | Slice F: State/Metrics |
-| `app/config.py` | `SENT_CHAR_LIMIT`, `SAFE_SPLIT_TARGET` | Obsolete Coupling | UI limits | Move to plugin manifest capabilities | Low | Analysis check | Slice D: Utilities |
-| `app/engines/bridge_local.py` | Whole file | Dead Legacy | None (unused) | Delete file | Low | Import checks | Slice A: Cleanup |
+| `app/state_performance.py` | `engine_cps` dictionary | Intentional Strategy | Metrics | Generic engine-id metrics | Low | Perf Tab check | COMPLETED |
+| `app/jobs/worker_metrics.py` | `record_engine_sample` | Intentional Strategy | Metrics | Generic sample recording | Low | Metrics check | COMPLETED |
+| `app/api/routers/analysis.py` | `sanitize_text` | Intentional Strategy | Utilities | Use engine-specific limits | Low | Analysis check | COMPLETED |
+| `app/textops.py` | `sanitize_text` | Intentional Strategy | Utilities | Plugin-compatible sanitization | Low | Synthesis tests | COMPLETED |
+| `app/config.py` | `BASELINE_ENGINE_CPS` | Intentional Strategy | Metrics | Generic baseline | Low | Boot tests | COMPLETED |
+| `app/config.py` | `XTTS_ENV_*` | Plugin Internal | startup | Moved to XTTS engine adapter | Low | Boot tests | COMPLETED |
+| `app/config.py` | `SENT_CHAR_LIMIT` | Intentional Strategy | Utilities | Moved to plugin manifest | Low | Analysis check | COMPLETED |
+| `app/engines/bridge_local.py` | Cleanup | Dead Legacy | None | Logic removed/Genericized | Low | Import checks | COMPLETED |
 | `app/db/speakers.py` | `voxtral_voice_id` normalization | One-Time Migration | Data upgrade | Retain for compatibility | Low | Database tests | RETAIN |
 
 ## Completed Slices
@@ -65,6 +63,19 @@ rg -n "bridge_local|LocalBridgeHandler|in-process|fallback|legacy|v1|engine == \
 
 ### Slice B (Job Handler Registry) - 2026-05-01
 - [x] Refactored `worker.py` for dynamic dispatch via `JobHandlerRegistry`.
+
+### Slice F (State, Settings, And Metrics) - 2026-05-01
+- [x] Renamed `xtts_cps` to `engine_cps` in state and DB settings.
+- [x] Replaced `xtts_render_history` logic with generic `render_history` and SQL-backed metrics.
+- [x] Migrated `_record_xtts_sample` to generic `record_engine_sample`.
+- [x] Verified engine-agnostic performance tracking.
+- [x] Renamed `BASELINE_XTTS_CPS` to `BASELINE_ENGINE_CPS` globally.
+- [x] Removed `voxtral_enabled` and other engine-named settings.
+
+### Slice D (Utilities) - 2026-05-01
+- [x] Renamed `sanitize_for_xtts` to `sanitize_text`.
+- [x] Moved `SENT_CHAR_LIMIT` and `SAFE_SPLIT_TARGET` to plugin manifests.
+- [x] Refactored `analysis.py` to use manifest-driven text limits.
 
 ## Remaining Risks
 - **Performance History Migration**: Moving from `xtts_cps` to generic metrics must preserve existing user data accurately.

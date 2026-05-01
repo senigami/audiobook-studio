@@ -143,8 +143,6 @@ class LocalBridgeHandler:
 
         # Handle generic enablement toggle
         enabled_val = settings.get("enabled")
-        if enabled_val is None and "voxtral" in normalized_engine_id:
-             enabled_val = settings.get("voxtral_enabled")
 
         if enabled_val is not None:
             if bool(enabled_val):
@@ -165,8 +163,6 @@ class LocalBridgeHandler:
             enabled_plugins = dict(current_settings.get("enabled_plugins") or {})
             enabled_plugins[engine_id] = bool(enabled_val)
             updates["enabled_plugins"] = enabled_plugins
-            if "voxtral" in normalized_engine_id:
-                 updates["voxtral_enabled"] = bool(enabled_val)
 
         from .behavior import required_settings_for
         reqs = required_settings_for(engine_id)

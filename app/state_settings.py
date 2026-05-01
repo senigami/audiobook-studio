@@ -40,8 +40,6 @@ def _normalize_settings(
     # (Removed hardcoded mistral_api_key cleanup, handled by generic logic below)
 
     # Enforce enabled_plugins as the source of truth for plugin enablement.
-    # 1. Migrate legacy settings (one-time migration logic)
-    normalized = _migrate_legacy_settings(normalized)
 
     # 2. Enforce enabled_plugins as the source of truth for plugin enablement.
     enabled_plugins = normalized.get("enabled_plugins")
@@ -101,25 +99,6 @@ def _normalize_settings(
     return normalized
 
 
-def _migrate_legacy_settings(normalized: Dict[str, Any]) -> Dict[str, Any]:
-    """Isolated one-time migration for legacy v1 engine-named settings."""
-    # 1. Migrate xtts_speed -> speed
-    if "xtts_speed" in normalized:
-        if "speed" not in normalized:
-            normalized["speed"] = normalized["xtts_speed"]
-        normalized.pop("xtts_speed", None)
-
-    # 2. Migrate voxtral_enabled -> enabled_plugins['voxtral']
-    if "voxtral_enabled" in normalized:
-        enabled_plugins = normalized.get("enabled_plugins", {})
-        if not isinstance(enabled_plugins, dict):
-            enabled_plugins = {}
-        if "voxtral" not in enabled_plugins:
-            enabled_plugins["voxtral"] = bool(normalized["voxtral_enabled"])
-        normalized["enabled_plugins"] = enabled_plugins
-        normalized.pop("voxtral_enabled", None)
-
-    return normalized
 
 
 def get_settings() -> Dict[str, Any]:

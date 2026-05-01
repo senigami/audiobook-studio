@@ -1,4 +1,4 @@
-from .config import BASELINE_ENGINE_CPS, SENT_CHAR_LIMIT, SAFE_SPLIT_TARGET
+from .config import BASELINE_ENGINE_CPS, SENT_CHAR_LIMIT
 from .textops_helpers import (
     CHAPTER_RE,
     normalize_newlines,
@@ -17,7 +17,7 @@ from .textops_splitting import (
 from .textops_cleaning import (
     clean_text_for_tts,
     consolidate_single_word_sentences,
-    sanitize_for_xtts,
+    sanitize_text,
     pack_text_to_limit
 )
 

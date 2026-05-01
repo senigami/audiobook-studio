@@ -11,7 +11,7 @@ def list_tts_engines() -> list[str]:
         return [entry["engine_id"] for entry in bridge.describe_registry()]
     except Exception:
         # Fallback if bridge is not ready
-        return ["xtts", "voxtral"]
+        return []
 
 
 def normalize_tts_engine(engine: Optional[str], fallback: str = DEFAULT_PROFILE_ENGINE) -> str:

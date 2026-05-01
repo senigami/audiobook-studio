@@ -205,7 +205,7 @@ def test_get_speaker_settings(clean_voices):
     from app.state import update_settings
 
     # 1. Test global fallback
-    update_settings(xtts_speed=1.23)
+    update_settings(speed=1.23)
     settings = get_speaker_settings("NonExistent")
     assert settings["speed"] == 1.23
 

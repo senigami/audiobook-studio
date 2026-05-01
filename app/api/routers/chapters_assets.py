@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse, FileResponse
 from ...domain.chapters.compatibility import export_chapter_audio
 from ...db import get_chapter
 from ...state import get_settings
-from ...textops import sanitize_for_xtts, safe_split_long_sentences, pack_text_to_limit
+from ...textops import sanitize_text, safe_split_long_sentences, pack_text_to_limit
 from ... import config
 from ...config import find_existing_project_subdir, find_secure_file
 from .chapters_models import AudioExportRequest
@@ -114,13 +114,18 @@ def api_get_chapter_preview(
     if processed:
         settings = get_settings()
         is_safe = settings.get("safe_mode", True)
+        engine_id = chapter.get("engine_id") or settings.get("default_engine", "xtts")
+        from ...engines.behavior import get_text_chunk_limit, get_text_split_target
+        limit = get_text_chunk_limit(engine_id)
+        split_target = get_text_split_target(engine_id)
+
         if is_safe:
-            text = sanitize_for_xtts(text)
-            text = safe_split_long_sentences(text)
+            text = sanitize_text(text)
+            text = safe_split_long_sentences(text, target=split_target)
         else:
             text = re.sub(r"[^\x00-\x7F]+", "", text)
             text = text.strip()
-        text = pack_text_to_limit(text, pad=True)
+        text = pack_text_to_limit(text, limit=limit, pad=True)
 
     return JSONResponse({"text": text, "analysis": None})
 

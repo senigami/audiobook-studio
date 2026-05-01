@@ -4,7 +4,6 @@ from __future__ import annotations
 
 # Re-export public API from specialized modules
 from app.config import find_existing_project_subdir as _find_existing_project_subdir
-from app.textops import SENT_CHAR_LIMIT as _SENT_CHAR_LIMIT
 
 from .compatibility_helpers import (
     CompatibilityRevisionMismatch,
@@ -52,4 +51,5 @@ from .compatibility_ops import (
 )
 
 find_existing_project_subdir = _find_existing_project_subdir
-SENT_CHAR_LIMIT = _SENT_CHAR_LIMIT
+# Compatibility for Phase 7 bridge
+SENT_CHAR_LIMIT = 500
