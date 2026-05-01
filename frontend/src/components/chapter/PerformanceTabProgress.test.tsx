@@ -162,11 +162,11 @@ describe('PerformanceTab - Progress', () => {
     vi.useRealTimers();
   });
 
-  it('shows Voxtral jobs as indeterminate while running instead of predictive percentages', () => {
+  it('shows indeterminate jobs as working instead of predictive percentages while running', () => {
     const activeJob = {
-      id: 'job-vox-1',
+      id: 'job-cloud-1',
       status: 'running',
-      engine: 'voxtral',
+      engine: 'cloud_engine',
       active_segment_id: null,
       active_segment_progress: undefined,
       started_at: Date.now() / 1000 - 20,
@@ -174,6 +174,7 @@ describe('PerformanceTab - Progress', () => {
       progress: 1
     } as any;
 
+    const engines = [{ engine_id: 'cloud_engine', cloud: true } as any];
     render(
       <PerformanceTab
         chunkGroups={[
@@ -189,6 +190,7 @@ describe('PerformanceTab - Progress', () => {
         onStop={vi.fn()}
         onGenerate={vi.fn()}
         generatingJob={activeJob}
+        engines={engines}
       />
     );
 
@@ -233,15 +235,16 @@ describe('PerformanceTab - Progress', () => {
     expect(screen.queryByText('Working...')).toBeNull();
   });
 
-  it('pins Voxtral jobs at 100% while finalizing', () => {
+  it('pins indeterminate jobs at 100% while finalizing', () => {
     const activeJob = {
-      id: 'job-vox-2',
+      id: 'job-cloud-2',
       status: 'finalizing',
-      engine: 'voxtral',
+      engine: 'cloud_engine',
       active_segment_id: null,
       active_segment_progress: undefined
     } as any;
 
+    const engines = [{ engine_id: 'cloud_engine', cloud: true } as any];
     render(
       <PerformanceTab
         chunkGroups={[
@@ -257,6 +260,7 @@ describe('PerformanceTab - Progress', () => {
         onStop={vi.fn()}
         onGenerate={vi.fn()}
         generatingJob={activeJob}
+        engines={engines}
       />
     );
 

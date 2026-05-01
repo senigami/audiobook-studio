@@ -86,7 +86,7 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
         const hasBuildMaterial = Boolean(
             p.is_ready ||
             p.has_latent ||
-            p.voxtral_voice_id ||
+            p.voice_asset_id ||
             p.reference_sample ||
             p.wav_count > 0 ||
             (p.samples?.length || 0) > 0

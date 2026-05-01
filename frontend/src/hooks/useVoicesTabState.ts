@@ -27,7 +27,7 @@ export function useVoicesTabState({ speakerProfiles, engines }: { speakerProfile
     const [variantName, setVariantName] = useState('');
     const [editingEngine, setEditingEngine] = useState<VoiceEngine>('xtts');
     const [referenceSample, setReferenceSample] = useState('');
-    const [voxtralVoiceId, setVoxtralVoiceId] = useState('');
+    const [engineVoiceId, setEngineVoiceId] = useState('');
     const [isSavingText, setIsSavingText] = useState(false);
     const [showGuide, setShowGuide] = useState(false);
 
@@ -38,13 +38,13 @@ export function useVoicesTabState({ speakerProfiles, engines }: { speakerProfile
             setVariantName(getVariantDisplayName(editingProfile));
             setEditingEngine(editingProfile.engine || '');
             setReferenceSample(editingProfile.reference_sample || '');
-            setVoxtralVoiceId(editingProfile.voxtral_voice_id || '');
+            setEngineVoiceId(editingProfile.voice_asset_id || editingProfile.voxtral_voice_id || '');
         } else {
             setTestText('');
             setVariantName('');
             setEditingEngine('xtts');
             setReferenceSample('');
-            setVoxtralVoiceId('');
+            setEngineVoiceId('');
         }
     }, [editingProfile, speakerProfiles]);
 
@@ -102,7 +102,7 @@ export function useVoicesTabState({ speakerProfiles, engines }: { speakerProfile
         variantName, setVariantName,
         editingEngine, setEditingEngine,
         referenceSample, setReferenceSample,
-        voxtralVoiceId, setVoxtralVoiceId,
+        engineVoiceId, setEngineVoiceId,
         isSavingText, setIsSavingText,
         showGuide, setShowGuide,
         searchQuery, setSearchQuery,

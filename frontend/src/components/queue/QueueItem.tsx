@@ -13,6 +13,7 @@ interface QueueItemProps {
     formatTime: (ts: number | null | undefined) => string;
     onRemove: (id: string) => void;
     compact?: boolean;
+    engines?: import('../../types').TtsEngine[];
 }
 
 export const QueueItem: React.FC<QueueItemProps> = ({
@@ -22,7 +23,8 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     formatJobTitle,
     formatTime,
     onRemove,
-    compact = false
+    compact = false,
+    engines = []
 }) => {
     const status = job.status;
     const isTrulyActive = ['preparing', 'running', 'processing', 'finalizing'].includes(status);
@@ -68,12 +70,16 @@ export const QueueItem: React.FC<QueueItemProps> = ({
         ? Math.max(jobProgress, activeSegmentProgress)
         : (isGroupedChapterJob ? Math.max(jobProgress, groupedProgress) : jobProgress);
     const engineType = (liveJob?.engine ?? job.engine) || '';
-    const isCloudLike = ['voxtral', 'mixed'].includes(engineType);
+    const engineMeta = Array.isArray(engines) ? engines.find(e => e && e.engine_id === engineType) : undefined;
+    const isCloudLike = engineMeta 
+        ? (Array.isArray(engineMeta.capabilities) && engineMeta.capabilities.includes('simulated_finalizing')) || !!engineMeta.cloud
+        : ['voxtral', 'mixed'].includes(engineType);
     const showIndeterminateProgress = shouldShowIndeterminateProgress({
-            engine: liveJob?.engine ?? job.engine,
+            engine: engineType,
             segment_ids: liveJob?.segment_ids ?? job.segment_ids,
             active_segment_id: liveJob?.active_segment_id,
             custom_title: liveJob?.custom_title ?? job.custom_title,
+            engineMeta
         });
     const hasActiveGroupSignal = isGroupedChapterJob && (completedRenderGroups > 0 || activeRenderGroupIndex > 0);
     // Render-group metadata can arrive before the backend flips a grouped chapter job from
@@ -153,7 +159,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                         </h4>
                         <div style={{ fontSize: compact ? '0.75rem' : '0.85rem', color: 'var(--text-secondary)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span style={!job.project_name ? { color: 'var(--accent)', fontWeight: 700, fontSize: compact ? '0.65rem' : '0.75rem', textTransform: 'uppercase' } : undefined}>
-                                {formatQueueContext(job)}
+                                {formatQueueContext(job, engines)}
                             </span>
                             {started && (
                                 <>

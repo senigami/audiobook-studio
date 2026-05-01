@@ -34,9 +34,9 @@ export function useVoicesTabActions({
             };
 
             const activeEngine = engines.find(e => e.engine_id === state.editingEngine);
-            if (activeEngine?.cloud) {
+            if (activeEngine?.cloud || activeEngine?.capabilities?.includes('voice_asset_id')) {
                 settingsToUpdate.reference_sample = state.referenceSample || null;
-                settingsToUpdate.voxtral_voice_id = state.voxtralVoiceId;
+                settingsToUpdate.voice_asset_id = state.engineVoiceId;
             }
 
             const success = await handleUpdateSettings(state.editingProfile.name, settingsToUpdate);

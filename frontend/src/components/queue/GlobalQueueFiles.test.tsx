@@ -118,11 +118,12 @@ describe('Global Queue Components', () => {
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-eta-seconds', '30');
         });
 
-        it('uses indeterminate working state for voxtral jobs while keeping predictive mode enabled', () => {
+        it('uses indeterminate working state for indeterminate jobs while keeping predictive mode enabled', () => {
             render(
                 <QueueItem
-                    job={{ ...mockJob, engine: 'voxtral', status: 'running', progress: 0 } as any}
-                    liveJob={{ id: 'job-1', engine: 'voxtral', status: 'running', progress: 0, started_at: 1000, eta_seconds: 30 } as any}
+                    job={{ ...mockJob, engine: 'cloud_engine', status: 'running', progress: 0 } as any}
+                    liveJob={{ id: 'job-1', engine: 'cloud_engine', status: 'running', progress: 0, started_at: 1000, eta_seconds: 30 } as any}
+                    engines={[{ engine_id: 'cloud_engine', cloud: true } as any]}
                     localPaused={false}
                     formatJobTitle={(j) => `Title for ${j.id}`}
                     formatTime={(t) => `Time ${t}`}

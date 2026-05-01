@@ -356,6 +356,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                     onPlay={playSegment} onStop={stopPlayback} onGenerate={(sids) => handleGenerate(sids, effectiveSelectedVoice, (msg) => setConfirmConfig({ title: 'Generation Blocked', message: msg, onConfirm: () => {}, confirmText: 'OK' }))}
                     generatingJob={generatingSegmentJob}
                     segmentProgress={segmentProgress}
+                    engines={engines}
                   />
                 )}
                 {editorTab === 'preview' && <PreviewTab analysis={analysis} analyzing={analyzing} />}

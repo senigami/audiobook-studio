@@ -459,7 +459,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
 
                 <ChapterList
                   chapters={chapters} projectId={effectiveProjectId} jobs={jobs} isAssemblyMode={isAssemblyMode} selectedChapters={selectedChapters}
-                  anyEnginesEnabled={anyEnginesEnabled}
+                  anyEnginesEnabled={anyEnginesEnabled} engines={engines}
                   onSelectChapter={id => setSelectedChapters(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; })}
                   onSelectAll={() => { const allDone = chapters.filter(c => c.audio_status === 'done').map(c => c.id); setSelectedChapters(selectedChapters.size === allDone.length ? new Set() : new Set(allDone)); }}
                   onReorder={(newOrder) => { setChapters(newOrder); handleReorderChapters(newOrder); }}

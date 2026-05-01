@@ -14,8 +14,8 @@ interface ScriptEditorProps {
     referenceSample: string;
     onReferenceSampleChange: (val: string) => void;
     availableSamples: string[];
-    voxtralVoiceId: string;
-    onVoxtralVoiceIdChange: (val: string) => void;
+    engineVoiceId: string;
+    onEngineVoiceIdChange: (val: string) => void;
     onResetTestText: () => void;
     onSave: () => void;
     isSaving: boolean;
@@ -32,8 +32,8 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({
     referenceSample,
     onReferenceSampleChange,
     availableSamples,
-    voxtralVoiceId,
-    onVoxtralVoiceIdChange,
+    engineVoiceId,
+    onEngineVoiceIdChange,
     onResetTestText,
     onSave,
     isSaving
@@ -94,7 +94,7 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({
 
                 {(() => {
                     const activeEngine = engines.find(e => e.engine_id === engine);
-                    if (activeEngine?.cloud) {
+                    if (activeEngine?.cloud || activeEngine?.capabilities?.includes('voice_asset_id')) {
                         return (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -121,11 +121,11 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({
                                 </div>
 
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                    <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>SAVED VOICE ID</label>
+                                    <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>REMOTE VOICE ASSET ID</label>
                                     <GlassInput
-                                        placeholder="Optional saved voice id"
-                                        value={voxtralVoiceId}
-                                        onChange={(e) => onVoxtralVoiceIdChange(e.target.value)}
+                                        placeholder="Optional remote voice asset id"
+                                        value={engineVoiceId}
+                                        onChange={(e) => onEngineVoiceIdChange(e.target.value)}
                                     />
                                 </div>
                             </div>

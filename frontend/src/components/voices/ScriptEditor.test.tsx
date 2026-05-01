@@ -21,8 +21,8 @@ describe('ScriptEditor', () => {
                 referenceSample=""
                 onReferenceSampleChange={vi.fn()}
                 availableSamples={[]}
-                voxtralVoiceId=""
-                onVoxtralVoiceIdChange={vi.fn()}
+                engineVoiceId=""
+                onEngineVoiceIdChange={vi.fn()}
                 onResetTestText={onResetTestText}
                 onSave={onSave}
                 isSaving={false}
@@ -59,8 +59,8 @@ describe('ScriptEditor', () => {
                 referenceSample=""
                 onReferenceSampleChange={vi.fn()}
                 availableSamples={[]}
-                voxtralVoiceId=""
-                onVoxtralVoiceIdChange={vi.fn()}
+                engineVoiceId=""
+                onEngineVoiceIdChange={vi.fn()}
                 onResetTestText={vi.fn()}
                 onSave={vi.fn()}
                 isSaving={true}
@@ -70,28 +70,28 @@ describe('ScriptEditor', () => {
         expect(screen.getByRole('button', { name: /Saving Changes/i })).toBeDisabled();
     });
 
-    it('shows Voxtral metadata controls when engine is voxtral', () => {
+    it('shows cloud metadata controls when engine has voice_asset_id capability', () => {
         render(
             <ScriptEditor
                 variantName="Voice"
                 onVariantNameChange={vi.fn()}
-                engine="voxtral"
+                engine="cloud_engine"
                 onEngineChange={vi.fn()}
-                engines={[{ engine_id: 'voxtral', display_name: 'Voxtral', enabled: true, verified: true, cloud: true } as any]}
+                engines={[{ engine_id: 'cloud_engine', display_name: 'Cloud Engine', enabled: true, verified: true, cloud: true } as any]}
                 testText="Preview"
                 onTestTextChange={vi.fn()}
                 referenceSample="sample1.wav"
                 onReferenceSampleChange={vi.fn()}
                 availableSamples={['sample1.wav']}
-                voxtralVoiceId="voice-123"
-                onVoxtralVoiceIdChange={vi.fn()}
+                engineVoiceId="voice-123"
+                onEngineVoiceIdChange={vi.fn()}
                 onResetTestText={vi.fn()}
                 onSave={vi.fn()}
                 isSaving={false}
             />
         );
 
-        expect(screen.getByLabelText('Engine')).toHaveValue('voxtral');
+        expect(screen.getByLabelText('Engine')).toHaveValue('cloud_engine');
         expect(screen.getByLabelText('Reference Sample')).toHaveValue('sample1.wav');
         expect(screen.getByDisplayValue('voice-123')).toBeInTheDocument();
     });
@@ -109,8 +109,8 @@ describe('ScriptEditor', () => {
                 referenceSample=""
                 onReferenceSampleChange={vi.fn()}
                 availableSamples={[]}
-                voxtralVoiceId=""
-                onVoxtralVoiceIdChange={vi.fn()}
+                engineVoiceId=""
+                onEngineVoiceIdChange={vi.fn()}
                 onResetTestText={vi.fn()}
                 onSave={vi.fn()}
                 isSaving={false}
@@ -118,7 +118,7 @@ describe('ScriptEditor', () => {
         );
 
         expect(screen.getByLabelText('Engine')).toHaveTextContent('XTTS');
-        expect(screen.queryByText(/Voxtral \(Cloud\)/i)).not.toBeInTheDocument();
+        expect(screen.queryByText(/Cloud Engine \(Cloud\)/i)).not.toBeInTheDocument();
     });
 
     it('shows an existing Voxtral engine assignment even when cloud voices are disabled', () => {
@@ -126,23 +126,23 @@ describe('ScriptEditor', () => {
             <ScriptEditor
                 variantName="Voice"
                 onVariantNameChange={vi.fn()}
-                engine="voxtral"
+                engine="cloud_engine"
                 onEngineChange={vi.fn()}
-                engines={[{ engine_id: 'voxtral', display_name: 'Voxtral', enabled: false, verified: true, cloud: true } as any]}
+                engines={[{ engine_id: 'cloud_engine', display_name: 'Cloud Engine', enabled: false, verified: true, cloud: true } as any]}
                 testText="Preview"
                 onTestTextChange={vi.fn()}
                 referenceSample=""
                 onReferenceSampleChange={vi.fn()}
                 availableSamples={[]}
-                voxtralVoiceId=""
-                onVoxtralVoiceIdChange={vi.fn()}
+                engineVoiceId=""
+                onEngineVoiceIdChange={vi.fn()}
                 onResetTestText={vi.fn()}
                 onSave={vi.fn()}
                 isSaving={false}
             />
         );
 
-        expect(screen.getByLabelText('Engine')).toHaveValue('voxtral');
-        expect(screen.getByText(/assigned to Voxtral, but it is currently turned off in Settings/i)).toBeInTheDocument();
+        expect(screen.getByLabelText('Engine')).toHaveValue('cloud_engine');
+        expect(screen.getByText(/assigned to Cloud Engine, but it is currently turned off in Settings/i)).toBeInTheDocument();
     });
 });

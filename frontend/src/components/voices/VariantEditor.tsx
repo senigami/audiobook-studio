@@ -40,7 +40,7 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
 
     const hasBuildMaterial = Boolean(
         profile.has_latent ||
-        profile.voxtral_voice_id ||
+        profile.voice_asset_id ||
         profile.reference_sample ||
         (profile.wav_count > 0) ||
         (profile.samples?.length || 0) > 0

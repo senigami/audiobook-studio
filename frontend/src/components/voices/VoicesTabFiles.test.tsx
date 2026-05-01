@@ -21,7 +21,7 @@ vi.mock('../../hooks/useVoiceManagement', () => ({
     handleDelete: vi.fn(),
     handleUpdateEngine: vi.fn(),
     handleUpdateReferenceSample: vi.fn(),
-    handleUpdateVoxtralVoiceId: vi.fn(),
+    handleUpdateVoiceAssetId: vi.fn(),
     formatError: (e: any) => e.message,
   }),
 }));
@@ -215,7 +215,7 @@ describe('Voices Tab Components', () => {
             render(
                 <NarratorCard
                     speaker={mockSpeaker}
-                    profiles={[{ ...mockProfile, engine: 'voxtral', preview_url: null, voxtral_voice_id: 'voice_123' }]}
+                    profiles={[{ ...mockProfile, engine: 'cloud_engine', preview_url: null, voice_asset_id: 'voice_123' }]}
                     onRefresh={vi.fn()}
                     onTest={vi.fn()}
                     onDelete={vi.fn()}
@@ -230,11 +230,11 @@ describe('Voices Tab Components', () => {
                     onRenameClick={vi.fn()}
                     isExpanded={true}
                     onToggleExpand={vi.fn()}
-                    engines={[{ engine_id: 'voxtral', display_name: 'Voxtral', enabled: true, verified: true, cloud: true, status: 'ready' } as any]}
+                    engines={[{ engine_id: 'cloud_engine', display_name: 'Cloud Engine', enabled: true, verified: true, cloud: true, status: 'ready' } as any]}
                 />
             );
 
-            expect(screen.getAllByText(/voxtral/i).length).toBeGreaterThan(0);
+            expect(screen.getAllByText(/cloud engine/i).length).toBeGreaterThan(0);
             expect(screen.queryByText('1.00x')).not.toBeInTheDocument();
             expect(screen.queryByText('Rebuild')).not.toBeInTheDocument();
             expect(screen.getByText('BUILD TO TEST')).toBeInTheDocument();
@@ -246,7 +246,7 @@ describe('Voices Tab Components', () => {
             render(
                 <NarratorCard
                     speaker={mockSpeaker}
-                    profiles={[{ ...mockProfile, engine: 'voxtral', preview_url: '/api/preview/vox', voxtral_voice_id: 'voice_123', is_rebuild_required: true }]}
+                    profiles={[{ ...mockProfile, engine: 'cloud_engine', preview_url: '/api/preview/vox', voice_asset_id: 'voice_123', is_rebuild_required: true }]}
                     onRefresh={vi.fn()}
                     onTest={vi.fn()}
                     onDelete={vi.fn()}
@@ -261,7 +261,7 @@ describe('Voices Tab Components', () => {
                     onRenameClick={vi.fn()}
                     isExpanded={true}
                     onToggleExpand={vi.fn()}
-                    engines={[{ engine_id: 'voxtral', display_name: 'Voxtral', enabled: true, verified: true, cloud: true, status: 'ready' } as any]}
+                    engines={[{ engine_id: 'cloud_engine', display_name: 'Cloud Engine', enabled: true, verified: true, cloud: true, status: 'ready' } as any]}
                 />
             );
 
@@ -274,7 +274,7 @@ describe('Voices Tab Components', () => {
             render(
                 <NarratorCard
                     speaker={mockSpeaker}
-                    profiles={[{ ...mockProfile, engine: 'voxtral', preview_url: '/api/preview/vox', voxtral_voice_id: 'voice_123', is_rebuild_required: true }]}
+                    profiles={[{ ...mockProfile, engine: 'cloud_engine', preview_url: '/api/preview/vox', voice_asset_id: 'voice_123', is_rebuild_required: true }]}
                     onRefresh={vi.fn()}
                     onTest={vi.fn()}
                     onDelete={vi.fn()}
@@ -289,7 +289,7 @@ describe('Voices Tab Components', () => {
                     onRenameClick={vi.fn()}
                     isExpanded={true}
                     onToggleExpand={vi.fn()}
-                    engines={[{ engine_id: 'voxtral', display_name: 'Voxtral', enabled: false, verified: true, cloud: true, status: 'ready' } as any]}
+                    engines={[{ engine_id: 'cloud_engine', display_name: 'Cloud Engine', enabled: false, verified: true, cloud: true, status: 'ready' } as any]}
                 />
             );
 

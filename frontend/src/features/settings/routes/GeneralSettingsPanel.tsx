@@ -107,8 +107,17 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
                   minWidth: '140px',
                 }}
               >
-                <option value="xtts">XTTS (Local)</option>
-                <option value="voxtral">Voxtral (Cloud)</option>
+                {engines.map(eng => (
+                  <option key={eng.engine_id} value={eng.engine_id}>
+                    {eng.display_name} {eng.cloud ? '(Cloud)' : eng.local ? '(Local)' : ''}
+                  </option>
+                ))}
+                {engines.length === 0 && (
+                  <>
+                    <option value="xtts">XTTS (Local)</option>
+                    <option value="voxtral">Voxtral (Cloud)</option>
+                  </>
+                )}
               </select>
             }
           />

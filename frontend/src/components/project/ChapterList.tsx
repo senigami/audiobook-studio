@@ -26,6 +26,7 @@ interface ChapterListProps {
   isExporting: string | null;
   formatLength: (seconds: number) => string;
   anyEnginesEnabled?: boolean;
+  engines?: TtsEngine[];
 }
 
 export const ChapterList: React.FC<ChapterListProps> = ({
@@ -45,7 +46,8 @@ export const ChapterList: React.FC<ChapterListProps> = ({
   onExportSample,
   isExporting,
   formatLength,
-  anyEnginesEnabled = true
+  anyEnginesEnabled = true,
+  engines = []
 }) => {
   const RECENT_COMPLETION_WINDOW_SECONDS = 60;
   const [openMenuRowId, setOpenMenuRowId] = React.useState<string | null>(null);
@@ -120,7 +122,8 @@ export const ChapterList: React.FC<ChapterListProps> = ({
           const progressValue = displayStatus === 'finalizing'
             ? 1
             : activeJob ? Math.max(activeJob.progress ?? 0, backendGroupedProgress, weightedGroupedProgress) : 0;
-          const showIndeterminateProgress = !!activeJob && shouldShowIndeterminateProgress(activeJob);
+          const engineMeta = engines.find(e => e.engine_id === activeJob?.engine);
+          const showIndeterminateProgress = !!activeJob && shouldShowIndeterminateProgress({ ...activeJob, engineMeta });
           const isMenuOpen = openMenuRowId === chap.id;
           const isFullyRendered = hasChapterAudio;
           const queueActionLabel = isFullyRendered

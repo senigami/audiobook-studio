@@ -4,7 +4,7 @@ import { shouldShowIndeterminateProgress } from '../utils/jobSelection';
 import { 
   getPredictiveJobProgress, 
   getWeightedActiveGroupProgress, 
-  isVoxtralJob 
+  isIndeterminateProgressJob 
 } from '../utils/performanceTabHelpers';
 
 interface UsePerformanceTabProps {
@@ -12,30 +12,32 @@ interface UsePerformanceTabProps {
   generatingSegmentIds: Set<string>;
   generatingJob?: Job;
   segmentProgress?: Record<string, SegmentProgress>;
+  engines?: import('../types').TtsEngine[];
 }
 
 export const usePerformanceTab = ({
   chunkGroups,
   generatingSegmentIds,
   generatingJob,
-  segmentProgress = {}
+  segmentProgress = {},
+  engines = []
 }: UsePerformanceTabProps) => {
   const [, forceNow] = useState(0);
   const activeJobIsLive = !!generatingJob && ['queued', 'preparing', 'running', 'finalizing'].includes(generatingJob.status);
-  const voxtralJob = isVoxtralJob(generatingJob);
-  const indeterminateJob = !!generatingJob && shouldShowIndeterminateProgress(generatingJob);
+  const indeterminateJob = isIndeterminateProgressJob(generatingJob, engines);
+  const isPredictiveIndeterminate = !!generatingJob && shouldShowIndeterminateProgress(generatingJob);
   const activeSegmentId = activeJobIsLive ? generatingJob?.active_segment_id : null;
 
   useEffect(() => {
     const activeSegmentLiveProgress = activeSegmentId
       ? (segmentProgress[activeSegmentId]?.progress ?? generatingJob?.active_segment_progress ?? 0)
       : (generatingJob?.active_segment_progress ?? 0);
-    if (!activeJobIsLive || !generatingJob || voxtralJob || activeSegmentLiveProgress > 0) {
+    if (!activeJobIsLive || !generatingJob || indeterminateJob || activeSegmentLiveProgress > 0) {
       return;
     }
     const timer = window.setInterval(() => forceNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
-  }, [activeJobIsLive, voxtralJob, generatingJob?.id, generatingJob?.status, generatingJob?.started_at, generatingJob?.eta_seconds, generatingJob?.progress, activeSegmentId, segmentProgress]);
+  }, [activeJobIsLive, indeterminateJob, generatingJob?.id, generatingJob?.status, generatingJob?.started_at, generatingJob?.eta_seconds, generatingJob?.progress, activeSegmentId, segmentProgress]);
 
   const [lastValidIndex, setLastValidIndex] = useState(-1);
   const activeGroupIndex = useMemo(() => {
@@ -90,7 +92,7 @@ export const usePerformanceTab = ({
     if (!(activeJobIsLive && isActiveGroup)) {
       return 0;
     }
-    if (voxtralJob) {
+    if (indeterminateJob) {
       return generatingJob?.status === 'finalizing' ? 1 : 0;
     }
 
@@ -136,8 +138,8 @@ export const usePerformanceTab = ({
   
   return {
     activeJobIsLive,
-    voxtralJob,
     indeterminateJob,
+    isPredictiveIndeterminate,
     activeGroupIndex,
     isPreparingLike,
     getActiveProgressForGroup

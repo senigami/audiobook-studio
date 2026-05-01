@@ -68,7 +68,7 @@ describe('HydrationCoordinator', () => {
     expect(merged[0].eta_seconds).toBe(30); // Preserved from snapshot
   });
 
-  it('applies finalizing hold for voxtral jobs (Heuristic Check)', () => {
+  it('applies finalizing hold for indeterminate cloud jobs (Heuristic Check)', () => {
     const now = 1713210000; // Seconds
     const snapshot = coordinator.createSnapshot([
       { 

@@ -16,15 +16,17 @@ function hasChapterAudioReady(item: ProcessingQueueItem): boolean {
   return item.chapter_audio_status === 'done' || !!item.chapter_audio_file_path;
 }
 
-function shouldHoldCompletedCloudItem(
+const FINALIZING_HOLD_ENGINES = ['voxtral', 'mixed'];
+
+function shouldHoldCompletedIndeterminateJob(
   item: ProcessingQueueItem,
   delta: OverlayDelta | undefined,
   queue: ProcessingQueueItem[],
   effectiveStatus: string,
   nowSeconds: number
 ): boolean {
-  const engine = delta?.status === undefined ? item.engine : (item.engine); // We keep canonical engine
-  if (!['voxtral', 'mixed'].includes(engine || '')) return false;
+  const engine = delta?.status === undefined ? item.engine : (item.engine); 
+  if (!FINALIZING_HOLD_ENGINES.includes(engine || '')) return false;
 
   // We check if it's segment scoped using canonical data (segment_ids, custom_title)
   // Overlay doesn't usually change these.
@@ -74,7 +76,7 @@ export const createHydrationCoordinator = (): HydrationCoordinator => ({
       const delta = eventsById[item.id];
       if (!delta) {
         // Even without delta, check for finalizing hold from snapshot state
-        if (item.status === 'done' && shouldHoldCompletedCloudItem(item, undefined, items, 'done', nowSeconds)) {
+        if (item.status === 'done' && shouldHoldCompletedIndeterminateJob(item, undefined, items, 'done', nowSeconds)) {
           return { ...item, status: 'finalizing' as LegacyStatus, progress: 1.0 };
         }
         return item;
@@ -94,7 +96,7 @@ export const createHydrationCoordinator = (): HydrationCoordinator => ({
       };
 
       // Apply Finalizing Hold heuristic
-      if (merged.status === 'done' && shouldHoldCompletedCloudItem(item, delta, items, 'done', nowSeconds)) {
+      if (merged.status === 'done' && shouldHoldCompletedIndeterminateJob(item, delta, items, 'done', nowSeconds)) {
         merged.status = 'finalizing' as LegacyStatus;
         merged.progress = 1.0;
       }

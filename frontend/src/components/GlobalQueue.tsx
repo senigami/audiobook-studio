@@ -17,6 +17,7 @@ interface GlobalQueueProps {
     loading?: boolean;
     onRefresh?: () => void;
     compact?: boolean;
+    engines?: import('../types').TtsEngine[];
 }
 
 export const GlobalQueue: React.FC<GlobalQueueProps> = ({
@@ -25,7 +26,8 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
     queue: initialQueue,
     loading = false,
     onRefresh,
-    compact = false
+    compact = false,
+    engines = []
 }) => {
     const {
         queue,
@@ -155,6 +157,7 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
                                         formatTime={formatTime}
                                         onRemove={handleRemove}
                                         compact={compact}
+                                        engines={engines}
                                     />
                                 ))}
                             </div>
@@ -190,6 +193,7 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
                             handleDragStart={handleDragStart}
                             handleDragEnd={handleDragEnd}
                             compact={compact}
+                            engines={engines}
                         />
                     ))}
                             </Reorder.Group>
@@ -214,7 +218,9 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
                                                     <div style={{ flex: 1, minWidth: 0 }}>
                                                         <h4 style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{formatJobTitle(job)}</h4>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
-                                                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500 }}>{formatQueueContext(job)}</span>
+                                                            <span style={!job.project_name ? { color: 'var(--accent)', fontWeight: 700, fontSize: compact ? '0.65rem' : '0.75rem', textTransform: 'uppercase' } : undefined}>
+                                                                {formatQueueContext(job, engines)}
+                                                            </span>
                                                             {job.started_at && <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{formatTime(job.started_at)} {job.completed_at ? `→ ${formatTime(job.completed_at)}` : ''}</span>}
                                                             <span style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: job.status === 'done' ? 'var(--success)' : 'var(--error)' }}>{job.status}</span>
                                                         </div>

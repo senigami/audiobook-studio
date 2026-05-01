@@ -218,8 +218,8 @@ export interface SpeakerProfile {
   speaker_id: string | null;
   variant_name: string | null;
   engine?: VoiceEngine;
-  voxtral_voice_id?: string | null;
-  voxtral_model?: string | null;
+  voice_asset_id?: string | null;
+  model?: string | null;
   reference_sample?: string | null;
   preview_url: string | null;
   asset_base_url?: string | null;
@@ -292,9 +292,9 @@ export interface Settings {
   safe_mode: boolean;
   default_engine: Engine;
   default_speaker_profile?: string;
-  voxtral_enabled?: boolean;
+  cloud_enabled?: boolean;
   enabled_plugins?: Record<string, boolean>;
-  voxtral_model?: string;
+  cloud_model?: string;
   mistral_api_key?: string;
 }
 

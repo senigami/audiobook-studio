@@ -18,6 +18,7 @@ interface PerformanceTabProps {
   onGenerate: (sids: string[]) => void;
   generatingJob?: Job;
   segmentProgress?: Record<string, SegmentProgress>;
+  engines?: import('../../types').TtsEngine[];
 }
 
 export const PerformanceTab: React.FC<PerformanceTabProps> = ({
@@ -33,13 +34,14 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
   onStop,
   onGenerate,
   generatingJob,
-  segmentProgress = {}
+  segmentProgress = {},
+  engines = []
 }) => {
   const uniqueSegmentIds = Array.from(new Set(allSegmentIds));
   const {
     activeJobIsLive,
-    voxtralJob,
     indeterminateJob,
+    isPredictiveIndeterminate,
     activeGroupIndex,
     isPreparingLike,
     getActiveProgressForGroup
@@ -47,7 +49,8 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
     chunkGroups,
     generatingSegmentIds,
     generatingJob,
-    segmentProgress
+    segmentProgress,
+    engines
   });
 
   return (
@@ -70,10 +73,10 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
           const activeProgress = getActiveProgressForGroup(gidx);
           const showIndeterminateProgress = activeJobIsLive
             && isActiveGroup
-            && (isPreparingLike || (indeterminateJob && (generatingJob?.status === 'running')));
+            && (isPreparingLike || (isPredictiveIndeterminate && (generatingJob?.status === 'running')));
           const showPreparingIndeterminate = showIndeterminateProgress && isPreparingLike;
           
-          const allowSettle = !voxtralJob && (generatingJob?.status === 'running' || generatingJob?.status === 'finalizing') && !!generatingJob?.active_segment_id;
+          const allowSettle = !indeterminateJob && (generatingJob?.status === 'running' || generatingJob?.status === 'finalizing') && !!generatingJob?.active_segment_id;
           const initialSettled = !isActiveGroup
             && allDone
             && activeGroupIndex > 0
