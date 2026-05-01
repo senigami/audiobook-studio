@@ -8,7 +8,16 @@
   "entry_class": "engine:VoxtralPlugin",
   "capabilities": ["synthesis", "preview"],
   "behavior": {
-    "features": ["cloud_synthesis", "reference_sample", "voice_asset_id"],
+    "features": [
+      "cloud_synthesis",
+      "reference_sample",
+      "voice_asset_id",
+      "standard_rendering",
+      "segment_rendering",
+      "mixed_rendering",
+      "verbose_logging",
+      "simulated_finalizing"
+    ],
     "required_settings": [
       {
         "name": "mistral_api_key",

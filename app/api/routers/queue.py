@@ -113,8 +113,9 @@ def api_get_queue():
         has_chapter_audio = item.get("chapter_audio_status") == "done" or bool(item.get("chapter_audio_file_path"))
         completed_at = item.get("completed_at") or 0
         has_active_sibling = bool(item.get("chapter_id")) and item.get("chapter_id") in active_queue_chapter_ids
+        from ...engines.behavior import has_simulated_finalizing
         if (
-            item.get("engine") == "voxtral"
+            has_simulated_finalizing(item.get("engine"))
             and item.get("status") == "done"
             and item.get("chapter_id")
             and not has_chapter_audio

@@ -13,8 +13,8 @@ from ...db.speakers import (
     infer_speaker_name,
     infer_variant_name,
     DEFAULT_PROFILE_ENGINE,
-    VALID_PROFILE_ENGINES,
 )
+from ...voice_engines import list_tts_engines
 from ...jobs import (
     get_speaker_settings,
     update_speaker_settings,
@@ -65,7 +65,7 @@ def _profile_dir_has_assets(profile_dir: Path) -> bool:
 
 def _normalize_profile_engine(engine: Optional[str]) -> str:
     normalized = (engine or DEFAULT_PROFILE_ENGINE).strip().lower()
-    if normalized not in VALID_PROFILE_ENGINES:
+    if normalized not in list_tts_engines():
         raise ValueError(f"Invalid profile engine: {engine}")
     return normalized
 

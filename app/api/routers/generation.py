@@ -16,6 +16,11 @@ from ...state import put_job, update_job, get_settings, get_jobs
 from ...config import XTTS_OUT_DIR, find_existing_project_dir, find_existing_project_subdir
 from ...voice_engines import resolve_profile_engine, resolve_tts_engine_for_profiles, normalize_tts_engine
 from ...engines.bridge import create_voice_bridge
+from ...engines.behavior import (
+    supports_bake_rendering,
+    supports_mixed_rendering,
+    supports_standard_rendering,
+)
 from ..ws import broadcast_chapter_updated, broadcast_queue_update
 
 router = APIRouter(prefix="/api", tags=["generation"])
@@ -23,11 +28,12 @@ logger = logging.getLogger(__name__)
 
 
 def _engine_usable_error(engine_id: str):
-    display_name = engine_id.capitalize()
-    if engine_id == "xtts":
-        display_name = "XTTS"
-    if engine_id == "voxtral":
-        display_name = "Voxtral"
+    from ...engines.bridge import create_voice_bridge
+    bridge = create_voice_bridge()
+    registry = {entry.get("engine_id"): entry for entry in bridge.describe_registry()}
+    entry = registry.get(engine_id)
+    display_name = (entry.get("display_name") if entry else None) or engine_id.capitalize()
+
     return JSONResponse(
         {
             "status": "error",
@@ -39,10 +45,19 @@ def _engine_usable_error(engine_id: str):
 
 def _single_job_title(chapter_file: str, engine: str) -> str:
     base_name = Path(chapter_file or "").stem.strip() or Path(chapter_file or "").name.strip() or "Untitled"
-    action = {
-        "voxtral": "Generating Voxtral audio for",
-        "mixed": "Generating mixed audio for",
-    }.get(engine, "Generating audio for")
+    from ...engines.bridge import create_voice_bridge
+    bridge = create_voice_bridge()
+    registry = {entry.get("engine_id"): entry for entry in bridge.describe_registry()}
+    entry = registry.get(engine)
+    display_name = (entry.get("display_name") if entry else None) or engine.capitalize()
+
+    from ...voice_engines import DEFAULT_PROFILE_ENGINE
+    if engine == "mixed":
+        action = "Generating mixed audio for"
+    elif engine == DEFAULT_PROFILE_ENGINE:
+        action = "Generating audio for"
+    else:
+        action = f"Generating {display_name} audio for"
     return f"{action} {base_name}"
 
 
@@ -240,7 +255,9 @@ def api_bake_chapter(chapter_id: str):
     if engine_error:
         return engine_error
 
-    queue_engine = "mixed" if mixed_engines or resolved_engine == "voxtral" else resolved_engine
+    # Force mixed engine if the resolved engine doesn't support bake natively,
+    # or if we actually have mixed voices.
+    queue_engine = "mixed" if mixed_engines or not supports_bake_rendering(resolved_engine) else resolved_engine
 
     jid = f"bake-{uuid.uuid4().hex[:8]}"
     j = Job(

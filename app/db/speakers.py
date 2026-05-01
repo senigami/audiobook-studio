@@ -13,20 +13,19 @@ from .. import config
 
 logger = logging.getLogger(__name__)
 SAFE_PROFILE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
-DEFAULT_PROFILE_ENGINE = "xtts"
-VALID_PROFILE_ENGINES = {DEFAULT_PROFILE_ENGINE, "voxtral"}
+from ..voice_engines import DEFAULT_PROFILE_ENGINE, list_tts_engines
 
 
 def _infer_profile_engine(meta: Optional[Dict[str, Any]] = None) -> str:
     meta = dict(meta or {})
     explicit_engine = str(meta.get("engine") or "").strip().lower()
-    if explicit_engine in VALID_PROFILE_ENGINES:
+    if explicit_engine in list_tts_engines():
         return explicit_engine
 
     from ..engines.behavior import setting_aliases_for
 
     # Check if any field matches a known alias for a non-default engine
-    for engine_id in VALID_PROFILE_ENGINES:
+    for engine_id in list_tts_engines():
         if engine_id == DEFAULT_PROFILE_ENGINE:
             continue
 

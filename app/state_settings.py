@@ -37,11 +37,7 @@ def _normalize_settings(
     normalized.pop("make_mp3", None)
     normalized["default_engine"] = normalize_tts_engine(normalized.get("default_engine"), defaults["default_engine"])
 
-    mistral_api_key = str(normalized.get("mistral_api_key") or "").strip()
-    if mistral_api_key:
-        normalized["mistral_api_key"] = mistral_api_key
-    else:
-        normalized.pop("mistral_api_key", None)
+    # (Removed hardcoded mistral_api_key cleanup, handled by generic logic below)
 
     # Enforce enabled_plugins as the source of truth for plugin enablement.
     # Legacy voxtral_enabled is used only for migration.
@@ -49,9 +45,13 @@ def _normalize_settings(
     if not isinstance(enabled_plugins, dict):
         enabled_plugins = {}
 
-    # 1. Check for legacy flag and migrate it if not already in enabled_plugins
-    if "voxtral_enabled" in normalized and "voxtral" not in enabled_plugins:
-        enabled_plugins["voxtral"] = bool(normalized["voxtral_enabled"])
+    # 1. Check for legacy flags and migrate them if not already in enabled_plugins
+    legacy_map = {
+        "voxtral_enabled": "voxtral",
+    }
+    for legacy_flag, target_id in legacy_map.items():
+        if legacy_flag in normalized and target_id not in enabled_plugins:
+            enabled_plugins[target_id] = bool(normalized[legacy_flag])
 
     # 2. Check for explicit incoming updates to the plugin map
     if incoming_updates and isinstance(incoming_updates.get("enabled_plugins"), dict):
@@ -65,10 +65,15 @@ def _normalize_settings(
         requirements = required_settings_for(engine_id)
         for req in requirements:
             setting_name = req["name"]
-            if not str(normalized.get(setting_name) or "").strip():
-                logger.info("Disabling plugin %s due to missing required setting %s", engine_id, setting_name)
+            val = str(normalized.get(setting_name) or "").strip()
+            if not val:
+                import logging
+                logging.getLogger(__name__).info("Disabling plugin %s due to missing required setting %s", engine_id, setting_name)
                 enabled_plugins[engine_id] = False
                 break
+            else:
+                # Cleanup: ensure it's a stripped string in the final settings
+                normalized[setting_name] = val
 
     normalized["enabled_plugins"] = enabled_plugins
     normalized.pop("voxtral_enabled", None)

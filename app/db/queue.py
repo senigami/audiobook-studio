@@ -173,9 +173,11 @@ def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 
                                 audio_length_seconds = ? 
                             WHERE id = ?
                         """, (output_file, now, audio_length_seconds, cid))
-                        if engine in ("voxtral", "mixed"):
+                        from ..voice_engines import is_tts_engine
+                        if is_tts_engine(engine) or engine == "mixed":
                             logger.info(
-                                "[voxtral-debug %s] queue-sync id=%s engine=%s status=%s chapter=%s output_file=%s audio_length=%s",
+                                "[%s-debug %s] queue-sync id=%s engine=%s status=%s chapter=%s output_file=%s audio_length=%s",
+                                engine,
                                 time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
                                 queue_id,
                                 engine,

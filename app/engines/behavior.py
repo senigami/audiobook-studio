@@ -157,6 +157,52 @@ def is_built_in(engine_id: str) -> bool:
     return str(engine_id or "").strip().lower() in {"xtts", "voxtral"}
 
 
+def supports_standard_rendering(engine_id: str) -> bool:
+    """Return whether an engine supports full-chapter standard rendering."""
+    # XTTS has a dedicated standard handler. Voxtral has handle_voxtral_job.
+    # We'll default to True for built-ins unless they explicitly opt out,
+    # or let them opt in via manifest.
+    return has_behavior(engine_id, "standard_rendering") or is_built_in(engine_id)
+
+
+def supports_segment_rendering(engine_id: str) -> bool:
+    """Return whether an engine supports individual segment rendering."""
+    # Both XTTS and Voxtral support this via mixed.py or their own logic.
+    return has_behavior(engine_id, "segment_rendering") or is_built_in(engine_id)
+
+
+def supports_bake_rendering(engine_id: str) -> bool:
+    """Return whether an engine supports baking segments into a chapter."""
+    # Currently only XTTS has a bake handler.
+    if engine_id == "xtts":
+        return True
+    return has_behavior(engine_id, "bake_rendering")
+
+
+def supports_mixed_rendering(engine_id: str) -> bool:
+    """Return whether an engine can be part of a mixed-voice chapter."""
+    # Currently only XTTS and Voxtral are supported in mixed.py.
+    return has_behavior(engine_id, "mixed_rendering") or is_built_in(engine_id)
+
+
+def uses_segment_orchestration(engine_id: str) -> bool:
+    """Return whether an engine's standard handler uses segment-based orchestration."""
+    # XTTS Standard handler uses segments. Voxtral does not.
+    if engine_id == "xtts":
+        return True
+    if engine_id == "voxtral":
+        return False
+    return has_behavior(engine_id, "segment_orchestration")
+
+
+def has_simulated_finalizing(engine_id: str) -> bool:
+    """Return whether an engine should show a simulated finalizing state in the UI."""
+    # Voxtral uses this to bridge the gap between synthesis finish and DB sync.
+    if engine_id == "voxtral":
+        return True
+    return has_behavior(engine_id, "simulated_finalizing")
+
+
 def _normalize_required_settings(raw_items: Any) -> list[dict[str, str]]:
     """Normalize required settings from simple strings or richer dicts."""
     items = raw_items if isinstance(raw_items, list) else []

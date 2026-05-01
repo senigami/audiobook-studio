@@ -168,10 +168,12 @@ class LocalBridgeHandler:
             if "voxtral" in normalized_engine_id:
                  updates["voxtral_enabled"] = bool(enabled_val)
 
-        if "voxtral" in normalized_engine_id:
-            for key in {"mistral_api_key", "voxtral_model"}:
-                if key in settings:
-                    updates[key] = settings[key]
+        from .behavior import required_settings_for
+        reqs = required_settings_for(engine_id)
+        for req in reqs:
+            key = req["name"]
+            if key in settings:
+                updates[key] = settings[key]
 
         if updates:
             update_settings(updates)

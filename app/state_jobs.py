@@ -163,9 +163,11 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
         if changed_fields:
             jobs[job_id] = j
             _atomic_write_text(get_state_file(), json.dumps(state, indent=2))
-            if j.get("engine") == "voxtral":
+            from .engines.behavior import has_behavior
+            if has_behavior(j.get("engine"), "verbose_logging"):
                 logger.info(
-                    "[voxtral-debug %s] update_job id=%s changed=%s status=%s progress=%s started_at=%s finished_at=%s output_wav=%s output_mp3=%s",
+                    "[%s-debug %s] update_job id=%s changed=%s status=%s progress=%s started_at=%s finished_at=%s output_wav=%s output_mp3=%s",
+                    j.get("engine"),
                     time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
                     job_id,
                     changed_fields,

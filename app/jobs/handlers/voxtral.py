@@ -90,7 +90,8 @@ def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
     spk = get_speaker_settings(j.speaker_profile) if j.speaker_profile else {}
     render_text = text or (_chapter_text_from_segments(j.chapter_id) if j.chapter_id else "")
     logger.info(
-        "[voxtral-debug %s] start job=%s chapter=%s profile=%s make_mp3=%s out_wav=%s out_mp3=%s text_len=%s",
+        "[%s-debug %s] start job=%s chapter=%s profile=%s make_mp3=%s out_wav=%s out_mp3=%s text_len=%s",
+        j.engine,
         time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
         jid,
         j.chapter_id,
@@ -105,9 +106,9 @@ def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
         return "failed"
 
     try:
-        logger.info("[voxtral-debug %s] calling generate_via_bridge (voxtral) job=%s", time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()), jid)
+        logger.info("[%s-debug %s] calling generate_via_bridge (%s) job=%s", j.engine, time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()), j.engine, jid)
         rc = generate_via_bridge(
-            engine="voxtral",
+            engine=j.engine,
             text=render_text,
             out_wav=out_wav,
             profile_name=j.speaker_profile,
@@ -118,14 +119,15 @@ def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
             reference_sample=spk.get("reference_sample"),
         )
         logger.info(
-            "[voxtral-debug %s] generate_via_bridge returned job=%s rc=%s wav_exists=%s",
+            "[%s-debug %s] generate_via_bridge returned job=%s rc=%s wav_exists=%s",
+            j.engine,
             time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
             jid,
             rc,
             out_wav.exists(),
         )
     except EngineBridgeError as exc:
-        logger.info("[voxtral-debug %s] generate_via_bridge error job=%s error=%s", time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()), jid, exc)
+        logger.info("[%s-debug %s] generate_via_bridge error job=%s error=%s", j.engine, time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()), jid, exc)
         update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error=str(exc))
         return "failed"
 
@@ -135,7 +137,8 @@ def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
 
     if rc != 0 or not out_wav.exists():
         logger.info(
-            "[voxtral-debug %s] synthesis failed job=%s rc=%s wav_exists=%s",
+            "[%s-debug %s] synthesis failed job=%s rc=%s wav_exists=%s",
+            j.engine,
             time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
             jid,
             rc,
@@ -145,11 +148,12 @@ def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
         return "failed"
 
     if j.make_mp3:
-        logger.info("[voxtral-debug %s] finalizing mp3 job=%s wav=%s", time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()), jid, out_wav)
+        logger.info("[%s-debug %s] finalizing mp3 job=%s wav=%s", j.engine, time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()), jid, out_wav)
         update_job(jid, status="finalizing", progress=0.99)
         frc = wav_to_mp3(out_wav, out_mp3, on_output=on_output, cancel_check=cancel_check)
         logger.info(
-            "[voxtral-debug %s] wav_to_mp3 returned job=%s rc=%s mp3_exists=%s",
+            "[%s-debug %s] wav_to_mp3 returned job=%s rc=%s mp3_exists=%s",
+            j.engine,
             time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
             jid,
             frc,
@@ -157,7 +161,8 @@ def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
         )
         if frc == 0 and out_mp3.exists():
             logger.info(
-                "[voxtral-debug %s] marking done job=%s wav=%s mp3=%s",
+                "[%s-debug %s] marking done job=%s wav=%s mp3=%s",
+                j.engine,
                 time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
                 jid,
                 out_wav.name,
@@ -167,7 +172,8 @@ def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
             return "done"
 
         logger.info(
-            "[voxtral-debug %s] marking done with wav fallback job=%s wav=%s",
+            "[%s-debug %s] marking done with wav fallback job=%s wav=%s",
+            j.engine,
             time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
             jid,
             out_wav.name,
@@ -176,7 +182,8 @@ def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
         return "done"
 
     logger.info(
-        "[voxtral-debug %s] marking done job=%s wav=%s",
+        "[%s-debug %s] marking done job=%s wav=%s",
+        j.engine,
         time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
         jid,
         out_wav.name,

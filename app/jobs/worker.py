@@ -22,6 +22,7 @@ from ..config import CHAPTER_DIR, XTTS_OUT_DIR
 from ..pathing import safe_join
 from .reconcile import _output_exists
 from .speaker import get_speaker_wavs, get_speaker_settings
+from ..engines.behavior import uses_segment_orchestration, supports_standard_rendering
 
 # New sub-modules
 from .worker_helpers import (
@@ -66,7 +67,9 @@ def worker_loop(q):
             if j.engine in ("voice_build", "voice_test"):
                 voice_job_settings = get_speaker_settings(j.speaker_profile)
                 chars = len((voice_job_settings.get("test_text") or "").strip())
-                if chars > 0 and voice_job_settings.get("engine", "xtts") == "xtts":
+                from ..engines.behavior import has_behavior
+                engine_id = voice_job_settings.get("engine", "xtts")
+                if chars > 0 and has_behavior(engine_id, "cps_eta"):
                     perf = get_performance_metrics()
                     cps = perf.get("xtts_cps", BASELINE_XTTS_CPS)
                     eta = _estimate_seconds(chars, cps, group_count=eta_unit_count)
@@ -118,7 +121,7 @@ def worker_loop(q):
                         logger.debug("Failed to read chapter text for ETA calculation from %s: %s", text_path, e)
 
                     robust_params = get_robust_eta_params(perf.get("xtts_render_history", []), cps)
-                    if j.chapter_id and j.engine != "voxtral":
+                    if j.chapter_id and (j.engine == "mixed" or uses_segment_orchestration(j.engine)):
                         try:
                             from ..db.chapters import get_chapter_segments_counts
                             _, total_c = get_chapter_segments_counts(j.chapter_id)
@@ -165,7 +168,7 @@ def worker_loop(q):
             initial_progress = 0.0
             completed_render_groups = 0
             render_group_count = 0
-            if j.chapter_id and j.engine != "voxtral" and not j.segment_ids:
+            if j.chapter_id and (j.engine == "mixed" or uses_segment_orchestration(j.engine)) and not j.segment_ids:
                 initial_progress, completed_render_groups, render_group_count = _calculate_group_resume_state(j)
 
             adjusted_start = initial_start - (initial_progress * eta) if (eta > 0 and initial_progress > 0) else initial_start
@@ -339,16 +342,15 @@ def worker_loop(q):
                 version = get_project_storage_version(j.project_id) if j.project_id else 1
                 handle_xtts_job(jid, j, start, on_output, cancel_check, sw, spk["speed"], pdir, out_wav, out_mp3, text=text, storage_version=version)
                 _record_xtts_sample(j, start, chars, perf, eta_unit_count)
-            elif j.engine == "voxtral":
-                result = handle_voxtral_job(jid, j, start, on_output, cancel_check, text=text)
-                if result == "cancelled":
-                    update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
             elif j.engine == "mixed":
                 result = handle_mixed_job(jid, j, start, on_output, cancel_check, text=text)
                 if result == "cancelled":
                     update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
-                else:
-                    _record_xtts_sample(j, start, chars, perf, eta_unit_count)
+            elif supports_standard_rendering(j.engine):
+                # Generic plugin synthesis routing
+                result = handle_voxtral_job(jid, j, start, on_output, cancel_check, text=text)
+                if result == "cancelled":
+                    update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
             elif j.engine in ("voice_build", "voice_test"):
                 handle_voice_job(jid, j, on_output, cancel_check, voice_job_settings=voice_job_settings)
 

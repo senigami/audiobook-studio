@@ -262,3 +262,30 @@ def test_delete_sample_reject_traversal(voices_root):
             sample_name="../../escape.wav",
         )
     assert response.status_code == 403
+
+def test_update_profile_voice_asset_id_generic(clean_db, voices_root, client):
+    voices_root.mkdir(parents=True, exist_ok=True)
+    profile_dir = voices_root / "SpeakerA"
+    profile_dir.mkdir()
+    import json
+    (profile_dir / "profile.json").write_text(json.dumps({"variant_name": "Default", "engine": "voxtral"}))
+
+    with patch("app.api.routers.voices_helpers._is_engine_active", return_value=True):
+        response = client.post("/api/speaker-profiles/SpeakerA/voice-asset-id", data={"voice_id": "asset_456"})
+    assert response.status_code == 200
+    assert response.json()["voice_asset_id"] == "asset_456"
+
+    meta = json.loads((profile_dir / "profile.json").read_text())
+    assert meta["voice_asset_id"] == "asset_456"
+
+
+def test_update_profile_voice_asset_id_rejects_xtts(clean_db, voices_root, client):
+    voices_root.mkdir(parents=True, exist_ok=True)
+    profile_dir = voices_root / "SpeakerA"
+    profile_dir.mkdir()
+    import json
+    (profile_dir / "profile.json").write_text(json.dumps({"variant_name": "Default", "engine": "xtts"}))
+
+    response = client.post("/api/speaker-profiles/SpeakerA/voice-asset-id", data={"voice_id": "asset_456"})
+    assert response.status_code == 400
+    assert "does not support voice asset IDs" in response.json()["message"]
