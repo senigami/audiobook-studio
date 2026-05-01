@@ -68,3 +68,9 @@
 - [ ] Update `CONTRIBUTING.md` (document plugin lifecycle)
 - [ ] Final `grep` for "xtts" and "voxtral" across core `app/`
 - [ ] Final test verification: `pytest tests/`
+
+## Deferred Phase: Namespace Rename And App-Behavior Plugins
+- [ ] Rename the current engine bundle namespace from `plugins/` to `tts_engines/` once the runtime cutover is stable.
+- [ ] Rename any voice/profile bundle namespace that should align with the same naming convention to `tts_voices/`.
+- [ ] Reserve a future plain `plugins/` space for non-engine app-behavior extensions once the engine bundle rename is complete.
+- [ ] Update docs, plugin templates, and discovery code to distinguish engine bundles from app-behavior plugins.

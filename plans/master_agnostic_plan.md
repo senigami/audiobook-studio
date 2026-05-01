@@ -23,6 +23,16 @@ If a capability is not supported, the plugin should declare that explicitly or f
 6.  **Transition to metadata-driven performance metrics** that adapt per-engine.
 7.  **Sanitize bootstrap and lifecycle scripts** to remove engine-specific environment logic.
 
+## Deferred Namespace Follow-up
+
+The current `plugins/` folder name is a practical engine-container, not the final long-term namespace.
+
+- Future rename candidate for the current engine bundle area: `tts_engines/`.
+- Future rename candidate for the voice/profile data area if needed: `tts_voices/`.
+- A later, separate app-behavior plugin system may use the plain `plugins/` name for non-engine extensions inspired by Stable Diffusion-style plugin boundaries.
+
+This rename is deferred until the runtime cutover and cleanup slices are complete. It should be treated as a separate structural phase, not mixed into the active runtime migration.
+
 ---
 
 ## 1. Directory & File Restructuring
