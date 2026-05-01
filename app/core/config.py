@@ -6,7 +6,6 @@ directly from legacy globals.
 """
 
 INTENDED_UPSTREAM_CALLERS = (
-    "app.core.feature_flags",
     "app.orchestration",
     "app.engines",
     "app.api.deps",

@@ -14,10 +14,9 @@ These responsibilities must not bleed into each other.
 
 Legacy isolation
 ----------------
-When ``USE_STUDIO_ORCHESTRATOR=true``, Studio 2.0 jobs are handled here.
-They must not enter the ``app.jobs`` worker loop. Compatibility adapters are
-explicit and removable; the orchestrator must not silently depend on legacy
-startup or loop behavior.
+Studio 2.0 jobs are handled here and must not enter the ``app.jobs`` worker
+loop. Compatibility adapters are explicit and removable; the orchestrator
+must not silently depend on legacy startup or loop behavior.
 """
 
 from __future__ import annotations

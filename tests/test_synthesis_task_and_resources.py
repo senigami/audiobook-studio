@@ -294,11 +294,9 @@ class TestReserveTaskResources:
 
 class TestRegistryTtsServerMode:
     def test_tts_server_mode_returns_empty_when_watchdog_none(self):
-        with patch("app.core.feature_flags.os") as mock_os:
-            mock_os.getenv.return_value = "true"
-            with patch("app.engines.registry.get_watchdog", return_value=None):
-                from app.engines.registry import _load_tts_server_registry
-                result = _load_tts_server_registry()
+        with patch("app.engines.registry.get_watchdog", return_value=None):
+            from app.engines.registry import _load_tts_server_registry
+            result = _load_tts_server_registry()
         assert result == {}
 
     def test_tts_server_mode_returns_empty_when_unhealthy(self):

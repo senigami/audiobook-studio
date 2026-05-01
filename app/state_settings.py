@@ -11,7 +11,6 @@ def _default_state() -> Dict[str, Any]:
         "settings": {
             "safe_mode": True,
             "default_engine": "xtts",
-            "voxtral_model": "voxtral-mini-tts-2603",
             "enabled_plugins": {},
             "verified_plugins": {},
             "tts_api_enabled": False,
@@ -38,33 +37,45 @@ def _normalize_settings(
     normalized.pop("make_mp3", None)
     normalized["default_engine"] = normalize_tts_engine(normalized.get("default_engine"), defaults["default_engine"])
 
-    mistral_api_key = str(normalized.get("mistral_api_key") or "").strip()
-    if mistral_api_key:
-        normalized["mistral_api_key"] = mistral_api_key
-    else:
-        normalized.pop("mistral_api_key", None)
+    # (Removed hardcoded mistral_api_key cleanup, handled by generic logic below)
 
-    # Enforce enabled_plugins as the source of truth for Voxtral enablement.
+    # Enforce enabled_plugins as the source of truth for plugin enablement.
     # Legacy voxtral_enabled is used only for migration.
     enabled_plugins = normalized.get("enabled_plugins")
     if not isinstance(enabled_plugins, dict):
         enabled_plugins = {}
 
-    # 1. Check for legacy flag and migrate it if not already in enabled_plugins
-    if "voxtral_enabled" in normalized and "voxtral" not in enabled_plugins:
-        enabled_plugins["voxtral"] = bool(normalized["voxtral_enabled"])
+    # 1. Check for legacy flags and migrate them if not already in enabled_plugins
+    legacy_map = {
+        "voxtral_enabled": "voxtral",
+    }
+    if "xtts_speed" in normalized and "speed" not in normalized:
+        normalized["speed"] = normalized.pop("xtts_speed")
+    for legacy_flag, target_id in legacy_map.items():
+        if legacy_flag in normalized and target_id not in enabled_plugins:
+            enabled_plugins[target_id] = bool(normalized[legacy_flag])
 
     # 2. Check for explicit incoming updates to the plugin map
     if incoming_updates and isinstance(incoming_updates.get("enabled_plugins"), dict):
         enabled_plugins.update(incoming_updates["enabled_plugins"])
 
-    # 3. Ensure mistral_api_key requirement is respected
-    if not mistral_api_key:
-        enabled_plugins["voxtral"] = False
-
-    # 4. Final normalization: default to false if still missing
-    if "voxtral" not in enabled_plugins:
-        enabled_plugins["voxtral"] = False
+    # 3. Ensure required settings are respected for each enabled plugin
+    from .engines.behavior import required_settings_for
+    for engine_id, is_enabled in list(enabled_plugins.items()):
+        if not is_enabled:
+            continue
+        requirements = required_settings_for(engine_id)
+        for req in requirements:
+            setting_name = req["name"]
+            val = str(normalized.get(setting_name) or "").strip()
+            if not val:
+                import logging
+                logging.getLogger(__name__).info("Disabling plugin %s due to missing required setting %s", engine_id, setting_name)
+                enabled_plugins[engine_id] = False
+                break
+            else:
+                # Cleanup: ensure it's a stripped string in the final settings
+                normalized[setting_name] = val
 
     normalized["enabled_plugins"] = enabled_plugins
     normalized.pop("voxtral_enabled", None)
@@ -74,12 +85,8 @@ def _normalize_settings(
         verified_plugins = {}
     normalized["verified_plugins"] = verified_plugins
 
-    voxtral_model = str(normalized.get("voxtral_model") or "").strip() or defaults["voxtral_model"]
-    if voxtral_model == "voxtral-tts":
-        voxtral_model = defaults["voxtral_model"]
-    normalized["voxtral_model"] = voxtral_model
-
-    if normalized["default_engine"] == "voxtral" and not normalized.get("mistral_api_key"):
+    # 5. Check if default_engine is still enabled
+    if not enabled_plugins.get(normalized["default_engine"], True):
         normalized["default_engine"] = defaults["default_engine"]
 
     default_speaker = str(normalized.get("default_speaker_profile") or "").strip()

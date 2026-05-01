@@ -4,7 +4,7 @@ import base64
 
 import pytest
 
-from app.engines_voxtral import VoxtralError, resolve_reference_audio_path, voxtral_generate
+from app.engines.voice.voxtral.implementation import VoxtralError, resolve_reference_audio_path, voxtral_generate
 
 
 class FakeResponse:
@@ -52,7 +52,7 @@ def test_resolve_reference_audio_path_prefers_configured_sample(tmp_path):
 
 
 def test_voxtral_generate_requires_api_key(tmp_path):
-    with patch("app.engines_voxtral.get_settings", return_value={}):
+    with patch("app.engines.voice.voxtral.implementation.get_settings", return_value={}):
         with pytest.raises(VoxtralError, match="Missing Mistral API key"):
             voxtral_generate("Hello", tmp_path / "out.wav", profile_name="VoiceA")
 
@@ -64,9 +64,9 @@ def test_voxtral_generate_writes_wav_response(tmp_path):
     wav_bytes = b"RIFF\x24\x00\x00\x00WAVEfmt "
     client = FakeClient(FakeResponse(status_code=200, content=wav_bytes, headers={"content-type": "audio/wav"}))
 
-    with patch("app.engines_voxtral.get_settings", return_value={"mistral_api_key": "test-key"}), \
-         patch("app.engines_voxtral.resolve_reference_audio_path", return_value=ref_audio), \
-         patch("app.engines_voxtral.httpx.Client", return_value=client):
+    with patch("app.engines.voice.voxtral.implementation.get_settings", return_value={"mistral_api_key": "test-key"}), \
+         patch("app.engines.voice.voxtral.implementation.resolve_reference_audio_path", return_value=ref_audio), \
+         patch("app.engines.voice.voxtral.implementation.httpx.Client", return_value=client):
         rc = voxtral_generate("Hello", out_wav, profile_name="VoiceA")
 
     assert rc == 0
@@ -79,7 +79,7 @@ def test_voxtral_generate_writes_wav_response(tmp_path):
 
 
 def test_extract_audio_bytes_supports_audio_data_key():
-    from app.engines_voxtral import _extract_audio_bytes
+    from app.engines.voice.voxtral.implementation import _extract_audio_bytes
 
     wav_bytes = b"RIFF\x24\x00\x00\x00WAVEfmt "
     response = FakeResponse(
@@ -101,10 +101,10 @@ def test_voxtral_generate_converts_non_wav_audio(tmp_path):
         dest.write_bytes(b"RIFFconvertedWAVE")
         return 0
 
-    with patch("app.engines_voxtral.get_settings", return_value={"mistral_api_key": "test-key"}), \
-         patch("app.engines_voxtral.resolve_reference_audio_path", return_value=ref_audio), \
-         patch("app.engines_voxtral.httpx.Client", return_value=client), \
-         patch("app.engines_voxtral.convert_to_wav", side_effect=fake_convert):
+    with patch("app.engines.voice.voxtral.implementation.get_settings", return_value={"mistral_api_key": "test-key"}), \
+         patch("app.engines.voice.voxtral.implementation.resolve_reference_audio_path", return_value=ref_audio), \
+         patch("app.engines.voice.voxtral.implementation.httpx.Client", return_value=client), \
+         patch("app.engines.voice.voxtral.implementation.convert_to_wav", side_effect=fake_convert):
         rc = voxtral_generate("Hello", out_wav, profile_name="VoiceA")
 
     assert rc == 0
@@ -112,7 +112,7 @@ def test_voxtral_generate_converts_non_wav_audio(tmp_path):
 
 
 def test_resolve_voxtral_model_upgrades_legacy_default():
-    from app.engines_voxtral import resolve_voxtral_model
+    from app.engines.voice.voxtral.implementation import resolve_voxtral_model
 
-    with patch("app.engines_voxtral.get_settings", return_value={"voxtral_model": "voxtral-tts"}):
+    with patch("app.engines.voice.voxtral.implementation.get_settings", return_value={"voxtral_model": "voxtral-tts"}):
         assert resolve_voxtral_model() == "voxtral-mini-tts-2603"

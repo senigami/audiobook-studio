@@ -1,11 +1,12 @@
 from __future__ import annotations
-import json
 import time
 from pathlib import Path
 
 from ...config import SENT_CHAR_LIMIT
 from ...textops import sanitize_for_xtts, safe_split_long_sentences
+from ...engines.errors import EngineBridgeError
 from . import xtts as xtts_facade
+from .bridge_helpers import generate_via_bridge
 from .xtts_helpers import (
     _profile_inputs_for_segment, 
     _segment_group_weight, 
@@ -67,8 +68,6 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
         full_script.append(script_entry)
         path_to_group[save_path_str] = group
 
-    script_path = pdir / f"gen_{j.id}_script.json"
-    script_path.write_text(json.dumps(full_script), encoding="utf-8")
     completed_groups = [0]
     total_requested_groups = len(gen_groups)
     requested_group_weights = [_segment_group_weight(group) for group in gen_groups]
@@ -144,9 +143,21 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
             except: pass
 
     try:
-        rc = xtts_facade.xtts_generate_script(script_json_path=script_path, out_wav=pdir / f"output_{j.id}.wav", on_output=gen_on_output, cancel_check=cancel_check, speed=speed)
+        rc = generate_via_bridge(
+            engine="xtts",
+            text="",
+            out_wav=pdir / f"output_{j.id}.wav",
+            profile_name=j.speaker_profile,
+            on_output=gen_on_output,
+            cancel_check=cancel_check,
+            speed=speed,
+            script=full_script,
+        )
+    except EngineBridgeError as exc:
+        logger = xtts_facade.logger
+        logger.error("Bridge synthesis failed in xtts_segments: %s", exc)
+        return 1
     finally:
-        if script_path.exists(): script_path.unlink()
         scratch = pdir / f"output_{j.id}.wav"
         if scratch.exists(): scratch.unlink()
 

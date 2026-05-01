@@ -16,10 +16,9 @@ def list_engines():
     try:
         return bridge.describe_registry()
     except EngineUnavailableError as exc:
-        # During startup the managed TTS Server can still be warming up.
-        # Fall back to the local registry metadata so Settings can load
-        # without surfacing a transient error.
-        return bridge.local.describe_registry()
+        # We no longer fall back to the local registry in production.
+        # This prevents masking TTS Server failures.
+        return JSONResponse({"status": "error", "message": str(exc)}, status_code=503)
 
 
 @router.put("/{engine_id}/settings")
@@ -90,7 +89,9 @@ def test_engine(engine_id: str):
 
     # If no default voice, look for a bundled sample in the plugin directory
     if error:
-        registry = bridge.local.registry_loader()
+        from ...engines.registry import load_engine_registry  # noqa: PLC0415
+
+        registry = load_engine_registry()
         reg = registry.get(engine_id)
         if reg:
             plugin_dir = Path(reg.manifest.module_path.replace(".", "/") + ".py").parent

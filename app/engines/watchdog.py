@@ -51,9 +51,8 @@ def start_watchdog(
 ) -> "TtsServerWatchdog":
     """Start the global TTS Server watchdog.
 
-    Called by the Studio boot sequence when ``USE_TTS_SERVER=true``.  Returns
-    the running watchdog instance.  Idempotent — returns the existing watchdog
-    if it is already running.
+    Called by the Studio boot sequence. Returns the running watchdog instance.
+    Idempotent — returns the existing watchdog if it is already running.
 
     Args:
         plugins_dir: Path to the ``plugins/`` directory.
@@ -437,14 +436,10 @@ class TtsServerWatchdog:
             if len(self._restart_times) >= _CIRCUIT_MAX_RESTARTS:
                 self._circuit_open = True
 
-                # Explicit fallback to Single-Process mode to prevent endless timeouts
-                import os
-                os.environ["USE_TTS_SERVER"] = "0"
-
                 logger.error(
                     "Circuit breaker OPEN: %d restarts in %.0fs. "
                     "TTS Server will not be restarted automatically. "
-                    "Falling back to Single-Process mode.",
+                    "TTS services are now unavailable until manual restart.",
                     _CIRCUIT_MAX_RESTARTS,
                     _CIRCUIT_PERIOD,
                 )
@@ -466,11 +461,9 @@ class TtsServerWatchdog:
                 self._consecutive_failures = 0
             logger.info("TTS Server restarted successfully.")
         except WatchdogError as exc:
-            logger.error("TTS Server restart failed: %s. Falling back to Single-Process mode.", exc)
+            logger.error("TTS Server restart failed: %s. TTS services will remain unavailable.", exc)
             with self._lock:
                 self._circuit_open = True
-            import os
-            os.environ["USE_TTS_SERVER"] = "0"
 
     def _drain_stderr(self, proc: subprocess.Popen) -> None:
         """Read and log all TTS Server stderr output."""

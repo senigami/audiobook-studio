@@ -1,5 +1,4 @@
 import pytest
-import json
 import time
 from pathlib import Path
 from unittest.mock import patch, MagicMock, ANY
@@ -41,18 +40,18 @@ def test_handle_xtts_job_bake(mock_job, tmp_path):
          patch("app.db.update_segment") as mock_update_seg, \
          patch("app.db.get_connection"), \
          patch("app.db.update_queue_item") as mock_update_queue, \
-         patch("app.jobs.handlers.xtts.xtts_generate_script", return_value=0) as mock_gen_script, \
+         patch("app.jobs.handlers.xtts_bake.generate_via_bridge", return_value=0) as mock_generate, \
          patch("app.jobs.handlers.xtts.stitch_segments", return_value=0) as mock_stitch, \
          patch("app.jobs.handlers.xtts.get_audio_duration", return_value=10.0) as mock_duration, \
          patch("app.jobs.handlers.xtts.update_job") as mock_update_job:
 
-        # Simulate xtts_generate_script progress
-        def side_effect(*args, **kwargs):
+        # Simulate bridge progress
+        def side_effect(**kwargs):
             on_output = kwargs.get("on_output")
             if on_output:
                 on_output("[SEGMENT_SAVED] " + str(pdir / "chunk_s2.wav"))
             return 0
-        mock_gen_script.side_effect = side_effect
+        mock_generate.side_effect = side_effect
 
         handle_xtts_job(
             "test_job", mock_job, time.time(), 
@@ -60,7 +59,7 @@ def test_handle_xtts_job_bake(mock_job, tmp_path):
             pdir, out_wav, out_mp3
         )
 
-        assert mock_gen_script.called
+        assert mock_generate.called
         assert mock_stitch.called
         mock_update_queue.assert_called_with("test_job", "done", audio_length_seconds=10.0)
 
@@ -77,15 +76,14 @@ def test_handle_xtts_job_segments(mock_job, tmp_path):
 
     captured = {}
 
-    def inspect_script(*args, **kwargs):
-        script_path = kwargs["script_json_path"]
-        captured["script"] = json.loads(Path(script_path).read_text())
+    def inspect_script(**kwargs):
+        captured["script"] = kwargs["script"]
         return 0
 
     with patch("app.db.get_chapter_segments", return_value=all_segs), \
          patch("app.db.update_segment") as mock_update_seg, \
          patch("app.db.get_connection"), \
-         patch("app.jobs.handlers.xtts.xtts_generate_script", side_effect=inspect_script) as mock_gen_script, \
+         patch("app.jobs.handlers.xtts_segments.generate_via_bridge", side_effect=inspect_script), \
          patch("app.jobs.handlers.xtts.update_job") as mock_update_job:
 
         handle_xtts_job(
@@ -117,15 +115,14 @@ def test_handle_xtts_job_segments_uses_default_voice_profile_dir_for_narrator(mo
         }
     ]
 
-    def inspect_script(*args, **kwargs):
-        script_path = kwargs["script_json_path"]
-        captured["script"] = json.loads(Path(script_path).read_text())
+    def inspect_script(**kwargs):
+        captured["script"] = kwargs["script"]
         return 0
 
     with patch("app.db.get_chapter_segments", return_value=all_segs), \
          patch("app.db.update_segment"), \
          patch("app.db.get_connection"), \
-         patch("app.jobs.handlers.xtts.xtts_generate_script", side_effect=inspect_script), \
+         patch("app.jobs.handlers.xtts_segments.generate_via_bridge", side_effect=inspect_script), \
          patch("app.jobs.handlers.xtts.update_job"), \
          patch("app.jobs.handlers.xtts.get_speaker_wavs", return_value=None), \
          patch("app.jobs.handlers.xtts.get_voice_profile_dir", return_value=Path("/tmp/voices/Senigami")):
@@ -149,9 +146,8 @@ def test_handle_xtts_job_standard_mixed_latent_only_profiles_builds_script(mock_
     out_mp3 = pdir / "output.mp3"
     captured = {}
 
-    def inspect_script(*args, **kwargs):
-        script_path = kwargs["script_json_path"]
-        captured["script"] = json.loads(Path(script_path).read_text())
+    def inspect_script(**kwargs):
+        captured["script"] = kwargs["script"]
         for entry in captured["script"]:
             save_path = Path(entry["save_path"])
             save_path.parent.mkdir(parents=True, exist_ok=True)
@@ -165,7 +161,7 @@ def test_handle_xtts_job_standard_mixed_latent_only_profiles_builds_script(mock_
         ]), \
          patch("app.db.update_segments_status_bulk"), \
          patch("app.db.update_segment"), \
-         patch("app.jobs.handlers.xtts.xtts_generate_script", side_effect=inspect_script), \
+         patch("app.jobs.handlers.xtts_standard.generate_via_bridge", side_effect=inspect_script), \
          patch("app.jobs.handlers.xtts.stitch_segments", side_effect=lambda *_args, **_kwargs: (out_wav.write_text("wav"), 0)[1]), \
          patch("app.jobs.handlers.xtts.update_job"), \
          patch("app.jobs.handlers.xtts.get_speaker_wavs", return_value=None), \
@@ -197,9 +193,8 @@ def test_handle_xtts_job_standard_with_mp3(mock_job, tmp_path):
     out_wav.write_text("wav")
     out_mp3.write_text("mp3")
 
-    def inspect_script(*args, **kwargs):
-        script_path = kwargs["script_json_path"]
-        script = json.loads(Path(script_path).read_text())
+    def inspect_script(**kwargs):
+        script = kwargs["script"]
         for entry in script:
             Path(entry["save_path"]).write_text("chunk")
         return 0
@@ -210,7 +205,7 @@ def test_handle_xtts_job_standard_with_mp3(mock_job, tmp_path):
          patch("app.db.get_connection") as mock_conn, \
          patch("app.db.update_segments_status_bulk"), \
          patch("app.db.update_segment"), \
-         patch("app.jobs.handlers.xtts.xtts_generate_script", side_effect=inspect_script), \
+         patch("app.jobs.handlers.xtts_standard.generate_via_bridge", side_effect=inspect_script), \
          patch("app.jobs.handlers.xtts.stitch_segments", side_effect=lambda *_args, **_kwargs: (out_wav.write_text("wav"), 0)[1]), \
          patch("app.jobs.handlers.xtts.wav_to_mp3", return_value=0), \
          patch("app.jobs.handlers.xtts.update_job") as mock_update_job:
@@ -232,10 +227,9 @@ def test_handle_xtts_job_creates_missing_project_audio_dir(mock_job, tmp_path):
     out_mp3 = pdir / "output.mp3"
     captured = {}
 
-    def inspect_script(*args, **kwargs):
-        script_path = kwargs["script_json_path"]
-        captured["script_path"] = Path(script_path)
-        script = json.loads(captured["script_path"].read_text())
+    def inspect_script(**kwargs):
+        captured["out_wav"] = kwargs["out_wav"]
+        script = kwargs["script"]
         for entry in script:
             Path(entry["save_path"]).write_text("chunk")
         return 0
@@ -246,7 +240,7 @@ def test_handle_xtts_job_creates_missing_project_audio_dir(mock_job, tmp_path):
          patch("app.db.get_connection") as mock_conn, \
          patch("app.db.update_segments_status_bulk"), \
          patch("app.db.update_segment"), \
-         patch("app.jobs.handlers.xtts.xtts_generate_script", side_effect=inspect_script), \
+         patch("app.jobs.handlers.xtts_standard.generate_via_bridge", side_effect=inspect_script), \
          patch("app.jobs.handlers.xtts.stitch_segments", side_effect=lambda *_args, **_kwargs: (out_wav.write_text("wav"), 0)[1]), \
          patch("app.jobs.handlers.xtts.update_job"), \
          patch("app.jobs.handlers.xtts.get_speaker_wavs", return_value=None), \
@@ -259,7 +253,7 @@ def test_handle_xtts_job_creates_missing_project_audio_dir(mock_job, tmp_path):
         )
 
     assert pdir.exists()
-    assert captured["script_path"].parent == pdir
+    assert captured["out_wav"].parent == pdir
 
 def test_handle_xtts_job_cancel(mock_job, tmp_path):
     pdir = tmp_path / "project"
@@ -267,7 +261,7 @@ def test_handle_xtts_job_cancel(mock_job, tmp_path):
     out_wav = pdir / "output.wav"
     out_mp3 = pdir / "output.mp3"
 
-    with patch("app.jobs.handlers.xtts.xtts_generate_script", return_value=0), \
+    with patch("app.jobs.handlers.xtts_standard.generate_via_bridge", return_value=0), \
          patch("app.jobs.handlers.xtts.update_job") as mock_update_job:
 
         handle_xtts_job(

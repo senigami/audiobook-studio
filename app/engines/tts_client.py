@@ -125,6 +125,7 @@ class TtsClient:
         voice_ref: str | None = None,
         settings: dict[str, Any] | None = None,
         language: str = "en",
+        script: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """POST /synthesize — run TTS synthesis.
 
@@ -135,6 +136,7 @@ class TtsClient:
             voice_ref: Optional path to a reference audio file.
             settings: Optional per-request settings overrides.
             language: BCP-47 language code.
+            script: Optional list of segments for script-based synthesis.
 
         Returns:
             dict[str, Any]: Synthesis result payload.
@@ -148,6 +150,7 @@ class TtsClient:
                 "voice_ref": voice_ref,
                 "settings": settings or {},
                 "language": language,
+                "script": script,
             },
             timeout=_READ_TIMEOUT,
         )
@@ -161,6 +164,7 @@ class TtsClient:
         voice_ref: str | None = None,
         settings: dict[str, Any] | None = None,
         language: str = "en",
+        script: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """POST /engines/{engine_id}/plan — query preferred synthesis plan.
 
@@ -176,6 +180,7 @@ class TtsClient:
                 "voice_ref": voice_ref,
                 "settings": settings or {},
                 "language": language,
+                "script": script,
             },
         )
 

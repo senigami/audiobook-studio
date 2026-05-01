@@ -63,6 +63,27 @@ def xtts_generate(
     )
 
 
+def xtts_generate_script(
+    *,
+    script_json_path: Path,
+    out_wav: Path,
+    on_output,
+    cancel_check,
+    speed: float = 1.0,
+) -> int:
+    """Invoke the legacy XTTS script generator lazily."""
+
+    from app.engines import xtts_generate_script as legacy_generate_script
+
+    return legacy_generate_script(
+        script_json_path=script_json_path,
+        out_wav=out_wav,
+        on_output=on_output,
+        cancel_check=cancel_check,
+        speed=speed,
+    )
+
+
 def wav_to_mp3(in_wav: Path, out_mp3: Path, on_output=None, cancel_check=None) -> int:
     """Invoke the legacy audio conversion helper lazily."""
 
@@ -139,8 +160,6 @@ class XttsVoiceEngine(BaseVoiceEngine):
             dependencies_satisfied=deps_satisfied,
             missing_dependencies=[],
             details={
-                "module_path": self.manifest.module_path,
-                "capabilities": list(self.manifest.capabilities),
                 "env_activate": str(env_activate),
                 "env_python": str(env_python),
                 "env_dir": str(env_dir),
@@ -165,7 +184,7 @@ class XttsVoiceEngine(BaseVoiceEngine):
             raise EngineRequestError("XTTS request is targeting a different engine.")
         if not str(request.get("voice_profile_id") or "").strip():
             raise EngineRequestError("XTTS requests must include voice_profile_id.")
-        if not str(request.get("script_text") or "").strip():
+        if not str(request.get("script_text") or "").strip() and not request.get("script"):
             raise EngineRequestError("XTTS requests must include script_text.")
         is_synthesis_request = bool(str(request.get("output_path") or "").strip())
         output_format = self._normalize_output_format(request, allow_mp3=is_synthesis_request)
@@ -229,16 +248,37 @@ class XttsVoiceEngine(BaseVoiceEngine):
             render_wav_path = temp_wav
 
         try:
-            rc = xtts_generate(
-                text=script_text,
-                out_wav=render_wav_path,
-                safe_mode=safe_mode,
-                on_output=on_output,
-                cancel_check=cancel_check,
-                speaker_wav=speaker_wav,
-                speed=speed,
-                voice_profile_dir=voice_profile_dir,
-            )
+            if request.get("script"):
+                # Handle script-based synthesis
+                script_data = request["script"]
+                # Write to temp file because legacy helper expects a path
+                with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+                    json.dump(script_data, f)
+                    temp_script_path = Path(f.name)
+
+                try:
+                    rc = xtts_generate_script(
+                        script_json_path=temp_script_path,
+                        out_wav=render_wav_path,
+                        on_output=on_output,
+                        cancel_check=cancel_check,
+                        speed=speed,
+                    )
+                finally:
+                    if temp_script_path.exists():
+                        temp_script_path.unlink()
+            else:
+                # Fallback to single-text synthesis
+                rc = xtts_generate(
+                    text=script_text,
+                    out_wav=render_wav_path,
+                    safe_mode=safe_mode,
+                    on_output=on_output,
+                    cancel_check=cancel_check,
+                    speaker_wav=speaker_wav,
+                    speed=speed,
+                    voice_profile_dir=voice_profile_dir,
+                )
         except Exception as exc:
             raise EngineExecutionError(f"XTTS synthesis failed - {exc}") from exc
 

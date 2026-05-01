@@ -1,5 +1,4 @@
 import pytest
-import json
 import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -51,7 +50,7 @@ def test_handle_xtts_standard_full(mock_job, mock_params):
          patch("app.db.get_connection"), \
          patch("app.db.update_segment"), \
          patch("app.jobs.handlers.xtts.get_speaker_wavs", return_value="spk.wav"), \
-         patch("app.jobs.handlers.xtts.xtts_generate_script", return_value=0), \
+         patch("app.jobs.handlers.xtts_standard.generate_via_bridge", return_value=0), \
          patch("app.jobs.handlers.xtts.stitch_segments", side_effect=lambda *_args, **_kwargs: (mock_params["out_wav"].write_text("wav"), 0)[1]), \
          patch("app.jobs.handlers.xtts.wav_to_mp3", return_value=0), \
          patch("app.jobs.handlers.xtts.update_job"), \
@@ -69,7 +68,7 @@ def test_handle_xtts_bake_mode(mock_job, mock_params):
     ]
 
     with patch("app.db.get_chapter_segments", return_value=segs), \
-         patch("app.jobs.handlers.xtts.xtts_generate_script", return_value=0), \
+         patch("app.jobs.handlers.xtts_bake.generate_via_bridge", return_value=0), \
          patch("app.jobs.handlers.xtts.stitch_segments", return_value=0), \
          patch("app.jobs.handlers.xtts.wav_to_mp3", return_value=0), \
          patch("app.jobs.handlers.xtts.get_audio_duration", return_value=10.0), \
@@ -86,7 +85,7 @@ def test_handle_xtts_segments_mode(mock_job, mock_params):
     segs = [{"id": "seg1", "text_content": "T1", "character_id": "c1", "speaker_profile_name": "S1"}]
 
     with patch("app.db.get_chapter_segments", return_value=segs), \
-         patch("app.jobs.handlers.xtts.xtts_generate_script", return_value=0), \
+         patch("app.jobs.handlers.xtts_segments.generate_via_bridge", return_value=0), \
          patch("app.jobs.handlers.xtts.update_job"), \
          patch("app.jobs.handlers.xtts.get_speaker_wavs", return_value="spk.wav"):
 
@@ -105,6 +104,7 @@ def test_handle_xtts_failed_stitch(mock_job, mock_params):
     segs = [{"id": "1", "text_content": "T1", "audio_status": "done", "audio_file_path": "s1.wav", "character_id": "c1"}]
 
     with patch("app.db.get_chapter_segments", return_value=segs), \
+         patch("app.jobs.handlers.xtts_bake.generate_via_bridge", return_value=0), \
          patch("app.jobs.handlers.xtts.stitch_segments", return_value=1), \
          patch("app.jobs.handlers.xtts.update_job") as mock_update:
 
@@ -119,7 +119,7 @@ def test_handle_xtts_no_mp3(mock_job, mock_params):
         ]), \
          patch("app.db.get_connection"), \
          patch("app.db.update_segment"), \
-         patch("app.jobs.handlers.xtts.xtts_generate_script", return_value=0), \
+         patch("app.jobs.handlers.xtts_standard.generate_via_bridge", return_value=0), \
          patch("app.jobs.handlers.xtts.stitch_segments", side_effect=lambda *_args, **_kwargs: (mock_params["out_wav"].write_text("wav"), 0)[1]), \
          patch("app.jobs.handlers.xtts.update_job") as mock_update, \
          patch("app.db.update_segments_status_bulk"):
@@ -146,7 +146,7 @@ def test_handle_xtts_mp3_fail(mock_job, mock_params):
         ]), \
          patch("app.db.get_connection"), \
          patch("app.db.update_segment"), \
-         patch("app.jobs.handlers.xtts.xtts_generate_script", return_value=0), \
+         patch("app.jobs.handlers.xtts_standard.generate_via_bridge", return_value=0), \
          patch("app.jobs.handlers.xtts.stitch_segments", side_effect=lambda *_args, **_kwargs: (mock_params["out_wav"].write_text("wav"), 0)[1]), \
          patch("app.jobs.handlers.xtts.wav_to_mp3", return_value=1), \
          patch("app.jobs.handlers.xtts.update_job") as mock_update, \
@@ -164,7 +164,7 @@ def test_handle_xtts_no_custom_segments(mock_job, mock_params):
         ]), \
          patch("app.db.get_connection"), \
          patch("app.db.update_segment"), \
-         patch("app.jobs.handlers.xtts.xtts_generate_script", return_value=0) as mock_gen, \
+         patch("app.jobs.handlers.xtts_standard.generate_via_bridge", return_value=0) as mock_gen, \
          patch("app.jobs.handlers.xtts.stitch_segments", side_effect=lambda *_args, **_kwargs: (mock_params["out_wav"].write_text("wav"), 0)[1]), \
          patch("app.jobs.handlers.xtts.wav_to_mp3", return_value=0), \
          patch("app.jobs.handlers.xtts.update_job"), \

@@ -78,6 +78,7 @@ class EngineManifestModel:
     homepage: str = ""
     test_text: str = "This is a verification test."
     verified: bool = False
+    behavior: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -139,6 +140,7 @@ class EngineRegistrationModel:
             "resource": asdict(self.manifest.resource),
             "author": self.manifest.author,
             "homepage": self.manifest.homepage,
+            "behavior": dict(self.manifest.behavior),
         }
 
         try:

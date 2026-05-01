@@ -86,8 +86,10 @@ def update_speaker_engine(name: str, engine: str = Form(...)):
 def update_speaker_reference_sample(name: str, sample_name: str = Form("")):
     # Rule 9: Early validation
     name = config.canonical_voice_name(name)
-    if not voices_helpers._is_engine_active("voxtral"):
-        return JSONResponse({"status": "error", "message": "Enable Voxtral in Settings to configure metadata."}, status_code=400)
+    spk_settings = jobs.get_speaker_settings(name)
+    current_engine = spk_settings.get("engine", DEFAULT_PROFILE_ENGINE)
+    if not voices_helpers._has_behavior(current_engine, "reference_sample"):
+         return JSONResponse({"status": "error", "message": f"Engine {current_engine} does not support reference samples."}, status_code=400)
 
     clean_sample = (sample_name or "").strip() or None
 
@@ -105,18 +107,27 @@ def update_speaker_reference_sample(name: str, sample_name: str = Form("")):
     return JSONResponse({"status": "ok", "reference_sample": clean_sample})
 
 
-@router.post("/{name}/voxtral-voice-id")
-def update_speaker_voxtral_voice_id(name: str, voice_id: str = Form("")):
+@router.post("/{name}/voice-asset-id")
+def update_speaker_voice_asset_id(name: str, voice_id: str = Form("")):
+    """Generic endpoint to update a voice asset ID for engines that support it."""
     # Rule 9: Early validation
     name = config.canonical_voice_name(name)
-    if not voices_helpers._is_engine_active("voxtral"):
-        return JSONResponse({"status": "error", "message": "Enable Voxtral in Settings to configure metadata."}, status_code=400)
+    spk_settings = jobs.get_speaker_settings(name)
+    current_engine = spk_settings.get("engine", DEFAULT_PROFILE_ENGINE)
+    if not voices_helpers._has_behavior(current_engine, "voice_asset_id"):
+        return JSONResponse({"status": "error", "message": f"Engine {current_engine} does not support voice asset IDs."}, status_code=400)
 
     clean_voice_id = (voice_id or "").strip() or None
-    if not jobs.update_speaker_settings(name, voxtral_voice_id=clean_voice_id):
+    if not jobs.update_speaker_settings(name, voice_asset_id=clean_voice_id):
         return JSONResponse({"status": "error", "message": "Profile not found"}, status_code=404)
 
-    return JSONResponse({"status": "ok", "voxtral_voice_id": clean_voice_id})
+    return JSONResponse({"status": "ok", "voice_asset_id": clean_voice_id})
+
+
+@router.post("/{name}/voxtral-voice-id")
+def update_speaker_voxtral_voice_id(name: str, voice_id: str = Form("")):
+    """Legacy compatibility wrapper for Voxtral voice IDs."""
+    return update_speaker_voice_asset_id(name, voice_id)
 
 @router.post("/{name}/build")
 async def build_speaker_profile(

@@ -89,10 +89,10 @@ def test_update_profile_voxtral_voice_id(clean_db, voices_root, client):
     with patch("app.api.routers.voices_helpers._is_engine_active", return_value=True):
         response = client.post("/api/speaker-profiles/SpeakerA/voxtral-voice-id", data={"voice_id": "voice_123"})
     assert response.status_code == 200
-    assert response.json()["voxtral_voice_id"] == "voice_123"
+    assert response.json()["voice_asset_id"] == "voice_123"
 
     meta = json.loads((profile_dir / "profile.json").read_text())
-    assert meta["voxtral_voice_id"] == "voice_123"
+    assert meta["voice_asset_id"] == "voice_123"
 
 
 def test_voxtral_profile_test_accepts_saved_voice_id_without_samples(clean_db, voices_root, client):
@@ -101,7 +101,7 @@ def test_voxtral_profile_test_accepts_saved_voice_id_without_samples(clean_db, v
     (profile_dir / "profile.json").write_text(json.dumps({
         "variant_name": "Default",
         "engine": "voxtral",
-        "voxtral_voice_id": "voice_123",
+        "voice_asset_id": "voice_123",
     }))
 
     with patch("app.api.routers.voices_helpers._is_engine_active", return_value=True), patch("app.state.put_job"), patch("app.jobs.enqueue"):
@@ -184,26 +184,6 @@ def test_build_and_test_profiles(clean_db, voices_root, client):
             assert response.status_code == 200
 
 
-def test_build_and_test_require_samples(clean_db, voices_root, client):
-    voices_dir = voices_root
-    voices_dir.mkdir()
-
-    with patch("app.api.routers.voices_helpers.VOICES_DIR", voices_dir), \
-         patch("app.engines.bridge.use_tts_server", return_value=False), \
-         patch("app.api.routers.voices_helpers._is_engine_active", return_value=True):
-        profile_dir = voices_dir / "SpeakerA"
-        profile_dir.mkdir(parents=True, exist_ok=True)
-
-        with patch("app.state.put_job"), patch("app.jobs.enqueue"):
-            response = client.post("/api/speaker-profiles/SpeakerA/test")
-            assert response.status_code == 400
-            assert "sample" in response.json()["message"].lower()
-
-            response = client.post("/api/speaker-profiles/SpeakerA/build")
-            assert response.status_code == 400
-            assert "sample" in response.json()["message"].lower()
-
-
 def test_xtts_voice_actions_reject_when_disabled(clean_db, voices_root, client):
     voices_dir = voices_root
     profile_dir = voices_dir / "SpeakerA"
@@ -282,3 +262,30 @@ def test_delete_sample_reject_traversal(voices_root):
             sample_name="../../escape.wav",
         )
     assert response.status_code == 403
+
+def test_update_profile_voice_asset_id_generic(clean_db, voices_root, client):
+    voices_root.mkdir(parents=True, exist_ok=True)
+    profile_dir = voices_root / "SpeakerA"
+    profile_dir.mkdir()
+    import json
+    (profile_dir / "profile.json").write_text(json.dumps({"variant_name": "Default", "engine": "voxtral"}))
+
+    with patch("app.api.routers.voices_helpers._is_engine_active", return_value=True):
+        response = client.post("/api/speaker-profiles/SpeakerA/voice-asset-id", data={"voice_id": "asset_456"})
+    assert response.status_code == 200
+    assert response.json()["voice_asset_id"] == "asset_456"
+
+    meta = json.loads((profile_dir / "profile.json").read_text())
+    assert meta["voice_asset_id"] == "asset_456"
+
+
+def test_update_profile_voice_asset_id_rejects_xtts(clean_db, voices_root, client):
+    voices_root.mkdir(parents=True, exist_ok=True)
+    profile_dir = voices_root / "SpeakerA"
+    profile_dir.mkdir()
+    import json
+    (profile_dir / "profile.json").write_text(json.dumps({"variant_name": "Default", "engine": "xtts"}))
+
+    response = client.post("/api/speaker-profiles/SpeakerA/voice-asset-id", data={"voice_id": "asset_456"})
+    assert response.status_code == 400
+    assert "does not support voice asset IDs" in response.json()["message"]

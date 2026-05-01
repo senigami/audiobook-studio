@@ -29,14 +29,11 @@ class TestBridgeTtsServerSynthesize:
 
         bridge = _make_bridge_with_client(mock_client)
 
-        with patch(
-            "app.engines.bridge.use_tts_server", return_value=True
-        ):
-            result = bridge.synthesize({
-                "engine_id": "xtts",
-                "script_text": "Hello world",
-                "output_path": "/tmp/out.wav",
-            })
+        result = bridge.synthesize({
+            "engine_id": "xtts",
+            "script_text": "Hello world",
+            "output_path": "/tmp/out.wav",
+        })
 
         assert result["status"] == "ok"
         assert result["bridge"] == "tts-server-bridge"
@@ -51,25 +48,19 @@ class TestBridgeTtsServerSynthesize:
 
         bridge = _make_bridge_with_client(mock_client)
 
-        with patch(
-            "app.engines.bridge.use_tts_server", return_value=True
-        ):
-            with pytest.raises(EngineUnavailableError):
-                bridge.synthesize({
-                    "engine_id": "xtts",
-                    "script_text": "Hello",
-                    "output_path": "/tmp/out.wav",
-                })
+        with pytest.raises(EngineUnavailableError):
+            bridge.synthesize({
+                "engine_id": "xtts",
+                "script_text": "Hello",
+                "output_path": "/tmp/out.wav",
+            })
 
     def test_synthesize_missing_engine_id_raises(self):
         mock_client = MagicMock()
         bridge = _make_bridge_with_client(mock_client)
 
-        with patch(
-            "app.engines.bridge.use_tts_server", return_value=True
-        ):
-            with pytest.raises(Exception):  # EngineRequestError
-                bridge.synthesize({"script_text": "Hello", "output_path": "/tmp/x.wav"})
+        with pytest.raises(Exception):  # EngineRequestError
+            bridge.synthesize({"script_text": "Hello", "output_path": "/tmp/x.wav"})
 
 
 class TestBridgeTtsServerPreview:
@@ -84,14 +75,11 @@ class TestBridgeTtsServerPreview:
 
         bridge = _make_bridge_with_client(mock_client)
 
-        with patch(
-            "app.engines.bridge.use_tts_server", return_value=True
-        ):
-            result = bridge.preview({
-                "engine_id": "xtts",
-                "script_text": "Preview text",
-                "output_path": "/tmp/preview.wav",
-            })
+        result = bridge.preview({
+            "engine_id": "xtts",
+            "script_text": "Preview text",
+            "output_path": "/tmp/preview.wav",
+        })
 
         assert result["ephemeral"] is True
         assert result["bridge"] == "tts-server-preview-bridge"
@@ -108,13 +96,10 @@ class TestBridgeTtsServerPreview:
 
         bridge = _make_bridge_with_client(mock_client)
 
-        with patch(
-            "app.engines.bridge.use_tts_server", return_value=True
-        ):
-            result = bridge.preview("xtts", {
-                "script_text": "Preview text",
-                "output_path": "/tmp/preview.wav",
-            })
+        result = bridge.preview("xtts", {
+            "script_text": "Preview text",
+            "output_path": "/tmp/preview.wav",
+        })
 
         assert result["ephemeral"] is True
         assert result["engine_id"] == "xtts"
@@ -130,10 +115,7 @@ class TestBridgeDescribeRegistry:
 
         bridge = _make_bridge_with_client(mock_client)
 
-        with patch(
-            "app.engines.bridge.use_tts_server", return_value=True
-        ):
-            result = bridge.describe_registry()
+        result = bridge.describe_registry()
 
         assert len(result) == 1
         assert result[0]["engine_id"] == "xtts"
@@ -155,42 +137,8 @@ class TestBridgeDescribeRegistry:
 
         bridge = _make_bridge_with_client(mock_client)
 
-        with patch("app.engines.bridge.use_tts_server", return_value=True), \
-             patch("app.config.ENGINE_TEST_DIR", tmp_path):
+        with patch("app.config.ENGINE_TEST_DIR", tmp_path):
             result = bridge.describe_registry()
 
         assert len(result) == 1
         assert result[0]["last_test"] == meta
-
-
-class TestBridgeFeatureFlagOff:
-    """When USE_TTS_SERVER is False, bridge uses in-process path unchanged."""
-
-    def test_legacy_path_used_when_flag_off(self):
-        mock_engine = MagicMock()
-        mock_engine.synthesize.return_value = {
-            "status": "ok",
-            "engine_id": "xtts",
-            "audio_path": "/tmp/out.wav",
-        }
-        mock_registration = MagicMock()
-        mock_registration.manifest.engine_id = "xtts"
-        mock_registration.health.available = True
-        mock_registration.health.ready = True
-        mock_registration.health.message = None
-        mock_registration.engine = mock_engine
-
-        def mock_registry():
-            return {"xtts": mock_registration}
-
-        bridge = VoiceBridge(registry_loader=mock_registry)
-
-        with patch("app.engines.bridge.use_tts_server", return_value=False):
-            result = bridge.synthesize({
-                "engine_id": "xtts",
-                "script_text": "Hello",
-                "output_path": "/tmp/out.wav",
-            })
-
-        mock_engine.synthesize.assert_called_once()
-        assert result["status"] == "ok"

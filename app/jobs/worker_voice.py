@@ -3,25 +3,30 @@ import time
 import logging
 import shutil
 from pathlib import Path
+from typing import Any, Mapping
 
 from ..state import update_job
 from ..engines import wav_to_mp3
 from ..engines.bridge import create_voice_bridge
 from ..engines.errors import EngineBridgeError
-from ..engines_voxtral import VoxtralError, voxtral_generate
-from ..core.feature_flags import is_feature_enabled
 from .speaker import get_speaker_wavs, get_speaker_settings, get_voice_profile_dir
 from .worker_helpers import _mark_queue_failed
 
 logger = logging.getLogger(__name__)
 
 
-def _resolve_voxtral_reference_audio_path(
+def _resolve_reference_audio_path(
     *,
+    engine: str,
     pdir: Path,
-    reference_sample: str | None,
+    settings: Mapping[str, Any],
     speaker_wavs: str | None,
 ) -> str | None:
+    from ..engines.behavior import has_behavior
+    if not has_behavior(engine, "reference_sample"):
+        return None
+
+    reference_sample = settings.get("reference_sample")
     candidates: list[Path] = []
     if reference_sample:
         sample_path = pdir / reference_sample
@@ -50,15 +55,11 @@ def _generate_voice_sample_via_bridge(
     out_wav: Path,
     on_output,
     cancel_check,
-    speed: float,
-    speaker_wavs: str | None,
+    settings: Mapping[str, Any],
     voice_profile_dir: Path | None,
-    voxtral_voice_id: str | None,
-    voxtral_model: str | None,
-    reference_sample: str | None,
 ) -> int:
     bridge = create_voice_bridge()
-    request: dict[str, object] = {
+    request: dict[str, Any] = {
         "engine_id": engine,
         "voice_profile_id": profile_name,
         "script_text": test_text,
@@ -66,15 +67,12 @@ def _generate_voice_sample_via_bridge(
         "output_format": "wav",
         "on_output": on_output,
         "cancel_check": cancel_check,
-        "reference_sample": reference_sample,
     }
-    # Pass through additional context that hooks might need
-    if speed is not None:
-        request["speed"] = speed
-    if voxtral_model:
-        request["voxtral_model"] = voxtral_model
-    if voxtral_voice_id:
-        request["voice_asset_id"] = voxtral_voice_id
+
+    from ..engines.behavior import extract_engine_settings
+    engine_settings = extract_engine_settings(engine, settings)
+    request.update(engine_settings)
+
     if voice_profile_dir:
         request["voice_profile_dir"] = str(voice_profile_dir)
 
@@ -105,53 +103,20 @@ def handle_voice_job(jid, j, on_output, cancel_check, voice_job_settings=None):
         except ValueError:
             voice_profile_dir = None
         engine = spk.get("engine", "xtts")
-        use_bridge = is_feature_enabled("USE_V2_ENGINE_BRIDGE")
-        if use_bridge:
-            try:
-                rc = _generate_voice_sample_via_bridge(
-                    engine=engine,
-                    profile_name=j.speaker_profile,
-                    test_text=spk["test_text"],
-                    out_wav=sample_path,
-                    on_output=on_output,
-                    cancel_check=cancel_check,
-                    speed=spk.get("speed", 1.0),
-                    speaker_wavs=sw,
-                    voice_profile_dir=voice_profile_dir,
-                    voxtral_voice_id=spk.get("voxtral_voice_id"),
-                    voxtral_model=spk.get("voxtral_model"),
-                    reference_sample=spk.get("reference_sample"),
-                )
-            except EngineBridgeError as exc:
-                _mark_queue_failed(jid, str(exc))
-                return
-        elif engine == "voxtral":
-            try:
-                rc = voxtral_generate(
-                    text=spk["test_text"],
-                    out_wav=sample_path,
-                    on_output=on_output,
-                    cancel_check=cancel_check,
-                    profile_name=j.speaker_profile,
-                    voice_id=spk.get("voxtral_voice_id"),
-                    model=spk.get("voxtral_model"),
-                    reference_sample=spk.get("reference_sample"),
-                )
-            except VoxtralError as exc:
-                _mark_queue_failed(jid, str(exc))
-                return
-        else:
-            from ..engines import xtts_generate
-            rc = xtts_generate(
-                text=spk["test_text"],
+        try:
+            rc = _generate_voice_sample_via_bridge(
+                engine=engine,
+                profile_name=j.speaker_profile,
+                test_text=spk["test_text"],
                 out_wav=sample_path,
-                safe_mode=True,
                 on_output=on_output,
                 cancel_check=cancel_check,
-                speaker_wav=sw,
-                speed=spk["speed"],
-                voice_profile_dir=voice_profile_dir
+                settings=spk,
+                voice_profile_dir=voice_profile_dir,
             )
+        except EngineBridgeError as exc:
+            _mark_queue_failed(jid, str(exc))
+            return
         if rc != 0:
             _mark_queue_failed(jid, "Voice synthesis failed.")
             return
@@ -183,8 +148,8 @@ def handle_voice_job(jid, j, on_output, cancel_check, voice_job_settings=None):
                     preview_test_text=spk["test_text"],
                     preview_engine=engine,
                     preview_reference_sample=spk.get("reference_sample"),
-                    preview_voxtral_voice_id=spk.get("voxtral_voice_id"),
-                    preview_voxtral_model=spk.get("voxtral_model"),
+                    preview_voice_asset_id=spk.get("voice_asset_id"),
+                    preview_model=spk.get("model"),
                 )
                 on_output(f"Updated build samples for {j.speaker_profile}.\n")
             except Exception as e:

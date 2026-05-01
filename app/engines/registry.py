@@ -13,12 +13,9 @@ from app.engines.models import (
     EngineRegistrationModel,
 )
 from app.engines.voice.base import BaseVoiceEngine
-from app.engines.voice.voxtral.engine import VoxtralVoiceEngine
-from app.engines.voice.xtts.engine import XttsVoiceEngine
 
 # TTS Server dependencies — imported at module level so they are patchable
-# in tests.  Both modules may be absent in minimal environments; the
-# try/except keeps the in-process path working unconditionally.
+# in tests. Both modules may be absent in minimal environments.
 try:
     from app.engines.tts_client import TtsClient
     from app.engines.watchdog import get_watchdog
@@ -33,18 +30,16 @@ logger = logging.getLogger(__name__)
 
 
 def load_engine_registry() -> dict[str, EngineRegistrationModel]:
-    from app.core.feature_flags import use_tts_server  # noqa: PLC0415
-    use_remote = use_tts_server()
-    if use_remote:
-        return _load_tts_server_registry()
-
-    return _refresh_registry_health(_load_cached_engine_registry())
+    return _load_tts_server_registry()
 
 
 @lru_cache(maxsize=1)
-def _load_cached_engine_registry() -> dict[str, EngineRegistrationModel]:
-    """Load and cache discovery metadata plus adapter instances (in-process path)."""
+def _load_legacy_local_registry() -> dict[str, EngineRegistrationModel]:
+    """Load discovery metadata plus adapter instances (Legacy in-process path).
 
+    This path is deprecated in Phase 11 and remains only for test isolation
+    and minimal development environments.
+    """
     registry = _load_builtin_engines()
     registry.update(_load_plugin_engines())
     return registry
@@ -167,6 +162,7 @@ def _manifest_from_tts_server_payload(data: dict) -> EngineManifestModel:
         built_in=False,
         verified=bool(data.get("verified", False)),
         version=str(data.get("version", "0.0.0")),
+        behavior=dict(data.get("behavior") or {}),
     )
 
 
@@ -243,7 +239,7 @@ class _TtsServerEngineProxy:
 
 
 # ---------------------------------------------------------------------------
-# In-process registry path (unchanged)
+# Legacy in-process registry path (retained only for quarantined test/dev use)
 # ---------------------------------------------------------------------------
 
 def _load_builtin_engines() -> dict[str, EngineRegistrationModel]:
@@ -294,11 +290,21 @@ def _load_engine_manifest(*, manifest_path: Path) -> EngineManifestModel:
         ),
         built_in=True,
         verified=True,
+        version=str(payload.get("version", "1.0.0")),
+        local=bool(payload.get("local", True)),
+        cloud=bool(payload.get("cloud", False)),
+        network=bool(payload.get("network", False)),
+        author=str(payload.get("author", "Studio")),
+        homepage=str(payload.get("homepage", "")),
+        behavior=dict(payload.get("behavior") or {}),
     )
 
 
 def _builtin_engine_specs() -> list[tuple[Path, type[BaseVoiceEngine]]]:
     """Return the built-in engine manifests and adapter classes."""
+    from .voice.voxtral.engine import VoxtralVoiceEngine
+    from .voice.xtts.engine import XttsVoiceEngine
+
     base_dir = Path(__file__).resolve().parent / "voice"
     return [
         (base_dir / "xtts" / "manifest.json", XttsVoiceEngine),
@@ -312,4 +318,4 @@ def _manifest_module_path(manifest_path: Path) -> str:
     return f"app.engines.voice.{engine_dir.name}.engine"
 
 
-load_engine_registry.cache_clear = _load_cached_engine_registry.cache_clear
+load_engine_registry.cache_clear = _load_legacy_local_registry.cache_clear

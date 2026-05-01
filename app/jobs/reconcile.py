@@ -26,7 +26,8 @@ def _output_exists(engine: str, chapter_file: str, project_id: str = None, make_
         except ValueError:
             return False
 
-    if engine in ("xtts", "voxtral", "mixed"):
+    from ..voice_engines import is_tts_engine
+    if is_tts_engine(engine) or engine == "mixed":
         if project_id:
             from ..config import get_project_audio_dir
             pdir = get_project_audio_dir(project_id)

@@ -1,15 +1,13 @@
 from __future__ import annotations
-import json
 import time
 from pathlib import Path
 
 from ...config import SENT_CHAR_LIMIT
 from ...chunk_groups import build_chunk_groups
 from ...textops import sanitize_for_xtts, safe_split_long_sentences
+from ...engines.errors import EngineBridgeError
 from . import xtts as xtts_facade
-from .xtts_helpers import (
-    _generate_direct_xtts,
-)
+from .bridge_helpers import generate_via_bridge
 
 
 def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, speed, pdir, out_wav, text=None):
@@ -122,9 +120,6 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
             )
 
             active_save_path = [None]  
-            script_path = pdir / f"{j.id}_script.json"
-            script_path.write_text(json.dumps(script), encoding="utf-8")
-
             def chapter_on_output(line):
                 on_output(line)
                 if "[START_SEGMENT]" in line:
@@ -202,10 +197,20 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
 
             scratch_wav = pdir / f"output_{j.id}.wav"
             try:
-                rc = xtts_facade.xtts_generate_script(script_json_path=script_path, out_wav=scratch_wav, on_output=chapter_on_output, cancel_check=cancel_check, speed=speed)
+                rc = generate_via_bridge(
+                    engine="xtts",
+                    text=text or "",
+                    out_wav=scratch_wav,
+                    profile_name=j.speaker_profile,
+                    on_output=chapter_on_output,
+                    cancel_check=cancel_check,
+                    speed=speed,
+                    script=script,
+                )
+            except EngineBridgeError as exc:
+                xtts_facade.logger.error("Bridge synthesis failed in xtts_standard: %s", exc)
+                return 1
             finally:
-                if script_path.exists():
-                    script_path.unlink()
                 if scratch_wav.exists():
                     scratch_wav.unlink()
 
@@ -233,6 +238,24 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                 return rc
             return rc
         else:
-            return _generate_direct_xtts(text, j, out_wav, on_output, cancel_check, default_sw, speed)
+            return generate_via_bridge(
+                engine="xtts",
+                text=text or "",
+                out_wav=out_wav,
+                profile_name=j.speaker_profile,
+                on_output=on_output,
+                cancel_check=cancel_check,
+                speed=speed,
+                safe_mode=j.safe_mode,
+            )
     else:
-        return _generate_direct_xtts(text, j, out_wav, on_output, cancel_check, default_sw, speed)
+        return generate_via_bridge(
+            engine="xtts",
+            text=text or "",
+            out_wav=out_wav,
+            profile_name=j.speaker_profile,
+            on_output=on_output,
+            cancel_check=cancel_check,
+            speed=speed,
+            safe_mode=j.safe_mode,
+        )

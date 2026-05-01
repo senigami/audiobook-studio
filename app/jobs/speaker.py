@@ -336,20 +336,12 @@ def get_speaker_settings(profile_name_or_id: str) -> dict:
     defaults = get_settings()
 
     res = {
-        "speed": float(defaults.get("xtts_speed", 1.0)),
+        "speed": float(defaults.get("speed", 1.0)),
         "test_text": DEFAULT_SPEAKER_TEST_TEXT,
         "speaker_id": None,
         "variant_name": None,
         "built_samples": [],
         "engine": DEFAULT_PROFILE_ENGINE,
-        "voxtral_voice_id": None,
-        "voxtral_model": None,
-        "reference_sample": None,
-        "preview_test_text": None,
-        "preview_engine": None,
-        "preview_reference_sample": None,
-        "preview_voxtral_voice_id": None,
-        "preview_voxtral_model": None,
     }
     target_profile = _resolve_existing_profile_name(profile_name_or_id)
     if not target_profile:
@@ -362,9 +354,21 @@ def get_speaker_settings(profile_name_or_id: str) -> dict:
     if not meta_path:
         return res
     meta = _read_profile_metadata(target_profile, meta_path, fix_schema=True)
+
+    # Extract generic fields first
     for k in res:
         if k in meta:
             res[k] = meta[k]
+
+    # Then extract engine-specific settings via behavior helper
+    from ..engines.behavior import extract_engine_settings
+    engine_settings = extract_engine_settings(res["engine"], meta)
+    res.update(engine_settings)
+
+    # Ensure preview fields are also extracted (preserving the 'preview_' prefix)
+    for k, v in meta.items():
+        if k.startswith("preview_"):
+            res[k] = v
 
     return res
 

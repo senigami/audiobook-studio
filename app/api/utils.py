@@ -89,7 +89,8 @@ def output_exists(engine: str, chapter_file: str):
     if not SAFE_FILE_RE.fullmatch(chapter_file):
         return False
     chapter_name = Path(chapter_file).stem
-    if engine in ("xtts", "voxtral", "mixed"):
+    from ..voice_engines import is_tts_engine
+    if is_tts_engine(engine) or engine == "mixed":
         return bool(find_secure_file(config.XTTS_OUT_DIR, f"{chapter_name}.wav")) or \
                bool(find_secure_file(config.XTTS_OUT_DIR, f"{chapter_name}.mp3"))
     elif engine == "audiobook":

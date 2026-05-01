@@ -12,9 +12,9 @@ Compatibility behavior:
   package are mirrored into the legacy module when the same name exists there.
 
 Phase 5 note:
-- When ``USE_TTS_SERVER=true``, Studio boot wiring starts the TTS Server
-  watchdog explicitly before synthesis work is routed through the bridge.
-  Importing this package must not start threads or subprocesses on its own.
+- Studio boot wiring starts the TTS Server watchdog explicitly before
+  synthesis work is routed through the bridge. Importing this package must
+  not start threads or subprocesses on its own.
 """
 
 from __future__ import annotations

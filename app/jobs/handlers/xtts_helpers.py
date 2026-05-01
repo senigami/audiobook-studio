@@ -22,19 +22,16 @@ def _profile_inputs_for_segment(char_profile, job_default_profile, default_sw):
 
 
 def _generate_direct_xtts(text, j, out_wav, on_output, cancel_check, default_sw, speed):
-    try:
-        voice_profile_dir = str(xtts_facade.get_voice_profile_dir(j.speaker_profile)) if j.speaker_profile else None
-    except Exception:
-        voice_profile_dir = None
-    return xtts_facade.xtts_generate(
+    from .bridge_helpers import generate_via_bridge
+    return generate_via_bridge(
+        engine="xtts",
         text=text,
         out_wav=out_wav,
+        profile_name=j.speaker_profile,
         safe_mode=j.safe_mode,
         on_output=on_output,
         cancel_check=cancel_check,
-        speaker_wav=default_sw,
         speed=speed,
-        voice_profile_dir=voice_profile_dir,
     )
 
 

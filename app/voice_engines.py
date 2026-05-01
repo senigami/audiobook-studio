@@ -1,18 +1,28 @@
 from pathlib import Path
 from typing import Iterable, Optional
 
-from .db.speakers import DEFAULT_PROFILE_ENGINE, VALID_PROFILE_ENGINES
+DEFAULT_PROFILE_ENGINE = "xtts"
 
-TTS_ENGINES = tuple(sorted(VALID_PROFILE_ENGINES))
+
+def list_tts_engines() -> list[str]:
+    try:
+        from .engines.bridge import create_voice_bridge
+        bridge = create_voice_bridge()
+        return [entry["engine_id"] for entry in bridge.describe_registry()]
+    except Exception:
+        # Fallback if bridge is not ready
+        return ["xtts", "voxtral"]
 
 
 def normalize_tts_engine(engine: Optional[str], fallback: str = DEFAULT_PROFILE_ENGINE) -> str:
+    valid = list_tts_engines()
     normalized = str(engine or fallback).strip().lower()
-    return normalized if normalized in VALID_PROFILE_ENGINES else fallback
+    return normalized if normalized in valid else fallback
 
 
 def is_tts_engine(engine: Optional[str]) -> bool:
-    return str(engine or "").strip().lower() in VALID_PROFILE_ENGINES
+    valid = list_tts_engines()
+    return str(engine or "").strip().lower() in valid
 
 
 def resolve_profile_engine(profile_name_or_id: Optional[str], fallback_engine: Optional[str] = None) -> str:

@@ -7,6 +7,22 @@
   "min_studio": "2.0.0",
   "entry_class": "engine:XttsPlugin",
   "capabilities": ["synthesis", "preview", "voice_cloning"],
+  "behavior": {
+    "features": [
+      "script_synthesis",
+      "batch_synthesis",
+      "voice_cloning",
+      "standard_rendering",
+      "segment_rendering",
+      "bake_rendering",
+      "mixed_rendering",
+      "sanitize_text",
+      "cps_eta"
+    ],
+    "required_settings": [],
+    "setting_aliases": {},
+    "synthesis_settings": ["temperature", "repetition_penalty", "top_k", "top_p"]
+  },
   "local": true,
   "cloud": false,
   "network": false,
