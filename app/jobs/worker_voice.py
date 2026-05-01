@@ -3,6 +3,7 @@ import time
 import logging
 import shutil
 from pathlib import Path
+from typing import Any, Mapping
 
 from ..state import update_job
 from ..engines import wav_to_mp3
