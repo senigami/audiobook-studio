@@ -3,7 +3,7 @@ import time
 from pathlib import Path
 
 from app.config import SENT_CHAR_LIMIT
-from app.textops import sanitize_for_xtts, safe_split_long_sentences
+from app.textops import sanitize_text, safe_split_long_sentences
 from app.engines.errors import EngineBridgeError
 from . import handler as xtts_facade
 from app.jobs.handlers.bridge_helpers import generate_via_bridge
@@ -52,7 +52,7 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
         sw, voice_profile_dir = _profile_inputs_for_segment(char_profile, j.speaker_profile, default_sw)
         combined_text = "".join([s['text_content'] for s in group])
         if j.safe_mode:
-            combined_text = sanitize_for_xtts(combined_text)
+            combined_text = sanitize_text(combined_text)
             combined_text = safe_split_long_sentences(combined_text, target=SENT_CHAR_LIMIT)
         first_sid = group[0]['id']
         storage_version = getattr(j, "storage_version", 1)

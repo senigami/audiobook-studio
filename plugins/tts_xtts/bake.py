@@ -4,7 +4,7 @@ from pathlib import Path
 
 from app.config import SENT_CHAR_LIMIT
 from app.chunk_groups import build_chunk_groups
-from app.textops import sanitize_for_xtts, safe_split_long_sentences
+from app.textops import sanitize_text, safe_split_long_sentences
 from app.engines.errors import EngineBridgeError
 from . import handler as xtts_facade
 from app.jobs.handlers.bridge_helpers import generate_via_bridge
@@ -49,7 +49,7 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
             sw, voice_profile_dir = _profile_inputs_for_segment(char_profile, j.speaker_profile, default_sw)
             combined_text = " ".join([s['text_content'] for s in group["segments"]])
             if j.safe_mode:
-                combined_text = sanitize_for_xtts(combined_text)
+                combined_text = sanitize_text(combined_text)
                 combined_text = safe_split_long_sentences(combined_text, target=SENT_CHAR_LIMIT)
             sid = group["segments"][0]['id']
             # Note: storage_version logic is handled by the caller or passed in if needed.

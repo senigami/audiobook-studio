@@ -78,9 +78,9 @@ async def list_engines():
     try:
         engines = bridge.describe_registry()
     except EngineUnavailableError:
-        # If the managed TTS Server is still booting, fall back to the local
-        # registry metadata so the API remains responsive during startup.
-        engines = bridge.local.describe_registry()
+        # If the managed TTS Server is still booting or unreachable, return
+        # an empty list rather than crashing. Discovery will succeed on next poll.
+        engines = []
     return {"engines": engines}
 
 @router.get("/engines/{engine_id}")

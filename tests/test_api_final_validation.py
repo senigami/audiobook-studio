@@ -48,14 +48,6 @@ def test_api_surgical_chapters_hits():
     # 189-191: Reset chapter
     client.post("/api/chapters/c1/reset")
 
-    # 251: Legacy delete unlink
-    tmp_path = Path("/tmp/surgical_files")
-    if tmp_path.exists(): shutil.rmtree(tmp_path)
-    tmp_path.mkdir()
-    with patch("app.web.CHAPTER_DIR", tmp_path), patch("app.web.XTTS_OUT_DIR", tmp_path):
-        (tmp_path / "del.txt").write_text("x")
-        (tmp_path / "del.wav").write_text("x")
-        client.delete("/api/chapter/del.txt")
 
     # 330: Export error path / fallback
     client.post("/api/chapter/non_existent_cid/export-sample")

@@ -4,7 +4,7 @@ from pathlib import Path
 
 from app.config import SENT_CHAR_LIMIT
 from app.chunk_groups import build_chunk_groups
-from app.textops import sanitize_for_xtts, safe_split_long_sentences
+from app.textops import sanitize_text, safe_split_long_sentences
 from app.engines.errors import EngineBridgeError
 from . import handler as xtts_facade
 from app.jobs.handlers.bridge_helpers import generate_via_bridge
@@ -75,7 +75,7 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                         voice_profile_dir = None
                 processed = " ".join(group["text_parts"]).strip()
                 if j.safe_mode:
-                    processed = sanitize_for_xtts(processed)
+                    processed = sanitize_text(processed)
                     processed = safe_split_long_sentences(processed, target=SENT_CHAR_LIMIT)
 
                 storage_version = getattr(j, "storage_version", 1)

@@ -2,7 +2,7 @@ import pytest
 import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-from app.jobs.handlers.xtts import handle_xtts_job, _group_job_progress
+from plugins.tts_xtts.handler import handle_xtts_job, _group_job_progress
 from app.models import Job
 
 @pytest.fixture(autouse=True)
@@ -44,16 +44,16 @@ def mock_params():
 
 def test_handle_xtts_standard_full(mock_job, mock_params):
     """Test standard chapter generation path."""
-    with patch("app.jobs.handlers.xtts.load_chunk_segments", return_value=[
+    with patch("plugins.tts_xtts.handler.load_chunk_segments", return_value=[
             {"id": "s1", "text_content": "Hello", "character_id": "char1", "speaker_profile_name": "Narrator", "character_speaker_profile_name": "Narrator", "audio_status": "unprocessed", "audio_file_path": None},
         ]), \
          patch("app.db.get_connection"), \
          patch("app.db.update_segment"), \
-         patch("app.jobs.handlers.xtts.get_speaker_wavs", return_value="spk.wav"), \
-         patch("app.jobs.handlers.xtts_standard.generate_via_bridge", return_value=0), \
-         patch("app.jobs.handlers.xtts.stitch_segments", side_effect=lambda *_args, **_kwargs: (mock_params["out_wav"].write_text("wav"), 0)[1]), \
-         patch("app.jobs.handlers.xtts.wav_to_mp3", return_value=0), \
-         patch("app.jobs.handlers.xtts.update_job"), \
+         patch("plugins.tts_xtts.handler.get_speaker_wavs", return_value="spk.wav"), \
+         patch("plugins.tts_xtts.standard_handler.generate_via_bridge", return_value=0), \
+         patch("plugins.tts_xtts.handler.stitch_segments", side_effect=lambda *_args, **_kwargs: (mock_params["out_wav"].write_text("wav"), 0)[1]), \
+         patch("plugins.tts_xtts.handler.wav_to_mp3", return_value=0), \
+         patch("plugins.tts_xtts.handler.update_job"), \
          patch("app.db.update_segments_status_bulk"):
         handle_xtts_job(j=mock_job, **mock_params)
         assert mock_job.status == "running"
@@ -68,13 +68,13 @@ def test_handle_xtts_bake_mode(mock_job, mock_params):
     ]
 
     with patch("app.db.get_chapter_segments", return_value=segs), \
-         patch("app.jobs.handlers.xtts_bake.generate_via_bridge", return_value=0), \
-         patch("app.jobs.handlers.xtts.stitch_segments", return_value=0), \
-         patch("app.jobs.handlers.xtts.wav_to_mp3", return_value=0), \
-         patch("app.jobs.handlers.xtts.get_audio_duration", return_value=10.0), \
+         patch("plugins.tts_xtts.bake.generate_via_bridge", return_value=0), \
+         patch("plugins.tts_xtts.handler.stitch_segments", return_value=0), \
+         patch("plugins.tts_xtts.handler.wav_to_mp3", return_value=0), \
+         patch("plugins.tts_xtts.handler.get_audio_duration", return_value=10.0), \
          patch("app.db.update_queue_item"), \
-         patch("app.jobs.handlers.xtts.update_job"), \
-         patch("app.jobs.handlers.xtts.get_speaker_wavs", return_value="spk.wav"):
+         patch("plugins.tts_xtts.handler.update_job"), \
+         patch("plugins.tts_xtts.handler.get_speaker_wavs", return_value="spk.wav"):
 
         handle_xtts_job(j=mock_job, **mock_params)
         mock_params["on_output"].assert_any_call("Baking Chapter chap_123 starting...\n")
@@ -85,9 +85,9 @@ def test_handle_xtts_segments_mode(mock_job, mock_params):
     segs = [{"id": "seg1", "text_content": "T1", "character_id": "c1", "speaker_profile_name": "S1"}]
 
     with patch("app.db.get_chapter_segments", return_value=segs), \
-         patch("app.jobs.handlers.xtts_segments.generate_via_bridge", return_value=0), \
-         patch("app.jobs.handlers.xtts.update_job"), \
-         patch("app.jobs.handlers.xtts.get_speaker_wavs", return_value="spk.wav"):
+         patch("plugins.tts_xtts.segments.generate_via_bridge", return_value=0), \
+         patch("plugins.tts_xtts.handler.update_job"), \
+         patch("plugins.tts_xtts.handler.get_speaker_wavs", return_value="spk.wav"):
 
         handle_xtts_job(j=mock_job, **mock_params)
 
@@ -95,7 +95,7 @@ def test_handle_xtts_cancel(mock_job, mock_params):
     """Test cancellation check."""
     mock_params["cancel_check"].return_value = True
 
-    with patch("app.jobs.handlers.xtts.update_job") as mock_update:
+    with patch("plugins.tts_xtts.handler.update_job") as mock_update:
         handle_xtts_job(j=mock_job, **mock_params)
 
 def test_handle_xtts_failed_stitch(mock_job, mock_params):
@@ -104,9 +104,9 @@ def test_handle_xtts_failed_stitch(mock_job, mock_params):
     segs = [{"id": "1", "text_content": "T1", "audio_status": "done", "audio_file_path": "s1.wav", "character_id": "c1"}]
 
     with patch("app.db.get_chapter_segments", return_value=segs), \
-         patch("app.jobs.handlers.xtts_bake.generate_via_bridge", return_value=0), \
-         patch("app.jobs.handlers.xtts.stitch_segments", return_value=1), \
-         patch("app.jobs.handlers.xtts.update_job") as mock_update:
+         patch("plugins.tts_xtts.bake.generate_via_bridge", return_value=0), \
+         patch("plugins.tts_xtts.handler.stitch_segments", return_value=1), \
+         patch("plugins.tts_xtts.handler.update_job") as mock_update:
 
         handle_xtts_job(j=mock_job, **mock_params)
         mock_update.assert_any_call(mock_params["jid"], status="failed", error="Stitching failed (rc=1)")
@@ -114,14 +114,14 @@ def test_handle_xtts_failed_stitch(mock_job, mock_params):
 def test_handle_xtts_no_mp3(mock_job, mock_params):
     """Test standard path without MP3 conversion."""
     mock_job.make_mp3 = False
-    with patch("app.jobs.handlers.xtts.load_chunk_segments", return_value=[
+    with patch("plugins.tts_xtts.handler.load_chunk_segments", return_value=[
             {"id": "s1", "text_content": "Hello", "character_id": None, "speaker_profile_name": None, "character_speaker_profile_name": None, "audio_status": "unprocessed", "audio_file_path": None},
         ]), \
          patch("app.db.get_connection"), \
          patch("app.db.update_segment"), \
-         patch("app.jobs.handlers.xtts_standard.generate_via_bridge", return_value=0), \
-         patch("app.jobs.handlers.xtts.stitch_segments", side_effect=lambda *_args, **_kwargs: (mock_params["out_wav"].write_text("wav"), 0)[1]), \
-         patch("app.jobs.handlers.xtts.update_job") as mock_update, \
+         patch("plugins.tts_xtts.standard_handler.generate_via_bridge", return_value=0), \
+         patch("plugins.tts_xtts.handler.stitch_segments", side_effect=lambda *_args, **_kwargs: (mock_params["out_wav"].write_text("wav"), 0)[1]), \
+         patch("plugins.tts_xtts.handler.update_job") as mock_update, \
          patch("app.db.update_segments_status_bulk"):
         handle_xtts_job(j=mock_job, **mock_params)
         # Check if done was called at least once
@@ -133,7 +133,7 @@ def test_handle_xtts_empty_segments(mock_job, mock_params):
     """Test segment mode with empty list after filtering."""
     mock_job.segment_ids = [999] # Non-empty to enter elif
     with patch("app.db.get_chapter_segments", return_value=[]), \
-         patch("app.jobs.handlers.xtts.update_job") as mock_update:
+         patch("plugins.tts_xtts.handler.update_job") as mock_update:
         handle_xtts_job(j=mock_job, **mock_params)
         # Empty segs_to_gen calls update_job with status="done"
         mock_update.assert_any_call("test_jid", status="done", progress=1.0)
@@ -141,15 +141,15 @@ def test_handle_xtts_empty_segments(mock_job, mock_params):
 def test_handle_xtts_mp3_fail(mock_job, mock_params):
     """Test path where MP3 conversion fails."""
     mock_job.make_mp3 = True
-    with patch("app.jobs.handlers.xtts.load_chunk_segments", return_value=[
+    with patch("plugins.tts_xtts.handler.load_chunk_segments", return_value=[
             {"id": "s1", "text_content": "Hello", "character_id": None, "speaker_profile_name": None, "character_speaker_profile_name": None, "audio_status": "unprocessed", "audio_file_path": None},
         ]), \
          patch("app.db.get_connection"), \
          patch("app.db.update_segment"), \
-         patch("app.jobs.handlers.xtts_standard.generate_via_bridge", return_value=0), \
-         patch("app.jobs.handlers.xtts.stitch_segments", side_effect=lambda *_args, **_kwargs: (mock_params["out_wav"].write_text("wav"), 0)[1]), \
-         patch("app.jobs.handlers.xtts.wav_to_mp3", return_value=1), \
-         patch("app.jobs.handlers.xtts.update_job") as mock_update, \
+         patch("plugins.tts_xtts.standard_handler.generate_via_bridge", return_value=0), \
+         patch("plugins.tts_xtts.handler.stitch_segments", side_effect=lambda *_args, **_kwargs: (mock_params["out_wav"].write_text("wav"), 0)[1]), \
+         patch("plugins.tts_xtts.handler.wav_to_mp3", return_value=1), \
+         patch("plugins.tts_xtts.handler.update_job") as mock_update, \
          patch("app.db.update_segments_status_bulk"):
         handle_xtts_job(j=mock_job, **mock_params)
         # Should finish with error message but status="done"
@@ -159,15 +159,15 @@ def test_handle_xtts_mp3_fail(mock_job, mock_params):
 
 def test_handle_xtts_no_custom_segments(mock_job, mock_params):
     """Test standard chapter generation when no segments have custom characters."""
-    with patch("app.jobs.handlers.xtts.load_chunk_segments", return_value=[
+    with patch("plugins.tts_xtts.handler.load_chunk_segments", return_value=[
             {"id": "s1", "text_content": "Hello", "character_id": None, "speaker_profile_name": None, "character_speaker_profile_name": None, "audio_status": "unprocessed", "audio_file_path": None},
         ]), \
          patch("app.db.get_connection"), \
          patch("app.db.update_segment"), \
-         patch("app.jobs.handlers.xtts_standard.generate_via_bridge", return_value=0) as mock_gen, \
-         patch("app.jobs.handlers.xtts.stitch_segments", side_effect=lambda *_args, **_kwargs: (mock_params["out_wav"].write_text("wav"), 0)[1]), \
-         patch("app.jobs.handlers.xtts.wav_to_mp3", return_value=0), \
-         patch("app.jobs.handlers.xtts.update_job"), \
+         patch("plugins.tts_xtts.standard_handler.generate_via_bridge", return_value=0) as mock_gen, \
+         patch("plugins.tts_xtts.handler.stitch_segments", side_effect=lambda *_args, **_kwargs: (mock_params["out_wav"].write_text("wav"), 0)[1]), \
+         patch("plugins.tts_xtts.handler.wav_to_mp3", return_value=0), \
+         patch("plugins.tts_xtts.handler.update_job"), \
          patch("app.db.update_segments_status_bulk"):
         handle_xtts_job(j=mock_job, **mock_params)
         assert mock_gen.called

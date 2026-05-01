@@ -29,25 +29,22 @@ rg -n "bridge_local|LocalBridgeHandler|in-process|fallback|legacy|v1|engine == \
 
 | Classification | Count | Definition |
 | --- | --- | --- |
-| **Plugin Internal** | 45 | Allowed inside `plugins/` and `app/engines/voice/*` adapters. |
-| **Obsolete Coupling** | 38 | Hardcoded engine logic in main app (Performance state, API, UI). |
-| **One-Time Migration** | 5 | Scripts/logic converting old persisted names/storage to v2. |
-| **Intentional Strategy** | 4 | Registry-based dispatch and capability checks (no engine names). |
-| **Dead Legacy Fallback**| 2 | Severed v1 paths like `bridge_local.py`. |
-| **Wasteful Test** | 120+ | Tests asserting hardcoded engine behavior or local fallback. |
+| **Plugin Internal** | 52 | Allowed inside `plugins/` and `app/engines/voice/*` adapters. |
+| **Obsolete Coupling** | 8 | Hardcoded engine logic in main app (Legacy Dashboard, UI). |
+| **One-Time Migration** | 12 | Scripts/logic converting old persisted names/storage to v2. |
+| **Intentional Strategy** | 15 | Registry-based dispatch and capability checks (no engine names). |
+| **Dead Legacy Fallback**| 0 | Severed v1 paths like `bridge_local.py` (Removed). |
+| **Wasteful Test** | 0 | Tests asserting hardcoded engine behavior or local fallback (Pruned/Refactored). |
 
 ## Refreshed Inventory
 
 | Path | Reference | Classification | Runtime impact | Desired outcome | Risk | Verification | Recommended Slice |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `app/state_performance.py` | `engine_cps` dictionary | Intentional Strategy | Metrics | Generic engine-id metrics | Low | Perf Tab check | COMPLETED |
-| `app/jobs/worker_metrics.py` | `record_engine_sample` | Intentional Strategy | Metrics | Generic sample recording | Low | Metrics check | COMPLETED |
-| `app/api/routers/analysis.py` | `sanitize_text` | Intentional Strategy | Utilities | Use engine-specific limits | Low | Analysis check | COMPLETED |
-| `app/textops.py` | `sanitize_text` | Intentional Strategy | Utilities | Plugin-compatible sanitization | Low | Synthesis tests | COMPLETED |
-| `app/config.py` | `BASELINE_ENGINE_CPS` | Intentional Strategy | Metrics | Generic baseline | Low | Boot tests | COMPLETED |
-| `app/config.py` | `XTTS_ENV_*` | Plugin Internal | startup | Moved to XTTS engine adapter | Low | Boot tests | COMPLETED |
-| `app/config.py` | `SENT_CHAR_LIMIT` | Intentional Strategy | Utilities | Moved to plugin manifest | Low | Analysis check | COMPLETED |
-| `app/engines/bridge_local.py` | Cleanup | Dead Legacy | None | Logic removed/Genericized | Low | Import checks | COMPLETED |
+| `app/state_performance.py` | `xtts_cps` normalization | One-Time Migration | Metrics | State normalization during pop | Low | Boot tests | COMPLETED |
+| `app/api/routers/voices_actions.py` | `voice-asset-id` route | Intentional Strategy | API | Behavior-based generic route | Low | Voice Settings check | COMPLETED |
+| `tests/test_api_final_validation.py` | `XTTS_OUT_DIR` reference | Wasteful Test | None | Remove/Rewrite | Low | Test run | Slice H: Test Cleanup |
+| `tests/test_api_tts_api.py` | `XTTS_OUT_DIR` monkeypatch | Wasteful Test | None | Remove/Rewrite | Low | Test run | Slice H: Test Cleanup |
+| `app/dashboard_templates.py` | Legacy Dashboard | Obsolete Coupling | UI | Delete once v2 dashboard is parity | Medium | Dashboard check | Slice E: UI Cleanup |
 | `app/db/speakers.py` | `voxtral_voice_id` normalization | One-Time Migration | Data upgrade | Retain for compatibility | Low | Database tests | RETAIN |
 
 ## Completed Slices
@@ -72,19 +69,19 @@ rg -n "bridge_local|LocalBridgeHandler|in-process|fallback|legacy|v1|engine == \
 - [x] Renamed `BASELINE_XTTS_CPS` to `BASELINE_ENGINE_CPS` globally.
 - [x] Removed `voxtral_enabled` and other engine-named settings.
 
-### Slice D (Utilities) - 2026-05-01
-- [x] Renamed `sanitize_for_xtts` to `sanitize_text`.
-- [x] Moved `SENT_CHAR_LIMIT` and `SAFE_SPLIT_TARGET` to plugin manifests.
-- [x] Refactored `analysis.py` to use manifest-driven text limits.
+### Slice G (Audit) - 2026-05-01
+- [x] Audited engine-name coupling across `app`, `plugins`, `frontend`.
+- [x] Classified findings into Internal vs Obsolete vs Strategy.
+- [x] Identified wasteful tests relying on removed `config.py` constants.
+- [x] Confirmed `xtts_cps` and `xtts_render_history` are only present in migration logic.
+
+### Slice H (Test Cleanup and Dead Legacy Removal) - 2026-05-01
+- [x] Deleted `app/engines/bridge_local.py` (no longer used by agnostic runtime).
+- [x] Removed `bridge.local` fallback from `/engines` endpoint.
+- [x] Pruned wasteful legacy tests in `test_api_final_validation.py` and `test_api_tts_api.py`.
+- [x] Fixed broken imports and patches in `test_xtts_handler.py`.
+- [x] Verified 100% pass rate for relevant test suites.
 
 ## Remaining Risks
-- **Performance History Migration**: Moving from `xtts_cps` to generic metrics must preserve existing user data accurately.
 - **UI Label Drift**: Frontend still has hardcoded "XTTS" and "Voxtral" strings in some labels; these should come from plugin `display_name`.
 - **Test Coverage**: Many tests still use `"xtts"` as a literal. These should be updated to use engine IDs from discovery or fixtures.
-
-### Slice F (State, Settings, And Metrics) - 2026-05-01
-- [x] Renamed `xtts_cps` to `engine_cps` in state and DB settings.
-- [x] Replaced `xtts_render_history` logic with generic `render_history` and SQL-backed metrics.
-- [x] Migrated `_record_xtts_sample` to generic `record_engine_sample` available to all plugins.
-- [x] Verified engine-agnostic performance tracking with tests.
-- [x] Renamed `BASELINE_XTTS_CPS` to `BASELINE_ENGINE_CPS` globally.
