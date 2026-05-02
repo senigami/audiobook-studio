@@ -30,11 +30,11 @@ rg -n "bridge_local|LocalBridgeHandler|in-process|fallback|legacy|v1|engine == \
 | Classification | Count | Definition |
 | --- | --- | --- |
 | **Plugin Internal** | 52 | Allowed inside `plugins/` and `app/engines/voice/*` adapters. |
-| **Obsolete Coupling** | 8 | Hardcoded engine logic in main app (Legacy Dashboard, UI). |
+| **Obsolete Coupling** | 8 | Hardcoded engine logic in main app (Registry-based now). |
 | **One-Time Migration** | 12 | Scripts/logic converting old persisted names/storage to v2. |
-| **Intentional Strategy** | 15 | Registry-based dispatch and capability checks (no engine names). |
-| **Dead Legacy Fallback**| 0 | Severed v1 paths like `bridge_local.py` (Removed). |
-| **Wasteful Test** | 0 | Tests asserting hardcoded engine behavior or local fallback (Pruned/Refactored). |
+| **Intentional Strategy** | 17 | Registry-based dispatch and capability checks (no engine names). |
+| **Dead Legacy Fallback**| 0 | Severed v1 paths like `bridge_local.py` or `dashboard_templates.py` (Deleted). |
+| **Wasteful Test** | 0 | Tests asserting hardcoded engine behavior or legacy functions (Pruned/Refactored). |
 
 ## Refreshed Inventory
 
@@ -42,10 +42,13 @@ rg -n "bridge_local|LocalBridgeHandler|in-process|fallback|legacy|v1|engine == \
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `app/state_performance.py` | `xtts_cps` normalization | One-Time Migration | Metrics | State normalization during pop | Low | Boot tests | COMPLETED |
 | `app/api/routers/voices_actions.py` | `voice-asset-id` route | Intentional Strategy | API | Behavior-based generic route | Low | Voice Settings check | COMPLETED |
-| `tests/test_api_final_validation.py` | `XTTS_OUT_DIR` reference | Wasteful Test | None | Remove/Rewrite | Low | Test run | Slice H: Test Cleanup |
-| `tests/test_api_tts_api.py` | `XTTS_OUT_DIR` monkeypatch | Wasteful Test | None | Remove/Rewrite | Low | Test run | Slice H: Test Cleanup |
-| `app/dashboard_templates.py` | Legacy Dashboard | Obsolete Coupling | UI | Delete once v2 dashboard is parity | Medium | Dashboard check | Slice E: UI Cleanup |
+| `tests/test_api_final_validation.py` | `XTTS_OUT_DIR` reference | Wasteful Test | None | Remove/Rewrite | Low | Test run | COMPLETED |
+| `tests/test_api_tts_api.py` | `XTTS_OUT_DIR` monkeypatch | Wasteful Test | None | Remove/Rewrite | Low | Test run | COMPLETED |
+| `app/dashboard_templates.py` | Legacy Dashboard | Dead Legacy | UI | Deleted file | Low | File deletion | COMPLETED |
 | `app/db/speakers.py` | `voxtral_voice_id` normalization | One-Time Migration | Data upgrade | Retain for compatibility | Low | Database tests | RETAIN |
+| `app/jobs/worker.py` | `xtts` fallback in loops | Obsolete Coupling | Worker | Replaced with settings.default_engine | Low | Worker check | COMPLETED |
+| `frontend/.../ApiSettingsPanel.tsx` | Example engine IDs | Intentional Strategy | Docs | Generalised to cloud/local-engine | Low | UI check | COMPLETED |
+| `tests/test_startup_eta.py` | `_record_xtts_sample` usage | Wasteful Test | None | Refactored to record_engine_sample | Low | Test run | COMPLETED |
 
 ## Completed Slices
 

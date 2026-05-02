@@ -113,7 +113,7 @@ def test_history_params_do_not_double_count_character_and_segment_time():
     assert _estimate_seconds(1000, 16.7, group_count=10, robust_params=robust_params) == 54
 
 def test_robust_params_bounded_history(monkeypatch):
-    from app.jobs.worker import _record_xtts_sample
+    from app.jobs.worker_metrics import record_engine_sample
     from app.models import Job
     from app.db.core import get_connection
     from app.db.performance import record_render_sample
@@ -137,14 +137,14 @@ def test_robust_params_bounded_history(monkeypatch):
 
     monkeypatch.setattr("app.jobs.worker.get_jobs", lambda: {"j1": job})
 
-    _record_xtts_sample(job, time.time() - 20, 100, {})
+    record_engine_sample(job, time.time() - 20, 100, {})
 
     # Check via the public metrics API which now aggregates from DB
     res = get_performance_metrics()
-    assert len(res["xtts_render_history"]) == 30
+    assert len(res["render_history"]) == 30
 
 def test_cancelled_jobs_do_not_train_history(monkeypatch):
-    from app.jobs.worker import _record_xtts_sample
+    from app.jobs.worker_metrics import record_engine_sample
     from app.models import Job
     from app.state import get_performance_metrics
     from app.db.core import get_connection
@@ -163,13 +163,13 @@ def test_cancelled_jobs_do_not_train_history(monkeypatch):
     monkeypatch.setattr("app.jobs.worker.update_performance_metrics", lambda **updates: captured.update(updates))
 
     # Should not trigger a write to DB
-    _record_xtts_sample(job, time.time() - 20, 100, {})
+    record_engine_sample(job, time.time() - 20, 100, {})
 
     res = get_performance_metrics()
-    assert len(res["xtts_render_history"]) == 0
+    assert len(res["render_history"]) == 0
 
 def test_running_jobs_do_not_train_history(monkeypatch):
-    from app.jobs.worker import _record_xtts_sample
+    from app.jobs.worker_metrics import record_engine_sample
     from app.models import Job
     from app.state import get_performance_metrics
     from app.db.core import get_connection
@@ -184,13 +184,13 @@ def test_running_jobs_do_not_train_history(monkeypatch):
 
     monkeypatch.setattr("app.jobs.worker.get_jobs", lambda: {"j1": job})
 
-    _record_xtts_sample(job, time.time() - 20, 100, {})
+    record_engine_sample(job, time.time() - 20, 100, {})
 
     res = get_performance_metrics()
-    assert len(res["xtts_render_history"]) == 0
+    assert len(res["render_history"]) == 0
 
-def test_record_xtts_sample_uses_persisted_done_job_and_finished_clock(monkeypatch):
-    from app.jobs.worker import _record_xtts_sample
+def test_record_engine_sample_uses_persisted_done_job_and_finished_clock(monkeypatch):
+    from app.jobs.worker_metrics import record_engine_sample
     from app.models import Job
     from app.state import get_performance_metrics
     from app.db.core import get_connection
@@ -215,11 +215,11 @@ def test_record_xtts_sample_uses_persisted_done_job_and_finished_clock(monkeypat
     monkeypatch.setattr("app.state.get_jobs", lambda: {"j1": persisted_job})
 
     # Passing a dummy start time, it should be ignored in favor of persisted_job.synthesis_started_at
-    _record_xtts_sample(stale_job, 0, 600, {}, source_segment_count=3)
+    record_engine_sample(stale_job, 0, 600, {}, source_segment_count=3)
 
     # Check via the public metrics API
     res = get_performance_metrics()
-    history = res["xtts_render_history"]
+    history = res["render_history"]
     assert history
 
     sample = history[-1]

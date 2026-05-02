@@ -17,7 +17,7 @@ from .core import (
 # Handler Registry
 from .registry import get_handler_registry, initialize_default_handlers
 
-from ..state import get_jobs, update_job, get_performance_metrics, update_performance_metrics as _update_performance_metrics
+from ..state import get_jobs, update_job, get_settings, get_performance_metrics, update_performance_metrics as _update_performance_metrics
 from ..config import CHAPTER_DIR, AUDIO_OUT_DIR
 from ..pathing import safe_join
 from .reconcile import _output_exists
@@ -57,7 +57,7 @@ def worker_loop(q):
             eta_unit_count = 1
             text = None
             perf = get_performance_metrics()
-            engine_id = getattr(j, "engine", "xtts")
+            engine_id = getattr(j, "engine", get_settings().get("default_engine", "xtts"))
             engine_cps_map = perf.get("engine_cps", {})
             cps = engine_cps_map.get(engine_id, BASELINE_ENGINE_CPS)
 
@@ -70,7 +70,7 @@ def worker_loop(q):
                 voice_job_settings = get_speaker_settings(j.speaker_profile)
                 chars = len((voice_job_settings.get("test_text") or "").strip())
                 from ..engines.behavior import has_behavior
-                target_engine = voice_job_settings.get("engine", "xtts")
+                target_engine = voice_job_settings.get("engine", get_settings().get("default_engine", "xtts"))
                 if chars > 0 and has_behavior(target_engine, "cps_eta"):
                     eta = _estimate_seconds(chars, cps, group_count=eta_unit_count)
                 else:
