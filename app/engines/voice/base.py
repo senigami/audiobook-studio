@@ -1,18 +1,17 @@
 """Base voice engine contracts.
 
-This module contains two contracts that coexist during the Phase 5 migration
-window:
+This module contains the shared voice contracts used by the job layer and the
+plugin engines:
 
-- ``BaseVoiceEngine`` — the original internal contract used by the legacy
-  in-process engine adapters (XTTS, Voxtral).  Preserved for backward
-  compatibility until Phase 8 cleanup.
+- ``BaseVoiceEngine`` - the legacy internal contract kept for app-side bridge
+  compatibility while the system finishes moving engine-specific behavior into
+  plugin bundles.
 
-- ``StudioTTSEngine`` — the new public SDK contract that all plugin engines
-  must implement.  Plugins run inside the TTS Server subprocess and are
-  discovered via the ``plugins/tts_*/`` folder scanning mechanism.
+- ``StudioTTSEngine`` - the public SDK contract that all plugin engines must
+  implement.  Plugins run inside the TTS Server subprocess and are discovered
+  via the root ``plugins/`` bundle scan.
 
-New engines should implement ``StudioTTSEngine``.  Existing adapters continue
-to use ``BaseVoiceEngine`` until they are migrated in Stream 3.
+New engines should implement ``StudioTTSEngine``.
 """
 
 from __future__ import annotations
@@ -27,9 +26,8 @@ from app.engines.voice.sdk import TTSRequest, TTSResult, VerificationResult, Voi
 class BaseVoiceEngine:
     """Placeholder base voice engine contract.
 
-    Preserved for backward compatibility with the legacy in-process engine
-    adapters (XTTS, Voxtral) during the Phase 5 migration.  New engines
-    should implement ``StudioTTSEngine`` instead.
+    Preserved for app-side bridge compatibility with legacy engine adapters
+    while the plugin bundles own the real synthesis implementations.
     """
 
     def hooks(self) -> VoiceProcessingHooks:

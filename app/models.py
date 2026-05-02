@@ -1,13 +1,13 @@
 from dataclasses import dataclass
 from typing import Optional, Literal, List
 
-Engine = Literal["xtts", "voxtral", "mixed", "audiobook", "voice_build", "voice_test"]
+JobEngineId = Literal["xtts", "voxtral", "mixed", "audiobook", "voice_build", "voice_test"]
 Status = Literal["queued", "preparing", "running", "finalizing", "done", "failed", "cancelled"]
 
 @dataclass
 class Job:
     id: str
-    engine: Engine
+    engine: JobEngineId
     status: Status
     created_at: float
 

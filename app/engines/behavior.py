@@ -1,8 +1,8 @@
 """Plugin-declared behavior helpers for engine-specific policy.
 
 App code should ask what a plugin declares instead of branching on concrete
-engine ids. This module intentionally stays small while Phase 11 moves the
-remaining XTTS/Voxtral-specific policy behind plugin metadata.
+engine ids. This module intentionally stays small while plugin metadata owns
+the engine-specific policy.
 """
 
 from __future__ import annotations

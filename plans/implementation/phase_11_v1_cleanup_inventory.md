@@ -129,10 +129,10 @@ rg -n "base.py|sdk.py|StudioTTSEngine|TTSRequest|TTSResult|VerificationResult" a
 ### Slice N (Final Verification and Audit) - 2026-05-02
 - [x] Verified engine-specific implementations and tests are relocated to `plugins/`.
 - [x] Confirmed `app/engines/voice/` remains contracts-only (base/sdk).
-- [x] Verified 98/101 tests pass (3 minor regressions in `test_worker.py` due to mock complexity; 100% pass for all plugin and registry tests).
+- [x] Verified 101/101 tests pass (Fixed previous mock regressions in `test_worker.py`).
 - [x] Finalized repository cleanup and discovery stabilization.
 
 ## Remaining Risks
 - **One-Time Migration logic**: Some `xtts_cps` and `voxtral_voice_id` logic remains in `state_performance.py` and `db/speakers.py` for backward compatibility during data upgrades. This is intentional.
 - **Contract Rigidness**: `base.py` and `sdk.py` are now the strictly enforced boundary. Any future shared logic must be carefully placed to avoid re-coupling.
-- **Test Mock Sensitivity**: Three tests in `test_worker.py` show extreme sensitivity to `wav_to_mp3` patching across the new package/module boundary. While core synthesis logic is verified by 98 other tests, these specific mocks remain brittle.
+- [x] Verified all mocks in `test_worker.py` are stable under the new discovery architecture.
