@@ -77,6 +77,7 @@ The Antigravity plans are useful, but execution still needs dependency ordering.
 - Do not move large handler systems into `plugins/` until a registry contract exists and is tested. Moving files first would create churn without improving the boundary.
 - Do not treat plugin-internal implementation references as app-level coupling. Engine-specific code is allowed inside plugin packages and adapter implementation boundaries.
 - Do not treat the current `plugins/` name as final architecture. The eventual namespace rename to `tts_engines/` and the later introduction of a separate app-behavior `plugins/` space are deferred follow-up work, not active Phase 11 scope.
+- Keep engine-owned tests, fixtures, and helper modules inside the owning engine bundle so each engine directory can later be extracted as a self-contained repo.
 
 ## Reference Classification Rules
 

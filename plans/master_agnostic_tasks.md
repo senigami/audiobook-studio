@@ -74,3 +74,4 @@
 - [ ] Rename any voice/profile bundle namespace that should align with the same naming convention to `tts_voices/`.
 - [ ] Reserve a future plain `plugins/` space for non-engine app-behavior extensions once the engine bundle rename is complete.
 - [ ] Update docs, plugin templates, and discovery code to distinguish engine bundles from app-behavior plugins.
+- [ ] Move engine-owned tests, fixtures, and helper files into the owning engine bundle so XTTS/Voxtral can be extracted as self-contained repos later.

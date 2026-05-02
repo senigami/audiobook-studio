@@ -30,6 +30,7 @@ The current `plugins/` folder name is a practical engine-container, not the fina
 - Future rename candidate for the current engine bundle area: `tts_engines/`.
 - Future rename candidate for the voice/profile data area if needed: `tts_voices/`.
 - A later, separate app-behavior plugin system may use the plain `plugins/` name for non-engine extensions inspired by Stable Diffusion-style plugin boundaries.
+- Engine-specific tests, fixtures, and helper files should be treated as part of the owning engine bundle and live alongside that bundle rather than in the app root.
 
 This rename is deferred until the runtime cutover and cleanup slices are complete. It should be treated as a separate structural phase, not mixed into the active runtime migration.
 
