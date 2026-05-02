@@ -95,7 +95,7 @@ def setting_aliases_for(
     *,
     behavior: Mapping[str, Any] | None = None,
 ) -> dict[str, str]:
-    """Return legacy/input aliases declared by the plugin behavior metadata."""
+    """Return setting aliases declared by the plugin behavior metadata."""
     normalized = behavior_for_engine(engine_id, behavior=behavior)
     return dict(normalized.get("setting_aliases", {}))
 
@@ -140,7 +140,7 @@ def get_behavior(
     *,
     behavior: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Backward-compatible alias for behavior resolution within the app."""
+    """Resolve behavior for an engine (backward compatibility shim)."""
     return behavior_for_engine(engine_id, behavior=behavior)
 
 

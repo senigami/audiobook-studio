@@ -9,12 +9,12 @@ evaluates claims against current availability before allowing a task to run.
 GPU admission enforcement
 -------------------------
 ``GpuAdmissionGate`` enforces the rule that only one GPU task may run at
-a time.  This matches the legacy behavior (one XTTS job at a time) but
-moves the policy into the scheduler layer where it belongs.
+a time.  This ensures exclusive GPU access for synthesis workloads while
+moving the policy into the scheduler layer where it belongs.
 
-Current state (Phase 5): The ``GpuAdmissionGate`` is a module-level
+Current state: The ``GpuAdmissionGate`` is a module-level
 singleton that tracks active GPU tasks in memory.  It is thread-safe for
-single-process use.  Distributed enforcement (multi-worker) is deferred.
+single-process use.
 """
 
 from __future__ import annotations
@@ -47,7 +47,7 @@ class ResourceClaim:
 
     @classmethod
     def gpu_heavy(cls, vram_mb: int = 4000) -> "ResourceClaim":
-        """Return a claim for GPU-heavy tasks (e.g. XTTS synthesis)."""
+        """Return a claim for GPU-heavy synthesis tasks."""
         return cls(gpu=True, vram_mb=vram_mb, cpu_heavy=True)
 
     @classmethod

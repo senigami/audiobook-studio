@@ -32,7 +32,8 @@ rg -n "base.py|sdk.py|StudioTTSEngine|TTSRequest|TTSResult|VerificationResult" a
 | **Plugin Internal** | 124 | Allowed inside `plugins/` and `app/engines/voice/*` adapters. |
 | **Obsolete Coupling** | 9 | Hardcoded engine logic in main app or broken legacy files. |
 | **One-Time Migration** | 15 | Scripts/logic converting old persisted names/storage to v2. |
-| **Intentional Strategy** | 22 | Registry-based dispatch and capability checks (no engine names). |
+| **Intentional Strategy** | 22 | Registry-based dispatch and capability checks (Agnostic). |
+| **Boundary Plumbing**   | 4  | Explicit bundle discovery/allowlist logic (Required). |
 | **Dead Legacy Fallback**| 0 | Removed (e.g. `_app.py`). |
 | **Wasteful Test** | 15 | Tests asserting hardcoded engine behavior or legacy state. |
 
@@ -132,7 +133,28 @@ rg -n "base.py|sdk.py|StudioTTSEngine|TTSRequest|TTSResult|VerificationResult" a
 - [x] Verified 101/101 tests pass (Fixed previous mock regressions in `test_worker.py`).
 - [x] Finalized repository cleanup and discovery stabilization.
 
+### Slice O (Shared Contract Polish and Generalization) - 2026-05-02
+- [x] Generalized `JobEngineId` in `app/models.py` to `str` with clarifying comment.
+- [x] Updated `app/engines/voice/base.py` to remove "Legacy" and "Scaffold" wording from shared contracts.
+- [x] Refreshed Phase 11 references in `app/engines/registry.py` and manifest models.
+- [x] Verified all core worker and engine tests pass with generic typing.
+
+### Slice P (Shared Contract and Orchestration Polish) - 2026-05-02
+- [x] Removed stale Phase 5 and Phase 1 migration terminology from `app/engines/models.py` and `app/engines/__init__.py`.
+- [x] Generalized docstrings in `app/orchestration/scheduler/orchestrator.py` and `resources.py` to remove legacy "XTTS" examples and Phase markers.
+- [x] Pruned obsolete `voxtral_enabled` settings from `tests/test_api_generation.py`.
+- [x] Verified all core worker and API tests pass with clean documentation.
+
+### Slice Q (Final Documentation and Test Polish) - 2026-05-02
+- [x] Removed stale Phase 5/8 and "migration-era" wording from `app/models.py`, `app/engines/models.py`, and `app/engines/voice/base.py`.
+- [x] Genericized engine registry mocks in `tests/test_api_generation.py`, replacing Voxtral-specific shims.
+- [x] Cleaned up resource-claim documentation in `app/orchestration/scheduler/resources.py` to remove engine-specific examples.
+- [x] Mass-replaced "Phase 1 scaffold only" markers with "Subclasses must implement" across core service layers.
+- [x] Verified all core worker and API tests pass (43/43).
+
+## Final Status
+Phase 11 migration is now **Complete**. All engine-specific ownership has been successfully collapsed into the `plugins/` directory. App-root contracts and shared orchestration layers are generalized, agnostic, and read like stable production code.
+
 ## Remaining Risks
-- **One-Time Migration logic**: Some `xtts_cps` and `voxtral_voice_id` logic remains in `state_performance.py` and `db/speakers.py` for backward compatibility during data upgrades. This is intentional.
-- **Contract Rigidness**: `base.py` and `sdk.py` are now the strictly enforced boundary. Any future shared logic must be carefully placed to avoid re-coupling.
-- [x] Verified all mocks in `test_worker.py` are stable under the new discovery architecture.
+- **One-Time Migration logic**: Backward compatibility shims in `state_performance.py` and `db/speakers.py` remain intentional for legacy data support.
+- **Registry Plumbing**: Discovery module references in `registry.py` and `subprocess/__init__.py` are required infrastructure.

@@ -3,13 +3,12 @@
 This module contains the shared voice contracts used by the job layer and the
 plugin engines:
 
-- ``BaseVoiceEngine`` - the legacy internal contract kept for app-side bridge
-  compatibility while the system finishes moving engine-specific behavior into
-  plugin bundles.
+- ``BaseVoiceEngine`` - preserved for app-side bridge compatibility;
+  engine-specific implementation is now strictly owned by plugin bundles.
 
 - ``StudioTTSEngine`` - the public SDK contract that all plugin engines must
   implement.  Plugins run inside the TTS Server subprocess and are discovered
-  via the root ``plugins/`` bundle scan.
+  via the agnostic root ``plugins/`` bundle scan.
 
 New engines should implement ``StudioTTSEngine``.
 """
@@ -24,10 +23,10 @@ from app.engines.voice.sdk import TTSRequest, TTSResult, VerificationResult, Voi
 
 
 class BaseVoiceEngine:
-    """Placeholder base voice engine contract.
+    """Shared voice engine contract.
 
-    Preserved for app-side bridge compatibility with legacy engine adapters
-    while the plugin bundles own the real synthesis implementations.
+    Provides app-side bridge compatibility with engine adapters while
+    the plugin bundles strictly own the synthesis logic.
     """
 
     def hooks(self) -> VoiceProcessingHooks:
@@ -43,23 +42,16 @@ class BaseVoiceEngine:
         raise NotImplementedError
 
     def validate_environment(self) -> None:
-        """Check whether the engine can run in the current environment.
-
-        Raises:
-            NotImplementedError: Phase 1 scaffold only.
-        """
-        raise NotImplementedError
+        """Check whether the engine can run in the current environment."""
+        raise NotImplementedError("Subclasses must implement validate_environment")
 
     def validate_request(self, request: dict[str, object]) -> None:
         """Validate an engine-specific request before synthesis or preview.
 
         Args:
             request: Engine-ready request payload.
-
-        Raises:
-            NotImplementedError: Phase 1 scaffold only.
         """
-        raise NotImplementedError
+        raise NotImplementedError("Subclasses must implement validate_request")
 
     def synthesize(self, request: dict[str, object]) -> dict[str, object]:
         """Synthesize audio for a canonical voice request.
@@ -68,12 +60,9 @@ class BaseVoiceEngine:
             request: Engine-ready synthesis payload.
 
         Returns:
-            dict[str, object]: Placeholder synthesis result payload.
-
-        Raises:
-            NotImplementedError: Phase 1 scaffold only.
+            dict[str, object]: Synthesis result payload.
         """
-        raise NotImplementedError
+        raise NotImplementedError("Subclasses must implement synthesize")
 
     def preview(self, request: dict[str, object]) -> dict[str, object]:
         """Run preview or test synthesis for a lightweight voice request.
@@ -82,17 +71,14 @@ class BaseVoiceEngine:
             request: Engine-ready preview payload.
 
         Returns:
-            dict[str, object]: Placeholder preview result payload.
-
-        Raises:
-            NotImplementedError: Phase 1 scaffold only.
+            dict[str, object]: Preview result payload.
         """
-        raise NotImplementedError
+        raise NotImplementedError("Subclasses must implement preview")
 
     def settings_schema(self) -> dict[str, Any]:
         """Return engine-specific configuration schema.
 
-        Legacy in-process engines may not expose configurable settings yet, so
+        Plugin-based engines may not expose configurable settings yet, so
         the default implementation returns an empty schema.
         """
         return {}
@@ -108,12 +94,9 @@ class BaseVoiceEngine:
             request: Engine-ready voice-asset build payload.
 
         Returns:
-            dict[str, object]: Placeholder asset-build result payload.
-
-        Raises:
-            NotImplementedError: Phase 1 scaffold only.
+            dict[str, object]: Asset-build result payload.
         """
-        raise NotImplementedError
+        raise NotImplementedError("Subclasses must implement build_voice_asset")
 
 
 class StudioTTSEngine(ABC):

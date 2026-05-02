@@ -6,6 +6,7 @@
   "version": "1.0.0",
   "min_studio": "2.0.0",
   "entry_class": "engine:VoxtralPlugin",
+  "app_adapter_class": "VoxtralVoiceEngine",
   "capabilities": ["synthesis", "preview"],
   "worker_logic": {
     "engine_handlers": {

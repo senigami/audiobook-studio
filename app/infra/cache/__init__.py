@@ -12,7 +12,7 @@ def build_cache_key(*, namespace: str, identifier: str) -> str:
         str: Deterministic cache key.
 
     Raises:
-        NotImplementedError: Phase 1 scaffold only.
+        NotImplementedError: Subclasses must implement.
     """
     _ = (namespace, identifier)
     raise NotImplementedError

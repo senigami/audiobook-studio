@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional, Literal, List
 
-JobEngineId = Literal["xtts", "voxtral", "mixed", "audiobook", "voice_build", "voice_test"]
+JobEngineId = str
 Status = Literal["queued", "preparing", "running", "finalizing", "done", "failed", "cancelled"]
 
 @dataclass

@@ -1,20 +1,11 @@
 """Engine registry and bridge package for Studio 2.0.
 
-Phase 1 compatibility note:
-- This package intentionally coexists with the legacy ``app/engines.py`` module.
-- Until the engine cutover phase is complete, unresolved attribute access falls
-  back to the legacy module so existing imports continue to work.
-
-Compatibility behavior:
-- Legacy helpers still execute against the legacy module globals.
-- Test and migration code often patches ``app.engines.*`` directly.
-- To keep those patches effective during the coexistence phase, writes to this
-  package are mirrored into the legacy module when the same name exists there.
-
-Phase 5 note:
+Boundary plumbing:
+- This package provides the agnostic interface (Bridge/Registry) for Studio 2.0.
+- It coexists with the ``app/engines.py`` shim while callers transition to the
+  package form.
 - Studio boot wiring starts the TTS Server watchdog explicitly before
-  synthesis work is routed through the bridge. Importing this package must
-  not start threads or subprocesses on its own.
+  synthesis work is routed through the bridge.
 """
 
 from __future__ import annotations

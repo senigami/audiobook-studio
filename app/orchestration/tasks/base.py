@@ -50,13 +50,12 @@ class TaskResult:
 
 
 class StudioTask:
-    """Placeholder task interface for all queueable Studio 2.0 work."""
-
+    """Task interface for all queueable Studio 2.0 work."""
     def validate(self) -> None:
         """Validate task payload before it enters the scheduler.
 
         Raises:
-            NotImplementedError: Phase 1 scaffold only.
+            NotImplementedError: Subclasses must implement.
         """
         raise NotImplementedError
 
@@ -67,7 +66,7 @@ class StudioTask:
             TaskContext: Stable task identity and parent ownership data.
 
         Raises:
-            NotImplementedError: Phase 1 scaffold only.
+            NotImplementedError: Subclasses must implement.
         """
         raise NotImplementedError
 
@@ -78,7 +77,7 @@ class StudioTask:
             TaskResult: Placeholder task completion result.
 
         Raises:
-            NotImplementedError: Phase 1 scaffold only.
+            NotImplementedError: Subclasses must implement.
         """
         raise NotImplementedError
 
@@ -86,6 +85,6 @@ class StudioTask:
         """Release task-level resources when a task is cancelled.
 
         Raises:
-            NotImplementedError: Phase 1 scaffold only.
+            NotImplementedError: Subclasses must implement.
         """
         raise NotImplementedError

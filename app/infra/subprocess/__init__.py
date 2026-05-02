@@ -4,9 +4,10 @@ This package will hold safe wrappers for engine launches, ffmpeg, and other
 external processes so engine adapters do not manage process details ad hoc.
 """
 
+# Intentional plugin-boundary allowlist: installed plugin bundles are
+# authorized to manage subprocess lifecycles for external engine binaries.
 INTENDED_UPSTREAM_CALLERS = (
-    "plugins.tts_xtts.app_adapter",
-    "plugins.tts_voxtral.app_adapter",
+    "plugins.",
     "app.domain.artifacts.cache",
 )
 INTENDED_DOWNSTREAM_DEPENDENCIES = ()
@@ -29,7 +30,7 @@ def run_managed_subprocess(*, command: list[str], context: str) -> dict[str, obj
         dict[str, object]: Placeholder subprocess result payload.
 
     Raises:
-        NotImplementedError: Phase 1 scaffold only.
+        NotImplementedError: Subclasses must implement.
     """
     _ = (command, context)
     raise NotImplementedError
@@ -49,7 +50,7 @@ def run_managed_subprocess_async(
         dict[str, object]: Placeholder subprocess result payload.
 
     Raises:
-        NotImplementedError: Phase 1 scaffold only.
+        NotImplementedError: Subclasses must implement.
     """
     _ = (command, context)
     raise NotImplementedError

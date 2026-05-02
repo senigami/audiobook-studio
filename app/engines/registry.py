@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import json
 import logging
 from functools import lru_cache
@@ -34,12 +35,8 @@ def load_engine_registry() -> dict[str, EngineRegistrationModel]:
 
 
 @lru_cache(maxsize=1)
-def _load_legacy_local_registry() -> dict[str, EngineRegistrationModel]:
-    """Load discovery metadata plus adapter instances (Legacy in-process path).
-
-    This path is deprecated in Phase 11 and remains only for test isolation
-    and minimal development environments.
-    """
+def _load_local_registry() -> dict[str, EngineRegistrationModel]:
+    """Load discovery metadata plus adapter instances from installed plugin bundles."""
     registry = _load_builtin_engines()
     registry.update(_load_plugin_engines())
     return registry
@@ -156,7 +153,7 @@ def _manifest_from_tts_server_payload(data: dict) -> EngineManifestModel:
     return EngineManifestModel(
         engine_id=engine_id,
         display_name=display_name,
-        phase="5",
+        phase="11",
         module_path=f"tts_server.plugin.{engine_id}",
         capabilities=capabilities,
         built_in=False,
@@ -243,9 +240,9 @@ class _TtsServerEngineProxy:
 # ---------------------------------------------------------------------------
 
 def _load_builtin_engines() -> dict[str, EngineRegistrationModel]:
-    """Discover built-in engine adapters shipped with the app."""
+    """Discover app-side adapters declared by installed plugin bundles."""
     registry: dict[str, EngineRegistrationModel] = {}
-    for manifest_path, engine_cls in _builtin_engine_specs():
+    for manifest_path, engine_cls in _plugin_adapter_specs():
         manifest = _load_engine_manifest(manifest_path=manifest_path)
         engine = engine_cls(manifest=manifest)
         health = engine.describe_health()
@@ -258,14 +255,7 @@ def _load_builtin_engines() -> dict[str, EngineRegistrationModel]:
 
 
 def _load_plugin_engines() -> dict[str, EngineRegistrationModel]:
-    """Discover optional plugin-provided engine adapters.
-
-    .. note::
-
-       **Current state (Phase 5)**: Returns an empty dict.  Plugin engines
-       are loaded by the TTS Server subprocess, not the in-process registry.
-       The ``_load_tts_server_registry()`` path covers the TTS Server case.
-    """
+    """Discover optional plugin-provided engine adapters."""
     return {}
 
 
@@ -300,30 +290,63 @@ def _load_engine_manifest(*, manifest_path: Path) -> EngineManifestModel:
     )
 
 
-def _builtin_engine_specs() -> list[tuple[Path, type[BaseVoiceEngine]]]:
-    """Return the built-in engine manifests and adapter classes.
-
-    Discovery is now directed at the root plugins/ directory.
-    """
+def _plugin_adapter_specs() -> list[tuple[Path, type[BaseVoiceEngine]]]:
+    """Return adapter manifests declared by installed plugin bundles."""
     from app.config import PLUGINS_DIR
 
     specs = []
 
-    # XTTS
-    xtts_plugin_dir = PLUGINS_DIR / "tts_xtts"
-    if xtts_plugin_dir.is_dir():
-        manifest_path = xtts_plugin_dir / "manifest.json"
-        if manifest_path.exists():
-            from plugins.tts_xtts.app_adapter import XttsVoiceEngine
-            specs.append((manifest_path, XttsVoiceEngine))
+    for plugin_dir in sorted(PLUGINS_DIR.iterdir()):
+        if not plugin_dir.is_dir():
+            continue
 
-    # Voxtral
-    voxtral_plugin_dir = PLUGINS_DIR / "tts_voxtral"
-    if voxtral_plugin_dir.is_dir():
-        manifest_path = voxtral_plugin_dir / "manifest.json"
-        if manifest_path.exists():
-            from plugins.tts_voxtral.app_adapter import VoxtralVoiceEngine
-            specs.append((manifest_path, VoxtralVoiceEngine))
+        manifest_path = plugin_dir / "manifest.json"
+        if not manifest_path.exists():
+            continue
+
+        try:
+            payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            logger.debug(
+                "Skipping plugin bundle %s: failed to parse manifest (%s)",
+                plugin_dir.name,
+                exc,
+            )
+            continue
+
+        adapter_class_name = str(payload.get("app_adapter_class") or "").strip()
+        if not adapter_class_name:
+            continue
+
+        adapter_module_name = (
+            str(payload.get("app_adapter_module") or "app_adapter").strip()
+            or "app_adapter"
+        )
+        module_path = f"plugins.{plugin_dir.name}.{adapter_module_name}"
+
+        try:
+            module = importlib.import_module(module_path)
+            engine_cls = getattr(module, adapter_class_name)
+        except Exception as exc:
+            logger.warning(
+                "Plugin bundle %s declared adapter %s.%s but it could not be imported: %s",
+                plugin_dir.name,
+                module_path,
+                adapter_class_name,
+                exc,
+            )
+            continue
+
+        if not isinstance(engine_cls, type) or not issubclass(engine_cls, BaseVoiceEngine):
+            logger.warning(
+                "Plugin bundle %s declared non-voice adapter %s.%s; skipping",
+                plugin_dir.name,
+                module_path,
+                adapter_class_name,
+            )
+            continue
+
+        specs.append((manifest_path, engine_cls))
 
     return specs
 
@@ -334,4 +357,4 @@ def _manifest_module_path(manifest_path: Path) -> str:
     return f"plugins.{engine_dir.name}.app_adapter"
 
 
-load_engine_registry.cache_clear = _load_legacy_local_registry.cache_clear
+load_engine_registry.cache_clear = _load_local_registry.cache_clear

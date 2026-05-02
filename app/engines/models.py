@@ -1,13 +1,9 @@
 """Shared engine contract models for Studio 2.0.
 
-During the Phase 5 migration, this module serves two generations of engine
-metadata:
-
-- ``EngineManifestModel`` \u2014 original minimal manifest used by the legacy
-  in-process registry.  Extended with new optional SDK fields so both paths
-  can coexist without a breaking change.
-- ``ResourceProfile`` \u2014 new resource declaration used by the scheduler and
-  the TTS Server discovery path.
+This module defines models for engine metadata and discovery.
+- ``EngineManifestModel`` — manifest metadata describing an installed plugin.
+- ``ResourceProfile`` — resource declaration used by the scheduler and the
+  TTS Server discovery path.
 """
 
 from __future__ import annotations
@@ -44,17 +40,9 @@ class ResourceProfile:
 
 @dataclass(frozen=True)
 class EngineManifestModel:
-    """Discovery metadata for a voice engine adapter.
+    """Discovery metadata for an installed voice engine adapter."""
 
-    Legacy fields (``engine_id``, ``display_name``, ``phase``,
-    ``module_path``, ``notes``, ``capabilities``, ``built_in``) are preserved
-    for the in-process registry path.
-
-    New SDK fields are optional with safe defaults so existing registrations
-    remain valid during the migration window.
-    """
-
-    # Legacy fields — always present
+    # App-side discovery fields — always present
     engine_id: str
     display_name: str
     phase: str

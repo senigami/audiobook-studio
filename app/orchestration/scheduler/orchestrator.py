@@ -1,7 +1,8 @@
 """Task orchestrator for Studio 2.0.
 
-This is the Phase 5 centerpiece: a real implementation of submit(), recover(),
-and cancel() that uses Phase 4 reconciliation as the source of truth.
+This is the Studio 2.0 task orchestration layer: a real implementation of
+submit(), recover(), and cancel() that uses reconciliation as the source
+of truth.
 
 Ownership model
 ---------------

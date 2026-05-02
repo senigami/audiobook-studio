@@ -6,6 +6,7 @@
   "version": "1.0.0",
   "min_studio": "2.0.0",
   "entry_class": "engine:XttsPlugin",
+  "app_adapter_class": "XttsVoiceEngine",
   "capabilities": ["synthesis", "preview", "voice_cloning"],
   "worker_logic": {
     "engine_handlers": {
