@@ -5,8 +5,8 @@ TTS Server subprocess.  It must NOT import from ``app.api``, ``app.domain``,
 ``app.orchestration``, or ``app.db``.  All Studio internals are accessed via
 the HTTP boundary.
 
-The engine delegates actual synthesis to the legacy ``app.engines.xtts_generate``
-helper (which manages the XTTS subprocess) via a late import so that loading
+The engine delegates actual synthesis to the plugin-owned
+``plugins.tts_xtts.implementation`` helpers via late imports so that loading
 this module does not trigger model loading.
 """
 
@@ -21,6 +21,7 @@ from typing import Any
 # SDK contract types — the only app.* import allowed in plugin code.
 from app.engines.voice.sdk import TTSRequest, TTSResult, VerificationResult
 from app.engines.voice.base import StudioTTSEngine
+from app.engines.proc_utils import run_cmd_stream
 
 
 class XttsPlugin(StudioTTSEngine):
@@ -70,7 +71,7 @@ class XttsPlugin(StudioTTSEngine):
         try:
             # Late import to see if the engine adapter can load its dependencies.
             # This does not load the heavy model weights into GPU memory.
-            from app.engines import xtts_generate  # noqa: F401, PLC0415
+            from .implementation import xtts_generate  # noqa: F401, PLC0415
             return VerificationResult(ok=True, message="XTTS engine is ready.")
         except Exception as exc:
             return VerificationResult(
@@ -286,7 +287,7 @@ class XttsPlugin(StudioTTSEngine):
         voice_profile_dir: Path | None,
     ) -> int:
         """Delegate synthesis to the legacy XTTS generator."""
-        from app.engines import xtts_generate as _gen  # noqa: PLC0415
+        from .implementation import xtts_generate as _gen  # noqa: PLC0415
 
         return _gen(
             text=text,
@@ -309,7 +310,7 @@ class XttsPlugin(StudioTTSEngine):
         speed: float,
     ) -> int:
         """Delegate script synthesis to the legacy XTTS batch generator."""
-        from app.engines import xtts_generate_script as _gen_script  # noqa: PLC0415
+        from .implementation import xtts_generate_script as _gen_script  # noqa: PLC0415
 
         return _gen_script(
             script_json_path=script_json_path,
