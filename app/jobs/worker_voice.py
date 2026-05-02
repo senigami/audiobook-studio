@@ -6,17 +6,13 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from ..state import update_job
+from ..config import VOICES_DIR
 from ..engines.errors import EngineBridgeError
+from ..engines.audio_ops import wav_to_mp3
 from .speaker import get_speaker_wavs, get_speaker_settings, get_voice_profile_dir
 from .worker_helpers import _mark_queue_failed
 
 logger = logging.getLogger(__name__)
-
-from ..config import VOICES_DIR
-from ..engines.audio_ops import wav_to_mp3
-
-
-
 
 def _resolve_reference_audio_path(
     *,
