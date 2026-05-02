@@ -2,9 +2,9 @@
 
 ## Status
 
-Refreshed audit checkpoint on 2026-05-01. Slice D (Storage/Output Abstraction) is **Complete**. The application now uses generic `/out/audio/` routes and `AUDIO_OUT_DIR`. Slice C (Relocation) is also **Complete**, with engine handlers moved to `plugins/`.
+Refreshed audit checkpoint on 2026-05-02. Slice L (Engine Bundle Collapse) is **Complete**. Final residual audit confirms that `app/engines/voice/` is stripped of engine bundles, with only `base.py` and `sdk.py` remaining as the intentional contract survivors. 
 
-Phase 11 is now in **Hard Cutover** mode. All main-app engine-name references are technical debt unless strictly internal to a plugin or part of a one-time migration.
+Broken legacy survivors (e.g., `_app.py`) have been removed.
 
 ## Source Context
 
@@ -16,39 +16,37 @@ Phase 11 is now in **Hard Cutover** mode. All main-app engine-name references ar
     - No silent v1/in-process fallbacks.
     - `xtts_audio/` is generalized/removed.
     - Legacy storage helpers are for migration only.
+    - `app/engines/voice` is for contract boundary (base/sdk) only.
 
 ## Audit Commands Used
 
 ```bash
-rg -n "USE_TTS_SERVER|USE_STUDIO_ORCHESTRATOR|USE_V2_|feature_flags|is_feature_enabled|worker_logic|hooks\(|behavior" app plugins frontend tests plans docs
-rg -n "xtts|voxtral|voxtral_enabled|voxtral_voice_id|voxtral_model|xtts_speed|xtts_audio|/out/xtts|voice-asset-id|voxtral-voice-id" app plugins frontend tests plans docs
-rg -n "bridge_local|LocalBridgeHandler|in-process|fallback|legacy|v1|engine == \"xtts\"|engine == \"voxtral\"" app plugins frontend tests plans docs
+rg -n "app/engines/voice/(xtts|voxtral)|app\.engines\.voice\.(xtts|voxtral)|plugins/tts_(xtts|voxtral)/app_adapter|manifest_legacy|manifest\.json|settings_schema\.json|XTTS_OUT_DIR|voxtral_enabled|voxtral_voice_id" app plugins tests plans
+rg -n "base.py|sdk.py|StudioTTSEngine|TTSRequest|TTSResult|VerificationResult" app plugins tests
 ```
 
 ## Classification Summary
 
 | Classification | Count | Definition |
 | --- | --- | --- |
-| **Plugin Internal** | 52 | Allowed inside `plugins/` and `app/engines/voice/*` adapters. |
-| **Obsolete Coupling** | 8 | Hardcoded engine logic in main app (Registry-based now). |
-| **One-Time Migration** | 12 | Scripts/logic converting old persisted names/storage to v2. |
-| **Intentional Strategy** | 17 | Registry-based dispatch and capability checks (no engine names). |
-| **Dead Legacy Fallback**| 0 | Severed v1 paths like `bridge_local.py` or `dashboard_templates.py` (Deleted). |
-| **Wasteful Test** | 0 | Tests asserting hardcoded engine behavior or legacy functions (Pruned/Refactored). |
+| **Plugin Internal** | 124 | Allowed inside `plugins/` and `app/engines/voice/*` adapters. |
+| **Obsolete Coupling** | 9 | Hardcoded engine logic in main app or broken legacy files. |
+| **One-Time Migration** | 15 | Scripts/logic converting old persisted names/storage to v2. |
+| **Intentional Strategy** | 22 | Registry-based dispatch and capability checks (no engine names). |
+| **Dead Legacy Fallback**| 0 | Removed (e.g. `_app.py`). |
+| **Wasteful Test** | 15 | Tests asserting hardcoded engine behavior or legacy state. |
 
 ## Refreshed Inventory
 
 | Path | Reference | Classification | Runtime impact | Desired outcome | Risk | Verification | Recommended Slice |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| `_app.py` | Full legacy dashboard | Dead Legacy | None (Broken) | Delete | Low | File deletion | NEXT |
+| `scripts/sync_durations.py` | `XTTS_OUT_DIR` usage | Obsolete Coupling | Scripting | Update to `AUDIO_OUT_DIR` | Low | Script run | NEXT |
+| `app/config.py` | `XTTS_OUT_DIR` definition | Obsolete Coupling | Config | Delete (Generalized to `AUDIO_OUT_DIR`) | Medium | Boot tests | NEXT |
+| `tests/test_api_generation.py` | `voxtral_enabled` shim | Wasteful Test | None | Prune/Update to generic | Low | Test run | NEXT |
 | `app/state_performance.py` | `xtts_cps` normalization | One-Time Migration | Metrics | State normalization during pop | Low | Boot tests | COMPLETED |
-| `app/api/routers/voices_actions.py` | `voice-asset-id` route | Intentional Strategy | API | Behavior-based generic route | Low | Voice Settings check | COMPLETED |
-| `tests/test_api_final_validation.py` | `XTTS_OUT_DIR` reference | Wasteful Test | None | Remove/Rewrite | Low | Test run | COMPLETED |
-| `tests/test_api_tts_api.py` | `XTTS_OUT_DIR` monkeypatch | Wasteful Test | None | Remove/Rewrite | Low | Test run | COMPLETED |
-| `app/dashboard_templates.py` | Legacy Dashboard | Dead Legacy | UI | Deleted file | Low | File deletion | COMPLETED |
-| `app/db/speakers.py` | `voxtral_voice_id` normalization | One-Time Migration | Data upgrade | Retain for compatibility | Low | Database tests | RETAIN |
+| `app/db/speakers.py` | `voxtral_voice_id` normalization | One-Time Migration | Data upgrade | Retain for compatibility (aliases) | Low | Database tests | RETAIN |
 | `app/jobs/worker.py` | `xtts` fallback in loops | Obsolete Coupling | Worker | Replaced with settings.default_engine | Low | Worker check | COMPLETED |
-| `frontend/.../ApiSettingsPanel.tsx` | Example engine IDs | Intentional Strategy | Docs | Generalised to cloud/local-engine | Low | UI check | COMPLETED |
-| `tests/test_startup_eta.py` | `_record_xtts_sample` usage | Wasteful Test | None | Refactored to record_engine_sample | Low | Test run | COMPLETED |
 
 ## Completed Slices
 
@@ -94,6 +92,40 @@ rg -n "bridge_local|LocalBridgeHandler|in-process|fallback|legacy|v1|engine == \
 - [x] Updated `Engine` and `VoiceEngine` types to be discovery-driven strings.
 - [x] Cleaned up obsolete `debugVoxtral.ts` and generalized test error messages.
 
+### Slice K (App-root Coupling Cleanup and XTTS Relocation) - 2026-05-02
+- [x] Relocated `app/xtts_inference.py` -> `plugins/tts_xtts/xtts_inference.py` (Corrected from `app/engines/voice`).
+- [x] Relocated engine-owned implementation to `plugins/tts_xtts/implementation.py`.
+- [x] Formally established `plugins/` as the engine source of truth.
+- [x] Updated subprocess callers in `plugins/tts_xtts/implementation.py` and `_app.py`.
+- [x] Removed hardcoded "xtts" fallbacks in `api/routers`, `jobs/worker_voice.py`, and `state_settings.py`.
+- [x] Unified default engine selection behind `DEFAULT_PROFILE_ENGINE` constant.
+- [x] Removed engine-specific re-exports from `app/engines.py`.
+- [x] Renamed `sanitize_for_xtts` to generic `sanitize_text_for_tts`.
+- [x] Repaired tests in `test_engines.py` and `test_xtts_inference.py` (Targeting `plugins.tts_xtts`).
+
+### Slice K2 (Voxtral Relocation and Test Bundle Colocation) - 2026-05-02
+- [x] Relocated `app/engines/voice/voxtral/implementation.py` -> `plugins/tts_voxtral/implementation.py`.
+- [x] Updated `VoxtralVoiceEngine` adapter to delegate implementation to plugin bundle.
+- [x] Colocated engine-owned test suites into `plugins/tts_xtts/tests/` and `plugins/tts_voxtral/tests/`.
+- [x] Relocated `test_mixed_handler.py` to `plugins/synthesis_mixed/tests/`.
+- [x] Updated `pytest.ini` to discover plugin-internal tests.
+- [x] Verified all relocated tests pass (31 items).
+
+### Slice L (Engine Bundle Collapse and Discovery Stabilization) - 2026-05-02
+- [x] Deleted legacy engine folders `app/engines/voice/xtts` and `app/engines/voice/voxtral`.
+- [x] Updated `app/engines/registry.py` to discover adapters in the root `plugins/` directory.
+- [x] Corrected subprocess allowlist in `app/infra/subprocess/__init__.py` for plugin-side adapters.
+- [x] Stabilized `test_worker.py` with canonical mock targets and lazy imports in `worker_voice.py`.
+- [x] Verified 100+ tests passing across all relevant suites.
+
+### Slice M (Residual Dead Legacy Cleanup) - 2026-05-02
+- [x] Deleted broken legacy dashboard entry point `_app.py`.
+- [x] Removed `XTTS_OUT_DIR` definition from `app/config.py`.
+- [x] Generalized `XTTS_OUT_DIR` -> `AUDIO_OUT_DIR` in `scripts/sync_durations.py`.
+- [x] Normalized storage references in `plugins/synthesis_mixed/handler.py`, `plugins/tts_voxtral/handler.py`, and `plugins/tts_xtts/adapter.py`.
+- [x] Updated all remaining test suites (`test_api_jobs_extended.py`, `test_isolation_security.py`, `test_migration_extended.py`, etc.) to use `AUDIO_OUT_DIR`.
+- [x] Verified 100% test pass rate on 29 core verification tests.
+
 ## Remaining Risks
-- **Test Drift**: Some integration tests might still use engine literals like `"xtts"`. These should eventually be parameterized, though the runtime itself is now agnostic.
-- **Plugin Metadata Quality**: The UI now relies heavily on `display_name` from plugins; if a plugin provides a poor label, the UI will reflect it.
+- **One-Time Migration logic**: Some `xtts_cps` and `voxtral_voice_id` logic remains in `state_performance.py` and `db/speakers.py` for backward compatibility during data upgrades. This is intentional.
+- **Contract Rigidness**: `base.py` and `sdk.py` are now the strictly enforced boundary. Any future shared logic must be carefully placed to avoid re-coupling.

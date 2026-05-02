@@ -226,13 +226,13 @@ def test_legacy_path_and_forward_sync(client):
 
     # 1. Create text file in LEGACY folder (CHAPTER_DIR), NOT project folder
     chapter_dir = Path(os.environ["CHAPTER_DIR"])
-    xtts_out_dir = Path(os.environ["XTTS_OUT_DIR"])
+    audio_out_dir = Path(os.environ["AUDIO_OUT_DIR"])
     legacy_text = chapter_dir / f"{cid}_0.txt"
     legacy_text.parent.mkdir(parents=True, exist_ok=True)
     legacy_text.write_text("legacy chapter text")
 
-    # 2. Create audio file in LEGACY folder (XTTS_OUT_DIR), NOT project folder
-    legacy_mp3 = xtts_out_dir / f"{cid}_0.mp3"
+    # 2. Create audio file in LEGACY folder (AUDIO_OUT_DIR), NOT project folder
+    legacy_mp3 = audio_out_dir / f"{cid}_0.mp3"
     legacy_mp3.parent.mkdir(parents=True, exist_ok=True)
     legacy_mp3.write_text("legacy audio data")
 

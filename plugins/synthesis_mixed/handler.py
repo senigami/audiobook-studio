@@ -4,11 +4,11 @@ import time
 from pathlib import Path
 
 from app.chunk_groups import build_chunk_groups, load_chunk_segments
-from app.config import XTTS_OUT_DIR, SENT_CHAR_LIMIT, get_project_audio_dir
+from app.config import AUDIO_OUT_DIR, SENT_CHAR_LIMIT, get_project_audio_dir
 from app.engines import get_audio_duration, stitch_segments, wav_to_mp3
 from app.engines.errors import EngineBridgeError
 from app.state import update_job
-from app.textops import safe_split_long_sentences, sanitize_for_xtts
+from app.textops import safe_split_long_sentences, sanitize_text
 from app.jobs.speaker import get_speaker_settings, get_speaker_wavs, get_voice_profile_dir
 from app.jobs.handlers.bridge_helpers import generate_via_bridge
 from app.jobs.worker_metrics import record_engine_sample
@@ -107,7 +107,7 @@ def _render_segment(engine_id: str, text: str, profile_name: str | None, out_wav
 
     text = (text or "").strip()
     if safe_mode and has_behavior(engine_id, "sanitize_text"):
-        text = sanitize_for_xtts(text)
+        text = sanitize_text(text)
         text = safe_split_long_sentences(text, target=SENT_CHAR_LIMIT)
 
     # Synthesis request with generic settings extraction
@@ -209,7 +209,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
         update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error="Mixed-engine jobs require a chapter context.")
         return "failed"
 
-    pdir = get_project_audio_dir(j.project_id) if j.project_id else XTTS_OUT_DIR
+    pdir = get_project_audio_dir(j.project_id) if j.project_id else AUDIO_OUT_DIR
     pdir.mkdir(parents=True, exist_ok=True)
     out_wav = pdir / f"{Path(j.chapter_file).stem}.wav"
     out_mp3 = pdir / f"{Path(j.chapter_file).stem}.mp3"

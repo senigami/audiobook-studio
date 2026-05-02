@@ -10,7 +10,7 @@ def xtts_dispatch_adapter(jid: str, j: Job, start: float, on_output: Callable[[s
     """Adapter to wrap handle_xtts_job with the standard signature."""
     from .handler import handle_xtts_job
     from app.jobs.speaker import get_speaker_wavs, get_speaker_settings
-    from app.config import get_project_audio_dir, get_chapter_dir, get_project_storage_version, XTTS_OUT_DIR
+    from app.config import get_project_audio_dir, get_chapter_dir, get_project_storage_version, AUDIO_OUT_DIR
     from app.state import get_performance_metrics
 
     # Extract text from kwargs
@@ -22,7 +22,7 @@ def xtts_dispatch_adapter(jid: str, j: Job, start: float, on_output: Callable[[s
         out_wav = pdir / "chapter.wav"
         out_mp3 = pdir / "chapter.mp3"
     else:
-        pdir = get_project_audio_dir(j.project_id) if j.project_id else XTTS_OUT_DIR
+        pdir = get_project_audio_dir(j.project_id) if j.project_id else AUDIO_OUT_DIR
         out_wav = pdir / f"{Path(j.chapter_file).stem}.wav"
         out_mp3 = pdir / f"{Path(j.chapter_file).stem}.mp3"
 

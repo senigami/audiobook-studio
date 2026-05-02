@@ -16,7 +16,7 @@ def test_import_legacy_filesystem_data_no_files(tmp_path):
 
 def test_import_legacy_filesystem_data_success(tmp_path):
     chap_dir = tmp_path / "chapters"
-    out_dir = tmp_path / "xtts_out"
+    out_dir = tmp_path / "audio_out"
     chap_dir.mkdir()
     out_dir.mkdir()
 
@@ -30,7 +30,7 @@ def test_import_legacy_filesystem_data_success(tmp_path):
     mock_cursor = mock_conn.cursor.return_value
 
     with patch("app.migration.CHAPTER_DIR", chap_dir), \
-         patch("app.migration.XTTS_OUT_DIR", out_dir), \
+         patch("app.migration.AUDIO_OUT_DIR", out_dir), \
          patch("app.migration.create_project", return_value="proj_123"), \
          patch("app.migration.get_connection", return_value=MagicMock(__enter__=lambda s: mock_conn, __exit__=lambda s, *a: None)):
 

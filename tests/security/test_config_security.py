@@ -33,7 +33,7 @@ def test_find_file_traversal_blocked(tmp_path):
 
     with pytest.MonkeyPatch.context() as m:
         m.setattr("app.config.CHAPTER_DIR", mock_chapters)
-        m.setattr("app.config.XTTS_OUT_DIR", tmp_path / "xtts")
+        m.setattr("app.config.AUDIO_OUT_DIR", tmp_path / "audio_out")
         m.setattr("app.config.VOICES_DIR", tmp_path / "voices")
         m.setattr("app.config.PROJECTS_DIR", tmp_path / "projects")
         # Mock temp dir to something else so evil_dir isn't allowed by the test-mode escape hatch

@@ -3,7 +3,7 @@ import subprocess
 from pathlib import Path
 
 DB_PATH = Path("audiobook_studio.db")
-XTTS_OUT_DIR = Path("xtts_audio")
+AUDIO_OUT_DIR = Path("audio_out")
 
 def get_duration(file_path):
     try:
@@ -34,13 +34,13 @@ def sync_durations():
         if not path: continue
 
         # Check standard path
-        full_path = XTTS_OUT_DIR / path
+        full_path = AUDIO_OUT_DIR / path
 
         # If wav, try mp3 as well for duration (sometimes more accurate for some players)
         if not full_path.exists():
             stem = Path(path).stem
             for ext in ['.mp3', '.wav']:
-                p = XTTS_OUT_DIR / (stem + ext)
+                p = AUDIO_OUT_DIR / (stem + ext)
                 if p.exists():
                     full_path = p
                     break
@@ -52,7 +52,7 @@ def sync_durations():
                 updated += 1
 
     conn.commit()
-    print(f"Updated actual durations for {updated} chapters from {XTTS_OUT_DIR}")
+    print(f"Updated actual durations for {updated} chapters from {AUDIO_OUT_DIR}")
     conn.close()
 
 if __name__ == "__main__":

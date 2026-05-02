@@ -18,11 +18,11 @@ def mock_state(tmp_path, monkeypatch):
     monkeypatch.setattr("app.api.routers.analysis.CHAPTER_DIR", tmp_path / "chapters")
     monkeypatch.setattr("app.api.routers.analysis.REPORT_DIR", tmp_path / "reports")
     monkeypatch.setattr("app.migration.CHAPTER_DIR", tmp_path / "chapters")
-    monkeypatch.setattr("app.migration.XTTS_OUT_DIR", tmp_path / "xtts")
+    monkeypatch.setattr("app.migration.AUDIO_OUT_DIR", tmp_path / "audio_out")
 
     (tmp_path / "chapters").mkdir(parents=True, exist_ok=True)
     (tmp_path / "reports").mkdir(parents=True, exist_ok=True)
-    (tmp_path / "xtts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "audio_out").mkdir(parents=True, exist_ok=True)
     return tmp_path
 
 def test_analysis_router_endpoints(mock_state):
@@ -89,8 +89,8 @@ def test_migration_coverage(mock_state):
     (mock_state / "chapters" / "legacy.txt").write_text("Legacy content")
 
     # Create matching audio
-    (mock_state / "xtts").mkdir(parents=True, exist_ok=True)
-    (mock_state / "xtts" / "legacy.mp3").write_text("audio data")
+    (mock_state / "audio_out").mkdir(parents=True, exist_ok=True)
+    (mock_state / "audio_out" / "legacy.mp3").write_text("audio data")
 
     res = import_legacy_filesystem_data()
     assert res["status"] == "success"

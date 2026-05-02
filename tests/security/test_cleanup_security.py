@@ -9,17 +9,17 @@ from app.db.chapters_cleanup import cleanup_chapter_audio_files, move_chapter_ar
 def mock_projects_root(tmp_path):
     projects_dir = tmp_path / "projects"
     projects_dir.mkdir()
-    xtts_out_dir = tmp_path / "xtts_out"
-    xtts_out_dir.mkdir()
+    audio_out_dir = tmp_path / "audio_out"
+    audio_out_dir.mkdir()
 
     with patch("app.config.PROJECTS_DIR", projects_dir), \
-         patch("app.config.XTTS_OUT_DIR", xtts_out_dir), \
+         patch("app.config.AUDIO_OUT_DIR", audio_out_dir), \
          patch("app.config.TRASH_DIR", tmp_path / "trash"):
         (tmp_path / "trash").mkdir()
-        yield projects_dir, xtts_out_dir
+        yield projects_dir, audio_out_dir
 
 def test_cleanup_chapter_audio_files_traversal_blocked(mock_projects_root):
-    projects_dir, xtts_out_dir = mock_projects_root
+    projects_dir, audio_out_dir = mock_projects_root
 
     # Create a file outside
     outside_dir = projects_dir.parent / "escape"

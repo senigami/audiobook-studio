@@ -6,7 +6,7 @@ from unittest.mock import patch, MagicMock
 from app.web import app
 from app.models import Job
 from app.state import put_job, delete_jobs, clear_all_jobs
-from app.config import XTTS_OUT_DIR
+from app.config import AUDIO_OUT_DIR
 
 client = TestClient(app)
 
@@ -132,10 +132,10 @@ def test_api_jobs_does_not_block_on_reconciliation(clean_jobs):
     assert response.elapsed.total_seconds() < 1.0
 
 def test_api_jobs_auto_discovery(clean_jobs, tmp_path, monkeypatch):
-    # Mock XTTS_OUT_DIR to a temp path
-    mock_out_dir = tmp_path / "xtts_out"
+    # Mock AUDIO_OUT_DIR to a temp path
+    mock_out_dir = tmp_path / "audio_out"
     mock_out_dir.mkdir()
-    monkeypatch.setattr("app.api.routers.jobs.XTTS_OUT_DIR", mock_out_dir)
+    monkeypatch.setattr("app.api.routers.jobs.AUDIO_OUT_DIR", mock_out_dir)
 
     # Create a dummy chapter file in state via legacy_list_chapters mock
     mock_chapter = MagicMock()
