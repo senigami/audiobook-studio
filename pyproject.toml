@@ -14,7 +14,7 @@ ignore = [
 ]
 
 [tool.coverage.run]
-omit = ["app/xtts_inference.py"]
+omit = ["plugins/tts_xtts/xtts_inference.py"]
 
 [tool.coverage.report]
 exclude_lines = [

@@ -330,7 +330,8 @@ def cancel_chapter_generation(chapter_id: str):
 @router.post("/generation/enqueue-single")
 def enqueue_single(chapter_file: str = Form(...), engine: Optional[str] = Form(None)):
     if not engine:
-        engine = get_settings().get("default_engine") or "xtts"
+        from ...voice_engines import DEFAULT_PROFILE_ENGINE
+        engine = get_settings().get("default_engine") or DEFAULT_PROFILE_ENGINE
     normalized_engine = normalize_tts_engine(engine, engine)
     engine_error = _ensure_engines_enabled([normalized_engine])
     if engine_error:

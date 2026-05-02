@@ -5,8 +5,8 @@ external processes so engine adapters do not manage process details ad hoc.
 """
 
 INTENDED_UPSTREAM_CALLERS = (
-    "app.engines.voice.xtts.engine",
-    "app.engines.voice.voxtral.engine",
+    "plugins.tts_xtts.app_adapter",
+    "plugins.tts_voxtral.app_adapter",
     "app.domain.artifacts.cache",
 )
 INTENDED_DOWNSTREAM_DEPENDENCIES = ()

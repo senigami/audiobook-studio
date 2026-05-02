@@ -8,7 +8,7 @@ if importlib.util.find_spec("torch") is None:
 
 import torch  # noqa: E402
 
-from app.xtts_inference import _load_wav_tensor  # noqa: E402
+from plugins.tts_xtts.xtts_inference import _load_wav_tensor  # noqa: E402
 
 
 def test_load_wav_tensor_reads_and_resamples_mono_wav(tmp_path):

@@ -11,7 +11,11 @@ from typing import Any, Callable
 
 from app import config as app_config
 from app.textops import pack_text_to_limit, safe_split_long_sentences, sanitize_text
-from .engine import XTTS_ENV_ACTIVATE, XTTS_ENV_PYTHON
+# Engine environment resolution
+XTTS_ENV_DIR_DEFAULT = Path.home() / "xtts-env"
+XTTS_ENV_DIR = Path(os.getenv("XTTS_ENV_DIR", str(XTTS_ENV_DIR_DEFAULT)))
+XTTS_ENV_PYTHON = Path(os.getenv("XTTS_ENV_PYTHON", str(XTTS_ENV_DIR / ("Scripts/python.exe" if os.name == "nt" else "bin/python"))))
+XTTS_ENV_ACTIVATE = XTTS_ENV_DIR / ("Scripts/Activate.ps1" if os.name == "nt" else "bin/activate")
 
 
 def xtts_generate(
@@ -25,20 +29,19 @@ def xtts_generate(
     voice_profile_dir: Path | None = None,
 ) -> int:
     """Invoke XTTS inference via subprocess."""
-    from .engine import XTTS_ENV_ACTIVATE as engine_xtts_env_activate, XTTS_ENV_PYTHON as engine_xtts_env_python
     from app.engines.proc_utils import run_cmd_stream
 
     import sys
-    python_exe = engine_xtts_env_python
+    python_exe = XTTS_ENV_PYTHON
 
-    if not engine_xtts_env_activate.exists():
+    if not XTTS_ENV_ACTIVATE.exists():
         # Fallback: check if TTS is available in the current environment
         try:
             import TTS  # noqa: F401, PLC0415
             python_exe = Path(sys.executable)
             on_output("XTTS environment not found; falling back to current environment (TTS detected).\n")
         except ImportError:
-            on_output(f"[error] XTTS activate not found: {engine_xtts_env_activate} and 'TTS' not found in current environment.\n")
+            on_output(f"[error] XTTS activate not found: {XTTS_ENV_ACTIVATE} and 'TTS' not found in current environment.\n")
             return 1
 
     sw = speaker_wav
@@ -49,19 +52,19 @@ def xtts_generate(
 
     if safe_mode:
         text = sanitize_text(text)
-        from ...behavior import get_text_split_target
+        from app.engines.behavior import get_text_split_target
         text = safe_split_long_sentences(text, target=get_text_split_target("xtts"))
     else:
         # Raw mode: Absolute bare minimum to prevent speech engine crashes
         text = re.sub(r"[^\x00-\x7F]+", "", text)  # ASCII only
         text = text.strip()
 
-    from ...behavior import get_text_chunk_limit
+    from app.engines.behavior import get_text_chunk_limit
     text = pack_text_to_limit(text, limit=get_text_chunk_limit("xtts"), pad=True) or " "
 
     cmd = [
         str(python_exe),
-        str(app_config.BASE_DIR / "app" / "xtts_inference.py"),
+        str(Path(__file__).parent / "xtts_inference.py"),
         "--text",
         text,
         "--language",
@@ -92,25 +95,24 @@ def xtts_generate_script(
     voice_profile_dir: Path | None = None,
 ) -> int:
     """Invoke XTTS script-based inference via subprocess."""
-    from .engine import XTTS_ENV_ACTIVATE as engine_xtts_env_activate, XTTS_ENV_PYTHON as engine_xtts_env_python
     from app.engines.proc_utils import run_cmd_stream
 
     import sys
-    python_exe = engine_xtts_env_python
+    python_exe = XTTS_ENV_PYTHON
 
-    if not engine_xtts_env_activate.exists():
+    if not XTTS_ENV_ACTIVATE.exists():
         # Fallback: check if TTS is available in the current environment
         try:
             import TTS  # noqa: F401, PLC0415
             python_exe = Path(sys.executable)
             on_output("XTTS environment not found; falling back to current environment (TTS detected).\n")
         except ImportError:
-            on_output(f"[error] XTTS activate not found: {engine_xtts_env_activate} and 'TTS' not found in current environment.\n")
+            on_output(f"[error] XTTS activate not found: {XTTS_ENV_ACTIVATE} and 'TTS' not found in current environment.\n")
             return 1
 
     cmd = [
         str(python_exe),
-        str(app_config.BASE_DIR / "app" / "xtts_inference.py"),
+        str(Path(__file__).parent / "xtts_inference.py"),
         "--script_json",
         str(script_json_path),
         "--language",

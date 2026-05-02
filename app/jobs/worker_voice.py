@@ -6,13 +6,16 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from ..state import update_job
-from ..engines import wav_to_mp3
-from ..engines.bridge import create_voice_bridge
 from ..engines.errors import EngineBridgeError
 from .speaker import get_speaker_wavs, get_speaker_settings, get_voice_profile_dir
 from .worker_helpers import _mark_queue_failed
 
 logger = logging.getLogger(__name__)
+
+from ..config import VOICES_DIR
+from ..engines.audio_ops import wav_to_mp3
+
+
 
 
 def _resolve_reference_audio_path(
@@ -58,6 +61,7 @@ def _generate_voice_sample_via_bridge(
     settings: Mapping[str, Any],
     voice_profile_dir: Path | None,
 ) -> int:
+    from ..engines.bridge import create_voice_bridge
     bridge = create_voice_bridge()
     request: dict[str, Any] = {
         "engine_id": engine,
@@ -85,7 +89,6 @@ def _generate_voice_sample_via_bridge(
 
 
 def handle_voice_job(jid, j, on_output, cancel_check, voice_job_settings=None):
-    from ..config import VOICES_DIR
     try:
         pdir = get_voice_profile_dir(j.speaker_profile)
     except ValueError:
@@ -102,7 +105,8 @@ def handle_voice_job(jid, j, on_output, cancel_check, voice_job_settings=None):
             voice_profile_dir = get_voice_profile_dir(j.speaker_profile)
         except ValueError:
             voice_profile_dir = None
-        engine = spk.get("engine", "xtts")
+        from ..voice_engines import DEFAULT_PROFILE_ENGINE
+        engine = spk.get("engine", DEFAULT_PROFILE_ENGINE)
         try:
             rc = _generate_voice_sample_via_bridge(
                 engine=engine,

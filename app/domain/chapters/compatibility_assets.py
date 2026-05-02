@@ -77,7 +77,7 @@ def _resolve_canonical_wav_path(*, chapter_id: str, chapter_row: dict[str, Any])
         try:
             res_audio_dir = audio_dir.resolve()
             projects_root = config.PROJECTS_DIR.resolve()
-            xtts_root = config.AUDIO_OUT_DIR.resolve()
+            audio_out_root = config.AUDIO_OUT_DIR.resolve()
             legacy_root = config.CHAPTER_DIR.resolve()
             try:
                 res_audio_dir.relative_to(projects_root)
@@ -85,7 +85,7 @@ def _resolve_canonical_wav_path(*, chapter_id: str, chapter_row: dict[str, Any])
                 try:
                     res_audio_dir.relative_to(legacy_root)
                 except ValueError:
-                    if res_audio_dir != xtts_root:
+                    if res_audio_dir != audio_out_root:
                         # Fallback for tests: allow temporary directories
                         is_test = os.getenv("APP_TEST_MODE") == "1" or "PYTEST_CURRENT_TEST" in os.environ
                         import tempfile

@@ -54,9 +54,12 @@ def xtts_generate(
 ) -> int:
     """Invoke the legacy XTTS generator lazily."""
 
-    from app.engines import xtts_generate as legacy_generate
+    from plugins.tts_xtts.implementation import (
+        xtts_generate, xtts_generate_script, get_speaker_latent_path,
+        migrate_speaker_latent_to_profile
+    )
 
-    return legacy_generate(
+    return xtts_generate(
         text=text,
         out_wav=out_wav,
         safe_mode=safe_mode,
@@ -78,7 +81,7 @@ def xtts_generate_script(
 ) -> int:
     """Invoke the legacy XTTS script generator lazily."""
 
-    from app.engines import xtts_generate_script as legacy_generate_script
+    from plugins.tts_xtts.implementation import xtts_generate_script as legacy_generate_script
 
     return legacy_generate_script(
         script_json_path=script_json_path,

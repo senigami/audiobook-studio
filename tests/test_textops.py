@@ -12,7 +12,7 @@ from app.textops import (
     write_chapters_to_folder,
     clean_text_for_tts,
     consolidate_single_word_sentences,
-    sanitize_for_xtts,
+    sanitize_text,
     pack_text_to_limit,
     get_text_stats,
     format_duration,
@@ -116,16 +116,16 @@ def test_consolidate_single_word_sentences():
     res_multi = consolidate_single_word_sentences(multi)
     assert "Wait; Go now" in res_multi or "Wait. \nGo now." in res_multi
 
-def test_sanitize_for_xtts():
+def test_sanitize_text():
     raw = "Hello World! 😊" # Non-ASCII
-    sanitized = sanitize_for_xtts(raw)
+    sanitized = sanitize_text(raw)
     assert "😊" not in sanitized
     # Hallucination check only adds "." if no .!? at end. "Hello World!" ends with "!"
     assert sanitized == "Hello World!"
 
     # Ensure terminals
-    assert sanitize_for_xtts("No punctuation") == "No punctuation."
-    assert sanitize_for_xtts("“There,”") == "There."
+    assert sanitize_text("No punctuation") == "No punctuation."
+    assert sanitize_text("“There,”") == "There."
 
 def test_pack_text_to_limit():
     text = "Sentence one.\nSentence two.\nSentence three."

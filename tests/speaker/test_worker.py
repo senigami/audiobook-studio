@@ -1,6 +1,8 @@
 import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+from app.jobs.registry import initialize_default_handlers
+initialize_default_handlers()
 
 def test_worker_does_not_skip_voice_builds():
     """The worker must NOT skip voice_build/voice_test jobs even though _output_exists returns True."""
@@ -73,7 +75,7 @@ def test_voice_build_worker_uses_bridge_for_xtts_profiles(clean_db, voices_root)
         Path(out_mp3).write_text("mp3 preview")
         return 0
 
-    with patch("app.config.VOICES_DIR", voices_dir), \
+    with patch("app.jobs.worker_voice.VOICES_DIR", voices_dir), \
          patch("app.jobs.worker.get_jobs", return_value={"test-bridge-xtts": job}), \
          patch("app.jobs.worker.update_job"), \
          patch("app.jobs.worker.get_performance_metrics", return_value={"xtts_cps": 10.0, "audiobook_speed_multiplier": 1.0}), \
@@ -81,7 +83,7 @@ def test_voice_build_worker_uses_bridge_for_xtts_profiles(clean_db, voices_root)
          patch("app.jobs.worker_voice.get_speaker_settings", return_value={"engine": "xtts", "speed": 1.0, "test_text": "Hello"}), \
          patch("app.jobs.worker_voice.get_speaker_wavs", return_value="ref.wav"), \
          patch("app.jobs.worker_voice.get_voice_profile_dir", return_value=profile_dir), \
-         patch("app.jobs.worker_voice.create_voice_bridge") as mock_bridge_factory, \
+         patch("app.engines.bridge.create_voice_bridge") as mock_bridge_factory, \
          patch("app.jobs.worker_voice.wav_to_mp3", side_effect=fake_wav_to_mp3):
 
         mock_bridge = MagicMock()
@@ -97,6 +99,7 @@ def test_voice_build_worker_uses_bridge_for_xtts_profiles(clean_db, voices_root)
     assert sample_mp3.exists()
     assert not sample_wav.exists()
     mock_bridge.synthesize.assert_called_once()
+
 def test_voice_build_worker_moves_bridge_output_when_path_differs(clean_db, voices_root):
     from app.jobs.worker import worker_loop
     from app.models import Job
@@ -130,7 +133,7 @@ def test_voice_build_worker_moves_bridge_output_when_path_differs(clean_db, voic
         Path(out_mp3).write_text("mp3 preview")
         return 0
 
-    with patch("app.config.VOICES_DIR", voices_dir), \
+    with patch("app.jobs.worker_voice.VOICES_DIR", voices_dir), \
          patch("app.jobs.worker.get_jobs", return_value={"test-bridge-move-xtts": job}), \
          patch("app.jobs.worker.update_job"), \
          patch("app.jobs.worker.get_performance_metrics", return_value={"xtts_cps": 10.0, "audiobook_speed_multiplier": 1.0}), \
@@ -138,7 +141,7 @@ def test_voice_build_worker_moves_bridge_output_when_path_differs(clean_db, voic
          patch("app.jobs.worker_voice.get_speaker_settings", return_value={"engine": "xtts", "speed": 1.0, "test_text": "Hello"}), \
          patch("app.jobs.worker_voice.get_speaker_wavs", return_value="ref.wav"), \
          patch("app.jobs.worker_voice.get_voice_profile_dir", return_value=profile_dir), \
-         patch("app.jobs.worker_voice.create_voice_bridge") as mock_bridge_factory, \
+         patch("app.engines.bridge.create_voice_bridge") as mock_bridge_factory, \
          patch("app.jobs.worker_voice.shutil.move") as mock_move, \
          patch("app.jobs.worker_voice.wav_to_mp3", side_effect=fake_wav_to_mp3):
 
@@ -191,7 +194,7 @@ def test_voice_build_worker_uses_bridge_for_voxtral_profiles(clean_db, voices_ro
         Path(out_mp3).write_text("mp3 preview")
         return 0
 
-    with patch("app.config.VOICES_DIR", voices_dir), \
+    with patch("app.jobs.worker_voice.VOICES_DIR", voices_dir), \
          patch("app.jobs.worker.get_jobs", return_value={"test-bridge-voxtral": job}), \
          patch("app.jobs.worker.update_job"), \
          patch("app.jobs.worker.get_performance_metrics", return_value={"xtts_cps": 10.0, "audiobook_speed_multiplier": 1.0}), \
@@ -219,7 +222,7 @@ def test_voice_build_worker_uses_bridge_for_voxtral_profiles(clean_db, voices_ro
          ), \
          patch("app.jobs.worker_voice.get_speaker_wavs", return_value=str(reference_wav)), \
          patch("app.jobs.worker_voice.get_voice_profile_dir", return_value=profile_dir), \
-         patch("app.jobs.worker_voice.create_voice_bridge") as mock_bridge_factory, \
+         patch("app.engines.bridge.create_voice_bridge") as mock_bridge_factory, \
          patch("app.jobs.worker_voice.wav_to_mp3", side_effect=fake_wav_to_mp3):
 
         mock_bridge = MagicMock()

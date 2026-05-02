@@ -114,7 +114,8 @@ def api_get_chapter_preview(
     if processed:
         settings = get_settings()
         is_safe = settings.get("safe_mode", True)
-        engine_id = chapter.get("engine_id") or settings.get("default_engine", "xtts")
+        from ...voice_engines import DEFAULT_PROFILE_ENGINE
+        engine_id = chapter.get("engine_id") or settings.get("default_engine", DEFAULT_PROFILE_ENGINE)
         from ...engines.behavior import get_text_chunk_limit, get_text_split_target
         limit = get_text_chunk_limit(engine_id)
         split_target = get_text_split_target(engine_id)

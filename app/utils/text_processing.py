@@ -80,9 +80,9 @@ def safe_split_long_sentences(text: str, target: int = 200) -> str:
     # preserve paragraph breaks loosely
     return "\n".join(pieces)
 
-def sanitize_for_xtts(text: str) -> str:
+def sanitize_text_for_tts(text: str) -> str:
     """
-    Advanced sanitization to prevent XTTS hallucinations (e.g., 'nahnday').
+    Advanced sanitization to prevent TTS hallucinations.
     Handles smart quotes, ellipses, and non-ASCII chars.
     """
     # Convert smart quotes to straight quotes

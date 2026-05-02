@@ -301,21 +301,37 @@ def _load_engine_manifest(*, manifest_path: Path) -> EngineManifestModel:
 
 
 def _builtin_engine_specs() -> list[tuple[Path, type[BaseVoiceEngine]]]:
-    """Return the built-in engine manifests and adapter classes."""
-    from .voice.voxtral.engine import VoxtralVoiceEngine
-    from .voice.xtts.engine import XttsVoiceEngine
+    """Return the built-in engine manifests and adapter classes.
 
-    base_dir = Path(__file__).resolve().parent / "voice"
-    return [
-        (base_dir / "xtts" / "manifest.json", XttsVoiceEngine),
-        (base_dir / "voxtral" / "manifest.json", VoxtralVoiceEngine),
-    ]
+    Discovery is now directed at the root plugins/ directory.
+    """
+    from app.config import PLUGINS_DIR
+
+    specs = []
+
+    # XTTS
+    xtts_plugin_dir = PLUGINS_DIR / "tts_xtts"
+    if xtts_plugin_dir.is_dir():
+        manifest_path = xtts_plugin_dir / "manifest.json"
+        if manifest_path.exists():
+            from plugins.tts_xtts.app_adapter import XttsVoiceEngine
+            specs.append((manifest_path, XttsVoiceEngine))
+
+    # Voxtral
+    voxtral_plugin_dir = PLUGINS_DIR / "tts_voxtral"
+    if voxtral_plugin_dir.is_dir():
+        manifest_path = voxtral_plugin_dir / "manifest.json"
+        if manifest_path.exists():
+            from plugins.tts_voxtral.app_adapter import VoxtralVoiceEngine
+            specs.append((manifest_path, VoxtralVoiceEngine))
+
+    return specs
 
 
 def _manifest_module_path(manifest_path: Path) -> str:
     """Infer the module path for a manifest discovered on disk."""
     engine_dir = manifest_path.parent
-    return f"app.engines.voice.{engine_dir.name}.engine"
+    return f"plugins.{engine_dir.name}.app_adapter"
 
 
 load_engine_registry.cache_clear = _load_legacy_local_registry.cache_clear

@@ -107,10 +107,6 @@ def calculate_verification_metadata(plugin_dir: Path, manifest: dict[str, Any]) 
 
     # Hash requirements.txt
     req_file = plugin_dir / "requirements.txt"
-    if not req_file.is_file() and engine_id == "xtts":
-        # Fallback for bundled XTTS requirements
-        from app.config import BASE_DIR # noqa: PLC0415
-        req_file = BASE_DIR / "app/engines/voice/xtts/requirements.txt"
 
     if req_file.is_file():
         metadata["requirements_hash"] = hashlib.sha256(req_file.read_bytes()).hexdigest()

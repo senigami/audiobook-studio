@@ -21,7 +21,7 @@ atexit.register(_temp_dir.cleanup)
 SESSION_TEMP = Path(_temp_dir.name)
 
 os.environ["AUDIOBOOK_BASE_DIR"] = str(SESSION_TEMP)
-REAL_ROOT = Path(__file__).resolve().parents[1]
+REAL_ROOT = Path(__file__).resolve().parent
 os.environ["PLUGINS_DIR"] = str(REAL_ROOT / "plugins")
 os.environ["APP_TEST_MODE"] = "1"
 os.environ["DB_PATH"] = str(SESSION_TEMP / "test_audiobook_studio.db")

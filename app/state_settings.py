@@ -10,7 +10,7 @@ def _default_state() -> Dict[str, Any]:
         "jobs": {},
         "settings": {
             "safe_mode": True,
-            "default_engine": "xtts",
+            "default_engine": __import__("app.voice_engines", fromlist=["DEFAULT_PROFILE_ENGINE"]).DEFAULT_PROFILE_ENGINE,
             "enabled_plugins": {},
             "verified_plugins": {},
             "tts_api_enabled": False,
