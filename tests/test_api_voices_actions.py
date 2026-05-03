@@ -18,7 +18,7 @@ def test_create_profile_persists_engine_metadata(clean_db, voices_root, client):
     assert meta["engine"] == "voxtral"
 
 
-def test_create_voxtral_profile_requires_api_key(clean_db, voices_root, client):
+def test_create_managed_engine_profile_requires_active_status(clean_db, voices_root, client):
     voices_root.mkdir()
 
     with patch("app.api.routers.voices_helpers._is_engine_active", return_value=False):
@@ -42,7 +42,7 @@ def test_update_profile_engine(clean_db, voices_root, client):
     assert meta["engine"] == "voxtral"
 
 
-def test_update_voxtral_engine_requires_api_key(clean_db, voices_root, client):
+def test_update_managed_engine_requires_active_status(clean_db, voices_root, client):
     voices_root.mkdir()
     profile_dir = voices_root / "SpeakerA"
     profile_dir.mkdir()
@@ -80,7 +80,7 @@ def test_update_profile_reference_sample(clean_db, voices_root, client):
     assert meta["reference_sample"] == "sample1.wav"
 
 
-def test_update_profile_voxtral_voice_id(clean_db, voices_root, client):
+def test_update_profile_voice_asset_id(clean_db, voices_root, client):
     voices_root.mkdir()
     profile_dir = voices_root / "SpeakerA"
     profile_dir.mkdir()
@@ -95,7 +95,7 @@ def test_update_profile_voxtral_voice_id(clean_db, voices_root, client):
     assert meta["voice_asset_id"] == "voice_123"
 
 
-def test_voxtral_profile_test_accepts_saved_voice_id_without_samples(clean_db, voices_root, client):
+def test_managed_profile_test_accepts_saved_voice_id_without_samples(clean_db, voices_root, client):
     profile_dir = voices_root / "SpeakerA"
     profile_dir.mkdir(parents=True)
     (profile_dir / "profile.json").write_text(json.dumps({
@@ -184,7 +184,7 @@ def test_build_and_test_profiles(clean_db, voices_root, client):
             assert response.status_code == 200
 
 
-def test_xtts_voice_actions_reject_when_disabled(clean_db, voices_root, client):
+def test_engine_actions_reject_when_disabled(clean_db, voices_root, client):
     voices_dir = voices_root
     profile_dir = voices_dir / "SpeakerA"
     profile_dir.mkdir(parents=True, exist_ok=True)
@@ -279,7 +279,7 @@ def test_update_profile_voice_asset_id_generic(clean_db, voices_root, client):
     assert meta["voice_asset_id"] == "asset_456"
 
 
-def test_update_profile_voice_asset_id_rejects_xtts(clean_db, voices_root, client):
+def test_update_profile_voice_asset_id_rejects_local_engine(clean_db, voices_root, client):
     voices_root.mkdir(parents=True, exist_ok=True)
     profile_dir = voices_root / "SpeakerA"
     profile_dir.mkdir()

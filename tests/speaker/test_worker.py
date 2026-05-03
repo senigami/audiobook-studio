@@ -78,7 +78,7 @@ def test_voice_build_worker_uses_bridge_for_xtts_profiles(clean_db, voices_root)
     with patch("app.jobs.worker_voice.VOICES_DIR", voices_dir), \
          patch("app.jobs.worker.get_jobs", return_value={"test-bridge-xtts": job}), \
          patch("app.jobs.worker.update_job"), \
-         patch("app.jobs.worker.get_performance_metrics", return_value={"xtts_cps": 10.0, "audiobook_speed_multiplier": 1.0}), \
+         patch("app.jobs.worker.get_performance_metrics", return_value={"engine_cps": {"engine-a": 10.0}, "audiobook_speed_multiplier": 1.0}), \
          patch("app.jobs.worker.get_speaker_settings", return_value={"engine": "xtts", "speed": 1.0, "test_text": "Hello"}), \
          patch("app.jobs.worker_voice.get_speaker_settings", return_value={"engine": "xtts", "speed": 1.0, "test_text": "Hello"}), \
          patch("app.jobs.worker_voice.get_speaker_wavs", return_value="ref.wav"), \
@@ -136,7 +136,7 @@ def test_voice_build_worker_moves_bridge_output_when_path_differs(clean_db, voic
     with patch("app.jobs.worker_voice.VOICES_DIR", voices_dir), \
          patch("app.jobs.worker.get_jobs", return_value={"test-bridge-move-xtts": job}), \
          patch("app.jobs.worker.update_job"), \
-         patch("app.jobs.worker.get_performance_metrics", return_value={"xtts_cps": 10.0, "audiobook_speed_multiplier": 1.0}), \
+         patch("app.jobs.worker.get_performance_metrics", return_value={"engine_cps": {"engine-a": 10.0}, "audiobook_speed_multiplier": 1.0}), \
          patch("app.jobs.worker.get_speaker_settings", return_value={"engine": "xtts", "speed": 1.0, "test_text": "Hello"}), \
          patch("app.jobs.worker_voice.get_speaker_settings", return_value={"engine": "xtts", "speed": 1.0, "test_text": "Hello"}), \
          patch("app.jobs.worker_voice.get_speaker_wavs", return_value="ref.wav"), \
@@ -197,7 +197,7 @@ def test_voice_build_worker_uses_bridge_for_voxtral_profiles(clean_db, voices_ro
     with patch("app.jobs.worker_voice.VOICES_DIR", voices_dir), \
          patch("app.jobs.worker.get_jobs", return_value={"test-bridge-voxtral": job}), \
          patch("app.jobs.worker.update_job"), \
-         patch("app.jobs.worker.get_performance_metrics", return_value={"xtts_cps": 10.0, "audiobook_speed_multiplier": 1.0}), \
+         patch("app.jobs.worker.get_performance_metrics", return_value={"engine_cps": {"engine-a": 10.0}, "audiobook_speed_multiplier": 1.0}), \
          patch(
              "app.jobs.worker.get_speaker_settings",
              return_value={

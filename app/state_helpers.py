@@ -9,7 +9,7 @@ from typing import Dict, Any, Optional
 from json import JSONDecodeError
 
 from .config import BASE_DIR
-from .voice_engines import DEFAULT_PROFILE_ENGINE
+
 
 SAFE_OUTPUT_FILE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
 STATE_FILE = Path(os.getenv("STATE_FILE", str(BASE_DIR / "state.json")))
@@ -71,11 +71,12 @@ def _atomic_write_text(path: Path, text: str) -> None:
 def _default_state_minimal() -> Dict[str, Any]:
     # We'll re-export the real _default_state in state_settings.py
     # but this minimal version is needed if load fails before settings is ready.
+    # We use a literal fallback here to avoid circular imports during minimal boot.
     return {
         "jobs": {},
         "settings": {
             "safe_mode": True,
-            "default_engine": DEFAULT_PROFILE_ENGINE,
+            "default_engine": "",
             "enabled_plugins": {},
         },
     }

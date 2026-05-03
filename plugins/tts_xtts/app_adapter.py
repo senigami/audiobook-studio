@@ -19,7 +19,7 @@ from app.engines.models import EngineHealthModel, EngineManifestModel
 from app.engines.voice.base import BaseVoiceEngine
 from app.engines.voice.sdk import TTSRequest, TTSResult, VoiceProcessingHooks, SynthesisPlan
 from app.infra.subprocess import run_managed_subprocess_async
-from app.voice_engines import resolve_xtts_preview_inputs
+from app.voice_engines import resolve_voice_preview_inputs
 
 # Local defaults for XTTS environment
 XTTS_ENV_DIR_DEFAULT = Path.home() / "xtts-env"
@@ -237,7 +237,7 @@ class XttsVoiceEngine(BaseVoiceEngine):
             speaker_wav = reference_audio_path
         # Priority 3: Resolve from profile
         else:
-            speaker_wav, voice_profile_dir = resolve_xtts_preview_inputs(voice_profile_id)
+            speaker_wav, voice_profile_dir = resolve_voice_preview_inputs(voice_profile_id)
             if voice_profile_dir is None:
                 raise EngineRequestError(
                     "XTTS synthesis requires an existing voice profile directory or reference_audio_path."
@@ -346,7 +346,7 @@ class XttsVoiceEngine(BaseVoiceEngine):
         if reference_audio_path:
             speaker_wav = reference_audio_path
         else:
-            speaker_wav, voice_profile_dir = resolve_xtts_preview_inputs(voice_profile_id)
+            speaker_wav, voice_profile_dir = resolve_voice_preview_inputs(voice_profile_id)
             if voice_profile_dir is None:
                 raise EngineRequestError(
                     "XTTS preview requires an existing voice profile directory or reference_audio_path."

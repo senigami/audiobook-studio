@@ -1,7 +1,7 @@
 import json
 from typing import Dict, Any, Optional
 
-from .voice_engines import normalize_tts_engine
+from .voice_engines import normalize_tts_engine, get_default_profile_engine
 from .state_helpers import _STATE_LOCK, _load_state_no_lock, _atomic_write_text, get_state_file
 
 
@@ -10,7 +10,7 @@ def _default_state() -> Dict[str, Any]:
         "jobs": {},
         "settings": {
             "safe_mode": True,
-            "default_engine": __import__("app.voice_engines", fromlist=["DEFAULT_PROFILE_ENGINE"]).DEFAULT_PROFILE_ENGINE,
+            "default_engine": get_default_profile_engine(settings={}),
             "enabled_plugins": {},
             "verified_plugins": {},
             "tts_api_enabled": False,
@@ -35,9 +35,11 @@ def _normalize_settings(
 
     normalized["safe_mode"] = bool(normalized.get("safe_mode", defaults["safe_mode"]))
     normalized.pop("make_mp3", None)
-    normalized["default_engine"] = normalize_tts_engine(normalized.get("default_engine"), defaults["default_engine"])
+    normalized["default_engine"] = normalize_tts_engine(normalized.get("default_engine"), settings=normalized)
 
-    # (Removed hardcoded mistral_api_key cleanup, handled by generic logic below)
+    # Remove deprecated app-root specific fields.
+    # Legacy engine-named speed fields from version 1.x are now handled by explicit migration.
+    # Plugin-specific keys are preserved for plugin discovery logic.
 
     # Enforce enabled_plugins as the source of truth for plugin enablement.
 
@@ -77,7 +79,7 @@ def _normalize_settings(
 
     # 5. Check if default_engine is still enabled
     if not enabled_plugins.get(normalized["default_engine"], True):
-        normalized["default_engine"] = defaults["default_engine"]
+        normalized["default_engine"] = get_default_profile_engine(settings=normalized)
 
     default_speaker = str(normalized.get("default_speaker_profile") or "").strip()
     if default_speaker:

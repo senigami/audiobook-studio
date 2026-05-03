@@ -8,12 +8,12 @@ def test_worker_loop_resumption(mock_q, sample_job):
 
     with patch("app.jobs.worker.get_jobs", return_value={"test_job_1": sample_job}), \
          patch("app.jobs.worker.update_job") as mock_update, \
-         patch("app.jobs.worker.get_performance_metrics", return_value={"xtts_cps": 10.0}), \
+         patch("app.jobs.worker.get_performance_metrics", return_value={"engine_cps": {"xtts": 10.0}}), \
          patch("app.jobs.worker.get_project_text_dir", create=True) as mock_text_dir, \
          patch("pathlib.Path.exists", return_value=True), \
          patch("pathlib.Path.read_text", return_value="A" * 1000), \
          patch("app.jobs.worker._calculate_group_resume_state", return_value=(0.67, 2, 3)), \
-         patch("app.jobs.worker.handle_xtts_job"), \
+         patch("app.jobs.worker.get_handler_registry"), \
          patch("app.jobs.worker._output_exists", return_value=False):
 
         mock_text_dir.return_value = Path("/tmp")
@@ -62,7 +62,7 @@ def test_worker_loop_observable_fallback_on_db_error(mock_q, caplog, sample_job)
          patch("pathlib.Path.read_text", return_value="Hello"), \
          patch("app.jobs.worker.get_performance_metrics", return_value={}), \
          patch("app.db.chapters.get_chapter_segments_counts", side_effect=Exception("DB Failure Simulation")), \
-         patch("app.jobs.worker.handle_xtts_job"), \
+         patch("app.jobs.worker.get_handler_registry"), \
          patch("app.jobs.worker._output_exists", return_value=False):
 
         import logging

@@ -87,7 +87,7 @@ def test_bake_chapter_mixed_engines_use_mixed_worker(clean_db, client):
     update_settings({"mistral_api_key": "abc123"})
 
     with patch("app.api.routers.generation.get_chapter_segments", return_value=[
-        {"speaker_profile_name": "XTTS Voice", "audio_status": "done", "audio_file_path": "seg_1.wav"},
+        {"speaker_profile_name": "SingleEngine Voice", "audio_status": "done", "audio_file_path": "seg_1.wav"},
         {"speaker_profile_name": "Voxtral Voice", "audio_status": "unprocessed", "audio_file_path": None},
     ]), \
          patch("app.api.routers.generation.put_job") as mock_put_job, \
@@ -172,7 +172,7 @@ def test_enqueue_single_sets_descriptive_custom_title(clean_db, client):
     assert job.custom_title == "Generating audio for chapter_01"
 
 
-def test_enqueue_single_rejects_disabled_xtts(clean_db, client):
+def test_enqueue_single_rejects_disabled_engine(clean_db, client):
     bridge = MagicMock()
     bridge.is_engine_enabled.return_value = False
 
@@ -183,7 +183,7 @@ def test_enqueue_single_rejects_disabled_xtts(clean_db, client):
     assert "Enable" in response.json()["message"]
 
 
-def test_generate_segments_pure_xtts_use_mixed_worker(clean_db, client):
+def test_generate_segments_single_engine_use_mixed_worker(clean_db, client):
     from app.db.projects import create_project
     from app.db.chapters import create_chapter
     from app.db.segments import sync_chapter_segments, get_chapter_segments
@@ -221,7 +221,7 @@ def test_generate_segments_sets_segment_specific_queue_title(clean_db, client):
         assert job.custom_title == "Overview: segment #1"
 
 
-def test_queue_chapter_without_bakeable_segments_uses_standard_xtts(clean_db, client):
+def test_queue_chapter_without_bakeable_segments_uses_standard_engine(clean_db, client):
     from app.db.projects import create_project
     from app.db.chapters import create_chapter
     from app.db.segments import sync_chapter_segments
@@ -380,13 +380,13 @@ def test_queue_chapter_mixed_engines_use_mixed_worker(clean_db, client):
     update_settings({"mistral_api_key": "abc123"})
 
     with patch("app.api.routers.generation.get_chapter_segments", return_value=[
-        {"speaker_profile_name": "XTTS Voice", "audio_status": "unprocessed", "audio_file_path": None},
+        {"speaker_profile_name": "SingleEngine Voice", "audio_status": "unprocessed", "audio_file_path": None},
         {"speaker_profile_name": "Voxtral Voice", "audio_status": "unprocessed", "audio_file_path": None},
     ]), \
          patch("app.api.routers.generation.put_job") as mock_put_job, \
          patch("app.api.routers.generation.enqueue"), \
          patch("app.jobs.speaker.get_speaker_settings", side_effect=lambda name: {"engine": "voxtral" if "Voxtral" in (name or "") else "xtts"}):
-        response = client.post("/api/processing_queue", data={"project_id": pid, "chapter_id": cid, "speaker_profile": "XTTS Voice"})
+        response = client.post("/api/processing_queue", data={"project_id": pid, "chapter_id": cid, "speaker_profile": "SingleEngine Voice"})
         assert response.status_code == 200
         job = mock_put_job.call_args.args[0]
         assert job.engine == "mixed"
@@ -402,7 +402,7 @@ def test_queue_chapter_detects_mixed_engines_from_character_voice_assignments(cl
     cid = create_chapter(pid, "C1", "Narration. Dialogue.")
     sync_chapter_segments(cid, "Narration. Dialogue.")
     segs = get_chapter_segments(cid)
-    char_id = create_character(pid, "Dracula", "XTTS Voice")
+    char_id = create_character(pid, "Dracula", "SingleEngine Voice")
     update_segment(segs[1]["id"], character_id=char_id)
     from app.state import update_settings
     update_settings({"mistral_api_key": "abc123"})
@@ -455,7 +455,7 @@ def test_generate_segments_mixed_engines_use_mixed_worker(clean_db, client):
     update_settings({"mistral_api_key": "abc123"})
 
     with patch("app.api.routers.generation.get_chapter_segments", return_value=[
-        {**segs[0], "speaker_profile_name": "XTTS Voice"},
+        {**segs[0], "speaker_profile_name": "SingleEngine Voice"},
         {**segs[1], "speaker_profile_name": "Voxtral Voice"},
     ]), \
          patch("app.api.routers.generation.put_job") as mock_put_job, \

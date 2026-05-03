@@ -27,7 +27,8 @@ from app.domain.voices.preview import preview_voice_profile
 
 
 @pytest.fixture(autouse=True)
-def _disable_voxtral_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+def _disable_external_engines_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ensure tests run against a stable baseline by disabling external engine side-effects."""
     monkeypatch.setattr("plugins.tts_voxtral.app_adapter.resolve_mistral_api_key", lambda: None)
     monkeypatch.setattr("plugins.tts_xtts.app_adapter.XTTS_ENV_ACTIVATE", Path("/nonexistent/activate"))
     monkeypatch.setattr("plugins.tts_xtts.app_adapter.XTTS_ENV_PYTHON", Path("/nonexistent/python"))
@@ -44,7 +45,7 @@ def _make_block(
     order_index: int,
     text: str,
     voice_assignment_id: str = "voice-1",
-    engine_id: str = "xtts",
+    engine_id: str = "engine-1",
     engine_version: str = "2.0.0",
     character_id: str | None = None,
     estimated_work_weight: int = 1,
@@ -71,7 +72,7 @@ def test_artifact_manifest_fingerprint_and_staleness() -> None:
     manifest = build_artifact_manifest(
         artifact_hash="sha256:artifact",
         source_revision_id="rev-1",
-        engine_id="xtts",
+        engine_id="engine-1",
         engine_version="2.0.0",
         voice_asset_id="voice-123",
         block_revision_hash="sha256:block",
@@ -84,7 +85,7 @@ def test_artifact_manifest_fingerprint_and_staleness() -> None:
 
     expected_fingerprint = build_artifact_request_fingerprint(
         source_revision_id="rev-1",
-        engine_id="xtts",
+        engine_id="engine-1",
         engine_version="2.0.0",
         voice_asset_id="voice-123",
         block_revision_hash="sha256:block",
@@ -98,7 +99,7 @@ def test_artifact_manifest_fingerprint_and_staleness() -> None:
     assert not is_artifact_stale(
         manifest=manifest,
         source_revision_id="rev-1",
-        engine_id="xtts",
+        engine_id="engine-1",
         engine_version="2.0.0",
         voice_asset_id="voice-123",
         block_revision_hash="sha256:block",
@@ -111,7 +112,7 @@ def test_artifact_manifest_fingerprint_and_staleness() -> None:
     assert is_artifact_stale(
         manifest=manifest,
         source_revision_id="rev-1",
-        engine_id="xtts",
+        engine_id="engine-1",
         engine_version="2.0.1",
         voice_asset_id="voice-123",
         block_revision_hash="sha256:block",
@@ -125,7 +126,7 @@ def test_artifact_manifest_fingerprint_and_staleness() -> None:
         validate_artifact_manifest(
             manifest=manifest,
             source_revision_id="rev-1",
-            engine_id="xtts",
+            engine_id="engine-1",
             engine_version="2.0.1",
             voice_asset_id="voice-123",
             block_revision_hash="sha256:block",
@@ -153,7 +154,7 @@ def test_artifact_manifest_detects_non_text_input_changes(
     manifest = build_artifact_manifest(
         artifact_hash="sha256:artifact",
         source_revision_id="rev-1",
-        engine_id="xtts",
+        engine_id="engine-1",
         engine_version="2.0.0",
         voice_asset_id="voice-123",
         block_revision_hash="sha256:block",
@@ -166,7 +167,7 @@ def test_artifact_manifest_detects_non_text_input_changes(
 
     expected = {
         "source_revision_id": "rev-1",
-        "engine_id": "xtts",
+        "engine_id": "engine-1",
         "engine_version": "2.0.0",
         "voice_asset_id": "voice-123",
         "block_revision_hash": "sha256:block",
@@ -193,7 +194,7 @@ def test_render_batch_derivation_groups_compatible_blocks() -> None:
     assert len(batches) == 2
     assert batches[0].block_ids == ["block-1", "block-2"]
     assert batches[1].block_ids == ["block-3"]
-    assert batches[0].resolved_engine_id == "xtts"
+    assert batches[0].resolved_engine_id == "engine-1"
     assert batches[0].resolved_voice_assignment_id == "voice-1"
     assert batches[0].batch_revision_hash.startswith("sha256:")
 
@@ -302,7 +303,7 @@ def test_preview_payload_trims_script_text_but_preserves_request_context() -> No
         VoicePreviewRequestModel(
             voice_profile_id="voice-1",
             script_text="  hello world  ",
-            engine_id="xtts",
+            engine_id="engine-1",
             reference_text="reference",
             reference_audio_path="/tmp/reference.wav",
             voice_asset_id="asset-1",
@@ -317,19 +318,19 @@ def test_preview_payload_trims_script_text_but_preserves_request_context() -> No
 
 
 def test_voice_compatibility_rejects_asset_owner_mismatch() -> None:
-    profile = VoiceProfileModel(id="voice-1", name="Narrator", default_engine_id="xtts")
-    asset = VoiceAssetModel(id="asset-1", voice_profile_id="voice-2", engine_id="xtts")
+    profile = VoiceProfileModel(id="voice-1", name="Narrator", default_engine_id="engine-1")
+    asset = VoiceAssetModel(id="asset-1", voice_profile_id="voice-2", engine_id="engine-1")
 
     with pytest.raises(ValueError, match="does not belong"):
-        validate_voice_compatibility(profile=profile, engine_id="xtts", asset=asset)
+        validate_voice_compatibility(profile=profile, engine_id="engine-1", asset=asset)
 
 
 def test_voice_compatibility_rejects_engine_mismatch_for_asset() -> None:
-    profile = VoiceProfileModel(id="voice-1", name="Narrator", default_engine_id="xtts")
+    profile = VoiceProfileModel(id="voice-1", name="Narrator", default_engine_id="engine-1")
     asset = VoiceAssetModel(id="asset-1", voice_profile_id="voice-1", engine_id="voxtral")
 
     with pytest.raises(ValueError, match="not compatible"):
-        validate_voice_compatibility(profile=profile, engine_id="xtts", asset=asset)
+        validate_voice_compatibility(profile=profile, engine_id="engine-1", asset=asset)
 
 
 def test_normalize_chapter_draft_generates_revision_hashes() -> None:
@@ -348,13 +349,13 @@ def test_preview_voice_profile_routes_through_real_bridge() -> None:
         VoicePreviewRequestModel(
             voice_profile_id="voice-1",
             script_text="hello world",
-            engine_id="xtts",
+            engine_id="engine-1",
         )
     )
 
     assert response["status"] == "ok"
     assert response["bridge"] == "tts-server-preview-bridge"
-    assert response["preview_request"]["engine_id"] == "xtts"
+    assert response["preview_request"]["engine_id"] == "engine-1"
     assert response["preview_request"]["script_text"] == "hello world"
 
 

@@ -24,6 +24,8 @@ def test_default_settings_refactor(client, clean_state):
     assert "safe_mode" in settings
 
 def test_save_settings_ignores_deprecated_speed(client, clean_state):
+    # Migration Shim: Verify that legacy engine-named speed fields (e.g. 'xtts_speed')
+    # are correctly filtered out during settings updates.
     # 1. Update settings with deprecated field
     response = client.post("/api/settings", data={
         "safe_mode": "false",
@@ -58,6 +60,8 @@ def test_api_home_reflects_new_state_structure(client, clean_state):
 
 
 def test_get_settings_does_not_persist_normalization_on_read(clean_state):
+    # Migration Shim: Verify that legacy 'xtts_cps' metrics and other engine-specific
+    # residue are normalized correctly without side-effecting the persisted state on read.
     from app.state import get_settings
 
     raw_state = {
@@ -78,7 +82,8 @@ def test_get_settings_does_not_persist_normalization_on_read(clean_state):
     settings = get_settings()
     after = clean_state.read_text(encoding="utf-8")
 
-    assert settings["default_engine"] == "xtts"
+    from app.voice_engines import get_default_profile_engine
+    assert settings["default_engine"] == get_default_profile_engine()
     assert settings.get("enabled_plugins", {}).get("voxtral") is False
-    assert "mistral_api_key" not in settings
+    # (Removed assert "mistral_api_key" not in settings - keys are now preserved for plugins)
     assert after == before

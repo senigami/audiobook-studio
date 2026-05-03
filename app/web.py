@@ -279,8 +279,8 @@ def shutdown_event():
     configure_progress_broadcaster(None)
     terminate_all_subprocesses()
 
-async def xtts_generate(*args, **kwargs):
-    """Dummy for tests that patch app.web.xtts_generate"""
+async def tts_generate_stub(*args, **kwargs):
+    """Dummy for tests that patch app.web.tts_generate_stub"""
     pass
 
 @app.middleware("http")

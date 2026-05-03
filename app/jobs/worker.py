@@ -8,6 +8,7 @@ import logging
 from pathlib import Path
 
 from ..jobs import get_speaker_settings
+from ..voice_engines import get_default_profile_engine
 from .core import (
     job_queue, assembly_queue, cancel_flags, pause_flag,
     BASELINE_ENGINE_CPS, _estimate_seconds, calculate_predicted_progress,
@@ -57,7 +58,7 @@ def worker_loop(q):
             eta_unit_count = 1
             text = None
             perf = get_performance_metrics()
-            engine_id = getattr(j, "engine", get_settings().get("default_engine", "xtts"))
+            engine_id = getattr(j, "engine", get_settings().get("default_engine", get_default_profile_engine()))
             engine_cps_map = perf.get("engine_cps", {})
             cps = engine_cps_map.get(engine_id, BASELINE_ENGINE_CPS)
 
@@ -70,7 +71,7 @@ def worker_loop(q):
                 voice_job_settings = get_speaker_settings(j.speaker_profile)
                 chars = len((voice_job_settings.get("test_text") or "").strip())
                 from ..engines.behavior import has_behavior
-                target_engine = voice_job_settings.get("engine", get_settings().get("default_engine", "xtts"))
+                target_engine = voice_job_settings.get("engine", get_settings().get("default_engine", get_default_profile_engine()))
                 if chars > 0 and has_behavior(target_engine, "cps_eta"):
                     eta = _estimate_seconds(chars, cps, group_count=eta_unit_count)
                 else:
@@ -329,7 +330,7 @@ def worker_loop(q):
                 update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error=f"No handler registered for engine: {j.engine}")
                 continue
 
-            # Attach ephemeral context for specialized handlers (e.g. XTTS metrics)
+            # Attach ephemeral context for specialized handlers (e.g. for metrics)
             j._chars_count = chars
             j._eta_unit_count = eta_unit_count
 

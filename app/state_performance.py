@@ -22,21 +22,11 @@ def _default_performance_metrics() -> Dict[str, Any]:
         "render_history": [],
     }
 
-
 def _normalize_performance_metrics(metrics: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Normalize performance metrics into the generic mapping."""
     normalized = _default_performance_metrics()
     if metrics:
         normalized.update(metrics)
-        legacy_xtts_cps = normalized.pop("xtts_cps", None)
-        legacy_xtts_history = normalized.pop("xtts_render_history", None)
-        if legacy_xtts_cps is not None:
-            try:
-                normalized.setdefault("engine_cps", {})
-                normalized["engine_cps"]["xtts"] = float(legacy_xtts_cps)
-            except (TypeError, ValueError):
-                pass
-        if legacy_xtts_history and not normalized.get("render_history"):
-            normalized["render_history"] = legacy_xtts_history
 
     try:
         normalized["audiobook_speed_multiplier"] = float(normalized.get("audiobook_speed_multiplier", 1.0))
@@ -104,75 +94,15 @@ def _write_setting_value(cursor, key: str, value: Any) -> None:
     )
 
 
-def _read_legacy_performance_metrics_json(cursor) -> Optional[Dict[str, Any]]:
-    cursor.execute(
-        "SELECT value FROM settings WHERE key = ?",
-        (_PERFORMANCE_METRICS_SETTING_KEY,),
-    )
-    row = cursor.fetchone()
-    if not row:
-        return None
-    value = row["value"] if hasattr(row, "keys") else row[0]
-    try:
-        from json import JSONDecodeError
-        decoded = json.loads(value)
-    except (TypeError, ValueError, JSONDecodeError):
-        return None
-    return decoded if isinstance(decoded, dict) else None
-
-
-def _record_legacy_performance_history(history: list[Dict[str, Any]]) -> None:
-    from .db.performance import record_render_sample
-
-    for sample in history:
-        if not isinstance(sample, dict):
-            continue
-        record_render_sample(
-            engine=str(sample.get("engine") or "xtts"),
-            chars=int(sample.get("chars") or 0),
-            word_count=int(sample.get("word_count") or 0),
-            segment_count=max(1, int(sample.get("segment_count") or 1)),
-            duration_seconds=float(sample.get("duration_seconds") or 0),
-            cps=float(sample["cps"]) if sample.get("cps") is not None else None,
-            seconds_per_segment=(
-                float(sample["seconds_per_segment"])
-                if sample.get("seconds_per_segment") is not None
-                else None
-            ),
-            job_id=sample.get("job_id"),
-            project_id=sample.get("project_id"),
-            chapter_id=sample.get("chapter_id"),
-            speaker_profile=sample.get("speaker_profile"),
-            render_group_count=int(sample.get("render_group_count") or 0),
-            started_at=sample.get("started_at"),
-            audio_duration_seconds=sample.get("audio_duration_seconds"),
-            make_mp3=bool(sample.get("make_mp3")),
-            completed_at=sample.get("completed_at"),
-        )
-
-
 def _read_performance_metrics_from_db() -> Dict[str, Any]:
     metrics = _default_performance_metrics()
     try:
         from .db.core import get_connection
         from .db.performance import get_render_history
 
-        legacy_history = None
-        legacy_metrics_found = False
-
         with get_connection() as conn:
             cursor = conn.cursor()
             _ensure_settings_table(cursor)
-            legacy_metrics = _read_legacy_performance_metrics_json(cursor)
-            if legacy_metrics:
-                legacy_metrics_found = True
-                legacy_metrics = _normalize_performance_metrics(legacy_metrics)
-                metrics["audiobook_speed_multiplier"] = legacy_metrics.get(
-                    "audiobook_speed_multiplier",
-                    metrics["audiobook_speed_multiplier"],
-                )
-                metrics["engine_cps"].update(legacy_metrics.get("engine_cps", {}))
-                legacy_history = legacy_metrics.get("render_history") or []
 
             # 1. Read scalars from settings table
             metrics["audiobook_speed_multiplier"] = _read_setting_float(
@@ -195,24 +125,6 @@ def _read_performance_metrics_from_db() -> Dict[str, Any]:
             # 2. Read history from render_performance_samples table
             metrics["render_history"] = get_render_history(limit=100)
 
-            if legacy_metrics:
-                _write_setting_value(
-                    cursor,
-                    "performance_metric:audiobook_speed_multiplier",
-                    metrics["audiobook_speed_multiplier"],
-                )
-                for eid, cps in metrics["engine_cps"].items():
-                    _write_setting_value(cursor, f"performance_metric:cps:{eid}", cps)
-
-        if legacy_history and not metrics["render_history"]:
-            _record_legacy_performance_history(legacy_history)
-            metrics["render_history"] = get_render_history(limit=100)
-
-        if legacy_metrics_found:
-            with get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("DELETE FROM settings WHERE key = ?", (_PERFORMANCE_METRICS_SETTING_KEY,))
-                conn.commit()
     except Exception:
         logger.warning("Failed to read performance metrics from database", exc_info=True)
     return _normalize_performance_metrics(metrics)
@@ -243,49 +155,14 @@ def _write_performance_metrics_to_db(metrics: Dict[str, Any]) -> bool:
         return False
 
 
-def _remove_legacy_performance_metrics_from_state(state: Dict[str, Any]) -> None:
-    if "performance_metrics" not in state:
-        return
-    state.pop("performance_metrics", None)
-    _atomic_write_text(get_state_file(), json.dumps(state, indent=2))
-
-
 def get_performance_metrics() -> Dict[str, Any]:
     with _STATE_LOCK:
-        state = _load_state_no_lock()
-        metrics = _read_performance_metrics_from_db()
-        legacy_metrics = state.get("performance_metrics")
-
-        if legacy_metrics is not None:
-            # Migration from state.json
-            legacy_metrics = _normalize_performance_metrics(legacy_metrics)
-            metrics["audiobook_speed_multiplier"] = legacy_metrics.get("audiobook_speed_multiplier", metrics["audiobook_speed_multiplier"])
-            metrics["engine_cps"].update(legacy_metrics.get("engine_cps", {}))
-
-            history = legacy_metrics.get("render_history")
-            if history and isinstance(history, list) and not metrics["render_history"]:
-                from .db.performance import record_render_sample
-                for sample in history:
-                    record_render_sample(**sample)
-
-            # Write back to DB to ensure scalars are saved
-            _write_performance_metrics_to_db(metrics)
-            # Re-read to ensure we have the final migrated state in the return value
-            metrics = _read_performance_metrics_from_db()
-            _remove_legacy_performance_metrics_from_state(state)
-
-        return metrics
+        return _read_performance_metrics_from_db()
 
 
 def update_performance_metrics(**updates) -> None:
     with _STATE_LOCK:
-        state = _load_state_no_lock()
         metrics = _read_performance_metrics_from_db()
-        if "performance_metrics" in state:
-            legacy_metrics = _normalize_performance_metrics(state.get("performance_metrics"))
-            metrics = _normalize_performance_metrics({**metrics, **legacy_metrics})
-
         metrics.update(updates)
         metrics = _normalize_performance_metrics(metrics)
         _write_performance_metrics_to_db(metrics)
-        _remove_legacy_performance_metrics_from_state(state)

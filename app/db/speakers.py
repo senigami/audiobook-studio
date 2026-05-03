@@ -10,13 +10,14 @@ from typing import List, Dict, Any, Optional
 from .core import _db_lock, get_connection
 from ..pathing import safe_join, safe_join_flat, find_secure_file, secure_join_flat
 from .. import config
-from ..voice_engines import DEFAULT_PROFILE_ENGINE, list_tts_engines
+from ..voice_engines import get_default_profile_engine, list_tts_engines
 
 logger = logging.getLogger(__name__)
 SAFE_PROFILE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
 
 
 def _infer_profile_engine(meta: Optional[Dict[str, Any]] = None) -> str:
+    """Infer the target engine for a voice profile, supporting legacy plugin-declared aliases."""
     meta = dict(meta or {})
     explicit_engine = str(meta.get("engine") or "").strip().lower()
     if explicit_engine in list_tts_engines():
@@ -25,8 +26,9 @@ def _infer_profile_engine(meta: Optional[Dict[str, Any]] = None) -> str:
     from ..engines.behavior import setting_aliases_for
 
     # Check if any field matches a known alias for a non-default engine
+    default_engine = get_default_profile_engine()
     for engine_id in list_tts_engines():
-        if engine_id == DEFAULT_PROFILE_ENGINE:
+        if engine_id == default_engine:
             continue
 
         aliases = setting_aliases_for(engine_id)
@@ -34,7 +36,7 @@ def _infer_profile_engine(meta: Optional[Dict[str, Any]] = None) -> str:
             if str(meta.get(alias_key) or "").strip():
                 return engine_id
 
-    return DEFAULT_PROFILE_ENGINE
+    return default_engine
 
 
 def _profile_name_or_error(profile_name: str) -> str:

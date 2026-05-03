@@ -51,10 +51,10 @@ def _single_job_title(chapter_file: str, engine: str) -> str:
     entry = registry.get(engine)
     display_name = (entry.get("display_name") if entry else None) or engine.capitalize()
 
-    from ...voice_engines import DEFAULT_PROFILE_ENGINE
+    from ...voice_engines import get_default_profile_engine
     if engine == "mixed":
         action = "Generating mixed audio for"
-    elif engine == DEFAULT_PROFILE_ENGINE:
+    elif engine == get_default_profile_engine():
         action = "Generating audio for"
     else:
         action = f"Generating {display_name} audio for"
@@ -330,8 +330,8 @@ def cancel_chapter_generation(chapter_id: str):
 @router.post("/generation/enqueue-single")
 def enqueue_single(chapter_file: str = Form(...), engine: Optional[str] = Form(None)):
     if not engine:
-        from ...voice_engines import DEFAULT_PROFILE_ENGINE
-        engine = get_settings().get("default_engine") or DEFAULT_PROFILE_ENGINE
+        from ...voice_engines import get_default_profile_engine
+        engine = get_settings().get("default_engine") or get_default_profile_engine()
     normalized_engine = normalize_tts_engine(engine, engine)
     engine_error = _ensure_engines_enabled([normalized_engine])
     if engine_error:
@@ -390,7 +390,7 @@ def api_generate_segments(segment_ids: str = Form(...), speaker_profile: Optiona
     if engine_error:
         return engine_error
     # Performance-tab segment generation should always use the chunk-aware mixed handler
-    # so displayed groups render as one unit even when they are pure XTTS.
+    # so displayed groups render as one unit even when they are pure single-engine renders.
     queue_engine = "mixed"
     segment_custom_title = build_segment_job_title(
         chapter_title=chapter_title,

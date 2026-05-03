@@ -89,9 +89,9 @@ def clean_text_for_tts(text: str) -> str:
 
 def consolidate_single_word_sentences(text: str) -> str:
     """
-    TTS engines (especially XTTS) often fail on short sentences.
+    TTS engines often fail on short sentences.
     This merges them (<= 2 words) with neighbors using semicolons.
-    Semicolons are mapped to pauses in xtts_inference.py.
+    Semicolons are often mapped to pauses by engine adapters.
 
     If text contains newlines, they are preserved as boundaries.
     If a merge happens across a newline, we use ';; ' to indicate
@@ -216,7 +216,7 @@ def sanitize_text(text: str) -> str:
     text = re.sub(r'([,;:])(["\')\]]*)$', r'.\2', text)
 
     # 3. Ensure terminal punctuation
-    # (XTTS v2 can fail on short strings without it)
+    # (Some engines can fail on short strings without it)
     if text and not re.search(r'[.!?]["\')\]\s]*$', text):
         text += "."
 
@@ -228,7 +228,7 @@ def pack_text_to_limit(
 ) -> str:
     """
     Greedily packs sentences into larger chunks as close to the limit
-    as possible. This gives XTTS the maximum context and prevents
+    as possible. This gives the synthesis engine the maximum context and prevents
     choppiness from short lines. If pad is True, each chunk is padded
     with spaces up to the limit.
     """

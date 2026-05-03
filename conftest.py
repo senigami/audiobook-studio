@@ -4,6 +4,7 @@ import pytest
 import atexit
 import signal
 import faulthandler
+faulthandler.enable()
 import shutil
 from pathlib import Path
 import psutil

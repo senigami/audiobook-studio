@@ -12,7 +12,7 @@ from typing import Any
 
 from app.engines.registry import load_engine_registry
 from app.engines.bridge_remote import RemoteBridgeHandler
-from app.state import get_settings
+
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +42,7 @@ class VoiceBridge:
         if not registration:
             return False
 
+        from app.state import get_settings
         settings = get_settings()
         enabled_plugins = settings.get("enabled_plugins") or {}
         default_enabled = registration.manifest.built_in or registration.manifest.verified

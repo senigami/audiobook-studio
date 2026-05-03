@@ -30,7 +30,7 @@ class JobHandlerRegistry:
         """Fetch the most specific handler for the given job."""
         engine = job.engine
 
-        # 1. Exact engine match (e.g., 'xtts', 'audiobook')
+        # 1. Exact engine match (e.g., 'audiobook')
         if engine in self._engine_handlers:
             return self._engine_handlers[engine]
 

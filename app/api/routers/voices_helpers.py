@@ -12,9 +12,11 @@ from fastapi.responses import JSONResponse
 from ...db.speakers import (
     infer_speaker_name,
     infer_variant_name,
-    DEFAULT_PROFILE_ENGINE,
 )
-from ...voice_engines import list_tts_engines
+from ...voice_engines import (
+    list_tts_engines,
+    get_default_profile_engine,
+)
 from ...jobs import (
     get_speaker_settings,
     update_speaker_settings,
@@ -64,7 +66,7 @@ def _profile_dir_has_assets(profile_dir: Path) -> bool:
 
 
 def _normalize_profile_engine(engine: Optional[str]) -> str:
-    normalized = (engine or DEFAULT_PROFILE_ENGINE).strip().lower()
+    normalized = (engine or get_default_profile_engine()).strip().lower()
     if normalized not in list_tts_engines():
         raise ValueError(f"Invalid profile engine: {engine}")
     return normalized
@@ -251,7 +253,7 @@ def _voice_has_latent(name: str) -> bool:
 
 def _voice_has_generation_material(name: str) -> bool:
     settings = get_speaker_settings(name)
-    engine = settings.get("engine", DEFAULT_PROFILE_ENGINE)
+    engine = settings.get("engine", get_default_profile_engine())
     if not _is_engine_active(engine):
         return False
     bridge = create_voice_bridge()

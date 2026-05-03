@@ -12,6 +12,7 @@ from ...engines import bridge
 from ... import state
 from ... import pathing
 from ... import config
+from ...voice_engines import get_default_profile_engine
 
 logger = logging.getLogger(__name__)
 
@@ -255,13 +256,13 @@ def list_speaker_profiles():
             if has_preview_signature:
                 preview_signature_stale = (
                     spk_settings.get("preview_test_text") != spk_settings.get("test_text")
-                    or spk_settings.get("preview_engine") != spk_settings.get("engine", db.speakers.DEFAULT_PROFILE_ENGINE)
+                    or spk_settings.get("preview_engine") != spk_settings.get("engine", get_default_profile_engine())
                 )
-                if voices_helpers._has_behavior(spk_settings.get("engine", db.speakers.DEFAULT_PROFILE_ENGINE), "reference_sample"):
+                if voices_helpers._has_behavior(spk_settings.get("engine", get_default_profile_engine()), "reference_sample"):
                     preview_signature_stale = preview_signature_stale or (
                         spk_settings.get("preview_reference_sample") != spk_settings.get("reference_sample")
                     )
-                if voices_helpers._has_behavior(spk_settings.get("engine", db.speakers.DEFAULT_PROFILE_ENGINE), "voice_asset_id"):
+                if voices_helpers._has_behavior(spk_settings.get("engine", get_default_profile_engine()), "voice_asset_id"):
                     preview_signature_stale = preview_signature_stale or (
                         spk_settings.get("preview_voice_asset_id") != spk_settings.get("voice_asset_id")
                         or spk_settings.get("preview_model") != spk_settings.get("model")
@@ -294,7 +295,7 @@ def list_speaker_profiles():
             "test_text": spk_settings["test_text"],
             "speaker_id": spk_settings.get("speaker_id"),
             "variant_name": spk_settings.get("variant_name"),
-            "engine": spk_settings.get("engine", db.speakers.DEFAULT_PROFILE_ENGINE),
+            "engine": spk_settings.get("engine", get_default_profile_engine()),
             "voice_asset_id": spk_settings.get("voice_asset_id"),
             "model": spk_settings.get("model"),
             "reference_sample": spk_settings.get("reference_sample"),
@@ -331,8 +332,10 @@ def list_speaker_profiles():
 def api_create_speaker_profile(
     speaker_id: str = Form(...),
     variant_name: str = Form(...),
-    engine: str = Form(db.speakers.DEFAULT_PROFILE_ENGINE),
+    engine: str = Form(None),
 ):
+    if engine is None:
+        engine = get_default_profile_engine()
     logger.info(f"Creating profile for speaker_id='{speaker_id}', variant_name='{variant_name}', engine='{engine}'")
     try:
         normalized_engine = voices_helpers._normalize_profile_engine(engine)

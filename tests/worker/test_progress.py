@@ -8,7 +8,7 @@ def test_on_output_logic(mock_q, sample_job):
     """Test the internal on_output callback logic."""
     mock_q.get.side_effect = ["test_job_1", Exception("StopLoop")]
 
-    # We want to intercept the on_output function passed to handle_xtts_job
+    # We want to intercept the on_output function passed to the handler
     captured_on_output = []
 
     def fake_handler(jid, j, start, on_output, *args, **kwargs):
@@ -20,10 +20,12 @@ def test_on_output_logic(mock_q, sample_job):
          patch("app.jobs.worker.get_project_text_dir", create=True) as mock_text_dir, \
          patch("pathlib.Path.exists", return_value=True), \
          patch("pathlib.Path.read_text", return_value="Hello"), \
-         patch("app.jobs.worker.handle_xtts_job", side_effect=fake_handler), \
+         patch("app.jobs.worker.get_handler_registry") as mock_reg_func, \
          patch("app.jobs.worker._output_exists", return_value=False), \
-         patch("app.jobs.worker.get_speaker_wavs", return_value=[]), \
          patch("app.jobs.worker.get_speaker_settings", return_value={"speed": 1.0}):
+
+        mock_reg = mock_reg_func.return_value
+        mock_reg.get_handler.return_value = fake_handler
 
         mock_text_dir.return_value = Path("/tmp")
 
@@ -70,8 +72,8 @@ def test_on_output_logic(mock_q, sample_job):
         on_out(download_line)
         mock_update.assert_not_called()
 
-def test_on_output_blank_xtts_heartbeat_does_not_broadcast_predicted_progress(mock_q, sample_job):
-    """XTTS jobs should not emit synthetic websocket progress on blank heartbeats."""
+def test_on_output_blank_heartbeat_does_not_broadcast_predicted_progress(mock_q, sample_job):
+    """Jobs should not emit synthetic websocket progress on blank heartbeats."""
     mock_q.get.side_effect = ["test_job_1", Exception("StopLoop")]
     captured_on_output = []
     def fake_handler(jid, j, start, on_output, *args, **kwargs): captured_on_output.append(on_output)
@@ -81,11 +83,13 @@ def test_on_output_blank_xtts_heartbeat_does_not_broadcast_predicted_progress(mo
          patch("app.jobs.worker.get_project_text_dir", create=True, return_value=Path("/tmp")), \
          patch("pathlib.Path.exists", return_value=True), \
          patch("pathlib.Path.read_text", return_value="Hello"), \
-         patch("app.jobs.worker.handle_xtts_job", side_effect=fake_handler), \
+         patch("app.jobs.worker.get_handler_registry") as mock_reg_func, \
          patch("app.jobs.worker._output_exists", return_value=False), \
-         patch("app.jobs.worker.get_speaker_wavs", return_value=[]), \
          patch("app.jobs.worker.get_speaker_settings", return_value={"speed": 1.0}), \
          patch("app.jobs.worker.calculate_predicted_progress", return_value=0.15):
+
+        mock_reg = mock_reg_func.return_value
+        mock_reg.get_handler.return_value = fake_handler
 
         try:
             worker_loop(mock_q)
@@ -108,7 +112,7 @@ def test_worker_progress_update():
     jid = "test_progress_job"
     j = Job(
         id=jid,
-        engine="xtts",
+        engine="engine-a",
         chapter_file="nonexistent.txt",
         status="queued",
         created_at=time.time(),

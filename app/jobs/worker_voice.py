@@ -101,8 +101,8 @@ def handle_voice_job(jid, j, on_output, cancel_check, voice_job_settings=None):
             voice_profile_dir = get_voice_profile_dir(j.speaker_profile)
         except ValueError:
             voice_profile_dir = None
-        from ..voice_engines import DEFAULT_PROFILE_ENGINE
-        engine = spk.get("engine", DEFAULT_PROFILE_ENGINE)
+        from ..voice_engines import get_default_profile_engine
+        engine = spk.get("engine", get_default_profile_engine())
         try:
             rc = _generate_voice_sample_via_bridge(
                 engine=engine,

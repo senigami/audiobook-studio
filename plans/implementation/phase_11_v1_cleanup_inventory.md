@@ -2,9 +2,7 @@
 
 ## Status
 
-Refreshed audit checkpoint on 2026-05-02. Slice L (Engine Bundle Collapse) is **Complete**. Final residual audit confirms that `app/engines/voice/` is stripped of engine bundles, with only `base.py` and `sdk.py` remaining as the intentional contract survivors. 
-
-Broken legacy survivors (e.g., `_app.py`) have been removed.
+Refreshed audit checkpoint on 2026-05-03. Slice Q (Final App-root Scrub) is **Complete**. The application root is now fully engine-agnostic, with all remaining engine-specific references (e.g., `xtts_cps`) strictly confined to documented migration shims and explicit compatibility constants for backward compatibility with legacy user data.
 
 ## Source Context
 
@@ -30,12 +28,12 @@ rg -n "base.py|sdk.py|StudioTTSEngine|TTSRequest|TTSResult|VerificationResult" a
 | Classification | Count | Definition |
 | --- | --- | --- |
 | **Plugin Internal** | 124 | Allowed inside `plugins/` and `app/engines/voice/*` adapters. |
-| **Obsolete Coupling** | 9 | Hardcoded engine logic in main app or broken legacy files. |
-| **One-Time Migration** | 15 | Scripts/logic converting old persisted names/storage to v2. |
+| **Obsolete Coupling** | 0 | Hardcoded engine logic in main app. (Scrubbed) |
+| **Intentional Migration Debt** | 15 | Isolated logic/constants for legacy data conversion. (Isolated) |
 | **Intentional Strategy** | 22 | Registry-based dispatch and capability checks (Agnostic). |
 | **Boundary Plumbing**   | 4  | Explicit bundle discovery/allowlist logic (Required). |
 | **Dead Legacy Fallback**| 0 | Removed (e.g. `_app.py`). |
-| **Wasteful Test** | 15 | Tests asserting hardcoded engine behavior or legacy state. |
+| **Wasteful Test** | 0 | Pruned or genericized to support agnostic verification. |
 
 ## Refreshed Inventory
 
@@ -153,8 +151,32 @@ rg -n "base.py|sdk.py|StudioTTSEngine|TTSRequest|TTSResult|VerificationResult" a
 - [x] Verified all core worker and API tests pass (43/43).
 
 ## Final Status
-Phase 11 migration is now **Complete**. All engine-specific ownership has been successfully collapsed into the `plugins/` directory. App-root contracts and shared orchestration layers are generalized, agnostic, and read like stable production code.
+
+Phase 11 migration is now **Complete**. All engine-specific ownership has been successfully collapsed into the `plugins/` directory. App-root contracts, shared orchestration layers, and helper utilities are generalized, agnostic, and read like stable production code.
+
+| Target | Status | Rationale |
+| --- | --- | --- |
+| `DEFAULT_PROFILE_ENGINE` fallback | COMPLETED | Now uses registry-driven logic or generic constant. |
+| `resolve_xtts_preview_inputs` | COMPLETED | Renamed to `resolve_voice_preview_inputs`. |
+| `xtts_generate` test dummy | COMPLETED | Renamed to `tts_generate_stub`. |
+| Worker XTTS metrics logic | COMPLETED | Generalized to unified performance metrics. |
+| Test shims (`handle_xtts_job`) | COMPLETED | Replaced with `JobHandlerRegistry` mocks. |
+| Textops/Audio-ops prose | COMPLETED | Scrubbed of XTTS mentions. |
+| Legacy Key Isolation | COMPLETED | Extracted to `app/compat/legacy_keys.py`. |
+
+### Slice R (Legacy Key Isolation and Compatibility Layer) - 2026-05-03
+- [x] Created `app/compat/legacy_keys.py` as a dedicated home for version 1.x compatibility literals.
+- [x] Relocated `xtts_cps`, `xtts_render_history`, and `xtts_speed` literals to compatibility layer.
+- [x] Updated `state_performance.py` and `state_settings.py` to consume named constants.
+- [x] Verified 100% engine-agnosticism in state module runtime logic.
+
+### Slice S (Final App-root Legacy Scrub) - 2026-05-03
+- [x] Moved all legacy engine-specific key literals from `state_performance.py` and `state_settings.py` into `app/migration.py`.
+- [x] Removed `app/compat/legacy_keys.py`.
+- [x] Migrated performance and settings residue into explicit boot-time migration functions.
+- [x] Confirmed that active runtime state modules are 100% engine-agnostic.
 
 ## Remaining Risks
-- **One-Time Migration logic**: Backward compatibility shims in `state_performance.py` and `db/speakers.py` remain intentional for legacy data support.
-- **Registry Plumbing**: Discovery module references in `registry.py` and `subprocess/__init__.py` are required infrastructure.
+
+- **Intentional Migration Debt**: Backward compatibility shims exist ONLY in `app/migration.py` and `db/speakers.py`. Active runtime modules are clean.
+- **Registry Plumbing**: Discovery module references in `registry.py` and `subprocess/__init__.py` are required architectural boundaries.

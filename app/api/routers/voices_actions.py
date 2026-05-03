@@ -12,7 +12,7 @@ from ... import state
 from ... import models
 from ... import pathing
 from ... import config
-from ...db.speakers import DEFAULT_PROFILE_ENGINE
+from ...voice_engines import get_default_profile_engine
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +87,7 @@ def update_speaker_reference_sample(name: str, sample_name: str = Form("")):
     # Rule 9: Early validation
     name = config.canonical_voice_name(name)
     spk_settings = jobs.get_speaker_settings(name)
-    current_engine = spk_settings.get("engine", DEFAULT_PROFILE_ENGINE)
+    current_engine = spk_settings.get("engine", get_default_profile_engine())
     if not voices_helpers._has_behavior(current_engine, "reference_sample"):
          return JSONResponse({"status": "error", "message": f"Engine {current_engine} does not support reference samples."}, status_code=400)
 
@@ -112,7 +112,7 @@ def update_speaker_voice_asset_id(name: str, voice_id: str = Form("")):
     # Rule 9: Early validation
     name = config.canonical_voice_name(name)
     spk_settings = jobs.get_speaker_settings(name)
-    current_engine = spk_settings.get("engine", DEFAULT_PROFILE_ENGINE)
+    current_engine = spk_settings.get("engine", get_default_profile_engine())
     if not voices_helpers._has_behavior(current_engine, "voice_asset_id"):
          return JSONResponse({"status": "error", "message": f"Engine {current_engine} does not support voice asset IDs."}, status_code=400)
 
@@ -260,7 +260,7 @@ def test_speaker_profile(name: str):
     name = config.canonical_voice_name(name)
     try:
         settings = jobs.get_speaker_settings(name)
-        engine = settings.get("engine", DEFAULT_PROFILE_ENGINE)
+        engine = settings.get("engine", get_default_profile_engine())
         if not voices_helpers._is_engine_active(engine):
             return JSONResponse({"status": "error", "message": f"Engine {engine} is not enabled in Settings."}, status_code=400)
 

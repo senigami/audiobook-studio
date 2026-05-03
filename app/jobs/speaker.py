@@ -8,7 +8,8 @@ from pathlib import Path
 from typing import Optional
 from ..config import VOICES_DIR
 from ..state import get_settings
-from ..db.speakers import infer_variant_name, normalize_profile_metadata, DEFAULT_PROFILE_ENGINE
+from ..db.speakers import infer_variant_name, normalize_profile_metadata
+from ..voice_engines import get_default_profile_engine
 
 logger = logging.getLogger(__name__)
 
@@ -341,7 +342,7 @@ def get_speaker_settings(profile_name_or_id: str) -> dict:
         "speaker_id": None,
         "variant_name": None,
         "built_samples": [],
-        "engine": DEFAULT_PROFILE_ENGINE,
+        "engine": get_default_profile_engine(),
     }
     target_profile = _resolve_existing_profile_name(profile_name_or_id)
     if not target_profile:

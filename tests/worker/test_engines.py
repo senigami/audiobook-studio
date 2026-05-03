@@ -10,7 +10,7 @@ def test_worker_loop_xtts_basic(mock_q, sample_job):
 
     with patch("app.jobs.worker.get_jobs", return_value={"test_job_1": sample_job}), \
          patch("app.jobs.worker.update_job") as mock_update, \
-         patch("app.jobs.worker.get_performance_metrics", return_value={"xtts_cps": 10.0}), \
+         patch("app.jobs.worker.get_performance_metrics", return_value={"engine_cps": {"engine-a": 10.0}}), \
          patch("app.jobs.worker.get_project_text_dir", create=True) as mock_text_dir, \
          patch("pathlib.Path.exists", return_value=True), \
          patch("pathlib.Path.read_text", return_value="Hello world"), \
@@ -119,7 +119,7 @@ def test_worker_loop_voxtral_dispatches_handler(mock_q):
 
     with patch("app.jobs.worker.get_jobs", return_value={"voxtral_job": sample_job}), \
          patch("app.jobs.worker.update_job"), \
-         patch("app.jobs.worker.get_performance_metrics", return_value={"xtts_cps": 10.0}), \
+         patch("app.jobs.worker.get_performance_metrics", return_value={"engine_cps": {"engine-a": 10.0}}), \
          patch("app.jobs.worker.get_project_text_dir", create=True) as mock_text_dir, \
          patch("pathlib.Path.exists", return_value=True), \
          patch("pathlib.Path.read_text", return_value="Hello world"), \
@@ -156,7 +156,7 @@ def test_worker_loop_voxtral_does_not_resume_from_segment_completion(mock_q):
 
     with patch("app.jobs.worker.get_jobs", return_value={"voxtral_job": sample_job}), \
          patch("app.jobs.worker.update_job") as mock_update, \
-         patch("app.jobs.worker.get_performance_metrics", return_value={"xtts_cps": 10.0}), \
+         patch("app.jobs.worker.get_performance_metrics", return_value={"engine_cps": {"engine-a": 10.0}}), \
          patch("app.jobs.worker.get_project_text_dir", create=True) as mock_text_dir, \
          patch("pathlib.Path.exists", return_value=True), \
          patch("pathlib.Path.read_text", return_value="Hello world"), \

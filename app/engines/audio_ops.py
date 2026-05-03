@@ -44,7 +44,7 @@ def wav_to_mp3(
 
 
 def convert_to_wav(in_file: Path, out_wav: Path) -> int:
-    """Converts any audio file to a standard 22050Hz mono WAV (best for XTTS references)."""
+    """Converts any audio file to a standard 22050Hz mono WAV (best for voice references)."""
     cmd = ["ffmpeg", "-y", "-i", str(in_file), "-ar", "22050", "-ac", "1", str(out_wav)]
     return subprocess.run(cmd, check=False).returncode
 
@@ -77,7 +77,7 @@ def stitch_segments(
             for sw in segment_wavs:
                 lf.write(_ffmpeg_concat_entry(sw))
 
-        # Simple concat for segments (they should all be same sample rate/channels from XTTS)
+        # Simple concat for segments (they should all be same sample rate/channels from the synthesis engine)
         cmd = [
             "ffmpeg",
             "-y",
