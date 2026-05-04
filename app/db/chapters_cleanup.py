@@ -32,26 +32,19 @@ def cleanup_chapter_audio_files(
         return False
 
     # 1. Identify all candidate directories
-    legacy_pdir = config.find_existing_project_subdir(project_id, "audio") if project_id else config.AUDIO_OUT_DIR
-    nested_pdir = config.get_chapter_dir(project_id, chapter_id) if project_id else None
+    if not project_id:
+        return True
+
+    nested_pdir = config.get_chapter_dir(project_id, chapter_id)
 
     target_dirs: List[str] = []
     # Rule 9: Explicit containment check for scanner locality
     try:
         p_root = os.path.abspath(os.path.realpath(os.fspath(config.PROJECTS_DIR)))
-        x_root = os.path.abspath(os.path.realpath(os.fspath(config.AUDIO_OUT_DIR)))
 
         def is_safe(path_str: str) -> bool:
-            if path_str == p_root or path_str.startswith(p_root + os.sep):
-                return True
-            if path_str == x_root or path_str.startswith(x_root + os.sep):
-                return True
-            return False
+            return path_str == p_root or path_str.startswith(p_root + os.sep)
 
-        if legacy_pdir:
-            l_path = os.path.abspath(os.path.realpath(os.fspath(legacy_pdir)))
-            if is_safe(l_path):
-                target_dirs.append(l_path)
 
         if nested_pdir:
             n_path = os.path.abspath(os.path.realpath(os.fspath(nested_pdir)))
@@ -102,12 +95,11 @@ def cleanup_chapter_audio_files(
     # 4. Cleanup chapter outputs
     if delete_chapter_outputs:
         for root, f_path, f_name in list(known_files):
-            is_legacy_match = f_name.startswith(chapter_id)
             is_nested_match = nested_pdir and root == os.path.abspath(os.path.realpath(os.fspath(nested_pdir))) and (
                 f_name.startswith("chapter.") or f_name.startswith(chapter_id)
             )
 
-            if is_legacy_match or is_nested_match:
+            if is_nested_match:
                 try:
                     if f_path.startswith(root + os.sep):
                         os.remove(f_path)
@@ -185,15 +177,15 @@ def move_chapter_artifacts_to_trash(
 
     # 1. Identify all source candidates
     try:
-        legacy_audio_dir = config.find_existing_project_subdir(project_id, "audio") or config.get_project_audio_dir(project_id)
-        legacy_text_dir = config.find_existing_project_subdir(project_id, "text") or config.get_project_text_dir(project_id)
+        flat_audio_dir = None
+        flat_text_dir = None
         nested_dir = config.get_chapter_dir(project_id, chapter_id)
     except (OSError, ValueError):
-        legacy_audio_dir = legacy_text_dir = nested_dir = None
+        flat_audio_dir = flat_text_dir = nested_dir = None
 
     # 2. Collect all potential files using string-based scandir
     source_files: List[tuple[str, str, str]] = []  # (root_path, full_path, name)
-    for d in [legacy_audio_dir, legacy_text_dir, nested_dir]:
+    for d in [flat_audio_dir, flat_text_dir, nested_dir]:
         if d:
             d_path = os.path.abspath(os.path.realpath(os.fspath(d)))
             if os.path.isdir(d_path):

@@ -14,7 +14,7 @@ def client():
 def test_sandbox_isolation_verification(client):
     """
     CRITICAL: Verifies that the test environment is truly isolated.
-    The paths used during tests should be within a temporary directory, 
+    The paths used during tests should be within a temporary directory,
     not the real production directories.
     """
     # Import inside to ensure conftest.py env vars have taken effect on constants
@@ -34,7 +34,7 @@ def test_sandbox_isolation_verification(client):
 
 def test_export_sample_with_project_context(client):
     """
-    Verifies that the restored export-sample endpoint works correctly 
+    Verifies that the restored export-sample endpoint works correctly
     with the new project_id structure.
     """
     # 1. Create a project and chapter
@@ -44,17 +44,17 @@ def test_export_sample_with_project_context(client):
     res = client.post(f"/api/projects/{pid}/chapters", data={"title": "SafetyChapter", "text_content": "Safety first."})
     cid = res.json()["chapter"]["id"]
 
-    # 2. Mock a WAV file in the project's audio directory
-    from app.config import get_project_audio_dir
-    p_audio_dir = get_project_audio_dir(pid)
-    wav_path = p_audio_dir / f"{cid}.wav"
+    # 2. Mock a WAV file in the project's nested chapter directory
+    from app.config import get_chapter_dir
+    c_dir = get_chapter_dir(pid, cid)
+    wav_path = c_dir / "chapter.wav"
     wav_path.write_text("fake audio data")
 
     # 3. Call the export endpoint with project_id
     res = client.post(f"/api/chapters/{cid}/export-sample?project_id={pid}")
 
     # We expect success if the file is found
-    assert res.status_code in [200, 500] 
+    assert res.status_code in [200, 500]
     if res.status_code == 200:
         assert "url" in res.json()
     else:
@@ -63,7 +63,7 @@ def test_export_sample_with_project_context(client):
 
 def test_reset_chapter_isolation(client):
     """
-    Verifies that resetting a chapter correctly clears files 
+    Verifies that resetting a chapter correctly clears files
     inside the project-specific directory.
     """
     res = client.post("/api/projects", data={"name": "ResetTarget"})
@@ -72,14 +72,14 @@ def test_reset_chapter_isolation(client):
     res = client.post(f"/api/projects/{pid}/chapters", data={"title": "ToReset"})
     cid = res.json()["chapter"]["id"]
 
-    from app.config import get_project_audio_dir
-    p_audio_dir = get_project_audio_dir(pid)
-    wav_path = p_audio_dir / f"{cid}.wav"
+    from app.config import get_chapter_dir
+    c_dir = get_chapter_dir(pid, cid)
+    wav_path = c_dir / "chapter.wav"
     wav_path.write_text("data")
 
     # Manually update the chapter to point to this file so reset knows to delete it
     from app.db import update_chapter
-    update_chapter(cid, audio_file_path=f"{cid}.wav")
+    update_chapter(cid, audio_file_path="chapter.wav")
 
     assert wav_path.exists()
 
@@ -92,7 +92,7 @@ def test_reset_chapter_isolation(client):
 
 def test_import_legacy_data_is_safe(client):
     """
-    Verifies that running the migration endpoint doesn't crash 
+    Verifies that running the migration endpoint doesn't crash
     and obeys isolation rules.
     """
     res = client.post("/api/migration/import_legacy")
@@ -140,10 +140,10 @@ def test_reconciliation_project_aware(client):
 
     jid = f"test_recon_{cid}"
     j = Job(
-        id=jid, 
-        engine="xtts", 
-        chapter_file=f"{cid}_0.txt", 
-        status="done", 
+        id=jid,
+        engine="xtts",
+        chapter_file=f"{cid}_0.txt",
+        status="done",
         created_at=time.time(),
         project_id=pid
     )
@@ -179,82 +179,3 @@ def test_reconciliation_project_aware(client):
     # 7. Verify status is now 'queued'
     jobs = get_jobs()
     assert jobs[jid].status == "queued"
-
-
-def test_legacy_path_and_forward_sync(client):
-    """
-    Simulates a 'migrated' chapter that has text/audio in the global/legacy directories
-    instead of the new project-specific directories.
-    Verifies that cleanup_and_reconcile:
-    1. Finds the files using fallbacks
-    2. Keeps the job as 'done'
-    3. Forward-syncs the 'done' status to the SQLite chapters table
-    """
-    from app.db import init_db, create_project, create_chapter, get_connection
-    from app.state import put_job
-    from app.models import Job
-    import uuid
-
-    pid = create_project("Legacy Migration Test")
-
-    cid = create_chapter(project_id=pid, title="Legacy Chapter", text_content="legacy format text", sort_order=1)
-
-    # Pre-condition: Chapter should be 'unprocessed' in DB initially
-    with get_connection() as conn:
-        c = conn.cursor()
-        c.execute("SELECT audio_status FROM chapters WHERE id = ?", (cid,))
-        status = c.fetchone()[0]
-        assert status == "unprocessed"
-
-    # Create a job in state.json claiming to be done
-    jid = f"{cid}_0"
-    import time
-    j = Job(
-        id=jid,
-        engine="xtts",
-        status="done",
-        chapter_file=f"{cid}_0.txt",
-        project_id=pid,
-        make_mp3=True,
-        output_mp3=f"{cid}_0.mp3",
-        created_at=time.time(),
-        started_at=time.time() - 2.0,
-        finished_at=time.time(),
-        bypass_pause=False
-    )
-    put_job(j)
-
-    # 1. Create text file in LEGACY folder (CHAPTER_DIR), NOT project folder
-    chapter_dir = Path(os.environ["CHAPTER_DIR"])
-    audio_out_dir = Path(os.environ["AUDIO_OUT_DIR"])
-    legacy_text = chapter_dir / f"{cid}_0.txt"
-    legacy_text.parent.mkdir(parents=True, exist_ok=True)
-    legacy_text.write_text("legacy chapter text")
-
-    # 2. Create audio file in LEGACY folder (AUDIO_OUT_DIR), NOT project folder
-    legacy_mp3 = audio_out_dir / f"{cid}_0.mp3"
-    legacy_mp3.parent.mkdir(parents=True, exist_ok=True)
-    legacy_mp3.write_text("legacy audio data")
-
-    # 3. Trigger reconciliation
-    from app.jobs import cleanup_and_reconcile
-    cleanup_and_reconcile()
-
-    # 4. Assert the job was NOT pruned or reset (still 'done')
-    from app.state import get_jobs
-    jobs = get_jobs()
-    assert jid in jobs
-    assert jobs[jid].status == "done"
-
-    # 5. Assert the 'done' status was forward-synced to the SQLite chapters table
-    with get_connection() as conn:
-        c = conn.cursor()
-        c.execute("SELECT audio_status, audio_file_path FROM chapters WHERE id = ?", (cid,))
-        row = c.fetchone()
-        assert row is not None
-        assert row[0] == "done"
-        assert row[1] == f"{cid}_0.mp3"
-
-    # Cleanup test files
-    legacy_text.unlink()
-    legacy_mp3.unlink()

@@ -6,7 +6,7 @@ from unittest.mock import patch, MagicMock
 from app.web import app
 from app.models import Job
 from app.state import put_job, delete_jobs, clear_all_jobs
-from app.config import AUDIO_OUT_DIR
+
 
 client = TestClient(app)
 
@@ -131,29 +131,7 @@ def test_api_jobs_does_not_block_on_reconciliation(clean_jobs):
     assert response.status_code == 200
     assert response.elapsed.total_seconds() < 1.0
 
-def test_api_jobs_auto_discovery(clean_jobs, tmp_path, monkeypatch):
-    # Mock AUDIO_OUT_DIR to a temp path
-    mock_out_dir = tmp_path / "audio_out"
-    mock_out_dir.mkdir()
-    monkeypatch.setattr("app.api.routers.jobs.AUDIO_OUT_DIR", mock_out_dir)
 
-    # Create a dummy chapter file in state via legacy_list_chapters mock
-    mock_chapter = MagicMock()
-    mock_chapter.name = "discovered.txt"
-    monkeypatch.setattr("app.api.routers.jobs.legacy_list_chapters", lambda: [mock_chapter])
-
-    # Create the output file
-    (mock_out_dir / "discovered.mp3").write_text("audio")
-
-    response = client.get("/api/jobs")
-    assert response.status_code == 200
-    data = response.json()
-
-    # Should find the auto-discovered job
-    job_data = next((j for j in data if j["chapter_file"] == "discovered.txt"), None)
-    assert job_data is not None
-    assert job_data["status"] == "done"
-    assert job_data["id"] == "discovered-discovered.txt"
 
 def test_api_get_job_not_found(clean_jobs):
     response = client.get("/api/jobs/nonexistent")

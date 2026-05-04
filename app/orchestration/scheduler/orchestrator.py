@@ -13,11 +13,11 @@ Ownership model
 
 These responsibilities must not bleed into each other.
 
-Legacy isolation
-----------------
+Orchestration boundaries
+------------------------
 Studio 2.0 jobs are handled here and must not enter the ``app.jobs`` worker
 loop. Compatibility adapters are explicit and removable; the orchestrator
-must not silently depend on legacy startup or loop behavior.
+must not silently depend on internal background worker or loop behavior.
 """
 
 from __future__ import annotations
@@ -347,9 +347,6 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
             elif task_type == "synthesis":
                 from app.orchestration.tasks.synthesis import SynthesisTask
                 return SynthesisTask.from_task_context(context)
-            elif task_type == "mixed_synthesis":
-                from app.orchestration.tasks.mixed_synthesis import MixedSynthesisTask
-                return MixedSynthesisTask.from_task_context(context)
             # Add other task types as needed...
         except Exception:
             logger.exception("Failed to reconstruct task of type %s", task_type)

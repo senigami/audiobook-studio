@@ -91,10 +91,9 @@ def resolve_profile_engine(profile_name_or_id: Optional[str], fallback_engine: O
         return fallback
 
     try:
-        from .jobs.speaker import get_speaker_settings
+        from .db.speakers import get_profile_engine
 
-        settings = get_speaker_settings(profile_name_or_id)
-        return normalize_tts_engine(settings.get("engine"), fallback)
+        return get_profile_engine(profile_name_or_id, fallback)
     except Exception:
         return fallback
 
@@ -117,17 +116,17 @@ def resolve_tts_engine_for_profiles(
 def resolve_voice_preview_inputs(
     profile_name_or_id: Optional[str],
 ) -> tuple[Optional[str], Optional[Path]]:
-    """Resolve legacy preview inputs for a profile or speaker identifier."""
+    """Resolve preview inputs for a profile or speaker identifier."""
 
     if not profile_name_or_id:
         return None, None
 
     try:
-        from .jobs.speaker import get_speaker_wavs, get_voice_profile_dir
+        from .db.speakers import get_profile_wavs, get_profile_dir
 
-        speaker_wav = get_speaker_wavs(profile_name_or_id)
+        speaker_wav = get_profile_wavs(profile_name_or_id)
         try:
-            voice_profile_dir = get_voice_profile_dir(profile_name_or_id)
+            voice_profile_dir = get_profile_dir(profile_name_or_id)
         except ValueError:
             voice_profile_dir = None
         return speaker_wav, voice_profile_dir

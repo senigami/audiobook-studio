@@ -13,15 +13,14 @@ This is the operational heart of Studio 2.0. The queue must be predictable, expl
 
 ### 2.1 StudioTask Hierarchy
 
-- `SynthesisTask`
-- `MixedSynthesisTask`
-- `BakeTask`
-- `AssemblyTask`
-- `ExportTask`
-- `ExportRepairTask`
-- `SampleBuildTask`
-- `SampleTestTask`
-- `ProjectBackupTask`
+- SynthesisTask
+- BakeTask
+- AssemblyTask
+- ExportTask
+- ExportRepairTask
+- SampleBuildTask
+- SampleTestTask
+- ProjectBackupTask
 
 All queueable work should derive from a common base:
 
@@ -150,7 +149,7 @@ We should preserve the current product intent here rather than accidentally flat
 - **Risk: Retries loop forever on bad inputs**
   Solution: classify failure types and move content/configuration issues to `needs_review`.
 - **Risk: special job behavior gets flattened away**
-  Solution: model bake, mixed, voice build/test, and assembly/export as explicit job classes with defined policy semantics.
+  Solution: model bake, voice build/test, and assembly/export as explicit job classes with defined policy semantics.
 
 ## 9. Implementation References
 

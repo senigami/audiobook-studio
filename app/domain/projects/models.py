@@ -33,7 +33,7 @@ class ProjectModel:
 
     @property
     def name(self) -> str:
-        """Backward-compatible alias for legacy project callers."""
+        """Backward-compatible alias for existing project callers."""
 
         return self.title
 

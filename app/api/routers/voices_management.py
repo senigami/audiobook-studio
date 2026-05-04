@@ -145,10 +145,6 @@ def _rename_profile_folders(old_name: str, new_name: str):
         resolved_old = os.path.abspath(os.fspath(old_dir))
         resolved_new = os.path.abspath(os.fspath(new_dir))
 
-        if " - " in old_name and " - " in new_name and old_dir.parent == voices_helpers.get_voices_dir():
-            # Preserve the legacy flat layout
-            resolved_new = os.path.abspath(os.fspath(pathing.secure_join_flat(voices_helpers.get_voices_dir(), new_name)))
-
         if resolved_old.startswith(trusted_voices_root + os.sep) and resolved_new.startswith(trusted_voices_root + os.sep):
             os.rename(resolved_old, resolved_new)
             db.update_voice_profile_references(old_name, new_name)

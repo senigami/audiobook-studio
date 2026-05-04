@@ -188,7 +188,6 @@ def main():
         return None, None
 
     def get_latents(speaker_wav_paths, device, tts_model, voice_profile_dir=None):
-        from app.engines import migrate_speaker_latent_to_profile
 
         wav_input, combined_paths = _normalize_speaker_wav_paths(speaker_wav_paths, voice_profile_dir)
 
@@ -202,7 +201,7 @@ def main():
             latent_file = os.path.join(voice_profile_dir, "latent.pth")
             current_fingerprint = _profile_fingerprint(voice_profile_dir)
             if not os.path.exists(latent_file):
-                migrated = migrate_speaker_latent_to_profile(speaker_wav_paths, Path(voice_profile_dir)) is not None
+                pass
         else:
             latent_file = os.path.join(voice_dir, f"{speaker_id}.pth")
             current_fingerprint = None

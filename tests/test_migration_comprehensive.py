@@ -34,8 +34,15 @@ def test_migrate_settings():
 
 def test_ensure_state_migrated():
     state = {
-        "settings": {"xtts_speed": 1.0},
-        "performance_metrics": {"xtts_cps": 10.0}
+        "settings": {
+            "xtts_speed": 1.0,
+            "make_mp3": True,
+            "safe_mode": True
+        },
+        "performance_metrics": {
+            "xtts_cps": 10.0,
+            "audiobook_speed_multiplier": 1.1
+        }
     }
     # Mock _record_legacy_performance_history_to_db to avoid DB dependency in this unit test
     with pytest.MonkeyPatch().context() as mp:
@@ -44,4 +51,6 @@ def test_ensure_state_migrated():
 
     assert changed is True
     assert "xtts_speed" not in state["settings"]
-    assert "performance_metrics" not in state # History migration removes the whole blob
+    assert "make_mp3" not in state["settings"]
+    assert state["settings"]["safe_mode"] is True
+    assert "performance_metrics" not in state # Entire blob is removed after CPS/history migration

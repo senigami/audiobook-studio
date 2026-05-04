@@ -55,7 +55,7 @@ def _scandir_names_within_root(root_dir, *parts: str) -> Optional[set[str]]:
 def _dir_has_profile_assets(entry_names: set[str]) -> bool:
     if "profile.json" in entry_names:
         return True
-    # Rule 8 fallback for legacy wav discovery
+    # Rule 8 fallback for loose wav discovery
     return any(name.endswith(".wav") for name in entry_names)
 
 
@@ -111,7 +111,7 @@ def _find_existing_voice_profile_dir(profile_name: str) -> Optional[Path]:
     if not os.path.isdir(voices_root):
         return None
 
-    # 1. Exact match (legacy flat OR intentional nested path)
+    # 1. Exact match (flat layout OR intentional nested path)
     exact_names = _scandir_names_within_root(voices_root, profile_name)
     if exact_names is not None:
         exact = Path(os.path.join(voices_root, profile_name))

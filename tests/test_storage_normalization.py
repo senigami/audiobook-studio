@@ -21,8 +21,7 @@ def clean_db(tmp_path):
     init_db()
 
     # Mock projects root to tmp_path
-    with patch("app.config.AUDIO_OUT_DIR", tmp_path / "audio_out"), \
-         patch("app.config.PROJECTS_DIR", tmp_path / "projects"):
+    with patch("app.config.PROJECTS_DIR", tmp_path / "projects"):
         (tmp_path / "projects").mkdir()
         yield tmp_path
 

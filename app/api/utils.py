@@ -85,45 +85,31 @@ def read_preview(path: Path, max_chars: int = 8000) -> str:
         logger.debug("Failed to read preview from %s", path, exc_info=True)
         return ""
 
-def output_exists(engine: str, chapter_file: str):
-    if not SAFE_FILE_RE.fullmatch(chapter_file):
+def exists(engine, chapter_file, project_id=None, chapter_id=None):
+    if not project_id:
         return False
-    chapter_name = Path(chapter_file).stem
+
+    if engine == "audiobook":
+        if not chapter_file:
+            return False
+        chapter_name = Path(chapter_file).stem
+        from ..config import get_project_m4b_dir
+        pdir = get_project_m4b_dir(project_id)
+        return bool(find_secure_file(pdir, f"{chapter_name}.m4b"))
+
     from ..voice_engines import is_tts_engine
     if is_tts_engine(engine) or engine == "mixed":
-        return bool(find_secure_file(config.AUDIO_OUT_DIR, f"{chapter_name}.wav")) or \
-               bool(find_secure_file(config.AUDIO_OUT_DIR, f"{chapter_name}.mp3"))
-    elif engine == "audiobook":
-        return bool(find_secure_file(config.AUDIOBOOK_DIR, f"{chapter_name}.m4b"))
+        if chapter_id:
+            # Authoritative v2 check
+            p = config.resolve_chapter_asset_path(project_id, chapter_id, "audio", filename=chapter_file)
+            return bool(p and p.exists())
+
+        return False
     return False
 
-def audio_outputs_for(chapter_file: str, project_id: Optional[str] = None):
-    if not SAFE_FILE_RE.fullmatch(chapter_file):
-        return []
-    outputs = []
-    chapter_name = chapter_file
-    # Check global
-    for ext in [".wav", ".mp3"]:
-        p = find_secure_file(config.AUDIO_OUT_DIR, f"{chapter_name}{ext}")
-        if p:
-            outputs.append(f"/out/audio/{chapter_name}{ext}")
 
-    # Check project
-    if project_id:
-        try:
-            proj_audio = config.get_project_audio_dir(project_id)
-            for ext in [".wav", ".mp3"]:
-                p = find_secure_file(proj_audio, f"{chapter_name}{ext}")
-                if p:
-                    outputs.append(f"/out/projects/{project_id}/audio/{chapter_name}{ext}")
-        except OSError:
-            pass
 
-    return outputs
 
-def legacy_list_chapters():
-    config.CHAPTER_DIR.mkdir(parents=True, exist_ok=True)
-    return sorted(config.CHAPTER_DIR.glob("*.txt"))
 
 def is_react_dev_active():
     """Checks if the React dev server is running on 127.0.0.1:5173"""
@@ -137,97 +123,45 @@ def is_react_dev_active():
         logger.debug("React dev server check failed", exc_info=True)
         return False
 
-def process_and_split_file(filename: str, mode: str = "parts", max_chars: int = None) -> List[Path]:
-    """Helper to split a file into chapters/parts in the CHAPTER_DIR."""
-    if max_chars is None:
-        max_chars = config.PART_CHAR_LIMIT
-
-    if not SAFE_FILE_RE.fullmatch(filename):
-        raise FileNotFoundError(f"Upload not found: {filename}")
-    path = find_secure_file(config.UPLOAD_DIR, filename)
-    if not path:
-        raise FileNotFoundError(f"Upload not found: {filename}")
-
-    full_text = path.read_text(encoding="utf-8", errors="replace")
-    mode_clean = str(mode).strip().lower()
-
-    if mode_clean == "chapter":
-        chapters = split_by_chapter_markers(full_text)
-        if not chapters:
-            raise ValueError("No chapter markers found. Expected: Chapter 1: Title")
-        return write_chapters_to_folder(chapters, config.CHAPTER_DIR, prefix="chapter", include_heading=True)
-    else:
-        stem = path.stem
-        chapters = split_into_parts(full_text, max_chars, start_index=1)
-        return write_chapters_to_folder(chapters, config.CHAPTER_DIR, prefix=stem, include_heading=False)
-
 def list_audiobooks():
-    """Lists all audiobooks from legacy and project-specific directories."""
-    res = []
+    """Returns all m4b files across all projects."""
+    from ..config import PROJECTS_DIR
     m4b_files = []
-    if config.AUDIOBOOK_DIR.exists():
-        for p in config.AUDIOBOOK_DIR.glob("*.m4b"):
-            if not SAFE_FILE_RE.fullmatch(p.name):
-                continue
-            m4b_files.append((p.name, config.AUDIOBOOK_DIR, f"/out/audiobook/{p.name}"))
-
-    if config.PROJECTS_DIR.exists():
-        for proj_dir in config.PROJECTS_DIR.iterdir():
-            if proj_dir.is_dir():
-                try:
-                    m4b_dir = secure_join_flat(proj_dir, "m4b")
-                except ValueError:
-                    continue
+    if PROJECTS_DIR.exists():
+        for p_dir in PROJECTS_DIR.iterdir():
+            if p_dir.is_dir():
+                m4b_dir = p_dir / "m4b"
                 if m4b_dir.exists():
                     for p in m4b_dir.glob("*.m4b"):
                         if not SAFE_FILE_RE.fullmatch(p.name):
                             continue
-                        m4b_files.append((p.name, m4b_dir, f"/projects/{proj_dir.name}/m4b/{p.name}"))
+                        m4b_files.append((p.name, m4b_dir, f"/projects/{p_dir.name}/m4b/{p.name}"))
 
-    m4b_files.sort(key=lambda x: _contained_audiobook_path(x[1], x[0]).stat().st_mtime, reverse=True)
-
-    for filename, root_dir, url in m4b_files:
-        p = _contained_audiobook_path(root_dir, filename)
-        if p is None:
-            continue
-
-        # Rule 9: Explicit containment check for scanner locality before stat sink
-        try:
-            resolved = p.resolve()
-            base_resolved = root_dir.resolve()
-            resolved.relative_to(base_resolved)
-        except (OSError, ValueError, RuntimeError):
-             continue
-
-        st = resolved.stat()
-        item = {
-            "filename": p.name, 
-            "title": p.name, 
-            "cover_url": None, 
-            "url": url,
-            "created_at": st.st_mtime,
-            "size_bytes": st.st_size,
-            "duration_seconds": 0.0,
-            "download_filename": p.name,
-        }
-        try:
-            probe_data = probe_audiobook_metadata(root_dir, p.name)
-            if "format" in probe_data:
-                fmt = probe_data["format"]
-                if "duration" in fmt:
-                    item["duration_seconds"] = float(fmt["duration"])
-                if "tags" in fmt and "title" in fmt["tags"]:
-                    item["title"] = fmt["tags"]["title"]
-        except Exception:
-            logger.debug("Failed to probe audiobook metadata for %s", p, exc_info=True)
-
-        item["download_filename"] = preferred_audiobook_download_filename(item["title"], p.name)
-
-        target_jpg = p.with_suffix(".jpg")
-        if target_jpg.exists() and target_jpg.stat().st_size > 0:
-            if "/out/audiobook/" in url:
-                item["cover_url"] = f"/out/audiobook/{target_jpg.name}"
-            else:
-                item["cover_url"] = url.replace(".m4b", ".jpg")
-        res.append(item)
+    res = []
+    for filename, root, url in m4b_files:
+        p = find_secure_file(root, filename)
+        if p:
+            st = p.stat()
+            item = {
+                "filename": filename,
+                "title": filename,
+                "url": url,
+                "created_at": st.st_mtime,
+                "size_bytes": st.st_size,
+                "duration_seconds": 0.0,
+                "download_filename": filename
+            }
+            try:
+                probe_data = probe_audiobook_metadata(root, filename)
+                if "format" in probe_data:
+                    fmt = probe_data["format"]
+                    if "duration" in fmt:
+                        item["duration_seconds"] = float(fmt["duration"])
+                    if "tags" in fmt and "title" in fmt["tags"]:
+                        item["title"] = fmt["tags"]["title"]
+            except Exception:
+                pass
+            item["download_filename"] = preferred_audiobook_download_filename(item["title"], filename)
+            res.append(item)
+    res.sort(key=lambda x: x['created_at'], reverse=True)
     return res

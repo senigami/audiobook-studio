@@ -7,7 +7,6 @@ from unittest.mock import MagicMock, patch
 from app.orchestration.tasks.assembly import AssemblyTask
 from app.orchestration.tasks.bake import BakeTask
 from app.orchestration.tasks.export import ExportTask
-from app.orchestration.tasks.mixed_synthesis import MixedSynthesisTask
 
 
 def test_assembly_task_validation():
@@ -19,7 +18,7 @@ def test_assembly_task_validation():
         ).validate()
 
 
-@patch("app.engines.stitch_segments")
+@patch("app.engines.audio_ops.stitch_segments")
 def test_assembly_task_run(mock_stitch):
     mock_stitch.return_value = 0
     t = AssemblyTask(
@@ -45,7 +44,7 @@ def test_bake_task_validation():
         ).validate()
 
 
-@patch("app.engines.wav_to_mp3")
+@patch("app.engines.audio_ops.wav_to_mp3")
 def test_bake_task_run_mp3(mock_wav_to_mp3, tmp_path):
     mock_wav_to_mp3.return_value = 0
     in_wav = tmp_path / "in.wav"
@@ -77,7 +76,7 @@ def test_export_task_validation():
         ).validate()
 
 
-@patch("app.engines.assemble_audiobook")
+@patch("app.engines.audiobook_utils.assemble_audiobook")
 def test_export_task_run(mock_assemble):
     mock_assemble.return_value = 0
     t = ExportTask(
@@ -93,45 +92,3 @@ def test_export_task_run(mock_assemble):
 
     assert res.status == "completed"
     mock_assemble.assert_called_once()
-
-
-def test_mixed_synthesis_task_validation():
-    with pytest.raises(ValueError, match="segments list cannot be empty"):
-        MixedSynthesisTask(
-            task_id="t1",
-            chapter_id="c1",
-            segments=[]
-        ).validate()
-
-    with pytest.raises(ValueError, match="Segment 0 missing engine_id"):
-        MixedSynthesisTask(
-            task_id="t1",
-            chapter_id="c1",
-            segments=[{"script_text": "hello", "output_path": "a.wav"}]
-        ).validate()
-
-
-@patch("app.engines.bridge.create_voice_bridge")
-def test_mixed_synthesis_task_run(mock_create_bridge):
-    mock_bridge = MagicMock()
-    mock_bridge.synthesize.return_value = {"status": "ok"}
-    mock_create_bridge.return_value = mock_bridge
-
-    t = MixedSynthesisTask(
-        task_id="t1",
-        chapter_id="c1",
-        segments=[
-            {"engine_id": "xtts", "script_text": "One", "output_path": "1.wav"},
-            {"engine_id": "voxtral", "script_text": "Two", "output_path": "2.wav"}
-        ]
-    )
-    res = t.run()
-
-    assert res.status == "completed"
-    assert mock_bridge.synthesize.call_count == 2
-
-    first_call = mock_bridge.synthesize.call_args_list[0][0][0]
-    assert first_call["engine_id"] == "xtts"
-
-    second_call = mock_bridge.synthesize.call_args_list[1][0][0]
-    assert second_call["engine_id"] == "voxtral"

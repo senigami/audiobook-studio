@@ -304,6 +304,6 @@ class VoxtralPlugin(StudioTTSEngine):
 
     @staticmethod
     def _wav_to_mp3(in_wav: Path, out_mp3: Path) -> int:
-        from app.engines import wav_to_mp3 as _conv  # noqa: PLC0415
+        from app.engines.audio_ops import wav_to_mp3 as _conv  # noqa: PLC0415
 
         return _conv(in_wav=in_wav, out_mp3=out_mp3)

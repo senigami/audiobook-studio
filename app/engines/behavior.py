@@ -59,12 +59,16 @@ def normalize_behavior(behavior: Mapping[str, Any] | None) -> dict[str, Any]:
         for setting in behavior.get("synthesis_settings", [])
         if str(setting).strip()
     ]
+    text_chunk_limit = behavior.get("text_chunk_limit", 500)
+    text_split_target = behavior.get("text_split_target", 450)
 
     return {
         "features": features,
         "required_settings": required_settings,
         "setting_aliases": setting_aliases,
         "synthesis_settings": synthesis_settings,
+        "text_chunk_limit": text_chunk_limit,
+        "text_split_target": text_split_target,
     }
 
 
@@ -135,13 +139,6 @@ def behavior_for_engine(
     return _load_manifest_behavior(engine_id)
 
 
-def get_behavior(
-    engine_id: str,
-    *,
-    behavior: Mapping[str, Any] | None = None,
-) -> dict[str, Any]:
-    """Resolve behavior for an engine (backward compatibility shim)."""
-    return behavior_for_engine(engine_id, behavior=behavior)
 
 
 @lru_cache(maxsize=64)
@@ -193,13 +190,13 @@ def has_simulated_finalizing(engine_id: str) -> bool:
 
 def get_text_chunk_limit(engine_id: str) -> int:
     """Return the character limit for text chunks for a given engine."""
-    behavior = get_behavior(engine_id)
+    behavior = behavior_for_engine(engine_id)
     return behavior.get("text_chunk_limit", 500)
 
 
 def get_text_split_target(engine_id: str) -> int:
     """Return the target character count when splitting long sentences."""
-    behavior = get_behavior(engine_id)
+    behavior = behavior_for_engine(engine_id)
     return behavior.get("text_split_target", 450)
 
 

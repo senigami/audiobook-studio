@@ -3,7 +3,7 @@ import os
 from unittest.mock import patch, MagicMock
 from pathlib import Path
 import time
-from app.engines import assemble_audiobook
+from app.engines.audiobook_utils import assemble_audiobook
 
 def test_incremental_assembly_skips_encoding(tmp_path):
     # Setup test environment
@@ -25,8 +25,8 @@ def test_incremental_assembly_skips_encoding(tmp_path):
 
     output_m4b = tmp_path / "book.m4b"
 
-    with patch('app.engines.run_cmd_stream', return_value=0) as mock_run_cmd, \
-         patch('app.engines.get_audio_duration', return_value=123.4):
+    with patch('app.engines.proc_utils.run_cmd_stream', return_value=0) as mock_run_cmd, \
+         patch('app.engines.audio_ops.get_audio_duration', return_value=123.4):
 
         on_output = MagicMock()
         def cancel_check(): return False
@@ -62,8 +62,8 @@ def test_incremental_assembly_performs_encoding_when_missing(tmp_path):
 
     output_m4b = tmp_path / "book.m4b"
 
-    with patch('app.engines.run_cmd_stream', return_value=0) as mock_run_cmd, \
-         patch('app.engines.get_audio_duration', return_value=123.4):
+    with patch('app.engines.proc_utils.run_cmd_stream', return_value=0) as mock_run_cmd, \
+         patch('app.engines.audio_ops.get_audio_duration', return_value=123.4):
 
         on_output = MagicMock()
         def cancel_check(): return False
@@ -111,8 +111,8 @@ def test_incremental_assembly_performs_encoding_when_outdated(tmp_path):
 
     output_m4b = tmp_path / "book.m4b"
 
-    with patch('app.engines.run_cmd_stream', return_value=0) as mock_run_cmd, \
-         patch('app.engines.get_audio_duration', return_value=123.4):
+    with patch('app.engines.proc_utils.run_cmd_stream', return_value=0) as mock_run_cmd, \
+         patch('app.engines.audio_ops.get_audio_duration', return_value=123.4):
 
         on_output = MagicMock()
         def cancel_check(): return False

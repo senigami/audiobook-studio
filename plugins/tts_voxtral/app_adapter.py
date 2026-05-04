@@ -37,7 +37,7 @@ FORBIDDEN_DIRECT_IMPORTS = (
 def wav_to_mp3(in_wav: Path, out_mp3: Path, on_output=None, cancel_check=None) -> int:
     """Invoke the legacy audio conversion helper lazily."""
 
-    from app.engines import wav_to_mp3 as legacy_wav_to_mp3
+    from app.engines.audio_ops import wav_to_mp3 as legacy_wav_to_mp3
 
     return legacy_wav_to_mp3(
         in_wav=in_wav,

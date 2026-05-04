@@ -19,16 +19,15 @@ from .core import (
 from .registry import get_handler_registry, initialize_default_handlers
 
 from ..state import get_jobs, update_job, get_settings, get_performance_metrics, update_performance_metrics as _update_performance_metrics
-from ..config import CHAPTER_DIR, AUDIO_OUT_DIR
 from ..pathing import safe_join
 from .reconcile import _output_exists
 from ..engines.behavior import uses_segment_orchestration
 
 # New sub-modules
 from .worker_helpers import (
-    _calculate_group_resume_state, 
+    _calculate_group_resume_state,
     _broadcast_segment_progress,
-    _should_stream_predicted_progress, 
+    _should_stream_predicted_progress,
     _looks_like_external_download_progress,
     _mark_queue_failed
 )
@@ -111,15 +110,21 @@ def worker_loop(q):
                     try:
                         if chars <= 0:
                             if j.project_id:
-                                from ..config import get_project_text_dir
-                                text_path = safe_join(get_project_text_dir(j.project_id), j.chapter_file)
+                                from ..config import resolve_chapter_asset_path, get_project_text_dir
+                                text_path = None
+                                if j.chapter_id:
+                                    # Rule 3: Prefer nested chapter-storage for text assets
+                                    text_path = resolve_chapter_asset_path(j.project_id, j.chapter_id, "text")
+
                             else:
-                                text_path = safe_join(CHAPTER_DIR, j.chapter_file)
+                                update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error="Job has no chapter_id or project_id.")
+                                continue
 
                             text = text_path.read_text(encoding="utf-8", errors="replace")
                             chars = len(text)
                     except (FileNotFoundError, ValueError) as e:
-                        logger.debug("Failed to read chapter text for ETA calculation from %s: %s", text_path, e)
+                        logger.debug("Failed to read chapter text for ETA calculation from %s: %s", text_path if 'text_path' in locals() else 'None', e)
+
 
                     history = [s for s in perf.get("render_history", []) if s.get("engine") == engine_id]
                     robust_params = get_robust_eta_params(history, cps)
@@ -141,12 +146,13 @@ def worker_loop(q):
                     from ..config import get_project_audio_dir
                     src_dir = get_project_audio_dir(j.project_id)
                 else:
-                    src_dir = AUDIO_OUT_DIR
+                    update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error="Audiobook job has no project_id.")
+                    continue
 
                 if j.chapter_list:
                     audio_files = [c['filename'] for c in j.chapter_list]
                 else:
-                    audio_files = [f for f in os.listdir(src_dir) if f.endswith(('.wav', '.mp3'))] if src_dir.exists() else []
+                    audio_files = []
 
                 num_files = len(audio_files)
                 total_size_mb = 0
@@ -335,7 +341,7 @@ def worker_loop(q):
             j._eta_unit_count = eta_unit_count
 
             # Execute the handler with a unified signature.
-            # Shims/Adapters registered in the registry handle mapping this to legacy signatures.
+            # Shims/Adapters registered in the registry handle mapping this to original engine signatures.
             result = handler(jid, j, start, on_output, cancel_check, text=text, voice_job_settings=voice_job_settings)
 
             if result == "cancelled":

@@ -9,7 +9,7 @@ from pathlib import Path
 from app.db.core import get_connection
 from app.textops import SENT_CHAR_LIMIT
 
-class CompatibilityRevisionMismatch(Exception):
+class RevisionMismatch(Exception):
     """Raised when the caller saves against a stale chapter revision."""
 
     def __init__(self, expected_revision_id: str, actual_revision_id: str):

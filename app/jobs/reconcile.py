@@ -1,62 +1,46 @@
 import time
 from .core import job_queue, assembly_queue, cancel_flags
 from ..state import get_jobs, update_job, delete_jobs
-from ..config import CHAPTER_DIR, AUDIO_OUT_DIR, AUDIOBOOK_DIR
 from ..pathing import safe_basename, safe_join, safe_stem
 from ..subprocess_utils import probe_audio_duration
 
-def _output_exists(engine: str, chapter_file: str, project_id: str = None, make_mp3: bool = True) -> bool:
+def _output_exists(engine: str, chapter_file: str, project_id: str = None, chapter_id: str = None, make_mp3: bool = True) -> bool:
     # Voice jobs produce sample.wav, not chapter audio; they are always considered "done"
     if engine in ("voice_build", "voice_test"):
         return True
 
-    if not chapter_file: return False
-    if safe_basename(chapter_file) != chapter_file:
+    if not project_id:
         return False
-    chapter_stem = safe_stem(chapter_file)
+
     if engine == "audiobook":
-        if project_id:
-            from ..config import get_project_m4b_dir
-            try:
-                return safe_join(get_project_m4b_dir(project_id), f"{chapter_stem}.m4b").exists()
-            except ValueError:
-                return False
+        if not chapter_file:
+            return False
+        chapter_stem = safe_stem(chapter_file)
+        from ..config import get_project_m4b_dir
         try:
-            return safe_join(AUDIOBOOK_DIR, f"{chapter_stem}.m4b").exists()
+            return safe_join(get_project_m4b_dir(project_id), f"{chapter_stem}.m4b").exists()
         except ValueError:
             return False
 
     from ..voice_engines import is_tts_engine
     if is_tts_engine(engine) or engine == "mixed":
-        if project_id:
-            from ..config import get_project_audio_dir
-            pdir = get_project_audio_dir(project_id)
-            try:
-                mp3 = safe_join(pdir, f"{chapter_stem}.mp3").exists()
-                if not mp3:
-                    mp3 = safe_join(AUDIO_OUT_DIR, f"{chapter_stem}.mp3").exists()
-                wav = safe_join(pdir, f"{chapter_stem}.wav").exists()
-                if not wav:
-                    wav = safe_join(AUDIO_OUT_DIR, f"{chapter_stem}.wav").exists()
-            except ValueError:
-                return False
-        else:
-            pdir = AUDIO_OUT_DIR
-            try:
-                mp3 = safe_join(pdir, f"{chapter_stem}.mp3").exists()
-                wav = safe_join(pdir, f"{chapter_stem}.wav").exists()
-            except ValueError:
-                return False
+        from ..config import resolve_chapter_asset_path
+        if chapter_id:
+            # Rule 3: Use the v2 resolution helper for authoritative existence check
+            p = resolve_chapter_asset_path(project_id, chapter_id, "audio")
+            if p and p.exists():
+                if make_mp3:
+                    return p.suffix.lower() in (".mp3", ".wav")
+                return p.suffix.lower() == ".wav"
+
+        return False
     else:
         return False
 
-    if make_mp3:
-        return mp3 or wav
-    return wav
 
 def cleanup_and_reconcile():
     """
-    Perform a complete scan. 
+    Perform a complete scan.
     1. Prune jobs where text file is gone.
     2. Reset 'done' jobs where audio is gone.
     3. Prune audiobook jobs where m4b is gone.
@@ -67,23 +51,33 @@ def cleanup_and_reconcile():
     # 1. Prune missing text files & missing audiobooks
     stale_ids = []
     for jid, j in all_jobs.items():
+        if not j.project_id and j.engine != "audiobook":
+             # Standalone chapters are no longer supported in active runtime
+             stale_ids.append(jid)
+             continue
+
         if j.engine != "audiobook":
             if j.segment_ids:
                 continue
 
-            if j.project_id:
-                from ..config import get_project_text_dir
-                text_path = safe_join(get_project_text_dir(j.project_id), j.chapter_file)
-                if not text_path.exists():
-                    text_path = safe_join(CHAPTER_DIR, j.chapter_file)
-            else:
-                text_path = safe_join(CHAPTER_DIR, j.chapter_file)
+            from ..config import resolve_chapter_asset_path, get_project_text_dir
+            text_path = None
+            if j.chapter_id:
+                text_path = resolve_chapter_asset_path(j.project_id, j.chapter_id, "text")
+
+            if not text_path:
+                stale_ids.append(jid)
+                continue
 
             if not text_path.exists():
                 stale_ids.append(jid)
         else:
+            if not j.project_id:
+                stale_ids.append(jid)
+                continue
+            from ..config import get_project_m4b_dir
             try:
-                if j.status == "done" and not safe_join(AUDIOBOOK_DIR, f"{j.chapter_file}.m4b").exists():
+                if j.status == "done" and not safe_join(get_project_m4b_dir(j.project_id), f"{j.chapter_file}.m4b").exists():
                     stale_ids.append(jid)
             except ValueError:
                 stale_ids.append(jid)
@@ -109,9 +103,10 @@ def cleanup_and_reconcile():
                 continue
 
             exists = _output_exists(
-                j.engine, 
-                j.chapter_file, 
-                project_id=j.project_id, 
+                j.engine,
+                j.chapter_file,
+                project_id=j.project_id,
+                chapter_id=j.chapter_id,
                 make_mp3=j.make_mp3
             )
 
@@ -133,39 +128,24 @@ def cleanup_and_reconcile():
                 try:
                     from ..db import update_queue_item
                     audio_length = 0.0
-                    from ..config import get_project_audio_dir
-                    pdir = get_project_audio_dir(j.project_id) if j.project_id else AUDIO_OUT_DIR
-                    output_file = j.output_mp3 or j.output_wav
-                    if output_file:
-                        try:
-                            audio_path = safe_join(pdir, output_file)
-                        except ValueError:
-                            audio_path = None
-                        if audio_path is None or not audio_path.exists():
-                            try:
-                                audio_path = safe_join(AUDIO_OUT_DIR, output_file)
-                            except ValueError:
-                                audio_path = None
+                    from ..config import resolve_chapter_asset_path, get_project_audio_dir
 
-                        if audio_path and audio_path.exists():
-                            try:
-                                audio_length = probe_audio_duration(audio_path)
-                            except Exception:
-                                pass
+                    output_file = j.output_mp3 or j.output_wav
+                    audio_path = None
+                    if j.chapter_id:
+                        audio_path = resolve_chapter_asset_path(j.project_id, j.chapter_id, "audio", filename=output_file)
+
+                    if not audio_path:
+                        audio_path = None
+
+                    if audio_path and audio_path.exists():
+                        try:
+                            audio_length = probe_audio_duration(audio_path)
+                        except Exception:
+                            pass
                     update_queue_item(jid, "done", audio_length_seconds=audio_length, chapter_scoped=not bool(j.segment_ids))
 
                     cid = j.chapter_id
-                    if not cid and j.project_id:
-                        try:
-                            from ..db import list_chapters
-                            chaps = list_chapters(j.project_id)
-                            for c in chaps:
-                                if c.get("id") and safe_basename(j.chapter_file).startswith(c["id"]):
-                                    cid = c["id"]
-                                    break
-                        except Exception:
-                            pass
-
                     if cid:
                         from ..db import update_chapter
                         update_chapter(cid, audio_status='done', audio_file_path=output_file, audio_generated_at=time.time())

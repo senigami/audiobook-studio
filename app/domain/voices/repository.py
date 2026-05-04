@@ -5,9 +5,9 @@ Intended responsibility:
 - keep engine-specific assets separate from reusable voice identities
 - give the voice domain a stable seam for profile CRUD and lookup flows
 
-Phase 1 note:
-- This is a contract scaffold only.
-- Existing voice persistence behavior remains legacy-backed for now.
+Phase 11 note:
+- This repository boundary is fully active in the v2-native runtime.
+- Persistence details for voice profiles and assets are encapsulated behind this contract.
 """
 
 from __future__ import annotations

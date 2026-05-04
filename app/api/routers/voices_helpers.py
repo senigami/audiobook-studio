@@ -60,7 +60,7 @@ def _profile_dir_has_assets(profile_dir: Path) -> bool:
     # If it's a v2 voice root (voice.json), it's NOT a playable profile directory itself.
     if find_secure_file(profile_dir, "voice.json"):
         return False
-    # For legacy/compatibility and test support, we allow directories to be treated as profiles
+    # For compatibility and test support, we allow directories to be treated as profiles
     # even if empty or missing profile.json, so they can be discovered/built.
     return True
 
@@ -111,8 +111,6 @@ def _voice_dirs_map() -> Dict[str, Path]:
                         if sub.name == "Default":
                             name = entry.name
                         dirs[name] = sub.resolve()
-            elif _profile_dir_has_assets(entry):
-                dirs[entry.name] = entry.resolve()
     return dirs
 
 
@@ -141,8 +139,6 @@ def _new_voice_profile_dir(name: str) -> Path:
                 return dest
             except (ValueError, OSError, RuntimeError) as e:
                  raise ValueError(str(e))
-        if find_secure_file(root, candidate):
-             return secure_join_flat(root, candidate)
         try:
             voice_root = secure_join_flat(root, voice_name)
             voice_root.resolve().relative_to(root.resolve())
@@ -156,6 +152,7 @@ def _new_voice_profile_dir(name: str) -> Path:
         except (ValueError, OSError, RuntimeError) as e:
              raise ValueError(str(e))
     return secure_join_flat(root, candidate)
+
 
 
 def _cleanup_voice_root(root: Path):

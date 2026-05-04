@@ -5,12 +5,9 @@ import sys
 import importlib.util
 from pathlib import Path
 from unittest.mock import MagicMock, patch, ANY
-from app.engines import (
-    run_cmd_stream, wav_to_mp3, convert_to_wav,
-    get_audio_duration,
-    _create_temp_manifest, _ffmpeg_concat_entry,
-    stitch_segments, terminate_all_subprocesses
-)
+from app.engines.proc_utils import run_cmd_stream, _active_processes, terminate_all_subprocesses
+from app.engines.audio_ops import wav_to_mp3, convert_to_wav, get_audio_duration, stitch_segments, _ffmpeg_concat_entry
+from app.engines.audiobook_utils import _create_temp_manifest
 
 @pytest.fixture
 def mock_on_output():
@@ -38,7 +35,7 @@ def test_run_cmd_stream_success(mock_on_output, mock_cancel_check):
 
 def test_assemble_audiobook(mock_on_output, mock_cancel_check):
     with patch("app.engines.proc_utils.run_cmd_stream", return_value=0), \
-         patch("app.engines.get_audio_duration", return_value=5.0), \
+         patch("app.engines.audio_ops.get_audio_duration", return_value=5.0), \
          patch("pathlib.Path.exists", return_value=True), \
          patch("pathlib.Path.write_text"), \
          patch("pathlib.Path.unlink"), \
@@ -47,7 +44,7 @@ def test_assemble_audiobook(mock_on_output, mock_cancel_check):
 
         mock_stat.return_value.st_mtime = 1000
 
-        from app.engines import assemble_audiobook
+        from app.engines.audiobook_utils import assemble_audiobook
         rc = assemble_audiobook(
             input_folder=Path("/tmp/in"),
             book_title="Test Book",
@@ -62,7 +59,7 @@ def test_assemble_audiobook(mock_on_output, mock_cancel_check):
 def test_generate_video_sample(mock_on_output, mock_cancel_check):
     with patch("app.engines.proc_utils.run_cmd_stream", return_value=0), \
          patch("pathlib.Path.exists", return_value=True):
-        from app.engines import generate_video_sample
+        from app.engines.video_utils import generate_video_sample
         rc = generate_video_sample(
             input_audio=Path("in.wav"),
             output_video=Path("out.mp4"),
@@ -123,7 +120,7 @@ def test_ffmpeg_concat_entry_normalizes_windowsish_paths(tmp_path):
 
 def test_assemble_audiobook_no_files(mock_on_output, mock_cancel_check):
     with patch("os.listdir", return_value=[]):
-        from app.engines import assemble_audiobook
+        from app.engines.audiobook_utils import assemble_audiobook
         rc = assemble_audiobook(Path("."), "Title", Path("out.m4b"), mock_on_output, mock_cancel_check)
         assert rc == 1
         mock_on_output.assert_any_call("No audio files found to combine.\n")
@@ -139,7 +136,7 @@ def test_assemble_audiobook_encode_fail(mock_on_output, mock_cancel_check):
          patch("os.listdir", return_value=["c1.wav"]):
         mock_stat.return_value.st_mtime = 1.0
 
-        from app.engines import assemble_audiobook
+        from app.engines.audiobook_utils import assemble_audiobook
         rc = assemble_audiobook(Path("."), "Title", Path("out.m4b"), mock_on_output, mock_cancel_check)
         assert rc == 1
 
@@ -150,14 +147,14 @@ def mock_audio_ops():
 
 def test_generate_video_sample_no_audio(mock_on_output, mock_cancel_check):
     with patch("pathlib.Path.exists", return_value=False):
-        from app.engines import generate_video_sample
+        from app.engines.video_utils import generate_video_sample
         rc = generate_video_sample(Path("no.wav"), Path("out.mp4"), None, mock_on_output, mock_cancel_check)
         assert rc == 1
 
 def test_generate_video_sample_no_logo(mock_on_output, mock_cancel_check):
     with patch("app.engines.proc_utils.run_cmd_stream", return_value=0), \
          patch("pathlib.Path.exists", side_effect=[True, False, True, True]):
-        from app.engines import generate_video_sample
+        from app.engines.video_utils import generate_video_sample
         rc = generate_video_sample(Path("in.wav"), Path("out.mp4"), Path("no-logo.png"), mock_on_output, mock_cancel_check)
         assert rc == 0
 
@@ -171,14 +168,14 @@ def test_get_audio_duration_fail():
 
 def test_assemble_audiobook_chapter_titles(mock_on_output, mock_cancel_check):
     with patch("app.engines.proc_utils.run_cmd_stream", return_value=0), \
-         patch("app.engines.get_audio_duration", return_value=5.0), \
+         patch("app.engines.audio_ops.get_audio_duration", return_value=5.0), \
          patch("pathlib.Path.exists", return_value=True), \
          patch("pathlib.Path.write_text"), \
          patch("pathlib.Path.stat") as mock_stat, \
          patch("os.listdir", return_value=["c1.wav"]):
 
         mock_stat.return_value.st_mtime = 1000
-        from app.engines import assemble_audiobook
+        from app.engines.audiobook_utils import assemble_audiobook
         titles = {"c1.txt": "Chapter 1 Title"}
         rc = assemble_audiobook(
             input_folder=Path("/tmp/in"),
@@ -205,7 +202,6 @@ def test_run_cmd_stream_heartbeat(mock_on_output, mock_cancel_check):
         mock_on_output.assert_any_call("")
 
 def test_terminate_all_subprocesses():
-    from app.engines import _active_processes
     mock_proc = MagicMock()
     mock_proc.pid = None
     _active_processes.add(mock_proc)

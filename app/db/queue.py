@@ -7,15 +7,6 @@ ACTIVE_QUEUE_STATUSES = ("queued", "preparing", "running", "finalizing")
 TERMINAL_QUEUE_STATUSES = ("done", "failed", "cancelled")
 
 
-def _legacy_chapter_scope(queue_id: str) -> bool:
-    """Compatibility fallback for callers that have not yet passed scope explicitly."""
-    try:
-        from ..state import get_jobs
-
-        job = get_jobs().get(queue_id)
-        return not bool(getattr(job, "segment_ids", None)) if job else True
-    except Exception:
-        return True
 def upsert_queue_row(job_id: str, project_id: str = None, chapter_id: str = None, 
                      split_part: int = 0, status: str = 'queued', custom_title: str = None, engine: str = None):
     """
@@ -133,11 +124,11 @@ def clear_queue() -> bool:
             conn.commit()
             return True
 
-def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 0.0, force_chapter_id: str = None, output_file: str = None, chapter_scoped: Optional[bool] = None):
+def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 0.0, force_chapter_id: str = None, output_file: str = None, chapter_scoped: bool = True):
     import logging
 
     logger = logging.getLogger(__name__)
-    should_update_chapter = _legacy_chapter_scope(queue_id) if chapter_scoped is None else chapter_scoped
+    should_update_chapter = chapter_scoped
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()

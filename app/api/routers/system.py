@@ -17,38 +17,13 @@ from ...models import Job
 from ...pathing import safe_basename, safe_join_flat
 from ..utils import read_preview
 # Compatibility for tests that monkeypatch these
-UPLOAD_DIR = config.UPLOAD_DIR
-CHAPTER_DIR = config.CHAPTER_DIR
-COVER_DIR = config.COVER_DIR
-AUDIOBOOK_DIR = config.AUDIOBOOK_DIR
 VOICES_DIR = config.VOICES_DIR
-AUDIO_OUT_DIR = config.AUDIO_OUT_DIR
 
 logger = logging.getLogger(__name__)
 
 
-def get_upload_dir() -> Path:
-    return UPLOAD_DIR
-
-
-def get_chapter_dir() -> Path:
-    return CHAPTER_DIR
-
-
-def get_cover_dir() -> Path:
-    return COVER_DIR
-
-
-def get_audiobook_dir() -> Path:
-    return AUDIOBOOK_DIR
-
-
 def get_voices_dir() -> Path:
     return VOICES_DIR
-
-
-def get_audio_out_dir() -> Path:
-    return AUDIO_OUT_DIR
 
 router = APIRouter(prefix="/api", tags=["system"])
 

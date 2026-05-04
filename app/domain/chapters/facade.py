@@ -1,12 +1,12 @@
-"""Compatibility facade for the Phase 7 production-block bridge."""
+"""Domain facade for the Phase 7 production-block bridge."""
 
 from __future__ import annotations
 
 # Re-export public API from specialized modules
 from app.config import find_existing_project_subdir as _find_existing_project_subdir
 
-from .compatibility_helpers import (
-    CompatibilityRevisionMismatch,
+from .helpers import (
+    RevisionMismatch,
     _load_chapter_row,
     _load_segment_rows,
     _normalize_segment_status,
@@ -24,12 +24,12 @@ from .compatibility_helpers import (
     _reconstruct_raw_text,
 )
 
-from .compatibility_assets import (
+from .assets import (
     export_chapter_audio,
     _resolve_canonical_wav_path,
 )
 
-from .compatibility_blocks import (
+from .blocks import (
     _group_segments_into_blocks,
     _build_block,
     _derive_render_batches,
@@ -38,7 +38,7 @@ from .compatibility_blocks import (
     _fallback_block_for_update,
 )
 
-from .compatibility_ops import (
+from .operations import (
     get_production_blocks_payload,
     get_script_view_payload,
     save_production_blocks_payload,
@@ -53,3 +53,4 @@ from .compatibility_ops import (
 find_existing_project_subdir = _find_existing_project_subdir
 # Compatibility for Phase 7 bridge
 SENT_CHAR_LIMIT = 500
+

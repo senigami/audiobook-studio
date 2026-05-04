@@ -373,7 +373,7 @@ def test_speaker_listing_normalizes_base_profile_to_default(clean_voices):
         delete_speaker(speaker_id)
 
 def test_latent_cache_path():
-    from app.engines import get_speaker_latent_path
+    from app.engines.proc_utils import get_speaker_latent_path
 
     # Single wav
     path = get_speaker_latent_path("/path/to/test.wav")

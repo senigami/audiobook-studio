@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 from app.web import app
 from app.config import COVER_DIR, get_project_cover_dir
 from app.db import create_project, create_chapter, update_chapter
-from app.db.projects import migrate_legacy_project_covers
+from app.db.migration import migrate_legacy_project_covers
 from app.state import load_state
 import os
 

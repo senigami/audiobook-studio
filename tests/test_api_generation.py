@@ -61,13 +61,13 @@ def test_queue_and_bake(clean_db, client):
     cid = create_chapter(pid, "C1", "T1")
 
     # Add to queue
-    with patch("app.api.routers.generation.put_job"), patch("app.api.routers.generation.enqueue"):
+    with patch("app.api.routers.generation.put_job"), patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"):
         response = client.post("/api/processing_queue", data={"project_id": pid, "chapter_id": cid})
         assert response.status_code == 200
         assert "queue_id" in response.json()
 
     # Bake
-    with patch("app.api.routers.generation.put_job"), patch("app.api.routers.generation.enqueue"):
+    with patch("app.api.routers.generation.put_job"), patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"):
         response = client.post(f"/api/generation/bake/{cid}")
         assert response.status_code == 200
         assert "job_id" in response.json()
@@ -91,8 +91,8 @@ def test_bake_chapter_mixed_engines_use_mixed_worker(clean_db, client):
         {"speaker_profile_name": "Voxtral Voice", "audio_status": "unprocessed", "audio_file_path": None},
     ]), \
          patch("app.api.routers.generation.put_job") as mock_put_job, \
-         patch("app.api.routers.generation.enqueue"), \
-         patch("app.jobs.speaker.get_speaker_settings", side_effect=lambda name: {"engine": "voxtral" if "Voxtral" in (name or "") else "xtts"}):
+         patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"), \
+         patch("app.db.speakers.get_profile_engine", side_effect=lambda name, fallback=None: "voxtral" if "Voxtral" in (name or "") else "xtts"):
         response = client.post(f"/api/generation/bake/{cid}")
         assert response.status_code == 200
         job = mock_put_job.call_args.args[0]
@@ -115,8 +115,8 @@ def test_bake_chapter_voxtral_uses_mixed_worker(clean_db, client):
     update_settings({"mistral_api_key": "abc123"})
 
     with patch("app.api.routers.generation.put_job") as mock_put_job, \
-         patch("app.api.routers.generation.enqueue"), \
-         patch("app.jobs.speaker.get_speaker_settings", return_value={"engine": "voxtral"}):
+         patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"), \
+         patch("app.db.speakers.get_profile_engine", return_value="voxtral"):
         response = client.post(f"/api/generation/bake/{cid}")
         assert response.status_code == 200
         job = mock_put_job.call_args.args[0]
@@ -134,7 +134,7 @@ def test_bake_chapter_rejects_voxtral_without_api_key(clean_db, client):
     from app.state import update_settings
     update_settings({"mistral_api_key": ""})
 
-    with patch("app.jobs.speaker.get_speaker_settings", return_value={"engine": "voxtral"}), \
+    with patch("app.db.speakers.get_profile_engine", return_value="voxtral"), \
          patch("app.api.routers.generation.get_settings", return_value={"default_speaker_profile": "Voice1", "default_engine": "xtts", "enabled_plugins": {"voxtral": True}}):
         response = client.post(f"/api/generation/bake/{cid}")
         assert response.status_code == 400
@@ -157,14 +157,14 @@ def test_generate_segments(clean_db, client):
     segs = get_chapter_segments(cid)
     sid = segs[0]['id']
 
-    with patch("app.api.routers.generation.put_job"), patch("app.api.routers.generation.enqueue"):
+    with patch("app.api.routers.generation.put_job"), patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"):
         response = client.post("/api/segments/generate", data={"segment_ids": sid})
         assert response.status_code == 200
         assert "job_id" in response.json()
 
 
 def test_enqueue_single_sets_descriptive_custom_title(clean_db, client):
-    with patch("app.api.routers.generation.put_job") as mock_put_job, patch("app.api.routers.generation.enqueue"):
+    with patch("app.api.routers.generation.put_job") as mock_put_job, patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"):
         response = client.post("/api/generation/enqueue-single", data={"chapter_file": "chapter_01.txt", "engine": "xtts"})
 
     assert response.status_code == 200
@@ -194,8 +194,8 @@ def test_generate_segments_single_engine_use_mixed_worker(clean_db, client):
     segs = get_chapter_segments(cid)
 
     with patch("app.api.routers.generation.put_job") as mock_put_job, \
-         patch("app.api.routers.generation.enqueue"), \
-         patch("app.jobs.speaker.get_speaker_settings", return_value={"engine": "xtts"}):
+         patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"), \
+         patch("app.db.speakers.get_profile_engine", return_value="xtts"):
         response = client.post("/api/segments/generate", data={"segment_ids": f"{segs[0]['id']},{segs[1]['id']}"})
         assert response.status_code == 200
         job = mock_put_job.call_args.args[0]
@@ -213,8 +213,8 @@ def test_generate_segments_sets_segment_specific_queue_title(clean_db, client):
     segs = get_chapter_segments(cid)
 
     with patch("app.api.routers.generation.put_job") as mock_put_job, \
-         patch("app.api.routers.generation.enqueue"), \
-         patch("app.jobs.speaker.get_speaker_settings", return_value={"engine": "xtts"}):
+         patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"), \
+         patch("app.db.speakers.get_profile_engine", return_value="xtts"):
         response = client.post("/api/segments/generate", data={"segment_ids": f"{segs[0]['id']},{segs[1]['id']}"})
         assert response.status_code == 200
         job = mock_put_job.call_args.args[0]
@@ -230,7 +230,7 @@ def test_queue_chapter_without_bakeable_segments_uses_standard_engine(clean_db, 
     cid = create_chapter(pid, "C1", "Hello world.")
     sync_chapter_segments(cid, "Hello world.")
 
-    with patch("app.api.routers.generation.put_job") as mock_put_job, patch("app.api.routers.generation.enqueue"):
+    with patch("app.api.routers.generation.put_job") as mock_put_job, patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"):
         response = client.post("/api/processing_queue", data={"project_id": pid, "chapter_id": cid})
         assert response.status_code == 200
         job = mock_put_job.call_args.args[0]
@@ -246,7 +246,7 @@ def test_queue_chapter_uses_disambiguated_sort_order_title(clean_db, client):
     cid = create_chapter(pid, "Overview", "Hello world.", sort_order=4)
     sync_chapter_segments(cid, "Hello world.")
 
-    with patch("app.api.routers.generation.put_job") as mock_put_job, patch("app.api.routers.generation.enqueue"):
+    with patch("app.api.routers.generation.put_job") as mock_put_job, patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"):
         response = client.post("/api/processing_queue", data={"project_id": pid, "chapter_id": cid})
         assert response.status_code == 200
         job = mock_put_job.call_args.args[0]
@@ -263,18 +263,19 @@ def test_queue_chapter_preserves_rendered_segment_history(clean_db, client, tmp_
     sync_chapter_segments(cid, "Hello world. Another line.")
     segs = get_chapter_segments(cid)
 
-    audio_dir = tmp_path / "audio"
-    audio_dir.mkdir()
+    chapter_dir = tmp_path / "chapters" / cid
+    nested_seg_dir = chapter_dir / "segments"
+    nested_seg_dir.mkdir(parents=True)
+
     rendered_name = f"seg_{segs[0]['id']}.wav"
-    (audio_dir / rendered_name).write_bytes(b"fake wav")
+    (nested_seg_dir / rendered_name).write_bytes(b"fake wav")
     update_segment(segs[0]["id"], audio_status="done", audio_file_path=rendered_name)
     update_segment(segs[1]["id"], audio_status="unprocessed", audio_file_path=None)
 
-    with patch("app.api.routers.generation.find_existing_project_dir", return_value=tmp_path), \
-         patch("app.api.routers.generation.find_existing_project_subdir", side_effect=lambda _project_id, dirname: audio_dir if dirname == "audio" else None), \
-         patch("app.config.get_project_audio_dir", return_value=audio_dir), \
+    with patch("app.api.routers.generation.get_chapter_dir", return_value=chapter_dir), \
+         patch("app.config.get_project_audio_dir", return_value=nested_seg_dir), \
          patch("app.api.routers.generation.put_job") as mock_put_job, \
-         patch("app.api.routers.generation.enqueue"):
+         patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"):
         response = client.post("/api/processing_queue", data={"project_id": pid, "chapter_id": cid})
         assert response.status_code == 200
         job = mock_put_job.call_args.args[0]
@@ -357,8 +358,8 @@ def test_queue_chapter_resolves_voxtral_engine_from_profile(clean_db, client):
     update_settings({"mistral_api_key": "abc123"})
 
     with patch("app.api.routers.generation.put_job") as mock_put_job, \
-         patch("app.api.routers.generation.enqueue"), \
-         patch("app.jobs.speaker.get_speaker_settings", return_value={"engine": "voxtral"}):
+         patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"), \
+         patch("app.db.speakers.get_profile_engine", return_value="voxtral"):
         response = client.post("/api/processing_queue", data={"project_id": pid, "chapter_id": cid, "speaker_profile": "Voice1"})
         assert response.status_code == 200
         job = mock_put_job.call_args.args[0]
@@ -384,8 +385,8 @@ def test_queue_chapter_mixed_engines_use_mixed_worker(clean_db, client):
         {"speaker_profile_name": "Voxtral Voice", "audio_status": "unprocessed", "audio_file_path": None},
     ]), \
          patch("app.api.routers.generation.put_job") as mock_put_job, \
-         patch("app.api.routers.generation.enqueue"), \
-         patch("app.jobs.speaker.get_speaker_settings", side_effect=lambda name: {"engine": "voxtral" if "Voxtral" in (name or "") else "xtts"}):
+         patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"), \
+         patch("app.db.speakers.get_profile_engine", side_effect=lambda name, fallback=None: "voxtral" if "Voxtral" in (name or "") else "xtts"):
         response = client.post("/api/processing_queue", data={"project_id": pid, "chapter_id": cid, "speaker_profile": "SingleEngine Voice"})
         assert response.status_code == 200
         job = mock_put_job.call_args.args[0]
@@ -408,8 +409,8 @@ def test_queue_chapter_detects_mixed_engines_from_character_voice_assignments(cl
     update_settings({"mistral_api_key": "abc123"})
 
     with patch("app.api.routers.generation.put_job") as mock_put_job, \
-         patch("app.api.routers.generation.enqueue"), \
-         patch("app.jobs.speaker.get_speaker_settings", side_effect=lambda name: {"engine": "voxtral" if name == "Narrator Voxtral" else "xtts"}):
+         patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"), \
+         patch("app.db.speakers.get_profile_engine", side_effect=lambda name, fallback=None: "voxtral" if name == "Narrator Voxtral" else "xtts"):
         response = client.post("/api/processing_queue", data={"project_id": pid, "chapter_id": cid, "speaker_profile": "Narrator Voxtral"})
         assert response.status_code == 200
         job = mock_put_job.call_args.args[0]
@@ -432,8 +433,8 @@ def test_generate_segments_resolves_voxtral_engine(clean_db, client):
     update_settings({"mistral_api_key": "abc123"})
 
     with patch("app.api.routers.generation.put_job") as mock_put_job, \
-         patch("app.api.routers.generation.enqueue"), \
-         patch("app.jobs.speaker.get_speaker_settings", return_value={"engine": "voxtral"}):
+         patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"), \
+         patch("app.db.speakers.get_profile_engine", return_value="voxtral"):
         response = client.post("/api/segments/generate", data={"segment_ids": sid})
         assert response.status_code == 200
         job = mock_put_job.call_args.args[0]
@@ -459,8 +460,8 @@ def test_generate_segments_mixed_engines_use_mixed_worker(clean_db, client):
         {**segs[1], "speaker_profile_name": "Voxtral Voice"},
     ]), \
          patch("app.api.routers.generation.put_job") as mock_put_job, \
-         patch("app.api.routers.generation.enqueue"), \
-         patch("app.jobs.speaker.get_speaker_settings", side_effect=lambda name: {"engine": "voxtral" if "Voxtral" in (name or "") else "xtts"}):
+         patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"), \
+         patch("app.db.speakers.get_profile_engine", side_effect=lambda name, fallback=None: "voxtral" if "Voxtral" in (name or "") else "xtts"):
         response = client.post("/api/segments/generate", data={"segment_ids": f"{segs[0]['id']},{segs[1]['id']}"})
         assert response.status_code == 200
         job = mock_put_job.call_args.args[0]
@@ -478,7 +479,7 @@ def test_queue_chapter_rejects_voxtral_without_api_key(clean_db, client):
     from app.state import update_settings
     update_settings({"mistral_api_key": ""})
 
-    with patch("app.jobs.speaker.get_speaker_settings", return_value={"engine": "voxtral"}), \
+    with patch("app.db.speakers.get_profile_engine", return_value="voxtral"), \
          patch("app.api.routers.generation.get_settings", return_value={"safe_mode": True, "make_mp3": False, "default_engine": "xtts"}):
         response = client.post("/api/processing_queue", data={"project_id": pid, "chapter_id": cid, "speaker_profile": "Voice1"})
         assert response.status_code == 400

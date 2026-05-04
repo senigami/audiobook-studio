@@ -8,7 +8,7 @@ from typing import Any, Optional
 
 import httpx
 
-from app.engines import convert_to_wav
+from app.engines.audio_ops import convert_to_wav
 from app.state import get_settings
 
 logger = logging.getLogger(__name__)

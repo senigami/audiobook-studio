@@ -64,6 +64,11 @@ class SynthesisTask(StudioTask):
         resource_claim: ResourceClaim | None = None,
         requested_revision: dict[str, Any] | None = None,
         render_batch_id: str | None = None,
+        is_bake: bool = False,
+        segment_ids: list[str] | None = None,
+        custom_title: str | None = None,
+        make_mp3: bool = False,
+        safe_mode: bool = True,
     ) -> None:
         self.task_id = task_id
         self.engine_id = engine_id
@@ -77,6 +82,11 @@ class SynthesisTask(StudioTask):
         self.resource_claim = resource_claim or ResourceClaim.none()
         self.requested_revision = requested_revision or {}
         self.render_batch_id = render_batch_id
+        self.is_bake = is_bake
+        self.segment_ids = segment_ids
+        self.custom_title = custom_title
+        self.make_mp3 = make_mp3
+        self.safe_mode = safe_mode
         self.submitted_at = time.monotonic()
 
     # ------------------------------------------------------------------
@@ -120,13 +130,18 @@ class SynthesisTask(StudioTask):
                 "language": self.language,
                 "source": self.source,
                 "render_batch_id": self.render_batch_id,
+                "is_bake": self.is_bake,
+                "segment_ids": self.segment_ids,
+                "custom_title": self.custom_title,
+                "make_mp3": self.make_mp3,
+                "safe_mode": self.safe_mode,
                 # Phase 4 reconciliation context — the orchestrator reads
                 # these fields when calling reconcile_work_item().
                 "requested_revision": self.requested_revision,
                 "task_revision_id": self.requested_revision.get(
                     "source_revision_id", self.task_id
                 ),
-                "scope": "job",
+                "scope": "chapter" if self.chapter_id and not self.segment_ids else "job",
             },
         )
 
@@ -153,6 +168,11 @@ class SynthesisTask(StudioTask):
             language=str(payload.get("language", "en")),
             requested_revision=payload.get("requested_revision"),
             render_batch_id=payload.get("render_batch_id"),
+            is_bake=payload.get("is_bake", False),
+            segment_ids=payload.get("segment_ids"),
+            custom_title=payload.get("custom_title"),
+            make_mp3=payload.get("make_mp3", False),
+            safe_mode=payload.get("safe_mode", True),
         )
 
     def run(self) -> TaskResult:
@@ -209,5 +229,10 @@ class SynthesisTask(StudioTask):
             "language": self.language,
             "source": self.source,
             "render_batch_id": self.render_batch_id,
+            "is_bake": self.is_bake,
+            "segment_ids": self.segment_ids,
+            "custom_title": self.custom_title,
+            "make_mp3": self.make_mp3,
+            "safe_mode": self.safe_mode,
         }
 

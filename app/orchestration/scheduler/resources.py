@@ -73,8 +73,8 @@ class ResourceClaim:
 class GpuAdmissionGate:
     """Enforces the one-GPU-task-at-a-time policy.
 
-    This is the scheduler-layer replacement for the legacy ``_gpu_lock``
-    pattern scattered across worker code.
+    This is the scheduler-layer replacement for the worker-layer GPU lock
+    pattern scattered across the original worker code.
 
     Thread-safe for single-process use.  The gate tracks the currently
     admitted task ID so the orchestrator can report a clear waiting reason.

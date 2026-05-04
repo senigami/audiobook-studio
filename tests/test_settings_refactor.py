@@ -23,23 +23,6 @@ def test_default_settings_refactor(client, clean_state):
     settings = get_settings()
     assert "safe_mode" in settings
 
-def test_save_settings_ignores_deprecated_speed(client, clean_state):
-    # Migration Shim: Verify that legacy engine-named speed fields (e.g. 'xtts_speed')
-    # are correctly filtered out during settings updates.
-    # 1. Update settings with deprecated field
-    response = client.post("/api/settings", data={
-        "safe_mode": "false",
-        "xtts_speed": "1.5"
-    })
-    assert response.status_code == 200
-    data = response.json()["settings"]
-
-    # 2. Check that valid fields updated
-    assert data["safe_mode"] is False
-
-    # 3. Check that xtts_speed was ignored/not saved
-    assert "xtts_speed" not in data
-
 def test_get_speaker_settings_uses_hardcoded_fallback(clean_state):
     from app.jobs import get_speaker_settings
 
@@ -57,33 +40,3 @@ def test_api_home_reflects_new_state_structure(client, clean_state):
     assert "safe_mode" in settings
     assert "xtts_speed" not in settings
     assert "render_stats" in payload
-
-
-def test_get_settings_does_not_persist_normalization_on_read(clean_state):
-    # Migration Shim: Verify that legacy 'xtts_cps' metrics and other engine-specific
-    # residue are normalized correctly without side-effecting the persisted state on read.
-    from app.state import get_settings
-
-    raw_state = {
-        "jobs": {},
-        "settings": {
-            "default_engine": "voxtral",
-            "enabled_plugins": {"voxtral": True},
-            "mistral_api_key": "   ",
-        },
-        "performance_metrics": {
-            "audiobook_speed_multiplier": 1.0,
-            "xtts_cps": 16.7,
-        },
-    }
-    clean_state.write_text(json.dumps(raw_state, indent=2), encoding="utf-8")
-    before = clean_state.read_text(encoding="utf-8")
-
-    settings = get_settings()
-    after = clean_state.read_text(encoding="utf-8")
-
-    from app.voice_engines import get_default_profile_engine
-    assert settings["default_engine"] == get_default_profile_engine()
-    assert settings.get("enabled_plugins", {}).get("voxtral") is False
-    # (Removed assert "mistral_api_key" not in settings - keys are now preserved for plugins)
-    assert after == before

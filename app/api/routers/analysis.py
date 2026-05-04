@@ -20,7 +20,6 @@ from ...pathing import safe_basename, safe_join_flat
 logger = logging.getLogger(__name__)
 
 # Compatibility for tests that monkeypatch these
-CHAPTER_DIR = config.CHAPTER_DIR
 REPORT_DIR = config.REPORT_DIR
 
 
@@ -80,8 +79,6 @@ class TextAnalysisResponse(BaseModel):
     split_sentences: List[str]
 
 
-def get_chapter_dir() -> Path:
-    return CHAPTER_DIR
 
 
 def get_report_dir() -> Path:
@@ -268,79 +265,6 @@ def api_analyze_text(req: AnalyzeTextRequest):
     )
 
 
-def _run_analysis(
-    chapter_file: str,
-    chapter_dir: Path,
-    report_dir: Path
-):
-    # Path Traversal Safety
-    try:
-        safe_path = safe_join_flat(chapter_dir, chapter_file)
-        if not safe_path.exists():
-            raise AnalysisError(f"Chapter file '{chapter_file}' not found.", 404)
-
-        p = safe_path
-    except Exception as e:
-        if isinstance(e, AnalysisError):
-            raise
-        logger.error(f"Error resolving path {chapter_file}: {e}")
-        raise AnalysisError("Invalid chapter path", 403)
-
-    from ...voice_engines import get_default_profile_engine
-    engine_id = state.get_settings().get("default_engine", get_default_profile_engine())
-    chunk_limit = get_text_chunk_limit(engine_id)
-    split_target = get_text_split_target(engine_id)
-
-    text = p.read_text(encoding="utf-8", errors="replace")
-    stats = get_text_stats(text)
-    raw_hits = find_long_sentences(text, threshold=chunk_limit)
-    cleaned_text = clean_text_for_tts(text)
-    split_text = safe_split_long_sentences(cleaned_text, target=split_target)
-    cleaned_hits = find_long_sentences(split_text, threshold=chunk_limit)
-    uncleanable = len(cleaned_hits)
-    auto_fixed = len(raw_hits) - uncleanable
-
-    report_dir.mkdir(parents=True, exist_ok=True)
-    # Sanitize stem for safety
-    safe_stem = p.stem.replace("..", "")
-    report_path = report_dir / f"long_sentences_{safe_stem}.txt"
-    lines = [
-        f"Character Count   : {stats['char_count']:,}",
-        f"Word Count        : {stats['word_count']:,}",
-        f"Sentence Count    : {stats['sent_count']:,} (approx)",
-        f"Predicted Time    : {stats['formatted_duration']} "
-        f"(@ {BASELINE_ENGINE_CPS} cps)",
-    ]
-    if len(raw_hits) > 0:
-        lines.extend([
-            "--------------------------------------------------",
-            f"Limit Threshold   : {chunk_limit} characters",
-            f"Raw Long Sentences: {len(raw_hits)}",
-            f"Auto-Fixable      : {auto_fixed} (handled by Safe Mode)",
-            f"Action Required   : {uncleanable} (STILL too long after split!)",
-            "--------------------------------------------------",
-            ""
-        ])
-    else:
-        lines.append("")
-
-    if uncleanable > 0:
-        lines.append(
-            "!!! ACTION REQUIRED: The following sentences could not be "
-            "auto-split !!!\n"
-        )
-        for idx, clen, start, end, s in cleaned_hits:
-            lines.append(
-                f"--- Uncleanable Sentence ({clen} chars) ---\n{s}\n"
-            )
-    elif len(raw_hits) > 0:
-        lines.append(
-            "✓ All long sentences will be successfully handled by Safe Mode."
-        )
-
-    report_text = "\n".join(lines)
-    report_path.write_text(report_text, encoding="utf-8")
-    return report_path, report_text
 
 
 @router.get("/report/{name}")

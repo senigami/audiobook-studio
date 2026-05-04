@@ -4,8 +4,8 @@ import time
 from pathlib import Path
 
 from app.chunk_groups import build_chunk_groups, load_chunk_segments
-from app.config import AUDIO_OUT_DIR, SENT_CHAR_LIMIT, get_project_audio_dir
-from app.engines import get_audio_duration, stitch_segments, wav_to_mp3
+from app.config import SENT_CHAR_LIMIT, get_project_audio_dir
+from app.engines.audio_ops import get_audio_duration, stitch_segments, wav_to_mp3
 from app.engines.errors import EngineBridgeError
 from app.state import update_job
 from app.textops import safe_split_long_sentences, sanitize_text
@@ -209,7 +209,11 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
         update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error="Mixed-engine jobs require a chapter context.")
         return "failed"
 
-    pdir = get_project_audio_dir(j.project_id) if j.project_id else AUDIO_OUT_DIR
+    if not j.project_id:
+        update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error="Mixed-engine jobs require a project context.")
+        return "failed"
+
+    pdir = get_project_audio_dir(j.project_id)
     pdir.mkdir(parents=True, exist_ok=True)
     out_wav = pdir / f"{Path(j.chapter_file).stem}.wav"
     out_mp3 = pdir / f"{Path(j.chapter_file).stem}.mp3"

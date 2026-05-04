@@ -13,13 +13,13 @@ from ...db import (
     get_chapter,
     list_chapters as db_list_chapters,
 )
-from ...config import COVER_DIR, AUDIO_OUT_DIR, get_project_dir, find_existing_project_subdir
+from ...config import COVER_DIR, get_project_dir, find_existing_project_subdir
 from ...pathing import safe_join, safe_join_flat, find_secure_file
 from ...api.utils import SAFE_FILE_RE, preferred_audiobook_download_filename, probe_audiobook_metadata
 from ...jobs import enqueue
 from ...state import put_job, update_job, get_jobs
 from ...models import Job
-from ...engines import get_audio_duration
+from ...engines.audio_ops import get_audio_duration
 
 logger = logging.getLogger(__name__)
 
@@ -182,10 +182,17 @@ def assemble_project(project_id: str, chapter_ids: Optional[str] = Form(None)):
     chapter_list = []
     for c in chapters:
         if c['audio_status'] == 'done' and c['audio_file_path']:
-            chapter_list.append({
-                'filename': c['audio_file_path'],
-                'title': c['title']
-            })
+            from ...config import resolve_chapter_asset_path
+            full_path = resolve_chapter_asset_path(project_id, c['id'], 'audio', filename=c['audio_file_path'])
+            if full_path and full_path.exists():
+                chapter_list.append({
+                    'filename': str(full_path),
+                    'title': c['title']
+                })
+            else:
+                return JSONResponse({
+                    "error": f"Chapter '{c['title']}' audio file not found at {full_path}"
+                }, status_code=400)
         else:
             return JSONResponse({
                 "error": f"Chapter '{c['title']}' is not processed yet or audio is missing."
@@ -233,52 +240,3 @@ def assemble_project(project_id: str, chapter_ids: Optional[str] = Form(None)):
     update_job(jid, force_broadcast=True, status="queued", project_id=project_id, custom_title=book_title)
     enqueue(j)
     return JSONResponse({"status": "ok", "job_id": jid})
-
-@router.get("/audiobook/prepare")
-def prepare_audiobook():
-    """Scans folders and returns a preview of chapters/durations for the modal."""
-    src_dir = AUDIO_OUT_DIR
-    if not src_dir.exists():
-        return JSONResponse({"title": "", "chapters": []})
-
-    import re
-    all_files = [p.name for p in src_dir.iterdir() if p.is_file() and p.suffix.lower() in ('.wav', '.mp3') and not p.name.startswith('seg_')]
-    chapters_found = {}
-    for f in all_files:
-        stem = Path(f).stem
-        ext = Path(f).suffix.lower()
-        if stem not in chapters_found or ext == '.mp3':
-             chapters_found[stem] = f
-
-    def extract_number(filename):
-        # Match part numbers or the whole stem to avoid UUID hashes
-        match = re.search(r'(?:part_)?(\d+)(?:\.|$|_)', filename, re.IGNORECASE)
-        return int(match.group(1)) if match else 0
-
-    sorted_stems = sorted(chapters_found.keys(), key=lambda x: extract_number(x))
-    preview = []
-    total_sec = 0.0
-    existing_jobs = get_jobs()
-    job_titles = {j.chapter_file: j.custom_title for j in existing_jobs.values() if j.custom_title}
-
-    for stem in sorted_stems:
-        fname = chapters_found[stem]
-        import os
-        trusted_src_root = os.path.abspath(os.path.realpath(os.fspath(src_dir)))
-        full_fname_path = os.path.normpath(os.path.join(trusted_src_root, fname))
-
-        if full_fname_path.startswith(trusted_src_root + os.sep):
-            dur = get_audio_duration(Path(full_fname_path))
-            display_name = job_titles.get(stem + ".txt") or job_titles.get(stem) or stem
-            preview.append({
-                "filename": fname,
-                "title": display_name,
-                "duration": dur
-            })
-            total_sec += dur
-
-    return {
-        "title": "Audiobook Project",
-        "chapters": preview,
-        "total_duration": total_sec
-    }

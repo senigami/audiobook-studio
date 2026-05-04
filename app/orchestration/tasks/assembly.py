@@ -75,7 +75,7 @@ class AssemblyTask(StudioTask):
 
     def run(self) -> TaskResult:
         """Execute stitching via app.engines."""
-        from app.engines import stitch_segments  # noqa: PLC0415
+        from app.engines.audio_ops import stitch_segments  # noqa: PLC0415
 
         def on_output(line: str) -> None:
             # We don't have a progress broadcaster in the task body,

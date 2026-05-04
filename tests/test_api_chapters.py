@@ -126,17 +126,16 @@ def test_chapter_cancel_and_reset(clean_db, client):
     assert response.status_code == 200
 
 def test_export_and_stream(clean_db, tmp_path, client):
-    from app.web import app as fastapi_app
+    from app import config
     from app.db.projects import create_project
-    from app.db.chapters import create_chapter, update_chapter
-    from app.api.routers.chapters import get_xtts_out_dir
+    from app.db.chapters import create_chapter
     pid = create_project("P1")
     cid = create_chapter(pid, "C1", "T1")
 
-    fastapi_app.dependency_overrides[get_xtts_out_dir] = lambda: tmp_path
-
     # Create a dummy wav
-    wav_file = tmp_path / f"{cid}.wav"
+    chapter_dir = config.get_chapter_dir(pid, cid)
+    chapter_dir.mkdir(parents=True, exist_ok=True)
+    wav_file = chapter_dir / "chapter.wav"
     wav_file.write_bytes(b"RIFF...")
 
     # Stream
@@ -149,7 +148,6 @@ def test_export_and_stream(clean_db, tmp_path, client):
     expected_url = f"/api/projects/{pid}/chapters/{cid}/assets/audio"
     assert response.json()["url"].startswith(expected_url)
 
-    fastapi_app.dependency_overrides = {}
 
 
 def test_chapter_asset_route_rejects_path_traversal(clean_db, client):

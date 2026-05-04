@@ -4,7 +4,8 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from app.textops import split_sentences
-from . import compatibility_helpers as helpers
+from . import helpers
+
 
 logger = logging.getLogger(__name__)
 

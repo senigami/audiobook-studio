@@ -1,8 +1,8 @@
 """Progress and artifact reconciliation helpers.
 
-This module stays orchestration-focused. Callers are expected to adapt legacy
-job snapshots into the request mapping rather than importing worker or web
-modules here.
+This module stays orchestration-focused. Callers are expected to adapt
+in-flight or previous revision snapshots into the request mapping rather
+than importing worker or web modules here.
 """
 
 from __future__ import annotations

@@ -67,16 +67,9 @@ def _looks_like_external_download_progress(line: str, lowered: str | None = None
 
 def _mark_queue_failed(jid: str, error_message: str | None = None):
     try:
-        from ..db import update_queue_item
-        update_queue_item(jid, "failed")
+        update_job(jid, status="failed", finished_at=time.time(), error=error_message or "Unknown failure")
     except Exception as e:
-        logger.warning("Could not mark queue item %s failed: %s", jid, e, exc_info=True)
-
-    if error_message:
-        try:
-            update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error=error_message)
-        except Exception as e:
-            logger.warning("Could not update failed job state for %s: %s", jid, e, exc_info=True)
+        logger.warning("Could not update failed job state for %s: %s", jid, e, exc_info=True)
 
 
 def _job_field(job, key: str, default=None):

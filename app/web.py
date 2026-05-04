@@ -10,8 +10,7 @@ from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .config import (
-    AUDIO_OUT_DIR, AUDIOBOOK_DIR, VOICES_DIR, SAMPLES_DIR,
-    UPLOAD_DIR, CHAPTER_DIR, REPORT_DIR, COVER_DIR, ASSETS_DIR, PROJECTS_DIR,
+    VOICES_DIR, UPLOAD_DIR, REPORT_DIR, COVER_DIR, PROJECTS_DIR,
     FRONTEND_DIST
 )
 from .db import init_db
@@ -127,21 +126,6 @@ if FRONTEND_DIST.exists():
     app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="assets")
 
 
-@app.get("/out/audio/{filename}")
-def get_audio_output(filename: str):
-    file_path = _contained_root_file(AUDIO_OUT_DIR, filename)
-    if not file_path:
-        raise HTTPException(status_code=404, detail="Not Found")
-    return FileResponse(file_path)
-
-
-@app.get("/out/audiobook/{filename}")
-def get_audiobook_output(filename: str):
-    file_path = _contained_root_file(AUDIOBOOK_DIR, filename)
-    if not file_path:
-        raise HTTPException(status_code=404, detail="Not Found")
-    return FileResponse(file_path)
-
 
 @app.get("/out/covers/{filename}")
 def get_cover_output(filename: str):
@@ -190,20 +174,21 @@ def startup_event():
     # Initialize DB
     init_db()
 
-    # Normalize base voice profiles once at startup so list endpoints stay read-only.
+    # Reconcile speaker metadata and default profile assignments during transition to v2 storage.
     try:
-        from .db.speakers import normalize_base_profiles
-        normalize_base_profiles()
+        from .db.migration import migrate_voice_profiles
+        migrate_voice_profiles()
     except Exception as e:
-        logger.warning(f"Startup Warning: Base voice normalization failed: {e}")
+        logger.warning(f"Startup Warning: Voice profile migration failed: {e}")
 
-    # Move any legacy global cover files into project-local storage so demo
-    # content remains self-contained inside projects/.
+
+    # Move any shared global cover files into project-local storage so demo
+    # assets are correctly partitioned in v2.
     try:
-        from .db.projects import migrate_legacy_project_covers
+        from .db.migration import migrate_legacy_project_covers
         migrated = migrate_legacy_project_covers()
-        if migrated:
-            logger.info("Startup: Migrated %s legacy project cover(s) into project storage.", migrated)
+        if migrated > 0:
+            logger.info("Startup: Migrated %s shared project cover(s) into project storage.", migrated)
     except Exception as e:
         logger.warning(f"Startup Warning: Project cover migration failed: {e}")
 
@@ -275,7 +260,7 @@ def startup_event():
 @app.on_event("shutdown")
 def shutdown_event():
     from .orchestration.progress.broadcaster import configure_progress_broadcaster
-    from .engines import terminate_all_subprocesses
+    from .engines.proc_utils import terminate_all_subprocesses
     configure_progress_broadcaster(None)
     terminate_all_subprocesses()
 
@@ -283,36 +268,6 @@ async def tts_generate_stub(*args, **kwargs):
     """Dummy for tests that patch app.web.tts_generate_stub"""
     pass
 
-@app.middleware("http")
-async def sync_config_middleware(request: Request, call_next):
-    # Propagate possibly mocked local variables to the config module (for legacy tests)
-    from . import config
-    config.CHAPTER_DIR = CHAPTER_DIR
-    config.AUDIO_OUT_DIR = AUDIO_OUT_DIR
-    config.AUDIOBOOK_DIR = AUDIOBOOK_DIR
-    config.VOICES_DIR = VOICES_DIR
-    config.SAMPLES_DIR = SAMPLES_DIR
-    config.UPLOAD_DIR = UPLOAD_DIR
-    config.REPORT_DIR = REPORT_DIR
-    config.PROJECTS_DIR = PROJECTS_DIR
-    config.COVER_DIR = COVER_DIR
-    config.ASSETS_DIR = ASSETS_DIR
-
-    # Sync router-level variables for legacy tests that monkeypatch them
-    from .api.routers import analysis as r_analysis, system as r_system, chapters as r_chapters, voices as r_voices
-    r_analysis.CHAPTER_DIR = config.CHAPTER_DIR
-    r_analysis.REPORT_DIR = config.REPORT_DIR
-    r_system.UPLOAD_DIR = config.UPLOAD_DIR
-    r_system.CHAPTER_DIR = config.CHAPTER_DIR
-    r_system.COVER_DIR = config.COVER_DIR
-    r_system.AUDIOBOOK_DIR = config.AUDIOBOOK_DIR
-    r_system.VOICES_DIR = config.VOICES_DIR
-    r_system.AUDIO_OUT_DIR = config.AUDIO_OUT_DIR
-    r_chapters.CHAPTER_DIR = config.CHAPTER_DIR
-    r_chapters.AUDIO_OUT_DIR = config.AUDIO_OUT_DIR
-    r_voices.VOICES_DIR = config.VOICES_DIR
-
-    return await call_next(request)
 
 
 @app.middleware("http")

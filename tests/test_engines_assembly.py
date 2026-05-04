@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import patch, MagicMock
 from pathlib import Path
-from app.engines import assemble_audiobook
+from app.engines.audiobook_utils import assemble_audiobook
 
 def test_assemble_audiobook_ffmpeg_command_structure(tmp_path):
     """

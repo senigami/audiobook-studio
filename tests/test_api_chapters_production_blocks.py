@@ -202,14 +202,11 @@ def test_chapter_audio_export_wav_mp3_and_missing_audio(clean_db, tmp_path, clie
     pid = create_project("Export Project")
     cid = create_chapter(pid, "Chapter 1", "Alpha one.")
 
-    from app.web import app as fastapi_app
-    from app.api.routers.chapters import get_xtts_out_dir
-    from app.domain.chapters import compatibility as compatibility_module
+    from app import config
 
-    fastapi_app.dependency_overrides[get_xtts_out_dir] = lambda: tmp_path
-    monkeypatch.setattr(compatibility_module, "find_existing_project_subdir", lambda _project_id, _kind: tmp_path)
-
-    wav_path = tmp_path / f"{cid}.wav"
+    chapter_dir = config.get_chapter_dir(pid, cid)
+    chapter_dir.mkdir(parents=True, exist_ok=True)
+    wav_path = chapter_dir / "chapter.wav"
     wav_path.write_bytes(b"RIFFfakewav")
 
     response = client.post(f"/api/chapters/{cid}/export-audio", json={"format": "wav"})
@@ -222,16 +219,14 @@ def test_chapter_audio_export_wav_mp3_and_missing_audio(clean_db, tmp_path, clie
         out_mp3.write_bytes(b"ID3fake-mp3")
         return 0
 
-    monkeypatch.setattr("app.engines.wav_to_mp3", fake_wav_to_mp3)
+    monkeypatch.setattr("app.engines.audio_ops.wav_to_mp3", fake_wav_to_mp3)
 
     response = client.post(f"/api/chapters/{cid}/export-audio", json={"format": "mp3"})
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("audio/mpeg")
-    assert (tmp_path / f"{cid}.mp3").read_bytes() == b"ID3fake-mp3"
+    assert (chapter_dir / "chapter.mp3").read_bytes() == b"ID3fake-mp3"
 
     other_cid = create_chapter(pid, "Chapter 2", "Beta one.")
     response = client.post(f"/api/chapters/{other_cid}/export-audio", json={"format": "wav"})
     assert response.status_code == 404
     assert "render the chapter first" in response.json()["message"].lower()
-
-    fastapi_app.dependency_overrides = {}

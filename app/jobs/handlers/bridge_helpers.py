@@ -26,7 +26,7 @@ def generate_via_bridge(
     script: list[dict[str, Any]] | None = None,
     **kwargs,
 ) -> int:
-    """Standardized bridge call for legacy-style job handlers.
+    """Standardized bridge call for non-orchestrated job handlers.
 
     Returns 0 on success, or raises EngineBridgeError.
     """

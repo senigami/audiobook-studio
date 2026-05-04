@@ -4,7 +4,7 @@ from pathlib import Path
 
 from app.chunk_groups import build_chunk_groups, load_chunk_segments
 from app.db import get_chapter_segments, update_queue_item, update_segment, update_segments_status_bulk
-from app.engines import get_audio_duration, stitch_segments, wav_to_mp3
+from app.engines.audio_ops import get_audio_duration, stitch_segments, wav_to_mp3
 from app.jobs.speaker import get_speaker_wavs, get_voice_profile_dir
 from app.state import update_job
 from .bake import handle_xtts_bake

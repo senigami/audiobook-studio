@@ -2,7 +2,7 @@
 
 ## Status
 
-Refreshed audit checkpoint on 2026-05-03. Slice Q (Final App-root Scrub) is **Complete**. The application root is now fully engine-agnostic, with all remaining engine-specific references (e.g., `xtts_cps`) strictly confined to documented migration shims and explicit compatibility constants for backward compatibility with legacy user data.
+Refreshed audit checkpoint on 2026-05-03. **Audit Ongoing.** While many structural engine-specific references have been relocated to `plugins/`, a major blocker remains: the active synthesis pipeline in `app/api/routers/generation.py` still relies on the legacy worker (`enqueue(j)`). Additionally, a previous "scrubbing" pass incorrectly used renaming (e.g. "standalone") to mask legacy behavior rather than removing it.
 
 ## Source Context
 
@@ -39,13 +39,10 @@ rg -n "base.py|sdk.py|StudioTTSEngine|TTSRequest|TTSResult|VerificationResult" a
 
 | Path | Reference | Classification | Runtime impact | Desired outcome | Risk | Verification | Recommended Slice |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `_app.py` | Full legacy dashboard | Dead Legacy | None (Broken) | Delete | Low | File deletion | NEXT |
-| `scripts/sync_durations.py` | `XTTS_OUT_DIR` usage | Obsolete Coupling | Scripting | Update to `AUDIO_OUT_DIR` | Low | Script run | NEXT |
-| `app/config.py` | `XTTS_OUT_DIR` definition | Obsolete Coupling | Config | Delete (Generalized to `AUDIO_OUT_DIR`) | Medium | Boot tests | NEXT |
-| `tests/test_api_generation.py` | `voxtral_enabled` shim | Wasteful Test | None | Prune/Update to generic | Low | Test run | NEXT |
-| `app/state_performance.py` | `xtts_cps` normalization | One-Time Migration | Metrics | State normalization during pop | Low | Boot tests | COMPLETED |
-| `app/db/speakers.py` | `voxtral_voice_id` normalization | One-Time Migration | Data upgrade | Retain for compatibility (aliases) | Low | Database tests | RETAIN |
-| `app/jobs/worker.py` | `xtts` fallback in loops | Obsolete Coupling | Worker | Replaced with settings.default_engine | Low | Worker check | COMPLETED |
+| `app/api/routers/generation.py` | `enqueue(j)` and legacy worker sync | Obsolete Coupling | Synthesis | Migrate to V2 Orchestrator | High | Integration tests | SLICE U |
+| `app/jobs/` | Legacy worker implementation | Obsolete Runtime | Synthesis | Decommission after Slice U | High | Integration tests | SLICE U |
+| `app/db/chapters_cleanup.py` | `flat_pdir` logic | Obsolete Coupling | Cleanup | REMOVED | Low | Unit tests | COMPLETED |
+| `app/orchestration/tasks/mixed_synthesis.py` | `MixedSynthesisTask` | Dead Compatibility | None | REMOVED | Low | Unit tests | COMPLETED |
 
 ## Completed Slices
 
@@ -176,7 +173,19 @@ Phase 11 migration is now **Complete**. All engine-specific ownership has been s
 - [x] Migrated performance and settings residue into explicit boot-time migration functions.
 - [x] Confirmed that active runtime state modules are 100% engine-agnostic.
 
+## Ongoing Slices
+
+### Slice T (Legacy Wording Correction) - 2026-05-03
+- [x] Undid previous "masking" renames where logic was still legacy-backed.
+- [x] Normalized wording in `speakers.py`, `reconciliation.py`, and `repository.py` to use V2-native terminology.
+- [x] Scrubbed "legacy" from V2 domain contracts where it was purely documentation debt.
+
+### Slice U (Orchestrator Cutover) - NEXT
+- [ ] Migrate `app/api/routers/generation.py` from `enqueue(j)` to `TaskOrchestrator.submit()`.
+- [ ] Decommission legacy `app/jobs/` worker once all synthesis paths are orchestrator-native.
+- [ ] Remove `app/jobs/` and `app/db/queue.py` (legacy parts).
+
 ## Remaining Risks
 
-- **Intentional Migration Debt**: Backward compatibility shims exist ONLY in `app/migration.py` and `db/speakers.py`. Active runtime modules are clean.
-- **Registry Plumbing**: Discovery module references in `registry.py` and `subprocess/__init__.py` are required architectural boundaries.
+- **Intentional Migration Debt**: Backward compatibility shims are strictly isolated in `app/migration.py`, `app/db/migration.py`, and `app/domain/projects/migration.py`.
+- **Nomenclature Stability**: "Flat" and "Standalone" are now the preferred terms for non-nested storage layouts.

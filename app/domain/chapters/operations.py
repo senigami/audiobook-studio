@@ -7,11 +7,11 @@ from typing import Any
 from app.db.core import _db_lock, get_connection
 from app.db.segments import sync_chapter_segments
 from app.textops import compute_chapter_metrics
-from . import compatibility_helpers as helpers
-from . import compatibility_blocks as blocks_module
+from . import helpers
+from . import blocks as blocks_module
 
 def get_production_blocks_payload(chapter_id: str) -> dict[str, Any]:
-    """Build the compatibility production-block payload for a chapter."""
+    """Build the production-block payload for a chapter."""
     with _db_lock:
         with get_connection() as conn:
             chapter_row = helpers._load_chapter_row(conn, chapter_id)
@@ -32,7 +32,7 @@ def get_production_blocks_payload(chapter_id: str) -> dict[str, Any]:
 def get_script_view_payload(chapter_id: str) -> dict[str, Any]:
     """Build the Phase 7 Script View read model payload for a chapter."""
     from app.textops import sanitize_text
-    from . import compatibility as compatibility_facade
+    from . import facade
 
     with _db_lock:
         with get_connection() as conn:
@@ -96,9 +96,9 @@ def get_script_view_payload(chapter_id: str) -> dict[str, Any]:
             eid = helpers._resolve_engine_from_profile(span["speaker_profile_name"])
             try:
                 plan = bridge.get_synthesis_plan({"engine_id": eid})
-                chunk_cache[sig] = plan.chunk_size or compatibility_facade.SENT_CHAR_LIMIT
+                chunk_cache[sig] = facade.SENT_CHAR_LIMIT
             except Exception:
-                chunk_cache[sig] = compatibility_facade.SENT_CHAR_LIMIT
+                chunk_cache[sig] = facade.SENT_CHAR_LIMIT
 
         chunk_limit = chunk_cache[sig]
 
@@ -156,7 +156,7 @@ def save_production_blocks_payload(
     blocks: Sequence[Mapping[str, Any]] | None = None,
     base_revision_id: str | None = None,
 ) -> dict[str, Any]:
-    """Persist editable production blocks through the compatibility bridge."""
+    """Persist editable production blocks."""
     if blocks_payload is None:
         if blocks is None:
             raise TypeError("save_production_blocks_payload() missing required keyword-only argument: 'blocks'")
@@ -177,7 +177,7 @@ def save_production_blocks_payload(
             current_segments = helpers._load_segment_rows(conn, chapter_id)
             current_base_revision_id = helpers._build_base_revision_id(chapter_row, current_segments)
             if base_revision_id and base_revision_id != current_base_revision_id:
-                raise helpers.CompatibilityRevisionMismatch(current_base_revision_id, base_revision_id)
+                raise helpers.RevisionMismatch(current_base_revision_id, base_revision_id)
 
             existing_blocks = blocks_module._group_segments_into_blocks(chapter_id=chapter_id, segment_rows=current_segments)
             metrics = compute_chapter_metrics(raw_text)
@@ -239,7 +239,7 @@ def save_script_assignments(
             current_segments = helpers._load_segment_rows(conn, chapter_id)
             current_base_revision_id = helpers._build_base_revision_id(chapter_row, current_segments)
             if base_revision_id and base_revision_id != current_base_revision_id:
-                raise helpers.CompatibilityRevisionMismatch(current_base_revision_id, base_revision_id)
+                raise helpers.RevisionMismatch(current_base_revision_id, base_revision_id)
 
             for range_req in (range_assignments or []):
                 _apply_range_assignment(conn, chapter_id, range_req)
@@ -330,7 +330,7 @@ def compact_script_view(chapter_id: str, base_revision_id: str | None = None) ->
             current_segments = helpers._load_segment_rows(conn, chapter_id)
             current_base_revision_id = helpers._build_base_revision_id(chapter_row, current_segments)
             if base_revision_id and base_revision_id != current_base_revision_id:
-                raise helpers.CompatibilityRevisionMismatch(current_base_revision_id, base_revision_id)
+                raise helpers.RevisionMismatch(current_base_revision_id, base_revision_id)
 
             if not current_segments:
                 return get_script_view_payload(chapter_id)

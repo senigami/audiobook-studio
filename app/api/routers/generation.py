@@ -3,23 +3,28 @@ import uuid
 import logging
 from pathlib import Path
 from typing import List, Optional
-from fastapi import APIRouter, Form
+from fastapi import APIRouter, Form, BackgroundTasks
 from fastapi.responses import JSONResponse
 from ...chunk_groups import build_chapter_queue_title, build_segment_job_title
 from ...db import (
     add_to_queue as db_add_to_queue, get_chapter_segments,
     get_connection
 )
-from ...jobs import enqueue, cancel as cancel_job_worker, set_paused, clear_job_queue
+from ...jobs import cancel as cancel_job, set_paused, clear_job_queue
 from ...models import Job
 from ...state import put_job, update_job, get_settings, get_jobs
-from ...config import AUDIO_OUT_DIR, find_existing_project_dir, find_existing_project_subdir
+from ...orchestration.scheduler.orchestrator import create_orchestrator
+from ...orchestration.tasks.synthesis import SynthesisTask
 from ...voice_engines import resolve_profile_engine, resolve_tts_engine_for_profiles, normalize_tts_engine
 from ...engines.bridge import create_voice_bridge
 from ...engines.behavior import (
     supports_bake_rendering,
     supports_mixed_rendering,
     supports_standard_rendering,
+)
+from ...config import (
+    find_existing_project_dir, find_existing_project_subdir,
+    get_chapter_dir, resolve_chapter_asset_path
 )
 from ..ws import broadcast_chapter_updated, broadcast_queue_update
 
@@ -50,15 +55,7 @@ def _single_job_title(chapter_file: str, engine: str) -> str:
     registry = {entry.get("engine_id"): entry for entry in bridge.describe_registry()}
     entry = registry.get(engine)
     display_name = (entry.get("display_name") if entry else None) or engine.capitalize()
-
-    from ...voice_engines import get_default_profile_engine
-    if engine == "mixed":
-        action = "Generating mixed audio for"
-    elif engine == get_default_profile_engine():
-        action = "Generating audio for"
-    else:
-        action = f"Generating {display_name} audio for"
-    return f"{action} {base_name}"
+    return f"Generating audio for {base_name}"
 
 
 def _resolved_segment_profiles(chapter_id: str, only_segment_ids: Optional[set[str]] = None) -> list[Optional[str]]:
@@ -105,8 +102,9 @@ def _engines_for_profiles(profile_names: list[Optional[str]], fallback_engine: O
 
 @router.post("/processing_queue")
 def api_add_to_queue(
-    project_id: str = Form(...), 
-    chapter_id: str = Form(...), 
+    background_tasks: BackgroundTasks,
+    project_id: str = Form(...),
+    chapter_id: str = Form(...),
     split_part: int = Form(0),
     speaker_profile: Optional[str] = Form(None)
 ):
@@ -126,7 +124,7 @@ def api_add_to_queue(
                 return JSONResponse({"status": "ok", "queue_id": existing[0]['id']})
             return JSONResponse({"status": "error", "message": "Chapter already in queue"}, status_code=400)
 
-        # Sync with legacy worker
+        # Sync with job database
         with get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT title, text_content, sort_order FROM chapters WHERE id = ?", (chapter_id,))
@@ -135,36 +133,37 @@ def api_add_to_queue(
         if c_item:
             title, text_content, sort_order = c_item
             display_title = build_chapter_queue_title(title, sort_order)
-            project_dir = find_existing_project_dir(project_id)
-            if not project_dir:
-                raise ValueError(f"Project directory not found for {project_id}")
-            text_dir = find_existing_project_subdir(project_id, "text") or (project_dir / "text")
-            text_dir.mkdir(parents=True, exist_ok=True)
-            temp_filename = f"{chapter_id}_{split_part}.txt"
-            temp_path = text_dir / temp_filename
+
+            # Use v2 nested chapter directory for temporary text assets
+            chapter_dir = get_chapter_dir(project_id, chapter_id)
+            chapter_dir.mkdir(parents=True, exist_ok=True)
+
+            if split_part == 0:
+                temp_filename = "chapter.txt"
+            else:
+                temp_filename = f"chapter_{split_part}.txt"
+
+            temp_path = chapter_dir / temp_filename
             temp_path.write_text(text_content or "", encoding="utf-8", errors="replace")
 
             segs = get_chapter_segments(chapter_id)
-            pdir = find_existing_project_subdir(project_id, "audio") or (project_dir / "audio")
-            project_audio_files = {
+            # Check for bakeable segments in the nested segments directory
+            from ...pathing import secure_join_flat
+            nested_seg_dir = secure_join_flat(chapter_dir, "segments")
+
+            nested_audio_files = {
                 entry.name
-                for entry in pdir.iterdir()
+                for entry in nested_seg_dir.iterdir()
                 if entry.is_file()
-            } if pdir.exists() else set()
-            audio_out_files = {
-                entry.name
-                for entry in AUDIO_OUT_DIR.iterdir()
-                if entry.is_file()
-            } if AUDIO_OUT_DIR.exists() else set()
+            } if nested_seg_dir.exists() else set()
+
             has_bakeable_segments = any(
                 s.get("audio_status") == "done"
                 and s.get("audio_file_path")
-                and (
-                    s["audio_file_path"] in project_audio_files
-                    or s["audio_file_path"] in audio_out_files
-                )
+                and (s["audio_file_path"] in nested_audio_files or (s["audio_file_path"].startswith("chunk_") and s["audio_file_path"] in nested_audio_files))
                 for s in segs
             )
+
             resolved_engine, mixed_engines = resolve_tts_engine_for_profiles(
                 _resolved_segment_profiles(chapter_id),
                 default_profile=active_profile,
@@ -180,11 +179,11 @@ def api_add_to_queue(
             queue_engine = "mixed" if mixed_engines else resolved_engine
 
             j = Job(
-                id=qid, 
+                id=qid,
                 project_id=project_id,
                 chapter_id=chapter_id,
                 engine=queue_engine,
-                chapter_file=temp_filename, 
+                chapter_file=temp_filename,
                 status="queued",
                 created_at=time.time(),
                 safe_mode=bool(settings.get("safe_mode", True)),
@@ -198,22 +197,31 @@ def api_add_to_queue(
             put_job(j)
             update_job(
                 qid,
-                force_broadcast=True,
                 status="queued",
                 progress=0.0,
-                started_at=None,
-                finished_at=None,
                 active_segment_id=None,
                 active_segment_progress=0.0,
+                error=None,
+                warning_count=0,
+                force_broadcast=True
+            )
+
+            orchestrator = create_orchestrator()
+            task = SynthesisTask(
+                task_id=qid,
+                engine_id=queue_engine,
+                script_text="",  # Mixed handler/Bridge reads from DB/disk
+                output_path=temp_filename,
                 project_id=project_id,
                 chapter_id=chapter_id,
-                chapter_file=temp_filename,
-                engine=queue_engine,
-                speaker_profile=active_profile,
-                is_bake=has_bakeable_segments,
+                voice_profile_id=active_profile,
                 custom_title=display_title,
+                is_bake=has_bakeable_segments,
+                safe_mode=bool(settings.get("safe_mode", True)),
+                make_mp3=bool(settings.get("make_mp3", False)),
             )
-            enqueue(j)
+            background_tasks.add_task(orchestrator.submit, task)
+
             broadcast_chapter_updated(chapter_id)
             broadcast_queue_update()
 
@@ -228,7 +236,7 @@ def api_add_to_queue(
         return JSONResponse({"status": "error", "message": "Failed to queue chapter"}, status_code=400)
 
 @router.post("/generation/bake/{chapter_id}")
-def api_bake_chapter(chapter_id: str):
+def api_bake_chapter(chapter_id: str, background_tasks: BackgroundTasks):
     settings = get_settings()
     active_profile = settings.get("default_speaker_profile")
 
@@ -285,7 +293,21 @@ def api_bake_chapter(chapter_id: str):
         active_segment_progress=0.0,
         custom_title=display_title,
     )
-    enqueue(j)
+
+    orchestrator = create_orchestrator()
+    task = SynthesisTask(
+        task_id=jid,
+        engine_id=queue_engine,
+        script_text="",
+        output_path=f"{chapter_id}_0.txt",
+        project_id=project_id,
+        chapter_id=chapter_id,
+        voice_profile_id=active_profile,
+        custom_title=display_title,
+        is_bake=True,
+    )
+    background_tasks.add_task(orchestrator.submit, task)
+
     return JSONResponse({"status": "ok", "job_id": jid})
 
 @router.post("/generation/pause")
@@ -303,7 +325,7 @@ def cancel_pending():
     from ...state import get_jobs, delete_jobs
     from ...db import clear_queue
 
-    # 1. Clear worker memory
+    # 1. Clear queue memory
     clear_job_queue()
 
     # 2. Clear state.json
@@ -323,12 +345,17 @@ def cancel_chapter_generation(chapter_id: str):
     jobs = get_jobs()
     for jid, job in jobs.items():
         if job.get("chapter_id") == chapter_id and job.get("status") in ["queued", "running", "preparing"]:
-            cancel_job_worker(jid)
+            cancel_job(jid)
     broadcast_chapter_updated(chapter_id)
     return JSONResponse({"status": "ok"})
 
+
 @router.post("/generation/enqueue-single")
-def enqueue_single(chapter_file: str = Form(...), engine: Optional[str] = Form(None)):
+def enqueue_single(
+    background_tasks: BackgroundTasks,
+    chapter_file: str = Form(...),
+    engine: Optional[str] = Form(None)
+):
     if not engine:
         from ...voice_engines import get_default_profile_engine
         engine = get_settings().get("default_engine") or get_default_profile_engine()
@@ -337,21 +364,41 @@ def enqueue_single(chapter_file: str = Form(...), engine: Optional[str] = Form(N
     if engine_error:
         return engine_error
     jid = f"job-{uuid.uuid4().hex[:8]}"
+
+    active_profile = get_settings().get("default_speaker_profile")
+    display_title = _single_job_title(chapter_file, normalized_engine)
+
     j = Job(
         id=jid,
         chapter_file=chapter_file,
         engine=normalized_engine,
         status="queued",
         created_at=time.time(),
-        speaker_profile=get_settings().get("default_speaker_profile"),
-        custom_title=_single_job_title(chapter_file, normalized_engine),
+        speaker_profile=active_profile,
+        custom_title=display_title,
     )
     put_job(j)
-    enqueue(j)
+
+    orchestrator = create_orchestrator()
+    task = SynthesisTask(
+        task_id=jid,
+        engine_id=normalized_engine,
+        script_text="",
+        output_path=chapter_file,
+        voice_profile_id=active_profile,
+        custom_title=display_title,
+    )
+    background_tasks.add_task(orchestrator.submit, task)
+
     return JSONResponse({"status": "ok", "job_id": jid})
 
+
 @router.post("/segments/generate")
-def api_generate_segments(segment_ids: str = Form(...), speaker_profile: Optional[str] = Form(None)):
+def api_generate_segments(
+    background_tasks: BackgroundTasks,
+    segment_ids: str = Form(...),
+    speaker_profile: Optional[str] = Form(None)
+):
     """Queues generation for specific segments."""
     sids = [s.strip() for s in segment_ids.split(",") if s.strip()]
     if not sids:
@@ -414,20 +461,9 @@ def api_generate_segments(segment_ids: str = Form(...), speaker_profile: Optiona
     )
 
     # Physical Cleanup: Delete existing full-chapter audio files to prevent reconciliation "blink"
-    from ... import config
-    project_audio_dir = config.find_existing_project_subdir(project_id, "audio") if project_id else config.AUDIO_OUT_DIR
-    if not project_audio_dir:
-        project_audio_dir = config.get_project_dir(project_id) / "audio"
-    for p in project_audio_dir.iterdir() if project_audio_dir.exists() else ():
-        if (
-            p.is_file()
-            and p.name.startswith(chapter_id)
-            and p.suffix.lower() in ('.wav', '.mp3', '.m4a')
-        ):
-            try:
-                p.unlink()
-            except Exception:
-                logger.warning("Failed to remove stale chapter audio file %s", p, exc_info=True)
+    from ...db.chapters import cleanup_chapter_audio_files
+    cleanup_chapter_audio_files(project_id, chapter_id, delete_chapter_outputs=True)
+
 
     # Segment generation invalidates any existing chapter render, but it is not
     # itself a chapter-level render job. Keep the chapter unprocessed so the top
@@ -451,18 +487,27 @@ def api_generate_segments(segment_ids: str = Form(...), speaker_profile: Optiona
         force_broadcast=True,
         status="queued",
         progress=0.0,
-        started_at=None,
-        finished_at=None,
         active_segment_id=None,
         active_segment_progress=0.0,
-        chapter_id=chapter_id,
-        project_id=project_id,
-        chapter_file=job.chapter_file,
-        engine=queue_engine,
-        segment_ids=sids,
-        speaker_profile=active_profile,
-        custom_title=segment_custom_title,
+        error=None,
+        warning_count=0,
     )
-    enqueue(job)
+
+    orchestrator = create_orchestrator()
+    task = SynthesisTask(
+        task_id=job.id,
+        engine_id=queue_engine,
+        script_text="",
+        output_path=job.chapter_file,
+        project_id=project_id,
+        chapter_id=chapter_id,
+        voice_profile_id=active_profile,
+        custom_title=segment_custom_title,
+        segment_ids=sids,
+        safe_mode=bool(settings.get("safe_mode", True)),
+        make_mp3=bool(settings.get("make_mp3", False)),
+    )
+    background_tasks.add_task(orchestrator.submit, task)
+
     broadcast_queue_update()
     return JSONResponse({"status": "success", "job_id": job.id})

@@ -7,7 +7,7 @@ from .reconcile import cleanup_and_reconcile, _output_exists
 from .speaker import get_speaker_wavs, get_speaker_settings, update_speaker_settings, DEFAULT_SPEAKER_TEST_TEXT
 from .worker import worker_loop
 from ..state import put_job, get_jobs, update_job, get_settings, get_performance_metrics, update_performance_metrics
-from ..config import CHAPTER_DIR, AUDIO_OUT_DIR, AUDIOBOOK_DIR, VOICES_DIR, SAMPLES_DIR, SENT_CHAR_LIMIT
+from ..config import VOICES_DIR, SENT_CHAR_LIMIT
 
 logger = logging.getLogger(__name__)
 _worker_threads: dict[str, threading.Thread] = {}
@@ -92,17 +92,17 @@ def sync_memory_queue():
     """
     ensure_workers()
     clear_job_queue()
-    from ..db import get_queue, update_queue_item
+    from ..db import get_queue
     # Get all queued items from DB (they are sorted by created_at DESC)
     db_queue = [item for item in get_queue() if item['status'] == 'queued']
     # Refill the FIFO queue in order of priority (first in list = first out)
     for item in db_queue:
         jid = item['id']
         engine = item.get('engine')
-        # Voice jobs are one-shot synthesis — skip and mark done in DB to prevent future re-queue
+        # Voice jobs are one-shot synthesis — skip and mark done in state to prevent future re-queue
         if engine in ('voice_build', 'voice_test'):
             try:
-                update_queue_item(jid, 'done')
+                update_job(jid, status='done')
             except Exception:
                 logger.warning("Failed to mark voice job %s done while syncing memory queue", jid, exc_info=True)
             continue
@@ -126,6 +126,6 @@ __all__ = [
     "paused", "toggle_pause", "set_paused", "cleanup_and_reconcile", "_output_exists",
     "get_speaker_wavs", "get_speaker_settings", "update_speaker_settings", "DEFAULT_SPEAKER_TEST_TEXT",
     "get_jobs", "put_job", "update_job", "get_settings", "get_performance_metrics", "update_performance_metrics",
-    "CHAPTER_DIR", "AUDIO_OUT_DIR", "AUDIOBOOK_DIR", "VOICES_DIR", "SAMPLES_DIR", "SENT_CHAR_LIMIT",
+    "VOICES_DIR", "SENT_CHAR_LIMIT",
     "_estimate_seconds", "calculate_predicted_progress", "BASELINE_ENGINE_CPS", "format_seconds"
 ]

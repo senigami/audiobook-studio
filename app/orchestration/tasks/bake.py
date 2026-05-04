@@ -74,7 +74,7 @@ class BakeTask(StudioTask):
 
     def run(self) -> TaskResult:
         """Execute bake via app.engines."""
-        from app.engines import wav_to_mp3  # noqa: PLC0415
+        from app.engines.audio_ops import wav_to_mp3  # noqa: PLC0415
 
         if not self.input_path.exists():
             return TaskResult(

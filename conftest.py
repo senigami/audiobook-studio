@@ -46,7 +46,7 @@ for d in ["chapters_out", "uploads", "reports", "audio_out", "audiobooks", "voic
 from app.db import init_db  # noqa: E402
 from app.state import clear_all_jobs  # noqa: E402
 from app.jobs import clear_job_queue, pause_flag  # noqa: E402
-from app.engines import terminate_all_subprocesses  # noqa: E402
+from app.engines.proc_utils import terminate_all_subprocesses  # noqa: E402
 
 
 _TEST_TIMEOUT_SECONDS = int(os.environ.get("PYTEST_TEST_TIMEOUT_SECONDS", "15"))

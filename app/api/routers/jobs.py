@@ -6,62 +6,20 @@ from fastapi.responses import JSONResponse
 from dataclasses import asdict
 from ...state import get_jobs, update_job as state_update_job
 from ...jobs import cancel as cancel_job_worker
-from ...config import AUDIO_OUT_DIR
-from ..utils import legacy_list_chapters
+from ..utils import probe_audiobook_metadata
+
 
 router = APIRouter(prefix="/api", tags=["jobs"])
 
 @router.get("/jobs")
 def api_jobs():
-    """Returns jobs from state, augmented with file-based auto-discovery and progress."""
+    """Returns jobs explicitly tracked in the active state."""
     all_jobs = get_jobs()
 
-    jobs_dict = {j.id: asdict(j) for j in all_jobs.values()}
-
-    # Dynamic progress update removed. Frontend handles predictive visual state.
-
-    # Auto-discovery
-    chapters = [p.name for p in legacy_list_chapters()]
-    for c in chapters:
-        existing = next(
-            (
-                job for job in jobs_dict.values()
-                if job.get("chapter_file") == c
-                and job.get("status") == "done"
-                and (job.get("output_mp3") or job.get("output_wav"))
-            ),
-            None,
-        )
-        if existing:
-            continue
-
-        stem = Path(c).stem
-        x_mp3 = (AUDIO_OUT_DIR / f"{stem}.mp3")
-        x_wav = (AUDIO_OUT_DIR / f"{stem}.wav")
-
-        found_job = {}
-        if x_mp3.exists():
-            found_job.update({"status": "done", "engine": "legacy", "output_mp3": x_mp3.name})
-        if x_wav.exists():
-            found_job.update({"engine": "legacy", "output_wav": x_wav.name})
-            if not found_job.get("status"):
-                found_job["status"] = "done"
-
-        if found_job:
-            found_job["log"] = "Job auto-discovered from existing files."
-            if existing:
-                existing.update(found_job)
-            else:
-                jobs_dict[f"discovered-{c}"] = {
-                    "id": f"discovered-{c}",
-                    "chapter_file": c,
-                    "progress": 1.0,
-                    "created_at": 0,
-                    **found_job
-                }
-
-    jobs = list(jobs_dict.values())
+    # Only return jobs explicitly tracked in state
+    jobs = [asdict(j) for j in all_jobs.values()]
     jobs.sort(key=lambda j: j.get('created_at', 0))
+
 
     # bandwidth optimization
     for j in jobs:

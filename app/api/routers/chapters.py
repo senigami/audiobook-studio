@@ -24,10 +24,6 @@ from .chapters_models import BulkStatusUpdate, BulkSegmentsUpdate
 from .chapters_production import router as production_router
 from .chapters_assets import (
     router as assets_router,
-    get_chapter_dir,
-    get_audio_out_dir,
-    CHAPTER_DIR,
-    AUDIO_OUT_DIR,
 )
 
 

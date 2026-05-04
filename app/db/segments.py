@@ -115,18 +115,14 @@ def get_chapter_segments(chapter_id: str) -> List[Dict[str, Any]]:
 
     # Rule 3: Disk as Source of Truth - Outside Lock
     from .. import config
-    pdir = config.get_project_audio_dir(project_id) if project_id else config.AUDIO_OUT_DIR
+    pdir = config.get_project_audio_dir(project_id) if project_id else None
 
     invalid_done_ids: list[str] = []
     for s in rows:
         if not s.get('speaker_profile_name') and s.get('character_speaker_profile_name'):
             s['speaker_profile_name'] = s['character_speaker_profile_name']
         if s['audio_status'] == 'done':
-            if not s['audio_file_path']:
-                s['audio_status'] = 'unprocessed'
-                s['audio_file_path'] = None
-                invalid_done_ids.append(s['id'])
-            elif not (pdir / s['audio_file_path']).exists():
+            if not pdir or not s['audio_file_path'] or not (pdir / s['audio_file_path']).exists():
                 s['audio_status'] = 'unprocessed'
                 s['audio_file_path'] = None
                 invalid_done_ids.append(s['id'])
@@ -317,9 +313,9 @@ def cleanup_orphaned_segments(chapter_id: str):
             project_id = crow['project_id'] if crow else None
 
     from .. import config
-    pdir = config.get_project_audio_dir(project_id) if project_id else config.AUDIO_OUT_DIR
+    pdir = config.get_project_audio_dir(project_id) if project_id else None
 
-    if not pdir.exists():
+    if not pdir or not pdir.exists():
         return
 
     for p in pdir.glob("seg_*.*"):

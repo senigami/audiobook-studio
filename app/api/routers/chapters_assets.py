@@ -6,7 +6,8 @@ from typing import Optional, Literal
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import JSONResponse, FileResponse
 
-from ...domain.chapters.compatibility import export_chapter_audio
+from ...domain.chapters.facade import export_chapter_audio
+
 from ...db import get_chapter
 from ...state import get_settings
 from ...textops import sanitize_text, safe_split_long_sentences, pack_text_to_limit
@@ -14,23 +15,9 @@ from ... import config
 from ...config import find_existing_project_subdir, find_secure_file
 from .chapters_models import AudioExportRequest
 
-# Compatibility for tests that monkeypatch these
-CHAPTER_DIR = config.CHAPTER_DIR
-AUDIO_OUT_DIR = config.AUDIO_OUT_DIR
-
-
-def get_chapter_dir() -> Path:
-    return CHAPTER_DIR
-
-
-def get_audio_out_dir() -> Path:
-    return AUDIO_OUT_DIR
-
-
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
 
 @router.post("/chapters/{chapter_id}/export-audio")
 def api_export_chapter_audio(chapter_id: str, payload: AudioExportRequest):
@@ -46,26 +33,21 @@ def api_export_chapter_audio(chapter_id: str, payload: AudioExportRequest):
         logger.warning(f"Invalid export request for {chapter_id}: {exc}")
         return JSONResponse({"status": "error", "message": "Invalid export request"}, status_code=400)
 
-    # Rule 9: Explicit containment check for FileResponse sink
     try:
         resolved = export_path.resolve()
-        # Must be under PROJECTS_DIR or CHAPTER_DIR
+        # Must be under PROJECTS_DIR
         projects_root = config.PROJECTS_DIR.resolve()
-        legacy_root = config.CHAPTER_DIR.resolve()
         try:
             resolved.relative_to(projects_root)
         except ValueError:
+            import tempfile
+            is_test = os.getenv("APP_TEST_MODE") == "1" or "PYTEST_CURRENT_TEST" in os.environ
             try:
-                resolved.relative_to(legacy_root)
+                resolved.relative_to(Path(tempfile.gettempdir()).resolve())
             except ValueError:
-                import tempfile
-                is_test = os.getenv("APP_TEST_MODE") == "1" or "PYTEST_CURRENT_TEST" in os.environ
-                try:
-                    resolved.relative_to(Path(tempfile.gettempdir()).resolve())
-                except ValueError:
-                    if not is_test:
-                        logger.error(f"Blocking out-of-bounds FileResponse: {export_path}")
-                        raise HTTPException(status_code=403, detail="Access denied")
+                if not is_test:
+                    logger.error(f"Blocking out-of-bounds FileResponse: {export_path}")
+                    raise HTTPException(status_code=403, detail="Access denied")
     except (OSError, ValueError, RuntimeError):
          raise HTTPException(status_code=403, detail="Access denied")
 
@@ -87,23 +69,12 @@ def api_get_chapter_preview(
 
     project_id = chapter.get("project_id")
 
-    # Use compatibility resolution for text
+    # Use standard resolution for text
     p = config.resolve_chapter_asset_path(project_id, chapter_id, "text")
 
     text = ""
     if p and p.exists():
         text = read_preview(p, max_chars=1000000)
-    else:
-        # Fallback to legacy _0.txt if not resolved by helper
-        text_dir = (
-            find_existing_project_subdir(project_id, "text")
-            if project_id
-            else config.CHAPTER_DIR
-        )
-        if text_dir:
-            legacy_p = find_secure_file(text_dir, f"{chapter_id}_0.txt")
-            if legacy_p:
-                text = read_preview(legacy_p, max_chars=1000000)
 
     if not text:
         text = chapter.get("text_content") or ""
@@ -165,10 +136,7 @@ def api_get_chapter_asset(
     # Rule 9: Explicit containment check for scanner locality
     try:
         res_resolved = resolved.resolve()
-        try:
-            res_resolved.relative_to(config.PROJECTS_DIR.resolve())
-        except ValueError:
-             res_resolved.relative_to(config.CHAPTER_DIR.resolve())
+        res_resolved.relative_to(config.PROJECTS_DIR.resolve())
     except (OSError, ValueError, RuntimeError):
          raise HTTPException(status_code=403, detail="Asset path out of bounds")
 
@@ -179,7 +147,6 @@ def api_get_chapter_asset(
 async def api_export_chapter_sample(
     chapter_id: str,
     project_id: Optional[str] = None,
-    audio_out_dir: Path = Depends(get_audio_out_dir),
 ):
 
     # Rule 9: Early validation
@@ -199,22 +166,11 @@ async def api_export_chapter_sample(
         chapter_id,
         "audio",
         filename=chapter.get("audio_file_path"),
-        fallback_dir=audio_out_dir,
     )
     if not wav_path:
         wav_path = config.resolve_chapter_asset_path(
-            project_id, chapter_id, "audio", fallback_dir=audio_out_dir
+            project_id, chapter_id, "audio"
         )
-
-    # Legacy fallback for _0 pattern
-    if not wav_path:
-        pdir = find_existing_project_subdir(project_id, "audio")
-        if pdir:
-            for cand in [f"{chapter_id}_0.wav", f"{chapter_id}_0.mp3"]:
-                p = find_secure_file(pdir, cand)
-                if p:
-                    wav_path = p
-                    break
 
     if not wav_path:
         return JSONResponse(
@@ -232,7 +188,6 @@ async def api_export_chapter_sample(
 def api_stream_chapter(
     chapter_id: str,
     project_id: Optional[str] = None,
-    audio_out_dir: Path = Depends(get_audio_out_dir),
 ):
 
     # Rule 9: Early validation
@@ -249,22 +204,11 @@ def api_stream_chapter(
         chapter_id,
         "audio",
         filename=chapter.get("audio_file_path"),
-        fallback_dir=audio_out_dir,
     )
     if not wav_path:
         wav_path = config.resolve_chapter_asset_path(
-            project_id, chapter_id, "audio", fallback_dir=audio_out_dir
+            project_id, chapter_id, "audio"
         )
-
-    # Legacy fallback for _0 pattern
-    if not wav_path:
-        pdir = find_existing_project_subdir(project_id, "audio")
-        if pdir:
-            for cand in [f"{chapter_id}_0.wav", f"{chapter_id}_0.mp3"]:
-                p = find_secure_file(pdir, cand)
-                if p:
-                    wav_path = p
-                    break
 
     if not wav_path:
         return JSONResponse(

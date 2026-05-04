@@ -9,7 +9,7 @@ from app.engines.errors import (
     EngineRequestError,
     EngineUnavailableError,
 )
-from app.engines import create_voice_bridge
+from app.engines.bridge import create_voice_bridge
 
 from .models import VoicePreviewRequestModel
 

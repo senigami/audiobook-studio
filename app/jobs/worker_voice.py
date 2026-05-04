@@ -156,9 +156,3 @@ def handle_voice_job(jid, j, on_output, cancel_check, voice_job_settings=None):
                 logger.error(f"Error updating build samples for {j.speaker_profile}: {e}")
 
     update_job(jid, status="done", progress=1.0, finished_at=time.time())
-    # Mark done in the DB queue so sync_memory_queue doesn't re-enqueue on server restart
-    try:
-        from ..db import update_queue_item
-        update_queue_item(jid, "done")
-    except Exception as _qe:
-        logger.warning(f"Could not mark voice job {jid} done in DB queue: {_qe}")

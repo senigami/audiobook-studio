@@ -83,7 +83,7 @@ class ExportTask(StudioTask):
 
     def run(self) -> TaskResult:
         """Execute assembly via app.engines."""
-        from app.engines import assemble_audiobook  # noqa: PLC0415
+        from app.engines.audiobook_utils import assemble_audiobook  # noqa: PLC0415
 
         def on_output(line: str) -> None:
             if line.strip():

@@ -34,11 +34,8 @@ def _normalize_settings(
     incoming_updates = incoming_updates or {}
 
     normalized["safe_mode"] = bool(normalized.get("safe_mode", defaults["safe_mode"]))
-    normalized.pop("make_mp3", None)
     normalized["default_engine"] = normalize_tts_engine(normalized.get("default_engine"), settings=normalized)
 
-    # Remove deprecated app-root specific fields.
-    # Legacy engine-named speed fields from version 1.x are now handled by explicit migration.
     # Plugin-specific keys are preserved for plugin discovery logic.
 
     # Enforce enabled_plugins as the source of truth for plugin enablement.
