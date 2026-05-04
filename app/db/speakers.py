@@ -29,7 +29,8 @@ def _infer_profile_engine(meta: Optional[Dict[str, Any]] = None) -> str:
     """Infer the target engine for a voice profile."""
     meta = dict(meta or {})
     explicit_engine = str(meta.get("engine") or "").strip().lower()
-    if explicit_engine in list_tts_engines():
+    if explicit_engine:
+        # Trust explicit engine metadata even if discovery is temporarily empty/stale.
         return explicit_engine
 
     from ..engines.behavior import setting_aliases_for
@@ -353,7 +354,9 @@ def update_speaker_settings(profile_name: str, **updates) -> bool:
         target_profile = _resolve_existing_profile_name(profile_name)
     except ValueError:
         return False
-    if not target_profile:
+    if not target_profile or target_profile == profile_name:
+        # If resolution failed or returned the same name, trust the input name.
+        # This prevents over-resolving "Dracula - Angry" to "Dracula".
         try:
             target_profile = _profile_name_or_error(profile_name)
         except ValueError:

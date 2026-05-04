@@ -210,6 +210,8 @@ async def build_speaker_profile(
         custom_title=voices_helpers._voice_job_title(name),
     )
     state.put_job(j)
+    from ...db.queue import upsert_queue_row
+    upsert_queue_row(jid, status="queued", custom_title=j.custom_title, engine="voice_build")
 
     # Submit to orchestrator
     orchestrator = create_orchestrator()
@@ -302,6 +304,8 @@ def test_speaker_profile(name: str, background_tasks: BackgroundTasks):
             custom_title=voices_helpers._voice_job_title(name),
         )
         state.put_job(j)
+        from ...db.queue import upsert_queue_row
+        upsert_queue_row(jid, status="queued", custom_title=j.custom_title, engine="voice_test")
 
         # Submit to orchestrator
         orchestrator = create_orchestrator()

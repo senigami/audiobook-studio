@@ -6,7 +6,7 @@ from app.config import get_project_audio_dir
 from app.engines.audio_ops import wav_to_mp3
 from app.engines.errors import EngineBridgeError
 from app.state import update_job
-from app.jobs.speaker import get_speaker_settings
+from app.db.speakers import get_speaker_settings
 from app.jobs.handlers.bridge_helpers import generate_via_bridge
 
 logger = logging.getLogger(__name__)

@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 def xtts_dispatch_adapter(jid: str, j: Job, start: float, on_output: Callable[[str], None], cancel_check: Callable[[], bool], **kwargs):
     """Adapter to wrap handle_xtts_job with the standard signature."""
     from .handler import handle_xtts_job
-    from app.jobs.speaker import get_speaker_wavs, get_speaker_settings
+    from app.db.speakers import get_profile_wavs as get_speaker_wavs, get_speaker_settings
     from app.config import get_project_audio_dir, get_chapter_dir, get_project_storage_version
     from app.state import get_performance_metrics
 

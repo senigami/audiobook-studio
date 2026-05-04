@@ -159,3 +159,5 @@ mkdocs/_build/
 .pdm-python
 .pdm-build/
 __pypackages__/
+/scratch
+/engine_tests

@@ -45,7 +45,7 @@ def test_resolve_reference_audio_path_prefers_configured_sample(tmp_path):
     fallback.write_bytes(b"a")
     preferred.write_bytes(b"b")
 
-    with patch("app.jobs.speaker.get_voice_profile_dir", return_value=profile_dir):
+    with patch("app.db.speakers.get_profile_dir", return_value=profile_dir):
         result = resolve_reference_audio_path("VoiceA", "clip2.wav")
 
     assert result == preferred

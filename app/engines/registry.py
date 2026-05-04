@@ -31,7 +31,10 @@ logger = logging.getLogger(__name__)
 
 
 def load_engine_registry() -> dict[str, EngineRegistrationModel]:
-    return _load_tts_server_registry()
+    remote = _load_tts_server_registry()
+    if remote:
+        return remote
+    return _load_local_registry()
 
 
 @lru_cache(maxsize=1)

@@ -77,7 +77,7 @@ def resolve_reference_audio_path(profile_name: Optional[str], reference_sample: 
         return None
 
     try:
-        from app.jobs.speaker import get_voice_profile_dir
+        from app.db.speakers import get_profile_dir as get_voice_profile_dir
 
         profile_dir = get_voice_profile_dir(profile_name)
     except Exception:
@@ -97,6 +97,32 @@ def resolve_reference_audio_path(profile_name: Optional[str], reference_sample: 
         and p.name not in {"sample.wav", "sample.mp3"}
     )
     return raw_candidates[0] if raw_candidates else None
+
+
+def _resolve_voxtral_reference_audio_path(
+    *,
+    pdir: Path,
+    reference_sample: Optional[str],
+    speaker_wavs: Optional[str],
+) -> Optional[str]:
+    """Helper used by app_adapter to resolve reference audio path."""
+    candidates: list[Path] = []
+    if reference_sample:
+        sample_path = pdir / reference_sample
+        candidates.append(sample_path)
+        candidates.append(Path(reference_sample))
+    if speaker_wavs:
+        first_wav = str(speaker_wavs).split(",", 1)[0].strip()
+        if first_wav:
+            candidates.append(Path(first_wav))
+
+    for candidate in candidates:
+        try:
+            if candidate.exists() and candidate.is_file():
+                return str(candidate)
+        except OSError:
+            continue
+    return None
 
 
 def _guess_mime_type(path: Path) -> str:

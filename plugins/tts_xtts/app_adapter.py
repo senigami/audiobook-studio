@@ -471,7 +471,7 @@ class XttsProcessingHooks(VoiceProcessingHooks):
             # Attempt to resolve speed from profile if available
             profile_id = request.get("voice_profile_id")
             if profile_id:
-                from app.jobs.speaker import get_speaker_settings
+                from app.db.speakers import get_speaker_settings
                 try:
                     spk = get_speaker_settings(str(profile_id))
                     request["speed"] = spk.get("speed", 1.0)
@@ -482,7 +482,7 @@ class XttsProcessingHooks(VoiceProcessingHooks):
 
     def select_voice(self, profile_id: str, settings: dict[str, Any]) -> str | None:
         """Resolve an XTTS speaker profile into a reference WAV path."""
-        from app.jobs.speaker import get_speaker_wavs
+        from app.db.speakers import get_profile_wavs as get_speaker_wavs
         try:
             return get_speaker_wavs(profile_id)
         except Exception:

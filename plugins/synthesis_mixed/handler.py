@@ -9,7 +9,7 @@ from app.engines.audio_ops import get_audio_duration, stitch_segments, wav_to_mp
 from app.engines.errors import EngineBridgeError
 from app.state import update_job
 from app.textops import safe_split_long_sentences, sanitize_text
-from app.jobs.speaker import get_speaker_settings, get_speaker_wavs, get_voice_profile_dir
+from app.db.speakers import get_speaker_settings, get_profile_wavs as get_speaker_wavs, get_profile_dir as get_voice_profile_dir
 from app.jobs.handlers.bridge_helpers import generate_via_bridge
 from app.jobs.worker_metrics import record_engine_sample
 from app.state import get_performance_metrics

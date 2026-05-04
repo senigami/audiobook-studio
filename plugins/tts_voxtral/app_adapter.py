@@ -427,8 +427,8 @@ class VoxtralProcessingHooks(VoiceProcessingHooks):
         if not request.get("reference_audio_path"):
             profile_id = request.get("voice_profile_id")
             if profile_id:
-                from app.jobs.speaker import get_speaker_wavs
-                from app.jobs.worker_voice import _resolve_voxtral_reference_audio_path
+                from app.db.speakers import get_profile_wavs as get_speaker_wavs
+                from .implementation import _resolve_voxtral_reference_audio_path
                 try:
                     sw = get_speaker_wavs(str(profile_id))
                     # Fallback to output_path parent for pdir if needed
@@ -451,7 +451,7 @@ class VoxtralProcessingHooks(VoiceProcessingHooks):
 
     def select_voice(self, profile_id: str, settings: dict[str, Any]) -> str | None:
         """Resolve a Voxtral speaker profile into a voice ID."""
-        from app.jobs.speaker import get_speaker_settings
+        from app.db.speakers import get_speaker_settings
         try:
             spk = get_speaker_settings(profile_id)
             return spk.get("voxtral_voice_id")

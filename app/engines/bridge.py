@@ -60,7 +60,23 @@ class VoiceBridge:
 
     def describe_registry(self) -> list[dict[str, Any]]:
         """Return discovery metadata for all registered engines."""
-        results = self.remote.describe_registry()
+        from .errors import EngineUnavailableError
+        try:
+            results = self.remote.describe_registry()
+        except EngineUnavailableError as exc:
+            # Fall back to local registry via our loader
+            registry = self._registry_loader()
+            results = [reg.to_dict() for reg in registry.values()]
+            for data in results:
+                # Mark as unavailable because the remote bridge (synthesis path) is down
+                data["health"]["available"] = False
+                data["health"]["ready"] = False
+                data["health"]["status"] = "unavailable"
+                data["health"]["message"] = f"TTS Server unavailable: {exc}"
+                # Sync top-level status/message for UI compatibility
+                data["status"] = "unavailable"
+                data["health_message"] = data["health"]["message"]
+                data["setup_message"] = data["health"]["message"]
 
         # Enrich with last test results
         from app.config import ENGINE_TEST_DIR  # noqa: PLC0415

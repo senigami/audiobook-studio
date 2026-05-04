@@ -9,7 +9,7 @@ from ..state import update_job
 from ..config import VOICES_DIR
 from ..engines.errors import EngineBridgeError
 from ..engines.audio_ops import wav_to_mp3
-from .speaker import get_speaker_wavs, get_speaker_settings, get_voice_profile_dir
+from ..db.speakers import get_profile_wavs as get_speaker_wavs, get_speaker_settings, get_profile_dir as get_voice_profile_dir
 from .worker_helpers import _mark_queue_failed
 
 logger = logging.getLogger(__name__)
@@ -137,7 +137,7 @@ def handle_voice_job(jid, j, on_output, cancel_check, voice_job_settings=None):
         # After success: mark samples as built if this was a build job
         if j.engine == "voice_build" or j.engine == "voice_test":
             try:
-                from .speaker import update_speaker_settings
+                from ..db.speakers import update_speaker_settings
                 raw_wavs = sorted([
                     f.name for f in pdir.glob("*.wav")
                     if f.name not in {"sample.wav", "sample.mp3"}

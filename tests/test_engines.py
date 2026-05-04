@@ -130,7 +130,7 @@ def test_assemble_audiobook_encode_fail(mock_on_output, mock_cancel_check):
         return self.suffix != ".m4a"
 
     with patch("app.engines.proc_utils.run_cmd_stream", side_effect=[1]), \
-         patch("app.engines.get_audio_duration", return_value=5.0), \
+         patch("app.engines.audio_ops.get_audio_duration", return_value=5.0), \
          patch("pathlib.Path.exists", new=fake_exists), \
          patch("pathlib.Path.stat") as mock_stat, \
          patch("os.listdir", return_value=["c1.wav"]):
