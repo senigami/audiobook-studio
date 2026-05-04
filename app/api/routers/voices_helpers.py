@@ -60,9 +60,14 @@ def _profile_dir_has_assets(profile_dir: Path) -> bool:
     # If it's a v2 voice root (voice.json), it's NOT a playable profile directory itself.
     if find_secure_file(profile_dir, "voice.json"):
         return False
-    # For compatibility and test support, we allow directories to be treated as profiles
-    # even if empty or missing profile.json, so they can be discovered/built.
-    return True
+    # Check for loose wav discovery
+    try:
+        for entry in os.scandir(profile_dir):
+            if entry.is_file() and entry.name.endswith(".wav"):
+                return True
+    except OSError:
+        pass
+    return False
 
 
 def _normalize_profile_engine(engine: Optional[str]) -> str:
@@ -125,20 +130,6 @@ def _new_voice_profile_dir(name: str) -> Path:
         voice_name, variant_name = candidate.split(" - ", 1)
         voice_name = voice_name.strip()
         variant_name = variant_name.strip()
-        from ...config import get_voice_storage_version
-        if get_voice_storage_version(voice_name) >= 2:
-            try:
-                voice_root = secure_join_flat(root, voice_name)
-                voice_root.resolve().relative_to(root.resolve())
-                voice_root.mkdir(parents=True, exist_ok=True)
-                from ...domain.voices.manifest import save_voice_manifest
-                if not find_secure_file(voice_root, "voice.json"):
-                    save_voice_manifest(voice_root, {"version": 2, "name": voice_name})
-                dest = secure_join_flat(voice_root, variant_name)
-                dest.resolve().relative_to(voice_root.resolve())
-                return dest
-            except (ValueError, OSError, RuntimeError) as e:
-                 raise ValueError(str(e))
         try:
             voice_root = secure_join_flat(root, voice_name)
             voice_root.resolve().relative_to(root.resolve())
@@ -151,7 +142,20 @@ def _new_voice_profile_dir(name: str) -> Path:
             return dest
         except (ValueError, OSError, RuntimeError) as e:
              raise ValueError(str(e))
-    return secure_join_flat(root, candidate)
+
+    voice_name = candidate.strip()
+    try:
+        voice_root = secure_join_flat(root, voice_name)
+        voice_root.resolve().relative_to(root.resolve())
+        voice_root.mkdir(parents=True, exist_ok=True)
+        from ...domain.voices.manifest import save_voice_manifest
+        if not find_secure_file(voice_root, "voice.json"):
+            save_voice_manifest(voice_root, {"version": 2, "name": voice_name})
+        dest = secure_join_flat(voice_root, "Default")
+        dest.resolve().relative_to(voice_root.resolve())
+        return dest
+    except (ValueError, OSError, RuntimeError) as e:
+         raise ValueError(str(e))
 
 
 

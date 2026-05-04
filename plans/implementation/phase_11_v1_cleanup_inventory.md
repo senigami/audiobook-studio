@@ -180,10 +180,26 @@ Phase 11 migration is now **Complete**. All engine-specific ownership has been s
 - [x] Normalized wording in `speakers.py`, `reconciliation.py`, and `repository.py` to use V2-native terminology.
 - [x] Scrubbed "legacy" from V2 domain contracts where it was purely documentation debt.
 
-### Slice U (Orchestrator Cutover) - NEXT
-- [ ] Migrate `app/api/routers/generation.py` from `enqueue(j)` to `TaskOrchestrator.submit()`.
+### Slice U (Orchestrator Cutover) - 2026-05-04
+- [x] Migrated `app/api/routers/generation.py` from `enqueue(j)` to `TaskOrchestrator.submit()`.
+- [x] Finalized Synthesis task management via V2 Orchestrator.
+- [x] Verified 100% test pass rate for generation routes using V2 task pipeline.
+
+### Slice U2 (Voice Engine / Speaker Resolution Purification) - 2026-05-04
+- [x] Removed active generation dependency on `app.jobs.speaker`.
+- [x] Relocated voice profile and engine resolution to `app/db/speakers.py`.
+- [x] Strictly enforced V2 nested storage (`VOICES_DIR/<speaker>/<variant>`).
+- [x] Removed root-level 'Speaker - Variant' directory scanning from active resolution.
+- [x] Updated discovery logic to require actual assets (`profile.json` or WAVs), removing empty-dir fallbacks.
+- [x] Scrubbed "legacy", "compatibility", and "flat storage" wording from active speaker runtime code.
+- [x] Verified V1 paths are ignored and V2 nested paths are prioritized via regression tests.
+
+## Ongoing Slices
+
+### Slice V (Legacy Worker Decommission) - NEXT
 - [ ] Decommission legacy `app/jobs/` worker once all synthesis paths are orchestrator-native.
 - [ ] Remove `app/jobs/` and `app/db/queue.py` (legacy parts).
+- [ ] Prune `app/state_jobs.py` of legacy-only progress tracking.
 
 ## Remaining Risks
 
