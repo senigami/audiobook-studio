@@ -15,6 +15,15 @@ from ..voice_engines import get_default_profile_engine, list_tts_engines
 logger = logging.getLogger(__name__)
 SAFE_PROFILE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
 
+DEFAULT_SPEAKER_TEST_TEXT = (
+    "The mysterious traveler, bathed in the soft glow of the azure twilight, "
+    "whispered of ancient treasures buried beneath the jagged mountains. "
+    "'Zephyr,' he exclaimed, his voice a mixture of awe and trepidation, "
+    "'the path is treacherous, yet the reward is beyond measure.' "
+    "Around them, the vibrant forest hummed with rhythmic sounds while a "
+    "cold breeze carried the scent of wet earth and weathered stone."
+)
+
 
 def _infer_profile_engine(meta: Optional[Dict[str, Any]] = None) -> str:
     """Infer the target engine for a voice profile."""
@@ -63,7 +72,9 @@ def _profile_dir_has_assets(profile_dir: Path) -> bool:
     return False
 
 
-def _existing_profile_dir(voices_dir: Path, profile_name: str) -> Optional[Path]:
+def _existing_profile_dir(profile_name: str) -> Optional[Path]:
+    """Internal helper to resolve an existing profile directory in V2 nested storage."""
+    voices_dir = config.VOICES_DIR
     profile_name = _profile_name_or_error(profile_name)
     voices_root = os.path.abspath(os.path.realpath(os.fspath(voices_dir)))
 
@@ -212,7 +223,7 @@ def _resolve_existing_profile_name(profile_name_or_id: str) -> Optional[str]:
 
     for candidate in candidates:
         try:
-            p = _existing_profile_dir(voices_root, candidate)
+            p = _existing_profile_dir(candidate)
         except ValueError:
             continue
         if p:
@@ -234,7 +245,7 @@ def get_profile_engine(profile_name_or_id: Optional[str], fallback_engine: Optio
         return fallback
 
     # 2. Find profile directory and read metadata
-    pdir = _existing_profile_dir(config.VOICES_DIR, target_profile)
+    pdir = _existing_profile_dir(target_profile)
     if not pdir:
         return fallback
 
@@ -253,13 +264,13 @@ def get_profile_engine(profile_name_or_id: Optional[str], fallback_engine: Optio
 
 def get_profile_dir(profile_name: str) -> Path:
     """Resolve the directory for a voice profile, supporting canonical name resolution."""
-    exact = _existing_profile_dir(config.VOICES_DIR, profile_name)
+    exact = _existing_profile_dir(profile_name)
     if exact:
         return exact
 
     resolved_name = _resolve_existing_profile_name(profile_name)
     if resolved_name and resolved_name != profile_name:
-        resolved = _existing_profile_dir(config.VOICES_DIR, resolved_name)
+        resolved = _existing_profile_dir(resolved_name)
         if resolved:
             return resolved
     return _new_profile_dir(config.VOICES_DIR, profile_name)
@@ -285,6 +296,98 @@ def get_profile_wavs(profile_name_or_id: str) -> Optional[str]:
     return ",".join([str(w.absolute()) for w in wavs])
 
 
+def get_speaker_settings(profile_name_or_id: str) -> dict:
+    """Returns metadata (like speed and test text) for a profile or speaker ID, falling back to global settings."""
+    from ..state import get_settings
+    defaults = get_settings()
+
+    res = {
+        "speed": float(defaults.get("speed", 1.0)),
+        "test_text": DEFAULT_SPEAKER_TEST_TEXT,
+        "speaker_id": None,
+        "variant_name": None,
+        "built_samples": [],
+        "engine": get_default_profile_engine(),
+    }
+    # Resolve to canonical name if it exists
+    target_profile = _resolve_existing_profile_name(profile_name_or_id)
+    if not target_profile:
+         return res
+
+    pdir = _existing_profile_dir(target_profile)
+    if not pdir:
+        return res
+
+    meta_file = find_secure_file(pdir, "profile.json")
+    if not meta_file:
+        meta = normalize_profile_metadata(target_profile, {}, persist=True)
+    else:
+        try:
+            with open(meta_file, "r", encoding="utf-8", errors="replace") as f:
+                meta = json.loads(f.read())
+        except Exception:
+            meta = {}
+        meta = normalize_profile_metadata(target_profile, meta, persist=False)
+
+    # Extract generic fields first
+    for k in res:
+        if k in meta:
+            res[k] = meta[k]
+
+    # Then extract engine-specific settings via behavior helper
+    from ..engines.behavior import extract_engine_settings
+    engine_settings = extract_engine_settings(res["engine"], meta)
+    res.update(engine_settings)
+
+    # Ensure preview fields are also extracted (preserving the 'preview_' prefix)
+    for k, v in meta.items():
+        if k.startswith("preview_"):
+            res[k] = v
+
+    return res
+
+
+def update_speaker_settings(profile_name: str, **updates) -> bool:
+    """Updates metadata for a profile in its profile.json."""
+    try:
+        target_profile = _resolve_existing_profile_name(profile_name)
+    except ValueError:
+        return False
+    if not target_profile:
+        return False
+
+    pdir = _existing_profile_dir(target_profile)
+    if not pdir:
+        # Fallback to new dir if it doesn't exist yet but we want to save settings
+        pdir = _new_profile_dir(config.VOICES_DIR, target_profile)
+
+    meta_file = pdir / "profile.json"
+    pdir.mkdir(parents=True, exist_ok=True)
+
+    meta = {}
+    if meta_file.exists():
+        try:
+            with open(meta_file, "r", encoding="utf-8", errors="replace") as f:
+                meta = json.loads(f.read())
+        except Exception:
+            meta = {}
+
+    for k, v in updates.items():
+        if v is None:
+            if k in meta:
+                del meta[k]
+        else:
+            meta[k] = v
+
+    try:
+        with open(meta_file, "w", encoding="utf-8") as fp:
+            fp.write(json.dumps(meta, indent=2))
+        return True
+    except Exception:
+        logger.exception("Failed to update speaker settings for %s", profile_name)
+        return False
+
+
 def normalize_profile_metadata(profile_name: str, meta: Optional[Dict[str, Any]] = None, persist: bool = False) -> Dict[str, Any]:
 
     meta = dict(meta or {})
@@ -300,7 +403,7 @@ def normalize_profile_metadata(profile_name: str, meta: Optional[Dict[str, Any]]
             meta[target] = meta.pop(source)
 
     if persist:
-        profile_dir = _existing_profile_dir(config.VOICES_DIR, profile_name)
+        profile_dir = get_profile_dir(profile_name)
         if not profile_dir:
             return meta
 

@@ -484,3 +484,61 @@ def test_queue_chapter_rejects_voxtral_without_api_key(clean_db, client):
         response = client.post("/api/processing_queue", data={"project_id": pid, "chapter_id": cid, "speaker_profile": "Voice1"})
         assert response.status_code == 400
         assert "API key" in response.json()["message"]
+
+def test_generation_orchestration_integration(clean_db, client, monkeypatch):
+    """Exercises the real TaskOrchestrator.submit path from the API."""
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.orchestration.scheduler.orchestrator import TaskOrchestrator
+
+    # 1. Setup DB
+    pid = create_project("IntegrationProject")
+    cid = create_chapter(pid, "IntegrationChapter", "Hello world.")
+
+    # 2. Mock Bridge to capture the request
+    mock_bridge = MagicMock()
+    mock_bridge.synthesize.return_value = {"status": "ok", "message": "success"}
+    mock_bridge.is_engine_enabled.return_value = True
+    mock_bridge.describe_registry.return_value = [
+        {"engine_id": "xtts", "enabled": True, "can_enable": True}
+    ]
+
+    # 3. Mock ProgressService to avoid real side effects and control reconciliation
+    mock_progress = MagicMock()
+    # Return "queue" decision for reconciliation so it reaches _dispatch
+    mock_progress.reconcile.return_value = {"decision": "queue", "artifact_state": "missing"}
+
+    # 4. Create a real orchestrator but with our mocks
+    real_orchestrator = TaskOrchestrator(
+        progress_service=mock_progress,
+        voice_bridge=mock_bridge
+    )
+
+    # 5. Patch create_orchestrator to return our real (but mocked-dependency) orchestrator
+    monkeypatch.setattr("app.api.routers.generation.create_orchestrator", lambda: real_orchestrator)
+
+    # 6. Patch state-syncing to avoid state.json pollution during test
+    # and patch resource reservation to skip hardware checks
+    with patch("app.api.routers.generation.put_job"), \
+         patch("app.api.routers.generation.update_job"), \
+         patch("app.orchestration.scheduler.orchestrator.reserve_task_resources", return_value={"admitted": True}), \
+         patch("app.orchestration.scheduler.orchestrator.release_task_resources"):
+
+        # 7. Call the API
+        response = client.post("/api/processing_queue", data={
+            "project_id": pid,
+            "chapter_id": cid
+        })
+
+        assert response.status_code == 200
+
+    # 8. Verify bridge was called with expected context
+    # FastAPI TestClient runs BackgroundTasks before returning
+    assert mock_bridge.synthesize.called
+    request = mock_bridge.synthesize.call_args.args[0]
+
+    assert request["engine_id"] == "xtts"
+    assert request["project_id"] == pid
+    assert request["chapter_id"] == cid
+    assert "output_path" in request
+    assert "chapter.txt" in request["output_path"]

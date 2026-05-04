@@ -1,6 +1,7 @@
 import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+import json
 from app.jobs.registry import initialize_default_handlers
 initialize_default_handlers()
 
@@ -21,8 +22,11 @@ def test_build_clears_sample_wav(clean_db, voices_root, client):
     voices_dir = voices_root
 
     # 1. Create a profile, a raw sample, and a sample.wav preview file
-    profile_path = voices_dir / "TestBuilder"
-    profile_path.mkdir(parents=True, exist_ok=True)
+    profile_root = voices_dir / "TestBuilder"
+    profile_root.mkdir(parents=True, exist_ok=True)
+    (profile_root / "voice.json").write_text(json.dumps({"version": 2, "name": "TestBuilder"}))
+    profile_path = profile_root / "Default"
+    profile_path.mkdir()
     (profile_path / "profile.json").write_text("{}")
     raw_sample_path = profile_path / "raw_sample.wav"
     raw_sample_path.write_text("raw content")
@@ -45,8 +49,11 @@ def test_voice_build_worker_uses_bridge_for_xtts_profiles(clean_db, voices_root)
     from app.models import Job
 
     voices_dir = voices_root
-    profile_dir = voices_dir / "BridgeXTTS"
-    profile_dir.mkdir(parents=True, exist_ok=True)
+    profile_root = voices_dir / "BridgeXTTS"
+    profile_root.mkdir(parents=True, exist_ok=True)
+    (profile_root / "voice.json").write_text(json.dumps({"version": 2, "name": "BridgeXTTS"}))
+    profile_dir = profile_root / "Default"
+    profile_dir.mkdir()
     (profile_dir / "sample.wav").write_text("ref wav")
 
     sample_wav = profile_dir / "sample.wav"
@@ -105,8 +112,11 @@ def test_voice_build_worker_moves_bridge_output_when_path_differs(clean_db, voic
     from app.models import Job
 
     voices_dir = voices_root
-    profile_dir = voices_dir / "BridgeMoveXTTS"
-    profile_dir.mkdir(parents=True, exist_ok=True)
+    profile_root = voices_dir / "BridgeMoveXTTS"
+    profile_root.mkdir(parents=True, exist_ok=True)
+    (profile_root / "voice.json").write_text(json.dumps({"version": 2, "name": "BridgeMoveXTTS"}))
+    profile_dir = profile_root / "Default"
+    profile_dir.mkdir()
 
     sample_wav = profile_dir / "sample.wav"
     sample_mp3 = profile_dir / "sample.mp3"
@@ -163,8 +173,11 @@ def test_voice_build_worker_uses_bridge_for_voxtral_profiles(clean_db, voices_ro
     from app.models import Job
 
     voices_dir = voices_root
-    profile_dir = voices_dir / "BridgeVoxtral"
-    profile_dir.mkdir(parents=True, exist_ok=True)
+    profile_root = voices_dir / "BridgeVoxtral"
+    profile_root.mkdir(parents=True, exist_ok=True)
+    (profile_root / "voice.json").write_text(json.dumps({"version": 2, "name": "BridgeVoxtral"}))
+    profile_dir = profile_root / "Default"
+    profile_dir.mkdir()
     reference_wav = profile_dir / "reference.wav"
     reference_wav.write_text("ref wav")
     sample_wav = profile_dir / "sample.wav"

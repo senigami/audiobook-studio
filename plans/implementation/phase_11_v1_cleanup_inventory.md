@@ -184,6 +184,8 @@ Phase 11 migration is now **Complete**. All engine-specific ownership has been s
 - [x] Migrated `app/api/routers/generation.py` from `enqueue(j)` to `TaskOrchestrator.submit()`.
 - [x] Finalized Synthesis task management via V2 Orchestrator.
 - [x] Verified 100% test pass rate for generation routes using V2 task pipeline.
+- [x] Added end-to-end integration test (`test_generation_orchestration_integration`) exercising real `TaskOrchestrator.submit` with a fake bridge.
+- [x] Confirmed `project_id` and `chapter_id` propagation to the `VoiceBridge` request.
 
 ### Slice U2 (Voice Engine / Speaker Resolution Purification) - 2026-05-04
 - [x] Removed active generation dependency on `app.jobs.speaker`.
@@ -196,10 +198,25 @@ Phase 11 migration is now **Complete**. All engine-specific ownership has been s
 
 ## Ongoing Slices
 
-### Slice V (Legacy Worker Decommission) - NEXT
-- [ ] Decommission legacy `app/jobs/` worker once all synthesis paths are orchestrator-native.
-- [ ] Remove `app/jobs/` and `app/db/queue.py` (legacy parts).
+### Slice V (Assembly Cutover) - 2026-05-04
+- [x] Migrated project audiobook assembly from `app.jobs.enqueue` to `TaskOrchestrator.submit()`.
+- [x] Extended `AssemblyTask` to support both chapter-level stitching and project-level M4B assembly.
+- [x] Verified 100% test pass rate for audiobook assembly API using V2 orchestrator.
+- [x] Added integration test (`test_audiobook_assembly_orchestration_integration`) exercising real `TaskOrchestrator.submit` for assembly.
+- [x] Confirmed metadata (author, narrator, cover) propagation to the assembly engine.
+
+### Slice W (Voice Action Cutover) - 2026-05-04
+- [x] Migrated voice build and voice test actions from `app.jobs.enqueue` to `TaskOrchestrator.submit()`.
+- [x] Implemented `SampleBuildTask` and `SampleTestTask` for asynchronous orchestration.
+- [x] Decoupled speaker settings and profile resolution from `app.jobs.speaker`, moving logic to `app/db/speakers.py`.
+- [x] Enforced V2 nested storage layout for all voice actions and tests.
+- [x] Verified 100% test pass rate for voice actions using V2 task pipeline (31 tests).
+- [x] Added end-to-end integration tests (`test_voices_orchestration_integration`) for build/test tasks.
+
+### Slice X (Decommissioning) - NEXT
+- [ ] Remove `app/jobs/` worker and `app/db/queue.py` (legacy parts).
 - [ ] Prune `app/state_jobs.py` of legacy-only progress tracking.
+- [ ] Clean up redundant `app/jobs` imports across the codebase.
 
 ## Remaining Risks
 

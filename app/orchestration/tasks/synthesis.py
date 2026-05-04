@@ -103,8 +103,8 @@ class SynthesisTask(StudioTask):
             raise ValueError("task_id is required")
         if not self.engine_id:
             raise ValueError("engine_id is required")
-        if not self.script_text or not self.script_text.strip():
-            raise ValueError("script_text must not be empty")
+        if not self.chapter_id and not self.script_text.strip():
+            raise ValueError("script_text must not be empty for non-chapter tasks")
         if not self.output_path:
             raise ValueError("output_path is required")
 
@@ -224,6 +224,8 @@ class SynthesisTask(StudioTask):
             "engine_id": self.engine_id,
             "script_text": self.script_text,
             "output_path": self.output_path,
+            "project_id": self.project_id,
+            "chapter_id": self.chapter_id,
             "voice_profile_id": self.voice_profile_id,
             "reference_audio_path": self.voice_ref,
             "language": self.language,

@@ -12,6 +12,7 @@ def voices_root(tmp_path, monkeypatch):
     import app.api.routers.voices_management
     import app.api.routers.voices_bundles
     import app.jobs.speaker
+    import app.db.speakers
 
     voices_dir = (tmp_path / "voices").resolve()
     monkeypatch.setattr(app.web, "VOICES_DIR", voices_dir)
@@ -19,6 +20,8 @@ def voices_root(tmp_path, monkeypatch):
     monkeypatch.setattr(app.api.routers.voices, "VOICES_DIR", voices_dir)
     monkeypatch.setattr(app.api.routers.voices_helpers, "VOICES_DIR", voices_dir)
     monkeypatch.setattr(app.jobs.speaker, "VOICES_DIR", voices_dir)
+    # Ensure V2 DB module also points to the test directory
+    monkeypatch.setattr(app.db.speakers, "config", app.config)
     return voices_dir
 
 

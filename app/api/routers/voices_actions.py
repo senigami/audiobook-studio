@@ -7,12 +7,16 @@ from typing import List, Optional
 from fastapi import APIRouter, Form, File, UploadFile, Request
 from fastapi.responses import JSONResponse
 from . import voices_helpers
-from ... import jobs
 from ... import state
 from ... import models
 from ... import pathing
 from ... import config
 from ...voice_engines import get_default_profile_engine
+from ...db.speakers import get_speaker_settings, update_speaker_settings, DEFAULT_SPEAKER_TEST_TEXT
+from ...orchestration.scheduler.orchestrator import create_orchestrator
+from ...orchestration.tasks.sample_build import SampleBuildTask
+from ...orchestration.tasks.sample_test import SampleTestTask
+from fastapi import BackgroundTasks
 
 logger = logging.getLogger(__name__)
 
@@ -22,15 +26,15 @@ router = APIRouter()
 def update_speaker_test_text(name: str, text: str = Form(...)):
     # Rule 9: Early validation
     name = config.canonical_voice_name(name)
-    jobs.update_speaker_settings(name, test_text=text)
+    update_speaker_settings(name, test_text=text)
     return JSONResponse({"status": "ok", "test_text": text})
 
 @router.post("/{name}/reset-test-text")
 def reset_speaker_test_text(name: str):
     # Rule 9: Early validation
     name = config.canonical_voice_name(name)
-    jobs.update_speaker_settings(name, test_text=None)
-    return JSONResponse({"status": "ok", "test_text": jobs.DEFAULT_SPEAKER_TEST_TEXT})
+    update_speaker_settings(name, test_text=None)
+    return JSONResponse({"status": "ok", "test_text": DEFAULT_SPEAKER_TEST_TEXT})
 
 @router.post("/{name}/settings")
 async def api_update_profile_settings(name: str, request: Request):
@@ -43,7 +47,7 @@ async def api_update_profile_settings(name: str, request: Request):
         form = await request.form()
         settings = dict(form)
 
-    if not jobs.update_speaker_settings(name, **settings):
+    if not update_speaker_settings(name, **settings):
          return JSONResponse({"status": "error", "message": "Profile not found"}, status_code=404)
     return {"status": "ok"}
 
@@ -52,7 +56,7 @@ async def api_update_profile_settings(name: str, request: Request):
 def update_speaker_speed(name: str, speed: float = Form(...)):
     # Rule 9: Early validation
     name = config.canonical_voice_name(name)
-    jobs.update_speaker_settings(name, speed=speed)
+    update_speaker_settings(name, speed=speed)
     return JSONResponse({"status": "ok", "speed": speed})
 
 @router.post("/{name}/variant-name")
@@ -60,7 +64,7 @@ def update_speaker_variant_name(name: str, variant_name: str = Form(...)):
     # Rule 9: Early validation
     name = config.canonical_voice_name(name)
     clean_variant_name = (variant_name or "").strip() or "Default"
-    jobs.update_speaker_settings(name, variant_name=None if clean_variant_name == "Default" else clean_variant_name)
+    update_speaker_settings(name, variant_name=None if clean_variant_name == "Default" else clean_variant_name)
     return JSONResponse({"status": "ok", "variant_name": clean_variant_name})
 
 
@@ -76,7 +80,7 @@ def update_speaker_engine(name: str, engine: str = Form(...)):
     if not voices_helpers._is_engine_active(normalized_engine):
         return JSONResponse({"status": "error", "message": f"Engine {normalized_engine} is not enabled in Settings."}, status_code=400)
 
-    if not jobs.update_speaker_settings(name, engine=normalized_engine):
+    if not update_speaker_settings(name, engine=normalized_engine):
         return JSONResponse({"status": "error", "message": "Profile not found"}, status_code=404)
 
     return JSONResponse({"status": "ok", "engine": normalized_engine})
@@ -86,7 +90,7 @@ def update_speaker_engine(name: str, engine: str = Form(...)):
 def update_speaker_reference_sample(name: str, sample_name: str = Form("")):
     # Rule 9: Early validation
     name = config.canonical_voice_name(name)
-    spk_settings = jobs.get_speaker_settings(name)
+    spk_settings = get_speaker_settings(name)
     current_engine = spk_settings.get("engine", get_default_profile_engine())
     if not voices_helpers._has_behavior(current_engine, "reference_sample"):
          return JSONResponse({"status": "error", "message": f"Engine {current_engine} does not support reference samples."}, status_code=400)
@@ -101,7 +105,7 @@ def update_speaker_reference_sample(name: str, sample_name: str = Form("")):
         if not sample_path:
             return JSONResponse({"status": "error", "message": "Sample not found"}, status_code=404)
 
-    if not jobs.update_speaker_settings(name, reference_sample=clean_sample):
+    if not update_speaker_settings(name, reference_sample=clean_sample):
         return JSONResponse({"status": "error", "message": "Profile not found"}, status_code=404)
 
     return JSONResponse({"status": "ok", "reference_sample": clean_sample})
@@ -111,13 +115,13 @@ def update_speaker_reference_sample(name: str, sample_name: str = Form("")):
 def update_speaker_voice_asset_id(name: str, voice_id: str = Form("")):
     # Rule 9: Early validation
     name = config.canonical_voice_name(name)
-    spk_settings = jobs.get_speaker_settings(name)
+    spk_settings = get_speaker_settings(name)
     current_engine = spk_settings.get("engine", get_default_profile_engine())
     if not voices_helpers._has_behavior(current_engine, "voice_asset_id"):
          return JSONResponse({"status": "error", "message": f"Engine {current_engine} does not support voice asset IDs."}, status_code=400)
 
     clean_voice_id = (voice_id or "").strip() or None
-    if not jobs.update_speaker_settings(name, voice_asset_id=clean_voice_id):
+    if not update_speaker_settings(name, voice_asset_id=clean_voice_id):
         return JSONResponse({"status": "error", "message": "Profile not found"}, status_code=404)
 
     return JSONResponse({"status": "ok", "voice_asset_id": clean_voice_id})
@@ -127,6 +131,7 @@ def update_speaker_voice_asset_id(name: str, voice_id: str = Form("")):
 @router.post("/{name}/build")
 async def build_speaker_profile(
     name: str,
+    background_tasks: BackgroundTasks,
     files: List[UploadFile] = File(default=[]),
 ):
     try:
@@ -205,7 +210,23 @@ async def build_speaker_profile(
         custom_title=voices_helpers._voice_job_title(name),
     )
     state.put_job(j)
-    jobs.enqueue(j)
+
+    # Submit to orchestrator
+    orchestrator = create_orchestrator()
+    spk_settings = get_speaker_settings(name)
+    engine = spk_settings.get("engine", get_default_profile_engine())
+
+    task = SampleBuildTask(
+        task_id=jid,
+        speaker_profile=name,
+        engine_id=engine,
+        output_path=Path(resolved_pdir) / "sample.mp3",
+        test_text=spk_settings["test_text"],
+        voice_job_settings=spk_settings,
+        custom_title=voices_helpers._voice_job_title(name)
+    )
+    background_tasks.add_task(orchestrator.submit, task)
+
     return JSONResponse({"status": "ok", "job_id": jid})
 
 @router.post("/{name}/samples/upload")
@@ -255,11 +276,11 @@ def delete_speaker_sample_route(
     return voices_helpers.delete_speaker_sample(name, sample_name)
 
 @router.post("/{name}/test")
-def test_speaker_profile(name: str):
+def test_speaker_profile(name: str, background_tasks: BackgroundTasks):
     # Rule 9: Early validation
     name = config.canonical_voice_name(name)
     try:
-        settings = jobs.get_speaker_settings(name)
+        settings = get_speaker_settings(name)
         engine = settings.get("engine", get_default_profile_engine())
         if not voices_helpers._is_engine_active(engine):
             return JSONResponse({"status": "error", "message": f"Engine {engine} is not enabled in Settings."}, status_code=400)
@@ -281,7 +302,20 @@ def test_speaker_profile(name: str):
             custom_title=voices_helpers._voice_job_title(name),
         )
         state.put_job(j)
-        jobs.enqueue(j)
+
+        # Submit to orchestrator
+        orchestrator = create_orchestrator()
+        task = SampleTestTask(
+            task_id=jid,
+            speaker_profile=name,
+            engine_id=engine,
+            output_path=Path(voices_helpers._existing_voice_profile_dir(name)) / "sample.mp3",
+            test_text=settings["test_text"],
+            voice_job_settings=settings,
+            custom_title=voices_helpers._voice_job_title(name)
+        )
+        background_tasks.add_task(orchestrator.submit, task)
+
         preview_url = voices_helpers._voice_preview_url(name)
         return JSONResponse({
             "status": "ok",

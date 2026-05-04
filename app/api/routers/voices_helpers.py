@@ -17,11 +17,10 @@ from ...voice_engines import (
     list_tts_engines,
     get_default_profile_engine,
 )
-from ...jobs import (
+from ...db.speakers import (
     get_speaker_settings,
     update_speaker_settings,
     DEFAULT_SPEAKER_TEST_TEXT,
-    enqueue,
 )
 from ...engines.bridge import create_voice_bridge
 from ... import config

@@ -26,7 +26,13 @@ def test_assemble_project_cover_path_resolution(tmp_path):
     # 2. Add a processed chapter so assembly is allowed
     cid = create_chapter(pid, "Chapter 1")
     # Mark as done so assembly doesn't error out
-    update_chapter(cid, audio_status='done', audio_file_path='test.mp3')
+    from app.config import get_chapter_dir
+    chap_dir = get_chapter_dir(pid, cid)
+    chap_dir.mkdir(parents=True, exist_ok=True)
+    audio_file = chap_dir / "chapter.wav"
+    audio_file.write_text("fake audio")
+
+    update_chapter(cid, audio_status='done', audio_file_path='chapter.wav')
 
     # 3. Trigger assembly
     response = client.post(f"/api/projects/{pid}/assemble")
@@ -75,7 +81,12 @@ def test_assemble_project_no_cover():
     # Verify it still works without a cover
     pid = create_project("No Cover Project")
     cid = create_chapter(pid, "Chapter 1")
-    update_chapter(cid, audio_status='done', audio_file_path='test.mp3')
+    from app.config import get_chapter_dir
+    chap_dir = get_chapter_dir(pid, cid)
+    chap_dir.mkdir(parents=True, exist_ok=True)
+    (chap_dir / "chapter.wav").write_text("fake audio")
+
+    update_chapter(cid, audio_status='done', audio_file_path='chapter.wav')
 
     response = client.post(f"/api/projects/{pid}/assemble")
     assert response.status_code == 200

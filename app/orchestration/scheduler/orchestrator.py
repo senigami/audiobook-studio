@@ -347,6 +347,15 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
             elif task_type == "synthesis":
                 from app.orchestration.tasks.synthesis import SynthesisTask
                 return SynthesisTask.from_task_context(context)
+            elif task_type == "assembly":
+                from app.orchestration.tasks.assembly import AssemblyTask
+                return AssemblyTask.from_task_context(context)
+            elif task_type == "sample_build":
+                from app.orchestration.tasks.sample_build import SampleBuildTask
+                return SampleBuildTask.from_task_context(context)
+            elif task_type == "sample_test":
+                from app.orchestration.tasks.sample_test import SampleTestTask
+                return SampleTestTask.from_task_context(context)
             # Add other task types as needed...
         except Exception:
             logger.exception("Failed to reconstruct task of type %s", task_type)
