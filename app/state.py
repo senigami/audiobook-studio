@@ -31,6 +31,7 @@ from .state_jobs import (
     delete_jobs,
     clear_all_jobs,
     purge_jobs_for_chapter,
+    requeue,
 )
 
 # Re-exporting for backward compatibility and centralized access
@@ -57,4 +58,5 @@ __all__ = [
     "delete_jobs",
     "clear_all_jobs",
     "purge_jobs_for_chapter",
+    "requeue",
 ]

@@ -11,23 +11,14 @@ def client():
 
 @pytest.fixture(autouse=True)
 def voices_root(tmp_path, monkeypatch):
-    import app.config
-    import app.web
-    import app.api.routers.voices
-    import app.jobs.speaker
-
+    import app.db.speakers
     voices_dir = (tmp_path / "voices").resolve()
-    # Ensure it exists before use
     voices_dir.mkdir(parents=True, exist_ok=True)
 
     monkeypatch.setattr(app.web, "VOICES_DIR", voices_dir)
     monkeypatch.setattr(app.config, "VOICES_DIR", voices_dir)
     monkeypatch.setattr(app.api.routers.voices, "VOICES_DIR", voices_dir)
-    monkeypatch.setattr(app.jobs.speaker, "VOICES_DIR", voices_dir)
-
-    # Also patch app.jobs.speaker.VOICES_DIR directly as some tests set it
-    import app.jobs.speaker
-    app.jobs.speaker.VOICES_DIR = voices_dir
+    monkeypatch.setattr(app.db.speakers, "config", app.config)
 
     return voices_dir
 

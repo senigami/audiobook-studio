@@ -2,8 +2,9 @@ from __future__ import annotations
 import time
 import logging
 
-from ..state import update_performance_metrics as _update_performance_metrics
-from .core import BASELINE_ENGINE_CPS, get_robust_eta_params
+from ..state import update_performance_metrics as _update_performance_metrics, get_jobs, get_performance_metrics
+from ..config import BASELINE_ENGINE_CPS
+from ..orchestration.scheduler.eta import get_robust_eta_params
 from .worker_helpers import _job_field
 
 logger = logging.getLogger(__name__)
@@ -12,12 +13,11 @@ update_performance_metrics = _update_performance_metrics
 
 
 def record_engine_sample(job, start: float, chars: int, perf: dict, source_segment_count: int | None = None):
-    from . import worker as worker_facade
 
     # Only train on the persisted terminal job, not the stale in-memory object.
     # Cancelled, failed, or partial jobs must not poison history.
     job_id = _job_field(job, "id")
-    persisted = worker_facade.get_jobs().get(job_id) if job_id else None
+    persisted = get_jobs().get(job_id) if job_id else None
     status = _job_field(persisted, "status", _job_field(job, "status"))
     if status != "done":
         return
@@ -88,7 +88,7 @@ def record_engine_sample(job, start: float, chars: int, perf: dict, source_segme
     )
 
     # Re-derive robust CPS for engine-specific ETA logic
-    current_perf = worker_facade.get_performance_metrics()
+    current_perf = get_performance_metrics()
     all_history = current_perf.get("render_history") or []
     history = [s for s in all_history if s.get("engine") == engine]
 

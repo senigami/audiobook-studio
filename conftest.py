@@ -1,13 +1,15 @@
 import os
 import tempfile
-import pytest
 import atexit
 import signal
 import faulthandler
-faulthandler.enable()
 import shutil
 from pathlib import Path
+
 import psutil
+import pytest
+
+faulthandler.enable()
 
 try:
     import fcntl

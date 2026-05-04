@@ -101,8 +101,10 @@ def get_queue() -> List[Dict[str, Any]]:
                 ORDER BY 
                    CASE WHEN q.status IN ('queued', 'running', 'preparing', 'finalizing') THEN 0 ELSE 1 END,
                    CASE WHEN q.status IN ('queued', 'running', 'preparing', 'finalizing') THEN q.created_at END ASC,
+                   CASE WHEN q.status IN ('queued', 'running', 'preparing', 'finalizing') THEN q.rowid END ASC,
                    q.completed_at DESC,
-                   q.created_at DESC
+                   q.created_at DESC,
+                   q.rowid DESC
             """)
             return [dict(row) for row in cursor.fetchall()]
 

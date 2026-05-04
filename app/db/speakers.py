@@ -327,7 +327,7 @@ def get_speaker_settings(profile_name_or_id: str) -> dict:
                 meta = json.loads(f.read())
         except Exception:
             meta = {}
-        meta = normalize_profile_metadata(target_profile, meta, persist=False)
+        meta = normalize_profile_metadata(target_profile, meta, persist=True)
 
     # Extract generic fields first
     for k in res:
@@ -354,11 +354,13 @@ def update_speaker_settings(profile_name: str, **updates) -> bool:
     except ValueError:
         return False
     if not target_profile:
-        return False
+        try:
+            target_profile = _profile_name_or_error(profile_name)
+        except ValueError:
+            return False
 
     pdir = _existing_profile_dir(target_profile)
     if not pdir:
-        # Fallback to new dir if it doesn't exist yet but we want to save settings
         pdir = _new_profile_dir(config.VOICES_DIR, target_profile)
 
     meta_file = pdir / "profile.json"
@@ -423,6 +425,93 @@ def normalize_profile_metadata(profile_name: str, meta: Optional[Dict[str, Any]]
 
     return meta
 
+
+
+def normalize_base_profiles(voices_dir: Optional[Path] = None) -> None:
+    voices_dir = voices_dir or config.VOICES_DIR
+
+    with _db_lock:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, name, default_profile_name FROM speakers ORDER BY name ASC")
+            speakers = [dict(row) for row in cursor.fetchall()]
+
+    if not speakers:
+        return
+
+    pending_updates = []
+    import os
+    trusted_voices_root = os.path.abspath(os.fspath(voices_dir))
+
+    # Pre-scan voices root once
+    try:
+        root_entries = {e.name: e for e in os.scandir(trusted_voices_root) if e.is_dir()}
+    except OSError:
+        return
+
+    for speaker in speakers:
+        speaker_name = speaker["name"]
+        # Rule 8: Enumerate trusted root and match by entry.name
+        if speaker_name not in root_entries:
+            continue
+
+        exact = root_entries[speaker_name]
+        try:
+            resolved_base = os.path.abspath(os.path.realpath(exact.path))
+        except OSError:
+            continue
+
+        if not resolved_base.startswith(trusted_voices_root + os.sep):
+            continue
+
+        # Check for v2 structure
+        voice_json = os.path.join(resolved_base, "voice.json")
+        if os.path.exists(voice_json):
+            # Authoritative V2 structure: resolve to Default variant
+            resolved_base = os.path.abspath(os.path.realpath(os.fspath(voices_dir / speaker_name / "Default")))
+            if not os.path.isdir(resolved_base):
+                continue
+            meta_path_full = os.path.normpath(os.path.join(resolved_base, "profile.json"))
+        else:
+            resolved_base = os.path.abspath(os.path.realpath(os.fspath(voices_dir / speaker_name)))
+            if not os.path.isdir(resolved_base):
+                continue
+            meta_path_full = os.path.normpath(os.path.join(resolved_base, "profile.json"))
+
+        if not os.path.exists(meta_path_full):
+            continue
+
+        meta: Dict[str, Any] = {}
+        try:
+            with open(meta_path_full, "r", encoding="utf-8") as f:
+                meta = json.loads(f.read())
+        except Exception:
+            logger.warning("Failed to read base profile metadata for %s", meta_path_full, exc_info=True)
+            continue
+
+        # Normalize in memory
+        orig_meta = meta.copy()
+        meta = normalize_profile_metadata(speaker_name, meta, persist=False)
+
+        if meta != orig_meta:
+            try:
+                with open(meta_path_full, "w", encoding="utf-8") as f:
+                    f.write(json.dumps(meta, indent=2))
+            except Exception:
+                logger.warning("Failed to persist base profile metadata for %s", speaker_name, exc_info=True)
+
+        if speaker.get("default_profile_name") != speaker_name:
+            pending_updates.append((speaker_name, time.time(), speaker["id"]))
+
+    if pending_updates:
+        with _db_lock:
+            with get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.executemany(
+                    "UPDATE speakers SET default_profile_name = ?, updated_at = ? WHERE id = ?",
+                    pending_updates
+                )
+                conn.commit()
 
 
 def create_speaker(name: str, default_profile_name: Optional[str] = None, speaker_id: Optional[str] = None) -> str:

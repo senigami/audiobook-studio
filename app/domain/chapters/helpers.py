@@ -157,7 +157,7 @@ def _build_base_revision_id(chapter_row: dict[str, Any], segment_rows: Sequence[
 
 def _resolve_engine_from_profile(profile_name: str | None) -> str:
     """Resolve the engine ID for a given speaker profile name."""
-    from app.jobs.speaker import get_speaker_settings
+    from app.db.speakers import get_speaker_settings
     try:
         settings = get_speaker_settings(profile_name or "")
         engine = str(settings.get("engine") or "").strip().lower()

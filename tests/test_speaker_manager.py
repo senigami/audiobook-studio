@@ -16,7 +16,7 @@ def mock_voices(tmp_path, monkeypatch):
     import app.web
     import app.api.routers.voices
     import app.api.routers.voices_helpers
-    import app.jobs.speaker
+    import app.db.speakers
 
     voices_dir = (tmp_path / "voices").resolve()
     voices_dir.mkdir(parents=True, exist_ok=True)
@@ -25,7 +25,8 @@ def mock_voices(tmp_path, monkeypatch):
     monkeypatch.setattr(app.config, "VOICES_DIR", voices_dir)
     monkeypatch.setattr(app.api.routers.voices, "VOICES_DIR", voices_dir)
     monkeypatch.setattr(app.api.routers.voices_helpers, "VOICES_DIR", voices_dir)
-    monkeypatch.setattr(app.jobs.speaker, "VOICES_DIR", voices_dir)
+    # app.db.speakers uses config.VOICES_DIR directly, so patching config is sufficient.
+    monkeypatch.setattr(app.db.speakers, "config", app.config)
     return voices_dir
 
 def test_create_speaker_auto_links_existing_unassigned_profile(mock_voices):

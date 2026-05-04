@@ -187,6 +187,7 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
                 audio_length = 0.0
                 output_file = None
                 new_status = updates.get("status", j.get("status"))
+                project_id = updates.get("project_id", j.get("project_id"))
 
                 if new_status == "done":
                     # Try to extract the true duration using ffprobe for the synchronized database record
@@ -202,7 +203,7 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
                             pdir = None
 
                         full_audio_path = None
-                        if isinstance(output_file, str) and SAFE_OUTPUT_FILE_RE.fullmatch(output_file):
+                        if pdir and isinstance(output_file, str) and SAFE_OUTPUT_FILE_RE.fullmatch(output_file):
                             for entry in pdir.iterdir():
                                 if entry.is_file() and entry.name == output_file:
                                     full_audio_path = entry.resolve()
@@ -320,3 +321,17 @@ def purge_jobs_for_chapter(chapter_id: str) -> None:
                 del jobs[jid]
             _atomic_write_text(get_state_file(), json.dumps(state, indent=2))
             logger.debug("Purged %s stale jobs for chapter %s", len(to_delete), chapter_id)
+def requeue(job_id: str) -> None:
+    """Wipes job metadata and resets status to queued (Clean Slate Protocol)."""
+    update_job(
+        job_id,
+        status="queued",
+        progress=0.0,
+        log="",
+        started_at=None,
+        finished_at=None,
+        error=None,
+        warning_count=0,
+        synthesis_started_at=None,
+        force_broadcast=True
+    )

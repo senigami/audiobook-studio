@@ -42,7 +42,7 @@ def test_queue_api(clean_db, client):
     cid2 = create_chapter(pid, f"C2-{prefix}", "T2")
 
     # Add to queue (from generation.py)
-    with patch("app.api.routers.generation.enqueue"):
+    with patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"):
         response = client.post("/api/processing_queue", data={"project_id": pid, "chapter_id": cid1})
         assert response.status_code == 200, f"Failed to add to queue: {response.json()}"
         qid1 = response.json()["queue_id"]
@@ -77,51 +77,10 @@ def test_queue_api(clean_db, client):
     assert response.status_code == 200
 
 
-def test_processing_queue_recovers_memory_queue_when_live_queued_jobs_exist(clean_db, client):
-    from app.db.queue import upsert_queue_row
-    from app.jobs.core import job_queue, assembly_queue
-
-    jid = "job-recover"
-    put_job(Job(
-        id=jid,
-        engine="xtts",
-        chapter_file="overview.txt",
-        status="queued",
-        created_at=1.0,
-    ))
-    upsert_queue_row(jid, status="queued", engine="xtts")
-
-    while not job_queue.empty():
-        job_queue.get_nowait()
-    while not assembly_queue.empty():
-        assembly_queue.get_nowait()
-
-    with patch("app.jobs.sync_memory_queue") as mock_sync:
-        response = client.get("/api/processing_queue")
-
-    assert response.status_code == 200
-    assert any(item["id"] == jid for item in response.json())
-    mock_sync.assert_called_once()
 
 
-def test_processing_queue_ensures_workers_before_recovery(clean_db, client):
-    from app.db.queue import upsert_queue_row
 
-    jid = "job-worker-recover"
-    put_job(Job(
-        id=jid,
-        engine="xtts",
-        chapter_file="overview.txt",
-        status="queued",
-        created_at=1.0,
-    ))
-    upsert_queue_row(jid, status="queued", engine="xtts")
 
-    with patch("app.jobs.ensure_workers") as mock_ensure:
-        response = client.get("/api/processing_queue")
-
-    assert response.status_code == 200
-    assert mock_ensure.call_count >= 1
 
 
 def test_processing_queue_reconciles_db_running_row_when_memory_job_is_done(clean_db, client):
@@ -231,12 +190,12 @@ def test_segment_scoped_queue_updates_do_not_mutate_chapter_audio_state(clean_db
     ))
     upsert_queue_row(jid, project_id=pid, chapter_id=cid, status="queued", engine="mixed")
 
-    update_queue_item(jid, "running")
+    update_queue_item(jid, "running", chapter_scoped=False)
     chapter = get_chapter(cid)
     assert chapter["audio_status"] == "unprocessed"
     assert chapter["audio_file_path"] is None
 
-    update_queue_item(jid, "done", audio_length_seconds=12.3, output_file=f"{cid}.wav")
+    update_queue_item(jid, "done", audio_length_seconds=12.3, output_file=f"{cid}.wav", chapter_scoped=False)
     chapter = get_chapter(cid)
     assert chapter["audio_status"] == "unprocessed"
     assert chapter["audio_file_path"] is None

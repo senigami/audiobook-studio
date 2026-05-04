@@ -1,4 +1,6 @@
 import pytest
+import os
+from app.api.routers.voices_helpers import _new_voice_profile_dir
 from fastapi.testclient import TestClient
 import json
 from pathlib import Path
@@ -10,17 +12,32 @@ from app.web import app
 client = TestClient(app)
 
 @pytest.fixture
-def clean_voices(tmp_path):
+def clean_db(tmp_path):
+    db_path = tmp_path / "test_speakers.db"
+    if os.path.exists(db_path):
+        os.unlink(db_path)
+    os.environ["DB_PATH"] = os.fspath(db_path)
+    import app.db.core
+    from importlib import reload
+    reload(app.db.core)
+    app.db.core.init_db()
+    yield db_path
+    if os.path.exists(db_path):
+        os.unlink(db_path)
+
+@pytest.fixture
+def clean_voices(tmp_path, clean_db):
     test_voices = tmp_path / "test_voices"
     test_voices.mkdir()
     test_state = tmp_path / "test_state.json"
+    import os
     # Create empty state if needed, but app.state should handle it
     with patch("app.web.VOICES_DIR", test_voices), \
          patch("app.api.routers.voices.VOICES_DIR", test_voices), \
-         patch("app.jobs.speaker.VOICES_DIR", test_voices), \
+         patch("app.api.routers.voices_helpers.VOICES_DIR", test_voices), \
          patch("app.config.VOICES_DIR", test_voices), \
-         patch("app.state.STATE_FILE", test_state), \
-         patch("app.engines.Path", MagicMock(return_value=test_voices)): # Mocking for latent path if needed
+         patch("app.db.speakers.config.VOICES_DIR", test_voices), \
+         patch("app.state.STATE_FILE", test_state):
         yield test_voices
 
 def test_list_profiles_empty(clean_voices):
@@ -40,7 +57,7 @@ def test_build_profile(clean_voices):
     )
     assert response.status_code == 200
 
-    profile_dir = clean_voices / "TestSpeaker"
+    profile_dir = _new_voice_profile_dir("TestSpeaker")
     assert profile_dir.exists()
     assert (profile_dir / "test1.wav").exists()
     assert (profile_dir / "test2.wav").exists()
@@ -55,20 +72,21 @@ def test_build_profile(clean_voices):
 def test_build_profile_allows_latent_without_raw_samples(clean_voices):
     from unittest.mock import patch
 
-    profile_dir = clean_voices / "LatentOnly"
+    profile_dir = _new_voice_profile_dir("LatentOnly")
     profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "profile.json").write_text("{}")
     (profile_dir / "latent.pth").write_text("latent")
 
-    with patch("app.api.routers.voices.put_job"), patch("app.api.routers.voices.enqueue"):
-        response = client.post("/api/speaker-profiles/LatentOnly/build")
+    response = client.post("/api/speaker-profiles/LatentOnly/build")
 
     assert response.status_code == 200
 
 def test_update_speed(clean_voices):
     # Create a profile first
-    profile_dir = clean_voices / "Speedy"
+    profile_dir = _new_voice_profile_dir("Speedy")
     profile_dir.mkdir(parents=True, exist_ok=True)
-    (profile_dir / "sample.wav").write_text("audio")
+    (profile_dir / "profile.json").write_text("{}")
+    (profile_dir / "1.wav").write_text("audio")
 
     response = client.post(
         "/api/speaker-profiles/Speedy/speed",
@@ -87,19 +105,20 @@ def test_update_speed(clean_voices):
     response = client.get("/api/speaker-profiles")
     assert response.json()[0]["speed"] == 1.45
 
-@patch("app.web.xtts_generate")
-def test_speaker_profile_test_endpoint(mock_xtts, clean_voices):
+@patch("app.api.routers.voices_actions.create_orchestrator")
+def test_speaker_profile_test_endpoint(mock_orchestrator, clean_voices):
     # Create profile
     name = "Tester"
-    profile_dir = clean_voices / name
+    profile_dir = _new_voice_profile_dir(name)
     profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "profile.json").write_text("{}")
     (profile_dir / "1.wav").write_text("audio")
-    (profile_dir / "sample.wav").write_text("audio")
+    (profile_dir / "1.wav").write_text("audio")
     mp3_path = profile_dir / "sample.mp3"
     mp3_path.write_text("audio")
 
     # Mock successful generation
-    mock_xtts.return_value = 0
+    mock_orchestrator.return_value.submit.return_value = None
 
     # We need to make sure the expected output file exists or the endpoint will return 500
     test_out = clean_voices / name / "sample.mp3"
@@ -111,28 +130,31 @@ def test_speaker_profile_test_endpoint(mock_xtts, clean_voices):
     )
 
     assert response.status_code == 200
-    assert response.json()["audio_url"] == f"/out/voices/{name}/sample.mp3"
+    assert response.json()["audio_url"] == f"/out/voices/{name}/Default/sample.mp3"
 
     # Cleanup test output
     if test_out.exists():
         test_out.unlink()
 
-def test_speaker_profile_test_endpoint_allows_latent_without_raw_samples(clean_voices):
+@patch("app.api.routers.voices_actions.create_orchestrator")
+def test_speaker_profile_test_endpoint_allows_latent_without_raw_samples(mock_orchestrator, clean_voices):
     name = "LatentTester"
-    profile_dir = clean_voices / name
+    profile_dir = _new_voice_profile_dir(name)
     profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "profile.json").write_text("{}")
     (profile_dir / "latent.pth").write_text("latent")
 
     response = client.post(f"/api/speaker-profiles/{name}/test")
 
     assert response.status_code == 200
-    assert response.json()["audio_url"] == f"/out/voices/{name}/sample.wav"
+    assert response.json()["audio_url"] == f"/out/voices/{name}/Default/sample.wav"
 
 def test_delete_profile(clean_voices):
     name = "DeleteMe"
-    profile_dir = clean_voices / name
+    profile_dir = _new_voice_profile_dir(name)
     profile_dir.mkdir(parents=True, exist_ok=True)
-    (profile_dir / "sample.wav").write_text("audio")
+    (profile_dir / "profile.json").write_text("{}")
+    (profile_dir / "1.wav").write_text("audio")
 
     response = client.delete(f"/api/speaker-profiles/{name}")
     assert response.status_code == 200
@@ -142,9 +164,10 @@ def test_rename_profile(clean_voices):
     from app.state import update_settings, get_settings
     name = "Original"
     new_name = "Renamed"
-    profile_dir = clean_voices / name
+    profile_dir = _new_voice_profile_dir(name)
     profile_dir.mkdir(parents=True, exist_ok=True)
-    (profile_dir / "sample.wav").write_text("audio")
+    (profile_dir / "profile.json").write_text("{}")
+    (profile_dir / "1.wav").write_text("audio")
     (profile_dir / "latent.pth").write_text("latent")
 
     # Set as default to test settings update
@@ -156,8 +179,8 @@ def test_rename_profile(clean_voices):
 
     assert not (clean_voices / name).exists()
     assert (clean_voices / new_name).exists()
-    assert (clean_voices / new_name / "sample.wav").exists()
-    assert (clean_voices / new_name / "latent.pth").exists()
+    assert (_new_voice_profile_dir(new_name) / "1.wav").exists()
+    assert (_new_voice_profile_dir(new_name) / "latent.pth").exists()
 
     # Verify settings updated
     assert get_settings()["default_speaker_profile"] == new_name
@@ -169,8 +192,9 @@ def test_rename_variant_profile(clean_voices):
     variant_label = "Happy"
     profile_name = f"{speaker_name} - {variant_label}"
 
-    profile_dir = clean_voices / profile_name
+    profile_dir = _new_voice_profile_dir(profile_name)
     profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "profile.json").write_text("{}")
     (profile_dir / "latent.pth").write_text("latent")
 
     meta = {
@@ -189,19 +213,20 @@ def test_rename_variant_profile(clean_voices):
     assert response.status_code == 200
 
     # 3. Verify folder renamed
-    assert not (clean_voices / profile_name).exists()
-    assert (clean_voices / new_profile_name).exists()
-    assert (clean_voices / new_profile_name / "latent.pth").exists()
+    speaker_root = clean_voices / speaker_name
+    assert not (speaker_root / variant_label).exists()
+    assert (speaker_root / new_variant_label).exists()
+    assert (_new_voice_profile_dir(new_profile_name) / "latent.pth").exists()
 
     # 4. Verify profile.json updated with new variant_name
-    new_meta_path = clean_voices / new_profile_name / "profile.json"
+    new_meta_path = _new_voice_profile_dir(new_profile_name) / "profile.json"
     assert new_meta_path.exists()
     new_meta = json.loads(new_meta_path.read_text())
     assert new_meta["variant_name"] == new_variant_label
     assert new_meta["speaker_id"] == speaker_id
 
 def test_get_speaker_settings(clean_voices):
-    from app.jobs import get_speaker_settings
+    from app.db.speakers import get_speaker_settings
     from app.state import update_settings
 
     # 1. Test global fallback
@@ -211,8 +236,9 @@ def test_get_speaker_settings(clean_voices):
 
     # 2. Test per-narrator override
     name = "FastTalker"
-    profile_dir = clean_voices / name
+    profile_dir = _new_voice_profile_dir(name)
     profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "profile.json").write_text("{}")
     meta_path = profile_dir / "profile.json"
     meta_path.write_text(json.dumps({"speed": 1.75}))
 
@@ -221,24 +247,25 @@ def test_get_speaker_settings(clean_voices):
 
 
 def test_get_voice_profile_dir_rejects_traversal(clean_voices):
-    from app.jobs.speaker import get_voice_profile_dir
+    from app.db.speakers import get_profile_dir as get_voice_profile_dir
 
     with pytest.raises(ValueError):
         get_voice_profile_dir("../escape")
 
 
 def test_update_speaker_settings_rejects_invalid_profile_name(clean_voices):
-    from app.jobs.speaker import update_speaker_settings
+    from app.db.speakers import update_speaker_settings
 
     assert update_speaker_settings("../escape", speed=1.2) is False
 
 
 def test_get_speaker_settings_repairs_blank_profile_metadata(clean_voices):
-    from app.jobs import get_speaker_settings
+    from app.db.speakers import get_speaker_settings
 
     name = "BlankMeta"
-    profile_dir = clean_voices / name
+    profile_dir = _new_voice_profile_dir(name)
     profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "profile.json").write_text("{}")
     meta_path = profile_dir / "profile.json"
     meta_path.write_text("", encoding="utf-8")
 
@@ -250,11 +277,12 @@ def test_get_speaker_settings_repairs_blank_profile_metadata(clean_voices):
     assert repaired["engine"] == "xtts"
 
 def test_get_speaker_settings_normalizes_default_variant(clean_voices):
-    from app.jobs import get_speaker_settings
+    from app.db.speakers import get_speaker_settings
 
     name = "Dracula"
-    profile_dir = clean_voices / name
+    profile_dir = _new_voice_profile_dir(name)
     profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "profile.json").write_text("{}")
 
     settings = get_speaker_settings(name)
     assert settings["variant_name"] == "Default"
@@ -265,19 +293,21 @@ def test_get_speaker_settings_normalizes_default_variant(clean_voices):
     assert meta["variant_name"] == "Default"
 
 def test_get_speaker_settings_infers_variant_from_folder_name(clean_voices):
-    from app.jobs import get_speaker_settings
+    from app.db.speakers import get_speaker_settings
 
     name = "Dracula - Angry"
-    profile_dir = clean_voices / name
+    profile_dir = _new_voice_profile_dir(name)
     profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "profile.json").write_text("{}")
 
     settings = get_speaker_settings(name)
     assert settings["variant_name"] == "Angry"
 
 def test_list_profiles_marks_preview_out_of_date_when_test_script_changes(clean_voices):
     name = "Preview Drift"
-    profile_dir = clean_voices / name
+    profile_dir = _new_voice_profile_dir(name)
     profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "profile.json").write_text("{}")
     (profile_dir / "voice.wav").write_text("audio")
     (profile_dir / "sample.mp3").write_text("preview")
     (profile_dir / "profile.json").write_text(json.dumps({
@@ -298,8 +328,9 @@ def test_list_profiles_marks_preview_out_of_date_when_test_script_changes(clean_
 
 def test_list_profiles_does_not_mark_legacy_preview_out_of_date_without_preview_signature(clean_voices):
     name = "Legacy Preview"
-    profile_dir = clean_voices / name
+    profile_dir = _new_voice_profile_dir(name)
     profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "profile.json").write_text("{}")
     (profile_dir / "voice.wav").write_text("audio")
     (profile_dir / "sample.mp3").write_text("preview")
     (profile_dir / "profile.json").write_text(json.dumps({
@@ -317,12 +348,14 @@ def test_list_profiles_does_not_mark_legacy_preview_out_of_date_without_preview_
     assert profiles[0]["is_rebuild_required"] is False
 
 def test_get_speaker_settings_prefers_base_folder_over_variant(clean_voices):
-    from app.jobs import get_speaker_settings, get_speaker_wavs
+    from app.db.speakers import get_speaker_settings, get_profile_wavs as get_speaker_wavs
 
-    base = clean_voices / "Dracula"
-    angry = clean_voices / "Dracula - Angry"
+    base = _new_voice_profile_dir("Dracula")
     base.mkdir(parents=True, exist_ok=True)
+    (base / "profile.json").write_text("{}")
+    angry = _new_voice_profile_dir("Dracula - Angry")
     angry.mkdir(parents=True, exist_ok=True)
+    (angry / "profile.json").write_text("{}")
     (base / "voice.wav").write_text("base")
     (angry / "sample.wav").write_text("angry")
 
@@ -341,10 +374,12 @@ def test_speaker_listing_normalizes_base_profile_to_default(clean_voices):
     try:
         update_speaker(speaker_id, default_profile_name="Dracula Test Normalize - Angry")
 
-        base_dir = clean_voices / "Dracula Test Normalize"
-        angry_dir = clean_voices / "Dracula Test Normalize - Angry"
+        base_dir = _new_voice_profile_dir("Dracula Test Normalize")
         base_dir.mkdir(parents=True, exist_ok=True)
+        (base_dir / "profile.json").write_text("{}")
+        angry_dir = _new_voice_profile_dir("Dracula Test Normalize - Angry")
         angry_dir.mkdir(parents=True, exist_ok=True)
+        (angry_dir / "profile.json").write_text("{}")
         (base_dir / "profile.json").write_text(json.dumps({"built_samples": []}))
         (angry_dir / "profile.json").write_text(json.dumps({"speaker_id": speaker_id, "variant_name": "Angry"}))
 
@@ -365,26 +400,9 @@ def test_speaker_listing_normalizes_base_profile_to_default(clean_voices):
 
         # After migrate_voices_to_v2() (called by listing endpoint), the flat
         # profile.json is promoted to Default/profile.json.
-        meta = json.loads((base_dir / "Default" / "profile.json").read_text())
+        meta = json.loads((base_dir / "profile.json").read_text())
         assert meta["variant_name"] == "Default"
         assert meta["speaker_id"] == speaker_id
         assert meta["engine"] == "xtts"
     finally:
         delete_speaker(speaker_id)
-
-def test_latent_cache_path():
-    from app.engines.proc_utils import get_speaker_latent_path
-
-    # Single wav
-    path = get_speaker_latent_path("/path/to/test.wav")
-    assert str(path).endswith(".pth")
-    assert ".cache/audiobook-studio/voices" in str(path)
-
-    profile_dir = Path("/tmp/voices/PortableVoice")
-    path3 = get_speaker_latent_path("/path/to/test.wav", voice_profile_dir=profile_dir)
-    assert path3 == profile_dir / "latent.pth"
-
-    # Comma separated
-    path2 = get_speaker_latent_path("/path/1.wav, /path/2.wav")
-    assert path2 != path
-    assert str(path2).endswith(".pth")

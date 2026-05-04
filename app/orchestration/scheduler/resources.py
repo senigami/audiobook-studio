@@ -24,6 +24,23 @@ import threading
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
+_pause_flag = threading.Event()
+
+
+def is_paused() -> bool:
+    """Return whether the task orchestrator is currently paused."""
+    return _pause_flag.is_set()
+
+
+def set_paused(value: bool) -> None:
+    """Set the global pause state for the task orchestrator."""
+    from app.state import update_settings
+    if value:
+        _pause_flag.set()
+        update_settings({"is_paused": True})
+    else:
+        _pause_flag.clear()
+        update_settings({"is_paused": False})
 
 
 @dataclass(frozen=True)
@@ -181,6 +198,16 @@ def reserve_task_resources(
     cpu_heavy = bool(resource_claims.get("cpu_heavy", False))
 
     waiting_reason: str | None = None
+    if is_paused():
+        return {
+            "admitted": False,
+            "task_type": task_type,
+            "task_id": task_id,
+            "gpu": gpu,
+            "vram_mb": vram_mb,
+            "cpu_heavy": cpu_heavy,
+            "waiting_reason": "Orchestrator is paused.",
+        }
 
     if gpu:
         admitted, waiting_reason = _gpu_gate.try_acquire(task_id)

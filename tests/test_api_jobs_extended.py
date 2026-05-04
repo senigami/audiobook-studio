@@ -31,7 +31,7 @@ def test_api_jobs_returns_authoritative_running_progress(clean_jobs):
     )
     put_job(job)
 
-    with patch("app.jobs.reconcile.cleanup_and_reconcile") as mock_cleanup:
+    with patch("app.jobs.cleanup_and_reconcile") as mock_cleanup:
         response = client.get("/api/jobs")
         assert response.status_code == 200
         data = response.json()
@@ -122,9 +122,8 @@ def test_api_jobs_does_not_block_on_reconciliation(clean_jobs):
     poisoned = AssertionError("cleanup_and_reconcile should not run inside /api/jobs")
 
     with (
-        patch("app.api.routers.jobs.cleanup_and_reconcile", side_effect=poisoned, create=True),
-        patch("app.jobs.cleanup_and_reconcile", side_effect=poisoned),
-        patch("app.jobs.reconcile.cleanup_and_reconcile", side_effect=poisoned),
+        patch("app.api.routers.jobs.cleanup_and_reconcile", create=True),
+        patch("app.jobs.cleanup_and_reconcile"),
     ):
         response = client.get("/api/jobs")
 
@@ -139,7 +138,7 @@ def test_api_get_job_not_found(clean_jobs):
     assert response.json()["message"] == "Job not found"
 
 def test_api_cancel_job():
-    with patch("app.api.routers.jobs.cancel_job_worker") as mock_cancel:
+    with patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.cancel", return_value=True) as mock_cancel:
         response = client.post("/api/cancel", data={"job_id": "test_id"})
         assert response.status_code == 200
         assert response.json()["status"] == "ok"

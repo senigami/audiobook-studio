@@ -317,10 +317,19 @@ def test_speaker_profile(name: str, background_tasks: BackgroundTasks):
         background_tasks.add_task(orchestrator.submit, task)
 
         preview_url = voices_helpers._voice_preview_url(name)
+        # Use existing profile dir to construct a valid fallback path
+        pdir = voices_helpers._existing_voice_profile_dir(name)
+        try:
+            root = voices_helpers.get_voices_dir()
+            rel_path = pdir.relative_to(root)
+            url_path = rel_path.as_posix()
+        except (ValueError, AttributeError):
+            url_path = name
+
         return JSONResponse({
             "status": "ok",
             "job_id": jid,
-            "audio_url": preview_url or f"/out/voices/{name}/sample.wav"
+            "audio_url": preview_url or f"/out/voices/{url_path}/sample.wav"
         })
     except Exception as e:
         from ...engines.errors import EngineUnavailableError

@@ -25,14 +25,14 @@ logger = logging.getLogger(__name__)
 def _resolve_default_voice_reference() -> tuple[str | None, str | None]:
     """Resolve the Studio default voice reference for verification tests."""
     from app.state import get_settings  # noqa: PLC0415
-    from app.jobs.speaker import get_speaker_settings, get_voice_profile_dir  # noqa: PLC0415
+    from app.db.speakers import get_speaker_settings, get_profile_dir  # noqa: PLC0415
 
     default_profile = str(get_settings().get("default_speaker_profile") or "").strip()
     if not default_profile:
         return None, "Set a Default Voice in General settings before verifying engines that need a reference sample."
 
     try:
-        from app.jobs.speaker import get_speaker_wavs, get_voice_profile_dir, get_speaker_settings # noqa: PLC0415
+        from app.db.speakers import get_profile_wavs as get_speaker_wavs, get_profile_dir as get_voice_profile_dir, get_speaker_settings # noqa: PLC0415
 
         # Try to get wavs via the high-level helper first
         wavs_str = get_speaker_wavs(default_profile)

@@ -10,7 +10,8 @@ from ...db import (
     add_to_queue as db_add_to_queue, get_chapter_segments,
     get_connection
 )
-from ...jobs import cancel as cancel_job, set_paused, clear_job_queue
+
+from ...orchestration.scheduler.resources import set_paused
 from ...models import Job
 from ...state import put_job, update_job, get_settings, get_jobs
 from ...orchestration.scheduler.orchestrator import create_orchestrator
@@ -325,8 +326,11 @@ def cancel_pending():
     from ...state import get_jobs, delete_jobs
     from ...db import clear_queue
 
-    # 1. Clear queue memory
-    clear_job_queue()
+    # 1. Cancel in orchestrator
+    orchestrator = create_orchestrator()
+    jobs = get_jobs()
+    for jid in jobs.keys():
+        orchestrator.cancel(jid)
 
     # 2. Clear state.json
     jobs = get_jobs()
@@ -342,10 +346,12 @@ def cancel_pending():
 
 @router.post("/chapters/{chapter_id}/cancel")
 def cancel_chapter_generation(chapter_id: str):
+    orchestrator = create_orchestrator()
     jobs = get_jobs()
     for jid, job in jobs.items():
         if job.get("chapter_id") == chapter_id and job.get("status") in ["queued", "running", "preparing"]:
-            cancel_job(jid)
+            if not orchestrator.cancel(jid):
+                update_job(jid, status="cancelled", force_broadcast=True)
     broadcast_chapter_updated(chapter_id)
     return JSONResponse({"status": "ok"})
 

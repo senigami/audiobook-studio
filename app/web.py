@@ -238,7 +238,7 @@ def startup_event():
 
     # 4. Restore Pause State
     from .state import get_settings
-    from .jobs import set_paused
+    from .orchestration.scheduler.resources import set_paused
     settings = get_settings()
     if settings.get("is_paused"):
         set_paused(True)

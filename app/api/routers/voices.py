@@ -17,11 +17,10 @@ from .voices_helpers import (
     delete_speaker_sample,
 )
 from .voices_management import list_speaker_profiles as _list_speaker_profiles
-from ...jobs import (
+from ...db.speakers import (
     get_speaker_settings,
     update_speaker_settings,
     DEFAULT_SPEAKER_TEST_TEXT,
-    enqueue,
 )
 from ...engines.bridge import create_voice_bridge
 from ...state import put_job

@@ -3,7 +3,7 @@ import time
 import os
 
 def test_conservative_estimate_short_chapter():
-    from app.jobs.core import _estimate_seconds
+    from app.orchestration.scheduler.eta import _estimate_seconds
     """A short 2-segment chapter should have a conservative ETA > 10s."""
     cps = 16.0
     text_chars = 100 # Very short
@@ -17,7 +17,7 @@ def test_conservative_estimate_short_chapter():
     assert eta <= 18
 
 def test_conservative_estimate_single_segment():
-    from app.jobs.core import _estimate_seconds
+    from app.orchestration.scheduler.eta import _estimate_seconds
     """A single segment chapter should still have start overhead."""
     cps = 16.0
     text_chars = 160 # 10s base
@@ -28,7 +28,7 @@ def test_conservative_estimate_single_segment():
     assert 15 <= eta <= 19
 
 def test_conservative_estimate_high_segment_count():
-    from app.jobs.core import _estimate_seconds
+    from app.orchestration.scheduler.eta import _estimate_seconds
     """Overhead should scale with segment count."""
     cps = 16.0
     text_chars = 1600 # 100s base
@@ -75,12 +75,12 @@ def test_broadcast_job_updated_startup_contract(monkeypatch):
     assert "estimated_end_at" in event
 
 def test_robust_params_empty_history():
-    from app.jobs.core import get_robust_eta_params
+    from app.orchestration.scheduler.eta import get_robust_eta_params
     params = get_robust_eta_params([], 16.7)
     assert params is None
 
 def test_robust_params_with_outliers():
-    from app.jobs.core import get_robust_eta_params
+    from app.orchestration.scheduler.eta import get_robust_eta_params
     history = [
         {"cps": 10, "seconds_per_segment": 2},
         {"cps": 15, "seconds_per_segment": 3},
@@ -98,7 +98,7 @@ def test_robust_params_with_outliers():
     assert sps == (3 + 3 + 3 + 3 + 4) / 5
 
 def test_history_params_do_not_double_count_character_and_segment_time():
-    from app.jobs.core import _estimate_seconds, get_robust_eta_params
+    from app.orchestration.scheduler.eta import _estimate_seconds, get_robust_eta_params
     history = [
         {"cps": 20, "seconds_per_segment": 5},
         {"cps": 20, "seconds_per_segment": 5},
@@ -135,7 +135,7 @@ def test_robust_params_bounded_history(monkeypatch):
     job.synthesis_started_at = time.time() - 10
     job.finished_at = time.time()
 
-    monkeypatch.setattr("app.jobs.worker.get_jobs", lambda: {"j1": job})
+    monkeypatch.setattr("app.jobs.worker_metrics.get_jobs", lambda: {"j1": job})
 
     record_engine_sample(job, time.time() - 20, 100, {})
 
@@ -159,8 +159,8 @@ def test_cancelled_jobs_do_not_train_history(monkeypatch):
     job.finished_at = time.time()
 
     captured = {}
-    monkeypatch.setattr("app.jobs.worker.get_jobs", lambda: {"j1": job})
-    monkeypatch.setattr("app.jobs.worker.update_performance_metrics", lambda **updates: captured.update(updates))
+    monkeypatch.setattr("app.jobs.worker_metrics.get_jobs", lambda: {"j1": job})
+    monkeypatch.setattr("app.jobs.worker_metrics.update_performance_metrics", lambda **updates: captured.update(updates))
 
     # Should not trigger a write to DB
     record_engine_sample(job, time.time() - 20, 100, {})
@@ -182,7 +182,7 @@ def test_running_jobs_do_not_train_history(monkeypatch):
     job = Job(id="j1", engine="xtts", chapter_file="c1", status="running", created_at=0)
     job.synthesis_started_at = time.time() - 10
 
-    monkeypatch.setattr("app.jobs.worker.get_jobs", lambda: {"j1": job})
+    monkeypatch.setattr("app.jobs.worker_metrics.get_jobs", lambda: {"j1": job})
 
     record_engine_sample(job, time.time() - 20, 100, {})
 
@@ -211,7 +211,7 @@ def test_record_engine_sample_uses_persisted_done_job_and_finished_clock(monkeyp
     persisted_job.finished_at = finished_at
     persisted_job.chapter_id = "chapter-1"
 
-    monkeypatch.setattr("app.jobs.worker.get_jobs", lambda: {"j1": persisted_job})
+    monkeypatch.setattr("app.jobs.worker_metrics.get_jobs", lambda: {"j1": persisted_job})
     monkeypatch.setattr("app.state.get_jobs", lambda: {"j1": persisted_job})
 
     # Passing a dummy start time, it should be ignored in favor of persisted_job.synthesis_started_at

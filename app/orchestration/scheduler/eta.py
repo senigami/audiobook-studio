@@ -1,15 +1,14 @@
-from __future__ import annotations
-import queue
-import threading
-from typing import Dict
-from ..state import get_settings
-from ..config import BASELINE_ENGINE_CPS
+"""ETA and progress prediction utilities for Studio 2.0.
 
-# Queues and Flags
-job_queue: "queue.Queue[str]" = queue.Queue()
-assembly_queue: "queue.Queue[str]" = queue.Queue()
-cancel_flags: Dict[str, threading.Event] = {}
-pause_flag = threading.Event()
+These utilities provide robust estimation of synthesis time and progress
+based on historical performance and current work scope. They replace the
+ad-hoc calculations previously found in the legacy worker loop.
+"""
+
+from __future__ import annotations
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Progress Calculation Constants
 # Preparing owns the true "0%" phase now. Status is authoritative.
@@ -17,30 +16,6 @@ PROGRESS_PREPARE_LIMIT = 0.0
 PROGRESS_PREPARE_STEP = 0.005
 PROGRESS_MAX_PREDICTED = 0.85
 PROGRESS_STITCH_LIMIT = 0.98
-
-# Default fallbacks
-# BASELINE_ENGINE_CPS moved to config.py
-
-def paused() -> bool:
-    return pause_flag.is_set()
-
-def toggle_pause():
-    from ..state import update_settings
-    if pause_flag.is_set():
-        pause_flag.clear()
-        update_settings({"is_paused": False})
-    else:
-        pause_flag.set()
-        update_settings({"is_paused": True})
-
-def set_paused(value: bool):
-    from ..state import update_settings
-    if value:
-        pause_flag.set()
-        update_settings({"is_paused": True})
-    else:
-        pause_flag.clear()
-        update_settings({"is_paused": False})
 
 def _trimmed_mean(values: list[float], fallback: float) -> float:
     if not values:

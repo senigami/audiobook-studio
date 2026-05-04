@@ -6,7 +6,7 @@ from fastapi import APIRouter, Form
 from fastapi.responses import JSONResponse
 from ...db import get_queue, clear_queue, clear_completed_queue, reorder_queue, remove_from_queue
 from ...state import get_jobs
-from ...jobs import cancel as cancel_job
+
 from ..ws import broadcast_queue_update
 
 router = APIRouter(prefix="/api", tags=["queue"])
@@ -49,10 +49,8 @@ def _merge_live_queue_job(item: dict, job) -> None:
 def api_get_queue():
     from ...db import reconcile_queue_status
     from ...db.reconcile import reconcile_all_chapter_statuses
-    from ...jobs import sync_memory_queue, ensure_workers
-    from ...jobs.core import job_queue, assembly_queue
 
-    ensure_workers()
+    # ensure_workers() - Decommissioned for V2
     queue_items = get_queue()
     all_jobs = get_jobs()
     active_jobs = {
@@ -85,16 +83,6 @@ def api_get_queue():
     if needs_reconcile:
         reconcile_queue_status(active_ids, terminal_job_statuses)
         reconcile_all_chapter_statuses(active_chapter_ids)
-        queue_items = get_queue()
-
-    recoverable_queued_rows = [
-        item for item in queue_items
-        if item["status"] == "queued"
-        and item["id"] in active_jobs
-        and getattr(active_jobs[item["id"]], "status", None) == "queued"
-    ]
-    if recoverable_queued_rows and job_queue.qsize() == 0 and assembly_queue.qsize() == 0:
-        sync_memory_queue()
         queue_items = get_queue()
 
     active_queue_chapter_ids = {
@@ -163,15 +151,20 @@ class ReorderRequest(BaseModel):
 @router.put("/processing_queue/reorder")
 def api_reorder_queue_route(request: ReorderRequest):
     reorder_queue(request.queue_ids)
-    from ...jobs import sync_memory_queue
-    sync_memory_queue()
+    # sync_memory_queue() - Decommissioned for V2
     broadcast_queue_update()
     return JSONResponse({"status": "ok"})
 
 @router.delete("/processing_queue/{queue_id}")
 def api_delete_queue_item(queue_id: str):
     # Cancel if running
-    cancel_job(queue_id)
+    from ...orchestration.scheduler.orchestrator import create_orchestrator
+    orchestrator = create_orchestrator()
+    if not orchestrator.cancel(queue_id):
+        from ...state import get_jobs, update_job
+        jobs = get_jobs()
+        if queue_id in jobs:
+            update_job(queue_id, status="cancelled", force_broadcast=True)
     # Remove from DB
     remove_from_queue(queue_id)
     # Remove from live state memory

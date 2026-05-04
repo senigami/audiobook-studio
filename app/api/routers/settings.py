@@ -9,7 +9,7 @@ from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 from ...config import PROJECTS_DIR, find_existing_project_subdir
 from ...state import get_jobs, put_job, update_job
-from ...jobs import enqueue
+
 from ...models import Job
 from ..utils import list_audiobooks
 router = APIRouter(prefix="/api", tags=["settings"])

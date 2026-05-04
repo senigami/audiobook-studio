@@ -10,7 +10,8 @@ from fastapi import APIRouter, Form, UploadFile, File, Request, Depends, HTTPExc
 from fastapi.responses import JSONResponse, FileResponse
 from ... import config
 from ...state import get_settings, update_settings, get_jobs, put_job, update_job
-from ...jobs import paused, set_paused, cleanup_and_reconcile, enqueue
+
+from ...orchestration.scheduler.resources import is_paused, set_paused
 from ...db import list_speakers
 from ...db.performance import get_render_stats, reset_render_stats
 from ...models import Job
@@ -136,7 +137,7 @@ def api_home(
         "jobs": jobs,
         "settings": settings,
         "engines": engines,
-        "paused": paused(),
+        "paused": is_paused(),
         "version": "2.0.0",
         "system_info": {
             "backend_mode": backend_mode,

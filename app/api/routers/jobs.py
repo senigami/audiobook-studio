@@ -5,7 +5,7 @@ from fastapi import APIRouter, Form
 from fastapi.responses import JSONResponse
 from dataclasses import asdict
 from ...state import get_jobs, update_job as state_update_job
-from ...jobs import cancel as cancel_job_worker
+
 from ..utils import probe_audiobook_metadata
 
 
@@ -47,8 +47,19 @@ def api_get_job(job_id: str):
 
 @router.post("/cancel")
 def cancel(job_id: str = Form(...)):
-    cancel_job_worker(job_id)
-    return JSONResponse({"status": "ok", "message": f"Job {job_id} cancelled"})
+    from ...orchestration.scheduler.orchestrator import create_orchestrator
+    orchestrator = create_orchestrator()
+    success = orchestrator.cancel(job_id)
+    if success:
+        return JSONResponse({"status": "ok", "message": f"Job {job_id} cancelled"})
+    else:
+        # Fallback to cancel the job directly in state if the orchestrator doesn't know about it.
+        from ...state import get_jobs, update_job
+        jobs = get_jobs()
+        if job_id in jobs:
+            update_job(job_id, status="cancelled", force_broadcast=True)
+            return JSONResponse({"status": "ok", "message": f"Job {job_id} cancelled via state fallback"})
+        return JSONResponse({"status": "error", "message": f"Job {job_id} not found"}, status_code=404)
 
 @router.post("/jobs/update-title")
 def update_job_title(chapter_file: str = Form(...), new_title: str = Form(...)):

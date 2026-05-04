@@ -1,7 +1,7 @@
 import pytest
 import os
 from pathlib import Path
-from app.config import get_chapter_dir, _find_file, PROJECTS_DIR, CHAPTER_DIR
+from app.config import get_chapter_dir, _find_file, PROJECTS_DIR
 
 def test_get_chapter_dir_traversal_blocked(tmp_path):
     # Setup mock PROJECTS_DIR
@@ -32,10 +32,8 @@ def test_find_file_traversal_blocked(tmp_path):
     (evil_dir / "secret.txt").write_text("pwned")
 
     with pytest.MonkeyPatch.context() as m:
-        m.setattr("app.config.CHAPTER_DIR", mock_chapters)
-        m.setattr("app.config.AUDIO_OUT_DIR", tmp_path / "audio_out")
-        m.setattr("app.config.VOICES_DIR", tmp_path / "voices")
         m.setattr("app.config.PROJECTS_DIR", tmp_path / "projects")
+        m.setattr("app.config.VOICES_DIR", tmp_path / "voices")
         # Mock temp dir to something else so evil_dir isn't allowed by the test-mode escape hatch
         m.setattr("tempfile.gettempdir", lambda: str(tmp_path / "not_evil"))
 
@@ -44,7 +42,9 @@ def test_find_file_traversal_blocked(tmp_path):
         assert res is None
 
         # Valid directory
-        (mock_chapters / "valid.txt").write_text("ok")
-        res = _find_file(mock_chapters, "valid.txt")
+        valid_dir = tmp_path / "projects"
+        valid_dir.mkdir(parents=True, exist_ok=True)
+        (valid_dir / "valid.txt").write_text("ok")
+        res = _find_file(valid_dir, "valid.txt")
         assert res is not None
         assert res.name == "valid.txt"

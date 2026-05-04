@@ -120,8 +120,8 @@ class TestVerificationIsolation:
 
         with pytest.MonkeyPatch.context() as mp:
             mp.setattr("app.state.get_settings", lambda: {"default_speaker_profile": "Narrator"})
-            mp.setattr("app.jobs.speaker.get_speaker_settings", lambda _profile: {"reference_sample": "sample.wav"})
-            mp.setattr("app.jobs.speaker.get_voice_profile_dir", lambda _profile: default_voice_dir)
+            mp.setattr("app.db.speakers.get_speaker_settings", lambda _profile: {"reference_sample": "sample.wav"})
+            mp.setattr("app.db.speakers.get_profile_dir", lambda _profile: default_voice_dir)
 
             result = verify_plugin(plugin)
 

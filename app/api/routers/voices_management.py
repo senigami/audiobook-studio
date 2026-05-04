@@ -7,7 +7,7 @@ from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import JSONResponse
 from . import voices_helpers
 from ... import db
-from ... import jobs
+
 from ...engines import bridge
 from ... import state
 from ... import pathing
@@ -226,7 +226,7 @@ def list_speaker_profiles():
     profiles = []
     for name, d in sorted_items:
         raw_wavs = sorted([f.name for f in d.glob("*.wav") if f.name != "sample.wav"])
-        spk_settings = jobs.get_speaker_settings(name)
+        spk_settings = db.speakers.get_speaker_settings(name)
         built_samples = spk_settings.get("built_samples", [])
 
         samples = []
@@ -352,7 +352,7 @@ def api_create_speaker_profile(
 
         path.mkdir(parents=True, exist_ok=True)
         # Record speaker_id (could be a UUID or a name for unassigned)
-        jobs.update_speaker_settings(name, speaker_id=speaker_id, variant_name=variant_name, engine=normalized_engine)
+        db.speakers.update_speaker_settings(name, speaker_id=speaker_id, variant_name=variant_name, engine=normalized_engine)
         return JSONResponse({"status": "ok", "name": name})
     except ValueError as e:
         return JSONResponse({"status": "error", "message": str(e)}, status_code=400)
