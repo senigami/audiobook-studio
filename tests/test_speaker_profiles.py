@@ -147,7 +147,7 @@ def test_speaker_profile_test_endpoint_allows_latent_without_raw_samples(mock_or
     response = client.post(f"/api/speaker-profiles/{name}/test")
 
     assert response.status_code == 200
-    assert response.json()["audio_url"] == f"/out/voices/{name}/Default/sample.wav"
+    assert response.json()["audio_url"] == f"/out/voices/{name}/Default/sample.mp3"
 
 def test_delete_profile(clean_voices):
     name = "DeleteMe"

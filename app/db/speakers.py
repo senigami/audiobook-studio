@@ -111,11 +111,25 @@ def _existing_profile_dir(profile_name: str) -> Optional[Path]:
             voice_root_resolved = os.path.abspath(os.path.realpath(voice_root.path))
             if voice_root_resolved != voices_root and not voice_root_resolved.startswith(voices_root + os.sep):
                 return None
-            sub_entries = {e.name: e for e in os.scandir(voice_root_resolved) if e.is_dir()}
-            if "Default" in sub_entries:
-                nested_default = sub_entries["Default"]
-                if _profile_dir_has_assets(Path(nested_default.path)):
-                    return Path(nested_default.path)
+
+            voice_root_path = Path(voice_root_resolved)
+
+            # If it's a V2 voice root (has voice.json), we prefer the "Default" sub-variant.
+            if find_secure_file(voice_root_path, "voice.json"):
+                sub_entries = {e.name: e for e in os.scandir(voice_root_resolved) if e.is_dir()}
+                # Use the explicitly marked default variant from voice.json if Default is missing
+                target_variant = "Default"
+                if "Default" not in sub_entries:
+                    try:
+                        with open(voice_root_path / "voice.json", "r", encoding="utf-8") as f:
+                            v_meta = json.loads(f.read())
+                            target_variant = v_meta.get("default_variant", "Default")
+                    except Exception:
+                        pass
+                if target_variant in sub_entries:
+                    nested_target = sub_entries[target_variant]
+                    if _profile_dir_has_assets(Path(nested_target.path)):
+                        return Path(nested_target.path)
         except OSError:
             pass
 

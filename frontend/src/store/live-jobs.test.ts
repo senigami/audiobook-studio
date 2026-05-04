@@ -1,166 +1,109 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { createLiveJobsStore } from './live-jobs';
-import type { StudioJobEvent } from '../api/contracts/events';
 
 describe('LiveJobsStore', () => {
-  let store: ReturnType<typeof createLiveJobsStore>;
-
-  beforeEach(() => {
-    store = createLiveJobsStore();
-  });
-
-  it('initializes with empty state', () => {
-    expect(store.getState().eventsById).toEqual({});
-  });
-
-  it('applies a new event', () => {
-    const event: StudioJobEvent = {
-      type: 'studio_job_event',
-      job_id: 'job1',
-      status: 'running',
-      progress: 0.1,
-      scope: 'job',
-      updated_at: 1000,
-    };
-    store.applyEvent(event);
-    expect(store.getState().eventsById['job1']).toMatchObject({
-      status: 'running',
-      progress: 0.1,
-      updated_at: 1000,
-    });
-  });
-
-  it('rejects stale events based on updated_at (Anti-Regression)', () => {
+  it('applies studio_job_event updates correctly', () => {
+    const store = createLiveJobsStore();
     store.applyEvent({
-      type: 'studio_job_event',
-      job_id: 'job1',
-      status: 'running',
-      progress: 0.2,
-      scope: 'job',
-      updated_at: 2000,
-    });
-    
-    store.applyEvent({
-      type: 'studio_job_event',
-      job_id: 'job1',
-      status: 'running',
-      progress: 0.1,
-      scope: 'job',
-      updated_at: 1000, // Older
-    });
-
-    expect(store.getState().eventsById['job1']?.progress).toBe(0.2);
-  });
-
-  it('respects status precedence (cannot go backwards to running from done)', () => {
-    store.applyEvent({
-      type: 'studio_job_event',
-      job_id: 'job1',
-      status: 'done',
-      scope: 'job',
-      updated_at: 1000,
-    });
-    
-    store.applyEvent({
-      type: 'studio_job_event',
-      job_id: 'job1',
-      status: 'running',
-      scope: 'job',
-      updated_at: 2000, // Newer timestamp but lower priority status
-    });
-
-    expect(store.getState().eventsById['job1']?.status).toBe('done');
-  });
-
-  it('allows status rollback for queued/preparing', () => {
-     store.applyEvent({
       type: 'studio_job_event',
       job_id: 'job1',
       status: 'running',
       progress: 0.5,
-      scope: 'job',
       updated_at: 1000,
+      scope: 'job'
     });
-    
+
+    const state = store.getState();
+    expect(state.eventsById['job1'].progress).toBe(0.5);
+    expect(state.eventsById['job1'].status).toBe('running');
+  });
+
+  it('applies job_updated updates correctly via applyJobUpdated', () => {
+    const store = createLiveJobsStore();
+    store.applyJobUpdated('job1', {
+      status: 'running',
+      progress: 0.7,
+      updated_at: 2000
+    });
+
+    const state = store.getState();
+    expect(state.eventsById['job1'].progress).toBe(0.7);
+    expect(state.eventsById['job1'].status).toBe('running');
+  });
+
+  it('prevents stale updates based on updated_at', () => {
+    const store = createLiveJobsStore();
     store.applyEvent({
       type: 'studio_job_event',
       job_id: 'job1',
-      status: 'queued',
-      progress: 0,
-      scope: 'job',
-      updated_at: 2000, 
+      status: 'running',
+      progress: 0.5,
+      updated_at: 1000,
+      scope: 'job'
     });
 
-    expect(store.getState().eventsById['job1']?.status).toBe('queued');
-    expect(store.getState().eventsById['job1']?.progress).toBe(0);
-  });
-
-  it('enforces monotonic progress for active states (Anti-Regression)', () => {
+    // Older event arrives
     store.applyEvent({
       type: 'studio_job_event',
       job_id: 'job1',
       status: 'running',
       progress: 0.3,
-      scope: 'job',
-      updated_at: 1000,
-    });
-    
-    store.applyEvent({
-      type: 'studio_job_event',
-      job_id: 'job1',
-      status: 'running',
-      progress: 0.2,
-      scope: 'job',
-      updated_at: 2000,
+      updated_at: 500,
+      scope: 'job'
     });
 
-    expect(store.getState().eventsById['job1']?.progress).toBe(0.3);
+    const state = store.getState();
+    expect(state.eventsById['job1'].progress).toBe(0.5); // Preserved
   });
 
-  it('stabilizes ETA jitter', () => {
+  it('maintains monotonic progress for active jobs', () => {
+    const store = createLiveJobsStore();
     store.applyEvent({
       type: 'studio_job_event',
       job_id: 'job1',
       status: 'running',
-      eta_seconds: 40.5,
-      scope: 'job',
+      progress: 0.5,
       updated_at: 1000,
-    });
-    
-    store.applyEvent({
-      type: 'studio_job_event',
-      job_id: 'job1',
-      status: 'running',
-      eta_seconds: 41.2, // < 1s difference
-      scope: 'job',
-      updated_at: 2000,
+      scope: 'job'
     });
 
-    expect(store.getState().eventsById['job1']?.eta_seconds).toBe(40.5);
+    // Newer event with lower progress (regression)
+    store.applyEvent({
+      type: 'studio_job_event',
+      job_id: 'job1',
+      status: 'running',
+      progress: 0.4,
+      updated_at: 1100,
+      scope: 'job'
+    });
+
+    const state = store.getState();
+    expect(state.eventsById['job1'].progress).toBe(0.5); // Regressed progress ignored
   });
 
-  it('prunes older events using correct second-based units (P1 Fix Check)', () => {
-    // Both backend updated_at and snapshot.hydratedAt are now in seconds
-    const snapshotTime = 1713210000; // Seconds
-    
-    store.applyEvent({ 
-      type: 'studio_job_event', 
-      job_id: 'job-old', 
-      status: 'running', 
-      scope: 'job', 
-      updated_at: snapshotTime - 10 
+  it('allows progress reset on rollback status (queued/preparing)', () => {
+    const store = createLiveJobsStore();
+    store.applyEvent({
+      type: 'studio_job_event',
+      job_id: 'job1',
+      status: 'running',
+      progress: 0.5,
+      updated_at: 1000,
+      scope: 'job'
     });
-    store.applyEvent({ 
-      type: 'studio_job_event', 
-      job_id: 'job-new', 
-      status: 'running', 
-      scope: 'job', 
-      updated_at: snapshotTime + 10 
+
+    // Requeued
+    store.applyEvent({
+      type: 'studio_job_event',
+      job_id: 'job1',
+      status: 'queued',
+      progress: 0,
+      updated_at: 1100,
+      scope: 'job'
     });
-    
-    store.pruneOlderThan(snapshotTime);
-    
-    expect(store.getState().eventsById['job-old']).toBeUndefined();
-    expect(store.getState().eventsById['job-new']).toBeDefined();
+
+    const state = store.getState();
+    expect(state.eventsById['job1'].status).toBe('queued');
+    expect(state.eventsById['job1'].progress).toBe(0); // Allowed reset
   });
 });

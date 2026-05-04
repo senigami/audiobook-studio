@@ -123,23 +123,26 @@ class VoxtralPlugin(StudioTTSEngine):
         cleanup_root: Path | None = None
         profile_name: str = ""
         reference_sample: str | None = None
-        voice_asset_id: str | None = req.settings.get(
-            "voice_asset_id"
-        ) or None
+        voice_asset_id: str | None = req.settings.get("voice_asset_id") or None
 
+        vdir = req.settings.get("voice_profile_dir")
         if req.voice_ref:
             cleanup_root, profile_name, reference_sample = (
                 self._stage_reference_audio(Path(req.voice_ref))
             )
+        elif vdir:
+             profile_name = str(req.settings.get("voice_profile_id", ""))
+             vdir_path = Path(vdir)
+             reference_sample = req.settings.get("reference_sample") or None
         else:
             profile_name = str(req.settings.get("voice_profile_id", ""))
             reference_sample = req.settings.get("reference_sample") or None
 
-        if not profile_name:
+        if not profile_name and not vdir:
             return TTSResult(
                 ok=False,
                 error=(
-                    "Voxtral requires voice_ref or voice_profile_id in settings."
+                    "Voxtral requires voice_ref, voice_profile_dir, or voice_profile_id in settings."
                 ),
             )
 

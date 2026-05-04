@@ -19,6 +19,7 @@ _ENGINE_ID_RE = re.compile(r"^[a-z][a-z0-9_-]{1,63}$")
 COMMON_SYNTHESIS_SETTINGS = frozenset(
     {
         "voice_profile_id",
+        "voice_profile_dir",
         "voice_asset_id",
         "reference_sample",
         "model",

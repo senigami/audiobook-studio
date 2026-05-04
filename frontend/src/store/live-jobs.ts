@@ -31,6 +31,7 @@ const STATUS_PRIORITY: Record<string, number> = {
 export interface LiveJobsStore {
   getState: () => LiveOverlayState;
   applyEvent: (event: StudioJobEvent) => void;
+  applyJobUpdated: (jobId: string, updates: any) => void;
   pruneOlderThan: (timestamp: number) => void;
   clear: () => void;
 }
@@ -146,6 +147,27 @@ export const createLiveJobsStore = (): LiveJobsStore => {
     state.eventsById[jobId] = nextDelta;
   };
 
+  const applyJobUpdated = (jobId: string, updates: any) => {
+    // Normalize job_updated into a StudioJobEvent-like shape for applyEvent
+    // This allows useQueueSync to benefit from the same merging logic
+    applyEvent({
+      type: 'studio_job_event',
+      job_id: jobId,
+      status: updates.status,
+      progress: updates.progress,
+      eta_seconds: updates.eta_seconds,
+      updated_at: updates.updated_at,
+      started_at: updates.started_at,
+      message: updates.message || updates.log,
+      reason_code: updates.reason_code,
+      estimated_end_at: updates.estimated_end_at,
+      eta_basis: updates.eta_basis,
+      active_render_batch_id: updates.active_render_batch_id,
+      active_render_batch_progress: updates.active_render_batch_progress,
+      scope: 'job' // Default scope for job_updated
+    });
+  };
+
   const pruneOlderThan = (timestamp: number) => {
     const nextEvents: Record<string, OverlayDelta> = {};
     Object.entries(state.eventsById).forEach(([id, delta]) => {
@@ -163,6 +185,7 @@ export const createLiveJobsStore = (): LiveJobsStore => {
   return {
     getState: () => state,
     applyEvent,
+    applyJobUpdated,
     pruneOlderThan,
     clear,
   };

@@ -2,55 +2,60 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react-swc'
 
+const backendTarget = process.env.VITE_BACKEND_URL || 'http://127.0.0.1:8123'
+const backendWsTarget = process.env.VITE_BACKEND_WS_URL || backendTarget.replace(/^http/, 'ws')
+const frontendPort = Number(process.env.VITE_FRONTEND_PORT || 5173)
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
   server: {
     host: '127.0.0.1',
+    port: frontendPort,
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:8123',
+        target: backendTarget,
         changeOrigin: true,
       },
       '/ws': {
-        target: 'ws://127.0.0.1:8123',
+        target: backendWsTarget,
         ws: true,
         changeOrigin: true,
       },
       '/out': {
-        target: 'http://127.0.0.1:8123',
+        target: backendTarget,
         changeOrigin: true,
       },
       '/projects': {
-        target: 'http://127.0.0.1:8123',
+        target: backendTarget,
         changeOrigin: true,
       },
       '/queue/clear': {
-        target: 'http://127.0.0.1:8123',
+        target: backendTarget,
         changeOrigin: true,
       },
       '/queue/pause': {
-        target: 'http://127.0.0.1:8123',
+        target: backendTarget,
         changeOrigin: true,
       },
       '/queue/resume': {
-        target: 'http://127.0.0.1:8123',
+        target: backendTarget,
         changeOrigin: true,
       },
       '/queue/start_xtts': {
-        target: 'http://127.0.0.1:8123',
+        target: backendTarget,
         changeOrigin: true,
       },
       '/queue/backfill': {
-        target: 'http://127.0.0.1:8123',
+        target: backendTarget,
         changeOrigin: true,
       },
       '/upload': {
-        target: 'http://127.0.0.1:8123',
+        target: backendTarget,
         changeOrigin: true,
       },
       '/settings': {
-        target: 'http://127.0.0.1:8123',
+        target: backendTarget,
         changeOrigin: true,
         bypass: (req) => {
           if (req.method === 'GET' && req.headers.accept?.includes('text/html')) {
@@ -59,23 +64,23 @@ export default defineConfig({
         }
       },
       '/split': {
-        target: 'http://127.0.0.1:8123',
+        target: backendTarget,
         changeOrigin: true,
       },
       '/create_audiobook': {
-        target: 'http://127.0.0.1:8123',
+        target: backendTarget,
         changeOrigin: true,
       },
       '/cancel': {
-        target: 'http://127.0.0.1:8123',
+        target: backendTarget,
         changeOrigin: true,
       },
       '/analyze_long': {
-        target: 'http://127.0.0.1:8123',
+        target: backendTarget,
         changeOrigin: true,
       },
       '/report': {
-        target: 'http://127.0.0.1:8123',
+        target: backendTarget,
         changeOrigin: true,
       }
     }

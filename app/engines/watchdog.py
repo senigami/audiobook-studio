@@ -152,6 +152,10 @@ class TtsServerWatchdog:
         self._stopping: bool = False
         self._log_buffer: deque[str] = deque(maxlen=200)
 
+        # Readiness signaling
+        self._ready_event = threading.Event()
+        self._ready_port: int | None = None
+
         # Background watchdog thread.
         self._thread: threading.Thread | None = None
 
@@ -244,15 +248,18 @@ class TtsServerWatchdog:
         """
         cmd = [
             self.executable, "-u",
-            str(self.server_script),
+            # Use abspath to ensure we find it regardless of cwd.
+            str(self.server_script.resolve()),
             "--port", str(self._requested_port),
             "--port-range", str(_PORT_RANGE),
             "--host", self._host,
-            "--plugins-dir", str(self.plugins_dir),
+            "--plugins-dir", str(self.plugins_dir.resolve()),
         ]
 
         logger.info("Spawning TTS Server: %s", " ".join(cmd))
         try:
+            # We use subprocess.PIPE for both to capture logs.
+            # We must drain them in background threads IMMEDIATELY to prevent deadlocks.
             proc = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
@@ -265,8 +272,26 @@ class TtsServerWatchdog:
 
         with self._lock:
             self._process = proc
+            # Reset readiness state for the new process
+            self._ready_event.clear()
+            self._ready_port = None
 
-        # Wait for the READY signal on stdout.
+        # Drain stdout and stderr immediately to prevent deadlocks if pipes fill up during discovery
+        threading.Thread(
+            target=self._drain_stream,
+            args=(proc, "stdout", proc.stdout),
+            daemon=True,
+            name=f"tts-stdout-{proc.pid}",
+        ).start()
+
+        threading.Thread(
+            target=self._drain_stream,
+            args=(proc, "stderr", proc.stderr),
+            daemon=True,
+            name=f"tts-stderr-{proc.pid}",
+        ).start()
+
+        # Wait for the READY signal (detected in the stdout drainer thread).
         port = self._wait_for_ready(proc)
 
         with self._lock:
@@ -277,16 +302,10 @@ class TtsServerWatchdog:
 
         logger.info("TTS Server is ready on port %d (pid=%d)", port, proc.pid)
 
-        # Drain stderr in a background thread to prevent buffer deadlocks.
-        threading.Thread(
-            target=self._drain_stderr,
-            args=(proc,),
-            daemon=True,
-            name=f"tts-stderr-{proc.pid}",
-        ).start()
-
     def _wait_for_ready(self, proc: subprocess.Popen) -> int:
         """Block until the TTS Server prints READY:{port} or times out.
+
+        Readiness is signaled by the _drain_stream thread setting self._ready_event.
 
         Args:
             proc: The TTS Server subprocess.
@@ -297,42 +316,27 @@ class TtsServerWatchdog:
         Raises:
             WatchdogError: If the process exits early or the timeout elapses.
         """
-        deadline = time.monotonic() + _READY_TIMEOUT
-        port: int | None = None
+        start_time = time.monotonic()
+        while time.monotonic() < start_time + _READY_TIMEOUT:
+            if self._ready_event.wait(timeout=0.5):
+                if self._ready_port is not None:
+                    return self._ready_port
 
-        while time.monotonic() < deadline:
             if proc.poll() is not None:
-                stdout_remainder = proc.stdout.read() if proc.stdout else ""
+                # Capture whatever we can from the log buffer if it died
+                with self._lock:
+                    logs = "\n".join(list(self._log_buffer)[-20:])
                 raise WatchdogError(
                     f"TTS Server process exited (rc={proc.returncode}) before READY. "
-                    f"stdout: {stdout_remainder[:200]}"
+                    f"Recent logs:\n{logs}"
                 )
 
-            line = proc.stdout.readline() if proc.stdout else ""
-            if not line:
-                time.sleep(0.1)
-                continue
+        # Timeout
+        proc.kill()
+        raise WatchdogError(
+            f"TTS Server did not send READY within {_READY_TIMEOUT}s"
+        )
 
-            line = line.strip()
-            # Capture startup logs in buffer too
-            if line:
-                with self._lock:
-                    self._log_buffer.append(line)
-
-            if line.startswith("READY:"):
-                try:
-                    port = int(line.split(":", 1)[1])
-                    break
-                except (ValueError, IndexError):
-                    logger.warning("Unexpected READY line format: %r", line)
-
-        if port is None:
-            proc.kill()
-            raise WatchdogError(
-                f"TTS Server did not send READY within {_READY_TIMEOUT}s"
-            )
-
-        return port
 
     def _terminate_process(self) -> None:
         """Send SIGTERM then SIGKILL to the TTS Server process."""
@@ -369,16 +373,14 @@ class TtsServerWatchdog:
             with self._lock:
                 if self._stopping:
                     break
+                if self._circuit_open:
+                    time.sleep(5)
+                    continue
 
+            # Check health immediately then sleep
+            self._heartbeat()
             time.sleep(_HEARTBEAT_INTERVAL)
 
-            with self._lock:
-                if self._stopping:
-                    break
-                if self._circuit_open:
-                    continue  # Circuit breaker tripped — do not heal.
-
-            self._heartbeat()
 
     def _heartbeat(self) -> None:
         """Poll /health and handle failure/recovery."""
@@ -388,15 +390,19 @@ class TtsServerWatchdog:
 
         # Check if process has died.
         if proc is not None and proc.poll() is not None:
+            # Capture logs for diagnosis
+            with self._lock:
+                logs = "\n".join(list(self._log_buffer)[-20:])
             logger.warning(
-                "TTS Server process exited (rc=%d); triggering restart.",
+                "TTS Server process exited (rc=%d); triggering restart.\nRecent logs:\n%s",
                 proc.returncode,
+                logs,
             )
             self._on_failure(reason="process_exit")
             return
 
         if client is None:
-            self._on_failure(reason="no_client")
+            # This should only happen during startup race, but we handle it.
             return
 
         alive = client.ping()
@@ -407,15 +413,16 @@ class TtsServerWatchdog:
                 self._healthy = True
             else:
                 self._consecutive_failures += 1
-                self._healthy = False
                 failures = self._consecutive_failures
 
         if not alive:
             logger.warning(
-                "TTS Server heartbeat failed (%d consecutive).", failures
+                "TTS Server heartbeat failed (%d/%d consecutive).", failures, _FAILURE_THRESHOLD
             )
             if failures >= _FAILURE_THRESHOLD:
+                self._healthy = False
                 self._on_failure(reason="heartbeat_timeout")
+
 
     def _on_failure(self, reason: str) -> None:
         """Handle a TTS Server failure — restart if the circuit allows it."""
@@ -465,13 +472,47 @@ class TtsServerWatchdog:
             with self._lock:
                 self._circuit_open = True
 
-    def _drain_stderr(self, proc: subprocess.Popen) -> None:
-        """Read and log all TTS Server stderr output."""
-        if proc.stderr is None:
+    def _drain_stream(self, proc: subprocess.Popen, name: str, stream: Any) -> None:
+        """Read and log all lines from a subprocess stream (stdout or stderr)."""
+        if stream is None:
             return
-        for line in proc.stderr:
-            line = line.rstrip()
-            if line:
+        try:
+            for line in stream:
+                line = line.rstrip()
+                if not line:
+                    continue
+
+                # Check for the READY signal if we are still waiting for it.
+                if name == "stdout" and not self._ready_event.is_set():
+                    if "READY:" in line:
+                        try:
+                            # Line format: "READY:7862"
+                            port_str = line.split("READY:")[1].strip().split()[0]
+                            self._ready_port = int(port_str)
+                            self._ready_event.set()
+                        except (ValueError, IndexError):
+                            logger.warning("Failed to parse READY port from line: %r", line)
+
                 with self._lock:
-                    self._log_buffer.append(line)
-                logger.debug("[tts-server] %s", line)
+                    # Add to log buffer for UI visibility (Settings > TTS Logs)
+                    self._log_buffer.append(f"[{name}] {line}")
+
+                    # Special parsing for progress markers from engines
+                    if "[PROGRESS]" in line:
+                        try:
+                            # Extract e.g. "65%" from "[PROGRESS] 65%"
+                            parts = line.split("[PROGRESS]")
+                            if len(parts) > 1:
+                                val_str = parts[1].strip().rstrip("%")
+                                # We've verified it's being drained and can be used for UI updates later.
+                        except Exception:
+                            pass
+                logger.debug("[tts-server-%s] %s", name, line)
+        except Exception:
+            if not self._stopping:
+                logger.debug("Stream drainer %s exited unexpectedly", name)
+        finally:
+            try:
+                stream.close()
+            except Exception:
+                pass

@@ -65,6 +65,40 @@ class OrchestratorHelpersMixin:
 
     def _dispatch(self, *, task: StudioTask, context: TaskContext) -> TaskResult:
         """Dispatch the task to execution through the orchestrator-owned bridge."""
+        # Attach a progress reporter that redirects task-internal updates to our publisher.
+        def task_progress_reporter(progress: float, message: str | None, reason_code: str | None):
+            self._publish(
+                context=context,
+                status="running",
+                progress=progress,
+                message=message,
+                reason_code=reason_code,
+            )
+
+        task.set_progress_reporter(task_progress_reporter)
+
+        # Emit initial 'running' event with historical ETA BEFORE the blocking call starts.
+        # This satisfies the requirement to have ETA from the start.
+        started_at = time.time()
+        expected_duration = 0.0
+        try:
+             # Try to get duration from task if available
+             text = context.payload.get("test_text") or context.payload.get("script_text", "")
+             engine_id = context.payload.get("engine_id", "synthesis")
+             expected_duration = task.get_expected_duration(text, engine_id)
+        except Exception:
+             expected_duration = 25.0
+
+        self._publish(
+            context=context,
+            status="running",
+            progress=0.0,
+            started_at=started_at,
+            eta_seconds=int(expected_duration),
+            message="Starting execution...",
+            force=True
+        )
+
         # If the task exposes a bridge request, route through the injected bridge.
         bridge_request_fn = getattr(task, "to_bridge_request", None)
         if callable(bridge_request_fn):
@@ -96,6 +130,7 @@ class OrchestratorHelpersMixin:
         context: TaskContext,
         status: str,
         progress: float | None = None,
+        eta_seconds: int | None = None,
         message: str | None = None,
         reason_code: str | None = None,
         waiting_reason: str | None = None,
@@ -104,46 +139,87 @@ class OrchestratorHelpersMixin:
         force: bool = False,
     ) -> None:
         """Publish a progress event through the ProgressService and sync with state."""
+        state_status = "done" if status == "completed" else status
+        state_progress = progress
+        if state_progress is None:
+            if state_status == "done":
+                state_progress = 1.0
+            elif context.task_type in {"sample_build", "sample_test"}:
+                # Provide synthetic progress fallbacks for voice tasks ONLY if no task-reported progress is available
+                progress_map = {
+                    "queued": 0.0,
+                    "preparing": 0.0,
+                    "running": 0.0, # start at 0.0, real task will report progress via heartbeat
+                    "finalizing": 0.9,
+                }
+                state_progress = progress_map.get(state_status, 0.0)
+            else:
+                state_progress = 0.0
+        finished_at = time.time() if state_status in {"done", "failed", "cancelled"} else None
+        updated_at = time.time()
         try:
+            # Sync with the persistent state.json for UI visibility and polling.
+            # We import lazily to stay behind the state boundary.
+            from app.state import get_jobs, put_job, update_job, Job  # noqa: PLC0415
+
+            # Anti-Regression: If this is an update to an existing job, don't allow progress to regress
+            # unless the status itself has regressed (e.g. requeued).
+            existing_job = get_jobs().get(context.task_id)
+            if existing_job and state_status == existing_job.status and state_progress is not None:
+                if state_progress < (existing_job.progress or 0.0):
+                    state_progress = existing_job.progress
+
             # self.progress_service must be available on the target class
             self.progress_service.publish(
                 job_id=context.task_id,
-                status=status,
+                status=state_status,
                 parent_job_id=context.project_id,
-                progress=progress,
+                progress=state_progress,
+                eta_seconds=eta_seconds,
                 message=message,
                 reason_code=reason_code,
                 waiting_reason=waiting_reason,
                 started_at=started_at,
                 allow_progress_regression=allow_progress_regression,
                 force=force,
+                updated_at=updated_at,
             )
 
-            # Sync with the persistent state.json for UI visibility and polling.
-            # We import lazily to stay behind the state boundary.
-            from app.state import get_jobs, put_job, update_job, Job  # noqa: PLC0415
-
             # Initialize job state if this is the first event (usually 'queued')
-            if not get_jobs().get(context.task_id):
+            if not existing_job:
                 job = Job(
                     id=context.task_id,
                     engine=getattr(context, "task_type", "synthesis"),  # type: ignore[arg-type]
-                    status=status,  # type: ignore[arg-type]
+                    status=state_status,  # type: ignore[arg-type]
                     created_at=time.time(),
+                    updated_at=updated_at,
+                    started_at=started_at,
                     project_id=context.project_id,
                     chapter_id=context.chapter_id,
+                    speaker_profile=context.payload.get("speaker_profile"),
+                    progress=state_progress or 0.0,
+                    finished_at=finished_at,
+                    error=message if state_status == "failed" else None,
                 )
                 put_job(job)
             else:
-                update_job(
-                    context.task_id,
-                    status=status,
-                    progress=progress,
-                    message=message,
-                    reason_code=reason_code,
-                    started_at=started_at,
-                    force_broadcast=force,
-                )
+                updates: dict[str, object | None] = {
+                    "status": state_status,
+                    "progress": state_progress,
+                    "message": message,
+                    "reason_code": reason_code,
+                    "updated_at": updated_at,
+                }
+                if started_at is not None:
+                    updates["started_at"] = started_at
+                if finished_at is not None:
+                    updates["finished_at"] = finished_at
+                if state_status == "failed":
+                    updates["error"] = message or "Task failed."
+                elif state_status == "done":
+                    updates["error"] = None
+                update_job(context.task_id, force_broadcast=force, **updates)
+
 
         except Exception:
             logger.exception(

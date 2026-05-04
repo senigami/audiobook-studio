@@ -229,8 +229,6 @@ def _voice_preview_url(name: str) -> Optional[str]:
     files = _voice_file_map(profile_dir)
     if "sample.mp3" in files:
         return f"/out/voices/{url_path}/sample.mp3"
-    if "sample.wav" in files:
-        return f"/out/voices/{url_path}/sample.wav"
     return None
 
 

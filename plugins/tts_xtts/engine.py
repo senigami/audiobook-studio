@@ -259,7 +259,14 @@ class XttsPlugin(StudioTTSEngine):
         if req.voice_ref:
             return req.voice_ref, None
 
-        # Fall back to the legacy voice engine helper for profile resolution.
+        # 1. Check if the directory was explicitly passed in settings (Studio 2.0 style)
+        vdir = req.settings.get("voice_profile_dir")
+        if vdir:
+            vdir_path = Path(vdir)
+            if vdir_path.exists() and vdir_path.is_dir():
+                return None, vdir_path
+
+        # 2. Fall back to the legacy voice engine helper for profile resolution.
         try:
             from app.voice_engines import resolve_xtts_preview_inputs  # noqa: PLC0415
 

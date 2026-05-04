@@ -103,11 +103,26 @@ def _load_tts_server_registry() -> dict[str, EngineRegistrationModel]:
         engines_payload = client.get_engines()
         health_payload = client.health()
     except Exception as exc:
-        logger.warning(
-            "TTS Server registry: failed to fetch engines from %s: %s",
-            server_url,
-            exc,
-        )
+        import httpx
+        from app.engines.tts_client import TtsServerConnectionError
+
+        # Silence connection errors during startup/deferral
+        is_conn_error = isinstance(exc, (TtsServerConnectionError, httpx.ConnectError))
+        if not is_conn_error and "connection refused" in str(exc).lower():
+            is_conn_error = True
+
+        if is_conn_error:
+            logger.debug(
+                "TTS Server registry: server unreachable at %s (discovery deferred): %s",
+                server_url,
+                exc,
+            )
+        else:
+            logger.warning(
+                "TTS Server registry: failed to fetch engines from %s: %s",
+                server_url,
+                exc,
+            )
         return {}
 
     # Build a health lookup by engine_id for O(1) access.

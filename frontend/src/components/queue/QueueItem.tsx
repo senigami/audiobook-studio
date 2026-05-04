@@ -33,9 +33,10 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     const etaBasis = job.eta_basis ?? liveJob?.eta_basis ?? (rawEtaSeconds != null ? 'remaining_from_update' : undefined);
     const estimatedEndAt = job.estimated_end_at ?? liveJob?.estimated_end_at;
     const updatedAt = job.updated_at ?? liveJob?.updated_at;
+    const rawUpdatedAt = job.updated_at ?? liveJob?.updated_at;
     const engine = job.engine || liveJob?.engine || '';
     const activeSegmentProgress = liveJob?.active_segment_progress;
-    const jobProgress = job.progress ?? liveJob?.progress ?? 0;
+    const jobProgress = Math.max(job.progress ?? 0, liveJob?.progress ?? 0);
     const renderGroupCount = job.render_group_count ?? liveJob?.render_group_count ?? 0;
     const completedRenderGroups = job.completed_render_groups ?? liveJob?.completed_render_groups ?? 0;
     const activeRenderGroupIndex = job.active_render_group_index ?? liveJob?.active_render_group_index ?? 0;
@@ -105,12 +106,60 @@ export const QueueItem: React.FC<QueueItemProps> = ({
         }
     }, [rawEtaSeconds, displayStatus, hasActiveGroupSignal]);
 
+    // Original start and ETA values (may be undefined for non-active statuses)
     const started = ['running', 'processing', 'finalizing'].includes(displayStatus)
         ? (stableStarted ?? rawStarted)
         : undefined;
     const etaSeconds = ['running', 'processing', 'finalizing'].includes(displayStatus)
         ? (stableEta ?? rawEtaSeconds)
         : undefined;
+
+    // Derive missing ETA seconds or estimated end time when possible
+    const derivedEtaSeconds = typeof etaSeconds === 'number'
+        ? etaSeconds
+        : (typeof estimatedEndAt === 'number' && typeof started === 'number')
+            ? Math.max(0, estimatedEndAt - started)
+            : undefined;
+    const derivedEstimatedEndAt = typeof estimatedEndAt === 'number'
+        ? estimatedEndAt
+        : (typeof derivedEtaSeconds === 'number' && typeof started === 'number')
+            ? started + derivedEtaSeconds
+            : undefined;
+    // Fallback for updatedAt if missing
+    const derivedUpdatedAt = typeof updatedAt === 'number' ? updatedAt : rawUpdatedAt;
+
+    // Development diagnostics (enabled via localStorage.debugQueueProgress === 'true')
+    const debugEnabled = typeof window !== 'undefined' && window.localStorage?.getItem('debugQueueProgress') === 'true';
+    const hasLoggedRef = React.useRef(false);
+    React.useEffect(() => {
+        if (!debugEnabled) return;
+        if (hasLoggedRef.current) return;
+        if (['running', 'processing', 'finalizing'].includes(displayStatus)) {
+            const missing: string[] = [];
+            if (typeof started !== 'number') missing.push('startedAt');
+            if (typeof derivedEtaSeconds !== 'number') missing.push('etaSeconds');
+            if (typeof derivedEstimatedEndAt !== 'number') missing.push('estimatedEndAt');
+            if (typeof derivedUpdatedAt !== 'number') missing.push('updatedAt');
+            const diagnostic = {
+                jobId: job.id,
+                engine: job.engine,
+                status: displayStatus,
+                progress,
+                startedAt: started,
+                etaSeconds: derivedEtaSeconds,
+                estimatedEndAt: derivedEstimatedEndAt,
+                updatedAt: derivedUpdatedAt,
+                persistenceKey: job.id,
+                predictive: true,
+                checkpointMode: isGroupedChapterJob ? 'queue' : (job.segment_ids?.length || liveJob?.segment_ids?.length || liveJob?.active_segment_id ? 'segment' : 'default'),
+                allowBackwardProgress: !(job.engine && job.engine.startsWith('voice_')),
+                sourceFields: { rawStarted, rawEtaSeconds, rawUpdatedAt, rawEstimatedEndAt: estimatedEndAt, rawEtaBasis: etaBasis }
+            };
+            console.log('QueueItem predictive diagnostics:', diagnostic);
+            if (missing.length) console.warn('PredictiveProgressBar missing required fields for job', job.id, ':', missing.join(', '));
+            hasLoggedRef.current = true;
+        }
+    }, [displayStatus, debugEnabled, job.id, job.engine, progress, started, derivedEtaSeconds, derivedEstimatedEndAt, derivedUpdatedAt, isGroupedChapterJob]);
 
     return (
         <div style={{
@@ -183,15 +232,15 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                 <PredictiveProgressBar
                     progress={progress}
                     startedAt={started}
-                    etaSeconds={etaSeconds}
+                    etaSeconds={derivedEtaSeconds}
                     etaBasis={etaBasis}
-                    estimatedEndAt={estimatedEndAt}
-                    updatedAt={updatedAt}
+                    estimatedEndAt={derivedEstimatedEndAt}
+                    updatedAt={derivedUpdatedAt}
                     persistenceKey={job.id}
                     status={displayStatus}
                     label={displayStatus === 'preparing' ? "Preparing..." : (displayStatus === 'finalizing' ? "Finalizing..." : "Processing...")}
                     predictive={true}
-                    allowBackwardProgress={!isGroupedChapterJob}
+                    allowBackwardProgress={false}
                     checkpointMode={isGroupedChapterJob ? 'queue' : (job.segment_ids?.length || liveJob?.segment_ids?.length || liveJob?.active_segment_id ? 'segment' : 'default')}
                     evidenceWeightFraction={isGroupedChapterJob ? evidenceWeightFraction : 1}
                     transitionTickCount={isGroupedChapterJob ? 12 : 3}

@@ -344,7 +344,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     const shouldAnimateWidth = !indeterminate && isActiveStatus(visualState);
     const indeterminateClassName = indeterminate
         ? (visualState === 'finalizing' ? 'progress-bar-finalizing' : preparingIndeterminate ? 'progress-bar-pending' : 'progress-bar-animated')
-        : undefined;
+        : (isLiveAnimatedStatus(visualState) ? 'progress-bar-animated' : undefined);
     const busyStatusText = getBusyStatusText(visualState, indeterminate);
     const terminalStatusText = getTerminalStatusText(visualState);
     const terminalFillStyle = getTerminalFillStyle(visualState);

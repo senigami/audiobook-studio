@@ -72,10 +72,10 @@ describe('HydrationCoordinator', () => {
     const now = 1713210000; // Seconds
     const snapshot = coordinator.createSnapshot([
       { 
-        id: 'job-cloud', 
-        status: 'done', 
-        engine: 'voxtral', 
-        chapter_id: 'chap1', 
+        id: 'job-cloud',
+        status: 'done',
+        engine: 'mixed',
+        chapter_id: 'chap1',
         completed_at: now - 5,
         chapter_audio_status: 'processing'
       } as any

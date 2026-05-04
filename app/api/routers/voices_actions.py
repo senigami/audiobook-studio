@@ -223,6 +223,7 @@ async def build_speaker_profile(
         speaker_profile=name,
         engine_id=engine,
         output_path=Path(resolved_pdir) / "sample.mp3",
+        voice_profile_dir=Path(resolved_pdir),
         test_text=spk_settings["test_text"],
         voice_job_settings=spk_settings,
         custom_title=voices_helpers._voice_job_title(name)
@@ -309,11 +310,16 @@ def test_speaker_profile(name: str, background_tasks: BackgroundTasks):
 
         # Submit to orchestrator
         orchestrator = create_orchestrator()
+        pdir = voices_helpers._existing_voice_profile_dir(name)
+        if not pdir:
+             return JSONResponse({"status": "error", "message": "Voice profile directory not found"}, status_code=404)
+
         task = SampleTestTask(
             task_id=jid,
             speaker_profile=name,
             engine_id=engine,
-            output_path=Path(voices_helpers._existing_voice_profile_dir(name)) / "sample.mp3",
+            output_path=pdir / "sample.mp3",
+            voice_profile_dir=pdir,
             test_text=settings["test_text"],
             voice_job_settings=settings,
             custom_title=voices_helpers._voice_job_title(name)
@@ -333,7 +339,7 @@ def test_speaker_profile(name: str, background_tasks: BackgroundTasks):
         return JSONResponse({
             "status": "ok",
             "job_id": jid,
-            "audio_url": preview_url or f"/out/voices/{url_path}/sample.wav"
+            "audio_url": preview_url or f"/out/voices/{url_path}/sample.mp3"
         })
     except Exception as e:
         from ...engines.errors import EngineUnavailableError

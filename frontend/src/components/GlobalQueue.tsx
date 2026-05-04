@@ -50,7 +50,24 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
     const formatTime = React.useCallback((ts: number | null | undefined) => {
         if (!ts) return "";
         const d = new Date(ts * 1000);
-        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        return d.toLocaleString([], {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+    }, []);
+
+    const formatRunDuration = React.useCallback((start: number | null | undefined, end: number | null | undefined) => {
+        if (!start || !end || end < start) return "";
+        const total = Math.max(0, Math.round(end - start));
+        const hours = Math.floor(total / 3600);
+        const minutes = Math.floor((total % 3600) / 60);
+        const seconds = total % 60;
+        if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
+        if (minutes > 0) return `${minutes}m ${seconds}s`;
+        return `${seconds}s`;
     }, []);
 
     const formatJobTitle = React.useCallback((job: ProcessingQueueItem) => {
@@ -221,7 +238,11 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
                                                             <span style={!job.project_name ? { color: 'var(--accent)', fontWeight: 700, fontSize: compact ? '0.65rem' : '0.75rem', textTransform: 'uppercase' } : undefined}>
                                                                 {formatQueueContext(job, engines)}
                                                             </span>
-                                                            {job.started_at && <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{formatTime(job.started_at)} {job.completed_at ? `→ ${formatTime(job.completed_at)}` : ''}</span>}
+                                                            {job.started_at && (
+                                                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                    <span>{formatTime(job.started_at)}: {job.completed_at ? formatRunDuration(job.started_at, job.completed_at) : ''}</span>
+                                                                </span>
+                                                            )}
                                                             <span style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: job.status === 'done' ? 'var(--success)' : 'var(--error)' }}>{job.status}</span>
                                                         </div>
                                                     </div>

@@ -86,7 +86,7 @@ export const createHydrationCoordinator = (): HydrationCoordinator => ({
       const merged: ProcessingQueueItem = {
         ...item,
         status: (delta.status as LegacyStatus) ?? item.status,
-        progress: delta.progress ?? item.progress,
+        progress: Math.max(delta.progress ?? 0, item.progress ?? 0),
         eta_seconds: delta.eta_seconds !== undefined ? (delta.eta_seconds ?? undefined) : item.eta_seconds,
         eta_basis: delta.eta_basis ?? item.eta_basis,
         estimated_end_at: delta.estimated_end_at !== undefined ? (delta.estimated_end_at ?? undefined) : item.estimated_end_at,
