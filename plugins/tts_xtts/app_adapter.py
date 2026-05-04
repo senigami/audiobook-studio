@@ -51,6 +51,7 @@ def xtts_generate(
     speaker_wav: str | None = None,
     speed: float = 1.0,
     voice_profile_dir: Path | None = None,
+    task_id: str | None = None,
 ) -> int:
     """Invoke the legacy XTTS generator lazily."""
 
@@ -68,6 +69,7 @@ def xtts_generate(
         speaker_wav=speaker_wav,
         speed=speed,
         voice_profile_dir=voice_profile_dir,
+        task_id=task_id,
     )
 
 
@@ -78,6 +80,7 @@ def xtts_generate_script(
     on_output,
     cancel_check,
     speed: float = 1.0,
+    task_id: str | None = None,
 ) -> int:
     """Invoke the legacy XTTS script generator lazily."""
 
@@ -89,6 +92,7 @@ def xtts_generate_script(
         on_output=on_output,
         cancel_check=cancel_check,
         speed=speed,
+        task_id=task_id,
     )
 
 
@@ -271,6 +275,7 @@ class XttsVoiceEngine(BaseVoiceEngine):
                         on_output=on_output,
                         cancel_check=cancel_check,
                         speed=speed,
+                        task_id=str(request.get("task_id") or "") or None,
                     )
                 finally:
                     if temp_script_path.exists():
@@ -286,6 +291,7 @@ class XttsVoiceEngine(BaseVoiceEngine):
                     speaker_wav=speaker_wav,
                     speed=speed,
                     voice_profile_dir=voice_profile_dir,
+                    task_id=str(request.get("task_id") or "") or None,
                 )
         except Exception as exc:
             raise EngineExecutionError(f"XTTS synthesis failed - {exc}") from exc

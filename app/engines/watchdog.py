@@ -20,6 +20,7 @@ All methods are thread-safe.
 """
 
 from __future__ import annotations
+from typing import Any, Callable, Optional
 
 import logging
 import subprocess
@@ -155,6 +156,7 @@ class TtsServerWatchdog:
         # Readiness signaling
         self._ready_event = threading.Event()
         self._ready_port: int | None = None
+        self._log_listeners: list[Callable[[str, Optional[str]], None]] = []
 
         # Background watchdog thread.
         self._thread: threading.Thread | None = None
@@ -179,7 +181,18 @@ class TtsServerWatchdog:
             name="tts-server-watchdog",
         )
         self._thread.start()
-        logger.info("Watchdog started (thread %s)", self._thread.name)
+
+    def register_log_listener(self, callback: Callable[[str, Optional[str]], None]) -> None:
+        """Attach a listener to receive real-time log lines from the server."""
+        with self._lock:
+            if callback not in self._log_listeners:
+                self._log_listeners.append(callback)
+
+    def unregister_log_listener(self, callback: Callable[[str, Optional[str]], None]) -> None:
+        """Remove a specific log listener."""
+        with self._lock:
+            if callback in self._log_listeners:
+                self._log_listeners.remove(callback)
 
     def stop(self) -> None:
         """Signal the watchdog to stop and terminate the TTS Server."""
@@ -493,20 +506,35 @@ class TtsServerWatchdog:
                         except (ValueError, IndexError):
                             logger.warning("Failed to parse READY port from line: %r", line)
 
-                with self._lock:
-                    # Add to log buffer for UI visibility (Settings > TTS Logs)
-                    self._log_buffer.append(f"[{name}] {line}")
 
-                    # Special parsing for progress markers from engines
-                    if "[PROGRESS]" in line:
-                        try:
-                            # Extract e.g. "65%" from "[PROGRESS] 65%"
-                            parts = line.split("[PROGRESS]")
-                            if len(parts) > 1:
-                                val_str = parts[1].strip().rstrip("%")
-                                # We've verified it's being drained and can be used for UI updates later.
-                        except Exception:
-                            pass
+                # Try to extract task_id from markers for correlation
+                task_id = None
+                if "[START_SYNTHESIS]" in line:
+                    parts = line.split("[START_SYNTHESIS]")
+                    if len(parts) > 1:
+                        task_id = parts[1].strip().split()[0] if parts[1].strip() else None
+                elif "[PROGRESS]" in line:
+                    parts = line.split("[PROGRESS]")
+                    if len(parts) > 1:
+                        sub_parts = parts[1].strip().split()
+                        if len(sub_parts) >= 2:
+                            if "%" in sub_parts[0]:
+                                task_id = sub_parts[1]
+                            else:
+                                task_id = sub_parts[0]
+                        elif len(sub_parts) == 1 and "%" not in sub_parts[0]:
+                            task_id = sub_parts[0]
+
+                with self._lock:
+                    self._log_buffer.append(f"[{name}] {line}")
+                    listeners = list(self._log_listeners)
+
+                for listener in listeners:
+                    try:
+                        listener(line, task_id)
+                    except Exception:
+                        pass
+
                 logger.debug("[tts-server-%s] %s", name, line)
         except Exception:
             if not self._stopping:

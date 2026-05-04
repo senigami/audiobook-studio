@@ -21,25 +21,23 @@ def test_job_timing_lifecycle():
     assert item['started_at'] is None
     assert item['completed_at'] is None
 
-    # 3. Mark as 'preparing' (should set started_at)
+    # 3. Mark as 'preparing' (should NOT set started_at in the new contract)
     update_queue_item(qid, 'preparing')
 
     queue = get_queue()
     item = next(q for q in queue if q['id'] == qid)
     assert item['status'] == 'preparing'
-    assert item['started_at'] is not None
+    assert item['started_at'] is None
     assert item['completed_at'] is None
 
-    first_started_at = item['started_at']
-    time.sleep(0.1)
-
-    # 4. Mark as 'running' (should NOT change started_at)
+    # 4. Mark as 'running' (should set started_at)
     update_queue_item(qid, 'running')
 
     queue = get_queue()
     item = next(q for q in queue if q['id'] == qid)
     assert item['status'] == 'running'
-    assert item['started_at'] == first_started_at
+    assert item['started_at'] is not None
+    first_started_at = item['started_at']
 
     # 5. Mark as 'done' (should set completed_at)
     update_queue_item(qid, 'done')

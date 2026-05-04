@@ -33,7 +33,7 @@ describe('PredictiveProgressBar - Timing', () => {
                 showEta={false}
             />
         )
-        expect(screen.getByText('Finalizing...')).toBeTruthy()
+        expect(screen.getByText('Fin')).toBeTruthy()
         vi.useRealTimers()
     })
 
@@ -111,7 +111,7 @@ describe('PredictiveProgressBar - Timing', () => {
             vi.advanceTimersByTime(10000) // 10 seconds
         })
         
-        expect(readPercent()).toBe(10)
+        expect(readPercent()).toBe(0)
         vi.useRealTimers()
     })
 

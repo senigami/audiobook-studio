@@ -109,6 +109,7 @@ def main():
     parser.add_argument("--speed", type=float, default=1.0, help="Speaking speed (1.0 = normal)")
     parser.add_argument("--script_json", help="Path to a JSON file containing segments: list of {'text', 'speaker_wav'}")
     parser.add_argument("--voice_profile_dir", help="Optional voice profile directory for portable latent caching")
+    parser.add_argument("--task_id", "--task-id", help="Optional task identifier for logging")
 
     args = parser.parse_args()
 
@@ -254,8 +255,9 @@ def main():
     unique_speakers = {}
     for s in script:
         profile_dir = s.get("voice_profile_dir") or args.voice_profile_dir
-        key = (profile_dir or "", s['speaker_wav'])
-        unique_speakers[key] = (s['speaker_wav'], profile_dir)
+        sw = s.get('speaker_wav') or ''
+        key = (profile_dir or "", sw)
+        unique_speakers[key] = (sw or None, profile_dir)
 
     speaker_latents = {}
     for key, (sw, profile_dir) in unique_speakers.items():
@@ -266,7 +268,7 @@ def main():
             speaker_latents[key] = None
 
     print(f"Synthesizing {len(script)} segments to {args.out_path}...", file=sys.stderr)
-    print("[START_SYNTHESIS]", file=sys.stderr, flush=True)
+    print(f"[START_SYNTHESIS] {args.task_id or ''}".strip(), file=sys.stderr, flush=True)
 
     try:
         from tqdm import tqdm
@@ -275,6 +277,10 @@ def main():
 
         def _synthesize_one(text_to_speak, latent_pair, fallback_sw):
             """Synthesize a single text string, returning the raw wav numpy array."""
+            # Debug: print(f"DEBUG: _synthesize_one text={text_to_speak[:20]}... latents={latent_pair is not None} sw={fallback_sw}", file=sys.stderr)
+            if not latent_pair and not fallback_sw:
+                raise ValueError(f"No voice reference available for synthesis (no latents and no speaker_wav). sw={repr(fallback_sw)}")
+
             if latent_pair:
                 gpt_cond, spk_emb = latent_pair
                 out_dict = xtts_model.inference(
@@ -304,10 +310,20 @@ def main():
                 elif 'save_path' in segment:
                     print(f"[START_SEGMENT] {segment['save_path']}", file=sys.stderr, flush=True)
 
-                text = segment['text']
-                sw = segment['speaker_wav']
+                text = segment.get('text', '')
+                sw = segment.get('speaker_wav')
                 profile_dir = segment.get("voice_profile_dir") or args.voice_profile_dir
-                latents = speaker_latents.get((profile_dir or "", sw))
+
+                # If sw is missing but we have a profile, try to find a fallback WAV in the profile
+                fallback_sw = sw
+                if not fallback_sw and profile_dir:
+                    _, combined_sw = _normalize_speaker_wav_paths(None, profile_dir)
+                    if combined_sw and "|" in combined_sw:
+                        fallback_sw = combined_sw.split("|")[0]
+                    elif combined_sw:
+                        fallback_sw = combined_sw
+
+                latents = speaker_latents.get((profile_dir or "", sw or ''))
 
                 # Pre-calculate total sentences for progress reporting
                 total_sentences = 0
@@ -345,7 +361,7 @@ def main():
                                 for sp_idx, sub_part in enumerate(sub_parts):
                                     sub_text = sub_part.strip()
                                     if sub_text and any(c.isalnum() for c in sub_text):
-                                        wav_chunk = _synthesize_one(sub_text, latents, sw)
+                                        wav_chunk = _synthesize_one(sub_text, latents, fallback_sw)
                                         chunk_tensor = torch.FloatTensor(wav_chunk)
                                         all_wav_chunks.append(chunk_tensor)
                                         segment_wav_chunks.append(chunk_tensor)
@@ -357,12 +373,12 @@ def main():
                                         pause_indices.add(len(all_wav_chunks) - 1)
                             else:
                                 # Combined chunk is safer for the model
-                                wav_chunk = _synthesize_one(sentence, latents, sw)
+                                wav_chunk = _synthesize_one(sentence, latents, fallback_sw)
                                 chunk_tensor = torch.FloatTensor(wav_chunk)
                                 all_wav_chunks.append(chunk_tensor)
                                 segment_wav_chunks.append(chunk_tensor)
                         else:
-                            wav_chunk = _synthesize_one(sentence, latents, sw)
+                            wav_chunk = _synthesize_one(sentence, latents, fallback_sw)
                             chunk_tensor = torch.FloatTensor(wav_chunk)
                             all_wav_chunks.append(chunk_tensor)
                             segment_wav_chunks.append(chunk_tensor)
@@ -370,7 +386,10 @@ def main():
                         sentences_done += 1
                         if total_sentences > 0:
                             perc = int((sentences_done / total_sentences) * 100)
-                            print(f"[PROGRESS] {perc}%", file=sys.stderr, flush=True)
+                            progress_line = f"[PROGRESS] {perc}%"
+                            if args.task_id:
+                                progress_line += f" {args.task_id}"
+                            print(progress_line, file=sys.stderr, flush=True)
 
                         # Add sentence or paragraph pause
 

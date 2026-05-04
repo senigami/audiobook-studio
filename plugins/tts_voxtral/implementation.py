@@ -217,6 +217,7 @@ def voxtral_generate(
     voice_id: Optional[str] = None,
     model: Optional[str] = None,
     reference_sample: Optional[str] = None,
+    task_id: Optional[str] = None,
 ) -> int:
     on_output = on_output or _noop_output
     cancel_check = cancel_check or _never_cancel
@@ -237,7 +238,11 @@ def voxtral_generate(
         raise VoxtralError("No Voxtral voice_id or reference sample is available for this voice profile.")
 
     out_wav.parent.mkdir(parents=True, exist_ok=True)
-    on_output("[START_SYNTHESIS]\n")
+
+    start_marker = "[START_SYNTHESIS]"
+    if task_id:
+        start_marker = f"[START_SYNTHESIS] {task_id}"
+    on_output(f"{start_marker}\n")
     on_output(f"Submitting Voxtral synthesis request using model '{model_name}'.\n")
     if clean_voice_id:
         on_output(f"Using saved Voxtral voice ID for {profile_name or 'voice'}.\n")

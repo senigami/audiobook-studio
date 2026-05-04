@@ -25,7 +25,7 @@ def test_xtts_plugin_routes_script_to_batch_generator(tmp_path, monkeypatch):
     output_path = tmp_path / "chapter.wav"
     seen: dict[str, object] = {}
 
-    def fake_generate_script(*, script_json_path: Path, out_wav: Path, on_output, cancel_check, speed: float) -> int:
+    def fake_generate_script(*, script_json_path: Path, out_wav: Path, on_output, cancel_check, speed: float, task_id: str | None = None) -> int:
         seen["script_json_path"] = script_json_path
         seen["speed"] = speed
         out_wav.write_text("wav")

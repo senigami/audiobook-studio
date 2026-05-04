@@ -236,5 +236,6 @@ class SynthesisTask(StudioTask):
             "custom_title": self.custom_title,
             "make_mp3": self.make_mp3,
             "safe_mode": self.safe_mode,
+            "task_id": self.task_id,
         }
 

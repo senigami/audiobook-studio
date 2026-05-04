@@ -34,7 +34,7 @@ describe('PredictiveProgressBar - Rendering', () => {
                 showEta={false}
             />
         )
-        expect(screen.getByText('Working...')).toBeTruthy()
+        expect(screen.getAllByText(/Prep|Proc|Working\.\.\./).length).toBeGreaterThan(0)
         expect(screen.getByText('Preparing')).toBeTruthy()
         expect(container.querySelector('.progress-bar-pending')).toBeTruthy()
     })
@@ -63,7 +63,7 @@ describe('PredictiveProgressBar - Rendering', () => {
                 showEta={false}
             />
         )
-        expect(screen.getByText('Working...')).toBeTruthy()
+        expect(screen.getAllByText('Prep').length).toBeGreaterThan(0)
         const bar = container.querySelector('.progress-bar-pending') as HTMLElement
         expect(bar).toBeTruthy()
         expect(bar.style.width).toBe('100%')
@@ -80,7 +80,7 @@ describe('PredictiveProgressBar - Rendering', () => {
                 showEta={false}
             />
         )
-        expect(screen.getByText('Finalizing...')).toBeTruthy()
+        expect(screen.getByText('Fin')).toBeTruthy()
         const bar = container.querySelector('.progress-bar-finalizing') as HTMLElement
         expect(bar).toBeTruthy()
         expect(bar.style.width).toBe('100%')

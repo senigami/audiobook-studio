@@ -27,6 +27,7 @@ def xtts_generate(
     speaker_wav: str | None = None,
     speed: float = 1.0,
     voice_profile_dir: Path | None = None,
+    task_id: str | None = None,
 ) -> int:
     """Invoke XTTS inference via subprocess."""
     from app.engines.proc_utils import run_cmd_stream
@@ -79,6 +80,8 @@ def xtts_generate(
         cmd.extend(["--speaker_wav", sw])
     if voice_profile_dir is not None:
         cmd.extend(["--voice_profile_dir", str(voice_profile_dir)])
+    if task_id:
+        cmd.extend(["--task_id", task_id])
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"
     on_output("Launching XTTS inference...\n")
@@ -93,6 +96,7 @@ def xtts_generate_script(
     cancel_check: Callable[[], bool],
     speed: float = 1.0,
     voice_profile_dir: Path | None = None,
+    task_id: str | None = None,
 ) -> int:
     """Invoke XTTS script-based inference via subprocess."""
     from app.engines.proc_utils import run_cmd_stream
@@ -126,6 +130,8 @@ def xtts_generate_script(
     ]
     if voice_profile_dir is not None:
         cmd.extend(["--voice_profile_dir", str(voice_profile_dir)])
+    if task_id:
+        cmd.extend(["--task_id", task_id])
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"
     on_output("Launching XTTS inference...\n")

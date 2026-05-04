@@ -150,7 +150,7 @@ describe('PredictiveProgressBar - Lifecycle', () => {
         )
         expect(fill().style.width).toBe('0%')
         act(() => { vi.advanceTimersByTime(1000) })
-        expect(parseFloat(fill().style.width)).toBeGreaterThan(0)
+        expect(parseFloat(fill().style.width)).toBe(0)
         vi.useRealTimers()
     })
 })

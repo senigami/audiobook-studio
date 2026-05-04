@@ -86,6 +86,7 @@ def voxtral_generate(
     voice_id: str | None = None,
     model: str | None = None,
     reference_sample: str | None = None,
+    task_id: str | None = None,
 ) -> int:
     """Invoke the legacy Voxtral generator lazily."""
 
@@ -100,6 +101,7 @@ def voxtral_generate(
         voice_id=voice_id,
         model=model,
         reference_sample=reference_sample,
+        task_id=task_id,
     )
 
 
@@ -239,6 +241,7 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
                 voice_id=voice_asset_id,
                 model=request.get("voxtral_model"),
                 reference_sample=reference_sample,
+                task_id=str(request.get("task_id") or "") or None,
             )
         except VoxtralError as exc:
             raise EngineExecutionError(f"Voxtral synthesis failed: {exc}") from exc
@@ -321,6 +324,7 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
                 voice_id=voice_asset_id,
                 model=request.get("voxtral_model"),
                 reference_sample=reference_sample,
+                task_id=str(request.get("task_id") or "") or None,
             )
         except VoxtralError as exc:
             raise EngineExecutionError(f"Voxtral preview failed: {exc}") from exc

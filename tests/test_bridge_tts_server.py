@@ -39,6 +39,24 @@ class TestBridgeTtsServerSynthesize:
         assert result["bridge"] == "tts-server-bridge"
         assert result["engine_id"] == "xtts"
         mock_client.synthesize.assert_called_once()
+        # Verify task_id propagation
+        args, kwargs = mock_client.synthesize.call_args
+        assert kwargs.get("task_id") is None
+
+    def test_synthesize_propagates_task_id(self):
+        mock_client = MagicMock()
+        mock_client.synthesize.return_value = {"ok": True, "output_path": "/tmp/out.wav"}
+        bridge = _make_bridge_with_client(mock_client)
+
+        bridge.synthesize({
+            "engine_id": "xtts",
+            "script_text": "Hello",
+            "output_path": "/tmp/out.wav",
+            "task_id": "task_123"
+        })
+
+        _, kwargs = mock_client.synthesize.call_args
+        assert kwargs.get("task_id") == "task_123"
 
     def test_synthesize_raises_on_tts_server_error(self):
         from app.engines.tts_client import TtsServerConnectionError
@@ -84,6 +102,24 @@ class TestBridgeTtsServerPreview:
         assert result["ephemeral"] is True
         assert result["bridge"] == "tts-server-preview-bridge"
         mock_client.preview.assert_called_once()
+        # Verify task_id propagation
+        _, kwargs = mock_client.preview.call_args
+        assert kwargs.get("task_id") is None
+
+    def test_preview_propagates_task_id(self):
+        mock_client = MagicMock()
+        mock_client.preview.return_value = {"ok": True, "output_path": "/tmp/preview.wav"}
+        bridge = _make_bridge_with_client(mock_client)
+
+        bridge.preview({
+            "engine_id": "xtts",
+            "script_text": "Hello",
+            "output_path": "/tmp/preview.wav",
+            "task_id": "preview_456"
+        })
+
+        _, kwargs = mock_client.preview.call_args
+        assert kwargs.get("task_id") == "preview_456"
 
     def test_preview_accepts_engine_id_and_payload_shape(self):
         mock_client = MagicMock()

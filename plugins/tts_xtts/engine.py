@@ -164,6 +164,7 @@ class XttsPlugin(StudioTTSEngine):
                         on_output=lambda _: None,
                         cancel_check=lambda: False,
                         speed=speed,
+                        task_id=req.task_id,
                     )
                 finally:
                     script_path.unlink(missing_ok=True)
@@ -177,6 +178,7 @@ class XttsPlugin(StudioTTSEngine):
                     speaker_wav=speaker_wav,
                     speed=speed,
                     voice_profile_dir=voice_profile_dir,
+                    task_id=req.task_id,
                 )
         except Exception as exc:
             return TTSResult(ok=False, error=f"XTTS synthesis raised: {exc}")
@@ -232,6 +234,7 @@ class XttsPlugin(StudioTTSEngine):
                 speaker_wav=speaker_wav,
                 speed=speed,
                 voice_profile_dir=voice_profile_dir,
+                task_id=req.task_id,
             )
         except Exception as exc:
             return TTSResult(ok=False, error=f"XTTS preview raised: {exc}")
@@ -292,6 +295,7 @@ class XttsPlugin(StudioTTSEngine):
         speaker_wav: str | None,
         speed: float,
         voice_profile_dir: Path | None,
+        task_id: str | None,
     ) -> int:
         """Delegate synthesis to the legacy XTTS generator."""
         from .implementation import xtts_generate as _gen  # noqa: PLC0415
@@ -305,6 +309,7 @@ class XttsPlugin(StudioTTSEngine):
             speaker_wav=speaker_wav,
             speed=speed,
             voice_profile_dir=voice_profile_dir,
+            task_id=task_id,
         )
 
     @staticmethod
@@ -315,6 +320,7 @@ class XttsPlugin(StudioTTSEngine):
         on_output,
         cancel_check,
         speed: float,
+        task_id: str | None,
     ) -> int:
         """Delegate script synthesis to the legacy XTTS batch generator."""
         from .implementation import xtts_generate_script as _gen_script  # noqa: PLC0415
@@ -325,6 +331,7 @@ class XttsPlugin(StudioTTSEngine):
             on_output=on_output,
             cancel_check=cancel_check,
             speed=speed,
+            task_id=task_id,
         )
 
     @staticmethod

@@ -10,7 +10,7 @@ The client uses ``httpx`` (already in requirements.txt) for transport.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Optional
 
 import httpx
 
@@ -126,6 +126,7 @@ class TtsClient:
         settings: dict[str, Any] | None = None,
         language: str = "en",
         script: list[dict[str, Any]] | None = None,
+        task_id: Optional[str] = None,
     ) -> dict[str, Any]:
         """POST /synthesize — run TTS synthesis.
 
@@ -137,6 +138,7 @@ class TtsClient:
             settings: Optional per-request settings overrides.
             language: BCP-47 language code.
             script: Optional list of segments for script-based synthesis.
+            task_id: Optional unique identifier for this task (for log correlation).
 
         Returns:
             dict[str, Any]: Synthesis result payload.
@@ -151,6 +153,7 @@ class TtsClient:
                 "settings": settings or {},
                 "language": language,
                 "script": script,
+                "task_id": task_id,
             },
             timeout=_READ_TIMEOUT,
         )
@@ -165,6 +168,7 @@ class TtsClient:
         settings: dict[str, Any] | None = None,
         language: str = "en",
         script: list[dict[str, Any]] | None = None,
+        task_id: Optional[str] = None,
     ) -> dict[str, Any]:
         """POST /engines/{engine_id}/plan — query preferred synthesis plan.
 
@@ -181,6 +185,7 @@ class TtsClient:
                 "settings": settings or {},
                 "language": language,
                 "script": script,
+                "task_id": task_id,
             },
         )
 
@@ -193,6 +198,7 @@ class TtsClient:
         voice_ref: str | None = None,
         settings: dict[str, Any] | None = None,
         language: str = "en",
+        task_id: Optional[str] = None,
     ) -> dict[str, Any]:
         """POST /preview — run lightweight preview synthesis."""
         return self._post(
@@ -204,6 +210,7 @@ class TtsClient:
                 "voice_ref": voice_ref,
                 "settings": settings or {},
                 "language": language,
+                "task_id": task_id,
             },
             timeout=_READ_TIMEOUT,
         )

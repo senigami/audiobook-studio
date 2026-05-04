@@ -14,7 +14,7 @@ import os
 import threading
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
@@ -101,7 +101,8 @@ class SynthesizeRequest(BaseModel):
     voice_ref: str | None = None
     settings: dict[str, Any] = {}
     language: str = "en"
-    script: list[dict[str, Any]] | None = None
+    script: Optional[list[dict[str, Any]]] = None
+    task_id: Optional[str] = None
 
 
 class PreviewRequest(BaseModel):
@@ -111,6 +112,7 @@ class PreviewRequest(BaseModel):
     voice_ref: str | None = None
     settings: dict[str, Any] = {}
     language: str = "en"
+    task_id: Optional[str] = None
 
 
 class SettingsUpdateRequest(BaseModel):
@@ -347,6 +349,7 @@ def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
         settings=request_dict.get("settings", merged_settings),  # type: ignore[arg-type]
         language=str(request_dict.get("language", body.language)),
         script=request_dict.get("script") or body.script,  # type: ignore[arg-type]
+        task_id=body.task_id,
     )
 
     ok, msg = plugin.engine.check_request(req)

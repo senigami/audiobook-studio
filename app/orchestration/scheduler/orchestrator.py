@@ -173,13 +173,6 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
 
         # Step 5 — running
         self._active[task_id] = task
-        self._publish(
-            context=context,
-            status="running",
-            started_at=time.time(),
-            message="Synthesis in progress.",
-            reason_code="dispatching",
-        )
 
         # Step 6 — dispatch
         max_attempts = 3

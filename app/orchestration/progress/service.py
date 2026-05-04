@@ -55,7 +55,7 @@ class ProgressService:
         self.monotonic_clock = monotonic_clock or time.monotonic
         self.wall_clock = wall_clock or time.time
         self.min_progress_delta = max(0.0, float(min_progress_delta))
-        self.max_silence_seconds = max(1.0, float(max_silence_seconds))
+        self.max_silence_seconds = 60.0
         self._last_payload_by_job: dict[str, dict[str, object]] = {}
         self._last_emit_tick_by_job: dict[str, float] = {}
         self._last_progress_by_job: dict[str, float] = {}

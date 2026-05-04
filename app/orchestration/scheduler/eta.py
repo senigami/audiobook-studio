@@ -45,14 +45,14 @@ def get_robust_eta_params(history: list[dict], fallback_cps: float) -> tuple[flo
     ])
     avg_sps = _trimmed_mean(sps_values, 3.0)
 
-    return avg_cps, avg_sps, 4.0
+    return avg_cps, avg_sps, 0.1
 
 def _estimate_seconds(text_chars: int, cps: float, group_count: int = 1, robust_params: tuple[float, float, float] | None = None) -> int:
     """Conservative estimation of synthesis time including startup and segment overhead."""
     if robust_params:
         eff_cps, eff_sps, eff_start = robust_params
     else:
-        eff_cps, eff_sps, eff_start = cps, 3.0, 4.0
+        eff_cps, eff_sps, eff_start = cps, 3.0, 0.1
 
     base_run_time = text_chars / max(1.0, eff_cps)
 
@@ -87,7 +87,7 @@ def calculate_predicted_progress(job, now: float, start_time: float, eta: int, l
     # If synthesis hasn't started yet, cap progress (Preparing phase)
     # UNLESS we are already resuming from a point past the cap.
     if not getattr(job, 'synthesis_started_at', None) and getattr(job, 'engine', None) != "audiobook":
-        # If it's still preparing, don't animate past the current progress floor
+        # If it's still preparing, don't animate past the current progress floor (0.0)
         if getattr(job, 'status', None) == 'preparing':
              return current_p
         return max(current_p, min(prepare_limit, predicted))

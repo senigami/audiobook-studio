@@ -101,7 +101,7 @@ class StudioTask:
                 while not stop_event.wait(interval):
                     if not advance_progress:
                          # Send the same progress repeatedly to indicate activity without artificial movement
-                         self.report_progress(start, message, "heartbeat_capped")
+                         self.report_progress(start, message, reason_code)
                          continue
 
                     elapsed = time.monotonic() - start_time
@@ -119,6 +119,8 @@ class StudioTask:
 
             thread = threading.Thread(target=_run, name=f"heartbeat-{id(self)}", daemon=True)
             thread.start()
+
+
             try:
                 yield
             finally:

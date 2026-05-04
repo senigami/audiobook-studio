@@ -157,7 +157,7 @@ describe('GlobalQueue', () => {
         ];
         // Legacy job says finalizing (Priority 4) but authoritative queue says running (Priority 3)
         const legacyJobs = {
-            'job-1': { id: 'job-1', status: 'finalizing', progress: 1.0 } as any
+            'job-1': { id: 'job-1', status: 'finalizing', progress: 0.5 } as any
         };
 
         render(<GlobalQueue queue={mergedQueue} jobs={legacyJobs} />)

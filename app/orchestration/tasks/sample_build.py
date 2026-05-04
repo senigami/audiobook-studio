@@ -1,6 +1,6 @@
 import time
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional, Union
 
 from .base import StudioTask, TaskContext, TaskResult
 from ..scheduler.resources import ResourceClaim
@@ -17,10 +17,10 @@ class SampleBuildTask(StudioTask):
         engine_id: str,
         output_path: Path,
         test_text: str,
-        voice_job_settings: Dict[str, Any] | None = None,
-        custom_title: str | None = None,
-        voice_profile_dir: Path | str | None = None,
-        resource_claim: ResourceClaim | None = None,
+        voice_job_settings: Optional[Dict[str, Any]] = None,
+        custom_title: Optional[str] = None,
+        voice_profile_dir: Optional[Union[Path, str]] = None,
+        resource_claim: Optional[ResourceClaim] = None,
     ) -> None:
         self.task_id = task_id
         self.speaker_profile = speaker_profile
@@ -100,6 +100,7 @@ class SampleBuildTask(StudioTask):
             "script_text": self.test_text,
             "output_path": str(temp_wav),
             "output_format": "wav",
+            "task_id": self.task_id,
         }
         request.update(self.voice_job_settings)
 
@@ -110,12 +111,7 @@ class SampleBuildTask(StudioTask):
             # Use historical metrics to inform heartbeat duration
             expected_duration = self.get_expected_duration(self.test_text, self.engine_id)
 
-            self.report_progress(0.0, message="Preparing synthesis request...")
-
-            # Note: We use a non-advancing heartbeat (0.0 -> 0.0) so the UI stays at 0%
-            # while synthesis is blocking, but keeps 'active' pulses arriving.
-            with self.progress_heartbeat(0.0, 0.0, advance_progress=False, expected_duration=expected_duration, message="Synthesizing voice sample..."):
-                res = bridge.synthesize(request)
+            res = bridge.synthesize(request)
 
             if res.get("status") != "ok":
                 return TaskResult(status="failed", message=res.get("message", "Synthesis failed"))
@@ -139,11 +135,9 @@ class SampleBuildTask(StudioTask):
             if not self.output_path.exists():
                 return TaskResult(status="failed", message="MP3 conversion failed")
 
-        self.report_progress(0.92, message="Finalizing sample...")
-
         # 3. Update Speaker Settings
         try:
-            self.report_progress(0.92, message="Updating speaker metadata...")
+            self.report_progress(0.95, message="Finalizing metadata...")
             built_samples = []
             vdir_path = Path(vdir) if vdir else None
             if vdir_path and vdir_path.exists():

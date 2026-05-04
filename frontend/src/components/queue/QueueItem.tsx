@@ -128,39 +128,6 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     // Fallback for updatedAt if missing
     const derivedUpdatedAt = typeof updatedAt === 'number' ? updatedAt : rawUpdatedAt;
 
-    // Development diagnostics (enabled via localStorage.debugQueueProgress === 'true')
-    const debugEnabled = typeof window !== 'undefined' && window.localStorage?.getItem('debugQueueProgress') === 'true';
-    const hasLoggedRef = React.useRef(false);
-    React.useEffect(() => {
-        if (!debugEnabled) return;
-        if (hasLoggedRef.current) return;
-        if (['running', 'processing', 'finalizing'].includes(displayStatus)) {
-            const missing: string[] = [];
-            if (typeof started !== 'number') missing.push('startedAt');
-            if (typeof derivedEtaSeconds !== 'number') missing.push('etaSeconds');
-            if (typeof derivedEstimatedEndAt !== 'number') missing.push('estimatedEndAt');
-            if (typeof derivedUpdatedAt !== 'number') missing.push('updatedAt');
-            const diagnostic = {
-                jobId: job.id,
-                engine: job.engine,
-                status: displayStatus,
-                progress,
-                startedAt: started,
-                etaSeconds: derivedEtaSeconds,
-                estimatedEndAt: derivedEstimatedEndAt,
-                updatedAt: derivedUpdatedAt,
-                persistenceKey: job.id,
-                predictive: true,
-                checkpointMode: isGroupedChapterJob ? 'queue' : (job.segment_ids?.length || liveJob?.segment_ids?.length || liveJob?.active_segment_id ? 'segment' : 'default'),
-                allowBackwardProgress: !(job.engine && job.engine.startsWith('voice_')),
-                sourceFields: { rawStarted, rawEtaSeconds, rawUpdatedAt, rawEstimatedEndAt: estimatedEndAt, rawEtaBasis: etaBasis }
-            };
-            console.log('QueueItem predictive diagnostics:', diagnostic);
-            if (missing.length) console.warn('PredictiveProgressBar missing required fields for job', job.id, ':', missing.join(', '));
-            hasLoggedRef.current = true;
-        }
-    }, [displayStatus, debugEnabled, job.id, job.engine, progress, started, derivedEtaSeconds, derivedEstimatedEndAt, derivedUpdatedAt, isGroupedChapterJob]);
-
     return (
         <div style={{
             background: 'var(--surface)',

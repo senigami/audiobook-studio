@@ -321,6 +321,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         presentationState,
         preparingIndeterminate,
         displayProgress,
+        rawProgress: progress,
     });
 
     const activeTargetLane = migration?.toLane ?? currentLane;
@@ -329,6 +330,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         : Math.max(0, Math.ceil((activeTargetLane.endAtMs - now) / 1000));
 
     const autoFinalizing = isLiveAnimatedStatus(presentationState)
+        && progress > 0
         && (localProgress >= 0.995 || (displayedRemaining !== null && displayedRemaining <= 0))
         && !isDoneStatus(presentationState)
         && !isFailedStatus(presentationState)
@@ -408,10 +410,10 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                     className={visualState === 'finalizing' ? 'progress-bar-finalizing' : indeterminateClassName}
                     style={{
                         height: '100%',
-                        width: indeterminate ? '100%' : visualState === 'finalizing' ? '100%' : terminalStatusText ? (isDoneStatus(visualState) || isFailedStatus(visualState) ? '100%' : '0%') : `${localProgress * 100}%`,
-                        background: visualState === 'finalizing' ? 'rgba(191, 219, 254, 0.34)' : terminalFillStyle?.background ?? 'var(--accent)',
+                        width: indeterminate ? (visualState === 'preparing' || visualState === 'finalizing' ? '100%' : (visualState === 'running' && progress <= 0 ? '0%' : '35%')) : visualState === 'finalizing' ? '100%' : terminalStatusText ? (isDoneStatus(visualState) || isFailedStatus(visualState) ? '100%' : '0%') : `${localProgress * 100}%`,
+                        background: (visualState === 'running' && progress <= 0) ? 'rgba(37, 99, 235, 0.15)' : (visualState === 'finalizing' ? 'rgba(191, 219, 254, 0.34)' : terminalFillStyle?.background ?? 'var(--accent)'),
                         opacity: terminalStatusText && (isQueuedStatus(visualState) || isCancelledStatus(visualState)) ? 0.55 : 1,
-                        boxShadow: terminalFillStyle?.boxShadow ?? (visualState === 'finalizing' ? '0 0 15px rgba(59, 130, 246, 0.45)' : '0 0 15px var(--accent)'),
+                        boxShadow: (visualState === 'running' && progress <= 0) ? 'none' : (terminalFillStyle?.boxShadow ?? (visualState === 'finalizing' ? '0 0 15px rgba(59, 130, 246, 0.45)' : '0 0 15px var(--accent)')),
                         transition: (shouldAnimateWidth && !isTerminalStatus(visualState)) ? 'width 0.25s linear' : 'none'
                     }}
                 />
@@ -446,7 +448,12 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                             </div>
                         ) : (
                             <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--accent)' }}>
-                                {terminalStatusText ?? busyStatusText ?? (showPercent ? `${Math.round(localProgress * 100)}%` : '')}
+                                {terminalStatusText ?? (busyStatusText || (!showLabel ? label : null) ? (
+                                    <>
+                                        <span>{busyStatusText || (!showLabel ? label : null)}</span>
+                                        {showPercent && <span style={{ marginLeft: '4.5px' }}>{Math.round(localProgress * 100)}%</span>}
+                                    </>
+                                ) : (showPercent ? `${Math.round(localProgress * 100)}%` : ''))}
                             </span>
                         )}
                     </div>
@@ -458,10 +465,10 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                     className={visualState === 'finalizing' ? 'progress-bar-finalizing' : indeterminateClassName}
                     style={{
                         height: '100%',
-                        width: indeterminate ? (visualState === 'preparing' || visualState === 'finalizing' ? '100%' : '35%') : visualState === 'finalizing' ? '100%' : terminalStatusText ? (isDoneStatus(visualState) || isFailedStatus(visualState) ? '100%' : '0%') : `${localProgress * 100}%`,
-                        background: visualState === 'finalizing' ? 'rgba(191, 219, 254, 0.34)' : (indeterminate && preparingIndeterminate ? 'rgba(248, 250, 252, 0.96)' : terminalFillStyle?.background ?? 'var(--accent)'),
+                        width: indeterminate ? (visualState === 'preparing' || visualState === 'finalizing' ? '100%' : (visualState === 'running' && progress <= 0 ? '0%' : '35%')) : visualState === 'finalizing' ? '100%' : terminalStatusText ? (isDoneStatus(visualState) || isFailedStatus(visualState) ? '100%' : '0%') : `${localProgress * 100}%`,
+                        background: (visualState === 'running' && progress <= 0) ? 'rgba(37, 99, 235, 0.15)' : (indeterminate && preparingIndeterminate ? 'rgba(248, 250, 252, 0.96)' : terminalFillStyle?.background ?? 'var(--accent)'),
                         opacity: terminalStatusText && (isQueuedStatus(visualState) || isCancelledStatus(visualState)) ? 0.55 : 1,
-                        boxShadow: visualState === 'finalizing' ? '0 0 15px rgba(59, 130, 246, 0.45)' : (indeterminate && preparingIndeterminate ? '0 0 10px rgba(226,232,240,0.45)' : terminalFillStyle?.boxShadow ?? '0 0 15px var(--accent)'),
+                        boxShadow: (visualState === 'running' && progress <= 0) ? 'none' : (visualState === 'finalizing' ? '0 0 15px rgba(59, 130, 246, 0.45)' : (indeterminate && preparingIndeterminate ? '0 0 10px rgba(226,232,240,0.45)' : terminalFillStyle?.boxShadow ?? '0 0 15px var(--accent)')),
                         transition: (shouldAnimateWidth && !isTerminalStatus(visualState)) ? 'width 0.25s linear' : 'none'
                     }}
                 />

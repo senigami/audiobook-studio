@@ -8,7 +8,7 @@ they must not import anything from the rest of ``app``.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 
 @dataclass(frozen=True)
@@ -37,7 +37,8 @@ class TTSRequest:
     voice_ref: str | None = None
     settings: dict[str, Any] = field(default_factory=dict)
     language: str = "en"
-    script: list[dict[str, Any]] | None = None
+    script: Optional[list[dict[str, Any]]] = None
+    task_id: Optional[str] = None
 
 
 @dataclass

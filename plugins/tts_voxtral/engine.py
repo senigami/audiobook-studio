@@ -167,6 +167,7 @@ class VoxtralPlugin(StudioTTSEngine):
                 voice_id=voice_asset_id,
                 model=model,
                 reference_sample=reference_sample,
+                task_id=req.task_id,
             )
         except Exception as exc:
             return TTSResult(ok=False, error=f"Voxtral synthesis raised: {exc}")
@@ -229,6 +230,7 @@ class VoxtralPlugin(StudioTTSEngine):
                 voice_id=voice_asset_id,
                 model=model,
                 reference_sample=reference_sample,
+                task_id=req.task_id,
             )
         except Exception as exc:
             return TTSResult(ok=False, error=f"Voxtral preview raised: {exc}")
@@ -293,6 +295,7 @@ class VoxtralPlugin(StudioTTSEngine):
         voice_id: str | None,
         model: str | None,
         reference_sample: str | None,
+        task_id: str | None = None,
     ) -> int:
         from .implementation import voxtral_generate as _gen  # noqa: PLC0415
 
@@ -303,6 +306,7 @@ class VoxtralPlugin(StudioTTSEngine):
             voice_id=voice_id,
             model=model,
             reference_sample=reference_sample,
+            task_id=task_id,
         )
 
     @staticmethod

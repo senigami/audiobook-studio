@@ -165,6 +165,8 @@ class ApiSynthesisTask(StudioTask):
             "reference_audio_path": self.voice_ref,
             "language": self.language,
             "source": self.source,
+            "caller_id": self.caller_id,
+            "task_id": self.task_id,
             **self.request_settings,
         }
 
@@ -187,4 +189,11 @@ class ApiSynthesisTask(StudioTask):
             voice_ref=payload.get("reference_audio_path") or None,  # type: ignore[arg-type]
             language=str(payload.get("language", "en")),
             caller_id=payload.get("caller_id") or None,  # type: ignore[arg-type]
+            request_settings={
+                k: v for k, v in payload.items()
+                if k not in {
+                    "engine_id", "script_text", "output_path", "reference_audio_path",
+                    "language", "source", "caller_id"
+                }
+            }
         )

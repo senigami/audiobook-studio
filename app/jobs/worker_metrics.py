@@ -32,8 +32,13 @@ def record_engine_sample(job, start: float, chars: int, perf: dict, source_segme
     # We now allow all engines to record samples if they have a non-zero character count.
     # Mixed chapters are also recorded under the 'mixed' engine ID.
 
-    eff_start = _job_field(persisted, "synthesis_started_at", _job_field(job, "synthesis_started_at"))
-    eff_start = eff_start or start
+    # In Studio 2.0, started_at represents the actual render start.
+    # In legacy jobs, synthesis_started_at was used.
+    eff_start = _job_field(persisted, "started_at")
+    if not eff_start or _job_field(persisted, "status") == "preparing":
+        # Fallback to legacy or provide a baseline
+        eff_start = _job_field(persisted, "synthesis_started_at") or start
+
     finished_at = _job_field(persisted, "finished_at", _job_field(job, "finished_at")) or time.time()
     dur = finished_at - eff_start
     if dur <= 1.0: # Filter out cached/instant runs to avoid poisoning metrics

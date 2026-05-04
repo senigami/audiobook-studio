@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 from app.orchestration.tasks.base import TaskResult
 
@@ -66,20 +66,26 @@ class OrchestratorHelpersMixin:
     def _dispatch(self, *, task: StudioTask, context: TaskContext) -> TaskResult:
         """Dispatch the task to execution through the orchestrator-owned bridge."""
         # Attach a progress reporter that redirects task-internal updates to our publisher.
-        def task_progress_reporter(progress: float, message: str | None, reason_code: str | None):
+        # Attach a progress reporter that redirects task-internal updates to our publisher.
+        def task_progress_reporter(progress: float, message: str | None, reason_code: str | None, status: str = "running"):
+            # Ensure started_at is set if we transition to running without markers
+            if status == "running" and timing["render_started_at"] is None:
+                timing["render_started_at"] = time.time()
+
             self._publish(
                 context=context,
-                status="running",
+                status=status,
                 progress=progress,
                 message=message,
                 reason_code=reason_code,
+                started_at=timing["render_started_at"],
             )
 
         task.set_progress_reporter(task_progress_reporter)
 
-        # Emit initial 'running' event with historical ETA BEFORE the blocking call starts.
-        # This satisfies the requirement to have ETA from the start.
-        started_at = time.time()
+        # We track render_started_at separately from preparation.
+        # It should represent actual render/execution start.
+        timing = {"render_started_at": None}
         expected_duration = 0.0
         try:
              # Try to get duration from task if available
@@ -91,38 +97,103 @@ class OrchestratorHelpersMixin:
 
         self._publish(
             context=context,
-            status="running",
+            status="preparing",
             progress=0.0,
-            started_at=started_at,
+            started_at=None,
             eta_seconds=int(expected_duration),
-            message="Starting execution...",
+            message="Preparing synthesis resources...",
             force=True
         )
 
         # If the task exposes a bridge request, route through the injected bridge.
         bridge_request_fn = getattr(task, "to_bridge_request", None)
-        if callable(bridge_request_fn):
-            try:
-                request = bridge_request_fn()
-                # self.voice_bridge must be available on the target class
-                result = self.voice_bridge.synthesize(request)
-                ok = result.get("status", "ok") == "ok"
-                return TaskResult(
-                    status="completed" if ok else "failed",
-                    message=result.get("message"),
-                )
-            except Exception as exc:
-                logger.exception("Task %s: bridge dispatch raised.", context.task_id)
-                from app.engines.bridge_remote import EngineUnavailableError
-                is_retriable = isinstance(exc, EngineUnavailableError)
-                return TaskResult(status="failed", message=str(exc), retriable=is_retriable)
+        from app.engines.watchdog import get_watchdog
+        wd = get_watchdog()
 
-        # Fallback: let the task manage its own execution.
+        def log_listener(line: str, line_task_id: Optional[str] = None):
+            # If a task_id is present in the line, it MUST match ours.
+            # If no task_id is present, we accept it as ours because GpuAdmissionGate
+            # ensures only one synthesis runs at a time.
+            if line_task_id and line_task_id != context.task_id:
+                return
+
+            if "[START_SYNTHESIS]" in line:
+                if timing["render_started_at"] is None:
+                    timing["render_started_at"] = time.time()
+                self._publish(
+                    context=context,
+                    status="running",
+                    progress=0.0,
+                    started_at=timing["render_started_at"],
+                    message="Synthesis in progress...",
+                    force=True
+                )
+            elif "[PROGRESS]" in line:
+                if timing["render_started_at"] is None:
+                    timing["render_started_at"] = time.time()
+                try:
+                    parts = line.split("[PROGRESS]")[1].strip().split()
+                    val_str = None
+                    for part in parts:
+                        if "%" in part:
+                            val_str = part.rstrip("%")
+                            break
+
+                    if not val_str:
+                        return
+
+                    p = float(val_str) / 100.0
+
+                    # Scale progress for tasks that have post-synthesis phases
+                    if context.task_type in {"sample_build", "sample_test"}:
+                        p = p * 0.70
+
+                    self._publish(
+                        context=context,
+                        status="running",
+                        progress=p,
+                        started_at=timing["render_started_at"],
+                        message="Synthesizing...",
+                    )
+                except Exception:
+                    pass
+
+        if wd:
+            wd.register_log_listener(log_listener)
+
         try:
-            return task.run()
+            if callable(bridge_request_fn):
+                try:
+                    request = bridge_request_fn()
+                    # self.voice_bridge must be available on the target class
+                    result = self.voice_bridge.synthesize(request)
+                    ok = result.get("status", "ok") == "ok"
+                    return TaskResult(
+                        status="completed" if ok else "failed",
+                        message=result.get("message"),
+                    )
+                except Exception as exc:
+                    logger.exception("Task %s: bridge dispatch raised.", context.task_id)
+                    from app.engines.bridge_remote import EngineUnavailableError
+                    is_retriable = isinstance(exc, EngineUnavailableError)
+                    return TaskResult(status="failed", message=str(exc), retriable=is_retriable)
+            else:
+                # Non-bridge tasks (e.g. Assembly, Export) set started_at here.
+                if timing["render_started_at"] is None:
+                    timing["render_started_at"] = time.time()
+                self._publish(
+                    context=context,
+                    status="running",
+                    progress=0.0,
+                    started_at=timing["render_started_at"],
+                )
+                return task.run()
         except Exception as exc:
             logger.exception("Task %s: dispatch raised an exception.", context.task_id)
             return TaskResult(status="failed", message=str(exc))
+        finally:
+            if wd:
+                wd.unregister_log_listener(log_listener)
 
     def _publish(
         self,
@@ -155,6 +226,10 @@ class OrchestratorHelpersMixin:
                 state_progress = progress_map.get(state_status, 0.0)
             else:
                 state_progress = 0.0
+        # Safety: Do not emit eta_seconds=0 for active jobs; it's better to show no ETA than a false zero.
+        if eta_seconds == 0 and state_status not in {"done", "failed", "cancelled"}:
+            eta_seconds = None
+
         finished_at = time.time() if state_status in {"done", "failed", "cancelled"} else None
         updated_at = time.time()
         try:
@@ -200,6 +275,7 @@ class OrchestratorHelpersMixin:
                     progress=state_progress or 0.0,
                     finished_at=finished_at,
                     error=message if state_status == "failed" else None,
+                    eta_seconds=eta_seconds,
                 )
                 put_job(job)
             else:
@@ -210,6 +286,8 @@ class OrchestratorHelpersMixin:
                     "reason_code": reason_code,
                     "updated_at": updated_at,
                 }
+                if eta_seconds is not None:
+                    updates["eta_seconds"] = eta_seconds
                 if started_at is not None:
                     updates["started_at"] = started_at
                 if finished_at is not None:
@@ -219,6 +297,7 @@ class OrchestratorHelpersMixin:
                 elif state_status == "done":
                     updates["error"] = None
                 update_job(context.task_id, force_broadcast=force, **updates)
+
 
 
         except Exception:

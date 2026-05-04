@@ -139,9 +139,12 @@ def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 
             updates = ["status = ?"]
             params = [status]
 
-            if status in ('running', 'preparing'):
+            if status == 'running':
                 updates.append("started_at = COALESCE(started_at, ?)")
                 params.append(now)
+            elif status == 'preparing':
+                # We NO LONGER set started_at during preparing to avoid corrupting render duration
+                pass
             elif status in ('done', 'failed', 'cancelled'):
                 updates.append("completed_at = ?")
                 params.append(now)
