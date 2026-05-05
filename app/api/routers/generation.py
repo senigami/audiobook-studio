@@ -1,3 +1,4 @@
+from __future__ import annotations
 import time
 import uuid
 import logging
@@ -24,7 +25,6 @@ from ...engines.behavior import (
     supports_standard_rendering,
 )
 from ...config import (
-    find_existing_project_dir, find_existing_project_subdir,
     get_chapter_dir, resolve_chapter_asset_path
 )
 from ..ws import broadcast_chapter_updated, broadcast_queue_update
@@ -161,7 +161,7 @@ def api_add_to_queue(
             has_bakeable_segments = any(
                 s.get("audio_status") == "done"
                 and s.get("audio_file_path")
-                and (s["audio_file_path"] in nested_audio_files or (s["audio_file_path"].startswith("chunk_") and s["audio_file_path"] in nested_audio_files))
+                and s["audio_file_path"] in nested_audio_files
                 for s in segs
             )
 

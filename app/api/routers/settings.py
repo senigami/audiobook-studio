@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Optional, List
 from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
-from ...config import PROJECTS_DIR, find_existing_project_subdir
+from ...config import PROJECTS_DIR, get_project_m4b_dir
 from ...state import get_jobs, put_job, update_job
 
 from ...models import Job
@@ -26,7 +26,7 @@ def delete_audiobook(filename: str, project_id: Optional[str] = Query(None)):
         try:
             if not SAFE_AUDIOBOOK_NAME_RE.fullmatch(filename):
                 raise ValueError(f"Invalid filename: {filename}")
-            project_m4b_dir = find_existing_project_subdir(project_id, "m4b")
+            project_m4b_dir = get_project_m4b_dir(project_id)
             if project_m4b_dir and project_m4b_dir.exists():
                 path = next(
                     (entry.resolve() for entry in project_m4b_dir.iterdir() if entry.is_file() and entry.name == filename),

@@ -23,8 +23,8 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
     segs = get_chapter_segments(j.chapter_id)
 
     def _group_needs_render(group: dict, pdir: Path) -> bool:
-        expected_name = f"chunk_{group['segments'][0]['id']}.wav"
-        expected_path = pdir / expected_name
+        expected_name = f"{group['segments'][0]['id']}.wav"
+        expected_path = pdir / "segments" / expected_name
         if not expected_path.exists():
             return True
         for segment in group["segments"]:
@@ -52,15 +52,8 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
                 combined_text = sanitize_text(combined_text)
                 combined_text = safe_split_long_sentences(combined_text, target=SENT_CHAR_LIMIT)
             sid = group["segments"][0]['id']
-            # Note: storage_version logic is handled by the caller or passed in if needed.
-            # Assuming storage_version 1 for legacy compatibility in this extraction, 
-            # but usually it's passed. Let's assume it's available on j or passed.
-            storage_version = getattr(j, "storage_version", 1)
-            if storage_version >= 2:
-                seg_out = pdir / "segments" / f"{sid}.wav"
-                seg_out.parent.mkdir(parents=True, exist_ok=True)
-            else:
-                seg_out = pdir / f"chunk_{sid}.wav"
+            seg_out = pdir / "segments" / f"{sid}.wav"
+            seg_out.parent.mkdir(parents=True, exist_ok=True)
             save_path_str = str(seg_out.absolute())
             script_entry = {"text": combined_text, "speaker_wav": sw, "save_path": save_path_str, "id": sid}
             if voice_profile_dir:
@@ -167,7 +160,8 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
     last_path = None
     for s in fresh_segs:
         if s['audio_status'] == 'done' and s['audio_file_path']:
-            spath = pdir / s['audio_file_path']
+            # In V2, file_path is just the filename (e.g. {id}.wav), stored in segments/
+            spath = pdir / "segments" / s['audio_file_path']
             if spath.exists() and spath != last_path:
                 segment_paths.append(spath)
                 last_path = spath

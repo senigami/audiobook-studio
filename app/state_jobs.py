@@ -209,19 +209,11 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
                     if not output_file:
                         output_file = updates.get("output_wav", j.get("output_wav"))
 
-                    if output_file:
-                        if project_id:
-                            from .config import get_project_audio_dir
-                            pdir = get_project_audio_dir(project_id)
-                        else:
-                            pdir = None
+                    if output_file and project_id and j.get("chapter_id"):
+                        from .config import resolve_chapter_asset_path
+                        asset_type = "segment" if j.get("segment_ids") else "audio"
+                        full_audio_path = resolve_chapter_asset_path(project_id, j.get("chapter_id"), asset_type, filename=output_file)
 
-                        full_audio_path = None
-                        if pdir and isinstance(output_file, str) and SAFE_OUTPUT_FILE_RE.fullmatch(output_file):
-                            for entry in pdir.iterdir():
-                                if entry.is_file() and entry.name == output_file:
-                                    full_audio_path = entry.resolve()
-                                    break
                         if full_audio_path and full_audio_path.exists():
                             try:
                                 audio_length = probe_audio_duration(full_audio_path)
@@ -346,6 +338,5 @@ def requeue(job_id: str) -> None:
         finished_at=None,
         error=None,
         warning_count=0,
-        synthesis_started_at=None,
         force_broadcast=True
     )

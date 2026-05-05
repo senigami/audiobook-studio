@@ -4,7 +4,6 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 from app.web import app
 from app.db import create_project, create_chapter, get_chapter
-from app.config import get_project_audio_dir
 
 client = TestClient(app)
 
@@ -21,10 +20,11 @@ def test_audio_synchronization_discovers_existing_files():
     chap = get_chapter(cid)
     assert chap['audio_status'] == 'unprocessed'
 
-    # 2. Manually place a mock audio file on disk
-    audio_dir = get_project_audio_dir(pid)
-    audio_dir.mkdir(parents=True, exist_ok=True)
-    mock_file = audio_dir / f"{cid}.wav"
+    # 2. Manually place a mock audio file on disk in V2 nested location
+    from app.config import get_chapter_dir
+    chap_dir = get_chapter_dir(pid, cid)
+    chap_dir.mkdir(parents=True, exist_ok=True)
+    mock_file = chap_dir / "chapter.wav"
     mock_file.write_text("fake audio") # Not a real wav but enough for discovery
 
     try:

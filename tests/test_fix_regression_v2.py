@@ -3,7 +3,6 @@ import time
 from fastapi.testclient import TestClient
 from pathlib import Path
 from app.web import app
-from app.config import get_project_audio_dir
 from app.db import create_project, create_chapter, update_chapter
 from app.state import put_job, Job, get_jobs
 
@@ -18,10 +17,11 @@ def test_stream_chapter_with_suffixed_filename(tmp_path):
     audio_path = f"{cid}_0.wav"
     update_chapter(cid, audio_file_path=audio_path)
 
-    # Create the actual file in the project audio dir
-    pdir = get_project_audio_dir(pid)
-    pdir.mkdir(parents=True, exist_ok=True)
-    f = pdir / audio_path
+    # Create the actual file in the V2 nested chapter dir
+    from app.config import get_chapter_dir
+    chap_dir = get_chapter_dir(pid, cid)
+    chap_dir.mkdir(parents=True, exist_ok=True)
+    f = chap_dir / audio_path
     f.write_text("dummy audio data")
 
     # Test streaming
@@ -125,11 +125,11 @@ def test_stream_chapter_fallback_logic():
     # DB has NO audio_file_path
     update_chapter(cid, audio_file_path=None)
 
-    pdir = get_project_audio_dir(pid)
-    pdir.mkdir(parents=True, exist_ok=True)
-
-    # Create the file on disk anyway
-    f = pdir / f"{cid}_0.wav"
+    # Create the file on disk anyway in the V2 nested dir
+    from app.config import get_chapter_dir
+    chap_dir = get_chapter_dir(pid, cid)
+    chap_dir.mkdir(parents=True, exist_ok=True)
+    f = chap_dir / "chapter.wav"
     f.write_text("fallback data")
 
     response = client.get(f"/api/chapters/{cid}/stream?project_id={pid}")

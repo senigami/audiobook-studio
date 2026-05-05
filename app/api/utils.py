@@ -101,7 +101,8 @@ def exists(engine, chapter_file, project_id=None, chapter_id=None):
     if is_tts_engine(engine) or engine == "mixed":
         if chapter_id:
             # Authoritative v2 check
-            p = config.resolve_chapter_asset_path(project_id, chapter_id, "audio", filename=chapter_file)
+            from ..config import resolve_chapter_asset_path
+            p = resolve_chapter_asset_path(project_id, chapter_id, "audio", filename=chapter_file)
             return bool(p and p.exists())
 
         return False

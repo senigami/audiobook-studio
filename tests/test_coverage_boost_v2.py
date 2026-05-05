@@ -12,11 +12,6 @@ client = TestClient(app)
 def mock_state(tmp_path, monkeypatch):
     test_state = tmp_path / "state.json"
     monkeypatch.setattr("app.state.STATE_FILE", test_state)
-    monkeypatch.setattr("app.web.CHAPTER_DIR", tmp_path / "chapters")
-    monkeypatch.setattr("app.web.REPORT_DIR", tmp_path / "reports")
-
-    monkeypatch.setattr("app.api.routers.analysis.CHAPTER_DIR", tmp_path / "chapters")
-    monkeypatch.setattr("app.api.routers.analysis.REPORT_DIR", tmp_path / "reports")
     monkeypatch.setattr("app.migration.CHAPTER_DIR", tmp_path / "chapters")
     monkeypatch.setattr("app.migration.AUDIO_OUT_DIR", tmp_path / "audio_out")
 

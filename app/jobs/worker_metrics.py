@@ -36,8 +36,7 @@ def record_engine_sample(job, start: float, chars: int, perf: dict, source_segme
     # In legacy jobs, synthesis_started_at was used.
     eff_start = _job_field(persisted, "started_at")
     if not eff_start or _job_field(persisted, "status") == "preparing":
-        # Fallback to legacy or provide a baseline
-        eff_start = _job_field(persisted, "synthesis_started_at") or start
+        eff_start = start
 
     finished_at = _job_field(persisted, "finished_at", _job_field(job, "finished_at")) or time.time()
     dur = finished_at - eff_start

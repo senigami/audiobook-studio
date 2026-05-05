@@ -2,7 +2,7 @@ import time
 import logging
 from pathlib import Path
 
-from app.config import get_project_audio_dir
+from app.config import get_chapter_dir
 from app.engines.audio_ops import wav_to_mp3
 from app.engines.errors import EngineBridgeError
 from app.state import update_job
@@ -82,14 +82,14 @@ def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
         )
         return "failed"
 
-    if not j.project_id:
-        update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error="Voxtral jobs require a project context.")
+    if not j.project_id or not j.chapter_id:
+        update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error="Voxtral jobs require project and chapter context.")
         return "failed"
 
-    pdir = get_project_audio_dir(j.project_id)
+    pdir = get_chapter_dir(j.project_id, j.chapter_id)
     pdir.mkdir(parents=True, exist_ok=True)
-    out_wav = pdir / f"{Path(j.chapter_file).stem}.wav"
-    out_mp3 = pdir / f"{Path(j.chapter_file).stem}.mp3"
+    out_wav = pdir / "chapter.wav"
+    out_mp3 = pdir / "chapter.mp3"
 
     spk = get_speaker_settings(j.speaker_profile) if j.speaker_profile else {}
     render_text = text or (_chapter_text_from_segments(j.chapter_id) if j.chapter_id else "")

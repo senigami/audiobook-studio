@@ -28,10 +28,6 @@ def clean_db():
 def test_jobs_api(clean_db, tmp_path, client, monkeypatch):
     from app.state import put_job, get_jobs
 
-    # Use monkeypatch so it's restored after the test!
-    from app.api.routers import chapters
-    monkeypatch.setattr(chapters, "CHAPTER_DIR", tmp_path)
-
     chapter_file = "test.txt"
     (tmp_path / chapter_file).write_text("dummy content")
 

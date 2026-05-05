@@ -13,7 +13,7 @@ from ...db import (
     delete_project,
     reorder_chapters,
 )
-from ...config import get_project_dir, find_existing_project_dir
+from ...config import get_project_dir
 from ...constants import DEFAULT_VOICE_SENTINEL
 from ...domain.projects.migration import migrate_project_to_v2
 
@@ -98,7 +98,7 @@ async def api_update_project(
         updates["speaker_profile_name"] = normalized_profile_name
 
     if cover:
-        project_dir = find_existing_project_dir(project_id) or get_project_dir(project_id)
+        project_dir = get_project_dir(project_id)
         updates["cover_image_path"] = await _store_project_cover(project_id, project_dir, cover)
 
     if updates:

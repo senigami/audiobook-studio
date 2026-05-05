@@ -25,12 +25,13 @@ def test_handle_xtts_job_bake(mock_job, tmp_path):
     out_mp3 = pdir / "output.mp3"
 
     segs = [
-        {"id": "s1", "character_id": "c1", "text_content": "Text 1", "audio_status": "done", "audio_file_path": "chunk_s1.wav"},
+        {"id": "s1", "character_id": "c1", "text_content": "Text 1", "audio_status": "done", "audio_file_path": "s1.wav"},
         {"id": "s2", "character_id": "c1", "text_content": "Text 2", "audio_status": "unprocessed", "audio_file_path": None}
     ]
 
     # Create the done segment file
-    (pdir / "chunk_s1.wav").write_text("audio")
+    (pdir / "segments").mkdir(parents=True, exist_ok=True)
+    (pdir / "segments" / "s1.wav").write_text("audio")
     # Also create the output wav so exists() returns true
     out_wav.write_text("output")
 
@@ -49,7 +50,7 @@ def test_handle_xtts_job_bake(mock_job, tmp_path):
         def side_effect(**kwargs):
             on_output = kwargs.get("on_output")
             if on_output:
-                on_output("[SEGMENT_SAVED] " + str(pdir / "chunk_s2.wav"))
+                on_output("[SEGMENT_SAVED] " + str(pdir / "segments" / "s2.wav"))
             return 0
         mock_generate.side_effect = side_effect
 
@@ -93,7 +94,7 @@ def test_handle_xtts_job_segments(mock_job, tmp_path):
         )
 
         assert mock_update_job.called
-        assert captured["script"][0]["save_path"].endswith("/chunk_s1.wav")
+        assert captured["script"][0]["save_path"].endswith("/segments/s1.wav")
 
 
 def test_handle_xtts_job_segments_uses_default_voice_profile_dir_for_narrator(mock_job, tmp_path):
@@ -176,11 +177,11 @@ def test_handle_xtts_job_standard_mixed_latent_only_profiles_builds_script(mock_
     assert len(captured["script"]) == 2
     assert "Narrator one" in captured["script"][0]["text"]
     assert "Narrator two" in captured["script"][0]["text"]
-    assert captured["script"][0]["save_path"].endswith("/chunk_n1.wav")
+    assert captured["script"][0]["save_path"].endswith("/segments/n1.wav")
     assert captured["script"][0]["voice_profile_dir"] == "/tmp/voices/Senigami"
     assert captured["script"][0]["speaker_wav"] is None
     assert captured["script"][1]["text"] == "Character line."
-    assert captured["script"][1]["save_path"].endswith("/chunk_c1.wav")
+    assert captured["script"][1]["save_path"].endswith("/segments/c1.wav")
     assert captured["script"][1]["voice_profile_dir"] == "/tmp/voices/Old Man - Angry"
     assert captured["script"][1]["speaker_wav"] is None
 

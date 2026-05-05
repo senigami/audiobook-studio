@@ -1,3 +1,4 @@
+from __future__ import annotations
 import logging
 import re
 import time
@@ -5,7 +6,7 @@ from typing import List, Dict, Any, Optional
 from .core import _db_lock, get_connection
 
 logger = logging.getLogger(__name__)
-SEGMENT_AUDIO_RE = re.compile(r"^seg_(?P<segment_id>.+)\.(?:wav|mp3|m4a)$", re.IGNORECASE)
+SEGMENT_AUDIO_RE = re.compile(r"^(?P<segment_id>.+)\.(?:wav|mp3|m4a)$", re.IGNORECASE)
 
 
 def _chapter_has_active_generation(chapter_id: str) -> bool:
@@ -115,14 +116,26 @@ def get_chapter_segments(chapter_id: str) -> List[Dict[str, Any]]:
 
     # Rule 3: Disk as Source of Truth - Outside Lock
     from .. import config
-    pdir = config.get_project_audio_dir(project_id) if project_id else None
+    chapter_dir = config.get_chapter_dir(project_id, chapter_id) if project_id else None
+    seg_dir = config.secure_join_flat(chapter_dir, "segments") if chapter_dir else None
 
     invalid_done_ids: list[str] = []
     for s in rows:
         if not s.get('speaker_profile_name') and s.get('character_speaker_profile_name'):
             s['speaker_profile_name'] = s['character_speaker_profile_name']
         if s['audio_status'] == 'done':
-            if not pdir or not s['audio_file_path'] or not (pdir / s['audio_file_path']).exists():
+            # V2 aware path check
+            path = s['audio_file_path']
+            exists = False
+            if path:
+                # 1. Try nested segments dir (v2 standard)
+                if seg_dir and (seg_dir / path).exists():
+                    exists = True
+                # 2. Try nested chapter dir (v2 root)
+                elif chapter_dir and (chapter_dir / path).exists():
+                    exists = True
+
+            if not exists:
                 s['audio_status'] = 'unprocessed'
                 s['audio_file_path'] = None
                 invalid_done_ids.append(s['id'])
@@ -297,14 +310,14 @@ def update_segments_bulk(segment_ids: List[str], **updates) -> bool:
 
 def cleanup_orphaned_segments(chapter_id: str):
     """
-    Finds and deletes any seg_*.wav or seg_*.mp3 files in the chapter's audio directory
+    Finds and deletes any files in the chapter's segments directory
     that do not correspond to an existing segment in the database.
     """
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
-            # CRITICAL FIX: Fetch ALL valid segment IDs across all chapters. 
-            # Otherwise we delete valid segments from other chapters sharing the same output directory.
+            # Fetch ALL valid segment IDs across all chapters to avoid deleting
+            # segments that might be shared or temporarily in the wrong place.
             cursor.execute("SELECT id FROM chapter_segments")
             valid_ids = set(row['id'] for row in cursor.fetchall())
 
@@ -312,25 +325,27 @@ def cleanup_orphaned_segments(chapter_id: str):
             crow = cursor.fetchone()
             project_id = crow['project_id'] if crow else None
 
-    from .. import config
-    pdir = config.get_project_audio_dir(project_id) if project_id else None
-
-    if not pdir or not pdir.exists():
+    if not project_id:
         return
 
-    for p in pdir.glob("seg_*.*"):
-        if p.suffix in ('.wav', '.mp3'):
-            stem = p.stem
-            if stem.startswith("seg_"):
-                seg_id = stem[4:]
-                if seg_id not in valid_ids:
-                    import logging
-                    logger = logging.getLogger(__name__)
-                    logger.info(f"Deleting orphaned segment audio file: {p.name}")
-                    try:
-                        p.unlink()
-                    except Exception as e:
-                        logger.warning(f"Failed to delete orphaned segment {p.name}: {e}")
+    from .. import config
+    chapter_dir = config.get_chapter_dir(project_id, chapter_id)
+    sdir = config.secure_join_flat(chapter_dir, "segments")
+
+    if not sdir or not sdir.exists():
+        return
+
+    # Scan V2 segments directory
+    for p in sdir.glob("*.*"):
+        if p.suffix.lower() in ('.wav', '.mp3', '.m4a'):
+            # V2 canonical name is sid.wav
+            seg_id = p.stem
+            if seg_id not in valid_ids:
+                logger.info("Deleting orphaned segment audio file: %s", p.name)
+                try:
+                    p.unlink()
+                except Exception as e:
+                    logger.warning("Failed to delete orphaned segment %s: %s", p.name, e)
 
 def sync_chapter_segments(chapter_id: str, text_content: str, conn=None):
     """

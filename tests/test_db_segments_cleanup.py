@@ -42,17 +42,20 @@ def test_cleanup_orphaned_segments_shared_dir(db_conn, tmp_path):
         conn.commit()
 
     # Create dummy files in the temp directory
-    chap1_file = tmp_path / "seg_chap1_seg.wav"
+    seg_dir = tmp_path / "segments"
+    seg_dir.mkdir(exist_ok=True)
+
+    chap1_file = seg_dir / "chap1_seg.wav"
     chap1_file.write_text("dummy")
 
-    chap2_file = tmp_path / "seg_chap2_seg.wav"
+    chap2_file = seg_dir / "chap2_seg.wav"
     chap2_file.write_text("dummy")
 
-    orphan_file = tmp_path / "seg_orphan_seg.wav"
+    orphan_file = seg_dir / "orphan_seg.wav"
     orphan_file.write_text("dummy")
 
     # Mock config to point to our temp directory for both chapters
-    with patch("app.config.get_project_audio_dir", return_value=tmp_path):
+    with patch("app.config.get_chapter_dir", return_value=tmp_path):
         # Run cleanup for chapter 1
         cleanup_orphaned_segments(cid_1)
 
@@ -77,7 +80,7 @@ def test_get_chapter_segments_resets_stale_processing_without_active_work(db_con
         )
         conn.commit()
 
-    with patch("app.config.get_project_audio_dir", return_value=tmp_path):
+    with patch("app.config.get_chapter_dir", return_value=tmp_path):
         rows = get_chapter_segments(cid)
 
     assert rows[0]["audio_status"] == "unprocessed"

@@ -150,16 +150,15 @@ def test_reconciliation_project_aware(client):
     put_job(j)
 
     # 2.5 Create the text file so it's not pruned as stale
-    from app.config import get_project_text_dir
-    p_text_dir = get_project_text_dir(pid)
-    (p_text_dir / f"{cid}_0.txt").write_text("chapter text")
+    from app.config import get_chapter_dir
+    c_dir = get_chapter_dir(pid, cid)
+    c_dir.mkdir(parents=True, exist_ok=True)
+    (c_dir / "chapter.txt").write_text("chapter text")
 
-    # 3. Create the audio file in the project folder
-    from app.config import get_project_audio_dir
-    p_audio_dir = get_project_audio_dir(pid)
-    wav_path = p_audio_dir / f"{cid}.wav"
+    # 3. Create the audio file in the nested folder
+    wav_path = c_dir / "chapter.wav"
     wav_path.write_text("audio content")
-    mp3_path = p_audio_dir / f"{cid}.mp3"
+    mp3_path = c_dir / "chapter.mp3"
     mp3_path.write_text("audio content")
 
     # 4. Trigger reconciliation via DB helper

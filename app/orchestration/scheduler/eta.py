@@ -86,7 +86,7 @@ def calculate_predicted_progress(job, now: float, start_time: float, eta: int, l
 
     # If synthesis hasn't started yet, cap progress (Preparing phase)
     # UNLESS we are already resuming from a point past the cap.
-    if not getattr(job, 'synthesis_started_at', None) and getattr(job, 'engine', None) != "audiobook":
+    if not getattr(job, 'started_at', None) and getattr(job, 'engine', None) != "audiobook":
         # If it's still preparing, don't animate past the current progress floor (0.0)
         if getattr(job, 'status', None) == 'preparing':
              return current_p

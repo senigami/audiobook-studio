@@ -52,10 +52,6 @@ def test_assemble_project_error_not_processed():
     assert response.status_code == 400
     assert "not processed yet" in response.json()["error"]
 
-def test_prepare_audiobook_modal():
-    response = client.get("/api/projects/audiobook/prepare")
-    assert response.status_code == 200
-    assert "chapters" in response.json()
 
 def test_reorder_chapters_error():
     pid = create_project("Reorder Error Project")

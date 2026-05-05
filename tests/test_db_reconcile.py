@@ -33,12 +33,12 @@ def test_reconcile_project_audio(db_conn, tmp_path):
     cid = create_chapter(pid, "C1")
 
     expected_file = "chapter.mp3"
-    audio_dir = tmp_path / "audio"
-    audio_dir.mkdir()
-    (audio_dir / expected_file).write_bytes(b"mp3")
+    from app.config import get_chapter_dir
+    c_dir = get_chapter_dir(pid, cid)
+    c_dir.mkdir(parents=True, exist_ok=True)
+    (c_dir / expected_file).write_bytes(b"mp3")
 
-    with patch("app.config.find_existing_project_subdir", side_effect=lambda _project_id, dirname: audio_dir if dirname == "audio" else None), \
-         patch("app.config.get_chapter_dir", return_value=audio_dir), \
+    with patch("app.config.get_chapter_dir", return_value=c_dir), \
          patch("subprocess.run") as mock_run:
 
         # Mock ffprobe result
@@ -61,10 +61,11 @@ def test_reconcile_project_audio_not_found(db_conn, tmp_path):
     cid = create_chapter(pid, "C1")
     update_chapter(cid, audio_status="done", audio_file_path="old.wav")
 
-    audio_dir = tmp_path / "audio"
-    audio_dir.mkdir()
+    from app.config import get_chapter_dir
+    c_dir = get_chapter_dir(pid, cid)
+    c_dir.mkdir(parents=True, exist_ok=True)
 
-    with patch("app.config.find_existing_project_subdir", side_effect=lambda _project_id, dirname: audio_dir if dirname == "audio" else None):
+    with patch("app.config.get_chapter_dir", return_value=c_dir):
 
         reconcile_project_audio(pid)
 

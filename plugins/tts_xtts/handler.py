@@ -30,14 +30,11 @@ __all__ = [
 ]
 
 
-def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, pdir, out_wav, out_mp3, text=None, storage_version=1):
+def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, pdir, out_wav, out_mp3, text=None):
     from app.db import get_connection, update_segments_status_bulk
 
     pdir.mkdir(parents=True, exist_ok=True)
     generated_segment_audio = bool(j.is_bake or j.segment_ids)
-
-    # Pass storage_version to job object for sub-handlers
-    j.storage_version = storage_version
 
     if cancel_check():
         update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")

@@ -21,7 +21,6 @@ logger = logging.getLogger(__name__)
 
 # Compatibility for tests that monkeypatch these
 REPORT_DIR = config.REPORT_DIR
-CHAPTER_DIR = config.CHAPTER_DIR
 
 
 class AnalysisError(Exception):
@@ -86,8 +85,7 @@ def get_report_dir() -> Path:
     return config.REPORT_DIR
 
 
-def get_chapter_dir() -> Path:
-    return config.CHAPTER_DIR
+
 
 
 router = APIRouter(prefix="/api", tags=["analysis"])

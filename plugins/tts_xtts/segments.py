@@ -55,12 +55,8 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
             combined_text = sanitize_text(combined_text)
             combined_text = safe_split_long_sentences(combined_text, target=SENT_CHAR_LIMIT)
         first_sid = group[0]['id']
-        storage_version = getattr(j, "storage_version", 1)
-        if storage_version >= 2:
-            seg_out = pdir / "segments" / f"{first_sid}.wav"
-            seg_out.parent.mkdir(parents=True, exist_ok=True)
-        else:
-            seg_out = pdir / f"chunk_{first_sid}.wav"
+        seg_out = pdir / "segments" / f"{first_sid}.wav"
+        seg_out.parent.mkdir(parents=True, exist_ok=True)
         save_path_str = str(seg_out.absolute())
         script_entry = {"text": combined_text, "speaker_wav": sw, "save_path": save_path_str, "id": group[0]['id']}
         if voice_profile_dir:

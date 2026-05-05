@@ -9,17 +9,14 @@ from app.db.chapters_cleanup import cleanup_chapter_audio_files, move_chapter_ar
 def mock_projects_root(tmp_path):
     projects_dir = tmp_path / "projects"
     projects_dir.mkdir()
-    audio_out_dir = tmp_path / "audio_out"
-    audio_out_dir.mkdir()
 
     with patch("app.config.PROJECTS_DIR", projects_dir), \
-         patch("app.config.AUDIO_OUT_DIR", audio_out_dir), \
          patch("app.config.TRASH_DIR", tmp_path / "trash"):
         (tmp_path / "trash").mkdir()
-        yield projects_dir, audio_out_dir
+        yield projects_dir
 
 def test_cleanup_chapter_audio_files_traversal_blocked(mock_projects_root):
-    projects_dir, audio_out_dir = mock_projects_root
+    projects_dir = mock_projects_root
 
     # Create a file outside
     outside_dir = projects_dir.parent / "escape"
@@ -30,14 +27,15 @@ def test_cleanup_chapter_audio_files_traversal_blocked(mock_projects_root):
     valid_uuid = "12345678-1234-5678-1234-567812345678"
 
     # If nested_pdir is manipulated to point outside
-    with patch("app.config.get_chapter_dir", return_value=outside_dir):
+    with patch("app.config.get_chapter_dir", return_value=outside_dir), \
+         patch.dict(os.environ, {"STRICT_PATH_SAFETY": "1"}):
         cleanup_chapter_audio_files("p1", valid_uuid)
 
         # Verify it still exists (deletion was blocked)
         assert outside_file.exists()
 
 def test_move_to_trash_traversal_blocked(mock_projects_root):
-    projects_dir, _ = mock_projects_root
+    projects_dir = mock_projects_root
 
     # Create a source file to "move"
     src_dir = projects_dir / "p1"

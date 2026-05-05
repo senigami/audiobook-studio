@@ -1,6 +1,6 @@
 import os
 import time
-from ...config import get_project_audio_dir, get_project_m4b_dir
+from ...config import get_project_m4b_dir
 from ...state import get_jobs, update_job, update_performance_metrics, get_performance_metrics
 from ...engines.audiobook_utils import assemble_audiobook
 from ...engines.proc_utils import terminate_all_subprocesses
@@ -11,7 +11,8 @@ def handle_audiobook_job(jid, j, start, on_output, cancel_check):
         update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error="Audiobook job has no project_id.")
         return
 
-    src_dir = get_project_audio_dir(j.project_id)
+    from ...config import get_project_dir
+    src_dir = get_project_dir(j.project_id)
     title = j.custom_title or j.chapter_file
     out_file = get_project_m4b_dir(j.project_id) / f"{j.chapter_file}.m4b"
 

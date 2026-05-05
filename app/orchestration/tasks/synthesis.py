@@ -190,71 +190,48 @@ class SynthesisTask(StudioTask):
         )
 
     def run(self) -> TaskResult:
-        """Execute synthesis locally or via bridge fallback."""
-        if self.engine_id == "mixed":
-            from app.models import Job  # noqa: PLC0415
-            from plugins.synthesis_mixed.handler import handle_mixed_job  # noqa: PLC0415
-
-            # Reconstruct a Job-like object for the legacy handler
-            j = Job(
-                id=self.task_id,
-                engine=self.engine_id,
-                status="running",
-                created_at=self.submitted_at,
-                project_id=self.project_id,
-                chapter_id=self.chapter_id,
-                chapter_file=self.output_path,
-                speaker_profile=self.voice_profile_id,
-                safe_mode=self.safe_mode,
-                make_mp3=self.make_mp3,
-                is_bake=self.is_bake,
-                segment_ids=self.segment_ids,
-                custom_title=self.custom_title,
-            )
-            # Ensure character count is available for metrics recording
-            setattr(j, "_chars_count", len(self.script_text) if self.script_text else 0)
-
-            # The orchestrator-provided progress_reporter is already attached
-            # via set_progress_reporter() in _dispatch.
-            def on_output(line: str) -> None:
-                # We don't have a direct logger here, but we can use the reporter
-                # to relay markers which the orchestrator's log_listener picks up.
-                # However, handle_mixed_job writes directly to the job log.
-                pass
-
-            # We need a cancel check. The orchestrator doesn't provide one directly
-            # to run(), but it will call on_cancel().
-
-            try:
-                status = handle_mixed_job(
-                    jid=self.task_id,
-                    j=j,
-                    start=time.time(),
-                    on_output=self._relay_output,
-                    cancel_check=lambda: self._cancelled,
-                )
-                return TaskResult(
-                    status="completed" if status == "done" else status,
-                    message=None if status == "done" else f"Mixed synthesis returned {status}",
-                )
-            except Exception as exc:
-                logger.exception("Mixed synthesis failed for task %s", self.task_id)
-                return TaskResult(status="failed", message=str(exc))
-
-        from app.engines.bridge import create_voice_bridge  # noqa: PLC0415
-
-        bridge = create_voice_bridge()
-        try:
-            result = bridge.synthesize(self.to_bridge_request())
-            ok = result.get("status", "ok") == "ok"
+        """Execute synthesis locally (only for 'mixed' engine)."""
+        if self.engine_id != "mixed":
             return TaskResult(
-                status="completed" if ok else "failed",
-                message=result.get("message"),
+                status="failed",
+                message=f"Task type synthesis does not support local execution for engine {self.engine_id}."
+            )
+
+        from app.models import Job  # noqa: PLC0415
+        from plugins.synthesis_mixed.handler import handle_mixed_job  # noqa: PLC0415
+
+        # Reconstruct a Job-like object for the local handler
+        j = Job(
+            id=self.task_id,
+            engine=self.engine_id,
+            status="running",
+            created_at=self.submitted_at,
+            project_id=self.project_id,
+            chapter_id=self.chapter_id,
+            chapter_file=self.output_path,
+            speaker_profile=self.voice_profile_id,
+            safe_mode=self.safe_mode,
+            make_mp3=self.make_mp3,
+            is_bake=self.is_bake,
+            segment_ids=self.segment_ids,
+            custom_title=self.custom_title,
+        )
+
+        try:
+            status = handle_mixed_job(
+                jid=self.task_id,
+                j=j,
+                start=time.time(),
+                on_output=self._relay_output,
+                cancel_check=lambda: self._cancelled,
+            )
+            return TaskResult(
+                status="completed" if status == "done" else status,
+                message=None if status == "done" else f"Mixed synthesis returned {status}",
             )
         except Exception as exc:
-            from app.engines.bridge_remote import EngineUnavailableError
-            is_retriable = isinstance(exc, EngineUnavailableError)
-            return TaskResult(status="failed", message=str(exc), retriable=is_retriable)
+            logger.exception("Mixed synthesis failed for task %s", self.task_id)
+            return TaskResult(status="failed", message=str(exc))
 
     def on_cancel(self) -> None:
         """Release task-level resources on cancellation."""

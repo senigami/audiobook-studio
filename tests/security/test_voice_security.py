@@ -37,5 +37,7 @@ def test_get_voice_storage_version_traversal_blocked(mock_voices_root):
     assert get_voice_storage_version("V2_Voice") == 2
 
     # Try traversal
-    assert get_voice_storage_version("../evil") == 1
-    assert get_voice_storage_version("V2_Voice/../../something") == 1
+    with pytest.raises(ValueError):
+        get_voice_storage_version("../evil")
+    with pytest.raises(ValueError):
+        get_voice_storage_version("V2_Voice/../../something")

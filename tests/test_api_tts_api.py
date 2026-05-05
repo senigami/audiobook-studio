@@ -78,7 +78,7 @@ def test_synthesize_inline(auth_client, monkeypatch, tmp_path):
     """POST /synthesize with short text should return inline audio (mocked)."""
     from app.orchestration.scheduler.orchestrator import TaskOrchestrator
     import app.api.tts_api as tts_api
-    from app.config import AUDIO_OUT_DIR
+    from app.config import TRANSIENT_DIR
 
     # Use a temp directory for TRANSIENT_DIR
     out_dir = tmp_path / "transient"
@@ -87,7 +87,7 @@ def test_synthesize_inline(auth_client, monkeypatch, tmp_path):
 
     # Mock orchestrator.submit to create a dummy file
     def mock_submit(self, task):
-        # We need to use the task.output_path which was built using the monkeypatched AUDIO_OUT_DIR
+        # Use the task.output_path which was built using the monkeypatched TRANSIENT_DIR
         out_file = Path(task.output_path)
         out_file.parent.mkdir(parents=True, exist_ok=True)
         with open(out_file, "wb") as f:

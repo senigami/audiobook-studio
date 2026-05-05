@@ -152,7 +152,7 @@ def test_successful_jobs_train(clean_db, clean_state):
     jid = "job-success-test"
     # We must ensure started_at is before finished_at and dur > 1.0
     now = time.time()
-    job = Job(id=jid, engine="engine-a", chapter_file="c1", status="done", created_at=now-30, started_at=now-20, synthesis_started_at=now-10, finished_at=now)
+    job = Job(id=jid, engine="engine-a", chapter_file="c1", status="done", created_at=now-30, started_at=now-20, finished_at=now)
     put_job(job)
 
     record_engine_sample(job, now - 10, 1000, {})

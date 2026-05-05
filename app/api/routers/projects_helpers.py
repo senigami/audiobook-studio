@@ -226,7 +226,6 @@ async def _store_project_cover(project_id: str, project_dir: Path, cover):
 def _create_backup_archive(bundle: ProjectBackupBundleModel) -> io.BytesIO:
     """Helper to assemble a portable ZIP archive from a backup bundle plan."""
     from fastapi.encoders import jsonable_encoder
-    from ...config import find_existing_project_dir
     buf = io.BytesIO()
 
     # Track paths and handle collisions for the bundle metadata
@@ -236,7 +235,7 @@ def _create_backup_archive(bundle: ProjectBackupBundleModel) -> io.BytesIO:
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         # 1. Project Assets (Process chapters first to build the mapping)
         project_id = bundle.project_id
-        project_dir = find_existing_project_dir(project_id) or get_project_dir(project_id)
+        project_dir = get_project_dir(project_id)
 
         for idx, chapter_id in enumerate(bundle.snapshot.chapter_ids, 1):
             chapter = get_chapter(chapter_id)
@@ -280,21 +279,20 @@ def _create_backup_archive(bundle: ProjectBackupBundleModel) -> io.BytesIO:
                     # Try to find corresponding .wav if path points to .mp3 or similar
                     wav_path = str(Path(raw_path).with_suffix(".wav"))
 
-                from app.config import get_project_audio_dir
-                audio_root = get_project_audio_dir(project_id)
-
-                # Rule 8: Enumerate and match to find the file safely
-                audio_path = find_secure_file(audio_root, wav_path)
+                from app.config import resolve_chapter_asset_path
+                audio_path = resolve_chapter_asset_path(project_id, chapter_id, "audio", filename=wav_path)
                 if not audio_path:
-                    audio_path = find_secure_file(audio_root, raw_path)
+                    audio_path = resolve_chapter_asset_path(project_id, chapter_id, "audio", filename=raw_path)
 
                 if audio_path and audio_path.exists() and audio_path.suffix.lower() == ".wav":
-                    # Locally visible containment check for zf.write sink
+                    # Rule 9: Locally visible containment proof for zf.write sink
                     import os
-                    trusted_audio_root = os.path.abspath(os.path.realpath(os.fspath(audio_root)))
                     resolved_audio_path = os.path.abspath(os.path.realpath(os.fspath(audio_path)))
 
-                    if resolved_audio_path.startswith(trusted_audio_root + os.sep):
+                    # We trust resolve_chapter_asset_path to return a safe path, but we still do a basic check
+                    # against the project root for extra safety in this specific sink.
+                    trusted_project_root = os.path.abspath(os.path.realpath(os.fspath(project_dir)))
+                    if resolved_audio_path.startswith(trusted_project_root + os.sep):
                         audio_ext = ".wav"
                         # Safe stem pairing
                         stem_name = Path(text_filename).stem

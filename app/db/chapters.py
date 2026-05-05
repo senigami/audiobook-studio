@@ -1,3 +1,4 @@
+from __future__ import annotations
 import logging
 import time
 import uuid
@@ -83,7 +84,7 @@ def get_chapter(chapter_id: str) -> Optional[Dict[str, Any]]:
     resolved = config.resolve_chapter_asset_path(
         chap["project_id"], chap["id"], "audio", filename=path
     )
-    if not resolved and not path:
+    if not resolved:
         resolved = config.resolve_chapter_asset_path(chap["project_id"], chap["id"], "audio")
 
     flags = _detect_audio_flags(chap["id"], path, resolved)

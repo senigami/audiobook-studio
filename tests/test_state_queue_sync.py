@@ -45,7 +45,7 @@ def test_update_job_syncs_queue_before_broadcast_listener(tmp_path):
     audio_dir = tmp_path / "audio"
     audio_dir.mkdir()
 
-    with patch("app.config.get_project_audio_dir", return_value=audio_dir), \
+    with patch("app.config.resolve_chapter_asset_path", return_value=audio_dir / "chapter.wav"), \
          patch("app.db.update_queue_item", side_effect=lambda *args, **kwargs: events.append("queue-sync")), \
          patch("app.api.ws.broadcast_queue_update", side_effect=lambda: events.append("queue-broadcast")):
         state_module.update_job(

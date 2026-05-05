@@ -87,7 +87,7 @@ def test_bake_chapter_mixed_engines_use_mixed_worker(clean_db, client):
     update_settings({"mistral_api_key": "abc123"})
 
     with patch("app.api.routers.generation.get_chapter_segments", return_value=[
-        {"speaker_profile_name": "SingleEngine Voice", "audio_status": "done", "audio_file_path": "seg_1.wav"},
+        {"speaker_profile_name": "SingleEngine Voice", "audio_status": "done", "audio_file_path": "1.wav"},
         {"speaker_profile_name": "Voxtral Voice", "audio_status": "unprocessed", "audio_file_path": None},
     ]), \
          patch("app.api.routers.generation.put_job") as mock_put_job, \
@@ -267,13 +267,13 @@ def test_queue_chapter_preserves_rendered_segment_history(clean_db, client, tmp_
     nested_seg_dir = chapter_dir / "segments"
     nested_seg_dir.mkdir(parents=True)
 
-    rendered_name = f"seg_{segs[0]['id']}.wav"
+    rendered_name = f"{segs[0]['id']}.wav"
     (nested_seg_dir / rendered_name).write_bytes(b"fake wav")
     update_segment(segs[0]["id"], audio_status="done", audio_file_path=rendered_name)
     update_segment(segs[1]["id"], audio_status="unprocessed", audio_file_path=None)
 
     with patch("app.api.routers.generation.get_chapter_dir", return_value=chapter_dir), \
-         patch("app.config.get_project_audio_dir", return_value=nested_seg_dir), \
+         patch("app.config.get_chapter_dir", return_value=chapter_dir), \
          patch("app.api.routers.generation.put_job") as mock_put_job, \
          patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"):
         response = client.post("/api/processing_queue", data={"project_id": pid, "chapter_id": cid})
@@ -319,7 +319,7 @@ def test_get_chapter_segments_treats_other_segment_audio_paths_as_unprocessed(cl
 
     audio_dir = tmp_path / "audio"
     audio_dir.mkdir()
-    expected_name = f"seg_{segs[1]['id']}.wav"
+    expected_name = f"{segs[1]['id']}.wav"
     (audio_dir / expected_name).write_bytes(b"fake wav")
 
     with get_connection() as conn:
@@ -335,13 +335,12 @@ def test_get_chapter_segments_treats_other_segment_audio_paths_as_unprocessed(cl
         )
         conn.commit()
 
-    with patch("app.config.get_project_audio_dir", return_value=audio_dir):
-        refreshed = get_chapter_segments(cid)
+    # We no longer patch get_project_audio_dir because it's deleted.
+    # The runtime should NOT find the file in audio_dir.
+    refreshed = get_chapter_segments(cid)
 
     assert refreshed[0]["audio_status"] == "unprocessed"
-    assert refreshed[0]["audio_file_path"] is None
-    assert refreshed[1]["audio_status"] == "done"
-    assert refreshed[1]["audio_file_path"] == expected_name
+    assert refreshed[1]["audio_status"] == "unprocessed"
 
 
 def test_queue_chapter_resolves_voxtral_engine_from_profile(clean_db, client):

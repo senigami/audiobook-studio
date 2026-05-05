@@ -29,19 +29,14 @@ os.environ["PLUGINS_DIR"] = str(REAL_ROOT / "plugins")
 os.environ["APP_TEST_MODE"] = "1"
 os.environ["DB_PATH"] = str(SESSION_TEMP / "test_audiobook_studio.db")
 os.environ["STATE_FILE"] = str(SESSION_TEMP / "test_state.json")
-os.environ["CHAPTER_DIR"] = str(SESSION_TEMP / "chapters_out")
 os.environ["UPLOAD_DIR"] = str(SESSION_TEMP / "uploads")
 os.environ["REPORT_DIR"] = str(SESSION_TEMP / "reports")
-os.environ["AUDIO_OUT_DIR"] = str(SESSION_TEMP / "audio_out")
-os.environ["AUDIOBOOK_DIR"] = str(SESSION_TEMP / "audiobooks")
 os.environ["VOICES_DIR"] = str(SESSION_TEMP / "voices")
 os.environ["COVER_DIR"] = str(SESSION_TEMP / "uploads/covers")
-os.environ["SAMPLES_DIR"] = str(SESSION_TEMP / "samples")
-os.environ["ASSETS_DIR"] = str(SESSION_TEMP / "assets")
 os.environ["PROJECTS_DIR"] = str(SESSION_TEMP / "projects")
 
 # Ensure all directories exist
-for d in ["chapters_out", "uploads", "reports", "audio_out", "audiobooks", "voices", "uploads/covers", "samples", "assets", "projects"]:
+for d in ["uploads", "reports", "voices", "uploads/covers", "projects"]:
     (SESSION_TEMP / d).mkdir(parents=True, exist_ok=True)
 
 # 2. NOW import modules that rely on these env vars
@@ -227,13 +222,8 @@ def clean_storage():
     for storage_dir in (
         SESSION_TEMP / "voices",
         SESSION_TEMP / "projects",
-        SESSION_TEMP / "chapters_out",
-        SESSION_TEMP / "audio_out",
-        SESSION_TEMP / "audiobooks",
         SESSION_TEMP / "uploads",
         SESSION_TEMP / "reports",
-        SESSION_TEMP / "samples",
-        SESSION_TEMP / "assets",
     ):
         try:
             if storage_dir.exists():

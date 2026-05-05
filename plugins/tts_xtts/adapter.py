@@ -10,43 +10,34 @@ def xtts_dispatch_adapter(jid: str, j: Job, start: float, on_output: Callable[[s
     """Adapter to wrap handle_xtts_job with the standard signature."""
     from .handler import handle_xtts_job
     from app.db.speakers import get_profile_wavs as get_speaker_wavs, get_speaker_settings
-    from app.config import get_project_audio_dir, get_chapter_dir, get_project_storage_version
+    from app.config import get_chapter_dir
     from app.state import get_performance_metrics
 
     # Extract text from kwargs
     text = kwargs.get("text")
 
     # This path logic will move to StorageManager in Slice D
-    if j.project_id and j.chapter_id and get_project_storage_version(j.project_id) >= 2:
-        pdir = get_chapter_dir(j.project_id, j.chapter_id)
-        out_wav = pdir / "chapter.wav"
-        out_mp3 = pdir / "chapter.mp3"
-    else:
-        if not j.project_id:
-             # Should be caught earlier, but safety first
-             from app.state import update_job
-             update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error="XTTS jobs require a project context.")
-             return
+    if not j.project_id or not j.chapter_id:
+        from app.state import update_job
+        update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error="XTTS jobs require project and chapter context.")
+        return
 
-        pdir = get_project_audio_dir(j.project_id)
-        out_wav = pdir / f"{Path(j.chapter_file).stem}.wav"
-        out_mp3 = pdir / f"{Path(j.chapter_file).stem}.mp3"
+    pdir = get_chapter_dir(j.project_id, j.chapter_id)
+    out_wav = pdir / "chapter.wav"
+    out_mp3 = pdir / "chapter.mp3"
 
     pdir.mkdir(parents=True, exist_ok=True)
     sw = get_speaker_wavs(j.speaker_profile)
     spk = get_speaker_settings(j.speaker_profile)
-    version = get_project_storage_version(j.project_id) if j.project_id else 1
 
     handle_xtts_job(
         jid, j, start, on_output, cancel_check, 
         sw, spk["speed"], pdir, out_wav, out_mp3, 
-        text=text, storage_version=version
+        text=text
     )
 
     # Record metrics
     chars = len(text) if text else 0
-    setattr(j, "_chars_count", chars)
-    eta_unit_count = getattr(j, "_eta_unit_count", 0)
     perf = get_performance_metrics()
     from app.jobs.worker_metrics import record_engine_sample
-    record_engine_sample(j, start, chars, perf, eta_unit_count)
+    record_engine_sample(j, start, chars, perf, 0)

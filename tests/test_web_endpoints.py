@@ -176,22 +176,11 @@ def test_serves_spa_shell_with_no_store_headers(monkeypatch, tmp_path):
 
 
 def test_serves_legacy_output_files_without_precreated_mounts(monkeypatch, tmp_path):
-    audio_dir = tmp_path / "audio_out"
-    audiobook_dir = tmp_path / "audiobooks"
     cover_dir = tmp_path / "uploads" / "covers"
-    audio_dir.mkdir(parents=True)
-    audiobook_dir.mkdir(parents=True)
     cover_dir.mkdir(parents=True)
-
-    (audio_dir / "clip.wav").write_bytes(b"wav")
-    (audiobook_dir / "book.m4b").write_bytes(b"m4b")
     (cover_dir / "cover.jpg").write_bytes(b"jpg")
 
-    monkeypatch.setattr("app.web.AUDIO_OUT_DIR", audio_dir)
-    monkeypatch.setattr("app.web.AUDIOBOOK_DIR", audiobook_dir)
     monkeypatch.setattr("app.web.COVER_DIR", cover_dir)
 
-    assert client.get("/out/audio/clip.wav").status_code == 200
-    assert client.get("/out/audiobook/book.m4b").status_code == 200
     assert client.get("/out/covers/cover.jpg").status_code == 200
-    assert client.get("/out/audio/../secrets.txt").status_code == 404
+    assert client.get("/out/covers/../secrets.txt").status_code == 404

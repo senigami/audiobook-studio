@@ -1,3 +1,4 @@
+from __future__ import annotations
 import logging
 import os
 import shutil
@@ -170,7 +171,7 @@ def migrate_project_to_v2(project_id: str) -> bool:
                                 src_path = candidate_src_path
                             break
 
-                dest_filename = f"seg_{segment_index}.wav"
+                dest_filename = f"{sid}.wav"
                 segments_root_prefix = segments_dir_path if segments_dir_path.endswith(os.sep) else segments_dir_path + os.sep
                 dest_path = os.path.abspath(
                     os.path.normpath(os.path.join(segments_dir_path, dest_filename))

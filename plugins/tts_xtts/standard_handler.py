@@ -30,7 +30,7 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                     return False
 
                 first = g["segments"][0]
-                chunk_path = pdir / f"chunk_{first['id']}.wav"
+                chunk_path = pdir / "segments" / f"{first['id']}.wav"
                 if chunk_path.exists():
                     return True
 
@@ -78,12 +78,8 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                     processed = sanitize_text(processed)
                     processed = safe_split_long_sentences(processed, target=SENT_CHAR_LIMIT)
 
-                storage_version = getattr(j, "storage_version", 1)
-                if storage_version >= 2:
-                    seg_out = pdir / "segments" / f"{first['id']}.wav"
-                    seg_out.parent.mkdir(parents=True, exist_ok=True)
-                else:
-                    seg_out = pdir / f"chunk_{first['id']}.wav"
+                seg_out = pdir / "segments" / f"{first['id']}.wav"
+                seg_out.parent.mkdir(parents=True, exist_ok=True)
 
                 save_path_str = str(seg_out.absolute())
                 script_entry = {"text": processed, "speaker_wav": sw, "id": first["id"], "save_path": save_path_str}
@@ -222,11 +218,7 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                 segment_paths = []
                 last_path = None
                 for group in build_chunk_groups(xtts_facade.load_chunk_segments(j.chapter_id), j.speaker_profile):
-                    storage_version = getattr(j, "storage_version", 1)
-                    if storage_version >= 2:
-                        group_path = pdir / "segments" / f"{group['segments'][0]['id']}.wav"
-                    else:
-                        group_path = pdir / f"chunk_{group['segments'][0]['id']}.wav"
+                    group_path = pdir / "segments" / f"{group['segments'][0]['id']}.wav"
 
                     if group_path.exists() and group_path != last_path:
                         segment_paths.append(group_path)

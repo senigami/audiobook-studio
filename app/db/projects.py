@@ -76,11 +76,12 @@ def delete_project(project_id: str) -> bool:
             # 1. First, get project info for path cleanup
             from .. import config
             pdir = None
-            if config.PROJECTS_DIR.exists():
-                for entry in config.PROJECTS_DIR.iterdir():
-                    if entry.is_dir() and entry.name == project_id:
-                        pdir = entry.resolve()
-                        break
+            try:
+                pdir = config.get_project_dir(project_id)
+                if not pdir.exists():
+                    pdir = None
+            except ValueError:
+                pass
 
             # 2. Delete from DB
             # Delete related characters

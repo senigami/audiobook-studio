@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 # Re-export public API from specialized modules
-from app.config import find_existing_project_subdir as _find_existing_project_subdir
+
 
 from .helpers import (
     RevisionMismatch,
@@ -50,7 +50,7 @@ from .operations import (
     _split_segment_at_offset,
 )
 
-find_existing_project_subdir = _find_existing_project_subdir
+
 # Compatibility for Phase 7 bridge
 SENT_CHAR_LIMIT = 500
 

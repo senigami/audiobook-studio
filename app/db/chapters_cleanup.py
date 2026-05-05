@@ -1,3 +1,4 @@
+from __future__ import annotations
 import logging
 import os
 import shutil
@@ -6,6 +7,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from ..pathing import secure_join_flat
+from ..config import is_safe
 from .chapters_helpers import (
     SAFE_SEGMENT_PREFIX_RE, 
     SAFE_AUDIO_NAME_RE, 
@@ -40,14 +42,9 @@ def cleanup_chapter_audio_files(
     target_dirs: List[str] = []
     # Rule 9: Explicit containment check for scanner locality
     try:
-        from ..config import find_existing_project_subdir
-        p_root = os.path.abspath(os.path.realpath(os.fspath(config.PROJECTS_DIR)))
-
-        def is_safe(path_str: str) -> bool:
-            return path_str == p_root or path_str.startswith(p_root + os.sep)
-
-        # 1a. Nested (V2) paths
+        # 1. Nested (V2) paths
         if nested_pdir:
+            # Rule 9: Security containment
             n_path = os.path.abspath(os.path.realpath(os.fspath(nested_pdir)))
             if is_safe(n_path):
                 target_dirs.append(n_path)
@@ -55,20 +52,6 @@ def cleanup_chapter_audio_files(
                 s_path = os.path.abspath(os.path.realpath(os.fspath(secure_join_flat(nested_pdir, "segments"))))
                 if s_path.startswith(n_path + os.sep) and os.path.isdir(s_path):
                     target_dirs.append(s_path)
-
-        # 1b. Legacy (V1) flat paths
-        flat_audio = find_existing_project_subdir(project_id, "audio")
-        if flat_audio:
-            f_path = os.path.abspath(os.path.realpath(os.fspath(flat_audio)))
-            if is_safe(f_path):
-                target_dirs.append(f_path)
-
-        flat_segments = find_existing_project_subdir(project_id, "segments")
-        if flat_segments:
-            fs_path = os.path.abspath(os.path.realpath(os.fspath(flat_segments)))
-            if is_safe(fs_path):
-                target_dirs.append(fs_path)
-
     except (OSError, ValueError):
         pass
 
@@ -109,16 +92,9 @@ def cleanup_chapter_audio_files(
     # 4. Cleanup chapter outputs
     if delete_chapter_outputs:
         for root, f_path, f_name in list(known_files):
-            # V2 Match
             is_match = nested_pdir and root == os.path.abspath(os.path.realpath(os.fspath(nested_pdir))) and (
-                f_name.startswith("chapter.") or f_name.startswith(chapter_id)
+                f_name.startswith("chapter.")
             )
-            # V1 Match
-            if not is_match:
-                flat_audio = find_existing_project_subdir(project_id, "audio")
-                if flat_audio and root == os.path.abspath(os.path.realpath(os.fspath(flat_audio))):
-                    if f_name.startswith(chapter_id):
-                        is_match = True
 
             if is_match:
                 try:
@@ -133,7 +109,7 @@ def cleanup_chapter_audio_files(
         if not SAFE_SEGMENT_PREFIX_RE.fullmatch(sid):
             logger.warning("Skipping invalid segment id %s", sid)
             continue
-        prefixes = (f"seg_{sid}", f"chunk_{sid}", f"{sid}.")
+        prefixes = (f"{sid}.",)
         for root, f_path, f_name in list(known_files):
             if any(f_name.startswith(prefix) for prefix in prefixes):
                 try:
@@ -198,16 +174,13 @@ def move_chapter_artifacts_to_trash(
 
     # 1. Identify all source candidates
     try:
-        from ..config import find_existing_project_subdir
-        flat_audio_dir = find_existing_project_subdir(project_id, "audio")
-        flat_text_dir = find_existing_project_subdir(project_id, "text")
         nested_dir = config.get_chapter_dir(project_id, chapter_id)
     except (OSError, ValueError):
-        flat_audio_dir = flat_text_dir = nested_dir = None
+        nested_dir = None
 
     # 2. Collect all potential files using string-based scandir
     source_files: List[tuple[str, str, str]] = []  # (root_path, full_path, name)
-    for d in [flat_audio_dir, flat_text_dir, nested_dir]:
+    for d in [nested_dir]:
         if d:
             d_path = os.path.abspath(os.path.realpath(os.fspath(d)))
             if os.path.isdir(d_path):
@@ -246,14 +219,12 @@ def move_chapter_artifacts_to_trash(
         # Match logic
         if name in explicit_audio_set:
             should_move = True
-        elif name.startswith(chapter_id):
-            should_move = True
         elif name == "chapter.wav" or name == "chapter.txt":
             should_move = True
         elif is_audio:
             # Check segments
             for sid in segment_ids_set:
-                if name.startswith(f"seg_{sid}") or name.startswith(f"chunk_{sid}") or name == f"{sid}.wav":
+                if name == f"{sid}.wav":
                     should_move = True
                     break
 

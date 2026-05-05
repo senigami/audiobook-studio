@@ -43,9 +43,7 @@ def test_handle_mixed_job_renders_and_stitches(clean_db, tmp_path):
         speaker_profile="XTTS Voice",
     )
 
-    audio_dir = tmp_path / "audio"
-    audio_dir.mkdir()
-    output_wav = audio_dir / f"{cid}_0.wav"
+    output_wav = tmp_path / f"{cid}_0.wav"
 
     def fake_generate_via_bridge(**kwargs):
         engine = kwargs["engine"]
@@ -63,8 +61,8 @@ def test_handle_mixed_job_renders_and_stitches(clean_db, tmp_path):
         Path(out_wav).write_text("stitched")
         return 0
 
-    with patch("plugins.synthesis_mixed.handler.get_project_audio_dir", return_value=audio_dir), \
-         patch("app.config.get_project_audio_dir", return_value=audio_dir), \
+    with patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
+         patch("app.config.get_chapter_dir", return_value=tmp_path), \
          patch("app.chunk_groups.resolve_profile_engine", side_effect=lambda name, _fallback=None: "voxtral" if name == "Voxtral Voice" else "xtts"), \
          patch("plugins.synthesis_mixed.handler.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "voice_123"} if name == "Voxtral Voice" else {"speed": 1.0}), \
          patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
@@ -78,8 +76,8 @@ def test_handle_mixed_job_renders_and_stitches(clean_db, tmp_path):
     assert result == "done"
     assert output_wav.exists()
     assert all(segment["audio_status"] == "done" for segment in refreshed)
-    assert refreshed[0]["audio_file_path"] == f"chunk_{refreshed[0]['id']}.wav"
-    assert refreshed[1]["audio_file_path"] == f"chunk_{refreshed[1]['id']}.wav"
+    assert refreshed[0]["audio_file_path"] == f"{refreshed[0]['id']}.wav"
+    assert refreshed[1]["audio_file_path"] == f"{refreshed[1]['id']}.wav"
     assert chapter["audio_status"] == "done"
     assert chapter["audio_file_path"] == output_wav.name
 
@@ -108,15 +106,15 @@ def test_handle_mixed_job_groups_adjacent_segments_into_one_chunk(clean_db, tmp_
         segment_ids=[segs[0]["id"], segs[1]["id"]],
     )
 
-    audio_dir = tmp_path / "audio"
-    audio_dir.mkdir()
+    tmp_path = tmp_path / "audio"
+    tmp_path.mkdir()
 
     def fake_generate_via_bridge(**kwargs):
         Path(kwargs["out_wav"]).write_text("xtts")
         return 0
 
-    with patch("plugins.synthesis_mixed.handler.get_project_audio_dir", return_value=audio_dir), \
-         patch("app.config.get_project_audio_dir", return_value=audio_dir), \
+    with patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
+         patch("app.config.get_chapter_dir", return_value=tmp_path), \
          patch("app.chunk_groups.resolve_profile_engine", return_value="xtts"), \
          patch("plugins.synthesis_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
          patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
@@ -128,9 +126,10 @@ def test_handle_mixed_job_groups_adjacent_segments_into_one_chunk(clean_db, tmp_
 
     assert result == "done"
     assert mock_bridge.call_count == 1
-    expected_path = f"chunk_{refreshed[0]['id']}.wav"
+    expected_path = f"{refreshed[0]['id']}.wav"
     assert refreshed[0]["audio_file_path"] == expected_path
     assert refreshed[1]["audio_file_path"] == expected_path
+    assert (tmp_path / "segments" / expected_path).exists()
 
 
 def test_handle_mixed_job_progress_uses_render_group_count(clean_db, tmp_path):
@@ -157,8 +156,8 @@ def test_handle_mixed_job_progress_uses_render_group_count(clean_db, tmp_path):
         speaker_profile="XTTS Voice",
     )
 
-    audio_dir = tmp_path / "audio"
-    audio_dir.mkdir()
+    tmp_path = tmp_path / "audio"
+    tmp_path.mkdir()
 
     def fake_generate_via_bridge(**kwargs):
         engine = kwargs["engine"]
@@ -173,8 +172,8 @@ def test_handle_mixed_job_progress_uses_render_group_count(clean_db, tmp_path):
         Path(out_wav).write_text("stitched")
         return 0
 
-    with patch("plugins.synthesis_mixed.handler.get_project_audio_dir", return_value=audio_dir), \
-         patch("app.config.get_project_audio_dir", return_value=audio_dir), \
+    with patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
+         patch("app.config.get_chapter_dir", return_value=tmp_path), \
          patch("app.chunk_groups.resolve_profile_engine", side_effect=lambda name, _fallback=None: "voxtral" if name == "Voxtral Voice" else "xtts"), \
          patch("plugins.synthesis_mixed.handler.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "voice_123"} if name == "Voxtral Voice" else {"speed": 1.0}), \
          patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
@@ -216,8 +215,8 @@ def test_handle_mixed_job_progress_weights_short_final_group(clean_db, tmp_path)
         speaker_profile="XTTS Voice",
     )
 
-    audio_dir = tmp_path / "audio"
-    audio_dir.mkdir()
+    tmp_path = tmp_path / "audio"
+    tmp_path.mkdir()
 
     def fake_generate_via_bridge(**kwargs):
         Path(kwargs["out_wav"]).write_text("xtts")
@@ -227,8 +226,8 @@ def test_handle_mixed_job_progress_weights_short_final_group(clean_db, tmp_path)
         Path(out_wav).write_text("stitched")
         return 0
 
-    with patch("plugins.synthesis_mixed.handler.get_project_audio_dir", return_value=audio_dir), \
-         patch("app.config.get_project_audio_dir", return_value=audio_dir), \
+    with patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
+         patch("app.config.get_chapter_dir", return_value=tmp_path), \
          patch("plugins.synthesis_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
          patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
          patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
@@ -271,8 +270,8 @@ def test_handle_mixed_segment_job_persists_intermediate_progress(clean_db, tmp_p
         segment_ids=[segment_id],
     )
 
-    audio_dir = tmp_path / "audio"
-    audio_dir.mkdir()
+    tmp_path = tmp_path / "audio"
+    tmp_path.mkdir()
 
     def fake_generate_via_bridge(**kwargs):
         on_output = kwargs["on_output"]
@@ -282,8 +281,8 @@ def test_handle_mixed_segment_job_persists_intermediate_progress(clean_db, tmp_p
         Path(kwargs["out_wav"]).write_text("xtts")
         return 0
 
-    with patch("plugins.synthesis_mixed.handler.get_project_audio_dir", return_value=audio_dir), \
-         patch("app.config.get_project_audio_dir", return_value=audio_dir), \
+    with patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
+         patch("app.config.get_chapter_dir", return_value=tmp_path), \
          patch("app.chunk_groups.resolve_profile_engine", return_value="xtts"), \
          patch("plugins.synthesis_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
          patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
@@ -331,11 +330,12 @@ def test_handle_mixed_job_bake_metrics_uses_rendered_chars_only(clean_db, tmp_pa
         is_bake=True
     )
 
-    audio_dir = tmp_path / "audio"
-    audio_dir.mkdir()
+    tmp_path = tmp_path / "audio"
+    tmp_path.mkdir()
 
     # Pre-render first segment to make it skipped during bake
-    group1_wav = audio_dir / f"chunk_{segs[0]['id']}.wav"
+    (tmp_path / "segments").mkdir(parents=True, exist_ok=True)
+    group1_wav = tmp_path / "segments" / f"{segs[0]['id']}.wav"
     group1_wav.write_text("already done")
     update_segment(segs[0]["id"], audio_status="done", audio_file_path=group1_wav.name)
 
@@ -347,8 +347,8 @@ def test_handle_mixed_job_bake_metrics_uses_rendered_chars_only(clean_db, tmp_pa
         Path(out_wav).write_text("stitched")
         return 0
 
-    with patch("plugins.synthesis_mixed.handler.get_project_audio_dir", return_value=audio_dir), \
-         patch("app.config.get_project_audio_dir", return_value=audio_dir), \
+    with patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
+         patch("app.config.get_chapter_dir", return_value=tmp_path), \
          patch("app.chunk_groups.resolve_profile_engine", side_effect=lambda name, _fallback=None: "xtts"), \
          patch("plugins.synthesis_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
          patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \

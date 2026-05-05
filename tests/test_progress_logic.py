@@ -9,7 +9,7 @@ def test_calculate_predicted_progress_xtts_preparing():
     job.progress = 0.0
 
     # 1. Synthesis not started, should hold at current_p (0.0)
-    job.synthesis_started_at = None
+    job.started_at = None
     now = 100.0
     start = 99.0 # 1s elapsed
     eta = 100
@@ -32,7 +32,7 @@ def test_calculate_predicted_progress_xtts_running():
     """XTTS jobs should use start_time consistently once synthesis starts."""
     job = Job(id="j1", engine="xtts", chapter_file="c1.txt", status="running", created_at=0.0)
     job.progress = 0.1
-    job.synthesis_started_at = 90.0
+    job.started_at = 90.0
 
     now = 120.0
     start = 80.0 # Adjusted start time (progress 0.1 * eta 100 = 10s offset from 90s? No, adjusted start is the "logical" 0 point)

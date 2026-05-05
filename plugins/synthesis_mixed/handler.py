@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 
 from app.chunk_groups import build_chunk_groups, load_chunk_segments
-from app.config import SENT_CHAR_LIMIT, get_project_audio_dir
+from app.config import SENT_CHAR_LIMIT, get_chapter_dir
 from app.engines.audio_ops import get_audio_duration, stitch_segments, wav_to_mp3
 from app.engines.errors import EngineBridgeError
 from app.state import update_job
@@ -89,11 +89,15 @@ def _grouped_progress_updates(
 
 
 def _segment_output_path(pdir: Path, segment_id: str) -> Path:
-    return pdir / f"seg_{segment_id}.wav"
+    sdir = pdir / "segments"
+    sdir.mkdir(parents=True, exist_ok=True)
+    return sdir / f"{segment_id}.wav"
 
 
 def _chunk_output_path(pdir: Path, chunk: dict) -> Path:
-    return pdir / f"chunk_{chunk['segments'][0]['id']}.wav"
+    sdir = pdir / "segments"
+    sdir.mkdir(parents=True, exist_ok=True)
+    return sdir / f"{chunk['segments'][0]['id']}.wav"
 
 
 def _render_segment(engine_id: str, text: str, profile_name: str | None, out_wav: Path, safe_mode: bool, on_output, cancel_check) -> int:
@@ -133,15 +137,14 @@ def _parse_xtts_progress(line: str) -> float | None:
         return None
 
 def _group_needs_render(group: dict, pdir: Path) -> bool:
-    expected_name = _chunk_output_path(pdir, group).name
-    expected_path = pdir / expected_name
+    expected_path = _chunk_output_path(pdir, group)
     if not expected_path.exists():
         return True
 
     for segment in group["segments"]:
         if segment.get("audio_status") != "done":
             return True
-        if segment.get("audio_file_path") != expected_name:
+        if segment.get("audio_file_path") != expected_path.name:
             return True
     return False
 
@@ -150,7 +153,7 @@ def _group_ready_audio_path(group: dict, pdir: Path) -> Path | None:
     audio_path = group["segments"][0].get("audio_file_path")
     if not audio_path:
         return None
-    candidate = pdir / audio_path
+    candidate = pdir / "segments" / audio_path
     return candidate if candidate.exists() else None
 
 
@@ -213,7 +216,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
         update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error="Mixed-engine jobs require a project context.")
         return "failed"
 
-    pdir = get_project_audio_dir(j.project_id)
+    pdir = get_chapter_dir(j.project_id, j.chapter_id)
     pdir.mkdir(parents=True, exist_ok=True)
     out_wav = pdir / f"{Path(j.chapter_file).stem}.wav"
     out_mp3 = pdir / f"{Path(j.chapter_file).stem}.mp3"
@@ -452,9 +455,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
 
     # Record metrics for the mixed engine performance history
     chars = sum(_group_weight(g) for g in target_groups)
-    setattr(j, "_chars_count", chars)
-    eta_unit_count = getattr(j, "_eta_unit_count", 0)
     perf = get_performance_metrics()
-    record_engine_sample(j, start, chars, perf, eta_unit_count)
+    record_engine_sample(j, start, chars, perf, 0)
 
     return "done"

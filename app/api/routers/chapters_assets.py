@@ -12,7 +12,7 @@ from ...db import get_chapter
 from ...state import get_settings
 from ...textops import sanitize_text, safe_split_long_sentences, pack_text_to_limit
 from ... import config
-from ...config import find_existing_project_subdir, find_secure_file
+from ...config import find_secure_file
 from .chapters_models import AudioExportRequest
 
 logger = logging.getLogger(__name__)

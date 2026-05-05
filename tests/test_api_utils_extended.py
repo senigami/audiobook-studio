@@ -18,24 +18,25 @@ def test_read_preview(tmp_path):
     non_existent = tmp_path / "none.txt"
     assert read_preview(non_existent) == ""
 
-def test_exists(tmp_path, monkeypatch):
+def test_exists(tmp_path):
     # V2 Nested Chapter Audio
-    project_id = "p1"
+    project_id = str(uuid.uuid4())
     chapter_id = str(uuid.uuid4())
     proj_dir = tmp_path / "projects" / project_id
     chap_dir = proj_dir / "chapters" / chapter_id
     chap_dir.mkdir(parents=True)
-    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path / "projects")
 
     (chap_dir / "chapter.wav").write_text("wav")
-    assert exists("xtts", "chapter.wav", project_id=project_id, chapter_id=chapter_id) is True
-    assert exists("xtts", "missing.wav", project_id=project_id, chapter_id=chapter_id) is False
 
-    # Audiobook m4b (remains project-level for now)
-    proj_m4b = proj_dir / "m4b"
-    proj_m4b.mkdir(parents=True)
-    (proj_m4b / "book.m4b").write_text("m4b")
-    assert exists("audiobook", "book", project_id=project_id) is True
+    with patch("app.config.PROJECTS_DIR", tmp_path / "projects"):
+        assert exists("mixed", "chapter.wav", project_id=project_id, chapter_id=chapter_id) is True
+        assert exists("mixed", "missing.wav", project_id=project_id, chapter_id=chapter_id) is False
+
+        # Audiobook m4b (remains project-level for now)
+        proj_m4b = proj_dir / "m4b"
+        proj_m4b.mkdir(parents=True)
+        (proj_m4b / "book.m4b").write_text("m4b")
+        assert exists("audiobook", "book", project_id=project_id) is True
 
     # Traversal-style input should be rejected (stem check)
     assert exists("xtts", "../../evil", project_id="p1") is False

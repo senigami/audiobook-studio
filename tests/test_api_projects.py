@@ -96,9 +96,6 @@ def test_project_audiobooks_and_assemble(clean_db, client):
     response = client.get(f"/api/projects/{pid}/audiobooks")
     assert response.status_code == 200
 
-    # Prepare
-    response = client.get("/api/projects/audiobook/prepare")
-    assert response.status_code == 200
 
     # Assemble
     from unittest.mock import patch

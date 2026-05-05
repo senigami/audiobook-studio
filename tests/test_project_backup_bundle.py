@@ -103,14 +103,14 @@ def test_backup_bundle_download(clean_db, client):
     from app.db.chapters import create_chapter, update_chapter
     cid = create_chapter(pid, "Chapter 1", "Content")
 
-    # Mock some audio file existence
-    from app.config import get_project_audio_dir
-    audio_dir = get_project_audio_dir(pid)
-    audio_dir.mkdir(parents=True, exist_ok=True)
-    audio_file = audio_dir / "test_audio.wav"
+    # Mock some audio file existence in V2 nested dir
+    from app.config import get_chapter_dir
+    chapter_dir = get_chapter_dir(pid, cid)
+    chapter_dir.mkdir(parents=True, exist_ok=True)
+    audio_file = chapter_dir / "chapter.wav"
     audio_file.write_bytes(b"fake wav data")
 
-    update_chapter(cid, audio_status="done", audio_file_path="test_audio.wav")
+    update_chapter(cid, audio_status="done", audio_file_path="chapter.wav")
 
     # 2. Download the bundle
     response = client.get(f"/api/projects/{pid}/backup-bundle/download")
@@ -157,17 +157,17 @@ def test_backup_bundle_wav_only_enforcement(clean_db, client):
     from app.db.chapters import create_chapter, update_chapter
     cid = create_chapter(pid, "Chapter 1", "Content")
 
-    # Mock audio files: both WAV and MP3
-    from app.config import get_project_audio_dir
-    audio_dir = get_project_audio_dir(pid)
-    audio_dir.mkdir(parents=True, exist_ok=True)
-    wav_file = audio_dir / "test_audio.wav"
+    # Mock audio files in V2 nested dir
+    from app.config import get_chapter_dir
+    chapter_dir = get_chapter_dir(pid, cid)
+    chapter_dir.mkdir(parents=True, exist_ok=True)
+    wav_file = chapter_dir / "chapter.wav"
     wav_file.write_bytes(b"wav data")
-    mp3_file = audio_dir / "test_audio.mp3"
+    mp3_file = chapter_dir / "chapter.mp3"
     mp3_file.write_bytes(b"mp3 data")
 
     # Point chapter to MP3
-    update_chapter(cid, audio_status="done", audio_file_path="test_audio.mp3")
+    update_chapter(cid, audio_status="done", audio_file_path="chapter.mp3")
 
     # 2. Download the bundle
     response = client.get(f"/api/projects/{pid}/backup-bundle/download")
@@ -192,12 +192,12 @@ def test_backup_bundle_no_audio_exclusion(clean_db, client):
     from app.db.chapters import create_chapter, update_chapter
     cid = create_chapter(pid, "Chapter 1", "Content")
 
-    from app.config import get_project_audio_dir
-    audio_dir = get_project_audio_dir(pid)
-    audio_dir.mkdir(parents=True, exist_ok=True)
-    wav_file = audio_dir / "test_audio.wav"
+    from app.config import get_chapter_dir
+    chapter_dir = get_chapter_dir(pid, cid)
+    chapter_dir.mkdir(parents=True, exist_ok=True)
+    wav_file = chapter_dir / "chapter.wav"
     wav_file.write_bytes(b"wav data")
-    update_chapter(cid, audio_status="done", audio_file_path="test_audio.wav")
+    update_chapter(cid, audio_status="done", audio_file_path="chapter.wav")
 
     # Download with include_audio=false
     response = client.get(f"/api/projects/{pid}/backup-bundle/download?include_audio=false")

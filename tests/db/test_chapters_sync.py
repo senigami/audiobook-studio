@@ -14,17 +14,20 @@ def test_update_chapter_text_change_preserves_stale_chapter_audio_until_rebuild(
     pid = create_project("P6", "/tmp")
     cid = create_chapter(pid, "C6", "One. Two.")
 
-    with patch("app.config.PROJECTS_DIR", tmp_path), \
-         patch("app.config.get_project_audio_dir", return_value=tmp_path), \
-         patch("app.config.find_existing_project_subdir", side_effect=_existing_project_audio_dir(tmp_path)):
+    with patch("app.config.PROJECTS_DIR", tmp_path):
+        from app.config import get_chapter_dir
+        c_dir = get_chapter_dir(pid, cid)
+        c_dir.mkdir(parents=True, exist_ok=True)
+        seg_dir = c_dir / "segments"
+        seg_dir.mkdir(exist_ok=True)
         sync_chapter_segments(cid, "One. Two.")
         segs = get_chapter_segments(cid)
         sid1 = segs[0]["id"]
         sid2 = segs[1]["id"]
 
-        chapter_wav = tmp_path / f"{cid}.wav"
-        seg1_wav = tmp_path / f"seg_{sid1}.wav"
-        seg2_wav = tmp_path / f"seg_{sid2}.wav"
+        chapter_wav = c_dir / "chapter.wav"
+        seg1_wav = seg_dir / f"seg_{sid1}.wav"
+        seg2_wav = seg_dir / f"seg_{sid2}.wav"
         chapter_wav.write_text("chapter")
         seg1_wav.write_text("seg1")
         seg2_wav.write_text("seg2")
@@ -57,16 +60,19 @@ def test_sync_chapter_segments_preserves_rendered_file_links(db_conn, tmp_path):
     pid = create_project("P4", "/tmp")
     cid = create_chapter(pid, "C4", "One. Two.")
 
-    with patch("app.config.PROJECTS_DIR", tmp_path), \
-         patch("app.config.get_project_audio_dir", return_value=tmp_path), \
-         patch("app.config.find_existing_project_subdir", side_effect=_existing_project_audio_dir(tmp_path)):
+    with patch("app.config.PROJECTS_DIR", tmp_path):
+        from app.config import get_chapter_dir
+        c_dir = get_chapter_dir(pid, cid)
+        c_dir.mkdir(parents=True, exist_ok=True)
+        seg_dir = c_dir / "segments"
+        seg_dir.mkdir(exist_ok=True)
         sync_chapter_segments(cid, "One. Two.")
         segs = get_chapter_segments(cid)
         sid1 = segs[0]["id"]
         sid2 = segs[1]["id"]
 
-        seg1_wav = tmp_path / f"seg_{sid1}.wav"
-        seg2_wav = tmp_path / f"seg_{sid2}.wav"
+        seg1_wav = seg_dir / f"seg_{sid1}.wav"
+        seg2_wav = seg_dir / f"seg_{sid2}.wav"
         seg1_wav.write_text("seg1")
         seg2_wav.write_text("seg2")
 
@@ -90,16 +96,19 @@ def test_sync_chapter_segments_does_not_cross_match_reordered_duplicates(db_conn
     pid = create_project("P5", "/tmp")
     cid = create_chapter(pid, "C5", "Repeat. Middle. Repeat.")
 
-    with patch("app.config.PROJECTS_DIR", tmp_path), \
-         patch("app.config.get_project_audio_dir", return_value=tmp_path), \
-         patch("app.config.find_existing_project_subdir", side_effect=_existing_project_audio_dir(tmp_path)):
+    with patch("app.config.PROJECTS_DIR", tmp_path):
+        from app.config import get_chapter_dir
+        c_dir = get_chapter_dir(pid, cid)
+        c_dir.mkdir(parents=True, exist_ok=True)
+        seg_dir = c_dir / "segments"
+        seg_dir.mkdir(exist_ok=True)
         sync_chapter_segments(cid, "Repeat. Middle. Repeat.")
         segs = get_chapter_segments(cid)
         first_id, middle_id, last_id = [s["id"] for s in segs]
 
-        first_file = tmp_path / f"seg_{first_id}.wav"
-        middle_file = tmp_path / f"seg_{middle_id}.wav"
-        last_file = tmp_path / f"seg_{last_id}.wav"
+        first_file = seg_dir / f"seg_{first_id}.wav"
+        middle_file = seg_dir / f"seg_{middle_id}.wav"
+        last_file = seg_dir / f"seg_{last_id}.wav"
         first_file.write_text("first")
         middle_file.write_text("middle")
         last_file.write_text("last")
@@ -128,17 +137,20 @@ def test_sync_chapter_segments_preserves_unchanged_trailing_segments_after_local
     pid = create_project("P6", "/tmp")
     cid = create_chapter(pid, "C6", "Alpha. Bravo. Charlie. Delta.")
 
-    with patch("app.config.PROJECTS_DIR", tmp_path), \
-         patch("app.config.get_project_audio_dir", return_value=tmp_path), \
-         patch("app.config.find_existing_project_subdir", side_effect=_existing_project_audio_dir(tmp_path)):
+    with patch("app.config.PROJECTS_DIR", tmp_path):
+        from app.config import get_chapter_dir
+        c_dir = get_chapter_dir(pid, cid)
+        c_dir.mkdir(parents=True, exist_ok=True)
+        seg_dir = c_dir / "segments"
+        seg_dir.mkdir(exist_ok=True)
         sync_chapter_segments(cid, "Alpha. Bravo. Charlie. Delta.")
         segs = get_chapter_segments(cid)
         sid1, sid2, sid3, sid4 = [s["id"] for s in segs]
 
-        file1 = tmp_path / f"seg_{sid1}.wav"
-        file2 = tmp_path / f"seg_{sid2}.wav"
-        file3 = tmp_path / f"seg_{sid3}.wav"
-        file4 = tmp_path / f"seg_{sid4}.wav"
+        file1 = seg_dir / f"seg_{sid1}.wav"
+        file2 = seg_dir / f"seg_{sid2}.wav"
+        file3 = seg_dir / f"seg_{sid3}.wav"
+        file4 = seg_dir / f"seg_{sid4}.wav"
         file1.write_text("one")
         file2.write_text("two")
         file3.write_text("three")
@@ -180,15 +192,18 @@ def test_sync_chapter_segments_invalidates_preserved_rows_that_shared_a_chunk_wi
     pid = create_project("P7", "/tmp")
     cid = create_chapter(pid, "C7", "Alpha. Bravo. Charlie.")
 
-    with patch("app.config.PROJECTS_DIR", tmp_path), \
-         patch("app.config.get_project_audio_dir", return_value=tmp_path), \
-         patch("app.config.find_existing_project_subdir", side_effect=_existing_project_audio_dir(tmp_path)):
+    with patch("app.config.PROJECTS_DIR", tmp_path):
+        from app.config import get_chapter_dir
+        c_dir = get_chapter_dir(pid, cid)
+        c_dir.mkdir(parents=True, exist_ok=True)
+        seg_dir = c_dir / "segments"
+        seg_dir.mkdir(exist_ok=True)
         sync_chapter_segments(cid, "Alpha. Bravo. Charlie.")
         segs = get_chapter_segments(cid)
         sid1, sid2, sid3 = [s["id"] for s in segs]
 
-        shared_chunk = tmp_path / f"chunk_{sid1}.wav"
-        final_file = tmp_path / f"seg_{sid3}.wav"
+        shared_chunk = seg_dir / f"chunk_{sid1}.wav"
+        final_file = seg_dir / f"seg_{sid3}.wav"
         shared_chunk.write_text("alpha bravo")
         final_file.write_text("charlie")
 
