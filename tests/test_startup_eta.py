@@ -50,3 +50,40 @@ def test_heartbeat_eta_stability():
         # New end_at = (start_time + 12) + 18 = start_time + 30
         assert state["jobs"][job_id]["estimated_end_at"] == start_time + 30
         assert state["jobs"][job_id]["progress"] == 0.4
+
+
+def test_post_synthesis_milestones_do_not_reproject_eta():
+    """Post-render app milestones should not recompute render ETA from scaled progress."""
+    job_id = "post_synthesis_eta_job"
+    start_time = time.time() - 20
+    initial_end_at = start_time + 30
+    initial_job = Job(
+        id=job_id,
+        engine="sample_build",
+        status="running",
+        progress=0.7,
+        started_at=start_time,
+        created_at=start_time,
+        updated_at=start_time,
+        eta_seconds=1,
+        eta_basis="remaining_from_update",
+        estimated_end_at=initial_end_at,
+    )
+
+    with patch("app.state_jobs._load_state_no_lock") as mock_load, \
+         patch("app.state_jobs._atomic_write_text"), \
+         patch("app.state_jobs.prune_completed_jobs"):
+        state = {"jobs": {job_id: initial_job.__dict__.copy()}}
+        mock_load.return_value = state
+
+        with patch("time.time", return_value=start_time + 21):
+            update_job(
+                job_id,
+                status="running",
+                progress=0.7,
+                message="Synthesis finished.",
+                reason_code="synthesis_finished",
+            )
+
+        assert state["jobs"][job_id]["estimated_end_at"] == initial_end_at
+        assert state["jobs"][job_id]["eta_seconds"] == 1

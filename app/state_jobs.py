@@ -14,6 +14,14 @@ from .subprocess_utils import probe_audio_duration
 
 logger = logging.getLogger(__name__)
 
+ETA_PROJECTION_SKIP_REASONS = {
+    "heartbeat",
+    "synthesis_progress",
+    "synthesis_finished",
+    "post_processing",
+    "metadata_update",
+}
+
 
 def get_jobs() -> Dict[str, Job]:
     with _STATE_LOCK:
@@ -130,7 +138,13 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
                         updates[k] = None
                         if k not in changed_fields:
                             changed_fields.append(k)
-        elif status == "running" and started_at and progress is not None and 0.03 <= progress < 0.98 and updates.get("reason_code") != "heartbeat":
+        elif (
+            status == "running"
+            and started_at
+            and progress is not None
+            and 0.03 <= progress < 0.98
+            and updates.get("reason_code") not in ETA_PROJECTION_SKIP_REASONS
+        ):
             # Observed progress projection
             # Only compute if we don't have a fresh explicit ETA update in this payload
             elapsed = event_updated_at - started_at

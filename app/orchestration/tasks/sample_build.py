@@ -120,13 +120,13 @@ class SampleBuildTask(StudioTask):
         except Exception as e:
             return TaskResult(status="failed", message=f"Synthesis error: {e}")
 
-        self.report_progress(0.70, message="Synthesis finished.")
+        self.report_progress(0.70, message="Synthesis finished.", reason_code="synthesis_finished")
 
         # 2. Convert to MP3
         if not self.output_path.parent.exists():
             self.output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        self.report_progress(0.82, message="Converting audio to MP3...")
+        self.report_progress(0.82, message="Converting audio to MP3...", reason_code="post_processing")
         rc = wav_to_mp3(temp_wav, self.output_path)
         if rc == 0 and self.output_path.exists():
             try:
@@ -139,7 +139,7 @@ class SampleBuildTask(StudioTask):
 
         # 3. Update Speaker Settings
         try:
-            self.report_progress(0.95, message="Finalizing metadata...")
+            self.report_progress(0.95, message="Finalizing metadata...", reason_code="metadata_update")
             built_samples = []
             vdir_path = Path(vdir) if vdir else None
             if vdir_path and vdir_path.exists():

@@ -127,11 +127,12 @@ def test_sample_build_receives_markers_live():
     with patch("app.engines.watchdog.get_watchdog", return_value=wd):
         # Simulate synthesis emitting logs while blocking
         def side_effect(*args, **kwargs):
-            wd._drain_stream(None, "stdout", MockStream([
-                "[START_SYNTHESIS] build-1\n",
-                "[PROGRESS] 50% build-1\n"
-            ]))
-            return {"status": "ok"}
+            with patch.object(OrchestratorHelpersMixin, "_observed_remaining_seconds", return_value=10):
+                wd._drain_stream(None, "stdout", MockStream([
+                    "[START_SYNTHESIS] build-1\n",
+                    "[PROGRESS] 50% build-1\n"
+                ]))
+                return {"status": "ok"}
 
         bridge.synthesize.side_effect = side_effect
 
@@ -145,6 +146,9 @@ def test_sample_build_receives_markers_live():
     assert any(p["progress"] == 0.0 for p in progress_events) # START_SYNTHESIS
     # 50% scaled by 0.7 = 0.35
     assert any(pytest.approx(p["progress"]) == 0.35 for p in progress_events)
+    marker_progress = next(p for p in progress_events if pytest.approx(p["progress"]) == 0.35)
+    assert marker_progress["eta_seconds"] == 10
+    assert marker_progress["reason_code"] == "synthesis_progress"
 
 # 4. Proving unrelated task_id markers are ignored.
 def test_log_listener_task_id_filtering():

@@ -140,7 +140,12 @@ class OrchestratorHelpersMixin:
                     if not val_str:
                         return
 
-                    p = float(val_str) / 100.0
+                    raw_progress = float(val_str) / 100.0
+                    eta_seconds = self._observed_remaining_seconds(
+                        started_at=timing["render_started_at"],
+                        progress=raw_progress,
+                    )
+                    p = raw_progress
 
                     # Scale progress for tasks that have post-synthesis phases
                     if context.task_type in {"sample_build", "sample_test"}:
@@ -150,6 +155,9 @@ class OrchestratorHelpersMixin:
                         context=context,
                         status="running",
                         progress=p,
+                        eta_seconds=eta_seconds,
+                        eta_confidence="recomputing" if eta_seconds is not None else None,
+                        reason_code="synthesis_progress",
                         started_at=timing["render_started_at"],
                         message="Synthesizing...",
                     )
@@ -213,6 +221,19 @@ class OrchestratorHelpersMixin:
             return None
         return max(1, int(round(duration)))
 
+    @staticmethod
+    def _observed_remaining_seconds(*, started_at: float | None, progress: float) -> int | None:
+        """Estimate remaining render time from raw engine progress."""
+        if started_at is None or progress <= 0:
+            return None
+        if progress >= 0.995:
+            return 1
+        elapsed = max(0.0, time.time() - started_at)
+        if elapsed <= 0:
+            return None
+        remaining = elapsed * (1.0 - progress) / progress
+        return max(1, int(round(remaining)))
+
     def _publish(
         self,
         *,
@@ -220,6 +241,7 @@ class OrchestratorHelpersMixin:
         status: str,
         progress: float | None = None,
         eta_seconds: int | None = None,
+        eta_confidence: str | None = None,
         message: str | None = None,
         reason_code: str | None = None,
         waiting_reason: str | None = None,
@@ -269,6 +291,7 @@ class OrchestratorHelpersMixin:
                 parent_job_id=context.project_id,
                 progress=state_progress,
                 eta_seconds=eta_seconds,
+                eta_confidence=eta_confidence,
                 message=message,
                 reason_code=reason_code,
                 waiting_reason=waiting_reason,
@@ -294,6 +317,7 @@ class OrchestratorHelpersMixin:
                     finished_at=finished_at,
                     error=message if state_status == "failed" else None,
                     eta_seconds=eta_seconds,
+                    eta_confidence=eta_confidence,
                 )
                 put_job(job)
             else:
@@ -306,6 +330,8 @@ class OrchestratorHelpersMixin:
                 }
                 if eta_seconds is not None:
                     updates["eta_seconds"] = eta_seconds
+                if eta_confidence is not None:
+                    updates["eta_confidence"] = eta_confidence
                 if started_at is not None:
                     updates["started_at"] = started_at
                 if finished_at is not None:
