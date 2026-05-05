@@ -157,25 +157,26 @@ def test_reconciliation_project_aware(client):
     # 3. Create the audio file in the project folder
     from app.config import get_project_audio_dir
     p_audio_dir = get_project_audio_dir(pid)
-    wav_path = p_audio_dir / f"{cid}_0.wav"
+    wav_path = p_audio_dir / f"{cid}.wav"
     wav_path.write_text("audio content")
-    mp3_path = p_audio_dir / f"{cid}_0.mp3"
+    mp3_path = p_audio_dir / f"{cid}.mp3"
     mp3_path.write_text("audio content")
 
-    # 4. Trigger reconciliation (happens in api_home)
-    from app.jobs import cleanup_and_reconcile
-    cleanup_and_reconcile()
+    # 4. Trigger reconciliation via DB helper
+    from app.db.reconcile import reconcile_project_audio
+    reconcile_project_audio(pid)
 
     # 5. Verify status is STILL 'done'
-    from app.state import get_jobs
-    jobs = get_jobs()
-    assert jobs[jid].status == "done"
+    from app.db.chapters import get_chapter
+    chapter = get_chapter(cid)
+    assert chapter["audio_status"] == "done"
 
     # 6. Now delete the file and reconcile again
     wav_path.unlink()
     mp3_path.unlink()
-    cleanup_and_reconcile()
 
-    # 7. Verify status is now 'queued'
-    jobs = get_jobs()
-    assert jobs[jid].status == "queued"
+    reconcile_project_audio(pid)
+
+    # 7. Verify status is now 'unprocessed'
+    chapter = get_chapter(cid)
+    assert chapter["audio_status"] == "unprocessed"

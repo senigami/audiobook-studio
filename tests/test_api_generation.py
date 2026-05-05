@@ -542,3 +542,48 @@ def test_generation_orchestration_integration(clean_db, client, monkeypatch):
     assert request["chapter_id"] == cid
     assert "output_path" in request
     assert "chapter.txt" in request["output_path"]
+
+
+def test_mixed_generation_orchestration_integration(clean_db, client, monkeypatch):
+    """Verifies that 'mixed' jobs bypass the bridge and call run() locally."""
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.orchestration.scheduler.orchestrator import TaskOrchestrator
+
+    pid = create_project("MixedProject")
+    cid = create_chapter(pid, "MixedChapter", "Mixed text.")
+
+    mock_bridge = MagicMock()
+    mock_progress = MagicMock()
+    mock_progress.reconcile.return_value = {"decision": "queue", "artifact_state": "missing"}
+
+    real_orchestrator = TaskOrchestrator(
+        progress_service=mock_progress,
+        voice_bridge=mock_bridge
+    )
+    monkeypatch.setattr("app.api.routers.generation.create_orchestrator", lambda: real_orchestrator)
+
+    # We need to mock handle_mixed_job because it's called by task.run()
+    # when engine_id == 'mixed'.
+    with patch("app.api.routers.generation.put_job"), \
+         patch("app.api.routers.generation.update_job"), \
+         patch("app.api.routers.generation.resolve_tts_engine_for_profiles", return_value=("xtts", ["xtts", "voxtral"])), \
+         patch("plugins.synthesis_mixed.handler.handle_mixed_job", return_value="done") as mock_mixed_handler, \
+         patch("app.orchestration.scheduler.orchestrator.reserve_task_resources", return_value={"admitted": True}), \
+         patch("app.orchestration.scheduler.orchestrator.release_task_resources"):
+
+        response = client.post("/api/processing_queue", data={
+            "project_id": pid,
+            "chapter_id": cid
+        })
+
+        assert response.status_code == 200
+
+    # 1. Verify bridge.synthesize was NOT called for 'mixed'
+    # (Individual segments might call it, but not the root task)
+    assert not mock_bridge.synthesize.called
+
+    # 2. Verify handle_mixed_job WAS called
+    assert mock_mixed_handler.called
+    assert mock_mixed_handler.call_args.kwargs["jid"] is not None
+    assert mock_mixed_handler.call_args.kwargs["j"].engine == "mixed"

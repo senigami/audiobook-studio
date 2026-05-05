@@ -18,4 +18,4 @@ class TestOrchestratorIntegration:
         assert task_id == "submit-test"
         # Reuse decision → no synthesis
         statuses = [c.kwargs["status"] for c in progress_service.publish.call_args_list]
-        assert "completed" in statuses
+        assert "done" in statuses

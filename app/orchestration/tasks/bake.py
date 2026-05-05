@@ -57,6 +57,11 @@ class BakeTask(StudioTask):
         if not self.output_path:
             raise ValueError("output_path is required")
 
+    @property
+    def prefers_local_execution(self) -> bool:
+        """Bake tasks execute run() locally and manage their own engine calls."""
+        return True
+
     def describe(self) -> TaskContext:
         """Describe bake identity."""
         return TaskContext(

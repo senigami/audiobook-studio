@@ -68,6 +68,11 @@ class ExportTask(StudioTask):
         if not self.book_title:
             raise ValueError("book_title is required")
 
+    @property
+    def prefers_local_execution(self) -> bool:
+        """Export tasks execute run() locally and manage their own engine calls."""
+        return True
+
     def describe(self) -> TaskContext:
         """Describe export identity."""
         return TaskContext(

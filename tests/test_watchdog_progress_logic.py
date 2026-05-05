@@ -76,6 +76,9 @@ class MockSampleBuildTask(StudioTask):
         self.bridge = bridge
     def describe(self):
         return TaskContext(task_id="build-1", task_type="sample_build")
+    @property
+    def prefers_local_execution(self) -> bool:
+        return True
     def run(self):
         # In a real task, this blocks.
         self.bridge.synthesize({"text": "test"})
@@ -93,6 +96,10 @@ class MarkerDrivenNoopTask(StudioTask):
             task_type="sample_build",
             payload={"test_text": "short render", "engine_id": "voice_engine"},
         )
+
+    @property
+    def prefers_local_execution(self) -> bool:
+        return True
 
     def get_expected_duration(self, text: str, engine_id: str) -> float:
         return 22.0
@@ -201,6 +208,7 @@ def test_started_at_marker_driven():
     task = MagicMock()
     task.get_expected_duration.return_value = 25.0
     task.is_marker_driven = True # Explicitly set for mock
+    task.prefers_local_execution = False
     task.to_bridge_request.return_value = {"task_id": "job-1"}
     task.describe.return_value = TaskContext(task_id="job-1", task_type="synthesis")
     context = task.describe()

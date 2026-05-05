@@ -115,6 +115,8 @@ def _voice_dirs_map() -> Dict[str, Path]:
                         if sub.name == "Default":
                             name = entry.name
                         dirs[name] = sub.resolve()
+            elif _profile_dir_has_assets(entry):
+                dirs[entry.name] = entry.resolve()
     return dirs
 
 

@@ -166,37 +166,49 @@ def _rename_profile_folders(old_name: str, new_name: str):
                     logger.warning("Failed to update profile metadata during rename: %s -> %s", old_name, new_name, exc_info=True)
 
     # 2. Variants (Narrator - Variant)
-    variants = []
-    for dir_name, d in voices_helpers._voice_dirs_map().items():
-        if dir_name.startswith(old_name + " - "):
-            variants.append(d)
-    for vdir in variants:
-        suffix = vdir.name[len(old_name):]
+    variants_to_rename = []
+    for profile_name, d in voices_helpers._voice_dirs_map().items():
+        if profile_name.startswith(old_name + " - "):
+            variants_to_rename.append((profile_name, d))
+
+    for old_vname, vdir in variants_to_rename:
+        suffix = old_vname[len(old_name):] # e.g. " - Variant"
         new_vname = new_name + suffix
         new_vpath = voices_helpers._existing_voice_profile_dir(new_vname) or voices_helpers._new_voice_profile_dir(new_vname)
+
         if not new_vpath.exists():
             import os
             trusted_voices_root = os.path.abspath(os.fspath(voices_helpers.get_voices_dir()))
-            resolved_vdir = os.path.abspath(os.fspath(vdir))
-            resolved_new_vpath = os.path.abspath(os.fspath(new_vpath))
 
-            if resolved_vdir.startswith(trusted_voices_root + os.sep) and resolved_new_vpath.startswith(trusted_voices_root + os.sep):
-                os.rename(resolved_vdir, resolved_new_vpath)
-                db.update_voice_profile_references(vdir.name, new_vname)
+            # If it's a V2 nested layout, the variant dir might have already moved if we renamed the base voice
+            if vdir.exists():
+                resolved_vdir = os.path.abspath(os.fspath(vdir))
+                resolved_new_vpath = os.path.abspath(os.fspath(new_vpath))
+                if resolved_vdir.startswith(trusted_voices_root + os.sep) and resolved_new_vpath.startswith(trusted_voices_root + os.sep):
+                    new_vpath.parent.mkdir(parents=True, exist_ok=True)
+                    os.rename(resolved_vdir, resolved_new_vpath)
+
+            db.update_voice_profile_references(old_vname, new_vname)
+
+            if new_vpath.exists():
                 # Update meta
+                resolved_new_vpath = os.path.abspath(os.fspath(new_vpath))
                 meta_path_full = os.path.normpath(os.path.join(resolved_new_vpath, "profile.json"))
                 if os.path.exists(meta_path_full) and meta_path_full.startswith(resolved_new_vpath + os.sep):
                     try:
                         import json
                         with open(meta_path_full, "r", encoding="utf-8") as f:
                             meta = json.loads(f.read())
-                        # Ensure metadata speaker_id stays correct if it was a UUID, or updates to new name if unassigned
+                        # Update variant_name in meta if present
+                        if " - " in new_vname:
+                            meta["variant_name"] = new_vname.split(" - ", 1)[1]
+                        # Update speaker_id if it matched the old base name
                         if meta.get("speaker_id") == old_name:
                             meta["speaker_id"] = new_name
                         with open(meta_path_full, "w", encoding="utf-8") as f:
                             f.write(json.dumps(meta, indent=2))
                     except Exception:
-                        logger.warning("Failed to update variant metadata during rename: %s -> %s", vdir.name, new_vname, exc_info=True)
+                        logger.warning("Failed to update variant metadata during rename: %s -> %s", old_vname, new_vname, exc_info=True)
 
 
 @router.get("/speaker-profiles")

@@ -64,5 +64,6 @@ def make_task():
         task.run.return_value = result or TaskResult(status="completed")
         task.on_cancel.return_value = None
         task.resource_claim = resource_claim or ResourceClaim.none()
+        task.is_marker_driven = False
         return task
     return _make

@@ -30,10 +30,12 @@ def mock_voices(tmp_path, monkeypatch):
     return voices_dir
 
 def test_create_speaker_auto_links_existing_unassigned_profile(mock_voices):
-    # 1. Create an unassigned profile directory on disk
+    # 1. Create an unassigned profile directory on disk (v2 layout: voices/Name/Default)
     profile_name = "UnassignedSpeaker"
-    profile_dir = mock_voices / profile_name
+    voice_root = mock_voices / profile_name
+    profile_dir = voice_root / "Default"
     profile_dir.mkdir(parents=True, exist_ok=True)
+    (voice_root / "voice.json").write_text(json.dumps({"version": 2, "name": profile_name}))
 
     meta = {
         "variant_name": "Default",
@@ -51,6 +53,7 @@ def test_create_speaker_auto_links_existing_unassigned_profile(mock_voices):
     speaker_id = response.json()["id"]
 
     # 3. Verify it linked instead of creating a new one
+    # Note: profile.json is in Default/
     updated_meta = json.loads((profile_dir / "profile.json").read_text())
     assert updated_meta["speaker_id"] == speaker_id
     assert updated_meta["speed"] == 1.2 # Preserved
@@ -67,8 +70,8 @@ def test_create_speaker_creates_default_profile(mock_voices):
     assert response.status_code == 200
     speaker_id = response.json()["id"]
 
-    # 2. Verify profile directory was created automatically
-    profile_dir = mock_voices / speaker_name
+    # 2. Verify profile directory was created automatically (v2 layout: voices/Name/Default)
+    profile_dir = mock_voices / speaker_name / "Default"
     assert profile_dir.exists()
 
     # 3. Verify profile.json contains correct mapping
@@ -80,8 +83,10 @@ def test_create_speaker_creates_default_profile(mock_voices):
 def test_create_speaker_handles_collision(mock_voices):
     # 1. Create an ALREADY ASSIGNED profile directory on disk
     existing_name = "CollisionTest"
-    profile_dir = mock_voices / existing_name
+    voice_root = mock_voices / existing_name
+    profile_dir = voice_root / "Default"
     profile_dir.mkdir(parents=True, exist_ok=True)
+    (voice_root / "voice.json").write_text(json.dumps({"version": 2, "name": existing_name}))
 
     meta = {
         "speaker_id": "already-assigned-id",
@@ -98,7 +103,8 @@ def test_create_speaker_handles_collision(mock_voices):
     speaker_id = response.json()["id"]
 
     # 3. Verify a NEW profile directory was created with a suffix
-    new_profile_dir = mock_voices / f"{existing_name}_1"
+    # In v2, it creates "CollisionTest_1/Default"
+    new_profile_dir = mock_voices / f"{existing_name}_1" / "Default"
     assert new_profile_dir.exists()
 
     new_meta = json.loads((new_profile_dir / "profile.json").read_text())

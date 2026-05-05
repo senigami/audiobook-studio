@@ -174,3 +174,11 @@ class StudioTask:
         during dispatch and wait for the engine to report render start via logs.
         """
         return False
+
+    @property
+    def prefers_local_execution(self) -> bool:
+        """Return True if this task should execute its run() method locally.
+
+        If False (default), the orchestrator will try to use the voice bridge.
+        """
+        return False

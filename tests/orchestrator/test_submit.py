@@ -42,7 +42,7 @@ class TestOrchestratorSubmitReconciliation:
 
         statuses = [c.kwargs["status"] for c in progress_service.publish.call_args_list]
         assert statuses[0] == "queued"
-        assert statuses[-1] == "completed"
+        assert statuses[-1] == "done"
         assert "artifact_reused" in [c.kwargs.get("reason_code") for c in progress_service.publish.call_args_list]
 
     def test_reuse_decision_publishes_progress_1(self, orchestrator, progress_service, make_task):
@@ -84,7 +84,7 @@ class TestOrchestratorProgressTransitions:
         assert "preparing" in statuses
         assert "running" in statuses
         assert "finalizing" in statuses
-        assert statuses[-1] == "completed"
+        assert statuses[-1] == "done"
 
     def test_running_event_includes_started_at(self, orchestrator, progress_service, make_task):
         progress_service.reconcile.return_value = {"artifact_state": "missing", "can_reuse": False}
@@ -99,7 +99,7 @@ class TestOrchestratorProgressTransitions:
         orchestrator.submit(task)
         statuses = self._get_statuses(progress_service)
         assert "failed" in statuses
-        assert "completed" not in statuses
+        assert "done" not in statuses
 
     def test_dispatch_exception_publishes_failed(self, orchestrator, progress_service, make_task):
         progress_service.reconcile.return_value = {"artifact_state": "missing", "can_reuse": False}

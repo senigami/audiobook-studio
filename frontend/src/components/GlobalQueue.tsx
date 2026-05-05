@@ -240,7 +240,7 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
                                                             </span>
                                                             {job.started_at && (
                                                                 <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                                    <span>{formatTime(job.started_at)}: {job.completed_at ? formatRunDuration(job.started_at, job.completed_at) : ''}</span>
+                                                                    <span>{formatTime(job.started_at)} → {job.completed_at ? formatRunDuration(job.started_at, job.completed_at) : ''}</span>
                                                                 </span>
                                                             )}
                                                             <span style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: job.status === 'done' ? 'var(--success)' : 'var(--error)' }}>{job.status}</span>

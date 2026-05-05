@@ -451,7 +451,8 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
     )
 
     # Record metrics for the mixed engine performance history
-    chars = getattr(j, "_chars_count", 0)
+    chars = sum(_group_weight(g) for g in target_groups)
+    setattr(j, "_chars_count", chars)
     eta_unit_count = getattr(j, "_eta_unit_count", 0)
     perf = get_performance_metrics()
     record_engine_sample(j, start, chars, perf, eta_unit_count)

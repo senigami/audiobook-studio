@@ -194,6 +194,16 @@ class TtsServerWatchdog:
             if callback in self._log_listeners:
                 self._log_listeners.remove(callback)
 
+    def _broadcast_log(self, line: str, task_id: Optional[str] = None) -> None:
+        """Manually trigger all registered log listeners."""
+        with self._lock:
+            listeners = list(self._log_listeners)
+        for listener in listeners:
+            try:
+                listener(line, task_id)
+            except Exception:
+                pass
+
     def stop(self) -> None:
         """Signal the watchdog to stop and terminate the TTS Server."""
         logger.info("Watchdog stopping...")

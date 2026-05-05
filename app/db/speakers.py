@@ -380,6 +380,13 @@ def update_speaker_settings(profile_name: str, **updates) -> bool:
     if not pdir:
         pdir = _new_profile_dir(config.VOICES_DIR, target_profile)
 
+    # Rule 9: Locally visible containment check
+    try:
+        pdir.resolve().relative_to(config.VOICES_DIR.resolve())
+    except (ValueError, OSError, RuntimeError):
+        logger.warning("Blocking update_speaker_settings for out-of-bounds path: %s", pdir)
+        return False
+
     meta_file = pdir / "profile.json"
     pdir.mkdir(parents=True, exist_ok=True)
 

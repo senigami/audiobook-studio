@@ -167,7 +167,7 @@ def test_progress_heartbeat():
 
     # Verify heartbeat thread stopped
     time.sleep(0.2)
-    assert any("heartbeat" in t.name for t in threading.enumerate()) == False
+    assert not any("heartbeat" in t.name for t in threading.enumerate())
 
 def test_progress_heartbeat_non_advancing():
     """Verify that progress_heartbeat with advance_progress=False stays at start value."""

@@ -302,3 +302,68 @@ def test_handle_mixed_segment_job_persists_intermediate_progress(clean_db, tmp_p
     assert intermediate_updates
     assert intermediate_updates[0]["progress"] == 0.25
     assert intermediate_updates[-1]["progress"] == 0.5
+
+
+def test_handle_mixed_job_bake_metrics_uses_rendered_chars_only(clean_db, tmp_path):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.segments import sync_chapter_segments, get_chapter_segments, update_segment
+
+    pid = create_project("P1")
+    # "Segment one." (12 chars), "Segment two." (12 chars)
+    cid = create_chapter(pid, "C1", "Segment one. Segment two.")
+    sync_chapter_segments(cid, "Segment one. Segment two.")
+    segs = get_chapter_segments(cid)
+
+    # Force separate groups by using different speaker profiles
+    update_segment(segs[0]["id"], speaker_profile_name="Profile A")
+    update_segment(segs[1]["id"], speaker_profile_name="Profile B")
+
+    job = Job(
+        id="bake-job",
+        engine="mixed",
+        chapter_file=f"{cid}_0.txt",
+        status="queued",
+        created_at=time.time(),
+        project_id=pid,
+        chapter_id=cid,
+        speaker_profile="Profile A",
+        is_bake=True
+    )
+
+    audio_dir = tmp_path / "audio"
+    audio_dir.mkdir()
+
+    # Pre-render first segment to make it skipped during bake
+    group1_wav = audio_dir / f"chunk_{segs[0]['id']}.wav"
+    group1_wav.write_text("already done")
+    update_segment(segs[0]["id"], audio_status="done", audio_file_path=group1_wav.name)
+
+    def fake_generate_via_bridge(**kwargs):
+        Path(kwargs["out_wav"]).write_text("rendered")
+        return 0
+
+    def fake_stitch(_pdir, _segments, out_wav, _on_output, _cancel_check):
+        Path(out_wav).write_text("stitched")
+        return 0
+
+    with patch("plugins.synthesis_mixed.handler.get_project_audio_dir", return_value=audio_dir), \
+         patch("app.config.get_project_audio_dir", return_value=audio_dir), \
+         patch("app.chunk_groups.resolve_profile_engine", side_effect=lambda name, _fallback=None: "xtts"), \
+         patch("plugins.synthesis_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
+         patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
+         patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
+         patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
+         patch("plugins.synthesis_mixed.handler.stitch_segments", side_effect=fake_stitch), \
+         patch("plugins.synthesis_mixed.handler.update_job"), \
+         patch("plugins.synthesis_mixed.handler.record_engine_sample") as mock_record:
+
+        handle_mixed_job("bake-job", job, time.time(), lambda _line: None, lambda: False)
+
+    assert mock_record.called
+    args, _ = mock_record.call_args
+    # recorded_chars = args[2]
+    # Total chars is ~24. Group 1 is ~12, Group 2 is ~12.
+    # If we incorrectly use tracking_groups (all_groups), it will be ~24.
+    # If we correctly use target_groups (rendered only), it will be ~12.
+    assert args[2] < 20, f"Recorded {args[2]} chars, expected only rendered subset (< 20)"

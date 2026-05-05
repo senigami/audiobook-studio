@@ -85,7 +85,12 @@ def test_project_audiobooks_and_assemble(clean_db, client):
     # Create a chapter and mark it as done
     from app.db.chapters import create_chapter, update_chapter
     cid = create_chapter(pid, "C1", "T1")
-    update_chapter(cid, audio_status="done", audio_file_path="C1.wav")
+    # Create a physical file so resolve_chapter_asset_path finds it
+    from app.config import get_chapter_dir
+    c_dir = get_chapter_dir(pid, cid)
+    c_dir.mkdir(parents=True, exist_ok=True)
+    (c_dir / "chapter.wav").write_text("dummy audio")
+    update_chapter(cid, audio_status="done", audio_file_path="chapter.wav")
 
     # List audiobooks
     response = client.get(f"/api/projects/{pid}/audiobooks")
@@ -97,7 +102,9 @@ def test_project_audiobooks_and_assemble(clean_db, client):
 
     # Assemble
     from unittest.mock import patch
-    with patch("app.api.routers.projects_assembly.put_job") as mock_put_job, patch("app.api.routers.projects_assembly.enqueue") as mock_enqueue:
+    with patch("app.api.routers.projects_assembly.put_job") as mock_put_job, \
+         patch("app.api.routers.projects_assembly.create_orchestrator") as mock_create_orch:
+        mock_orch = mock_create_orch.return_value
         # We don't send 'chapters' list explicitly if we want it to use all chapters from project
         response = client.post(f"/api/projects/{pid}/assemble", 
                                data={"title": "Book", "author": "Me", "narrator": "V1"})
@@ -105,4 +112,4 @@ def test_project_audiobooks_and_assemble(clean_db, client):
         assert response.json()["status"] == "ok"
         assert "job_id" in response.json()
         mock_put_job.assert_called_once()
-        mock_enqueue.assert_called_once()
+        mock_orch.submit.assert_called_once()

@@ -47,6 +47,11 @@ class SampleTestTask(StudioTask):
         """Voice tests use log markers to track render start."""
         return True
 
+    @property
+    def prefers_local_execution(self) -> bool:
+        """Voice test tasks execute run() locally and manage their own bridge calls."""
+        return True
+
     def describe(self) -> TaskContext:
         """Describe sample-test identity and ownership."""
         return TaskContext(

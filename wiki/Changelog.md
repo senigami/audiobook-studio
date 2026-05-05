@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.1] - 2026-05-04
+
+### Highlights
+
+- **Global Queue UI Alignment**: Fixed a regression in the job history display where a colon was used instead of an arrow symbol, restoring consistency with validation tests and improving history legibility.
+
 ## [2.0.0] - 2026-04-30
 
 ### Highlights

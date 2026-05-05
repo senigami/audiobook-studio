@@ -80,10 +80,10 @@ def test_synthesize_inline(auth_client, monkeypatch, tmp_path):
     import app.api.tts_api as tts_api
     from app.config import AUDIO_OUT_DIR
 
-    # Use a temp directory for AUDIO_OUT_DIR
-    out_dir = tmp_path / "audio"
+    # Use a temp directory for TRANSIENT_DIR
+    out_dir = tmp_path / "transient"
     out_dir.mkdir()
-    monkeypatch.setattr(tts_api, "AUDIO_OUT_DIR", out_dir)
+    monkeypatch.setattr(tts_api, "TRANSIENT_DIR", out_dir)
 
     # Mock orchestrator.submit to create a dummy file
     def mock_submit(self, task):

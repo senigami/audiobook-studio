@@ -80,6 +80,11 @@ class AssemblyTask(StudioTask):
                 if not p.exists():
                     raise FileNotFoundError(f"Assembly segment missing: {p}")
 
+    @property
+    def prefers_local_execution(self) -> bool:
+        """Assembly tasks execute run() locally and manage their own engine calls."""
+        return True
+
     def describe(self) -> TaskContext:
         """Describe assembly identity."""
         payload = {

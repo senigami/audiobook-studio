@@ -226,8 +226,10 @@ class TestGpuAdmissionGate:
 
 class TestReserveTaskResources:
     def setup_method(self):
-        """Reset the module-level GPU gate before each test."""
+        """Reset the module-level GPU gate and pause state before each test."""
+        from app.orchestration.scheduler.resources import set_paused
         get_gpu_gate().reset()
+        set_paused(False)
 
     def test_cpu_only_task_always_admitted(self):
         result = reserve_task_resources(

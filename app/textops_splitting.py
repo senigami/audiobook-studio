@@ -204,12 +204,13 @@ def safe_split_long_sentences(text: str, target: int = SAFE_SPLIT_TARGET) -> str
     return result.strip()
 
 
-def find_long_sentences(text: str, limit: int = SENT_CHAR_LIMIT):
+def find_long_sentences(text: str, limit: int = SENT_CHAR_LIMIT, threshold: int | None = None):
     text = preprocess_text(text)
     hits = []
     idx = 0
+    actual_limit = threshold if threshold is not None else limit
     for s, start, end in split_sentences(text):
         idx += 1
-        if len(s) > limit:
+        if len(s) > actual_limit:
             hits.append((idx, len(s), start, end, s))
     return hits

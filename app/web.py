@@ -11,12 +11,20 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import (
     VOICES_DIR, UPLOAD_DIR, REPORT_DIR, COVER_DIR, PROJECTS_DIR,
-    FRONTEND_DIST
+    FRONTEND_DIST, AUDIO_OUT_DIR, AUDIOBOOK_DIR, CHAPTER_DIR
 )
 from .db import init_db
 from .api import projects, chapters, voices, queue, settings, generation, system, analysis, jobs, migration, manager, engines
 from .api.tts_api import tts_app
 from .api.routers.analysis import AnalysisError
+
+# Compatibility for tests that monkeypatch these
+AUDIO_OUT_DIR = AUDIO_OUT_DIR
+AUDIOBOOK_DIR = AUDIOBOOK_DIR
+COVER_DIR = COVER_DIR
+PROJECTS_DIR = PROJECTS_DIR
+CHAPTER_DIR = CHAPTER_DIR
+REPORT_DIR = REPORT_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -130,6 +138,22 @@ if FRONTEND_DIST.exists():
 @app.get("/out/covers/{filename}")
 def get_cover_output(filename: str):
     file_path = _contained_root_file(COVER_DIR, filename)
+    if not file_path:
+        raise HTTPException(status_code=404, detail="Not Found")
+    return FileResponse(file_path)
+
+
+@app.get("/out/audio/{filename}")
+def get_audio_output(filename: str):
+    file_path = _contained_root_file(AUDIO_OUT_DIR, filename)
+    if not file_path:
+        raise HTTPException(status_code=404, detail="Not Found")
+    return FileResponse(file_path)
+
+
+@app.get("/out/audiobook/{filename}")
+def get_audiobook_output(filename: str):
+    file_path = _contained_root_file(AUDIOBOOK_DIR, filename)
     if not file_path:
         raise HTTPException(status_code=404, detail="Not Found")
     return FileResponse(file_path)

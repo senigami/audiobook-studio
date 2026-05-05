@@ -32,12 +32,13 @@ def test_reconcile_project_audio(db_conn, tmp_path):
     pid = create_project("P1")
     cid = create_chapter(pid, "C1")
 
-    expected_file = f"{cid}.mp3"
+    expected_file = "chapter.mp3"
     audio_dir = tmp_path / "audio"
     audio_dir.mkdir()
     (audio_dir / expected_file).write_bytes(b"mp3")
 
     with patch("app.config.find_existing_project_subdir", side_effect=lambda _project_id, dirname: audio_dir if dirname == "audio" else None), \
+         patch("app.config.get_chapter_dir", return_value=audio_dir), \
          patch("subprocess.run") as mock_run:
 
         # Mock ffprobe result

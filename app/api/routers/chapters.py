@@ -27,6 +27,7 @@ from .chapters_assets import (
 )
 
 
+CHAPTER_DIR = config.CHAPTER_DIR
 logger = logging.getLogger(__name__)
 
 

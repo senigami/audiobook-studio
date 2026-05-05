@@ -44,7 +44,8 @@ def xtts_dispatch_adapter(jid: str, j: Job, start: float, on_output: Callable[[s
     )
 
     # Record metrics
-    chars = getattr(j, "_chars_count", 0)
+    chars = len(text) if text else 0
+    setattr(j, "_chars_count", chars)
     eta_unit_count = getattr(j, "_eta_unit_count", 0)
     perf = get_performance_metrics()
     from app.jobs.worker_metrics import record_engine_sample

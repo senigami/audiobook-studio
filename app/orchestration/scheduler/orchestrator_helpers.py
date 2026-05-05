@@ -168,35 +168,51 @@ class OrchestratorHelpersMixin:
             wd.register_log_listener(log_listener)
 
         try:
-            if callable(bridge_request_fn):
-                try:
-                    request = bridge_request_fn()
-                    # self.voice_bridge must be available on the target class
-                    result = self.voice_bridge.synthesize(request)
-                    ok = result.get("status", "ok") == "ok"
+            if getattr(task, "prefers_local_execution", False):
+                # Explicitly opted-out of bridge dispatch (e.g. mixed chapter synthesis)
+                pass
+            elif callable(bridge_request_fn):
+                request = bridge_request_fn()
+                if request is not None:
+                    try:
+                        # self.voice_bridge must be available on the target class
+                        result = self.voice_bridge.synthesize(request)
+                        ok = result.get("status", "ok") == "ok"
+                        return TaskResult(
+                            status="completed" if ok else "failed",
+                            message=result.get("message"),
+                        )
+                    except Exception as exc:
+                        logger.exception("Task %s: bridge dispatch raised.", context.task_id)
+                        from app.engines.bridge_remote import EngineUnavailableError
+                        is_retriable = isinstance(exc, EngineUnavailableError)
+                        return TaskResult(status="failed", message=str(exc), retriable=is_retriable)
+                else:
+                    # Bridge-backed task returned None for request; this is now an error
+                    # unless the task explicitly allowed local fallback.
                     return TaskResult(
-                        status="completed" if ok else "failed",
-                        message=result.get("message"),
+                        status="failed",
+                        message="Task requires a voice bridge but returned no request payload."
                     )
-                except Exception as exc:
-                    logger.exception("Task %s: bridge dispatch raised.", context.task_id)
-                    from app.engines.bridge_remote import EngineUnavailableError
-                    is_retriable = isinstance(exc, EngineUnavailableError)
-                    return TaskResult(status="failed", message=str(exc), retriable=is_retriable)
-            else:
-                # Non-bridge tasks (e.g. Assembly, Export) set started_at here.
-                # Marker-driven tasks (SampleBuildTask) suppress this generic event
-                # because they will report 'running' upon START_SYNTHESIS logs.
-                if not marker_driven:
-                    if timing["render_started_at"] is None:
-                        timing["render_started_at"] = time.time()
-                    self._publish(
-                        context=context,
-                        status="running",
-                        progress=0.0,
-                        started_at=timing["render_started_at"],
-                    )
-                return task.run()
+
+            # Fall through to local execution ONLY if the task prefers it.
+            if not getattr(task, "prefers_local_execution", False):
+                return TaskResult(
+                    status="failed",
+                    message=f"Task type {context.task_type} does not support local execution and no bridge was available."
+                )
+
+            if not marker_driven:
+                if timing["render_started_at"] is None:
+                    timing["render_started_at"] = time.time()
+                self._publish(
+                    context=context,
+                    status="running",
+                    progress=0.0,
+                    started_at=timing["render_started_at"],
+                )
+
+            return task.run()
         except Exception as exc:
             logger.exception("Task %s: dispatch raised an exception.", context.task_id)
             return TaskResult(status="failed", message=str(exc))

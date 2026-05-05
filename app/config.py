@@ -25,6 +25,11 @@ PROJECTS_DIR = Path(os.getenv("PROJECTS_DIR", str(BASE_DIR / "projects")))
 COVER_DIR = Path(os.getenv("COVER_DIR", str(UPLOAD_DIR / "covers")))
 TRANSIENT_DIR = Path(os.getenv("TRANSIENT_DIR", str(BASE_DIR / "transient")))
 TRASH_DIR = Path(os.getenv("TRASH_DIR", str(BASE_DIR / "trash")))
+
+# Legacy paths (Compatibility for tests and older endpoints)
+AUDIO_OUT_DIR = TRANSIENT_DIR / "audio"
+CHAPTER_DIR = PROJECTS_DIR
+AUDIOBOOK_DIR = TRANSIENT_DIR / "audiobooks"
 PLUGINS_DIR = Path(os.getenv("PLUGINS_DIR", str(BASE_DIR / "plugins")))
 FRONTEND_DIST = BASE_DIR / "frontend" / "dist"
 SAFE_PROJECT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
@@ -301,7 +306,18 @@ def resolve_chapter_asset_path(
 
     if asset_type == "text":
         # New: project/chapters/{chapter_id}/chapter.txt
-        return _find_file(nested_dir, "chapter.txt")
+        res = _find_file(nested_dir, "chapter.txt")
+        if res: return res
+
+        # Legacy fallback
+        from app.config import find_existing_project_subdir
+        legacy_dir = find_existing_project_subdir(project_id, "text")
+        if legacy_dir:
+             if filename:
+                 res = _find_file(legacy_dir, filename)
+                 if res: return res
+             res = _find_file(legacy_dir, f"{chapter_id}.txt")
+             if res: return res
 
     elif asset_type == "audio":
         # New: project/chapters/{chapter_id}/chapter.wav (or chapter.m4a/mp3)
@@ -322,6 +338,22 @@ def resolve_chapter_asset_path(
                 if new_path:
                     return new_path
 
+        # Legacy fallback
+        from app.config import find_existing_project_subdir
+        legacy_dir = find_existing_project_subdir(project_id, "audio")
+        if legacy_dir:
+            if filename:
+                res = _find_file(legacy_dir, filename)
+                if res: return res
+            else:
+                for ext in [".wav", ".m4a", ".mp3"]:
+                    res = _find_file(legacy_dir, f"{chapter_id}{ext}")
+                    if res: return res
+                    # Special Case: Studio 1.0 XTTS iteration 0
+                    if ext == ".wav":
+                        res = _find_file(legacy_dir, f"{chapter_id}_0.wav")
+                        if res: return res
+
     elif asset_type == "segment":
         # New: project/chapters/{chapter_id}/segments/{segment_id}.wav
         if filename:
@@ -334,8 +366,16 @@ def resolve_chapter_asset_path(
             # Rule: match from subfolder
             try:
                 seg_dir = secure_join_flat(nested_dir, "segments")
-                return _find_file(seg_dir, f"{sid}.wav")
+                res = _find_file(seg_dir, f"{sid}.wav")
+                if res: return res
             except (OSError, ValueError):
                 pass
+
+            # Legacy fallback: project/segments/{cid}_0.wav
+            from app.config import find_existing_project_subdir
+            legacy_dir = find_existing_project_subdir(project_id, "segments")
+            if legacy_dir:
+                res = _find_file(legacy_dir, filename)
+                if res: return res
 
     return None

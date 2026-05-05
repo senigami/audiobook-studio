@@ -68,14 +68,16 @@ def test_project_audiobook_history_prefers_title_for_download_filename(tmp_path,
     assert data[0]["download_filename"] == "The Lantern on Briar Hill.m4b"
 
 def test_delete_audiobook(tmp_path):
-    from app.config import AUDIOBOOK_DIR
-    AUDIOBOOK_DIR.mkdir(parents=True, exist_ok=True)
+    pid = create_project("Delete Test")
+    from app.config import get_project_m4b_dir
+    m4b_dir = get_project_m4b_dir(pid)
+    m4b_dir.mkdir(parents=True, exist_ok=True)
 
     filename = "to_delete.m4b"
     jpg_filename = "to_delete.jpg"
 
-    m4b_path = AUDIOBOOK_DIR / filename
-    jpg_path = AUDIOBOOK_DIR / jpg_filename
+    m4b_path = m4b_dir / filename
+    jpg_path = m4b_dir / jpg_filename
 
     m4b_path.write_text("m4b data")
     jpg_path.write_text("jpg data")
@@ -83,7 +85,7 @@ def test_delete_audiobook(tmp_path):
     assert m4b_path.exists()
     assert jpg_path.exists()
 
-    response = client.delete(f"/api/audiobook/{filename}")
+    response = client.delete(f"/api/audiobook/{filename}?project_id={pid}")
     assert response.status_code == 200
 
     assert not m4b_path.exists()
@@ -94,16 +96,16 @@ def test_delete_audiobook_not_found():
     assert response.status_code == 404
 
 
-def test_delete_audiobook_rejects_traversal(tmp_path, monkeypatch):
-    from app.api.routers import settings as settings_router
+def test_delete_audiobook_rejects_traversal(tmp_path):
+    pid = create_project("Traversal Test")
+    from app.config import get_project_m4b_dir
+    m4b_dir = get_project_m4b_dir(pid)
+    m4b_dir.mkdir(parents=True, exist_ok=True)
 
-    audiobook_dir = tmp_path / "audiobooks"
-    audiobook_dir.mkdir()
     outside = tmp_path / "escape.m4b"
     outside.write_text("escape")
 
-    monkeypatch.setattr(settings_router, "AUDIOBOOK_DIR", audiobook_dir)
-
-    response = settings_router.delete_audiobook("../../escape.m4b", project_id=None)
+    from app.api.routers.settings import delete_audiobook
+    response = delete_audiobook("../../escape.m4b", project_id=pid)
     assert response.status_code == 403
     assert outside.exists()

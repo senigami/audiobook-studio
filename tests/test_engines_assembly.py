@@ -20,8 +20,8 @@ def test_assemble_audiobook_ffmpeg_command_structure(tmp_path):
     cover_path = str(cover_file)
 
     # We still need to mock run_cmd_stream and get_audio_duration
-    with patch('app.engines.get_audio_duration', return_value=120.0), \
-         patch('app.engines.run_cmd_stream', return_value=0) as mock_run:
+    with patch('app.engines.audio_ops.get_audio_duration', return_value=120.0), \
+         patch('app.engines.proc_utils.run_cmd_stream', return_value=0) as mock_run:
 
         on_output = MagicMock()
         def cancel_check():
@@ -52,8 +52,8 @@ def test_assemble_audiobook_ffmpeg_no_cover(tmp_path):
     book_title = "Test Book"
     output_m4b = tmp_path / "test_book.m4b"
 
-    with patch('app.engines.get_audio_duration', return_value=120.0), \
-         patch('app.engines.run_cmd_stream', return_value=0) as mock_run:
+    with patch('app.engines.audio_ops.get_audio_duration', return_value=120.0), \
+         patch('app.engines.proc_utils.run_cmd_stream', return_value=0) as mock_run:
 
         on_output = MagicMock()
         def cancel_check():
@@ -79,7 +79,7 @@ def test_assemble_audiobook_fails_before_ffmpeg_when_input_file_is_missing(tmp_p
     output_m4b = tmp_path / "test_book.m4b"
     on_output = MagicMock()
 
-    with patch("app.engines.run_cmd_stream") as mock_run:
+    with patch("app.engines.proc_utils.run_cmd_stream") as mock_run:
         rc = assemble_audiobook(
             input_folder,
             book_title,

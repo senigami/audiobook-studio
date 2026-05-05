@@ -161,3 +161,23 @@ def test_successful_jobs_train(clean_db, clean_state):
     assert len(history) == 1
     assert history[0]["job_id"] == jid
     assert history[0]["chars"] == 1000
+
+def test_record_engine_sample_requires_chars(clean_db, clean_state):
+    from app.jobs.worker_metrics import record_engine_sample
+    from app.state import put_job
+    from app.models import Job
+
+    jid = "test-no-chars"
+    now = time.time()
+    job = Job(id=jid, engine="xtts", status="done", started_at=now-10, finished_at=now, created_at=now-20)
+    put_job(job)
+
+    # 1. Chars = 0 (should be ignored)
+    record_engine_sample(job, now-10, 0, {})
+    assert len(get_render_history()) == 0
+
+    # 2. Chars > 0 (should be recorded)
+    record_engine_sample(job, now-10, 100, {})
+    history = get_render_history()
+    assert len(history) == 1
+    assert history[0]["chars"] == 100

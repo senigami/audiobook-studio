@@ -17,10 +17,13 @@ and resource management are all the orchestrator's responsibility.
 from __future__ import annotations
 
 import time
-from typing import Any
+import logging
+from typing import Any, Callable, Dict, List, Optional
 
 from app.orchestration.scheduler.resources import ResourceClaim
 from app.orchestration.tasks.base import StudioTask, TaskContext, TaskResult
+
+logger = logging.getLogger(__name__)
 
 
 class SynthesisTask(StudioTask):
@@ -88,6 +91,7 @@ class SynthesisTask(StudioTask):
         self.make_mp3 = make_mp3
         self.safe_mode = safe_mode
         self.submitted_at = time.monotonic()
+        self._cancelled = False
 
     # ------------------------------------------------------------------
     # StudioTask contract
@@ -112,6 +116,11 @@ class SynthesisTask(StudioTask):
     def is_marker_driven(self) -> bool:
         """Synthesis tasks use log markers to track render start."""
         return True
+
+    @property
+    def prefers_local_execution(self) -> bool:
+        """Synthesis tasks for the 'mixed' engine execute locally via handle_mixed_job."""
+        return self.engine_id == "mixed"
 
     def describe(self) -> TaskContext:
         """Return the identifying metadata needed for scheduling.
@@ -181,21 +190,57 @@ class SynthesisTask(StudioTask):
         )
 
     def run(self) -> TaskResult:
-        """Execute synthesis as a self-contained fallback.
+        """Execute synthesis locally or via bridge fallback."""
+        if self.engine_id == "mixed":
+            from app.models import Job  # noqa: PLC0415
+            from plugins.synthesis_mixed.handler import handle_mixed_job  # noqa: PLC0415
 
-        .. note::
+            # Reconstruct a Job-like object for the legacy handler
+            j = Job(
+                id=self.task_id,
+                engine=self.engine_id,
+                status="running",
+                created_at=self.submitted_at,
+                project_id=self.project_id,
+                chapter_id=self.chapter_id,
+                chapter_file=self.output_path,
+                speaker_profile=self.voice_profile_id,
+                safe_mode=self.safe_mode,
+                make_mp3=self.make_mp3,
+                is_bake=self.is_bake,
+                segment_ids=self.segment_ids,
+                custom_title=self.custom_title,
+            )
+            # Ensure character count is available for metrics recording
+            setattr(j, "_chars_count", len(self.script_text) if self.script_text else 0)
 
-           The ``TaskOrchestrator`` does **not** call this method for standard
-           submissions.  Instead it detects ``to_bridge_request()`` and routes
-           through the injected ``voice_bridge``.
+            # The orchestrator-provided progress_reporter is already attached
+            # via set_progress_reporter() in _dispatch.
+            def on_output(line: str) -> None:
+                # We don't have a direct logger here, but we can use the reporter
+                # to relay markers which the orchestrator's log_listener picks up.
+                # However, handle_mixed_job writes directly to the job log.
+                pass
 
-           This method exists as a fallback for:
-           - Direct task invocation (CLI, tests without an orchestrator)
-           - Non-orchestrator execution paths
+            # We need a cancel check. The orchestrator doesn't provide one directly
+            # to run(), but it will call on_cancel().
 
-        Returns:
-            TaskResult: Synthesis outcome with ``completed`` or ``failed`` status.
-        """
+            try:
+                status = handle_mixed_job(
+                    jid=self.task_id,
+                    j=j,
+                    start=time.time(),
+                    on_output=self._relay_output,
+                    cancel_check=lambda: self._cancelled,
+                )
+                return TaskResult(
+                    status="completed" if status == "done" else status,
+                    message=None if status == "done" else f"Mixed synthesis returned {status}",
+                )
+            except Exception as exc:
+                logger.exception("Mixed synthesis failed for task %s", self.task_id)
+                return TaskResult(status="failed", message=str(exc))
+
         from app.engines.bridge import create_voice_bridge  # noqa: PLC0415
 
         bridge = create_voice_bridge()
@@ -213,16 +258,21 @@ class SynthesisTask(StudioTask):
 
     def on_cancel(self) -> None:
         """Release task-level resources on cancellation."""
-        from app.engines.bridge import create_voice_bridge
-        bridge = create_voice_bridge()
-        bridge.cancel(self.task_id)
+        self._cancelled = True
+        if self.engine_id != "mixed":
+            from app.engines.bridge import create_voice_bridge
+            bridge = create_voice_bridge()
+            bridge.cancel(self.task_id)
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def to_bridge_request(self) -> dict[str, Any]:
+    def to_bridge_request(self) -> dict[str, Any] | None:
         """Build a VoiceBridge-compatible synthesis request."""
+        if self.engine_id == "mixed":
+            return None
+
         return {
             "engine_id": self.engine_id,
             "script_text": self.script_text,
@@ -241,4 +291,14 @@ class SynthesisTask(StudioTask):
             "safe_mode": self.safe_mode,
             "task_id": self.task_id,
         }
+
+    def _relay_output(self, line: str) -> None:
+        """Relay output to the orchestrator's log listener."""
+        # The orchestrator's log_listener is registered with the watchdog.
+        # But for local tasks, we need to manually trigger it if we want
+        # markers like [START_SYNTHESIS] to be processed.
+        from app.engines.watchdog import get_watchdog
+        wd = get_watchdog()
+        if wd:
+            wd._broadcast_log(line, task_id=self.task_id)
 

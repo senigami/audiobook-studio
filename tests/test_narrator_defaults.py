@@ -104,6 +104,7 @@ def test_rename_default_narrator_persists(clean_state):
 
     # 1. Create and set as default
     (test_voices / "OldName").mkdir()
+    (test_voices / "OldName" / "test.wav").write_text("audio")
     client.post("/api/settings/default-speaker", data={"name": "OldName"})
 
     # 2. Rename it
