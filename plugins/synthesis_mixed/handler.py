@@ -200,6 +200,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
         get_chapter_segments,
         get_connection,
         update_segment,
+        update_segments_bulk,
         update_segments_status_bulk,
     )
     from app.api.ws import broadcast_segments_updated
@@ -328,15 +329,14 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
             return "failed"
 
         generated_at = time.time()
-        for group_segment in group["segments"]:
-            update_segment(
-                group_segment["id"],
-                broadcast=False,
-                audio_status="done",
-                audio_file_path=seg_out.name,
-                audio_generated_at=generated_at,
-            )
-            clear_duplicate_segment_audio_paths(j.chapter_id, group_segment["id"], seg_out.name)
+        group_sids = [gs["id"] for gs in group["segments"]]
+        update_segments_bulk(
+            group_sids,
+            audio_status="done",
+            audio_file_path=seg_out.name,
+            audio_generated_at=generated_at,
+        )
+        clear_duplicate_segment_audio_paths(j.chapter_id, group_sids, seg_out.name)
 
         progress_limit = 1.0 if j.segment_ids else 0.9
         progress = _weighted_group_progress(

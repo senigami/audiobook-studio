@@ -85,12 +85,11 @@ def get_chapter_segments(chapter_id: str) -> List[Dict[str, Any]]:
                 SELECT s.*, c.color as character_color, c.name as character_name, c.speaker_profile_name as character_speaker_profile_name
                 FROM chapter_segments s
                 LEFT JOIN characters c ON s.character_id = c.id
-                WHERE s.chapter_id = ? 
+                WHERE s.chapter_id = ?
                 ORDER BY s.segment_order ASC
             """, (chapter_id,))
             rows = [dict(row) for row in cursor.fetchall()]
-
-            # We need project_id to find the right directory. 
+            # We need project_id to find the right directory.
             cursor.execute("SELECT project_id FROM chapters WHERE id = ?", (chapter_id,))
             crow = cursor.fetchone()
             project_id = crow['project_id'] if crow else None
@@ -116,35 +115,60 @@ def get_chapter_segments(chapter_id: str) -> List[Dict[str, Any]]:
 
     # Rule 3: Disk as Source of Truth - Outside Lock
     from .. import config
+    from ..chunk_groups import build_chunk_groups
+
     chapter_dir = config.get_chapter_dir(project_id, chapter_id) if project_id else None
     seg_dir = config.secure_join_flat(chapter_dir, "segments") if chapter_dir else None
+
+    # Fetch default profile for group validation
+    default_profile = None
+    if project_id and chapter_id:
+        with _db_lock:
+            with get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT c.speaker_profile_name AS chapter_profile,
+                           p.speaker_profile_name AS project_profile
+                    FROM chapters c
+                    JOIN projects p ON p.id = c.project_id
+                    WHERE c.id = ?
+                """, (chapter_id,))
+                row = cursor.fetchone()
+                if row:
+                    default_profile = row["chapter_profile"] or row["project_profile"]
+
+    # Calculate current groups to determine canonical names
+    # This ensures that if groups change, old shared files are invalidated for the split segments.
+    current_groups = build_chunk_groups(rows, default_profile)
+    segment_to_canonical = {}
+    for group in current_groups:
+        if not group['segments']:
+            continue
+        canonical_name = f"{group['segments'][0]['id']}.wav"
+        for seg in group['segments']:
+            segment_to_canonical[seg['id']] = canonical_name
 
     invalid_done_ids: list[str] = []
     for s in rows:
         if not s.get('speaker_profile_name') and s.get('character_speaker_profile_name'):
             s['speaker_profile_name'] = s['character_speaker_profile_name']
+
         if s['audio_status'] == 'done':
-            # V2 aware path check
             path = s['audio_file_path']
             exists = False
-            if path:
-                # 1. Try nested segments dir (v2 standard)
-                if seg_dir and (seg_dir / path).exists():
-                    exists = True
-                # 2. Try nested chapter dir (v2 root)
-                elif chapter_dir and (chapter_dir / path).exists():
+
+            # Rule: Segment audio must live in V2 segments/ directory
+            if path and seg_dir:
+                # Canonical check: must match the current group's canonical name
+                canonical_for_seg = segment_to_canonical.get(s['id'])
+                file_exists = (seg_dir / path).exists()
+                if path == canonical_for_seg and file_exists:
                     exists = True
 
             if not exists:
                 s['audio_status'] = 'unprocessed'
                 s['audio_file_path'] = None
                 invalid_done_ids.append(s['id'])
-            else:
-                match = SEGMENT_AUDIO_RE.match(s['audio_file_path'])
-                if match and match.group("segment_id") != s["id"]:
-                    s['audio_status'] = 'unprocessed'
-                    s['audio_file_path'] = None
-                    invalid_done_ids.append(s['id'])
 
     if invalid_done_ids:
         with _db_lock:
@@ -165,8 +189,8 @@ def get_chapter_segments(chapter_id: str) -> List[Dict[str, Any]]:
     return rows
 
 
-def clear_duplicate_segment_audio_paths(chapter_id: str, keep_segment_id: str, audio_file_path: Optional[str]) -> List[str]:
-    if not chapter_id or not keep_segment_id or not audio_file_path:
+def clear_duplicate_segment_audio_paths(chapter_id: str, keep_segment_ids: List[str], audio_file_path: Optional[str]) -> List[str]:
+    if not chapter_id or not keep_segment_ids or not audio_file_path:
         return []
 
     if not SEGMENT_AUDIO_RE.match(audio_file_path):
@@ -175,15 +199,16 @@ def clear_duplicate_segment_audio_paths(chapter_id: str, keep_segment_id: str, a
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
+            placeholders_keep = ",".join(["?"] * len(keep_segment_ids))
             cursor.execute(
-                """
+                f"""
                 SELECT id
                 FROM chapter_segments
                 WHERE chapter_id = ?
-                  AND id != ?
+                  AND id NOT IN ({placeholders_keep})
                   AND audio_file_path = ?
                 """,
-                (chapter_id, keep_segment_id, audio_file_path),
+                [chapter_id] + keep_segment_ids + [audio_file_path],
             )
             duplicate_ids = [row["id"] for row in cursor.fetchall()]
             if not duplicate_ids:
@@ -249,10 +274,11 @@ def update_segment(segment_id: str, broadcast: bool = True, **updates) -> bool:
                     if row:
                         chapter_id = row["chapter_id"]
                         cleanup_project_id = row["project_id"]
-                        cursor.execute(
-                            "UPDATE chapter_segments SET audio_status = 'unprocessed', audio_file_path = NULL, audio_generated_at = NULL WHERE id = ?",
-                            (segment_id,)
-                        )
+                        if updates.get("audio_status") != "done":
+                            cursor.execute(
+                                "UPDATE chapter_segments SET audio_status = 'unprocessed', audio_file_path = NULL, audio_generated_at = NULL WHERE id = ?",
+                                (segment_id,)
+                            )
                         cursor.execute(
                             "UPDATE chapters SET text_last_modified = ?, audio_status = 'unprocessed', audio_file_path = NULL, audio_generated_at = NULL, audio_length_seconds = NULL WHERE id = ?",
                             (time.time(), chapter_id)
@@ -264,12 +290,25 @@ def update_segment(segment_id: str, broadcast: bool = True, **updates) -> bool:
     if cleanup_chapter_id:
         try:
             from .chapters import cleanup_chapter_audio_files
+
+            new_audio_path = updates.get("audio_file_path")
+            explicit_files = []
+            if stale_audio_path:
+                if updates.get("audio_status") == "done":
+                    # If marking as done, only cleanup if the path is actually changing
+                    if new_audio_path and new_audio_path != stale_audio_path:
+                        explicit_files = [stale_audio_path]
+                else:
+                    # Metadata or status change without explicit 'done' update
+                    # The old path is now considered stale.
+                    explicit_files = [stale_audio_path]
+
             # Only remove the chapter-level outputs and the edited segment's audio files.
             cleanup_chapter_audio_files(
                 cleanup_project_id,
                 cleanup_chapter_id,
-                [segment_id],
-                explicit_files=[stale_audio_path] if stale_audio_path else None,
+                [segment_id] if updates.get("audio_status") != "done" else [],
+                explicit_files=explicit_files or None,
             )
         except Exception:
             logger.warning(
