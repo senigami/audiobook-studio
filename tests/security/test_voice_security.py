@@ -2,7 +2,8 @@ import pytest
 import os
 from pathlib import Path
 from unittest.mock import patch
-from app.config import get_voice_storage_version, canonical_voice_name
+from app.config import get_voice_dir, canonical_voice_name
+from app.domain.voices.manifest import get_voice_storage_version
 
 @pytest.fixture
 def mock_voices_root(tmp_path):
@@ -34,10 +35,11 @@ def test_get_voice_storage_version_traversal_blocked(mock_voices_root):
     (voice_v2 / "voice.json").write_text('{"version": 2}')
 
     # Verify it works
-    assert get_voice_storage_version("V2_Voice") == 2
+    assert get_voice_storage_version(get_voice_dir("V2_Voice")) == 2
 
     # Try traversal
+    # In V2, get_voice_dir uses secure_join_flat which blocks traversal
     with pytest.raises(ValueError):
-        get_voice_storage_version("../evil")
+        get_voice_dir("../evil")
     with pytest.raises(ValueError):
-        get_voice_storage_version("V2_Voice/../../something")
+        get_voice_dir("V2_Voice/../../something")
