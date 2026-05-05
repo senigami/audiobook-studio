@@ -9,6 +9,9 @@ from app.orchestration.scheduler.orchestrator_helpers import OrchestratorHelpers
 class MockTask(StudioTask):
     def validate(self): pass
     def describe(self): return TaskContext(task_id="test", task_type="mock")
+    @property
+    def prefers_local_execution(self) -> bool:
+        return True
     def run(self):
         self.report_progress(0.25, message="Step 1")
         self.report_progress(0.75, message="Step 2")
@@ -260,4 +263,3 @@ def test_log_listener_task_id_correlation():
         # 80% * 0.7 = 0.56
         _, kwargs = mock_publish.call_args
         assert kwargs["progress"] == pytest.approx(0.56)
-
