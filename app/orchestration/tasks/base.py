@@ -165,3 +165,12 @@ class StudioTask:
     def on_cancel(self) -> None:
         """Release task-level resources when a task is cancelled."""
         raise NotImplementedError
+
+    @property
+    def is_marker_driven(self) -> bool:
+        """Return True if this task expects external START_SYNTHESIS log markers.
+
+        If True, the orchestrator should suppress the generic 'running' event
+        during dispatch and wait for the engine to report render start via logs.
+        """
+        return False

@@ -108,6 +108,11 @@ class SynthesisTask(StudioTask):
         if not self.output_path:
             raise ValueError("output_path is required")
 
+    @property
+    def is_marker_driven(self) -> bool:
+        """Synthesis tasks use log markers to track render start."""
+        return True
+
     def describe(self) -> TaskContext:
         """Return the identifying metadata needed for scheduling.
 
@@ -207,12 +212,10 @@ class SynthesisTask(StudioTask):
             return TaskResult(status="failed", message=str(exc), retriable=is_retriable)
 
     def on_cancel(self) -> None:
-        """Release task-level resources on cancellation.
-
-        ``SynthesisTask`` is stateless with respect to the orchestrator —
-        in-flight synthesis inside the TTS Server subprocess is cancelled by
-        the watchdog if needed.  Nothing to clean up here.
-        """
+        """Release task-level resources on cancellation."""
+        from app.engines.bridge import create_voice_bridge
+        bridge = create_voice_bridge()
+        bridge.cancel(self.task_id)
 
     # ------------------------------------------------------------------
     # Internal helpers

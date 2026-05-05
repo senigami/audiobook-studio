@@ -56,6 +56,15 @@ class RemoteBridgeHandler:
             "tts_server_result": result,
         }
 
+    def cancel(self, task_id: str) -> bool:
+        """Forward cancellation to TTS Server."""
+        try:
+            client = self._get_tts_client()
+            return client.cancel(task_id)
+        except Exception as exc:
+            logger.warning("Failed to forward cancel(%s) to TTS Server: %s", task_id, exc)
+            return False
+
     def preview(self, request: dict[str, Any]) -> dict[str, Any]:
         """Route preview to TTS Server."""
         from app.engines.tts_client import TtsServerError

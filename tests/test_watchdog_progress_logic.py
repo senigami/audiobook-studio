@@ -81,6 +81,41 @@ class MockSampleBuildTask(StudioTask):
         self.bridge.synthesize({"text": "test"})
         return TaskResult(status="completed")
 
+
+class MarkerDrivenNoopTask(StudioTask):
+    @property
+    def is_marker_driven(self) -> bool:
+        return True
+
+    def describe(self):
+        return TaskContext(
+            task_id="build-noop",
+            task_type="sample_build",
+            payload={"test_text": "short render", "engine_id": "voice_engine"},
+        )
+
+    def get_expected_duration(self, text: str, engine_id: str) -> float:
+        return 22.0
+
+    def run(self):
+        return TaskResult(status="completed")
+
+
+def test_marker_driven_preparing_has_no_render_timing():
+    orc = MockOrchestrator(voice_bridge=MagicMock())
+    task = MarkerDrivenNoopTask()
+    context = task.describe()
+    wd = TtsServerWatchdog()
+
+    with patch("app.engines.watchdog.get_watchdog", return_value=wd):
+        orc._dispatch(task=task, context=context)
+
+    preparing_event = next(e for e in orc.published if e["status"] == "preparing")
+    assert preparing_event["progress"] == 0.0
+    assert preparing_event.get("started_at") is None
+    assert preparing_event.get("eta_seconds") is None
+    assert preparing_event.get("estimated_end_at") is None
+
 def test_sample_build_receives_markers_live():
     bridge = MagicMock()
     orc = MockOrchestrator(voice_bridge=bridge)
@@ -159,19 +194,17 @@ def test_started_at_marker_driven():
     bridge = MagicMock()
     orc = MockOrchestrator(voice_bridge=bridge)
     # Mocking task.get_expected_duration to avoid real calls
-    task = MagicMock(spec=StudioTask)
+    task = MagicMock()
     task.get_expected_duration.return_value = 25.0
+    task.is_marker_driven = True # Explicitly set for mock
+    task.to_bridge_request.return_value = {"task_id": "job-1"}
     task.describe.return_value = TaskContext(task_id="job-1", task_type="synthesis")
     context = task.describe()
 
     wd = TtsServerWatchdog()
     with patch("app.engines.watchdog.get_watchdog", return_value=wd):
         def side_effect(*args, **kwargs):
-            # 1. First event should be 'preparing' and started_at should be None
-            # (In _dispatch, we call _publish(status="preparing") before synthesis starts)
-            pass
-
-            # 2. Emit START_SYNTHESIS
+            # Emit START_SYNTHESIS
             wd._drain_stream(None, "stdout", MockStream(["[START_SYNTHESIS] job-1\n"]))
             return {"status": "ok"}
 
@@ -179,6 +212,9 @@ def test_started_at_marker_driven():
 
         # We need a mock progress_service on our MockOrchestrator because OrchestratorHelpersMixin calls it
         orc.progress_service = MagicMock()
+
+        # Simulate the 'preparing' event that submit() usually emits
+        orc._publish(context=context, status="preparing", started_at=None)
 
         orc._dispatch(task=task, context=context)
 
@@ -189,3 +225,4 @@ def test_started_at_marker_driven():
     running_event = next(e for e in orc.published if e["status"] == "running")
     assert running_event["started_at"] is not None
     assert running_event["started_at"] > 0
+    assert running_event["eta_seconds"] == 25

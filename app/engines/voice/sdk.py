@@ -39,6 +39,7 @@ class TTSRequest:
     language: str = "en"
     script: Optional[list[dict[str, Any]]] = None
     task_id: Optional[str] = None
+    cancel_check: Optional[Callable[[], bool]] = None
 
 
 @dataclass

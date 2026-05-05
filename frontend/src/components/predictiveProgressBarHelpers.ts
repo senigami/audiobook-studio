@@ -52,12 +52,10 @@ export const getProgressInfo = ({
     presentationState,
     preparingIndeterminate,
     displayProgress,
-    rawProgress,
 }: {
     presentationState?: string;
     preparingIndeterminate: boolean;
     displayProgress: number;
-    rawProgress?: number;
 }) => {
     if (isDoneStatus(presentationState) || isFailedStatus(presentationState)) {
         return { localProgress: 1, indeterminate: false };
@@ -72,19 +70,11 @@ export const getProgressInfo = ({
         return { localProgress: 0, indeterminate: true };
     }
 
-    // Special case: If we are 'running' but the authoritative progress is still 0.0,
-    // we want to keep the bar at 0% and show the 0% label.
-    // The 'active' signal comes from the pulsing icon in the queue and the ETA countdown.
-    if (isLiveAnimatedStatus(presentationState) && (rawProgress ?? 0) <= 0) {
-        return { localProgress: 0, indeterminate: false };
-    }
-
     return {
         localProgress: clamp01(displayProgress),
         indeterminate: false,
     };
 };
-
 
 export const getAutoFinalizing = ({
     presentationState,

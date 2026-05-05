@@ -65,11 +65,21 @@ class OrchestratorHelpersMixin:
 
     def _dispatch(self, *, task: StudioTask, context: TaskContext) -> TaskResult:
         """Dispatch the task to execution through the orchestrator-owned bridge."""
-        # Attach a progress reporter that redirects task-internal updates to our publisher.
-        # Attach a progress reporter that redirects task-internal updates to our publisher.
+        # Render start is separate from preparation. Marker-driven tasks anchor this
+        # on engine markers so model loading does not pollute render duration metrics.
+        timing = {"render_started_at": None}
+        marker_driven = bool(getattr(task, "is_marker_driven", False))
+        expected_duration = self._estimate_task_duration(task=task, context=context)
+
         def task_progress_reporter(progress: float, message: str | None, reason_code: str | None, status: str = "running"):
-            # Ensure started_at is set if we transition to running without markers
-            if status == "running" and timing["render_started_at"] is None:
+            # Non-marker tasks start when they first report running. Marker-driven
+            # tasks should only fall back here for real positive progress if a
+            # START_SYNTHESIS marker was missed.
+            if (
+                status == "running"
+                and timing["render_started_at"] is None
+                and (not marker_driven or progress > 0.0)
+            ):
                 timing["render_started_at"] = time.time()
 
             self._publish(
@@ -83,26 +93,13 @@ class OrchestratorHelpersMixin:
 
         task.set_progress_reporter(task_progress_reporter)
 
-        # We track render_started_at separately from preparation.
-        # It should represent actual render/execution start.
-        timing = {"render_started_at": None}
-        expected_duration = 0.0
-        try:
-             # Try to get duration from task if available
-             text = context.payload.get("test_text") or context.payload.get("script_text", "")
-             engine_id = context.payload.get("engine_id", "synthesis")
-             expected_duration = task.get_expected_duration(text, engine_id)
-        except Exception:
-             expected_duration = 25.0
-
         self._publish(
             context=context,
             status="preparing",
             progress=0.0,
             started_at=None,
-            eta_seconds=int(expected_duration),
             message="Preparing synthesis resources...",
-            force=True
+            force=True,
         )
 
         # If the task exposes a bridge request, route through the injected bridge.
@@ -124,9 +121,10 @@ class OrchestratorHelpersMixin:
                     context=context,
                     status="running",
                     progress=0.0,
+                    eta_seconds=self._duration_to_eta_seconds(expected_duration),
                     started_at=timing["render_started_at"],
                     message="Synthesis in progress...",
-                    force=True
+                    force=True,
                 )
             elif "[PROGRESS]" in line:
                 if timing["render_started_at"] is None:
@@ -179,14 +177,17 @@ class OrchestratorHelpersMixin:
                     return TaskResult(status="failed", message=str(exc), retriable=is_retriable)
             else:
                 # Non-bridge tasks (e.g. Assembly, Export) set started_at here.
-                if timing["render_started_at"] is None:
-                    timing["render_started_at"] = time.time()
-                self._publish(
-                    context=context,
-                    status="running",
-                    progress=0.0,
-                    started_at=timing["render_started_at"],
-                )
+                # Marker-driven tasks (SampleBuildTask) suppress this generic event
+                # because they will report 'running' upon START_SYNTHESIS logs.
+                if not marker_driven:
+                    if timing["render_started_at"] is None:
+                        timing["render_started_at"] = time.time()
+                    self._publish(
+                        context=context,
+                        status="running",
+                        progress=0.0,
+                        started_at=timing["render_started_at"],
+                    )
                 return task.run()
         except Exception as exc:
             logger.exception("Task %s: dispatch raised an exception.", context.task_id)
@@ -194,6 +195,23 @@ class OrchestratorHelpersMixin:
         finally:
             if wd:
                 wd.unregister_log_listener(log_listener)
+
+    def _estimate_task_duration(self, *, task: StudioTask, context: TaskContext) -> float | None:
+        """Estimate render duration without publishing it during preparation."""
+        try:
+            text = context.payload.get("test_text") or context.payload.get("script_text", "")
+            engine_id = context.payload.get("engine_id", "synthesis")
+            duration = task.get_expected_duration(text, engine_id)
+            return float(duration) if duration else None
+        except Exception:
+            return None
+
+    @staticmethod
+    def _duration_to_eta_seconds(duration: float | None) -> int | None:
+        """Normalize an optional duration estimate for websocket payloads."""
+        if duration is None or duration <= 0:
+            return None
+        return max(1, int(round(duration)))
 
     def _publish(
         self,

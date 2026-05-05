@@ -47,6 +47,7 @@ app = FastAPI(
 _state_lock = threading.Lock()
 _plugins: list[LoadedPlugin] = []
 _plugins_dir: Path = PLUGINS_DIR
+_cancelled_tasks: set[str] = set()
 
 
 def _plugin_by_id(engine_id: str) -> LoadedPlugin:
@@ -300,6 +301,15 @@ def reverify_engine(engine_id: str) -> dict[str, Any]:
     }
 
 
+@app.post("/tasks/{task_id}/cancel")
+def cancel_task(task_id: str) -> dict[str, Any]:
+    """Mark a task as cancelled so the synthesis loop can terminate it."""
+    with _state_lock:
+        _cancelled_tasks.add(task_id)
+    logger.info("Task %s marked for cancellation", task_id)
+    return {"ok": True, "task_id": task_id}
+
+
 @app.post("/synthesize")
 def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
     """Synthesize audio for a text request."""
@@ -350,13 +360,20 @@ def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
         language=str(request_dict.get("language", body.language)),
         script=request_dict.get("script") or body.script,  # type: ignore[arg-type]
         task_id=body.task_id,
+        cancel_check=lambda: (body.task_id in _cancelled_tasks) if body.task_id else False,
     )
 
-    ok, msg = plugin.engine.check_request(req)
-    if not ok:
-        raise HTTPException(status_code=422, detail=f"Request validation failed: {msg}")
+    try:
+        ok, msg = plugin.engine.check_request(req)
+        if not ok:
+            raise HTTPException(status_code=422, detail=f"Request validation failed: {msg}")
 
-    result = plugin.engine.synthesize(req)
+        result = plugin.engine.synthesize(req)
+    finally:
+        # Cleanup cancellation flag after synthesis attempt
+        if body.task_id:
+            with _state_lock:
+                _cancelled_tasks.discard(body.task_id)
 
     if not result.ok:
         raise HTTPException(

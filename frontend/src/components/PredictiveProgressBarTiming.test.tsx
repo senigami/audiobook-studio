@@ -110,8 +110,8 @@ describe('PredictiveProgressBar - Timing', () => {
         act(() => {
             vi.advanceTimersByTime(10000) // 10 seconds
         })
-        
-        expect(readPercent()).toBe(0)
+
+        expect(readPercent()).toBeGreaterThan(0)
         vi.useRealTimers()
     })
 

@@ -158,6 +158,15 @@ class TtsClient:
             timeout=_READ_TIMEOUT,
         )
 
+    def cancel(self, task_id: str) -> bool:
+        """POST /tasks/{task_id}/cancel — request task termination."""
+        try:
+            self._post(f"/tasks/{_safe_id(task_id)}/cancel", payload={})
+            return True
+        except Exception as exc:
+            logger.warning("TtsClient.cancel(%s) failed: %s", task_id, exc)
+            return False
+
     def plan_synthesis(
         self,
         *,

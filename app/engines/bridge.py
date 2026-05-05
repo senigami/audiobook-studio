@@ -31,6 +31,10 @@ class VoiceBridge:
         """Route synthesis request."""
         return self.remote.synthesize(request)
 
+    def cancel(self, task_id: str) -> bool:
+        """Signal the remote bridge to cancel a specific task."""
+        return self.remote.cancel(task_id)
+
     def build_voice_asset(self, request: dict[str, Any]) -> dict[str, Any]:
         """Route voice-asset build request."""
         raise NotImplementedError("build_voice_asset is not yet implemented via the TTS Server path.")

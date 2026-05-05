@@ -42,6 +42,11 @@ class SampleTestTask(StudioTask):
         if not self.engine_id:
             raise ValueError("engine_id is required")
 
+    @property
+    def is_marker_driven(self) -> bool:
+        """Voice tests use log markers to track render start."""
+        return True
+
     def describe(self) -> TaskContext:
         """Describe sample-test identity and ownership."""
         return TaskContext(
@@ -100,9 +105,6 @@ class SampleTestTask(StudioTask):
             from app.engines.bridge import create_voice_bridge
             bridge = create_voice_bridge()
 
-            # Use historical metrics to inform heartbeat duration
-            expected_duration = self.get_expected_duration(self.test_text, self.engine_id)
-
             res = bridge.synthesize(request)
 
             if res.get("status") != "ok":
@@ -146,4 +148,6 @@ class SampleTestTask(StudioTask):
 
     def on_cancel(self) -> None:
         """Cleanup on cancellation."""
-        pass
+        from app.engines.bridge import create_voice_bridge
+        bridge = create_voice_bridge()
+        bridge.cancel(self.task_id)
