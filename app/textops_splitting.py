@@ -1,6 +1,6 @@
 import re
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 from .config import SAFE_SPLIT_TARGET, SENT_CHAR_LIMIT
 from .textops_helpers import CHAPTER_RE, preprocess_text, safe_filename
@@ -204,7 +204,7 @@ def safe_split_long_sentences(text: str, target: int = SAFE_SPLIT_TARGET) -> str
     return result.strip()
 
 
-def find_long_sentences(text: str, limit: int = SENT_CHAR_LIMIT, threshold: int | None = None):
+def find_long_sentences(text: str, limit: int = SENT_CHAR_LIMIT, threshold: Optional[int] = None):
     text = preprocess_text(text)
     hits = []
     idx = 0

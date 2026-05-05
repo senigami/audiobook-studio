@@ -10,7 +10,16 @@ from app import config
 from app.db.chapters import list_chapters
 from .manifest import load_project_manifest, save_project_manifest, CURRENT_STORAGE_VERSION
 
+
 logger = logging.getLogger(__name__)
+
+
+def _load_project_manifest_with_v1_fallback(project_dir: Path) -> Dict[str, Any]:
+    """Loads the project manifest, falling back to version 1 if missing for migration."""
+    manifest = load_project_manifest(project_dir)
+    if not manifest:
+        return {"version": 1}
+    return manifest
 
 
 def migrate_project_to_v2(project_id: str) -> bool:
@@ -36,7 +45,7 @@ def migrate_project_to_v2(project_id: str) -> bool:
         return False
 
     project_dir = Path(project_dir_path)
-    manifest = load_project_manifest(project_dir)
+    manifest = _load_project_manifest_with_v1_fallback(project_dir)
 
     current_version = int(manifest.get("version", 1))
 

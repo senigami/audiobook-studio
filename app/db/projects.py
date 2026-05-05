@@ -29,10 +29,19 @@ def create_project(
             conn.commit()
 
             project_dir = config.PROJECTS_DIR / project_id
-            (project_dir / "audio").mkdir(parents=True, exist_ok=True)
-            (project_dir / "text").mkdir(parents=True, exist_ok=True)
             (project_dir / "m4b").mkdir(parents=True, exist_ok=True)
             (project_dir / "cover").mkdir(parents=True, exist_ok=True)
+
+            # Save V2 manifest immediately for new projects
+            from ..domain.projects.manifest import save_project_manifest, CURRENT_STORAGE_VERSION
+            manifest = {
+                "version": CURRENT_STORAGE_VERSION,
+                "title": name,
+                "series": series,
+                "author": author,
+                "created_at": now,
+            }
+            save_project_manifest(project_dir, manifest)
 
             return project_id
 

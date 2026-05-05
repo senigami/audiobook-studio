@@ -43,6 +43,15 @@ def boot_studio() -> None:
     if _booted:
         return
     _booted = True
+
+    # 1. Run database migrations
+    try:
+        from app.db.migration import migrate_state_json_to_db  # noqa: PLC0415
+        migrate_state_json_to_db()
+    except Exception:
+        logger.exception("Database migration failed during boot sequence.")
+
+    # 2. Start services
     boot_tts_server()
 
 

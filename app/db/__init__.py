@@ -10,5 +10,5 @@ from .reconcile import reconcile_project_audio
 from .performance import record_render_sample, get_render_history, apply_performance_retention_policy
 from .migration import migrate_state_json_to_db
 
-# Run migration on import if needed
-migrate_state_json_to_db()
+# Note: Automatic import-time migration removed.
+# Subsystems must call app.boot.boot_studio() or app.db.migration.migrate_state_json_to_db() explicitly.
