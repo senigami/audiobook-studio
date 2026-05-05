@@ -83,8 +83,7 @@ def assemble_audiobook(
                     on_output(f"Missing input audio file: {file_path}\n")
                     return 1
 
-                # Check for cached m4a
-                m4a_path = input_folder / f"{Path(f).stem}.m4a"
+                m4a_path = _cached_m4a_path(input_folder, file_path)
                 needs_encode = True
 
                 if m4a_path.exists():
@@ -199,3 +198,17 @@ def _create_temp_manifest(prefix: str, suffix: str) -> Path:
     fd, tmp = tempfile.mkstemp(prefix=safe_prefix, suffix=suffix)
     os.close(fd)
     return Path(tmp)
+
+
+def _cached_m4a_path(input_folder: Path, source_path: Path) -> Path:
+    """Return the AAC cache path for an assembly input."""
+    try:
+        if source_path.parent.resolve() == input_folder.resolve():
+            return input_folder / f"{source_path.stem}.m4a"
+    except OSError:
+        if source_path.parent == input_folder:
+            return input_folder / f"{source_path.stem}.m4a"
+
+    parent = re.sub(r"[^A-Za-z0-9._-]+", "_", source_path.parent.name).strip("._-")
+    prefix = f"{parent}_" if parent else ""
+    return input_folder / f"{prefix}{source_path.stem}.m4a"
