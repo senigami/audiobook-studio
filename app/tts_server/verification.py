@@ -111,10 +111,9 @@ def verify_plugin(plugin: "LoadedPlugin") -> VerificationResult:
     test_text = plugin.test_text
     voice_ref, voice_ref_error = _resolve_default_voice_reference()
 
-    # If no default voice reference, try bundled sample.wav in plugin dir
     if voice_ref_error:
-        bundled = Path(plugin.plugin_dir) / "sample.wav"
-        if bundled.is_file():
+        bundled = _resolve_plugin_test_sample(plugin)
+        if bundled:
             voice_ref = str(bundled)
             voice_ref_error = None
 
@@ -236,6 +235,33 @@ def verify_plugin(plugin: "LoadedPlugin") -> VerificationResult:
             logger.debug(
                 "Could not remove verification temp file: %s", output_path
             )
+
+
+def _resolve_plugin_test_sample(plugin: "LoadedPlugin") -> Path | None:
+    plugin_dir = Path(plugin.plugin_dir)
+    manifest = plugin.manifest if isinstance(plugin.manifest, dict) else {}
+    sample_names = [manifest.get("test_sample"), "sample.wav"]
+
+    for sample_name in sample_names:
+        sample_text = str(sample_name or "").strip()
+        if not sample_text:
+            continue
+
+        sample_path = Path(sample_text)
+        if sample_path.is_absolute():
+            if sample_path.is_file():
+                return sample_path
+            continue
+
+        candidate = plugin_dir / sample_text
+        try:
+            candidate.resolve().relative_to(plugin_dir.resolve())
+        except (ValueError, RuntimeError, OSError):
+            continue
+        if candidate.is_file():
+            return candidate
+
+    return None
 
 
 def verify_all(plugins: "list[LoadedPlugin]") -> list[VerificationResult]:

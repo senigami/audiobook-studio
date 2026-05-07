@@ -65,6 +65,7 @@ class EngineManifestModel:
     license: str = ""
     homepage: str = ""
     test_text: str = "This is a verification test."
+    test_sample: str | None = None
     verified: bool = False
     behavior: dict[str, Any] = field(default_factory=dict)
 

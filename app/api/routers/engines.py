@@ -90,13 +90,15 @@ def test_engine(engine_id: str):
     # If no default voice, look for a bundled sample in the plugin directory
     if error:
         from ...engines.registry import load_engine_registry  # noqa: PLC0415
-
         registry = load_engine_registry()
         reg = registry.get(engine_id)
         if reg:
-            plugin_dir = Path(reg.manifest.module_path.replace(".", "/") + ".py").parent
-            bundled = plugin_dir / "sample.wav"
-            if bundled.exists():
+            bundled = _resolve_engine_test_sample(
+                engine_id=engine_id,
+                module_path=reg.manifest.module_path,
+                test_sample=reg.manifest.test_sample,
+            )
+            if bundled:
                 voice_ref = str(bundled)
                 error = None
 
@@ -175,3 +177,50 @@ def install_plugin():
     """Request plugin installation instructions or trigger install."""
     bridge = create_voice_bridge()
     return bridge.install_plugin()
+
+
+def _resolve_engine_test_sample(
+    *,
+    engine_id: str,
+    module_path: str,
+    test_sample: str | None,
+) -> Path | None:
+    """Resolve an engine-owned test sample without depending on user voices."""
+    sample_names = [test_sample] if test_sample else []
+    sample_names.append("sample.wav")
+
+    for sample_name in sample_names:
+        if not sample_name:
+            continue
+        sample_path = Path(sample_name)
+        if sample_path.is_absolute():
+            if sample_path.is_file():
+                return sample_path
+            continue
+
+        plugin_dir = _resolve_plugin_dir(engine_id=engine_id, module_path=module_path)
+        if not plugin_dir:
+            continue
+        candidate = plugin_dir / sample_name
+        try:
+            candidate.resolve().relative_to(plugin_dir.resolve())
+        except (ValueError, RuntimeError, OSError):
+            continue
+        if candidate.is_file():
+            return candidate
+
+    return None
+
+
+def _resolve_plugin_dir(*, engine_id: str, module_path: str) -> Path | None:
+    from app.config import PLUGINS_DIR  # noqa: PLC0415
+
+    parts = module_path.split(".")
+    if len(parts) > 1 and parts[0] == "plugins":
+        return PLUGINS_DIR / parts[1]
+
+    safe_engine_id = "".join(ch for ch in engine_id if ch.isalnum() or ch in ("-", "_"))
+    if safe_engine_id:
+        return PLUGINS_DIR / f"tts_{safe_engine_id}"
+
+    return None

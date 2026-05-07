@@ -144,6 +144,8 @@ def build_engine_detail(
         "resource": manifest.get("resource", {}),
         "author": manifest.get("author", ""),
         "homepage": manifest.get("homepage", ""),
+        "test_sample": manifest.get("test_sample"),
+        "test_text": manifest.get("test_text", "This is a verification test."),
         "can_enable": can_enable,
         "enablement_message": enablement_message or getattr(plugin, "setup_message", None),
         "setup_message": getattr(plugin, "setup_message", None),

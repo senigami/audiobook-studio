@@ -1,4 +1,5 @@
 import os
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -142,6 +143,45 @@ def test_engine_test_endpoint_delegates_preview_with_engine_id(clean_db, client,
     assert engine_id == "mock-engine"
     assert payload["script_text"]
     assert payload["output_path"].endswith("last_test.wav")
+
+
+def test_engine_test_endpoint_uses_plugin_sample_without_default_voice(clean_db, client, tmp_path):
+    plugins_dir = tmp_path / "plugins"
+    plugin_dir = plugins_dir / "tts_mock"
+    plugin_dir.mkdir(parents=True)
+    sample_path = plugin_dir / "sample.wav"
+    sample_path.write_bytes(b"reference wav")
+
+    bridge = MagicMock()
+    registration = SimpleNamespace(
+        manifest=SimpleNamespace(
+            module_path="plugins.tts_mock.app_adapter",
+            test_sample="sample.wav",
+        )
+    )
+
+    def mock_preview(engine_id, payload):
+        assert engine_id == "mock"
+        assert payload["reference_audio_path"] == str(sample_path)
+        assert payload["voice_ref"] == str(sample_path)
+        out_path = payload["output_path"]
+        os.makedirs(os.path.dirname(out_path), exist_ok=True)
+        with open(out_path, "wb") as f:
+            f.write(b"wav")
+        return {"ok": True, "audio_path": out_path}
+
+    bridge.preview.side_effect = mock_preview
+
+    with patch("app.api.routers.engines.create_voice_bridge", return_value=bridge), \
+         patch("app.tts_server.verification._resolve_default_voice_reference", return_value=(None, "No default voice set")), \
+         patch("app.engines.registry.load_engine_registry", return_value={"mock": registration}), \
+         patch("app.config.PLUGINS_DIR", plugins_dir), \
+         patch("app.config.ENGINE_TEST_DIR", tmp_path / "engine_tests"):
+        response = client.post("/api/engines/mock/test")
+
+    assert response.status_code == 200
+    assert response.json()["ok"] is True
+    bridge.preview.assert_called_once()
 
 
 def test_get_test_audio_returns_file(clean_db, client, tmp_path):
