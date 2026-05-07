@@ -59,9 +59,9 @@ export const VoiceProfileSelect: React.FC<VoiceProfileSelectProps> = ({
           {value}
         </option>
       )}
-      {options.map((opt) => (
+      {options.map((opt, idx) => (
         <option
-          key={opt.id}
+          key={`${opt.id}-${idx}`}
           value={opt.value}
           disabled={opt.disabled}
           title={opt.disabled_reason}

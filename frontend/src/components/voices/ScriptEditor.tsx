@@ -69,11 +69,11 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({
                             fontSize: '0.95rem',
                         }}
                     >
-                        {engines.map(e => {
+                        {engines.map((e, idx) => {
                             const isSelected = engine === e.engine_id;
                             if (!e.enabled && !isSelected) return null;
                             return (
-                                <option key={e.engine_id} value={e.engine_id}>
+                                <option key={`${e.engine_id}-${idx}`} value={e.engine_id}>
                                     {e.enabled ? e.display_name : `${e.display_name} (disabled in Settings)`}
                                 </option>
                             );
@@ -114,8 +114,8 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({
                                         }}
                                     >
                                         <option value="">Use profile samples automatically</option>
-                                        {availableSamples.map((sample) => (
-                                            <option key={sample} value={sample}>{sample}</option>
+                                        {availableSamples.map((sample, idx) => (
+                                            <option key={`${sample}-${idx}`} value={sample}>{sample}</option>
                                         ))}
                                     </select>
                                 </div>

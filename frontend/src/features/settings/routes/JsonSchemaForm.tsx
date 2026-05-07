@@ -88,9 +88,9 @@ export const JsonSchemaForm: React.FC<{
                   cursor: isLocked ? 'not-allowed' : 'pointer'
                 }}
               >
-                {prop.enum.map((opt: string) => (
-                  <option key={opt} value={opt}>
-                    {opt}
+                {Array.from(new Set(prop.enum || [])).map((opt: any) => (
+                  <option key={String(opt)} value={opt}>
+                    {String(opt)}
                   </option>
                 ))}
               </select>

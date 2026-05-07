@@ -79,8 +79,8 @@ export const NewVoiceModal: React.FC<NewVoiceModalProps> = ({ isOpen, onClose, v
                             <option value="">No enabled engines available</option>
                         ) : (
                             <>
-                                {engines.filter(e => e.enabled).map(e => (
-                                    <option key={e.engine_id} value={e.engine_id}>{e.display_name} {e.status !== 'ready' ? '(🚫 Needs Setup)' : ''}</option>
+                                {engines.filter(e => e.enabled).map((e, idx) => (
+                                    <option key={`${e.engine_id}-${idx}`} value={e.engine_id}>{e.display_name} {e.status !== 'ready' ? '(🚫 Needs Setup)' : ''}</option>
                                 ))}
                             </>
                         )}
@@ -241,8 +241,8 @@ export const AddVariantModal: React.FC<AddVariantModalProps> = ({ isOpen, onClos
                             <option value="">No enabled engines available</option>
                         ) : (
                             <>
-                                {engines.filter(e => e.enabled).map(e => (
-                                    <option key={e.engine_id} value={e.engine_id}>{e.display_name} {e.status !== 'ready' ? '(🚫 Needs Setup)' : ''}</option>
+                                {engines.filter(e => e.enabled).map((e, idx) => (
+                                    <option key={`${e.engine_id}-${idx}`} value={e.engine_id}>{e.display_name} {e.status !== 'ready' ? '(🚫 Needs Setup)' : ''}</option>
                                 ))}
                             </>
                         )}
@@ -326,8 +326,8 @@ export const MoveVariantModal: React.FC<MoveVariantModalProps> = ({
                         }}
                     >
                         <option value="" disabled>Select a speaker...</option>
-                        {speakers.map(v => (
-                            <option key={v.id} value={v.id}>{v.name}</option>
+                        {speakers.map((v, idx) => (
+                            <option key={`${v.id}-${idx}`} value={v.id}>{v.name}</option>
                         ))}
                     </select>
                 </div>
