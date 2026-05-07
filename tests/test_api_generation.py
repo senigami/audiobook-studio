@@ -484,6 +484,46 @@ def test_queue_chapter_rejects_voxtral_without_api_key(clean_db, client):
         assert response.status_code == 400
         assert "API key" in response.json()["message"]
 
+
+def test_queue_chapter_rejects_unconfigured_engine_with_clear_message(clean_db, client):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.segments import sync_chapter_segments
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "Hello world.")
+    sync_chapter_segments(cid, "Hello world.")
+
+    with patch("app.api.routers.generation.get_settings", return_value={"default_speaker_profile": "Voice1", "default_engine": ""}), \
+         patch("app.api.routers.generation.resolve_tts_engine_for_profiles", return_value=("", [""])):
+        response = client.post("/api/processing_queue", data={"project_id": pid, "chapter_id": cid, "speaker_profile": "Voice1"})
+
+    assert response.status_code == 400
+    assert response.json()["message"] == "No TTS engine is currently configured for this voice profile. Please select an engine in Settings."
+
+
+def test_queue_chapter_rejects_missing_registry_engine_with_named_message(clean_db, client):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.segments import sync_chapter_segments
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "Hello world.")
+    sync_chapter_segments(cid, "Hello world.")
+
+    bridge = MagicMock()
+    bridge.describe_registry.return_value = []
+    bridge.is_engine_enabled.return_value = False
+
+    with patch("app.api.routers.generation.create_voice_bridge", return_value=bridge), \
+         patch("app.api.routers.generation.get_settings", return_value={"default_speaker_profile": "Voice1", "default_engine": "some-engine"}), \
+         patch("app.api.routers.generation.resolve_tts_engine_for_profiles", return_value=("some-engine", ["some-engine"])):
+        response = client.post("/api/processing_queue", data={"project_id": pid, "chapter_id": cid, "speaker_profile": "Voice1"})
+
+    assert response.status_code == 400
+    assert response.json()["message"] == "Enable Some-engine in Settings to use these voices."
+
+
 def test_generation_orchestration_integration(clean_db, client, monkeypatch):
     """Exercises the real TaskOrchestrator.submit path from the API."""
     from app.db.projects import create_project

@@ -34,11 +34,20 @@ logger = logging.getLogger(__name__)
 
 
 def _engine_usable_error(engine_id: str):
+    if not engine_id:
+        return JSONResponse(
+            {
+                "status": "error",
+                "message": "No TTS engine is currently configured for this voice profile. Please select an engine in Settings."
+            },
+            status_code=400,
+        )
+
     from ...engines.bridge import create_voice_bridge
     bridge = create_voice_bridge()
     registry = {entry.get("engine_id"): entry for entry in bridge.describe_registry()}
     entry = registry.get(engine_id)
-    display_name = (entry.get("display_name") if entry else None) or engine_id.capitalize()
+    display_name = (entry.get("display_name") if entry else None) or engine_id.capitalize() or "this engine"
 
     return JSONResponse(
         {
@@ -70,6 +79,8 @@ def _ensure_engines_enabled(engine_ids: list[str]) -> Optional[JSONResponse]:
     bridge = create_voice_bridge()
     registry = {entry.get("engine_id"): entry for entry in bridge.describe_registry()}
     for engine_id in engine_ids:
+        if not engine_id:
+            return _engine_usable_error(engine_id)
         entry = registry.get(engine_id)
         if not entry:
             if not bridge.is_engine_enabled(engine_id):
