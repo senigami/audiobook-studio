@@ -106,9 +106,17 @@ def test_engine(engine_id: str):
         return JSONResponse({"ok": False, "message": f"Test failed: {error}"}, status_code=400)
 
     try:
-        from app.config import ENGINE_TEST_DIR  # noqa: PLC0415
         import json
         import time
+        from app.config import ENGINE_TEST_DIR  # noqa: PLC0415
+        from ...engines.registry import load_engine_registry  # noqa: PLC0415
+        registry = load_engine_registry()
+        reg = registry.get(engine_id)
+
+        # Precedence: Manifest test_text > hardcoded internal default phrase
+        test_text = "This is a test of the synthesis engine. How do I sound?"
+        if reg:
+            test_text = getattr(reg.manifest, "test_text", test_text) or test_text
 
         safe_engine_id = "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in engine_id)
         engine_test_root = ENGINE_TEST_DIR / safe_engine_id
@@ -116,7 +124,7 @@ def test_engine(engine_id: str):
 
         output_path = engine_test_root / "last_test.wav"
         res = bridge.preview(engine_id, {
-            "script_text": "This is a test of the synthesis engine. How do I sound?",
+            "script_text": test_text,
             "voice_profile_id": "Default", # Placeholder
             "voice_ref": voice_ref,
             "reference_audio_path": voice_ref,

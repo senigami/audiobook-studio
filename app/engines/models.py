@@ -129,6 +129,7 @@ class EngineRegistrationModel:
             "resource": asdict(self.manifest.resource),
             "author": self.manifest.author,
             "homepage": self.manifest.homepage,
+            "test_text": self.manifest.test_text,
             "behavior": dict(self.manifest.behavior),
         }
 

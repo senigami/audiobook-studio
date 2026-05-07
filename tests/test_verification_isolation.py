@@ -255,3 +255,31 @@ class TestVerificationIsolation:
         result = verify_plugin(plugin)
         assert result.ok is False
         assert "empty or missing output file" in result.error
+
+    def test_verify_honors_manifest_test_text(self, tmp_path):
+        """Verification should use test_text from the manifest if present."""
+        engine = MagicMock()
+        engine.check_request.return_value = (True, "OK")
+        manifest_test_text = "Verification text from manifest."
+
+        def mock_synthesize(req):
+            assert req.text == manifest_test_text
+            Path(req.output_path).write_text("audio data")
+            return TTSResult(ok=True, output_path=req.output_path)
+
+        engine.synthesize.side_effect = mock_synthesize
+
+        plugin = LoadedPlugin(
+            folder_name="tts_mock",
+            plugin_dir=tmp_path / "tts_mock",
+            manifest={
+                "engine_id": "mock",
+                "display_name": "Mock",
+                "test_text": manifest_test_text
+            },
+            engine=engine
+        )
+
+        result = verify_plugin(plugin)
+        assert result.ok is True
+        assert engine.synthesize.call_args[0][0].text == manifest_test_text

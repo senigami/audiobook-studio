@@ -157,6 +157,7 @@ def test_engine_test_endpoint_uses_plugin_sample_without_default_voice(clean_db,
         manifest=SimpleNamespace(
             module_path="plugins.tts_mock.app_adapter",
             test_sample="sample.wav",
+            test_text="Verification test.",
         )
     )
 
@@ -176,6 +177,38 @@ def test_engine_test_endpoint_uses_plugin_sample_without_default_voice(clean_db,
          patch("app.tts_server.verification._resolve_default_voice_reference", return_value=(None, "No default voice set")), \
          patch("app.engines.registry.load_engine_registry", return_value={"mock": registration}), \
          patch("app.config.PLUGINS_DIR", plugins_dir), \
+         patch("app.config.ENGINE_TEST_DIR", tmp_path / "engine_tests"):
+        response = client.post("/api/engines/mock/test")
+
+    assert response.status_code == 200
+    assert response.json()["ok"] is True
+    bridge.preview.assert_called_once()
+
+
+def test_engine_test_endpoint_honors_manifest_test_text(clean_db, client, tmp_path):
+    bridge = MagicMock()
+    manifest_test_text = "Custom manifest test text for mock engine."
+    registration = SimpleNamespace(
+        manifest=SimpleNamespace(
+            module_path="plugins.tts_mock.app_adapter",
+            test_sample="sample.wav",
+            test_text=manifest_test_text,
+        )
+    )
+
+    def mock_preview(engine_id, payload):
+        assert payload["script_text"] == manifest_test_text
+        out_path = payload["output_path"]
+        os.makedirs(os.path.dirname(out_path), exist_ok=True)
+        with open(out_path, "wb") as f:
+            f.write(b"wav")
+        return {"ok": True, "audio_path": out_path}
+
+    bridge.preview.side_effect = mock_preview
+
+    with patch("app.api.routers.engines.create_voice_bridge", return_value=bridge), \
+         patch("app.tts_server.verification._resolve_default_voice_reference", return_value=(str(tmp_path / "reference.wav"), None)), \
+         patch("app.engines.registry.load_engine_registry", return_value={"mock": registration}), \
          patch("app.config.ENGINE_TEST_DIR", tmp_path / "engine_tests"):
         response = client.post("/api/engines/mock/test")
 
