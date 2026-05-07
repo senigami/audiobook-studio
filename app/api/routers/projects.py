@@ -33,8 +33,6 @@ router.include_router(assembly_router)
 @router.get("")
 def api_list_projects():
     projects = list_projects()
-    for p in projects:
-        migrate_project_to_v2(p["id"])
     return JSONResponse(projects)
 
 

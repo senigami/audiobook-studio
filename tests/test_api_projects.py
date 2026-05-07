@@ -1,6 +1,7 @@
 import pytest
 import os
 import json
+from unittest.mock import patch
 from app.db.core import init_db
 
 @pytest.fixture
@@ -54,6 +55,24 @@ def test_project_crud(clean_db, client):
     response = client.delete(f"/api/projects/{pid}")
     assert response.status_code == 200
     assert client.get(f"/api/projects/{pid}").status_code == 404
+
+
+def test_project_list_does_not_migrate_each_project_but_detail_does(clean_db, client):
+    pid = client.post("/api/projects", data={"name": "Fast List Project"}).json()["project_id"]
+
+    with patch("app.api.routers.projects.migrate_project_to_v2") as migrate:
+        response = client.get("/api/projects")
+
+    assert response.status_code == 200
+    assert any(project["id"] == pid for project in response.json())
+    migrate.assert_not_called()
+
+    with patch("app.api.routers.projects.migrate_project_to_v2") as migrate:
+        response = client.get(f"/api/projects/{pid}")
+
+    assert response.status_code == 200
+    migrate.assert_called_once_with(pid)
+
 
 def test_project_chapters(clean_db, client):
     pid = client.post("/api/projects", data={"name": "P1"}).json()["project_id"]
