@@ -37,17 +37,24 @@ class TestTtsClientHealth:
         mock_resp = MagicMock()
         mock_resp.status_code = 200
 
-        with patch("httpx.get", return_value=mock_resp):
-            assert client.ping() is True
+        captured = {}
 
-    def test_ping_returns_true_on_207(self):
+        def fake_get(url, timeout=None):
+            captured["url"] = url
+            return mock_resp
+
+        with patch("httpx.get", side_effect=fake_get):
+            assert client.ping() is True
+        assert captured["url"].endswith("/ready")
+
+    def test_ping_returns_false_on_207(self):
         client = TtsClient("http://127.0.0.1:7862")
 
         mock_resp = MagicMock()
         mock_resp.status_code = 207
 
         with patch("httpx.get", return_value=mock_resp):
-            assert client.ping() is True
+            assert client.ping() is False
 
     def test_ping_returns_false_on_connection_error(self):
         import httpx

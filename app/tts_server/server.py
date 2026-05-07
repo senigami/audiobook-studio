@@ -48,6 +48,13 @@ _state_lock = threading.Lock()
 _plugins: list[LoadedPlugin] = []
 _plugins_dir: Path = PLUGINS_DIR
 _cancelled_tasks: set[str] = set()
+_ready_port: int | None = None
+
+
+def set_ready_port(port: int) -> None:
+    """Configure the port announced by the startup readiness hook."""
+    global _ready_port
+    _ready_port = port
 
 
 def _plugin_by_id(engine_id: str) -> LoadedPlugin:
@@ -91,6 +98,13 @@ def load_plugins(plugins_dir: Path) -> None:
     logger.info("Discovered %d plugin(s) from %s. Verification started in background.", len(discovered), plugins_dir)
 
 
+@app.on_event("startup")
+def _announce_ready() -> None:
+    """Announce readiness only after the ASGI app has fully started."""
+    if _ready_port is not None:
+        print(f"READY:{_ready_port}", flush=True)
+
+
 # ---------------------------------------------------------------------------
 # Pydantic request models
 # ---------------------------------------------------------------------------
@@ -132,6 +146,12 @@ def health() -> JSONResponse:
     payload = build_health_response(plugins_snapshot)
     status_code = 200 if payload["status"] == "ok" else 207
     return JSONResponse(content=payload, status_code=status_code)
+
+
+@app.get("/ready")
+def ready() -> JSONResponse:
+    """Cheap readiness probe used by the Studio watchdog."""
+    return JSONResponse(content={"status": "ready"}, status_code=200)
 
 
 @app.get("/engines")

@@ -63,16 +63,16 @@ class TtsClient:
         return self._get("/health", timeout=_HEARTBEAT_TIMEOUT)
 
     def ping(self) -> bool:
-        """Return True if the TTS Server responds to /health within timeout.
+        """Return True if the TTS Server responds to /ready within timeout.
 
         Does not raise — intended for watchdog heartbeat checks.
         """
         try:
             resp = httpx.get(
-                f"{self.base_url}/health",
+                f"{self.base_url}/ready",
                 timeout=_HEARTBEAT_TIMEOUT,
             )
-            return resp.status_code in (200, 207)
+            return resp.status_code == 200
         except Exception:
             return False
 

@@ -218,7 +218,7 @@ class SynthesisTask(StudioTask):
         )
 
         try:
-            status = handle_mixed_job(
+            status, message = handle_mixed_job(
                 jid=self.task_id,
                 j=j,
                 start=time.time(),
@@ -227,7 +227,7 @@ class SynthesisTask(StudioTask):
             )
             return TaskResult(
                 status="completed" if status == "done" else status,
-                message=None if status == "done" else f"Mixed synthesis returned {status}",
+                message=message,
             )
         except Exception as exc:
             logger.exception("Mixed synthesis failed for task %s", self.task_id)

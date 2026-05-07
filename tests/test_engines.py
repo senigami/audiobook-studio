@@ -1,11 +1,20 @@
 import pytest
 import os
+import signal
 import subprocess
 import sys
 import importlib.util
 from pathlib import Path
 from unittest.mock import MagicMock, patch, ANY
-from app.engines.proc_utils import run_cmd_stream, _active_processes, terminate_all_subprocesses
+from app.engines.proc_utils import (
+    run_cmd_stream,
+    _active_processes,
+    terminate_all_subprocesses,
+    cleanup_orphaned_tts_server_processes,
+    write_tts_server_runtime_marker,
+    load_tts_server_runtime_marker,
+    clear_tts_server_runtime_marker,
+)
 from app.engines.audio_ops import wav_to_mp3, convert_to_wav, get_audio_duration, stitch_segments, _ffmpeg_concat_entry
 from app.engines.audiobook_utils import _create_temp_manifest
 
@@ -208,3 +217,49 @@ def test_terminate_all_subprocesses():
     terminate_all_subprocesses()
     mock_proc.terminate.assert_called_once()
     assert len(_active_processes) == 0
+
+
+def test_cleanup_orphaned_tts_server_processes_only_targets_orphans():
+    ps_output = "\n".join(
+        [
+            "111 1 /usr/bin/python -u /repo/tts_server.py --port 7862 --plugins-dir /repo/plugins",
+            "222 99 /usr/bin/python -u /repo/tts_server.py --port 7862 --plugins-dir /repo/plugins",
+            "333 1 /usr/bin/python -u /repo/other.py",
+        ]
+    )
+
+    with patch("subprocess.run") as mock_run, patch("os.kill") as mock_kill:
+        mock_run.return_value.stdout = ps_output
+        killed = cleanup_orphaned_tts_server_processes(
+            server_script="/repo/tts_server.py",
+            plugins_dir="/repo/plugins",
+        )
+
+    assert killed == 1
+    mock_kill.assert_any_call(111, signal.SIGTERM)
+    assert not any(call.args == (222, signal.SIGTERM) for call in mock_kill.call_args_list)
+    assert not any(call.args == (333, signal.SIGTERM) for call in mock_kill.call_args_list)
+
+
+def test_tts_server_runtime_marker_round_trip(tmp_path):
+    marker_path = tmp_path / "tts_server_runtime.json"
+
+    written = write_tts_server_runtime_marker(
+        pid=12345,
+        port=7862,
+        server_script="/repo/tts_server.py",
+        plugins_dir="/repo/plugins",
+        marker_path=marker_path,
+    )
+
+    assert written == marker_path
+    data = load_tts_server_runtime_marker(marker_path)
+    assert data is not None
+    assert data["pid"] == 12345
+    assert data["port"] == 7862
+    assert data["server_script"] == "/repo/tts_server.py"
+    assert data["plugins_dir"] == "/repo/plugins"
+
+    clear_tts_server_runtime_marker(marker_path=marker_path)
+    assert not os.path.exists(marker_path)
+    assert load_tts_server_runtime_marker(marker_path) is None

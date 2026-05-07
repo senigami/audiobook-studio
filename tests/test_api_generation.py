@@ -607,7 +607,7 @@ def test_mixed_generation_orchestration_integration(clean_db, client, monkeypatc
     with patch("app.api.routers.generation.put_job"), \
          patch("app.api.routers.generation.update_job"), \
          patch("app.api.routers.generation.resolve_tts_engine_for_profiles", return_value=("xtts", ["xtts", "voxtral"])), \
-         patch("plugins.synthesis_mixed.handler.handle_mixed_job", return_value="done") as mock_mixed_handler, \
+         patch("plugins.synthesis_mixed.handler.handle_mixed_job", return_value=("done", None)) as mock_mixed_handler, \
          patch("app.orchestration.scheduler.orchestrator.reserve_task_resources", return_value={"admitted": True}), \
          patch("app.orchestration.scheduler.orchestrator.release_task_resources"):
 
@@ -626,3 +626,88 @@ def test_mixed_generation_orchestration_integration(clean_db, client, monkeypatc
     assert mock_mixed_handler.called
     assert mock_mixed_handler.call_args.kwargs["jid"] is not None
     assert mock_mixed_handler.call_args.kwargs["j"].engine == "mixed"
+
+
+def test_queue_chapter_mixed_render_runs_end_to_end(clean_db, client, monkeypatch, tmp_path):
+    """Exercise the real mixed render path through the queue API."""
+    from pathlib import Path
+    import wave
+
+    from app.db import get_connection
+    from app.db.chapters import create_chapter, get_chapter
+    from app.db.projects import create_project
+    from app.db.segments import get_chapter_segments, sync_chapter_segments, update_segment
+    from app.orchestration.scheduler.orchestrator import TaskOrchestrator
+
+    pid = create_project("MixedProject")
+    cid = create_chapter(pid, "MixedChapter", "Hello world. Goodbye world.")
+    sync_chapter_segments(cid, "Hello world. Goodbye world.")
+    segs = get_chapter_segments(cid)
+    update_segment(segs[0]["id"], speaker_profile_name="Voice1")
+    update_segment(segs[1]["id"], speaker_profile_name="Voice2")
+
+    mock_progress = MagicMock()
+    mock_progress.reconcile.return_value = {"decision": "queue", "artifact_state": "missing"}
+    mock_progress.publish.return_value = None
+    mock_bridge = MagicMock()
+    real_orchestrator = TaskOrchestrator(progress_service=mock_progress, voice_bridge=mock_bridge)
+    monkeypatch.setattr("app.api.routers.generation.create_orchestrator", lambda: real_orchestrator)
+
+    chapter_dir = tmp_path / "chapters" / cid
+
+    def _write_silence_wav(path: Path) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with wave.open(str(path), "wb") as wav_file:
+            wav_file.setnchannels(1)
+            wav_file.setsampwidth(2)
+            wav_file.setframerate(22050)
+            wav_file.writeframes(b"\x00\x00" * 22050)
+
+    def fake_generate_via_bridge(**kwargs):
+        out_wav = Path(kwargs["out_wav"])
+        _write_silence_wav(out_wav)
+        return 0
+
+    def fake_stitch(_pdir, _segment_wavs, output_path, _on_output, _cancel_check):
+        _write_silence_wav(output_path)
+        return 0
+
+    with patch("app.api.routers.generation.get_chapter_dir", return_value=chapter_dir), \
+         patch("app.config.get_chapter_dir", return_value=chapter_dir), \
+         patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=chapter_dir), \
+         patch("app.api.routers.generation.resolve_tts_engine_for_profiles", return_value=("xtts", ["xtts", "voxtral"])), \
+         patch("app.api.routers.generation.resolve_profile_engine", side_effect=lambda name, fallback=None: "voxtral" if name == "Voice2" else "xtts"), \
+         patch("app.chunk_groups.resolve_profile_engine", side_effect=lambda name, fallback=None: "voxtral" if name == "Voice2" else "xtts"), \
+         patch("plugins.synthesis_mixed.handler.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "voice_123"} if name == "Voice2" else {"speed": 1.0}), \
+         patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
+         patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
+         patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
+         patch("plugins.synthesis_mixed.handler.stitch_segments", side_effect=fake_stitch), \
+         patch("app.api.routers.generation.broadcast_queue_update"), \
+         patch("app.api.routers.generation.broadcast_chapter_updated"), \
+         patch("app.api.ws.broadcast_segments_updated"), \
+         patch("app.orchestration.scheduler.orchestrator.reserve_task_resources", return_value={"admitted": True}), \
+         patch("app.orchestration.scheduler.orchestrator.release_task_resources"):
+
+        response = client.post("/api/processing_queue", data={"project_id": pid, "chapter_id": cid, "speaker_profile": "Voice1"})
+
+    assert response.status_code == 200
+
+    with get_connection() as conn:
+        queue_row = conn.execute(
+            "SELECT status, completed_at FROM processing_queue WHERE chapter_id = ? ORDER BY created_at DESC LIMIT 1",
+            (cid,),
+        ).fetchone()
+        segment_rows = conn.execute(
+            "SELECT audio_status, audio_file_path FROM chapter_segments WHERE chapter_id = ? ORDER BY segment_order",
+            (cid,),
+        ).fetchall()
+
+    chapter = get_chapter(cid)
+
+    assert queue_row["status"] == "done"
+    assert queue_row["completed_at"] is not None
+    assert chapter["audio_status"] == "done"
+    assert chapter["audio_file_path"] == "chapter.wav"
+    assert all(row["audio_status"] == "done" for row in segment_rows)
+    assert all(row["audio_file_path"] for row in segment_rows)

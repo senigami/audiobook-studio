@@ -3,6 +3,7 @@ import json
 import textwrap
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+from fastapi.testclient import TestClient
 from app.tts_server.plugin_loader import discover_plugins, LoadedPlugin
 from app.tts_server.verification import verify_all
 from app.tts_server.server import load_plugins, refresh_plugins
@@ -29,6 +30,24 @@ def _minimal_manifest(engine_id="mock", entry_class="engine:MockEngine"):
     }
 
 class TestTTSServerIsolation:
+    def test_ready_endpoint_is_cheap(self):
+        from app.tts_server.server import app
+
+        client = TestClient(app)
+        response = client.get("/ready")
+        assert response.status_code == 200
+        assert response.json() == {"status": "ready"}
+
+    def test_startup_announces_ready_after_lifespan_starts(self):
+        from app.tts_server.server import app, set_ready_port
+
+        with patch("builtins.print") as mock_print:
+            set_ready_port(7862)
+            with TestClient(app):
+                pass
+
+        mock_print.assert_any_call("READY:7862", flush=True)
+
     def test_startup_with_mixed_plugins_isolated(self, tmp_path):
         """Server should start and load good plugins even if some are broken."""
         # 1. Good plugin

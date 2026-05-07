@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
+from app.engines.errors import EngineBridgeError
 from app.models import Job
 from plugins.synthesis_mixed.handler import handle_mixed_job
 
@@ -70,7 +71,7 @@ def test_handle_mixed_job_renders_and_stitches(clean_db, tmp_path):
          patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
          patch("plugins.synthesis_mixed.handler.stitch_segments", side_effect=fake_stitch), \
          patch("plugins.synthesis_mixed.handler.update_job"):
-        result = handle_mixed_job("mixed-job", job, time.time(), lambda _line: None, lambda: False)
+        result, _ = handle_mixed_job("mixed-job", job, time.time(), lambda _line: None, lambda: False)
         refreshed = get_chapter_segments(cid)
         chapter = get_chapter(cid)
     assert result == "done"
@@ -80,6 +81,43 @@ def test_handle_mixed_job_renders_and_stitches(clean_db, tmp_path):
     assert refreshed[1]["audio_file_path"] == f"{refreshed[1]['id']}.wav"
     assert chapter["audio_status"] == "done"
     assert chapter["audio_file_path"] == output_wav.name
+
+
+def test_handle_mixed_job_returns_bridge_failure_message(clean_db, tmp_path):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.segments import sync_chapter_segments, get_chapter_segments, update_segment
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "Hello world.")
+    sync_chapter_segments(cid, "Hello world.")
+    segs = get_chapter_segments(cid)
+    update_segment(segs[0]["id"], speaker_profile_name="XTTS Voice")
+
+    job = Job(
+        id="mixed-job",
+        engine="mixed",
+        chapter_file=f"{cid}_0.txt",
+        status="queued",
+        created_at=time.time(),
+        project_id=pid,
+        chapter_id=cid,
+        speaker_profile="XTTS Voice",
+    )
+
+    with patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
+         patch("app.config.get_chapter_dir", return_value=tmp_path), \
+         patch("app.chunk_groups.resolve_profile_engine", return_value="xtts"), \
+         patch("plugins.synthesis_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
+         patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
+         patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
+         patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=EngineBridgeError("Bridge concrete failure")), \
+         patch("plugins.synthesis_mixed.handler.update_job") as mock_update:
+        status, message = handle_mixed_job("mixed-job", job, time.time(), lambda _line: None, lambda: False)
+
+    assert status == "failed"
+    assert message == "Bridge concrete failure"
+    assert mock_update.call_args.kwargs["error"] == "Bridge concrete failure"
 
 
 def test_handle_mixed_job_groups_adjacent_segments_into_one_chunk(clean_db, tmp_path):
@@ -121,7 +159,7 @@ def test_handle_mixed_job_groups_adjacent_segments_into_one_chunk(clean_db, tmp_
          patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
          patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge) as mock_bridge, \
          patch("plugins.synthesis_mixed.handler.update_job"):
-        result = handle_mixed_job("mixed-job", job, time.time(), lambda _line: None, lambda: False)
+        result, _ = handle_mixed_job("mixed-job", job, time.time(), lambda _line: None, lambda: False)
         refreshed = get_chapter_segments(cid)
 
     assert result == "done"
@@ -181,7 +219,7 @@ def test_handle_mixed_job_progress_uses_render_group_count(clean_db, tmp_path):
          patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
          patch("plugins.synthesis_mixed.handler.stitch_segments", side_effect=fake_stitch), \
          patch("plugins.synthesis_mixed.handler.update_job") as mock_update:
-        result = handle_mixed_job("mixed-job", job, time.time(), lambda _line: None, lambda: False)
+        result, _ = handle_mixed_job("mixed-job", job, time.time(), lambda _line: None, lambda: False)
 
     assert result == "done"
     progress_updates = [
@@ -234,7 +272,7 @@ def test_handle_mixed_job_progress_weights_short_final_group(clean_db, tmp_path)
          patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
          patch("plugins.synthesis_mixed.handler.stitch_segments", side_effect=fake_stitch), \
          patch("plugins.synthesis_mixed.handler.update_job") as mock_update:
-        result = handle_mixed_job("mixed-job", job, time.time(), lambda _line: None, lambda: False)
+        result, _ = handle_mixed_job("mixed-job", job, time.time(), lambda _line: None, lambda: False)
 
     assert result == "done"
     progress_updates = [
@@ -289,7 +327,7 @@ def test_handle_mixed_segment_job_persists_intermediate_progress(clean_db, tmp_p
          patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
          patch("plugins.synthesis_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
          patch("plugins.synthesis_mixed.handler.update_job") as mock_update:
-        result = handle_mixed_job("mixed-segment-job", job, time.time(), lambda _line: None, lambda: False)
+        result, _ = handle_mixed_job("mixed-segment-job", job, time.time(), lambda _line: None, lambda: False)
 
     assert result == "done"
     intermediate_updates = [

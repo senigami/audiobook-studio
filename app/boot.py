@@ -26,6 +26,7 @@ import logging
 from pathlib import Path
 
 from app.config import PLUGINS_DIR
+from app.engines.proc_utils import cleanup_orphaned_tts_server_processes
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +74,10 @@ def boot_tts_server(
         host: Bind address (default: 127.0.0.1).
     """
     try:
+        cleanup_orphaned_tts_server_processes(
+            server_script=Path(__file__).resolve().parent.parent / "tts_server.py",
+            plugins_dir=plugins_dir or PLUGINS_DIR,
+        )
         from app.engines.watchdog import start_watchdog  # noqa: PLC0415
 
         start_watchdog(

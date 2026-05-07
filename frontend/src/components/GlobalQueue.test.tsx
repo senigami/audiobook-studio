@@ -107,6 +107,32 @@ describe('GlobalQueue', () => {
         expect(screen.getByText(/→/)).toBeTruthy()
     })
 
+    it('shows a timestamp for failed history jobs without a start time', async () => {
+        const failedAt = 1710000060;
+        const queue = [
+            {
+                id: 'job-failed',
+                status: 'failed',
+                chapter_title: 'Failed Chapter',
+                project_name: 'Project A',
+                split_part: 0,
+                progress: 1,
+                finished_at: failedAt,
+                completed_at: failedAt,
+                updated_at: failedAt,
+                error: 'Mixed synthesis returned failed',
+            },
+        ];
+
+        render(<GlobalQueue queue={queue as any[]} />)
+
+        fireEvent.click(await screen.findByText(/Completed \/ Failed History/i))
+
+        expect(await screen.findByText('Failed Chapter')).toBeTruthy()
+        expect(screen.getByText('failed')).toBeTruthy()
+        expect(screen.getByText((content) => content.includes('2024') || content.includes('Mar'))).toBeTruthy()
+    })
+
     it('calls clear completed from ActionMenu', async () => {
         render(<GlobalQueue queue={mockJobs as any[]} />)
         

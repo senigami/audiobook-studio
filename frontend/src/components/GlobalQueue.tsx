@@ -238,9 +238,14 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
                                                             <span style={!job.project_name ? { color: 'var(--accent)', fontWeight: 700, fontSize: compact ? '0.65rem' : '0.75rem', textTransform: 'uppercase' } : undefined}>
                                                                 {formatQueueContext(job, engines)}
                                                             </span>
-                                                            {job.started_at && (
+                                                            {(job.started_at || job.completed_at || job.updated_at) && (
                                                                 <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                                    <span>{formatTime(job.started_at)} → {job.completed_at ? formatRunDuration(job.started_at, job.completed_at) : ''}</span>
+                                                                    <span>
+                                                                        {formatTime(job.started_at || job.completed_at || job.updated_at)}
+                                                                        {job.started_at && job.completed_at && job.completed_at > job.started_at && (
+                                                                            <> → {formatRunDuration(job.started_at, job.completed_at)}</>
+                                                                        )}
+                                                                    </span>
                                                                 </span>
                                                             )}
                                                             <span style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: job.status === 'done' ? 'var(--success)' : 'var(--error)' }}>{job.status}</span>

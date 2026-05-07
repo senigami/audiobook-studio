@@ -33,8 +33,10 @@ def test_boot_tts_server_uses_repo_root_plugins_dir():
     from app.boot import boot_tts_server
     from app.config import PLUGINS_DIR
 
-    with patch("app.engines.watchdog.start_watchdog") as mock_start:
+    with patch("app.boot.cleanup_orphaned_tts_server_processes") as mock_cleanup, \
+         patch("app.engines.watchdog.start_watchdog") as mock_start:
         boot_tts_server()
 
+    mock_cleanup.assert_called_once()
     mock_start.assert_called_once()
     assert mock_start.call_args.kwargs["plugins_dir"] == PLUGINS_DIR

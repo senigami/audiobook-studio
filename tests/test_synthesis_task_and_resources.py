@@ -100,15 +100,16 @@ class TestSynthesisTask:
 
     def test_run_returns_completed_on_ok_result(self):
         task = self._make(engine_id="mixed")
-        with patch("plugins.synthesis_mixed.handler.handle_mixed_job", return_value="done"):
+        with patch("plugins.synthesis_mixed.handler.handle_mixed_job", return_value=("done", None)):
             result = task.run()
         assert result.status == "completed"
 
     def test_run_returns_failed_on_non_ok_status(self):
         task = self._make(engine_id="mixed")
-        with patch("plugins.synthesis_mixed.handler.handle_mixed_job", return_value="failed"):
+        with patch("plugins.synthesis_mixed.handler.handle_mixed_job", return_value=("failed", "Bad things happened")):
             result = task.run()
         assert result.status == "failed"
+        assert result.message == "Bad things happened"
 
     def test_run_returns_failed_on_exception(self):
         task = self._make(engine_id="mixed")

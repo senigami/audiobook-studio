@@ -20,7 +20,6 @@ All methods are thread-safe.
 """
 
 from __future__ import annotations
-from typing import Any, Callable, Optional
 
 import logging
 import subprocess
@@ -29,8 +28,13 @@ import threading
 import time
 from collections import deque
 from pathlib import Path
+from typing import Any, Callable, Optional
 
 from app.config import PLUGINS_DIR
+from app.engines.proc_utils import (
+    clear_tts_server_runtime_marker,
+    write_tts_server_runtime_marker,
+)
 from app.engines.tts_client import TtsClient
 
 logger = logging.getLogger(__name__)
@@ -211,7 +215,7 @@ class TtsServerWatchdog:
             self._stopping = True
 
         if self._thread:
-            self._thread.join(timeout=10.0)
+            self._thread.join(timeout=3.0)
 
         self._terminate_process()
         logger.info("Watchdog stopped.")
@@ -323,6 +327,20 @@ class TtsServerWatchdog:
             self._consecutive_failures = 0
             self._healthy = True
 
+        try:
+            write_tts_server_runtime_marker(
+                pid=proc.pid,
+                port=port,
+                server_script=self.server_script,
+                plugins_dir=self.plugins_dir,
+                host=self._host,
+            )
+        except Exception:
+            logger.debug(
+                "Failed to write TTS Server runtime marker for pid=%d", proc.pid,
+                exc_info=True,
+            )
+
         logger.info("TTS Server is ready on port %d (pid=%d)", port, proc.pid)
 
     def _wait_for_ready(self, proc: subprocess.Popen) -> int:
@@ -374,7 +392,7 @@ class TtsServerWatchdog:
                 logger.debug("Sending SIGTERM to TTS Server (pid=%d)", proc.pid)
                 proc.terminate()
                 try:
-                    proc.wait(timeout=5.0)
+                    proc.wait(timeout=2.0)
                 except subprocess.TimeoutExpired:
                     logger.warning("TTS Server did not exit; sending SIGKILL")
                     proc.kill()
@@ -385,6 +403,7 @@ class TtsServerWatchdog:
             with self._lock:
                 self._process = None
                 self._healthy = False
+            clear_tts_server_runtime_marker()
 
     # ------------------------------------------------------------------
     # Private: watchdog loop

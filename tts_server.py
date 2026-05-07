@@ -109,7 +109,7 @@ def main() -> None:
 
     # Import the app here (after arg parsing) to avoid unnecessary import-time
     # side effects during --help or argument errors.
-    from app.tts_server.server import app, load_plugins  # noqa: PLC0415
+    from app.tts_server.server import app, load_plugins, set_ready_port  # noqa: PLC0415
 
     if not args.no_verify:
         load_plugins(plugins_dir)
@@ -145,10 +145,7 @@ def main() -> None:
     signal.signal(signal.SIGTERM, _handle_shutdown)
     signal.signal(signal.SIGINT, _handle_shutdown)
 
-    # Print the READY signal BEFORE starting uvicorn so the Studio watchdog
-    # can begin polling.  The actual port is embedded so the watchdog knows
-    # which port to use when it queries /health.
-    print(f"READY:{port}", flush=True)
+    set_ready_port(port)
     logger.info("TTS Server starting on %s:%d", args.host, port)
 
     # Run the server — this call blocks until the server exits.

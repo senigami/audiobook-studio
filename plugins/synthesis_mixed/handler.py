@@ -207,15 +207,15 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
 
     if cancel_check():
         update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
-        return "cancelled"
+        return "cancelled", "Cancelled."
 
     if not j.chapter_id:
         update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error="Mixed-engine jobs require a chapter context.")
-        return "failed"
+        return "failed", "Mixed-engine jobs require a chapter context."
 
     if not j.project_id:
         update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error="Mixed-engine jobs require a project context.")
-        return "failed"
+        return "failed", "Mixed-engine jobs require a project context."
 
     pdir = get_chapter_dir(j.project_id, j.chapter_id)
     pdir.mkdir(parents=True, exist_ok=True)
@@ -251,7 +251,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
     for index, group in enumerate(target_groups, start=1):
         if cancel_check():
             update_job(jid, status="cancelled", finished_at=time.time(), progress=1.0, error="Cancelled.")
-            return "cancelled"
+            return "cancelled", "Cancelled."
 
         segment_id = group["segments"][0]["id"]
         profile_name = group["profile_name"]
@@ -316,17 +316,18 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
             rc = _render_segment(engine, chunk_text, profile_name, seg_out, j.safe_mode, xtts_on_output, cancel_check)
         except EngineBridgeError as exc:
             update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error=str(exc))
-            return "failed"
+            return "failed", str(exc)
 
         if rc != 0 or not seg_out.exists():
+            msg = f"Failed to generate segment {segment_id} with {engine}."
             update_job(
                 jid,
                 status="failed",
                 finished_at=time.time(),
                 progress=1.0,
-                error=f"Failed to generate segment {segment_id} with {engine}.",
+                error=msg,
             )
-            return "failed"
+            return "failed", msg
 
         generated_at = time.time()
         group_sids = [gs["id"] for gs in group["segments"]]
@@ -382,7 +383,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
             finished_at=time.time(),
             **_grouped_progress_updates(tracking_groups, total_groups, 0.0, limit=1.0, active_index=0),
         )
-        return "done"
+        return "done", None
 
     j.completed_render_groups = total_groups
     update_job(
@@ -400,12 +401,12 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
 
     if not segment_paths:
         update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error="No valid segment audio was available to stitch.")
-        return "failed"
+        return "failed", "No valid segment audio was available to stitch."
 
     rc = stitch_segments(pdir, segment_paths, out_wav, on_output, cancel_check)
     if rc != 0 or not out_wav.exists():
         update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error=f"Stitching failed (rc={rc}).")
-        return "failed"
+        return "failed", f"Stitching failed (rc={rc})."
 
     with get_connection() as conn:
         cursor = conn.cursor()
@@ -427,7 +428,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
                 output_mp3=out_mp3.name,
                 **_group_weight_updates(tracking_groups, total_groups, active_index=0),
             )
-            return "done"
+            return "done", None
         _persist_mixed_chapter_output(jid, j.chapter_id, out_wav)
         j.completed_render_groups = total_groups
         update_job(
@@ -439,7 +440,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
             error="MP3 conversion failed (using WAV fallback)",
             **_group_weight_updates(tracking_groups, total_groups, active_index=0),
         )
-        return "done"
+        return "done", "MP3 conversion failed (using WAV fallback)"
 
     _persist_mixed_chapter_output(jid, j.chapter_id, out_wav)
 
@@ -458,4 +459,4 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
     perf = get_performance_metrics()
     record_engine_sample(j, start, chars, perf, 0)
 
-    return "done"
+    return "done", None
