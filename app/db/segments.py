@@ -1,9 +1,11 @@
 from __future__ import annotations
+import os
 import logging
 import re
 import time
 from typing import List, Dict, Any, Optional
 from .core import _db_lock, get_connection
+from ..render_trace import trace
 
 logger = logging.getLogger(__name__)
 SEGMENT_AUDIO_RE = re.compile(r"^(?P<segment_id>.+)\.(?:wav|mp3|m4a)$", re.IGNORECASE)
@@ -78,7 +80,9 @@ def update_segments_status_bulk(segment_ids: List[str], chapter_id: str, status:
             logger.warning("Failed to clean up chapter audio after bulk segment reset", exc_info=True)
 
 def get_chapter_segments(chapter_id: str) -> List[Dict[str, Any]]:
+    request_started_at = time.perf_counter()
     with _db_lock:
+        db_started_at = time.perf_counter()
         with get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
@@ -89,6 +93,9 @@ def get_chapter_segments(chapter_id: str) -> List[Dict[str, Any]]:
                 ORDER BY s.segment_order ASC
             """, (chapter_id,))
             rows = [dict(row) for row in cursor.fetchall()]
+            db_fetch_ms = round((time.perf_counter() - db_started_at) * 1000)
+            if db_fetch_ms >= 100:
+                logger.info("segments.get_chapter_segments db_fetch chapter=%s ms=%s rows=%s", chapter_id, db_fetch_ms, len(rows))
             # We need project_id to find the right directory.
             cursor.execute("SELECT project_id FROM chapters WHERE id = ?", (chapter_id,))
             crow = cursor.fetchone()
@@ -120,6 +127,13 @@ def get_chapter_segments(chapter_id: str) -> List[Dict[str, Any]]:
     chapter_dir = config.get_chapter_dir(project_id, chapter_id) if project_id else None
     seg_dir = config.secure_join_flat(chapter_dir, "segments") if chapter_dir else None
 
+    existing_segment_files: set[str] = set()
+    if seg_dir and seg_dir.exists():
+        try:
+            existing_segment_files = {entry.name for entry in os.scandir(seg_dir) if entry.is_file()}
+        except OSError:
+            existing_segment_files = set()
+
     # Fetch default profile for group validation
     default_profile = None
     if project_id and chapter_id:
@@ -139,7 +153,7 @@ def get_chapter_segments(chapter_id: str) -> List[Dict[str, Any]]:
 
     # Calculate current groups to determine canonical names
     # This ensures that if groups change, old shared files are invalidated for the split segments.
-    current_groups = build_chunk_groups(rows, default_profile)
+    current_groups = build_chunk_groups(rows, default_profile, engine_cache={})
     segment_to_canonical = {}
     for group in current_groups:
         if not group['segments']:
@@ -161,7 +175,7 @@ def get_chapter_segments(chapter_id: str) -> List[Dict[str, Any]]:
             if path and seg_dir:
                 # Canonical check: must match the current group's canonical name
                 canonical_for_seg = segment_to_canonical.get(s['id'])
-                file_exists = (seg_dir / path).exists()
+                file_exists = path in existing_segment_files
                 if path == canonical_for_seg and file_exists:
                     exists = True
 
@@ -186,6 +200,21 @@ def get_chapter_segments(chapter_id: str) -> List[Dict[str, Any]]:
                     invalid_done_ids,
                 )
                 conn.commit()
+
+    trace(
+        "segments.get_chapter_segments",
+        chapter_id=chapter_id,
+        row_count=len(rows),
+    )
+    total_ms = round((time.perf_counter() - request_started_at) * 1000)
+    if total_ms >= 100:
+        trace(
+            "segments.get_chapter_segments.timings",
+            chapter_id=chapter_id,
+            row_count=len(rows),
+            existing_segment_files=len(existing_segment_files),
+            total_ms=total_ms,
+        )
     return rows
 
 
@@ -259,6 +288,15 @@ def update_segment(segment_id: str, broadcast: bool = True, **updates) -> bool:
             cursor.execute(f"UPDATE chapter_segments SET {', '.join(fields)} WHERE id = ?", values)
             conn.commit()
             changed = cursor.rowcount > 0
+            trace(
+                "segments.update_segment.db",
+                segment_id=segment_id,
+                updates=updates,
+                changed=changed,
+                cleanup_chapter_id=cleanup_chapter_id,
+                cleanup_project_id=cleanup_project_id,
+                stale_audio_path=stale_audio_path,
+            )
 
             # If audio was successfully rendered, touch the chapter's audio_generated_at
             if changed and updates.get("audio_status") == "done":
@@ -318,6 +356,16 @@ def update_segment(segment_id: str, broadcast: bool = True, **updates) -> bool:
                 cleanup_chapter_id,
                 [segment_id] if updates.get("audio_status") != "done" else [],
                 explicit_files=explicit_files or None,
+            )
+            trace(
+                "segments.update_segment.cleanup",
+                segment_id=segment_id,
+                chapter_id=cleanup_chapter_id,
+                project_id=cleanup_project_id,
+                status=updates.get("audio_status"),
+                explicit_files=explicit_files,
+                new_audio_path=updates.get("audio_file_path"),
+                stale_audio_path=stale_audio_path,
             )
         except Exception:
             logger.warning(

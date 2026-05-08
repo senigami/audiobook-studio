@@ -1,9 +1,9 @@
 {
-  "snapshot_version": 32,
-  "updated_at": "2026-05-08T19:52:00Z",
+  "snapshot_version": 33,
+  "updated_at": "2026-05-08T20:00:00Z",
   "branch": "studio2/phase-11",
-  "current_task": "Phase 11 project detail hot-path removal",
-  "status": "phase_11_project_detail_hot_path_removal_in_progress",
+  "current_task": "Phase 11 chapter segment load hot-path removal",
+  "status": "phase_11_chapter_segment_load_hot_path_removal_in_progress",
   "last_committed_milestone": {
     "title": "Phase 11 legacy engine implementation relocation",
     "commit": "572c435",
@@ -67,7 +67,8 @@
     "Broadcast segments_updated after grouped segment saves so chapter script-view data can repaint live.",
     "Use pending-span styling in ScriptView to make live rebuild work visible without depending on a separate processing mode.",
     "Project detail timing is the current hotspot; inspect whether migrate_project_to_v2 or DB fetch waits on the lock.",
-    "Project GET no longer performs implicit migration; reads should stay cheap and migration should remain an explicit maintenance action."
+    "Project GET no longer performs implicit migration; reads should stay cheap and migration should remain an explicit maintenance action.",
+    "Chapter segment loading is now the remaining hotspot; cache repeated profile-engine resolution and avoid repeated file existence checks on read."
   ],
   "codeql_context": {
     "github_setup": "advanced",
@@ -84,7 +85,8 @@
     "Keep load timing probes focused on project/chapter fetch paths before widening instrumentation.",
     "Leave VCR-style playback controls on the phase board until the render/load slice settles.",
     "Use the project detail timings to decide whether the slowdown is migration, lock contention, or row fetch time.",
-    "Keep the project GET path read-only so the hot path does not pay migration cost."
+    "Keep the project GET path read-only so the hot path does not pay migration cost.",
+    "Use the chapter segments trace timing to verify the per-segment file and voice resolution hot path is gone."
   ],
   "verification": {
     "latest_known_backend": "Antigravity-reported full backend run: 762 passed, 2 skipped, 5 warnings after Phase 10 stabilization.",

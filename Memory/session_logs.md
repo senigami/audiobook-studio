@@ -627,3 +627,9 @@
 - Removed implicit V2 migration from `GET /api/projects/{project_id}` so project reads stay read-only and no longer walk the chapter tree during normal navigation.
 - Added a regression proving project list and project detail endpoints do not invoke migration on read.
 - Verified the project API suite and lint after the read-path change.
+
+# 2026-05-08 - Chapter Segment Hot Path Optimized
+
+- Cached repeated profile-engine resolution in chunk grouping and switched chapter-segment validation from per-row file existence checks to a single directory scan.
+- Added a regression proving chunk grouping only resolves the engine once for repeated profiles.
+- Verified the chunk-groups, chapter cleanup, and chapter API regression slices plus lint after the optimization.

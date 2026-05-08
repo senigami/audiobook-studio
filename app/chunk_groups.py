@@ -38,8 +38,14 @@ def resolve_segment_profile_name(segment: dict, default_profile: str | None) -> 
     )
 
 
-def build_chunk_groups(segments: list[dict], default_profile: str | None) -> list[dict]:
+def build_chunk_groups(
+    segments: list[dict],
+    default_profile: str | None,
+    *,
+    engine_cache: Optional[dict[str | None, str]] = None,
+) -> list[dict]:
     groups: list[dict] = []
+    engine_cache = engine_cache if engine_cache is not None else {}
 
     for segment in segments:
         text = (segment.get("text_content") or "").strip()
@@ -47,7 +53,12 @@ def build_chunk_groups(segments: list[dict], default_profile: str | None) -> lis
             continue
 
         profile_name = resolve_segment_profile_name(segment, default_profile)
-        engine = resolve_profile_engine(profile_name, "unknown")
+        cache_key = profile_name or None
+        if cache_key in engine_cache:
+            engine = engine_cache[cache_key]
+        else:
+            engine = resolve_profile_engine(profile_name, "unknown")
+            engine_cache[cache_key] = engine
         text_length = len(text)
 
         last_group = groups[-1] if groups else None
