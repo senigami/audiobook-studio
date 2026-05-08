@@ -152,7 +152,7 @@
 }
 
 .book-paragraph .script-span:hover {
-  background: transparent;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
 .book-paragraph .script-span.is-highlighted:hover {
@@ -208,6 +208,10 @@
 
 .script-span-text-ready {
   color: var(--text-primary);
+}
+
+.script-span-text-pending {
+  color: var(--text-muted);
 }
 
 .script-span-text-playing {
@@ -337,6 +341,15 @@
 
 .script-span.is-highlighted:hover {
   background: color-mix(in srgb, var(--script-span-accent) 15%, transparent);
+}
+
+.script-span.is-pending {
+  outline: 1px solid color-mix(in srgb, var(--warning) 55%, transparent);
+  background: color-mix(in srgb, var(--warning) 12%, transparent);
+}
+
+.script-span.is-pending:hover {
+  background: color-mix(in srgb, var(--warning) 18%, transparent);
 }
 
 /* Selection Popover */

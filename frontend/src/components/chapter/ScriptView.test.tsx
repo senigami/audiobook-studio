@@ -54,6 +54,9 @@ describe('ScriptView', () => {
     ],
     render_batches: [
       { id: 'b1', span_ids: ['s1', 's2'], status: 'draft', estimated_work_weight: 1 }
+    ],
+    audio_groups: [
+      { id: 'g1', span_ids: ['s1', 's2'], status: 'draft', audio_file_path: null, asset_url: null, order_index: 0, estimated_work_weight: 1 }
     ]
   };
 
@@ -144,6 +147,23 @@ describe('ScriptView', () => {
     expect(screen.getByText('Sentence one.').closest('.script-span')).toHaveClass('is-playing');
     expect(screen.getByText('Sentence two.').closest('.script-span')).toHaveClass('is-playing');
     expect(screen.getByText('Different paragraph.').closest('.script-span')).not.toHaveClass('is-playing');
+  });
+
+  it('marks pending spans as processing and keeps hover affordance in book mode', () => {
+    render(
+      <ScriptView
+        data={mockData}
+        characters={mockCharacters}
+        onGenerateBatch={onGenerateBatch}
+        pendingSpanIds={new Set(['s2'])}
+        onPlaySpan={onPlaySpan}
+      />
+    );
+
+    const pendingSpan = screen.getByText('Sentence two.').closest('.script-span');
+    expect(pendingSpan).toHaveClass('is-pending');
+    expect(screen.getByText('Sentence one.').closest('.script-span')).toBeTruthy();
+    expect(screen.getByText('Sentence one.').closest('.script-span')).toHaveClass('script-span');
   });
 
   it('toggles segment numbers', () => {

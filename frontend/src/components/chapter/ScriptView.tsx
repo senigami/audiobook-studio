@@ -219,6 +219,7 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
 
     const textClassName = [
       'script-span-text',
+      isPending ? 'script-span-text-pending' : '',
       isPlaying ? 'script-span-text-playing' : '',
       isReady ? 'script-span-text-ready' : 'script-span-text-muted',
     ].filter(Boolean).join(' ');
@@ -227,7 +228,7 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
       <span
         key={span.id}
         data-span-id={span.id}
-        className={`script-span ${char ? 'is-assigned' : ''} ${isHighlighted ? 'is-highlighted' : ''} ${isPlaying ? 'is-playing' : ''} ${activeCharacterId ? 'is-paintable' : ''}`}
+        className={`script-span ${char ? 'is-assigned' : ''} ${isHighlighted ? 'is-highlighted' : ''} ${isPlaying ? 'is-playing' : ''} ${isPending ? 'is-pending' : ''} ${activeCharacterId ? 'is-paintable' : ''}`}
         style={char ? ({ '--script-span-accent': char.color } as React.CSSProperties) : undefined}
         onClick={(e) => {
           // If we have a selection, don't trigger whole-span assignment yet
