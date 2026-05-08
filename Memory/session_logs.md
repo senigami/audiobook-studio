@@ -615,3 +615,9 @@
 - Added dev-only timing probes to `ProjectView`, `useChapterLoader`, and `useChapterQueue` so project and chapter load latency can be inspected from the browser console.
 - Parked the VCR-style playback controls request on the Phase 11 task board instead of turning it into a side quest during the load/debug pass.
 - Verified the frontend still builds cleanly after the instrumentation changes.
+
+# 2026-05-08 - Project Detail Timing Instrumented
+
+- Added backend timing logs around `GET /api/projects/{project_id}` and `get_project()` so we can distinguish migration time from DB lock wait time and row fetch time.
+- Verified the project API suite and lint on the timing slice.
+- Current user timing sample shows the project detail endpoint taking about 4.5 minutes on a large project, so the next pass should inspect the logged breakdown rather than the chapter loader.

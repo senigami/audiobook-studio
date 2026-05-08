@@ -1,9 +1,9 @@
 {
-  "snapshot_version": 30,
-  "updated_at": "2026-05-08T19:39:07Z",
+  "snapshot_version": 31,
+  "updated_at": "2026-05-08T19:45:00Z",
   "branch": "studio2/phase-11",
-  "current_task": "Phase 11 live queue, script-view, and render cue stabilization",
-  "status": "phase_11_live_refresh_stabilization_in_progress",
+  "current_task": "Phase 11 project load diagnostics",
+  "status": "phase_11_project_load_diagnostics_in_progress",
   "last_committed_milestone": {
     "title": "Phase 11 legacy engine implementation relocation",
     "commit": "572c435",
@@ -65,7 +65,8 @@
     "Keep job-overlay state cleanup separate from render-stat cleanup; do not conflate the two migration slices.",
     "Refresh jobs immediately on queue updates so project/chapter views do not wait for a hard reload.",
     "Broadcast segments_updated after grouped segment saves so chapter script-view data can repaint live.",
-    "Use pending-span styling in ScriptView to make live rebuild work visible without depending on a separate processing mode."
+    "Use pending-span styling in ScriptView to make live rebuild work visible without depending on a separate processing mode.",
+    "Project detail timing is the current hotspot; inspect whether migrate_project_to_v2 or DB fetch waits on the lock."
   ],
   "codeql_context": {
     "github_setup": "advanced",
@@ -80,7 +81,8 @@
     "Checkpoint the live refresh and render-cue slice once the focused tests and integration slice remain green.",
     "Audit the remaining state.json writers separately before trying to remove the live job overlay.",
     "Keep load timing probes focused on project/chapter fetch paths before widening instrumentation.",
-    "Leave VCR-style playback controls on the phase board until the render/load slice settles."
+    "Leave VCR-style playback controls on the phase board until the render/load slice settles.",
+    "Use the project detail timings to decide whether the slowdown is migration, lock contention, or row fetch time."
   ],
   "verification": {
     "latest_known_backend": "Antigravity-reported full backend run: 762 passed, 2 skipped, 5 warnings after Phase 10 stabilization.",

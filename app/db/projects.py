@@ -46,11 +46,24 @@ def create_project(
             return project_id
 
 def get_project(project_id: str) -> Optional[Dict[str, Any]]:
+    request_started_at = time.perf_counter()
     with _db_lock:
+        lock_acquired_at = time.perf_counter()
         with get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM projects WHERE id = ?", (project_id,))
             row = cursor.fetchone()
+            total_ms = round((time.perf_counter() - request_started_at) * 1000)
+            lock_wait_ms = round((lock_acquired_at - request_started_at) * 1000)
+            query_ms = round((time.perf_counter() - lock_acquired_at) * 1000)
+            if total_ms >= 100:
+                logger.info(
+                    "get_project timing project=%s total_ms=%s lock_wait_ms=%s query_ms=%s",
+                    project_id,
+                    total_ms,
+                    lock_wait_ms,
+                    query_ms,
+                )
             return dict(row) if row else None
 
 def list_projects() -> List[Dict[str, Any]]:

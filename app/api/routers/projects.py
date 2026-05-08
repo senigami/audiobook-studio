@@ -1,3 +1,4 @@
+import time
 import json
 import logging
 from typing import Optional
@@ -49,10 +50,24 @@ def api_reorder_chapters_route(project_id: str, chapter_ids: str = Form(...)):
 
 @router.get("/{project_id}")
 def api_get_project(project_id: str):
+    request_started_at = time.perf_counter()
+    migrate_started_at = time.perf_counter()
     migrate_project_to_v2(project_id)
+    migrate_ms = round((time.perf_counter() - migrate_started_at) * 1000)
+    if migrate_ms >= 100:
+        logger.info("Project detail migration timing project=%s ms=%s", project_id, migrate_ms)
+
+    fetch_started_at = time.perf_counter()
     p = get_project(project_id)
+    fetch_ms = round((time.perf_counter() - fetch_started_at) * 1000)
+    if fetch_ms >= 100:
+        logger.info("Project detail DB fetch timing project=%s ms=%s", project_id, fetch_ms)
+
     if not p:
         return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
+    total_ms = round((time.perf_counter() - request_started_at) * 1000)
+    if total_ms >= 100:
+        logger.info("Project detail total timing project=%s ms=%s", project_id, total_ms)
     return JSONResponse(p)
 
 
