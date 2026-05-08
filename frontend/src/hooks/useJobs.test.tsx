@@ -195,6 +195,7 @@ describe('useJobs', () => {
     expect(onPauseUpdate).toHaveBeenCalledWith(true);
     expect(onSegmentsUpdate).toHaveBeenCalledWith('chap1');
     expect(onChapterUpdate).toHaveBeenCalledWith('chap1');
+    expect(api.fetchJobs).toHaveBeenCalledTimes(2);
   });
 
   it('stores dedicated segment progress websocket updates separately from job progress', async () => {

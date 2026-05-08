@@ -371,6 +371,9 @@ class OrchestratorHelpersMixin:
                                 audio_file_path=Path(saved_path).name,
                                 audio_generated_at=time.time(),
                             )
+                            from app.api.ws import broadcast_segments_updated
+                            if context.chapter_id:
+                                broadcast_segments_updated(context.chapter_id)
                         except Exception:
                             logger.exception("Failed to update segments %s on [SEGMENT_SAVED]", sids)
 

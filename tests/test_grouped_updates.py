@@ -13,7 +13,7 @@ class MockOrchestrator(OrchestratorHelpersMixin):
         pass
 
 def test_grouped_segment_saved_updates_all_ids():
-    """Verify that [SEGMENT_SAVED] updates all segment IDs in a group, not just the leader."""
+    """Verify that [SEGMENT_SAVED] updates all group member IDs in one bulk write."""
     orc = MockOrchestrator()
     wd = TtsServerWatchdog()
 
@@ -30,7 +30,7 @@ def test_grouped_segment_saved_updates_all_ids():
                 }
             ]
         def describe(self):
-            return TaskContext(task_id="job-1", task_type="synthesis")
+            return TaskContext(task_id="job-1", task_type="synthesis", chapter_id="chap-1")
         @property
         def prefers_local_execution(self) -> bool: return True
         def run(self):
@@ -41,21 +41,16 @@ def test_grouped_segment_saved_updates_all_ids():
     task = GroupedTask()
 
     with patch("app.engines.watchdog.get_watchdog", return_value=wd), \
-         patch("app.db.update_segment") as mock_update_seg:
+         patch("app.db.update_segments_bulk") as mock_update_seg, \
+         patch("app.api.ws.broadcast_segments_updated") as mock_broadcast_segments:
 
         # We need to use the real _dispatch to build path_to_ids
         orc._dispatch(task=task, context=task.describe())
 
-        # Verify update_segment was called for s1, s2, and s3
-        calls = mock_update_seg.call_args_list
-        updated_ids = [c.args[0] for c in calls]
-
-        assert "s1" in updated_ids
-        assert "s2" in updated_ids
-        assert "s3" in updated_ids
-
-        # Verify they all got the same path
-        for call in calls:
-            kwargs = call.kwargs
-            assert kwargs["audio_status"] == "done"
-            assert kwargs["audio_file_path"] == "group1.wav"
+        mock_update_seg.assert_called_once()
+        mock_broadcast_segments.assert_called_once_with("chap-1")
+        args, kwargs = mock_update_seg.call_args
+        assert args[0] == ["s1", "s2", "s3"]
+        assert kwargs["audio_status"] == "done"
+        assert kwargs["audio_file_path"] == "group1.wav"
+        assert "audio_generated_at" in kwargs

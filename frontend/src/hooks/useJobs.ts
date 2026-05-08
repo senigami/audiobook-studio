@@ -185,6 +185,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
         return { ...prev, [job_id]: newJob };
       });
     } else if (data.type === 'queue_updated') {
+        refreshJobs();
         if (onQueueUpdate) onQueueUpdate();
     } else if (data.type === 'pause_updated') {
         if (onPauseUpdate) onPauseUpdate(data.paused);
