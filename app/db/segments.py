@@ -260,6 +260,15 @@ def update_segment(segment_id: str, broadcast: bool = True, **updates) -> bool:
             conn.commit()
             changed = cursor.rowcount > 0
 
+            # If audio was successfully rendered, touch the chapter's audio_generated_at
+            if changed and updates.get("audio_status") == "done":
+                cursor.execute("""
+                    UPDATE chapters 
+                    SET audio_generated_at = ? 
+                    WHERE id = (SELECT chapter_id FROM chapter_segments WHERE id = ?)
+                """, (time.time(), segment_id))
+                conn.commit()
+
             # If character or voice changed, update chapter timestamp for stale detection
             if changed:
                 keys = updates.keys()
@@ -345,6 +354,17 @@ def update_segments_bulk(segment_ids: List[str], **updates) -> bool:
             query = f"UPDATE chapter_segments SET {', '.join(fields)} WHERE id IN ({placeholders})"
             cursor.execute(query, values + segment_ids)
             conn.commit()
+
+            # If audio was successfully rendered in bulk, touch the chapter's audio_generated_at
+            if cursor.rowcount > 0 and updates.get("audio_status") == "done":
+                # We assume all segments belong to the same chapter for bulk updates in this context
+                cursor.execute("""
+                    UPDATE chapters 
+                    SET audio_generated_at = ? 
+                    WHERE id = (SELECT chapter_id FROM chapter_segments WHERE id = ?)
+                """, (time.time(), segment_ids[0]))
+                conn.commit()
+
             return cursor.rowcount > 0
 
 def cleanup_orphaned_segments(chapter_id: str):

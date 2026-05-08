@@ -72,6 +72,8 @@ class SynthesisTask(StudioTask):
         custom_title: str | None = None,
         make_mp3: bool = False,
         safe_mode: bool = True,
+        synthesis_settings: dict[str, Any] | None = None,
+        script: list[dict[str, Any]] | None = None,
     ) -> None:
         self.task_id = task_id
         self.engine_id = engine_id
@@ -90,6 +92,8 @@ class SynthesisTask(StudioTask):
         self.custom_title = custom_title
         self.make_mp3 = make_mp3
         self.safe_mode = safe_mode
+        self.synthesis_settings = synthesis_settings or {}
+        self.script = script
         self.submitted_at = time.monotonic()
         self._cancelled = False
 
@@ -149,6 +153,8 @@ class SynthesisTask(StudioTask):
                 "custom_title": self.custom_title,
                 "make_mp3": self.make_mp3,
                 "safe_mode": self.safe_mode,
+                "synthesis_settings": self.synthesis_settings,
+                "script": self.script,
                 # Phase 4 reconciliation context — the orchestrator reads
                 # these fields when calling reconcile_work_item().
                 "requested_revision": self.requested_revision,
@@ -187,6 +193,8 @@ class SynthesisTask(StudioTask):
             custom_title=payload.get("custom_title"),
             make_mp3=payload.get("make_mp3", False),
             safe_mode=payload.get("safe_mode", True),
+            synthesis_settings=payload.get("synthesis_settings"),
+            script=payload.get("script"),
         )
 
     def run(self) -> TaskResult:
@@ -267,6 +275,8 @@ class SynthesisTask(StudioTask):
             "make_mp3": self.make_mp3,
             "safe_mode": self.safe_mode,
             "task_id": self.task_id,
+            "script": self.script,
+            **self.synthesis_settings,
         }
 
     def _relay_output(self, line: str) -> None:

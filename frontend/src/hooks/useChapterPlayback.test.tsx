@@ -215,4 +215,40 @@ describe('useChapterPlayback', () => {
     // Should not crash, and should eventually move on or try fallback
     expect(result.current.playingSegmentId).toBe('s1');
   });
+
+  it('skips segments sharing the same audio file path', async () => {
+    const groupedSegments: ChapterSegment[] = [
+      { id: 's1', text_content: 'One', audio_status: 'done', audio_file_path: 'a.wav', chapter_id: 'chap1' },
+      { id: 's2', text_content: 'Two', audio_status: 'done', audio_file_path: 'a.wav', chapter_id: 'chap1' },
+      { id: 's3', text_content: 'Three', audio_status: 'done', audio_file_path: 'b.wav', chapter_id: 'chap1' },
+    ] as any;
+
+    const { result } = renderHook(() =>
+      useChapterPlayback('proj1', groupedSegments, [], new Set(), onGenerate)
+    );
+
+    let mockAudioInstance: any;
+    (global.Audio as any).mockImplementation((src: string) => {
+      mockAudioInstance = {
+        play: vi.fn().mockResolvedValue(undefined),
+        pause: vi.fn(),
+        src,
+      };
+      return mockAudioInstance;
+    });
+
+    await act(async () => {
+      await result.current.playSegment('s1', ['s1', 's2', 's3']);
+    });
+
+    expect(result.current.playingSegmentId).toBe('s1');
+
+    // Simulate s1 (a.wav) ended
+    await act(async () => {
+      mockAudioInstance.onended();
+    });
+
+    // Should skip s2 and move to s3
+    expect(result.current.playingSegmentId).toBe('s3');
+  });
 });

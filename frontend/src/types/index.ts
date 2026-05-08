@@ -121,12 +121,23 @@ export interface ScriptRenderBatch {
   estimated_work_weight: number;
 }
 
+export interface AudioGroup {
+  id: string;
+  span_ids: string[];
+  status: string;
+  audio_file_path: string | null;
+  asset_url: string | null;
+  order_index: number;
+  estimated_work_weight: number;
+}
+
 export interface ScriptViewResponse {
   chapter_id: string;
   base_revision_id: string | null;
   paragraphs: ScriptParagraph[];
   spans: ScriptSpan[];
   render_batches: ScriptRenderBatch[];
+  audio_groups: AudioGroup[];
 }
 
 export interface ScriptAssignment {

@@ -109,6 +109,7 @@ def get_script_view_payload(chapter_id: str) -> dict[str, Any]:
                         chapter_id=chapter_id,
                         spans=current_batch_spans,
                         order_index=len(render_batches),
+                        project_id=chapter_row["project_id"],
                     )
                 )
                 current_batch_spans = []
@@ -124,6 +125,7 @@ def get_script_view_payload(chapter_id: str) -> dict[str, Any]:
                 chapter_id=chapter_id,
                 spans=current_batch_spans,
                 order_index=len(render_batches),
+                project_id=chapter_row["project_id"],
             )
         )
 
@@ -133,19 +135,36 @@ def get_script_view_payload(chapter_id: str) -> dict[str, Any]:
         "paragraphs": paragraphs,
         "spans": spans,
         "render_batches": render_batches,
+        "audio_groups": render_batches,
     }
 
 
 def _build_script_batch(
-    *, chapter_id: str, spans: Sequence[Mapping[str, Any]], order_index: int
+    *, chapter_id: str, spans: Sequence[Mapping[str, Any]], order_index: int, project_id: str | None = None
 ) -> dict[str, Any]:
     span_ids = [str(span["id"]) for span in spans]
     status = helpers._aggregate_status([span.get("status") for span in spans])
+
+    audio_file_path = None
+    for span in spans:
+        if span.get("audio_file_path"):
+            audio_file_path = span["audio_file_path"]
+            break
+
+    asset_url = None
+    if audio_file_path and project_id:
+        # Construct V2 asset URL: /api/projects/{pid}/chapters/{cid}/assets/segment/{filename}
+        asset_url = f"/api/projects/{project_id}/chapters/{chapter_id}/assets/segment/{audio_file_path}"
+
     return {
         "id": helpers._stable_batch_id(chapter_id=chapter_id, block_ids=span_ids, order_index=order_index),
         "span_ids": span_ids,
+        "segment_ids": span_ids, # In script view, span_ids ARE segment_ids
         "status": status,
-        "estimated_work_weight": max(1, len(spans)),
+        "audio_file_path": audio_file_path,
+        "asset_url": asset_url,
+        "order_index": order_index,
+        "estimated_work_weight": sum(span.get("sanitized_char_count", 0) for span in spans),
     }
 
 

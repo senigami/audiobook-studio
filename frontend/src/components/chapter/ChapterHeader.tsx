@@ -224,10 +224,8 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
                               key={chapter.id}
                               style={{ height: '32px', maxWidth: '300px' }}
                           >
-                              <source src={`/projects/${chapter.project_id}/audio/${chapter.id}.mp3`} />
-                              <source src={`/projects/${chapter.project_id}/audio/${chapter.id}.wav`} />
-                              <source src={`/out/audio/${chapter.id}.mp3`} />
-                              <source src={`/out/audio/${chapter.id}.wav`} />
+                              <source src={`/api/projects/${chapter.project_id}/chapters/${chapter.id}/assets/audio?filename=chapter.mp3`} />
+                              <source src={`/api/projects/${chapter.project_id}/chapters/${chapter.id}/assets/audio?filename=chapter.wav`} />
                           </audio>
                         );
                       }
@@ -240,12 +238,9 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
                               key={chapter.id}
                               style={{ height: '32px', maxWidth: '300px' }}
                           >
-                              <source src={`/projects/${chapter.project_id}/audio/${audioPath}`} />
-                              {audioPath !== wavPath && <source src={`/projects/${chapter.project_id}/audio/${wavPath}`} />}
-                              {audioPath !== mp3Path && <source src={`/projects/${chapter.project_id}/audio/${mp3Path}`} />}
-                              <source src={`/out/audio/${audioPath}`} />
-                              {audioPath !== wavPath && <source src={`/out/audio/${wavPath}`} />}
-                              {audioPath !== mp3Path && <source src={`/out/audio/${mp3Path}`} />}
+                              <source src={`/api/projects/${chapter.project_id}/chapters/${chapter.id}/assets/audio?filename=${audioPath}`} />
+                              {audioPath !== wavPath && <source src={`/api/projects/${chapter.project_id}/chapters/${chapter.id}/assets/audio?filename=${wavPath}`} />}
+                              {audioPath !== mp3Path && <source src={`/api/projects/${chapter.project_id}/chapters/${chapter.id}/assets/audio?filename=${mp3Path}`} />}
                           </audio>
                       );
                   })()}

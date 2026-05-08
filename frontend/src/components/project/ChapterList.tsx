@@ -247,8 +247,8 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                       if (!audioPath) {
                         return (
                           <>
-                            <source src={`/projects/${projectId}/audio/${chap.id}.mp3`} type="audio/mpeg" />
-                            <source src={`/projects/${projectId}/audio/${chap.id}.wav`} type="audio/wav" />
+                            <source src={`/api/projects/${projectId}/chapters/${chap.id}/assets/audio?filename=chapter.mp3`} type="audio/mpeg" />
+                            <source src={`/api/projects/${projectId}/chapters/${chap.id}/assets/audio?filename=chapter.wav`} type="audio/wav" />
                           </>
                         );
                       }
@@ -256,9 +256,9 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                       const mp3Path = audioPath.replace(/\.[^.]+$/, '.mp3');
                       return (
                         <>
-                          <source src={`/projects/${projectId}/audio/${audioPath}`} />
-                          {audioPath !== mp3Path && <source src={`/projects/${projectId}/audio/${mp3Path}`} type="audio/mpeg" />}
-                          {audioPath !== wavPath && <source src={`/projects/${projectId}/audio/${wavPath}`} type="audio/wav" />}
+                          <source src={`/api/projects/${projectId}/chapters/${chap.id}/assets/audio?filename=${audioPath}`} />
+                          {audioPath !== mp3Path && <source src={`/api/projects/${projectId}/chapters/${chap.id}/assets/audio?filename=${mp3Path}`} type="audio/mpeg" />}
+                          {audioPath !== wavPath && <source src={`/api/projects/${projectId}/chapters/${chap.id}/assets/audio?filename=${wavPath}`} type="audio/wav" />}
                         </>
                       );
                     })()}
@@ -285,7 +285,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                       onOpenChange={open => setOpenMenuRowId(open ? chap.id : null)}
                       items={[
                         { label: isExporting === chap.id ? 'Generating...' : 'Export Video Sample', icon: isExporting === chap.id ? Loader2 : Video, disabled: chap.audio_status !== 'done' || isExporting !== null, onClick: () => onExportSample(chap) },
-                        ...(hasChapterAudio && chap.audio_file_path ? [{ label: 'Download Audio', icon: Download, onClick: () => { const path = chap.audio_file_path; if (!path) return; const link = document.createElement('a'); link.href = `/projects/${projectId}/audio/${path}`; link.download = `${chap.title}${path.substring(path.lastIndexOf('.'))}`; link.click(); } }] : []),
+                        ...(hasChapterAudio && chap.audio_file_path ? [{ label: 'Download Audio', icon: Download, onClick: () => { const path = chap.audio_file_path; if (!path) return; const link = document.createElement('a'); link.href = `/api/projects/${projectId}/chapters/${chap.id}/assets/audio?filename=${path}`; link.download = `${chap.title}${path.substring(path.lastIndexOf('.'))}`; link.click(); } }] : []),
                         { isDivider: true },
                         { label: 'Reset Audio', icon: RefreshCw, onClick: () => onResetAudio(chap.id) },
                         { label: 'Delete Chapter', icon: Trash2, isDestructive: true, onClick: () => onDeleteChapter(chap.id) }

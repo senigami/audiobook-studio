@@ -84,6 +84,14 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
     return map;
   }, [data.render_batches]);
 
+  const audioGroupMap = useMemo(() => {
+    const map = new Map<string, any>();
+    data.audio_groups?.forEach(group => {
+      group.span_ids.forEach((spanId: string) => map.set(spanId, group));
+    });
+    return map;
+  }, [data.audio_groups]);
+
   const profileEngineMap = useMemo(() => {
     return new Map(
       speakerProfiles
@@ -200,9 +208,10 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
   const renderSpan = (span: ScriptSpan) => {
     const char = span.character_id ? charMap.get(span.character_id) : null;
     const batch = batchMap.get(span.id);
+    const audioGroup = audioGroupMap.get(span.id);
     const isPending = pendingSpanIds.has(span.id);
     const isPlaying = isPlayingSpan(span.id);
-    const isReady = span.status === 'rendered';
+    const isReady = span.status === 'rendered' || (audioGroup && audioGroup.status === 'rendered');
     const displayText = showSafeText ? (span.sanitized_text || span.text) : span.text;
     const batchStatus = batch ? batchEngineStatus(batch.span_ids) : { canGenerate: false, unavailableEngine: null as string | null };
 

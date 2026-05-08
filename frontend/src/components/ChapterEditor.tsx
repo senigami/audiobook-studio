@@ -152,7 +152,8 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
 
   const { playingSegmentId, playingSegmentIds, playSegment, stopPlayback } = useChapterPlayback(
     projectId, segments, chunkGroups, effectivePendingSegmentIds, 
-    (sids) => handleGenerate(sids, effectiveSelectedVoice, (msg) => setConfirmConfig({ title: 'Generation Blocked', message: msg, onConfirm: () => {}, confirmText: 'OK' }))
+    (sids) => handleGenerate(sids, effectiveSelectedVoice, (msg) => setConfirmConfig({ title: 'Generation Blocked', message: msg, onConfirm: () => {}, confirmText: 'OK' })),
+    scriptViewData?.audio_groups || []
   );
 
   useEffect(() => {

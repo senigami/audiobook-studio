@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 from uuid import uuid4
 from fastapi import APIRouter, Body
 from fastapi.responses import JSONResponse, FileResponse
@@ -191,8 +191,8 @@ def _resolve_engine_test_sample(
     *,
     engine_id: str,
     module_path: str,
-    test_sample: str | None,
-) -> Path | None:
+    test_sample: Optional[str],
+) -> Optional[Path]:
     """Resolve an engine-owned test sample without depending on user voices."""
     sample_names = [test_sample] if test_sample else []
     sample_names.append("sample.wav")
@@ -220,7 +220,7 @@ def _resolve_engine_test_sample(
     return None
 
 
-def _resolve_plugin_dir(*, engine_id: str, module_path: str) -> Path | None:
+def _resolve_plugin_dir(*, engine_id: str, module_path: str) -> Optional[Path]:
     from app.config import PLUGINS_DIR  # noqa: PLC0415
 
     parts = module_path.split(".")

@@ -113,7 +113,7 @@ export const AssemblyPanel: React.FC<AssemblyPanelProps> = ({
                         <button
                             onClick={() => {
                                 const link = document.createElement('a');
-                                link.href = a.url || `/out/audiobook/${a.filename}`;
+                                link.href = a.url;
                                 link.download = a.download_filename || a.filename;
                                 link.click();
                             }}

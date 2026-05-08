@@ -206,7 +206,7 @@ class TtsServerWatchdog:
             try:
                 listener(line, task_id)
             except Exception:
-                pass
+                logger.exception("Watchdog log listener failed for line: %r", line)
 
     def stop(self) -> None:
         """Signal the watchdog to stop and terminate the TTS Server."""
@@ -553,6 +553,20 @@ class TtsServerWatchdog:
                                 task_id = sub_parts[0]
                         elif len(sub_parts) == 1 and "%" not in sub_parts[0]:
                             task_id = sub_parts[0]
+                elif "[START_SEGMENT]" in line:
+                    parts = line.split("[START_SEGMENT]")
+                    if len(parts) > 1:
+                        # [START_SEGMENT] {sid} {task_id}
+                        sub_parts = parts[1].strip().split()
+                        if len(sub_parts) >= 2:
+                            task_id = sub_parts[1]
+                elif "[SEGMENT_SAVED]" in line:
+                    parts = line.split("[SEGMENT_SAVED]")
+                    if len(parts) > 1:
+                        # [SEGMENT_SAVED] {path} {task_id}
+                        sub_parts = parts[1].strip().split()
+                        if len(sub_parts) >= 2:
+                            task_id = sub_parts[1]
 
                 with self._lock:
                     self._log_buffer.append(f"[{name}] {line}")
@@ -562,7 +576,7 @@ class TtsServerWatchdog:
                     try:
                         listener(line, task_id)
                     except Exception:
-                        pass
+                        logger.exception("Watchdog log listener failed for line: %r", line)
 
                 logger.debug("[tts-server-%s] %s", name, line)
         except Exception:

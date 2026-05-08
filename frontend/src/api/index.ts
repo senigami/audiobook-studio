@@ -325,7 +325,7 @@ export const api = {
     formData.append('chapter_file', filename);
     formData.append('engine', engine);
     if (voice) formData.append('voice', voice);
-    const res = await fetch('/api/queue/single', { method: 'POST', body: formData });
+    const res = await fetch('/api/generation/enqueue-single', { method: 'POST', body: formData });
     return res.json();
   },
   cancelPending: async (): Promise<any> => {

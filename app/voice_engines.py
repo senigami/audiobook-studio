@@ -125,6 +125,9 @@ def resolve_voice_preview_inputs(
         from .db.speakers import get_profile_wavs, get_profile_dir
 
         speaker_wav = get_profile_wavs(profile_name_or_id)
+        if speaker_wav and "," in speaker_wav:
+            speaker_wav = speaker_wav.split(",")[0]
+
         try:
             voice_profile_dir = get_profile_dir(profile_name_or_id)
         except ValueError:

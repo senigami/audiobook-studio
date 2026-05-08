@@ -163,21 +163,26 @@ def test_generate_segments(clean_db, client):
         assert "job_id" in response.json()
 
 
-def test_enqueue_single_sets_descriptive_custom_title(clean_db, client):
-    with patch("app.api.routers.generation.put_job") as mock_put_job, patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"):
-        response = client.post("/api/generation/enqueue-single", data={"chapter_file": "chapter_01.txt", "engine": "xtts"})
+def test_enqueue_single_sets_descriptive_custom_title(clean_db, client, tmp_path):
+    f = tmp_path / "chapter_01.txt"
+    f.write_text("dummy text")
+    with patch("app.api.routers.generation.put_job") as mock_put_job, \
+         patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"):
+        response = client.post("/api/generation/enqueue-single", data={"chapter_file": str(f), "engine": "xtts"})
 
     assert response.status_code == 200
     job = mock_put_job.call_args.args[0]
     assert job.custom_title == "Generating audio for chapter_01"
 
 
-def test_enqueue_single_rejects_disabled_engine(clean_db, client):
+def test_enqueue_single_rejects_disabled_engine(clean_db, client, tmp_path):
+    f = tmp_path / "chapter_01.txt"
+    f.write_text("dummy text")
     bridge = MagicMock()
     bridge.is_engine_enabled.return_value = False
 
     with patch("app.api.routers.generation.create_voice_bridge", return_value=bridge):
-        response = client.post("/api/generation/enqueue-single", data={"chapter_file": "chapter_01.txt", "engine": "xtts"})
+        response = client.post("/api/generation/enqueue-single", data={"chapter_file": str(f), "engine": "xtts"})
 
     assert response.status_code == 400
     assert "Enable" in response.json()["message"]
@@ -579,8 +584,62 @@ def test_generation_orchestration_integration(clean_db, client, monkeypatch):
     assert request["engine_id"] == "xtts"
     assert request["project_id"] == pid
     assert request["chapter_id"] == cid
-    assert "output_path" in request
-    assert "chapter.txt" in request["output_path"]
+    assert os.path.isabs(request["output_path"])
+    assert request["output_path"].endswith(".wav")
+    assert pid in request["output_path"]
+    assert cid in request["output_path"]
+
+
+def test_voice_profile_dir_propagation(clean_db, client, monkeypatch):
+    """Verifies that voice_profile_dir reaches the bridge via synthesis_settings."""
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.orchestration.scheduler.orchestrator import TaskOrchestrator
+    from pathlib import Path
+
+    pid = create_project("VoiceProject")
+    cid = create_chapter(pid, "VoiceChapter", "Voice text.")
+
+    # Mock settings to have a default voice
+    from app.state import update_settings
+    update_settings({"default_speaker_profile": "Voice1", "default_engine": "xtts"})
+
+    mock_bridge = MagicMock()
+    mock_bridge.synthesize.return_value = {"status": "ok"}
+    mock_bridge.describe_registry.return_value = [{"engine_id": "xtts", "enabled": True}]
+
+    mock_progress = MagicMock()
+    mock_progress.reconcile.return_value = {"decision": "queue", "artifact_state": "missing"}
+
+    real_orchestrator = TaskOrchestrator(
+        progress_service=mock_progress,
+        voice_bridge=mock_bridge
+    )
+    monkeypatch.setattr("app.api.routers.generation.create_orchestrator", lambda: real_orchestrator)
+
+    # Mock voice resolution
+    mock_resolution = (None, Path("/tmp/dummy_voice_dir"))
+
+    with patch("app.api.routers.generation.put_job"), \
+         patch("app.api.routers.generation.update_job"), \
+         patch("app.voice_engines.resolve_voice_preview_inputs", return_value=mock_resolution), \
+         patch("app.orchestration.scheduler.orchestrator.reserve_task_resources", return_value={"admitted": True}), \
+         patch("app.orchestration.scheduler.orchestrator.release_task_resources"):
+
+        response = client.post("/api/processing_queue", data={
+            "project_id": pid,
+            "chapter_id": cid
+        })
+        assert response.status_code == 200
+
+    assert mock_bridge.synthesize.called
+    request = mock_bridge.synthesize.call_args.args[0]
+
+    # Verify voice_profile_dir is at the top level of bridge request
+    # (because SynthesisTask spreads synthesis_settings)
+    assert request.get("voice_profile_dir") == "/tmp/dummy_voice_dir"
+    # Ensure it's NOT in requested_revision anymore
+    assert "voice_profile_dir" not in request.get("requested_revision", {})
 
 
 def test_mixed_generation_orchestration_integration(clean_db, client, monkeypatch):
@@ -711,3 +770,92 @@ def test_queue_chapter_mixed_render_runs_end_to_end(clean_db, client, monkeypatc
     assert chapter["audio_file_path"] == "chapter.wav"
     assert all(row["audio_status"] == "done" for row in segment_rows)
     assert all(row["audio_file_path"] for row in segment_rows)
+
+def test_enqueue_single_bridge_contract(clean_db, client, monkeypatch, tmp_path):
+    """Verifies that /api/generation/enqueue-single passes valid script_text and audio output_path."""
+    from app.orchestration.scheduler.orchestrator import TaskOrchestrator
+
+    # 1. Create a dummy input file
+    input_file = tmp_path / "test_chapter.txt"
+    input_file.write_text("This is the chapter text.")
+
+    # 2. Mock dependencies
+    mock_bridge = MagicMock()
+    mock_bridge.synthesize.return_value = {"status": "ok"}
+    mock_bridge.describe_registry.return_value = [{"engine_id": "xtts", "enabled": True}]
+
+    mock_progress = MagicMock()
+    mock_progress.reconcile.return_value = {"decision": "queue", "artifact_state": "missing"}
+
+    # Use real orchestrator to see the bridge call
+    real_orchestrator = TaskOrchestrator(
+        progress_service=mock_progress,
+        voice_bridge=mock_bridge
+    )
+    monkeypatch.setattr("app.api.routers.generation.create_orchestrator", lambda: real_orchestrator)
+
+    # 3. Patch state/jobs
+    with patch("app.api.routers.generation.put_job"),          patch("app.api.routers.generation.update_job"),          patch("app.orchestration.scheduler.orchestrator.reserve_task_resources", return_value={"admitted": True}),          patch("app.orchestration.scheduler.orchestrator.release_task_resources"):
+
+        # 4. Call the API
+        response = client.post("/api/generation/enqueue-single", data={
+            "chapter_file": str(input_file),
+            "engine": "xtts"
+        })
+        assert response.status_code == 200
+
+    # 5. Verify bridge synthesis contract
+    assert mock_bridge.synthesize.called
+    request = mock_bridge.synthesize.call_args.args[0]
+
+    # The bridge MUST receive the text content of the file, not an empty string
+    assert request["script_text"] == "This is the chapter text."
+
+    # The bridge MUST receive an audio output path, not the input .txt path
+    assert request["output_path"].endswith(".wav") or request["output_path"].endswith(".mp3")
+    assert request["output_path"] != str(input_file)
+
+def test_enqueue_single_passes_voice_context(clean_db, client, monkeypatch, tmp_path):
+    """Verifies that /api/generation/enqueue-single passes voice_ref and synthesis_settings."""
+    from app.orchestration.scheduler.orchestrator import TaskOrchestrator
+    from pathlib import Path
+
+    # 1. Create a dummy input file
+    input_file = tmp_path / "voice_chapter.txt"
+    input_file.write_text("Text with voice context.")
+
+    # 2. Mock settings to have a default voice
+    from app.state import update_settings
+    update_settings({"default_speaker_profile": "Voice1", "default_engine": "xtts"})
+
+    # 3. Mock voice resolution
+    mock_resolution = (str(tmp_path / "ref.wav"), Path("/tmp/vdir"))
+
+    mock_bridge = MagicMock()
+    mock_bridge.synthesize.return_value = {"status": "ok"}
+    mock_bridge.describe_registry.return_value = [{"engine_id": "xtts", "enabled": True}]
+
+    mock_progress = MagicMock()
+    mock_progress.reconcile.return_value = {"decision": "queue", "artifact_state": "missing"}
+
+    real_orchestrator = TaskOrchestrator(
+        progress_service=mock_progress,
+        voice_bridge=mock_bridge
+    )
+    monkeypatch.setattr("app.api.routers.generation.create_orchestrator", lambda: real_orchestrator)
+
+    # 4. Patch everything
+    with patch("app.api.routers.generation.put_job"),          patch("app.api.routers.generation.update_job"),          patch("app.voice_engines.resolve_voice_preview_inputs", return_value=mock_resolution),          patch("app.orchestration.scheduler.orchestrator.reserve_task_resources", return_value={"admitted": True}),          patch("app.orchestration.scheduler.orchestrator.release_task_resources"):
+
+        response = client.post("/api/generation/enqueue-single", data={
+            "chapter_file": str(input_file),
+            "engine": "xtts"
+        })
+        assert response.status_code == 200
+
+    # 5. Verify bridge synthesis context
+    assert mock_bridge.synthesize.called
+    request = mock_bridge.synthesize.call_args.args[0]
+
+    assert request["reference_audio_path"] == str(tmp_path / "ref.wav")
+    assert request["voice_profile_dir"] == "/tmp/vdir"

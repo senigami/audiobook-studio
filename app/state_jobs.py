@@ -20,6 +20,8 @@ ETA_PROJECTION_SKIP_REASONS = {
     "synthesis_finished",
     "post_processing",
     "metadata_update",
+    "segment_start",
+    "segment_saved",
 }
 
 
@@ -45,6 +47,12 @@ def put_job(job: Job) -> None:
             job.updated_at = job.created_at
         state["jobs"][job.id] = asdict(job)
         _atomic_write_text(get_state_file(), json.dumps(state, indent=2))
+
+    try:
+        from .api.ws import broadcast_job_updated
+        broadcast_job_updated(job.id, {}, current_job=asdict(job))
+    except Exception:
+        pass
 
 
 def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:

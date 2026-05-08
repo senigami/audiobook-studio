@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import type { ChapterSegment } from '../types';
+import type { ChapterSegment, AudioGroup } from '../types';
 import type { ChunkGroup } from '../utils/chunkGroups';
 
 export function useChapterPlayback(
@@ -7,7 +7,8 @@ export function useChapterPlayback(
   segments: ChapterSegment[],
   chunkGroups: ChunkGroup[],
   generatingSegmentIds: Set<string>,
-  onGenerate: (sids: string[]) => Promise<void>
+  onGenerate: (sids: string[]) => Promise<void>,
+  audioGroups: AudioGroup[] = []
 ) {
   const [playingSegmentId, setPlayingSegmentId] = useState<string | null>(null);
   const [playingSegmentIds, setPlayingSegmentIds] = useState<Set<string>>(new Set());
@@ -17,6 +18,7 @@ export function useChapterPlayback(
   const segmentsRef = useRef<ChapterSegment[]>(segments);
   const generatingSegmentIdsRef = useRef<Set<string>>(generatingSegmentIds);
   const chunkGroupsRef = useRef<ChunkGroup[]>(chunkGroups);
+  const audioGroupsRef = useRef<AudioGroup[]>(audioGroups);
   const pendingPlaybackRef = useRef<{ segmentId: string; queue: string[] } | null>(null);
 
   useEffect(() => {
@@ -30,6 +32,10 @@ export function useChapterPlayback(
   useEffect(() => {
     chunkGroupsRef.current = chunkGroups;
   }, [chunkGroups]);
+
+  useEffect(() => {
+    audioGroupsRef.current = audioGroups;
+  }, [audioGroups]);
 
   const playFromIndex = async (idx: number, queue: string[]) => {
     if (!isPlayingRef.current || idx >= queue.length) {
@@ -66,16 +72,9 @@ export function useChapterPlayback(
     const mp3Path = audioPath.replace(/\.[^.]+$/, '.mp3');
     
     const urls = [
-      `/api/projects/${projectId}/chapters/${seg.chapter_id}/assets/audio?filename=${encodeURIComponent(audioPath)}`,
-      `/api/projects/${projectId}/chapters/${seg.chapter_id}/assets/audio?filename=${encodeURIComponent(wavPath)}`,
-      `/api/projects/${projectId}/chapters/${seg.chapter_id}/assets/audio?filename=${encodeURIComponent(mp3Path)}`,
-      // Legacy fallbacks for direct project mounts
-      `/projects/${projectId}/audio/${audioPath}`,
-      `/projects/${projectId}/audio/${wavPath}`,
-      `/projects/${projectId}/audio/${mp3Path}`,
-      `/out/audio/${audioPath}`,
-      `/out/audio/${wavPath}`,
-      `/out/audio/${mp3Path}`
+      `/api/projects/${projectId}/chapters/${seg.chapter_id}/assets/segment?filename=${encodeURIComponent(audioPath)}`,
+      `/api/projects/${projectId}/chapters/${seg.chapter_id}/assets/segment?filename=${encodeURIComponent(wavPath)}`,
+      `/api/projects/${projectId}/chapters/${seg.chapter_id}/assets/segment?filename=${encodeURIComponent(mp3Path)}`,
     ].filter((v, i, a) => a.indexOf(v) === i);
 
     let urlIdx = 0;
@@ -159,6 +158,15 @@ export function useChapterPlayback(
     if (idx >= queue.length) return [];
     const segId = queue[idx];
 
+    // Priority 1: Authoritative render-group mapping from backend
+    if (audioGroupsRef.current && audioGroupsRef.current.length > 0) {
+      const group = audioGroupsRef.current.find(g => g.span_ids.includes(segId));
+      if (group) {
+        return queue.filter(qid => group.span_ids.includes(qid));
+      }
+    }
+
+    // Priority 2: Client-side heuristic grouping
     const group = chunkGroupsRef.current.find(g => g.segments.some(segment => segment.id === segId));
     if (!group) return [segId];
     const groupIds = group.segments.map(segment => segment.id);

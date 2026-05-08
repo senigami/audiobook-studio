@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
 from app.orchestration.tasks.base import TaskResult
@@ -107,10 +108,47 @@ class OrchestratorHelpersMixin:
         from app.engines.watchdog import get_watchdog
         wd = get_watchdog()
 
+        # Pre-calculate weights for grouped progress tracking
+        script = getattr(task, "script", None)
+        path_to_ids = {}  # type: dict[str, list[str]]
+        id_to_weight = {}
+        total_weight = 0
+        if script:
+            for entry in script:
+                eid = entry.get("id")
+                spath = entry.get("save_path")
+                # Grouped segments may share a save_path.
+                # If 'ids' is provided in the script entry, it's a group.
+                eids = entry.get("ids") or ([eid] if eid else [])
+
+                # Use length of text as weight if not provided
+                w = entry.get("weight") or max(1, len(entry.get("text", "")))
+
+                if eids:
+                    # Apply weight to the group as a whole
+                    id_to_weight[eids[0]] = w
+                    total_weight += w
+                    if spath:
+                        if spath not in path_to_ids:
+                            path_to_ids[spath] = []
+                        path_to_ids[spath].extend(eids)
+
+        # Volatile state for the log_listener closure
+        completed_weight = [0.0]
+        active_seg_id = [None]
+        active_seg_progress = [0.0]
+
+        def _get_grouped_progress() -> float:
+            """Compute weighted progress across all render groups."""
+            if total_weight <= 0:
+                return 0.0
+            active_w = id_to_weight.get(active_seg_id[0], 0) if active_seg_id[0] else 0
+            # Scale to 0.90 to leave room for stitching/finalizing
+            raw = (completed_weight[0] + (active_seg_progress[0] * active_w)) / total_weight
+            return round(min(0.99, raw * 0.90), 4)
+
         def log_listener(line: str, line_task_id: Optional[str] = None):
             # If a task_id is present in the line, it MUST match ours.
-            # If no task_id is present, we accept it as ours because GpuAdmissionGate
-            # ensures only one synthesis runs at a time.
             if line_task_id and line_task_id != context.task_id:
                 return
 
@@ -126,7 +164,26 @@ class OrchestratorHelpersMixin:
                     message="Synthesis in progress...",
                     force=True,
                 )
-            elif "[PROGRESS]" in line:
+
+            if "[START_SEGMENT]" in line:
+                try:
+                    # [START_SEGMENT] {segment_id}
+                    sid = line.split("[START_SEGMENT]")[1].strip().split()[0]
+                    active_seg_id[0] = sid
+                    active_seg_progress[0] = 0.0
+                    self._publish(
+                        context=context,
+                        status="running",
+                        progress=_get_grouped_progress(),
+                        reason_code="segment_start",
+                        message=f"Rendering segment {sid}...",
+                        started_at=timing["render_started_at"],
+                        active_segment_id=sid,
+                    )
+                except (IndexError, ValueError):
+                    pass
+
+            if "[PROGRESS]" in line:
                 if timing["render_started_at"] is None:
                     timing["render_started_at"] = time.time()
                 try:
@@ -137,31 +194,81 @@ class OrchestratorHelpersMixin:
                             val_str = part.rstrip("%")
                             break
 
-                    if not val_str:
-                        return
+                    if val_str:
+                        raw_progress = float(val_str) / 100.0
+                        if total_weight > 0:
+                            active_seg_progress[0] = raw_progress
+                            p = _get_grouped_progress()
+                        else:
+                            p = raw_progress
+                            # Scale progress for tasks that have post-synthesis phases
+                            if context.task_type in {"sample_build", "sample_test"}:
+                                p = p * 0.70
 
-                    raw_progress = float(val_str) / 100.0
-                    eta_seconds = self._observed_remaining_seconds(
-                        started_at=timing["render_started_at"],
-                        progress=raw_progress,
-                    )
-                    p = raw_progress
+                        eta_seconds = self._observed_remaining_seconds(
+                            started_at=timing["render_started_at"],
+                            progress=p,
+                        )
 
-                    # Scale progress for tasks that have post-synthesis phases
-                    if context.task_type in {"sample_build", "sample_test"}:
-                        p = p * 0.70
-
-                    self._publish(
-                        context=context,
-                        status="running",
-                        progress=p,
-                        eta_seconds=eta_seconds,
-                        eta_confidence="recomputing" if eta_seconds is not None else None,
-                        reason_code="synthesis_progress",
-                        started_at=timing["render_started_at"],
-                        message="Synthesizing...",
-                    )
+                        self._publish(
+                            context=context,
+                            status="running",
+                            progress=p,
+                            eta_seconds=eta_seconds,
+                            eta_confidence="recomputing" if eta_seconds is not None else None,
+                            reason_code="synthesis_progress",
+                            started_at=timing["render_started_at"],
+                            message="Synthesizing...",
+                            active_segment_id=active_seg_id[0],
+                            active_segment_progress=raw_progress if total_weight > 0 else 0.0,
+                        )
                 except Exception:
+                    pass
+
+            if "[SEGMENT_SAVED]" in line:
+                try:
+                    # [SEGMENT_SAVED] {path}
+                    saved_path = line.split("[SEGMENT_SAVED]")[1].strip().split()[0]
+                    sids = path_to_ids.get(saved_path)
+                    if not sids:
+                        # Fallback: try to find by filename if path doesn't match exactly
+                        fname = Path(saved_path).name
+                        for p, i in path_to_ids.items():
+                            if Path(p).name == fname:
+                                sids = i
+                                break
+
+                    if sids:
+                        # Use the first ID (leader) for weight tracking
+                        leader_id = sids[0]
+                        w = id_to_weight.get(leader_id, 0)
+                        completed_weight[0] += w
+                        active_seg_id[0] = None
+                        active_seg_progress[0] = 0.0
+
+                        # Update segment database state for all members of the group
+                        try:
+                            from app.db import update_segment
+                            for sid in sids:
+                                update_segment(
+                                    sid, 
+                                    broadcast=True, 
+                                    audio_status="done", 
+                                    audio_file_path=Path(saved_path).name
+                                )
+                        except Exception:
+                            logger.exception("Failed to update segments %s on [SEGMENT_SAVED]", sids)
+
+                        self._publish(
+                            context=context,
+                            status="running",
+                            progress=_get_grouped_progress(),
+                            reason_code="segment_saved",
+                            message=f"Completed segment {leader_id}",
+                            started_at=timing["render_started_at"],
+                            active_segment_id=None,
+                        )
+                except (IndexError, ValueError):
                     pass
 
         if wd:
@@ -262,6 +369,8 @@ class OrchestratorHelpersMixin:
         reason_code: str | None = None,
         waiting_reason: str | None = None,
         started_at: float | None = None,
+        active_segment_id: str | None = None,
+        active_segment_progress: float | None = None,
         allow_progress_regression: bool = False,
         force: bool = False,
     ) -> None:
@@ -312,6 +421,8 @@ class OrchestratorHelpersMixin:
                 reason_code=reason_code,
                 waiting_reason=waiting_reason,
                 started_at=started_at,
+                active_segment_id=active_segment_id,
+                active_segment_progress=active_segment_progress,
                 allow_progress_regression=allow_progress_regression,
                 force=force,
                 updated_at=updated_at,
@@ -334,6 +445,8 @@ class OrchestratorHelpersMixin:
                     error=message if state_status == "failed" else None,
                     eta_seconds=eta_seconds,
                     eta_confidence=eta_confidence,
+                    active_segment_id=active_segment_id,
+                    active_segment_progress=active_segment_progress,
                 )
                 put_job(job)
             else:
@@ -343,6 +456,8 @@ class OrchestratorHelpersMixin:
                     "message": message,
                     "reason_code": reason_code,
                     "updated_at": updated_at,
+                    "active_segment_id": active_segment_id,
+                    "active_segment_progress": active_segment_progress,
                 }
                 if eta_seconds is not None:
                     updates["eta_seconds"] = eta_seconds
@@ -356,6 +471,15 @@ class OrchestratorHelpersMixin:
                     updates["error"] = message or "Task failed."
                 elif state_status == "done":
                     updates["error"] = None
+                    # Ensure chapter-level audio is linked by propagating output filenames
+                    output_path = context.payload.get("output_path")
+                    if output_path:
+                        from pathlib import Path
+                        fname = Path(output_path).name
+                        if fname.lower().endswith(".mp3"):
+                            updates["output_mp3"] = fname
+                        else:
+                            updates["output_wav"] = fname
                 update_job(context.task_id, force_broadcast=force, **updates)
 
 

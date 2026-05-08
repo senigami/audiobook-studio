@@ -141,6 +141,8 @@ class ProgressService:
         updated_at: float | None = None,
         active_render_batch_id: str | None = None,
         active_render_batch_progress: float | None = None,
+        active_segment_id: str | None = None,
+        active_segment_progress: float | None = None,
         allow_progress_regression: bool = False,
         force: bool = False,
     ) -> dict[str, object] | None:
@@ -184,6 +186,8 @@ class ProgressService:
             updated_at=updated_at,
             active_render_batch_id=active_render_batch_id,
             active_render_batch_progress=active_render_batch_progress,
+            active_segment_id=active_segment_id,
+            active_segment_progress=active_segment_progress,
         )
         if not force and not self._should_emit(payload, allow_progress_regression=allow_progress_regression):
             return None
@@ -255,6 +259,8 @@ class ProgressService:
         updated_at: float | None,
         active_render_batch_id: str | None,
         active_render_batch_progress: float | None,
+        active_segment_id: str | None = None,
+        active_segment_progress: float | None = None,
     ) -> dict[str, object]:
         """Describe the canonical payload sent to live frontend listeners.
 
@@ -314,6 +320,10 @@ class ProgressService:
             payload["active_render_batch_id"] = active_render_batch_id
         if active_render_batch_progress is not None:
             payload["active_render_batch_progress"] = round(max(0.0, min(float(active_render_batch_progress), 1.0)), 2)
+        if active_segment_id is not None:
+            payload["active_segment_id"] = active_segment_id
+        if active_segment_progress is not None:
+            payload["active_segment_progress"] = round(max(0.0, min(float(active_segment_progress), 1.0)), 2)
         return payload
 
     def _should_emit(self, payload: dict[str, object], *, allow_progress_regression: bool = False) -> bool:
@@ -338,6 +348,8 @@ class ProgressService:
             return True
         if payload.get("active_render_batch_id") != previous.get("active_render_batch_id"):
             return True
+        if payload.get("active_segment_id") != previous.get("active_segment_id"):
+            return True
         if payload.get("active_render_batch_progress") != previous.get("active_render_batch_progress"):
             previous_batch_progress = previous.get("active_render_batch_progress")
             current_batch_progress = payload.get("active_render_batch_progress")
@@ -345,6 +357,15 @@ class ProgressService:
                 if abs(float(current_batch_progress) - float(previous_batch_progress)) >= self.min_progress_delta:
                     return True
             elif previous_batch_progress != current_batch_progress:
+                return True
+
+        if payload.get("active_segment_progress") != previous.get("active_segment_progress"):
+            previous_seg_progress = previous.get("active_segment_progress")
+            current_seg_progress = payload.get("active_segment_progress")
+            if isinstance(previous_seg_progress, (int, float)) and isinstance(current_seg_progress, (int, float)):
+                if abs(float(current_seg_progress) - float(previous_seg_progress)) >= self.min_progress_delta:
+                    return True
+            elif previous_seg_progress != current_seg_progress:
                 return True
         if payload.get("eta_confidence") != previous.get("eta_confidence"):
             return True

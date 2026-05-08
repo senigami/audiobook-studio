@@ -23,7 +23,10 @@ from ...engines.behavior import (
     supports_bake_rendering,
     supports_mixed_rendering,
     supports_standard_rendering,
+    uses_segment_orchestration,
 )
+from ...chunk_groups import build_chunk_groups
+from ...textops import sanitize_text, safe_split_long_sentences, SENT_CHAR_LIMIT
 from ...config import (
     get_chapter_dir, resolve_chapter_asset_path
 )
@@ -97,6 +100,61 @@ def _ensure_engines_enabled(engine_ids: list[str]) -> Optional[JSONResponse]:
         if not bridge.is_engine_enabled(engine_id):
             return _engine_usable_error(engine_id)
     return None
+
+
+def _build_script_for_chapter(chapter_id: str, project_id: str, default_profile: str, safe_mode: bool = True) -> list[dict[str, Any]]:
+    """Build a structured script payload for segment-orchestrated engines."""
+    from ...db.segments import get_chapter_segments
+    from ...db.speakers import get_profile_wavs, get_profile_dir
+
+    segments = get_chapter_segments(chapter_id)
+    groups = build_chunk_groups(segments, default_profile)
+    chapter_dir = get_chapter_dir(project_id, chapter_id)
+
+    script = []
+    for group in groups:
+        first = group["segments"][0]
+        profile_name = group["profile_name"]
+
+        # Resolve voice details
+        try:
+            sw = get_profile_wavs(profile_name) if profile_name else None
+            # Standard single-sample resolution for bridge transport
+            if sw and "," in sw:
+                sw = sw.split(",")[0]
+        except Exception:
+            sw = None
+
+        vdir = None
+        if profile_name:
+            try:
+                vdir = str(get_profile_dir(profile_name))
+            except Exception:
+                vdir = None
+
+        processed = " ".join(group["text_parts"]).strip()
+        if safe_mode:
+            processed = sanitize_text(processed)
+            processed = safe_split_long_sentences(processed, target=SENT_CHAR_LIMIT)
+
+        # V2 segment path: chapters/{chapter_id}/segments/{first_segment_id}.wav
+        # The orchestrator uses absolute paths for bridge transport
+        seg_out = chapter_dir / "segments" / f"{first['id']}.wav"
+
+        script_entry = {
+            "text": processed,
+            "speaker_wav": sw,
+            "id": first["id"],
+            "ids": [s["id"] for s in group["segments"]],
+            "save_path": str(seg_out.absolute()),
+            "weight": max(1, len(processed)), # Store weight for orchestrator progress tracking
+        }
+        if vdir:
+            script_entry["voice_profile_dir"] = vdir
+
+        script.append(script_entry)
+
+    return script
 
 
 def _engines_for_profiles(profile_names: list[Optional[str]], fallback_engine: Optional[str]) -> list[str]:
@@ -218,19 +276,38 @@ def api_add_to_queue(
                 force_broadcast=True
             )
 
+            make_mp3 = bool(settings.get("make_mp3", False))
+            audio_filename = f"{Path(temp_filename).stem}.mp3" if make_mp3 else f"{Path(temp_filename).stem}.wav"
+
+            # Resolve voice directory/reference for single-engine bridge synthesis
+            voice_ref = None
+            synthesis_settings = {}
+            if queue_engine != "mixed" and active_profile:
+                from app.voice_engines import resolve_voice_preview_inputs
+                speaker_wav, vdir = resolve_voice_preview_inputs(active_profile)
+                voice_ref = speaker_wav
+                if vdir:
+                    synthesis_settings["voice_profile_dir"] = str(vdir)
+
+            canonical_chapter_dir = get_chapter_dir(project_id, chapter_id)
+            output_path = str(canonical_chapter_dir / audio_filename)
+
             orchestrator = create_orchestrator()
             task = SynthesisTask(
                 task_id=qid,
                 engine_id=queue_engine,
-                script_text="",  # Mixed handler/Bridge reads from DB/disk
-                output_path=temp_filename,
+                script_text=text_content or "",  # Required for single-engine bridge synthesis
+                output_path=output_path,
                 project_id=project_id,
                 chapter_id=chapter_id,
                 voice_profile_id=active_profile,
+                voice_ref=voice_ref,
                 custom_title=display_title,
                 is_bake=has_bakeable_segments,
                 safe_mode=bool(settings.get("safe_mode", True)),
-                make_mp3=bool(settings.get("make_mp3", False)),
+                make_mp3=make_mp3,
+                synthesis_settings=synthesis_settings,
+                script=_build_script_for_chapter(chapter_id, project_id, active_profile, safe_mode=bool(settings.get("safe_mode", True))) if uses_segment_orchestration(queue_engine) else None
             )
             background_tasks.add_task(orchestrator.submit, task)
 
@@ -254,11 +331,12 @@ def api_bake_chapter(chapter_id: str, background_tasks: BackgroundTasks):
 
     with get_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT project_id, title, sort_order FROM chapters WHERE id = ?", (chapter_id,))
+        cursor.execute("SELECT project_id, title, sort_order, text_content FROM chapters WHERE id = ?", (chapter_id,))
         chapter = cursor.fetchone()
         if not chapter:
             return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
         project_id = chapter["project_id"]
+        text_content = chapter["text_content"]
         display_title = build_chapter_queue_title(chapter["title"], chapter["sort_order"])
 
     segs = get_chapter_segments(chapter_id)
@@ -306,17 +384,37 @@ def api_bake_chapter(chapter_id: str, background_tasks: BackgroundTasks):
         custom_title=display_title,
     )
 
+    make_mp3 = bool(settings.get("make_mp3", False))
+    audio_filename = f"{chapter_id}_0.mp3" if make_mp3 else f"{chapter_id}_0.wav"
+
+    # Resolve voice directory/reference for single-engine bridge synthesis
+    voice_ref = None
+    synthesis_settings = {}
+    if queue_engine != "mixed" and active_profile:
+        from app.voice_engines import resolve_voice_preview_inputs
+        speaker_wav, vdir = resolve_voice_preview_inputs(active_profile)
+        voice_ref = speaker_wav
+        if vdir:
+            synthesis_settings["voice_profile_dir"] = str(vdir)
+
+    canonical_chapter_dir = get_chapter_dir(project_id, chapter_id)
+    output_path = str(canonical_chapter_dir / audio_filename)
+
     orchestrator = create_orchestrator()
     task = SynthesisTask(
         task_id=jid,
         engine_id=queue_engine,
-        script_text="",
-        output_path=f"{chapter_id}_0.txt",
+        script_text=text_content or "",
+        output_path=output_path,
         project_id=project_id,
         chapter_id=chapter_id,
         voice_profile_id=active_profile,
+        voice_ref=voice_ref,
         custom_title=display_title,
         is_bake=True,
+        make_mp3=make_mp3,
+        synthesis_settings=synthesis_settings,
+        script=_build_script_for_chapter(chapter_id, project_id, active_profile, safe_mode=bool(settings.get("safe_mode", True))) if uses_segment_orchestration(queue_engine) else None
     )
     background_tasks.add_task(orchestrator.submit, task)
 
@@ -377,6 +475,11 @@ def enqueue_single(
         from ...voice_engines import get_default_profile_engine
         engine = get_settings().get("default_engine") or get_default_profile_engine()
     normalized_engine = normalize_tts_engine(engine, engine)
+    if not normalized_engine:
+        return JSONResponse(
+            {"status": "error", "message": "No valid TTS engine could be resolved for this request."},
+            status_code=400
+        )
     engine_error = _ensure_engines_enabled([normalized_engine])
     if engine_error:
         return engine_error
@@ -384,6 +487,51 @@ def enqueue_single(
 
     active_profile = get_settings().get("default_speaker_profile")
     display_title = _single_job_title(chapter_file, normalized_engine)
+
+    # Resolve input file and read text content
+    input_path = Path(chapter_file)
+    from ...config import is_safe
+    if not is_safe(input_path):
+        return JSONResponse(
+            {"status": "error", "message": f"Access denied or invalid path: {chapter_file}"},
+            status_code=400
+        )
+
+    if not input_path.exists() or not input_path.is_file():
+        return JSONResponse(
+            {"status": "error", "message": f"Chapter file not found or is not a file: {chapter_file}"},
+            status_code=400
+        )
+
+    try:
+        text_content = input_path.read_text(encoding="utf-8").strip()
+    except Exception as exc:
+        return JSONResponse(
+            {"status": "error", "message": f"Failed to read chapter file: {exc}"},
+            status_code=400
+        )
+
+    if not text_content:
+        return JSONResponse(
+            {"status": "error", "message": "Chapter file is empty"},
+            status_code=400
+        )
+
+    # Resolve voice directory/reference for single-engine bridge synthesis
+    voice_ref = None
+    synthesis_settings = {}
+    if normalized_engine != "mixed" and active_profile:
+        from ...voice_engines import resolve_voice_preview_inputs
+        speaker_wav, vdir = resolve_voice_preview_inputs(active_profile)
+        voice_ref = speaker_wav
+        if vdir:
+            synthesis_settings["voice_profile_dir"] = str(vdir)
+
+    # Derive canonical audio output path from input file
+    settings = get_settings()
+    make_mp3 = bool(settings.get("make_mp3", False))
+    audio_ext = ".mp3" if make_mp3 else ".wav"
+    output_path = str(input_path.with_suffix(audio_ext))
 
     j = Job(
         id=jid,
@@ -400,10 +548,12 @@ def enqueue_single(
     task = SynthesisTask(
         task_id=jid,
         engine_id=normalized_engine,
-        script_text="",
-        output_path=chapter_file,
+        script_text=text_content,
+        output_path=output_path,
         voice_profile_id=active_profile,
+        voice_ref=voice_ref,
         custom_title=display_title,
+        synthesis_settings=synthesis_settings,
     )
     background_tasks.add_task(orchestrator.submit, task)
 

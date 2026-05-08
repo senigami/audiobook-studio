@@ -271,11 +271,11 @@ class XttsPlugin(StudioTTSEngine):
 
         # 2. Fall back to the legacy voice engine helper for profile resolution.
         try:
-            from app.voice_engines import resolve_xtts_preview_inputs  # noqa: PLC0415
+            from app.voice_engines import resolve_voice_preview_inputs  # noqa: PLC0415
 
             profile_id = req.settings.get("voice_profile_id", "")
             if profile_id:
-                speaker_wav, voice_profile_dir = resolve_xtts_preview_inputs(
+                speaker_wav, voice_profile_dir = resolve_voice_preview_inputs(
                     str(profile_id)
                 )
                 return speaker_wav, voice_profile_dir

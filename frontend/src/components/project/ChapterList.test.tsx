@@ -84,7 +84,7 @@ describe('ChapterList', () => {
     // Wait, the logic I added was:
     // <source src={`/projects/${projectId}/audio/${chap.audio_file_path}`} type={chap.audio_file_path.endsWith('.mp3') ? "audio/mpeg" : "audio/wav"} />
     
-    expect(sources1[0].getAttribute('src')).toBe('/projects/proj-1/audio/chap-123_0.wav');
+    expect(sources1[0].getAttribute('src')).toBe('/api/projects/proj-1/chapters/chap-123/assets/audio?filename=chap-123_0.wav');
   });
 
   it('falls back to chap.id when audio_file_path is missing', () => {
@@ -94,8 +94,8 @@ describe('ChapterList', () => {
     const sources2 = audioTags[1].querySelectorAll('source');
     
     // Fallback logic sends .mp3 then .wav
-    expect(sources2[0].getAttribute('src')).toBe('/projects/proj-1/audio/chap-456.mp3');
-    expect(sources2[1].getAttribute('src')).toBe('/projects/proj-1/audio/chap-456.wav');
+    expect(sources2[0].getAttribute('src')).toBe('/api/projects/proj-1/chapters/chap-456/assets/audio?filename=chapter.mp3');
+    expect(sources2[1].getAttribute('src')).toBe('/api/projects/proj-1/chapters/chap-456/assets/audio?filename=chapter.wav');
   });
 
   it('renders warning pulse when audio_status is processing but no activeJob', () => {
@@ -271,5 +271,38 @@ describe('ChapterList', () => {
     expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.05');
     expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-allow-backward', 'true');
     expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-evidence-weight-fraction', '1');
+  });
+
+  it('does not show interrupted orb when a job is active for a stale chapter', () => {
+    const staleChapter: Chapter = {
+      id: 'chap-stale',
+      project_id: 'proj-1',
+      title: 'Stale Chapter',
+      audio_status: 'done',
+      audio_file_path: 'old.wav',
+      has_wav: true,
+      has_mp3: false,
+      text_last_modified: Date.now() / 1000,
+      audio_generated_at: (Date.now() / 1000) - 1000,
+      sort_order: 4
+    } as any;
+
+    const activeJob = {
+      id: 'job-active',
+      project_id: 'proj-1',
+      chapter_id: 'chap-stale',
+      status: 'running',
+      progress: 0.1,
+    } as any;
+
+    const { container } = render(<ChapterList {...defaultProps} chapters={[staleChapter]} jobs={{ [activeJob.id]: activeJob }} />);
+    
+    // StatusOrb should NOT show the AlertTriangle or 'needs rebuild' label
+    const orbWithAlert = screen.queryByLabelText(/needs rebuild/i);
+    expect(orbWithAlert).toBeNull();
+    
+    // It SHOULD show the spinner
+    const spinner = container.querySelector('.animate-spin');
+    expect(spinner).toBeTruthy();
   });
 });
