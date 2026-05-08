@@ -95,6 +95,69 @@ class OrchestratorHelpersMixin:
 
         task.set_progress_reporter(task_progress_reporter)
 
+        def record_render_stats_if_completed(result: TaskResult) -> None:
+            if result.status != "completed":
+                return
+            started_at = timing["render_started_at"]
+            if started_at is None:
+                duration_seconds = max(0.0, time.monotonic() - float(getattr(task, "submitted_at", time.monotonic())))
+            else:
+                duration_seconds = max(0.0, time.time() - started_at)
+            if duration_seconds <= 0:
+                return
+
+            payload = context.payload or {}
+            script_text = str(payload.get("script_text") or "")
+            chars = len(script_text)
+            if chars <= 0:
+                return
+
+            segment_ids = payload.get("segment_ids") or getattr(task, "segment_ids", None) or []
+            segment_count = max(1, len(segment_ids) if isinstance(segment_ids, list) else 1)
+            render_group_count = len(getattr(task, "script", None) or [])
+            word_count = len(script_text.split())
+            output_path = str(payload.get("output_path") or "")
+            audio_duration_seconds = None
+            if output_path:
+                try:
+                    from app.subprocess_utils import probe_audio_duration  # noqa: PLC0415
+
+                    audio_file = Path(output_path)
+                    if audio_file.exists():
+                        audio_duration_seconds = probe_audio_duration(audio_file)
+                except Exception:
+                    logger.debug(
+                        "Could not probe completed audio duration for task %s.",
+                        context.task_id,
+                        exc_info=True,
+                    )
+
+            try:
+                from app.db.performance import record_render_sample  # noqa: PLC0415
+
+                record_render_sample(
+                    engine=str(payload.get("engine_id") or getattr(task, "engine_id", "")),
+                    chars=chars,
+                    word_count=word_count,
+                    segment_count=segment_count,
+                    duration_seconds=round(duration_seconds, 2),
+                    job_id=context.task_id,
+                    project_id=context.project_id,
+                    chapter_id=context.chapter_id,
+                    speaker_profile=payload.get("voice_profile_id"),
+                    render_group_count=render_group_count,
+                    started_at=started_at,
+                    audio_duration_seconds=audio_duration_seconds,
+                    make_mp3=bool(payload.get("make_mp3", False)),
+                    completed_at=time.time(),
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to record render performance sample for task %s.",
+                    context.task_id,
+                    exc_info=True,
+                )
+
         self._publish(
             context=context,
             status="preparing",
@@ -337,10 +400,12 @@ class OrchestratorHelpersMixin:
                         # self.voice_bridge must be available on the target class
                         result = self.voice_bridge.synthesize(request)
                         ok = result.get("status", "ok") == "ok"
-                        return TaskResult(
+                        task_result = TaskResult(
                             status="completed" if ok else "failed",
                             message=result.get("message"),
                         )
+                        record_render_stats_if_completed(task_result)
+                        return task_result
                     except Exception as exc:
                         logger.exception("Task %s: bridge dispatch raised.", context.task_id)
                         from app.engines.bridge_remote import EngineUnavailableError
@@ -371,7 +436,9 @@ class OrchestratorHelpersMixin:
                     started_at=timing["render_started_at"],
                 )
 
-            return task.run()
+            result = task.run()
+            record_render_stats_if_completed(result)
+            return result
         except Exception as exc:
             logger.exception("Task %s: dispatch raised an exception.", context.task_id)
             return TaskResult(status="failed", message=str(exc))

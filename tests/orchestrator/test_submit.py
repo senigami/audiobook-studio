@@ -157,3 +157,27 @@ class TestOrchestratorProgressTransitions:
         assert statuses[0] == "queued"
         assert "preparing" in statuses
         assert "running" in statuses
+
+    def test_completed_bridge_task_records_render_stats(self, orchestrator, progress_service):
+        from app.orchestration.tasks.synthesis import SynthesisTask
+
+        progress_service.reconcile.return_value = {"artifact_state": "missing", "can_reuse": False}
+        task = SynthesisTask(
+            task_id="t-render",
+            engine_id="xtts",
+            script_text="Hello world from Studio",
+            output_path="/tmp/t-render.wav",
+            project_id="p1",
+            chapter_id="c1",
+            voice_profile_id="speaker-1",
+        )
+
+        with patch("app.orchestration.scheduler.orchestrator.reserve_task_resources", return_value={"admitted": True}), \
+             patch("app.orchestration.scheduler.orchestrator.release_task_resources"), \
+             patch("app.db.performance.record_render_sample") as mock_record:
+            orchestrator.voice_bridge.synthesize.return_value = {"status": "ok"}
+            orchestrator.submit(task)
+
+        assert mock_record.call_count == 1
+        assert mock_record.call_args.kwargs["engine"] == "xtts"
+        assert mock_record.call_args.kwargs["job_id"] == "t-render"
