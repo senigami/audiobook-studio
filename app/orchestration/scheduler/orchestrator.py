@@ -156,20 +156,26 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
         # Step 4 — reserve resources
         claim_dict = _claim_to_dict(getattr(task, "resource_claim", None))
         claim_dict["task_id"] = task_id  # needed by GpuAdmissionGate
-        reservation = reserve_task_resources(
-            task_type=context.task_type,
-            resource_claims=claim_dict,
-        )
-        if not reservation.get("admitted", True):
-            waiting_reason = reservation.get("waiting_reason", "Resources unavailable.")
-            self._publish(
-                context=context,
-                status="waiting_for_resources",
-                waiting_reason=waiting_reason,
+        while True:
+            reservation = reserve_task_resources(
+                task_type=context.task_type,
+                resource_claims=claim_dict,
             )
-            logger.warning("Task %s: resource admission failed: %s", task_id, waiting_reason)
-            # Return task_id — the caller should re-submit via the policy queue.
-            return task_id
+            if reservation.get("admitted", True):
+                break
+
+            waiting_reason = reservation.get("waiting_reason", "Resources unavailable.")
+            if waiting_reason == "Orchestrator is paused.":
+                self._publish(
+                    context=context,
+                    status="waiting_for_resources",
+                    waiting_reason=waiting_reason,
+                )
+                logger.warning("Task %s: resource admission failed: %s", task_id, waiting_reason)
+                return task_id
+
+            logger.info("Task %s waiting for resources: %s", task_id, waiting_reason)
+            time.sleep(1.0)
 
         # Step 5 — running
         self._active[task_id] = task

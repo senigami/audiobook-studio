@@ -234,6 +234,20 @@ class TestReserveTaskResources:
         assert result["admitted"] is True
         assert result["waiting_reason"] is None
 
+    def test_exclusive_task_is_single_flight(self):
+        first = reserve_task_resources(
+            task_type="synthesis",
+            resource_claims={"task_id": "x1", "exclusive": True},
+        )
+        assert first["admitted"] is True
+
+        second = reserve_task_resources(
+            task_type="synthesis",
+            resource_claims={"task_id": "x2", "exclusive": True},
+        )
+        assert second["admitted"] is False
+        assert "x1" in second["waiting_reason"]
+
     def test_gpu_task_admitted_when_slot_free(self):
         result = reserve_task_resources(
             task_type="synthesis",

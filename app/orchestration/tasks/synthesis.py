@@ -84,7 +84,9 @@ class SynthesisTask(StudioTask):
         self.voice_profile_id = voice_profile_id
         self.voice_ref = voice_ref
         self.language = language
-        self.resource_claim = resource_claim or ResourceClaim.none()
+        self.resource_claim = resource_claim or (
+            ResourceClaim.none() if engine_id == "mixed" else ResourceClaim.exclusive_claim()
+        )
         self.requested_revision = requested_revision or {}
         self.render_batch_id = render_batch_id
         self.is_bake = is_bake
@@ -288,4 +290,3 @@ class SynthesisTask(StudioTask):
         wd = get_watchdog()
         if wd:
             wd._broadcast_log(line, task_id=self.task_id)
-

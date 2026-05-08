@@ -60,7 +60,7 @@ class ApiSynthesisTask(StudioTask):
         self.voice_ref = voice_ref
         self.request_settings = request_settings or {}
         self.language = language
-        self.resource_claim = resource_claim or ResourceClaim.none()
+        self.resource_claim = resource_claim or ResourceClaim.exclusive_claim()
         self.submitted_at = time.monotonic()
         self.caller_id = caller_id
 

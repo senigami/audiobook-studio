@@ -1,0 +1,91 @@
+{
+  "snapshot_version": 26,
+  "updated_at": "2026-05-08T18:00:00Z",
+  "branch": "studio2/phase-11",
+  "current_task": "Phase 11 bridge-backed synthesis single-flight serialization",
+  "status": "phase_11_bridge_synthesis_single_flight_in_progress",
+  "last_committed_milestone": {
+    "title": "Phase 11 legacy engine implementation relocation",
+    "commit": "572c435",
+    "notes": [
+      "Moved legacy XTTS and Voxtral implementation modules behind adapter package boundaries.",
+      "Verified no remaining app/plugins/tests imports of engines_voxtral or xtts_utils.",
+      "Kept legacy implementation details encapsulated behind the Studio 2.0 plugin/TTS Server boundary."
+    ]
+  },
+  "active_constraints": [
+    "Use Memory/rules.md as the shared source of truth for Codex and Antigravity/Gemini session behavior.",
+    "Use .agent/rules.md and .agent/rules/* for repo-persistent normative guidance.",
+    "Codex is lead architect, reviewer, integrator, verifier, checkpoint owner, and manual-QA caller.",
+    "Use Antigravity/Gemini for bounded non-trivial worker tasks to minimize token usage; Codex reviews, integrates, verifies, and commits.",
+    "Use JSON-style prompts for Antigravity/Gemini handoffs.",
+    "Codex should do small local fixes directly when delegating would cost more tokens than the fix.",
+    "Codex owns project direction and should give constructive pushback when shortcuts would weaken boundaries, hide v2 failures, or deepen legacy coupling.",
+    "Push only from stable checkpoints or when explicitly asked.",
+    "Durable Studio 2.0 state belongs in SQLite, not state.json.",
+    "Job status is the source of truth for phase; progress is only numeric position.",
+    "Plugin metadata should remain canonical in plugins/*/manifest.json and plugins/*/settings_schema.json.",
+    "App-level behavior decisions should be plugin-behavior driven, not hardcoded to specific engine ids such as xtts or voxtral.",
+    "Main app code should not mention specific engine names; engine names belong only in plugins, plugin manifests/schemas, plugin-internal adapters, meaningful tests, or explicitly approved migration scripts.",
+    "Do not preserve legacy support or backwards compatibility for v1/beta behavior unless the user explicitly approves a specific exception.",
+    "xtts_audio is engine-test residue, not protected project storage; it may be removed once references are migrated or deleted.",
+    "Use Antigravity/Gemini for bounded non-trivial worker tasks; Codex must verify and checkpoint coherent results locally.",
+    "Do not reintroduce USE_TTS_SERVER, USE_STUDIO_ORCHESTRATOR, or USE_V2_* runtime switches.",
+    "Do not start Phase 12 until Phase 11 is complete."
+  ],
+  "phase_status": {
+    "phase_10": "wrapped",
+    "phase_11": "active_engine_agnostic_cleanup_remaining",
+    "phase_12": "deferred"
+  },
+  "phase_11_guidance": [
+    "Phase 11 audit entry point is plans/phase_11_audit.md.",
+    "Phase 11 active task board is plans/implementation/phase_11_remaining_work.md.",
+    "Phase 11 completed work log is plans/implementation/phase_11_completed_work.md.",
+    "User-reported regressions are fixed in code and tests, with manual app verification still pending: Settings engine test without default voice, Library /api/projects load time, chapter render enqueue blank enablement message, duplicate React key warning for duplicate model IDs, plugin test_text handling, failed queue timestamps, and mixed render error-detail propagation.",
+    "Mixed chapter render may still fail in the live app, but the generic `Mixed synthesis returned failed` clobbering path has been fixed and an end-to-end API regression now exercises `/api/processing_queue` through the orchestrator and mixed handler successfully in tests.",
+    "Startup now performs a conservative orphaned TTS Server cleanup sweep, and watchdog shutdown waits are shorter to avoid long hangs at `Stopping reloader process`.",
+    "The TTS Server watchdog now writes a transient runtime marker under `TRANSIENT_DIR` and clears it on clean shutdown so startup can verify leftover processes before killing them.",
+    "The bridge/registry cleanup, direct handler generator migration, and initial plugin behavior foundation are complete.",
+    "The broader orchestration cutover has been locally verified with the affected backend suite and diff check.",
+    "Legacy dashboard labels and default-setting names have been generalized without changing the existing xtts_audio storage path.",
+    "plans/phases/phase_11_v2_only_runtime_cleanup.md needs to reflect the hard-cutover direction: no engine names in main app code, no legacy compatibility preservation, and xtts_audio removable.",
+    "Remaining engine-name references should be handled as classified cleanup slices, not broad rewrites.",
+    "Legacy Voxtral and XTTS implementation modules have been relocated behind engine adapter package boundaries.",
+    "All v2 cutover flags have been removed from app/tests; Studio 2.0 behavior should be the only runtime behavior.",
+    "Classify each legacy/fallback item by path, kind, current references, runtime impact, desired outcome, risk, and verification notes.",
+    "Treat silent v1/in-process production fallback as the core cleanup target.",
+    "Keep migration scripts and compatibility readers where they protect existing user data.",
+    "Make service failures visible and actionable instead of routing silently to older runtime paths.",
+    "Direct legacy generator calls have been removed from app/jobs/handlers and app/orchestration/tasks; handlers now route through the Studio 2.0 bridge.",
+    "Legacy generator helpers remain encapsulated inside XTTS/Voxtral plugin implementations and low-level engine utility tests.",
+    "Treat stored legacy fields such as voxtral_model or voxtral_voice_id as migration inputs only; do not build new app logic around engine-specific field names.",
+    "Serialize bridge-backed synthesis jobs one at a time until the TTS server proves it can safely handle concurrency."
+  ],
+  "codeql_context": {
+    "github_setup": "advanced",
+    "current_policy": "Defer CodeQL triage to the security verification track unless a finding directly blocks the current task.",
+    "local_annotations": "codeql-annotations.json, if present, is informational and should not distract from Phase 11 audit work unless intentionally used."
+  },
+  "next_logical_steps": [
+    "Map the next user-reported app problem to plans/implementation/phase_11_remaining_work.md.",
+    "Fix the smallest behavior path that resolves the problem.",
+    "Update the task board when a task is completed, deferred, or split.",
+    "Keep transient runtime markers in the shared scratch root rather than in the database or Memory.",
+    "Checkpoint the single-flight scheduler change once the focused tests and integration slice remain green."
+  ],
+  "verification": {
+    "latest_known_backend": "Antigravity-reported full backend run: 762 passed, 2 skipped, 5 warnings after Phase 10 stabilization.",
+    "latest_known_frontend": "Frontend build passed locally on 2026-05-04 after plugin verification fixes; Vite chunk-size warning remains.",
+    "latest_memory_update_check": "XTTS and Voxtral plugin verification failure was traced to dynamic plugin package loading and stale deleted-worker imports. Loader/package import fixes and plugin import migrations were verified locally.",
+    "known_warnings": [
+      "Vite chunk-size warning remains on frontend builds.",
+      "Some frontend motion tests may emit harmless animation warnings."
+    ]
+  },
+  "handoff_policy": {
+    "codex": "Lead architect, reviewer, integrator, verifier, checkpoint owner, and manual-QA caller.",
+    "gemini": "Bounded worker for scoped patches and exploration only.",
+    "memory": "Update Memory/state.json and Memory/session_logs.md after verified milestones; update .agent rules only for durable repo-level guidance."
+  }
+}

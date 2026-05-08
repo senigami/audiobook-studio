@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 import pytest
 
 from app.orchestration.tasks.base import TaskResult
@@ -123,3 +123,37 @@ class TestOrchestratorProgressTransitions:
         # Should not raise — task still runs
         task_id = orchestrator.submit(task)
         assert task_id == "t1"
+
+    def test_bridge_tasks_wait_for_resources_before_dispatching(self, orchestrator, progress_service, make_task):
+        progress_service.reconcile.return_value = {"artifact_state": "missing", "can_reuse": False}
+        task = make_task()
+
+        reservation_denied = {
+            "admitted": False,
+            "task_type": "synthesis",
+            "task_id": "t1",
+            "gpu": False,
+            "vram_mb": 0,
+            "cpu_heavy": False,
+            "waiting_reason": "Synthesis slot held by task other-job.",
+        }
+        reservation_admitted = {
+            "admitted": True,
+            "task_type": "synthesis",
+            "task_id": "t1",
+            "gpu": False,
+            "vram_mb": 0,
+            "cpu_heavy": False,
+            "waiting_reason": None,
+        }
+
+        with patch("app.orchestration.scheduler.orchestrator.reserve_task_resources", side_effect=[reservation_denied, reservation_admitted]) as mock_reserve, patch("app.orchestration.scheduler.orchestrator.time.sleep") as mock_sleep:
+            orchestrator.submit(task)
+
+        assert mock_reserve.call_count == 2
+        mock_sleep.assert_called_once()
+        task.run.assert_called_once()
+        statuses = self._get_statuses(progress_service)
+        assert statuses[0] == "queued"
+        assert "preparing" in statuses
+        assert "running" in statuses

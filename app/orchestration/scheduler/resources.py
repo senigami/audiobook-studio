@@ -56,11 +56,17 @@ class ResourceClaim:
     gpu: bool = False
     vram_mb: int = 0
     cpu_heavy: bool = False
+    exclusive: bool = False
 
     @classmethod
     def none(cls) -> "ResourceClaim":
         """Return a claim for tasks that need no special resources."""
         return cls()
+
+    @classmethod
+    def exclusive_claim(cls) -> "ResourceClaim":
+        """Return a claim for tasks that must run one-at-a-time."""
+        return cls(exclusive=True)
 
     @classmethod
     def gpu_heavy(cls, vram_mb: int = 4000) -> "ResourceClaim":
@@ -84,6 +90,7 @@ class ResourceClaim:
             gpu=bool(getattr(resource, "gpu", False)),
             vram_mb=int(getattr(resource, "vram_mb", 0)),
             cpu_heavy=bool(getattr(resource, "cpu_heavy", False)),
+            exclusive=bool(getattr(resource, "exclusive", False)),
         )
 
 
@@ -159,13 +166,59 @@ class GpuAdmissionGate:
             self._active_task_id = None
 
 
+class ExclusiveAdmissionGate:
+    """Enforces a single-flight rule for bridge-backed synthesis tasks."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._active_task_id: str | None = None
+
+    def try_acquire(self, task_id: str) -> tuple[bool, str | None]:
+        with self._lock:
+            if self._active_task_id is None:
+                self._active_task_id = task_id
+                logger.debug("Exclusive slot acquired by task %s.", task_id)
+                return True, None
+            reason = (
+                f"Exclusive slot held by task {self._active_task_id}. "
+                "This task will run when the current synthesis completes."
+            )
+            logger.debug(
+                "Exclusive slot unavailable for task %s — held by %s.",
+                task_id,
+                self._active_task_id,
+            )
+            return False, reason
+
+    def release(self, task_id: str) -> None:
+        with self._lock:
+            if self._active_task_id == task_id:
+                self._active_task_id = None
+                logger.debug("Exclusive slot released by task %s.", task_id)
+
+    @property
+    def active_task_id(self) -> str | None:
+        with self._lock:
+            return self._active_task_id
+
+    def reset(self) -> None:
+        with self._lock:
+            self._active_task_id = None
+
+
 # Module-level singleton — one gate for the Studio process.
 _gpu_gate = GpuAdmissionGate()
+_exclusive_gate = ExclusiveAdmissionGate()
 
 
 def get_gpu_gate() -> GpuAdmissionGate:
     """Return the module-level GPU admission gate."""
     return _gpu_gate
+
+
+def get_exclusive_gate() -> ExclusiveAdmissionGate:
+    """Return the module-level single-flight admission gate."""
+    return _exclusive_gate
 
 
 def reserve_task_resources(
@@ -196,6 +249,7 @@ def reserve_task_resources(
     gpu = bool(resource_claims.get("gpu", False))
     vram_mb = int(resource_claims.get("vram_mb", 0))
     cpu_heavy = bool(resource_claims.get("cpu_heavy", False))
+    exclusive = bool(resource_claims.get("exclusive", False))
 
     waiting_reason: str | None = None
     if is_paused():
@@ -206,21 +260,30 @@ def reserve_task_resources(
             "gpu": gpu,
             "vram_mb": vram_mb,
             "cpu_heavy": cpu_heavy,
+            "exclusive": exclusive,
             "waiting_reason": "Orchestrator is paused.",
         }
 
-    if gpu:
-        admitted, waiting_reason = _gpu_gate.try_acquire(task_id)
-    else:
-        admitted = True
+    admitted = True
+    if exclusive:
+        admitted, waiting_reason = _exclusive_gate.try_acquire(task_id)
+
+    if admitted and gpu:
+        gpu_admitted, gpu_waiting_reason = _gpu_gate.try_acquire(task_id)
+        if not gpu_admitted:
+            if exclusive:
+                _exclusive_gate.release(task_id)
+            admitted = False
+            waiting_reason = gpu_waiting_reason
 
     if admitted:
         logger.info(
-            "Resources admitted for task %s (type=%s, gpu=%s, vram_mb=%d).",
+            "Resources admitted for task %s (type=%s, gpu=%s, vram_mb=%d, exclusive=%s).",
             task_id,
             task_type,
             gpu,
             vram_mb,
+            exclusive,
         )
     else:
         logger.info(
@@ -237,6 +300,7 @@ def reserve_task_resources(
         "gpu": gpu,
         "vram_mb": vram_mb,
         "cpu_heavy": cpu_heavy,
+        "exclusive": exclusive,
         "waiting_reason": waiting_reason,
     }
 
@@ -252,5 +316,8 @@ def release_task_resources(*, task_id: str, resource_claims: dict[str, object]) 
         resource_claims: The same claims dict passed to ``reserve_task_resources``.
     """
     gpu = bool(resource_claims.get("gpu", False))
+    exclusive = bool(resource_claims.get("exclusive", False))
     if gpu:
         _gpu_gate.release(task_id)
+    if exclusive:
+        _exclusive_gate.release(task_id)

@@ -28,6 +28,7 @@ class TestApiSynthesisTask:
         assert task.caller_id is None
         assert task.request_settings == {}
         assert isinstance(task.resource_claim, ResourceClaim)
+        assert task.resource_claim.exclusive is True
 
     def test_custom_resource_claim(self):
         claim = ResourceClaim.gpu_heavy(vram_mb=8000)
@@ -156,12 +157,21 @@ class TestResourceClaim:
         assert claim.gpu is False
         assert claim.vram_mb == 0
         assert claim.cpu_heavy is False
+        assert claim.exclusive is False
+
+    def test_exclusive_claim(self):
+        claim = ResourceClaim.exclusive_claim()
+        assert claim.gpu is False
+        assert claim.vram_mb == 0
+        assert claim.cpu_heavy is False
+        assert claim.exclusive is True
 
     def test_gpu_heavy_claim(self):
         claim = ResourceClaim.gpu_heavy(vram_mb=6000)
         assert claim.gpu is True
         assert claim.vram_mb == 6000
         assert claim.cpu_heavy is True
+        assert claim.exclusive is False
 
     def test_from_engine_manifest(self):
         manifest = type("M", (), {

@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
 from app.orchestration.tasks.base import TaskResult
+from app.render_trace import trace
 
 if TYPE_CHECKING:
     from app.orchestration.tasks.base import StudioTask, TaskContext
@@ -132,6 +133,18 @@ class OrchestratorHelpersMixin:
                         if spath not in path_to_ids:
                             path_to_ids[spath] = []
                         path_to_ids[spath].extend(eids)
+        trace(
+            "orchestrator.dispatch_start",
+            job_id=context.task_id,
+            project_id=context.project_id,
+            chapter_id=context.chapter_id,
+            task_type=context.task_type,
+            marker_driven=marker_driven,
+            script_group_count=len(script or []),
+            total_weight=total_weight,
+            path_to_ids=path_to_ids,
+            id_to_weight=id_to_weight,
+        )
 
         # Volatile state for the log_listener closure
         completed_weight = [0.0]
@@ -155,6 +168,13 @@ class OrchestratorHelpersMixin:
             if "[START_SYNTHESIS]" in line:
                 if timing["render_started_at"] is None:
                     timing["render_started_at"] = time.time()
+                trace(
+                    "orchestrator.marker_start_synthesis",
+                    job_id=context.task_id,
+                    line=line,
+                    render_started_at=timing["render_started_at"],
+                    expected_duration=expected_duration,
+                )
                 self._publish(
                     context=context,
                     status="running",
@@ -171,6 +191,16 @@ class OrchestratorHelpersMixin:
                     sid = line.split("[START_SEGMENT]")[1].strip().split()[0]
                     active_seg_id[0] = sid
                     active_seg_progress[0] = 0.0
+                    trace(
+                        "orchestrator.marker_start_segment",
+                        job_id=context.task_id,
+                        segment_id=sid,
+                        grouped_progress=_get_grouped_progress(),
+                        completed_weight=completed_weight[0],
+                        total_weight=total_weight,
+                        active_weight=id_to_weight.get(sid, 0),
+                        line=line,
+                    )
                     self._publish(
                         context=context,
                         status="running",
@@ -209,6 +239,18 @@ class OrchestratorHelpersMixin:
                             started_at=timing["render_started_at"],
                             progress=p,
                         )
+                        trace(
+                            "orchestrator.marker_progress",
+                            job_id=context.task_id,
+                            segment_id=active_seg_id[0],
+                            raw_segment_progress=raw_progress,
+                            published_progress=p,
+                            eta_seconds=eta_seconds,
+                            completed_weight=completed_weight[0],
+                            total_weight=total_weight,
+                            active_weight=id_to_weight.get(active_seg_id[0], 0) if active_seg_id[0] else 0,
+                            line=line,
+                        )
 
                         self._publish(
                             context=context,
@@ -245,17 +287,27 @@ class OrchestratorHelpersMixin:
                         completed_weight[0] += w
                         active_seg_id[0] = None
                         active_seg_progress[0] = 0.0
+                        trace(
+                            "orchestrator.marker_segment_saved",
+                            job_id=context.task_id,
+                            saved_path=saved_path,
+                            segment_ids=sids,
+                            leader_id=leader_id,
+                            completed_weight=completed_weight[0],
+                            total_weight=total_weight,
+                            grouped_progress=_get_grouped_progress(),
+                            line=line,
+                        )
 
                         # Update segment database state for all members of the group
                         try:
-                            from app.db import update_segment
-                            for sid in sids:
-                                update_segment(
-                                    sid, 
-                                    broadcast=True, 
-                                    audio_status="done", 
-                                    audio_file_path=Path(saved_path).name
-                                )
+                            from app.db import update_segments_bulk
+                            update_segments_bulk(
+                                sids,
+                                audio_status="done",
+                                audio_file_path=Path(saved_path).name,
+                                audio_generated_at=time.time(),
+                            )
                         except Exception:
                             logger.exception("Failed to update segments %s on [SEGMENT_SAVED]", sids)
 
@@ -397,6 +449,22 @@ class OrchestratorHelpersMixin:
 
         finished_at = time.time() if state_status in {"done", "failed", "cancelled"} else None
         updated_at = time.time()
+        trace(
+            "orchestrator.publish",
+            job_id=context.task_id,
+            project_id=context.project_id,
+            chapter_id=context.chapter_id,
+            status=state_status,
+            progress=state_progress,
+            eta_seconds=eta_seconds,
+            eta_confidence=eta_confidence,
+            reason_code=reason_code,
+            message=message,
+            started_at=started_at,
+            active_segment_id=active_segment_id,
+            active_segment_progress=active_segment_progress,
+            force=force,
+        )
         try:
             # Sync with the persistent state.json for UI visibility and polling.
             # We import lazily to stay behind the state boundary.
@@ -500,4 +568,5 @@ def _claim_to_dict(claim: object | None) -> dict[str, object]:
         "gpu": getattr(claim, "gpu", False),
         "vram_mb": getattr(claim, "vram_mb", 0),
         "cpu_heavy": getattr(claim, "cpu_heavy", False),
+        "exclusive": getattr(claim, "exclusive", False),
     }
