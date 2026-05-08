@@ -621,3 +621,9 @@
 - Added backend timing logs around `GET /api/projects/{project_id}` and `get_project()` so we can distinguish migration time from DB lock wait time and row fetch time.
 - Verified the project API suite and lint on the timing slice.
 - Current user timing sample shows the project detail endpoint taking about 4.5 minutes on a large project, so the next pass should inspect the logged breakdown rather than the chapter loader.
+
+# 2026-05-08 - Project Detail Hot Path Removed
+
+- Removed implicit V2 migration from `GET /api/projects/{project_id}` so project reads stay read-only and no longer walk the chapter tree during normal navigation.
+- Added a regression proving project list and project detail endpoints do not invoke migration on read.
+- Verified the project API suite and lint after the read-path change.

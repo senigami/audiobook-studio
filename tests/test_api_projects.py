@@ -57,21 +57,21 @@ def test_project_crud(clean_db, client):
     assert client.get(f"/api/projects/{pid}").status_code == 404
 
 
-def test_project_list_does_not_migrate_each_project_but_detail_does(clean_db, client):
+def test_project_list_and_detail_do_not_migrate_on_read(clean_db, client):
     pid = client.post("/api/projects", data={"name": "Fast List Project"}).json()["project_id"]
 
-    with patch("app.api.routers.projects.migrate_project_to_v2") as migrate:
+    with patch("app.domain.projects.migration.migrate_project_to_v2") as migrate:
         response = client.get("/api/projects")
 
     assert response.status_code == 200
     assert any(project["id"] == pid for project in response.json())
     migrate.assert_not_called()
 
-    with patch("app.api.routers.projects.migrate_project_to_v2") as migrate:
+    with patch("app.domain.projects.migration.migrate_project_to_v2") as migrate:
         response = client.get(f"/api/projects/{pid}")
 
     assert response.status_code == 200
-    migrate.assert_called_once_with(pid)
+    migrate.assert_not_called()
 
 
 def test_project_chapters(clean_db, client):
