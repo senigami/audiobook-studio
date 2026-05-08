@@ -1,9 +1,9 @@
 {
-  "snapshot_version": 26,
-  "updated_at": "2026-05-08T18:00:00Z",
+  "snapshot_version": 30,
+  "updated_at": "2026-05-08T19:39:07Z",
   "branch": "studio2/phase-11",
-  "current_task": "Phase 11 bridge-backed synthesis single-flight serialization",
-  "status": "phase_11_bridge_synthesis_single_flight_in_progress",
+  "current_task": "Phase 11 live queue, script-view, and render cue stabilization",
+  "status": "phase_11_live_refresh_stabilization_in_progress",
   "last_committed_milestone": {
     "title": "Phase 11 legacy engine implementation relocation",
     "commit": "572c435",
@@ -60,7 +60,12 @@
     "Direct legacy generator calls have been removed from app/jobs/handlers and app/orchestration/tasks; handlers now route through the Studio 2.0 bridge.",
     "Legacy generator helpers remain encapsulated inside XTTS/Voxtral plugin implementations and low-level engine utility tests.",
     "Treat stored legacy fields such as voxtral_model or voxtral_voice_id as migration inputs only; do not build new app logic around engine-specific field names.",
-    "Serialize bridge-backed synthesis jobs one at a time until the TTS server proves it can safely handle concurrency."
+    "Serialize bridge-backed synthesis jobs one at a time until the TTS server proves it can safely handle concurrency.",
+    "Render performance samples should be recorded from the orchestrator completion path so the About page tally reflects chapter renders and chapter tests.",
+    "Keep job-overlay state cleanup separate from render-stat cleanup; do not conflate the two migration slices.",
+    "Refresh jobs immediately on queue updates so project/chapter views do not wait for a hard reload.",
+    "Broadcast segments_updated after grouped segment saves so chapter script-view data can repaint live.",
+    "Use pending-span styling in ScriptView to make live rebuild work visible without depending on a separate processing mode."
   ],
   "codeql_context": {
     "github_setup": "advanced",
@@ -72,7 +77,10 @@
     "Fix the smallest behavior path that resolves the problem.",
     "Update the task board when a task is completed, deferred, or split.",
     "Keep transient runtime markers in the shared scratch root rather than in the database or Memory.",
-    "Checkpoint the single-flight scheduler change once the focused tests and integration slice remain green."
+    "Checkpoint the live refresh and render-cue slice once the focused tests and integration slice remain green.",
+    "Audit the remaining state.json writers separately before trying to remove the live job overlay.",
+    "Keep load timing probes focused on project/chapter fetch paths before widening instrumentation.",
+    "Leave VCR-style playback controls on the phase board until the render/load slice settles."
   ],
   "verification": {
     "latest_known_backend": "Antigravity-reported full backend run: 762 passed, 2 skipped, 5 warnings after Phase 10 stabilization.",

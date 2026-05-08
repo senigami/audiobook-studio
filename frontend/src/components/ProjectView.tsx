@@ -81,6 +81,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
   const [hasResolvedInitialVoice, setHasResolvedInitialVoice] = useState(false);
   const [isExporting, setIsExporting] = useState<string | null>(null);
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  const shouldLogLoadTimings = import.meta.env.DEV;
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -124,22 +125,44 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
   const loadData = async (isTransition = false) => {
     if (!effectiveProjectId) return;
     if (isTransition) setLoading(true);
+    const loadStartedAt = performance.now();
     try {
+      const projectFetchStartedAt = performance.now();
       const [projData, chapsData, charsData] = await Promise.all([
         api.fetchProject(effectiveProjectId),
         api.fetchChapters(effectiveProjectId),
         api.fetchCharacters(effectiveProjectId)
       ]);
+      if (shouldLogLoadTimings) {
+        console.debug('[load] project snapshot', {
+          projectId: effectiveProjectId,
+          ms: Math.round(performance.now() - projectFetchStartedAt),
+        });
+      }
       setProject(projData);
       setChapters(chapsData);
       setCharacters(charsData);
       try {
+        const audiobooksFetchStartedAt = performance.now();
         const audiobooksData = await api.fetchProjectAudiobooks(effectiveProjectId);
         setAvailableAudiobooks(audiobooksData || []);
+        if (shouldLogLoadTimings) {
+          console.debug('[load] project audiobooks', {
+            projectId: effectiveProjectId,
+            ms: Math.round(performance.now() - audiobooksFetchStartedAt),
+          });
+        }
       } catch (err) { setAvailableAudiobooks([]); }
     } catch (e) {
       console.error(e);
     } finally {
+      if (shouldLogLoadTimings) {
+        console.debug('[load] project view complete', {
+          projectId: effectiveProjectId,
+          ms: Math.round(performance.now() - loadStartedAt),
+          transition: isTransition,
+        });
+      }
       setLoading(false);
     }
   };

@@ -36,11 +36,22 @@ export const useChapterLoader = (
 
   const liveSegmentJobIdsRef = useRef(liveSegmentJobIds);
   useEffect(() => { liveSegmentJobIdsRef.current = liveSegmentJobIds; }, [liveSegmentJobIds]);
+  const shouldLogLoadTimings = import.meta.env.DEV;
 
   const loadChapter = useCallback(async (source: string = 'unknown') => {
+    const loadStartedAt = performance.now();
     try {
       setScriptViewLoading(true);
+      const chaptersStartedAt = performance.now();
       const chapters = await api.fetchChapters(projectId);
+      if (shouldLogLoadTimings) {
+        console.debug('[load] chapter metadata', {
+          chapterId,
+          projectId,
+          source,
+          ms: Math.round(performance.now() - chaptersStartedAt),
+        });
+      }
       const target = chapters.find(c => c.id === chapterId);
       if (target) {
         setChapter(target);
@@ -48,12 +59,24 @@ export const useChapterLoader = (
         setText(target.text_content || '');
         setLocalVoice(target.speaker_profile_name || '');
       }
+      const detailsStartedAt = performance.now();
       const [segs, chars, production, scriptView] = await Promise.all([
         api.fetchSegments(chapterId),
         api.fetchCharacters(projectId),
         api.fetchProductionBlocks(chapterId).catch(() => null),
         api.fetchScriptView(chapterId).catch(() => null)
       ]);
+      if (shouldLogLoadTimings) {
+        console.debug('[load] chapter details', {
+          chapterId,
+          projectId,
+          source,
+          ms: Math.round(performance.now() - detailsStartedAt),
+          segments: segs.length,
+          hasProduction: !!production?.blocks?.length,
+          hasScriptView: !!scriptView,
+        });
+      }
       setSegments(segs);
       setCharacters(chars);
       if (scriptView) setScriptViewData(scriptView);
@@ -88,6 +111,14 @@ export const useChapterLoader = (
     } catch (e) {
       console.error(`Failed to load chapter (${source})`, e);
     } finally {
+      if (shouldLogLoadTimings) {
+        console.debug('[load] chapter view complete', {
+          chapterId,
+          projectId,
+          source,
+          ms: Math.round(performance.now() - loadStartedAt),
+        });
+      }
       setLoading(false);
       setScriptViewLoading(false);
     }

@@ -1,3 +1,21 @@
+# 2026-05-08 - ScriptView Pending Render Cue Restored
+
+- Added a visible pending state for script spans while a group is being rebuilt so live chapter renders no longer stay black until completion.
+- Restored the book-mode hover highlight that had been canceled by the transparent hover override.
+- Verified the focused frontend chapter-view tests and production build after the styling change.
+
+# 2026-05-08 - Queue Snapshot And Script View Live Refresh Repaired
+
+- Refreshed the live jobs store when `queue_updated` arrives so project and chapter views see queued jobs immediately instead of waiting for a hard reload.
+- Broadcast `segments_updated` after grouped segment persistence so chapter script-view data repaints as each rendered group saves.
+- Verified the focused backend and frontend regression slices, plus a production frontend build, before checkpointing the change.
+
+# 2026-05-08 - DB Render Stats Wired To Orchestrator Completion
+
+- Moved render performance sample recording into the orchestrator completion path so successful chapter renders and chapter tests update the About-page production tally from the database.
+- Added regression coverage for render sample recording on successful bridge-backed synthesis completion.
+- Kept the broader `state.json` job-overlay cleanup as a separate follow-up slice rather than mixing it into the metrics fix.
+
 # 2026-05-08 - Bridge-Backed Synthesis Single-Flight Serialized
 
 - Added an exclusive resource claim for bridge-backed synthesis tasks so only one TTS job can run at a time.
@@ -591,3 +609,9 @@
 - Added a transient watchdog runtime marker under `TRANSIENT_DIR` so startup can verify whether a leftover TTS Server process is ours before killing it.
 - The marker stores PID, port, host, server script, and plugins path, and it is cleared on clean shutdown.
 - Reverified the startup/shutdown path with `tests/test_boot.py` and `tests/test_engines.py` (23 passed), plus `ruff check` and `git diff --check`.
+
+# 2026-05-08 - Chapter Load Timing Probes Added
+
+- Added dev-only timing probes to `ProjectView`, `useChapterLoader`, and `useChapterQueue` so project and chapter load latency can be inspected from the browser console.
+- Parked the VCR-style playback controls request on the Phase 11 task board instead of turning it into a side quest during the load/debug pass.
+- Verified the frontend still builds cleanly after the instrumentation changes.

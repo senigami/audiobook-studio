@@ -20,6 +20,7 @@ export const useChapterQueue = (
     segments, setGeneratingSegmentIds, pendingGenerationIdsRef,
     pendingGenerationTimesRef, queueSyncTimerRef, setSubmitting
   } = state;
+  const shouldLogLoadTimings = import.meta.env.DEV;
 
   const liveSegmentJobIdsRef = useRef(liveSegmentJobIds);
   useEffect(() => { liveSegmentJobIdsRef.current = liveSegmentJobIds; }, [liveSegmentJobIds]);
@@ -67,8 +68,17 @@ export const useChapterQueue = (
         freshIds.forEach(id => next.add(id));
         return next;
     });
+    const requestStartedAt = performance.now();
     try {
         await api.generateSegments(freshIds, effectiveSelectedVoice || undefined);
+        if (shouldLogLoadTimings) {
+          console.debug('[queue] segment batch queued', {
+            chapterId,
+            projectId,
+            count: freshIds.length,
+            ms: Math.round(performance.now() - requestStartedAt),
+          });
+        }
     } catch (e) {
         console.error(e);
         onBlocked(e instanceof Error ? e.message : 'This segment could not be queued.');
@@ -99,9 +109,17 @@ export const useChapterQueue = (
       queueSyncTimerRef.current = null;
     }
     setSubmitting(true);
+    const queueStartedAt = performance.now();
     try {
         onSuccess('Queued. Keep this page open to watch progress.');
         await api.addProcessingQueue(projectId, chapterId, 0, effectiveSelectedVoice || undefined);
+        if (shouldLogLoadTimings) {
+          console.debug('[queue] chapter submitted', {
+            projectId,
+            chapterId,
+            ms: Math.round(performance.now() - queueStartedAt),
+          });
+        }
         await loadChapter('queue-submit');
         queueSyncTimerRef.current = setTimeout(async () => {
           queueSyncTimerRef.current = null;
