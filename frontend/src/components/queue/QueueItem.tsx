@@ -34,42 +34,16 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     const estimatedEndAt = job.estimated_end_at ?? liveJob?.estimated_end_at;
     const updatedAt = job.updated_at ?? liveJob?.updated_at;
     const rawUpdatedAt = job.updated_at ?? liveJob?.updated_at;
-    const engine = job.engine || liveJob?.engine || '';
-    const activeSegmentProgress = liveJob?.active_segment_progress;
+    const activeSegmentId = liveJob?.active_segment_id ?? job.active_segment_id;
+    const activeSegmentProgress = typeof liveJob?.active_segment_progress === 'number'
+        ? liveJob.active_segment_progress
+        : (typeof job.active_segment_progress === 'number' ? job.active_segment_progress : undefined);
     const jobProgress = Math.max(job.progress ?? 0, liveJob?.progress ?? 0);
-    const renderGroupCount = job.render_group_count ?? liveJob?.render_group_count ?? 0;
-    const completedRenderGroups = job.completed_render_groups ?? liveJob?.completed_render_groups ?? 0;
-    const activeRenderGroupIndex = job.active_render_group_index ?? liveJob?.active_render_group_index ?? 0;
-    const totalRenderWeight = job.total_render_weight ?? liveJob?.total_render_weight ?? 0;
-    const completedRenderWeight = job.completed_render_weight ?? liveJob?.completed_render_weight ?? 0;
-    const activeRenderGroupWeight = job.active_render_group_weight ?? liveJob?.active_render_group_weight ?? 0;
-    const isGroupedChapterJob = renderGroupCount > 0 && !job.segment_ids?.length && !liveJob?.segment_ids?.length;
-    const activeGroupProgress = activeRenderGroupIndex > completedRenderGroups
-        ? Math.max(0, Math.min(activeSegmentProgress ?? 0, 1))
-        : 0;
-    const evidenceWeightFraction = totalRenderWeight > 0
-        ? (activeRenderGroupWeight / totalRenderWeight)
-        : 1;
-    const weightedProgress = totalRenderWeight > 0
-        ? (((completedRenderWeight + (activeRenderGroupWeight * activeGroupProgress)) / totalRenderWeight) * 0.9)
-        : 0;
-    const backendGroupedProgress = liveJob?.grouped_progress ?? job.grouped_progress ?? 0;
-    const groupedProgress = isGroupedChapterJob
-        ? Math.max(
-            backendGroupedProgress,
-            weightedProgress,
-            (((completedRenderGroups + activeGroupProgress) / Math.max(1, renderGroupCount)) * 0.9),
-        )
-        : 0;
-    const useLiveSegmentProgress = ['voice_build', 'voice_test'].includes(engine)
-        && status === 'running'
-        && typeof activeSegmentProgress === 'number'
-        && activeSegmentProgress >= 0;
     const progress = !isTrulyActive
         ? 0
-        : useLiveSegmentProgress
-        ? Math.max(jobProgress, activeSegmentProgress)
-        : (isGroupedChapterJob ? Math.max(jobProgress, groupedProgress) : jobProgress);
+        : (typeof activeSegmentProgress === 'number'
+            ? activeSegmentProgress
+            : jobProgress);
     const engineType = (liveJob?.engine ?? job.engine) || '';
     const engineMeta = Array.isArray(engines) ? engines.find(e => e && e.engine_id === engineType) : undefined;
     const isCloudLike = engineMeta 
@@ -82,7 +56,6 @@ export const QueueItem: React.FC<QueueItemProps> = ({
             custom_title: liveJob?.custom_title ?? job.custom_title,
             engineMeta
         });
-    const hasActiveGroupSignal = isGroupedChapterJob && (completedRenderGroups > 0 || activeRenderGroupIndex > 0);
     // Render-group metadata can arrive before the backend flips a grouped chapter job from
     // preparing into running. Keep the queue row in the backend's explicit status so the UI
     // does not start the active animation early just because group bookkeeping showed up.
@@ -93,18 +66,18 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     React.useEffect(() => {
         if (typeof rawStarted === 'number' && rawStarted > 0) {
             setStableStarted(rawStarted);
-        } else if (!['running', 'processing', 'finalizing'].includes(displayStatus) && !hasActiveGroupSignal) {
+        } else if (!['running', 'processing', 'finalizing'].includes(displayStatus)) {
             setStableStarted(rawStarted);
         }
-    }, [rawStarted, displayStatus, hasActiveGroupSignal]);
+    }, [rawStarted, displayStatus]);
 
     React.useEffect(() => {
         if (typeof rawEtaSeconds === 'number' && rawEtaSeconds > 0) {
             setStableEta(rawEtaSeconds);
-        } else if (!['running', 'processing', 'finalizing'].includes(displayStatus) && !hasActiveGroupSignal) {
+        } else if (!['running', 'processing', 'finalizing'].includes(displayStatus)) {
             setStableEta(rawEtaSeconds);
         }
-    }, [rawEtaSeconds, displayStatus, hasActiveGroupSignal]);
+    }, [rawEtaSeconds, displayStatus]);
 
     // Original start and ETA values (may be undefined for non-active statuses)
     const started = ['running', 'processing', 'finalizing'].includes(displayStatus)
@@ -203,14 +176,14 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                     etaBasis={etaBasis}
                     estimatedEndAt={derivedEstimatedEndAt}
                     updatedAt={derivedUpdatedAt}
-                    persistenceKey={job.id}
+                    persistenceKey={activeSegmentId ? `${job.id}:${activeSegmentId}` : job.id}
                     status={displayStatus}
                     label={displayStatus === 'preparing' ? "Preparing..." : (displayStatus === 'finalizing' ? "Finalizing..." : "Processing...")}
                     predictive={true}
                     allowBackwardProgress={false}
-                    checkpointMode={isGroupedChapterJob ? 'queue' : (job.segment_ids?.length || liveJob?.segment_ids?.length || liveJob?.active_segment_id ? 'segment' : 'default')}
-                    evidenceWeightFraction={isGroupedChapterJob ? evidenceWeightFraction : 1}
-                    transitionTickCount={isGroupedChapterJob ? 12 : 3}
+                    checkpointMode={(job.segment_ids?.length || liveJob?.segment_ids?.length || activeSegmentId) ? 'segment' : 'default'}
+                    evidenceWeightFraction={1}
+                    transitionTickCount={3}
                     backwardTransitionTickCount={2}
                     tickMs={250}
                 />

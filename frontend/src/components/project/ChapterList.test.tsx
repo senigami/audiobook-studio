@@ -93,12 +93,10 @@ describe('ChapterList', () => {
     const audioTags = container.querySelectorAll('audio');
     const sources2 = audioTags[1].querySelectorAll('source');
     
-    // Fallback logic sends .mp3 then .wav
-    expect(sources2[0].getAttribute('src')).toBe('/api/projects/proj-1/chapters/chap-456/assets/audio?filename=chapter.mp3');
-    expect(sources2[1].getAttribute('src')).toBe('/api/projects/proj-1/chapters/chap-456/assets/audio?filename=chapter.wav');
+    expect(sources2[0].getAttribute('src')).toBe('/api/projects/proj-1/chapters/chap-456/assets/audio?filename=chapter.wav');
   });
 
-  it('renders warning pulse when audio_status is processing but no activeJob', () => {
+  it('renders queued pulse when audio_status is processing but no activeJob', () => {
     const processingChapter: Chapter = {
       id: 'chap-789',
       project_id: 'proj-1',
@@ -112,13 +110,13 @@ describe('ChapterList', () => {
 
     const { container } = render(<ChapterList {...defaultProps} chapters={[processingChapter]} />);
     
-    // StatusOrb should render with a specific tooltip/aria-label for stuck processing
-    const orb = screen.getByLabelText(/Render was interrupted/i);
+    // StatusOrb should render as queued rather than interrupted while the live job attaches
+    const orb = screen.getByLabelText(/Queued for rendering/i);
     expect(orb).toBeTruthy();
     
-    // It should NOT render a spinner (RefreshCw icon)
+    // It should render a spinner, not a warning icon
     const spinner = container.querySelector('.animate-spin');
-    expect(spinner).toBeFalsy();
+    expect(spinner).toBeTruthy();
   });
 
   it('uses live job progress when available', () => {
@@ -213,7 +211,7 @@ describe('ChapterList', () => {
     const engines = [{ engine_id: 'cloud_engine', cloud: true } as any];
     render(<ChapterList {...defaultProps} engines={engines} jobs={{ [liveJob.id]: liveJob }} chapters={[{ ...mockChapters[0], has_wav: false, audio_file_path: null, audio_status: 'processing' } as any]} />);
 
-    expect(screen.getByText('Processing')).toBeInTheDocument();
+    expect(screen.getByText('Queued')).toBeInTheDocument();
     expect(screen.queryByText('Finalizing')).toBeNull();
     expect(screen.queryByText('100%')).toBeNull();
   });

@@ -5,6 +5,7 @@ import type { Chapter, Job } from '../types';
 interface StatusOrbProps {
   chap: Chapter;
   activeJob?: Job;
+  queuePending?: boolean;
   doneSegments?: number; 
   totalSegments?: number;
 }
@@ -12,6 +13,7 @@ interface StatusOrbProps {
 export const StatusOrb: React.FC<StatusOrbProps> = ({ 
   chap, 
   activeJob, 
+  queuePending = false,
   doneSegments = 0, 
   totalSegments = 0, 
 }) => {
@@ -22,7 +24,8 @@ export const StatusOrb: React.FC<StatusOrbProps> = ({
   // We only count it as 'processing' (spinner) if we HAVE a live active job.
   // Otherwise, it's a "stuck" indicator and we should show it as partial/unprocessed but stale.
   const isTrulyProcessing = !!activeJob;
-  const isStuckProcessing = !activeJob && chap.audio_status === 'processing';
+  const isQueued = !activeJob && (queuePending || chap.audio_status === 'processing');
+  const isStuckProcessing = !activeJob && chap.audio_status === 'processing' && !queuePending;
   
   const isComplete = chap.audio_status === 'done' && chap.has_wav;
   const isReadyToStitch = !isStale && !isTrulyProcessing && totalSegments > 0 && doneSegments === totalSegments && !chap.has_wav;
@@ -49,6 +52,10 @@ export const StatusOrb: React.FC<StatusOrbProps> = ({
     fill = 'var(--surface-light)'; // Neutral/subtle blue or grey
     content = <RefreshCw size={10} color="var(--accent)" className="animate-spin" style={{ display: 'block' }} />;
     tooltip = 'Rendering... (see Queue for progress)';
+  } else if (isQueued) {
+    fill = 'var(--surface-light)';
+    content = <RefreshCw size={10} color="var(--text-muted)" className="animate-spin" style={{ display: 'block' }} />;
+    tooltip = 'Queued for rendering';
   } else if (isStale || isStuckProcessing) {
     fill = 'var(--warning)';
     orbRadius = 8.5; // Slightly larger

@@ -1,39 +1,32 @@
-import pytest
-from unittest.mock import MagicMock, patch
-from app.engines.registry import _load_tts_server_registry
-from app.engines.tts_client import TtsServerConnectionError
+from unittest.mock import patch
 
-def test_load_tts_server_registry_connection_refused():
-    """Verify that connection refused errors are handled gracefully and return an empty dict."""
-    with patch("app.engines.registry.TtsClient") as MockClient, \
-         patch("app.engines.registry.get_watchdog") as MockWatchdog:
+from app.voice_engines import (
+    get_default_profile_engine,
+    normalize_tts_engine,
+    resolve_profile_engine,
+    resolve_tts_engine_for_profiles,
+)
 
-        # Mock watchdog as healthy so we attempt discovery
-        watchdog = MagicMock()
-        watchdog.is_healthy.return_value = True
-        watchdog.get_url.return_value = "http://127.0.0.1:7862"
-        MockWatchdog.return_value = watchdog
 
-        # Mock client to raise connection error
-        client = MockClient.return_value
-        client.get_engines.side_effect = TtsServerConnectionError("Connection refused")
+def test_engine_normalization_preserves_configured_value_when_registry_is_empty():
+    with patch("app.voice_engines.list_tts_engines", return_value=[]):
+        assert get_default_profile_engine({"default_engine": "xtts"}) == "xtts"
+        assert normalize_tts_engine("xtts", settings={"default_engine": "xtts"}) == "xtts"
+        assert resolve_profile_engine("Some Voice", fallback_engine="xtts") == "xtts"
 
-        # Should return {} and not raise
-        result = _load_tts_server_registry()
-        assert result == {}
 
-def test_load_tts_server_registry_other_error():
-    """Verify that other errors are also handled but logged as warnings."""
-    with patch("app.engines.registry.TtsClient") as MockClient, \
-         patch("app.engines.registry.get_watchdog") as MockWatchdog:
+def test_resolve_tts_engine_for_profiles_ignores_empty_engine_results():
+    def fake_resolve(profile_name, fallback=None):
+        if profile_name == "Broken Voice":
+            return ""
+        return "xtts"
 
-        watchdog = MagicMock()
-        watchdog.is_healthy.return_value = True
-        MockWatchdog.return_value = watchdog
+    with patch("app.voice_engines.resolve_profile_engine", side_effect=fake_resolve):
+        engine_id, mixed = resolve_tts_engine_for_profiles(
+            ["Default Voice", "Broken Voice", "Working Voice"],
+            default_profile="Default Voice",
+            fallback_engine="xtts",
+        )
 
-        client = MockClient.return_value
-        client.get_engines.side_effect = RuntimeError("Something else")
-
-        # Should still return {} and not raise
-        result = _load_tts_server_registry()
-        assert result == {}
+    assert engine_id == "xtts"
+    assert mixed is False

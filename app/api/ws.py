@@ -5,6 +5,7 @@ from typing import List
 from fastapi import WebSocket
 
 from .contracts.events import build_studio_job_event
+from ..render_trace import trace
 
 logger = logging.getLogger(__name__)
 
@@ -44,21 +45,25 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 def broadcast_queue_update():
+    trace("ws.broadcast_queue_update")
     manager.broadcast({"type": "queue_updated"})
 
 def broadcast_segments_updated(chapter_id: str):
+    trace("ws.broadcast_segments_updated", chapter_id=chapter_id)
     manager.broadcast({
         "type": "segments_updated",
         "chapter_id": chapter_id
     })
 
 def broadcast_chapter_updated(chapter_id: str):
+    trace("ws.broadcast_chapter_updated", chapter_id=chapter_id)
     manager.broadcast({
         "type": "chapter_updated",
         "chapter_id": chapter_id
     })
 
 def broadcast_project_updated(project_id: str):
+    trace("ws.broadcast_project_updated", project_id=project_id)
     manager.broadcast({
         "type": "project_updated",
         "project_id": project_id
@@ -89,11 +94,18 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
         active_render_batch_id=merged.get("active_render_batch_id"),
         active_render_batch_progress=merged.get("active_render_batch_progress"),
     )
+    trace(
+        "ws.broadcast_job_updated",
+        job_id=job_id,
+        updates=updates,
+        current_job=current_job,
+        normalized_event=normalized,
+    )
     manager.broadcast(normalized)
     manager.broadcast({
         "type": "job_updated",
         "job_id": job_id,
-        "updates": updates
+        "updates": merged
     })
 
 

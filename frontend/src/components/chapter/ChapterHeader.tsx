@@ -72,8 +72,8 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
       ? 'Queued'
       : job?.status === 'preparing'
         ? 'Preparing'
-        : job?.status === 'running'
-          ? 'Rendering'
+      : job?.status === 'running'
+          ? ((job.render_group_count ?? 0) > 0 ? 'Rendering' : 'Processing')
           : job?.status === 'finalizing'
             ? 'Finalizing'
             : generatingSegmentIdsCount > 0
@@ -359,6 +359,7 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
           {liveSegmentProgressJob && (
               <div style={{ width: '180px', minWidth: '180px' }}>
                   <PredictiveProgressBar
+                      key={`${liveSegmentProgressJob.id}:${liveSegmentProgressJob.active_segment_id || 'none'}`}
                       progress={liveSegmentProgressValue}
                       startedAt={liveSegmentProgressJob.started_at}
                       etaSeconds={liveSegmentProgressJob.eta_seconds}
@@ -369,7 +370,6 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
                       label="Segment Progress"
                       predictive={true}
                       allowBackwardProgress={false}
-                      checkpointMode="segment"
                       transitionTickCount={3}
                       backwardTransitionTickCount={2}
                       tickMs={250}

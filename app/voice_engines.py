@@ -27,6 +27,9 @@ def get_default_profile_engine(settings: Optional[dict] = None) -> str:
     explicit = settings.get("default_engine")
     enabled_plugins = settings.get("enabled_plugins") or {}
 
+    if explicit and not valid_engines:
+        return str(explicit).strip().lower()
+
     if explicit and explicit in valid_engines and enabled_plugins.get(explicit, True):
         return explicit
 
@@ -67,6 +70,11 @@ def list_tts_engines() -> list[str]:
 def normalize_tts_engine(engine: Optional[str], fallback: Optional[str] = None, settings: Optional[dict] = None) -> str:
     """Normalize an engine ID, resolving to system default if invalid or empty."""
     valid = list_tts_engines()
+    normalized = str(engine or fallback or "").strip().lower()
+
+    if not valid:
+        return normalized
+
     # If the engine is empty or invalid, try to resolve the default
     if not engine or engine.strip().lower() not in valid:
         resolved_default = get_default_profile_engine(settings=settings)
@@ -76,7 +84,6 @@ def normalize_tts_engine(engine: Optional[str], fallback: Optional[str] = None, 
             return resolved_default
 
     # Use provided engine or ultimate fallback
-    normalized = str(engine or fallback or "").strip().lower()
     return normalized if normalized in valid else (fallback or "")
 
 
@@ -105,8 +112,12 @@ def resolve_tts_engine_for_profiles(
 ) -> tuple[str, bool]:
     fallback = resolve_profile_engine(default_profile, fallback_engine)
     resolved = {
-        resolve_profile_engine(profile_name, fallback)
-        for profile_name in profile_names
+        engine_id
+        for engine_id in (
+            resolve_profile_engine(profile_name, fallback)
+            for profile_name in profile_names
+        )
+        if engine_id
     }
     if not resolved:
         resolved = {fallback}

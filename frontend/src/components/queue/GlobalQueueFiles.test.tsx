@@ -2,7 +2,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 
 // Mock predictive progress bar
-vi.mock('../PredictiveProgressBar', () => ({
+  vi.mock('../PredictiveProgressBar', () => ({
   PredictiveProgressBar: ({
     progress,
     predictive,
@@ -10,7 +10,9 @@ vi.mock('../PredictiveProgressBar', () => ({
     etaSeconds,
     status,
     allowBackwardProgress,
-    evidenceWeightFraction
+    evidenceWeightFraction,
+    persistenceKey,
+    checkpointMode
   }: {
     progress: number;
     predictive?: boolean;
@@ -19,6 +21,8 @@ vi.mock('../PredictiveProgressBar', () => ({
     status?: string;
     allowBackwardProgress?: boolean;
     evidenceWeightFraction?: number;
+    persistenceKey?: string;
+    checkpointMode?: string;
   }) => (
     <div
       data-testid="progress-bar"
@@ -29,6 +33,8 @@ vi.mock('../PredictiveProgressBar', () => ({
       data-status={status ?? ''}
       data-allow-backward={String(!!allowBackwardProgress)}
       data-evidence-weight-fraction={evidenceWeightFraction ?? ''}
+      data-persistence-key={persistenceKey ?? ''}
+      data-checkpoint-mode={checkpointMode ?? ''}
     />
   )
 }));
@@ -159,7 +165,7 @@ describe('Global Queue Components', () => {
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'true');
         });
 
-        it('keeps voice build progress moving when overall job progress is ahead of sparse segment updates', () => {
+        it('keeps voice build progress tied to the active segment instead of the overall job lane', () => {
             render(
                 <QueueItem
                     job={{ ...mockJob, engine: 'voice_build', status: 'running', progress: 0.72 } as any}
@@ -179,11 +185,11 @@ describe('Global Queue Components', () => {
                 />
             );
 
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.72');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.66');
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'true');
         });
 
-        it('keeps chapter jobs on overall progress even when segment progress is present', () => {
+        it('uses active segment progress for chapter jobs and resets on segment-scoped persistence', () => {
             render(
                 <QueueItem
                     job={{ ...mockJob, engine: 'xtts', status: 'running', progress: 0.52 } as any}
@@ -193,6 +199,7 @@ describe('Global Queue Components', () => {
                         status: 'running',
                         progress: 0.52,
                         active_segment_progress: 0.75,
+                        active_segment_id: 'seg-2',
                         started_at: 1000,
                         eta_seconds: 30,
                     } as any}
@@ -200,11 +207,13 @@ describe('Global Queue Components', () => {
                     formatJobTitle={(j) => `Title for ${j.id}`}
                     formatTime={(t) => `Time ${t}`}
                     onRemove={vi.fn()}
-                />
+            />
             );
 
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.52');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.75');
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-predictive', 'true');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-persistence-key', 'job-1:seg-2');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-checkpoint-mode', 'segment');
         });
 
         it('preserves grouped progress evidence for mixed chapter jobs while keeping the preparing label', () => {
@@ -217,6 +226,7 @@ describe('Global Queue Components', () => {
                         status: 'preparing',
                         progress: 0.3,
                         active_segment_progress: 0.75,
+                        active_segment_id: 'seg-2',
                         render_group_count: 3,
                         completed_render_groups: 1,
                         active_render_group_index: 2,
@@ -234,9 +244,10 @@ describe('Global Queue Components', () => {
             );
 
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-status', 'preparing');
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.7200000000000001');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.75');
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-allow-backward', 'false');
-            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-evidence-weight-fraction', '0.4');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-persistence-key', 'job-1:seg-2');
+            expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-checkpoint-mode', 'segment');
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-started-at', '');
             expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-eta-seconds', '');
         });

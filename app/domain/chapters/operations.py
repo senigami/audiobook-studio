@@ -6,6 +6,7 @@ from typing import Any
 
 from app.db.core import _db_lock, get_connection
 from app.db.segments import sync_chapter_segments
+from app.render_trace import trace
 from app.textops import compute_chapter_metrics
 from . import helpers
 from . import blocks as blocks_module
@@ -128,6 +129,15 @@ def get_script_view_payload(chapter_id: str) -> dict[str, Any]:
                 project_id=chapter_row["project_id"],
             )
         )
+
+    trace(
+        "chapter.script_view_payload",
+        chapter_id=chapter_id,
+        span_count=len(spans),
+        paragraph_count=len(paragraphs),
+        render_batch_count=len(render_batches),
+        audio_group_count=len(render_batches),
+    )
 
     return {
         "chapter_id": chapter_id,

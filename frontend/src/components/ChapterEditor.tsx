@@ -50,7 +50,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   speakerProfiles, 
   speakers, 
   engines = [],
-  job, 
+  job: propJob, 
   chapterJobs = [],
   segmentProgress = {},
   selectedVoice: externalVoice, 
@@ -150,8 +150,162 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     return ids;
   }, [generatingSegmentIds, liveSegmentJobIds]);
 
+  const job = propJob || generatingSegmentJob;
+  const isChapterProcessing = useMemo(() => {
+    return !!job && ['queued', 'preparing', 'running', 'finalizing'].includes(job.status)
+      || chapter?.audio_status === 'processing'
+      || chapterJobs.some(chapterJob => ['queued', 'preparing', 'running', 'finalizing'].includes(chapterJob.status));
+  }, [job, chapter?.audio_status, chapterJobs]);
+
+  const chapterRenderActiveSegmentId = job?.active_segment_id || generatingSegmentJob?.active_segment_id || null;
+
+  const chapterRenderActiveBatchSegmentIds = useMemo(() => {
+    if (!chapterRenderActiveSegmentId) return new Set<string>();
+
+    const activeBatch = scriptViewData?.render_batches?.find(batch =>
+      batch.span_ids.includes(chapterRenderActiveSegmentId)
+    );
+
+    if (!activeBatch) {
+      return new Set([chapterRenderActiveSegmentId]);
+    }
+
+    return new Set(activeBatch.span_ids);
+  }, [chapterRenderActiveSegmentId, scriptViewData?.render_batches]);
+
+  const chapterRenderPendingSegmentIds = useMemo(() => {
+    const ids = new Set<string>(effectivePendingSegmentIds);
+
+    if (!isChapterProcessing) return ids;
+
+    if (ids.size === 0) {
+      for (const segment of segments) {
+        if (segment.audio_status === 'done' || segment.audio_file_path) continue;
+        ids.add(segment.id);
+      }
+    }
+
+    return ids;
+  }, [effectivePendingSegmentIds, isChapterProcessing, segments]);
+
+  const chapterRenderRenderingSegmentIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (!isChapterProcessing) return ids;
+    
+    // 1. Add optimistic highlights for segments being queued, 
+    // but only if they aren't already being handled by an active job's batch rendering
+    if (generatingSegmentIds.size > 0) {
+      for (const id of generatingSegmentIds) {
+        // If this segment is part of an active job, we let the job-based 
+        // batch highlighting logic below handle it to ensure finished spans 
+        // in the job correctly lose their highlight.
+        if (!liveSegmentJobIds.has(id)) {
+          ids.add(id);
+        }
+      }
+    }
+
+    if (!chapterRenderActiveSegmentId) return ids;
+
+    // 2. Add highlights for the currently rendering batch
+    for (const id of chapterRenderActiveBatchSegmentIds) {
+      ids.add(id);
+    }
+
+    return ids;
+  }, [isChapterProcessing, generatingSegmentIds, liveSegmentJobIds, chapterRenderActiveSegmentId, chapterRenderActiveBatchSegmentIds]);
+
+  const chapterRenderQueuedSegmentIds = useMemo(() => {
+    if (!job || !['queued', 'preparing', 'running'].includes(job.status)) return new Set<string>();
+
+    const allIds = job.segment_ids || [];
+    if (allIds.length > 0) {
+      const activeIdx = allIds.indexOf(chapterRenderActiveSegmentId || '');
+      const result = new Set(activeIdx === -1 ? allIds : allIds.slice(activeIdx + 1));
+
+      for (const id of chapterRenderRenderingSegmentIds) {
+        result.delete(id);
+      }
+
+      return result;
+    }
+
+    const renderBatchesForQueue = scriptViewData?.render_batches ?? [];
+    const renderBatchSpanIds = renderBatchesForQueue.flatMap(batch => batch.span_ids);
+    if (renderBatchSpanIds.length === 0) return new Set<string>();
+
+    if (!chapterRenderActiveSegmentId) {
+      return new Set(renderBatchSpanIds.filter(id => !chapterRenderRenderingSegmentIds.has(id)));
+    }
+
+    const activeBatchIndex = renderBatchesForQueue.findIndex(batch =>
+      batch.span_ids.includes(chapterRenderActiveSegmentId)
+    );
+
+    const queuedBatchSpanIds = activeBatchIndex >= 0
+      ? renderBatchesForQueue
+          .slice(activeBatchIndex + 1)
+          .flatMap(batch => batch.span_ids)
+      : renderBatchSpanIds;
+
+    return new Set(queuedBatchSpanIds.filter(id => !chapterRenderRenderingSegmentIds.has(id)));
+  }, [job, chapterRenderActiveSegmentId, chapterRenderRenderingSegmentIds, scriptViewData?.render_batches]);
+
+  const chapterRenderRenderingSpanProgressById = useMemo(() => {
+    const progressById: Record<string, number> = {};
+    const activeJob = generatingSegmentJob && ['queued', 'preparing', 'running', 'finalizing'].includes(generatingSegmentJob.status)
+      ? generatingSegmentJob
+      : (job && ['queued', 'preparing', 'running', 'finalizing'].includes(job.status) ? job : null);
+    const activeSpanId = activeJob?.active_segment_id;
+    if (!activeSpanId || chapterRenderRenderingSegmentIds.size === 0) return progressById;
+
+    const batchSpanIds = Array.from(chapterRenderRenderingSegmentIds);
+    const batchSpans = batchSpanIds
+      .map(spanId => scriptViewData?.spans?.find(span => span.id === spanId))
+      .filter((span): span is NonNullable<typeof span> => !!span);
+    const spanWeight = (span: { char_count?: number; sanitized_char_count?: number }) =>
+      Math.max(1, span.sanitized_char_count || span.char_count || 1);
+
+    const totalWeight = batchSpans.reduce((sum, span) => sum + spanWeight(span), 0);
+    if (totalWeight <= 0) return progressById;
+
+    const activeIndex = batchSpanIds.indexOf(activeSpanId);
+    if (activeIndex < 0) return progressById;
+
+    const activeProgress = typeof activeJob?.active_segment_progress === 'number'
+      ? activeJob.active_segment_progress
+      : typeof activeJob?.progress === 'number'
+        ? activeJob.progress
+        : 0;
+
+    const completedWeight = batchSpans
+      .slice(0, activeIndex)
+      .reduce((sum, span) => sum + spanWeight(span), 0);
+    const activeWeight = spanWeight(batchSpans[activeIndex] || { char_count: 1 });
+    const filledWeight = completedWeight + Math.max(0, Math.min(activeProgress, 1)) * activeWeight;
+
+    let cursor = 0;
+    for (const span of batchSpans) {
+      const weight = spanWeight(span);
+      const spanStart = cursor;
+      const spanEnd = cursor + weight;
+      let spanProgress = 0;
+
+      if (filledWeight >= spanEnd) {
+        spanProgress = 1;
+      } else if (filledWeight > spanStart) {
+        spanProgress = (filledWeight - spanStart) / weight;
+      }
+
+      progressById[span.id] = Math.max(0, Math.min(spanProgress, 1));
+      cursor = spanEnd;
+    }
+
+    return progressById;
+  }, [chapterRenderRenderingSegmentIds, generatingSegmentJob, job, scriptViewData?.spans]);
+
   const { playingSegmentId, playingSegmentIds, playSegment, stopPlayback } = useChapterPlayback(
-    projectId, segments, chunkGroups, effectivePendingSegmentIds, 
+    projectId, segments, chunkGroups, chapterRenderPendingSegmentIds, 
     (sids) => handleGenerate(sids, effectiveSelectedVoice, (msg) => setConfirmConfig({ title: 'Generation Blocked', message: msg, onConfirm: () => {}, confirmText: 'OK' })),
     scriptViewData?.audio_groups || []
   );
@@ -222,6 +376,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   const queueVoiceStatus = resolveVoiceEngineStatus(effectiveSelectedVoice || getDefaultVoiceProfileName(speakerProfiles || []), engines, speakerProfiles);
   const queueButtonLabel = !anyEnginesEnabled ? 'Disabled' : !queueVoiceStatus.enabled ? 'Unavailable' : (shouldWarnBeforeRequeue ? 'Rebuild' : hasPartialSegmentProgress ? 'Complete' : 'Queue');
   const queueButtonTitle = !anyEnginesEnabled ? 'All TTS engines are disabled in Settings' : (queueVoiceStatus.enabled ? (shouldWarnBeforeRequeue ? 'Rebuild Chapter' : hasPartialSegmentProgress ? 'Complete Chapter Audio' : 'Queue Chapter') : queueVoiceStatus.message || 'Selected voice is unavailable');
+  const headerQueuePending = submitting || (!job && chapter?.audio_status === 'processing');
 
   useEffect(() => {
     if (!queueNotice) return;
@@ -244,7 +399,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         selectedVoice={localVoice} 
         onVoiceChange={(v) => handleVoiceChange(v, (msg) => setConfirmConfig({ title: 'Voice Update Failed', message: msg, onConfirm: () => {}, confirmText: 'OK' }))} 
         availableVoices={availableVoices} defaultVoiceLabel={chapterDefaultVoiceLabel}
-        submitting={submitting} queueLocked={submitting || !anyEnginesEnabled} queuePending={false} job={job} generatingJob={generatingSegmentJob} generatingSegmentIdsCount={effectivePendingSegmentIds.size}
+        submitting={submitting} queueLocked={submitting || !anyEnginesEnabled} queuePending={headerQueuePending} job={job} generatingJob={generatingSegmentJob} generatingSegmentIdsCount={chapterRenderRenderingSegmentIds.size || chapterRenderPendingSegmentIds.size}
         queueLabel={queueButtonLabel}
         queueTitle={queueButtonTitle}
         onSaveWav={() => void handleExportAudio('wav')}
@@ -313,6 +468,9 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                     speakerProfiles={speakerProfiles}
                     onGenerateBatch={(sids) => handleGenerate(sids, effectiveSelectedVoice, (msg) => setConfirmConfig({ title: 'Generation Blocked', message: msg, onConfirm: () => {}, confirmText: 'OK' }))}
                     pendingSpanIds={effectivePendingSegmentIds}
+                    renderingSpanIds={chapterRenderRenderingSegmentIds}
+                    queuedSpanIds={chapterRenderQueuedSegmentIds}
+                    renderingSpanProgressById={chapterRenderRenderingSpanProgressById}
                     playingSpanId={playingSegmentId}
                     playingSpanIds={playingSegmentIds}
                     onPlaySpan={(sid) => playSegment(sid, segments.map(s => s.id))}
@@ -381,7 +539,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                     onGenerateBatch={(sids) => handleGenerate(sids, effectiveSelectedVoice, (msg) => setConfirmConfig({ title: 'Generation Blocked', message: msg, onConfirm: () => {}, confirmText: 'OK' }))}
                     saveConflictError={saveConflictError}
                     onReloadBlocks={reloadLatestBlocks}
-                    pendingSegmentIds={effectivePendingSegmentIds}
+                    pendingSegmentIds={chapterRenderPendingSegmentIds}
                     queuedSegmentIds={queuedSegmentJobIds}
                     segments={segments}
                     segmentsCount={segments.length}

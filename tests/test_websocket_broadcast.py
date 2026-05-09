@@ -53,8 +53,27 @@ def test_broadcast_job_updated_uses_current_job_status_for_normalized_event(monk
     assert messages[1] == {
         "type": "job_updated",
         "job_id": "job-1",
-        "updates": {"progress": 0.5, "eta_seconds": 12},
+        "updates": {"status": "running", "progress": 0.5, "eta_seconds": 12},
     }
+
+
+def test_broadcast_job_updated_preserves_context_in_job_updated_payload(monkeypatch):
+    messages = []
+
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    broadcast_job_updated(
+        "job-3",
+        {"progress": 0.5},
+        {"status": "running", "progress": 0.5, "chapter_id": "chap-1", "project_id": "proj-1"},
+    )
+
+    assert messages[1]["updates"]["chapter_id"] == "chap-1"
+    assert messages[1]["updates"]["project_id"] == "proj-1"
 
 
 def test_broadcast_job_updated_uses_phase4_progress_rounding(monkeypatch):

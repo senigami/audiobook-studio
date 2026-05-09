@@ -60,6 +60,15 @@ describe('StatusOrb', () => {
     expect(baseOrb?.getAttribute('fill')).toBe('var(--success)')
   })
 
+  it('renders queued state instead of interrupted when a chapter is waiting to attach a live job', () => {
+    const chap = { ...baseChapter, has_wav: false, audio_status: 'processing' as const, audio_generated_at: null }
+    const { container } = render(<StatusOrb chap={chap} />)
+
+    expect(container.querySelector('.animate-spin')).toBeTruthy()
+    const orb = container.firstChild as HTMLElement
+    expect(orb.getAttribute('aria-label')).toContain('Queued for rendering')
+  })
+
   it('renders partial progress even when a wav already exists during rebuild', () => {
     const chap = { ...baseChapter, has_wav: true, audio_status: 'unprocessed' as const, audio_generated_at: 2000 }
     const { container } = render(<StatusOrb chap={chap} doneSegments={9} totalSegments={10} />)

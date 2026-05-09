@@ -5,6 +5,7 @@ import dataclasses
 from dataclasses import asdict
 from typing import Dict, Any, Optional
 
+from .render_trace import trace
 from .models import Job
 from .state_helpers import (
     _STATE_LOCK, _JOB_LISTENERS, _LISTENER_SNAPSHOT_SUPPORT, _load_state_no_lock, _atomic_write_text, get_state_file,
@@ -181,6 +182,22 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
                     changed_fields.append("updated_at")
         if not changed_fields and not force_broadcast:
             return
+
+        trace(
+            "state.update_job",
+            job_id=job_id,
+            status=j.get("status"),
+            progress=j.get("progress"),
+            reason_code=j.get("reason_code"),
+            eta_seconds=j.get("eta_seconds"),
+            eta_basis=j.get("eta_basis"),
+            estimated_end_at=j.get("estimated_end_at"),
+            started_at=j.get("started_at"),
+            active_segment_id=j.get("active_segment_id"),
+            active_segment_progress=j.get("active_segment_progress"),
+            changed_fields=changed_fields,
+            incoming_updates=updates,
+        )
 
         if changed_fields:
             jobs[job_id] = j

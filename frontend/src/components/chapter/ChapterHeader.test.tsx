@@ -94,7 +94,7 @@ describe('ChapterHeader', () => {
   });
 
   it('shows working header state for active segment generation without a chapter render job', () => {
-    render(
+    const { rerender } = render(
       <ChapterHeader
         chapter={mockChapter as any}
         title={mockChapter.title}
@@ -118,8 +118,35 @@ describe('ChapterHeader', () => {
       />
     );
 
+    expect(screen.queryByTestId('progress-bar-segments')).toBeNull();
     expect(screen.getByText('Processing')).toBeInTheDocument();
     expect(screen.getByTitle('Already processing')).toBeDisabled();
     expect(screen.getByText('40%')).toBeInTheDocument();
+
+    rerender(
+      <ChapterHeader
+        chapter={mockChapter as any}
+        title={mockChapter.title}
+        setTitle={vi.fn()}
+        saving={false}
+        hasUnsavedChanges={false}
+        onBack={vi.fn()}
+        selectedVoice=""
+        onVoiceChange={vi.fn()}
+        availableVoices={[]}
+        submitting={false}
+        queueLocked={false}
+        queuePending={false}
+        job={undefined}
+        generatingJob={{ id: 'job-seg', engine: 'mixed', status: 'running', progress: 0.1, started_at: Date.now() / 1000, eta_seconds: 9, active_segment_id: 'seg-2', active_segment_progress: 0.1 } as any}
+        generatingSegmentIdsCount={1}
+        queueLabel="Complete"
+        queueTitle="Complete Chapter Audio"
+        onQueue={vi.fn()}
+        onStopAll={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('10%')).toBeInTheDocument();
   });
 });

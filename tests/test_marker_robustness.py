@@ -99,10 +99,12 @@ def test_grouped_segment_save_marks_all_group_members_done():
     context = task.describe()
 
     with patch("app.engines.watchdog.get_watchdog", return_value=wd), \
-         patch("app.db.update_segment") as mock_update_seg:
+         patch("app.db.update_segments_bulk") as mock_update_seg:
 
         orc._dispatch(task=task, context=context)
 
-        updated_sids = [call.args[0] for call in mock_update_seg.call_args_list]
-        assert "s1" in updated_sids
-        assert "s2" in updated_sids
+        mock_update_seg.assert_called_once()
+        updated_sids = mock_update_seg.call_args.args[0]
+        assert updated_sids == ["s1", "s2"]
+        assert mock_update_seg.call_args.kwargs["audio_status"] == "done"
+        assert mock_update_seg.call_args.kwargs["audio_file_path"] == "group1.wav"

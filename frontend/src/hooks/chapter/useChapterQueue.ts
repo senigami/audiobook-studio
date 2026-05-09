@@ -3,6 +3,7 @@ import { api } from '../../api';
 import { resolveVoiceEngineStatus } from '../../utils/chapterEditorHelpers';
 import { getDefaultVoiceProfileName } from '../../utils/voiceProfiles';
 import { pickRelevantJob } from '../../utils/jobSelection';
+import { shouldEnableStudioDebugLogging, recordStudioDebugSnapshot } from '../../utils/runtimeDebug';
 import type { ChapterEditorState } from './useChapterEditorState';
 import type { Job, SpeakerProfile, TtsEngine } from '../../types';
 
@@ -20,7 +21,7 @@ export const useChapterQueue = (
     segments, setGeneratingSegmentIds, pendingGenerationIdsRef,
     pendingGenerationTimesRef, queueSyncTimerRef, setSubmitting
   } = state;
-  const shouldLogLoadTimings = import.meta.env.DEV;
+  const shouldLogLoadTimings = import.meta.env.DEV || shouldEnableStudioDebugLogging();
 
   const liveSegmentJobIdsRef = useRef(liveSegmentJobIds);
   useEffect(() => { liveSegmentJobIdsRef.current = liveSegmentJobIds; }, [liveSegmentJobIds]);
@@ -72,7 +73,7 @@ export const useChapterQueue = (
     try {
         await api.generateSegments(freshIds, effectiveSelectedVoice || undefined);
         if (shouldLogLoadTimings) {
-          console.debug('[queue] segment batch queued', {
+          recordStudioDebugSnapshot('queue:segment batch queued', {
             chapterId,
             projectId,
             count: freshIds.length,
@@ -114,7 +115,7 @@ export const useChapterQueue = (
         onSuccess('Queued. Keep this page open to watch progress.');
         await api.addProcessingQueue(projectId, chapterId, 0, effectiveSelectedVoice || undefined);
         if (shouldLogLoadTimings) {
-          console.debug('[queue] chapter submitted', {
+          recordStudioDebugSnapshot('queue:chapter submitted', {
             projectId,
             chapterId,
             ms: Math.round(performance.now() - queueStartedAt),
@@ -131,7 +132,9 @@ export const useChapterQueue = (
     } finally { setSubmitting(false); }
   }, [chapterId, projectId, speakerProfiles, engines, loadChapter, queueSyncTimerRef, setSubmitting]);
 
-  const generatingSegmentJob = useMemo(() => pickRelevantJob(chapterJobs), [chapterJobs]);
+  const generatingSegmentJob = useMemo(() => {
+    return pickRelevantJob(chapterJobs);
+  }, [chapterJobs]);
 
   return {
     handleGenerate,

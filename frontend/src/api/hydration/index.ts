@@ -60,6 +60,44 @@ export interface HydrationCoordinator {
   mergeQueueWithOverlays: (snapshot: HydrationSnapshot, overlays: LiveOverlayState, nowOverride?: number) => ProcessingQueueItem[];
 }
 
+const ACTIVE_STATUSES: ProcessingQueueItem['status'][] = ['queued', 'preparing', 'running', 'finalizing'];
+
+function buildOverlayQueueItem(jobId: string, delta: OverlayDelta): ProcessingQueueItem | null {
+  if (!delta.project_id || !delta.chapter_id || !delta.status) return null;
+  return {
+    id: jobId,
+    project_id: delta.project_id,
+    chapter_id: delta.chapter_id,
+    split_part: 0,
+    status: delta.status as ProcessingQueueItem['status'],
+    created_at: delta.created_at ?? delta.updated_at ?? Date.now() / 1000,
+    completed_at: delta.completed_at ?? null,
+    chapter_title: undefined,
+    project_name: undefined,
+    progress: delta.progress,
+    eta_seconds: delta.eta_seconds ?? undefined,
+    estimated_end_at: delta.estimated_end_at ?? undefined,
+    eta_basis: delta.eta_basis ?? undefined,
+    started_at: delta.started_at ?? undefined,
+    log: delta.message ?? undefined,
+    custom_title: delta.custom_title ?? undefined,
+    engine: delta.engine as any,
+    segment_ids: delta.segment_ids ?? undefined,
+    grouped_progress: delta.progress,
+    chapter_audio_status: undefined,
+    chapter_audio_file_path: null,
+    updated_at: delta.updated_at ?? undefined,
+    render_group_count: undefined,
+    completed_render_groups: undefined,
+    active_render_group_index: undefined,
+    total_render_weight: undefined,
+    completed_render_weight: undefined,
+    active_render_group_weight: undefined,
+    active_segment_id: delta.active_segment_id ?? undefined,
+    active_segment_progress: delta.active_segment_progress ?? undefined,
+  };
+}
+
 export const createHydrationCoordinator = (): HydrationCoordinator => ({
   createSnapshot: (items, source = 'bootstrap') => ({
     items,
@@ -71,8 +109,19 @@ export const createHydrationCoordinator = (): HydrationCoordinator => ({
     const nowSeconds = (nowOverride ?? Date.now()) / 1000;
     const { items } = snapshot;
     const { eventsById } = overlays;
+    const mergedIds = new Set(items.map(item => item.id));
+    const extraItems = Object.entries(eventsById)
+      .map(([jobId, delta]) => {
+        if (mergedIds.has(jobId)) return null;
+        const item = buildOverlayQueueItem(jobId, delta);
+        if (!item || !ACTIVE_STATUSES.includes(item.status)) return null;
+        return item;
+      })
+      .filter((item): item is ProcessingQueueItem => !!item);
 
-    return items.map(item => {
+    const baseItems = [...items, ...extraItems];
+
+    return baseItems.map(item => {
       const delta = eventsById[item.id];
       if (!delta) {
         // Even without delta, check for finalizing hold from snapshot state

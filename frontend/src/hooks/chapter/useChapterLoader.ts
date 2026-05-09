@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useRef, useMemo } from 'react';
 import { api } from '../../api';
 import { buildFallbackProductionBlocks } from '../../utils/chapterEditorHelpers';
+import { shouldEnableStudioDebugLogging, recordStudioDebugSnapshot } from '../../utils/runtimeDebug';
 import type { ChapterEditorState } from './useChapterEditorState';
 import type { Job } from '../../types';
 
@@ -27,6 +28,7 @@ export const useChapterLoader = (
   const liveSegmentJobIds = useMemo(() => {
     const ids = new Set<string>();
     for (const chapterJob of chapterJobs) {
+      if (!['queued', 'preparing', 'running', 'finalizing'].includes(chapterJob.status)) continue;
       for (const segmentId of chapterJob.segment_ids || []) {
         ids.add(segmentId);
       }
@@ -36,7 +38,7 @@ export const useChapterLoader = (
 
   const liveSegmentJobIdsRef = useRef(liveSegmentJobIds);
   useEffect(() => { liveSegmentJobIdsRef.current = liveSegmentJobIds; }, [liveSegmentJobIds]);
-  const shouldLogLoadTimings = import.meta.env.DEV;
+  const shouldLogLoadTimings = import.meta.env.DEV || shouldEnableStudioDebugLogging();
 
   const loadChapter = useCallback(async (source: string = 'unknown') => {
     const loadStartedAt = performance.now();
@@ -45,7 +47,7 @@ export const useChapterLoader = (
       const chaptersStartedAt = performance.now();
       const chapters = await api.fetchChapters(projectId);
       if (shouldLogLoadTimings) {
-        console.debug('[load] chapter metadata', {
+        recordStudioDebugSnapshot('load:chapter metadata', {
           chapterId,
           projectId,
           source,
@@ -67,7 +69,7 @@ export const useChapterLoader = (
         api.fetchScriptView(chapterId).catch(() => null)
       ]);
       if (shouldLogLoadTimings) {
-        console.debug('[load] chapter details', {
+        recordStudioDebugSnapshot('load:chapter details', {
           chapterId,
           projectId,
           source,
@@ -89,30 +91,45 @@ export const useChapterLoader = (
         setProductionBlocks(buildFallbackProductionBlocks(segs));
         setRenderBatches([]);
       }
-      
+
       setGeneratingSegmentIds(prev => {
-        if (prev.size === 0) return prev;
         const currentLiveIds = liveSegmentJobIdsRef.current;
-        const next = new Set(
-          Array.from(prev).filter(id => {
-            const seg = segs.find((s: any) => s.id === id);
-            if (!seg) return false;
-            if (seg.audio_status === 'processing') return true;
-            if (currentLiveIds.has(id)) return true;
-            const pendingAt = pendingGenerationTimesRef.current.get(id) || 0;
-            if (pendingGenerationIdsRef.current.has(id) && (Date.now() - pendingAt) < 10000) return true;
-            pendingGenerationIdsRef.current.delete(id);
-            pendingGenerationTimesRef.current.delete(id);
-            return false;
-          })
+        const next = new Set<string>();
+        const initialProcessingIds = new Set(
+          segs
+            .filter(seg => seg.audio_status === 'processing')
+            .map(seg => seg.id)
         );
-        return next.size === prev.size ? prev : next;
+
+        for (const id of prev) {
+          const seg = segs.find((s: any) => s.id === id);
+          if (!seg) continue;
+          if (seg.audio_status === 'processing' || currentLiveIds.has(id)) {
+            next.add(id);
+            continue;
+          }
+          const pendingAt = pendingGenerationTimesRef.current.get(id) || 0;
+          if (pendingGenerationIdsRef.current.has(id) && (Date.now() - pendingAt) < 10000) {
+            next.add(id);
+            continue;
+          }
+          pendingGenerationIdsRef.current.delete(id);
+          pendingGenerationTimesRef.current.delete(id);
+        }
+
+        for (const id of initialProcessingIds) {
+          if (!currentLiveIds.has(id)) {
+            next.add(id);
+          }
+        }
+
+        return next.size === prev.size && [...next].every(id => prev.has(id)) ? prev : next;
       });
     } catch (e) {
       console.error(`Failed to load chapter (${source})`, e);
     } finally {
       if (shouldLogLoadTimings) {
-        console.debug('[load] chapter view complete', {
+        recordStudioDebugSnapshot('load:chapter view complete', {
           chapterId,
           projectId,
           source,

@@ -28,11 +28,12 @@ import { AssemblyPanel } from './project/AssemblyPanel';
 import { VoiceProfileSelect } from './chapter/VoiceProfileSelect';
 import { ProjectBackupsPanel } from './ProjectBackupsPanel';
 import { ConfirmModal } from './ConfirmModal';
+import { shouldEnableStudioDebugLogging, recordStudioDebugSnapshot } from '../utils/runtimeDebug';
 
 // Extracted Hooks
 import { useProjectActions } from '../hooks/useProjectActions';
 import { buildVoiceOptions, getDefaultVoiceProfileName, getVoiceOptionLabel } from '../utils/voiceProfiles';
-import { isChapterScopedJob, isSegmentScopedJob, pickRelevantJob } from '../utils/jobSelection';
+import { isChapterScopedJob, pickRelevantJob } from '../utils/jobSelection';
 
 interface ProjectViewProps {
   jobs: Record<string, Job>;
@@ -81,7 +82,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
   const [hasResolvedInitialVoice, setHasResolvedInitialVoice] = useState(false);
   const [isExporting, setIsExporting] = useState<string | null>(null);
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
-  const shouldLogLoadTimings = import.meta.env.DEV;
+  const shouldLogLoadTimings = import.meta.env.DEV || shouldEnableStudioDebugLogging();
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -134,7 +135,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
         api.fetchCharacters(effectiveProjectId)
       ]);
       if (shouldLogLoadTimings) {
-        console.debug('[load] project snapshot', {
+        recordStudioDebugSnapshot('load:project snapshot', {
           projectId: effectiveProjectId,
           ms: Math.round(performance.now() - projectFetchStartedAt),
         });
@@ -147,7 +148,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
         const audiobooksData = await api.fetchProjectAudiobooks(effectiveProjectId);
         setAvailableAudiobooks(audiobooksData || []);
         if (shouldLogLoadTimings) {
-          console.debug('[load] project audiobooks', {
+          recordStudioDebugSnapshot('load:project audiobooks', {
             projectId: effectiveProjectId,
             ms: Math.round(performance.now() - audiobooksFetchStartedAt),
           });
@@ -157,7 +158,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
       console.error(e);
     } finally {
       if (shouldLogLoadTimings) {
-        console.debug('[load] project view complete', {
+        recordStudioDebugSnapshot('load:project view complete', {
           projectId: effectiveProjectId,
           ms: Math.round(performance.now() - loadStartedAt),
           transition: isTransition,
@@ -291,7 +292,6 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
     (j.chapter_id === editingChapterId || j.chapter_file?.includes(editingChapterId || 'none'))
   );
   const chapterRenderJobs = matchingChapterJobs.filter(isChapterScopedJob);
-  const segmentGenerationJobs = matchingChapterJobs.filter(isSegmentScopedJob);
   const includeDoneForEditor = !!activeChapter
     && activeChapter.audio_status !== 'processing'
     && !(activeChapter.has_wav || activeChapter.has_mp3 || activeChapter.has_m4a)
@@ -300,9 +300,6 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
       !!j.finished_at &&
       ((Date.now() / 1000) - j.finished_at) <= RECENT_DONE_WINDOW_SECONDS
     );
-  const segmentJobs = segmentGenerationJobs.filter(j =>
-    ['queued', 'preparing', 'running', 'finalizing'].includes(j.status)
-  );
   const activeIdx = chapters.findIndex(c => c.id === editingChapterId);
 
   return (
@@ -358,7 +355,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
             speakers={speakers}
             engines={engines}
             job={pickRelevantJob(chapterRenderJobs, includeDoneForEditor)}
-            chapterJobs={segmentJobs}
+            chapterJobs={matchingChapterJobs}
             segmentProgress={segmentProgress}
             selectedVoice={effectiveProjectVoice}
             onNext={activeIdx < chapters.length - 1 ? () => navigate(`/chapter/${chapters[activeIdx + 1].id}`) : undefined}

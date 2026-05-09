@@ -5,6 +5,7 @@ import uuid
 from typing import List, Dict, Any, Optional
 
 from .core import _db_lock, get_connection
+from ..render_trace import trace
 from ..pathing import secure_join_flat
 
 # Sub-modules
@@ -134,6 +135,22 @@ def list_chapters(project_id: str) -> List[Dict[str, Any]]:
             if chap["has_mp3"] or chap["has_m4a"]:
                 chap["has_wav"] = True
 
+    trace(
+        "chapters.list",
+        project_id=project_id,
+        chapters=[
+            {
+                "id": chap.get("id"),
+                "audio_status": chap.get("audio_status"),
+                "audio_file_path": chap.get("audio_file_path"),
+                "has_wav": chap.get("has_wav"),
+                "has_mp3": chap.get("has_mp3"),
+                "done_segments_count": chap.get("done_segments_count"),
+                "total_segments_count": chap.get("total_segments_count"),
+            }
+            for chap in rows
+        ],
+    )
     return rows
 
 

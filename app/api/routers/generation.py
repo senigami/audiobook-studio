@@ -3,7 +3,7 @@ import time
 import uuid
 import logging
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, List, Optional
 from fastapi import APIRouter, Form, BackgroundTasks
 from fastapi.responses import JSONResponse
 from ...chunk_groups import build_chapter_queue_title, build_segment_job_title
@@ -30,6 +30,7 @@ from ...textops import sanitize_text, safe_split_long_sentences, SENT_CHAR_LIMIT
 from ...config import (
     get_chapter_dir, resolve_chapter_asset_path
 )
+from ...render_trace import trace
 from ..ws import broadcast_chapter_updated, broadcast_queue_update
 
 router = APIRouter(prefix="/api", tags=["generation"])
@@ -154,6 +155,28 @@ def _build_script_for_chapter(chapter_id: str, project_id: str, default_profile:
 
         script.append(script_entry)
 
+    trace(
+        "generation.script_built",
+        project_id=project_id,
+        chapter_id=chapter_id,
+        default_profile=default_profile,
+        safe_mode=safe_mode,
+        segment_count=len(segments),
+        script_group_count=len(script),
+        groups=[
+            {
+                "id": entry.get("id"),
+                "ids": entry.get("ids"),
+                "save_path": entry.get("save_path"),
+                "weight": entry.get("weight"),
+                "text_len": len(str(entry.get("text") or "")),
+                "has_speaker_wav": bool(entry.get("speaker_wav")),
+                "has_voice_profile_dir": bool(entry.get("voice_profile_dir")),
+            }
+            for entry in script
+        ],
+    )
+
     return script
 
 
@@ -164,6 +187,8 @@ def _engines_for_profiles(profile_names: list[Optional[str]], fallback_engine: O
         if not profile_name:
             continue
         engine_id = resolve_profile_engine(profile_name, fallback_engine)
+        if not engine_id:
+            continue
         if engine_id in seen:
             continue
         seen.add(engine_id)
@@ -309,6 +334,19 @@ def api_add_to_queue(
                 synthesis_settings=synthesis_settings,
                 script=_build_script_for_chapter(chapter_id, project_id, active_profile, safe_mode=bool(settings.get("safe_mode", True))) if uses_segment_orchestration(queue_engine) else None
             )
+            trace(
+                "generation.enqueue_chapter",
+                job_id=qid,
+                project_id=project_id,
+                chapter_id=chapter_id,
+                engine_id=queue_engine,
+                text_len=len(text_content or ""),
+                output_path=output_path,
+                active_profile=active_profile,
+                has_voice_ref=bool(voice_ref),
+                synthesis_settings=synthesis_settings,
+                script_group_count=len(task.script or []),
+            )
             background_tasks.add_task(orchestrator.submit, task)
 
             broadcast_chapter_updated(chapter_id)
@@ -415,6 +453,19 @@ def api_bake_chapter(chapter_id: str, background_tasks: BackgroundTasks):
         make_mp3=make_mp3,
         synthesis_settings=synthesis_settings,
         script=_build_script_for_chapter(chapter_id, project_id, active_profile, safe_mode=bool(settings.get("safe_mode", True))) if uses_segment_orchestration(queue_engine) else None
+    )
+    trace(
+        "generation.bake_chapter",
+        job_id=jid,
+        project_id=project_id,
+        chapter_id=chapter_id,
+        engine_id=queue_engine,
+        text_len=len(text_content or ""),
+        output_path=output_path,
+        active_profile=active_profile,
+        has_voice_ref=bool(voice_ref),
+        synthesis_settings=synthesis_settings,
+        script_group_count=len(task.script or []),
     )
     background_tasks.add_task(orchestrator.submit, task)
 
@@ -553,6 +604,17 @@ def enqueue_single(
         voice_profile_id=active_profile,
         voice_ref=voice_ref,
         custom_title=display_title,
+        synthesis_settings=synthesis_settings,
+    )
+    trace(
+        "generation.enqueue_single",
+        job_id=jid,
+        engine_id=normalized_engine,
+        chapter_file=chapter_file,
+        text_len=len(text_content),
+        output_path=output_path,
+        active_profile=active_profile,
+        has_voice_ref=bool(voice_ref),
         synthesis_settings=synthesis_settings,
     )
     background_tasks.add_task(orchestrator.submit, task)

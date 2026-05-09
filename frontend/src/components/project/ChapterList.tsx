@@ -126,6 +126,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
           const showIndeterminateProgress = !!activeJob && shouldShowIndeterminateProgress({ ...activeJob, engineMeta });
           const isMenuOpen = openMenuRowId === chap.id;
           const isFullyRendered = hasChapterAudio;
+          const queuePending = !activeJob && chap.audio_status === 'processing';
           const queueActionLabel = isFullyRendered
             ? 'Rebuild Audio'
             : (chap.done_segments_count || 0) > 0 && (chap.done_segments_count || 0) < (chap.total_segments_count || 0)
@@ -141,9 +142,11 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                   : displayStatus === 'finalizing'
                     ? 'Finalizing'
                     : null)
-            : chap.audio_status === 'processing'
-              ? 'Processing'
-              : null;
+            : queuePending
+              ? 'Queued'
+              : chap.audio_status === 'processing'
+                ? 'Processing'
+                : null;
           const isQueued = queueStatus === 'Queued';
 
           return (
@@ -173,7 +176,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
               {!isAssemblyMode && (
                 <ActionMenu 
                   onOpenChange={(open) => setOpenMenuRowId(open ? chap.id : null)}
-                  trigger={<StatusOrb chap={chap} activeJob={activeJob} doneSegments={chap.done_segments_count} totalSegments={chap.total_segments_count} />}
+                  trigger={<StatusOrb chap={chap} activeJob={activeJob} queuePending={queuePending} doneSegments={chap.done_segments_count} totalSegments={chap.total_segments_count} />}
                   items={[
                     { 
                       label: queueActionLabel, 
@@ -247,7 +250,6 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                       if (!audioPath) {
                         return (
                           <>
-                            <source src={`/api/projects/${projectId}/chapters/${chap.id}/assets/audio?filename=chapter.mp3`} type="audio/mpeg" />
                             <source src={`/api/projects/${projectId}/chapters/${chap.id}/assets/audio?filename=chapter.wav`} type="audio/wav" />
                           </>
                         );

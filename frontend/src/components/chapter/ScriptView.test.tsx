@@ -160,10 +160,47 @@ describe('ScriptView', () => {
       />
     );
 
-    const pendingSpan = screen.getByText('Sentence two.').closest('.script-span');
-    expect(pendingSpan).toHaveClass('is-pending');
+    const pendingParagraph = screen.getByText('Sentence one.').closest('.book-paragraph');
+    expect(pendingParagraph).not.toHaveClass('is-pending');
+    expect(screen.getByText('Sentence two.').closest('.script-span')).toHaveClass('is-book-pending');
+    expect(screen.getByText('Sentence two.').closest('.script-span-text')).toHaveClass('script-span-text-book-pending');
     expect(screen.getByText('Sentence one.').closest('.script-span')).toBeTruthy();
     expect(screen.getByText('Sentence one.').closest('.script-span')).toHaveClass('script-span');
+  });
+
+  it('marks pending script lines at the block level in script mode', () => {
+    render(
+      <ScriptView
+        data={mockData}
+        characters={mockCharacters}
+        onGenerateBatch={onGenerateBatch}
+        pendingSpanIds={new Set(['s2'])}
+        onPlaySpan={onPlaySpan}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Script'));
+    expect(screen.getByText('Sentence two.').closest('.script-line')).toHaveClass('is-pending');
+  });
+
+  it('renders active segment progress as a fill cue', () => {
+    render(
+      <ScriptView
+        data={mockData}
+        characters={mockCharacters}
+        onGenerateBatch={onGenerateBatch}
+        pendingSpanIds={new Set(['s2'])}
+        renderingSpanIds={new Set(['s2'])}
+        renderingSpanProgressById={{ s2: 0.5 }}
+        onPlaySpan={onPlaySpan}
+      />
+    );
+
+    const activeSpanText = screen.getByText('Sentence two.').closest('.script-span-text');
+    expect(activeSpanText).toHaveClass('script-span-text-book-rendering');
+    expect(activeSpanText).toHaveStyle({ '--segment-progress': '0.5' });
+    expect(screen.getByText('Sentence two.').closest('.script-span')).toHaveClass('is-book-rendering');
+    expect(screen.getByText('Sentence one.').closest('.book-paragraph')).not.toHaveClass('is-rendering');
   });
 
   it('toggles segment numbers', () => {
@@ -252,7 +289,7 @@ describe('ScriptView', () => {
       />
     );
 
-    // Click the first paragraph
+    // Click the first block
     const paragraph = screen.getByText('Sentence one.').closest('.book-paragraph');
     fireEvent.click(paragraph!);
     expect(onAssign).toHaveBeenCalledWith(['s1', 's2']);

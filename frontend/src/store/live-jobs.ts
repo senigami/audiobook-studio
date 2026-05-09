@@ -1,6 +1,14 @@
 import type { StudioJobEvent, StudioJobStatus } from '../api/contracts/events';
 
 export interface OverlayDelta {
+  project_id?: string | null;
+  chapter_id?: string | null;
+  engine?: string | null;
+  custom_title?: string | null;
+  chapter_file?: string | null;
+  segment_ids?: string[] | null;
+  created_at?: number | null;
+  completed_at?: number | null;
   status?: StudioJobStatus;
   progress?: number;
   eta_seconds?: number | null;
@@ -10,6 +18,8 @@ export interface OverlayDelta {
   eta_basis?: 'remaining_from_update' | 'total_from_start' | null;
   active_render_batch_id?: string | null;
   active_render_batch_progress?: number | null;
+  active_segment_id?: string | null;
+  active_segment_progress?: number | null;
   reason_code?: string | null;
   message?: string | null;
 }
@@ -150,22 +160,36 @@ export const createLiveJobsStore = (): LiveJobsStore => {
   const applyJobUpdated = (jobId: string, updates: any) => {
     // Normalize job_updated into a StudioJobEvent-like shape for applyEvent
     // This allows useQueueSync to benefit from the same merging logic
-    applyEvent({
-      type: 'studio_job_event',
-      job_id: jobId,
-      status: updates.status,
-      progress: updates.progress,
-      eta_seconds: updates.eta_seconds,
-      updated_at: updates.updated_at,
-      started_at: updates.started_at,
-      message: updates.message || updates.log,
-      reason_code: updates.reason_code,
-      estimated_end_at: updates.estimated_end_at,
-      eta_basis: updates.eta_basis,
-      active_render_batch_id: updates.active_render_batch_id,
-      active_render_batch_progress: updates.active_render_batch_progress,
-      scope: 'job' // Default scope for job_updated
-    });
+    const jobUpdated = updates || {};
+    const existing = state.eventsById[jobId];
+    state.eventsById[jobId] = {
+      ...existing,
+      project_id: jobUpdated.project_id ?? existing?.project_id,
+      chapter_id: jobUpdated.chapter_id ?? existing?.chapter_id,
+      engine: jobUpdated.engine ?? existing?.engine,
+      custom_title: jobUpdated.custom_title ?? existing?.custom_title,
+      chapter_file: jobUpdated.chapter_file ?? existing?.chapter_file,
+      segment_ids: jobUpdated.segment_ids ?? existing?.segment_ids,
+      created_at: jobUpdated.created_at ?? existing?.created_at,
+      completed_at: jobUpdated.completed_at ?? existing?.completed_at,
+      status: jobUpdated.status ?? existing?.status,
+      progress: typeof jobUpdated.progress === 'number' ? jobUpdated.progress : existing?.progress,
+      eta_seconds: typeof jobUpdated.eta_seconds === 'number' ? jobUpdated.eta_seconds : existing?.eta_seconds,
+      started_at: typeof jobUpdated.started_at === 'number' ? jobUpdated.started_at : existing?.started_at,
+      updated_at: typeof jobUpdated.updated_at === 'number' ? jobUpdated.updated_at : existing?.updated_at,
+      estimated_end_at: typeof jobUpdated.estimated_end_at === 'number' ? jobUpdated.estimated_end_at : existing?.estimated_end_at,
+      eta_basis: jobUpdated.eta_basis ?? existing?.eta_basis,
+      active_render_batch_id: jobUpdated.active_render_batch_id ?? existing?.active_render_batch_id,
+      active_render_batch_progress: typeof jobUpdated.active_render_batch_progress === 'number'
+        ? jobUpdated.active_render_batch_progress
+        : existing?.active_render_batch_progress,
+      active_segment_id: jobUpdated.active_segment_id ?? existing?.active_segment_id,
+      active_segment_progress: typeof jobUpdated.active_segment_progress === 'number'
+        ? jobUpdated.active_segment_progress
+        : existing?.active_segment_progress,
+      reason_code: jobUpdated.reason_code ?? existing?.reason_code,
+      message: jobUpdated.message ?? jobUpdated.log ?? existing?.message,
+    };
   };
 
   const pruneOlderThan = (timestamp: number) => {

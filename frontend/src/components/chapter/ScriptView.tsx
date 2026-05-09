@@ -21,6 +21,7 @@ import type {
 } from '../../types';
 import { getVoiceProfileEngine, formatVoiceEngineLabel, buildVoiceOptions } from '../../utils/voiceProfiles';
 import { VoiceProfileSelect } from './VoiceProfileSelect';
+import { shouldEnableStudioDebugLogging, recordStudioDebugSnapshot } from '../../utils/runtimeDebug';
 import './ScriptView.css';
 
 interface ScriptViewProps {
@@ -28,6 +29,9 @@ interface ScriptViewProps {
   characters: Character[];
   onGenerateBatch?: (spanIds: string[]) => void | Promise<void>;
   pendingSpanIds: Set<string>;
+  renderingSpanIds?: Set<string>;
+  queuedSpanIds?: Set<string>;
+  renderingSpanProgressById?: Record<string, number>;
   playingSpanId?: string | null;
   playingSpanIds?: Set<string>;
   onPlaySpan?: (spanId: string) => void;
@@ -45,6 +49,9 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
   characters,
   onGenerateBatch,
   pendingSpanIds,
+  renderingSpanIds = new Set<string>(),
+  queuedSpanIds = new Set<string>(),
+  renderingSpanProgressById = {},
   playingSpanId = null,
   playingSpanIds,
   onPlaySpan,
@@ -63,6 +70,8 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
   const [pendingSelection, setPendingSelection] = useState<ScriptRangeAssignment | null>(null);
   const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const shouldLogRenderDebug = import.meta.env.DEV || shouldEnableStudioDebugLogging();
+  const renderDebugSignatureRef = useRef('');
 
   const spanMap = useMemo(() => {
     const map = new Map<string, ScriptSpan>();
@@ -99,6 +108,32 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
         .map(profile => [profile.name, getVoiceProfileEngine(profile) || 'unknown'])
     );
   }, [speakerProfiles]);
+
+  useEffect(() => {
+    if (!shouldLogRenderDebug) return;
+    const debugSnapshot = {
+      chapterId: data.chapter_id,
+      totalSpans: data.spans?.length ?? 0,
+      pendingSpanCount: pendingSpanIds.size,
+      pendingSpanSample: Array.from(pendingSpanIds).slice(0, 12),
+      audioGroupCount: data.audio_groups?.length ?? 0,
+      renderedAudioGroupCount: data.audio_groups?.filter(group => group.status === 'rendered').length ?? 0,
+      renderBatchCount: data.render_batches?.length ?? 0,
+      readySpanCount: data.spans?.filter(span => span.status === 'rendered').length ?? 0,
+    };
+    const nextSignature = JSON.stringify(debugSnapshot);
+    if (nextSignature !== renderDebugSignatureRef.current) {
+      renderDebugSignatureRef.current = nextSignature;
+      recordStudioDebugSnapshot('script-view', debugSnapshot);
+    }
+  }, [
+    shouldLogRenderDebug,
+    data.chapter_id,
+    data.spans,
+    data.audio_groups,
+    data.render_batches,
+    pendingSpanIds,
+  ]);
 
   const engineIsEnabled = (engineId: string | null | undefined) => {
     if (engines.length === 0) {
@@ -205,11 +240,14 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
     return () => document.removeEventListener('mousedown', onMouseDown);
   }, []);
 
-  const renderSpan = (span: ScriptSpan) => {
+  const renderSpan = (span: ScriptSpan, mode: 'book' | 'script' = 'book') => {
     const char = span.character_id ? charMap.get(span.character_id) : null;
     const batch = batchMap.get(span.id);
     const audioGroup = audioGroupMap.get(span.id);
     const isPending = pendingSpanIds.has(span.id);
+    const isRendering = renderingSpanIds.has(span.id);
+    const isQueued = queuedSpanIds.has(span.id);
+    const renderingProgress = isRendering ? Math.max(0, Math.min(renderingSpanProgressById[span.id] ?? 0, 1)) : 0;
     const isPlaying = isPlayingSpan(span.id);
     const isReady = span.status === 'rendered' || (audioGroup && audioGroup.status === 'rendered');
     const displayText = showSafeText ? (span.sanitized_text || span.text) : span.text;
@@ -219,7 +257,9 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
 
     const textClassName = [
       'script-span-text',
-      isPending ? 'script-span-text-pending' : '',
+      mode === 'script'
+        ? (isRendering ? 'script-span-text-rendering' : isQueued ? 'script-span-text-queued' : isPending ? 'script-span-text-pending' : '')
+        : (isRendering ? 'script-span-text-book-rendering' : isQueued ? 'script-span-text-book-queued' : isPending ? 'script-span-text-book-pending' : ''),
       isPlaying ? 'script-span-text-playing' : '',
       isReady ? 'script-span-text-ready' : 'script-span-text-muted',
     ].filter(Boolean).join(' ');
@@ -228,7 +268,9 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
       <span
         key={span.id}
         data-span-id={span.id}
-        className={`script-span ${char ? 'is-assigned' : ''} ${isHighlighted ? 'is-highlighted' : ''} ${isPlaying ? 'is-playing' : ''} ${isPending ? 'is-pending' : ''} ${activeCharacterId ? 'is-paintable' : ''}`}
+        data-testid={`script-span-${span.id}`}
+        data-render-status={isRendering ? 'rendering' : isQueued ? 'queued' : isPending ? 'pending' : isReady ? 'rendered' : 'idle'}
+        className={`script-span ${char ? 'is-assigned' : ''} ${isHighlighted ? 'is-highlighted' : ''} ${isPlaying ? 'is-playing' : ''} ${mode === 'book' && isRendering ? 'is-book-rendering' : ''} ${mode === 'book' && isQueued ? 'is-book-queued' : ''} ${mode === 'book' && isPending && !isRendering && !isQueued ? 'is-book-pending' : ''} ${mode === 'script' && isRendering ? 'is-rendering' : ''} ${mode === 'script' && isQueued ? 'is-queued' : ''} ${mode === 'script' && isPending && !isRendering && !isQueued ? 'is-pending' : ''} ${activeCharacterId ? 'is-paintable' : ''}`}
         style={char ? ({ '--script-span-accent': char.color } as React.CSSProperties) : undefined}
         onClick={(e) => {
           // If we have a selection, don't trigger whole-span assignment yet
@@ -245,7 +287,12 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
           <span className="script-span-number">{span.order_index + 1}</span>
         )}
 
-        <span className={textClassName}>{displayText}</span>
+        <span
+          className={textClassName}
+          style={renderingProgress > 0 ? ({ '--segment-progress': renderingProgress } as React.CSSProperties) : undefined}
+        >
+          {displayText}
+        </span>
 
         <div className="span-controls">
           <VoiceProfileSelect
@@ -271,6 +318,7 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
           </button>
           <button
             className="span-control-btn"
+            data-testid={`generate-span-${span.id}`}
             onClick={(e) => {
               e.stopPropagation();
               if (batch && batchStatus.canGenerate) onGenerateBatch?.(batch.span_ids);
@@ -329,13 +377,16 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
 
     return data.spans.map(span => {
       const char = span.character_id ? charMap.get(span.character_id) : null;
+      const lineIsPending = pendingSpanIds.has(span.id);
+      const lineIsRendering = renderingSpanIds.has(span.id);
+      const lineIsQueued = queuedSpanIds.has(span.id);
       const isFirstInRun = span.character_id !== lastCharId;
       lastCharId = span.character_id;
 
       return (
         <div
           key={span.id}
-          className={`script-line ${!isFirstInRun ? 'connected-top' : ''}`}
+          className={`script-line ${!isFirstInRun ? 'connected-top' : ''} ${lineIsRendering ? 'is-rendering' : ''} ${lineIsQueued ? 'is-queued' : ''} ${lineIsPending && !lineIsRendering && !lineIsQueued ? 'is-pending' : ''}`}
           style={char ? ({ '--script-line-accent': char.color } as React.CSSProperties) : undefined}
         >
           <div className="script-line-speaker" style={char ? { color: char.color } : undefined}>

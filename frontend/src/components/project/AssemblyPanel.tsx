@@ -112,6 +112,9 @@ export const AssemblyPanel: React.FC<AssemblyPanelProps> = ({
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
                         <button
                             onClick={() => {
+                                if (!a.url) {
+                                    return;
+                                }
                                 const link = document.createElement('a');
                                 link.href = a.url;
                                 link.download = a.download_filename || a.filename;
