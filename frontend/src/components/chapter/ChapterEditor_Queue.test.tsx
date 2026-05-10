@@ -347,9 +347,9 @@ describe('ChapterEditor - Queueing & Generation', () => {
     await waitFor(() => screen.findByDisplayValue('Test Chapter'));
 
     expect(document.querySelectorAll('.script-span.is-book-rendering').length).toBe(2);
-    expect(screen.getByText('One.').closest('.script-span')?.classList.contains('is-book-rendering')).toBe(true);
-    expect(screen.getByText('Two.').closest('.script-span')?.classList.contains('is-book-rendering')).toBe(true);
-    expect(screen.getByText('Three.').closest('.script-span')?.classList.contains('is-book-rendering')).toBe(false);
+    expect(screen.getByTestId('script-span-seg-1')).toHaveClass('is-book-rendering');
+    expect(screen.getByTestId('script-span-seg-2')).toHaveClass('is-book-rendering');
+    expect(screen.getByTestId('script-span-seg-3')).not.toHaveClass('is-book-rendering');
   });
 
   it('keeps rebuild rendering cues active even when the chapter is already marked done', async () => {
@@ -436,9 +436,9 @@ describe('ChapterEditor - Queueing & Generation', () => {
 
     await waitFor(() => screen.findByDisplayValue('Test Chapter'));
 
-    expect(screen.getByText('One.').closest('.script-span')?.classList.contains('is-book-rendering')).toBe(true);
-    expect(screen.getByText('Two.').closest('.script-span')?.classList.contains('is-book-rendering')).toBe(true);
-    expect(screen.getByText('Three.').closest('.script-span')?.classList.contains('is-book-rendering')).toBe(false);
+    expect(screen.getByTestId('script-span-seg-1')).toHaveClass('is-book-rendering');
+    expect(screen.getByTestId('script-span-seg-2')).toHaveClass('is-book-rendering');
+    expect(screen.getByTestId('script-span-seg-3')).not.toHaveClass('is-book-rendering');
   });
 
   it('does not keep finished segment jobs highlighted after the chapter completes', async () => {
@@ -523,7 +523,7 @@ describe('ChapterEditor - Queueing & Generation', () => {
     expect(document.querySelectorAll('.script-span.is-book-rendering').length).toBe(0);
   });
 
-  it('moves the span progress fill to the active sentence within the batch', async () => {
+  it('moves the segment progress cue to the active sentence within the batch', async () => {
     const renderingChapter = {
       ...mockChapter,
       audio_status: 'processing' as const,
@@ -539,8 +539,7 @@ describe('ChapterEditor - Queueing & Generation', () => {
       chapter_id: mockChapterId,
       base_revision_id: 'rev-1',
       paragraphs: [
-        { id: 'para-1', span_ids: ['seg-1'] },
-        { id: 'para-2', span_ids: ['seg-2'] },
+        { id: 'para-1', span_ids: ['seg-1', 'seg-2'] },
       ],
       spans: renderingSegments.map(segment => ({
         id: segment.id,
@@ -581,9 +580,12 @@ describe('ChapterEditor - Queueing & Generation', () => {
             chapter_id: mockChapterId,
             safe_mode: false,
             make_mp3: false,
-            progress: 0.55,
-            active_segment_id: 'seg-2',
-            active_segment_progress: 0.25,
+            progress: 0.18,
+            active_segment_id: 'seg-1',
+            active_segment_progress: 1,
+            total_render_weight: 8,
+            completed_render_weight: 0,
+            active_render_group_weight: 8,
           } as any,
         ]}
         onBack={vi.fn()}
@@ -592,8 +594,16 @@ describe('ChapterEditor - Queueing & Generation', () => {
 
     await waitFor(() => screen.findByDisplayValue('Test Chapter'));
 
-    expect(screen.getByText('One.').closest('.script-span-text')).toHaveStyle({ '--segment-progress': '1' });
-    expect(screen.getByText('Two.').closest('.script-span-text')).toHaveStyle({ '--segment-progress': '0.25' });
+    const firstSpan = screen.getByTestId('script-span-seg-1');
+    const secondSpan = screen.getByTestId('script-span-seg-2');
+    const firstLetters = firstSpan.querySelectorAll('.script-progress-letter');
+
+    expect(screen.getByTestId('script-render-group-batch-1')).toHaveClass('is-rendering');
+    expect(firstSpan.querySelectorAll('.script-progress-letter.is-lit').length).toBeGreaterThan(0);
+    expect(firstSpan.querySelectorAll('.script-progress-letter.is-lit').length).toBeLessThan(firstLetters.length);
+    expect(firstSpan.querySelectorAll('.script-progress-letter.is-cursor')).toHaveLength(1);
+    expect(secondSpan.querySelectorAll('.script-progress-letter.is-lit')).toHaveLength(0);
+    expect(secondSpan.querySelectorAll('.script-progress-letter.is-cursor')).toHaveLength(0);
   });
 
   it('keeps chapter-level renders queued during preparing until an active segment arrives', async () => {

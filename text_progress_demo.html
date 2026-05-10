@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Text Progress Visualizer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ─── Reset & Base ──────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #0c0e14;
+      --surface:     #12151e;
+      --surface-2:   #1a1e2a;
+      --border:      rgba(255,255,255,0.07);
+      --text-dim:    #3a3f52;
+      --text-mid:    #6b7280;
+      --text-bright: #e2e8f0;
+
+      --s1-start: #6366f1;
+      --s1-mid:   #a78bfa;
+      --s1-end:   #38bdf8;
+      --s1-glow:  rgba(99,102,241,0.35);
+      --s1-track: rgba(99,102,241,0.15);
+
+      --s2-start: #10b981;
+      --s2-mid:   #34d399;
+      --s2-end:   #facc15;
+      --s2-glow:  rgba(16,185,129,0.35);
+      --s2-track: rgba(16,185,129,0.15);
+
+      --radius: 12px;
+    }
+
+    html, body {
+      background: var(--bg);
+      color: var(--text-bright);
+      font-family: 'Inter', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        radial-gradient(ellipse 80% 60% at 20% 10%, rgba(99,102,241,0.08) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 80% at 80% 90%, rgba(16,185,129,0.06) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ─── Layout ────────────────────────────────────────────────── */
+    .container {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 860px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    header { text-align: center; }
+
+    header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, var(--s1-start), var(--s1-mid), var(--s2-start));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    header p {
+      margin-top: 0.4rem;
+      font-size: 0.8rem;
+      color: var(--text-mid);
+    }
+
+    /* ─── Controls ──────────────────────────────────────────────── */
+    .controls {
+      display: flex;
+      gap: 0.75rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    button {
+      font-family: 'Inter', sans-serif;
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0.5rem 1.4rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: all 0.18s ease;
+      letter-spacing: 0.03em;
+    }
+
+    #btnPlay {
+      background: linear-gradient(135deg, var(--s1-start), var(--s1-mid));
+      color: #fff;
+      border-color: transparent;
+      box-shadow: 0 0 18px var(--s1-glow);
+    }
+    #btnPlay:hover:not(:disabled) { filter: brightness(1.15); transform: translateY(-1px); }
+
+    #btnReset {
+      background: var(--surface-2);
+      color: var(--text-mid);
+    }
+    #btnReset:hover { color: var(--text-bright); border-color: rgba(255,255,255,0.18); }
+
+    .speed-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.75rem;
+      color: var(--text-mid);
+    }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 90px;
+      height: 4px;
+      background: var(--surface-2);
+      border-radius: 4px;
+      outline: none;
+      border: 1px solid var(--border);
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--s1-mid);
+      cursor: pointer;
+    }
+    #speedLabel {
+      min-width: 30px;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-bright);
+    }
+
+    /* ─── Progress rows ─────────────────────────────────────────── */
+    /*
+     * Two thin rows, one per section. Each row: label · bar · pct
+     * They live above the unified text block.
+     */
+    .progress-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+    }
+
+    .progress-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .row-meta {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      flex-shrink: 0;
+      width: 130px;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--text-dim);
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    .status-dot.active-s1 {
+      background: var(--s1-mid);
+      box-shadow: 0 0 8px var(--s1-glow);
+      animation: blink 1s ease-in-out infinite;
+    }
+    .status-dot.active-s2 {
+      background: var(--s2-mid);
+      box-shadow: 0 0 8px var(--s2-glow);
+      animation: blink 1s ease-in-out infinite;
+    }
+    .status-dot.done { background: #4ade80; box-shadow: 0 0 6px rgba(74,222,128,0.5); }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+
+    .section-label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .section-label.s1 { color: var(--s1-mid); }
+    .section-label.s2 { color: var(--s2-mid); }
+
+    .progress-track {
+      flex: 1;
+      height: 6px;
+      border-radius: 6px;
+      overflow: hidden;
+      position: relative;
+    }
+    .progress-track.s1 { background: var(--s1-track); }
+    .progress-track.s2 { background: var(--s2-track); }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 6px;
+      position: relative;
+      transition: width 0.05s linear;
+    }
+    .progress-fill.s1 {
+      background: linear-gradient(90deg, var(--s1-start), var(--s1-mid), var(--s1-end));
+      box-shadow: 0 0 12px var(--s1-glow);
+    }
+    .progress-fill.s2 {
+      background: linear-gradient(90deg, var(--s2-start), var(--s2-mid), var(--s2-end));
+      box-shadow: 0 0 12px var(--s2-glow);
+    }
+    .progress-fill::after {
+      content: '';
+      position: absolute;
+      top: 0; right: 0;
+      width: 40px; height: 100%;
+      background: rgba(255,255,255,0.3);
+      filter: blur(6px);
+      border-radius: 6px;
+    }
+
+    .pct-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      font-weight: 500;
+      padding: 0.1rem 0.45rem;
+      border-radius: 5px;
+      flex-shrink: 0;
+      width: 44px;
+      text-align: right;
+    }
+    .pct-badge.s1 { color: var(--s1-mid); background: rgba(99,102,241,0.12); }
+    .pct-badge.s2 { color: var(--s2-mid); background: rgba(16,185,129,0.12); }
+
+    /* ─── Unified text card ──────────────────────────────────────── */
+    .text-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.6rem 1.85rem;
+      backdrop-filter: blur(12px);
+      transition: box-shadow 0.4s ease, border-color 0.4s ease;
+    }
+
+    /* Subtle ambient glow states driven by JS */
+    .text-card.active-s1 { box-shadow: 0 0 32px rgba(99,102,241,0.14); }
+    .text-card.active-s2 { box-shadow: 0 0 32px rgba(16,185,129,0.14); }
+    .text-card.done      { border-color: rgba(255,255,255,0.12); }
+
+    /* ─── Text styling ───────────────────────────────────────────── */
+    .text-body {
+      font-size: 1rem;
+      line-height: 1.9;
+      color: var(--text-dim);
+      letter-spacing: 0.01em;
+    }
+
+    /* Each paragraph is a block-level span so we get natural line-wrap */
+    .para { display: block; }
+    .para + .para { margin-top: 0.9em; }
+
+    /* individual letter spans */
+    .letter {
+      display: inline;
+      transition: color 0.1s ease, text-shadow 0.1s ease;
+    }
+
+    /* ─── Lit / cursor states ────────────────────────────────────── */
+    .letter.lit-s1   { color: var(--text-bright); }
+    .letter.lit-s2   { color: var(--text-bright); }
+
+    .letter.cursor-s1 {
+      color: #fff;
+      text-shadow: 0 0 14px var(--s1-mid), 0 0 32px var(--s1-start);
+      animation: cursorPulse 0.55s ease-in-out infinite alternate;
+    }
+
+    .letter.cursor-s2 {
+      color: #fff;
+      text-shadow: 0 0 14px var(--s2-mid), 0 0 32px var(--s2-start);
+      animation: cursorPulse 0.55s ease-in-out infinite alternate;
+    }
+
+    @keyframes cursorPulse {
+      from { opacity: 0.75; }
+      to   { opacity: 1; }
+    }
+
+    /* ─── Footer ─────────────────────────────────────────────────── */
+    footer {
+      text-align: center;
+      font-size: 0.7rem;
+      color: #2a2e3d;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <header>
+    <h1>Text Progress Visualizer</h1>
+    <p>Letters illuminate in sync with each section's progress bar</p>
+  </header>
+
+  <div class="controls">
+    <button id="btnPlay">▶ Play</button>
+    <button id="btnReset">↺ Reset</button>
+    <div class="speed-wrap">
+      <span>Speed</span>
+      <input type="range" id="speedSlider" min="0.25" max="4" step="0.25" value="1" />
+      <span id="speedLabel">1×</span>
+    </div>
+  </div>
+
+  <!-- Two stacked progress rows -->
+  <div class="progress-rows">
+
+    <div class="progress-row">
+      <div class="row-meta">
+        <span class="status-dot" id="dot1"></span>
+        <span class="section-label s1">Section 1</span>
+      </div>
+      <div class="progress-track s1">
+        <div class="progress-fill s1" id="fill1"></div>
+      </div>
+      <span class="pct-badge s1" id="pct1">0%</span>
+    </div>
+
+    <div class="progress-row">
+      <div class="row-meta">
+        <span class="status-dot" id="dot2"></span>
+        <span class="section-label s2">Section 2</span>
+      </div>
+      <div class="progress-track s2">
+        <div class="progress-fill s2" id="fill2"></div>
+      </div>
+      <span class="pct-badge s2" id="pct2">0%</span>
+    </div>
+
+  </div>
+
+  <!-- Single unified text block — all 3 paragraphs -->
+  <div class="text-card" id="textCard">
+    <div class="text-body" id="textBody"></div>
+  </div>
+
+  <footer>Standalone demo · no dependencies</footer>
+</div>
+
+<script>
+  // ─── Source Text ───────────────────────────────────────────────────
+  const paragraphs = [
+    // Paragraph 1
+    "The first light of dawn crept silently over the eastern hills, painting the sky in soft hues of amber and rose. Birds began to stir in the canopy above, their tentative calls weaving through the cool morning air. A thin mist clung to the meadow below, diffusing the new light into something almost sacred.",
+
+    // Paragraph 2 — split at P2_SPLIT_SENTENCE boundary
+    "She had walked this path a hundred times, yet it never felt familiar. Each morning brought a subtly different world — a new arrangement of shadows, a fresh chorus of rustling leaves, a scent carried in from somewhere distant and unnamed. Still, the rhythm of her footsteps steadied her, as reliable as a heartbeat. The path wound gently downhill now, past the old stone wall draped in emerald moss, toward the place where the river announced itself with a low, persistent murmur.",
+
+    // Paragraph 3
+    "She reached the bank and paused. The water moved with quiet urgency, its surface catching glints of the early sun and scattering them like broken glass. She knelt beside it, trailing her fingers through the cold current, and felt — as she always did here — that the world was both immense and perfectly contained within this single moment. She breathed in, breathed out, and let the silence hold her for a little while longer."
+  ];
+
+  // Paragraph 2 split: sentences [0, P2_SPLIT_SENTENCE) → section 1,
+  //                    sentences [P2_SPLIT_SENTENCE, end)  → section 2.
+  // Para 2 sentences: [0] She had walked…  [1] Each morning…  [2] Still…  [3] The path wound…
+  const P2_SPLIT_SENTENCE = 2;
+
+  function splitSentences(para) {
+    return para.match(/[^.!?]+[.!?]+\s*/g) || [para];
+  }
+
+  const p2sentences = splitSentences(paragraphs[1]);
+  const p2a = p2sentences.slice(0, P2_SPLIT_SENTENCE).join('');
+  const p2b = p2sentences.slice(P2_SPLIT_SENTENCE).join('');
+
+  // ─── Build unified DOM — one continuous text block ─────────────────
+  // letters1: all letter spans belonging to section 1 (P1 + P2a)
+  // letters2: all letter spans belonging to section 2 (P2b + P3)
+  // Paragraph 2 is rendered as a single <span class="para"> containing
+  // spans for p2a and p2b back-to-back — no visual seam.
+
+  const textBody = document.getElementById('textBody');
+  const letters1 = [];
+  const letters2 = [];
+
+  function appendLetters(container, text, targetArray) {
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      const span = document.createElement('span');
+      span.className = 'letter';
+      span.textContent = ch;
+      container.appendChild(span);
+      targetArray.push(span);
+    }
+  }
+
+  // Paragraph 1 — entirely section 1
+  const p1El = document.createElement('span');
+  p1El.className = 'para';
+  appendLetters(p1El, paragraphs[0], letters1);
+  textBody.appendChild(p1El);
+
+  // Paragraph 2 — one DOM block, two logical sections
+  const p2El = document.createElement('span');
+  p2El.className = 'para';
+  appendLetters(p2El, p2a, letters1);   // first half → section 1
+  appendLetters(p2El, p2b, letters2);   // second half → section 2
+  textBody.appendChild(p2El);
+
+  // Paragraph 3 — entirely section 2
+  const p3El = document.createElement('span');
+  p3El.className = 'para';
+  appendLetters(p3El, paragraphs[2], letters2);
+  textBody.appendChild(p3El);
+
+  // ─── Animation state ───────────────────────────────────────────────
+  let raf = null;
+  let startTime = null;
+  let currentSection = 0; // 0=idle 1=s1 2=s2 3=done
+  let speed = 1;
+  let paused = false;
+  let pausedProgress1 = 0;
+  let pausedProgress2 = 0;
+
+  const SECTION_DURATION_MS = 12000;
+
+  // UI refs
+  const fill1    = document.getElementById('fill1');
+  const fill2    = document.getElementById('fill2');
+  const pct1     = document.getElementById('pct1');
+  const pct2     = document.getElementById('pct2');
+  const dot1     = document.getElementById('dot1');
+  const dot2     = document.getElementById('dot2');
+  const textCard = document.getElementById('textCard');
+  const btnPlay  = document.getElementById('btnPlay');
+  const btnReset = document.getElementById('btnReset');
+
+  // ─── Light up letters ──────────────────────────────────────────────
+  function applyProgress(letters, progress, sectionNum) {
+    const total = letters.length;
+    const litCount = Math.floor(progress * total);
+    const cursorIdx = Math.min(litCount, total - 1);
+    const litClass    = `lit-s${sectionNum}`;
+    const cursorClass = `cursor-s${sectionNum}`;
+
+    for (let i = 0; i < total; i++) {
+      const el = letters[i];
+      const shouldBeLit    = i < litCount;
+      const shouldBeCursor = i === cursorIdx && progress < 1.0 && progress > 0;
+      const isLit    = el.classList.contains(litClass);
+      const isCursor = el.classList.contains(cursorClass);
+
+      if (shouldBeCursor && !isCursor) {
+        el.classList.add(cursorClass);
+        el.classList.remove(litClass);
+      } else if (!shouldBeCursor && isCursor) {
+        el.classList.remove(cursorClass);
+      }
+
+      if (shouldBeLit && !isLit && !shouldBeCursor) {
+        el.classList.add(litClass);
+      } else if (!shouldBeLit && isLit) {
+        el.classList.remove(litClass);
+      }
+    }
+  }
+
+  // ─── Tick ──────────────────────────────────────────────────────────
+  function tick(ts) {
+    if (!startTime) startTime = ts;
+    const elapsed = (ts - startTime) * speed;
+
+    if (currentSection === 1) {
+      const prog = Math.min(elapsed / SECTION_DURATION_MS, 1.0);
+      fill1.style.width = (prog * 100).toFixed(2) + '%';
+      pct1.textContent  = Math.round(prog * 100) + '%';
+      applyProgress(letters1, prog, 1);
+
+      if (prog >= 1.0) {
+        // Finalise section 1
+        letters1.forEach(el => { el.classList.remove('cursor-s1'); el.classList.add('lit-s1'); });
+        dot1.className = 'status-dot done';
+
+        // Transition to section 2
+        currentSection = 2;
+        startTime = ts;
+        dot2.className  = 'status-dot active-s2';
+        textCard.className = 'text-card active-s2';
+      }
+
+    } else if (currentSection === 2) {
+      const prog = Math.min(elapsed / SECTION_DURATION_MS, 1.0);
+      fill2.style.width = (prog * 100).toFixed(2) + '%';
+      pct2.textContent  = Math.round(prog * 100) + '%';
+      applyProgress(letters2, prog, 2);
+
+      if (prog >= 1.0) {
+        letters2.forEach(el => { el.classList.remove('cursor-s2'); el.classList.add('lit-s2'); });
+        dot2.className     = 'status-dot done';
+        textCard.className = 'text-card done';
+        currentSection     = 3;
+        btnPlay.textContent = '✓ Complete';
+        btnPlay.style.background = 'linear-gradient(135deg,#10b981,#34d399)';
+        btnPlay.disabled = true;
+        return;
+      }
+    }
+
+    raf = requestAnimationFrame(tick);
+  }
+
+  // ─── Reset ─────────────────────────────────────────────────────────
+  function reset() {
+    if (raf) { cancelAnimationFrame(raf); raf = null; }
+    currentSection = 0;
+    startTime = null;
+    paused = false;
+    pausedProgress1 = 0;
+    pausedProgress2 = 0;
+
+    fill1.style.width = '0%'; pct1.textContent = '0%';
+    fill2.style.width = '0%'; pct2.textContent = '0%';
+    dot1.className = 'status-dot';
+    dot2.className = 'status-dot';
+    textCard.className = 'text-card';
+
+    [...letters1, ...letters2].forEach(el => {
+      el.className = 'letter';
+    });
+
+    btnPlay.textContent = '▶ Play';
+    btnPlay.style.background = 'linear-gradient(135deg,var(--s1-start),var(--s1-mid))';
+    btnPlay.disabled = false;
+  }
+
+  // ─── Play / Pause / Resume ─────────────────────────────────────────
+  btnPlay.addEventListener('click', () => {
+    if (currentSection === 3) return;
+
+    if (raf && !paused) {
+      // → Pause
+      cancelAnimationFrame(raf);
+      raf = null;
+      paused = true;
+      const elapsed = (performance.now() - startTime) * speed;
+      const prog = Math.min(elapsed / SECTION_DURATION_MS, 1.0);
+      if (currentSection === 1) pausedProgress1 = prog;
+      if (currentSection === 2) pausedProgress2 = prog;
+      btnPlay.textContent = '▶ Resume';
+    } else {
+      // → Play / Resume
+      paused = false;
+      if (currentSection === 0) {
+        currentSection = 1;
+        pausedProgress1 = 0;
+        dot1.className     = 'status-dot active-s1';
+        textCard.className = 'text-card active-s1';
+      }
+      const resumeElapsed = (currentSection === 1 ? pausedProgress1 : pausedProgress2) * SECTION_DURATION_MS;
+      startTime = performance.now() - resumeElapsed / speed;
+      btnPlay.textContent = '⏸ Pause';
+      raf = requestAnimationFrame(tick);
+    }
+  });
+
+  btnReset.addEventListener('click', reset);
+
+  // ─── Speed slider ──────────────────────────────────────────────────
+  const speedSlider = document.getElementById('speedSlider');
+  const speedLabel  = document.getElementById('speedLabel');
+
+  speedSlider.addEventListener('input', () => {
+    const newSpeed = parseFloat(speedSlider.value);
+    if (raf && startTime !== null && !paused) {
+      const elapsed = (performance.now() - startTime) * speed;
+      const frac    = elapsed / SECTION_DURATION_MS;
+      startTime = performance.now() - (frac * SECTION_DURATION_MS) / newSpeed;
+    }
+    speed = newSpeed;
+    speedLabel.textContent = newSpeed + '×';
+  });
+</script>
+</body>
+</html>

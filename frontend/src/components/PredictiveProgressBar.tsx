@@ -51,6 +51,8 @@ interface PredictiveProgressBarProps {
     evidenceWeightFraction?: number;
     state?: ProgressPresentationState;
     onDebugSnapshot?: (snapshot: PredictiveProgressDebugSnapshot) => void;
+    /** Fires every animation tick with the bar's live interpolated progress (0–1). */
+    onDisplayProgress?: (progress: number) => void;
 }
 
 const progressMemory = new Map<string, number>();
@@ -161,6 +163,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     evidenceWeightFraction, // No-op for compatibility
     state,
     onDebugSnapshot,
+    onDisplayProgress,
 }) => {
     const presentationState = state ?? status;
     const effectiveAllowBackward = allowBackwardProgress ?? !authoritativeFloor;
@@ -339,6 +342,13 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         const currentFloor = !effectiveAllowBackward ? Math.max(getRememberedProgress(memoryKey), displayProgress) : clamp01(displayProgress);
         progressMemory.set(memoryKey, currentFloor);
     }, [memoryKey, displayProgress, effectiveAllowBackward]);
+
+    // Fire onDisplayProgress with localProgress — the exact value rendered as the bar width —
+    // on every render where it changes. This covers both the interval tick path and the
+    // synchronous prop-sync path (updateLaneToTarget), so consumers stay pixel-perfect.
+    useEffect(() => {
+        onDisplayProgress?.(localProgress);
+    }, [localProgress, onDisplayProgress]);
 
     const visualState = autoFinalizing ? 'finalizing' : presentationState;
     const shouldAnimateWidth = !indeterminate && isActiveStatus(visualState);

@@ -144,8 +144,8 @@
 }
 
 .script-line.is-rendering {
-  background: color-mix(in srgb, var(--as-info-tint) 78%, transparent);
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
+  background: color-mix(in srgb, var(--warning) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warning) 20%, transparent);
 }
 
 .book-paragraph.is-paintable:hover .book-paragraph-gutter {
@@ -159,6 +159,23 @@
 
 .book-paragraph .script-span {
   padding: 0;
+  background: transparent;
+}
+
+.script-render-group {
+  border-radius: 0.28em;
+  padding: 0.04em 0.14em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  transition: background 0.16s ease;
+}
+
+.script-render-group.is-rendering {
+  background: color-mix(in srgb, var(--warning) 16%, transparent);
+}
+
+.script-render-group.is-queued,
+.script-render-group.is-pending {
   background: transparent;
 }
 
@@ -188,8 +205,8 @@
 }
 
 .script-line.is-rendering {
-  animation: script-pending-pulse 1.4s ease-in-out infinite;
-  border-left: 3px solid color-mix(in srgb, var(--accent) 58%, transparent);
+  animation: none;
+  border-left: 3px solid color-mix(in srgb, var(--warning) 42%, transparent);
 }
 
 .script-line.is-queued {
@@ -241,73 +258,65 @@
 
 .script-span-text-book-pending {
   color: var(--text-secondary);
-  opacity: 0.88;
-  font-weight: 600;
+  opacity: 0.58;
 }
 
 .script-span-text-book-queued {
   color: var(--text-secondary);
-  opacity: 0.82;
+  opacity: 0.58;
 }
 
 .script-span-text-book-rendering {
   color: var(--text-primary);
-  font-weight: 600;
-  background-image: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--accent) 14%, transparent) 0,
-    color-mix(in srgb, var(--accent) 14%, transparent) calc(var(--segment-progress, 0) * 100%),
-    transparent calc(var(--segment-progress, 0) * 100%),
-    transparent 100%
-  );
-  background-repeat: no-repeat;
-  border-radius: 0.22em;
-  -webkit-box-decoration-break: clone;
-  box-decoration-break: clone;
-  padding: 0.03em 0.12em;
 }
 
 .script-span-text-pending {
   color: var(--text-secondary);
-  opacity: 0.9;
-  font-weight: 600;
+  opacity: 0.58;
 }
 
 .script-span-text-rendering {
   color: var(--text-primary);
-  font-weight: 700;
-  background-image: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--accent) 17%, transparent) 0,
-    color-mix(in srgb, var(--accent) 17%, transparent) calc(var(--segment-progress, 0) * 100%),
-    transparent calc(var(--segment-progress, 0) * 100%),
-    transparent 100%
-  );
-  background-repeat: no-repeat;
   border-radius: 0.25em;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
   padding: 0.06em 0.14em;
 }
 
+.script-progress-letter {
+  color: var(--text-secondary);
+  opacity: 0.58;
+  transition: color 0.12s ease, opacity 0.12s ease, text-shadow 0.12s ease;
+}
+
+.script-progress-letter.is-lit {
+  color: var(--text-primary);
+  opacity: 1;
+}
+
+.script-progress-letter.is-cursor {
+  color: var(--text-primary);
+  opacity: 1;
+}
+
 .script-span-text-queued {
   color: var(--text-secondary);
-  opacity: 0.82;
+  opacity: 0.58;
 }
 
 .book-paragraph .script-span.is-book-pending {
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-  outline: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+  background: transparent;
+  outline: none;
 }
 
 .book-paragraph .script-span.is-book-queued {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  outline: 1px solid color-mix(in srgb, var(--accent) 26%, transparent);
+  background: transparent;
+  outline: none;
 }
 
 .book-paragraph .script-span.is-book-rendering {
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-  outline: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  background: transparent;
+  outline: none;
 }
 
 .script-span-text-playing {

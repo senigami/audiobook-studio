@@ -633,3 +633,13 @@
 - Cached repeated profile-engine resolution in chunk grouping and switched chapter-segment validation from per-row file existence checks to a single directory scan.
 - Added a regression proving chunk grouping only resolves the engine once for repeated profiles.
 - Verified the chunk-groups, chapter cleanup, and chapter API regression slices plus lint after the optimization.
+
+# 2026-05-09 - Script Text Render Visualizer
+
+- Replaced the script render text cue from a whole-span gradient fill with per-character lit/cursor rendering for active spans.
+- Kept non-rendering spans as plain text so normal chapter text remains lightweight and readable.
+- Verified focused frontend coverage: `ScriptView.test.tsx`, `ChapterEditor_Queue.test.tsx`, `ChapterHeader.test.tsx`, `PredictiveProgressBarRendering.test.tsx`, plus `npm run build`.
+- Refined the preferred visual style: render-target text stays grey, the active sentence group uses a light warning-yellow highlight, and progress only turns letters back to normal dark text without bolding, glow, or background fill.
+- Fixed the batch-progress regression where only the first sentence in a render batch darkened before completion; book mode now wraps adjacent rendering spans in a batch group while keeping per-sentence spans for voice assignment.
+- Chapter render progress is distributed across the active render batch's ordered text weights so progress can move continuously through all sentences in the section.
+- Added predictive text-progress smoothing from the same job ETA/progress inputs as the header progress bar, with a 100ms chapter render tick so letters advance steadily between websocket updates instead of in bursty sentence chunks.

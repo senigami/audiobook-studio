@@ -183,7 +183,7 @@ describe('ScriptView', () => {
     expect(screen.getByText('Sentence two.').closest('.script-line')).toHaveClass('is-pending');
   });
 
-  it('renders active segment progress as a fill cue', () => {
+  it('renders active segment progress as lit letters with a cursor', () => {
     render(
       <ScriptView
         data={mockData}
@@ -191,16 +191,69 @@ describe('ScriptView', () => {
         onGenerateBatch={onGenerateBatch}
         pendingSpanIds={new Set(['s2'])}
         renderingSpanIds={new Set(['s2'])}
-        renderingSpanProgressById={{ s2: 0.5 }}
+        renderingSpanLitCountById={{ s2: 6 }}
         onPlaySpan={onPlaySpan}
       />
     );
 
-    const activeSpanText = screen.getByText('Sentence two.').closest('.script-span-text');
+    const activeSpan = screen.getByTestId('script-span-s2');
+    const activeSpanText = activeSpan.querySelector('.script-span-text');
+    const progressLetters = activeSpan.querySelectorAll('.script-progress-letter');
+    const litLetters = activeSpan.querySelectorAll('.script-progress-letter.is-lit');
+    const cursorLetters = activeSpan.querySelectorAll('.script-progress-letter.is-cursor');
+
     expect(activeSpanText).toHaveClass('script-span-text-book-rendering');
-    expect(activeSpanText).toHaveStyle({ '--segment-progress': '0.5' });
-    expect(screen.getByText('Sentence two.').closest('.script-span')).toHaveClass('is-book-rendering');
+    expect(progressLetters.length).toBe('Sentence two.'.length);
+    expect(progressLetters[0]).toHaveStyle({ '--script-progress-letter-index': '0' });
+    expect(progressLetters[1]).toHaveStyle({ '--script-progress-letter-index': '1' });
+    expect(litLetters.length).toBeGreaterThan(0);
+    expect(cursorLetters).toHaveLength(1);
+    expect(activeSpan).toHaveClass('is-book-rendering');
+    expect(screen.getByText('Sentence one.')).toBeInTheDocument();
+    expect(screen.getByText('Sentence one.').querySelector('.script-progress-letter')).toBeNull();
     expect(screen.getByText('Sentence one.').closest('.book-paragraph')).not.toHaveClass('is-rendering');
+  });
+
+  it('renders complete segment progress without a cursor', () => {
+    render(
+      <ScriptView
+        data={mockData}
+        characters={mockCharacters}
+        onGenerateBatch={onGenerateBatch}
+        pendingSpanIds={new Set(['s2'])}
+        renderingSpanIds={new Set(['s2'])}
+        renderingSpanLitCountById={{ s2: 13 }}
+        onPlaySpan={onPlaySpan}
+      />
+    );
+
+    const activeSpan = screen.getByTestId('script-span-s2');
+    const progressLetters = activeSpan.querySelectorAll('.script-progress-letter');
+    const litLetters = activeSpan.querySelectorAll('.script-progress-letter.is-lit');
+    const cursorLetters = activeSpan.querySelectorAll('.script-progress-letter.is-cursor');
+
+    expect(progressLetters.length).toBe('Sentence two.'.length);
+    expect(litLetters.length).toBe(progressLetters.length);
+    expect(cursorLetters).toHaveLength(0);
+  });
+
+  it('wraps adjacent rendering sentences in a shared book-mode progress group', () => {
+    render(
+      <ScriptView
+        data={mockData}
+        characters={mockCharacters}
+        onGenerateBatch={onGenerateBatch}
+        pendingSpanIds={new Set(['s1', 's2'])}
+        renderingSpanIds={new Set(['s1', 's2'])}
+        renderingSpanLitCountById={{ s1: 9, s2: 0 }}
+        onPlaySpan={onPlaySpan}
+      />
+    );
+
+    const renderGroup = screen.getByTestId('script-render-group-b1');
+    expect(renderGroup).toHaveClass('is-rendering');
+    expect(renderGroup).toContainElement(screen.getByTestId('script-span-s1'));
+    expect(renderGroup).toContainElement(screen.getByTestId('script-span-s2'));
   });
 
   it('toggles segment numbers', () => {

@@ -31,7 +31,7 @@ interface ScriptViewProps {
   pendingSpanIds: Set<string>;
   renderingSpanIds?: Set<string>;
   queuedSpanIds?: Set<string>;
-  renderingSpanProgressById?: Record<string, number>;
+  renderingSpanLitCountById?: Record<string, number>;
   playingSpanId?: string | null;
   playingSpanIds?: Set<string>;
   onPlaySpan?: (spanId: string) => void;
@@ -44,6 +44,37 @@ interface ScriptViewProps {
   speakers?: Speaker[];
 }
 
+const SegmentProgressText: React.FC<{ text: string; litCount: number }> = ({ text, litCount }) => {
+  const letters = Array.from(text);
+  const safeLitCount = Math.max(0, Math.min(litCount, letters.length));
+  // Cursor sits at the next character that hasn't been lit yet
+  const cursorIndex = safeLitCount < letters.length ? safeLitCount : -1;
+
+  return (
+    <>
+      {letters.map((letter, index) => {
+        const isCursor = index === cursorIndex;
+        const isLit = index < safeLitCount;
+        return (
+          <span
+            key={`${index}-${letter}`}
+            className={[
+              'script-progress-letter',
+              isLit ? 'is-lit' : '',
+              isCursor ? 'is-cursor' : '',
+            ].filter(Boolean).join(' ')}
+            style={{
+              '--script-progress-letter-index': index,
+            } as React.CSSProperties}
+          >
+            {letter}
+          </span>
+        );
+      })}
+    </>
+  );
+};
+
 export const ScriptView: React.FC<ScriptViewProps> = ({
   data,
   characters,
@@ -51,7 +82,7 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
   pendingSpanIds,
   renderingSpanIds = new Set<string>(),
   queuedSpanIds = new Set<string>(),
-  renderingSpanProgressById = {},
+  renderingSpanLitCountById = {},
   playingSpanId = null,
   playingSpanIds,
   onPlaySpan,
@@ -240,6 +271,26 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
     return () => document.removeEventListener('mousedown', onMouseDown);
   }, []);
 
+  const batchHasRenderState = (batch: ScriptRenderBatch | undefined) => {
+    if (!batch) return false;
+    return batch.span_ids.some(spanId =>
+      renderingSpanIds.has(spanId) || queuedSpanIds.has(spanId) || pendingSpanIds.has(spanId)
+    );
+  };
+
+  const batchRenderClassName = (batch: ScriptRenderBatch) => {
+    const isRendering = batch.span_ids.some(spanId => renderingSpanIds.has(spanId));
+    const isQueued = !isRendering && batch.span_ids.some(spanId => queuedSpanIds.has(spanId));
+    const isPending = !isRendering && !isQueued && batch.span_ids.some(spanId => pendingSpanIds.has(spanId));
+
+    return [
+      'script-render-group',
+      isRendering ? 'is-rendering' : '',
+      isQueued ? 'is-queued' : '',
+      isPending ? 'is-pending' : '',
+    ].filter(Boolean).join(' ');
+  };
+
   const renderSpan = (span: ScriptSpan, mode: 'book' | 'script' = 'book') => {
     const char = span.character_id ? charMap.get(span.character_id) : null;
     const batch = batchMap.get(span.id);
@@ -247,7 +298,7 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
     const isPending = pendingSpanIds.has(span.id);
     const isRendering = renderingSpanIds.has(span.id);
     const isQueued = queuedSpanIds.has(span.id);
-    const renderingProgress = isRendering ? Math.max(0, Math.min(renderingSpanProgressById[span.id] ?? 0, 1)) : 0;
+    const renderingLitCount = isRendering ? Math.max(0, renderingSpanLitCountById[span.id] ?? 0) : 0;
     const isPlaying = isPlayingSpan(span.id);
     const isReady = span.status === 'rendered' || (audioGroup && audioGroup.status === 'rendered');
     const displayText = showSafeText ? (span.sanitized_text || span.text) : span.text;
@@ -289,9 +340,10 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
 
         <span
           className={textClassName}
-          style={renderingProgress > 0 ? ({ '--segment-progress': renderingProgress } as React.CSSProperties) : undefined}
         >
-          {displayText}
+          {isRendering
+            ? <SegmentProgressText text={displayText} litCount={renderingLitCount} />
+            : displayText}
         </span>
 
         <div className="span-controls">
@@ -339,6 +391,59 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
 
   const renderBook = () => {
     return data.paragraphs.map(para => {
+      const nodes: React.ReactNode[] = [];
+      let groupBatch: ScriptRenderBatch | null = null;
+      let groupEntries: Array<{ span: ScriptSpan; index: number }> = [];
+
+      const flushGroup = () => {
+        if (!groupBatch || groupEntries.length === 0) return;
+
+        nodes.push(
+          <span
+            key={`render-group-${groupBatch.id}-${para.id}-${groupEntries[0].index}`}
+            className={batchRenderClassName(groupBatch)}
+            data-testid={`script-render-group-${groupBatch.id}`}
+          >
+            {groupEntries.map(({ span, index }) => (
+              <React.Fragment key={span.id}>
+                {renderSpan(span)}
+                {index < para.span_ids.length - 1 ? ' ' : null}
+              </React.Fragment>
+            ))}
+          </span>
+        );
+
+        groupBatch = null;
+        groupEntries = [];
+      };
+
+      para.span_ids.forEach((spanId, index) => {
+        const span = spanMap.get(spanId);
+        if (!span) return;
+
+        const batch = batchMap.get(span.id);
+        const shouldGroup = batchHasRenderState(batch);
+
+        if (batch && shouldGroup) {
+          if (groupBatch?.id !== batch.id) {
+            flushGroup();
+            groupBatch = batch;
+          }
+          groupEntries.push({ span, index });
+          return;
+        }
+
+        flushGroup();
+        nodes.push(
+          <React.Fragment key={spanId}>
+            {renderSpan(span)}
+            {index < para.span_ids.length - 1 ? ' ' : null}
+          </React.Fragment>
+        );
+      });
+
+      flushGroup();
+
       return (
         <div
           key={para.id}
@@ -355,17 +460,7 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
         >
           <div className="book-paragraph-gutter" />
           <div className="book-paragraph-text">
-            {para.span_ids.map((spanId, index) => {
-              const span = spanMap.get(spanId);
-              if (!span) return null;
-
-              return (
-                <React.Fragment key={spanId}>
-                  {renderSpan(span)}
-                  {index < para.span_ids.length - 1 ? ' ' : null}
-                </React.Fragment>
-              );
-            })}
+            {nodes}
           </div>
         </div>
       );

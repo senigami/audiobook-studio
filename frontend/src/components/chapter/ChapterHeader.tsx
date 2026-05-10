@@ -34,6 +34,7 @@ interface ChapterHeaderProps {
   onStopAll: () => void;
   onCommitSourceText?: () => void;
   canCommitSourceText?: boolean;
+  onSegmentDisplayProgress?: (progress: number) => void;
 }
 
 export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
@@ -62,7 +63,8 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
   onQueue,
   onStopAll,
   onCommitSourceText,
-  canCommitSourceText
+  canCommitSourceText,
+  onSegmentDisplayProgress,
 }) => {
   const hasChapterAudio = !!(chapter.has_wav || chapter.has_mp3 || chapter.has_m4a);
   const recentlyFinishedDoneJob = !!(job?.status === 'done' && job?.finished_at && ((Date.now() / 1000) - job.finished_at) <= RECENT_DONE_WINDOW_SECONDS);
@@ -374,6 +376,7 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
                       backwardTransitionTickCount={2}
                       tickMs={250}
                       showEta={false}
+                      onDisplayProgress={onSegmentDisplayProgress}
                   />
               </div>
           )}

@@ -21,6 +21,7 @@ import { useChapterPlayback } from '../hooks/useChapterPlayback';
 import { useChapterEditor } from '../hooks/useChapterEditor';
 import { buildVoiceOptions, getDefaultVoiceProfileName, getVoiceOptionLabel } from '../utils/voiceProfiles';
 import { buildChunkGroups } from '../utils/chunkGroups';
+
 import { 
   resolveVoiceEngineStatus, 
   downloadBlob, 
@@ -108,6 +109,10 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   const [resyncPreviewData, setResyncPreviewData] = useState<ResyncPreviewData | null>(null);
   const [isResyncing, setIsResyncing] = useState(false);
   const [sourceTextMode, setSourceTextMode] = useState<'view' | 'edit'>('view');
+  // Tracks the live interpolated display value from the header's PredictiveProgressBar
+  // so letter animation stays frame-accurate with the visual bar.
+  const [liveBarSegmentProgress, setLiveBarSegmentProgress] = useState(0);
+
   
   const [confirmConfig, setConfirmConfig] = useState<{
     title: string;
@@ -157,7 +162,14 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
       || chapterJobs.some(chapterJob => ['queued', 'preparing', 'running', 'finalizing'].includes(chapterJob.status));
   }, [job, chapter?.audio_status, chapterJobs]);
 
+
   const chapterRenderActiveSegmentId = job?.active_segment_id || generatingSegmentJob?.active_segment_id || null;
+
+  // When the active segment changes the header bar remounts with key={...segmentId...} and
+  // resets to 0. Mirror that reset here so letters don't show stale progress.
+  useEffect(() => {
+    setLiveBarSegmentProgress(0);
+  }, [chapterRenderActiveSegmentId]);
 
   const chapterRenderActiveBatchSegmentIds = useMemo(() => {
     if (!chapterRenderActiveSegmentId) return new Set<string>();
@@ -251,58 +263,52 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     return new Set(queuedBatchSpanIds.filter(id => !chapterRenderRenderingSegmentIds.has(id)));
   }, [job, chapterRenderActiveSegmentId, chapterRenderRenderingSegmentIds, scriptViewData?.render_batches]);
 
-  const chapterRenderRenderingSpanProgressById = useMemo(() => {
-    const progressById: Record<string, number> = {};
+  // Produces an integer lit-character count per span using a SINGLE global cursor across
+  // the entire batch — one Math.floor, no per-span rounding. This is the same "flat master
+  // array" trick as the standalone demo: completedChars + floor(barProgress * activeSpanChars)
+  // gives a global position; each span slices out its own segment of that integer count.
+  const chapterRenderRenderingSpanLitCountById = useMemo(() => {
+    const litCountById: Record<string, number> = {};
     const activeJob = generatingSegmentJob && ['queued', 'preparing', 'running', 'finalizing'].includes(generatingSegmentJob.status)
       ? generatingSegmentJob
       : (job && ['queued', 'preparing', 'running', 'finalizing'].includes(job.status) ? job : null);
     const activeSpanId = activeJob?.active_segment_id;
-    if (!activeSpanId || chapterRenderRenderingSegmentIds.size === 0) return progressById;
+    if (!activeSpanId || chapterRenderRenderingSegmentIds.size === 0) return litCountById;
 
-    const batchSpanIds = Array.from(chapterRenderRenderingSegmentIds);
+    const activeBatch = scriptViewData?.render_batches?.find(batch =>
+      batch.span_ids.includes(activeSpanId)
+    );
+    const batchSpanIds = (activeBatch?.span_ids ?? Array.from(chapterRenderRenderingSegmentIds))
+      .filter(spanId => chapterRenderRenderingSegmentIds.has(spanId));
     const batchSpans = batchSpanIds
       .map(spanId => scriptViewData?.spans?.find(span => span.id === spanId))
       .filter((span): span is NonNullable<typeof span> => !!span);
-    const spanWeight = (span: { char_count?: number; sanitized_char_count?: number }) =>
+    const spanChars = (span: { char_count?: number; sanitized_char_count?: number }) =>
       Math.max(1, span.sanitized_char_count || span.char_count || 1);
 
-    const totalWeight = batchSpans.reduce((sum, span) => sum + spanWeight(span), 0);
-    if (totalWeight <= 0) return progressById;
+    if (!batchSpanIds.includes(activeSpanId)) return litCountById;
 
-    const activeIndex = batchSpanIds.indexOf(activeSpanId);
-    if (activeIndex < 0) return progressById;
+    // One Math.floor — this is the only rounding in the entire pipeline.
+    const activeSpanIdx = batchSpans.findIndex(s => s.id === activeSpanId);
+    const completedChars = activeSpanIdx > 0
+      ? batchSpans.slice(0, activeSpanIdx).reduce((sum, s) => sum + spanChars(s), 0)
+      : 0;
+    const activeSpanCharCount = spanChars(batchSpans[activeSpanIdx] ?? { char_count: 1 });
+    const globalLitCount = completedChars + Math.floor(
+      Math.max(0, Math.min(liveBarSegmentProgress, 1)) * activeSpanCharCount
+    );
 
-    const activeProgress = typeof activeJob?.active_segment_progress === 'number'
-      ? activeJob.active_segment_progress
-      : typeof activeJob?.progress === 'number'
-        ? activeJob.progress
-        : 0;
-
-    const completedWeight = batchSpans
-      .slice(0, activeIndex)
-      .reduce((sum, span) => sum + spanWeight(span), 0);
-    const activeWeight = spanWeight(batchSpans[activeIndex] || { char_count: 1 });
-    const filledWeight = completedWeight + Math.max(0, Math.min(activeProgress, 1)) * activeWeight;
-
-    let cursor = 0;
+    // Slice the global cursor into per-span integer lit counts — pure integer math.
+    let offset = 0;
     for (const span of batchSpans) {
-      const weight = spanWeight(span);
-      const spanStart = cursor;
-      const spanEnd = cursor + weight;
-      let spanProgress = 0;
-
-      if (filledWeight >= spanEnd) {
-        spanProgress = 1;
-      } else if (filledWeight > spanStart) {
-        spanProgress = (filledWeight - spanStart) / weight;
-      }
-
-      progressById[span.id] = Math.max(0, Math.min(spanProgress, 1));
-      cursor = spanEnd;
+      const chars = spanChars(span);
+      litCountById[span.id] = Math.max(0, Math.min(globalLitCount - offset, chars));
+      offset += chars;
     }
 
-    return progressById;
-  }, [chapterRenderRenderingSegmentIds, generatingSegmentJob, job, scriptViewData?.spans]);
+    return litCountById;
+  }, [liveBarSegmentProgress, chapterRenderRenderingSegmentIds, generatingSegmentJob, job, scriptViewData?.render_batches, scriptViewData?.spans]);
+
 
   const { playingSegmentId, playingSegmentIds, playSegment, stopPlayback } = useChapterPlayback(
     projectId, segments, chunkGroups, chapterRenderPendingSegmentIds, 
@@ -433,6 +439,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         }}
         onCommitSourceText={handleRequestResyncPreview}
         canCommitSourceText={editorTab === 'edit' && sourceTextMode === 'edit' && (text !== chapter?.text_content)}
+        onSegmentDisplayProgress={setLiveBarSegmentProgress}
       />
 
       <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
@@ -470,7 +477,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                     pendingSpanIds={effectivePendingSegmentIds}
                     renderingSpanIds={chapterRenderRenderingSegmentIds}
                     queuedSpanIds={chapterRenderQueuedSegmentIds}
-                    renderingSpanProgressById={chapterRenderRenderingSpanProgressById}
+                    renderingSpanLitCountById={chapterRenderRenderingSpanLitCountById}
                     playingSpanId={playingSegmentId}
                     playingSpanIds={playingSegmentIds}
                     onPlaySpan={(sid) => playSegment(sid, segments.map(s => s.id))}
