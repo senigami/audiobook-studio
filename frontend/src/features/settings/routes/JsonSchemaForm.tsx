@@ -1,6 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { ToggleButton } from './SettingsComponents';
 
+const formatReadOnlyValue = (value: any, prop: any): string => {
+  const propUi = prop?.['x-ui'] || {};
+  if (propUi.display === 'computer_speed_cps') {
+    const rawMultiplier = Number(value ?? prop.default ?? 1);
+    const multiplier = Number.isFinite(rawMultiplier) ? rawMultiplier : 1;
+    const rawBaseline = Number(propUi.baseline_cps ?? 16.7);
+    const baseline = Number.isFinite(rawBaseline) ? rawBaseline : 16.7;
+    const cps = Math.max(0, multiplier * baseline);
+    return `${cps.toFixed(1)} characters/sec`;
+  }
+  return String(value ?? prop.default ?? '');
+};
+
 export const JsonSchemaForm: React.FC<{
   schema: any;
   values: Record<string, any>;
@@ -61,7 +74,7 @@ export const JsonSchemaForm: React.FC<{
                   color: 'var(--text-primary)',
                 }}
               >
-                {String(localValues[key] ?? prop.default ?? '')}
+                {formatReadOnlyValue(localValues[key], prop)}
               </div>
             ) : prop.type === 'boolean' ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>

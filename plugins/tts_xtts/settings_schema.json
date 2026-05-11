@@ -52,12 +52,16 @@
     },
     "computer_speed_multiplier": {
       "type": "number",
-      "title": "Computer Speed Multiplier",
-      "description": "Computed from completed renders for this plugin. This calibrates Studio's render-time estimates and does not change voice speaking speed.",
+      "title": "Computer Speed",
+      "description": "Computed from completed renders for this plugin and shown in characters per second. This calibrates Studio's render-time estimates and does not change voice speaking speed.",
       "minimum": 0.01,
       "maximum": 100,
       "default": 1.0,
-      "readOnly": true
+      "readOnly": true,
+      "x-ui": {
+        "display": "computer_speed_cps",
+        "baseline_cps": 16.7
+      }
     }
   },
   "additionalProperties": true,

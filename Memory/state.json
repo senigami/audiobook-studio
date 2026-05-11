@@ -1,9 +1,9 @@
 {
-  "snapshot_version": 34,
-  "updated_at": "2026-05-11T01:01:24Z",
+  "snapshot_version": 35,
+  "updated_at": "2026-05-11T01:05:03Z",
   "branch": "studio2/phase-11",
-  "current_task": "Phase 11 model-aware render speed history",
-  "status": "phase_11_model_aware_render_speed_history_verified",
+  "current_task": "Phase 11 plugin computer speed display",
+  "status": "phase_11_plugin_computer_speed_display_verified",
   "last_committed_milestone": {
     "title": "Phase 11 legacy engine implementation relocation",
     "commit": "572c435",
@@ -70,7 +70,8 @@
     "Project GET no longer performs implicit migration; reads should stay cheap and migration should remain an explicit maintenance action.",
     "Chapter segment loading is now the remaining hotspot; cache repeated profile-engine resolution and avoid repeated file existence checks on read.",
     "Render speed calibration is now plugin-local: the obsolete global audiobook speed multiplier is dropped, successful render samples save `computer_speed_multiplier` to the owning TTS plugin settings, ETA fallback can read that plugin value, and the plugin settings UI exposes it as read-only.",
-    "Render performance samples now include `tts_model`, and speed history used for CPS training and startup ETA is filtered by engine plus model when a model is known. Aggregate render totals remain model-independent."
+    "Render performance samples now include `tts_model`, and speed history used for CPS training and startup ETA is filtered by engine plus model when a model is known. Aggregate render totals remain model-independent.",
+    "Plugin settings expose computed computer speed as characters per second, not the raw internal speed multiplier."
   ],
   "codeql_context": {
     "github_setup": "advanced",

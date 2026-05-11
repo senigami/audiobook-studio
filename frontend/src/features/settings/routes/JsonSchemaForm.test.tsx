@@ -34,17 +34,21 @@ describe('JsonSchemaForm', () => {
     consoleError.mockRestore();
   });
 
-  it('shows computed read-only plugin settings without allowing edits', () => {
+  it('shows computed plugin computer speed as characters per second without allowing edits', () => {
     render(
       <JsonSchemaForm
         schema={{
           properties: {
             computer_speed_multiplier: {
               type: 'number',
-              title: 'Computer Speed Multiplier',
+              title: 'Computer Speed',
               description: 'Computed from completed renders.',
               default: 1,
               readOnly: true,
+              'x-ui': {
+                display: 'computer_speed_cps',
+                baseline_cps: 16.7,
+              },
             },
           },
         }}
@@ -55,8 +59,9 @@ describe('JsonSchemaForm', () => {
       />,
     );
 
-    expect(screen.getByText('Computer Speed Multiplier')).toBeInTheDocument();
-    expect(screen.getByText('1.75')).toBeInTheDocument();
+    expect(screen.getByText('Computer Speed')).toBeInTheDocument();
+    expect(screen.getByText('29.2 characters/sec')).toBeInTheDocument();
+    expect(screen.queryByText('1.75')).not.toBeInTheDocument();
     expect(screen.queryByRole('slider')).not.toBeInTheDocument();
   });
 });

@@ -660,3 +660,9 @@
 - Recorded model identity from synthesis settings, explicit job fields, speaker settings, or plugin settings when training successful render samples.
 - Updated worker CPS training and startup ETA history selection to filter by engine plus model, while keeping aggregate render totals independent of model.
 - Verified focused performance, migration, ETA, orchestrator, API engines, plugin loader, and TTS health suites, plus `ruff check` and `git diff --check`.
+
+# 2026-05-10 - Plugin Computer Speed Display
+
+- Changed plugin settings UI display for computed computer speed from the raw internal multiplier to characters per second.
+- XTTS and Voxtral settings schemas now label the read-only value as `Computer Speed` and mark it for CPS formatting.
+- Verified focused settings form/route tests, `git diff --check`, and frontend build.
