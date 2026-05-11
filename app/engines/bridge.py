@@ -103,6 +103,10 @@ class VoiceBridge:
         """Update and persist settings for an engine."""
         return self.remote.update_settings(engine_id, settings)
 
+    def clear_engine_setting(self, engine_id: str, setting_key: str) -> dict[str, Any]:
+        """Clear a read-only computed setting for an engine."""
+        return self.remote.clear_setting(engine_id, setting_key)
+
     def refresh_plugins(self) -> dict[str, Any]:
         """Re-scan for new plugins."""
         return self.remote.refresh_plugins()

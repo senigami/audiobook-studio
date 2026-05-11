@@ -2,6 +2,7 @@ import pytest
 import json
 import textwrap
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 from fastapi.testclient import TestClient
 from app.tts_server.plugin_loader import discover_plugins, LoadedPlugin
@@ -141,3 +142,39 @@ class TestTTSServerIsolation:
             assert len(_plugins) == 1
             assert _plugins[0].engine_id == "good"
             old_plugin.engine.shutdown.assert_called_once()
+
+    def test_clear_read_only_engine_setting(self, tmp_path):
+        from app.tts_server.server import app
+
+        plugin_dir = tmp_path / "tts_mock"
+        plugin_dir.mkdir()
+        (plugin_dir / "settings.json").write_text(
+            json.dumps({"temperature": 0.7, "computer_speed_multiplier": 1.75}),
+            encoding="utf-8",
+        )
+
+        class MockEngine:
+            def settings_schema(self):
+                return {
+                    "properties": {
+                        "temperature": {"type": "number"},
+                        "computer_speed_multiplier": {"type": "number", "readOnly": True},
+                    }
+                }
+
+        plugin = SimpleNamespace(
+            engine_id="mock",
+            plugin_dir=plugin_dir,
+            engine=MockEngine(),
+            manifest={},
+        )
+
+        with patch("app.tts_server.server._plugins", [plugin]):
+            client = TestClient(app)
+            response = client.delete("/engines/mock/settings/computer_speed_multiplier")
+
+        assert response.status_code == 200
+        assert response.json()["cleared"] is True
+        settings = json.loads((plugin_dir / "settings.json").read_text(encoding="utf-8"))
+        assert "computer_speed_multiplier" not in settings
+        assert settings["temperature"] == 0.7

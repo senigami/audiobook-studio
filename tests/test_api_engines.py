@@ -79,6 +79,7 @@ def test_list_engines_no_longer_falls_back_during_tts_server_startup(clean_db, c
 def test_update_engine_settings_and_refresh_delegate_to_bridge(clean_db, client):
     bridge = MagicMock()
     bridge.update_engine_settings.return_value = {"status": "ok", "engine_id": "xtts-local"}
+    bridge.clear_engine_setting.return_value = {"status": "ok", "engine_id": "xtts-local", "setting": "computer_speed_multiplier", "cleared": True}
     bridge.refresh_plugins.return_value = {"status": "ok", "loaded_count": 2}
 
     with patch("app.api.routers.engines.create_voice_bridge", return_value=bridge):
@@ -86,16 +87,25 @@ def test_update_engine_settings_and_refresh_delegate_to_bridge(clean_db, client)
             "/api/engines/xtts-local/settings",
             json={"temperature": 0.8, "speaker_name": "Narrator"},
         )
+        clear_response = client.delete("/api/engines/xtts-local/settings/computer_speed_multiplier")
         refresh_response = client.post("/api/engines/refresh")
 
     assert update_response.status_code == 200
     assert update_response.json() == {"status": "ok", "engine_id": "xtts-local"}
+    assert clear_response.status_code == 200
+    assert clear_response.json() == {
+        "status": "ok",
+        "engine_id": "xtts-local",
+        "setting": "computer_speed_multiplier",
+        "cleared": True,
+    }
     assert refresh_response.status_code == 200
     assert refresh_response.json() == {"status": "ok", "loaded_count": 2}
     bridge.update_engine_settings.assert_called_once_with(
         "xtts-local",
         {"temperature": 0.8, "speaker_name": "Narrator"},
     )
+    bridge.clear_engine_setting.assert_called_once_with("xtts-local", "computer_speed_multiplier")
     bridge.refresh_plugins.assert_called_once()
 
 

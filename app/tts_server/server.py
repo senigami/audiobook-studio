@@ -266,6 +266,51 @@ def update_engine_settings(
     return {"ok": True, "settings": merged}
 
 
+@app.delete("/engines/{engine_id}/settings/{setting_key}")
+def clear_engine_setting(engine_id: str, setting_key: str) -> dict[str, Any]:
+    """Clear a read-only computed engine setting.
+
+    Read-only computed values are excluded from verification hashes, so this
+    reset does not invalidate plugin verification.
+    """
+    plugin = _plugin_by_id(engine_id)
+
+    try:
+        schema = plugin.engine.settings_schema()
+    except Exception:
+        schema = {}
+    if not schema and getattr(plugin, "settings_schema", None):
+        schema = plugin.settings_schema
+    if not schema:
+        raise HTTPException(
+            status_code=500,
+            detail="Could not retrieve settings schema: engine provides no settings_schema",
+        )
+
+    properties = schema.get("properties", {})
+    prop = properties.get(setting_key) if isinstance(properties, dict) else None
+    if not prop:
+        raise HTTPException(status_code=404, detail=f"Unknown setting: {setting_key}")
+    if not prop.get("readOnly"):
+        raise HTTPException(
+            status_code=400,
+            detail="Only read-only computed settings can be reset.",
+        )
+
+    current = load_settings(plugin.plugin_dir)
+    if setting_key in current:
+        current.pop(setting_key, None)
+        save_settings(plugin.plugin_dir, current)
+
+    return {
+        "status": "ok",
+        "engine_id": engine_id,
+        "setting": setting_key,
+        "cleared": True,
+        "value": None,
+    }
+
+
 @app.post("/engines/{engine_id}/install")
 def install_dependencies(engine_id: str) -> dict[str, Any]:
     """Trigger dependency installation for an engine."""

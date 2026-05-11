@@ -55,6 +55,20 @@ export const EngineCard: React.FC<{
     }
   };
 
+  const handleResetSetting = async (settingKey: string) => {
+    setSaving(true);
+    try {
+      await api.clearEngineSetting(engine.engine_id, settingKey);
+      await onUpdate();
+      onShowNotification?.(`${engine.display_name} ${settingKey.replace(/_/g, ' ')} reset.`);
+    } catch (err) {
+      console.error('Failed to reset engine setting', err);
+      onShowNotification?.('Failed to reset engine setting.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <details
       style={{
@@ -215,6 +229,7 @@ export const EngineCard: React.FC<{
             schema={engine.settings_schema}
             values={engine.current_settings || {}}
             onSave={handleSaveSettings}
+            onReset={handleResetSetting}
             busy={saving}
             engineVerified={engine.verified}
           />

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { JsonSchemaForm } from './JsonSchemaForm';
 
@@ -63,5 +63,69 @@ describe('JsonSchemaForm', () => {
     expect(screen.getByText('29.2 characters/sec')).toBeInTheDocument();
     expect(screen.queryByText('1.75')).not.toBeInTheDocument();
     expect(screen.queryByRole('slider')).not.toBeInTheDocument();
+  });
+
+  it('allows resetting the computed plugin computer speed back to baseline', async () => {
+    const onReset = vi.fn();
+
+    render(
+      <JsonSchemaForm
+        schema={{
+          properties: {
+            computer_speed_multiplier: {
+              type: 'number',
+              title: 'Computer Speed',
+              description: 'Computed from completed renders.',
+              default: 1,
+              readOnly: true,
+              'x-ui': {
+                display: 'computer_speed_cps',
+                baseline_cps: 16.7,
+              },
+            },
+          },
+        }}
+        values={{ computer_speed_multiplier: 1.75 }}
+        onSave={vi.fn()}
+        onReset={onReset}
+        busy={false}
+        engineVerified={true}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /reset/i }));
+
+    await waitFor(() => {
+      expect(onReset).toHaveBeenCalledWith('computer_speed_multiplier');
+    });
+  });
+
+  it('shows a null computed speed as not yet computed', () => {
+    render(
+      <JsonSchemaForm
+        schema={{
+          properties: {
+            computer_speed_multiplier: {
+              type: 'number',
+              title: 'Computer Speed',
+              description: 'Computed from completed renders.',
+              default: 1,
+              readOnly: true,
+              'x-ui': {
+                display: 'computer_speed_cps',
+                baseline_cps: 16.7,
+              },
+            },
+          },
+        }}
+        values={{}}
+        onSave={vi.fn()}
+        busy={false}
+        engineVerified={true}
+      />,
+    );
+
+    expect(screen.getByText('Not yet computed')).toBeInTheDocument();
+    expect(screen.queryByText(/characters\/sec/)).not.toBeInTheDocument();
   });
 });

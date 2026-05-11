@@ -39,6 +39,22 @@ def update_engine_settings(engine_id: str, settings: dict[str, Any] = Body(...))
         return JSONResponse({"status": "error", "message": "Failed to update engine settings"}, status_code=500)
 
 
+@router.delete("/{engine_id}/settings/{setting_key}")
+def clear_engine_setting(engine_id: str, setting_key: str):
+    """Clear a read-only computed setting for an engine."""
+    from ...engines.errors import EngineUnavailableError
+    bridge = create_voice_bridge()
+    try:
+        result = bridge.clear_engine_setting(engine_id, setting_key)
+        return JSONResponse(result)
+    except EngineUnavailableError as exc:
+        return JSONResponse({"status": "error", "message": str(exc)}, status_code=503)
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).error(f"Engine setting reset failed: {exc}")
+        return JSONResponse({"status": "error", "message": "Failed to reset engine setting"}, status_code=500)
+
+
 @router.post("/refresh")
 def refresh_plugins():
     """Trigger a plugin re-scan (TTS Server path only)."""

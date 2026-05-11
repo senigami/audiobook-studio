@@ -113,14 +113,42 @@ def calculate_verification_metadata(plugin_dir: Path, manifest: dict[str, Any]) 
     else:
         metadata["requirements_hash"] = "none"
 
-    # Hash settings.json
+    # Hash settings.json, but ignore computed read-only values so resets do not
+    # force a re-verify.
     settings_file = plugin_dir / "settings.json"
     if settings_file.is_file():
-        metadata["settings_hash"] = hashlib.sha256(settings_file.read_bytes()).hexdigest()
+        settings = load_settings(plugin_dir)
+        schema = _load_settings_schema(plugin_dir)
+        normalized = _strip_read_only_settings(settings, schema)
+        settings_blob = json.dumps(normalized, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+        metadata["settings_hash"] = hashlib.sha256(settings_blob.encode("utf-8")).hexdigest()
     else:
         metadata["settings_hash"] = "none"
 
     return metadata
+
+
+def _load_settings_schema(plugin_dir: Path) -> dict[str, Any]:
+    schema_path = plugin_dir / "settings_schema.json"
+    if not schema_path.is_file():
+        return {}
+    try:
+        return json.loads(schema_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def _strip_read_only_settings(settings: dict[str, Any], schema: dict[str, Any]) -> dict[str, Any]:
+    properties = schema.get("properties", {}) if isinstance(schema, dict) else {}
+    if not isinstance(properties, dict) or not properties:
+        return dict(settings)
+
+    read_only_keys = {
+        key
+        for key, prop in properties.items()
+        if isinstance(prop, dict) and prop.get("readOnly")
+    }
+    return {key: value for key, value in settings.items() if key not in read_only_keys}
 
 
 def merge_settings(

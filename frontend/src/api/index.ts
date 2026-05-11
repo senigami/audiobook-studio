@@ -408,6 +408,12 @@ export const api = {
     });
     return parseApiResponse(res);
   },
+  clearEngineSetting: async (engineId: string, settingKey: string): Promise<any> => {
+    const res = await fetch(`/api/engines/${encodeURIComponent(engineId)}/settings/${encodeURIComponent(settingKey)}`, {
+      method: 'DELETE',
+    });
+    return parseApiResponse(res);
+  },
   refreshPlugins: async (): Promise<any> => {
     const res = await fetch('/api/engines/refresh', { method: 'POST' });
     return parseApiResponse(res);

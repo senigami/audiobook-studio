@@ -133,6 +133,10 @@ class RemoteBridgeHandler:
         """Update settings via TTS Server."""
         return self._get_tts_client().update_settings(engine_id, settings)
 
+    def clear_setting(self, engine_id: str, setting_key: str) -> dict[str, Any]:
+        """Clear a read-only computed setting via TTS Server."""
+        return self._get_tts_client().clear_setting(engine_id, setting_key)
+
     def refresh_plugins(self) -> dict[str, Any]:
         """Refresh plugins via TTS Server."""
         return self._get_tts_client().refresh_plugins()

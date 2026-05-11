@@ -4,7 +4,10 @@ import { ToggleButton } from './SettingsComponents';
 const formatReadOnlyValue = (value: any, prop: any): string => {
   const propUi = prop?.['x-ui'] || {};
   if (propUi.display === 'computer_speed_cps') {
-    const rawMultiplier = Number(value ?? prop.default ?? 1);
+    if (value === undefined || value === null || value === '') {
+      return 'Not yet computed';
+    }
+    const rawMultiplier = Number(value);
     const multiplier = Number.isFinite(rawMultiplier) ? rawMultiplier : 1;
     const rawBaseline = Number(propUi.baseline_cps ?? 16.7);
     const baseline = Number.isFinite(rawBaseline) ? rawBaseline : 16.7;
@@ -18,10 +21,12 @@ export const JsonSchemaForm: React.FC<{
   schema: any;
   values: Record<string, any>;
   onSave: (values: Record<string, any>) => void;
+  onReset?: (key: string) => Promise<void> | void;
   busy: boolean;
   engineVerified: boolean;
-}> = ({ schema, values, onSave, busy, engineVerified }) => {
+}> = ({ schema, values, onSave, onReset, busy, engineVerified }) => {
   const [localValues, setLocalValues] = useState<Record<string, any>>(values);
+  const [resettingKey, setResettingKey] = useState<string | null>(null);
 
   useEffect(() => {
     setLocalValues(values);
@@ -37,6 +42,18 @@ export const JsonSchemaForm: React.FC<{
 
   const handleChange = (key: string, value: any) => {
     setLocalValues((prev: Record<string, any>) => ({ ...prev, [key]: value }));
+  };
+
+  const handleReset = async (key: string) => {
+    if (!onReset) {
+      return;
+    }
+    setResettingKey(key);
+    try {
+      await onReset(key);
+    } finally {
+      setResettingKey((current) => (current === key ? null : current));
+    }
   };
 
   const hasChanges = JSON.stringify(localValues) !== JSON.stringify(values);
@@ -65,6 +82,10 @@ export const JsonSchemaForm: React.FC<{
             {isReadOnly ? (
               <div
                 style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '0.75rem',
                   padding: '0.65rem',
                   borderRadius: '10px',
                   border: '1px solid var(--border)',
@@ -74,7 +95,19 @@ export const JsonSchemaForm: React.FC<{
                   color: 'var(--text-primary)',
                 }}
               >
-                {formatReadOnlyValue(localValues[key], prop)}
+                <span>{formatReadOnlyValue(localValues[key], prop)}</span>
+                {onReset && (
+                  <button
+                    type="button"
+                    className="btn-glass"
+                    disabled={busy || resettingKey === key}
+                    onClick={() => handleReset(key)}
+                    title="Reset this computed value so it will be recalculated from the next render."
+                    style={{ padding: '0.35rem 0.65rem', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 900 }}
+                  >
+                    {resettingKey === key ? 'Resetting...' : 'Reset'}
+                  </button>
+                )}
               </div>
             ) : prop.type === 'boolean' ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>

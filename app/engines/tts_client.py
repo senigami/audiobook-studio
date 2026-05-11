@@ -112,6 +112,12 @@ class TtsClient:
             payload={"settings": settings},
         )
 
+    def clear_setting(self, engine_id: str, setting_key: str) -> dict[str, Any]:
+        """DELETE /engines/{engine_id}/settings/{setting_key}."""
+        return self._delete(
+            f"/engines/{_safe_id(engine_id)}/settings/{_safe_id(setting_key)}",
+        )
+
     # ------------------------------------------------------------------
     # Synthesis
     # ------------------------------------------------------------------
@@ -288,6 +294,21 @@ class TtsClient:
         url = f"{self.base_url}{path}"
         try:
             resp = httpx.put(url, json=payload, timeout=timeout)
+        except httpx.ConnectError as exc:
+            raise TtsServerConnectionError(
+                f"Could not connect to TTS Server at {url}: {exc}"
+            ) from exc
+        except httpx.TimeoutException as exc:
+            raise TtsServerConnectionError(
+                f"TTS Server request timed out: {url}: {exc}"
+            ) from exc
+        _raise_for_status(resp, url)
+        return resp.json()
+
+    def _delete(self, path: str, *, timeout: float = _CONNECT_TIMEOUT) -> Any:
+        url = f"{self.base_url}{path}"
+        try:
+            resp = httpx.delete(url, timeout=timeout)
         except httpx.ConnectError as exc:
             raise TtsServerConnectionError(
                 f"Could not connect to TTS Server at {url}: {exc}"

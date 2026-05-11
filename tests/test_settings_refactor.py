@@ -40,3 +40,41 @@ def test_api_home_reflects_new_state_structure(client, clean_state):
     assert "safe_mode" in settings
     assert "xtts_speed" not in settings
     assert "render_stats" in payload
+
+
+def test_verification_metadata_ignores_read_only_computed_settings(tmp_path):
+    from app.tts_server.settings_store import calculate_verification_metadata, save_settings
+
+    plugin_dir = tmp_path / "tts_mock"
+    plugin_dir.mkdir()
+    (plugin_dir / "settings_schema.json").write_text(
+        json.dumps(
+            {
+                "properties": {
+                    "temperature": {"type": "number"},
+                    "computer_speed_multiplier": {"type": "number", "readOnly": True},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    save_settings(
+        plugin_dir,
+        {
+            "temperature": 0.7,
+            "computer_speed_multiplier": 1.75,
+        },
+    )
+    first = calculate_verification_metadata(plugin_dir, {"engine_id": "mock"})
+
+    save_settings(
+        plugin_dir,
+        {
+            "temperature": 0.7,
+            "computer_speed_multiplier": 2.5,
+        },
+    )
+    second = calculate_verification_metadata(plugin_dir, {"engine_id": "mock"})
+
+    assert first["settings_hash"] == second["settings_hash"]

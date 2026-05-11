@@ -42,6 +42,21 @@ def save_engine_computer_speed_multiplier(engine_id: str, cps: float) -> None:
     save_settings(plugin_dir, settings)
 
 
+def clear_engine_computer_speed_multiplier(engine_id: str) -> None:
+    """Remove the persisted render speed calibration from plugin settings."""
+    from app.tts_server.plugin_loader import get_plugin_dir  # noqa: PLC0415
+
+    plugin_dir = get_plugin_dir(engine_id)
+    if not plugin_dir.is_dir():
+        logger.debug("Skipping speed calibration reset for missing plugin directory: %s", plugin_dir)
+        return
+
+    settings: dict[str, Any] = load_settings(plugin_dir)
+    if COMPUTER_SPEED_MULTIPLIER_KEY in settings:
+        settings.pop(COMPUTER_SPEED_MULTIPLIER_KEY, None)
+        save_settings(plugin_dir, settings)
+
+
 def get_engine_computer_speed_multiplier(engine_id: str) -> float:
     """Read the plugin-local render speed multiplier, defaulting to neutral speed."""
     from app.tts_server.plugin_loader import get_plugin_dir  # noqa: PLC0415

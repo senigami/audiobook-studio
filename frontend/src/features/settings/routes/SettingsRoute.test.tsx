@@ -10,6 +10,7 @@ vi.mock('../../../api', () => ({
     fetchEngines: vi.fn(),
     refreshPlugins: vi.fn(),
     updateEngineSettings: vi.fn(),
+    clearEngineSetting: vi.fn(),
     verifyEngine: vi.fn(),
     installEngineDependencies: vi.fn(),
     removeEnginePlugin: vi.fn(),
@@ -41,11 +42,22 @@ const mockedEngines = [
       properties: {
         temperature: { type: 'number', title: 'Temperature', default: 0.7, minimum: 0, maximum: 1 },
         speaker_name: { type: 'string', title: 'Speaker Name', default: 'Narrator' },
+        computer_speed_multiplier: {
+          type: 'number',
+          title: 'Computer Speed',
+          default: 1,
+          readOnly: true,
+          'x-ui': {
+            display: 'computer_speed_cps',
+            baseline_cps: 16.7,
+          },
+        },
       },
     },
     current_settings: {
       temperature: 0.55,
       speaker_name: 'Narrator',
+      computer_speed_multiplier: 1.75,
     },
   },
   {
@@ -322,6 +334,23 @@ describe('SettingsRoute', () => {
     await waitFor(() => {
       expect(api.refreshPlugins).toHaveBeenCalled();
       expect(api.fetchEngines).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('resets the computed computer speed setting through the engine card', async () => {
+    render(
+      <MemoryRouter initialEntries={['/settings/engines']}>
+        <SettingsRoute {...defaultProps} />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByText('XTTS Local'));
+    fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
+
+    await waitFor(() => {
+      expect(api.clearEngineSetting).toHaveBeenCalledWith('xtts-local', 'computer_speed_multiplier');
+      expect(defaultProps.onShowNotification).toHaveBeenCalledWith('XTTS Local computer speed multiplier reset.');
+      expect(defaultProps.onRefresh).toHaveBeenCalled();
     });
   });
 
