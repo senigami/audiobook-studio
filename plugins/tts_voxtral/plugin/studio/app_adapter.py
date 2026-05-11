@@ -35,11 +35,11 @@ FORBIDDEN_DIRECT_IMPORTS = (
 
 
 def wav_to_mp3(in_wav: Path, out_mp3: Path, on_output=None, cancel_check=None) -> int:
-    """Invoke the legacy audio conversion helper lazily."""
+    """Invoke the shared audio conversion helper lazily."""
 
-    from app.engines.audio_ops import wav_to_mp3 as legacy_wav_to_mp3
+    from app.engines.audio_ops import wav_to_mp3 as convert_wav_to_mp3
 
-    return legacy_wav_to_mp3(
+    return convert_wav_to_mp3(
         in_wav=in_wav,
         out_mp3=out_mp3,
         on_output=on_output,
@@ -48,29 +48,28 @@ def wav_to_mp3(in_wav: Path, out_mp3: Path, on_output=None, cancel_check=None) -
 
 
 def resolve_mistral_api_key() -> str | None:
-    """Resolve the Voxtral API key through the legacy helper lazily."""
+    """Resolve the Voxtral API key through the core helper lazily."""
 
-    from plugins.tts_voxtral.implementation import resolve_mistral_api_key as legacy_resolver
+    from ..core.implementation import resolve_mistral_api_key as resolver
 
-    return legacy_resolver()
+    return resolver()
 
 
 def resolve_voxtral_model() -> str:
-    """Resolve the Voxtral model name through the legacy helper lazily."""
+    """Resolve the Voxtral model name through the core helper lazily."""
 
-    from plugins.tts_voxtral.implementation import resolve_voxtral_model as legacy_resolver
+    from ..core.implementation import resolve_voxtral_model as resolver
 
-    return legacy_resolver()
+    return resolver()
 
 
 def _load_settings_schema() -> dict[str, object]:
-    from app.config import PLUGINS_DIR
-    schema_path = PLUGINS_DIR / "tts_voxtral" / "settings_schema.json"
+    schema_path = Path(__file__).parents[2] / "settings_schema.json"
     try:
         return json.loads(schema_path.read_text(encoding="utf-8"))
     except Exception:
         # Fallback to local if plugin directory is missing (e.g. minimal dev environment)
-        local_path = Path(__file__).with_name("settings_schema.json")
+        local_path = Path(__file__).parents[2] / "settings_schema.json"
         if local_path.exists():
             return json.loads(local_path.read_text(encoding="utf-8"))
         return {}
@@ -88,11 +87,11 @@ def voxtral_generate(
     reference_sample: str | None = None,
     task_id: str | None = None,
 ) -> int:
-    """Invoke the legacy Voxtral generator lazily."""
+    """Invoke the Voxtral generator lazily."""
 
-    from plugins.tts_voxtral.implementation import voxtral_generate as legacy_generate
+    from ..core.implementation import voxtral_generate as generate
 
-    return legacy_generate(
+    return generate(
         text=text,
         out_wav=out_wav,
         on_output=on_output,
@@ -230,7 +229,7 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
             render_wav_path = temp_wav
 
         try:
-            from plugins.tts_voxtral.implementation import VoxtralError
+            from ..core.implementation import VoxtralError
 
             rc = voxtral_generate(
                 text=script_text,
@@ -315,7 +314,7 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
         os.close(fd)
         out_wav = Path(out_wav_path)
         try:
-            from plugins.tts_voxtral.implementation import VoxtralError
+            from ..core.implementation import VoxtralError
 
             rc = voxtral_generate(
                 text=script_text,
@@ -432,7 +431,7 @@ class VoxtralProcessingHooks(VoiceProcessingHooks):
             profile_id = request.get("voice_profile_id")
             if profile_id:
                 from app.db.speakers import get_profile_wavs as get_speaker_wavs
-                from .implementation import _resolve_voxtral_reference_audio_path
+                from ..core.implementation import _resolve_voxtral_reference_audio_path
                 try:
                     sw = get_speaker_wavs(str(profile_id))
                     # Fallback to output_path parent for pdir if needed

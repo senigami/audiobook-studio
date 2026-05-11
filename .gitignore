@@ -12,6 +12,7 @@ state.json
 /voices/
 /uploads/
 /transient/
+/plugin_data/
 /xtts_audio/
 /chapters_out/
 /Memory/

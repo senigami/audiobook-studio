@@ -53,9 +53,9 @@ def xtts_generate(
     voice_profile_dir: Path | None = None,
     task_id: str | None = None,
 ) -> int:
-    """Invoke the legacy XTTS generator lazily."""
+    """Invoke the XTTS runtime generator lazily."""
 
-    from plugins.tts_xtts.implementation import (
+    from ..core.implementation import (
         xtts_generate, xtts_generate_script, get_speaker_latent_path,
         migrate_speaker_latent_to_profile
     )
@@ -82,11 +82,11 @@ def xtts_generate_script(
     speed: float = 1.0,
     task_id: str | None = None,
 ) -> int:
-    """Invoke the legacy XTTS script generator lazily."""
+    """Invoke the XTTS script generator lazily."""
 
-    from plugins.tts_xtts.implementation import xtts_generate_script as legacy_generate_script
+    from ..core.implementation import xtts_generate_script as generate_script
 
-    return legacy_generate_script(
+    return generate_script(
         script_json_path=script_json_path,
         out_wav=out_wav,
         on_output=on_output,
@@ -97,11 +97,11 @@ def xtts_generate_script(
 
 
 def wav_to_mp3(in_wav: Path, out_mp3: Path, on_output=None, cancel_check=None) -> int:
-    """Invoke the legacy audio conversion helper lazily."""
+    """Invoke the shared audio conversion helper lazily."""
 
-    from app.engines.audio_ops import wav_to_mp3 as legacy_wav_to_mp3
+    from app.engines.audio_ops import wav_to_mp3 as convert_wav_to_mp3
 
-    return legacy_wav_to_mp3(
+    return convert_wav_to_mp3(
         in_wav=in_wav,
         out_mp3=out_mp3,
         on_output=on_output,
@@ -111,7 +111,7 @@ def wav_to_mp3(in_wav: Path, out_mp3: Path, on_output=None, cancel_check=None) -
 
 @lru_cache(maxsize=1)
 def _load_settings_schema() -> dict[str, object]:
-    schema_path = Path(__file__).with_name("settings_schema.json")
+    schema_path = Path(__file__).parents[2] / "settings_schema.json"
     try:
         return json.loads(schema_path.read_text(encoding="utf-8"))
     except Exception:
@@ -263,7 +263,7 @@ class XttsVoiceEngine(BaseVoiceEngine):
             if request.get("script"):
                 # Handle script-based synthesis
                 script_data = request["script"]
-                # Write to temp file because legacy helper expects a path
+                # Write to a temp file because the generator expects a path.
                 with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
                     json.dump(script_data, f)
                     temp_script_path = Path(f.name)
@@ -462,7 +462,7 @@ class XttsProcessingHooks(VoiceProcessingHooks):
         XTTS performs best with shorter sentences; we leverage the established
         SENT_CHAR_LIMIT for chunking.
         """
-        from ...engines.behavior import get_text_chunk_limit
+        from app.engines.behavior import get_text_chunk_limit
         limit = get_text_chunk_limit("xtts")
         return SynthesisPlan(
             chunk_size=limit,

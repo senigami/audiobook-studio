@@ -4,7 +4,7 @@ Implements the ``StudioTTSEngine`` SDK contract.  This module runs inside the
 TTS Server subprocess.  It must NOT import from ``app.api``, ``app.domain``,
 ``app.orchestration``, or ``app.db``.
 
-Delegates to the plugin-owned ``plugins.tts_voxtral.implementation`` helpers via late imports.
+Delegates to plugin-owned implementation helpers via late imports.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ class VoxtralPlugin(StudioTTSEngine):
 
     def verify(self, req: TTSRequest) -> VerificationResult:
         """Perform a real API connectivity check by listing models."""
-        from .implementation import list_mistral_models  # noqa: PLC0415
+        from ..core.implementation import list_mistral_models  # noqa: PLC0415
 
         api_key = self._resolve_api_key()
         if not api_key:
@@ -49,7 +49,7 @@ class VoxtralPlugin(StudioTTSEngine):
 
     def info(self) -> dict[str, Any]:
         """Return runtime metadata including detected model and available models."""
-        from .implementation import list_mistral_models  # noqa: PLC0415
+        from ..core.implementation import list_mistral_models  # noqa: PLC0415
         model = self._resolve_model()
         api_key_set = bool(self._resolve_api_key())
         available_models = list_mistral_models() if api_key_set else []
@@ -92,12 +92,12 @@ class VoxtralPlugin(StudioTTSEngine):
 
     def settings_schema(self) -> dict[str, Any]:
         """Return the Voxtral settings JSON Schema, injecting discovered models."""
-        schema_path = Path(__file__).parent / "settings_schema.json"
+        schema_path = Path(__file__).parents[2] / "settings_schema.json"
         try:
             schema = json.loads(schema_path.read_text(encoding="utf-8"))
 
             # Inject available models into the enum if possible
-            from .implementation import list_mistral_models  # noqa: PLC0415
+            from ..core.implementation import list_mistral_models  # noqa: PLC0415
             models = list_mistral_models()
             if models and "model" in schema.get("properties", {}):
                 schema["properties"]["model"]["enum"] = models
@@ -257,7 +257,7 @@ class VoxtralPlugin(StudioTTSEngine):
     @staticmethod
     def _resolve_api_key() -> str | None:
         try:
-            from .implementation import resolve_mistral_api_key  # noqa: PLC0415
+            from ..core.implementation import resolve_mistral_api_key  # noqa: PLC0415
 
             return resolve_mistral_api_key()
         except Exception:
@@ -266,7 +266,7 @@ class VoxtralPlugin(StudioTTSEngine):
     @staticmethod
     def _resolve_model() -> str:
         try:
-            from .implementation import resolve_voxtral_model  # noqa: PLC0415
+            from ..core.implementation import resolve_voxtral_model  # noqa: PLC0415
 
             return resolve_voxtral_model()
         except Exception:
@@ -297,7 +297,7 @@ class VoxtralPlugin(StudioTTSEngine):
         reference_sample: str | None,
         task_id: str | None = None,
     ) -> int:
-        from .implementation import voxtral_generate as _gen  # noqa: PLC0415
+        from ..core.implementation import voxtral_generate as _gen  # noqa: PLC0415
 
         return _gen(
             text=text,

@@ -177,7 +177,7 @@ def verify_plugin(plugin: "LoadedPlugin") -> VerificationResult:
                 error=f"{exc_prefix}: {exc}",
             )
 
-        # Normalize legacy dict results or SDK VerificationResult to TTSResult
+        # Normalize plugin-provided dict results or SDK VerificationResult values.
         if isinstance(result, dict):
             from app.engines.voice.sdk import TTSResult  # noqa: PLC0415
             result = TTSResult(
@@ -253,6 +253,13 @@ def _resolve_plugin_test_sample(plugin: "LoadedPlugin") -> Path | None:
                 return sample_path
             continue
 
+        runtime_candidate = _resolve_runtime_sample(plugin=plugin, sample_name=sample_text)
+        if runtime_candidate:
+            return runtime_candidate
+
+        if _is_generated_sample_name(sample_text):
+            continue
+
         candidate = plugin_dir / sample_text
         try:
             candidate.resolve().relative_to(plugin_dir.resolve())
@@ -262,6 +269,31 @@ def _resolve_plugin_test_sample(plugin: "LoadedPlugin") -> Path | None:
             return candidate
 
     return None
+
+
+def _resolve_runtime_sample(*, plugin: "LoadedPlugin", sample_name: str) -> Path | None:
+    if not _is_generated_sample_name(sample_name):
+        return None
+
+    from app.config import PLUGIN_DATA_DIR  # noqa: PLC0415
+
+    manifest = plugin.manifest if isinstance(plugin.manifest, dict) else {}
+    engine_id = str(manifest.get("engine_id") or plugin.folder_name or "").strip()
+    if engine_id.startswith("tts_"):
+        engine_id = engine_id[4:]
+    safe_engine_id = "".join(ch for ch in engine_id if ch.isalnum() or ch in ("-", "_"))
+    if not safe_engine_id:
+        return None
+
+    candidate = PLUGIN_DATA_DIR / safe_engine_id / sample_name
+    if candidate.is_file():
+        return candidate
+    return None
+
+
+def _is_generated_sample_name(sample_name: str) -> bool:
+    sample_path = Path(sample_name)
+    return sample_path.name == sample_name and sample_name in {"sample.wav", "sample.mp3"}
 
 
 def verify_all(plugins: "list[LoadedPlugin]") -> list[VerificationResult]:

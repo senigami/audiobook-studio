@@ -5,9 +5,8 @@ TTS Server subprocess.  It must NOT import from ``app.api``, ``app.domain``,
 ``app.orchestration``, or ``app.db``.  All Studio internals are accessed via
 the HTTP boundary.
 
-The engine delegates actual synthesis to the plugin-owned
-``plugins.tts_xtts.implementation`` helpers via late imports so that loading
-this module does not trigger model loading.
+The engine delegates actual synthesis to plugin-owned helpers via late imports
+so that loading this module does not trigger model loading.
 """
 
 from __future__ import annotations
@@ -48,7 +47,7 @@ class XttsPlugin(StudioTTSEngine):
 
     def check_env(self) -> tuple[bool, str]:
         """Verify the XTTS runtime environment is ready."""
-        # 1. Check legacy manual environment override
+        # 1. Check manual environment override.
         env_activate = os.environ.get("XTTS_ENV_ACTIVATE", "")
         if env_activate:
             if Path(env_activate).exists():
@@ -71,7 +70,7 @@ class XttsPlugin(StudioTTSEngine):
         try:
             # Late import to see if the engine adapter can load its dependencies.
             # This does not load the heavy model weights into GPU memory.
-            from .implementation import xtts_generate  # noqa: F401, PLC0415
+            from ..core.implementation import xtts_generate  # noqa: F401, PLC0415
             return VerificationResult(ok=True, message="XTTS engine is ready.")
         except Exception as exc:
             return VerificationResult(
@@ -104,7 +103,7 @@ class XttsPlugin(StudioTTSEngine):
 
     def settings_schema(self) -> dict[str, Any]:
         """Return the XTTS settings JSON Schema."""
-        schema_path = Path(__file__).parent / "settings_schema.json"
+        schema_path = Path(__file__).parents[2] / "settings_schema.json"
         try:
             return json.loads(schema_path.read_text(encoding="utf-8"))
         except Exception:
@@ -269,7 +268,7 @@ class XttsPlugin(StudioTTSEngine):
             if vdir_path.exists() and vdir_path.is_dir():
                 return None, vdir_path
 
-        # 2. Fall back to the legacy voice engine helper for profile resolution.
+        # 2. Resolve a Studio voice profile id through the shared helper.
         try:
             from app.voice_engines import resolve_voice_preview_inputs  # noqa: PLC0415
 
@@ -297,8 +296,8 @@ class XttsPlugin(StudioTTSEngine):
         voice_profile_dir: Path | None,
         task_id: str | None,
     ) -> int:
-        """Delegate synthesis to the legacy XTTS generator."""
-        from .implementation import xtts_generate as _gen  # noqa: PLC0415
+        """Delegate synthesis to the XTTS runtime generator."""
+        from ..core.implementation import xtts_generate as _gen  # noqa: PLC0415
 
         return _gen(
             text=text,
@@ -322,8 +321,8 @@ class XttsPlugin(StudioTTSEngine):
         speed: float,
         task_id: str | None,
     ) -> int:
-        """Delegate script synthesis to the legacy XTTS batch generator."""
-        from .implementation import xtts_generate_script as _gen_script  # noqa: PLC0415
+        """Delegate script synthesis to the XTTS batch generator."""
+        from ..core.implementation import xtts_generate_script as _gen_script  # noqa: PLC0415
 
         return _gen_script(
             script_json_path=script_json_path,
@@ -336,7 +335,7 @@ class XttsPlugin(StudioTTSEngine):
 
     @staticmethod
     def _wav_to_mp3(in_wav: Path, out_mp3: Path) -> int:
-        """Delegate WAV→MP3 conversion to the legacy helper."""
+        """Delegate WAV to MP3 conversion to the shared audio helper."""
         from app.engines.audio_ops import wav_to_mp3 as _conv  # noqa: PLC0415
 
         return _conv(in_wav=in_wav, out_mp3=out_mp3)

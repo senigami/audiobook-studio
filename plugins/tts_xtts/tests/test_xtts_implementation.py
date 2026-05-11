@@ -3,7 +3,7 @@ import os
 import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-from plugins.tts_xtts.implementation import (
+from plugins.tts_xtts.plugin.core.implementation import (
     xtts_generate, xtts_generate_script, get_speaker_latent_path,
     migrate_speaker_latent_to_profile
 )
@@ -17,7 +17,7 @@ def mock_cancel_check():
     return MagicMock(return_value=False)
 
 def test_xtts_generate_success(mock_on_output, mock_cancel_check):
-    with patch("plugins.tts_xtts.implementation.XTTS_ENV_ACTIVATE") as mock_activate, \
+    with patch("plugins.tts_xtts.plugin.core.implementation.XTTS_ENV_ACTIVATE") as mock_activate, \
          patch("app.engines.proc_utils.run_cmd_stream", return_value=0) as mock_run:
         mock_activate.exists.return_value = True
 
@@ -26,7 +26,7 @@ def test_xtts_generate_success(mock_on_output, mock_cancel_check):
         assert "--voice_profile_dir" in mock_run.call_args[0][0]
 
 def test_xtts_generate_voice_profile_only(mock_on_output, mock_cancel_check):
-    with patch("plugins.tts_xtts.implementation.XTTS_ENV_ACTIVATE") as mock_activate, \
+    with patch("plugins.tts_xtts.plugin.core.implementation.XTTS_ENV_ACTIVATE") as mock_activate, \
          patch("app.engines.proc_utils.run_cmd_stream", return_value=0) as mock_run:
         mock_activate.exists.return_value = True
 
@@ -52,7 +52,7 @@ def test_xtts_generate_no_activate(mock_on_output, mock_cancel_check):
             raise ImportError("Mocked")
         return original_import(name, *args, **kwargs)
 
-    with patch("plugins.tts_xtts.implementation.XTTS_ENV_ACTIVATE") as mock_activate, \
+    with patch("plugins.tts_xtts.plugin.core.implementation.XTTS_ENV_ACTIVATE") as mock_activate, \
          patch("builtins.__import__", side_effect=mocked_import):
         mock_activate.exists.return_value = False
         rc = xtts_generate("Hello", Path("out.wav"), True, mock_on_output, mock_cancel_check, speaker_wav="spk.wav")
@@ -63,7 +63,7 @@ def test_xtts_generate_no_activate(mock_on_output, mock_cancel_check):
         assert "'TTS' not found in current environment" in msg
 
 def test_xtts_generate_script_includes_voice_profile_dir(mock_on_output, mock_cancel_check, tmp_path):
-    with patch("plugins.tts_xtts.implementation.XTTS_ENV_ACTIVATE") as mock_activate, \
+    with patch("plugins.tts_xtts.plugin.core.implementation.XTTS_ENV_ACTIVATE") as mock_activate, \
          patch("app.engines.proc_utils.run_cmd_stream", return_value=0) as mock_run:
         mock_activate.exists.return_value = True
 
@@ -96,13 +96,13 @@ def test_get_speaker_latent_path_profile_scoped(tmp_path):
 
 def test_migrate_speaker_latent_to_profile(tmp_path):
     # We need to mock get_speaker_latent_path to return a path we control that exists
-    legacy_latent = tmp_path / "legacy.pth"
-    legacy_latent.write_text("latent")
+    cached_latent = tmp_path / "cached.pth"
+    cached_latent.write_text("latent")
 
     target_dir = tmp_path / "VoiceA"
     target_dir.mkdir()
 
-    with patch("plugins.tts_xtts.implementation.get_speaker_latent_path", return_value=legacy_latent):
+    with patch("plugins.tts_xtts.plugin.core.implementation.get_speaker_latent_path", return_value=cached_latent):
         migrate_speaker_latent_to_profile("ref.wav", target_dir)
 
     assert (target_dir / "latent.pth").exists()

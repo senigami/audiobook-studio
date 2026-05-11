@@ -340,22 +340,29 @@ def _plugin_adapter_specs() -> list[tuple[Path, type[BaseVoiceEngine]]]:
         if not adapter_class_name:
             continue
 
-        adapter_module_name = (
-            str(payload.get("app_adapter_module") or "app_adapter").strip()
-            or "app_adapter"
-        )
-        module_path = f"plugins.{plugin_dir.name}.{adapter_module_name}"
-
-        try:
-            module = importlib.import_module(module_path)
-            engine_cls = getattr(module, adapter_class_name)
-        except Exception as exc:
+        declared_module = str(payload.get("app_adapter_module") or "").strip()
+        adapter_module_names = [declared_module] if declared_module else ["interface", "app_adapter"]
+        engine_cls = None
+        module_path = ""
+        last_error: Exception | None = None
+        for adapter_module_name in adapter_module_names:
+            if not adapter_module_name:
+                continue
+            module_path = f"plugins.{plugin_dir.name}.{adapter_module_name}"
+            try:
+                module = importlib.import_module(module_path)
+                engine_cls = getattr(module, adapter_class_name)
+                break
+            except Exception as exc:
+                last_error = exc
+                continue
+        if engine_cls is None:
             logger.warning(
-                "Plugin bundle %s declared adapter %s.%s but it could not be imported: %s",
+                "Plugin bundle %s declared adapter %s but it could not be imported from %s: %s",
                 plugin_dir.name,
-                module_path,
                 adapter_class_name,
-                exc,
+                ", ".join(adapter_module_names),
+                last_error,
             )
             continue
 

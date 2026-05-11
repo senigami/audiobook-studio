@@ -4,7 +4,7 @@ from ...config import get_project_m4b_dir
 from ...state import get_jobs, update_job, update_performance_metrics, get_performance_metrics
 from ...engines.audiobook_utils import assemble_audiobook
 from ...engines.proc_utils import terminate_all_subprocesses
-from ..core import format_seconds
+from ...orchestration.scheduler.eta import format_seconds
 
 def handle_audiobook_job(jid, j, start, on_output, cancel_check):
     if not j.project_id:

@@ -218,6 +218,100 @@ class Engine:
         assert result[0].engine_id == "dotted"
         assert result[0].folder_name == "tts_dotted"
 
+    def test_interface_entry_class_can_import_internal_package(self, tmp_path):
+        plugins_dir = tmp_path / "plugins"
+        plugins_dir.mkdir()
+        plugin_dir = plugins_dir / "tts_iface"
+        plugin_dir.mkdir()
+        (plugin_dir / "plugin").mkdir()
+        (plugin_dir / "plugin" / "__init__.py").write_text("", encoding="utf-8")
+        (plugin_dir / "plugin" / "core.py").write_text(
+            "READY_MESSAGE = 'OK from internal package'\n",
+            encoding="utf-8",
+        )
+        (plugin_dir / "interface.py").write_text(
+            textwrap.dedent(
+                """
+                from app.engines.voice.sdk import TTSResult
+                from .plugin.core import READY_MESSAGE
+
+                class InterfaceEngine:
+                    def info(self): return {}
+                    def check_env(self): return True, READY_MESSAGE
+                    def check_request(self, req): return True, "OK"
+                    def synthesize(self, req): return TTSResult(ok=True, output_path=req.output_path)
+                    def settings_schema(self): return {}
+                """
+            ),
+            encoding="utf-8",
+        )
+        (plugin_dir / "manifest.json").write_text(
+            json.dumps(
+                {
+                    "engine_id": "iface",
+                    "display_name": "Interface Engine",
+                    "entry_class": "interface:InterfaceEngine",
+                    "capabilities": ["synthesis"],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        result = discover_plugins(plugins_dir)
+
+        assert len(result) == 1
+        assert result[0].engine_id == "iface"
+        assert result[0].engine.check_env() == (True, "OK from internal package")
+
+    def test_dotted_entry_class_can_import_sibling_internal_module(self, tmp_path):
+        plugins_dir = tmp_path / "plugins"
+        plugins_dir.mkdir()
+        plugin_dir = plugins_dir / "tts_nested"
+        engine_dir = plugin_dir / "plugin" / "server"
+        core_dir = plugin_dir / "plugin" / "core"
+        engine_dir.mkdir(parents=True)
+        core_dir.mkdir(parents=True)
+        for pkg in [
+            plugin_dir / "plugin" / "__init__.py",
+            engine_dir / "__init__.py",
+            core_dir / "__init__.py",
+        ]:
+            pkg.write_text("", encoding="utf-8")
+        (core_dir / "runtime.py").write_text("READY_MESSAGE = 'nested ok'\n", encoding="utf-8")
+        (engine_dir / "engine.py").write_text(
+            textwrap.dedent(
+                """
+                from app.engines.voice.sdk import TTSResult
+                from ..core.runtime import READY_MESSAGE
+
+                class NestedEngine:
+                    def info(self): return {}
+                    def check_env(self): return True, READY_MESSAGE
+                    def check_request(self, req): return True, "OK"
+                    def synthesize(self, req): return TTSResult(ok=True, output_path=req.output_path)
+                    def settings_schema(self): return {}
+                """
+            ),
+            encoding="utf-8",
+        )
+        (plugin_dir / "manifest.json").write_text(
+            json.dumps(
+                {
+                    "engine_id": "nested",
+                    "display_name": "Nested Engine",
+                    "entry_class": "plugin.server.engine:NestedEngine",
+                    "capabilities": ["synthesis"],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        result = discover_plugins(plugins_dir)
+
+        assert len(result) == 1
+        assert result[0].engine_id == "nested"
+        assert result[0].engine.check_env() == (True, "nested ok")
+
 
 class TestManifestValidation:
     def test_missing_engine_id_raises(self, tmp_path):

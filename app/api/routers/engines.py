@@ -214,18 +214,25 @@ def _resolve_engine_test_sample(
     sample_names.append("sample.wav")
 
     for sample_name in sample_names:
-        if not sample_name:
+        sample_text = str(sample_name or "").strip()
+        if not sample_text:
             continue
-        sample_path = Path(sample_name)
+        sample_path = Path(sample_text)
         if sample_path.is_absolute():
             if sample_path.is_file():
                 return sample_path
             continue
 
+        runtime_candidate = _resolve_runtime_sample(engine_id=engine_id, sample_name=sample_text)
+        if runtime_candidate:
+            return runtime_candidate
+
         plugin_dir = _resolve_plugin_dir(engine_id=engine_id, module_path=module_path)
         if not plugin_dir:
             continue
-        candidate = plugin_dir / sample_name
+        if _is_generated_sample_name(sample_text):
+            continue
+        candidate = plugin_dir / sample_text
         try:
             candidate.resolve().relative_to(plugin_dir.resolve())
         except (ValueError, RuntimeError, OSError):
@@ -234,6 +241,27 @@ def _resolve_engine_test_sample(
             return candidate
 
     return None
+
+
+def _resolve_runtime_sample(*, engine_id: str, sample_name: str) -> Optional[Path]:
+    if not _is_generated_sample_name(sample_name):
+        return None
+
+    from app.config import PLUGIN_DATA_DIR  # noqa: PLC0415
+
+    safe_engine_id = "".join(ch for ch in engine_id if ch.isalnum() or ch in ("-", "_"))
+    if not safe_engine_id:
+        return None
+
+    candidate = PLUGIN_DATA_DIR / safe_engine_id / sample_name
+    if candidate.is_file():
+        return candidate
+    return None
+
+
+def _is_generated_sample_name(sample_name: str) -> bool:
+    sample_path = Path(sample_name)
+    return sample_path.name == sample_name and sample_name in {"sample.wav", "sample.mp3"}
 
 
 def _resolve_plugin_dir(*, engine_id: str, module_path: str) -> Optional[Path]:

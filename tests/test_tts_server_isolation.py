@@ -145,13 +145,11 @@ class TestTTSServerIsolation:
 
     def test_clear_read_only_engine_setting(self, tmp_path):
         from app.tts_server.server import app
+        from app.tts_server.settings_store import save_settings
 
         plugin_dir = tmp_path / "tts_mock"
         plugin_dir.mkdir()
-        (plugin_dir / "settings.json").write_text(
-            json.dumps({"temperature": 0.7, "computer_speed_multiplier": 1.75}),
-            encoding="utf-8",
-        )
+        plugin_data_dir = tmp_path / "plugin_data"
 
         class MockEngine:
             def settings_schema(self):
@@ -169,12 +167,15 @@ class TestTTSServerIsolation:
             manifest={},
         )
 
-        with patch("app.tts_server.server._plugins", [plugin]), patch("app.config.PLUGINS_DIR", tmp_path):
+        with patch("app.tts_server.server._plugins", [plugin]), \
+             patch("app.config.PLUGINS_DIR", tmp_path), \
+             patch("app.config.PLUGIN_DATA_DIR", plugin_data_dir):
+            save_settings(plugin_dir, {"temperature": 0.7, "computer_speed_multiplier": 1.75})
             client = TestClient(app)
             response = client.delete("/engines/mock/settings/computer_speed_multiplier")
 
         assert response.status_code == 200
         assert response.json()["cleared"] is True
-        settings = json.loads((plugin_dir / "settings.json").read_text(encoding="utf-8"))
+        settings = json.loads((plugin_data_dir / "mock" / "settings.json").read_text(encoding="utf-8"))
         assert "computer_speed_multiplier" not in settings
         assert settings["temperature"] == 0.7

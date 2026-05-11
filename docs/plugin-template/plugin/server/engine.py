@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import math
 import wave
+import json
 from pathlib import Path
 from typing import Any
 
@@ -115,38 +116,11 @@ class CloudMockEngine(StudioTTSEngine):
         )
 
     def settings_schema(self) -> dict[str, Any]:
-        return {
-            "$schema": "http://json-schema.org/draft-07/schema#",
-            "type": "object",
-            "properties": {
-                "sample_rate": {
-                    "type": "integer",
-                    "title": "Sample Rate",
-                    "default": 22050,
-                    "minimum": 8000,
-                    "maximum": 48000,
-                },
-                "speed_factor": {
-                    "type": "number",
-                    "title": "Speed Factor",
-                    "default": 1.0,
-                    "minimum": 0.5,
-                    "maximum": 2.0,
-                },
-                "api_key": {
-                    "type": "string",
-                    "title": "API Key",
-                    "format": "password",
-                    "description": "Mock API key (any value works for this PoC).",
-                },
-                "voice_id": {
-                    "type": "string",
-                    "title": "Default Voice ID",
-                    "description": "Optional engine-specific voice identifier.",
-                },
-            },
-            "required": [],
-        }
+        schema_path = Path(__file__).parents[2] / "settings_schema.json"
+        try:
+            return json.loads(schema_path.read_text(encoding="utf-8"))
+        except Exception:
+            return {"type": "object", "properties": {}}
 
     def preview(self, req: TTSRequest) -> TTSResult:
         return self.synthesize(req)

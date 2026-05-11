@@ -5,17 +5,18 @@
   "display_name": "XTTS (Local)",
   "version": "1.0.0",
   "min_studio": "2.0.0",
-  "entry_class": "engine:XttsPlugin",
+  "entry_class": "interface:XttsPlugin",
   "app_adapter_class": "XttsVoiceEngine",
+  "app_adapter_module": "interface",
   "capabilities": ["synthesis", "preview", "voice_cloning"],
   "worker_logic": {
     "engine_handlers": {
-      "xtts": "adapter:xtts_dispatch_adapter"
+      "xtts": "interface:xtts_dispatch_adapter"
     },
     "kind_handlers": {
-      "voice_build": "voice_adapter:voice_job_dispatch_adapter",
-      "voice_test": "voice_adapter:voice_job_dispatch_adapter",
-      "voice_task": "voice_adapter:voice_job_dispatch_adapter"
+      "voice_build": "interface:voice_job_dispatch_adapter",
+      "voice_test": "interface:voice_job_dispatch_adapter",
+      "voice_task": "interface:voice_job_dispatch_adapter"
     }
   },
   "behavior": {

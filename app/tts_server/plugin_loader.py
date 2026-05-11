@@ -16,6 +16,7 @@ import json
 import logging
 import re
 import sys
+import types
 from pathlib import Path
 from typing import Any
 
@@ -551,22 +552,13 @@ def _import_engine_class(
     spec_name = f"{package_name}.{module_name}"
 
     try:
-        # 1. Ensure the parent package exists in sys.modules so relative imports work.
-        if package_name not in sys.modules:
-            init_path = plugin_dir / "__init__.py"
-            if init_path.is_file():
-                p_spec = importlib.util.spec_from_file_location(package_name, init_path)
-                if p_spec and p_spec.loader:
-                    p_module = importlib.util.module_from_spec(p_spec)
-                    sys.modules[package_name] = p_module
-                    p_spec.loader.exec_module(p_module)
-            else:
-                # Create a dummy package module if __init__.py is missing.
-                import types
-                p_module = types.ModuleType(package_name)
-                p_module.__path__ = [str(plugin_dir)]
-                p_module.__file__ = str(plugin_dir / "__init__.py")
-                sys.modules[package_name] = p_module
+        # 1. Ensure package modules exist so interface.py and nested modules can
+        # use package-relative imports without colliding with other plugins.
+        _ensure_plugin_package_hierarchy(
+            package_name=package_name,
+            plugin_dir=plugin_dir,
+            module_parts=module_parts[:-1],
+        )
 
         # 2. Load the actual engine module.
         spec = importlib.util.spec_from_file_location(spec_name, module_path)
@@ -595,6 +587,32 @@ def _import_engine_class(
         )
 
     return engine_cls
+
+
+def _ensure_plugin_package_hierarchy(
+    *,
+    package_name: str,
+    plugin_dir: Path,
+    module_parts: list[str],
+) -> None:
+    """Create isolated package modules for a plugin's internal imports."""
+    current_name = package_name
+    current_path = plugin_dir
+    if current_name not in sys.modules:
+        module = types.ModuleType(current_name)
+        module.__path__ = [str(current_path)]
+        module.__file__ = str(current_path / "__init__.py")
+        sys.modules[current_name] = module
+
+    for part in module_parts:
+        current_name = f"{current_name}.{part}"
+        current_path = current_path / part
+        if current_name in sys.modules:
+            continue
+        module = types.ModuleType(current_name)
+        module.__path__ = [str(current_path)]
+        module.__file__ = str(current_path / "__init__.py")
+        sys.modules[current_name] = module
 
 
 def get_plugin_dir(engine_id: str) -> Path:

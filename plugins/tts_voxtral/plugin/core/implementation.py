@@ -1,5 +1,4 @@
 import base64
-import json
 import logging
 import os
 import shutil
@@ -32,18 +31,15 @@ def _noop_output(*_args) -> None:
 
 
 def resolve_mistral_api_key() -> Optional[str]:
-    # 1. Check plugin-local settings first. Voxtral-specific settings are
-    # persisted alongside the plugin and should take precedence over global
-    # Studio defaults so the UI-saved key wins.
+    # 1. Check plugin settings first. Voxtral-specific settings should take
+    # precedence over global Studio defaults so the UI-saved key wins.
     try:
-        from app.config import PLUGINS_DIR  # noqa: PLC0415
-        plugin_settings_path = PLUGINS_DIR / "tts_voxtral" / "settings.json"
-        if plugin_settings_path.exists():
-            import json
-            plugin_settings = json.loads(plugin_settings_path.read_text(encoding="utf-8"))
-            key = str(plugin_settings.get("mistral_api_key") or "").strip()
-            if key:
-                return key
+        from app.tts_server.settings_store import load_settings  # noqa: PLC0415
+
+        plugin_settings = load_settings(Path(__file__).parents[2])
+        key = str(plugin_settings.get("mistral_api_key") or "").strip()
+        if key:
+            return key
     except Exception:
         pass
 

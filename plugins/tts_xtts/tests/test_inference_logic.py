@@ -6,7 +6,7 @@ from pathlib import Path
 
 # Mock dependencies before importing
 with patch('argparse.ArgumentParser.parse_args'):
-    import plugins.tts_xtts.xtts_inference as xtts_inference
+    import plugins.tts_xtts.plugin.core.xtts_inference as xtts_inference
 
 def test_xtts_inference_guard_raises_on_missing_voice():
     # Verify the guard logic in _synthesize_one

@@ -161,16 +161,16 @@ def get_speaker_latent_path(speaker_wavs_str: str | list[str] | None, voice_prof
 
 
 def migrate_speaker_latent_to_profile(speaker_wavs_str: str | list[str] | None, voice_profile_dir: Path) -> Path | None:
-    """Copies a legacy cache latent into a profile-owned latent path if needed."""
+    """Copy a shared cache latent into a profile-owned latent path if needed."""
     profile_latent = Path(voice_profile_dir) / "latent.pth"
     if profile_latent.exists():
         return profile_latent
 
     _get_path = get_speaker_latent_path
-    legacy_latent = _get_path(speaker_wavs_str)
-    if legacy_latent and legacy_latent.exists():
+    cached_latent = _get_path(speaker_wavs_str)
+    if cached_latent and cached_latent.exists():
         profile_latent.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(legacy_latent, profile_latent)
+        shutil.copy2(cached_latent, profile_latent)
         return profile_latent
 
     return None

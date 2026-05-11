@@ -29,9 +29,9 @@ from app.domain.voices.preview import preview_voice_profile
 @pytest.fixture(autouse=True)
 def _disable_external_engines_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
     """Ensure tests run against a stable baseline by disabling external engine side-effects."""
-    monkeypatch.setattr("plugins.tts_voxtral.app_adapter.resolve_mistral_api_key", lambda: None)
-    monkeypatch.setattr("plugins.tts_xtts.app_adapter.XTTS_ENV_ACTIVATE", Path("/nonexistent/activate"))
-    monkeypatch.setattr("plugins.tts_xtts.app_adapter.XTTS_ENV_PYTHON", Path("/nonexistent/python"))
+    monkeypatch.setattr("plugins.tts_voxtral.plugin.studio.app_adapter.resolve_mistral_api_key", lambda: None)
+    monkeypatch.setattr("plugins.tts_xtts.plugin.studio.app_adapter.XTTS_ENV_ACTIVATE", Path("/nonexistent/activate"))
+    monkeypatch.setattr("plugins.tts_xtts.plugin.studio.app_adapter.XTTS_ENV_PYTHON", Path("/nonexistent/python"))
     from app.engines.registry import load_engine_registry
 
     load_engine_registry.cache_clear()
@@ -362,7 +362,7 @@ def test_preview_voice_profile_routes_through_real_bridge() -> None:
 def test_preview_voice_profile_rejects_non_wav_bridge_format(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr("plugins.tts_voxtral.app_adapter.resolve_mistral_api_key", lambda: "token")
+    monkeypatch.setattr("plugins.tts_voxtral.plugin.studio.app_adapter.resolve_mistral_api_key", lambda: "token")
     monkeypatch.setattr("app.state.get_settings", lambda: {"voxtral_enabled": True})
     from app.engines.registry import load_engine_registry
     load_engine_registry.cache_clear()

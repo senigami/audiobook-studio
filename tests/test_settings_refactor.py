@@ -78,3 +78,44 @@ def test_verification_metadata_ignores_read_only_computed_settings(tmp_path):
     second = calculate_verification_metadata(plugin_dir, {"engine_id": "mock"})
 
     assert first["settings_hash"] == second["settings_hash"]
+
+
+def test_plugin_settings_and_state_are_stored_outside_plugin_source(tmp_path, monkeypatch):
+    from app.tts_server.settings_store import load_settings, load_state, save_settings, save_state
+
+    plugin_data_dir = tmp_path / "plugin_data"
+    plugin_dir = tmp_path / "plugins" / "tts_mock"
+    plugin_dir.mkdir(parents=True)
+
+    monkeypatch.setattr("app.config.PLUGIN_DATA_DIR", plugin_data_dir)
+
+    save_settings(plugin_dir, {"temperature": 0.7})
+    save_state(plugin_dir, {"verified": True})
+
+    assert not (plugin_dir / "settings.json").exists()
+    assert not (plugin_dir / "state.json").exists()
+    assert load_settings(plugin_dir) == {"temperature": 0.7}
+    assert load_state(plugin_dir) == {"verified": True}
+    assert (plugin_data_dir / "mock" / "settings.json").is_file()
+    assert (plugin_data_dir / "mock" / "state.json").is_file()
+
+
+def test_plugin_root_runtime_files_are_ignored(tmp_path, monkeypatch):
+    from app.tts_server.settings_store import load_settings, load_state, save_settings
+
+    plugin_data_dir = tmp_path / "plugin_data"
+    plugin_dir = tmp_path / "plugins" / "tts_mock"
+    plugin_dir.mkdir(parents=True)
+    (plugin_dir / "settings.json").write_text(json.dumps({"temperature": 0.4}), encoding="utf-8")
+    (plugin_dir / "state.json").write_text(json.dumps({"verified": True}), encoding="utf-8")
+
+    monkeypatch.setattr("app.config.PLUGIN_DATA_DIR", plugin_data_dir)
+
+    assert load_settings(plugin_dir) == {}
+    assert load_state(plugin_dir) == {}
+
+    save_settings(plugin_dir, {"temperature": 0.9})
+    (plugin_dir / "settings.json").write_text(json.dumps({"temperature": 0.1}), encoding="utf-8")
+
+    assert load_settings(plugin_dir) == {"temperature": 0.9}
+    assert not (plugin_data_dir / "mock" / "state.json").exists()

@@ -5,15 +5,16 @@
   "display_name": "Voxtral (Mistral AI)",
   "version": "1.0.0",
   "min_studio": "2.0.0",
-  "entry_class": "engine:VoxtralPlugin",
+  "entry_class": "interface:VoxtralPlugin",
   "app_adapter_class": "VoxtralVoiceEngine",
+  "app_adapter_module": "interface",
   "capabilities": ["synthesis", "preview"],
   "worker_logic": {
     "engine_handlers": {
-      "voxtral": "handler:handle_voxtral_job"
+      "voxtral": "interface:handle_voxtral_job"
     },
     "kind_handlers": {
-      "standard": "handler:handle_voxtral_job"
+      "standard": "interface:handle_voxtral_job"
     }
   },
   "behavior": {

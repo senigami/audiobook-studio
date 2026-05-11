@@ -29,6 +29,7 @@ TRASH_DIR = Path(os.getenv("TRASH_DIR", str(BASE_DIR / "trash")))
 
 # Storage layout constants
 PLUGINS_DIR = Path(os.getenv("PLUGINS_DIR", str(BASE_DIR / "plugins")))
+PLUGIN_DATA_DIR = Path(os.getenv("PLUGIN_DATA_DIR", str(BASE_DIR / "plugin_data")))
 FRONTEND_DIST = BASE_DIR / "frontend" / "dist"
 SAFE_PROJECT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
 SAFE_VOICE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")

@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from app.engines.voice.sdk import TTSRequest
-from plugins.tts_xtts.engine import XttsPlugin
+from plugins.tts_xtts.interface import XttsPlugin
 
 
 def test_xtts_plugin_accepts_script_without_plain_text(tmp_path):

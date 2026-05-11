@@ -4,7 +4,7 @@
   "display_name": "Cloud Mock (PoC)",
   "version": "1.0.0",
   "min_studio": "2.0.0",
-  "entry_class": "engine:CloudMockEngine",
+  "entry_class": "interface:CloudMockEngine",
   "resource": {
     "gpu": false,
     "vram_mb": 0,

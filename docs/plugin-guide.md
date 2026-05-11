@@ -19,7 +19,7 @@ If a behavior is not supported, declare it as unsupported or return an explicit 
 2. Rename `engine_id`, `display_name`, and the engine class.
 3. Edit `manifest.json` so it declares the plugin's capabilities, behavior, and worker hooks.
 4. Edit `settings_schema.json` so it declares the plugin's settings contract.
-5. Implement your engine in `engine.py`.
+5. Implement your public surface in `interface.py` and your internals under `plugin/`.
 5. Start Studio and click `Refresh Plugins` in Settings > TTS Engines.
 6. Verify the plugin appears in the engine list and can pass discovery checks.
 7. Treat the template as the canonical example of the declared-hook model, not as a no-op stub library.
@@ -28,27 +28,36 @@ If a behavior is not supported, declare it as unsupported or return an explicit 
 
 ```text
 plugins/tts_myengine/
-├── manifest.json
-├── engine.py
-├── settings_schema.json
-├── settings.json
-├── requirements.txt
 ├── README.md
-└── assets/
+├── manifest.json
+├── settings_schema.json
+├── requirements.txt
+├── interface.py
+├── plugin/
+│   ├── server/
+│   ├── studio/
+│   └── core/
+└── tests/
 ```
 
 Required files:
 
 - `manifest.json`
-- `engine.py`
 - `settings_schema.json`
+- `interface.py`
 
 Optional files:
 
 - `requirements.txt`
 - `README.md`
-- `settings.json`
-- `assets/`
+- `tests/`
+
+`plugin/` is the recommended internal organization, not a hard requirement.
+Future plugins may use different internal folders as long as their manifest
+points Studio to valid entrypoints. Runtime data such as `settings.json` and
+`state.json`, plus generated verification samples such as `sample.wav`, is
+stored by Studio under `plugin_data/<engine_id>/`, not in the plugin source
+folder.
 
 ## What Studio Owns vs What The Plugin Owns
 
@@ -194,7 +203,7 @@ Studio uses this schema to:
 
 - render the engine card UI
 - validate updates
-- persist `settings.json`
+- persist runtime settings under Studio-owned `plugin_data/<engine_id>/`
 
 ## Manifest And Hook Declaration Rules
 
@@ -203,7 +212,7 @@ Use the manifest as the declaration layer:
 - `capabilities` says what the plugin can do
 - `behavior` says what Studio should ask for or expect from the plugin
 - `worker_logic` says which job kinds or engine ids the plugin owns, if the plugin participates in worker dispatch
-- `entry_class` says which class implements the plugin
+- `entry_class` says which class implements the plugin, usually via `interface.py`
 
 Use the Python SDK as the runtime layer:
 
@@ -327,8 +336,8 @@ Audiobook Studio uses a **User-Trust Model** for plugins, similar to systems lik
 3.  **No Studio Core Imports**: Plugins are strictly forbidden from importing `app.*` or accessing Studio's internal database and domain services. They interact with Studio exclusively through the defined SDK contract.
 4.  **Narrow File Access**: While not strictly sandboxed by the OS, the contract requires that plugins:
     *   Only write audio output to the requested `output_path`.
-    *   Only persist settings to their own `settings.json` within their plugin folder.
-    *   Do not read or write files outside their plugin folder or authorized asset paths.
+    *   Let Studio persist settings and verification state under `plugin_data/<engine_id>/`.
+    *   Do not read or write files outside their plugin folder, authorized asset paths, or requested output path.
 5.  **Verified Execution**: The **Verification Synthesis** step ensures that an engine can produce valid audio in the current environment before it is ever used for production rendering.
 
 ### User Guidance

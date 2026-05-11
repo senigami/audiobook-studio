@@ -167,6 +167,46 @@ class TestVerificationIsolation:
         assert result.error is None
         assert engine.check_request.call_args[0][0].voice_ref == str(sample_path)
 
+    def test_verify_uses_runtime_generated_sample_without_default_voice(self, tmp_path):
+        engine = MagicMock()
+        engine.check_request.return_value = (True, "OK")
+
+        plugin_dir = tmp_path / "tts_mock"
+        plugin_dir.mkdir()
+        plugin_data_dir = tmp_path / "plugin_data"
+        sample_path = plugin_data_dir / "mock" / "sample.wav"
+        sample_path.parent.mkdir(parents=True)
+        sample_path.write_text("reference audio")
+
+        def mock_synthesize(req):
+            assert req.voice_ref == str(sample_path)
+            Path(req.output_path).write_text("audio data")
+            return TTSResult(ok=True, output_path=req.output_path, duration_sec=1.5)
+
+        engine.synthesize.side_effect = mock_synthesize
+
+        plugin = LoadedPlugin(
+            folder_name="tts_mock",
+            plugin_dir=plugin_dir,
+            manifest={
+                "engine_id": "mock",
+                "display_name": "Mock",
+                "test_sample": "sample.wav",
+            },
+            engine=engine,
+        )
+
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setattr("app.state.get_settings", lambda: {"default_speaker_profile": ""})
+            mp.setattr("app.config.PLUGIN_DATA_DIR", plugin_data_dir)
+
+            result = verify_plugin(plugin)
+
+        assert result.ok is True
+        assert result.duration_sec == 1.5
+        assert result.error is None
+        assert engine.check_request.call_args[0][0].voice_ref == str(sample_path)
+
     def test_check_request_crash_isolated(self, tmp_path):
         """Exception in check_request() should result in failed verification but no crash."""
         engine = MagicMock()

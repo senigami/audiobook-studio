@@ -159,7 +159,9 @@ def test_engine_test_endpoint_uses_plugin_sample_without_default_voice(clean_db,
     plugins_dir = tmp_path / "plugins"
     plugin_dir = plugins_dir / "tts_mock"
     plugin_dir.mkdir(parents=True)
-    sample_path = plugin_dir / "sample.wav"
+    plugin_data_dir = tmp_path / "plugin_data"
+    sample_path = plugin_data_dir / "mock" / "sample.wav"
+    sample_path.parent.mkdir(parents=True)
     sample_path.write_bytes(b"reference wav")
 
     bridge = MagicMock()
@@ -187,6 +189,7 @@ def test_engine_test_endpoint_uses_plugin_sample_without_default_voice(clean_db,
          patch("app.tts_server.verification._resolve_default_voice_reference", return_value=(None, "No default voice set")), \
          patch("app.engines.registry.load_engine_registry", return_value={"mock": registration}), \
          patch("app.config.PLUGINS_DIR", plugins_dir), \
+         patch("app.config.PLUGIN_DATA_DIR", plugin_data_dir), \
          patch("app.config.ENGINE_TEST_DIR", tmp_path / "engine_tests"):
         response = client.post("/api/engines/mock/test")
 

@@ -2,7 +2,7 @@ import pytest
 import time
 from pathlib import Path
 from unittest.mock import patch, MagicMock, ANY
-from plugins.tts_xtts.handler import handle_xtts_job
+from plugins.tts_xtts.plugin.studio.handler import handle_xtts_job
 from app.models import Job
 
 @pytest.fixture
@@ -36,15 +36,15 @@ def test_handle_xtts_job_bake(mock_job, tmp_path):
     out_wav.write_text("output")
 
     # Local imports in handle_xtts_job: patch the source (app.db)
-    # Module imports in xtts.py: patch the target module (plugins.tts_xtts.handler)
+    # Module imports in xtts.py: patch the target module (plugins.tts_xtts.plugin.studio.handler)
     with patch("app.db.get_chapter_segments", return_value=segs), \
          patch("app.db.update_segment") as mock_update_seg, \
          patch("app.db.get_connection"), \
          patch("app.db.update_queue_item") as mock_update_queue, \
-         patch("plugins.tts_xtts.bake.generate_via_bridge", return_value=0) as mock_generate, \
-         patch("plugins.tts_xtts.handler.stitch_segments", return_value=0) as mock_stitch, \
-         patch("plugins.tts_xtts.handler.get_audio_duration", return_value=10.0) as mock_duration, \
-         patch("plugins.tts_xtts.handler.update_job") as mock_update_job:
+         patch("plugins.tts_xtts.plugin.studio.bake.generate_via_bridge", return_value=0) as mock_generate, \
+         patch("plugins.tts_xtts.plugin.studio.handler.stitch_segments", return_value=0) as mock_stitch, \
+         patch("plugins.tts_xtts.plugin.studio.handler.get_audio_duration", return_value=10.0) as mock_duration, \
+         patch("plugins.tts_xtts.plugin.studio.handler.update_job") as mock_update_job:
 
         # Simulate bridge progress
         def side_effect(**kwargs):
@@ -84,8 +84,8 @@ def test_handle_xtts_job_segments(mock_job, tmp_path):
     with patch("app.db.get_chapter_segments", return_value=all_segs), \
          patch("app.db.update_segment") as mock_update_seg, \
          patch("app.db.get_connection"), \
-         patch("plugins.tts_xtts.segments.generate_via_bridge", side_effect=inspect_script), \
-         patch("plugins.tts_xtts.handler.update_job") as mock_update_job:
+         patch("plugins.tts_xtts.plugin.studio.segments.generate_via_bridge", side_effect=inspect_script), \
+         patch("plugins.tts_xtts.plugin.studio.handler.update_job") as mock_update_job:
 
         handle_xtts_job(
             "test_job", mock_job, time.time(), 
@@ -123,10 +123,10 @@ def test_handle_xtts_job_segments_uses_default_voice_profile_dir_for_narrator(mo
     with patch("app.db.get_chapter_segments", return_value=all_segs), \
          patch("app.db.update_segment"), \
          patch("app.db.get_connection"), \
-         patch("plugins.tts_xtts.segments.generate_via_bridge", side_effect=inspect_script), \
-         patch("plugins.tts_xtts.handler.update_job"), \
-         patch("plugins.tts_xtts.handler.get_speaker_wavs", return_value=None), \
-         patch("plugins.tts_xtts.handler.get_voice_profile_dir", return_value=Path("/tmp/voices/Senigami")):
+         patch("plugins.tts_xtts.plugin.studio.segments.generate_via_bridge", side_effect=inspect_script), \
+         patch("plugins.tts_xtts.plugin.studio.handler.update_job"), \
+         patch("plugins.tts_xtts.plugin.studio.handler.get_speaker_wavs", return_value=None), \
+         patch("plugins.tts_xtts.plugin.studio.handler.get_voice_profile_dir", return_value=Path("/tmp/voices/Senigami")):
 
         handle_xtts_job(
             "test_job", mock_job, time.time(),
@@ -155,18 +155,18 @@ def test_handle_xtts_job_standard_mixed_latent_only_profiles_builds_script(mock_
             save_path.write_text("chunk")
         return 0
 
-    with patch("plugins.tts_xtts.handler.load_chunk_segments", return_value=[
+    with patch("plugins.tts_xtts.plugin.studio.handler.load_chunk_segments", return_value=[
             {"id": "n1", "text_content": "Narrator one.", "character_id": None, "speaker_profile_name": None, "character_speaker_profile_name": None, "audio_status": "unprocessed", "audio_file_path": None},
             {"id": "n2", "text_content": "Narrator two.", "character_id": None, "speaker_profile_name": None, "character_speaker_profile_name": None, "audio_status": "unprocessed", "audio_file_path": None},
             {"id": "c1", "text_content": "Character line.", "character_id": "char1", "speaker_profile_name": "Old Man - Angry", "character_speaker_profile_name": "Old Man - Angry", "audio_status": "unprocessed", "audio_file_path": None},
         ]), \
          patch("app.db.update_segments_status_bulk"), \
          patch("app.db.update_segment"), \
-         patch("plugins.tts_xtts.standard_handler.generate_via_bridge", side_effect=inspect_script), \
-         patch("plugins.tts_xtts.handler.stitch_segments", side_effect=lambda *_args, **_kwargs: (out_wav.write_text("wav"), 0)[1]), \
-         patch("plugins.tts_xtts.handler.update_job"), \
-         patch("plugins.tts_xtts.handler.get_speaker_wavs", return_value=None), \
-         patch("plugins.tts_xtts.handler.get_voice_profile_dir", side_effect=lambda name: Path(f"/tmp/voices/{name}")):
+         patch("plugins.tts_xtts.plugin.studio.standard_handler.generate_via_bridge", side_effect=inspect_script), \
+         patch("plugins.tts_xtts.plugin.studio.handler.stitch_segments", side_effect=lambda *_args, **_kwargs: (out_wav.write_text("wav"), 0)[1]), \
+         patch("plugins.tts_xtts.plugin.studio.handler.update_job"), \
+         patch("plugins.tts_xtts.plugin.studio.handler.get_speaker_wavs", return_value=None), \
+         patch("plugins.tts_xtts.plugin.studio.handler.get_voice_profile_dir", side_effect=lambda name: Path(f"/tmp/voices/{name}")):
 
         handle_xtts_job(
             "test_job", mock_job, time.time(),
@@ -200,16 +200,16 @@ def test_handle_xtts_job_standard_with_mp3(mock_job, tmp_path):
             Path(entry["save_path"]).write_text("chunk")
         return 0
 
-    with patch("plugins.tts_xtts.handler.load_chunk_segments", return_value=[
+    with patch("plugins.tts_xtts.plugin.studio.handler.load_chunk_segments", return_value=[
             {"id": "s1", "text_content": "Hello", "character_id": None, "speaker_profile_name": None, "character_speaker_profile_name": None, "audio_status": "unprocessed", "audio_file_path": None},
         ]), \
          patch("app.db.get_connection") as mock_conn, \
          patch("app.db.update_segments_status_bulk"), \
          patch("app.db.update_segment"), \
-         patch("plugins.tts_xtts.standard_handler.generate_via_bridge", side_effect=inspect_script), \
-         patch("plugins.tts_xtts.handler.stitch_segments", side_effect=lambda *_args, **_kwargs: (out_wav.write_text("wav"), 0)[1]), \
-         patch("plugins.tts_xtts.handler.wav_to_mp3", return_value=0), \
-         patch("plugins.tts_xtts.handler.update_job") as mock_update_job:
+         patch("plugins.tts_xtts.plugin.studio.standard_handler.generate_via_bridge", side_effect=inspect_script), \
+         patch("plugins.tts_xtts.plugin.studio.handler.stitch_segments", side_effect=lambda *_args, **_kwargs: (out_wav.write_text("wav"), 0)[1]), \
+         patch("plugins.tts_xtts.plugin.studio.handler.wav_to_mp3", return_value=0), \
+         patch("plugins.tts_xtts.plugin.studio.handler.update_job") as mock_update_job:
 
         handle_xtts_job(
             "test_job", mock_job, time.time(),
@@ -235,17 +235,17 @@ def test_handle_xtts_job_creates_missing_project_audio_dir(mock_job, tmp_path):
             Path(entry["save_path"]).write_text("chunk")
         return 0
 
-    with patch("plugins.tts_xtts.handler.load_chunk_segments", return_value=[
+    with patch("plugins.tts_xtts.plugin.studio.handler.load_chunk_segments", return_value=[
             {"id": "s1", "text_content": "Hello", "character_id": None, "speaker_profile_name": None, "character_speaker_profile_name": None, "audio_status": "unprocessed", "audio_file_path": None},
         ]), \
          patch("app.db.get_connection") as mock_conn, \
          patch("app.db.update_segments_status_bulk"), \
          patch("app.db.update_segment"), \
-         patch("plugins.tts_xtts.standard_handler.generate_via_bridge", side_effect=inspect_script), \
-         patch("plugins.tts_xtts.handler.stitch_segments", side_effect=lambda *_args, **_kwargs: (out_wav.write_text("wav"), 0)[1]), \
-         patch("plugins.tts_xtts.handler.update_job"), \
-         patch("plugins.tts_xtts.handler.get_speaker_wavs", return_value=None), \
-         patch("plugins.tts_xtts.handler.get_voice_profile_dir", return_value=Path("/tmp/voices/Senigami")):
+         patch("plugins.tts_xtts.plugin.studio.standard_handler.generate_via_bridge", side_effect=inspect_script), \
+         patch("plugins.tts_xtts.plugin.studio.handler.stitch_segments", side_effect=lambda *_args, **_kwargs: (out_wav.write_text("wav"), 0)[1]), \
+         patch("plugins.tts_xtts.plugin.studio.handler.update_job"), \
+         patch("plugins.tts_xtts.plugin.studio.handler.get_speaker_wavs", return_value=None), \
+         patch("plugins.tts_xtts.plugin.studio.handler.get_voice_profile_dir", return_value=Path("/tmp/voices/Senigami")):
 
         handle_xtts_job(
             "test_job", mock_job, time.time(),
@@ -262,8 +262,8 @@ def test_handle_xtts_job_cancel(mock_job, tmp_path):
     out_wav = pdir / "output.wav"
     out_mp3 = pdir / "output.mp3"
 
-    with patch("plugins.tts_xtts.standard_handler.generate_via_bridge", return_value=0), \
-         patch("plugins.tts_xtts.handler.update_job") as mock_update_job:
+    with patch("plugins.tts_xtts.plugin.studio.standard_handler.generate_via_bridge", return_value=0), \
+         patch("plugins.tts_xtts.plugin.studio.handler.update_job") as mock_update_job:
 
         handle_xtts_job(
             "test_job", mock_job, time.time(), 

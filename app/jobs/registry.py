@@ -1,5 +1,8 @@
 from __future__ import annotations
 import logging
+import re
+import sys
+import types
 from typing import Callable, Dict, Any, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -62,8 +65,6 @@ def initialize_default_handlers():
     from .handlers.audiobook import handle_audiobook_job
     from app.config import PLUGINS_DIR
     import json
-    import importlib.util
-    import sys
 
     reg = get_handler_registry()
 
@@ -107,32 +108,81 @@ def initialize_default_handlers():
                 handlers_map = worker_logic.get(section, {})
                 for key, handler_spec in handlers_map.items():
                     try:
-                        if ":" not in handler_spec:
-                            logger.warning("Invalid handler spec %r in %s", handler_spec, entry.name)
-                            continue
-
-                        module_name, func_name = handler_spec.split(":", 1)
-                        # Support submodules if needed, but for now expect flat files in plugin root
-                        module_path = entry / f"{module_name}.py"
-                        if not module_path.is_file():
-                            logger.warning("Handler module %s not found in %s", module_name, entry.name)
-                            continue
-
-                        # Use a unique spec name to avoid collisions
-                        spec_name = f"_job_plugin_{entry.name}_{module_name}"
-                        spec = importlib.util.spec_from_file_location(spec_name, module_path)
-                        if spec and spec.loader:
-                            module = importlib.util.module_from_spec(spec)
-                            # Add the plugin directory to sys.path temporarily to allow local imports within the plugin
-                            # but better to use absolute imports for app.*
-                            sys.modules[spec_name] = module
-                            spec.loader.exec_module(module)
-                            handler_func = getattr(module, func_name, None)
-                            if handler_func:
-                                registry_method(key, handler_func)
-                            else:
-                                logger.error("Handler function %s not found in %s", func_name, module_path)
+                        handler_func = _load_plugin_callable(
+                            plugin_dir=entry,
+                            folder_name=entry.name,
+                            handler_spec=str(handler_spec),
+                        )
+                        if handler_func:
+                            registry_method(key, handler_func)
                     except Exception as e:
                         logger.error("Failed to load handler %s from %s: %s", handler_spec, entry.name, e)
         except Exception as e:
             logger.error("Failed to process plugin %s for job handlers: %s", entry.name, e)
+
+
+def _load_plugin_callable(*, plugin_dir, folder_name: str, handler_spec: str) -> HandlerFunc | None:
+    import importlib.util
+
+    if ":" not in handler_spec:
+        logger.warning("Invalid handler spec %r in %s", handler_spec, folder_name)
+        return None
+
+    module_name, func_name = handler_spec.split(":", 1)
+    module_name = module_name.strip()
+    func_name = func_name.strip()
+    if not re.match(r"^[a-z_][a-z0-9_.]*$", module_name):
+        logger.warning("Invalid handler module %r in %s", module_name, folder_name)
+        return None
+
+    module_parts = module_name.split(".")
+    module_path = plugin_dir.joinpath(*module_parts[:-1], f"{module_parts[-1]}.py")
+    try:
+        module_path.resolve().relative_to(plugin_dir.resolve())
+    except (ValueError, RuntimeError):
+        logger.warning("Handler module path escapes plugin directory: %s in %s", module_name, folder_name)
+        return None
+    if not module_path.is_file():
+        logger.warning("Handler module %s not found in %s", module_name, folder_name)
+        return None
+
+    package_name = f"_job_plugin_{folder_name}"
+    spec_name = f"{package_name}.{module_name}"
+    _ensure_plugin_package_hierarchy(
+        package_name=package_name,
+        plugin_dir=plugin_dir,
+        module_parts=module_parts[:-1],
+    )
+    spec = importlib.util.spec_from_file_location(spec_name, module_path)
+    if not spec or not spec.loader:
+        logger.warning("Could not create handler module spec for %s in %s", module_name, folder_name)
+        return None
+
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec_name] = module
+    spec.loader.exec_module(module)
+    handler_func = getattr(module, func_name, None)
+    if not handler_func:
+        logger.error("Handler function %s not found in %s", func_name, module_path)
+        return None
+    return handler_func
+
+
+def _ensure_plugin_package_hierarchy(*, package_name: str, plugin_dir, module_parts: list[str]) -> None:
+    current_name = package_name
+    current_path = plugin_dir
+    if current_name not in sys.modules:
+        module = types.ModuleType(current_name)
+        module.__path__ = [str(current_path)]
+        module.__file__ = str(current_path / "__init__.py")
+        sys.modules[current_name] = module
+
+    for part in module_parts:
+        current_name = f"{current_name}.{part}"
+        current_path = current_path / part
+        if current_name in sys.modules:
+            continue
+        module = types.ModuleType(current_name)
+        module.__path__ = [str(current_path)]
+        module.__file__ = str(current_path / "__init__.py")
+        sys.modules[current_name] = module
