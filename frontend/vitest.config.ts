@@ -6,6 +6,12 @@ export default mergeConfig(viteConfig, defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: './vitest.setup.ts',
+    exclude: [
+      'node_modules/**',
+      '**/node_modules/**',
+      'e2e/**',
+      '**/*.spec.{ts,tsx}',
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
