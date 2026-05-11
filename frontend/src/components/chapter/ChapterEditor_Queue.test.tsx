@@ -523,7 +523,7 @@ describe('ChapterEditor - Queueing & Generation', () => {
     expect(document.querySelectorAll('.script-span.is-book-rendering').length).toBe(0);
   });
 
-  it('moves the segment progress cue to the active sentence within the batch', async () => {
+  it('maps top-bar block progress across the active render batch text', async () => {
     const renderingChapter = {
       ...mockChapter,
       audio_status: 'processing' as const,
@@ -580,9 +580,11 @@ describe('ChapterEditor - Queueing & Generation', () => {
             chapter_id: mockChapterId,
             safe_mode: false,
             make_mp3: false,
-            progress: 0.18,
+            progress: 0.22,
             active_segment_id: 'seg-1',
             active_segment_progress: 1,
+            active_render_batch_progress: 0.25,
+            render_group_count: 1,
             total_render_weight: 8,
             completed_render_weight: 0,
             active_render_group_weight: 8,
@@ -596,11 +598,11 @@ describe('ChapterEditor - Queueing & Generation', () => {
 
     const firstSpan = screen.getByTestId('script-span-seg-1');
     const secondSpan = screen.getByTestId('script-span-seg-2');
-    const firstLetters = firstSpan.querySelectorAll('.script-progress-letter');
 
     expect(screen.getByTestId('script-render-group-batch-1')).toHaveClass('is-rendering');
-    expect(firstSpan.querySelectorAll('.script-progress-letter.is-lit').length).toBeGreaterThan(0);
-    expect(firstSpan.querySelectorAll('.script-progress-letter.is-lit').length).toBeLessThan(firstLetters.length);
+    await waitFor(() => {
+      expect(firstSpan.querySelectorAll('.script-progress-letter.is-lit')).toHaveLength(2);
+    });
     expect(firstSpan.querySelectorAll('.script-progress-letter.is-cursor')).toHaveLength(1);
     expect(secondSpan.querySelectorAll('.script-progress-letter.is-lit')).toHaveLength(0);
     expect(secondSpan.querySelectorAll('.script-progress-letter.is-cursor')).toHaveLength(0);

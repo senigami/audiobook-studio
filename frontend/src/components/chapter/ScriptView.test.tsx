@@ -183,56 +183,60 @@ describe('ScriptView', () => {
     expect(screen.getByText('Sentence two.').closest('.script-line')).toHaveClass('is-pending');
   });
 
-  it('renders active segment progress as lit letters with a cursor', () => {
+  it('renders active batch progress as lit letters with a cursor across the whole batch', () => {
     render(
       <ScriptView
         data={mockData}
         characters={mockCharacters}
         onGenerateBatch={onGenerateBatch}
-        pendingSpanIds={new Set(['s2'])}
-        renderingSpanIds={new Set(['s2'])}
-        renderingSpanLitCountById={{ s2: 6 }}
+        pendingSpanIds={new Set(['s1', 's2'])}
+        renderingSpanIds={new Set(['s1', 's2'])}
+        renderingBatchProgressById={{ b1: 0.5 }}
         onPlaySpan={onPlaySpan}
       />
     );
 
+    const firstSpan = screen.getByTestId('script-span-s1');
     const activeSpan = screen.getByTestId('script-span-s2');
     const activeSpanText = activeSpan.querySelector('.script-span-text');
-    const progressLetters = activeSpan.querySelectorAll('.script-progress-letter');
-    const litLetters = activeSpan.querySelectorAll('.script-progress-letter.is-lit');
-    const cursorLetters = activeSpan.querySelectorAll('.script-progress-letter.is-cursor');
+    const firstLetters = firstSpan.querySelectorAll('.script-progress-letter');
+    const secondLetters = activeSpan.querySelectorAll('.script-progress-letter');
+    const litLetters = document.querySelectorAll('.script-progress-letter.is-lit');
+    const cursorLetters = document.querySelectorAll('.script-progress-letter.is-cursor');
 
     expect(activeSpanText).toHaveClass('script-span-text-book-rendering');
-    expect(progressLetters.length).toBe('Sentence two.'.length);
-    expect(progressLetters[0]).toHaveStyle({ '--script-progress-letter-index': '0' });
-    expect(progressLetters[1]).toHaveStyle({ '--script-progress-letter-index': '1' });
-    expect(litLetters.length).toBeGreaterThan(0);
+    expect(firstLetters.length + secondLetters.length).toBe('Sentence one.Sentence two.'.length);
+    expect(firstLetters[0]).toHaveStyle({ '--script-progress-letter-index': '0' });
+    expect(firstLetters[1]).toHaveStyle({ '--script-progress-letter-index': '1' });
+    expect(litLetters).toHaveLength(Math.floor('Sentence one.Sentence two.'.length * 0.5));
     expect(cursorLetters).toHaveLength(1);
+    expect(firstSpan.querySelectorAll('.script-progress-letter.is-lit')).toHaveLength('Sentence one.'.length);
+    expect(activeSpan.querySelectorAll('.script-progress-letter.is-lit')).toHaveLength(0);
     expect(activeSpan).toHaveClass('is-book-rendering');
-    expect(screen.getByText('Sentence one.')).toBeInTheDocument();
-    expect(screen.getByText('Sentence one.').querySelector('.script-progress-letter')).toBeNull();
-    expect(screen.getByText('Sentence one.').closest('.book-paragraph')).not.toHaveClass('is-rendering');
+    expect(firstSpan).toHaveClass('is-book-rendering');
+    expect(screen.getByTestId('script-render-group-b1')).toContainElement(firstSpan);
+    expect(screen.getByTestId('script-render-group-b1')).toContainElement(activeSpan);
+    expect(screen.getByText('Different paragraph.').querySelector('.script-progress-letter')).toBeNull();
   });
 
-  it('renders complete segment progress without a cursor', () => {
+  it('renders complete batch progress without a cursor', () => {
     render(
       <ScriptView
         data={mockData}
         characters={mockCharacters}
         onGenerateBatch={onGenerateBatch}
-        pendingSpanIds={new Set(['s2'])}
-        renderingSpanIds={new Set(['s2'])}
-        renderingSpanLitCountById={{ s2: 13 }}
+        pendingSpanIds={new Set(['s1', 's2'])}
+        renderingSpanIds={new Set(['s1', 's2'])}
+        renderingBatchProgressById={{ b1: 1 }}
         onPlaySpan={onPlaySpan}
       />
     );
 
-    const activeSpan = screen.getByTestId('script-span-s2');
-    const progressLetters = activeSpan.querySelectorAll('.script-progress-letter');
-    const litLetters = activeSpan.querySelectorAll('.script-progress-letter.is-lit');
-    const cursorLetters = activeSpan.querySelectorAll('.script-progress-letter.is-cursor');
+    const progressLetters = document.querySelectorAll('.script-progress-letter');
+    const litLetters = document.querySelectorAll('.script-progress-letter.is-lit');
+    const cursorLetters = document.querySelectorAll('.script-progress-letter.is-cursor');
 
-    expect(progressLetters.length).toBe('Sentence two.'.length);
+    expect(progressLetters.length).toBe('Sentence one.Sentence two.'.length);
     expect(litLetters.length).toBe(progressLetters.length);
     expect(cursorLetters).toHaveLength(0);
   });
@@ -245,7 +249,7 @@ describe('ScriptView', () => {
         onGenerateBatch={onGenerateBatch}
         pendingSpanIds={new Set(['s1', 's2'])}
         renderingSpanIds={new Set(['s1', 's2'])}
-        renderingSpanLitCountById={{ s1: 9, s2: 0 }}
+        renderingBatchProgressById={{ b1: 0.35 }}
         onPlaySpan={onPlaySpan}
       />
     );

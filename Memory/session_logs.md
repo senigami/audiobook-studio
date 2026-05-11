@@ -643,3 +643,5 @@
 - Fixed the batch-progress regression where only the first sentence in a render batch darkened before completion; book mode now wraps adjacent rendering spans in a batch group while keeping per-sentence spans for voice assignment.
 - Chapter render progress is distributed across the active render batch's ordered text weights so progress can move continuously through all sentences in the section.
 - Added predictive text-progress smoothing from the same job ETA/progress inputs as the header progress bar, with a 100ms chapter render tick so letters advance steadily between websocket updates instead of in bursty sentence chunks.
+- Corrected the render visualizer to make the top progress bar represent the active render block for grouped jobs and to feed its displayed percent directly into ScriptView.
+- ScriptView now maps that block percent across the active render batch's displayed character array while preserving sentence spans for voice assignment and controls.

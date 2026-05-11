@@ -3,6 +3,7 @@ import { RefreshCw, Zap, CheckCircle, AlertTriangle, Download, ChevronLeft, Chev
 import type { Chapter, Job } from '../../types';
 import { PredictiveProgressBar } from '../PredictiveProgressBar';
 import { VoiceProfileSelect } from './VoiceProfileSelect';
+import { deriveActiveBatchProgress } from '../../utils/chapterRenderProgress';
 
 const RECENT_DONE_WINDOW_SECONDS = 60;
 
@@ -95,10 +96,17 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
   const liveSegmentProgressJob = generatingJob && ['preparing', 'running', 'finalizing'].includes(generatingJob.status)
     ? generatingJob
     : undefined;
+  const liveProgressIsRenderBlock = !!liveSegmentProgressJob && (
+    (liveSegmentProgressJob.render_group_count ?? 0) > 0 ||
+    typeof liveSegmentProgressJob.active_render_batch_progress === 'number' ||
+    typeof liveSegmentProgressJob.active_render_batch_id === 'string'
+  );
   const liveSegmentProgressValue = liveSegmentProgressJob
     ? (liveSegmentProgressJob.status === 'finalizing'
         ? 1
-        : (liveSegmentProgressJob.active_segment_id
+        : (liveProgressIsRenderBlock
+            ? deriveActiveBatchProgress(liveSegmentProgressJob, liveSegmentProgressJob.active_render_group_weight ?? 1, Date.now())
+            : liveSegmentProgressJob.active_segment_id
             ? (liveSegmentProgressJob.active_segment_progress ?? 0)
             : (liveSegmentProgressJob.progress ?? 0)))
     : 0;

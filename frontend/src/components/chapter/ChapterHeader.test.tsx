@@ -149,4 +149,45 @@ describe('ChapterHeader', () => {
 
     expect(screen.getByText('10%')).toBeInTheDocument();
   });
+
+  it('uses active render-block progress for grouped chapter renders', () => {
+    const onSegmentDisplayProgress = vi.fn();
+
+    render(
+      <ChapterHeader
+        chapter={mockChapter as any}
+        title={mockChapter.title}
+        setTitle={vi.fn()}
+        saving={false}
+        hasUnsavedChanges={false}
+        onBack={vi.fn()}
+        selectedVoice=""
+        onVoiceChange={vi.fn()}
+        availableVoices={[]}
+        submitting={false}
+        queueLocked={false}
+        queuePending={false}
+        generatingJob={{
+          id: 'job-render-block',
+          engine: 'mixed',
+          status: 'running',
+          progress: 0.22,
+          started_at: Date.now() / 1000,
+          active_segment_id: 'seg-1',
+          active_segment_progress: 1,
+          active_render_batch_progress: 0.25,
+          render_group_count: 1,
+        } as any}
+        generatingSegmentIdsCount={2}
+        queueLabel="Complete"
+        queueTitle="Complete Chapter Audio"
+        onQueue={vi.fn()}
+        onStopAll={vi.fn()}
+        onSegmentDisplayProgress={onSegmentDisplayProgress}
+      />
+    );
+
+    expect(screen.getByText('25%')).toBeInTheDocument();
+    expect(onSegmentDisplayProgress).toHaveBeenCalledWith(0.25);
+  });
 });

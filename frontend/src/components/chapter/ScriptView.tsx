@@ -31,7 +31,7 @@ interface ScriptViewProps {
   pendingSpanIds: Set<string>;
   renderingSpanIds?: Set<string>;
   queuedSpanIds?: Set<string>;
-  renderingSpanLitCountById?: Record<string, number>;
+  renderingBatchProgressById?: Record<string, number>;
   playingSpanId?: string | null;
   playingSpanIds?: Set<string>;
   onPlaySpan?: (spanId: string) => void;
@@ -44,11 +44,13 @@ interface ScriptViewProps {
   speakers?: Speaker[];
 }
 
-const SegmentProgressText: React.FC<{ text: string; litCount: number }> = ({ text, litCount }) => {
+const clamp01 = (value: number) => Math.max(0, Math.min(value, 1));
+
+const SegmentProgressText: React.FC<{ text: string; litCount: number; showCursor: boolean }> = ({ text, litCount, showCursor }) => {
   const letters = Array.from(text);
   const safeLitCount = Math.max(0, Math.min(litCount, letters.length));
   // Cursor sits at the next character that hasn't been lit yet
-  const cursorIndex = safeLitCount < letters.length ? safeLitCount : -1;
+  const cursorIndex = showCursor && safeLitCount < letters.length ? safeLitCount : -1;
 
   return (
     <>
@@ -82,7 +84,7 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
   pendingSpanIds,
   renderingSpanIds = new Set<string>(),
   queuedSpanIds = new Set<string>(),
-  renderingSpanLitCountById = {},
+  renderingBatchProgressById = {},
   playingSpanId = null,
   playingSpanIds,
   onPlaySpan,
@@ -196,6 +198,39 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
     return playingSpanId === spanId;
   };
 
+  const getDisplayText = (span: ScriptSpan) => showSafeText ? (span.sanitized_text || span.text) : span.text;
+
+  const getRenderingTextProgress = (batch: ScriptRenderBatch | undefined, span: ScriptSpan) => {
+    if (!batch) return { litCount: 0, showCursor: false };
+
+    const batchSpans = batch.span_ids
+      .map(spanId => spanMap.get(spanId))
+      .filter((candidate): candidate is ScriptSpan => !!candidate && renderingSpanIds.has(candidate.id));
+
+    const progress = clamp01(renderingBatchProgressById[batch.id] ?? 0);
+    const lengths = batchSpans.map(candidate => Array.from(getDisplayText(candidate)).length);
+    const totalChars = lengths.reduce((sum, length) => sum + length, 0);
+    const globalLitCount = Math.floor(progress * totalChars);
+
+    let offset = 0;
+    for (let index = 0; index < batchSpans.length; index += 1) {
+      const candidate = batchSpans[index];
+      const length = lengths[index];
+      const spanStart = offset;
+      const spanEnd = spanStart + length;
+      offset = spanEnd;
+
+      if (candidate.id !== span.id) continue;
+
+      return {
+        litCount: Math.max(0, Math.min(globalLitCount - spanStart, length)),
+        showCursor: globalLitCount >= spanStart && globalLitCount < spanEnd,
+      };
+    }
+
+    return { litCount: 0, showCursor: false };
+  };
+
   const availableVoices = useMemo(() => {
     const all = buildVoiceOptions(speakerProfiles, speakers, engines, characters);
     // For sentence reassignment, only show Default + Characters.
@@ -298,10 +333,12 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
     const isPending = pendingSpanIds.has(span.id);
     const isRendering = renderingSpanIds.has(span.id);
     const isQueued = queuedSpanIds.has(span.id);
-    const renderingLitCount = isRendering ? Math.max(0, renderingSpanLitCountById[span.id] ?? 0) : 0;
+    const renderingTextProgress = isRendering
+      ? getRenderingTextProgress(batch, span)
+      : { litCount: 0, showCursor: false };
     const isPlaying = isPlayingSpan(span.id);
     const isReady = span.status === 'rendered' || (audioGroup && audioGroup.status === 'rendered');
-    const displayText = showSafeText ? (span.sanitized_text || span.text) : span.text;
+    const displayText = getDisplayText(span);
     const batchStatus = batch ? batchEngineStatus(batch.span_ids) : { canGenerate: false, unavailableEngine: null as string | null };
 
     const isHighlighted = char && activeCharacterId === char.id;
@@ -342,7 +379,7 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
           className={textClassName}
         >
           {isRendering
-            ? <SegmentProgressText text={displayText} litCount={renderingLitCount} />
+            ? <SegmentProgressText text={displayText} litCount={renderingTextProgress.litCount} showCursor={renderingTextProgress.showCursor} />
             : displayText}
         </span>
 

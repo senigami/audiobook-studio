@@ -263,50 +263,21 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     return new Set(queuedBatchSpanIds.filter(id => !chapterRenderRenderingSegmentIds.has(id)));
   }, [job, chapterRenderActiveSegmentId, chapterRenderRenderingSegmentIds, scriptViewData?.render_batches]);
 
-  // Produces an integer lit-character count per span using a SINGLE global cursor across
-  // the entire batch — one Math.floor, no per-span rounding. This is the same "flat master
-  // array" trick as the standalone demo: completedChars + floor(barProgress * activeSpanChars)
-  // gives a global position; each span slices out its own segment of that integer count.
-  const chapterRenderRenderingSpanLitCountById = useMemo(() => {
-    const litCountById: Record<string, number> = {};
+  const chapterRenderRenderingBatchProgressById = useMemo(() => {
+    const progressById: Record<string, number> = {};
     const activeJob = generatingSegmentJob && ['queued', 'preparing', 'running', 'finalizing'].includes(generatingSegmentJob.status)
       ? generatingSegmentJob
       : (job && ['queued', 'preparing', 'running', 'finalizing'].includes(job.status) ? job : null);
     const activeSpanId = activeJob?.active_segment_id;
-    if (!activeSpanId || chapterRenderRenderingSegmentIds.size === 0) return litCountById;
+    if (!activeSpanId || chapterRenderRenderingSegmentIds.size === 0) return progressById;
 
     const activeBatch = scriptViewData?.render_batches?.find(batch =>
       batch.span_ids.includes(activeSpanId)
     );
-    const batchSpanIds = (activeBatch?.span_ids ?? Array.from(chapterRenderRenderingSegmentIds))
-      .filter(spanId => chapterRenderRenderingSegmentIds.has(spanId));
-    const batchSpans = batchSpanIds
-      .map(spanId => scriptViewData?.spans?.find(span => span.id === spanId))
-      .filter((span): span is NonNullable<typeof span> => !!span);
-    const spanChars = (span: { char_count?: number; sanitized_char_count?: number }) =>
-      Math.max(1, span.sanitized_char_count || span.char_count || 1);
+    if (!activeBatch) return progressById;
 
-    if (!batchSpanIds.includes(activeSpanId)) return litCountById;
-
-    // One Math.floor — this is the only rounding in the entire pipeline.
-    const activeSpanIdx = batchSpans.findIndex(s => s.id === activeSpanId);
-    const completedChars = activeSpanIdx > 0
-      ? batchSpans.slice(0, activeSpanIdx).reduce((sum, s) => sum + spanChars(s), 0)
-      : 0;
-    const activeSpanCharCount = spanChars(batchSpans[activeSpanIdx] ?? { char_count: 1 });
-    const globalLitCount = completedChars + Math.floor(
-      Math.max(0, Math.min(liveBarSegmentProgress, 1)) * activeSpanCharCount
-    );
-
-    // Slice the global cursor into per-span integer lit counts — pure integer math.
-    let offset = 0;
-    for (const span of batchSpans) {
-      const chars = spanChars(span);
-      litCountById[span.id] = Math.max(0, Math.min(globalLitCount - offset, chars));
-      offset += chars;
-    }
-
-    return litCountById;
+    progressById[activeBatch.id] = Math.max(0, Math.min(liveBarSegmentProgress, 1));
+    return progressById;
   }, [liveBarSegmentProgress, chapterRenderRenderingSegmentIds, generatingSegmentJob, job, scriptViewData?.render_batches, scriptViewData?.spans]);
 
 
@@ -477,7 +448,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                     pendingSpanIds={effectivePendingSegmentIds}
                     renderingSpanIds={chapterRenderRenderingSegmentIds}
                     queuedSpanIds={chapterRenderQueuedSegmentIds}
-                    renderingSpanLitCountById={chapterRenderRenderingSpanLitCountById}
+                    renderingBatchProgressById={chapterRenderRenderingBatchProgressById}
                     playingSpanId={playingSegmentId}
                     playingSpanIds={playingSegmentIds}
                     onPlaySpan={(sid) => playSegment(sid, segments.map(s => s.id))}
