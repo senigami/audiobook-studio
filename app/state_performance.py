@@ -146,6 +146,31 @@ def _write_performance_metrics_to_db(metrics: Dict[str, Any]) -> bool:
         return False
 
 
+def clear_engine_cps_cache(engine_id: str) -> bool:
+    """Remove the cached engine CPS entry from the database settings table."""
+    if not engine_id:
+        return False
+
+    try:
+        from .db.core import get_connection
+
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            _ensure_settings_table(cursor)
+            cursor.execute(
+                "DELETE FROM settings WHERE key IN (?, ?)",
+                (
+                    f"performance_metric:cps:{engine_id}",
+                    "performance_metric:audiobook_speed_multiplier",
+                ),
+            )
+            conn.commit()
+        return True
+    except Exception:
+        logger.warning("Failed to clear performance metric cache for %s", engine_id, exc_info=True)
+        return False
+
+
 def get_performance_metrics() -> Dict[str, Any]:
     with _STATE_LOCK:
         return _read_performance_metrics_from_db()

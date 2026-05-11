@@ -21,6 +21,10 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from app.config import PLUGINS_DIR
+from app.tts_server.performance_settings import (
+    COMPUTER_SPEED_MULTIPLIER_KEY,
+    clear_engine_computer_speed_baseline,
+)
 from app.tts_server.health import (
     build_engine_detail,
     build_health_response,
@@ -296,6 +300,17 @@ def clear_engine_setting(engine_id: str, setting_key: str) -> dict[str, Any]:
             status_code=400,
             detail="Only read-only computed settings can be reset.",
         )
+
+    if setting_key == COMPUTER_SPEED_MULTIPLIER_KEY:
+        result = clear_engine_computer_speed_baseline(engine_id)
+        return {
+            "status": "ok",
+            "engine_id": engine_id,
+            "setting": setting_key,
+            "cleared": True,
+            "value": None,
+            **result,
+        }
 
     current = load_settings(plugin.plugin_dir)
     if setting_key in current:

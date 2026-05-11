@@ -212,6 +212,54 @@ def test_successful_jobs_write_plugin_computer_speed_multiplier(clean_db, clean_
     assert settings["computer_speed_multiplier"] == 2.0
 
 
+def test_clear_engine_speed_baseline_wipes_samples_and_cached_cps(clean_db, clean_state, tmp_path, monkeypatch):
+    from app.tts_server.performance_settings import clear_engine_computer_speed_baseline
+    from app.tts_server.settings_store import load_settings, save_settings
+
+    plugins_dir = tmp_path / "plugins"
+    plugin_dir = plugins_dir / "tts_engine-a"
+    plugin_dir.mkdir(parents=True)
+    save_settings(plugin_dir, {"enabled": True, "computer_speed_multiplier": 1.75})
+    monkeypatch.setattr("app.config.PLUGINS_DIR", plugins_dir)
+
+    now = time.time()
+    record_render_sample(
+        engine="engine-a",
+        tts_model="model-a",
+        chars=1000,
+        segment_count=10,
+        duration_seconds=50.0,
+        cps=20.0,
+        seconds_per_segment=5.0,
+        completed_at=now - 20,
+    )
+    record_render_sample(
+        engine="engine-b",
+        tts_model="model-b",
+        chars=500,
+        segment_count=5,
+        duration_seconds=25.0,
+        cps=20.0,
+        seconds_per_segment=5.0,
+        completed_at=now - 10,
+    )
+    update_performance_metrics(engine_cps={"engine-a": 19.5, "engine-b": 21.0})
+
+    clear_engine_computer_speed_baseline("engine-a")
+
+    settings = load_settings(plugin_dir)
+    assert "computer_speed_multiplier" not in settings
+    assert settings["enabled"] is True
+
+    history = get_render_history(limit=200)
+    assert all(sample["engine"] != "engine-a" for sample in history)
+    assert any(sample["engine"] == "engine-b" for sample in history)
+
+    metrics = get_performance_metrics()
+    assert "engine-a" not in metrics["engine_cps"]
+    assert metrics["engine_cps"]["engine-b"] == 21.0
+
+
 def test_record_engine_sample_filters_speed_history_by_tts_model(clean_db, clean_state, tmp_path, monkeypatch):
     from app.jobs.worker_metrics import record_engine_sample
     from app.state import put_job, get_performance_metrics

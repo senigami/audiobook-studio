@@ -345,11 +345,11 @@ describe('SettingsRoute', () => {
     );
 
     fireEvent.click(await screen.findByText('XTTS Local'));
-    fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reset Baseline' }));
 
     await waitFor(() => {
       expect(api.clearEngineSetting).toHaveBeenCalledWith('xtts-local', 'computer_speed_multiplier');
-      expect(defaultProps.onShowNotification).toHaveBeenCalledWith('XTTS Local computer speed multiplier reset.');
+      expect(defaultProps.onShowNotification).toHaveBeenCalledWith('XTTS Local baseline reset.');
       expect(defaultProps.onRefresh).toHaveBeenCalled();
     });
   });

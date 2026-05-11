@@ -169,7 +169,7 @@ class TestTTSServerIsolation:
             manifest={},
         )
 
-        with patch("app.tts_server.server._plugins", [plugin]):
+        with patch("app.tts_server.server._plugins", [plugin]), patch("app.config.PLUGINS_DIR", tmp_path):
             client = TestClient(app)
             response = client.delete("/engines/mock/settings/computer_speed_multiplier")
 

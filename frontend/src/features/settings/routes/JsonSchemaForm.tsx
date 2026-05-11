@@ -102,10 +102,10 @@ export const JsonSchemaForm: React.FC<{
                     className="btn-glass"
                     disabled={busy || resettingKey === key}
                     onClick={() => handleReset(key)}
-                    title="Reset this computed value so it will be recalculated from the next render."
+                    title="Reset this computed value and clear its matching render history so it will be recalculated from the next render."
                     style={{ padding: '0.35rem 0.65rem', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 900 }}
                   >
-                    {resettingKey === key ? 'Resetting...' : 'Reset'}
+                    {resettingKey === key ? 'Resetting...' : 'Reset Baseline'}
                   </button>
                 )}
               </div>

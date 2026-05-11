@@ -78,6 +78,19 @@ def record_render_sample(
             conn.commit()
 
 
+def delete_render_samples_for_engine(engine: str) -> int:
+    """Delete all render samples recorded for a specific engine."""
+    if not engine:
+        return 0
+
+    with _db_lock:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM render_performance_samples WHERE engine = ?", (engine,))
+            conn.commit()
+            return max(0, int(cursor.rowcount or 0))
+
+
 def _normalize_tts_model(tts_model: Optional[str]) -> str | None:
     if tts_model is None:
         return None

@@ -57,6 +57,35 @@ def clear_engine_computer_speed_multiplier(engine_id: str) -> None:
         save_settings(plugin_dir, settings)
 
 
+def clear_engine_computer_speed_baseline(engine_id: str) -> dict[str, Any]:
+    """Clear all persisted calibration data so the next render starts from baseline."""
+    clear_engine_computer_speed_multiplier(engine_id)
+
+    samples_deleted = 0
+    cache_cleared = False
+
+    try:
+        from app.db.performance import delete_render_samples_for_engine
+
+        samples_deleted = delete_render_samples_for_engine(engine_id)
+    except Exception:
+        logger.debug("Failed to clear render samples for %s", engine_id, exc_info=True)
+
+    try:
+        from app.state_performance import clear_engine_cps_cache
+
+        cache_cleared = clear_engine_cps_cache(engine_id)
+    except Exception:
+        logger.debug("Failed to clear cached CPS for %s", engine_id, exc_info=True)
+
+    return {
+        "engine_id": engine_id,
+        "samples_deleted": samples_deleted,
+        "cache_cleared": cache_cleared,
+        "value": None,
+    }
+
+
 def get_engine_computer_speed_multiplier(engine_id: str) -> float:
     """Read the plugin-local render speed multiplier, defaulting to neutral speed."""
     from app.tts_server.plugin_loader import get_plugin_dir  # noqa: PLC0415

@@ -60,7 +60,10 @@ export const EngineCard: React.FC<{
     try {
       await api.clearEngineSetting(engine.engine_id, settingKey);
       await onUpdate();
-      onShowNotification?.(`${engine.display_name} ${settingKey.replace(/_/g, ' ')} reset.`);
+      const label = settingKey === 'computer_speed_multiplier'
+        ? 'baseline'
+        : settingKey.replace(/_/g, ' ');
+      onShowNotification?.(`${engine.display_name} ${label} reset.`);
     } catch (err) {
       console.error('Failed to reset engine setting', err);
       onShowNotification?.('Failed to reset engine setting.');
