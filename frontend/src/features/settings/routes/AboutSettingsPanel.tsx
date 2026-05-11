@@ -103,10 +103,11 @@ export const AboutSettingsPanel: React.FC<{ onRefresh?: () => void | Promise<voi
           <div style={{ position: 'relative', zIndex: 2 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.4rem' }}>
                <span style={{ fontSize: '2.25rem', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>{formatDurationSmart(audioDurationSeconds)}</span>
-               <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Produced</span>
+               <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Audio</span>
             </div>
-            <div style={{ fontSize: '0.95rem', color: 'var(--text-secondary)', marginTop: '0.2rem', fontWeight: 600 }}>
-                {renderWordCount.toLocaleString()} words / {renderChars.toLocaleString()} characters rendered
+            <div style={{ fontSize: '0.95rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+              {renderWordCount.toLocaleString()} words <br />
+              {renderChars.toLocaleString()} characters
             </div>
             <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                 <RefreshCw size={12} />
