@@ -35,20 +35,35 @@ export const JsonSchemaForm: React.FC<{
           .filter(([key]) => key !== 'enabled')
           .map(([key, prop]: [string, any]) => {
             const propUi = prop?.['x-ui'] || {};
-            const isLocked = !!propUi.requires_verification && !engineVerified;
+            const isReadOnly = !!prop.readOnly;
+            const isLocked = (!!propUi.requires_verification && !engineVerified) || isReadOnly;
             return (
           <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <label style={{ fontWeight: 800, fontSize: '0.82rem', color: 'var(--text-primary)' }}>
                 {prop.title || key}
               </label>
-              {(prop.type === 'number' || prop.type === 'integer') && (
+              {!isReadOnly && (prop.type === 'number' || prop.type === 'integer') && (
                 <span style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--accent)' }}>
                   {localValues[key] ?? prop.default}
                 </span>
               )}
             </div>
-            {prop.type === 'boolean' ? (
+            {isReadOnly ? (
+              <div
+                style={{
+                  padding: '0.65rem',
+                  borderRadius: '10px',
+                  border: '1px solid var(--border)',
+                  background: 'rgba(0,0,0,0.025)',
+                  fontSize: '0.9rem',
+                  fontWeight: 800,
+                  color: 'var(--text-primary)',
+                }}
+              >
+                {String(localValues[key] ?? prop.default ?? '')}
+              </div>
+            ) : prop.type === 'boolean' ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <ToggleButton
                   enabled={!!(localValues[key] ?? prop.default)}
@@ -57,7 +72,7 @@ export const JsonSchemaForm: React.FC<{
                   onClick={() => handleChange(key, !(localValues[key] ?? prop.default))}
                 />
                 <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                  {isLocked ? (propUi.locked_message || 'Verification required before this setting can be enabled.') : ((localValues[key] ?? prop.default) ? 'Enabled' : 'Disabled')}
+                  {isReadOnly ? 'Computed by Studio' : (isLocked ? (propUi.locked_message || 'Verification required before this setting can be enabled.') : ((localValues[key] ?? prop.default) ? 'Enabled' : 'Disabled'))}
                 </span>
               </div>
             ) : prop.type === 'number' || prop.type === 'integer' ? (
@@ -71,7 +86,7 @@ export const JsonSchemaForm: React.FC<{
                 onChange={(e) =>
                   handleChange(key, prop.type === 'integer' ? parseInt(e.target.value) : parseFloat(e.target.value))
                 }
-                style={{ width: '100%', height: '6px', accentColor: 'var(--accent)', cursor: 'pointer' }}
+                style={{ width: '100%', height: '6px', accentColor: 'var(--accent)', cursor: isLocked ? 'not-allowed' : 'pointer' }}
               />
             ) : prop.enum ? (
               <select
@@ -115,9 +130,14 @@ export const JsonSchemaForm: React.FC<{
                 {prop.description}
               </p>
             )}
-            {isLocked && (
+            {isLocked && !isReadOnly && (
               <p style={{ margin: 0, fontSize: '0.78rem', color: '#b45309', lineHeight: 1.4, fontWeight: 700 }}>
                 {propUi.locked_message || 'Verification required before enabling this setting.'}
+              </p>
+            )}
+            {isReadOnly && (
+              <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.4, fontWeight: 700 }}>
+                This value is computed from completed renders and saved to this plugin.
               </p>
             )}
           </div>

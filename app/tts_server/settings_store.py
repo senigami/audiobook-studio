@@ -153,6 +153,9 @@ def merge_settings(
             continue
 
         prop = properties.get(key, {})
+        if prop.get("readOnly"):
+            continue
+
         expected_type = prop.get("type")
         if expected_type:
             type_ok = _check_type(value, expected_type)

@@ -645,3 +645,18 @@
 - Added predictive text-progress smoothing from the same job ETA/progress inputs as the header progress bar, with a 100ms chapter render tick so letters advance steadily between websocket updates instead of in bursty sentence chunks.
 - Corrected the render visualizer to make the top progress bar represent the active render block for grouped jobs and to feed its displayed percent directly into ScriptView.
 - ScriptView now maps that block percent across the active render batch's displayed character array while preserving sentence spans for voice assignment and controls.
+
+# 2026-05-10 - Plugin-Local Render Speed Calibration
+
+- Removed the obsolete global `audiobook_speed_multiplier` from performance metric normalization, DB writes, and legacy performance migration.
+- Added plugin-local `computer_speed_multiplier` calibration persisted to each TTS plugin's `settings.json` after successful terminal render samples.
+- ETA fallback now reads each plugin's saved speed multiplier when no engine CPS sample exists yet.
+- Exposed the computed multiplier as a read-only setting on XTTS and Voxtral plugin settings screens.
+- Verified focused backend storage/migration/ETA suites, engine/plugin health suites, focused settings UI tests, `git diff --check`, and frontend build.
+
+# 2026-05-10 - Render Speed History Model Filter
+
+- Added `tts_model` to SQLite render performance samples so completed render history can distinguish speed samples by the selected model inside a TTS plugin.
+- Recorded model identity from synthesis settings, explicit job fields, speaker settings, or plugin settings when training successful render samples.
+- Updated worker CPS training and startup ETA history selection to filter by engine plus model, while keeping aggregate render totals independent of model.
+- Verified focused performance, migration, ETA, orchestrator, API engines, plugin loader, and TTS health suites, plus `ruff check` and `git diff --check`.

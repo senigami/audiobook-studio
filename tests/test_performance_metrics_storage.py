@@ -54,6 +54,7 @@ def test_record_render_sample_storage(clean_db):
     jid = str(uuid.uuid4())
     record_render_sample(
         engine="engine-a",
+        tts_model="model-a",
         chars=1000,
         segment_count=10,
         duration_seconds=60.0,
@@ -73,6 +74,7 @@ def test_record_render_sample_storage(clean_db):
     assert sample["speaker_profile"] == "feeling-lucky"
     assert sample["project_id"] == "p1"
     assert sample["chapter_id"] == "c1"
+    assert sample["tts_model"] == "model-a"
 
 def test_performance_retention_policy(clean_db):
     # 1. Test 180 day hard purge
@@ -130,6 +132,20 @@ def test_init_db_runs_performance_retention(clean_db, monkeypatch):
     assert len(calls) == 1
 
 
+def test_global_audiobook_speed_multiplier_is_not_persisted(clean_db, clean_state):
+    update_performance_metrics(audiobook_speed_multiplier=2.5)
+
+    metrics = get_performance_metrics()
+
+    assert "audiobook_speed_multiplier" not in metrics
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT value FROM settings WHERE key = ?",
+            ("performance_metric:audiobook_speed_multiplier",),
+        ).fetchone()
+    assert row is None
+
+
 def test_failed_jobs_do_not_train(clean_db, clean_state):
     from app.jobs.worker_metrics import record_engine_sample
     from app.state import put_job
@@ -162,6 +178,83 @@ def test_successful_jobs_train(clean_db, clean_state):
     assert history[0]["job_id"] == jid
     assert history[0]["chars"] == 1000
 
+
+def test_successful_jobs_write_plugin_computer_speed_multiplier(clean_db, clean_state, tmp_path, monkeypatch):
+    from app.jobs.worker_metrics import record_engine_sample
+    from app.state import put_job
+    from app.models import Job
+    from app.tts_server.settings_store import load_settings, save_settings
+
+    plugins_dir = tmp_path / "plugins"
+    plugin_dir = plugins_dir / "tts_engine-a"
+    plugin_dir.mkdir(parents=True)
+    save_settings(plugin_dir, {"enabled": True, "quality": "draft"})
+    monkeypatch.setattr("app.config.PLUGINS_DIR", plugins_dir)
+
+    jid = "job-plugin-speed-test"
+    now = time.time()
+    job = Job(
+        id=jid,
+        engine="engine-a",
+        chapter_file="c1",
+        status="done",
+        created_at=now - 30,
+        started_at=now - 10,
+        finished_at=now,
+    )
+    put_job(job)
+
+    record_engine_sample(job, now - 10, 334, {})
+
+    settings = load_settings(plugin_dir)
+    assert settings["enabled"] is True
+    assert settings["quality"] == "draft"
+    assert settings["computer_speed_multiplier"] == 2.0
+
+
+def test_record_engine_sample_filters_speed_history_by_tts_model(clean_db, clean_state, tmp_path, monkeypatch):
+    from app.jobs.worker_metrics import record_engine_sample
+    from app.state import put_job, get_performance_metrics
+    from app.models import Job
+    from app.tts_server.settings_store import save_settings
+
+    plugins_dir = tmp_path / "plugins"
+    plugin_dir = plugins_dir / "tts_engine-a"
+    plugin_dir.mkdir(parents=True)
+    save_settings(plugin_dir, {"model": "model-fast"})
+    monkeypatch.setattr("app.config.PLUGINS_DIR", plugins_dir)
+
+    now = time.time()
+    record_render_sample(
+        engine="engine-a",
+        tts_model="model-slow",
+        chars=100,
+        segment_count=1,
+        duration_seconds=100,
+        completed_at=now - 20,
+    )
+
+    jid = "job-model-filter-test"
+    job = Job(
+        id=jid,
+        engine="engine-a",
+        chapter_file="c1",
+        status="done",
+        created_at=now - 30,
+        started_at=now - 10,
+        finished_at=now,
+    )
+    put_job(job)
+
+    record_engine_sample(job, now - 10, 1000, {})
+
+    metrics = get_performance_metrics()
+    assert metrics["engine_cps"]["engine-a"] == 100.0
+
+    history = get_render_history()
+    assert history[-1]["tts_model"] == "model-fast"
+
+
 def test_record_engine_sample_requires_chars(clean_db, clean_state):
     from app.jobs.worker_metrics import record_engine_sample
     from app.state import put_job
@@ -169,7 +262,7 @@ def test_record_engine_sample_requires_chars(clean_db, clean_state):
 
     jid = "test-no-chars"
     now = time.time()
-    job = Job(id=jid, engine="xtts", status="done", started_at=now-10, finished_at=now, created_at=now-20)
+    job = Job(id=jid, engine="engine-a", status="done", started_at=now-10, finished_at=now, created_at=now-20)
     put_job(job)
 
     # 1. Chars = 0 (should be ignored)

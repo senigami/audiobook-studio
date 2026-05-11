@@ -16,7 +16,7 @@ def test_migrate_performance_metrics():
     assert "xtts_render_history" not in migrated
     assert migrated["engine_cps"]["xtts"] == 20.0
     assert migrated["render_history"][0]["engine"] == "xtts"
-    assert migrated["audiobook_speed_multiplier"] == 1.1
+    assert "audiobook_speed_multiplier" not in migrated
 
 def test_migrate_settings():
     settings = {

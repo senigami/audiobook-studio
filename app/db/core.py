@@ -171,6 +171,7 @@ def init_db():
                     project_id TEXT,
                     chapter_id TEXT,
                     engine TEXT NOT NULL,
+                    tts_model TEXT,
                     speaker_profile TEXT,
                     chars INTEGER NOT NULL,
                     word_count INTEGER DEFAULT 0,
@@ -210,6 +211,7 @@ def init_db():
             add_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN job_id TEXT", "render_performance_samples.job_id")
             add_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN project_id TEXT", "render_performance_samples.project_id")
             add_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN chapter_id TEXT", "render_performance_samples.chapter_id")
+            add_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN tts_model TEXT", "render_performance_samples.tts_model")
             add_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN started_at REAL", "render_performance_samples.started_at")
             add_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN audio_duration_seconds REAL", "render_performance_samples.audio_duration_seconds")
             add_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN word_count INTEGER DEFAULT 0", "render_performance_samples.word_count")

@@ -116,6 +116,8 @@ class OrchestratorHelpersMixin:
             segment_count = max(1, len(segment_ids) if isinstance(segment_ids, list) else 1)
             render_group_count = len(getattr(task, "script", None) or [])
             word_count = len(script_text.split())
+            synthesis_settings = payload.get("synthesis_settings") if isinstance(payload.get("synthesis_settings"), dict) else {}
+            tts_model = synthesis_settings.get("model") or payload.get("model")
             output_path = str(payload.get("output_path") or "")
             audio_duration_seconds = None
             if output_path:
@@ -137,6 +139,7 @@ class OrchestratorHelpersMixin:
 
                 record_render_sample(
                     engine=str(payload.get("engine_id") or getattr(task, "engine_id", "")),
+                    tts_model=tts_model,
                     chars=chars,
                     word_count=word_count,
                     segment_count=segment_count,

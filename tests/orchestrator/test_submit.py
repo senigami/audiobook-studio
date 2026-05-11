@@ -170,6 +170,7 @@ class TestOrchestratorProgressTransitions:
             project_id="p1",
             chapter_id="c1",
             voice_profile_id="speaker-1",
+            synthesis_settings={"model": "model-a"},
         )
 
         with patch("app.orchestration.scheduler.orchestrator.reserve_task_resources", return_value={"admitted": True}), \
@@ -181,3 +182,4 @@ class TestOrchestratorProgressTransitions:
         assert mock_record.call_count == 1
         assert mock_record.call_args.kwargs["engine"] == "xtts"
         assert mock_record.call_args.kwargs["job_id"] == "t-render"
+        assert mock_record.call_args.kwargs["tts_model"] == "model-a"

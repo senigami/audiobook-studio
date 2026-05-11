@@ -22,6 +22,7 @@ def record_render_sample(
     chars: int,
     segment_count: int,
     duration_seconds: float,
+    tts_model: Optional[str] = None,
     word_count: Optional[int] = None,
     cps: Optional[float] = None,
     seconds_per_segment: Optional[float] = None,
@@ -60,21 +61,28 @@ def record_render_sample(
             cursor.execute(
                 """
                 INSERT INTO render_performance_samples (
-                    job_id, project_id, chapter_id, engine, speaker_profile,
+                    job_id, project_id, chapter_id, engine, tts_model, speaker_profile,
                     chars, word_count, segment_count, render_group_count, started_at,
                     completed_at, duration_seconds, cps, seconds_per_segment,
                     audio_duration_seconds, make_mp3
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    job_id, project_id, chapter_id, engine, speaker_profile,
+                    job_id, project_id, chapter_id, engine, _normalize_tts_model(tts_model), speaker_profile,
                     chars, max(0, int(word_count or 0)), segment_count, render_group_count, started_at,
                     completed_at, duration_seconds, cps, seconds_per_segment,
                     audio_duration_seconds, 1 if make_mp3 else 0,
                 ),
             )
             conn.commit()
+
+
+def _normalize_tts_model(tts_model: Optional[str]) -> str | None:
+    if tts_model is None:
+        return None
+    normalized = str(tts_model).strip()
+    return normalized or None
 
 
 def _read_stats_reset_at(cursor) -> float | None:

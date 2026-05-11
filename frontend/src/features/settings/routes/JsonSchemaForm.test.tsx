@@ -33,4 +33,30 @@ describe('JsonSchemaForm', () => {
 
     consoleError.mockRestore();
   });
+
+  it('shows computed read-only plugin settings without allowing edits', () => {
+    render(
+      <JsonSchemaForm
+        schema={{
+          properties: {
+            computer_speed_multiplier: {
+              type: 'number',
+              title: 'Computer Speed Multiplier',
+              description: 'Computed from completed renders.',
+              default: 1,
+              readOnly: true,
+            },
+          },
+        }}
+        values={{ computer_speed_multiplier: 1.75 }}
+        onSave={vi.fn()}
+        busy={false}
+        engineVerified={true}
+      />,
+    );
+
+    expect(screen.getByText('Computer Speed Multiplier')).toBeInTheDocument();
+    expect(screen.getByText('1.75')).toBeInTheDocument();
+    expect(screen.queryByRole('slider')).not.toBeInTheDocument();
+  });
 });

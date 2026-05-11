@@ -9,7 +9,6 @@ logger = logging.getLogger(__name__)
 
 _PERFORMANCE_METRICS_SETTING_KEY = "performance_metrics"
 _DEFAULT_PERFORMANCE_METRICS = {
-    "audiobook_speed_multiplier": 1.0,
     "engine_cps": {},
     "render_history": [],
 }
@@ -17,24 +16,23 @@ _DEFAULT_PERFORMANCE_METRICS = {
 
 def _default_performance_metrics() -> Dict[str, Any]:
     return {
-        "audiobook_speed_multiplier": _DEFAULT_PERFORMANCE_METRICS["audiobook_speed_multiplier"],
         "engine_cps": {},
         "render_history": [],
     }
+
 
 def _normalize_performance_metrics(metrics: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """Normalize performance metrics into the generic mapping."""
     normalized = _default_performance_metrics()
     if metrics:
-        normalized.update(metrics)
-
-    try:
-        normalized["audiobook_speed_multiplier"] = float(normalized.get("audiobook_speed_multiplier", 1.0))
-    except (TypeError, ValueError):
-        normalized["audiobook_speed_multiplier"] = 1.0
+        normalized["engine_cps"] = metrics.get("engine_cps", {})
+        normalized["render_history"] = metrics.get("render_history", [])
 
     if not isinstance(normalized.get("engine_cps"), dict):
         normalized["engine_cps"] = {}
+
+    if not isinstance(normalized.get("render_history"), list):
+        normalized["render_history"] = []
 
     return normalized
 
@@ -50,6 +48,7 @@ def _ensure_settings_table(cursor) -> None:
         CREATE TABLE IF NOT EXISTS render_performance_samples (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             engine TEXT NOT NULL,
+            tts_model TEXT,
             speaker_profile TEXT,
             chars INTEGER NOT NULL,
             word_count INTEGER DEFAULT 0,
@@ -61,6 +60,10 @@ def _ensure_settings_table(cursor) -> None:
             completed_at REAL NOT NULL
         )
     """)
+    try:
+        cursor.execute("ALTER TABLE render_performance_samples ADD COLUMN tts_model TEXT")
+    except Exception:
+        pass
     try:
         cursor.execute("ALTER TABLE render_performance_samples ADD COLUMN word_count INTEGER DEFAULT 0")
     except Exception:
@@ -104,14 +107,6 @@ def _read_performance_metrics_from_db() -> Dict[str, Any]:
             cursor = conn.cursor()
             _ensure_settings_table(cursor)
 
-            # 1. Read scalars from settings table
-            metrics["audiobook_speed_multiplier"] = _read_setting_float(
-                cursor,
-                "performance_metric:audiobook_speed_multiplier",
-                float(metrics["audiobook_speed_multiplier"]),
-            )
-
-            # Read all engine-specific CPS values
             cursor.execute("SELECT key, value FROM settings WHERE key LIKE 'performance_metric:cps:%'")
             for row in cursor.fetchall():
                 key = row["key"] if hasattr(row, "keys") else row[0]
@@ -137,11 +132,7 @@ def _write_performance_metrics_to_db(metrics: Dict[str, Any]) -> bool:
         with get_connection() as conn:
             cursor = conn.cursor()
             _ensure_settings_table(cursor)
-            _write_setting_value(
-                cursor,
-                "performance_metric:audiobook_speed_multiplier",
-                metrics["audiobook_speed_multiplier"],
-            )
+            cursor.execute("DELETE FROM settings WHERE key = ?", ("performance_metric:audiobook_speed_multiplier",))
             for eid, cps in metrics.get("engine_cps", {}).items():
                 _write_setting_value(
                     cursor,

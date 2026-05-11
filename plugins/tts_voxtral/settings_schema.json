@@ -24,6 +24,15 @@
       "description": "Audio format for synthesis output.",
       "enum": ["wav", "mp3"],
       "default": "wav"
+    },
+    "computer_speed_multiplier": {
+      "type": "number",
+      "title": "Computer Speed Multiplier",
+      "description": "Computed from completed renders for this plugin. This calibrates Studio's render-time estimates and does not change audio output.",
+      "minimum": 0.01,
+      "maximum": 100,
+      "default": 1.0,
+      "readOnly": true
     }
   },
   "additionalProperties": false,

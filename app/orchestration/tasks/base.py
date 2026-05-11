@@ -136,12 +136,21 @@ class StudioTask:
             from app.state import get_performance_metrics  # noqa: PLC0415
             from app.orchestration.scheduler.eta import _estimate_seconds, get_robust_eta_params  # noqa: PLC0415
             from app.config import BASELINE_ENGINE_CPS  # noqa: PLC0415
+            from app.tts_server.performance_settings import (  # noqa: PLC0415
+                filter_history_for_engine_model,
+                get_engine_computer_speed_multiplier,
+                resolve_engine_settings_model,
+            )
 
             perf = get_performance_metrics()
             engine_cps = perf.get("engine_cps", {})
-            fallback_cps = engine_cps.get(engine_id, BASELINE_ENGINE_CPS)
+            tts_model = resolve_engine_settings_model(engine_id)
+            fallback_cps = engine_cps.get(
+                engine_id,
+                BASELINE_ENGINE_CPS * get_engine_computer_speed_multiplier(engine_id),
+            )
             all_history = perf.get("render_history") or []
-            history = [s for s in all_history if s.get("engine") == engine_id]
+            history = filter_history_for_engine_model(all_history, engine_id, tts_model)
             robust_params = get_robust_eta_params(history, fallback_cps)
 
             est = _estimate_seconds(len(text), fallback_cps, robust_params=robust_params)

@@ -29,6 +29,7 @@ def record_engine_sample(job, start: float, chars: int, perf: dict, source_segme
         return
 
     engine = _job_field(persisted, "engine", _job_field(job, "engine"))
+    tts_model = _resolve_job_tts_model(persisted or job, engine)
     # We now allow all engines to record samples if they have a non-zero character count.
     # Mixed chapters are also recorded under the 'mixed' engine ID.
 
@@ -75,6 +76,7 @@ def record_engine_sample(job, start: float, chars: int, perf: dict, source_segme
     # Record detailed sample
     record_render_sample(
         engine=engine,
+        tts_model=tts_model,
         chars=chars,
         word_count=word_count,
         segment_count=segment_count,
@@ -94,7 +96,7 @@ def record_engine_sample(job, start: float, chars: int, perf: dict, source_segme
     # Re-derive robust CPS for engine-specific ETA logic
     current_perf = get_performance_metrics()
     all_history = current_perf.get("render_history") or []
-    history = [s for s in all_history if s.get("engine") == engine]
+    history = _filter_history_for_engine_model(all_history, engine, tts_model)
 
     engine_cps_map = current_perf.get("engine_cps") or {}
     fallback_cps = engine_cps_map.get(engine, BASELINE_ENGINE_CPS)
@@ -106,3 +108,35 @@ def record_engine_sample(job, start: float, chars: int, perf: dict, source_segme
     update_performance_metrics(
         engine_cps=engine_cps_map
     )
+
+    try:
+        from app.tts_server.performance_settings import save_engine_computer_speed_multiplier
+        save_engine_computer_speed_multiplier(engine, robust_cps)
+    except Exception:
+        logger.debug("Failed to write plugin render speed calibration for %s", engine, exc_info=True)
+
+
+def _filter_history_for_engine_model(history: list[dict], engine: str, tts_model: str | None) -> list[dict]:
+    from app.tts_server.performance_settings import filter_history_for_engine_model
+
+    return filter_history_for_engine_model(history, engine, tts_model)
+
+
+def _resolve_job_tts_model(job, engine: str) -> str | None:
+    from app.tts_server.performance_settings import normalize_tts_model, resolve_engine_settings_model
+
+    explicit = normalize_tts_model(_job_field(job, "tts_model")) or normalize_tts_model(_job_field(job, "model"))
+    if explicit:
+        return explicit
+
+    speaker_profile = _job_field(job, "speaker_profile")
+    if speaker_profile:
+        try:
+            from app.db.speakers import get_speaker_settings
+            speaker_model = normalize_tts_model(get_speaker_settings(speaker_profile).get("model"))
+            if speaker_model:
+                return speaker_model
+        except Exception:
+            logger.debug("Failed to resolve speaker model for %s", speaker_profile, exc_info=True)
+
+    return resolve_engine_settings_model(engine)

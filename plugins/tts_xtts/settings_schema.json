@@ -49,6 +49,15 @@
       "title": "Safe Mode",
       "description": "Use a more conservative cleanup path before synthesis. Leave this on if XTTS is unstable or if you want the safest default behavior.",
       "default": true
+    },
+    "computer_speed_multiplier": {
+      "type": "number",
+      "title": "Computer Speed Multiplier",
+      "description": "Computed from completed renders for this plugin. This calibrates Studio's render-time estimates and does not change voice speaking speed.",
+      "minimum": 0.01,
+      "maximum": 100,
+      "default": 1.0,
+      "readOnly": true
     }
   },
   "additionalProperties": true,

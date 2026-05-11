@@ -87,3 +87,59 @@ def test_post_synthesis_milestones_do_not_reproject_eta():
 
         assert state["jobs"][job_id]["estimated_end_at"] == initial_end_at
         assert state["jobs"][job_id]["eta_seconds"] == 1
+
+
+def test_expected_duration_uses_plugin_computer_speed_multiplier(tmp_path, monkeypatch):
+    from app.orchestration.tasks.base import StudioTask
+    from app.tts_server.settings_store import save_settings
+
+    plugins_dir = tmp_path / "plugins"
+    plugin_dir = plugins_dir / "tts_engine-a"
+    plugin_dir.mkdir(parents=True)
+    save_settings(plugin_dir, {"computer_speed_multiplier": 2.0})
+
+    monkeypatch.setattr("app.config.PLUGINS_DIR", plugins_dir)
+    monkeypatch.setattr(
+        "app.state.get_performance_metrics",
+        lambda: {"engine_cps": {}, "render_history": []},
+    )
+
+    duration = StudioTask().get_expected_duration("x" * 1670, "engine-a")
+
+    assert duration == 53.0
+
+
+def test_expected_duration_filters_history_by_plugin_model(tmp_path, monkeypatch):
+    from app.orchestration.tasks.base import StudioTask
+    from app.tts_server.settings_store import save_settings
+
+    plugins_dir = tmp_path / "plugins"
+    plugin_dir = plugins_dir / "tts_engine-a"
+    plugin_dir.mkdir(parents=True)
+    save_settings(plugin_dir, {"model": "fast-model"})
+
+    monkeypatch.setattr("app.config.PLUGINS_DIR", plugins_dir)
+    monkeypatch.setattr(
+        "app.state.get_performance_metrics",
+        lambda: {
+            "engine_cps": {},
+            "render_history": [
+                {
+                    "engine": "engine-a",
+                    "tts_model": "slow-model",
+                    "cps": 1.0,
+                    "seconds_per_segment": 1.0,
+                },
+                {
+                    "engine": "engine-a",
+                    "tts_model": "fast-model",
+                    "cps": 100.0,
+                    "seconds_per_segment": 1.0,
+                },
+            ],
+        },
+    )
+
+    duration = StudioTask().get_expected_duration("x" * 1670, "engine-a")
+
+    assert duration == 16.0
