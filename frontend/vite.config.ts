@@ -1,6 +1,7 @@
 /// <reference types="vitest" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react-swc'
+import path from 'path'
 
 const backendTarget = process.env.VITE_BACKEND_URL || 'http://127.0.0.1:8123'
 const backendWsTarget = process.env.VITE_BACKEND_WS_URL || backendTarget.replace(/^http/, 'ws')
@@ -9,6 +10,12 @@ const frontendPort = Number(process.env.VITE_FRONTEND_PORT || 5173)
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+      '@tests': path.resolve(__dirname, './tests'),
+    },
+  },
   server: {
     host: '127.0.0.1',
     port: frontendPort,
@@ -99,9 +106,8 @@ export default defineConfig({
       },
       exclude: [
         'node_modules/**',
-        'src/test/**',
+        'tests/e2e/**',
         '**/*.d.ts',
-        '**/*.test.{ts,tsx}',
         'vite.config.ts'
       ]
     }

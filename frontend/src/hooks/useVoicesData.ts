@@ -1,6 +1,6 @@
 import { useMemo, useCallback } from 'react';
-import type { Speaker, SpeakerProfile, VoiceEngine, TtsEngine } from '../types';
-import { formatVoiceEngineLabel, getVariantDisplayName, getVoiceProfileEngine } from '../utils/voiceProfiles';
+import type { Speaker, SpeakerProfile, VoiceEngine, TtsEngine } from '@/types';
+import { formatVoiceEngineLabel, getVariantDisplayName, getVoiceProfileEngine } from '@/utils/voiceProfiles';
 
 interface UseVoicesDataProps {
     speakers: Speaker[];

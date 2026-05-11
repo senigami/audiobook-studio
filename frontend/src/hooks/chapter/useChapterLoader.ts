@@ -1,9 +1,9 @@
 import { useEffect, useCallback, useRef, useMemo } from 'react';
-import { api } from '../../api';
-import { buildFallbackProductionBlocks } from '../../utils/chapterEditorHelpers';
-import { shouldEnableStudioDebugLogging, recordStudioDebugSnapshot } from '../../utils/runtimeDebug';
-import type { ChapterEditorState } from './useChapterEditorState';
-import type { Job } from '../../types';
+import { api } from '@/api';
+import { buildFallbackProductionBlocks } from '@/utils/chapterEditorHelpers';
+import { shouldEnableStudioDebugLogging, recordStudioDebugSnapshot } from '@/utils/runtimeDebug';
+import type { ChapterEditorState } from '@/hooks/chapter/useChapterEditorState';
+import type { Job } from '@/types';
 
 export const useChapterLoader = (
   state: ChapterEditorState,

@@ -1,7 +1,7 @@
-import type { ProcessingQueueItem } from '../types';
-import { formatVoiceEngineLabel } from './voiceProfiles';
+import type { ProcessingQueueItem } from '@/types';
+import { formatVoiceEngineLabel } from '@/utils/voiceProfiles';
 
-export function formatQueueContext(job: ProcessingQueueItem, engines: import('../types').TtsEngine[] = []): string {
+export function formatQueueContext(job: ProcessingQueueItem, engines: import('@/types').TtsEngine[] = []): string {
   if (!job.project_name) {
     const meta = engines.find(e => e.engine_id === job.engine);
     if (meta) return `${meta.display_name} Synthesis`;

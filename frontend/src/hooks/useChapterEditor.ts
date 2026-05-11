@@ -1,18 +1,18 @@
 import { useEffect } from 'react';
 import type { 
   SpeakerProfile, TtsEngine, Job 
-} from '../types';
-import { useChapterEditorState } from './chapter/useChapterEditorState';
-import { useChapterLoader } from './chapter/useChapterLoader';
-import { useChapterPersistence } from './chapter/useChapterPersistence';
-import { useChapterAssignments } from './chapter/useChapterAssignments';
-import { useChapterQueue } from './chapter/useChapterQueue';
+} from '@/types';
+import { useChapterEditorState } from '@/hooks/chapter/useChapterEditorState';
+import { useChapterLoader } from '@/hooks/chapter/useChapterLoader';
+import { useChapterPersistence } from '@/hooks/chapter/useChapterPersistence';
+import { useChapterAssignments } from '@/hooks/chapter/useChapterAssignments';
+import { useChapterQueue } from '@/hooks/chapter/useChapterQueue';
 
 export const useChapterEditor = (
   chapterId: string, 
   projectId: string, 
   speakerProfiles: SpeakerProfile[],
-  speakers: import('../types').Speaker[],
+  speakers: import('@/types').Speaker[],
   engines: TtsEngine[] = [],
   chapterJobs: Job[] = [],
   segmentUpdate?: { chapterId: string; tick: number },

@@ -1,6 +1,6 @@
-import { type Speaker, type TtsEngine } from '../types';
-import { getVariantDisplayName, isDefaultVoiceProfile } from '../utils/voiceProfiles';
-import { api } from '../api';
+import { type Speaker, type TtsEngine } from '@/types';
+import { getVariantDisplayName, isDefaultVoiceProfile } from '@/utils/voiceProfiles';
+import { api } from '@/api';
 
 interface UseVoicesTabActionsProps {
     state: any; // Result from useVoicesTabState

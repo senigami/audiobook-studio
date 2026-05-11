@@ -1,8 +1,8 @@
 import React from 'react';
 import { Book, Clock, User } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { ActionMenu } from '../ActionMenu';
-import type { Project } from '../../types';
+import { ActionMenu } from '@/components/ui/ActionMenu';
+import type { Project } from '@/types';
 
 interface ProjectCardProps {
     project: Project;

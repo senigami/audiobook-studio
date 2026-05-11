@@ -1,8 +1,8 @@
 import { useCallback } from 'react';
-import { api } from '../../api';
-import { buildFallbackProductionBlocks } from '../../utils/chapterEditorHelpers';
-import type { ChapterEditorState } from './useChapterEditorState';
-import type { ProductionBlock } from '../../types';
+import { api } from '@/api';
+import { buildFallbackProductionBlocks } from '@/utils/chapterEditorHelpers';
+import type { ChapterEditorState } from '@/hooks/chapter/useChapterEditorState';
+import type { ProductionBlock } from '@/types';
 
 export const useChapterPersistence = (
   state: ChapterEditorState,

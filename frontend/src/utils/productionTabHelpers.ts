@@ -1,6 +1,6 @@
 import React from 'react';
-import type { ChapterSegment, Character, ProductionBlock, SpeakerProfile } from '../types';
-import { getVariantDisplayName } from './voiceProfiles';
+import type { ChapterSegment, Character, ProductionBlock, SpeakerProfile } from '@/types';
+import { getVariantDisplayName } from '@/utils/voiceProfiles';
 
 export interface BlockBadge {
   label: string;

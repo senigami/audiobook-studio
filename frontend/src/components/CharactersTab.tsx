@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Character, Speaker, SpeakerProfile, TtsEngine } from '../types';
-import { api } from '../api';
+import type { Character, Speaker, SpeakerProfile, TtsEngine } from '@/types';
+import { api } from '@/api';
 import { Plus, Trash2, User as UserIcon } from 'lucide-react';
-import { ColorSwatchPicker } from './ColorSwatchPicker';
-import { ConfirmModal } from './ConfirmModal';
-import { VoiceProfileSelect } from './chapter/VoiceProfileSelect';
-import { buildVoiceOptions } from '../utils/voiceProfiles';
+import { ColorSwatchPicker } from '@/components/forms/ColorSwatchPicker';
+import { ConfirmModal } from '@/components/overlays/ConfirmModal';
+import { VoiceProfileSelect } from '@/pages/ChapterEditor/components/VoiceProfileSelect';
+import { buildVoiceOptions } from '@/utils/voiceProfiles';
 
 interface CharactersTabProps {
   projectId: string;

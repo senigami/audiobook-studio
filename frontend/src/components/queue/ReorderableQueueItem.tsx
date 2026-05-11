@@ -1,8 +1,8 @@
 import React from 'react';
 import { Reorder, useDragControls } from 'framer-motion';
 import { Trash2, GripVertical, Clock } from 'lucide-react';
-import type { ProcessingQueueItem } from '../../types';
-import { formatQueueContext } from '../../utils/queueLabels';
+import type { ProcessingQueueItem } from '@/types';
+import { formatQueueContext } from '@/utils/queueLabels';
 
 interface ReorderableQueueItemProps {
     job: ProcessingQueueItem;
@@ -11,7 +11,7 @@ interface ReorderableQueueItemProps {
     handleDragStart: () => void;
     handleDragEnd: () => void;
     compact?: boolean;
-    engines?: import('../../types').TtsEngine[];
+    engines?: import('@/types').TtsEngine[];
 }
 
 export const ReorderableQueueItem: React.FC<ReorderableQueueItemProps> = React.memo(({

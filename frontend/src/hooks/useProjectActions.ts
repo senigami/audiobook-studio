@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
-import { api } from '../api';
-import type { Chapter } from '../types';
+import { api } from '@/api';
+import type { Chapter } from '@/types';
 
 export function useProjectActions(
   projectId: string,

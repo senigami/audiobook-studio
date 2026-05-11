@@ -1,11 +1,11 @@
 import { useCallback, useMemo, useRef, useEffect } from 'react';
-import { api } from '../../api';
-import { resolveVoiceEngineStatus } from '../../utils/chapterEditorHelpers';
-import { getDefaultVoiceProfileName } from '../../utils/voiceProfiles';
-import { pickRelevantJob } from '../../utils/jobSelection';
-import { shouldEnableStudioDebugLogging, recordStudioDebugSnapshot } from '../../utils/runtimeDebug';
-import type { ChapterEditorState } from './useChapterEditorState';
-import type { Job, SpeakerProfile, TtsEngine } from '../../types';
+import { api } from '@/api';
+import { resolveVoiceEngineStatus } from '@/utils/chapterEditorHelpers';
+import { getDefaultVoiceProfileName } from '@/utils/voiceProfiles';
+import { pickRelevantJob } from '@/utils/jobSelection';
+import { shouldEnableStudioDebugLogging, recordStudioDebugSnapshot } from '@/utils/runtimeDebug';
+import type { ChapterEditorState } from '@/hooks/chapter/useChapterEditorState';
+import type { Job, SpeakerProfile, TtsEngine } from '@/types';
 
 export const useChapterQueue = (
   state: ChapterEditorState,

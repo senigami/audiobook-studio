@@ -1,0 +1,65 @@
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { ProjectLibrary } from '@/pages/ProjectLibrary/ProjectLibraryPage'
+import { MemoryRouter } from 'react-router-dom'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+describe('ProjectLibrary', () => {
+    beforeEach(() => {
+        global.fetch = vi.fn((url, options) => {
+            if (url === '/api/projects') {
+                if (options?.method === 'POST') {
+                    return Promise.resolve({
+                        json: () => Promise.resolve({ status: 'success', project_id: '123' })
+                    })
+                }
+                return Promise.resolve({
+                    json: () => Promise.resolve([
+                        {
+                            id: 'project-1',
+                            name: 'Test Project',
+                            series: 'Test Series',
+                            author: 'Test Author',
+                            created_at: 1000,
+                            updated_at: 2000,
+                            cover_image_path: null
+                        }
+                    ])
+                })
+            }
+            if (url.startsWith('/api/projects/project-1')) {
+                return Promise.resolve({
+                    json: () => Promise.resolve({ status: 'success' })
+                })
+            }
+            return Promise.resolve({
+                json: () => Promise.resolve({})
+            })
+        }) as any
+    })
+
+    it('renders project library and hero section', async () => {
+        render(
+            <MemoryRouter>
+                <ProjectLibrary onSelectProject={vi.fn()} />
+            </MemoryRouter>
+        )
+        
+        expect(await screen.findByText(/Natural AI Audio Lab/i)).toBeTruthy()
+
+        await waitFor(() => {
+            expect(screen.getByText('Test Project')).toBeTruthy()
+        })
+    })
+
+    it('opens create modal', async () => {
+        render(
+            <MemoryRouter>
+                <ProjectLibrary onSelectProject={vi.fn()} />
+            </MemoryRouter>
+        )
+        const createBtn = await screen.findByText(/New Project/i)
+        fireEvent.click(createBtn)
+
+        expect(screen.getByText('Title *')).toBeTruthy()
+    })
+})

@@ -1,18 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { ChapterSegment, Job, SegmentProgress } from '../types';
-import { shouldShowIndeterminateProgress } from '../utils/jobSelection';
+import type { ChapterSegment, Job, SegmentProgress } from '@/types';
+import { shouldShowIndeterminateProgress } from '@/utils/jobSelection';
 import { 
   getPredictiveJobProgress, 
   getWeightedActiveGroupProgress, 
   isIndeterminateProgressJob 
-} from '../utils/performanceTabHelpers';
+} from '@/utils/performanceTabHelpers';
 
 interface UsePerformanceTabProps {
   chunkGroups: { characterId: string | null; segments: ChapterSegment[] }[];
   generatingSegmentIds: Set<string>;
   generatingJob?: Job;
   segmentProgress?: Record<string, SegmentProgress>;
-  engines?: import('../types').TtsEngine[];
+  engines?: import('@/types').TtsEngine[];
 }
 
 export const usePerformanceTab = ({

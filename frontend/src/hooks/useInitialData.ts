@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { GlobalState } from '../types';
+import type { GlobalState } from '@/types';
 
 const STARTUP_RETRY_MS = 1000;
 

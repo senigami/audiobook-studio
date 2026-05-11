@@ -1,7 +1,7 @@
 import React from 'react';
-import type { Speaker, SpeakerProfile, VoiceEngine, TtsEngine } from '../types';
-import { ConfirmModal } from './ConfirmModal';
-import { RecordingGuide } from './RecordingGuide';
+import type { Speaker, SpeakerProfile, VoiceEngine, TtsEngine } from '@/types';
+import { ConfirmModal } from '@/components/overlays/ConfirmModal';
+import { RecordingGuide } from '@/components/RecordingGuide';
 import {
     NewVoiceModal,
     RenameVoiceModal,
@@ -9,8 +9,8 @@ import {
     MoveVariantModal,
     Drawer,
     ScriptEditor
-} from './voices';
-import { getVariantDisplayName } from '../utils/voiceProfiles';
+} from '@/pages/Voices/components';
+import { getVariantDisplayName } from '@/utils/voiceProfiles';
 
 interface VoicesModalsProps {
     // New Voice Modal

@@ -1,4 +1,4 @@
-import type { StudioJobEvent, StudioJobStatus } from '../api/contracts/events';
+import type { StudioJobEvent, StudioJobStatus } from '@/api/contracts/events';
 
 export interface OverlayDelta {
   project_id?: string | null;

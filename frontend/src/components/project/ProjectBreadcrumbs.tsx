@@ -1,8 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
-import type { Chapter } from '../../types';
-import { LAYERS } from '../../app/layout/layering';
+import type { Chapter } from '@/types';
+import { LAYERS } from '@/app/layout/layering';
 
 interface ProjectBreadcrumbsProps {
   projectId: string;

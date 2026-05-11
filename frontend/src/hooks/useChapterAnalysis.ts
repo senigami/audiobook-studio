@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { api } from '../api';
+import { api } from '@/api';
 
 export function useChapterAnalysis(chapterId: string, text: string) {
   const [analysis, setAnalysis] = useState<any>(null);

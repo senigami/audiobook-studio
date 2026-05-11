@@ -1,5 +1,5 @@
-import type { Job, Project, Chapter, ProductionBlocksResponse, ProductionBlock, ScriptViewResponse, ScriptAssignmentsUpdate, Engine } from '../types';
-import { DEFAULT_VOICE_SENTINEL } from '../constants/api';
+import type { Job, Project, Chapter, ProductionBlocksResponse, ProductionBlock, ScriptViewResponse, ScriptAssignmentsUpdate, Engine } from '@/types';
+import { DEFAULT_VOICE_SENTINEL } from '@/constants/api';
 
 const parseApiResponse = async (res: Response) => {
   const data = await res.json();
@@ -66,7 +66,7 @@ export const api = {
     return res.json();
   },
   // --- Backups ---
-  fetchProjectBackups: async (projectId: string): Promise<import('../types').StoredBackup[]> => {
+  fetchProjectBackups: async (projectId: string): Promise<import('@/types').StoredBackup[]> => {
     const res = await fetch(`/api/projects/${projectId}/backups`);
     return parseApiResponse(res);
   },
@@ -92,7 +92,7 @@ export const api = {
   },
 
   // --- Characters ---
-  fetchCharacters: async (projectId: string): Promise<import('../types').Character[]> => {
+  fetchCharacters: async (projectId: string): Promise<import('@/types').Character[]> => {
     const res = await fetch(`/api/projects/${projectId}/characters`);
     const data = await res.json();
     return data.characters || [];
@@ -248,7 +248,7 @@ export const api = {
   },
 
   // --- Segments ---
-  fetchSegments: async (chapterId: string): Promise<import('../types').ChapterSegment[]> => {
+  fetchSegments: async (chapterId: string): Promise<import('@/types').ChapterSegment[]> => {
     const res = await fetch(`/api/chapters/${chapterId}/segments`);
     const data = await res.json();
     return data.segments || [];

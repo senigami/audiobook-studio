@@ -1,13 +1,13 @@
-import { createChapterBreadcrumbs, createProjectBreadcrumbs } from '../navigation/breadcrumbs';
-import { GLOBAL_NAVIGATION_NODES } from '../navigation/model';
+import { createChapterBreadcrumbs, createProjectBreadcrumbs } from '@/app/navigation/breadcrumbs';
+import { GLOBAL_NAVIGATION_NODES } from '@/app/navigation/model';
 import type {
   RouteKind,
   NavigationState,
   ShellHydrationState,
   StudioShellState,
   HydrationStatus,
-} from '../navigation/model';
-import { createProjectSubnav } from '../navigation/project-subnav';
+} from '@/app/navigation/model';
+import { createProjectSubnav } from '@/app/navigation/project-subnav';
 
 const INTENDED_UPSTREAM_CALLERS = ['frontend/src/app/routes/index.tsx'];
 const INTENDED_DOWNSTREAM_DEPENDENCIES = [

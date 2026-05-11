@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { Speaker, SpeakerProfile, Job, VoiceEngine } from '../types';
+import type { Speaker, SpeakerProfile, Job, VoiceEngine } from '@/types';
 
 export function useVoiceManagement(
     onRefresh: () => void, 

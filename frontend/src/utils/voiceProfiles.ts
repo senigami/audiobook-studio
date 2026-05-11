@@ -1,4 +1,4 @@
-import type { SpeakerProfile, Speaker, TtsEngine, VoiceEngine, Character } from '../types';
+import type { SpeakerProfile, Speaker, TtsEngine, VoiceEngine, Character } from '@/types';
 
 export interface VoiceOption {
     id: string;

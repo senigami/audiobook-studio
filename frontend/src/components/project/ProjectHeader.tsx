@@ -1,6 +1,6 @@
 import React from 'react';
 import { Clock, CheckCircle, Edit3, Image as ImageIcon } from 'lucide-react';
-import type { Project } from '../../types';
+import type { Project } from '@/types';
 
 interface ProjectHeaderProps {
   project: Project;

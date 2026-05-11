@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import type { ChapterSegment, AudioGroup } from '../types';
-import type { ChunkGroup } from '../utils/chunkGroups';
+import type { ChapterSegment, AudioGroup } from '@/types';
+import type { ChunkGroup } from '@/utils/chunkGroups';
 
 export function useChapterPlayback(
   projectId: string,

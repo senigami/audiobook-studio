@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import type { SpeakerProfile } from '../types';
+import type { SpeakerProfile } from '@/types';
 
 export function useVariantActions(
     profile: SpeakerProfile, 

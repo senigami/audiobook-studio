@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Trash2, Image as ImageIcon } from 'lucide-react';
-import type { Project } from '../../types';
+import type { Project } from '@/types';
 
 interface AddChapterModalProps {
   isOpen: boolean;

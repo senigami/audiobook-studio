@@ -1,6 +1,6 @@
 import React from 'react';
 import { CheckCircle } from 'lucide-react';
-import type { Job, Project } from '../../types';
+import type { Job, Project } from '@/types';
 
 interface AssemblyProgressProps {
   project: Project;

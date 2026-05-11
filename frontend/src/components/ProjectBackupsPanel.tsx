@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Database, Download, Plus, Clock, Loader2, Trash2, CheckSquare, Square } from 'lucide-react';
-import { InlineEdit } from './InlineEdit';
-import { api } from '../api';
-import type { StoredBackup } from '../types';
-import { ConfirmModal } from './ConfirmModal';
+import { InlineEdit } from '@/components/forms/InlineEdit';
+import { api } from '@/api';
+import type { StoredBackup } from '@/types';
+import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 
 interface ProjectBackupsPanelProps {
   projectId: string;

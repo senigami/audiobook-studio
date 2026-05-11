@@ -2,8 +2,8 @@ import { useState, useRef, useCallback } from 'react';
 import type { 
   Chapter, ChapterSegment, Character, ProductionBlock, 
   ProductionRenderBatch, ScriptViewResponse 
-} from '../../types';
-import { useChapterAnalysis } from '../useChapterAnalysis';
+} from '@/types';
+import { useChapterAnalysis } from '@/hooks/useChapterAnalysis';
 
 export const useChapterEditorState = (chapterId: string) => {
   const [chapter, setChapter] = useState<Chapter | null>(null);

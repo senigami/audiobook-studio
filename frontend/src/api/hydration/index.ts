@@ -1,6 +1,6 @@
-import type { ProcessingQueueItem, Status as LegacyStatus } from '../../types';
-import type { LiveOverlayState, OverlayDelta } from '../../store/live-jobs';
-import { isSegmentScopedJob } from '../../utils/jobSelection';
+import type { ProcessingQueueItem, Status as LegacyStatus } from '@/types';
+import type { LiveOverlayState, OverlayDelta } from '@/store/live-jobs';
+import { isSegmentScopedJob } from '@/utils/jobSelection';
 
 export type HydrationSource = 'bootstrap' | 'reconnect' | 'refresh';
 

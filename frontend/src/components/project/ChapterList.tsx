@@ -1,12 +1,12 @@
 import React from 'react';
 import { Reorder } from 'framer-motion';
 import { FileText, GripVertical, CheckSquare, Square, RefreshCw, Zap, Video, Download, Trash2, Loader2 } from 'lucide-react';
-import { InlineEdit } from '../InlineEdit';
-import { ActionMenu } from '../ActionMenu';
-import { StatusOrb } from '../StatusOrb';
-import { PredictiveProgressBar } from '../PredictiveProgressBar';
-import type { Chapter, Job, TtsEngine } from '../../types';
-import { isSegmentScopedJob, shouldShowIndeterminateProgress } from '../../utils/jobSelection';
+import { InlineEdit } from '@/components/forms/InlineEdit';
+import { ActionMenu } from '@/components/ui/ActionMenu';
+import { StatusOrb } from '@/components/ui/StatusOrb';
+import { PredictiveProgressBar } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
+import type { Chapter, Job, TtsEngine } from '@/types';
+import { isSegmentScopedJob, shouldShowIndeterminateProgress } from '@/utils/jobSelection';
 
 interface ChapterListProps {
   chapters: Chapter[];

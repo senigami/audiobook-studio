@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import type { Speaker, SpeakerProfile, VoiceEngine, TtsEngine } from '../types';
-import { getVariantDisplayName, isVoiceProfileSelectable } from '../utils/voiceProfiles';
+import type { Speaker, SpeakerProfile, VoiceEngine, TtsEngine } from '@/types';
+import { getVariantDisplayName, isVoiceProfileSelectable } from '@/utils/voiceProfiles';
 
 
 export function useVoicesTabState({ speakerProfiles, engines }: { speakerProfiles: SpeakerProfile[], engines: TtsEngine[] }) {

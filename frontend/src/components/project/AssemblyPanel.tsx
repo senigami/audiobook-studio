@@ -1,7 +1,7 @@
 import React from 'react';
 import { Download, Trash2, Image as ImageIcon, CheckCircle, Book } from 'lucide-react';
-import { InlineEdit } from '../InlineEdit';
-import type { Audiobook } from '../../types';
+import { InlineEdit } from '@/components/forms/InlineEdit';
+import type { Audiobook } from '@/types';
 
 interface AssemblyPanelProps {
   availableAudiobooks: Audiobook[];

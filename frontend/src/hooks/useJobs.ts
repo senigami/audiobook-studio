@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { Job, SegmentProgress } from '../types';
-import { api } from '../api';
-import { useWebSocket } from './useWebSocket';
-import { isStudioJobEvent } from '../api/contracts/events';
-import { shouldEnableStudioDebugLogging, recordStudioDebugSnapshot } from '../utils/runtimeDebug';
+import type { Job, SegmentProgress } from '@/types';
+import { api } from '@/api';
+import { useWebSocket } from '@/hooks/useWebSocket';
+import { isStudioJobEvent } from '@/api/contracts/events';
+import { shouldEnableStudioDebugLogging, recordStudioDebugSnapshot } from '@/utils/runtimeDebug';
 
 const STATUS_PRIORITY: Record<string, number> = {
   done: 5,

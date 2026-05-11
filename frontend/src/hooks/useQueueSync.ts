@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { api } from '../api';
-import type { ProcessingQueueItem } from '../types';
-import { useWebSocket } from './useWebSocket';
-import { isStudioJobEvent } from '../api/contracts/events';
-import { createLiveJobsStore } from '../store/live-jobs';
-import { createHydrationCoordinator, selectActiveQueueCount } from '../api/hydration';
+import { api } from '@/api';
+import type { ProcessingQueueItem } from '@/types';
+import { useWebSocket } from '@/hooks/useWebSocket';
+import { isStudioJobEvent } from '@/api/contracts/events';
+import { createLiveJobsStore } from '@/store/live-jobs';
+import { createHydrationCoordinator, selectActiveQueueCount } from '@/api/hydration';
 
 const FALLBACK_POLL_MS = 60000;
 

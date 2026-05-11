@@ -1,9 +1,9 @@
 import React from 'react';
 import { Play, Pause, XCircle } from 'lucide-react';
-import { PredictiveProgressBar } from '../PredictiveProgressBar';
-import type { ProcessingQueueItem, Job } from '../../types';
-import { formatQueueContext } from '../../utils/queueLabels';
-import { shouldShowIndeterminateProgress } from '../../utils/jobSelection';
+import { PredictiveProgressBar } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
+import type { ProcessingQueueItem, Job } from '@/types';
+import { formatQueueContext } from '@/utils/queueLabels';
+import { shouldShowIndeterminateProgress } from '@/utils/jobSelection';
 
 interface QueueItemProps {
     job: ProcessingQueueItem;
@@ -13,7 +13,7 @@ interface QueueItemProps {
     formatTime: (ts: number | null | undefined) => string;
     onRemove: (id: string) => void;
     compact?: boolean;
-    engines?: import('../../types').TtsEngine[];
+    engines?: import('@/types').TtsEngine[];
 }
 
 export const QueueItem: React.FC<QueueItemProps> = ({

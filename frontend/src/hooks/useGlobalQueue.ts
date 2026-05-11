@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { api } from '../api';
-import type { ProcessingQueueItem } from '../types';
+import { api } from '@/api';
+import type { ProcessingQueueItem } from '@/types';
 
 export const useGlobalQueue = (initialQueue: ProcessingQueueItem[], paused: boolean, onRefresh?: () => void) => {
     const [queue, setQueue] = useState<ProcessingQueueItem[]>(initialQueue);

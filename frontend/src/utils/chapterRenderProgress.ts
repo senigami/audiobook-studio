@@ -1,4 +1,4 @@
-import type { Job } from '../types';
+import type { Job } from '@/types';
 
 const clamp01 = (value: number) => Math.max(0, Math.min(value, 1));
 
