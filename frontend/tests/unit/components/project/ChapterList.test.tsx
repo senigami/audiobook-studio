@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { ChapterList } from '@/components/project/ChapterList';
+import { ChapterList } from '@/pages/ProjectDetail/components/ChapterList';
 import { vi, describe, it, expect } from 'vitest';
 import type { Chapter } from '@/types';
 

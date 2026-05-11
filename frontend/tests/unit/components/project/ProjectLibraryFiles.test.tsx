@@ -1,8 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import { ChapterList } from '@/components/project/ChapterList';
-import { ProjectCard } from '@/components/project/ProjectCard';
-import { ProjectHeader } from '@/components/project/ProjectHeader';
+import { ChapterList } from '@/pages/ProjectDetail/components/ChapterList';
+import { ProjectCard } from '@/pages/ProjectDetail/components/ProjectCard';
+import { ProjectHeader } from '@/pages/ProjectDetail/components/ProjectHeader';
 
 describe('Project Library Components', () => {
     const mockChapters = [

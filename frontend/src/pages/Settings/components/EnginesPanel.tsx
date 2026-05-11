@@ -3,7 +3,7 @@ import { RefreshCw, FileText, Loader2 } from 'lucide-react';
 import type { TtsEngine } from '@/types';
 import { api } from '@/api';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
-import { EngineCard } from '@/pages/Settings/EngineCard';
+import { EngineCard } from '@/pages/Settings/components/EngineCard';
 
 interface EnginesPanelProps {
   onShowNotification?: (message: string) => void;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ToggleButton } from '@/pages/Settings/SettingsComponents';
+import { ToggleButton } from '@/pages/Settings/components/SettingsComponents';
 
 const formatReadOnlyValue = (value: any, prop: any): string => {
   const propUi = prop?.['x-ui'] || {};

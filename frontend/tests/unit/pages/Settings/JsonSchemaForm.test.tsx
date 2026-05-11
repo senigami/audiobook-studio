@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { JsonSchemaForm } from '@/pages/Settings/JsonSchemaForm';
+import { JsonSchemaForm } from '@/pages/Settings/components/JsonSchemaForm';
 
 describe('JsonSchemaForm', () => {
   it('renders duplicate enum values without React key warnings', () => {

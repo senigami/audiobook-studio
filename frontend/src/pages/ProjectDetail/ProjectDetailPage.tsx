@@ -16,15 +16,15 @@ import type {
 import type { StudioShellState } from '@/app/navigation/model';
 
 // Extracted Components
-import { ProjectBreadcrumbs } from '@/components/project/ProjectBreadcrumbs';
-import { ProjectSubnav } from '@/components/project/ProjectSubnav';
-import { ProjectHeader } from '@/components/project/ProjectHeader';
-import { AssemblyProgress } from '@/components/project/AssemblyProgress';
-import { ChapterList } from '@/components/project/ChapterList';
-import { AddChapterModal, EditProjectModal, CoverImageModal } from '@/components/project/ProjectModals';
+import { ProjectBreadcrumbs } from '@/pages/ProjectDetail/components/ProjectBreadcrumbs';
+import { ProjectSubnav } from '@/pages/ProjectDetail/components/ProjectSubnav';
+import { ProjectHeader } from '@/pages/ProjectDetail/components/ProjectHeader';
+import { AssemblyProgress } from '@/pages/ProjectDetail/components/AssemblyProgress';
+import { ChapterList } from '@/pages/ProjectDetail/components/ChapterList';
+import { AddChapterModal, EditProjectModal, CoverImageModal } from '@/pages/ProjectDetail/components/ProjectModals';
 import { ChapterEditor } from '@/pages/ChapterEditor/ChapterEditorPage';
 import { CharactersTab } from '@/components/CharactersTab';
-import { AssemblyPanel } from '@/components/project/AssemblyPanel';
+import { AssemblyPanel } from '@/pages/ProjectDetail/components/AssemblyPanel';
 import { VoiceProfileSelect } from '@/pages/ChapterEditor/components/VoiceProfileSelect';
 import { ProjectBackupsPanel } from '@/components/ProjectBackupsPanel';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';

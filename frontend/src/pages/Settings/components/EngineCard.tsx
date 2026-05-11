@@ -3,10 +3,10 @@ import { ChevronDown, Cloud, Play, ShieldCheck, Download, Trash2, ShieldAlert, L
 import type { TtsEngine } from '@/types';
 import { api } from '@/api';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
-import { ToggleButton } from '@/pages/Settings/SettingsComponents';
+import { ToggleButton } from '@/pages/Settings/components/SettingsComponents';
 import { getEngineUi, getEngineStatusLabel, getBadgeStyles } from '@/pages/Settings/settingsRouteHelpers';
-import { EngineMetadataPanel } from '@/pages/Settings/EngineMetadataPanel';
-import { JsonSchemaForm } from '@/pages/Settings/JsonSchemaForm';
+import { EngineMetadataPanel } from '@/pages/Settings/components/EngineMetadataPanel';
+import { JsonSchemaForm } from '@/pages/Settings/components/JsonSchemaForm';
 
 export const EngineCard: React.FC<{
   engine: TtsEngine;

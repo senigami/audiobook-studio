@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { ShieldCheck, PlugZap, Music } from 'lucide-react';
 import type { Settings as AppSettings, SpeakerProfile, TtsEngine, Speaker } from '@/types';
 import { buildVoiceOptions } from '@/utils/voiceProfiles';
-import { SettingCard, ToggleButton } from '@/pages/Settings/SettingsComponents';
+import { SettingCard, ToggleButton } from '@/pages/Settings/components/SettingsComponents';
 
 interface GeneralSettingsPanelProps {
   settings: AppSettings | undefined;

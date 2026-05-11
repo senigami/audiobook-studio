@@ -2,7 +2,7 @@ import React from 'react';
 import { Plus, Book, ImageIcon, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useProjectLibrary } from '@/hooks/useProjectLibrary';
-import { ProjectCard } from '@/components/project/ProjectCard';
+import { ProjectCard } from '@/pages/ProjectDetail/components/ProjectCard';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 
 interface ProjectLibraryProps {

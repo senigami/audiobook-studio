@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
-import { ProjectBreadcrumbs } from '@/components/project/ProjectBreadcrumbs';
+import { ProjectBreadcrumbs } from '@/pages/ProjectDetail/components/ProjectBreadcrumbs';
 
 describe('ProjectBreadcrumbs', () => {
   it('calls back to the project surface when the project crumb is clicked from chapter view', () => {

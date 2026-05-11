@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { RefreshCw, BadgeInfo, Server, Volume2, Globe, Cpu, Layers } from 'lucide-react';
 import type { TtsEngine, RenderStats, RuntimeService } from '@/types';
 import { api } from '@/api';
-import { StatusCard, DiagnosticRow, RuntimeServiceRow } from '@/pages/Settings/SettingsComponents';
+import { StatusCard, DiagnosticRow, RuntimeServiceRow } from '@/pages/Settings/components/SettingsComponents';
 import { getBadgeStyles } from '@/pages/Settings/settingsRouteHelpers';
 
 export const AboutSettingsPanel: React.FC<{ onRefresh?: () => void | Promise<void> }> = ({ onRefresh }) => {

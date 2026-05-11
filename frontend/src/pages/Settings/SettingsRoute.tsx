@@ -8,11 +8,11 @@ import {
   getActiveSettingsTab,
   normalizeSettingsPath
 } from '@/pages/Settings/settingsRouteConfig';
-import { SettingsTabLink, TabHeading } from '@/pages/Settings/SettingsComponents';
-import { GeneralSettingsPanel } from '@/pages/Settings/GeneralSettingsPanel';
-import { EnginesPanel } from '@/pages/Settings/EnginesPanel';
-import { ApiSettingsPanel } from '@/pages/Settings/ApiSettingsPanel';
-import { AboutSettingsPanel } from '@/pages/Settings/AboutSettingsPanel';
+import { SettingsTabLink, TabHeading } from '@/pages/Settings/components/SettingsComponents';
+import { GeneralSettingsPanel } from '@/pages/Settings/components/GeneralSettingsPanel';
+import { EnginesPanel } from '@/pages/Settings/components/EnginesPanel';
+import { ApiSettingsPanel } from '@/pages/Settings/components/ApiSettingsPanel';
+import { AboutSettingsPanel } from '@/pages/Settings/components/AboutSettingsPanel';
 
 interface SettingsRouteProps {
   settings: AppSettings | undefined;

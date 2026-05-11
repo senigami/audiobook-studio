@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { ProjectSubnav } from '@/components/project/ProjectSubnav';
+import { ProjectSubnav } from '@/pages/ProjectDetail/components/ProjectSubnav';
 
 describe('ProjectSubnav', () => {
   const mockItems = [

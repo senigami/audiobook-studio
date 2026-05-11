@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
-import { AssemblyProgress } from '@/components/project/AssemblyProgress';
+import { AssemblyProgress } from '@/pages/ProjectDetail/components/AssemblyProgress';
 import type { Project, Job } from '@/types';
 
 describe('AssemblyProgress', () => {
