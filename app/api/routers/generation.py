@@ -6,18 +6,18 @@ from pathlib import Path
 from typing import Any, List, Optional
 from fastapi import APIRouter, Form, BackgroundTasks
 from fastapi.responses import JSONResponse
-from ...chunk_groups import build_chapter_queue_title, build_segment_job_title
+from ...domain.chunk_groups import build_chapter_queue_title, build_segment_job_title
 from ...db import (
     add_to_queue as db_add_to_queue, get_chapter_segments,
     get_connection
 )
 
 from ...orchestration.scheduler.resources import set_paused
-from ...models import Job
-from ...state import put_job, update_job, get_settings, get_jobs
+from ...db.models import Job
+from ...db.state import put_job, update_job, get_settings, get_jobs
 from ...orchestration.scheduler.orchestrator import create_orchestrator
 from ...orchestration.tasks.synthesis import SynthesisTask
-from ...voice_engines import resolve_profile_engine, resolve_tts_engine_for_profiles, normalize_tts_engine
+from ...engines.voice_engines import resolve_profile_engine, resolve_tts_engine_for_profiles, normalize_tts_engine
 from ...engines.bridge import create_voice_bridge
 from ...engines.behavior import (
     supports_bake_rendering,
@@ -25,12 +25,12 @@ from ...engines.behavior import (
     supports_standard_rendering,
     uses_segment_orchestration,
 )
-from ...chunk_groups import build_chunk_groups
-from ...textops import sanitize_text, safe_split_long_sentences, SENT_CHAR_LIMIT
-from ...config import (
+from ...domain.chunk_groups import build_chunk_groups
+from ...utils.text.textops import sanitize_text, safe_split_long_sentences, SENT_CHAR_LIMIT
+from ...core.config import (
     get_chapter_dir, resolve_chapter_asset_path
 )
-from ...render_trace import trace
+from ...utils.render_trace import trace
 from ..ws import broadcast_chapter_updated, broadcast_queue_update
 
 router = APIRouter(prefix="/api", tags=["generation"])
@@ -243,7 +243,7 @@ def api_add_to_queue(
 
             segs = get_chapter_segments(chapter_id)
             # Check for bakeable segments in the nested segments directory
-            from ...pathing import secure_join_flat
+            from ...utils.pathing import secure_join_flat
             nested_seg_dir = secure_join_flat(chapter_dir, "segments")
 
             nested_audio_files = {
@@ -308,7 +308,7 @@ def api_add_to_queue(
             voice_ref = None
             synthesis_settings = {}
             if queue_engine != "mixed" and active_profile:
-                from app.voice_engines import resolve_voice_preview_inputs
+                from app.engines.voice_engines import resolve_voice_preview_inputs
                 speaker_wav, vdir = resolve_voice_preview_inputs(active_profile)
                 voice_ref = speaker_wav
                 if vdir:
@@ -429,7 +429,7 @@ def api_bake_chapter(chapter_id: str, background_tasks: BackgroundTasks):
     voice_ref = None
     synthesis_settings = {}
     if queue_engine != "mixed" and active_profile:
-        from app.voice_engines import resolve_voice_preview_inputs
+        from app.engines.voice_engines import resolve_voice_preview_inputs
         speaker_wav, vdir = resolve_voice_preview_inputs(active_profile)
         voice_ref = speaker_wav
         if vdir:
@@ -483,7 +483,7 @@ def resume_queue():
 
 @router.post("/generation/cancel-all")
 def cancel_pending():
-    from ...state import get_jobs, delete_jobs
+    from ...db.state import get_jobs, delete_jobs
     from ...db import clear_queue
 
     # 1. Cancel in orchestrator
@@ -523,7 +523,7 @@ def enqueue_single(
     engine: Optional[str] = Form(None)
 ):
     if not engine:
-        from ...voice_engines import get_default_profile_engine
+        from ...engines.voice_engines import get_default_profile_engine
         engine = get_settings().get("default_engine") or get_default_profile_engine()
     normalized_engine = normalize_tts_engine(engine, engine)
     if not normalized_engine:
@@ -541,7 +541,7 @@ def enqueue_single(
 
     # Resolve input file and read text content
     input_path = Path(chapter_file)
-    from ...config import is_safe
+    from ...core.config import is_safe
     if not is_safe(input_path):
         return JSONResponse(
             {"status": "error", "message": f"Access denied or invalid path: {chapter_file}"},
@@ -572,7 +572,7 @@ def enqueue_single(
     voice_ref = None
     synthesis_settings = {}
     if normalized_engine != "mixed" and active_profile:
-        from ...voice_engines import resolve_voice_preview_inputs
+        from ...engines.voice_engines import resolve_voice_preview_inputs
         speaker_wav, vdir = resolve_voice_preview_inputs(active_profile)
         voice_ref = speaker_wav
         if vdir:

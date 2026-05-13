@@ -10,8 +10,6 @@ and manually re-verifies.
 from __future__ import annotations
 
 import logging
-import os
-import tempfile
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -20,58 +18,6 @@ if TYPE_CHECKING:
     from app.tts_server.plugin_loader import LoadedPlugin
 
 logger = logging.getLogger(__name__)
-
-
-def _resolve_default_voice_reference() -> tuple[str | None, str | None]:
-    """Resolve the Studio default voice reference for verification tests."""
-    from app.state import get_settings  # noqa: PLC0415
-    from app.db.speakers import get_speaker_settings, get_profile_dir  # noqa: PLC0415
-
-    default_profile = str(get_settings().get("default_speaker_profile") or "").strip()
-    if not default_profile:
-        return None, "Set a Default Voice in General settings before verifying engines that need a reference sample."
-
-    try:
-        from app.db.speakers import get_profile_wavs as get_speaker_wavs, get_profile_dir as get_voice_profile_dir, get_speaker_settings # noqa: PLC0415
-
-        # Try to get wavs via the high-level helper first
-        wavs_str = get_speaker_wavs(default_profile)
-        if wavs_str:
-            # Return the first one
-            first_wav = wavs_str.split(",")[0]
-            return first_wav, None
-
-        # Fall back to directory resolution
-        profile_dir = get_voice_profile_dir(default_profile)
-        settings = get_speaker_settings(default_profile)
-    except Exception as exc:
-        return None, f"Could not resolve the Default Voice profile '{default_profile}': {exc}"
-
-    for key in ("reference_sample", "preview_reference_sample"):
-        sample_name = str(settings.get(key) or "").strip()
-        if not sample_name:
-            continue
-        sample_path = profile_dir / sample_name
-        if sample_path.is_file():
-            return str(sample_path), None
-
-    # Prefer latent.pth if present in the resolved directory
-    latent_path = profile_dir / "latent.pth"
-    if latent_path.is_file():
-        return str(latent_path), None
-
-    # Fall back to any wav files in the resolved directory
-    wavs = sorted(
-        candidate for candidate in profile_dir.glob("*.wav")
-        if candidate.is_file() and candidate.name != "sample.wav"
-    )
-    if wavs:
-        return str(wavs[0]), None
-
-    return None, (
-        f"The Default Voice '{default_profile}' does not have a usable reference sample (no latent.pth or .wav files found in {profile_dir}). "
-        "Add a sample in the Voices tab, then verify again."
-    )
 
 
 class VerificationResult:
@@ -94,8 +40,8 @@ class VerificationResult:
 def verify_plugin(plugin: "LoadedPlugin") -> VerificationResult:
     """Run a verification synthesis for a loaded plugin.
 
-    Writes a short test audio file to a temp path, checks that it is a
-    non-empty valid file, then cleans up.
+    Delegates the actual test run to the plugin's own ``run_test()`` method
+    to ensure plugins remain self-contained and agnostic of Studio paths.
 
     Args:
         plugin: The loaded plugin to verify.
@@ -103,114 +49,24 @@ def verify_plugin(plugin: "LoadedPlugin") -> VerificationResult:
     Returns:
         VerificationResult: Result of the verification attempt.
     """
-    # Import here to avoid circular dependencies at module level.
-    from app.engines.voice.sdk import TTSRequest, TTSResult  # noqa: PLC0415
     from app.tts_server.settings_store import calculate_verification_metadata, save_state # noqa: PLC0415
 
     engine_id = plugin.engine_id
-    test_text = plugin.test_text
-    voice_ref, voice_ref_error = _resolve_default_voice_reference()
-
-    if voice_ref_error:
-        bundled = _resolve_plugin_test_sample(plugin)
-        if bundled:
-            voice_ref = str(bundled)
-            voice_ref_error = None
-
-    # Create a temp file for verification audio.
-    fd, tmp_path = tempfile.mkstemp(
-        prefix=f"verify_{engine_id}_",
-        suffix=".wav",
-    )
-    os.close(fd)
-    output_path = Path(tmp_path)
 
     try:
-        if voice_ref_error:
-            logger.info("Verification for %s is using a fallback reference path: %s", engine_id, voice_ref_error)
+        # Plugins are responsible for their own test execution and asset management.
+        # This keeps them self-contained so they can be their own separate repos.
+        start_time = time.perf_counter()
+        result = plugin.engine.run_test()
+        duration = time.perf_counter() - start_time
 
-        req = TTSRequest(
-            text=test_text,
-            output_path=str(output_path),
-            voice_ref=voice_ref,
-            settings={},
-            language="en",
-        )
-
-        # Pre-flight check.
-        try:
-            ok, msg = plugin.engine.check_request(req)
-        except Exception as exc:
-            return VerificationResult(
-                engine_id=engine_id,
-                ok=False,
-                error=f"check_request() raised: {exc}",
-            )
-
-        if not ok:
-            return VerificationResult(
-                engine_id=engine_id,
-                ok=False,
-                error=f"check_request() rejected request: {msg}",
-            )
-
-        # Run synthesis or specialized verification.
-        try:
-            # Prefer specialized verify method if available (e.g. for API engines)
-            # Note: We check if it's a MagicMock to avoid accidental calls in tests
-            # that only expect synthesize() to be called.
-            verify_fn = getattr(plugin.engine, "verify", None)
-            is_mock = hasattr(verify_fn, "assert_called")
-
-            if verify_fn and callable(verify_fn) and not is_mock:
-                exc_prefix = "Verification run raised"
-                result = verify_fn(req)
-                is_specialized_verify = True
-            else:
-                exc_prefix = "synthesize() raised"
-                result = plugin.engine.synthesize(req)
-                is_specialized_verify = False
-        except Exception as exc:
-            return VerificationResult(
-                engine_id=engine_id,
-                ok=False,
-                error=f"{exc_prefix}: {exc}",
-            )
-
-        # Normalize plugin-provided dict results or SDK VerificationResult values.
-        if isinstance(result, dict):
-            from app.engines.voice.sdk import TTSResult  # noqa: PLC0415
-            result = TTSResult(
-                ok=result.get("status") == "ok" or result.get("ok", False),
-                error=result.get("message") or result.get("error"),
-                output_path=result.get("audio_path") or result.get("output_path"),
-                duration_sec=result.get("duration_sec", 0.0)
-            )
-        elif hasattr(result, "message") and not hasattr(result, "output_path"):
-            # This is an SDK VerificationResult
-            from app.engines.voice.sdk import TTSResult  # noqa: PLC0415
-            result = TTSResult(
-                ok=result.ok,
-                error=result.message if not result.ok else None,
-                output_path=None,
-                duration_sec=None
-            )
-
+        # Normalize SDK VerificationResult to internal VerificationResult
         if not result.ok:
             return VerificationResult(
                 engine_id=engine_id,
                 ok=False,
-                error=result.error or "Engine reported failure without message.",
+                error=result.message or "Engine reported failure without message.",
             )
-
-        # Validate the output file ONLY if we ran a render path (synthesize/preview)
-        if not is_specialized_verify:
-            if not output_path.exists() or output_path.stat().st_size == 0:
-                return VerificationResult(
-                    engine_id=engine_id,
-                    ok=False,
-                    error="Synthesize wrote an empty or missing output file",
-                )
 
         # Persist verification state
         state = {
@@ -224,76 +80,16 @@ def verify_plugin(plugin: "LoadedPlugin") -> VerificationResult:
         return VerificationResult(
             engine_id=engine_id,
             ok=True,
-            duration_sec=result.duration_sec,
+            duration_sec=duration,
         )
 
-    finally:
-        # Always clean up the temp file.
-        try:
-            output_path.unlink(missing_ok=True)
-        except Exception:
-            logger.debug(
-                "Could not remove verification temp file: %s", output_path
-            )
-
-
-def _resolve_plugin_test_sample(plugin: "LoadedPlugin") -> Path | None:
-    plugin_dir = Path(plugin.plugin_dir)
-    manifest = plugin.manifest if isinstance(plugin.manifest, dict) else {}
-    sample_names = [manifest.get("test_sample"), "sample.wav"]
-
-    for sample_name in sample_names:
-        sample_text = str(sample_name or "").strip()
-        if not sample_text:
-            continue
-
-        sample_path = Path(sample_text)
-        if sample_path.is_absolute():
-            if sample_path.is_file():
-                return sample_path
-            continue
-
-        runtime_candidate = _resolve_runtime_sample(plugin=plugin, sample_name=sample_text)
-        if runtime_candidate:
-            return runtime_candidate
-
-        if _is_generated_sample_name(sample_text):
-            continue
-
-        candidate = plugin_dir / sample_text
-        try:
-            candidate.resolve().relative_to(plugin_dir.resolve())
-        except (ValueError, RuntimeError, OSError):
-            continue
-        if candidate.is_file():
-            return candidate
-
-    return None
-
-
-def _resolve_runtime_sample(*, plugin: "LoadedPlugin", sample_name: str) -> Path | None:
-    if not _is_generated_sample_name(sample_name):
-        return None
-
-    from app.config import PLUGIN_DATA_DIR  # noqa: PLC0415
-
-    manifest = plugin.manifest if isinstance(plugin.manifest, dict) else {}
-    engine_id = str(manifest.get("engine_id") or plugin.folder_name or "").strip()
-    if engine_id.startswith("tts_"):
-        engine_id = engine_id[4:]
-    safe_engine_id = "".join(ch for ch in engine_id if ch.isalnum() or ch in ("-", "_"))
-    if not safe_engine_id:
-        return None
-
-    candidate = PLUGIN_DATA_DIR / safe_engine_id / sample_name
-    if candidate.is_file():
-        return candidate
-    return None
-
-
-def _is_generated_sample_name(sample_name: str) -> bool:
-    sample_path = Path(sample_name)
-    return sample_path.name == sample_name and sample_name in {"sample.wav", "sample.mp3"}
+    except Exception as exc:
+        logger.exception("Plugin %s run_test() raised an unhandled exception", engine_id)
+        return VerificationResult(
+            engine_id=engine_id,
+            ok=False,
+            error=f"run_test() raised: {exc}",
+        )
 
 
 def verify_all(plugins: "list[LoadedPlugin]") -> list[VerificationResult]:

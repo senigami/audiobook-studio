@@ -15,7 +15,7 @@ def create_project(
     cover_image_path: Optional[str] = None,
     speaker_profile_name: Optional[str] = None,
 ) -> str:
-    from .. import config
+    from ..core import config
 
     with _db_lock:
         with get_connection() as conn:
@@ -96,7 +96,7 @@ def delete_project(project_id: str) -> bool:
         with get_connection() as conn:
             cursor = conn.cursor()
             # 1. First, get project info for path cleanup
-            from .. import config
+            from ..core import config
             pdir = None
             try:
                 pdir = config.get_project_dir(project_id)

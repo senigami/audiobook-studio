@@ -5,14 +5,14 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 from app.db.speakers import update_speaker_settings, get_speaker_settings
-from app import config
+from app.core import config
 
 @pytest.fixture
 def mock_voices_root(tmp_path):
     voices_dir = tmp_path / "voices"
     voices_dir.mkdir()
     # app.db.speakers uses config.VOICES_DIR
-    with patch("app.config.VOICES_DIR", voices_dir):
+    with patch("app.core.config.VOICES_DIR", voices_dir):
         yield voices_dir
 
 def test_update_speaker_settings_traversal_blocked(mock_voices_root):

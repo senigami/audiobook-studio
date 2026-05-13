@@ -6,8 +6,8 @@ from typing import Any
 
 from app.db.core import _db_lock, get_connection
 from app.db.segments import sync_chapter_segments
-from app.render_trace import trace
-from app.textops import compute_chapter_metrics
+from app.utils.render_trace import trace
+from app.utils.text.textops import compute_chapter_metrics
 from . import helpers
 from . import blocks as blocks_module
 
@@ -32,7 +32,7 @@ def get_production_blocks_payload(chapter_id: str) -> dict[str, Any]:
 
 def get_script_view_payload(chapter_id: str) -> dict[str, Any]:
     """Build the Phase 7 Script View read model payload for a chapter."""
-    from app.textops import sanitize_text
+    from app.utils.text.textops import sanitize_text
     from . import facade
 
     with _db_lock:

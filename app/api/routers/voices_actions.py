@@ -7,11 +7,11 @@ from typing import List, Optional
 from fastapi import APIRouter, Form, File, UploadFile, Request
 from fastapi.responses import JSONResponse
 from . import voices_helpers
-from ... import state
-from ... import models
-from ... import pathing
-from ... import config
-from ...voice_engines import get_default_profile_engine
+from ...db import state
+from ...db import models
+from ...utils import pathing
+from ...core import config
+from ...engines.voice_engines import get_default_profile_engine
 from ...db.speakers import get_speaker_settings, update_speaker_settings, DEFAULT_SPEAKER_TEST_TEXT
 from ...orchestration.scheduler.orchestrator import create_orchestrator
 from ...orchestration.tasks.sample_build import SampleBuildTask

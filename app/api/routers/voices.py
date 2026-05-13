@@ -23,7 +23,7 @@ from ...db.speakers import (
     DEFAULT_SPEAKER_TEST_TEXT,
 )
 from ...engines.bridge import create_voice_bridge
-from ...state import put_job
+from ...db.state import put_job
 
 logger = logging.getLogger(__name__)
 

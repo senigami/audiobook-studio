@@ -4,7 +4,7 @@ import re
 import logging
 from typing import Dict, Any, Optional
 
-from ..state import update_job
+from ..db.state import update_job
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +14,7 @@ def _calculate_group_resume_state(job) -> tuple[float, int, int]:
         return 0.0, 0, 0
 
     try:
-        from ..chunk_groups import build_chunk_groups, load_chunk_segments
+        from ..domain.chunk_groups import build_chunk_groups, load_chunk_segments
 
         groups = build_chunk_groups(load_chunk_segments(job.chapter_id), job.speaker_profile)
         if not groups:

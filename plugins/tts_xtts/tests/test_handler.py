@@ -3,7 +3,7 @@ import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 from plugins.tts_xtts.plugin.studio.handler import handle_xtts_job, _group_job_progress
-from app.models import Job
+from app.db.models import Job
 
 @pytest.fixture(autouse=True)
 def mock_path_methods():

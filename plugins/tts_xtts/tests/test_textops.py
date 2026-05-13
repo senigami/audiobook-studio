@@ -1,4 +1,4 @@
-from app.textops import consolidate_single_word_sentences
+from app.utils.text.textops import consolidate_single_word_sentences
 
 def test_greedy_merge_forward():
     text = "Wait. No. Stop. Go."

@@ -19,7 +19,7 @@ from app.engines.models import EngineHealthModel, EngineManifestModel
 from app.engines.voice.base import BaseVoiceEngine
 from app.engines.voice.sdk import TTSRequest, TTSResult, VoiceProcessingHooks, SynthesisPlan
 from app.infra.subprocess import run_managed_subprocess_async
-from app.voice_engines import resolve_voice_preview_inputs
+from app.engines.voice_engines import resolve_voice_preview_inputs
 
 # Local defaults for XTTS environment
 XTTS_ENV_DIR_DEFAULT = Path.home() / "xtts-env"

@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from fastapi import APIRouter, Form
 from fastapi.responses import JSONResponse
 from ...db import get_queue, clear_queue, clear_completed_queue, reorder_queue, remove_from_queue
-from ...state import get_jobs
+from ...db.state import get_jobs
 
 from ..ws import broadcast_queue_update
 
@@ -118,7 +118,7 @@ def api_get_queue():
 @router.delete("/processing_queue")
 def api_mass_delete_queue():
     from ...db import get_queue
-    from ...state import get_jobs, delete_jobs
+    from ...db.state import get_jobs, delete_jobs
     count = len([item for item in get_queue() if item['status'] != 'running'])
     clear_queue()
     # Clear all non-running jobs from in-memory state too
@@ -136,7 +136,7 @@ def api_clear_queue_route():
 
 @router.post("/processing_queue/clear_completed")
 def api_clear_completed():
-    from ...state import get_jobs, delete_jobs
+    from ...db.state import get_jobs, delete_jobs
     count = clear_completed_queue()
     # Also clear from state.json
     jobs = get_jobs()
@@ -161,14 +161,14 @@ def api_delete_queue_item(queue_id: str):
     from ...orchestration.scheduler.orchestrator import create_orchestrator
     orchestrator = create_orchestrator()
     if not orchestrator.cancel(queue_id):
-        from ...state import get_jobs, update_job
+        from ...db.state import get_jobs, update_job
         jobs = get_jobs()
         if queue_id in jobs:
             update_job(queue_id, status="cancelled", force_broadcast=True)
     # Remove from DB
     remove_from_queue(queue_id)
     # Remove from live state memory
-    from ...state import delete_jobs
+    from ...db.state import delete_jobs
     delete_jobs([queue_id])
     broadcast_queue_update()
     return JSONResponse({"status": "ok"})

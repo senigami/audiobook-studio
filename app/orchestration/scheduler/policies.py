@@ -50,7 +50,7 @@ def get_priority_mode() -> str:
     """
     # 1. Check settings
     try:
-        from app.state import get_settings  # noqa: PLC0415
+        from app.db.state import get_settings  # noqa: PLC0415
 
         settings = get_settings()
         mode = settings.get("api_priority_mode", "").strip().lower()

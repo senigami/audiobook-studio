@@ -3,7 +3,7 @@ import time
 from pathlib import Path
 from unittest.mock import patch, MagicMock, ANY
 from plugins.tts_xtts.plugin.studio.handler import handle_xtts_job
-from app.models import Job
+from app.db.models import Job
 
 @pytest.fixture
 def mock_job():

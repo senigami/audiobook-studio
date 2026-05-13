@@ -8,9 +8,9 @@ import sqlite3
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from .core import _db_lock, get_connection
-from ..pathing import safe_join, safe_join_flat, find_secure_file, secure_join_flat
-from .. import config
-from ..voice_engines import get_default_profile_engine, list_tts_engines
+from ..utils.pathing import safe_join, safe_join_flat, find_secure_file, secure_join_flat
+from ..core import config
+from ..engines.voice_engines import get_default_profile_engine, list_tts_engines
 
 logger = logging.getLogger(__name__)
 SAFE_PROFILE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
@@ -193,7 +193,7 @@ def is_default_profile_name(profile_name: str, meta: Optional[Dict[str, Any]] = 
 
 def _resolve_existing_profile_name(profile_name_or_id: str) -> Optional[str]:
     """Resolve a speaker name/ID/profile name to the best existing profile identifier."""
-    from ..state import get_settings
+    from ..db.state import get_settings
     default_settings = get_settings()
     target_profile = profile_name_or_id or default_settings.get("default_speaker_profile") or "Dark Fantasy"
 
@@ -249,7 +249,7 @@ def _resolve_existing_profile_name(profile_name_or_id: str) -> Optional[str]:
 
 def get_profile_engine(profile_name_or_id: Optional[str], fallback_engine: Optional[str] = None) -> str:
     """Resolve the engine ID for a profile name or speaker ID without depending on app.jobs."""
-    from ..voice_engines import normalize_tts_engine
+    from ..engines.voice_engines import normalize_tts_engine
     fallback = normalize_tts_engine(fallback_engine)
     if not profile_name_or_id:
         return fallback
@@ -313,7 +313,7 @@ def get_profile_wavs(profile_name_or_id: str) -> Optional[str]:
 
 def get_speaker_settings(profile_name_or_id: str) -> dict:
     """Returns metadata (like speed and test text) for a profile or speaker ID, falling back to global settings."""
-    from ..state import get_settings
+    from ..db.state import get_settings
     defaults = get_settings()
 
     res = {
@@ -676,6 +676,7 @@ def sync_speakers_from_profiles(voices_dir: Optional[Path] = None) -> None:
                 if meta.get("speaker_id") != speaker["id"] or not os.path.exists(meta_path_full):
                     meta["speaker_id"] = speaker["id"]
                     try:
+                        os.makedirs(os.path.dirname(meta_path_full), exist_ok=True)
                         with open(meta_path_full, "w", encoding="utf-8") as f:
                             f.write(json.dumps(meta, indent=2))
                     except Exception:

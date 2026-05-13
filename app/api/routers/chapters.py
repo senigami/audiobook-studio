@@ -12,11 +12,11 @@ from ...db import (
     get_chapter_segments, update_segment, update_segments_status_bulk, update_segments_bulk, 
     sync_chapter_segments
 )
-from ... import config
-from ...textops import compute_chapter_metrics
-from ...state import get_jobs
-from ...state import update_job
-from ...constants import DEFAULT_VOICE_SENTINEL
+from ...core import config
+from ...utils.text.textops import compute_chapter_metrics
+from ...db.state import get_jobs
+from ...db.state import update_job
+from ...core.constants import DEFAULT_VOICE_SENTINEL
 from ..ws import broadcast_chapter_updated, broadcast_queue_update
 
 # Sub-modules

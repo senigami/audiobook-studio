@@ -46,7 +46,7 @@ class VoiceBridge:
         if not registration:
             return False
 
-        from app.state import get_settings
+        from app.db.state import get_settings
         settings = get_settings()
         enabled_plugins = settings.get("enabled_plugins") or {}
         default_enabled = registration.manifest.built_in or registration.manifest.verified
@@ -55,6 +55,14 @@ class VoiceBridge:
     def get_synthesis_plan(self, request: dict[str, Any]) -> Any:
         """Query an engine for its preferred synthesis plan."""
         return self.remote.get_synthesis_plan(request)
+
+    def verify_engine(self, engine_id: str) -> dict[str, Any]:
+        """Trigger remote engine verification."""
+        return self.remote.verify_engine(engine_id)
+
+    def run_test(self, engine_id: str) -> dict[str, Any]:
+        """Trigger remote engine self-contained test."""
+        return self.remote.run_test(engine_id)
 
     def check_readiness(
         self, engine_id: str, profile_id: str, settings: dict[str, Any], profile_dir: str | None
@@ -83,7 +91,7 @@ class VoiceBridge:
                 data["setup_message"] = data["health"]["message"]
 
         # Enrich with last test results
-        from app.config import ENGINE_TEST_DIR  # noqa: PLC0415
+        from app.core.config import ENGINE_TEST_DIR  # noqa: PLC0415
         import json
         if ENGINE_TEST_DIR.exists():
             for data in results:
@@ -159,7 +167,7 @@ class VoiceBridge:
             logs = watchdog.get_logs()
 
         if not logs:
-            from app.config import BASE_DIR # noqa: PLC0415
+            from app.core.config import BASE_DIR # noqa: PLC0415
             log_dir = BASE_DIR / "logs"
 
             msg = "Direct log streaming is not available in the UI."

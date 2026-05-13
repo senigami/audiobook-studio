@@ -145,6 +145,10 @@ class RemoteBridgeHandler:
         """Verify engine via TTS Server."""
         return self._get_tts_client().verify_engine(engine_id)
 
+    def run_test(self, engine_id: str) -> dict[str, Any]:
+        """Run self-contained test via TTS Server."""
+        return self._get_tts_client().run_test(engine_id)
+
     def install_dependencies(self, engine_id: str) -> dict[str, Any]:
         """Install dependencies via TTS Server."""
         return self._get_tts_client().install_dependencies(engine_id)

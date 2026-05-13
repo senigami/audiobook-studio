@@ -5,7 +5,7 @@ import re
 import time
 from typing import List, Dict, Any, Optional
 from .core import _db_lock, get_connection
-from ..render_trace import trace
+from ..utils.render_trace import trace
 
 logger = logging.getLogger(__name__)
 SEGMENT_AUDIO_RE = re.compile(r"^(?P<segment_id>.+)\.(?:wav|mp3|m4a)$", re.IGNORECASE)
@@ -28,7 +28,7 @@ def _chapter_has_active_generation(chapter_id: str) -> bool:
             return True
 
     try:
-        from ..state import get_jobs
+        from ..db.state import get_jobs
 
         active_statuses = {"queued", "preparing", "running", "finalizing"}
         for job in get_jobs().values():
@@ -121,8 +121,8 @@ def get_chapter_segments(chapter_id: str) -> List[Dict[str, Any]]:
                         s["audio_file_path"] = None
 
     # Rule 3: Disk as Source of Truth - Outside Lock
-    from .. import config
-    from ..chunk_groups import build_chunk_groups
+    from ..core import config
+    from ..domain.chunk_groups import build_chunk_groups
 
     chapter_dir = config.get_chapter_dir(project_id, chapter_id) if project_id else None
     seg_dir = config.secure_join_flat(chapter_dir, "segments") if chapter_dir else None
@@ -435,7 +435,7 @@ def cleanup_orphaned_segments(chapter_id: str):
     if not project_id:
         return
 
-    from .. import config
+    from ..core import config
     chapter_dir = config.get_chapter_dir(project_id, chapter_id)
     sdir = config.secure_join_flat(chapter_dir, "segments")
 

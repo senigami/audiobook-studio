@@ -11,8 +11,8 @@ from fastapi.responses import JSONResponse, StreamingResponse, FileResponse
 from fastapi.encoders import jsonable_encoder
 
 from ...db import get_project
-from ...config import get_project_dir
-from ...pathing import find_secure_file, secure_join_flat
+from ...core.config import get_project_dir
+from ...utils.pathing import find_secure_file, secure_join_flat
 from .projects_helpers import _get_project_service, _create_backup_archive
 
 logger = logging.getLogger(__name__)

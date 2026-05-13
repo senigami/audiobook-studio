@@ -19,7 +19,7 @@ from pathlib import Path
 
 import uvicorn
 
-from app.config import PLUGINS_DIR
+from app.core.config import PLUGINS_DIR
 
 logging.basicConfig(
     level=logging.INFO,

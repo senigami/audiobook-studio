@@ -22,7 +22,7 @@ def test_reorder_chapters(db_conn):
 
 def test_reset_chapter_audio(db_conn, tmp_path):
     pid = create_project("P2", "/tmp")
-    with patch("app.config.PROJECTS_DIR", tmp_path):
+    with patch("app.core.config.PROJECTS_DIR", tmp_path):
         cid = create_chapter(pid, "C1")
         update_chapter(cid, audio_status="done", audio_file_path="chapter.wav")
 
@@ -35,12 +35,12 @@ def test_reset_chapter_audio(db_conn, tmp_path):
 
 def test_reset_chapter_audio_deletes_chunk_files(db_conn, tmp_path):
     from app.db.segments import sync_chapter_segments, get_chapter_segments, update_segment
-    from app.config import get_chapter_dir
+    from app.core.config import get_chapter_dir
 
     pid = create_project("P2B", "/tmp")
     cid = create_chapter(pid, "C1", "One. Two.")
-    with patch("app.config.PROJECTS_DIR", tmp_path), \
-         patch("app.config.TRASH_DIR", tmp_path / "trash"):
+    with patch("app.core.config.PROJECTS_DIR", tmp_path), \
+         patch("app.core.config.TRASH_DIR", tmp_path / "trash"):
         chapter_dir = get_chapter_dir(pid, cid)
         chapter_dir.mkdir(parents=True, exist_ok=True)
         (chapter_dir / "segments").mkdir(exist_ok=True)
@@ -61,12 +61,12 @@ def test_reset_chapter_audio_deletes_chunk_files(db_conn, tmp_path):
 
 def test_update_segment_only_cleans_edited_segment_files(db_conn, tmp_path):
     from app.db.segments import sync_chapter_segments, get_chapter_segments, update_segment
-    from app.config import get_chapter_dir
+    from app.core.config import get_chapter_dir
 
     pid = create_project("P3", "/tmp")
     cid = create_chapter(pid, "C3", "One. Two.")
-    with patch("app.config.PROJECTS_DIR", tmp_path), \
-         patch("app.config.TRASH_DIR", tmp_path / "trash"):
+    with patch("app.core.config.PROJECTS_DIR", tmp_path), \
+         patch("app.core.config.TRASH_DIR", tmp_path / "trash"):
         chapter_dir = get_chapter_dir(pid, cid)
         chapter_dir.mkdir(parents=True, exist_ok=True)
         (chapter_dir / "segments").mkdir(exist_ok=True)

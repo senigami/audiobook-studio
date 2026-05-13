@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Callable, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from app.models import Job
+    from app.db.models import Job
 
 def voice_job_dispatch_adapter(jid: str, j: Job, start: float, on_output: Callable[[str], None], cancel_check: Callable[[], bool], **kwargs):
     """Adapter for voice tasks to match the standard synthesis signature."""

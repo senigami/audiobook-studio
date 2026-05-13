@@ -19,7 +19,7 @@ INTENDED_DOWNSTREAM_DEPENDENCIES = (
     "app.domain.settings.ownership.build_settings_ownership_chain",
 )
 FORBIDDEN_DIRECT_IMPORTS = (
-    "app.state",
+    "app.db.state",
     "app.db",
     "app.jobs",
 )

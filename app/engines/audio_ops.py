@@ -6,8 +6,8 @@ import subprocess
 from pathlib import Path
 from typing import Any, Callable
 
-from app.config import MP3_QUALITY
-from app.subprocess_utils import probe_audio_duration
+from app.core.config import MP3_QUALITY
+from app.utils.subprocess_utils import probe_audio_duration
 
 
 def wav_to_mp3(

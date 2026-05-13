@@ -4,14 +4,14 @@ from unittest.mock import patch
 from app.db.chapters import create_chapter, update_chapter
 from app.db.projects import create_project
 from app.db.segments import sync_chapter_segments, get_chapter_segments, update_segment
-from app.config import get_chapter_dir
+from app.core.config import get_chapter_dir
 
 def test_grouped_segments_validation_regression(db_conn, tmp_path):
     # Setup project and chapter
     pid = create_project("P_GROUP", "/tmp")
     cid = create_chapter(pid, "C_GROUP", "One. Two.")
 
-    with patch("app.config.PROJECTS_DIR", tmp_path):
+    with patch("app.core.config.PROJECTS_DIR", tmp_path):
         chapter_dir = get_chapter_dir(pid, cid)
         chapter_dir.mkdir(parents=True, exist_ok=True)
         seg_dir = chapter_dir / "segments"
@@ -59,7 +59,7 @@ def test_segments_in_root_are_invalidated(db_conn, tmp_path):
     pid = create_project("P_ROOT", "/tmp")
     cid = create_chapter(pid, "C_ROOT", "One.")
 
-    with patch("app.config.PROJECTS_DIR", tmp_path):
+    with patch("app.core.config.PROJECTS_DIR", tmp_path):
         chapter_dir = get_chapter_dir(pid, cid)
         chapter_dir.mkdir(parents=True, exist_ok=True)
 
@@ -83,7 +83,7 @@ def test_update_segment_preserves_audio_when_marked_done_with_metadata_change(db
     pid = create_project("P_SUICIDE", "/tmp")
     cid = create_chapter(pid, "C_SUICIDE", "One.")
 
-    with patch("app.config.PROJECTS_DIR", tmp_path):
+    with patch("app.core.config.PROJECTS_DIR", tmp_path):
         chapter_dir = get_chapter_dir(pid, cid)
         chapter_dir.mkdir(parents=True, exist_ok=True)
         seg_dir = chapter_dir / "segments"

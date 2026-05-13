@@ -133,9 +133,9 @@ class StudioTask:
     def get_expected_duration(self, text: str, engine_id: str) -> float:
         """Estimate the expected duration of a synthesis task based on historical metrics."""
         try:
-            from app.state import get_performance_metrics  # noqa: PLC0415
+            from app.db.state import get_performance_metrics  # noqa: PLC0415
             from app.orchestration.scheduler.eta import _estimate_seconds, get_robust_eta_params  # noqa: PLC0415
-            from app.config import BASELINE_ENGINE_CPS  # noqa: PLC0415
+            from app.core.config import BASELINE_ENGINE_CPS  # noqa: PLC0415
             from app.tts_server.performance_settings import (  # noqa: PLC0415
                 filter_history_for_engine_model,
                 get_engine_computer_speed_multiplier,

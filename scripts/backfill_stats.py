@@ -5,7 +5,7 @@ from pathlib import Path
 
 # Add app to path
 sys.path.append(str(Path.cwd()))
-from app.textops import clean_text_for_tts
+from app.utils.text.textops_cleaning import clean_text_for_tts
 
 DB_PATH = Path("audiobook_studio.db")
 

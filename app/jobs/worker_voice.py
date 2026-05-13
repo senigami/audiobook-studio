@@ -5,8 +5,8 @@ import shutil
 from pathlib import Path
 from typing import Any, Mapping
 
-from ..state import update_job
-from ..config import VOICES_DIR
+from ..db.state import update_job
+from ..core.config import VOICES_DIR
 from ..engines.errors import EngineBridgeError
 from ..engines.audio_ops import wav_to_mp3
 from ..db.speakers import get_profile_wavs as get_speaker_wavs, get_speaker_settings, get_profile_dir as get_voice_profile_dir
@@ -101,7 +101,7 @@ def handle_voice_job(jid, j, on_output, cancel_check, voice_job_settings=None):
             voice_profile_dir = get_voice_profile_dir(j.speaker_profile)
         except ValueError:
             voice_profile_dir = None
-        from ..voice_engines import get_default_profile_engine
+        from ..engines.voice_engines import get_default_profile_engine
         engine = spk.get("engine", get_default_profile_engine())
         try:
             rc = _generate_voice_sample_via_bridge(

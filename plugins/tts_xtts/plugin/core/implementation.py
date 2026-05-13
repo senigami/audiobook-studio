@@ -9,8 +9,8 @@ import shutil
 from pathlib import Path
 from typing import Any, Callable
 
-from app import config as app_config
-from app.textops import pack_text_to_limit, safe_split_long_sentences, sanitize_text
+from app.core import config as app_config
+from app.utils.text.textops import pack_text_to_limit, safe_split_long_sentences, sanitize_text
 # Engine environment resolution
 XTTS_ENV_DIR_DEFAULT = Path.home() / "xtts-env"
 XTTS_ENV_DIR = Path(os.getenv("XTTS_ENV_DIR", str(XTTS_ENV_DIR_DEFAULT)))

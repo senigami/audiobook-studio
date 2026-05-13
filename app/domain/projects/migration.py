@@ -6,7 +6,7 @@ import uuid
 from pathlib import Path
 from typing import List, Dict, Any
 
-from app import config
+from app.core import config
 from app.db.chapters import list_chapters
 from .manifest import load_project_manifest, save_project_manifest, CURRENT_STORAGE_VERSION
 

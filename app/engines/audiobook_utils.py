@@ -9,7 +9,7 @@ import tempfile
 from pathlib import Path
 from typing import Any, Callable
 
-from app.config import AUDIOBOOK_BITRATE
+from app.core.config import AUDIOBOOK_BITRATE
 
 logger = logging.getLogger(__name__)
 

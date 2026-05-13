@@ -34,7 +34,7 @@ def is_paused() -> bool:
 
 def set_paused(value: bool) -> None:
     """Set the global pause state for the task orchestrator."""
-    from app.state import update_settings
+    from app.db.state import update_settings
     if value:
         _pause_flag.set()
         update_settings({"is_paused": True})

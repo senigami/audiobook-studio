@@ -207,7 +207,7 @@ class SynthesisTask(StudioTask):
                 message=f"Task type synthesis does not support local execution for engine {self.engine_id}."
             )
 
-        from app.models import Job  # noqa: PLC0415
+        from app.db.models import Job  # noqa: PLC0415
         from plugins.synthesis_mixed.handler import handle_mixed_job  # noqa: PLC0415
 
         # Reconstruct a Job-like object for the local handler

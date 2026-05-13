@@ -9,10 +9,10 @@ from . import voices_helpers
 from ... import db
 
 from ...engines import bridge
-from ... import state
-from ... import pathing
-from ... import config
-from ...voice_engines import get_default_profile_engine
+from ...db import state
+from ...utils import pathing
+from ...core import config
+from ...engines.voice_engines import get_default_profile_engine
 
 logger = logging.getLogger(__name__)
 

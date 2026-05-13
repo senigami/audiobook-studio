@@ -2,9 +2,9 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from app.config import SENT_CHAR_LIMIT
-from app.chunk_groups import build_chunk_groups
-from app.textops import sanitize_text, safe_split_long_sentences
+from app.core.config import SENT_CHAR_LIMIT
+from app.domain.chunk_groups import build_chunk_groups
+from app.utils.text.textops import sanitize_text, safe_split_long_sentences
 from app.engines.errors import EngineBridgeError
 from . import handler as xtts_facade
 from app.jobs.handlers.bridge_helpers import generate_via_bridge

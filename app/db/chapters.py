@@ -5,8 +5,8 @@ import uuid
 from typing import List, Dict, Any, Optional
 
 from .core import _db_lock, get_connection
-from ..render_trace import trace
-from ..pathing import secure_join_flat
+from ..utils.render_trace import trace
+from ..utils.pathing import secure_join_flat
 
 # Sub-modules
 from .chapters_helpers import (
@@ -43,7 +43,7 @@ def create_chapter(project_id: str, title: str, text_content: Optional[str] = No
             conn.commit()
 
             # Ensure nested directory exists immediately
-            from ..config import get_chapter_dir
+            from ..core.config import get_chapter_dir
             nested_dir = get_chapter_dir(project_id, chapter_id)
             nested_dir.mkdir(parents=True, exist_ok=True)
             secure_join_flat(nested_dir, "segments").mkdir(exist_ok=True)
@@ -78,7 +78,7 @@ def get_chapter(chapter_id: str) -> Optional[Dict[str, Any]]:
             chap = dict(row)
 
     # Rule 3: Disk as Source of Truth - Outside Lock
-    from .. import config
+    from ..core import config
 
     path = chap.get("audio_file_path")
 
@@ -115,7 +115,7 @@ def list_chapters(project_id: str) -> List[Dict[str, Any]]:
             )
             rows = [dict(row) for row in cursor.fetchall()]
 
-    from .. import config
+    from ..core import config
 
     for chap in rows:
         path = chap.get("audio_file_path")

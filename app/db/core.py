@@ -59,7 +59,9 @@ def get_connection():
     return conn
 
 def init_db():
-    from .core import _db_lock, get_connection
+    # init_db logic continues using locals
+    global _db_lock
+    # no import needed here as they are in local scope
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()

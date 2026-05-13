@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
 from app.orchestration.tasks.base import TaskResult
-from app.render_trace import trace
+from app.utils.render_trace import trace
 
 if TYPE_CHECKING:
     from app.orchestration.tasks.base import StudioTask, TaskContext
@@ -122,7 +122,7 @@ class OrchestratorHelpersMixin:
             audio_duration_seconds = None
             if output_path:
                 try:
-                    from app.subprocess_utils import probe_audio_duration  # noqa: PLC0415
+                    from app.utils.subprocess_utils import probe_audio_duration  # noqa: PLC0415
 
                     audio_file = Path(output_path)
                     if audio_file.exists():
@@ -541,7 +541,7 @@ class OrchestratorHelpersMixin:
         try:
             # Sync with the persistent state.json for UI visibility and polling.
             # We import lazily to stay behind the state boundary.
-            from app.state import get_jobs, put_job, update_job, Job  # noqa: PLC0415
+            from app.db.state import get_jobs, put_job, update_job, Job  # noqa: PLC0415
 
             # Anti-Regression: If this is an update to an existing job, don't allow progress to regress
             # unless the status itself has regressed (e.g. requeued).

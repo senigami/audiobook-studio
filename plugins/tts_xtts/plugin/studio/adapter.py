@@ -4,21 +4,21 @@ from pathlib import Path
 from typing import Any, Callable, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from app.models import Job
+    from app.db.models import Job
 
 def xtts_dispatch_adapter(jid: str, j: Job, start: float, on_output: Callable[[str], None], cancel_check: Callable[[], bool], **kwargs):
     """Adapter to wrap handle_xtts_job with the standard signature."""
     from .handler import handle_xtts_job
     from app.db.speakers import get_profile_wavs as get_speaker_wavs, get_speaker_settings
-    from app.config import get_chapter_dir
-    from app.state import get_performance_metrics
+    from app.core.config import get_chapter_dir
+    from app.db.state import get_performance_metrics
 
     # Extract text from kwargs
     text = kwargs.get("text")
 
     # This path logic will move to StorageManager in Slice D
     if not j.project_id or not j.chapter_id:
-        from app.state import update_job
+        from app.db.state import update_job
         update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error="XTTS jobs require project and chapter context.")
         return
 

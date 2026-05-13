@@ -2,7 +2,7 @@ import time
 import uuid
 from typing import List, Dict, Any, Optional
 from .core import _db_lock, get_connection
-from ..render_trace import trace
+from ..utils.render_trace import trace
 
 ACTIVE_QUEUE_STATUSES = ("queued", "preparing", "running", "finalizing")
 TERMINAL_QUEUE_STATUSES = ("done", "failed", "cancelled")
@@ -187,7 +187,7 @@ def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 
                                 audio_length_seconds = ? 
                             WHERE id = ?
                         """, (output_file, now, audio_length_seconds, cid))
-                        from ..voice_engines import is_tts_engine
+                        from ..engines.voice_engines import is_tts_engine
                         if is_tts_engine(engine) or engine == "mixed":
                             logger.info(
                                 "[%s-debug %s] queue-sync id=%s engine=%s status=%s chapter=%s output_file=%s audio_length=%s",

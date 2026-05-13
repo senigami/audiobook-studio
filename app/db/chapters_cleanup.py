@@ -6,8 +6,8 @@ import uuid
 from pathlib import Path
 from typing import List, Optional
 
-from ..pathing import secure_join_flat
-from ..config import is_safe
+from ..utils.pathing import secure_join_flat
+from ..core.config import is_safe
 from .chapters_helpers import (
     SAFE_SEGMENT_PREFIX_RE, 
     SAFE_AUDIO_NAME_RE, 
@@ -25,7 +25,7 @@ def cleanup_chapter_audio_files(
     delete_chapter_outputs: bool = True,
 ) -> bool:
     """Delete chapter-level and selected segment audio files without touching DB state."""
-    from .. import config
+    from ..core import config
 
     try:
         chapter_id = config.canonical_chapter_id(chapter_id)
@@ -128,7 +128,7 @@ def move_chapter_artifacts_to_trash(
     segment_ids: Optional[List[str]] = None,
     explicit_audio_files: Optional[List[str]] = None,
 ) -> bool:
-    from .. import config
+    from ..core import config
 
     if not project_id:
         return True

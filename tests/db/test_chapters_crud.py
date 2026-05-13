@@ -52,7 +52,7 @@ def test_get_chapter_disk_checks(db_conn, tmp_path):
     (audio_dir / "chapter.mp3").write_text("mp3")
     (audio_dir / "chapter.m4a").write_text("m4a")
 
-    with patch("app.config.get_chapter_dir", return_value=Path(audio_dir)):
+    with patch("app.core.config.get_chapter_dir", return_value=Path(audio_dir)):
 
         chapter = get_chapter(cid)
         assert chapter["has_wav"] is True

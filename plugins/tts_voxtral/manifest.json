@@ -52,5 +52,6 @@
   "author": "Mistral AI",
   "homepage": "https://mistral.ai",
   "license": "Commercial API",
+  "test_sample": "voice.wav",
   "test_text": "Hello, this is a verification test of the Voxtral synthesis engine."
 }

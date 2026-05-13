@@ -14,8 +14,8 @@ def test_update_chapter_text_change_preserves_stale_chapter_audio_until_rebuild(
     pid = create_project("P6", "/tmp")
     cid = create_chapter(pid, "C6", "One. Two.")
 
-    with patch("app.config.PROJECTS_DIR", tmp_path):
-        from app.config import get_chapter_dir
+    with patch("app.core.config.PROJECTS_DIR", tmp_path):
+        from app.core.config import get_chapter_dir
         c_dir = get_chapter_dir(pid, cid)
         c_dir.mkdir(parents=True, exist_ok=True)
         seg_dir = c_dir / "segments"
@@ -60,8 +60,8 @@ def test_sync_chapter_segments_preserves_rendered_file_links(db_conn, tmp_path):
     pid = create_project("P4", "/tmp")
     cid = create_chapter(pid, "C4", "One. Two.")
 
-    with patch("app.config.PROJECTS_DIR", tmp_path):
-        from app.config import get_chapter_dir
+    with patch("app.core.config.PROJECTS_DIR", tmp_path):
+        from app.core.config import get_chapter_dir
         c_dir = get_chapter_dir(pid, cid)
         c_dir.mkdir(parents=True, exist_ok=True)
         seg_dir = c_dir / "segments"
@@ -98,8 +98,8 @@ def test_sync_chapter_segments_does_not_cross_match_reordered_duplicates(db_conn
     pid = create_project("P5", "/tmp")
     cid = create_chapter(pid, "C5", "Repeat. Middle. Repeat.")
 
-    with patch("app.config.PROJECTS_DIR", tmp_path):
-        from app.config import get_chapter_dir
+    with patch("app.core.config.PROJECTS_DIR", tmp_path):
+        from app.core.config import get_chapter_dir
         c_dir = get_chapter_dir(pid, cid)
         c_dir.mkdir(parents=True, exist_ok=True)
         seg_dir = c_dir / "segments"
@@ -139,8 +139,8 @@ def test_sync_chapter_segments_preserves_unchanged_trailing_segments_after_local
     pid = create_project("P6", "/tmp")
     cid = create_chapter(pid, "C6", "Alpha. Bravo. Charlie. Delta.")
 
-    with patch("app.config.PROJECTS_DIR", tmp_path):
-        from app.config import get_chapter_dir
+    with patch("app.core.config.PROJECTS_DIR", tmp_path):
+        from app.core.config import get_chapter_dir
         c_dir = get_chapter_dir(pid, cid)
         c_dir.mkdir(parents=True, exist_ok=True)
         seg_dir = c_dir / "segments"
@@ -199,8 +199,8 @@ def test_sync_chapter_segments_invalidates_preserved_rows_that_shared_audio_with
     pid = create_project("P7", "/tmp")
     cid = create_chapter(pid, "C7", "Alpha. Bravo. Charlie.")
 
-    with patch("app.config.PROJECTS_DIR", tmp_path):
-        from app.config import get_chapter_dir
+    with patch("app.core.config.PROJECTS_DIR", tmp_path):
+        from app.core.config import get_chapter_dir
         c_dir = get_chapter_dir(pid, cid)
         c_dir.mkdir(parents=True, exist_ok=True)
         seg_dir = c_dir / "segments"

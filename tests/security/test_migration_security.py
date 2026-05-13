@@ -5,13 +5,13 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 from app.domain.projects.migration import migrate_project_to_v2
-from app import config
+from app.core import config
 
 @pytest.fixture
 def mock_projects_root(tmp_path):
     projects_dir = tmp_path / "projects"
     projects_dir.mkdir()
-    with patch("app.config.PROJECTS_DIR", projects_dir):
+    with patch("app.core.config.PROJECTS_DIR", projects_dir):
         yield projects_dir
 
 def test_migrate_project_to_v2_traversal_blocked(mock_projects_root):

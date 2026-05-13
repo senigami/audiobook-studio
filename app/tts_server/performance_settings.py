@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from app.config import BASELINE_ENGINE_CPS
+from app.core.config import BASELINE_ENGINE_CPS
 from app.tts_server.settings_store import load_settings, save_settings
 
 logger = logging.getLogger(__name__)
@@ -72,7 +72,7 @@ def clear_engine_computer_speed_baseline(engine_id: str) -> dict[str, Any]:
         logger.debug("Failed to clear render samples for %s", engine_id, exc_info=True)
 
     try:
-        from app.state_performance import clear_engine_cps_cache
+        from app.db.state_performance import clear_engine_cps_cache
 
         cache_cleared = clear_engine_cps_cache(engine_id)
     except Exception:

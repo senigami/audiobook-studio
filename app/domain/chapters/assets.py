@@ -2,8 +2,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from typing import Any
-from app import config
-from app.pathing import find_secure_file, secure_join_flat
+from app.core import config
+from app.utils.pathing import find_secure_file, secure_join_flat
 from . import helpers
 
 

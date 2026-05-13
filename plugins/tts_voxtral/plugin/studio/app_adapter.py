@@ -14,7 +14,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from app.config import VOICES_DIR
+from app.core.config import VOICES_DIR
 from app.engines.errors import EngineExecutionError, EngineRequestError
 from app.engines.voice.base import BaseVoiceEngine
 from app.engines.voice.sdk import TTSRequest, TTSResult, VoiceProcessingHooks, SynthesisPlan
@@ -141,7 +141,7 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
 
     def current_settings(self) -> dict[str, object]:
         """Return the current Voxtral-related settings snapshot."""
-        from app.state import get_settings  # noqa: PLC0415
+        from app.db.state import get_settings  # noqa: PLC0415
 
         settings = get_settings()
         return {
@@ -448,7 +448,7 @@ class VoxtralProcessingHooks(VoiceProcessingHooks):
 
         # 2. Apply model from settings if not in request
         if not request.get("voxtral_model"):
-            from app.state import get_settings
+            from app.db.state import get_settings
             settings = get_settings()
             request["voxtral_model"] = settings.get("voxtral_model")
 

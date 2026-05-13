@@ -13,11 +13,11 @@ from ...db import (
     get_chapter,
     list_chapters as db_list_chapters,
 )
-from ...config import get_project_dir, get_project_m4b_dir
-from ...pathing import safe_join, safe_join_flat, find_secure_file
+from ...core.config import get_project_dir, get_project_m4b_dir
+from ...utils.pathing import safe_join, safe_join_flat, find_secure_file
 from ...api.utils import SAFE_FILE_RE, preferred_audiobook_download_filename, probe_audiobook_metadata
-from ...state import put_job, update_job, get_jobs
-from ...models import Job
+from ...db.state import put_job, update_job, get_jobs
+from ...db.models import Job
 from ...engines.audio_ops import get_audio_duration
 from ...orchestration.scheduler.orchestrator import create_orchestrator
 from ...orchestration.tasks.assembly import AssemblyTask
@@ -118,7 +118,7 @@ def api_update_audiobook_metadata(project_id: str, filename: str, description: s
             return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
 
         project_dir = get_project_dir(project_id)
-        from ...pathing import secure_join_flat
+        from ...utils.pathing import secure_join_flat
         try:
             m4b_dir = secure_join_flat(project_dir, "m4b")
         except ValueError:
@@ -189,7 +189,7 @@ def assemble_project(
     chapter_list = []
     for c in chapters:
         if c['audio_status'] == 'done' and c['audio_file_path']:
-            from ...config import resolve_chapter_asset_path
+            from ...core.config import resolve_chapter_asset_path
             full_path = resolve_chapter_asset_path(project_id, c['id'], 'audio', filename=c['audio_file_path'])
             if full_path and full_path.exists():
                 chapter_list.append({

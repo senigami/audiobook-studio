@@ -14,8 +14,8 @@ from ...db import (
     delete_project,
     reorder_chapters,
 )
-from ...config import get_project_dir
-from ...constants import DEFAULT_VOICE_SENTINEL
+from ...core.config import get_project_dir
+from ...core.constants import DEFAULT_VOICE_SENTINEL
 
 from .projects_helpers import _store_project_cover
 from .projects_backups import router as backups_router

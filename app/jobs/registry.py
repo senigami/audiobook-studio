@@ -6,7 +6,7 @@ import types
 from typing import Callable, Dict, Any, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..models import Job
+    from ..db.models import Job
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ def get_handler_registry() -> JobHandlerRegistry:
 def initialize_default_handlers():
     """Wire up the built-in handlers and discover plugin handlers."""
     from .handlers.audiobook import handle_audiobook_job
-    from app.config import PLUGINS_DIR
+    from app.core.config import PLUGINS_DIR
     import json
 
     reg = get_handler_registry()

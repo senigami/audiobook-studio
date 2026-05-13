@@ -4,14 +4,14 @@ import os
 from pathlib import Path
 from typing import Dict, Any, Optional
 
-from ...pathing import secure_join_flat
+from ...utils.pathing import secure_join_flat
 logger = logging.getLogger(__name__)
 
 PROJECT_MANIFEST_FILENAME = "project.json"
 CURRENT_STORAGE_VERSION = 2
 
 def get_project_manifest_path(project_dir: Path) -> Path:
-    from ...config import PROJECTS_DIR
+    from ...core.config import PROJECTS_DIR
     # Rule 9: Explicit containment check for scanner locality
     try:
         projects_root = os.path.abspath(os.fspath(PROJECTS_DIR))
@@ -31,7 +31,7 @@ def load_project_manifest(project_dir: Path) -> Dict[str, Any]:
             return {}
 
         import os
-        from ...config import PROJECTS_DIR
+        from ...core.config import PROJECTS_DIR
         trusted_root = os.path.abspath(os.fspath(PROJECTS_DIR))
         resolved_path = os.path.abspath(os.fspath(manifest_path))
 
@@ -52,7 +52,7 @@ def save_project_manifest(project_dir: Path, manifest: Dict[str, Any]) -> bool:
         tmp_path = manifest_path.with_suffix(".json.tmp")
 
         import os
-        from ...config import PROJECTS_DIR
+        from ...core.config import PROJECTS_DIR
         trusted_root = os.path.abspath(os.fspath(PROJECTS_DIR))
         resolved_path = os.path.abspath(os.fspath(manifest_path))
         resolved_tmp = os.path.abspath(os.fspath(tmp_path))

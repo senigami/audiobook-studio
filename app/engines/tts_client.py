@@ -22,6 +22,8 @@ _READ_TIMEOUT    = 60.0  # seconds — synthesis can be slow
 
 # Tighter timeout for heartbeat checks.
 _HEARTBEAT_TIMEOUT = 3.0
+_LIST_TIMEOUT      = 10.0  # seconds for registry/plugin list
+
 
 
 class TtsServerError(RuntimeError):
@@ -86,7 +88,7 @@ class TtsClient:
         Returns:
             list[dict[str, Any]]: Engine detail payloads.
         """
-        result = self._get("/engines")
+        result = self._get("/engines", timeout=_LIST_TIMEOUT)
         if isinstance(result, list):
             return result
         return []
@@ -244,6 +246,10 @@ class TtsClient:
             f"/engines/{_safe_id(engine_id)}/verify",
             payload={},
         )
+
+    def run_test(self, engine_id: str) -> dict[str, Any]:
+        """POST /engines/{engine_id}/verify — alias for full verification test."""
+        return self.verify_engine(engine_id)
 
     def install_dependencies(self, engine_id: str) -> dict[str, Any]:
         """POST /engines/{engine_id}/install — trigger dependency installation."""

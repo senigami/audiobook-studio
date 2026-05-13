@@ -4,7 +4,7 @@ from typing import Optional
 from fastapi import APIRouter, Form
 from fastapi.responses import JSONResponse
 from dataclasses import asdict
-from ...state import get_jobs, update_job as state_update_job
+from ...db.state import get_jobs, update_job as state_update_job
 
 from ..utils import probe_audiobook_metadata
 
@@ -54,7 +54,7 @@ def cancel(job_id: str = Form(...)):
         return JSONResponse({"status": "ok", "message": f"Job {job_id} cancelled"})
     else:
         # Fallback to cancel the job directly in state if the orchestrator doesn't know about it.
-        from ...state import get_jobs, update_job
+        from ...db.state import get_jobs, update_job
         jobs = get_jobs()
         if job_id in jobs:
             update_job(job_id, status="cancelled", force_broadcast=True)

@@ -1,6 +1,6 @@
 import logging
 
-from ..config import VOICES_DIR, SENT_CHAR_LIMIT
+from ..core.config import VOICES_DIR, SENT_CHAR_LIMIT
 from ..db.speakers import (
     DEFAULT_SPEAKER_TEST_TEXT,
     get_profile_wavs as get_speaker_wavs,
@@ -16,7 +16,7 @@ from ..orchestration.scheduler.resources import (
     is_paused as paused,
     set_paused,
 )
-from ..state import get_jobs, get_performance_metrics, get_settings, put_job, update_job, update_performance_metrics
+from ..db.state import get_jobs, get_performance_metrics, get_settings, put_job, update_job, update_performance_metrics
 from .core_shim import assembly_queue, job_queue, pause_flag
 
 logger = logging.getLogger(__name__)
@@ -42,7 +42,7 @@ def enqueue(job):
 def requeue(job_id):
     # This should be dead in active runtime. Log a warning.
     logger.warning("Legacy requeue() called for job %s. This is deprecated.", job_id)
-    from ..state import requeue as state_requeue
+    from ..db.state import requeue as state_requeue
     state_requeue(job_id)
 
 def cancel(job_id):

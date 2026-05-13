@@ -20,7 +20,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from app.config import PLUGINS_DIR
+from app.core.config import PLUGINS_DIR
 from app.tts_server.performance_settings import (
     COMPUTER_SPEED_MULTIPLIER_KEY,
     clear_engine_computer_speed_baseline,

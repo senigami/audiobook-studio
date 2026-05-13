@@ -49,7 +49,7 @@ def _refresh_registry_health(
     registry: dict[str, EngineRegistrationModel]
 ) -> dict[str, EngineRegistrationModel]:
     """Clone cached registrations with current engine health."""
-    from app.state import get_settings  # noqa: PLC0415
+    from app.db.state import get_settings  # noqa: PLC0415
     verified_plugins = get_settings().get("verified_plugins") or {}
 
     refreshed: dict[str, EngineRegistrationModel] = {}
@@ -314,7 +314,7 @@ def _load_engine_manifest(*, manifest_path: Path) -> EngineManifestModel:
 
 def _plugin_adapter_specs() -> list[tuple[Path, type[BaseVoiceEngine]]]:
     """Return adapter manifests declared by installed plugin bundles."""
-    from app.config import PLUGINS_DIR
+    from app.core.config import PLUGINS_DIR
 
     specs = []
 

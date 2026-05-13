@@ -7,10 +7,10 @@ from pathlib import Path
 from typing import Optional, List
 from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
-from ...config import PROJECTS_DIR, get_project_m4b_dir
-from ...state import get_jobs, put_job, update_job
+from ...core.config import PROJECTS_DIR, get_project_m4b_dir
+from ...db.state import get_jobs, put_job, update_job
 
-from ...models import Job
+from ...db.models import Job
 from ..utils import list_audiobooks
 router = APIRouter(prefix="/api", tags=["settings"])
 SAFE_AUDIOBOOK_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")

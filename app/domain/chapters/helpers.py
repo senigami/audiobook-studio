@@ -7,7 +7,7 @@ from typing import Any
 from pathlib import Path
 
 from app.db.core import get_connection
-from app.textops import SENT_CHAR_LIMIT
+from app.utils.text.textops import SENT_CHAR_LIMIT
 
 class RevisionMismatch(Exception):
     """Raised when the caller saves against a stale chapter revision."""

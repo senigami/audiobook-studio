@@ -26,7 +26,7 @@ INTENDED_DOWNSTREAM_DEPENDENCIES = (
 FORBIDDEN_DIRECT_IMPORTS = (
     "app.db.speakers",
     "app.jobs",
-    "app.voice_engines",
+    "app.engines.voice_engines",
 )
 
 

@@ -10,8 +10,8 @@ def mock_projects_root(tmp_path):
     projects_dir = tmp_path / "projects"
     projects_dir.mkdir()
 
-    with patch("app.config.PROJECTS_DIR", projects_dir), \
-         patch("app.config.TRASH_DIR", tmp_path / "trash"):
+    with patch("app.core.config.PROJECTS_DIR", projects_dir), \
+         patch("app.core.config.TRASH_DIR", tmp_path / "trash"):
         (tmp_path / "trash").mkdir()
         yield projects_dir
 
@@ -27,7 +27,7 @@ def test_cleanup_chapter_audio_files_traversal_blocked(mock_projects_root):
     valid_uuid = "12345678-1234-5678-1234-567812345678"
 
     # If nested_pdir is manipulated to point outside
-    with patch("app.config.get_chapter_dir", return_value=outside_dir), \
+    with patch("app.core.config.get_chapter_dir", return_value=outside_dir), \
          patch.dict(os.environ, {"STRICT_PATH_SAFETY": "1"}):
         cleanup_chapter_audio_files("p1", valid_uuid)
 
@@ -46,7 +46,7 @@ def test_move_to_trash_traversal_blocked(mock_projects_root):
     valid_uuid = "12345678-1234-5678-1234-567812345678"
 
     # Mock canonical ID to return a traversal path
-    with patch("app.config.canonical_chapter_id", return_value="../../evil"):
+    with patch("app.core.config.canonical_chapter_id", return_value="../../evil"):
         # The hardening logic should catch this
         move_chapter_artifacts_to_trash("p1", valid_uuid)
 

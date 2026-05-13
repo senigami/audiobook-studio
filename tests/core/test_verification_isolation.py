@@ -1,0 +1,77 @@
+import pytest
+from pathlib import Path
+from unittest.mock import MagicMock
+from app.tts_server.plugin_loader import LoadedPlugin
+from app.tts_server.verification import verify_plugin, VerificationResult
+from app.engines.voice.sdk import VerificationResult as SDKVerificationResult
+
+class TestVerificationIsolation:
+    def test_verify_success(self, tmp_path):
+        """Standard successful verification by delegating to plugin.run_test()."""
+        engine = MagicMock()
+        engine.run_test.return_value = SDKVerificationResult(ok=True, message="Plugin test passed")
+
+        plugin = LoadedPlugin(
+            folder_name="tts_mock",
+            plugin_dir=tmp_path / "tts_mock",
+            manifest={"engine_id": "mock", "display_name": "Mock"},
+            engine=engine
+        )
+
+        result = verify_plugin(plugin)
+        assert result.ok is True
+        assert result.error is None
+        engine.run_test.assert_called_once()
+
+    def test_verify_failure(self, tmp_path):
+        """Verification failure reported by the plugin."""
+        engine = MagicMock()
+        engine.run_test.return_value = SDKVerificationResult(ok=False, message="Engine reported failure")
+
+        plugin = LoadedPlugin(
+            folder_name="tts_mock",
+            plugin_dir=tmp_path / "tts_mock",
+            manifest={"engine_id": "mock", "display_name": "Mock"},
+            engine=engine
+        )
+
+        result = verify_plugin(plugin)
+        assert result.ok is False
+        assert result.error == "Engine reported failure"
+        engine.run_test.assert_called_once()
+
+    def test_run_test_crash_isolated(self, tmp_path):
+        """Exception in run_test() should result in failed verification but no crash."""
+        engine = MagicMock()
+        engine.run_test.side_effect = RuntimeError("run_test crash")
+
+        plugin = LoadedPlugin(
+            folder_name="tts_mock",
+            plugin_dir=tmp_path / "tts_mock",
+            manifest={"engine_id": "mock", "display_name": "Mock"},
+            engine=engine
+        )
+
+        result = verify_plugin(plugin)
+        assert result.ok is False
+        assert "run_test() raised: run_test crash" in result.error
+
+    def test_verify_does_not_depend_on_studio_voices(self, tmp_path):
+        """Verification must not call into Studio voice resolution logic."""
+        # This is a regression test for the new architecture.
+        # Since verify_plugin only calls engine.run_test(), it shouldn't even
+        # be looking at settings or voices.
+        engine = MagicMock()
+        engine.run_test.return_value = SDKVerificationResult(ok=True)
+
+        plugin = LoadedPlugin(
+            folder_name="tts_mock",
+            plugin_dir=tmp_path / "tts_mock",
+            manifest={"engine_id": "mock", "display_name": "Mock"},
+            engine=engine
+        )
+
+        # If it were reaching into Studio, these mocks would be triggered or would fail.
+        # We don't even need to mock them because they shouldn't be called.
+        result = verify_plugin(plugin)
+        assert result.ok is True

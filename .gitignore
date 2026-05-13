@@ -12,6 +12,7 @@ state.json
 /voices/
 /uploads/
 /transient/
+/app/transient/
 /plugin_data/
 /xtts_audio/
 /chapters_out/
@@ -163,3 +164,4 @@ mkdocs/_build/
 __pypackages__/
 /scratch
 /engine_tests
+plugins/*/assets/test_output.wav

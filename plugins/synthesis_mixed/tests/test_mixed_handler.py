@@ -7,7 +7,7 @@ from unittest.mock import patch
 import pytest
 
 from app.engines.errors import EngineBridgeError
-from app.models import Job
+from app.db.models import Job
 from plugins.synthesis_mixed.handler import handle_mixed_job
 
 
@@ -63,8 +63,8 @@ def test_handle_mixed_job_renders_and_stitches(clean_db, tmp_path):
         return 0
 
     with patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
-         patch("app.config.get_chapter_dir", return_value=tmp_path), \
-         patch("app.chunk_groups.resolve_profile_engine", side_effect=lambda name, _fallback=None: "voxtral" if name == "Voxtral Voice" else "xtts"), \
+         patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
+         patch("app.domain.chunk_groups.resolve_profile_engine", side_effect=lambda name, _fallback=None: "voxtral" if name == "Voxtral Voice" else "xtts"), \
          patch("plugins.synthesis_mixed.handler.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "voice_123"} if name == "Voxtral Voice" else {"speed": 1.0}), \
          patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
          patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
@@ -106,8 +106,8 @@ def test_handle_mixed_job_returns_bridge_failure_message(clean_db, tmp_path):
     )
 
     with patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
-         patch("app.config.get_chapter_dir", return_value=tmp_path), \
-         patch("app.chunk_groups.resolve_profile_engine", return_value="xtts"), \
+         patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
+         patch("app.domain.chunk_groups.resolve_profile_engine", return_value="xtts"), \
          patch("plugins.synthesis_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
          patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
          patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
@@ -152,8 +152,8 @@ def test_handle_mixed_job_groups_adjacent_segments_into_one_chunk(clean_db, tmp_
         return 0
 
     with patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
-         patch("app.config.get_chapter_dir", return_value=tmp_path), \
-         patch("app.chunk_groups.resolve_profile_engine", return_value="xtts"), \
+         patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
+         patch("app.domain.chunk_groups.resolve_profile_engine", return_value="xtts"), \
          patch("plugins.synthesis_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
          patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
          patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
@@ -211,8 +211,8 @@ def test_handle_mixed_job_progress_uses_render_group_count(clean_db, tmp_path):
         return 0
 
     with patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
-         patch("app.config.get_chapter_dir", return_value=tmp_path), \
-         patch("app.chunk_groups.resolve_profile_engine", side_effect=lambda name, _fallback=None: "voxtral" if name == "Voxtral Voice" else "xtts"), \
+         patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
+         patch("app.domain.chunk_groups.resolve_profile_engine", side_effect=lambda name, _fallback=None: "voxtral" if name == "Voxtral Voice" else "xtts"), \
          patch("plugins.synthesis_mixed.handler.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "voice_123"} if name == "Voxtral Voice" else {"speed": 1.0}), \
          patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
          patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
@@ -265,7 +265,7 @@ def test_handle_mixed_job_progress_weights_short_final_group(clean_db, tmp_path)
         return 0
 
     with patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
-         patch("app.config.get_chapter_dir", return_value=tmp_path), \
+         patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
          patch("plugins.synthesis_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
          patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
          patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
@@ -320,8 +320,8 @@ def test_handle_mixed_segment_job_persists_intermediate_progress(clean_db, tmp_p
         return 0
 
     with patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
-         patch("app.config.get_chapter_dir", return_value=tmp_path), \
-         patch("app.chunk_groups.resolve_profile_engine", return_value="xtts"), \
+         patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
+         patch("app.domain.chunk_groups.resolve_profile_engine", return_value="xtts"), \
          patch("plugins.synthesis_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
          patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
          patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
@@ -386,8 +386,8 @@ def test_handle_mixed_job_bake_metrics_uses_rendered_chars_only(clean_db, tmp_pa
         return 0
 
     with patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=tmp_path), \
-         patch("app.config.get_chapter_dir", return_value=tmp_path), \
-         patch("app.chunk_groups.resolve_profile_engine", side_effect=lambda name, _fallback=None: "xtts"), \
+         patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
+         patch("app.domain.chunk_groups.resolve_profile_engine", side_effect=lambda name, _fallback=None: "xtts"), \
          patch("plugins.synthesis_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
          patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
          patch("plugins.synthesis_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \

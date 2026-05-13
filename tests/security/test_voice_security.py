@@ -2,14 +2,14 @@ import pytest
 import os
 from pathlib import Path
 from unittest.mock import patch
-from app.config import get_voice_dir, canonical_voice_name
+from app.core.config import get_voice_dir, canonical_voice_name
 from app.domain.voices.manifest import get_voice_storage_version
 
 @pytest.fixture
 def mock_voices_root(tmp_path):
     voices_dir = tmp_path / "voices"
     voices_dir.mkdir()
-    with patch("app.config.VOICES_DIR", voices_dir):
+    with patch("app.core.config.VOICES_DIR", voices_dir):
         yield voices_dir
 
 def test_canonical_voice_name_validation():

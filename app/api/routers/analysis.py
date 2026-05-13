@@ -6,16 +6,16 @@ from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 from fastapi import APIRouter, Form, HTTPException, Depends
 from fastapi.responses import JSONResponse, FileResponse
-from ... import config
+from ...core import config
 from ...db import get_chapter, get_chapter_segments, get_characters
-from ...textops import (
+from ...utils.text.textops import (
     find_long_sentences, clean_text_for_tts, safe_split_long_sentences,
     pack_text_to_limit, sanitize_text, get_text_stats, format_duration
 )
-from ...config import BASELINE_ENGINE_CPS
+from ...core.config import BASELINE_ENGINE_CPS
 from ...engines.behavior import get_text_chunk_limit, get_text_split_target
-from ... import state
-from ...pathing import safe_basename, safe_join_flat
+from ...db import state
+from ...utils.pathing import safe_basename, safe_join_flat
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +103,7 @@ def api_analyze_chapter(chapter_id: str):
             char_map = {c["id"]: c for c in chars}
 
             # Determine limit based on engine
-            from ...voice_engines import get_default_profile_engine
+            from ...engines.voice_engines import get_default_profile_engine
             engine_id = chap.get("engine_id") or state.get_settings().get("default_engine", get_default_profile_engine())
             chunk_limit = get_text_chunk_limit(engine_id)
             split_target = get_text_split_target(engine_id)
@@ -222,7 +222,7 @@ def api_analyze_text(req: AnalyzeTextRequest):
         text_content = req.text_content
         stats = get_text_stats(text_content)
 
-        from ...voice_engines import get_default_profile_engine
+        from ...engines.voice_engines import get_default_profile_engine
         engine_id = state.get_settings().get("default_engine", get_default_profile_engine())
         chunk_limit = get_text_chunk_limit(engine_id)
         split_target = get_text_split_target(engine_id)

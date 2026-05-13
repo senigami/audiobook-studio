@@ -30,7 +30,7 @@ from collections import deque
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-from app.config import PLUGINS_DIR
+from app.core.config import PLUGINS_DIR, BASE_DIR
 from app.engines.proc_utils import (
     clear_tts_server_runtime_marker,
     write_tts_server_runtime_marker,
@@ -138,9 +138,7 @@ class TtsServerWatchdog:
         host: str = "127.0.0.1",
     ) -> None:
         self.executable = executable
-        self.server_script = server_script or (
-            Path(__file__).resolve().parent.parent.parent / "tts_server.py"
-        )
+        self.server_script = server_script or (BASE_DIR / "tts_server.py")
         self.plugins_dir = plugins_dir
         self._requested_port = port
         self._host = host

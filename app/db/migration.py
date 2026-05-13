@@ -12,7 +12,7 @@ from .core import _db_lock, get_connection, init_db
 logger = logging.getLogger(__name__)
 
 def migrate_state_json_to_db():
-    from ..config import BASE_DIR
+    from ..core.config import BASE_DIR
     state_file = BASE_DIR / "state.json"
     if not state_file.exists():
         return
@@ -72,7 +72,7 @@ def migrate_state_json_to_db():
 
             # Migrate DB-resident metrics blob
             try:
-                from ..migration import migrate_db_performance_metrics
+                from .legacy_migration import migrate_db_performance_metrics
                 if migrate_db_performance_metrics(cursor):
                     conn.commit()
                     logger.info("Successfully migrated legacy performance metrics blob in DB")
@@ -81,7 +81,7 @@ def migrate_state_json_to_db():
 
     # 3. Perform state.json cleanup (Settings and Metrics)
     try:
-        from ..migration import ensure_state_migrated
+        from .legacy_migration import ensure_state_migrated
         if ensure_state_migrated(state_data):
             from ..state_helpers import _atomic_write_text
             _atomic_write_text(state_file, json.dumps(state_data, indent=2))
@@ -94,7 +94,7 @@ def migrate_legacy_project_covers() -> int:
     Migration: Moves any shared global cover files into project-local storage
     so assets are correctly partitioned in v2.
     """
-    from .. import config
+    from ..core import config
 
     candidates: list[tuple[str, Path, Path, str]] = []
     with _db_lock:
@@ -168,7 +168,7 @@ def migrate_voice_profiles(voices_dir: Optional[Path] = None) -> None:
     Migration: Reconciles speaker metadata and default profile assignments
     during transition to v2 storage.
     """
-    from .. import config
+    from ..core import config
     from .speakers import normalize_profile_metadata
     voices_dir = voices_dir or config.VOICES_DIR
 

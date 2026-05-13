@@ -620,5 +620,5 @@ def get_plugin_dir(engine_id: str) -> Path:
 
     This uses the default PLUGINS_DIR from app.config.
     """
-    from app.config import PLUGINS_DIR # noqa: PLC0415
+    from app.core.config import PLUGINS_DIR # noqa: PLC0415
     return PLUGINS_DIR / f"tts_{engine_id}"

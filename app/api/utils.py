@@ -7,10 +7,10 @@ import re
 import sys
 from pathlib import Path
 from typing import Optional, List
-from .. import config
-from ..pathing import safe_join, safe_join_flat, find_secure_file, secure_join_flat
-from ..subprocess_utils import coerce_subprocess_output, write_subprocess_output
-from ..textops import split_by_chapter_markers, write_chapters_to_folder, split_into_parts
+from ..core import config
+from ..utils.pathing import safe_join, safe_join_flat, find_secure_file, secure_join_flat
+from ..utils.subprocess_utils import coerce_subprocess_output, write_subprocess_output
+from ..utils.text.textops import split_by_chapter_markers, write_chapters_to_folder, split_into_parts
 
 logger = logging.getLogger(__name__)
 SAFE_FILE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
@@ -93,15 +93,15 @@ def exists(engine, chapter_file, project_id=None, chapter_id=None):
         if not chapter_file:
             return False
         chapter_name = Path(chapter_file).stem
-        from ..config import get_project_m4b_dir
+        from ..core.config import get_project_m4b_dir
         pdir = get_project_m4b_dir(project_id)
         return bool(find_secure_file(pdir, f"{chapter_name}.m4b"))
 
-    from ..voice_engines import is_tts_engine
+    from ..engines.voice_engines import is_tts_engine
     if is_tts_engine(engine) or engine == "mixed":
         if chapter_id:
             # Authoritative v2 check
-            from ..config import resolve_chapter_asset_path
+            from ..core.config import resolve_chapter_asset_path
             p = resolve_chapter_asset_path(project_id, chapter_id, "audio", filename=chapter_file)
             return bool(p and p.exists())
 
@@ -126,7 +126,7 @@ def is_react_dev_active():
 
 def list_audiobooks():
     """Returns all m4b files across all projects."""
-    from ..config import PROJECTS_DIR
+    from ..core.config import PROJECTS_DIR
     m4b_files = []
     if PROJECTS_DIR.exists():
         for p_dir in PROJECTS_DIR.iterdir():

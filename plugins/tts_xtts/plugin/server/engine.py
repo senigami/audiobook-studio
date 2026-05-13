@@ -69,7 +69,6 @@ class XttsPlugin(StudioTTSEngine):
 
         try:
             # Late import to see if the engine adapter can load its dependencies.
-            # This does not load the heavy model weights into GPU memory.
             from ..core.implementation import xtts_generate  # noqa: F401, PLC0415
             return VerificationResult(ok=True, message="XTTS engine is ready.")
         except Exception as exc:
@@ -77,6 +76,52 @@ class XttsPlugin(StudioTTSEngine):
                 ok=False,
                 message=f"XTTS dependencies are present but the engine failed to load: {exc}"
             )
+
+    def run_test(self) -> VerificationResult:
+        """Run a self-contained synthesis test."""
+        ok, msg = self.check_env()
+        if not ok:
+            return VerificationResult(ok=False, message=msg)
+
+        plugin_dir = Path(__file__).parents[2]
+        assets_dir = plugin_dir / "assets"
+        assets_dir.mkdir(exist_ok=True)
+
+        # 1. Resolve input asset
+        voice_ref = None
+        for name in ["latent.pth", "voice.wav", "sample.wav"]:
+            cand = assets_dir / name
+            if cand.is_file():
+                voice_ref = str(cand)
+                break
+
+        if not voice_ref:
+            return VerificationResult(ok=False, message="No test assets found in assets/ folder.")
+
+        # 2. Setup output path inside plugin folder
+        output_path = assets_dir / "test_output.wav"
+
+        # 3. Create request
+        manifest_path = plugin_dir / "manifest.json"
+        test_text = "This is an internal XTTS verification test."
+        try:
+            if manifest_path.exists():
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                test_text = manifest.get("test_text") or test_text
+        except Exception:
+            pass
+
+        req = TTSRequest(
+            text=test_text,
+            output_path=str(output_path),
+            voice_ref=voice_ref,
+        )
+
+        # 4. Run synthesis
+        result = self.synthesize(req)
+        if result.ok:
+            return VerificationResult(ok=True, message=f"Test passed. Output: {output_path.name}")
+        return VerificationResult(ok=False, message=f"Test failed: {result.error}")
 
     def check_request(self, req: TTSRequest) -> tuple[bool, str]:
         """Validate an XTTS synthesis request."""
@@ -96,8 +141,8 @@ class XttsPlugin(StudioTTSEngine):
             voice_ref = Path(req.voice_ref)
             if not voice_ref.exists() or not voice_ref.is_file():
                 return False, f"voice_ref path does not exist: {req.voice_ref}"
-            if voice_ref.suffix.lower() != ".wav":
-                return False, "voice_ref must be a .wav file for XTTS."
+            if voice_ref.suffix.lower() not in (".wav", ".pth"):
+                return False, "voice_ref must be a .wav or .pth file for XTTS."
 
         return True, "OK"
 
@@ -270,7 +315,7 @@ class XttsPlugin(StudioTTSEngine):
 
         # 2. Resolve a Studio voice profile id through the shared helper.
         try:
-            from app.voice_engines import resolve_voice_preview_inputs  # noqa: PLC0415
+            from app.engines.voice_engines import resolve_voice_preview_inputs  # noqa: PLC0415
 
             profile_id = req.settings.get("voice_profile_id", "")
             if profile_id:

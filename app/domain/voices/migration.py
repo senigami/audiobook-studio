@@ -13,7 +13,7 @@ from .manifest import (
     save_variant_manifest,
     CURRENT_VOICE_STORAGE_VERSION
 )
-from ... import config
+from ...core import config
 
 logger = logging.getLogger(__name__)
 SAFE_PROFILE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")

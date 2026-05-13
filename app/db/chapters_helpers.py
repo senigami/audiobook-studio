@@ -4,7 +4,7 @@ import uuid
 from pathlib import Path
 from typing import Dict, Optional
 
-from ..pathing import safe_join_flat
+from ..utils.pathing import safe_join_flat
 
 SAFE_AUDIO_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
 SAFE_SEGMENT_PREFIX_RE = re.compile(r"^[A-Za-z0-9_-]+$")

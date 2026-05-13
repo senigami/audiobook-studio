@@ -14,8 +14,8 @@ import threading
 from pathlib import Path
 from typing import Any, Callable
 
-from app.config import TRANSIENT_DIR
-from app.subprocess_utils import coerce_subprocess_output
+from app.core.config import TRANSIENT_DIR
+from app.utils.subprocess_utils import coerce_subprocess_output
 
 _active_processes: set[subprocess.Popen] = set()
 logger = logging.getLogger(__name__)

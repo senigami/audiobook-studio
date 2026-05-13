@@ -31,7 +31,7 @@ def _engine_id_from_plugin_dir(plugin_dir: Path) -> str:
 
 
 def _runtime_dir(plugin_dir: Path) -> Path:
-    from app.config import PLUGIN_DATA_DIR  # noqa: PLC0415
+    from app.core.config import PLUGIN_DATA_DIR  # noqa: PLC0415
 
     return PLUGIN_DATA_DIR / _engine_id_from_plugin_dir(plugin_dir)
 

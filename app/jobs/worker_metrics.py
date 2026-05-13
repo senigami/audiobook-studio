@@ -2,8 +2,8 @@ from __future__ import annotations
 import time
 import logging
 
-from ..state import update_performance_metrics as _update_performance_metrics, get_jobs, get_performance_metrics
-from ..config import BASELINE_ENGINE_CPS
+from ..db.state import update_performance_metrics as _update_performance_metrics, get_jobs, get_performance_metrics
+from ..core.config import BASELINE_ENGINE_CPS
 from ..orchestration.scheduler.eta import get_robust_eta_params
 from .worker_helpers import _job_field
 

@@ -2,10 +2,10 @@ import time
 import logging
 from pathlib import Path
 
-from app.config import get_chapter_dir
+from app.core.config import get_chapter_dir
 from app.engines.audio_ops import wav_to_mp3
 from app.engines.errors import EngineBridgeError
-from app.state import update_job
+from app.db.state import update_job
 from app.db.speakers import get_speaker_settings
 from app.jobs.handlers.bridge_helpers import generate_via_bridge
 

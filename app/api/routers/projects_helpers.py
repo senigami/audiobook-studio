@@ -15,8 +15,8 @@ from ...db import (
     list_chapters as db_list_chapters,
     delete_project,
 )
-from ...config import COVER_DIR, get_project_dir
-from ...pathing import safe_basename, find_secure_file, secure_join_flat
+from ...core.config import COVER_DIR, get_project_dir
+from ...utils.pathing import safe_basename, find_secure_file, secure_join_flat
 from ...domain.projects.service import create_project_service, ProjectService
 from ...domain.projects.models import ProjectModel, ProjectSnapshotModel, ProjectBackupBundleModel
 from ...domain.chapters.models import ChapterModel
@@ -279,7 +279,7 @@ def _create_backup_archive(bundle: ProjectBackupBundleModel) -> io.BytesIO:
                     # Try to find corresponding .wav if path points to .mp3 or similar
                     wav_path = str(Path(raw_path).with_suffix(".wav"))
 
-                from app.config import resolve_chapter_asset_path
+                from app.core.config import resolve_chapter_asset_path
                 audio_path = resolve_chapter_asset_path(project_id, chapter_id, "audio", filename=wav_path)
                 if not audio_path:
                     audio_path = resolve_chapter_asset_path(project_id, chapter_id, "audio", filename=raw_path)

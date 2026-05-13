@@ -9,10 +9,10 @@ from fastapi.responses import JSONResponse, FileResponse
 from ...domain.chapters.facade import export_chapter_audio
 
 from ...db import get_chapter
-from ...state import get_settings
-from ...textops import sanitize_text, safe_split_long_sentences, pack_text_to_limit
-from ... import config
-from ...config import find_secure_file
+from ...db.state import get_settings
+from ...utils.text.textops import sanitize_text, safe_split_long_sentences, pack_text_to_limit
+from ...core import config
+from ...core.config import find_secure_file
 from .chapters_models import AudioExportRequest
 
 logger = logging.getLogger(__name__)
@@ -85,7 +85,7 @@ def api_get_chapter_preview(
     if processed:
         settings = get_settings()
         is_safe = settings.get("safe_mode", True)
-        from ...voice_engines import get_default_profile_engine
+        from ...engines.voice_engines import get_default_profile_engine
         engine_id = chapter.get("engine_id") or settings.get("default_engine", get_default_profile_engine())
         from ...engines.behavior import get_text_chunk_limit, get_text_split_target
         limit = get_text_chunk_limit(engine_id)

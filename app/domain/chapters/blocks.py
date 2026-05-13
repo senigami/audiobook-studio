@@ -3,7 +3,7 @@ import logging
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from app.textops import split_sentences
+from app.utils.text.textops import split_sentences
 from . import helpers
 
 

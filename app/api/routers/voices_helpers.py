@@ -13,7 +13,7 @@ from ...db.speakers import (
     infer_speaker_name,
     infer_variant_name,
 )
-from ...voice_engines import (
+from ...engines.voice_engines import (
     list_tts_engines,
     get_default_profile_engine,
 )
@@ -23,10 +23,10 @@ from ...db.speakers import (
     DEFAULT_SPEAKER_TEST_TEXT,
 )
 from ...engines.bridge import create_voice_bridge
-from ... import config
-from ...pathing import safe_join_flat, find_secure_file, secure_join_flat
-from ...state import put_job
-from ...models import Job
+from ...core import config
+from ...utils.pathing import safe_join_flat, find_secure_file, secure_join_flat
+from ...db.state import put_job
+from ...db.models import Job
 
 logger = logging.getLogger(__name__)
 

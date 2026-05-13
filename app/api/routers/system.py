@@ -8,14 +8,14 @@ from pathlib import Path
 from typing import Optional, List, Any
 from fastapi import APIRouter, Form, UploadFile, File, Request, Depends, HTTPException
 from fastapi.responses import JSONResponse, FileResponse
-from ... import config
-from ...state import get_settings, update_settings, get_jobs, put_job, update_job
+from ...core import config
+from ...db.state import get_settings, update_settings, get_jobs, put_job, update_job
 
 from ...orchestration.scheduler.resources import is_paused, set_paused
 from ...db import list_speakers
 from ...db.performance import get_render_stats, reset_render_stats
-from ...models import Job
-from ...pathing import safe_basename, safe_join_flat
+from ...db.models import Job
+from ...utils.pathing import safe_basename, safe_join_flat
 from ..utils import read_preview
 # Compatibility for tests that monkeypatch these
 VOICES_DIR = config.VOICES_DIR

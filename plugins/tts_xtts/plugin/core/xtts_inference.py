@@ -207,6 +207,15 @@ def main():
             latent_file = os.path.join(voice_dir, f"{speaker_id}.pth")
             current_fingerprint = None
 
+        # Check if the input is already a pre-computed latent file
+        if isinstance(wav_input, str) and wav_input.lower().endswith(".pth") and os.path.exists(wav_input):
+            try:
+                print(f"Loading pre-computed latents from {wav_input}...", file=sys.stderr)
+                latents = torch.load(wav_input, map_location=device, weights_only=False)
+                return latents["gpt_cond_latent"], latents["speaker_embedding"]
+            except Exception as e:
+                print(f"Warning: Failed to load pre-computed latents from {wav_input}: {e}", file=sys.stderr)
+
         if os.path.exists(latent_file):
             try:
                 latents = torch.load(latent_file, map_location=device, weights_only=False)

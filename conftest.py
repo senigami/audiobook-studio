@@ -16,7 +16,7 @@ try:
 except ImportError:  # pragma: no cover
     fcntl = None
 
-pytest_plugins = ["tests.api_voices_fixtures"]
+pytest_plugins = ["tests.api.api_voices_fixtures"]
 
 # 1. Create a session-wide temp directory for storage isolation
 _temp_dir = tempfile.TemporaryDirectory()
@@ -41,7 +41,7 @@ for d in ["uploads", "reports", "voices", "uploads/covers", "projects"]:
 
 # 2. NOW import modules that rely on these env vars
 from app.db import init_db  # noqa: E402
-from app.state import clear_all_jobs  # noqa: E402
+from app.db.state import clear_all_jobs  # noqa: E402
 from app.jobs import clear_job_queue, pause_flag  # noqa: E402
 from app.engines.proc_utils import terminate_all_subprocesses  # noqa: E402
 
@@ -236,7 +236,7 @@ def clean_storage():
             pass
 
     # Clear any dependency overrides that a test may have left behind.
-    from app.web import app as fastapi_app
+    from app.api.web import app as fastapi_app
     fastapi_app.dependency_overrides = {}
 
     yield

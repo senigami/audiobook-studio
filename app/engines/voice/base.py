@@ -183,6 +183,18 @@ class StudioTTSEngine(ABC):
             message="This engine does not implement non-rendering verification.",
         )
 
+    def run_test(self) -> VerificationResult:
+        """Perform a full end-to-end synthesis test using bundled assets.
+
+        Plugins should implement this to be fully self-contained. The test
+        should use assets from the plugin's own folder and write output
+        back to that folder (e.g., in assets/test_output.wav).
+        """
+        return VerificationResult(
+            ok=False,
+            message="This engine does not implement a self-contained synthesis test.",
+        )
+
     @abstractmethod
     def synthesize(self, req: TTSRequest) -> TTSResult:
         """Run TTS synthesis and write audio to ``req.output_path``.

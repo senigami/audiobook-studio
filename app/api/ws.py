@@ -5,7 +5,7 @@ from typing import List
 from fastapi import WebSocket
 
 from .contracts.events import build_studio_job_event
-from ..render_trace import trace
+from ..utils.render_trace import trace
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ class ConnectionManager:
     def broadcast(self, message: dict):
         # We need to broadcast from a non-async context sometimes (jobs.py or db.py)
         # So we use the bridge approach or create a task
-        from ..web import _main_loop
+        from ..api.web import _main_loop
         if _main_loop[0] and not _main_loop[0].is_closed():
             _main_loop[0].call_soon_threadsafe(
                 lambda: asyncio.create_task(self._send_to_all(message))
