@@ -1,16 +1,17 @@
 {
   "snapshot_version": 36,
-  "updated_at": "2026-05-13T17:22:24Z",
+  "updated_at": "2026-05-13T18:31:00Z",
   "branch": "studio2/phase-11",
-  "current_task": "Backend jobs shim cleanup",
-  "status": "enqueue_single_decommission_complete",
+  "current_task": "Behavior helper hardening",
+  "status": "behavior_helper_hardening_complete",
   "last_committed_milestone": {
-    "title": "Decommissioned enqueue-single route and frontend wrapper",
+    "title": "Hardened backend behavior helpers and generalized progress parsing",
     "commit": "pending",
     "notes": [
-      "Removed /api/generation/enqueue-single and api.enqueueSingle frontend wrapper.",
-      "Cleaned up 4 obsolete backend tests and 1 frontend unit test.",
-      "Verified frontend build stability after API cleanup."
+      "Generalized progress parsing using manifest-declared regex patterns.",
+      "Migrated XTTS progress parsing to a plugin-generic contract in behavior.py.",
+      "Standardized text sanitization limits to be engine-metadata driven.",
+      "Verified with new progress parsing test suite and existing handler tests."
     ]
   },
   "active_constraints": [

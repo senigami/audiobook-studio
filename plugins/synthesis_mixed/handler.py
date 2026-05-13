@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 
 from app.domain.chunk_groups import build_chunk_groups, load_chunk_segments
-from app.core.config import SENT_CHAR_LIMIT, get_chapter_dir
+from app.core.config import get_chapter_dir
 from app.engines.audio_ops import get_audio_duration, stitch_segments, wav_to_mp3
 from app.engines.errors import EngineBridgeError
 from app.db.state import update_job
@@ -105,14 +105,14 @@ def _render_segment(engine_id: str, text: str, profile_name: str | None, out_wav
         on_output(f"[error] No profile is assigned for this segment ({engine_id}).\n")
         return 1
 
-    from app.engines.behavior import extract_engine_settings, has_behavior
+    from app.engines.behavior import extract_engine_settings, has_behavior, get_text_split_target
     spk = get_speaker_settings(profile_name)
     settings = extract_engine_settings(engine_id, spk)
 
     text = (text or "").strip()
     if safe_mode and has_behavior(engine_id, "sanitize_text"):
         text = sanitize_text(text)
-        text = safe_split_long_sentences(text, target=SENT_CHAR_LIMIT)
+        text = safe_split_long_sentences(text, target=get_text_split_target(engine_id))
 
     # Synthesis request with generic settings extraction
     return generate_via_bridge(
@@ -127,14 +127,9 @@ def _render_segment(engine_id: str, text: str, profile_name: str | None, out_wav
     )
 
 
-def _parse_xtts_progress(line: str) -> float | None:
-    if "[PROGRESS]" not in line:
-        return None
-    try:
-        progress_value = line.split("[PROGRESS]")[1].split("%")[0].strip()
-        return max(0.0, min(float(progress_value) / 100.0, 1.0))
-    except (TypeError, ValueError, IndexError):
-        return None
+def _parse_engine_progress(engine_id: str, line: str) -> float | None:
+    from app.engines.behavior import parse_engine_progress
+    return parse_engine_progress(engine_id, line)
 
 def _group_needs_render(group: dict, pdir: Path) -> bool:
     expected_path = _chunk_output_path(pdir, group)
@@ -287,9 +282,9 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
             logger.warning("Failed to broadcast segment update for chapter %s", j.chapter_id, exc_info=True)
 
         try:
-            def xtts_on_output(line: str) -> None:
+            def engine_on_output(line: str) -> None:
                 on_output(line)
-                segment_progress = _parse_xtts_progress(line)
+                segment_progress = _parse_engine_progress(engine, line)
                 if segment_progress is None:
                     return
                 progress_limit = 1.0 if j.segment_ids else 0.9
@@ -313,7 +308,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
                     ),
                 )
 
-            rc = _render_segment(engine, chunk_text, profile_name, seg_out, j.safe_mode, xtts_on_output, cancel_check)
+            rc = _render_segment(engine, chunk_text, profile_name, seg_out, j.safe_mode, engine_on_output, cancel_check)
         except EngineBridgeError as exc:
             update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error=str(exc))
             return "failed", str(exc)

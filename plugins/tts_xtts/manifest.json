@@ -36,7 +36,8 @@
     "setting_aliases": {},
     "synthesis_settings": ["temperature", "repetition_penalty", "top_k", "top_p"],
     "text_chunk_limit": 500,
-    "text_split_target": 450
+    "text_split_target": 450,
+    "progress_pattern": "\\[PROGRESS\\]\\s*(?P<value>\\d+(?:\\.\\d+)?)\\s*%"
   },
   "local": true,
   "cloud": false,

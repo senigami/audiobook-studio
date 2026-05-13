@@ -702,3 +702,11 @@
 - Deleted the `enqueue_single` route and `_single_job_title` helper from `app/api/routers/generation.py`.
 - Removed 4 obsolete backend tests in `tests/api/test_api_generation.py`.
 - Verified with backend tests (46 passed), frontend tests (5 passed), and a successful production build.
+
+# 2026-05-13 - Backend Behavior Helper Hardening
+
+- Generalized progress parsing by introducing a `progress_pattern` field in the plugin manifest.
+- Migrated hardcoded XTTS progress parsing in `plugins/synthesis_mixed/handler.py` to a generic, manifest-driven regex contract.
+- Normalized text sanitization limits (`text_split_target`) to be engine-metadata driven instead of using global constants.
+- Updated `app/engines/behavior.py` with `get_progress_pattern` and `parse_engine_progress` helpers.
+- Verified with a new dedicated test suite `tests/engines/test_progress_parsing.py` and existing handler/behavior tests (13 passed total).

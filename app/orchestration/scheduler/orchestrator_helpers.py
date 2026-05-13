@@ -279,57 +279,54 @@ class OrchestratorHelpersMixin:
                 except (IndexError, ValueError):
                     pass
 
-            if "[PROGRESS]" in line:
+            from app.engines.behavior import parse_engine_progress
+            engine_id = context.payload.get("engine_id")
+            raw_progress = None
+            if engine_id:
+                raw_progress = parse_engine_progress(engine_id, line)
+
+            if raw_progress is not None:
                 if timing["render_started_at"] is None:
                     timing["render_started_at"] = time.time()
                 try:
-                    parts = line.split("[PROGRESS]")[1].strip().split()
-                    val_str = None
-                    for part in parts:
-                        if "%" in part:
-                            val_str = part.rstrip("%")
-                            break
+                    if total_weight > 0:
+                        active_seg_progress[0] = raw_progress
+                        p = _get_grouped_progress()
+                    else:
+                        p = raw_progress
+                        # Scale progress for tasks that have post-synthesis phases
+                        if context.task_type in {"sample_build", "sample_test"}:
+                            p = p * 0.70
 
-                    if val_str:
-                        raw_progress = float(val_str) / 100.0
-                        if total_weight > 0:
-                            active_seg_progress[0] = raw_progress
-                            p = _get_grouped_progress()
-                        else:
-                            p = raw_progress
-                            # Scale progress for tasks that have post-synthesis phases
-                            if context.task_type in {"sample_build", "sample_test"}:
-                                p = p * 0.70
+                    eta_seconds = self._observed_remaining_seconds(
+                        started_at=timing["render_started_at"],
+                        progress=p,
+                    )
+                    trace(
+                        "orchestrator.marker_progress",
+                        job_id=context.task_id,
+                        segment_id=active_seg_id[0],
+                        raw_segment_progress=raw_progress,
+                        published_progress=p,
+                        eta_seconds=eta_seconds,
+                        completed_weight=completed_weight[0],
+                        total_weight=total_weight,
+                        active_weight=id_to_weight.get(active_seg_id[0], 0) if active_seg_id[0] else 0,
+                        line=line,
+                    )
 
-                        eta_seconds = self._observed_remaining_seconds(
-                            started_at=timing["render_started_at"],
-                            progress=p,
-                        )
-                        trace(
-                            "orchestrator.marker_progress",
-                            job_id=context.task_id,
-                            segment_id=active_seg_id[0],
-                            raw_segment_progress=raw_progress,
-                            published_progress=p,
-                            eta_seconds=eta_seconds,
-                            completed_weight=completed_weight[0],
-                            total_weight=total_weight,
-                            active_weight=id_to_weight.get(active_seg_id[0], 0) if active_seg_id[0] else 0,
-                            line=line,
-                        )
-
-                        self._publish(
-                            context=context,
-                            status="running",
-                            progress=p,
-                            eta_seconds=eta_seconds,
-                            eta_confidence="recomputing" if eta_seconds is not None else None,
-                            reason_code="synthesis_progress",
-                            started_at=timing["render_started_at"],
-                            message="Synthesizing...",
-                            active_segment_id=active_seg_id[0],
-                            active_segment_progress=raw_progress if total_weight > 0 else 0.0,
-                        )
+                    self._publish(
+                        context=context,
+                        status="running",
+                        progress=p,
+                        eta_seconds=eta_seconds,
+                        eta_confidence="recomputing" if eta_seconds is not None else None,
+                        reason_code="synthesis_progress",
+                        started_at=timing["render_started_at"],
+                        message="Synthesizing...",
+                        active_segment_id=active_seg_id[0],
+                        active_segment_progress=raw_progress if total_weight > 0 else 0.0,
+                    )
                 except Exception:
                     pass
 

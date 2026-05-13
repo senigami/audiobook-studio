@@ -24,9 +24,11 @@ from ...engines.behavior import (
     supports_mixed_rendering,
     supports_standard_rendering,
     uses_segment_orchestration,
+    get_text_split_target,
+    has_behavior,
 )
 from ...domain.chunk_groups import build_chunk_groups
-from ...utils.text.textops import sanitize_text, safe_split_long_sentences, SENT_CHAR_LIMIT
+from ...utils.text.textops import sanitize_text, safe_split_long_sentences
 from ...core.config import (
     get_chapter_dir, resolve_chapter_asset_path
 )
@@ -127,8 +129,10 @@ def _build_script_for_chapter(chapter_id: str, project_id: str, default_profile:
 
         processed = " ".join(group["text_parts"]).strip()
         if safe_mode:
-            processed = sanitize_text(processed)
-            processed = safe_split_long_sentences(processed, target=SENT_CHAR_LIMIT)
+            engine_id = group.get("engine") or resolve_profile_engine(profile_name, default_profile)
+            if has_behavior(engine_id, "sanitize_text"):
+                processed = sanitize_text(processed)
+            processed = safe_split_long_sentences(processed, target=get_text_split_target(engine_id))
 
         # V2 segment path: chapters/{chapter_id}/segments/{first_segment_id}.wav
         # The orchestrator uses absolute paths for bridge transport

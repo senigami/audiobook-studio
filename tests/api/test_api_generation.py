@@ -101,6 +101,51 @@ def test_bake_chapter_mixed_engines_use_mixed_worker(clean_db, client):
         assert job.chapter_file == f"{cid}_0.txt"
 
 
+def test_build_script_uses_chunk_group_engine_for_safe_text(monkeypatch, tmp_path):
+    from app.api.routers import generation
+
+    monkeypatch.setattr(generation, "get_chapter_dir", lambda project_id, chapter_id: tmp_path)
+    monkeypatch.setattr(
+        "app.db.segments.get_chapter_segments",
+        lambda chapter_id: [{"id": "s1", "text_content": "Hello world."}],
+    )
+    monkeypatch.setattr(
+        generation,
+        "build_chunk_groups",
+        lambda segments, default_profile: [
+            {
+                "segments": [{"id": "s1"}],
+                "profile_name": "Voice A",
+                "engine": "manifest-engine",
+                "text_parts": ["Hello world."],
+            }
+        ],
+    )
+    monkeypatch.setattr("app.db.speakers.get_profile_wavs", lambda profile_name: None)
+    monkeypatch.setattr("app.db.speakers.get_profile_dir", lambda profile_name: tmp_path / "voice")
+    monkeypatch.setattr(
+        generation,
+        "resolve_profile_engine",
+        lambda profile_name, fallback_engine=None: (_ for _ in ()).throw(AssertionError("engine was recomputed")),
+    )
+    monkeypatch.setattr(generation, "has_behavior", lambda engine_id, behavior: engine_id == "manifest-engine")
+
+    seen_targets = []
+
+    def fake_split(text, *, target):
+        seen_targets.append(target)
+        return text
+
+    monkeypatch.setattr(generation, "get_text_split_target", lambda engine_id: 321 if engine_id == "manifest-engine" else 999)
+    monkeypatch.setattr(generation, "sanitize_text", lambda text: text)
+    monkeypatch.setattr(generation, "safe_split_long_sentences", fake_split)
+
+    script = generation._build_script_for_chapter("chapter-1", "project-1", "Default Voice", safe_mode=True)
+
+    assert script[0]["id"] == "s1"
+    assert seen_targets == [321]
+
+
 def test_bake_chapter_voxtral_uses_mixed_worker(clean_db, client):
     from app.db.state import update_settings
     update_settings({"enabled_plugins": {"voxtral": True}})

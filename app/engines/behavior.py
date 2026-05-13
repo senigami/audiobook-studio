@@ -38,6 +38,7 @@ def normalize_behavior(behavior: Mapping[str, Any] | None) -> dict[str, Any]:
             "required_settings": [],
             "setting_aliases": {},
             "synthesis_settings": [],
+            "progress_pattern": None,
         }
 
     features = [
@@ -63,6 +64,10 @@ def normalize_behavior(behavior: Mapping[str, Any] | None) -> dict[str, Any]:
     text_chunk_limit = behavior.get("text_chunk_limit", 500)
     text_split_target = behavior.get("text_split_target", 450)
 
+    progress_pattern = behavior.get("progress_pattern")
+    if progress_pattern is not None:
+        progress_pattern = str(progress_pattern).strip()
+
     return {
         "features": features,
         "required_settings": required_settings,
@@ -70,6 +75,7 @@ def normalize_behavior(behavior: Mapping[str, Any] | None) -> dict[str, Any]:
         "synthesis_settings": synthesis_settings,
         "text_chunk_limit": text_chunk_limit,
         "text_split_target": text_split_target,
+        "progress_pattern": progress_pattern,
     }
 
 
@@ -199,6 +205,42 @@ def get_text_split_target(engine_id: str) -> int:
     """Return the target character count when splitting long sentences."""
     behavior = behavior_for_engine(engine_id)
     return behavior.get("text_split_target", 450)
+
+
+def get_progress_pattern(engine_id: str) -> str | None:
+    """Return the regex pattern for parsing progress from an engine's output."""
+    behavior = behavior_for_engine(engine_id)
+    return behavior.get("progress_pattern")
+
+
+def parse_engine_progress(engine_id: str, line: str) -> float | None:
+    """Parse a progress value from an engine's output line using its declared pattern."""
+    pattern_str = get_progress_pattern(engine_id) or r"\[PROGRESS\]\s+([0-9.]+)"
+
+    try:
+        # Use a simple regex check. The pattern should contain a named group 'value'
+        # or a single capturing group.
+        match = re.search(pattern_str, line)
+        if not match:
+            return None
+
+        # Try named group 'value' first, then first group
+        try:
+            val_str = match.group("value")
+        except (IndexError, KeyError):
+            val_str = match.group(1)
+
+        if not val_str:
+            return None
+
+        val = float(val_str.strip())
+        # If the line contains a percent sign, treat it as a percentage (0-100).
+        # This correctly handles 45% -> 0.45 and 1% -> 0.01.
+        if "%" in line:
+            return max(0.0, min(val / 100.0, 1.0))
+        return max(0.0, min(val, 1.0))
+    except (TypeError, ValueError, IndexError, re.error):
+        return None
 
 
 def _normalize_required_settings(raw_items: Any) -> list[dict[str, str]]:
