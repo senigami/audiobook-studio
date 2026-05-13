@@ -162,18 +162,15 @@ class TestBridgeDescribeRegistry:
             {"engine_id": "xtts", "display_name": "XTTS"}
         ]
 
-        # Create a mock last_test.json
         import json
-        engine_id = "xtts"
-        safe_id = "xtts"
-        test_dir = tmp_path / safe_id
+        test_dir = tmp_path / "plugins" / "tts_xtts" / "assets"
         test_dir.mkdir(parents=True)
         meta = {"ok": True, "generated_at": 123456789.0, "audio_url": "/test.wav"}
         (test_dir / "last_test.json").write_text(json.dumps(meta))
 
         bridge = _make_bridge_with_client(mock_client)
 
-        with patch("app.core.config.ENGINE_TEST_DIR", tmp_path):
+        with patch("app.core.config.PLUGINS_DIR", tmp_path / "plugins"):
             result = bridge.describe_registry()
 
         assert len(result) == 1

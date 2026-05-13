@@ -6,6 +6,7 @@ implementation.
 
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 from typing import Any
@@ -90,21 +91,19 @@ class VoiceBridge:
                 data["health_message"] = data["health"]["message"]
                 data["setup_message"] = data["health"]["message"]
 
-        # Enrich with last test results
-        from app.core.config import ENGINE_TEST_DIR  # noqa: PLC0415
-        import json
-        if ENGINE_TEST_DIR.exists():
-            for data in results:
-                engine_id = data.get("engine_id")
-                if not engine_id:
-                    continue
-                safe_id = "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in engine_id)
-                meta_path = ENGINE_TEST_DIR / safe_id / "last_test.json"
-                if meta_path.exists():
-                    try:
-                        data["last_test"] = json.loads(meta_path.read_text(encoding="utf-8"))
-                    except Exception:
-                        pass
+        # Enrich with the latest plugin-local test metadata.
+        from app.core.config import PLUGINS_DIR  # noqa: PLC0415
+        for data in results:
+            engine_id = data.get("engine_id")
+            if not engine_id:
+                continue
+            safe_id = "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in str(engine_id))
+            meta_path = PLUGINS_DIR / f"tts_{safe_id}" / "assets" / "last_test.json"
+            if meta_path.exists():
+                try:
+                    data["last_test"] = json.loads(meta_path.read_text(encoding="utf-8"))
+                except Exception:
+                    pass
         return results
 
     def update_engine_settings(self, engine_id: str, settings: dict[str, Any]) -> dict[str, Any]:

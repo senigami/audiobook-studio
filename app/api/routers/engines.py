@@ -1,6 +1,5 @@
 from pathlib import Path
 from typing import Any, Optional
-from uuid import uuid4
 from fastapi import APIRouter, Body
 from fastapi.responses import JSONResponse, FileResponse
 from ...engines.bridge import create_voice_bridge
@@ -91,12 +90,9 @@ def get_test_audio(engine_id: str):
     if not reg:
         return JSONResponse({"ok": False, "message": "Engine not found"}, status_code=404)
 
-    # Use PLUGINS_DIR as base and look for the folder name
-    parts = reg.manifest.module_path.split(".")
-    if len(parts) < 2 or parts[0] != "plugins":
-         return JSONResponse({"ok": False, "message": "Could not resolve plugin directory from module path"}, status_code=500)
-    from app.core.config import PLUGINS_DIR # noqa: PLC0415
-    plugin_dir = PLUGINS_DIR / parts[1]
+    plugin_dir = _resolve_plugin_dir(engine_id=engine_id, module_path=reg.manifest.module_path)
+    if not plugin_dir:
+        return JSONResponse({"ok": False, "message": "Could not resolve plugin directory"}, status_code=404)
     audio_path = plugin_dir / "assets" / "test_output.wav"
 
     if not audio_path.exists():
@@ -116,30 +112,33 @@ def test_engine(engine_id: str):
         if not res.get("ok"):
             return JSONResponse({"ok": False, "message": f"Test failed: {res.get('message')}"}, status_code=400)
 
-        # 2. Locate the output file in the plugin's assets folder
         from ...engines.registry import load_engine_registry  # noqa: PLC0415
         registry = load_engine_registry()
         reg = registry.get(engine_id)
         if not reg:
              return JSONResponse({"ok": False, "message": "Engine not found"}, status_code=404)
 
-        # Use PLUGINS_DIR as base and look for the folder name
-        parts = reg.manifest.module_path.split(".")
-        if len(parts) < 2 or parts[0] != "plugins":
-             return JSONResponse({"ok": False, "message": "Could not resolve plugin directory from module path"}, status_code=500)
-        from app.core.config import PLUGINS_DIR # noqa: PLC0415
-        plugin_dir = PLUGINS_DIR / parts[1]
+        plugin_dir = _resolve_plugin_dir(engine_id=engine_id, module_path=reg.manifest.module_path)
+        if not plugin_dir:
+             return JSONResponse({"ok": False, "message": "Could not resolve plugin directory"}, status_code=404)
         output_path = plugin_dir / "assets" / "test_output.wav"
 
         if not output_path.exists():
              return JSONResponse({"ok": False, "message": "Test passed but output audio not found in plugin folder"}, status_code=404)
 
+        import json
         import time
-        return JSONResponse({
+
+        last_test_path = plugin_dir / "assets" / "last_test.json"
+        last_test_path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
             "ok": True,
             "audio_url": f"/api/engines/{engine_id}/test/audio",
-            "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-        })
+            "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        }
+        last_test_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+        return JSONResponse(payload)
 
     except EngineUnavailableError as exc:
         return JSONResponse({"ok": False, "message": str(exc)}, status_code=503)

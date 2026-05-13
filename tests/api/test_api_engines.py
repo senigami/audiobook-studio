@@ -153,6 +153,34 @@ def test_engine_test_endpoint_delegates_run_test(clean_db, client, tmp_path):
     bridge.run_test.assert_called_once_with("mock-engine")
 
 
+def test_engine_test_endpoint_handles_tts_server_registry_shape(clean_db, client, tmp_path):
+    bridge = MagicMock()
+    bridge.run_test.return_value = {"ok": True, "message": "Test passed"}
+
+    registration = SimpleNamespace(
+        manifest=SimpleNamespace(
+            module_path="tts_server.plugin.xtts",
+        )
+    )
+
+    plugin_dir = tmp_path / "plugins" / "tts_xtts"
+    assets_dir = plugin_dir / "assets"
+    assets_dir.mkdir(parents=True)
+    (assets_dir / "test_output.wav").write_bytes(b"wav content")
+
+    with patch("app.api.routers.engines.create_voice_bridge", return_value=bridge), \
+         patch("app.engines.registry.load_engine_registry", return_value={"xtts": registration}), \
+         patch("app.core.config.PLUGINS_DIR", tmp_path / "plugins"):
+        response = client.post("/api/engines/xtts/test")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["ok"] is True
+    assert data["audio_url"] == "/api/engines/xtts/test/audio"
+    assert "generated_at" in data
+    bridge.run_test.assert_called_once_with("xtts")
+
+
 def test_get_test_audio_returns_file_from_plugin_assets(clean_db, client, tmp_path):
     registration = SimpleNamespace(
         manifest=SimpleNamespace(
@@ -173,3 +201,24 @@ def test_get_test_audio_returns_file_from_plugin_assets(clean_db, client, tmp_pa
 
     assert response.status_code == 200
     assert response.content == b"plugin wav content"
+
+
+def test_get_test_audio_resolves_tts_server_registry_shape(clean_db, client, tmp_path):
+    registration = SimpleNamespace(
+        manifest=SimpleNamespace(
+            module_path="tts_server.plugin.xtts",
+        )
+    )
+
+    plugin_dir = tmp_path / "plugins" / "tts_xtts"
+    assets_dir = plugin_dir / "assets"
+    assets_dir.mkdir(parents=True)
+    audio_path = assets_dir / "test_output.wav"
+    audio_path.write_bytes(b"remote registry wav content")
+
+    with patch("app.engines.registry.load_engine_registry", return_value={"xtts": registration}), \
+         patch("app.core.config.PLUGINS_DIR", tmp_path / "plugins"):
+        response = client.get("/api/engines/xtts/test/audio")
+
+    assert response.status_code == 200
+    assert response.content == b"remote registry wav content"
