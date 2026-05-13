@@ -1,3 +1,9 @@
+# 2026-05-13 - Agent Rules Enhanced From Basis Practices
+
+- Compared `/Users/stevendunn/GitHub/basis/.cursor/rules` against this repo's `.agent/rules/` and `Memory/rules.md`.
+- Promoted applicable practices into local rules: tighter scope discipline, assumption surfacing, TDD red-green-refactor, test quality, self-review, review workflow, frontend TypeScript/React accessibility, backend idempotency/logging/error-boundary guidance, and avoiding one-off markdown summary files.
+- Left Basis-specific stack, provider, citation, dashboard, Next.js, tRPC, Airflow, and Zoom rules out of this repo's guidance because they do not map cleanly to Audiobook Studio.
+
 # 2026-05-08 - ScriptView Pending Render Cue Restored
 
 - Added a visible pending state for script spans while a group is being rebuilt so live chapter renders no longer stay black until completion.

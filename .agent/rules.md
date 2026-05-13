@@ -17,12 +17,15 @@ Use the smallest rule set that matches the task.
 1. For routing, service boundaries, queue policy, or migration shape, read [`backend.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/backend.md), [`backend-boundaries.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/backend-boundaries.md), and [`modular_architecture.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/modular_architecture.md).
 1. For large-file refactors or files over the architecture thresholds, read [`modular_architecture.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/modular_architecture.md) plus the relevant frontend/backend rule files.
 1. For plan, rollout, or documentation changes, read [`workflow.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/workflow.md) and usually [`modular_architecture.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/modular_architecture.md).
+1. For code review, PR review, or review-comment triage, read [`code-review.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/code-review.md) plus the domain-specific frontend/backend rules for the changed files.
 
 ## What Matters Most
 
 - Verify changes with the relevant tests and linting before calling work complete.
 - Use the local `./venv` for backend tooling.
 - Update tests when behavior or logic changes.
+- Keep the diff scoped to the requested behavior. Flag adjacent issues instead of silently expanding the patch.
+- Self-review the actual diff before handoff or commit.
 - Fix concrete bugs or regression risks in the same pass.
 - Keep implementation docs, wiki pages, and `wiki/Changelog.md` aligned with shipped behavior.
 - Treat paths, assets, and output publication as security-sensitive.
