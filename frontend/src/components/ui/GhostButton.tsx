@@ -5,6 +5,7 @@ interface GhostButtonProps {
     onClick: (e: React.MouseEvent) => void;
     icon: LucideIcon;
     label?: string;
+    ariaLabel?: string;
     className?: string;
     style?: React.CSSProperties;
     iconSize?: number;
@@ -18,6 +19,7 @@ export const GhostButton: React.FC<GhostButtonProps> = ({
     onClick,
     icon: Icon,
     label,
+    ariaLabel,
     className = "",
     style = {},
     iconSize = 18,
@@ -56,6 +58,7 @@ export const GhostButton: React.FC<GhostButtonProps> = ({
             className={`btn-ghost btn-responsive ${className}`}
             style={baseStyle}
             title={title}
+            aria-label={ariaLabel || title || label}
             disabled={disabled}
         >
             <Icon size={iconSize} strokeWidth={isActive ? 2.5 : 2} className={iconClassName} style={{ flexShrink: 0 }} />

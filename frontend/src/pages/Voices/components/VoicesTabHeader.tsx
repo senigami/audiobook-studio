@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Search, Plus, Info, Upload, Download } from 'lucide-react';
 import { GlassInput } from '@/components/forms/GlassInput';
 import { GhostButton } from '@/components/ui/GhostButton';
 import type { VoiceEngine } from '@/types';
+
+const COMPACT_TOOLBAR_WIDTH = 960;
 
 interface VoicesTabHeaderProps {
     searchQuery: string;
@@ -33,17 +35,34 @@ export const VoicesTabHeader: React.FC<VoicesTabHeaderProps> = ({
     onCreateClick,
     onGuideClick
 }) => {
+    const [windowWidth, setWindowWidth] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 1200));
+    const isCompactToolbar = windowWidth < COMPACT_TOOLBAR_WIDTH;
+
+    useEffect(() => {
+        const handleResize = () => setWindowWidth(window.innerWidth);
+        window.addEventListener('resize', handleResize);
+        handleResize();
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    const exportLabel = isCompactToolbar ? undefined : 'Export Voice';
+    const importLabel = isCompactToolbar ? undefined : (isImportingVoice ? 'Importing...' : 'Import Voice');
+    const createLabel = isCompactToolbar ? undefined : 'New Voice';
+    const guideLabel = isCompactToolbar ? undefined : 'Recording Guide';
+
     return (
         <div style={{ 
             padding: '1.25rem 2rem', 
             borderBottom: '1px solid var(--border)',
             display: 'flex',
+            flexWrap: 'wrap',
             justifyContent: 'space-between',
             alignItems: 'center',
+            gap: '1rem',
             background: 'var(--surface-light)',
             zIndex: 10
         }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap', minWidth: 0 }}>
                 <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>Voices</h2>
                 
                 <div style={{ position: 'relative' }}>
@@ -54,14 +73,14 @@ export const VoicesTabHeader: React.FC<VoicesTabHeaderProps> = ({
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="search-responsive"
                         style={{
-                            width: '240px',
+                            width: isCompactToolbar ? '180px' : '240px',
                             transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
                         }}
                         onFocus={(e) => {
-                            e.currentTarget.style.width = '320px';
+                            e.currentTarget.style.width = isCompactToolbar ? '220px' : '320px';
                         }}
                         onBlur={(e) => {
-                            e.currentTarget.style.width = '240px';
+                            e.currentTarget.style.width = isCompactToolbar ? '180px' : '240px';
                         }}
                     />
                 </div>
@@ -83,7 +102,7 @@ export const VoicesTabHeader: React.FC<VoicesTabHeaderProps> = ({
                 </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                 <input
                     ref={importInputRef}
                     type="file"
@@ -95,20 +114,26 @@ export const VoicesTabHeader: React.FC<VoicesTabHeaderProps> = ({
                 <GhostButton
                     onClick={onExportClick}
                     icon={Download}
-                    label="Export Voice"
+                    label={exportLabel}
+                    ariaLabel="Export Voice"
+                    title="Export Voice"
                     disabled={exportVoiceDisabled}
                 />
                 <GhostButton
                     onClick={() => importInputRef.current?.click()}
                     icon={Upload}
-                    label={isImportingVoice ? 'Importing...' : 'Import Voice'}
+                    label={importLabel}
+                    ariaLabel={isImportingVoice ? 'Importing Voice' : 'Import Voice'}
+                    title={isImportingVoice ? 'Importing Voice' : 'Import Voice'}
                     disabled={isImportingVoice}
                 />
 
                 <GhostButton 
                     onClick={onCreateClick} 
                     icon={Plus}
-                    label="New Voice"
+                    label={createLabel}
+                    ariaLabel="New Voice"
+                    title="New Voice"
                 />
                 
                 <div className="mobile-hide" style={{ width: '1px', height: '24px', background: 'var(--border)', margin: '0 4px' }} />
@@ -116,7 +141,9 @@ export const VoicesTabHeader: React.FC<VoicesTabHeaderProps> = ({
                 <GhostButton 
                     onClick={onGuideClick} 
                     icon={Info}
-                    label="Recording Guide"
+                    label={guideLabel}
+                    ariaLabel="Recording Guide"
+                    title="Recording Guide"
                 />
             </div>
         </div>
