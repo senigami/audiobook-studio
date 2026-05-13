@@ -672,3 +672,10 @@
 - Changed plugin settings UI display for computed computer speed from the raw internal multiplier to characters per second.
 - XTTS and Voxtral settings schemas now label the read-only value as `Computer Speed` and mark it for CPS formatting.
 - Verified focused settings form/route tests, `git diff --check`, and frontend build.
+
+# 2026-05-13 - Project Structure Rules Added
+
+- Codified the desired human-readable frontend, backend, test, and plugin folder organization in `.agent/rules/modular_architecture.md`.
+- Added frontend/backend rule-file pointers so agents preserve the standard React layout, backend layered packages, mirrored test directories, and plugin-local mini-repo boundaries during future cleanup work.
+- Added root `AGENTS.md` as a concise router to `.agent/rules.md` and `Memory/` for agents that look for standard repository instructions.
+- Verified the rules-only patch with `git diff --check` and `Memory/state.json` JSON parsing.

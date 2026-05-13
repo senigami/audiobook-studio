@@ -2,6 +2,8 @@
 
 Use this file when the task touches backend orchestration, queueing, progress, artifact publication, or filesystem path handling.
 
+For backend folder organization, follow the project structure rules in [`modular_architecture.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/modular_architecture.md): web entrypoints belong in `app/api`, config/boot in `app/core`, persistence/state in `app/db`, business concepts in `app/domain`, engine contracts in `app/engines`, orchestration/jobs in their named packages, generic helpers in `app/utils`, and tests grouped under `tests/` to mirror the package they exercise.
+
 ## Read The Right Subfile
 
 - [`backend-artifacts.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/backend-artifacts.md) for manifest validation, publish flow, cache immutability, and recovery safety.

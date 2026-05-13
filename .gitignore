@@ -165,3 +165,4 @@ __pypackages__/
 /scratch
 /engine_tests
 plugins/*/assets/test_output.wav
+/Memory

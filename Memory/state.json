@@ -1,9 +1,9 @@
 {
   "snapshot_version": 36,
-  "updated_at": "2026-05-13T04:10:16Z",
+  "updated_at": "2026-05-13T05:01:21Z",
   "branch": "studio2/phase-11",
-  "current_task": "Agent rule enhancement from Basis Cursor rules",
-  "status": "agent_rules_enhanced_verified",
+  "current_task": "Codify frontend/backend/plugin project structure rules",
+  "status": "structure_rules_added_verified",
   "last_committed_milestone": {
     "title": "Phase 11 legacy engine implementation relocation",
     "commit": "572c435",
@@ -19,6 +19,7 @@
     "Codex is lead architect, reviewer, integrator, verifier, checkpoint owner, and manual-QA caller.",
     "Use Antigravity/Gemini for bounded non-trivial worker tasks to minimize token usage; Codex reviews, integrates, verifies, and commits.",
     "Use JSON-style prompts for Antigravity/Gemini handoffs.",
+    "Preserve the human-readable frontend, backend, test, and plugin folder structure documented in .agent/rules/modular_architecture.md.",
     "Codex should do small local fixes directly when delegating would cost more tokens than the fix.",
     "Codex owns project direction and should give constructive pushback when shortcuts would weaken boundaries, hide v2 failures, or deepen legacy coupling.",
     "Keep diffs tightly scoped; flag adjacent issues as follow-up work instead of silently expanding the patch.",
