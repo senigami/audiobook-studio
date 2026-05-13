@@ -3,14 +3,17 @@
   "updated_at": "2026-05-13T17:22:24Z",
   "branch": "studio2/phase-11",
   "current_task": "Backend jobs shim cleanup",
-  "status": "backend_jobs_shim_cleanup_verified",
+  "status": "backend_jobs_queue_decommission_audit_complete",
   "last_committed_milestone": {
-    "title": "Phase 11 legacy engine implementation relocation",
-    "commit": "572c435",
+    "title": "Backend jobs/queue decommission audit and cleanup",
+    "commit": "pending",
     "notes": [
-      "Moved legacy XTTS and Voxtral implementation modules behind adapter package boundaries.",
-      "Verified no remaining app/plugins/tests imports of engines_voxtral or xtts_utils.",
-      "Kept legacy implementation details encapsulated behind the Studio 2.0 plugin/TTS Server boundary."
+      "# 2026-05-13 - Backend Jobs/Queue Decommission Audit Completed",
+      "",
+      "- Conducted a full audit and classification of remaining `app.jobs` compatibility surfaces.",
+      "- Migrated `conftest.py` cleanup logic to canonical `set_paused` and resource gate resets (`GpuAdmissionGate`, `ExclusiveAdmissionGate`).",
+      "- Removed `app/jobs/core_shim.py` and cleaned up stale `job_queue` patches in `tests/db/test_state_rules.py`.",
+      "- Verified the focused backend job, state, progress, plugin layout, and isolation tests (21 passed)."
     ]
   },
   "active_constraints": [
@@ -79,7 +82,7 @@
     "Plugin settings expose computed computer speed as characters per second, not the raw internal speed multiplier.",
     "Frontend voice variant creation and character assignment availability no longer use `xtts` as the missing-engine fallback; they resolve through the frontend engine registry helper."
     ,
-    "The last `app.jobs.cleanup_and_reconcile` package shim has been removed; `app/jobs/__init__.py` is now a namespace marker only."
+    "The legacy `app/jobs/core_shim.py` module has been removed; `conftest.py` and remaining test patches have been migrated to canonical orchestration resource helpers."
   ],
   "codeql_context": {
     "github_setup": "advanced",

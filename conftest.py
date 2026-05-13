@@ -42,7 +42,7 @@ for d in ["uploads", "reports", "voices", "uploads/covers", "projects"]:
 # 2. NOW import modules that rely on these env vars
 from app.db import init_db  # noqa: E402
 from app.db.state import clear_all_jobs  # noqa: E402
-from app.jobs.core_shim import clear_job_queue, pause_flag  # noqa: E402
+from app.orchestration.scheduler.resources import set_paused, get_gpu_gate, get_exclusive_gate  # noqa: E402
 from app.engines.proc_utils import terminate_all_subprocesses  # noqa: E402
 
 
@@ -105,11 +105,9 @@ def _cleanup_test_runtime():
     except Exception:
         pass
     try:
-        clear_job_queue()
-    except Exception:
-        pass
-    try:
-        pause_flag.clear()
+        set_paused(False)
+        get_gpu_gate().reset()
+        get_exclusive_gate().reset()
     except Exception:
         pass
 
@@ -213,8 +211,9 @@ def clean_storage():
 
     # Clear in-memory state and state.json
     clear_all_jobs()
-    clear_job_queue()
-    pause_flag.clear()
+    set_paused(False)
+    get_gpu_gate().reset()
+    get_exclusive_gate().reset()
 
     # Reset the shared session workspace so tests do not leak filesystem
     # state into one another. We intentionally operate on the fixed session

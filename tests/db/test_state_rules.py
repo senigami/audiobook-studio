@@ -118,8 +118,7 @@ def test_requeue_clean_slate():
     )
     put_job(job)
 
-    with patch("app.jobs.core_shim.job_queue.put"):
-        requeue("test_requeue")
+    requeue("test_requeue")
 
     state = load_state()
     j = state["jobs"]["test_requeue"]
