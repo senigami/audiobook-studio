@@ -52,5 +52,4 @@ from .operations import (
 
 
 # Compatibility for Phase 7 bridge
-SENT_CHAR_LIMIT = 500
 

@@ -95,11 +95,12 @@ def get_script_view_payload(chapter_id: str) -> dict[str, Any]:
 
         if sig not in chunk_cache:
             eid = helpers._resolve_engine_from_profile(span["speaker_profile_name"])
+            from app.engines.behavior import get_text_chunk_limit
             try:
                 plan = bridge.get_synthesis_plan({"engine_id": eid})
-                chunk_cache[sig] = facade.SENT_CHAR_LIMIT
+                chunk_cache[sig] = get_text_chunk_limit(eid)
             except Exception:
-                chunk_cache[sig] = facade.SENT_CHAR_LIMIT
+                chunk_cache[sig] = get_text_chunk_limit(eid)
 
         chunk_limit = chunk_cache[sig]
 

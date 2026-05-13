@@ -280,10 +280,8 @@ class OrchestratorHelpersMixin:
                     pass
 
             from app.engines.behavior import parse_engine_progress
-            engine_id = context.payload.get("engine_id")
-            raw_progress = None
-            if engine_id:
-                raw_progress = parse_engine_progress(engine_id, line)
+            engine_id = context.payload.get("engine_id") or ""
+            raw_progress = parse_engine_progress(engine_id, line)
 
             if raw_progress is not None:
                 if timing["render_started_at"] is None:

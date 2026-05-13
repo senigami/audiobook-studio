@@ -49,7 +49,7 @@ def test_api_analyze_text():
     data = response.json()
     assert data["status"] == "ok"
     assert data["char_count"] == len(text)
-    # Depending on SENT_CHAR_LIMIT (usually 250), it might show raw_long_sentences
+    # Depending on the configured sentence threshold, it might show raw_long_sentences.
     assert "threshold" in data
 
 def test_api_report_not_found():

@@ -80,7 +80,7 @@ def test_script_view_sanitized_fallback(clean_db, client):
 
     span = data["spans"][0]
     assert span["text"] == "Hello [world]."
-    # sanitized_text should have [ and ] removed by textops.sanitize_for_xtts
+    # sanitized_text should have [ and ] removed by generic text sanitization.
     assert "world" in span["sanitized_text"]
     assert "[" not in span["sanitized_text"]
     assert "]" not in span["sanitized_text"]
@@ -99,8 +99,8 @@ def test_script_view_render_batches_grouping_and_limit(clean_db, client, monkeyp
         _assign_segment(s["id"], char_id, "Profile")
 
     # Mock a very small limit to force batch splitting
-    import app.domain.chapters.facade
-    monkeypatch.setattr(app.domain.chapters.facade, "SENT_CHAR_LIMIT", 15)
+    import app.engines.behavior
+    monkeypatch.setattr(app.engines.behavior, "get_text_chunk_limit", lambda eid: 15)
 
     response = client.get(f"/api/chapters/{cid}/script-view")
     data = response.json()
@@ -110,7 +110,7 @@ def test_script_view_render_batches_grouping_and_limit(clean_db, client, monkeyp
     assert len(data["render_batches"]) > 1
 
     # Check that compatible adjacent spans are grouped when under limit
-    monkeypatch.setattr(app.domain.chapters.facade, "SENT_CHAR_LIMIT", 1000)
+    monkeypatch.setattr(app.engines.behavior, "get_text_chunk_limit", lambda eid: 1000)
     response = client.get(f"/api/chapters/{cid}/script-view")
     data = response.json()
     assert len(data["render_batches"]) == 1
