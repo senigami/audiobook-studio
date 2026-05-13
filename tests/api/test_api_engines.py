@@ -149,7 +149,7 @@ def test_engine_test_endpoint_delegates_run_test(clean_db, client, tmp_path):
     data = response.json()
     assert data["ok"] is True
     assert data["audio_url"] == "/api/engines/mock-engine/test/audio"
-    assert "generated_at" in data
+    assert isinstance(data["generated_at"], (int, float))
     bridge.run_test.assert_called_once_with("mock-engine")
 
 
@@ -177,7 +177,7 @@ def test_engine_test_endpoint_handles_tts_server_registry_shape(clean_db, client
     data = response.json()
     assert data["ok"] is True
     assert data["audio_url"] == "/api/engines/xtts/test/audio"
-    assert "generated_at" in data
+    assert isinstance(data["generated_at"], (int, float))
     bridge.run_test.assert_called_once_with("xtts")
 
 

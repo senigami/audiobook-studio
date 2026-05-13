@@ -134,7 +134,7 @@ def test_engine(engine_id: str):
         payload = {
             "ok": True,
             "audio_url": f"/api/engines/{engine_id}/test/audio",
-            "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "generated_at": time.time(),
         }
         last_test_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 

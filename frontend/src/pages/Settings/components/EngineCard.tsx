@@ -8,6 +8,25 @@ import { getEngineUi, getEngineStatusLabel, getBadgeStyles } from '@/pages/Setti
 import { EngineMetadataPanel } from '@/pages/Settings/components/EngineMetadataPanel';
 import { JsonSchemaForm } from '@/pages/Settings/components/JsonSchemaForm';
 
+export function formatEngineTestGeneratedAt(generatedAt: number | string | null | undefined): string {
+  if (generatedAt === null || generatedAt === undefined || generatedAt === '') {
+    return 'Unknown';
+  }
+
+  if (typeof generatedAt === 'number' && Number.isFinite(generatedAt)) {
+    return new Date(generatedAt * 1000).toLocaleString();
+  }
+
+  const numericValue = typeof generatedAt === 'string' ? Number(generatedAt) : Number.NaN;
+  if (Number.isFinite(numericValue)) {
+    const millis = numericValue > 1e12 ? numericValue : numericValue * 1000;
+    return new Date(millis).toLocaleString();
+  }
+
+  const parsed = new Date(String(generatedAt));
+  return Number.isNaN(parsed.getTime()) ? 'Unknown' : parsed.toLocaleString();
+}
+
 export const EngineCard: React.FC<{
   engine: TtsEngine;
   onUpdate: () => void;
@@ -245,7 +264,7 @@ export const EngineCard: React.FC<{
                  Latest Test Sample
                </span>
                <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)' }}>
-                 Generated at: {new Date(testResult.generated_at * 1000).toLocaleString()}
+                 Generated at: {formatEngineTestGeneratedAt(testResult.generated_at)}
                </span>
              </div>
              <audio controls src={testResult.audio_url} style={{ width: '100%', height: '36px' }} />

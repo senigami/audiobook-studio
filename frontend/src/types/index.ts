@@ -30,7 +30,7 @@ export interface TtsEngine {
   last_test?: {
     ok: boolean;
     audio_url: string;
-    generated_at: number;
+    generated_at: number | string;
     message?: string;
   };
 }

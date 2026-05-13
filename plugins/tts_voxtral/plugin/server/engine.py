@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -166,25 +165,25 @@ class VoxtralPlugin(StudioTTSEngine):
 
         model = req.settings.get("model") or self._resolve_model()
 
-        cleanup_root: Path | None = None
         profile_name: str = ""
         reference_sample: str | None = None
         voice_asset_id: str | None = req.settings.get("voice_asset_id") or None
+        voice_profile_dir: Path | None = None
 
         vdir = req.settings.get("voice_profile_dir")
         if req.voice_ref:
-            cleanup_root, profile_name, reference_sample = (
-                self._stage_reference_audio(Path(req.voice_ref))
-            )
+            vref_path = Path(req.voice_ref)
+            voice_profile_dir = vref_path.parent
+            reference_sample = vref_path.name
         elif vdir:
              profile_name = str(req.settings.get("voice_profile_id", ""))
-             vdir_path = Path(vdir)
+             voice_profile_dir = Path(vdir)
              reference_sample = req.settings.get("reference_sample") or None
         else:
             profile_name = str(req.settings.get("voice_profile_id", ""))
             reference_sample = req.settings.get("reference_sample") or None
 
-        if not profile_name and not vdir:
+        if not profile_name and not voice_profile_dir:
             return TTSResult(
                 ok=False,
                 error=(
@@ -214,12 +213,10 @@ class VoxtralPlugin(StudioTTSEngine):
                 model=model,
                 reference_sample=reference_sample,
                 task_id=req.task_id,
+                voice_profile_dir=voice_profile_dir,
             )
         except Exception as exc:
             return TTSResult(ok=False, error=f"Voxtral synthesis raised: {exc}")
-        finally:
-            if cleanup_root is not None:
-                shutil.rmtree(cleanup_root, ignore_errors=True)
 
         if rc != 0 or not render_wav_path.exists():
             return TTSResult(
@@ -246,23 +243,25 @@ class VoxtralPlugin(StudioTTSEngine):
         if not ok:
             return TTSResult(ok=False, error=f"check_request failed: {msg}")
 
-        model = req.settings.get("model") or self._resolve_model()
         profile_name = str(req.settings.get("voice_profile_id", ""))
         voice_asset_id: str | None = req.settings.get(
             "voice_asset_id"
         ) or None
 
-        cleanup_root: Path | None = None
         reference_sample: str | None = None
+        voice_profile_dir: Path | None = None
 
         if req.voice_ref:
-            cleanup_root, profile_name, reference_sample = (
-                self._stage_reference_audio(Path(req.voice_ref))
-            )
+            vref_path = Path(req.voice_ref)
+            voice_profile_dir = vref_path.parent
+            reference_sample = vref_path.name
         else:
             reference_sample = req.settings.get("reference_sample") or None
+            vdir = req.settings.get("voice_profile_dir")
+            if vdir:
+                voice_profile_dir = Path(vdir)
 
-        if not profile_name:
+        if not profile_name and not voice_profile_dir:
             return TTSResult(
                 ok=False,
                 error="Voxtral preview requires voice_ref or voice_profile_id.",
@@ -277,12 +276,10 @@ class VoxtralPlugin(StudioTTSEngine):
                 model=model,
                 reference_sample=reference_sample,
                 task_id=req.task_id,
+                voice_profile_dir=voice_profile_dir,
             )
         except Exception as exc:
             return TTSResult(ok=False, error=f"Voxtral preview raised: {exc}")
-        finally:
-            if cleanup_root is not None:
-                shutil.rmtree(cleanup_root, ignore_errors=True)
 
         output_path = Path(req.output_path)
         if rc != 0 or not output_path.exists():
@@ -318,19 +315,7 @@ class VoxtralPlugin(StudioTTSEngine):
         except Exception:
             return "mistral-tts-1"
 
-    @staticmethod
-    def _stage_reference_audio(
-        reference_audio_path: Path,
-    ) -> tuple[Path, str, str]:
-        """Copy a reference audio file into a temporary Voxtral profile folder."""
-        from app.core.config import VOICES_DIR  # noqa: PLC0415
 
-        VOICES_DIR.mkdir(parents=True, exist_ok=True)
-        cleanup_root = Path(tempfile.mkdtemp(prefix="preview_", dir=VOICES_DIR))
-        profile_name = cleanup_root.name
-        staged_name = reference_audio_path.name
-        shutil.copy2(reference_audio_path, cleanup_root / staged_name)
-        return cleanup_root, profile_name, staged_name
 
     @staticmethod
     def _voxtral_generate(
@@ -342,6 +327,7 @@ class VoxtralPlugin(StudioTTSEngine):
         model: str | None,
         reference_sample: str | None,
         task_id: str | None = None,
+        voice_profile_dir: Path | None = None,
     ) -> int:
         from ..core.implementation import voxtral_generate as _gen  # noqa: PLC0415
 
@@ -353,6 +339,7 @@ class VoxtralPlugin(StudioTTSEngine):
             model=model,
             reference_sample=reference_sample,
             task_id=task_id,
+            voice_profile_dir=voice_profile_dir,
         )
 
     @staticmethod

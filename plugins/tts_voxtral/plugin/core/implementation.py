@@ -68,16 +68,20 @@ def resolve_mistral_tts_url() -> str:
     return str(os.getenv("MISTRAL_TTS_URL") or DEFAULT_MISTRAL_TTS_URL).strip() or DEFAULT_MISTRAL_TTS_URL
 
 
-def resolve_reference_audio_path(profile_name: Optional[str], reference_sample: Optional[str] = None) -> Optional[Path]:
-    if not profile_name:
-        return None
+def resolve_reference_audio_path(
+    profile_name: Optional[str],
+    reference_sample: Optional[str] = None,
+    voice_profile_dir: Optional[Path] = None,
+) -> Optional[Path]:
+    profile_dir = voice_profile_dir
 
-    try:
-        from app.db.speakers import get_profile_dir as get_voice_profile_dir
+    if not profile_dir and profile_name:
+        try:
+            from app.db.speakers import get_profile_dir as get_voice_profile_dir
 
-        profile_dir = get_voice_profile_dir(profile_name)
-    except Exception:
-        return None
+            profile_dir = get_voice_profile_dir(profile_name)
+        except Exception:
+            return None
 
     if not profile_dir.exists():
         return None
@@ -214,6 +218,7 @@ def voxtral_generate(
     model: Optional[str] = None,
     reference_sample: Optional[str] = None,
     task_id: Optional[str] = None,
+    voice_profile_dir: Optional[Path] = None,
 ) -> int:
     on_output = on_output or _noop_output
     cancel_check = cancel_check or _never_cancel
@@ -228,7 +233,13 @@ def voxtral_generate(
     model_name = resolve_voxtral_model(model)
     endpoint = resolve_mistral_tts_url()
     clean_voice_id = str(voice_id or "").strip() or None
-    ref_audio_path = None if clean_voice_id else resolve_reference_audio_path(profile_name, reference_sample)
+    ref_audio_path = (
+        None
+        if clean_voice_id
+        else resolve_reference_audio_path(
+            profile_name, reference_sample, voice_profile_dir=voice_profile_dir
+        )
+    )
 
     if not clean_voice_id and ref_audio_path is None:
         raise VoxtralError("No Voxtral voice_id or reference sample is available for this voice profile.")
