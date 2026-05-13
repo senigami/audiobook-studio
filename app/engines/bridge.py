@@ -119,10 +119,6 @@ class VoiceBridge:
         """Re-scan for new plugins."""
         return self.remote.refresh_plugins()
 
-    def verify_engine(self, engine_id: str) -> dict[str, Any]:
-        """Trigger verification synthesis."""
-        return self.remote.verify_engine(engine_id)
-
     def preview(
         self,
         engine_id_or_request: str | dict[str, Any],
