@@ -62,14 +62,6 @@ def _engine_usable_error(engine_id: str):
     )
 
 
-def _single_job_title(chapter_file: str, engine: str) -> str:
-    base_name = Path(chapter_file or "").stem.strip() or Path(chapter_file or "").name.strip() or "Untitled"
-    from ...engines.bridge import create_voice_bridge
-    bridge = create_voice_bridge()
-    registry = {entry.get("engine_id"): entry for entry in bridge.describe_registry()}
-    entry = registry.get(engine)
-    display_name = (entry.get("display_name") if entry else None) or engine.capitalize()
-    return f"Generating audio for {base_name}"
 
 
 def _resolved_segment_profiles(chapter_id: str, only_segment_ids: Optional[set[str]] = None) -> list[Optional[str]]:
@@ -515,111 +507,6 @@ def cancel_chapter_generation(chapter_id: str):
     broadcast_chapter_updated(chapter_id)
     return JSONResponse({"status": "ok"})
 
-
-@router.post("/generation/enqueue-single")
-def enqueue_single(
-    background_tasks: BackgroundTasks,
-    chapter_file: str = Form(...),
-    engine: Optional[str] = Form(None)
-):
-    if not engine:
-        from ...engines.voice_engines import get_default_profile_engine
-        engine = get_settings().get("default_engine") or get_default_profile_engine()
-    normalized_engine = normalize_tts_engine(engine, engine)
-    if not normalized_engine:
-        return JSONResponse(
-            {"status": "error", "message": "No valid TTS engine could be resolved for this request."},
-            status_code=400
-        )
-    engine_error = _ensure_engines_enabled([normalized_engine])
-    if engine_error:
-        return engine_error
-    jid = f"job-{uuid.uuid4().hex[:8]}"
-
-    active_profile = get_settings().get("default_speaker_profile")
-    display_title = _single_job_title(chapter_file, normalized_engine)
-
-    # Resolve input file and read text content
-    input_path = Path(chapter_file)
-    from ...core.config import is_safe
-    if not is_safe(input_path):
-        return JSONResponse(
-            {"status": "error", "message": f"Access denied or invalid path: {chapter_file}"},
-            status_code=400
-        )
-
-    if not input_path.exists() or not input_path.is_file():
-        return JSONResponse(
-            {"status": "error", "message": f"Chapter file not found or is not a file: {chapter_file}"},
-            status_code=400
-        )
-
-    try:
-        text_content = input_path.read_text(encoding="utf-8").strip()
-    except Exception as exc:
-        return JSONResponse(
-            {"status": "error", "message": f"Failed to read chapter file: {exc}"},
-            status_code=400
-        )
-
-    if not text_content:
-        return JSONResponse(
-            {"status": "error", "message": "Chapter file is empty"},
-            status_code=400
-        )
-
-    # Resolve voice directory/reference for single-engine bridge synthesis
-    voice_ref = None
-    synthesis_settings = {}
-    if normalized_engine != "mixed" and active_profile:
-        from ...engines.voice_engines import resolve_voice_preview_inputs
-        speaker_wav, vdir = resolve_voice_preview_inputs(active_profile)
-        voice_ref = speaker_wav
-        if vdir:
-            synthesis_settings["voice_profile_dir"] = str(vdir)
-
-    # Derive canonical audio output path from input file
-    settings = get_settings()
-    make_mp3 = bool(settings.get("make_mp3", False))
-    audio_ext = ".mp3" if make_mp3 else ".wav"
-    output_path = str(input_path.with_suffix(audio_ext))
-
-    j = Job(
-        id=jid,
-        chapter_file=chapter_file,
-        engine=normalized_engine,
-        status="queued",
-        created_at=time.time(),
-        speaker_profile=active_profile,
-        custom_title=display_title,
-    )
-    put_job(j)
-
-    orchestrator = create_orchestrator()
-    task = SynthesisTask(
-        task_id=jid,
-        engine_id=normalized_engine,
-        script_text=text_content,
-        output_path=output_path,
-        voice_profile_id=active_profile,
-        voice_ref=voice_ref,
-        custom_title=display_title,
-        synthesis_settings=synthesis_settings,
-    )
-    trace(
-        "generation.enqueue_single",
-        job_id=jid,
-        engine_id=normalized_engine,
-        chapter_file=chapter_file,
-        text_len=len(text_content),
-        output_path=output_path,
-        active_profile=active_profile,
-        has_voice_ref=bool(voice_ref),
-        synthesis_settings=synthesis_settings,
-    )
-    background_tasks.add_task(orchestrator.submit, task)
-
-    return JSONResponse({"status": "ok", "job_id": jid})
 
 
 @router.post("/segments/generate")

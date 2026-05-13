@@ -1,4 +1,4 @@
-import type { Job, Project, Chapter, ProductionBlocksResponse, ProductionBlock, ScriptViewResponse, ScriptAssignmentsUpdate, Engine } from '@/types';
+import type { Job, Project, Chapter, ProductionBlocksResponse, ProductionBlock, ScriptViewResponse, ScriptAssignmentsUpdate } from '@/types';
 import { DEFAULT_VOICE_SENTINEL } from '@/constants/api';
 
 const parseApiResponse = async (res: Response) => {
@@ -318,14 +318,6 @@ export const api = {
   },
   resetChapter: async (chapterId: string): Promise<any> => {
     const res = await fetch(`/api/chapters/${chapterId}/reset`, { method: 'POST' });
-    return res.json();
-  },
-  enqueueSingle: async (filename: string, engine: Engine | string, voice?: string): Promise<any> => {
-    const formData = new FormData();
-    formData.append('chapter_file', filename);
-    formData.append('engine', engine);
-    if (voice) formData.append('voice', voice);
-    const res = await fetch('/api/generation/enqueue-single', { method: 'POST', body: formData });
     return res.json();
   },
   cancelPending: async (): Promise<any> => {

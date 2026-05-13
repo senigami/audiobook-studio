@@ -694,3 +694,11 @@
 - Migrated `conftest.py` cleanup logic to canonical `set_paused` and resource gate resets (`GpuAdmissionGate`, `ExclusiveAdmissionGate`).
 - Removed `app/jobs/core_shim.py` and cleaned up stale `job_queue` patches in `tests/db/test_state_rules.py`.
 - Verified the focused backend job, state, progress, plugin layout, and isolation tests (21 passed).
+
+# 2026-05-13 - Decommissioned `/api/generation/enqueue-single`
+
+- Audited and confirmed that `/api/generation/enqueue-single` was a stale compatibility route with no active frontend callers.
+- Removed `api.enqueueSingle` from `frontend/src/api/index.ts` and cleaned up its unit tests.
+- Deleted the `enqueue_single` route and `_single_job_title` helper from `app/api/routers/generation.py`.
+- Removed 4 obsolete backend tests in `tests/api/test_api_generation.py`.
+- Verified with backend tests (46 passed), frontend tests (5 passed), and a successful production build.

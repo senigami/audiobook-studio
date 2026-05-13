@@ -89,9 +89,6 @@ describe('api methods', () => {
         await api.fetchPreview('f1', true)
         expect(global.fetch).toHaveBeenCalledWith('/api/chapters/f1/preview?processed=true')
 
-        await api.enqueueSingle('f1', 'xtts', 'v1')
-        expect(global.fetch).toHaveBeenCalledWith('/api/generation/enqueue-single', expect.objectContaining({ method: 'POST' }))
-
         await api.cancelPending()
         expect(global.fetch).toHaveBeenCalledWith('/api/generation/cancel-all', expect.objectContaining({ method: 'POST' }))
 

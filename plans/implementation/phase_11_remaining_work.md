@@ -51,7 +51,7 @@ Add user-reported problems here before or during triage.
 | **valid_docs_context** | Documented setup or descriptive labels. | `README.md`, `ProjectLibraryPage.tsx` | Keep. |
 | **stale_legacy_code** | Decommissioned functions/exports. | `app/jobs/__init__.py` shims | Migrate callers first, then remove. |
 | **app_level_coupling** | Hardcoded logic fallbacks. | `CharacterSidebar.tsx` / `VoicesPage.tsx` `xtts` fallbacks | Fixed for audited frontend voice fallback literals; continue classifying any new app-level coupling found in later slices. |
-| **needs_codex_decision**| Ambiguous or built-in identifiers. | `audiobook` job kind, `/api/generation/enqueue-single` | Retain until explicit decommission slice. |
+| **needs_codex_decision**| Ambiguous or built-in identifiers. | `audiobook` job kind | Retain until explicit decommission slice. |
 
 ## Immediate Next Step
 
