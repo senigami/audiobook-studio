@@ -68,6 +68,29 @@ def test_export_voice_bundle_includes_source_wavs_when_requested(clean_db, voice
     assert "Angry/source.wav" in names
 
 
+def test_export_voice_bundle_includes_engine_declared_test_sample(clean_db, voices_root, client):
+    voices_root.mkdir()
+    voice_root = voices_root / "CloudVoice"
+    default_dir = voice_root / "Default"
+    default_dir.mkdir(parents=True)
+    (voice_root / "voice.json").write_text(json.dumps({
+        "version": 2,
+        "name": "CloudVoice",
+        "default_variant": "Default",
+    }))
+    (default_dir / "profile.json").write_text(json.dumps({
+        "variant_name": "Default",
+        "engine": "voxtral",
+    }))
+    (default_dir / "voice.wav").write_bytes(b"voice reference")
+
+    response = client.get("/api/voices/CloudVoice/bundle/download")
+
+    assert response.status_code == 200
+    names = _zip_names(response)
+    assert "Default/voice.wav" in names
+
+
 def test_export_voice_bundle_rejects_traversal(clean_db, voices_root, client):
     voices_root.mkdir()
     from app.domain.voices.bundles import VoiceBundleError, export_voice_bundle
@@ -138,6 +161,17 @@ def test_import_voice_bundle_rejects_invalid_archives(clean_db, voices_root, cli
     )
     assert response.status_code == 400
     assert "profile.json" in response.json()["message"]
+
+    unsupported_binary = io.BytesIO()
+    with zipfile.ZipFile(unsupported_binary, "w") as zf:
+        zf.writestr("voice.json", json.dumps({"name": "UnsupportedBinary"}))
+        zf.writestr("Default/profile.json", "{}")
+        zf.writestr("Default/model.bin", b"unsupported")
+    response = client.post(
+        "/api/voices/bundle/import",
+        files={"file": ("unsupported.voice.zip", io.BytesIO(unsupported_binary.getvalue()), "application/zip")},
+    )
+    assert response.status_code == 400
 
 
 def test_imported_latent_voice_lists_ready_without_rebuild(clean_db, voices_root, client):

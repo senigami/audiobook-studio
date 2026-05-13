@@ -244,11 +244,28 @@ def _voice_asset_base_url(profile_dir: Path) -> str:
     return f"/out/voices/{url_path}"
 
 
-def _voice_has_latent(name: str) -> bool:
+def _voice_has_test_sample(name: str) -> bool:
+    """Return whether the voice profile has the engine-declared test sample."""
+    from ...engines.behavior import get_test_sample_name
+    from ...db.speakers import get_speaker_settings
+    from ...engines.voice_engines import get_default_profile_engine
+
     profile_dir = _existing_voice_profile_dir(name)
     if not profile_dir:
         return False
-    return (_voice_file_map(profile_dir).get("latent.pth") or _new_voice_sample_path(profile_dir, "latent.pth")).exists()
+
+    settings = get_speaker_settings(name)
+    engine = settings.get("engine") or get_default_profile_engine()
+    test_sample = get_test_sample_name(engine)
+    if not test_sample:
+        return False
+
+    return (_voice_file_map(profile_dir).get(test_sample) or _new_voice_sample_path(profile_dir, test_sample)).exists()
+
+
+def _voice_has_latent(name: str) -> bool:
+    """Support the existing API field while using engine-declared samples."""
+    return _voice_has_test_sample(name)
 
 
 def _voice_has_generation_material(name: str) -> bool:

@@ -309,7 +309,7 @@ def list_speaker_profiles():
             "reference_sample": spk_settings.get("reference_sample"),
             "preview_url": preview_url,
             "asset_base_url": voices_helpers._voice_asset_base_url(d),
-            "has_latent": voices_helpers._voice_has_latent(name),
+            "has_latent": voices_helpers._voice_has_test_sample(name),
             "is_ready": False,
             "readiness_message": "",
         }

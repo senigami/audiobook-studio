@@ -146,22 +146,25 @@ def behavior_for_engine(
     return _load_manifest_behavior(engine_id)
 
 
+@lru_cache(maxsize=64)
+def _load_full_manifest(engine_id: str) -> dict[str, Any]:
+    """Load the full manifest payload for an engine."""
+    normalized_engine_id = str(engine_id or "").strip().lower()
+    if not _ENGINE_ID_RE.match(normalized_engine_id):
+        return {}
+
+    root = Path(__file__).resolve().parents[2]
+    manifest_path = root / "plugins" / f"tts_{normalized_engine_id}" / "manifest.json"
+    try:
+        return json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
 
 
 @lru_cache(maxsize=64)
 def _load_manifest_behavior(engine_id: str) -> dict[str, Any]:
     """Load behavior metadata from a local plugin manifest when available."""
-    normalized_engine_id = str(engine_id or "").strip().lower()
-    if not _ENGINE_ID_RE.match(normalized_engine_id):
-        return normalize_behavior(None)
-
-    root = Path(__file__).resolve().parents[2]
-    manifest_path = root / "plugins" / f"tts_{normalized_engine_id}" / "manifest.json"
-    try:
-        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return normalize_behavior(None)
-
+    payload = _load_full_manifest(engine_id)
     return normalize_behavior(payload.get("behavior"))
 
 
@@ -211,6 +214,12 @@ def get_progress_pattern(engine_id: str) -> str | None:
     """Return the regex pattern for parsing progress from an engine's output."""
     behavior = behavior_for_engine(engine_id)
     return behavior.get("progress_pattern")
+
+
+def get_test_sample_name(engine_id: str) -> str | None:
+    """Return the filename of the manifest-declared test sample for an engine."""
+    payload = _load_full_manifest(engine_id)
+    return payload.get("test_sample")
 
 
 def parse_engine_progress(engine_id: str, line: str) -> float | None:

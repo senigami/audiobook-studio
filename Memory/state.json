@@ -1,17 +1,18 @@
 {
-  "snapshot_version": 36,
-  "updated_at": "2026-05-13T18:31:00Z",
+  "snapshot_version": 37,
+  "updated_at": "2026-05-13T19:48:02Z",
   "branch": "studio2/phase-11",
-  "current_task": "Behavior helper hardening",
-  "status": "behavior_helper_hardening_complete",
+  "current_task": "Storage and output route cleanup",
+  "status": "storage_output_route_cleanup_partial_verified",
   "last_committed_milestone": {
-    "title": "Hardened backend behavior helpers and generalized progress parsing",
+    "title": "Made voice readiness and bundles use plugin-declared test samples",
     "commit": "pending",
     "notes": [
-      "Generalized progress parsing using manifest-declared regex patterns.",
-      "Migrated XTTS progress parsing to a plugin-generic contract in behavior.py.",
-      "Standardized text sanitization limits to be engine-metadata driven.",
-      "Verified with new progress parsing test suite and existing handler tests."
+      "Removed root engine_tests from the trusted config storage roots.",
+      "Added manifest-backed engine test sample lookup in behavior.py.",
+      "Voice readiness now checks the active engine's declared test sample rather than a fixed sample filename.",
+      "Voice bundle export includes engine-declared model/test assets while import remains limited to approved payload names.",
+      "Verified focused API voice/project/engine suites, plugin suites, ruff, and git diff check."
     ]
   },
   "active_constraints": [
@@ -78,9 +79,9 @@
     "Render speed calibration is now plugin-local: the obsolete global audiobook speed multiplier is dropped, successful render samples save `computer_speed_multiplier` to the owning TTS plugin settings, ETA fallback can read that plugin value, and the plugin settings UI exposes it as read-only.",
     "Render performance samples now include `tts_model`, and speed history used for CPS training and startup ETA is filtered by engine plus model when a model is known. Aggregate render totals remain model-independent.",
     "Plugin settings expose computed computer speed as characters per second, not the raw internal speed multiplier.",
-    "Frontend voice variant creation and character assignment availability no longer use `xtts` as the missing-engine fallback; they resolve through the frontend engine registry helper."
-    ,
-    "The legacy `app/jobs/core_shim.py` module has been removed; `conftest.py` and remaining test patches have been migrated to canonical orchestration resource helpers."
+    "Frontend voice variant creation and character assignment availability no longer use `xtts` as the missing-engine fallback; they resolve through the frontend engine registry helper.",
+    "The legacy `app/jobs/core_shim.py` module has been removed; `conftest.py` and remaining test patches have been migrated to canonical orchestration resource helpers.",
+    "Voice readiness and bundle export now use plugin manifest `test_sample` metadata instead of assuming a specific model asset filename. Root `engine_tests` is no longer a trusted storage root; remaining storage/output route cleanup is still partial."
   ],
   "codeql_context": {
     "github_setup": "advanced",

@@ -710,3 +710,12 @@
 - Normalized text sanitization limits (`text_split_target`) to be engine-metadata driven instead of using global constants.
 - Updated `app/engines/behavior.py` with `get_progress_pattern` and `parse_engine_progress` helpers.
 - Verified with a new dedicated test suite `tests/engines/test_progress_parsing.py` and existing handler/behavior tests (13 passed total).
+
+# 2026-05-13 - Storage And Voice Asset Cleanup
+
+- Removed root `engine_tests` from trusted config storage roots.
+- Added manifest-backed test sample lookup so voice readiness checks the active engine's declared sample file instead of an app-level hardcoded model asset filename.
+- Updated voice bundle export to include engine-declared test/model assets while keeping import validation restricted to approved payload names.
+- Added regression coverage for Voxtral-style `voice.wav` readiness/export and unsupported binary bundle rejection.
+- Marked the Phase 11 storage/output task as partial because project/chapter asset routes still need final classification.
+- Verified focused API voice/project/engine suites, plugin-local suites, ruff, and `git diff --check`.

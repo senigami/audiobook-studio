@@ -21,7 +21,6 @@ BASELINE_ENGINE_CPS = 16.7
 
 UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", str(BASE_DIR / "uploads")))
 REPORT_DIR = Path(os.getenv("REPORT_DIR", str(BASE_DIR / "reports")))
-ENGINE_TEST_DIR = Path(os.getenv("ENGINE_TEST_DIR", str(BASE_DIR / "engine_tests")))
 VOICES_DIR = Path(os.getenv("VOICES_DIR", str(BASE_DIR / "voices")))
 PROJECTS_DIR = Path(os.getenv("PROJECTS_DIR", str(BASE_DIR / "projects")))
 COVER_DIR = Path(os.getenv("COVER_DIR", str(UPLOAD_DIR / "covers")))
@@ -110,7 +109,6 @@ def is_safe(path: Union[Path, str]) -> bool:
             Path(PROJECTS_DIR).resolve(),
             Path(TRANSIENT_DIR).resolve(),
             Path(REPORT_DIR).resolve(),
-            Path(ENGINE_TEST_DIR).resolve(),
         ]
 
         for root in roots:

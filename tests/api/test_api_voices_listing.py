@@ -22,6 +22,29 @@ def test_list_speaker_profiles(clean_db, voices_root, client):
         assert data[0]["asset_base_url"] == "/out/voices/SpeakerA/Default"
 
 
+def test_list_speaker_profiles_uses_engine_declared_test_sample(clean_db, voices_root, client):
+    voices_root.mkdir()
+    profile_dir = voices_root / "SpeakerA" / "Default"
+    profile_dir.mkdir(parents=True)
+    (voices_root / "SpeakerA" / "voice.json").write_text(json.dumps({
+        "version": 2,
+        "name": "SpeakerA",
+        "default_variant": "Default",
+    }))
+    (profile_dir / "profile.json").write_text(json.dumps({
+        "variant_name": "Default",
+        "engine": "voxtral",
+    }))
+    (profile_dir / "voice.wav").write_bytes(b"voice reference")
+
+    response = client.get("/api/speaker-profiles")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data[0]["engine"] == "voxtral"
+    assert data[0]["has_latent"] is True
+
+
 def test_legacy_profile_listing_repairs_missing_speaker_rows_and_preserves_default_switch(clean_db, voices_root, client):
     voices_root.mkdir()
     legacy_speaker_id = str(uuid.uuid4())

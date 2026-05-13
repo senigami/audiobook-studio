@@ -38,10 +38,9 @@ This rename is deferred until the runtime cutover and cleanup slices are complet
 
 ## 1. Directory & File Restructuring
 
-### [NEW] Plugin-Local Tests
-- Move all contents of `engine_tests/xtts/` to `plugins/tts_xtts/_tests/`.
-- Move all contents of `engine_tests/voxtral/` to `plugins/tts_voxtral/_tests/`.
-- [DELETE] `engine_tests/` once empty.
+### [DONE] Plugin-Local Tests
+- Engine-owned tests and fixtures now live inside the owning plugin folders.
+- The root `engine_tests/` directory is no longer part of the runtime or trusted storage model.
 
 ### [DELETE] Transient Folders
 - [DELETE] `xtts_audio/`. This folder contains transient engine test artifacts that should be managed by the plugins themselves or stored in a generic `audio_out/` directory.

@@ -1,9 +1,8 @@
 # Task List: Engine-Agnostic Conversion
 
 ## Phase 1: Directory & Folder Cleanup
-- [ ] Move `engine_tests/xtts/` -> `plugins/tts_xtts/_tests/`
-- [ ] Move `engine_tests/voxtral/` -> `plugins/tts_voxtral/_tests/`
-- [ ] Delete empty `engine_tests/` directory
+- [x] Keep engine test fixtures and tests inside the owning plugin folders.
+- [x] Delete the root `engine_tests/` directory.
 - [ ] Delete `xtts_audio/` transient folder
 - [ ] Audit `uploads/` and migrate text/covers to project folders
 - [ ] Delete `uploads/` once empty
