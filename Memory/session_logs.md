@@ -679,3 +679,11 @@
 - Added frontend/backend rule-file pointers so agents preserve the standard React layout, backend layered packages, mirrored test directories, and plugin-local mini-repo boundaries during future cleanup work.
 - Added root `AGENTS.md` as a concise router to `.agent/rules.md` and `Memory/` for agents that look for standard repository instructions.
 - Verified the rules-only patch with `git diff --check` and `Memory/state.json` JSON parsing.
+
+# 2026-05-13 - Frontend Engine Fallback Cleanup
+
+- Replaced frontend voice UI `xtts` fallback literals with registry-derived `getDefaultEngineId(engines)` resolution in voice variant creation and character assignment availability checks.
+- Added focused Vitest coverage for registry-derived defaults in `VoicesPage` and `CharacterSidebar`.
+- Linked voice-modal engine labels to their selects so the tests can query the active engine control accessibly.
+- Updated the Phase 11 task board to record the frontend fallback slice as fixed while keeping broader frontend cleanup open.
+- Verified focused frontend tests, frontend production build, and `git diff --check`.

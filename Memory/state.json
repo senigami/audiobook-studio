@@ -1,9 +1,9 @@
 {
   "snapshot_version": 36,
-  "updated_at": "2026-05-13T05:01:21Z",
+  "updated_at": "2026-05-13T13:19:30Z",
   "branch": "studio2/phase-11",
-  "current_task": "Codify frontend/backend/plugin project structure rules",
-  "status": "structure_rules_added_verified",
+  "current_task": "Frontend engine-agnostic voice fallback cleanup",
+  "status": "frontend_voice_fallback_cleanup_verified",
   "last_committed_milestone": {
     "title": "Phase 11 legacy engine implementation relocation",
     "commit": "572c435",
@@ -76,7 +76,8 @@
     "Chapter segment loading is now the remaining hotspot; cache repeated profile-engine resolution and avoid repeated file existence checks on read.",
     "Render speed calibration is now plugin-local: the obsolete global audiobook speed multiplier is dropped, successful render samples save `computer_speed_multiplier` to the owning TTS plugin settings, ETA fallback can read that plugin value, and the plugin settings UI exposes it as read-only.",
     "Render performance samples now include `tts_model`, and speed history used for CPS training and startup ETA is filtered by engine plus model when a model is known. Aggregate render totals remain model-independent.",
-    "Plugin settings expose computed computer speed as characters per second, not the raw internal speed multiplier."
+    "Plugin settings expose computed computer speed as characters per second, not the raw internal speed multiplier.",
+    "Frontend voice variant creation and character assignment availability no longer use `xtts` as the missing-engine fallback; they resolve through the frontend engine registry helper."
   ],
   "codeql_context": {
     "github_setup": "advanced",

@@ -73,8 +73,8 @@ export const NewVoiceModal: React.FC<NewVoiceModalProps> = ({ isOpen, onClose, v
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '24px' }}>
-                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>ENGINE</label>
-                    <select value={engine} onChange={(e) => onEngineChange(e.target.value as VoiceEngine)} style={engineSelectStyle}>
+                    <label htmlFor="new-voice-engine" style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>ENGINE</label>
+                    <select id="new-voice-engine" value={engine} onChange={(e) => onEngineChange(e.target.value as VoiceEngine)} style={engineSelectStyle}>
                         {engines.filter(e => e.enabled).length === 0 ? (
                             <option value="">No enabled engines available</option>
                         ) : (
@@ -235,8 +235,8 @@ export const AddVariantModal: React.FC<AddVariantModalProps> = ({ isOpen, onClos
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '24px' }}>
-                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>ENGINE</label>
-                    <select value={engine} onChange={(e) => onEngineChange(e.target.value as VoiceEngine)} style={engineSelectStyle}>
+                    <label htmlFor="add-variant-engine" style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>ENGINE</label>
+                    <select id="add-variant-engine" value={engine} onChange={(e) => onEngineChange(e.target.value as VoiceEngine)} style={engineSelectStyle}>
                         {engines.filter(e => e.enabled).length === 0 ? (
                             <option value="">No enabled engines available</option>
                         ) : (

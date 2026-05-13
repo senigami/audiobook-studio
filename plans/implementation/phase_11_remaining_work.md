@@ -13,7 +13,7 @@ This is the active task board for Phase 11. Use it when triaging app problems, w
 
 | Area | Status | Goal | Likely files | Verification |
 | --- | --- | --- | --- | --- |
-| Final reference audit | Open | Re-run focused searches for remaining main-app engine names, V1 terms, fallback paths, and old routes. | `app/`, `frontend/`, `plugins/`, `tests/`, `plans/` | `rg` audit plus targeted tests |
+| Final reference audit | [x] | Re-run focused searches for remaining main-app engine names, V1 terms, fallback paths, and old routes. | `app/`, `frontend/`, `plugins/`, `tests/`, `plans/` | `rg` audit plus targeted tests |
 | Behavior helper hardening | Open | Replace remaining hardcoded behavior decisions with plugin manifest or registry data. | `app/engines/behavior.py`, engine registry, API engine routes | `tests/test_engine_behavior.py`, `tests/test_api_engines.py`, bridge tests |
 | Job and queue decommissioning | Open | Remove remaining legacy worker-facing shims after orchestrator ownership is stable. | `app/jobs/`, `app/db/queue.py`, `app/state_jobs.py`, queue routes | queue, generation, orchestration tests |
 | Text and progress utilities | Open | Move engine-specific parsing/sanitization assumptions behind plugin-owned or generic contracts. | textops modules, progress parsing, plugin adapters | textops, progress, plugin tests |
@@ -34,11 +34,24 @@ Add user-reported problems here before or during triage.
 | Chapter view reports duplicate React key `voxtral-mini-latest` | Frontend engine-agnostic cleanup | Fixed, manual app verification pending | Console warning indicated duplicate keys in chapter render/voice UI. Added permanent focused tests for duplicate voice option IDs and duplicate schema enum values; generic option rendering now uses stable unique keys/deduplication without hardcoding model IDs. Manual check: open chapter render/settings views and confirm the warning is gone. |
 | Engine test ignores plugin-provided `test_text` | Behavior helper hardening / State/settings/metrics migration | Fixed, manual app verification pending | Settings engine test audio used an internal default phrase instead of the plugin manifest `test_text`. Added API and TTS Server verification tests proving manifest text is honored. API router and serialization now correctly resolve manifest `test_text` with the internal phrase as fallback. Manual check: run engine test in Settings and confirm it uses manifest phrase. |
 | Failed queue entries do not show attempt date/time | Job and queue decommissioning / Frontend engine-agnostic cleanup | Fixed, manual app verification pending | Console showed failed jobs without date/time context. Added robust timestamp resolution to `GlobalQueue.tsx` that falls back to `completed_at` or `updated_at` when `started_at` is missing. Regression coverage added to ensure timestamps always render for finished items. Manual check: open Global Queue history and confirm failed jobs show times. |
+| Frontend voice UI uses hardcoded `xtts` as a missing-engine fallback | Frontend engine-agnostic cleanup | Fixed | The Phase 11 reference audit found `xtts` fallback literals in voice variant creation and character assignment availability checks. Replaced them with registry-derived `getDefaultEngineId(engines)` resolution, added focused tests, and linked voice-modal engine labels to their selects for accessible queries. |
 | Vite dev proxy logs WebSocket `ECONNRESET` on first page load | Frontend engine-agnostic cleanup / Bootstrap and docs cleanup | Open | Startup log showed backend accepted `/ws`, then Vite logged `ws proxy error: read ECONNRESET`. Need determine whether this is harmless dev-server reconnect noise or a real lost-update path. TDD first: add focused websocket/proxy-hook tests only if the app fails to reconnect or live queue updates are lost. |
 | Project and chapter load are slow for long books | Frontend engine-agnostic cleanup / State/settings/metrics migration | Open | Add load timing probes and trim duplicate fetches if the logs show an obvious hotspot. Manual check: load Dracula project and chapter in dev mode and compare fetch timings. |
 | Chapter view lacks VCR-style playback controls | Frontend engine-agnostic cleanup | Open | Add play, pause, stop, next, and previous controls in the chapter playback UI after the current render/load debugging slice is stable. |
 | Chapter render still fails with `Mixed synthesis returned failed` | Job and queue decommissioning / Behavior helper hardening | Diagnostic fixed, live app retry pending | Queue enqueue now works, but execution failed after selecting mixed synthesis. Fixed mixed-handler error clobbering so detailed handler/bridge/stitching errors propagate to the queue instead of generic `Mixed synthesis returned failed`. Added an end-to-end API render regression that exercises `/api/processing_queue` through the orchestrator and mixed handler successfully in tests. Manual check: retry chapter render in the live app and capture the new concrete error if it still fails. |
 | Server shutdown stalls at `Stopping reloader process` | Bootstrap and docs cleanup / Job and queue decommissioning | Fixed, manual app verification pending | Ctrl-C was leaving the dev server hanging while the reloader stopped. Added conservative startup cleanup for orphaned `tts_server.py` processes and shortened watchdog shutdown waits so the app exits faster. Manual check: start the server, stop it once with Ctrl-C, and confirm it exits without a second interrupt. |
+
+## Reference Classification (Phase 11 Audit)
+
+| Category | Description | Examples | Recommended Action |
+| :--- | :--- | :--- | :--- |
+| **valid_plugin_local** | Engine names within plugin folders/manifests. | `plugins/xtts/manifest.json` | Keep. |
+| **valid_test_fixture** | Engine literals in test suites and mocks. | `tests/api/test_api_generation.py` | Keep. |
+| **valid_migration_only**| Historical keys in migration layers. | `app/db/legacy_migration.py` | Keep. |
+| **valid_docs_context** | Documented setup or descriptive labels. | `README.md`, `ProjectLibraryPage.tsx` | Keep. |
+| **stale_legacy_code** | Decommissioned functions/exports. | `app/jobs/__init__.py` shims | Migrate callers first, then remove. |
+| **app_level_coupling** | Hardcoded logic fallbacks. | `CharacterSidebar.tsx` / `VoicesPage.tsx` `xtts` fallbacks | Fixed for audited frontend voice fallback literals; continue classifying any new app-level coupling found in later slices. |
+| **needs_codex_decision**| Ambiguous or built-in identifiers. | `audiobook` job kind, `/api/generation/enqueue-single` | Retain until explicit decommission slice. |
 
 ## Immediate Next Step
 

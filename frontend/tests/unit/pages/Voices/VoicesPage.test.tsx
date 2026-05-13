@@ -52,7 +52,6 @@ describe('VoicesTab', () => {
         expect(screen.getByText('Default')).toBeInTheDocument()
     })
 
-
     it('opens profile details and allows building voice', async () => {
 
         render(<VoicesTab {...mockProps} />)
@@ -214,5 +213,29 @@ describe('VoicesTab', () => {
         expect(screen.queryByText('Narrator1')).not.toBeInTheDocument()
         expect(screen.getByText('Narrator2')).toBeInTheDocument()
         expect(screen.getByText('DISABLED')).toBeInTheDocument()
+    })
+
+    it('uses the first ready engine as default when adding a variant if profile has no engine', async () => {
+        const engines = [
+            { engine_id: 'custom-engine', enabled: true, verified: true, status: 'ready', display_name: 'Custom' }
+        ] as any
+
+        await act(async () => {
+            render(<VoicesTab {...mockProps} engines={engines} speakerProfiles={[{ ...mockProfiles[0], engine: null }]} />)
+        })
+
+        // Find the Voice card
+        const voiceHeader = screen.getByText('Narrator1')
+        fireEvent.click(voiceHeader)
+
+        const addVariantBtn = await screen.findByText('Variant')
+        fireEvent.click(addVariantBtn)
+
+        // The modal should be open. We check if the engine select has 'custom-engine'
+        // Since it's a controlled component, we might need to check the state or the select value if it's rendered.
+        // For now, we'll verify it doesn't default to 'xtts' if 'xtts' isn't in engines.
+        const engineSelect = screen.getByLabelText(/Engine/i) as HTMLSelectElement
+        expect(engineSelect.value).toBe('custom-engine')
+        expect(engineSelect.value).not.toBe('xtts')
     })
 })

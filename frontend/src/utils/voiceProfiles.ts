@@ -13,6 +13,11 @@ export interface VoiceOption {
     profile_name?: string;
 }
 
+export function getDefaultEngineId(engines?: TtsEngine[]): VoiceEngine {
+    if (!engines || engines.length === 0) return '';
+    return engines.find(e => e.enabled && e.status === 'ready')?.engine_id || engines[0]?.engine_id || '';
+}
+
 export function getVoiceProfileEngine(profile?: Pick<SpeakerProfile, 'engine'> | null): VoiceEngine | null {
     const engine = typeof profile?.engine === 'string' ? profile.engine.trim().toLowerCase() : '';
     return engine || null;
@@ -53,7 +58,7 @@ export function getDefaultVoiceProfileName(profiles: SpeakerProfile[]): string |
 export function isVoiceProfileSelectable(profile: SpeakerProfile, engines?: TtsEngine[]): boolean {
     let engineId = getVoiceProfileEngine(profile);
     if (!engineId) {
-        engineId = engines?.find(e => e.enabled && e.status === 'ready')?.engine_id || engines?.[0]?.engine_id || '';
+        engineId = getDefaultEngineId(engines);
     }
     if (!engines) {
         return false;
@@ -116,7 +121,7 @@ export function buildVoiceOptions(
                 label = `${label} (${statuses.join(', ')})`;
             }
 
-            const finalEngineId = engineId || engines?.find(e => e.enabled && e.status === 'ready')?.engine_id || engines?.[0]?.engine_id || '';
+            const finalEngineId = engineId || getDefaultEngineId(engines);
             const matchingEngine = engines?.find(e => e.engine_id === finalEngineId);
             let disabledReason = '';
             if (!selectable) {
@@ -151,7 +156,7 @@ export function buildVoiceOptions(
             }
 
             const engineId = getVoiceProfileEngine(profile);
-            const finalEngineId = engineId || engines?.find(e => e.enabled && e.status === 'ready')?.engine_id || engines?.[0]?.engine_id || '';
+            const finalEngineId = engineId || getDefaultEngineId(engines);
             const matchingEngine = engines?.find(e => e.engine_id === finalEngineId);
             let disabledReason = '';
             if (!selectable) {

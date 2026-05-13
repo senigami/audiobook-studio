@@ -225,4 +225,37 @@ describe('CharacterSidebar', () => {
 
     expect(screen.getByText(/Legacy Char.*🚫/)).toBeInTheDocument();
   });
+
+  it('uses registry-derived default engine for CharacterSidebar when profile engine is missing', () => {
+    const mockProfilesNoEngine: SpeakerProfile[] = [
+      { name: 'Voice 1', speaker_id: 'speaker-1', variant_name: 'Standard' } as any
+    ];
+    const mockEngines = [
+      { engine_id: 'custom-engine', display_name: 'Custom Engine', enabled: false, status: 'ready' }
+    ];
+
+    render(
+      <CharacterSidebar
+        characters={mockCharacters}
+        speakers={mockSpeakers as any}
+        speakerProfiles={mockProfilesNoEngine}
+        engines={mockEngines as any}
+        selectedCharacterId={null}
+        setSelectedCharacterId={vi.fn()}
+        selectedProfileName={null}
+        setSelectedProfileName={vi.fn()}
+        expandedCharacterId={null}
+        setExpandedCharacterId={vi.fn()}
+        onUpdateCharacterColor={vi.fn()}
+        segmentsCount={1}
+        wordCount={10}
+      />
+    );
+
+    // The tooltip/reason should mention Custom Engine, not XTTS
+    const charElement = screen.getByText(/Char 1/);
+    const title = charElement.closest('[title]')?.getAttribute('title') || '';
+    expect(title).toContain('Custom Engine');
+    expect(title).not.toContain('XTTS');
+  });
 });

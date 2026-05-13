@@ -7,6 +7,7 @@ import { useVoicesData } from '@/hooks/useVoicesData';
 import { useVoicesTabActions } from '@/hooks/useVoicesTabActions';
 import { VoicesTabHeader } from '@/pages/Voices/components/VoicesTabHeader';
 import { VoicesTabContent } from '@/pages/Voices/components/VoicesTabContent';
+import { getDefaultEngineId } from '@/utils/voiceProfiles';
 
 interface VoicesTabProps {
     onRefresh: () => void | Promise<void>;
@@ -87,7 +88,7 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 onAddVariant={(s, profiles) => {
                     state.setAddVariantSpeaker({ speaker: s, nextVariantNum: profiles.length + 1 });
                     state.setNewVariantNameModal(`Variant ${profiles.length + 1}`);
-                    state.setNewVariantEngine(profiles[0]?.engine || 'xtts');
+                    state.setNewVariantEngine(profiles[0]?.engine || getDefaultEngineId(engines));
                     state.setIsAddVariantModalOpen(true);
                 }}
                 onMoveVariant={(p) => {

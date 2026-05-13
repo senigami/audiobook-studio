@@ -8,6 +8,7 @@ import {
   getVoiceProfileEngine,
   formatVoiceEngineLabel,
   buildVoiceOptions,
+  getDefaultEngineId,
 } from '@/utils/voiceProfiles';
 
 interface CharacterSidebarProps {
@@ -62,7 +63,7 @@ export const CharacterSidebar: React.FC<CharacterSidebarProps> = ({
 
   const isSidebarProfileSelectable = (profile?: SpeakerProfile | null) => {
     if (!profile) return false;
-    const engineId = getVoiceProfileEngine(profile) || 'xtts';
+    const engineId = getVoiceProfileEngine(profile) || getDefaultEngineId(engines);
     const engine = engines.find(e => e.engine_id === engineId);
     return Boolean(engine && engine.enabled && engine.status === 'ready');
   };
@@ -171,9 +172,9 @@ export const CharacterSidebar: React.FC<CharacterSidebarProps> = ({
                                         const defaultProfile = resolveDefaultProfileName(char);
                                         const profileObj = speakerProfiles.find(p => p.name === defaultProfile);
                                         if (profileObj && !isSidebarProfileSelectable(profileObj)) {
-                                            const engineId = getVoiceProfileEngine(profileObj) || 'xtts';
-                                            const engineLabel = formatVoiceEngineLabel(engineId);
+                                            const engineId = getVoiceProfileEngine(profileObj) || getDefaultEngineId(engines);
                                             const engine = engines.find(e => e.engine_id === engineId);
+                                            const engineLabel = engine?.display_name || formatVoiceEngineLabel(engineId);
                                             if (!engine) return `Engine ${engineId} not found`;
                                             if (!engine.enabled) return `Engine ${engineLabel} is disabled`;
                                             return `Engine ${engineLabel} is ${engine.status.replace('_', ' ')}`;
@@ -225,14 +226,15 @@ export const CharacterSidebar: React.FC<CharacterSidebarProps> = ({
                             {isExpanded && variants.map(variant => {
                                 const isVariantSelected = selectedCharacterId === char.id && selectedProfileName === variant.name;
                                 const selectable = isSidebarProfileSelectable(variant);
-                                const engineId = getVoiceProfileEngine(variant) || 'xtts';
+                                const engineId = getVoiceProfileEngine(variant) || getDefaultEngineId(engines);
                                 const engineLabel = formatVoiceEngineLabel(engineId);
                                 const engine = engines.find(e => e.engine_id === engineId);
                                 let disabledReason = '';
                                 if (!selectable) {
+                                    const variantEngineLabel = engine?.display_name || engineLabel;
                                     if (!engine) disabledReason = `Engine ${engineId} not found`;
-                                    else if (!engine.enabled) disabledReason = `Engine ${engineLabel} is disabled`;
-                                    else disabledReason = `Engine ${engineLabel} is ${engine.status.replace('_', ' ')}`;
+                                    else if (!engine.enabled) disabledReason = `Engine ${variantEngineLabel} is disabled`;
+                                    else disabledReason = `Engine ${variantEngineLabel} is ${engine.status.replace('_', ' ')}`;
                                 }
 
                                 return (
