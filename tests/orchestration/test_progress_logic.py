@@ -1,6 +1,6 @@
 import pytest
 import time
-from app.jobs import calculate_predicted_progress
+from app.orchestration.scheduler.eta import calculate_predicted_progress
 from app.db.models import Job
 
 def test_calculate_predicted_progress_xtts_preparing():

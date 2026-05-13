@@ -1,9 +1,9 @@
 {
   "snapshot_version": 36,
-  "updated_at": "2026-05-13T13:19:30Z",
+  "updated_at": "2026-05-13T17:22:24Z",
   "branch": "studio2/phase-11",
-  "current_task": "Frontend engine-agnostic voice fallback cleanup",
-  "status": "frontend_voice_fallback_cleanup_verified",
+  "current_task": "Backend jobs shim cleanup",
+  "status": "backend_jobs_shim_cleanup_verified",
   "last_committed_milestone": {
     "title": "Phase 11 legacy engine implementation relocation",
     "commit": "572c435",
@@ -78,6 +78,8 @@
     "Render performance samples now include `tts_model`, and speed history used for CPS training and startup ETA is filtered by engine plus model when a model is known. Aggregate render totals remain model-independent.",
     "Plugin settings expose computed computer speed as characters per second, not the raw internal speed multiplier.",
     "Frontend voice variant creation and character assignment availability no longer use `xtts` as the missing-engine fallback; they resolve through the frontend engine registry helper."
+    ,
+    "The last `app.jobs.cleanup_and_reconcile` package shim has been removed; `app/jobs/__init__.py` is now a namespace marker only."
   ],
   "codeql_context": {
     "github_setup": "advanced",

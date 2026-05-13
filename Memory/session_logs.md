@@ -687,3 +687,10 @@
 - Linked voice-modal engine labels to their selects so the tests can query the active engine control accessibly.
 - Updated the Phase 11 task board to record the frontend fallback slice as fixed while keeping broader frontend cleanup open.
 - Verified focused frontend tests, frontend production build, and `git diff --check`.
+
+# 2026-05-13 - Backend Jobs Shim Cleanup
+
+- Removed the last `app.jobs.cleanup_and_reconcile` package shim and reduced `app/jobs/__init__.py` to a namespace marker.
+- Migrated test callers to canonical modules or direct router behavior so the shim is no longer required.
+- Kept `app/jobs/core_shim.py` as the remaining queue/pause namespace for tests and compatibility helpers.
+- Verified the focused backend job, state, progress, plugin layout, and Voxtral tests, plus `ruff check` and `git diff --check`.

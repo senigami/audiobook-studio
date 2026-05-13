@@ -12,7 +12,7 @@ def test_list_speaker_profiles(clean_db, voices_root, client):
     (voices_dir / "SpeakerA" / "Default" / "profile.json").write_text(json.dumps({"variant_name": "Default"}))
     (voices_dir / "SpeakerA" / "Default" / "v1.wav").write_text("audio")
 
-    with patch("app.jobs.get_speaker_settings", return_value={"built_samples": [], "speed": 1.0, "test_text": "", "engine": "xtts"}):
+    with patch("app.db.speakers.get_speaker_settings", return_value={"built_samples": [], "speed": 1.0, "test_text": "", "engine": "xtts"}):
         response = client.get("/api/speaker-profiles")
         assert response.status_code == 200
         data = response.json()

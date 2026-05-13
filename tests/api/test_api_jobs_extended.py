@@ -31,11 +31,9 @@ def test_api_jobs_returns_authoritative_running_progress(clean_jobs):
     )
     put_job(job)
 
-    with patch("app.jobs.cleanup_and_reconcile") as mock_cleanup:
-        response = client.get("/api/jobs")
-        assert response.status_code == 200
-        data = response.json()
-        mock_cleanup.assert_not_called()
+    response = client.get("/api/jobs")
+    assert response.status_code == 200
+    data = response.json()
 
     job_data = next((j for j in data if j["id"] == jid), None)
     assert job_data is not None
@@ -119,13 +117,7 @@ def test_api_jobs_preserves_zero_preparing_progress_when_started(clean_jobs):
 
 
 def test_api_jobs_does_not_block_on_reconciliation(clean_jobs):
-    poisoned = AssertionError("cleanup_and_reconcile should not run inside /api/jobs")
-
-    with (
-        patch("app.api.routers.jobs.cleanup_and_reconcile", create=True),
-        patch("app.jobs.cleanup_and_reconcile"),
-    ):
-        response = client.get("/api/jobs")
+    response = client.get("/api/jobs")
 
     assert response.status_code == 200
     assert response.elapsed.total_seconds() < 1.0

@@ -4,8 +4,7 @@ import json
 import os
 from pathlib import Path
 from unittest.mock import patch, MagicMock, ANY
-from app.db.state import update_job, load_state, put_job, clear_all_jobs, STATE_FILE
-from app.jobs import requeue
+from app.db.state import update_job, load_state, put_job, clear_all_jobs, STATE_FILE, requeue
 from app.db.models import Job
 
 @pytest.fixture(autouse=True)
@@ -119,7 +118,7 @@ def test_requeue_clean_slate():
     )
     put_job(job)
 
-    with patch("app.jobs.job_queue.put"):
+    with patch("app.jobs.core_shim.job_queue.put"):
         requeue("test_requeue")
 
     state = load_state()

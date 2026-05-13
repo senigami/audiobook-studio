@@ -267,6 +267,8 @@ class VoxtralPlugin(StudioTTSEngine):
                 error="Voxtral preview requires voice_ref or voice_profile_id.",
             )
 
+        model = req.settings.get("model") or self._resolve_model()
+
         try:
             rc = self._voxtral_generate(
                 text=req.text.strip(),

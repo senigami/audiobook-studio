@@ -24,7 +24,7 @@ def test_default_settings_refactor(client, clean_state):
     assert "safe_mode" in settings
 
 def test_get_speaker_settings_uses_hardcoded_fallback(clean_state):
-    from app.jobs import get_speaker_settings
+    from app.db.speakers import get_speaker_settings
 
     # We don't need a real profile for this, it falls back to a dict
     # which we modified to have "speed": 1.0 regardless of global settings

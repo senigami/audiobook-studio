@@ -42,7 +42,7 @@ for d in ["uploads", "reports", "voices", "uploads/covers", "projects"]:
 # 2. NOW import modules that rely on these env vars
 from app.db import init_db  # noqa: E402
 from app.db.state import clear_all_jobs  # noqa: E402
-from app.jobs import clear_job_queue, pause_flag  # noqa: E402
+from app.jobs.core_shim import clear_job_queue, pause_flag  # noqa: E402
 from app.engines.proc_utils import terminate_all_subprocesses  # noqa: E402
 
 
