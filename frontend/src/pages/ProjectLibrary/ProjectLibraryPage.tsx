@@ -148,7 +148,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
                             zIndex: 2
                         }}>
                             <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--success)' }} />
-                            Model: XTTS-v2
+                            Plugin-powered TTS
                         </div>
                         <div style={{
                             position: 'absolute',

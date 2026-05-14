@@ -1,18 +1,18 @@
 {
-  "snapshot_version": 41,
+  "snapshot_version": 42,
   "updated_at": "2026-05-14T14:41:50Z",
   "branch": "studio2/phase-11",
   "current_task": "Launcher environment coupling cleanup",
-  "status": "launcher_env_conflict_check_plugin_local",
+  "status": "frontend_engine_agnostic_cleanup_complete",
   "last_committed_milestone": {
-    "title": "Moved launcher conflict checks into XTTS plugin",
+    "title": "Removed hardcoded XTTS-v2 copy from frontend runtime",
     "commit": "pending",
     "notes": [
-      "Added plugins/tts_xtts/scripts/check_env.py for plugin-local stale dependency/conflict checks.",
-      "Updated run.sh and run.ps1 to call plugin-local check_env.py when present instead of carrying inline XTTS conflict logic.",
-      "Renamed launcher internals toward TTS_ENV_DIR while preserving XTTS_ENV_DIR compatibility.",
-      "Expanded launcher regression coverage to block inline xtts_env_has_conflicts/coqpit checks and require XTTS_ENV_DIR compatibility.",
-      "Verified with focused launcher tests, ruff, shell/PowerShell syntax checks, and git diff --check."
+      "Removed static 'Model: XTTS-v2' copy from ProjectLibraryPage.tsx hero section.",
+      "Replaced it with generic 'Plugin-powered TTS' product copy.",
+      "Verified no other engine-specific hardcoding remains in frontend/src runtime code.",
+      "Added regression tests in ProjectLibraryPage.test.tsx to block future hardcoded engine labels.",
+      "Verified with focused frontend unit tests, production build, and git diff --check."
     ]
   },
   "active_constraints": [

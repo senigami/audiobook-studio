@@ -780,3 +780,12 @@
 - Updated `README.md` and `wiki/Getting-Started.md` to describe environment setup in engine-agnostic terms.
 - Added permanent regression tests in `tests/core/test_launcher_agnosticism.py` asserting no root requirements references, full plugin ownership, and removal of inline conflict logic.
 - Verified with focused launcher tests, bash/powershell syntax checks, and a repository-wide reference audit.
+
+# 2026-05-14 - Phase 11 Frontend Engine-Agnostic Closure
+
+- Audited `frontend/src` for hardcoded engine-specific strings and identified `ProjectLibraryPage.tsx` as the remaining runtime coupling point.
+- Removed the static "Model: XTTS-v2" hero badge copy and replaced it with generic product copy ("Plugin-powered TTS") to ensure the UI remains engine-agnostic.
+- Classified existing engine-specific strings in `frontend/tests` as valid test fixtures/data that do not imply core app runtime coupling.
+- Added a permanent regression test in `ProjectLibraryPage.test.tsx` to assert that no static XTTS-v2 copy appears in the hero section.
+- Verified the fix with focused Vitest tests and a successful production frontend build (`npm run build`).
+- Updated the Phase 11 task board to mark the frontend engine-agnostic cleanup as complete.

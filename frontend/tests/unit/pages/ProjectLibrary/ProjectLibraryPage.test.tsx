@@ -62,4 +62,18 @@ describe('ProjectLibrary', () => {
 
         expect(screen.getByText('Title *')).toBeTruthy()
     })
+
+    it('does not contain hardcoded XTTS-v2 copy', async () => {
+        render(
+            <MemoryRouter>
+                <ProjectLibrary onSelectProject={vi.fn()} />
+            </MemoryRouter>
+        )
+
+        // Wait for page to load
+        await screen.findByText(/Natural AI Audio Lab/i)
+
+        // Assert that the static model label is gone
+        expect(screen.queryByText(/Model: XTTS-v2/i)).toBeNull()
+    })
 })
