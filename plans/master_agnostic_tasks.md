@@ -4,8 +4,8 @@
 - [x] Keep engine test fixtures and tests inside the owning plugin folders.
 - [x] Delete the root `engine_tests/` directory.
 - [x] Delete `xtts_audio/` transient folder
-- [ ] Audit `uploads/` and migrate text/covers to project folders
-- [ ] Delete `uploads/` once empty
+- [x] Audit `uploads/` and migrate text/covers to project folders
+- [ ] Delete `uploads/` (Pending: `/out/covers` compatibility)
 
 ## Phase 2: Storage Abstraction Layer
 - [ ] Implement `app/storage/manager.py` (`StorageManager`)

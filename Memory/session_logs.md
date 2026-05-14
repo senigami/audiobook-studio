@@ -737,3 +737,11 @@
 - Corrected master planning docs so `uploads` cleanup remains pending as a separate audit.
 - Marked Phase 11 Storage and output routes complete while leaving unrelated storage abstraction and uploads work on their own task lines.
 - Verified migration tests, remaining storage-reference classification, and `git diff --check`.
+
+# 2026-05-14 - Uploads Legacy Cover Audit
+
+- Removed the unused `COVER_DIR` import from `app/api/routers/projects_helpers.py`.
+- Added migration regression coverage proving `/out/covers/{file}` project references are copied into `projects/{project_id}/cover/` and rewritten to `/projects/{project_id}/cover/{file}`.
+- Confirmed `migrate_legacy_project_covers()` already runs at startup and did not add a duplicate bootstrap path.
+- Updated planning docs so `uploads` audit/migration is done but physical `uploads/` deletion stays pending while `/out/covers` compatibility exists.
+- Verified project cover, web endpoint, migration, and audiobook assembly tests, plus ruff and `git diff --check`.

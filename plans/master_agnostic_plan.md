@@ -44,7 +44,7 @@ This rename is deferred until the runtime cutover and cleanup slices are complet
 
 ### [PARTIAL] Transient Folders
 - [DONE] `xtts_audio/`. This folder contains transient engine test artifacts that have been migrated to plugin-local storage or project-local folders.
-- [TODO] `uploads/`. This root still exists as the shared cover import location and needs a separate audit before removal.
+- [PARTIAL] `uploads/`. New project text and covers are correctly stored in `projects/{project_id}/{text|cover}/`. The legacy `uploads/covers/` root remains for compatibility during shared-cover migration.
 
 ### [DONE] Config Constants
 - [DONE] Rename `XTTS_OUT_DIR` to `AUDIO_OUT_DIR` (decommissioned from core config).
@@ -156,7 +156,7 @@ Each phase of the migration is designed to be non-destructive and verifiable. He
 
 ### Phase 1: Directory & Folder Cleanup
 - **Approach**: Move operations first, then deletions.
-- **Notes**: Deletion of `xtts_audio` from active runtime paths is complete. `uploads` cleanup remains a separate audit.
+- **Notes**: Deletion of `xtts_audio` from active runtime paths is complete. `uploads` cleanup is partial; it remains as a legacy source for `/out/covers` compatibility.
 
 ### Phase 2: Storage Abstraction Layer
 - **Approach**: Shadow-testing.

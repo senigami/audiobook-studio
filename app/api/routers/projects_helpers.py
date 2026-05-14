@@ -15,7 +15,7 @@ from ...db import (
     list_chapters as db_list_chapters,
     delete_project,
 )
-from ...core.config import COVER_DIR, get_project_dir
+from ...core.config import get_project_dir
 from ...utils.pathing import safe_basename, find_secure_file, secure_join_flat
 from ...domain.projects.service import create_project_service, ProjectService
 from ...domain.projects.models import ProjectModel, ProjectSnapshotModel, ProjectBackupBundleModel
