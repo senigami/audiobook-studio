@@ -1,18 +1,19 @@
 {
-  "snapshot_version": 40,
-  "updated_at": "2026-05-14T13:07:19Z",
+  "snapshot_version": 41,
+  "updated_at": "2026-05-14T14:41:50Z",
   "branch": "studio2/phase-11",
-  "current_task": "Storage and output route cleanup",
-  "status": "storage_output_route_cleanup_complete",
+  "current_task": "Behavior and text utility closure",
+  "status": "behavior_text_utility_closure_complete",
   "last_committed_milestone": {
-    "title": "Audited uploads legacy cover compatibility",
+    "title": "Closed Phase 11 behavior and text utility cleanup",
     "commit": "pending",
     "notes": [
-      "Removed the unused COVER_DIR import from projects_helpers.py.",
-      "Added regression coverage proving migrate_legacy_project_covers copies shared /out/covers assets into project-local cover storage and updates the project URL.",
-      "Kept COVER_DIR and /out/covers compatibility for un-migrated projects.",
-      "Updated planning docs to show uploads audit/migration complete but physical uploads deletion still pending.",
-      "Verified project, web endpoint, migration, and audiobook assembly tests plus ruff and git diff check."
+      "Relocated SENT_CHAR_LIMIT and SAFE_SPLIT_TARGET from core config to behavior-helper fallbacks in app/engines/behavior.py.",
+      "Generalised the generic log tag in synthesis_mixed handler from [voxtral-debug] to [mixed-render].",
+      "Hardened the Voxtral manifest with explicit text_chunk_limit, text_split_target, and progress_pattern metadata.",
+      "Updated all app and plugin (XTTS) imports to use the metadata-driven behavior helpers.",
+      "Added permanent regression coverage for the preserved 500/250 generic text utility defaults.",
+      "Verified locally with focused engine, utility, and plugin tests plus ruff and git diff --check."
     ]
   },
   "active_constraints": [
@@ -83,7 +84,9 @@
     "The legacy `app/jobs/core_shim.py` module has been removed; `conftest.py` and remaining test patches have been migrated to canonical orchestration resource helpers.",
     "Voice readiness and bundle export now use plugin manifest `test_sample` metadata instead of assuming a specific model asset filename. Root `engine_tests` is no longer a trusted storage root; remaining storage/output route cleanup is still partial.",
     "Broad `/projects` and `/out/voices` static exposure has been replaced with explicit public asset routes. Public access is limited to project covers, assembled audiobook files/sidecars, and voice preview samples; project internals, chapter text, backups, voice manifests, and model assets are blocked.",
-    "`scripts/sync_durations.py` has been removed. Remaining `audio_out` references are migration-only in `app/db/legacy_migration.py` or migration tests. `xtts_audio` is documented as decommissioned from active runtime paths. `uploads/covers` remains only as a legacy cover compatibility and migration source through COVER_DIR and /out/covers."
+    "`scripts/sync_durations.py` has been removed. Remaining `audio_out` references are migration-only in `app/db/legacy_migration.py` or migration tests. `xtts_audio` is documented as decommissioned from active runtime paths. `uploads/covers` remains only as a legacy cover compatibility and migration source through COVER_DIR and /out/covers.",
+    "Closed the behavior and text utility cleanup. All generic text fallbacks are relocated to behavior metadata and progress parsing is engine-agnostic. [voxtral-debug] is removed from the generic mixed handler."
+
   ],
   "codeql_context": {
     "github_setup": "advanced",

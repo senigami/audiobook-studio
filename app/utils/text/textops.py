@@ -1,4 +1,5 @@
-from ...core.config import BASELINE_ENGINE_CPS, SENT_CHAR_LIMIT
+from ...core.config import BASELINE_ENGINE_CPS
+from ...engines.behavior import DEFAULT_SENT_CHAR_LIMIT as SENT_CHAR_LIMIT
 from .textops_helpers import (
     CHAPTER_RE,
     normalize_newlines,

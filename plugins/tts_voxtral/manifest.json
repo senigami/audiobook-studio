@@ -38,7 +38,10 @@
       "voxtral_model": "model",
       "voxtral_voice_id": "voice_asset_id"
     },
-    "synthesis_settings": ["model"]
+    "synthesis_settings": ["model"],
+    "text_chunk_limit": 500,
+    "text_split_target": 450,
+    "progress_pattern": "\\[PROGRESS\\]\\s+([0-9.]+)"
   },
   "local": false,
   "cloud": true,

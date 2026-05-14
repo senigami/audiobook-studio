@@ -12,8 +12,6 @@ BASE_DIR = Path(os.getenv("AUDIOBOOK_BASE_DIR", str(Path(__file__).resolve().par
 
 # Global limits
 PART_CHAR_LIMIT = 30000
-SENT_CHAR_LIMIT = 500
-SAFE_SPLIT_TARGET = 250
 MAKE_MP3_DEFAULT = False
 MP3_QUALITY = "2"  # ffmpeg -q:a 2
 AUDIOBOOK_BITRATE = "64k"

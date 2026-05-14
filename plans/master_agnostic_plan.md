@@ -49,7 +49,7 @@ This rename is deferred until the runtime cutover and cleanup slices are complet
 ### [DONE] Config Constants
 - [DONE] Rename `XTTS_OUT_DIR` to `AUDIO_OUT_DIR` (decommissioned from core config).
 - [DELETE] `BASELINE_XTTS_CPS`. This should be moved to the plugin manifest as `default_cps`. Core code will use a safe default (e.g., `15.0`) if no metadata is available.
-- [DELETE] `SENT_CHAR_LIMIT` and `SAFE_SPLIT_TARGET`. These should be moved to plugin manifests.
+- [DONE] `SENT_CHAR_LIMIT` and `SAFE_SPLIT_TARGET` were removed from core config and preserved as generic behavior fallbacks. Engine-specific chunk and split limits now come from plugin manifest behavior metadata.
 - [DELETE] `XTTS_ENV_DIR`, `XTTS_ENV_PYTHON`, `XTTS_ENV_ACTIVATE` from `app/config.py`. These belong in the XTTS plugin configuration.
 
 ### [NEW] Storage Abstraction Layer
@@ -84,7 +84,7 @@ This rename is deferred until the runtime cutover and cleanup slices are complet
 - Rename `mixed.py` to `composite.py` or similar.
 - Replace `sanitize_for_xtts` with `engine.sanitize_text(text)`.
 - Replace `_parse_xtts_progress` with `engine.parse_progress(line)`.
-- Replace hardcoded `[voxtral-debug]` with generic engine labels.
+- [DONE] Replace hardcoded `[voxtral-debug]` with generic render labels.
 - Use capability checks (`mixed_rendering`) for engine participation.
 
 ### [MODIFY] `app/jobs/worker.py` & `app/jobs/handlers/`
@@ -97,7 +97,7 @@ This rename is deferred until the runtime cutover and cleanup slices are complet
 - Core code will only handle the *scheduling* of reconciliation, while plugins define what "finished work" looks like on disk.
 - **`voices_actions.py`**: Remove `@router.post("/{name}/voxtral-voice-id")`.
 - **`web.py`**: Rename route `/out/xtts/{filename}` to `/out/audio/{filename}` and update the `app.mount` in `web.py`.
-- **Log Generalization**: Scan and update log messages (e.g., `[voxtral-debug]` in `mixed.py`) to use generic labels.
+- **Log Generalization**: Completed for the audited mixed-render `[voxtral-debug]` tag.
 - **`generation.py`**: Remove hardcoded `"xtts"` defaults. Use `DEFAULT_PROFILE_ENGINE` from settings.
 
 ---

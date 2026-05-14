@@ -1,3 +1,12 @@
+# 2026-05-14 - Phase 11 Behavior And Text Utility Cleanup Closed
+
+- Relocated `SENT_CHAR_LIMIT` and `SAFE_SPLIT_TARGET` from core config to behavior-helper fallbacks in `app/engines/behavior.py`.
+- Generalised the generic log tag in `synthesis_mixed` handler from `[voxtral-debug]` to `[mixed-render]`.
+- Hardened the Voxtral manifest with explicit `text_chunk_limit`, `text_split_target`, and `progress_pattern` metadata.
+- Updated all app and plugin (XTTS) imports to use the metadata-driven behavior helpers.
+- Added permanent regression coverage proving the generic text utility defaults remain `500/250`.
+- Verified locally with focused engine, utility, and plugin tests plus ruff and `git diff --check`.
+
 # 2026-05-13 - Agent Rules Enhanced From Basis Practices
 
 - Compared `/Users/stevendunn/GitHub/basis/.cursor/rules` against this repo's `.agent/rules/` and `Memory/rules.md`.

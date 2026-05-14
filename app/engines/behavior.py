@@ -16,6 +16,15 @@ from typing import Any, Mapping
 
 _ENGINE_ID_RE = re.compile(r"^[a-z][a-z0-9_-]{1,63}$")
 
+# Generic text utility defaults (historically in config.py)
+DEFAULT_SENT_CHAR_LIMIT = 500
+DEFAULT_SAFE_SPLIT_TARGET = 250
+
+# Engine defaults for manifest fallbacks
+DEFAULT_ENGINE_TEXT_CHUNK_LIMIT = 500
+DEFAULT_ENGINE_TEXT_SPLIT_TARGET = 450
+
+
 COMMON_SYNTHESIS_SETTINGS = frozenset(
     {
         "voice_profile_id",
@@ -61,8 +70,8 @@ def normalize_behavior(behavior: Mapping[str, Any] | None) -> dict[str, Any]:
         for setting in behavior.get("synthesis_settings", [])
         if str(setting).strip()
     ]
-    text_chunk_limit = behavior.get("text_chunk_limit", 500)
-    text_split_target = behavior.get("text_split_target", 450)
+    text_chunk_limit = behavior.get("text_chunk_limit", DEFAULT_ENGINE_TEXT_CHUNK_LIMIT)
+    text_split_target = behavior.get("text_split_target", DEFAULT_ENGINE_TEXT_SPLIT_TARGET)
 
     progress_pattern = behavior.get("progress_pattern")
     if progress_pattern is not None:
@@ -201,13 +210,13 @@ def has_simulated_finalizing(engine_id: str) -> bool:
 def get_text_chunk_limit(engine_id: str) -> int:
     """Return the character limit for text chunks for a given engine."""
     behavior = behavior_for_engine(engine_id)
-    return behavior.get("text_chunk_limit", 500)
+    return behavior.get("text_chunk_limit", DEFAULT_ENGINE_TEXT_CHUNK_LIMIT)
 
 
 def get_text_split_target(engine_id: str) -> int:
     """Return the target character count when splitting long sentences."""
     behavior = behavior_for_engine(engine_id)
-    return behavior.get("text_split_target", 450)
+    return behavior.get("text_split_target", DEFAULT_ENGINE_TEXT_SPLIT_TARGET)
 
 
 def get_progress_pattern(engine_id: str) -> str | None:

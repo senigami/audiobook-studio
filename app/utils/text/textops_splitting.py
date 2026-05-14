@@ -2,7 +2,10 @@ import re
 from pathlib import Path
 from typing import List, Tuple, Optional
 
-from ...core.config import SAFE_SPLIT_TARGET, SENT_CHAR_LIMIT
+from ...engines.behavior import (
+    DEFAULT_SAFE_SPLIT_TARGET as SAFE_SPLIT_TARGET,
+    DEFAULT_SENT_CHAR_LIMIT as SENT_CHAR_LIMIT
+)
 from .textops_helpers import CHAPTER_RE, preprocess_text, safe_filename
 
 

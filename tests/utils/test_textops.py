@@ -1,5 +1,7 @@
 import pytest
 from pathlib import Path
+from app.engines.behavior import DEFAULT_SAFE_SPLIT_TARGET, DEFAULT_SENT_CHAR_LIMIT
+from app.utils.text import textops_splitting
 from app.utils.text.textops import (
     normalize_newlines,
     preprocess_text,
@@ -73,6 +75,12 @@ def test_safe_split_long_sentences():
     no_sep = "A" * 100
     res_no_sep = safe_split_long_sentences(no_sep, target=40)
     assert len(res_no_sep) > 40
+
+def test_text_utility_default_limits_remain_stable():
+    assert DEFAULT_SENT_CHAR_LIMIT == 500
+    assert DEFAULT_SAFE_SPLIT_TARGET == 250
+    assert textops_splitting.SENT_CHAR_LIMIT == DEFAULT_SENT_CHAR_LIMIT
+    assert textops_splitting.SAFE_SPLIT_TARGET == DEFAULT_SAFE_SPLIT_TARGET
 
 def test_write_chapters_to_folder(tmp_path):
     chapters = [(1, "Chap 1", "Body 1"), (2, "Chap 2", "Body 2")]

@@ -2,7 +2,7 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from app.core.config import SENT_CHAR_LIMIT
+from app.engines.behavior import DEFAULT_SENT_CHAR_LIMIT as SENT_CHAR_LIMIT
 from app.domain.chunk_groups import build_chunk_groups
 from app.utils.text.textops import sanitize_text, safe_split_long_sentences
 from app.engines.errors import EngineBridgeError

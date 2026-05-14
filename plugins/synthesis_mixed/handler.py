@@ -178,7 +178,7 @@ def _persist_mixed_chapter_output(jid: str, chapter_id: str, output_path: Path) 
             audio_length_seconds=duration,
         )
         logger.info(
-            "[voxtral-debug %s] mixed-persist job=%s chapter=%s output_file=%s audio_length=%s",
+            "[mixed-render %s] mixed-persist job=%s chapter=%s output_file=%s audio_length=%s",
             time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
             jid,
             chapter_id,

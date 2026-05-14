@@ -22,7 +22,8 @@
 - [ ] Ensure `manifest.json` fields are the source of truth for supported behavior.
 
 ## Phase 4: Configuration & Models
-- [ ] Delete `BASELINE_XTTS_CPS`, `SENT_CHAR_LIMIT`, and `SAFE_SPLIT_TARGET` from `app/config.py`
+- [x] Delete `SENT_CHAR_LIMIT` and `SAFE_SPLIT_TARGET` from core config and preserve them as generic behavior fallbacks.
+- [ ] Delete or migrate remaining baseline CPS config through the per-engine metrics/settings path.
 - [ ] Move engine-specific config to plugin manifests
 - [ ] Update `Engine` literal in `app/models.py` to `str`
 - [ ] Introduce `TaskType` or `JobKind` in `app/models.py`
@@ -48,7 +49,7 @@
 - [ ] Update `composite.py` to use `engine.parse_progress` and `engine.sanitize_text`
 - [ ] Remove `/{name}/voxtral-voice-id` route in `app/api/routers/voices_actions.py`
 - [ ] Update `/out/xtts/{filename}` -> `/out/audio/{filename}` in `app/web.py`
-- [ ] Generalize log messages (e.g., `[voxtral-debug]` in `composite.py`)
+- [x] Generalize mixed-render log messages such as `[voxtral-debug]`.
 - [ ] Remove `app/engines.py` synthesis re-exports
 - [ ] Sanitize `run.sh` and `run.ps1` (remove XTTS-specific venv logic)
 - [ ] Implement generic plugin setup loop in `run.sh`
