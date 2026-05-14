@@ -50,19 +50,19 @@ This rename is deferred until the runtime cutover and cleanup slices are complet
 - [DONE] Rename `XTTS_OUT_DIR` to `AUDIO_OUT_DIR` (decommissioned from core config).
 - [DONE] The generic baseline CPS fallback has been moved to `app/engines/behavior.py` as `DEFAULT_BASELINE_ENGINE_CPS` (16.7).
 - [DONE] `SENT_CHAR_LIMIT` and `SAFE_SPLIT_TARGET` were removed from core config and preserved as generic behavior fallbacks. Engine-specific chunk and split limits now come from plugin manifest behavior metadata.
-- [DELETE] `XTTS_ENV_DIR`, `XTTS_ENV_PYTHON`, `XTTS_ENV_ACTIVATE` from `app/config.py`. These belong in the XTTS plugin configuration.
+- [DONE] `XTTS_ENV_DIR`, `XTTS_ENV_PYTHON`, `XTTS_ENV_ACTIVATE` are removed from core config and kept only in the XTTS plugin.
 
-### [NEW] Storage Abstraction Layer
+### [PHASE 12 DECISION] Storage Abstraction Layer
 - [NEW] `app/storage/`. Implement a `StorageManager` and `ProjectContext` to encapsulate all path calculations (e.g., `get_project_audio_dir`).
 - Move all logic from `app/config.py` that handles nested vs. legacy paths into the `StorageManager`.
 - Business logic (reconciliation, API) will interact with `StorageManager.get_asset_path(project_id, chapter_id, asset_type)` instead of using global path constants.
 
-### [MOVE] Plugin Implementation Detail
-- [MOVE] `app/xtts_inference.py` -> `plugins/tts_xtts/xtts_inference.py`.
-- [MOVE] `app/jobs/handlers/xtts*` and `app/jobs/handlers/voxtral.py` into their respective plugin directories.
-- [MOVE] `sanitize_for_xtts` logic to the XTTS plugin.
-- [MOVE] `_parse_xtts_progress` and other progress parsers to the plugin adapters (accessible via bridge).
-- [MOVE] Resource requirements (GPU, VRAM) from `resources.py` defaults to plugin manifests.
+### [DONE] Plugin Implementation Detail
+- [DONE] `app/xtts_inference.py` -> `plugins/tts_xtts/plugin/core/xtts_inference.py`.
+- [DONE] `app/jobs/handlers/xtts*` and `app/jobs/handlers/voxtral.py` into their respective plugin directories.
+- [DONE] `sanitize_for_xtts` logic to the XTTS plugin.
+- [DONE] `_parse_xtts_progress` and other progress parsers to the plugin adapters (accessible via bridge and manifest-driven in behavior.py).
+- [PHASE 12] Resource requirements (GPU, VRAM) from `resources.py` defaults to plugin manifests.
 
 ### [DOC] Plugin Template And Hook Contract
 - [DOC] `docs/plugin-guide.md` and `docs/plugin-template/README.md` should describe the manifest-declared hook model as the default development pattern.
@@ -73,32 +73,32 @@ This rename is deferred until the runtime cutover and cleanup slices are complet
 
 ## 2. Code Generalization
 
-### [MODIFY] `app/models.py`
-- Change `Engine` literal to `str`. Internal task types like `mixed` and `audiobook` should be reclassified as `TaskType` or `JobKind` to distinguish them from synthesis adapters.
+### [PHASE 12 DECISION] Job And Model Type Cleanup
+- `app/db/models.py` now stores job engine identity as `JobEngineId = str`.
+- Decide in Phase 12 whether internal task types like `mixed` and `audiobook` need explicit `TaskType` or `JobKind` types before release documentation.
 
-### [MODIFY] `app/engines/behavior.py`
-- Replace hardcoded `in {"xtts", "voxtral"}` checks with a dynamic `is_engine_available(engine_id)` call.
-- All capability checks (standard, segment, bake, mixed, etc.) MUST query the plugin registry or manifest. No hardcoded exceptions.
+### [DONE] `app/engines/behavior.py`
+- Capability checks (standard, segment, bake, mixed, etc.) query plugin manifest behavior metadata.
+- The old `is_built_in` fallback is gone; boot-time voice listing uses manifest-driven local plugin availability instead.
 
-### [MODIFY] `app/jobs/handlers/mixed.py` (Composite Rendering)
-- Rename `mixed.py` to `composite.py` or similar.
-- Replace `sanitize_for_xtts` with `engine.sanitize_text(text)`.
-- Replace `_parse_xtts_progress` with `engine.parse_progress(line)`.
+### [PHASE 12 DECISION] `app/jobs/handlers/mixed.py` (Composite Rendering)
+- Decide whether `mixed.py` naming still needs a `composite.py` rename before release documentation.
+- Text chunking and progress parsing are metadata-driven in current runtime; a formal `engine.sanitize_text(text)` hook remains optional follow-up.
 - [DONE] Replace hardcoded `[voxtral-debug]` with generic render labels.
 - Use capability checks (`mixed_rendering`) for engine participation.
 
-### [MODIFY] `app/jobs/worker.py` & `app/jobs/handlers/`
+### [PHASE 12 DECISION] `app/jobs/worker.py` & `app/jobs/handlers/`
 - Implement a generic `JobHandlerRegistry` (Unified Job Handoff).
 - The `worker.py` loop will dispatch to the registered handler based on `job.kind` (e.g., `synthesis`, `bake`, `audiobook`).
 - Remove all explicit imports of engine handlers from `worker.py`.
 
-### [MODIFY] `app/jobs/reconcile.py` (Plugin-Driven Reconciliation)
+### [PHASE 12 DECISION] `app/jobs/reconcile.py` (Plugin-Driven Reconciliation)
 - Replace `_output_exists` logic with a generic call to the plugin adapter: `engine.check_output(job)`.
 - Core code will only handle the *scheduling* of reconciliation, while plugins define what "finished work" looks like on disk.
-- **`voices_actions.py`**: Remove `@router.post("/{name}/voxtral-voice-id")`.
-- **`web.py`**: Rename route `/out/xtts/{filename}` to `/out/audio/{filename}` and update the `app.mount` in `web.py`.
+- **`voices_actions.py`**: No active `@router.post("/{name}/voxtral-voice-id")` route remains in the app.
+- **`web.py`**: No active `/out/xtts/{filename}` route remains in the app.
 - **Log Generalization**: Completed for the audited mixed-render `[voxtral-debug]` tag.
-- **`generation.py`**: Remove hardcoded `"xtts"` defaults. Use `DEFAULT_PROFILE_ENGINE` from settings.
+- **`generation.py`**: Active default-engine resolution uses registry/settings helpers; no hardcoded `"xtts"` remains in `app/api/routers/generation.py`.
 
 ---
 
@@ -113,16 +113,16 @@ This rename is deferred until the runtime cutover and cleanup slices are complet
 - [DONE] Remove `xtts_speed` migration logic from `state_settings.py` (quarantined in `legacy_migration.py`).
 - [DONE] Remove legacy profile metadata normalization for `voxtral_voice_id` in `app/db/speakers.py`.
 
-### [MODIFY] `app/engines.py` (Legacy Cleanup)
-- Strip all `xtts_*` and `voxtral_*` re-exports.
-- Remove imports from `app.engines.voice.xtts` and `app.engines.voice.voxtral`.
-- Ensure all callers use the `JobHandlerRegistry` or `VoiceBridge`.
+### [DONE] `app/engines.py` (Legacy Cleanup)
+- [DONE] Strip all `xtts_*` and `voxtral_*` re-exports.
+- [DONE] Remove imports from `app.engines.voice.xtts` and `app.engines.voice.voxtral`.
+- [DONE] Ensure all callers use the `JobHandlerRegistry` or `VoiceBridge`.
 
 ### [MODIFY] `run.sh` & `run.ps1` (Bootstrap Sanitization)
 - [x] Relocate `requirements-xtts.txt` to `plugins/tts_xtts/requirements.txt`.
 - [x] Update `run.sh` and `run.ps1` to use plugin-local requirements.
 - [x] Remove remaining hardcoded `XTTS_VENV` references from launchers (Generalized to `TTS_ENV_DIR`).
-- [/] Implement a generic plugin setup loop in `run.sh` (Relocated conflict check; generic loop pending).
+- [PHASE 12] Implement a generic plugin setup loop in `run.sh` and `run.ps1` (conflict checks are plugin-local; generic loop pending).
 - [x] Remove `xtts_env_has_conflicts` logic (moved to `plugins/tts_xtts/scripts/check_env.py`).
 
 ### [MODIFY] Documentation
@@ -133,16 +133,17 @@ This rename is deferred until the runtime cutover and cleanup slices are complet
 
 ## 4. Text Processing & Utilities
 
-### [MODIFY] `app/utils/text_processing.py`
-- Rename `sanitize_for_xtts` to `sanitize_text_for_engine`.
-- The actual sanitization rules should be requested from the plugin via a `sanitize` capability rather than being hardcoded in the core `app/` folder.
+### [DONE] Text Processing Utility Cleanup
+- `app/utils/text_processing.py` has been removed.
+- Core text/progress behavior is metadata-driven through `app/engines/behavior.py`.
+- A formal plugin `sanitize` capability remains a Phase 12 decision only if new engines require different sanitization behavior.
 
 ---
 
 ## Verification Plan
 
 ### Automated Tests
-- Run the full suite: `pytest tests/ -vv`.
+- Run the full suite when closing Phase 12 or before release: `pytest tests/ -vv`.
 - Ensure no tests still rely on hardcoded "xtts" or "voxtral" strings unless specifically testing plugin discovery.
 
 ### Manual Verification

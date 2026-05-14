@@ -178,6 +178,11 @@ def _load_manifest_behavior(engine_id: str) -> dict[str, Any]:
     return normalize_behavior(payload.get("behavior"))
 
 
+def is_engine_locally_available(engine_id: str) -> bool:
+    """Return whether an engine's plugin is locally installed and has a manifest."""
+    return bool(_load_full_manifest(engine_id))
+
+
 def supports_standard_rendering(engine_id: str) -> bool:
     """Return whether an engine supports full-chapter standard rendering."""
     return has_behavior(engine_id, "standard_rendering")

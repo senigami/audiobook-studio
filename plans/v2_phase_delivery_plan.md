@@ -312,7 +312,25 @@ Remove silent v1/in-process TTS fallback behavior after the current wrap-up work
 
 - Studio no longer has two production XTTS/Voxtral runtimes; plugin-backed v2 is the committed runtime path
 
-## Phase 12: Release Documentation And Distribution Polish
+## Phase 12: Polish And Cleanup
+
+### Objective
+
+Close remaining product polish, manual verification, and structural cleanup items before release documentation.
+
+### Scope
+
+- add VCR-style chapter playback controls
+- verify fixed-but-pending Phase 11 app behaviors manually
+- triage Vite websocket reconnect noise and large-book load timings
+- complete or explicitly defer the generic plugin setup loop and remaining master agnostic extras
+- prepare plugin/template docs enough for final release documentation
+
+### Completion criteria
+
+- Remaining polish and cleanup items are implemented, verified, or explicitly deferred before release documentation starts.
+
+## Phase 13: Release Documentation And Distribution Polish
 
 ### Objective
 

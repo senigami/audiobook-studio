@@ -83,10 +83,10 @@ def _is_engine_active(engine_id: str) -> bool:
         engines = bridge.describe_registry()
     except EngineUnavailableError:
         # If the TTS Server is starting up, we can't get the registry yet.
-        # We assume built-in engines are active to avoid blocking
+        # We assume locally available engines are active to avoid blocking
         # voice listing/creation during boot.
-        from ...engines.behavior import is_built_in
-        return is_built_in(engine_id)
+        from ...engines.behavior import is_engine_locally_available
+        return is_engine_locally_available(engine_id)
     for e in engines:
         if e["engine_id"] == engine_id:
             return bool(e.get("enabled"))

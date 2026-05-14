@@ -5,7 +5,7 @@
 - [x] Delete the root `engine_tests/` directory.
 - [x] Delete `xtts_audio/` transient folder
 - [x] Audit `uploads/` and migrate text/covers to project folders
-- [ ] Delete `uploads/` (Pending: `/out/covers` compatibility)
+- [ ] Delete `uploads/` (Deferred: `/out/covers` compatibility and shared-cover migration source)
 
 ## Phase 2: Storage Abstraction Layer
 - [ ] Implement `app/storage/manager.py` (`StorageManager`)
@@ -25,36 +25,36 @@
 - [x] Delete `SENT_CHAR_LIMIT` and `SAFE_SPLIT_TARGET` from core config and preserve them as generic behavior fallbacks.
 - [x] Relocate the remaining generic baseline CPS fallback out of core config.
 - [ ] Move engine-specific config to plugin manifests
-- [ ] Update `Engine` literal in `app/models.py` to `str`
-- [ ] Introduce `TaskType` or `JobKind` in `app/models.py`
+- [x] Update persisted job engine identity to `str`
+- [ ] Introduce `TaskType` or `JobKind` if Phase 12 decides the distinction is still needed before release docs
 
 ## Phase 5: Plugin Implementation Relocation
-- [ ] Move `app/xtts_inference.py` -> `plugins/tts_xtts/`
-- [ ] Move `app/jobs/handlers/xtts*` -> `plugins/tts_xtts/handlers/`
-- [ ] Move `app/jobs/handlers/voxtral.py` -> `plugins/tts_voxtral/handlers/`
-- [ ] Implement `parse_progress` and `sanitize_text` in plugin adapters
+- [x] Move `app/xtts_inference.py` -> `plugins/tts_xtts/`
+- [x] Move `app/jobs/handlers/xtts*` -> `plugins/tts_xtts/handlers/`
+- [x] Move `app/jobs/handlers/voxtral.py` -> `plugins/tts_voxtral/handlers/`
+- [/] Implement `parse_progress` and `sanitize_text` in plugin adapters (progress is metadata-driven; sanitize hook pending)
 - [ ] Move resource requirements (GPU/VRAM) to plugin manifests
-- [ ] Move `sanitize_for_xtts` logic to `plugins/tts_xtts/`
+- [x] Move `sanitize_for_xtts` logic to `plugins/tts_xtts/`
 
 ## Phase 6: Core Orchestration Generalization
 - [ ] Implement `JobHandlerRegistry` in `app/jobs/handlers/`
-- [ ] Register XTTS/Voxtral handlers in the registry (via plugin init)
+- [ ] Register plugin handlers in the registry without app-level engine names
 - [ ] Update `app/jobs/worker.py` to use generic dispatch via registry
 - [ ] Implement `check_output` interface in plugin adapters
 - [ ] Update `app/jobs/reconcile.py` to use `engine.check_output(job)`
-- [ ] Update `app/engines/behavior.py` to remove all `is_built_in` checks
+- [x] Update `app/engines/behavior.py` to remove all `is_built_in` checks
 
 ## Phase 7: API & Routing
 - [ ] Rename `mixed.py` -> `composite.py`
-- [ ] Update `composite.py` to use `engine.parse_progress` and `engine.sanitize_text`
-- [ ] Remove `/{name}/voxtral-voice-id` route in `app/api/routers/voices_actions.py`
-- [ ] Update `/out/xtts/{filename}` -> `/out/audio/{filename}` in `app/web.py`
+- [/] Update composite/mixed rendering to use metadata-driven progress and sanitization hooks
+- [x] Remove `/{name}/voxtral-voice-id` route in `app/api/routers/voices_actions.py`
+- [x] Remove `/out/xtts/{filename}` route from app routing
 - [x] Generalize mixed-render log messages such as `[voxtral-debug]`.
-- [ ] Remove `app/engines.py` synthesis re-exports
+- [x] Remove `app/engines.py` synthesis re-exports
 - [x] Sanitize `run.sh` and `run.ps1` (Conflict logic moved to plugin; variables generalized)
 - [ ] Implement generic plugin setup loop in `run.sh`
-- [ ] Remove hardcoded `"xtts"` defaults in `app/api/routers/generation.py`
-- [ ] Update all frontend URL references to match new generic routes
+- [x] Remove hardcoded `"xtts"` defaults in `app/api/routers/generation.py`
+- [x] Update all frontend URL references to match active generic routes
 
 ## Phase 8: State & Metrics Cleanup
 - [x] Rename `xtts_cps` -> `engine_cps` in `app/state_performance.py`
@@ -64,10 +64,19 @@
 - [x] Remove `voxtral_voice_id` normalization in `app/db/speakers.py`
 
 ## Phase 9: Documentation & Final Audit
-- [/] Update `README.md` (Generalized XTTS plugin install path)
+- [/] Update `README.md` (Generalized engine/plugin install path; full release docs moved to Phase 13)
 - [ ] Update `CONTRIBUTING.md` (document plugin lifecycle)
-- [ ] Final `grep` for "xtts" and "voxtral" across core `app/`
-- [ ] Final test verification: `pytest tests/`
+- [x] Final focused `grep` for "xtts" and "voxtral" across core `app/` for Phase 11 closeout
+- [ ] Final broad test verification: `pytest tests/` before Phase 13 release docs
+
+## Phase 12: Polish And Cleanup
+- [ ] Add VCR-style chapter playback controls.
+- [ ] Manually verify fixed-but-pending Phase 11 app behaviors.
+- [ ] Triage Vite websocket `ECONNRESET` reconnect behavior.
+- [ ] Re-check large-book project/chapter load timings.
+- [ ] Complete or explicitly defer generic plugin setup loop.
+- [ ] Complete or explicitly defer StorageManager, JobHandlerRegistry, `JobKind`/`TaskType`, and mixed/composite naming.
+- [ ] Prepare plugin docs and template docs enough for Phase 13 release documentation.
 
 ## Deferred Phase: Namespace Rename And App-Behavior Plugins
 - [ ] Rename the current engine bundle namespace from `plugins/` to `tts_engines/` once the runtime cutover is stable.

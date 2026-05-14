@@ -1,18 +1,18 @@
-# Phase 12: Release Documentation And Distribution Polish
+# Phase 13: Release Documentation And Distribution Polish
 
 ## Status
 
-Deferred final wrap-up phase. Start only after Phase 11 is complete, the v2-only runtime path is stable, and the remaining known bugs have been resolved or explicitly triaged.
+Deferred final wrap-up phase. Start only after Phase 12 polish/cleanup is complete, the v2-only runtime path is stable, and the remaining known bugs have been resolved or explicitly triaged.
 
 ## Objective
 
 Document, package, and present the completed Studio 2.0 overhaul as a production-ready release. This phase turns the finished system into something users, contributors, plugin authors, and external API clients can understand, install, trust, and get excited about.
 
-Phase 12 is the completion pass: documentation, demos, release notes, install validation, API docs, plugin docs, and launch-ready promotional material.
+Phase 13 is the completion pass: documentation, demos, release notes, install validation, API docs, plugin docs, and launch-ready promotional material.
 
 ## Why This Phase Exists
 
-Studio 2.0 is a major architectural and product overhaul. By the time Phase 11 is complete, the implementation should be clean and v2-only, but the public-facing materials will still need to catch up.
+Studio 2.0 is a major architectural and product overhaul. By the time Phase 12 is complete, the implementation should be clean, v2-only, and polished enough for public-facing materials to catch up.
 
 Without a dedicated documentation and release polish phase:
 

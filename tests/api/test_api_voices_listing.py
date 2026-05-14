@@ -45,6 +45,22 @@ def test_list_speaker_profiles_uses_engine_declared_test_sample(clean_db, voices
     assert data[0]["has_latent"] is True
 
 
+def test_engine_active_falls_back_to_local_manifest_when_registry_unavailable():
+    from app.api.routers import voices_helpers
+    from app.engines.errors import EngineUnavailableError
+
+    class UnavailableBridge:
+        def describe_registry(self):
+            raise EngineUnavailableError("TTS Server is starting up")
+
+    with patch(
+        "app.api.routers.voices_helpers.create_voice_bridge",
+        return_value=UnavailableBridge(),
+    ):
+        assert voices_helpers._is_engine_active("xtts") is True
+        assert voices_helpers._is_engine_active("missing_engine") is False
+
+
 def test_legacy_profile_listing_repairs_missing_speaker_rows_and_preserves_default_switch(clean_db, voices_root, client):
     voices_root.mkdir()
     legacy_speaker_id = str(uuid.uuid4())

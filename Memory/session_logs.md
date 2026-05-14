@@ -1,3 +1,12 @@
+# 2026-05-14 - Phase 11 Closeout Planned And Phase 12 Created
+
+- Fixed and verified the voice registry fallback path by replacing the missing `is_built_in` import with manifest-driven `is_engine_locally_available`.
+- Added permanent regression coverage for TTS Server-unavailable voice listing behavior.
+- Reconciled `plans/master_agnostic_plan.md` and `plans/master_agnostic_tasks.md` against actual app/plugin files and route searches.
+- Marked Phase 11 closeout-ready and moved remaining polish/manual-QA work into new `plans/phases/phase_12_polish_and_cleanup.md`.
+- Renamed the previous release documentation phase to `plans/phases/phase_13_release_documentation_and_distribution.md`.
+- Updated `Memory/state.json` and `Memory/active_context.md` so future sessions start from Phase 12 polish after the Phase 11 checkpoint.
+
 # 2026-05-14 - XTTS Requirements Moved To Plugin
 
 - Moved the full XTTS environment dependency list from root `requirements-xtts.txt` into `plugins/tts_xtts/requirements.txt`.

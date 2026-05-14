@@ -10,20 +10,21 @@ This is the entry point for Phase 11 cleanup and app-problem triage.
 
 ## Current Status
 
-Phase 11 is active. The major V1 runtime fallbacks have been removed, but the remaining work is cleanup and verification around behavior policy, queue/job retirement, text/progress utilities, storage/output routes, state/settings/metrics migration, frontend assumptions, and bootstrap/docs.
+Phase 11 is closeout-ready. The major V1 runtime fallbacks have been removed, audited cleanup areas are complete, and remaining user-facing polish or manual verification items have moved to Phase 12.
 
 ## Current Task List
 
-- [ ] Final reference audit and retained-reference classification
-- [ ] Behavior helper hardening
-- [ ] Job and queue decommissioning
-- [ ] Plugin-owned text and progress utility cleanup
-- [ ] Storage and output route abstraction
-- [ ] State, settings, and metrics migration cleanup
-- [ ] Frontend engine-agnostic cleanup
-- [ ] Bootstrap and documentation cleanup
-- [ ] Final backend/frontend verification and phase closeout
+- [x] Final reference audit and retained-reference classification
+- [x] Behavior helper hardening
+- [x] Job and queue decommissioning
+- [x] Plugin-owned text and progress utility cleanup
+- [x] Storage and output route cleanup
+- [x] State, settings, and metrics migration cleanup
+- [x] Frontend engine-agnostic cleanup
+- [x] Bootstrap and documentation cleanup
+- [x] Focused backend/frontend verification for completed cleanup areas
+- [ ] Checkpoint Phase 11 closeout after current docs and fallback fix land
 
 ## Triage Rule
 
-When a new app problem is reported, first map it to the task board in [phase_11_remaining_work.md](implementation/phase_11_remaining_work.md), then fix the smallest behavior path that resolves the problem.
+When a new app problem is reported after Phase 11 closeout, map it to [Phase 12 polish and cleanup](phases/phase_12_polish_and_cleanup.md) unless it clearly reopens a Phase 11 runtime-cleanup regression.

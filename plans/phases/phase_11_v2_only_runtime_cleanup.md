@@ -2,15 +2,16 @@
 
 ## Status
 
-Active on branch `studio2/phase-11`.
+Closeout-ready on branch `studio2/phase-11`.
 
-Phase 11 is the hard cleanup pass for Studio 2.0. The normal production path is the managed TTS Server plus plugin/bridge/orchestrator runtime. V1, beta, and in-process fallback behavior should not remain in main app code unless the user explicitly approves a narrow exception.
+Phase 11 was the hard cleanup pass for Studio 2.0. The normal production path is the managed TTS Server plus plugin/bridge/orchestrator runtime. V1, beta, and in-process fallback behavior should not remain in main app code unless the user explicitly approves a narrow exception.
 
 The current operational task board is:
 
 - [Phase 11 audit index](../phase_11_audit.md)
 - [Phase 11 remaining work](../implementation/phase_11_remaining_work.md)
 - [Phase 11 completed work log](../implementation/phase_11_completed_work.md)
+- [Phase 12 polish and cleanup](phase_12_polish_and_cleanup.md)
 
 ## Objective
 
@@ -52,6 +53,8 @@ Phase 11 is complete only when:
 
 ## Current Work
 
-The current remaining work and app-problem intake list live in:
+Phase 11 core cleanup is closeout-ready. User-facing polish, manual QA checks, and remaining master-plan extras have moved to Phase 12:
 
-- [phase_11_remaining_work.md](../implementation/phase_11_remaining_work.md)
+- [phase_12_polish_and_cleanup.md](phase_12_polish_and_cleanup.md)
+
+Keep [phase_11_remaining_work.md](../implementation/phase_11_remaining_work.md) as the Phase 11 audit record and historical intake board.

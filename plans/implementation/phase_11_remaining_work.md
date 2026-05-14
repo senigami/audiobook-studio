@@ -1,6 +1,6 @@
 # Phase 11 Remaining Work
 
-This is the active task board for Phase 11. Use it when triaging app problems, writing Antigravity prompts, or deciding the next cleanup slice.
+This is the Phase 11 audit record and historical task board. Phase 11 is closeout-ready; new polish, manual QA, and remaining extras now belong in [Phase 12 polish and cleanup](../phases/phase_12_polish_and_cleanup.md).
 
 ## Intake Rules
 
@@ -18,7 +18,7 @@ This is the active task board for Phase 11. Use it when triaging app problems, w
 | Job and queue decommissioning | [x] | Remove remaining legacy worker-facing shims after orchestrator ownership is stable. `app/jobs/__init__.py` is now a namespace marker; remaining work is to trim any further compatibility surfaces only if callers still need them. | `app/jobs/`, `app/db/queue.py`, `app/state_jobs.py`, queue routes | queue, generation, orchestration tests |
 | Text and progress utilities | [x] | Chunk grouping now uses engine metadata and redundant `app/utils/text_processing.py` is removed. All generic text fallbacks are relocated to behavior metadata and progress parsing is engine-agnostic. | textops modules, progress parsing, plugin adapters | textops, progress, plugin tests |
 | Storage and output routes | [x] | Root `engine_tests` is no longer a trusted storage root, voice readiness/bundle export use plugin manifest `test_sample` metadata, and broad `/projects` plus `/out/voices` static exposure has been replaced with explicit public asset routes. `uploads/covers` remains strictly as a legacy migration source for `/out/covers` compatibility. | `app/config.py`, `app/api/utils.py`, asset routes, frontend API callers | API asset tests, frontend API tests |
-| State/settings/metrics migration | Partial | Generic baseline CPS fallback is relocated to behavior.py. All legacy engine-specific state/metrics keys are quarantined in the migration layer or removed from runtime. | state modules, migration modules, performance metrics | state, settings, performance tests |
+| State/settings/metrics migration | [x] | Generic baseline CPS fallback is relocated to behavior.py. All legacy engine-specific state/metrics keys are quarantined in the migration layer or removed from runtime. | state modules, migration modules, performance metrics | state, settings, performance tests |
 | Frontend engine-agnostic cleanup | [x] | Remove frontend assumptions tied to built-in engine names where they encode behavior. | `frontend/src/api`, queue/chapter/voice components | focused Vitest suites and build |
 | Bootstrap and docs cleanup | [x] | Move engine-specific setup into plugin docs and keep core startup docs generic. Area 23 completed: Relocated conflict logic to `plugins/tts_xtts/scripts/check_env.py`; Generalized launcher variables; Updated `README`/`wiki`. | `README`, `docs`, `wiki`, launch scripts | startup check, docs review |
 
@@ -35,11 +35,12 @@ Add user-reported problems here before or during triage.
 | Engine test ignores plugin-provided `test_text` | Behavior helper hardening / State/settings/metrics migration | Fixed, manual app verification pending | Settings engine test audio used an internal default phrase instead of the plugin manifest `test_text`. Added API and TTS Server verification tests proving manifest text is honored. API router and serialization now correctly resolve manifest `test_text` with the internal phrase as fallback. Manual check: run engine test in Settings and confirm it uses manifest phrase. |
 | Failed queue entries do not show attempt date/time | Job and queue decommissioning / Frontend engine-agnostic cleanup | Fixed, manual app verification pending | Console showed failed jobs without date/time context. Added robust timestamp resolution to `GlobalQueue.tsx` that falls back to `completed_at` or `updated_at` when `started_at` is missing. Regression coverage added to ensure timestamps always render for finished items. Manual check: open Global Queue history and confirm failed jobs show times. |
 | Frontend voice UI uses hardcoded `xtts` as a missing-engine fallback | Frontend engine-agnostic cleanup | Fixed | The Phase 11 reference audit found `xtts` fallback literals in voice variant creation and character assignment availability checks. Replaced them with registry-derived `getDefaultEngineId(engines)` resolution, added focused tests, and linked voice-modal engine labels to their selects for accessible queries. |
-| Vite dev proxy logs WebSocket `ECONNRESET` on first page load | Frontend engine-agnostic cleanup / Bootstrap and docs cleanup | Open | Startup log showed backend accepted `/ws`, then Vite logged `ws proxy error: read ECONNRESET`. Need determine whether this is harmless dev-server reconnect noise or a real lost-update path. TDD first: add focused websocket/proxy-hook tests only if the app fails to reconnect or live queue updates are lost. |
-| Project and chapter load are slow for long books | Frontend engine-agnostic cleanup / State/settings/metrics migration | Open | Add load timing probes and trim duplicate fetches if the logs show an obvious hotspot. Manual check: load Dracula project and chapter in dev mode and compare fetch timings. |
-| Chapter view lacks VCR-style playback controls | Frontend engine-agnostic cleanup | Open | Add play, pause, stop, next, and previous controls in the chapter playback UI after the current render/load debugging slice is stable. |
+| Vite dev proxy logs WebSocket `ECONNRESET` on first page load | Phase 12 polish and cleanup | Moved to Phase 12 | Startup log showed backend accepted `/ws`, then Vite logged `ws proxy error: read ECONNRESET`. Need determine whether this is harmless dev-server reconnect noise or a real lost-update path. |
+| Project and chapter load are slow for long books | Phase 12 polish and cleanup | Moved to Phase 12 | Add load timing probes and trim duplicate fetches if the logs show an obvious hotspot. Manual check: load Dracula project and chapter in dev mode and compare fetch timings. |
+| Chapter view lacks VCR-style playback controls | Phase 12 polish and cleanup | Moved to Phase 12 | Add play, pause, stop, next, and previous controls in the chapter playback UI after the current render/load debugging slice is stable. |
 | Chapter render still fails with `Mixed synthesis returned failed` | Job and queue decommissioning / Behavior helper hardening | Diagnostic fixed, live app retry pending | Queue enqueue now works, but execution failed after selecting mixed synthesis. Fixed mixed-handler error clobbering so detailed handler/bridge/stitching errors propagate to the queue instead of generic `Mixed synthesis returned failed`. Added an end-to-end API render regression that exercises `/api/processing_queue` through the orchestrator and mixed handler successfully in tests. Manual check: retry chapter render in the live app and capture the new concrete error if it still fails. |
 | Server shutdown stalls at `Stopping reloader process` | Bootstrap and docs cleanup / Job and queue decommissioning | Fixed, manual app verification pending | Ctrl-C was leaving the dev server hanging while the reloader stopped. Added conservative startup cleanup for orphaned `tts_server.py` processes and shortened watchdog shutdown waits so the app exits faster. Manual check: start the server, stop it once with Ctrl-C, and confirm it exits without a second interrupt. |
+| Voice registry fallback fails with ImportError | Behavior helper hardening / Final reference audit | Fixed | `_is_engine_active` in `voices_helpers.py` tried to import a non-existent `is_built_in` helper when the TTS Server was unavailable. Replaced it with a manifest-driven `is_engine_locally_available` check in `behavior.py`. Added focused regression tests. |
 
 ## Reference Classification (Phase 11 Audit)
 
@@ -55,20 +56,14 @@ Add user-reported problems here before or during triage.
 
 ## Immediate Next Step
 
-When the user reports the next app problem:
-
-1. Identify the task area it belongs to.
-2. Inspect the smallest relevant code path.
-3. Fix behavior if the bug is reproducible from code or logs.
-4. Update this file if the fix completes or changes a Phase 11 task.
-5. Verify with focused tests first, then broaden only if the touched boundary requires it.
+Checkpoint Phase 11 closeout, then use [Phase 12 polish and cleanup](../phases/phase_12_polish_and_cleanup.md) as the active task board for VCR controls, manual app checks, performance polish, launcher setup-loop cleanup, and remaining master-plan extras.
 
 ## Final Phase Verification
 
-Before Phase 11 is marked complete:
+Before Phase 11 is checkpointed as complete:
 
-- Run the final reference audit and classify remaining references.
-- Run the affected backend suites for completed cleanup areas.
-- Run frontend tests/build if frontend files changed.
-- Update `plans/phase_11_audit.md` with final status.
-- Update memory and checkpoint the result.
+- Final reference audit and retained-reference classification are complete for the cleanup slices.
+- Affected backend/frontend suites were run for completed cleanup areas.
+- Frontend tests/build were run for frontend cleanup slices.
+- `plans/phase_11_audit.md` reflects closeout-ready status.
+- Memory must be updated and the result checkpointed.
