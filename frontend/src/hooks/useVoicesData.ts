@@ -1,6 +1,6 @@
 import { useMemo, useCallback } from 'react';
-import type { Speaker, SpeakerProfile, VoiceEngine, TtsEngine } from '../types';
-import { formatVoiceEngineLabel, getVariantDisplayName, getVoiceProfileEngine } from '../utils/voiceProfiles';
+import type { Speaker, SpeakerProfile, VoiceEngine, TtsEngine } from '@/types';
+import { formatVoiceEngineLabel, getVariantDisplayName, getVoiceProfileEngine } from '@/utils/voiceProfiles';
 
 interface UseVoicesDataProps {
     speakers: Speaker[];
@@ -94,14 +94,13 @@ export function useVoicesData({
             const engine = getVoiceProfileEngine(profile) || 'unknown';
             acc[engine] = (acc[engine] || 0) + 1;
             return acc;
-        }, { xtts: 0 } as Record<string, number>);
+        }, {} as Record<string, number>);
 
         const disabledCount = disabledSpeakerProfiles.length;
 
         return [
             { key: 'all' as const, label: `All (${activeSpeakerProfiles.length})` },
-            ...(engineCounts.xtts > 0 ? [{ key: 'xtts' as const, label: `XTTS (${engineCounts.xtts})` }] : []),
-            ...engines.filter(e => e.engine_id !== 'xtts' && e.enabled && e.status === 'ready').map(e => ({
+            ...engines.filter(e => e.enabled && e.status === 'ready').map(e => ({
                 key: e.engine_id as VoiceEngine,
                 label: `${e.display_name || formatVoiceEngineLabel(e.engine_id)} (${engineCounts[e.engine_id as VoiceEngine] || 0})`
             })),

@@ -5,8 +5,44 @@
   "display_name": "Voxtral (Mistral AI)",
   "version": "1.0.0",
   "min_studio": "2.0.0",
-  "entry_class": "engine:VoxtralPlugin",
+  "entry_class": "interface:VoxtralPlugin",
+  "app_adapter_class": "VoxtralVoiceEngine",
+  "app_adapter_module": "interface",
   "capabilities": ["synthesis", "preview"],
+  "worker_logic": {
+    "engine_handlers": {
+      "voxtral": "interface:handle_voxtral_job"
+    },
+    "kind_handlers": {
+      "standard": "interface:handle_voxtral_job"
+    }
+  },
+  "behavior": {
+    "features": [
+      "cloud_synthesis",
+      "reference_sample",
+      "voice_asset_id",
+      "standard_rendering",
+      "segment_rendering",
+      "mixed_rendering",
+      "verbose_logging",
+      "simulated_finalizing"
+    ],
+    "required_settings": [
+      {
+        "name": "mistral_api_key",
+        "message": "Add a Mistral API key in engine settings before enabling this engine."
+      }
+    ],
+    "setting_aliases": {
+      "voxtral_model": "model",
+      "voxtral_voice_id": "voice_asset_id"
+    },
+    "synthesis_settings": ["model"],
+    "text_chunk_limit": 500,
+    "text_split_target": 450,
+    "progress_pattern": "\\[PROGRESS\\]\\s+([0-9.]+)"
+  },
   "local": false,
   "cloud": true,
   "network": true,
@@ -19,5 +55,6 @@
   "author": "Mistral AI",
   "homepage": "https://mistral.ai",
   "license": "Commercial API",
+  "test_sample": "voice.wav",
   "test_text": "Hello, this is a verification test of the Voxtral synthesis engine."
 }

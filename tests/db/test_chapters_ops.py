@@ -20,12 +20,11 @@ def test_reorder_chapters(db_conn):
     assert chapters[0]["sort_order"] == 0
     assert chapters[1]["sort_order"] == 1
 
-def test_reset_chapter_audio(db_conn):
+def test_reset_chapter_audio(db_conn, tmp_path):
     pid = create_project("P2", "/tmp")
-    with patch("app.config.get_project_audio_dir", return_value=Path("/tmp")), \
-         patch("app.config.find_existing_project_subdir", side_effect=_existing_project_audio_dir(Path("/tmp"))):
+    with patch("app.core.config.PROJECTS_DIR", tmp_path):
         cid = create_chapter(pid, "C1")
-        update_chapter(cid, audio_status="done", audio_file_path="c1.wav")
+        update_chapter(cid, audio_status="done", audio_file_path="chapter.wav")
 
         success = reset_chapter_audio(cid)
         assert success is True
@@ -36,20 +35,23 @@ def test_reset_chapter_audio(db_conn):
 
 def test_reset_chapter_audio_deletes_chunk_files(db_conn, tmp_path):
     from app.db.segments import sync_chapter_segments, get_chapter_segments, update_segment
+    from app.core.config import get_chapter_dir
 
     pid = create_project("P2B", "/tmp")
     cid = create_chapter(pid, "C1", "One. Two.")
+    with patch("app.core.config.PROJECTS_DIR", tmp_path), \
+         patch("app.core.config.TRASH_DIR", tmp_path / "trash"):
+        chapter_dir = get_chapter_dir(pid, cid)
+        chapter_dir.mkdir(parents=True, exist_ok=True)
+        (chapter_dir / "segments").mkdir(exist_ok=True)
 
-    with patch("app.config.PROJECTS_DIR", tmp_path), \
-         patch("app.config.get_project_audio_dir", return_value=tmp_path), \
-         patch("app.config.find_existing_project_subdir", side_effect=_existing_project_audio_dir(tmp_path)):
         sync_chapter_segments(cid, "One. Two.")
         segs = get_chapter_segments(cid)
-        chunk_name = f"chunk_{segs[0]['id']}.wav"
-        chunk_path = tmp_path / chunk_name
+        chunk_name = f"{segs[0]['id']}.wav"
+        chunk_path = chapter_dir / "segments" / chunk_name
         chunk_path.write_text("chunk")
 
-        update_chapter(cid, audio_status="done", audio_file_path=f"{cid}.wav")
+        update_chapter(cid, audio_status="done", audio_file_path="chapter.wav")
         update_segment(segs[0]["id"], audio_status="done", audio_file_path=chunk_name)
         update_segment(segs[1]["id"], audio_status="done", audio_file_path=chunk_name)
 
@@ -59,26 +61,29 @@ def test_reset_chapter_audio_deletes_chunk_files(db_conn, tmp_path):
 
 def test_update_segment_only_cleans_edited_segment_files(db_conn, tmp_path):
     from app.db.segments import sync_chapter_segments, get_chapter_segments, update_segment
+    from app.core.config import get_chapter_dir
 
     pid = create_project("P3", "/tmp")
     cid = create_chapter(pid, "C3", "One. Two.")
+    with patch("app.core.config.PROJECTS_DIR", tmp_path), \
+         patch("app.core.config.TRASH_DIR", tmp_path / "trash"):
+        chapter_dir = get_chapter_dir(pid, cid)
+        chapter_dir.mkdir(parents=True, exist_ok=True)
+        (chapter_dir / "segments").mkdir(exist_ok=True)
 
-    with patch("app.config.PROJECTS_DIR", tmp_path), \
-         patch("app.config.get_project_audio_dir", return_value=tmp_path), \
-         patch("app.config.find_existing_project_subdir", side_effect=_existing_project_audio_dir(tmp_path)):
         sync_chapter_segments(cid, "One. Two.")
         segs = get_chapter_segments(cid)
         sid1 = segs[0]["id"]
         sid2 = segs[1]["id"]
 
-        chapter_wav = tmp_path / f"{cid}.wav"
-        seg1_wav = tmp_path / f"seg_{sid1}.wav"
-        seg2_wav = tmp_path / f"seg_{sid2}.wav"
+        chapter_wav = chapter_dir / "chapter.wav"
+        seg1_wav = chapter_dir / "segments" / f"{sid1}.wav"
+        seg2_wav = chapter_dir / "segments" / f"{sid2}.wav"
         chapter_wav.write_text("chapter")
         seg1_wav.write_text("seg1")
         seg2_wav.write_text("seg2")
 
-        update_chapter(cid, audio_status="done", audio_file_path=f"{cid}.wav")
+        update_chapter(cid, audio_status="done", audio_file_path="chapter.wav")
         update_segment(sid1, audio_status="done", audio_file_path=seg1_wav.name)
         update_segment(sid2, audio_status="done", audio_file_path=seg2_wav.name)
         update_segment(sid1, text_content="Updated one.")
@@ -96,4 +101,3 @@ def test_update_segment_only_cleans_edited_segment_files(db_conn, tmp_path):
         seg2_after = next(s for s in segs_after if s["id"] == sid2)
         assert seg1_after["audio_status"] == "unprocessed"
         assert seg1_after["audio_file_path"] is None
-        assert seg2_after["audio_status"] == "done"

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { Speaker, SpeakerProfile, Job, VoiceEngine } from '../types';
+import type { Speaker, SpeakerProfile, Job, VoiceEngine } from '@/types';
 
 export function useVoiceManagement(
     onRefresh: () => void, 
@@ -251,24 +251,6 @@ export function useVoiceManagement(
         return false;
     }, [onRefresh]);
 
-    const handleUpdateVoxtralVoiceId = useCallback(async (name: string, voiceId: string) => {
-        try {
-            const formData = new URLSearchParams();
-            formData.append('voice_id', voiceId || '');
-            const resp = await fetch(`/api/speaker-profiles/${encodeURIComponent(name)}/voxtral-voice-id`, {
-                method: 'POST',
-                body: formData
-            });
-            if (resp.ok) {
-                onRefresh();
-                return true;
-            }
-        } catch (err) {
-            console.error('Failed to update Voxtral voice id', err);
-        }
-        return false;
-    }, [onRefresh]);
-
     const handleUpdateSettings = useCallback(async (name: string, settings: Record<string, any>) => {
         try {
             const resp = await fetch(`/api/speaker-profiles/${encodeURIComponent(name)}/settings`, {
@@ -301,7 +283,7 @@ export function useVoiceManagement(
         handleDelete,
         handleUpdateEngine,
         handleUpdateReferenceSample,
-        handleUpdateVoxtralVoiceId,
+
         handleUpdateSettings,
         formatError
     };

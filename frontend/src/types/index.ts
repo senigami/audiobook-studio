@@ -1,5 +1,5 @@
-export type Engine = 'xtts' | 'voxtral' | 'mixed' | 'audiobook' | 'voice_build' | 'voice_test';
-export type VoiceEngine = 'xtts' | 'voxtral' | string;
+export type Engine = string;
+export type VoiceEngine = string;
 
 export interface TtsEngine {
   engine_id: string;
@@ -30,7 +30,7 @@ export interface TtsEngine {
   last_test?: {
     ok: boolean;
     audio_url: string;
-    generated_at: number;
+    generated_at: number | string;
     message?: string;
   };
 }
@@ -121,12 +121,23 @@ export interface ScriptRenderBatch {
   estimated_work_weight: number;
 }
 
+export interface AudioGroup {
+  id: string;
+  span_ids: string[];
+  status: string;
+  audio_file_path: string | null;
+  asset_url: string | null;
+  order_index: number;
+  estimated_work_weight: number;
+}
+
 export interface ScriptViewResponse {
   chapter_id: string;
   base_revision_id: string | null;
   paragraphs: ScriptParagraph[];
   spans: ScriptSpan[];
   render_batches: ScriptRenderBatch[];
+  audio_groups: AudioGroup[];
 }
 
 export interface ScriptAssignment {
@@ -218,8 +229,8 @@ export interface SpeakerProfile {
   speaker_id: string | null;
   variant_name: string | null;
   engine?: VoiceEngine;
-  voxtral_voice_id?: string | null;
-  voxtral_model?: string | null;
+  voice_asset_id?: string | null;
+  model?: string | null;
   reference_sample?: string | null;
   preview_url: string | null;
   asset_base_url?: string | null;
@@ -292,9 +303,9 @@ export interface Settings {
   safe_mode: boolean;
   default_engine: Engine;
   default_speaker_profile?: string;
-  voxtral_enabled?: boolean;
+  cloud_enabled?: boolean;
   enabled_plugins?: Record<string, boolean>;
-  voxtral_model?: string;
+  cloud_model?: string;
   mistral_api_key?: string;
 }
 

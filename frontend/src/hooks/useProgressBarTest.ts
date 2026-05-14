@@ -1,7 +1,7 @@
 import React from 'react';
-import { type ProgressBarTestConfig, type ProgressBarStatus, DEFAULT_CONFIG } from '../components/progressbar/ProgressBarTestTypes';
-import { clamp01, nowUnixSeconds } from '../components/progressbar/ProgressBarTestHelpers';
-import { resetPredictiveProgressMemory, type PredictiveProgressDebugSnapshot } from '../components/PredictiveProgressBar';
+import { type ProgressBarTestConfig, type ProgressBarStatus, DEFAULT_CONFIG } from '@tests/helpers/ProgressBarTestTypes';
+import { clamp01, nowUnixSeconds } from '@tests/helpers/ProgressBarTestHelpers';
+import { resetPredictiveProgressMemory, type PredictiveProgressDebugSnapshot } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
 
 export function useProgressBarTest() {
   const [launchConfig, setLaunchConfig] = React.useState<ProgressBarTestConfig>(DEFAULT_CONFIG);

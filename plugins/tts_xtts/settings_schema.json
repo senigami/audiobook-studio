@@ -1,7 +1,7 @@
 {
-  "$schema": "https://json-schema.org/draft-07/schema#",
-  "title": "XTTS Settings",
-  "description": "Configuration for the XTTS speech synthesis engine. XTTS stays local, but it still needs the Studio XTTS runtime and the Python packages listed in its requirements before it can be enabled.",
+  "$schema": "https://json-schema.org/draft-2020-12/schema",
+  "title": "XTTS Local Settings",
+  "description": "XTTS Local is the built-in voice engine. It uses your Studio voice profiles for verification, and it needs the Studio XTTS environment plus the Python packages listed in its requirements before it can be enabled.",
   "type": "object",
   "properties": {
     "speed": {
@@ -49,9 +49,22 @@
       "title": "Safe Mode",
       "description": "Use a more conservative cleanup path before synthesis. Leave this on if XTTS is unstable or if you want the safest default behavior.",
       "default": true
+    },
+    "computer_speed_multiplier": {
+      "type": "number",
+      "title": "Computer Speed",
+      "description": "Computed from completed renders for this plugin and shown in characters per second. This calibrates Studio's render-time estimates and does not change voice speaking speed.",
+      "minimum": 0.01,
+      "maximum": 100,
+      "default": 1.0,
+      "readOnly": true,
+      "x-ui": {
+        "display": "computer_speed_cps",
+        "baseline_cps": 16.7
+      }
     }
   },
-  "additionalProperties": false,
+  "additionalProperties": true,
   "x-ui": {
     "panel_title": "XTTS Local Setup",
     "summary": "XTTS Local stays on your machine, but it still needs the Studio XTTS runtime and any Python packages listed by the engine before it can be turned on. Good starting values are speed 1.0, temperature around 0.7, top-p around 0.9, top-k around 40 to 50, and a repetition penalty around 1.1 to 1.2. If the card says needs setup, click Install Deps to install the required packages, then verify the engine again using the Default Voice from General settings."

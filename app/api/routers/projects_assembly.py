@@ -5,7 +5,7 @@ import urllib.parse
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Form, HTTPException, Body
+from fastapi import APIRouter, Form, HTTPException, Body, BackgroundTasks
 from fastapi.responses import JSONResponse
 
 from ...db import (
@@ -13,13 +13,14 @@ from ...db import (
     get_chapter,
     list_chapters as db_list_chapters,
 )
-from ...config import COVER_DIR, XTTS_OUT_DIR, get_project_dir, find_existing_project_subdir
-from ...pathing import safe_join, safe_join_flat, find_secure_file
+from ...core.config import get_project_dir, get_project_m4b_dir
+from ...utils.pathing import safe_join, safe_join_flat, find_secure_file
 from ...api.utils import SAFE_FILE_RE, preferred_audiobook_download_filename, probe_audiobook_metadata
-from ...jobs import enqueue
-from ...state import put_job, update_job, get_jobs
-from ...models import Job
-from ...engines import get_audio_duration
+from ...db.state import put_job, update_job, get_jobs
+from ...db.models import Job
+from ...engines.audio_ops import get_audio_duration
+from ...orchestration.scheduler.orchestrator import create_orchestrator
+from ...orchestration.tasks.assembly import AssemblyTask
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +32,9 @@ def api_list_project_audiobooks(project_id: str):
     if not project:
         return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
 
-    m4b_dir = find_existing_project_subdir(project_id, "m4b")
+    m4b_dir = get_project_m4b_dir(project_id)
     m4b_files = []
-    if m4b_dir and m4b_dir.exists():
+    if m4b_dir.exists():
         for p in m4b_dir.iterdir():
             if not p.is_file() or p.suffix.lower() != ".m4b" or not SAFE_FILE_RE.fullmatch(p.name):
                 continue
@@ -116,9 +117,8 @@ def api_update_audiobook_metadata(project_id: str, filename: str, description: s
         if get_project(project_id) is None:
             return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
 
-        from ...config import find_existing_project_dir
-        project_dir = find_existing_project_dir(project_id) or get_project_dir(project_id)
-        from ...pathing import secure_join_flat
+        project_dir = get_project_dir(project_id)
+        from ...utils.pathing import secure_join_flat
         try:
             m4b_dir = secure_join_flat(project_dir, "m4b")
         except ValueError:
@@ -154,8 +154,15 @@ def api_update_audiobook_metadata(project_id: str, filename: str, description: s
         logger.error(f"Failed to update audiobook metadata for {filename}: {e}", exc_info=True)
         return JSONResponse({"status": "error", "message": "Internal server error during audiobook metadata update"}, status_code=500)
 
+
+
+
 @router.post("/{project_id}/assemble")
-def assemble_project(project_id: str, chapter_ids: Optional[str] = Form(None)):
+def assemble_project(
+    project_id: str,
+    background_tasks: BackgroundTasks,
+    chapter_ids: Optional[str] = Form(None)
+):
     import json
 
     project = get_project(project_id)
@@ -182,10 +189,17 @@ def assemble_project(project_id: str, chapter_ids: Optional[str] = Form(None)):
     chapter_list = []
     for c in chapters:
         if c['audio_status'] == 'done' and c['audio_file_path']:
-            chapter_list.append({
-                'filename': c['audio_file_path'],
-                'title': c['title']
-            })
+            from ...core.config import resolve_chapter_asset_path
+            full_path = resolve_chapter_asset_path(project_id, c['id'], 'audio', filename=c['audio_file_path'])
+            if full_path and full_path.exists():
+                chapter_list.append({
+                    'filename': str(full_path),
+                    'title': c['title']
+                })
+            else:
+                return JSONResponse({
+                    "error": f"Chapter '{c['title']}' audio file not found at {full_path}"
+                }, status_code=400)
         else:
             return JSONResponse({
                 "error": f"Chapter '{c['title']}' is not processed yet or audio is missing."
@@ -198,20 +212,17 @@ def assemble_project(project_id: str, chapter_ids: Optional[str] = Form(None)):
 
     jid = uuid.uuid4().hex[:12]
     cover_path = project.get('cover_image_path', None)
-    if cover_path:
-        if cover_path.startswith('/out/covers/'):
-            filename = cover_path.replace('/out/covers/', '')
-            cover_p = find_secure_file(COVER_DIR, filename)
-            cover_path = str(cover_p) if cover_p else None
-        elif cover_path.startswith(f'/projects/{project_id}/'):
-            filename = cover_path.replace(f'/projects/{project_id}/', '')
-            # If it's a nested path like 'cover/cover.jpg', we use safe_join
-            try:
-                # Rule 9: containment check
-                cover_p = safe_join(get_project_dir(project_id), filename)
-                cover_path = str(cover_p) if cover_p.exists() else None
-            except ValueError:
-                cover_path = None
+    if cover_path and cover_path.startswith(f'/projects/{project_id}/'):
+        filename = cover_path.replace(f'/projects/{project_id}/', '')
+        # If it's a nested path like 'cover/cover.jpg', we use safe_join
+        try:
+            # Rule 9: containment check
+            cover_p = safe_join(get_project_dir(project_id), filename)
+            cover_path = str(cover_p) if cover_p.exists() else None
+        except ValueError:
+            cover_path = None
+    else:
+        cover_path = None
 
     j = Job(
         id=jid,
@@ -231,54 +242,20 @@ def assemble_project(project_id: str, chapter_ids: Optional[str] = Form(None)):
     )
     put_job(j)
     update_job(jid, force_broadcast=True, status="queued", project_id=project_id, custom_title=book_title)
-    enqueue(j)
+
+    orchestrator = create_orchestrator()
+    out_file = get_project_m4b_dir(project_id) / f"{unique_filename}.m4b"
+    task = AssemblyTask(
+        task_id=jid,
+        output_path=out_file,
+        project_id=project_id,
+        is_audiobook=True,
+        book_title=book_title,
+        author=project.get('author', ''),
+        narrator="Generated by Audiobook Studio",
+        chapters=chapter_list,
+        cover_path=Path(cover_path) if cover_path else None
+    )
+    background_tasks.add_task(orchestrator.submit, task)
+
     return JSONResponse({"status": "ok", "job_id": jid})
-
-@router.get("/audiobook/prepare")
-def prepare_audiobook():
-    """Scans folders and returns a preview of chapters/durations for the modal."""
-    src_dir = XTTS_OUT_DIR
-    if not src_dir.exists():
-        return JSONResponse({"title": "", "chapters": []})
-
-    import re
-    all_files = [p.name for p in src_dir.iterdir() if p.is_file() and p.suffix.lower() in ('.wav', '.mp3') and not p.name.startswith('seg_')]
-    chapters_found = {}
-    for f in all_files:
-        stem = Path(f).stem
-        ext = Path(f).suffix.lower()
-        if stem not in chapters_found or ext == '.mp3':
-             chapters_found[stem] = f
-
-    def extract_number(filename):
-        # Match part numbers or the whole stem to avoid UUID hashes
-        match = re.search(r'(?:part_)?(\d+)(?:\.|$|_)', filename, re.IGNORECASE)
-        return int(match.group(1)) if match else 0
-
-    sorted_stems = sorted(chapters_found.keys(), key=lambda x: extract_number(x))
-    preview = []
-    total_sec = 0.0
-    existing_jobs = get_jobs()
-    job_titles = {j.chapter_file: j.custom_title for j in existing_jobs.values() if j.custom_title}
-
-    for stem in sorted_stems:
-        fname = chapters_found[stem]
-        import os
-        trusted_src_root = os.path.abspath(os.path.realpath(os.fspath(src_dir)))
-        full_fname_path = os.path.normpath(os.path.join(trusted_src_root, fname))
-
-        if full_fname_path.startswith(trusted_src_root + os.sep):
-            dur = get_audio_duration(Path(full_fname_path))
-            display_name = job_titles.get(stem + ".txt") or job_titles.get(stem) or stem
-            preview.append({
-                "filename": fname,
-                "title": display_name,
-                "duration": dur
-            })
-            total_sec += dur
-
-    return {
-        "title": "Audiobook Project",
-        "chapters": preview,
-        "total_duration": total_sec
-    }

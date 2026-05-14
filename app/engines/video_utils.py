@@ -59,5 +59,5 @@ def generate_video_sample(
             str(output_video),
         ]
     )
-    from app.engines import run_cmd_stream
+    from .proc_utils import run_cmd_stream
     return run_cmd_stream(cmd, on_output, cancel_check)

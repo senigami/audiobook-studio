@@ -1,6 +1,6 @@
 import React from 'react';
 import { Clock } from 'lucide-react';
-import type { ProcessingQueueItem, Job } from '../../types';
+import type { ProcessingQueueItem, Job } from '@/types';
 
 interface QueueStatsProps {
     queue: ProcessingQueueItem[];

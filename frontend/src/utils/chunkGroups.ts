@@ -1,6 +1,6 @@
-import type { ChapterSegment, Character, SpeakerProfile, VoiceEngine } from '../types';
-import { CHUNK_CHAR_LIMIT } from '../constants/audio';
-import { getVoiceProfileEngine } from './voiceProfiles';
+import type { ChapterSegment, Character, SpeakerProfile, VoiceEngine } from '@/types';
+import { CHUNK_CHAR_LIMIT } from '@/constants/audio';
+import { getVoiceProfileEngine } from '@/utils/voiceProfiles';
 
 export interface ChunkGroup {
   characterId: string | null;

@@ -15,7 +15,7 @@ def create_project(
     cover_image_path: Optional[str] = None,
     speaker_profile_name: Optional[str] = None,
 ) -> str:
-    from .. import config
+    from ..core import config
 
     with _db_lock:
         with get_connection() as conn:
@@ -29,19 +29,41 @@ def create_project(
             conn.commit()
 
             project_dir = config.PROJECTS_DIR / project_id
-            (project_dir / "audio").mkdir(parents=True, exist_ok=True)
-            (project_dir / "text").mkdir(parents=True, exist_ok=True)
             (project_dir / "m4b").mkdir(parents=True, exist_ok=True)
             (project_dir / "cover").mkdir(parents=True, exist_ok=True)
+
+            # Save V2 manifest immediately for new projects
+            from ..domain.projects.manifest import save_project_manifest, CURRENT_STORAGE_VERSION
+            manifest = {
+                "version": CURRENT_STORAGE_VERSION,
+                "title": name,
+                "series": series,
+                "author": author,
+                "created_at": now,
+            }
+            save_project_manifest(project_dir, manifest)
 
             return project_id
 
 def get_project(project_id: str) -> Optional[Dict[str, Any]]:
+    request_started_at = time.perf_counter()
     with _db_lock:
+        lock_acquired_at = time.perf_counter()
         with get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM projects WHERE id = ?", (project_id,))
             row = cursor.fetchone()
+            total_ms = round((time.perf_counter() - request_started_at) * 1000)
+            lock_wait_ms = round((lock_acquired_at - request_started_at) * 1000)
+            query_ms = round((time.perf_counter() - lock_acquired_at) * 1000)
+            if total_ms >= 100:
+                logger.info(
+                    "get_project timing project=%s total_ms=%s lock_wait_ms=%s query_ms=%s",
+                    project_id,
+                    total_ms,
+                    lock_wait_ms,
+                    query_ms,
+                )
             return dict(row) if row else None
 
 def list_projects() -> List[Dict[str, Any]]:
@@ -74,13 +96,14 @@ def delete_project(project_id: str) -> bool:
         with get_connection() as conn:
             cursor = conn.cursor()
             # 1. First, get project info for path cleanup
-            from .. import config
+            from ..core import config
             pdir = None
-            if config.PROJECTS_DIR.exists():
-                for entry in config.PROJECTS_DIR.iterdir():
-                    if entry.is_dir() and entry.name == project_id:
-                        pdir = entry.resolve()
-                        break
+            try:
+                pdir = config.get_project_dir(project_id)
+                if not pdir.exists():
+                    pdir = None
+            except ValueError:
+                pass
 
             # 2. Delete from DB
             # Delete related characters
@@ -105,73 +128,3 @@ def delete_project(project_id: str) -> bool:
                         logger.warning("Failed to remove project directory %s", resolved_pdir, exc_info=True)
 
             return cursor.rowcount > 0
-
-
-def migrate_legacy_project_covers() -> int:
-    from .. import config
-
-    candidates: list[tuple[str, Path, Path, str]] = []
-    with _db_lock:
-        with get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT id, cover_image_path FROM projects WHERE cover_image_path LIKE '/out/covers/%'")
-            rows = cursor.fetchall()
-            for row in rows:
-                project_id = row["id"]
-                cover_image_path = row["cover_image_path"]
-                if not cover_image_path:
-                    continue
-
-                legacy_name = Path(cover_image_path.replace("/out/covers/", "")).name
-                if not legacy_name:
-                    continue
-
-                legacy_path = config.COVER_DIR / legacy_name
-                if not legacy_path.is_file():
-                    continue
-
-                project_cover_dir = config.get_project_cover_dir(project_id)
-                new_name = f"cover{legacy_path.suffix.lower()}"
-                destination = project_cover_dir / new_name
-                new_virtual_path = f"/projects/{project_id}/cover/{new_name}"
-                candidates.append((project_id, legacy_path, destination, new_virtual_path))
-
-    migrated_updates: list[tuple[str, str]] = []
-    import os
-    trusted_cover_root = os.path.abspath(os.path.realpath(os.fspath(config.COVER_DIR)))
-
-    for project_id, legacy_path, destination, new_virtual_path in candidates:
-        # Rule 9: Locally visible containment check
-        dest_parent = os.path.abspath(os.path.realpath(os.fspath(destination.parent)))
-        trusted_projects_root = os.path.abspath(os.path.realpath(os.fspath(config.PROJECTS_DIR)))
-
-        if not dest_parent.startswith(trusted_projects_root + os.sep):
-             logger.warning("Migration destination escapes projects root: %s", dest_parent)
-             continue
-
-        os.makedirs(dest_parent, exist_ok=True)
-
-        try:
-            resolved_legacy = os.path.abspath(os.path.realpath(os.fspath(legacy_path)))
-            resolved_dest = os.path.abspath(os.path.realpath(os.fspath(destination)))
-
-            # Proof both sides
-            if resolved_legacy.startswith(trusted_cover_root + os.sep) and resolved_dest.startswith(dest_parent + os.sep):
-                if resolved_dest != resolved_legacy:
-                    shutil.copy2(resolved_legacy, resolved_dest)
-                migrated_updates.append((project_id, new_virtual_path))
-        except Exception:
-            logger.warning("Failed to migrate legacy cover %s for project %s", legacy_path, project_id, exc_info=True)
-
-    if migrated_updates:
-        with _db_lock:
-            with get_connection() as conn:
-                cursor = conn.cursor()
-                for project_id, new_virtual_path in migrated_updates:
-                    cursor.execute(
-                        "UPDATE projects SET cover_image_path = ?, updated_at = ? WHERE id = ?",
-                        (new_virtual_path, time.time(), project_id),
-                    )
-                conn.commit()
-
-    return len(migrated_updates)

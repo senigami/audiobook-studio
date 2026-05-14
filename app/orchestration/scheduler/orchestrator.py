@@ -1,7 +1,8 @@
 """Task orchestrator for Studio 2.0.
 
-This is the Phase 5 centerpiece: a real implementation of submit(), recover(),
-and cancel() that uses Phase 4 reconciliation as the source of truth.
+This is the Studio 2.0 task orchestration layer: a real implementation of
+submit(), recover(), and cancel() that uses reconciliation as the source
+of truth.
 
 Ownership model
 ---------------
@@ -12,12 +13,11 @@ Ownership model
 
 These responsibilities must not bleed into each other.
 
-Legacy isolation
-----------------
-When ``USE_STUDIO_ORCHESTRATOR=true``, Studio 2.0 jobs are handled here.
-They must not enter the ``app.jobs`` worker loop. Compatibility adapters are
-explicit and removable; the orchestrator must not silently depend on legacy
-startup or loop behavior.
+Orchestration boundaries
+------------------------
+Studio 2.0 jobs are handled here and must not enter the ``app.jobs`` worker
+loop. Compatibility adapters are explicit and removable; the orchestrator
+must not silently depend on internal background worker or loop behavior.
 """
 
 from __future__ import annotations
@@ -156,30 +156,29 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
         # Step 4 — reserve resources
         claim_dict = _claim_to_dict(getattr(task, "resource_claim", None))
         claim_dict["task_id"] = task_id  # needed by GpuAdmissionGate
-        reservation = reserve_task_resources(
-            task_type=context.task_type,
-            resource_claims=claim_dict,
-        )
-        if not reservation.get("admitted", True):
-            waiting_reason = reservation.get("waiting_reason", "Resources unavailable.")
-            self._publish(
-                context=context,
-                status="waiting_for_resources",
-                waiting_reason=waiting_reason,
+        while True:
+            reservation = reserve_task_resources(
+                task_type=context.task_type,
+                resource_claims=claim_dict,
             )
-            logger.warning("Task %s: resource admission failed: %s", task_id, waiting_reason)
-            # Return task_id — the caller should re-submit via the policy queue.
-            return task_id
+            if reservation.get("admitted", True):
+                break
+
+            waiting_reason = reservation.get("waiting_reason", "Resources unavailable.")
+            if waiting_reason == "Orchestrator is paused.":
+                self._publish(
+                    context=context,
+                    status="waiting_for_resources",
+                    waiting_reason=waiting_reason,
+                )
+                logger.warning("Task %s: resource admission failed: %s", task_id, waiting_reason)
+                return task_id
+
+            logger.info("Task %s waiting for resources: %s", task_id, waiting_reason)
+            time.sleep(1.0)
 
         # Step 5 — running
         self._active[task_id] = task
-        self._publish(
-            context=context,
-            status="running",
-            started_at=time.time(),
-            message="Synthesis in progress.",
-            reason_code="dispatching",
-        )
 
         # Step 6 — dispatch
         max_attempts = 3
@@ -347,9 +346,15 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
             elif task_type == "synthesis":
                 from app.orchestration.tasks.synthesis import SynthesisTask
                 return SynthesisTask.from_task_context(context)
-            elif task_type == "mixed_synthesis":
-                from app.orchestration.tasks.mixed_synthesis import MixedSynthesisTask
-                return MixedSynthesisTask.from_task_context(context)
+            elif task_type == "assembly":
+                from app.orchestration.tasks.assembly import AssemblyTask
+                return AssemblyTask.from_task_context(context)
+            elif task_type == "sample_build":
+                from app.orchestration.tasks.sample_build import SampleBuildTask
+                return SampleBuildTask.from_task_context(context)
+            elif task_type == "sample_test":
+                from app.orchestration.tasks.sample_test import SampleTestTask
+                return SampleTestTask.from_task_context(context)
             # Add other task types as needed...
         except Exception:
             logger.exception("Failed to reconstruct task of type %s", task_type)

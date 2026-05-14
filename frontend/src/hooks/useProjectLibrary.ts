@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { Project } from '../types';
-import { api } from '../api';
+import type { Project } from '@/types';
+import { api } from '@/api';
 
 export const useProjectLibrary = (onSelectProject?: (projectId: string) => void) => {
     const navigate = useNavigate();

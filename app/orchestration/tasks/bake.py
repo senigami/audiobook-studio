@@ -57,6 +57,11 @@ class BakeTask(StudioTask):
         if not self.output_path:
             raise ValueError("output_path is required")
 
+    @property
+    def prefers_local_execution(self) -> bool:
+        """Bake tasks execute run() locally and manage their own engine calls."""
+        return True
+
     def describe(self) -> TaskContext:
         """Describe bake identity."""
         return TaskContext(
@@ -74,7 +79,7 @@ class BakeTask(StudioTask):
 
     def run(self) -> TaskResult:
         """Execute bake via app.engines."""
-        from app.engines import wav_to_mp3  # noqa: PLC0415
+        from app.engines.audio_ops import wav_to_mp3  # noqa: PLC0415
 
         if not self.input_path.exists():
             return TaskResult(

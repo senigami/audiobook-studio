@@ -2,8 +2,9 @@ from __future__ import annotations
 import time
 import logging
 
-from ..state import update_performance_metrics as _update_performance_metrics
-from .core import BASELINE_XTTS_CPS, get_robust_eta_params
+from ..db.state import update_performance_metrics as _update_performance_metrics, get_jobs, get_performance_metrics
+from ..engines.behavior import DEFAULT_BASELINE_ENGINE_CPS
+from ..orchestration.scheduler.eta import get_robust_eta_params
 from .worker_helpers import _job_field
 
 logger = logging.getLogger(__name__)
@@ -11,13 +12,12 @@ logger = logging.getLogger(__name__)
 update_performance_metrics = _update_performance_metrics
 
 
-def _record_xtts_sample(job, start: float, chars: int, perf: dict, source_segment_count: int | None = None):
-    from . import worker as worker_facade
+def record_engine_sample(job, start: float, chars: int, perf: dict, source_segment_count: int | None = None):
 
     # Only train on the persisted terminal job, not the stale in-memory object.
     # Cancelled, failed, or partial jobs must not poison history.
     job_id = _job_field(job, "id")
-    persisted = worker_facade.get_jobs().get(job_id) if job_id else None
+    persisted = get_jobs().get(job_id) if job_id else None
     status = _job_field(persisted, "status", _job_field(job, "status"))
     if status != "done":
         return
@@ -29,11 +29,16 @@ def _record_xtts_sample(job, start: float, chars: int, perf: dict, source_segmen
         return
 
     engine = _job_field(persisted, "engine", _job_field(job, "engine"))
-    if engine not in ("xtts", "mixed"):
-        return
+    tts_model = _resolve_job_tts_model(persisted or job, engine)
+    # We now allow all engines to record samples if they have a non-zero character count.
+    # Mixed chapters are also recorded under the 'mixed' engine ID.
 
-    eff_start = _job_field(persisted, "synthesis_started_at", _job_field(job, "synthesis_started_at"))
-    eff_start = eff_start or start
+    # In Studio 2.0, started_at represents the actual render start.
+    # In legacy jobs, synthesis_started_at was used.
+    eff_start = _job_field(persisted, "started_at")
+    if not eff_start or _job_field(persisted, "status") == "preparing":
+        eff_start = start
+
     finished_at = _job_field(persisted, "finished_at", _job_field(job, "finished_at")) or time.time()
     dur = finished_at - eff_start
     if dur <= 1.0: # Filter out cached/instant runs to avoid poisoning metrics
@@ -71,6 +76,7 @@ def _record_xtts_sample(job, start: float, chars: int, perf: dict, source_segmen
     # Record detailed sample
     record_render_sample(
         engine=engine,
+        tts_model=tts_model,
         chars=chars,
         word_count=word_count,
         segment_count=segment_count,
@@ -87,13 +93,50 @@ def _record_xtts_sample(job, start: float, chars: int, perf: dict, source_segmen
         make_mp3=_job_field(persisted, "make_mp3", _job_field(job, "make_mp3", False)),
     )
 
-    # Re-derive robust CPS for legacy field compatibility
-    # We still keep xtts_cps in settings because workers use it for quick lookups
-    current_perf = worker_facade.get_performance_metrics()
-    history = current_perf.get("xtts_render_history") or []
-    robust_params = get_robust_eta_params(history, current_perf.get("xtts_cps", BASELINE_XTTS_CPS))
-    robust_cps = robust_params[0] if robust_params else current_perf.get("xtts_cps", BASELINE_XTTS_CPS)
+    # Re-derive robust CPS for engine-specific ETA logic
+    current_perf = get_performance_metrics()
+    all_history = current_perf.get("render_history") or []
+    history = _filter_history_for_engine_model(all_history, engine, tts_model)
 
+    engine_cps_map = current_perf.get("engine_cps") or {}
+    fallback_cps = engine_cps_map.get(engine, DEFAULT_BASELINE_ENGINE_CPS)
+
+    robust_params = get_robust_eta_params(history, fallback_cps)
+    robust_cps = robust_params[0] if robust_params else fallback_cps
+
+    engine_cps_map[engine] = round(robust_cps, 2)
     update_performance_metrics(
-        xtts_cps=round(robust_cps, 2)
+        engine_cps=engine_cps_map
     )
+
+    try:
+        from app.tts_server.performance_settings import save_engine_computer_speed_multiplier
+        save_engine_computer_speed_multiplier(engine, robust_cps)
+    except Exception:
+        logger.debug("Failed to write plugin render speed calibration for %s", engine, exc_info=True)
+
+
+def _filter_history_for_engine_model(history: list[dict], engine: str, tts_model: str | None) -> list[dict]:
+    from app.tts_server.performance_settings import filter_history_for_engine_model
+
+    return filter_history_for_engine_model(history, engine, tts_model)
+
+
+def _resolve_job_tts_model(job, engine: str) -> str | None:
+    from app.tts_server.performance_settings import normalize_tts_model, resolve_engine_settings_model
+
+    explicit = normalize_tts_model(_job_field(job, "tts_model")) or normalize_tts_model(_job_field(job, "model"))
+    if explicit:
+        return explicit
+
+    speaker_profile = _job_field(job, "speaker_profile")
+    if speaker_profile:
+        try:
+            from app.db.speakers import get_speaker_settings
+            speaker_model = normalize_tts_model(get_speaker_settings(speaker_profile).get("model"))
+            if speaker_model:
+                return speaker_model
+        except Exception:
+            logger.debug("Failed to resolve speaker model for %s", speaker_profile, exc_info=True)
+
+    return resolve_engine_settings_model(engine)

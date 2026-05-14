@@ -6,17 +6,14 @@ implementation.
 
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 from typing import Any
 
-from app.core.feature_flags import use_tts_server
 from app.engines.registry import load_engine_registry
-from app.engines.bridge_local import LocalBridgeHandler
 from app.engines.bridge_remote import RemoteBridgeHandler
-from app.engines.voice.base import BaseVoiceEngine
-from app.engines.voice.sdk import TTSRequest, TTSResult
-from app.state import get_settings, update_settings
+
 
 logger = logging.getLogger(__name__)
 
@@ -24,44 +21,33 @@ logger = logging.getLogger(__name__)
 class VoiceBridge:
     """Routes voice requests to the correct engine adapter or TTS Server.
 
-    When ``USE_TTS_SERVER`` is enabled the bridge calls the TTS Server over
-    HTTP. Otherwise it dispatches directly to the Single-Process engine adapter.
+    The Studio 2.0 runtime always routes through the TTS Server over HTTP.
     """
 
     def __init__(self, *, registry_loader, tts_client_factory=None):
-        self.local = LocalBridgeHandler(registry_loader=registry_loader)
+        self._registry_loader = registry_loader
         self.remote = RemoteBridgeHandler(tts_client_factory=tts_client_factory)
-
-    @property
-    def registry_loader(self):
-        """Getter for legacy test monkeypatching."""
-        return self.local.registry_loader
-
-    @registry_loader.setter
-    def registry_loader(self, value):
-        """Setter for legacy test monkeypatching."""
-        self.local.registry_loader = value
 
     def synthesize(self, request: dict[str, Any]) -> dict[str, Any]:
         """Route synthesis request."""
-        if use_tts_server():
-            return self.remote.synthesize(request)
-        return self.local.synthesize(request)
+        return self.remote.synthesize(request)
+
+    def cancel(self, task_id: str) -> bool:
+        """Signal the remote bridge to cancel a specific task."""
+        return self.remote.cancel(task_id)
 
     def build_voice_asset(self, request: dict[str, Any]) -> dict[str, Any]:
         """Route voice-asset build request."""
-        if use_tts_server():
-            raise NotImplementedError("build_voice_asset is not yet implemented via TTS Server path.")
-        return self.local.build_voice_asset(request)
+        raise NotImplementedError("build_voice_asset is not yet implemented via the TTS Server path.")
 
     def is_engine_enabled(self, engine_id: str) -> bool:
         """Check whether an engine is enabled in settings."""
-        from app.state import get_settings
-        registry = self.local.registry_loader()
+        registry = self._registry_loader()
         registration = registry.get(engine_id)
         if not registration:
             return False
 
+        from app.db.state import get_settings
         settings = get_settings()
         enabled_plugins = settings.get("enabled_plugins") or {}
         default_enabled = registration.manifest.built_in or registration.manifest.verified
@@ -69,101 +55,68 @@ class VoiceBridge:
 
     def get_synthesis_plan(self, request: dict[str, Any]) -> Any:
         """Query an engine for its preferred synthesis plan."""
-        if use_tts_server():
-            return self.remote.get_synthesis_plan(request)
-        return self.local.get_synthesis_plan(request)
+        return self.remote.get_synthesis_plan(request)
+
+    def verify_engine(self, engine_id: str) -> dict[str, Any]:
+        """Trigger remote engine verification."""
+        return self.remote.verify_engine(engine_id)
+
+    def run_test(self, engine_id: str) -> dict[str, Any]:
+        """Trigger remote engine self-contained test."""
+        return self.remote.run_test(engine_id)
 
     def check_readiness(
         self, engine_id: str, profile_id: str, settings: dict[str, Any], profile_dir: str | None
     ) -> tuple[bool, str]:
         """Check if a voice profile is ready."""
-        if use_tts_server():
-            return True, "Assumed ready (TTS Server)"
-        return self.local.check_readiness(engine_id, profile_id, settings, profile_dir)
+        return True, "Assumed ready (TTS Server)"
 
     def describe_registry(self) -> list[dict[str, Any]]:
         """Return discovery metadata for all registered engines."""
-        if use_tts_server():
+        from .errors import EngineUnavailableError
+        try:
             results = self.remote.describe_registry()
-        else:
-            results = self.local.describe_registry()
-
-        # Enrich with last test results
-        from app.config import ENGINE_TEST_DIR  # noqa: PLC0415
-        import json
-        if ENGINE_TEST_DIR.exists():
+        except EngineUnavailableError as exc:
+            # Fall back to local registry via our loader
+            registry = self._registry_loader()
+            results = [reg.to_dict() for reg in registry.values()]
             for data in results:
-                engine_id = data.get("engine_id")
-                if not engine_id:
-                    continue
-                safe_id = "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in engine_id)
-                meta_path = ENGINE_TEST_DIR / safe_id / "last_test.json"
-                if meta_path.exists():
-                    try:
-                        data["last_test"] = json.loads(meta_path.read_text(encoding="utf-8"))
-                    except Exception:
-                        pass
+                # Mark as unavailable because the remote bridge (synthesis path) is down
+                data["health"]["available"] = False
+                data["health"]["ready"] = False
+                data["health"]["status"] = "unavailable"
+                data["health"]["message"] = f"TTS Server unavailable: {exc}"
+                # Sync top-level status/message for UI compatibility
+                data["status"] = "unavailable"
+                data["health_message"] = data["health"]["message"]
+                data["setup_message"] = data["health"]["message"]
+
+        # Enrich with the latest plugin-local test metadata.
+        from app.core.config import PLUGINS_DIR  # noqa: PLC0415
+        for data in results:
+            engine_id = data.get("engine_id")
+            if not engine_id:
+                continue
+            safe_id = "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in str(engine_id))
+            meta_path = PLUGINS_DIR / f"tts_{safe_id}" / "assets" / "last_test.json"
+            if meta_path.exists():
+                try:
+                    data["last_test"] = json.loads(meta_path.read_text(encoding="utf-8"))
+                except Exception:
+                    pass
         return results
 
     def update_engine_settings(self, engine_id: str, settings: dict[str, Any]) -> dict[str, Any]:
         """Update and persist settings for an engine."""
-        if use_tts_server():
-            return self.remote.update_settings(engine_id, settings)
-        return self.local.update_engine_settings(engine_id, settings)
+        return self.remote.update_settings(engine_id, settings)
+
+    def clear_engine_setting(self, engine_id: str, setting_key: str) -> dict[str, Any]:
+        """Clear a read-only computed setting for an engine."""
+        return self.remote.clear_setting(engine_id, setting_key)
 
     def refresh_plugins(self) -> dict[str, Any]:
         """Re-scan for new plugins."""
-        if use_tts_server():
-            return self.remote.refresh_plugins()
-
-        # For local path, we just clear the registry cache
-        from app.engines.registry import _load_cached_engine_registry # noqa: PLC0415
-        _load_cached_engine_registry.cache_clear()
-
-        return {
-            "ok": True,
-            "message": "Local plugin registry cache cleared.",
-            "loaded_count": len(self.local.registry_loader()),
-        }
-
-    def verify_engine(self, engine_id: str) -> dict[str, Any]:
-        """Trigger verification synthesis."""
-        if use_tts_server():
-            return self.remote.verify_engine(engine_id)
-
-        # Local path: use the verification runner directly
-        from app.tts_server.verification import verify_plugin # noqa: PLC0415
-        from app.tts_server.plugin_loader import LoadedPlugin # noqa: PLC0415
-
-        registry = self.local.registry_loader()
-        reg = registry.get(engine_id)
-        if not reg:
-            return {"ok": False, "message": f"Engine '{engine_id}' not found in local registry."}
-
-        # Wrap the local engine. Legacy engines (XTTS, Voxtral) need a shim
-        # to look like StudioTTSEngine for the verification runner.
-        engine_wrapper = reg.engine
-        if not hasattr(engine_wrapper, "check_env"):
-            engine_wrapper = _LegacyEngineShim(reg.engine)
-
-        plugin = LoadedPlugin(
-            folder_name=engine_id,
-            plugin_dir=Path(reg.manifest.module_path).parent,
-            manifest=reg.manifest,
-            engine=engine_wrapper
-        )
-        result = verify_plugin(plugin)
-        if result.ok:
-            # Update the in-memory manifest verified flag
-            object.__setattr__(reg.manifest, "verified", True)
-
-            # Persist the verified state in settings
-            settings = get_settings()
-            verified_plugins = dict(settings.get("verified_plugins") or {})
-            verified_plugins[engine_id] = True
-            update_settings(verified_plugins=verified_plugins)
-
-        return {"ok": result.ok, "message": result.error if not result.ok else "Verified successfully", "duration_sec": result.duration_sec}
+        return self.remote.refresh_plugins()
 
     def preview(
         self,
@@ -182,63 +135,11 @@ class VoiceBridge:
             payload = dict(request)
             payload.setdefault("engine_id", str(engine_id_or_request))
 
-        if use_tts_server():
-            return self.remote.preview(payload)
-        return self.local.preview(payload)
+        return self.remote.preview(payload)
 
     def install_dependencies(self, engine_id: str) -> dict[str, Any]:
         """Trigger dependency installation."""
-        if use_tts_server():
-            return self.remote.install_dependencies(engine_id)
-
-        registry = self.local.registry_loader()
-        reg = registry.get(engine_id)
-        if not reg:
-            return {"ok": False, "message": f"Engine '{engine_id}' not found in local registry."}
-
-        # Resolve the requirements file path
-        req_path = Path(reg.manifest.module_path.replace(".", "/") + ".py").parent / "requirements.txt"
-
-        if not req_path.exists() and engine_id == "xtts":
-            # Fallback for bundled XTTS requirements
-            from app.config import BASE_DIR # noqa: PLC0415
-            req_path = BASE_DIR / "app/engines/voice/xtts/requirements.txt"
-
-        if not req_path.exists():
-            return {"ok": False, "message": f"No requirements.txt found for engine '{engine_id}'."}
-
-        import sys
-        import subprocess
-
-        python_exe = sys.executable
-        logger.info("Installing dependencies for %s using %s ...", engine_id, python_exe)
-
-        try:
-            # We use -m pip to ensure we use the pip associated with the current python
-            process = subprocess.run(
-                [python_exe, "-m", "pip", "install", "-r", str(req_path)],
-                capture_output=True,
-                text=True,
-                check=False
-            )
-            if process.returncode == 0:
-                return {
-                    "ok": True, 
-                    "message": f"Dependencies installed successfully for {engine_id}.",
-                    "stdout": process.stdout
-                }
-            else:
-                return {
-                    "ok": False,
-                    "message": f"Failed to install dependencies for {engine_id}.",
-                    "stdout": process.stdout,
-                    "stderr": process.stderr
-                }
-        except Exception as exc:
-            return {
-                "ok": False,
-                "message": f"Error running dependency installation: {exc}"
-            }
+        return self.remote.install_dependencies(engine_id)
 
     def remove_plugin(self, engine_id: str) -> dict[str, Any]:
         """Uninstall a plugin."""
@@ -261,7 +162,7 @@ class VoiceBridge:
             logs = watchdog.get_logs()
 
         if not logs:
-            from app.config import BASE_DIR # noqa: PLC0415
+            from app.core.config import BASE_DIR # noqa: PLC0415
             log_dir = BASE_DIR / "logs"
 
             msg = "Direct log streaming is not available in the UI."
@@ -283,39 +184,6 @@ class VoiceBridge:
             "message": "Logs retrieved from TTS Server buffer.",
             "engine_id": engine_id,
         }
-
-class _LegacyEngineShim:
-    """Shim to make BaseVoiceEngine look like StudioTTSEngine for verification."""
-    def __init__(self, engine: BaseVoiceEngine):
-        self.engine = engine
-
-    def check_env(self) -> tuple[bool, str]:
-        health = self.engine.describe_health()
-        return health.ready, health.message or "OK"
-
-    def check_request(self, req: TTSRequest) -> tuple[bool, str]:
-        try:
-            # BaseVoiceEngine.validate_request takes a dict
-            self.engine.validate_request({
-                "script_text": req.text,
-                "output_path": req.output_path,
-                "voice_profile_id": "Default",
-                "voice_ref": req.voice_ref,
-                "engine_id": getattr(self.engine, "manifest", None).engine_id if hasattr(self.engine, "manifest") else None
-            })
-            return True, "OK"
-        except Exception as exc:
-            return False, str(exc)
-
-    def synthesize(self, req: TTSRequest) -> dict[str, Any]:
-        # BaseVoiceEngine.synthesize takes a dict and returns a dict
-        return self.engine.synthesize({
-            "script_text": req.text,
-            "output_path": req.output_path,
-            "voice_profile_id": "Default",
-            "voice_ref": req.voice_ref
-        })
-
 
 def create_voice_bridge() -> VoiceBridge:
     """Create the voice bridge with registry dependency wiring."""

@@ -29,6 +29,16 @@ Use this file when the task crosses domain, queue, engine, frontend state, or mi
 - Importing a new domain, orchestration, engine, or frontend-support module must not start threads, mutate global settings, register listeners, or reconcile persistent state.
 - If a legacy module has import-time side effects, treat it as an integration boundary and document the dependency explicitly instead of importing it casually from new code.
 
+## Project Structure Rules
+
+- Preserve the standard React project shape under `frontend/src`: app shell and routing in `app/`, route-level screens in `pages/`, reusable cross-page UI in `components/`, page-owned subcomponents under `pages/<Page>/components/`, shared hooks/API/store/types/utils in their named folders, and site-wide styling/theme tokens under `theme/`.
+- Keep frontend tests outside runtime source under `frontend/tests`, mirroring the source layout for unit tests and keeping Playwright specs under `frontend/tests/e2e`.
+- Preserve the backend layered layout under `app/`: HTTP entrypoints in `api/`, boot/config in `core/`, persistence/state in `db/`, business concepts in `domain/`, engine bridge/registry contracts in `engines/`, plugin runtime in `tts_server/`, background jobs in `jobs/`, orchestration/scheduling in `orchestration/`, and generic helpers in `utils/`.
+- Keep backend tests under `tests/` grouped to mirror the app package they exercise.
+- Keep plugin-internal tests, fixtures, generated test outputs, and verification helpers inside each plugin folder so a plugin can function as a self-contained mini-repo.
+- When moving files, update imports, configs, and discovery paths only. Do not mix folder organization with behavior changes unless the behavior change is explicit, requested, and tested.
+- Prefer human-readable ownership over clever foldering: a future maintainer should know where a page, reusable component, domain service, or plugin-local implementation belongs without searching the whole tree.
+
 ## File Size Boundaries
 
 - Files over 500 lines should be considered for splitting logic into smaller modules, hooks, helpers, services, or adapters according to normal project boundaries.

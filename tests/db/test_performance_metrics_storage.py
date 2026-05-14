@@ -1,0 +1,324 @@
+import os
+import time
+import pytest
+import uuid
+import json
+from pathlib import Path
+from app.db.core import init_db, get_connection
+from app.db.performance import record_render_sample, get_render_history, apply_performance_retention_policy
+from app.db.state import get_performance_metrics, update_performance_metrics, _default_performance_metrics, _default_state
+
+@pytest.fixture
+def clean_db(tmp_path):
+    # Use a unique DB path for this test
+    db_path = tmp_path / f"test_performance_{uuid.uuid4().hex}.db"
+    os.environ["DB_PATH"] = str(db_path)
+
+    # Force reload of db.core to pick up the new DB_PATH
+    import app.db.core
+    import importlib
+    importlib.reload(app.db.core)
+
+    init_db()
+
+    yield db_path
+
+    # Cleanup
+    if db_path.exists():
+        try:
+            os.unlink(db_path)
+        except OSError:
+            pass
+
+@pytest.fixture
+def clean_state(tmp_path):
+    state_file = tmp_path / f"state_{uuid.uuid4().hex}.json"
+    os.environ["STATE_FILE"] = str(state_file)
+
+    import app.db.state
+    import importlib
+    importlib.reload(app.db.state)
+
+    # Write default state
+    state_file.write_text(json.dumps(_default_state()))
+
+    yield state_file
+
+    if state_file.exists():
+        try:
+            os.unlink(state_file)
+        except OSError:
+            pass
+
+def test_record_render_sample_storage(clean_db):
+    jid = str(uuid.uuid4())
+    record_render_sample(
+        engine="engine-a",
+        tts_model="model-a",
+        chars=1000,
+        segment_count=10,
+        duration_seconds=60.0,
+        cps=16.67,
+        seconds_per_segment=6.0,
+        job_id=jid,
+        project_id="p1",
+        chapter_id="c1",
+        speaker_profile="feeling-lucky"
+    )
+
+    history = get_render_history()
+    assert len(history) == 1
+    sample = history[0]
+    assert sample["job_id"] == jid
+    assert sample["engine"] == "engine-a"
+    assert sample["speaker_profile"] == "feeling-lucky"
+    assert sample["project_id"] == "p1"
+    assert sample["chapter_id"] == "c1"
+    assert sample["tts_model"] == "model-a"
+
+def test_performance_retention_policy(clean_db):
+    # 1. Test 180 day hard purge
+    old_time = time.time() - (181 * 86400)
+    record_render_sample(
+        engine="engine-a", chars=100, segment_count=1, duration_seconds=10, cps=10, seconds_per_segment=10,
+        completed_at=old_time
+    )
+    apply_performance_retention_policy()
+    history = get_render_history()
+    assert len(history) == 0 # Purged immediately
+
+    # 2. Test 30 day window vs 100 sample minimum
+    now = time.time()
+    # 150 samples older than 30 days (but within 180)
+    for i in range(150):
+        # We must insert them with distinct but old timestamps
+        # and ensure they are processed by the retention policy
+        record_render_sample(
+            engine="engine-a", chars=100, segment_count=1, duration_seconds=10, cps=10, seconds_per_segment=10,
+            completed_at=now - (31 * 86400) - i
+        )
+
+    # Retention is now startup-triggered, so we invoke it explicitly to test the cleanup logic.
+    apply_performance_retention_policy()
+    history = get_render_history(limit=200)
+    # It should have kept exactly 100 newest (the last 100 we inserted).
+    assert len(history) == 100
+
+    # 3. Keep all within 30 days even if > 100
+    for i in range(50):
+        record_render_sample(
+            engine="engine-a", chars=100, segment_count=1, duration_seconds=10, cps=10, seconds_per_segment=10,
+            completed_at=now - (1 * 86400)
+        )
+
+    apply_performance_retention_policy()
+    history = get_render_history(limit=200)
+    # After inserting 50 new ones, the total should still be capped by the newest-100 retention rule.
+    assert len(history) == 100
+
+
+def test_init_db_runs_performance_retention(clean_db, monkeypatch):
+    from app.db import core as db_core
+
+    calls: list[int] = []
+
+    def fake_retention_policy():
+        calls.append(1)
+
+    monkeypatch.setattr("app.db.performance.apply_performance_retention_policy", fake_retention_policy)
+
+    db_core.init_db()
+
+    assert len(calls) == 1
+
+
+def test_global_audiobook_speed_multiplier_is_not_persisted(clean_db, clean_state):
+    update_performance_metrics(audiobook_speed_multiplier=2.5)
+
+    metrics = get_performance_metrics()
+
+    assert "audiobook_speed_multiplier" not in metrics
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT value FROM settings WHERE key = ?",
+            ("performance_metric:audiobook_speed_multiplier",),
+        ).fetchone()
+    assert row is None
+
+
+def test_failed_jobs_do_not_train(clean_db, clean_state):
+    from app.jobs.worker_metrics import record_engine_sample
+    from app.db.state import put_job
+    from app.db.models import Job
+
+    jid = "job-fail-test"
+    job = Job(id=jid, engine="engine-a", chapter_file="c1", status="failed", created_at=time.time())
+    put_job(job)
+
+    record_engine_sample(job, time.time() - 60, 1000, {})
+
+    history = get_render_history()
+    assert len(history) == 0
+
+def test_successful_jobs_train(clean_db, clean_state):
+    from app.jobs.worker_metrics import record_engine_sample
+    from app.db.state import put_job
+    from app.db.models import Job
+
+    jid = "job-success-test"
+    # We must ensure started_at is before finished_at and dur > 1.0
+    now = time.time()
+    job = Job(id=jid, engine="engine-a", chapter_file="c1", status="done", created_at=now-30, started_at=now-20, finished_at=now)
+    put_job(job)
+
+    record_engine_sample(job, now - 10, 1000, {})
+
+    history = get_render_history()
+    assert len(history) == 1
+    assert history[0]["job_id"] == jid
+    assert history[0]["chars"] == 1000
+
+
+def test_successful_jobs_write_plugin_computer_speed_multiplier(clean_db, clean_state, tmp_path, monkeypatch):
+    from app.jobs.worker_metrics import record_engine_sample
+    from app.db.state import put_job
+    from app.db.models import Job
+    from app.tts_server.settings_store import load_settings, save_settings
+
+    plugins_dir = tmp_path / "plugins"
+    plugin_dir = plugins_dir / "tts_engine-a"
+    plugin_dir.mkdir(parents=True)
+    save_settings(plugin_dir, {"enabled": True, "quality": "draft"})
+    monkeypatch.setattr("app.core.config.PLUGINS_DIR", plugins_dir)
+
+    jid = "job-plugin-speed-test"
+    now = time.time()
+    job = Job(
+        id=jid,
+        engine="engine-a",
+        chapter_file="c1",
+        status="done",
+        created_at=now - 30,
+        started_at=now - 10,
+        finished_at=now,
+    )
+    put_job(job)
+
+    record_engine_sample(job, now - 10, 334, {})
+
+    settings = load_settings(plugin_dir)
+    assert settings["enabled"] is True
+    assert settings["quality"] == "draft"
+    assert settings["computer_speed_multiplier"] == 2.0
+
+
+def test_clear_engine_speed_baseline_wipes_samples_and_cached_cps(clean_db, clean_state, tmp_path, monkeypatch):
+    from app.tts_server.performance_settings import clear_engine_computer_speed_baseline
+    from app.tts_server.settings_store import load_settings, save_settings
+
+    plugins_dir = tmp_path / "plugins"
+    plugin_dir = plugins_dir / "tts_engine-a"
+    plugin_dir.mkdir(parents=True)
+    save_settings(plugin_dir, {"enabled": True, "computer_speed_multiplier": 1.75})
+    monkeypatch.setattr("app.core.config.PLUGINS_DIR", plugins_dir)
+
+    now = time.time()
+    record_render_sample(
+        engine="engine-a",
+        tts_model="model-a",
+        chars=1000,
+        segment_count=10,
+        duration_seconds=50.0,
+        cps=20.0,
+        seconds_per_segment=5.0,
+        completed_at=now - 20,
+    )
+    record_render_sample(
+        engine="engine-b",
+        tts_model="model-b",
+        chars=500,
+        segment_count=5,
+        duration_seconds=25.0,
+        cps=20.0,
+        seconds_per_segment=5.0,
+        completed_at=now - 10,
+    )
+    update_performance_metrics(engine_cps={"engine-a": 19.5, "engine-b": 21.0})
+
+    clear_engine_computer_speed_baseline("engine-a")
+
+    settings = load_settings(plugin_dir)
+    assert "computer_speed_multiplier" not in settings
+    assert settings["enabled"] is True
+
+    history = get_render_history(limit=200)
+    assert all(sample["engine"] != "engine-a" for sample in history)
+    assert any(sample["engine"] == "engine-b" for sample in history)
+
+    metrics = get_performance_metrics()
+    assert "engine-a" not in metrics["engine_cps"]
+    assert metrics["engine_cps"]["engine-b"] == 21.0
+
+
+def test_record_engine_sample_filters_speed_history_by_tts_model(clean_db, clean_state, tmp_path, monkeypatch):
+    from app.jobs.worker_metrics import record_engine_sample
+    from app.db.state import put_job, get_performance_metrics
+    from app.db.models import Job
+    from app.tts_server.settings_store import save_settings
+
+    plugins_dir = tmp_path / "plugins"
+    plugin_dir = plugins_dir / "tts_engine-a"
+    plugin_dir.mkdir(parents=True)
+    save_settings(plugin_dir, {"model": "model-fast"})
+    monkeypatch.setattr("app.core.config.PLUGINS_DIR", plugins_dir)
+
+    now = time.time()
+    record_render_sample(
+        engine="engine-a",
+        tts_model="model-slow",
+        chars=100,
+        segment_count=1,
+        duration_seconds=100,
+        completed_at=now - 20,
+    )
+
+    jid = "job-model-filter-test"
+    job = Job(
+        id=jid,
+        engine="engine-a",
+        chapter_file="c1",
+        status="done",
+        created_at=now - 30,
+        started_at=now - 10,
+        finished_at=now,
+    )
+    put_job(job)
+
+    record_engine_sample(job, now - 10, 1000, {})
+
+    metrics = get_performance_metrics()
+    assert metrics["engine_cps"]["engine-a"] == 100.0
+
+    history = get_render_history()
+    assert history[-1]["tts_model"] == "model-fast"
+
+
+def test_record_engine_sample_requires_chars(clean_db, clean_state):
+    from app.jobs.worker_metrics import record_engine_sample
+    from app.db.state import put_job
+    from app.db.models import Job
+
+    jid = "test-no-chars"
+    now = time.time()
+    job = Job(id=jid, engine="engine-a", status="done", started_at=now-10, finished_at=now, created_at=now-20)
+    put_job(job)
+
+    # 1. Chars = 0 (should be ignored)
+    record_engine_sample(job, now-10, 0, {})
+    assert len(get_render_history()) == 0
+
+    # 2. Chars > 0 (should be recorded)
+    record_engine_sample(job, now-10, 100, {})
+    history = get_render_history()
+    assert len(history) == 1
+    assert history[0]["chars"] == 100

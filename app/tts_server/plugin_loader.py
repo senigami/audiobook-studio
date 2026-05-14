@@ -16,6 +16,7 @@ import json
 import logging
 import re
 import sys
+import types
 from pathlib import Path
 from typing import Any
 
@@ -547,9 +548,19 @@ def _import_engine_class(
         )
 
     # Use a unique module spec name to avoid collisions between plugins.
-    spec_name = f"_tts_plugin_{folder_name}.{module_name}"
+    package_name = f"_tts_plugin_{folder_name}"
+    spec_name = f"{package_name}.{module_name}"
 
     try:
+        # 1. Ensure package modules exist so interface.py and nested modules can
+        # use package-relative imports without colliding with other plugins.
+        _ensure_plugin_package_hierarchy(
+            package_name=package_name,
+            plugin_dir=plugin_dir,
+            module_parts=module_parts[:-1],
+        )
+
+        # 2. Load the actual engine module.
         spec = importlib.util.spec_from_file_location(spec_name, module_path)
         if spec is None or spec.loader is None:
             raise PluginLoadError(
@@ -578,10 +589,36 @@ def _import_engine_class(
     return engine_cls
 
 
+def _ensure_plugin_package_hierarchy(
+    *,
+    package_name: str,
+    plugin_dir: Path,
+    module_parts: list[str],
+) -> None:
+    """Create isolated package modules for a plugin's internal imports."""
+    current_name = package_name
+    current_path = plugin_dir
+    if current_name not in sys.modules:
+        module = types.ModuleType(current_name)
+        module.__path__ = [str(current_path)]
+        module.__file__ = str(current_path / "__init__.py")
+        sys.modules[current_name] = module
+
+    for part in module_parts:
+        current_name = f"{current_name}.{part}"
+        current_path = current_path / part
+        if current_name in sys.modules:
+            continue
+        module = types.ModuleType(current_name)
+        module.__path__ = [str(current_path)]
+        module.__file__ = str(current_path / "__init__.py")
+        sys.modules[current_name] = module
+
+
 def get_plugin_dir(engine_id: str) -> Path:
     """Return the expected plugin directory for a given engine_id.
 
     This uses the default PLUGINS_DIR from app.config.
     """
-    from app.config import PLUGINS_DIR # noqa: PLC0415
+    from app.core.config import PLUGINS_DIR # noqa: PLC0415
     return PLUGINS_DIR / f"tts_{engine_id}"

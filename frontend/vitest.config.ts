@@ -5,7 +5,13 @@ export default mergeConfig(viteConfig, defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
-    setupFiles: './vitest.setup.ts',
+    setupFiles: './tests/setup/vitest.setup.ts',
+    include: ['tests/unit/**/*.test.{ts,tsx}'],
+    exclude: [
+      'node_modules/**',
+      '**/node_modules/**',
+      'tests/e2e/**',
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

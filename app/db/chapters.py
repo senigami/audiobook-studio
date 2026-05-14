@@ -1,10 +1,12 @@
+from __future__ import annotations
 import logging
 import time
 import uuid
 from typing import List, Dict, Any, Optional
 
 from .core import _db_lock, get_connection
-from ..pathing import secure_join_flat
+from ..utils.render_trace import trace
+from ..utils.pathing import secure_join_flat
 
 # Sub-modules
 from .chapters_helpers import (
@@ -41,7 +43,7 @@ def create_chapter(project_id: str, title: str, text_content: Optional[str] = No
             conn.commit()
 
             # Ensure nested directory exists immediately
-            from ..config import get_chapter_dir
+            from ..core.config import get_chapter_dir
             nested_dir = get_chapter_dir(project_id, chapter_id)
             nested_dir.mkdir(parents=True, exist_ok=True)
             secure_join_flat(nested_dir, "segments").mkdir(exist_ok=True)
@@ -76,14 +78,14 @@ def get_chapter(chapter_id: str) -> Optional[Dict[str, Any]]:
             chap = dict(row)
 
     # Rule 3: Disk as Source of Truth - Outside Lock
-    from .. import config
+    from ..core import config
 
     path = chap.get("audio_file_path")
 
     resolved = config.resolve_chapter_asset_path(
         chap["project_id"], chap["id"], "audio", filename=path
     )
-    if not resolved and not path:
+    if not resolved:
         resolved = config.resolve_chapter_asset_path(chap["project_id"], chap["id"], "audio")
 
     flags = _detect_audio_flags(chap["id"], path, resolved)
@@ -113,7 +115,7 @@ def list_chapters(project_id: str) -> List[Dict[str, Any]]:
             )
             rows = [dict(row) for row in cursor.fetchall()]
 
-    from .. import config
+    from ..core import config
 
     for chap in rows:
         path = chap.get("audio_file_path")
@@ -133,6 +135,22 @@ def list_chapters(project_id: str) -> List[Dict[str, Any]]:
             if chap["has_mp3"] or chap["has_m4a"]:
                 chap["has_wav"] = True
 
+    trace(
+        "chapters.list",
+        project_id=project_id,
+        chapters=[
+            {
+                "id": chap.get("id"),
+                "audio_status": chap.get("audio_status"),
+                "audio_file_path": chap.get("audio_file_path"),
+                "has_wav": chap.get("has_wav"),
+                "has_mp3": chap.get("has_mp3"),
+                "done_segments_count": chap.get("done_segments_count"),
+                "total_segments_count": chap.get("total_segments_count"),
+            }
+            for chap in rows
+        ],
+    )
     return rows
 
 

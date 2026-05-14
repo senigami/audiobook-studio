@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.0.0] - 2026-04-30
+## [2.0.0] - 2026-05-11
 
 ### Highlights
 
@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 - **Engine Registry & Fallback**: Implemented a robust engine registry that supports both remote TTS Server plugins and local in-process fallbacks, ensuring reliability even when the server is unavailable.
 - **Production Tally & Diagnostics**: Added real-time production statistics and runtime diagnostics to the About panel for better visibility into system performance and health.
 - **Version Migration**: Completed the transition from the 1.8.x release line to the 2.0.0 baseline with consistent branding and metadata across all surfaces.
+- **Global Queue UI Alignment**: Fixed a regression in the job history display where a colon was used instead of an arrow symbol, restoring consistency with validation tests and improving history legibility.
 
 ## [1.8.5] - 2026-04-06
 
@@ -153,21 +154,25 @@ All notable changes to this project will be documented in this file.
 ## [1.4.1] - 2026-03-17
 
 ### Compatibility & Security
+
 - **Legacy Route Restoration**: Reintroduced compatibility wrappers for the legacy API surface, including settings, chapter reset, preview, and delete flows, so older integrations and tests continue to work against the refactored routers.
 - **Path Traversal Hardening**: Added filesystem boundary checks to legacy file-handling endpoints so chapter and voice-related operations stay inside their intended directories.
 - **Schema Tightening**: Constrained the bulk segment-status update payload to valid chapter audio states to prevent invalid transitions from entering the database.
 
 ### Test Infrastructure
+
 - **Test Isolation**: Switched API test modules to delayed client fixture initialization so environment setup completes before application imports resolve configuration.
 - **Monkeypatch Hygiene**: Updated path-sensitive tests to use `monkeypatch`-driven overrides, preventing cross-test leakage from global directory changes.
 - **Queue Contract Alignment**: Corrected queue tests to target the modern `/api/processing_queue` endpoints and use the proper reorder method.
 
 ### Performance & Stability
+
 - **Status-Aware Progress**: Fixed a bug where the progress bar would animate prematurely during the model preparation phase; it now holds at zero until rendering actually begins.
 - **Startup Resilience**: Enhanced queue reconciliation on server startup to correctly recover jobs stuck in 'preparing' or 'finalizing' states.
 - **Improved Cleanup**: Hardened the audio segment cleanup logic to ensure stale files (including rogue segments) are thoroughly removed when re-queuing or clearing audio.
 
 ### Fixed
+
 - **API Reliability**: Corrected the response contract for the queue mass-delete endpoint to return the `cleared` count expected by the test suite.
 - **WebSocket Optimization**: Removed obsolete `log` fields from background broadcasts to reduce network overhead and improve UI responsiveness.
 - **Cleanup Visibility**: Replaced silent cleanup failures with structured warnings, hardened UUID profile resolution, and made the voice-building UI clear stale state once the server job snapshot goes empty.
@@ -177,27 +182,32 @@ All notable changes to this project will be documented in this file.
 ## [1.4.0] - 2026-03-13
 
 ### Architecture
+
 - **Code Modularization**: Reorganized the backend into a `routers/` pattern for better maintainability and faster navigation.
 - **Standardized Rules**: Added `.agent/rules.md` to enforce code quality and file size limits for future development.
 
 ### Performance & Stability
+
 - **Non-blocking I/O**: Optimized file system interactions within the API layer to support higher concurrency.
 - **Robust Analysis**: Integrated `sanitize_for_xtts` directly into the analysis pipeline to ensure "What You See Is What You Get" metrics for audiobook generation.
 - **Structured Response Models**: Implemented Pydantic models for all major routes to provide a strict and documented API contract.
 
 ### New Features & Fixes
+
 - **Global Queue ETA**: Added an "Approx. X minutes remaining" badge to the processing queue header that tracks cumulative work across all active and queued tasks.
 - **Reliable Queue Reordering**: Fixed a timestamp inversion bug and implemented in-memory synchronization, ensuring the background worker strictly follows the UI priority.
 - **Enhanced Progress Visuals**: Smoothed progress transitions to 2s ease-in-out for a more fluid and premium interface experience.
 - **Locked-in Test Suite**: Added 11 regression tests covering ETA calculations, database joins, and in-memory queue synchronization logic.
 
 ### Security
+
 - **Path Sanitization**: Implemented robust path traversal protection using `Path.resolve()` and `is_relative_to()` to prevent unauthorized file access.
 - **Input Hardening**: Added stricter validation for text inputs and chapter file paths to prevent resource exhaustion.
 - **Granular Exception Handling**: Refined the error handling logic to provide more descriptive feedback with specific HTTP status codes (403, 404, 422).
 - **Safe Roots for File Lookups**: Scoped chapter, upload, and audio-path helpers to trusted root folders so user-controlled paths are normalized before disk access while preserving legitimate subdirectories inside those roots.
 
 ### Quality Assurance
+
 - **Expanded Test Suite**: Added `test_api_analysis_extended.py` and front-end unit tests for the `StatusOrb` and `ScriptEditor` components.
 - **Full Regression Testing**: Verified 100% pass rate across the entire test suite (181 tests) after the backend refactor.
 

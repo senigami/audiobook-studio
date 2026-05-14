@@ -1,7 +1,7 @@
 import os
 import logging
 from .core import _db_lock, get_connection
-from ..subprocess_utils import probe_audio_duration
+from ..utils.subprocess_utils import probe_audio_duration
 
 logger = logging.getLogger(__name__)
 
@@ -10,7 +10,7 @@ def reconcile_project_audio(project_id: str):
     Scans the project's audio directories and updates the database if audio files exist
     but the chapter status is not 'done'.
     """
-    from .. import config
+    from ..core import config
 
     with _db_lock:
         with get_connection() as conn:

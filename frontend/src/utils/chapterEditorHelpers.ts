@@ -1,5 +1,5 @@
-import type { ChapterSegment, ProductionBlock, TtsEngine, SpeakerProfile } from '../types';
-import { getDefaultVoiceProfileName, getVoiceProfileEngine, formatVoiceEngineLabel } from './voiceProfiles';
+import type { ChapterSegment, ProductionBlock, TtsEngine, SpeakerProfile } from '@/types';
+import { getDefaultVoiceProfileName, getVoiceProfileEngine, formatVoiceEngineLabel } from '@/utils/voiceProfiles';
 
 /**
  * Builds fallback production blocks from source segments if no production blocks exist.
@@ -101,8 +101,8 @@ export const downloadBlob = (blob: Blob, filename: string) => {
  */
 export const resolveDefaultVariantName = (
   characterId: string | null,
-  characters: import('../types').Character[],
-  speakers: import('../types').Speaker[],
+  characters: import('@/types').Character[],
+  speakers: import('@/types').Speaker[],
   speakerProfiles: SpeakerProfile[]
 ) => {
   if (!characterId || characterId === 'CLEAR_ASSIGNMENT') return null;

@@ -1,8 +1,8 @@
 import React from 'react';
 import { Reorder, useDragControls } from 'framer-motion';
 import { Trash2, GripVertical, Clock } from 'lucide-react';
-import type { ProcessingQueueItem } from '../../types';
-import { formatQueueContext } from '../../utils/queueLabels';
+import type { ProcessingQueueItem } from '@/types';
+import { formatQueueContext } from '@/utils/queueLabels';
 
 interface ReorderableQueueItemProps {
     job: ProcessingQueueItem;
@@ -11,6 +11,7 @@ interface ReorderableQueueItemProps {
     handleDragStart: () => void;
     handleDragEnd: () => void;
     compact?: boolean;
+    engines?: import('@/types').TtsEngine[];
 }
 
 export const ReorderableQueueItem: React.FC<ReorderableQueueItemProps> = React.memo(({
@@ -19,7 +20,8 @@ export const ReorderableQueueItem: React.FC<ReorderableQueueItemProps> = React.m
     handleRemove,
     handleDragStart,
     handleDragEnd,
-    compact = false
+    compact = false,
+    engines = []
 }) => {
     const dragControls = useDragControls();
     const [isHovered, setIsHovered] = React.useState(false);
@@ -83,7 +85,7 @@ export const ReorderableQueueItem: React.FC<ReorderableQueueItemProps> = React.m
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
                 <h4 style={{ fontWeight: 600, fontSize: compact ? '0.85rem' : '0.95rem', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{formatJobTitle(job)}</h4>
-                <div style={{ fontSize: compact ? '0.7rem' : '0.8rem', color: 'var(--text-secondary)', fontWeight: 500 }}>{formatQueueContext(job)}</div>
+                <div style={{ fontSize: compact ? '0.7rem' : '0.8rem', color: 'var(--text-secondary)', fontWeight: 500 }}>{formatQueueContext(job, engines)}</div>
             </div>
             <button
                 onClick={(e) => { e.stopPropagation(); handleRemove(job.id); }}

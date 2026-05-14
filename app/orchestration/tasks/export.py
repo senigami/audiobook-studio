@@ -68,6 +68,11 @@ class ExportTask(StudioTask):
         if not self.book_title:
             raise ValueError("book_title is required")
 
+    @property
+    def prefers_local_execution(self) -> bool:
+        """Export tasks execute run() locally and manage their own engine calls."""
+        return True
+
     def describe(self) -> TaskContext:
         """Describe export identity."""
         return TaskContext(
@@ -83,7 +88,7 @@ class ExportTask(StudioTask):
 
     def run(self) -> TaskResult:
         """Execute assembly via app.engines."""
-        from app.engines import assemble_audiobook  # noqa: PLC0415
+        from app.engines.audiobook_utils import assemble_audiobook  # noqa: PLC0415
 
         def on_output(line: str) -> None:
             if line.strip():

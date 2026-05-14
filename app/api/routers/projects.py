@@ -1,3 +1,4 @@
+import time
 import json
 import logging
 from typing import Optional
@@ -13,9 +14,8 @@ from ...db import (
     delete_project,
     reorder_chapters,
 )
-from ...config import get_project_dir, find_existing_project_dir
-from ...constants import DEFAULT_VOICE_SENTINEL
-from ...domain.projects.migration import migrate_project_to_v2
+from ...core.config import get_project_dir
+from ...core.constants import DEFAULT_VOICE_SENTINEL
 
 from .projects_helpers import _store_project_cover
 from .projects_backups import router as backups_router
@@ -33,8 +33,6 @@ router.include_router(assembly_router)
 @router.get("")
 def api_list_projects():
     projects = list_projects()
-    for p in projects:
-        migrate_project_to_v2(p["id"])
     return JSONResponse(projects)
 
 
@@ -51,10 +49,17 @@ def api_reorder_chapters_route(project_id: str, chapter_ids: str = Form(...)):
 
 @router.get("/{project_id}")
 def api_get_project(project_id: str):
-    migrate_project_to_v2(project_id)
+    fetch_started_at = time.perf_counter()
     p = get_project(project_id)
+    fetch_ms = round((time.perf_counter() - fetch_started_at) * 1000)
+    if fetch_ms >= 100:
+        logger.info("Project detail DB fetch timing project=%s ms=%s", project_id, fetch_ms)
+
     if not p:
         return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
+    total_ms = round((time.perf_counter() - fetch_started_at) * 1000)
+    if total_ms >= 100:
+        logger.info("Project detail total timing project=%s ms=%s", project_id, total_ms)
     return JSONResponse(p)
 
 
@@ -98,7 +103,7 @@ async def api_update_project(
         updates["speaker_profile_name"] = normalized_profile_name
 
     if cover:
-        project_dir = find_existing_project_dir(project_id) or get_project_dir(project_id)
+        project_dir = get_project_dir(project_id)
         updates["cover_image_path"] = await _store_project_cover(project_id, project_dir, cover)
 
     if updates:

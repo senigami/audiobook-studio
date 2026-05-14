@@ -13,10 +13,18 @@ from .manifest import (
     save_variant_manifest,
     CURRENT_VOICE_STORAGE_VERSION
 )
-from ... import config
+from ...core import config
 
 logger = logging.getLogger(__name__)
 SAFE_PROFILE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
+
+
+def _load_voice_manifest_with_v1_fallback(voice_dir: Path) -> Dict[str, Any]:
+    """Loads the voice manifest, falling back to version 1 if missing for migration."""
+    manifest = load_voice_manifest(voice_dir)
+    if not manifest:
+        return {"version": 1}
+    return manifest
 
 def _move_profile_contents(src_dir: Path, dest_dir: Path, *, preserve_names: set[str] | None = None) -> None:
     """Move all files/directories from src_dir into dest_dir.
@@ -86,7 +94,7 @@ def migrate_voices_to_v2() -> bool:
 
 def _backfill_voice_root(voice_root: Path) -> None:
     """Ensures a v2 voice root manifest is complete and consistent."""
-    manifest = load_voice_manifest(voice_root)
+    manifest = _load_voice_manifest_with_v1_fallback(voice_root)
     changed = False
 
     # Ensure name is present
@@ -152,7 +160,7 @@ def migrate_voice_variant(src_dir: Path, voice_name: str, variant_name: str) -> 
 
     # Ensure voice root exists and has a manifest
     voice_root.mkdir(parents=True, exist_ok=True)
-    voice_manifest = load_voice_manifest(voice_root)
+    voice_manifest = _load_voice_manifest_with_v1_fallback(voice_root)
     meta = load_variant_manifest(src_dir)
     voice_manifest["version"] = CURRENT_VOICE_STORAGE_VERSION
     voice_manifest["name"] = voice_name

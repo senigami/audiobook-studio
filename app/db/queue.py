@@ -2,20 +2,12 @@ import time
 import uuid
 from typing import List, Dict, Any, Optional
 from .core import _db_lock, get_connection
+from ..utils.render_trace import trace
 
 ACTIVE_QUEUE_STATUSES = ("queued", "preparing", "running", "finalizing")
 TERMINAL_QUEUE_STATUSES = ("done", "failed", "cancelled")
 
 
-def _legacy_chapter_scope(queue_id: str) -> bool:
-    """Compatibility fallback for callers that have not yet passed scope explicitly."""
-    try:
-        from ..state import get_jobs
-
-        job = get_jobs().get(queue_id)
-        return not bool(getattr(job, "segment_ids", None)) if job else True
-    except Exception:
-        return True
 def upsert_queue_row(job_id: str, project_id: str = None, chapter_id: str = None, 
                      split_part: int = 0, status: str = 'queued', custom_title: str = None, engine: str = None):
     """
@@ -39,6 +31,15 @@ def upsert_queue_row(job_id: str, project_id: str = None, chapter_id: str = None
                     engine = COALESCE(excluded.engine, processing_queue.engine)
             """, (job_id, project_id, chapter_id, split_part, status, now, custom_title, engine))
             conn.commit()
+            trace(
+                "queue.upsert",
+                job_id=job_id,
+                project_id=project_id,
+                chapter_id=chapter_id,
+                status=status,
+                custom_title=custom_title,
+                engine=engine,
+            )
 
 def add_to_queue(project_id: str, chapter_id: str, split_part: int = 0):
     with _db_lock:
@@ -92,6 +93,14 @@ def add_to_queue(project_id: str, chapter_id: str, split_part: int = 0):
             """, (chapter_id,))
 
             conn.commit()
+            trace(
+                "queue.add_to_queue",
+                job_id=queue_id,
+                project_id=project_id,
+                chapter_id=chapter_id,
+                split_part=split_part,
+                reset_processing_segment_ids=stale_processing_ids,
+            )
             return queue_id
 
 def get_queue() -> List[Dict[str, Any]]:
@@ -110,8 +119,10 @@ def get_queue() -> List[Dict[str, Any]]:
                 ORDER BY 
                    CASE WHEN q.status IN ('queued', 'running', 'preparing', 'finalizing') THEN 0 ELSE 1 END,
                    CASE WHEN q.status IN ('queued', 'running', 'preparing', 'finalizing') THEN q.created_at END ASC,
+                   CASE WHEN q.status IN ('queued', 'running', 'preparing', 'finalizing') THEN q.rowid END ASC,
                    q.completed_at DESC,
-                   q.created_at DESC
+                   q.created_at DESC,
+                   q.rowid DESC
             """)
             return [dict(row) for row in cursor.fetchall()]
 
@@ -133,11 +144,11 @@ def clear_queue() -> bool:
             conn.commit()
             return True
 
-def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 0.0, force_chapter_id: str = None, output_file: str = None, chapter_scoped: Optional[bool] = None):
+def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 0.0, force_chapter_id: str = None, output_file: str = None, chapter_scoped: bool = True):
     import logging
 
     logger = logging.getLogger(__name__)
-    should_update_chapter = _legacy_chapter_scope(queue_id) if chapter_scoped is None else chapter_scoped
+    should_update_chapter = chapter_scoped
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
@@ -146,9 +157,12 @@ def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 
             updates = ["status = ?"]
             params = [status]
 
-            if status in ('running', 'preparing'):
+            if status == 'running':
                 updates.append("started_at = COALESCE(started_at, ?)")
                 params.append(now)
+            elif status == 'preparing':
+                # We NO LONGER set started_at during preparing to avoid corrupting render duration
+                pass
             elif status in ('done', 'failed', 'cancelled'):
                 updates.append("completed_at = ?")
                 params.append(now)
@@ -173,9 +187,11 @@ def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 
                                 audio_length_seconds = ? 
                             WHERE id = ?
                         """, (output_file, now, audio_length_seconds, cid))
-                        if engine in ("voxtral", "mixed"):
+                        from ..engines.voice_engines import is_tts_engine
+                        if is_tts_engine(engine) or engine == "mixed":
                             logger.info(
-                                "[voxtral-debug %s] queue-sync id=%s engine=%s status=%s chapter=%s output_file=%s audio_length=%s",
+                                "[%s-debug %s] queue-sync id=%s engine=%s status=%s chapter=%s output_file=%s audio_length=%s",
+                                engine,
                                 time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
                                 queue_id,
                                 engine,
@@ -189,6 +205,26 @@ def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 
                     elif status == 'running':
                         cursor.execute("UPDATE chapters SET audio_status = 'processing' WHERE id = ?", (cid,))
             conn.commit()
+            trace(
+                "queue.update_item",
+                job_id=queue_id,
+                status=status,
+                chapter_scoped=chapter_scoped,
+                should_update_chapter=should_update_chapter,
+                project_id=row["project_id"] if row else None,
+                chapter_id=row["chapter_id"] if row else None,
+                engine=row["engine"] if row else None,
+                output_file=output_file,
+                audio_length_seconds=audio_length_seconds,
+            )
+
+            # Broadcast project update to refresh orbs and counts
+            if row and row['project_id']:
+                try:
+                    from ..api.ws import broadcast_project_updated
+                    broadcast_project_updated(row['project_id'])
+                except Exception:
+                    pass
 
 def reconcile_queue_status(active_ids: List[str], known_job_statuses: Optional[Dict[str, str]] = None):
     """
@@ -248,6 +284,12 @@ def reconcile_queue_status(active_ids: List[str], known_job_statuses: Optional[D
             """, (*active_ids, *terminal_ids))
 
             conn.commit()
+            trace(
+                "queue.reconcile_status",
+                active_ids=active_ids,
+                known_job_statuses=known_job_statuses,
+                terminal_ids=terminal_ids,
+            )
 
 def reorder_queue(queue_ids: List[str]) -> bool:
     with _db_lock:

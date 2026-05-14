@@ -12,11 +12,11 @@ from ...db import (
     get_chapter_segments, update_segment, update_segments_status_bulk, update_segments_bulk, 
     sync_chapter_segments
 )
-from ... import config
-from ...textops import compute_chapter_metrics
-from ...jobs import cancel as cancel_job, get_jobs
-from ...state import update_job
-from ...constants import DEFAULT_VOICE_SENTINEL
+from ...core import config
+from ...utils.text.textops import compute_chapter_metrics
+from ...db.state import get_jobs
+from ...db.state import update_job
+from ...core.constants import DEFAULT_VOICE_SENTINEL
 from ..ws import broadcast_chapter_updated, broadcast_queue_update
 
 # Sub-modules
@@ -24,11 +24,8 @@ from .chapters_models import BulkStatusUpdate, BulkSegmentsUpdate
 from .chapters_production import router as production_router
 from .chapters_assets import (
     router as assets_router,
-    get_chapter_dir,
-    get_xtts_out_dir,
-    CHAPTER_DIR,
-    XTTS_OUT_DIR,
 )
+
 
 
 logger = logging.getLogger(__name__)
@@ -124,10 +121,12 @@ def api_delete_chapter_record(chapter_id: str):
 def api_reset_chapter_audio_route(chapter_id: str):
     # 1. Cancel any active jobs for this chapter
     existing = get_jobs()
+    from ...orchestration.scheduler.orchestrator import create_orchestrator
+    orchestrator = create_orchestrator()
     for jid, j in existing.items():
         if getattr(j, 'chapter_id', None) == chapter_id or j.chapter_file == chapter_id:
-            cancel_job(jid)
-            update_job(jid, status="cancelled", log="Cancelled by chapter reset.")
+            if not orchestrator.cancel(jid):
+                update_job(jid, status="cancelled", log="Cancelled by chapter reset.")
 
     # 2. Reset in DB (and delete queue item)
     reset_chapter_audio(chapter_id)
@@ -143,10 +142,12 @@ def cancel_chapter_generation_route(chapter_id: str):
     """Cancels all active jobs (granular or full chapter) associated with this chapter id."""
     existing = get_jobs()
     cancelled_count = 0
+    from ...orchestration.scheduler.orchestrator import create_orchestrator
+    orchestrator = create_orchestrator()
     for jid, j in existing.items():
         if getattr(j, 'chapter_id', None) == chapter_id or j.chapter_file == chapter_id:
-            cancel_job(jid)
-            update_job(jid, status="cancelled", log="Cancelled by user via chapter editor.")
+            if not orchestrator.cancel(jid):
+                update_job(jid, status="cancelled", log="Cancelled by user via chapter editor.")
             cancelled_count += 1
 
     try:

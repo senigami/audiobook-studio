@@ -8,15 +8,15 @@ import {
   COMPANION_SURFACES,
   GLOBAL_NAVIGATION_NODES,
   PROJECT_NAVIGATION_NODES,
-} from '../navigation/model';
-import { createStudioShell } from '../layout/StudioShell';
-import { createStudioProviders } from '../providers';
-import { createChapterEditorRoute } from '../../features/chapter-editor/routes/ChapterEditorRoute';
-import { createProjectLibraryRoute } from '../../features/project-library/routes/ProjectLibraryRoute';
-import { createProjectViewRoute } from '../../features/project-view/routes/ProjectViewRoute';
-import { createQueueRoute } from '../../features/queue/routes/QueueRoute';
-import { createSettingsRoute } from '../../features/settings/routes';
-import { createVoiceModulesRoute } from '../../features/settings/voice-modules/routes/VoiceModulesRoute';
+} from '@/app/navigation/model';
+import { createStudioShell } from '@/app/layout/StudioShell';
+import { createStudioProviders } from '@/app/providers';
+import { createChapterEditorRoute } from '@/pages/ChapterEditor/ChapterEditorRoute';
+import { createProjectLibraryRoute } from '@/pages/ProjectLibrary/ProjectLibraryRoute';
+import { createProjectViewRoute } from '@/pages/ProjectDetail/ProjectViewRoute';
+import { createQueueRoute } from '@/pages/Queue/QueueRoute';
+import { createSettingsRoute } from '@/pages/Settings';
+import { createVoiceModulesRoute } from '@/pages/VoiceModules/VoiceModulesRoute';
 
 const INTENDED_UPSTREAM_CALLERS = ['frontend/src/main.tsx', 'frontend/src/App.tsx'];
 const INTENDED_DOWNSTREAM_DEPENDENCIES = [

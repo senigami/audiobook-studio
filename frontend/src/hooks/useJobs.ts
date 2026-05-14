@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { Job, SegmentProgress } from '../types';
-import { api } from '../api';
-import { useWebSocket } from './useWebSocket';
-import { isStudioJobEvent } from '../api/contracts/events';
+import type { Job, SegmentProgress } from '@/types';
+import { api } from '@/api';
+import { useWebSocket } from '@/hooks/useWebSocket';
+import { isStudioJobEvent } from '@/api/contracts/events';
+import { shouldEnableStudioDebugLogging, recordStudioDebugSnapshot } from '@/utils/runtimeDebug';
 
 const STATUS_PRIORITY: Record<string, number> = {
   done: 5,
@@ -19,6 +20,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
   const [segmentProgress, setSegmentProgress] = useState<Record<string, SegmentProgress>>({});
   const [loading, setLoading] = useState(true);
   const prevJobsRef = useRef<Record<string, Job>>({});
+  const shouldLogSocketFlow = import.meta.env.DEV || shouldEnableStudioDebugLogging();
 
   const refreshJobs = useCallback(async () => {
     try {
@@ -39,6 +41,26 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
   const [testProgress, setTestProgress] = useState<Record<string, { progress: number; started_at?: number }>>({});
 
   const handleUpdate = useCallback((data: any) => {
+    if (shouldLogSocketFlow && (
+      data.type === 'studio_job_event'
+      || data.type === 'job_updated'
+      || data.type === 'queue_updated'
+      || data.type === 'segments_updated'
+      || data.type === 'chapter_updated'
+    )) {
+      recordStudioDebugSnapshot('ws:inbound', {
+        type: data.type,
+        job_id: data.job_id,
+        chapter_id: data.chapter_id,
+        status: data.status,
+        progress: data.progress,
+        reason_code: data.reason_code,
+        updated_at: data.updated_at,
+        active_segment_id: data.active_segment_id,
+        active_segment_progress: data.active_segment_progress,
+        update_keys: data.updates ? Object.keys(data.updates) : undefined,
+      });
+    }
     if (data.type === 'studio_job_event' || isStudioJobEvent(data)) {
       const job_id = data.job_id;
       const nextUpdates: Record<string, any> = {
@@ -185,6 +207,12 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
         return { ...prev, [job_id]: newJob };
       });
     } else if (data.type === 'queue_updated') {
+        if (shouldLogSocketFlow) {
+          recordStudioDebugSnapshot('ws:queue refresh requested', {
+            jobs_known: Object.keys(prevJobsRef.current).length,
+          });
+        }
+        refreshJobs();
         if (onQueueUpdate) onQueueUpdate();
     } else if (data.type === 'pause_updated') {
         if (onPauseUpdate) onPauseUpdate(data.paused);
@@ -204,7 +232,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
     } else if (data.type === 'chapter_updated') {
       if (onChapterUpdate) onChapterUpdate(data.chapter_id);
     }
-  }, [onQueueUpdate, onPauseUpdate, onSegmentsUpdate, onChapterUpdate]);
+  }, [onQueueUpdate, onPauseUpdate, onSegmentsUpdate, onChapterUpdate, shouldLogSocketFlow, refreshJobs]);
 
   const { connected } = useWebSocket('/ws', handleUpdate);
 

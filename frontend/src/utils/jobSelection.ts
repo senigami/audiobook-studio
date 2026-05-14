@@ -1,4 +1,4 @@
-import type { Engine, Job } from '../types';
+import type { Engine, Job } from '@/types';
 
 type SegmentScopedShape = {
   segment_ids?: string[];
@@ -25,8 +25,11 @@ export function isSegmentScopedJob(job: SegmentScopedShape): boolean {
   return /segment\s*#/i.test(job.custom_title || '');
 }
 
-export function shouldShowIndeterminateProgress(job: SegmentScopedShape & { engine?: Engine }): boolean {
-  if (job.engine === 'voxtral') return true;
+export function shouldShowIndeterminateProgress(job: SegmentScopedShape & { engine?: Engine; engineMeta?: import('@/types').TtsEngine }): boolean {
+  if (job.engineMeta) {
+    const caps = Array.isArray(job.engineMeta.capabilities) ? job.engineMeta.capabilities : [];
+    return !!(caps.includes('simulated_finalizing') || job.engineMeta.cloud);
+  }
   return false;
 }
 

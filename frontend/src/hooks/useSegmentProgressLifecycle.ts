@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { SEGMENT_PROGRESS_LINGER_MS } from '../utils/performanceTabHelpers';
+import { SEGMENT_PROGRESS_LINGER_MS } from '@/utils/performanceTabHelpers';
 
 export function useSegmentProgressLifecycle(
     isActive: boolean,

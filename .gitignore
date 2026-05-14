@@ -11,6 +11,9 @@ state.json
 /projects/
 /voices/
 /uploads/
+/transient/
+/app/transient/
+/plugin_data/
 /xtts_audio/
 /chapters_out/
 /Memory/
@@ -159,3 +162,6 @@ mkdocs/_build/
 .pdm-python
 .pdm-build/
 __pypackages__/
+/scratch
+plugins/*/assets/test_output.wav
+/Memory

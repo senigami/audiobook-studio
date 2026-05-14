@@ -10,7 +10,7 @@ The client uses ``httpx`` (already in requirements.txt) for transport.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Optional
 
 import httpx
 
@@ -22,6 +22,8 @@ _READ_TIMEOUT    = 60.0  # seconds — synthesis can be slow
 
 # Tighter timeout for heartbeat checks.
 _HEARTBEAT_TIMEOUT = 3.0
+_LIST_TIMEOUT      = 10.0  # seconds for registry/plugin list
+
 
 
 class TtsServerError(RuntimeError):
@@ -63,16 +65,16 @@ class TtsClient:
         return self._get("/health", timeout=_HEARTBEAT_TIMEOUT)
 
     def ping(self) -> bool:
-        """Return True if the TTS Server responds to /health within timeout.
+        """Return True if the TTS Server responds to /ready within timeout.
 
         Does not raise — intended for watchdog heartbeat checks.
         """
         try:
             resp = httpx.get(
-                f"{self.base_url}/health",
+                f"{self.base_url}/ready",
                 timeout=_HEARTBEAT_TIMEOUT,
             )
-            return resp.status_code in (200, 207)
+            return resp.status_code == 200
         except Exception:
             return False
 
@@ -86,7 +88,7 @@ class TtsClient:
         Returns:
             list[dict[str, Any]]: Engine detail payloads.
         """
-        result = self._get("/engines")
+        result = self._get("/engines", timeout=_LIST_TIMEOUT)
         if isinstance(result, list):
             return result
         return []
@@ -112,6 +114,12 @@ class TtsClient:
             payload={"settings": settings},
         )
 
+    def clear_setting(self, engine_id: str, setting_key: str) -> dict[str, Any]:
+        """DELETE /engines/{engine_id}/settings/{setting_key}."""
+        return self._delete(
+            f"/engines/{_safe_id(engine_id)}/settings/{_safe_id(setting_key)}",
+        )
+
     # ------------------------------------------------------------------
     # Synthesis
     # ------------------------------------------------------------------
@@ -125,6 +133,8 @@ class TtsClient:
         voice_ref: str | None = None,
         settings: dict[str, Any] | None = None,
         language: str = "en",
+        script: list[dict[str, Any]] | None = None,
+        task_id: Optional[str] = None,
     ) -> dict[str, Any]:
         """POST /synthesize — run TTS synthesis.
 
@@ -135,6 +145,8 @@ class TtsClient:
             voice_ref: Optional path to a reference audio file.
             settings: Optional per-request settings overrides.
             language: BCP-47 language code.
+            script: Optional list of segments for script-based synthesis.
+            task_id: Optional unique identifier for this task (for log correlation).
 
         Returns:
             dict[str, Any]: Synthesis result payload.
@@ -148,9 +160,20 @@ class TtsClient:
                 "voice_ref": voice_ref,
                 "settings": settings or {},
                 "language": language,
+                "script": script,
+                "task_id": task_id,
             },
             timeout=_READ_TIMEOUT,
         )
+
+    def cancel(self, task_id: str) -> bool:
+        """POST /tasks/{task_id}/cancel — request task termination."""
+        try:
+            self._post(f"/tasks/{_safe_id(task_id)}/cancel", payload={})
+            return True
+        except Exception as exc:
+            logger.warning("TtsClient.cancel(%s) failed: %s", task_id, exc)
+            return False
 
     def plan_synthesis(
         self,
@@ -161,6 +184,8 @@ class TtsClient:
         voice_ref: str | None = None,
         settings: dict[str, Any] | None = None,
         language: str = "en",
+        script: list[dict[str, Any]] | None = None,
+        task_id: Optional[str] = None,
     ) -> dict[str, Any]:
         """POST /engines/{engine_id}/plan — query preferred synthesis plan.
 
@@ -176,6 +201,8 @@ class TtsClient:
                 "voice_ref": voice_ref,
                 "settings": settings or {},
                 "language": language,
+                "script": script,
+                "task_id": task_id,
             },
         )
 
@@ -188,6 +215,7 @@ class TtsClient:
         voice_ref: str | None = None,
         settings: dict[str, Any] | None = None,
         language: str = "en",
+        task_id: Optional[str] = None,
     ) -> dict[str, Any]:
         """POST /preview — run lightweight preview synthesis."""
         return self._post(
@@ -199,6 +227,7 @@ class TtsClient:
                 "voice_ref": voice_ref,
                 "settings": settings or {},
                 "language": language,
+                "task_id": task_id,
             },
             timeout=_READ_TIMEOUT,
         )
@@ -217,6 +246,10 @@ class TtsClient:
             f"/engines/{_safe_id(engine_id)}/verify",
             payload={},
         )
+
+    def run_test(self, engine_id: str) -> dict[str, Any]:
+        """POST /engines/{engine_id}/verify — alias for full verification test."""
+        return self.verify_engine(engine_id)
 
     def install_dependencies(self, engine_id: str) -> dict[str, Any]:
         """POST /engines/{engine_id}/install — trigger dependency installation."""
@@ -267,6 +300,21 @@ class TtsClient:
         url = f"{self.base_url}{path}"
         try:
             resp = httpx.put(url, json=payload, timeout=timeout)
+        except httpx.ConnectError as exc:
+            raise TtsServerConnectionError(
+                f"Could not connect to TTS Server at {url}: {exc}"
+            ) from exc
+        except httpx.TimeoutException as exc:
+            raise TtsServerConnectionError(
+                f"TTS Server request timed out: {url}: {exc}"
+            ) from exc
+        _raise_for_status(resp, url)
+        return resp.json()
+
+    def _delete(self, path: str, *, timeout: float = _CONNECT_TIMEOUT) -> Any:
+        url = f"{self.base_url}{path}"
+        try:
+            resp = httpx.delete(url, timeout=timeout)
         except httpx.ConnectError as exc:
             raise TtsServerConnectionError(
                 f"Could not connect to TTS Server at {url}: {exc}"

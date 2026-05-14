@@ -6,8 +6,8 @@ import subprocess
 from pathlib import Path
 from typing import Any, Callable
 
-from app.config import MP3_QUALITY
-from app.subprocess_utils import probe_audio_duration
+from app.core.config import MP3_QUALITY
+from app.utils.subprocess_utils import probe_audio_duration
 
 
 def wav_to_mp3(
@@ -39,12 +39,12 @@ def wav_to_mp3(
         str(MP3_QUALITY),
         str(out_mp3),
     ]
-    from app.engines import run_cmd_stream
+    from .proc_utils import run_cmd_stream
     return run_cmd_stream(cmd, on_output, cancel_check)
 
 
 def convert_to_wav(in_file: Path, out_wav: Path) -> int:
-    """Converts any audio file to a standard 22050Hz mono WAV (best for XTTS references)."""
+    """Converts any audio file to a standard 22050Hz mono WAV (best for voice references)."""
     cmd = ["ffmpeg", "-y", "-i", str(in_file), "-ar", "22050", "-ac", "1", str(out_wav)]
     return subprocess.run(cmd, check=False).returncode
 
@@ -77,7 +77,7 @@ def stitch_segments(
             for sw in segment_wavs:
                 lf.write(_ffmpeg_concat_entry(sw))
 
-        # Simple concat for segments (they should all be same sample rate/channels from XTTS)
+        # Simple concat for segments (they should all be same sample rate/channels from the synthesis engine)
         cmd = [
             "ffmpeg",
             "-y",
@@ -91,7 +91,7 @@ def stitch_segments(
             "copy",
             str(output_path),
         ]
-        from app.engines import run_cmd_stream
+        from .proc_utils import run_cmd_stream
         return run_cmd_stream(cmd, on_output, cancel_check)
     finally:
         if list_file.exists():

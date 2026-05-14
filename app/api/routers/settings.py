@@ -7,10 +7,10 @@ from pathlib import Path
 from typing import Optional, List
 from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
-from ...config import AUDIOBOOK_DIR, PROJECTS_DIR, find_existing_project_subdir
-from ...state import get_jobs, put_job, update_job
-from ...jobs import enqueue
-from ...models import Job
+from ...core.config import PROJECTS_DIR, get_project_m4b_dir
+from ...db.state import get_jobs, put_job, update_job
+
+from ...db.models import Job
 from ..utils import list_audiobooks
 router = APIRouter(prefix="/api", tags=["settings"])
 SAFE_AUDIOBOOK_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
@@ -26,7 +26,7 @@ def delete_audiobook(filename: str, project_id: Optional[str] = Query(None)):
         try:
             if not SAFE_AUDIOBOOK_NAME_RE.fullmatch(filename):
                 raise ValueError(f"Invalid filename: {filename}")
-            project_m4b_dir = find_existing_project_subdir(project_id, "m4b")
+            project_m4b_dir = get_project_m4b_dir(project_id)
             if project_m4b_dir and project_m4b_dir.exists():
                 path = next(
                     (entry.resolve() for entry in project_m4b_dir.iterdir() if entry.is_file() and entry.name == filename),
@@ -35,17 +35,6 @@ def delete_audiobook(filename: str, project_id: Optional[str] = Query(None)):
         except (ValueError, TypeError):
             return JSONResponse({"status": "error", "message": "Invalid filename"}, status_code=403)
 
-    if not path:
-        try:
-            if not SAFE_AUDIOBOOK_NAME_RE.fullmatch(filename):
-                raise ValueError(f"Invalid filename: {filename}")
-            if AUDIOBOOK_DIR.exists():
-                path = next(
-                    (entry.resolve() for entry in AUDIOBOOK_DIR.iterdir() if entry.is_file() and entry.name == filename),
-                    None
-                )
-        except (ValueError, TypeError):
-            return JSONResponse({"status": "error", "message": "Invalid filename"}, status_code=403)
 
     if not path and not project_id:
         for p_dir in PROJECTS_DIR.iterdir():

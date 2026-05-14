@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import type { 
   ChapterSegment, ProductionBlock, ProductionBlocksResponse 
-} from '../types';
+} from '@/types';
 import { 
   normalizeBlocks, createDraftId, splitSourceIds, 
   mergeText, getBlockStatus 
-} from '../utils/productionTabHelpers';
+} from '@/utils/productionTabHelpers';
 
 interface UseProductionTabProps {
   chapterId: string;

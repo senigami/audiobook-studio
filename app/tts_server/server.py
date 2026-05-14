@@ -14,13 +14,17 @@ import os
 import threading
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from app.config import PLUGINS_DIR
+from app.core.config import PLUGINS_DIR
+from app.tts_server.performance_settings import (
+    COMPUTER_SPEED_MULTIPLIER_KEY,
+    clear_engine_computer_speed_baseline,
+)
 from app.tts_server.health import (
     build_engine_detail,
     build_health_response,
@@ -47,6 +51,14 @@ app = FastAPI(
 _state_lock = threading.Lock()
 _plugins: list[LoadedPlugin] = []
 _plugins_dir: Path = PLUGINS_DIR
+_cancelled_tasks: set[str] = set()
+_ready_port: int | None = None
+
+
+def set_ready_port(port: int) -> None:
+    """Configure the port announced by the startup readiness hook."""
+    global _ready_port
+    _ready_port = port
 
 
 def _plugin_by_id(engine_id: str) -> LoadedPlugin:
@@ -90,6 +102,13 @@ def load_plugins(plugins_dir: Path) -> None:
     logger.info("Discovered %d plugin(s) from %s. Verification started in background.", len(discovered), plugins_dir)
 
 
+@app.on_event("startup")
+def _announce_ready() -> None:
+    """Announce readiness only after the ASGI app has fully started."""
+    if _ready_port is not None:
+        print(f"READY:{_ready_port}", flush=True)
+
+
 # ---------------------------------------------------------------------------
 # Pydantic request models
 # ---------------------------------------------------------------------------
@@ -101,6 +120,8 @@ class SynthesizeRequest(BaseModel):
     voice_ref: str | None = None
     settings: dict[str, Any] = {}
     language: str = "en"
+    script: Optional[list[dict[str, Any]]] = None
+    task_id: Optional[str] = None
 
 
 class PreviewRequest(BaseModel):
@@ -110,6 +131,7 @@ class PreviewRequest(BaseModel):
     voice_ref: str | None = None
     settings: dict[str, Any] = {}
     language: str = "en"
+    task_id: Optional[str] = None
 
 
 class SettingsUpdateRequest(BaseModel):
@@ -128,6 +150,12 @@ def health() -> JSONResponse:
     payload = build_health_response(plugins_snapshot)
     status_code = 200 if payload["status"] == "ok" else 207
     return JSONResponse(content=payload, status_code=status_code)
+
+
+@app.get("/ready")
+def ready() -> JSONResponse:
+    """Cheap readiness probe used by the Studio watchdog."""
+    return JSONResponse(content={"status": "ready"}, status_code=200)
 
 
 @app.get("/engines")
@@ -197,8 +225,6 @@ def update_engine_settings(
         )
 
     enabled_val = merged.get("enabled")
-    if enabled_val is None and "voxtral_enabled" in merged:
-        enabled_val = merged.get("voxtral_enabled")
     if bool(enabled_val):
         can_enable, reason = can_enable_engine(
             plugin.engine_id,
@@ -206,6 +232,7 @@ def update_engine_settings(
             built_in=bool(getattr(plugin.manifest, "built_in", False)),
             verified=bool(getattr(plugin, "verified", False)),
             status=engine_status(plugin),
+            behavior=plugin.manifest.get("behavior"),
         )
         if not can_enable:
             raise HTTPException(status_code=400, detail=reason or "Engine cannot be enabled yet.")
@@ -243,16 +270,67 @@ def update_engine_settings(
     return {"ok": True, "settings": merged}
 
 
+@app.delete("/engines/{engine_id}/settings/{setting_key}")
+def clear_engine_setting(engine_id: str, setting_key: str) -> dict[str, Any]:
+    """Clear a read-only computed engine setting.
+
+    Read-only computed values are excluded from verification hashes, so this
+    reset does not invalidate plugin verification.
+    """
+    plugin = _plugin_by_id(engine_id)
+
+    try:
+        schema = plugin.engine.settings_schema()
+    except Exception:
+        schema = {}
+    if not schema and getattr(plugin, "settings_schema", None):
+        schema = plugin.settings_schema
+    if not schema:
+        raise HTTPException(
+            status_code=500,
+            detail="Could not retrieve settings schema: engine provides no settings_schema",
+        )
+
+    properties = schema.get("properties", {})
+    prop = properties.get(setting_key) if isinstance(properties, dict) else None
+    if not prop:
+        raise HTTPException(status_code=404, detail=f"Unknown setting: {setting_key}")
+    if not prop.get("readOnly"):
+        raise HTTPException(
+            status_code=400,
+            detail="Only read-only computed settings can be reset.",
+        )
+
+    if setting_key == COMPUTER_SPEED_MULTIPLIER_KEY:
+        result = clear_engine_computer_speed_baseline(engine_id)
+        return {
+            "status": "ok",
+            "engine_id": engine_id,
+            "setting": setting_key,
+            "cleared": True,
+            "value": None,
+            **result,
+        }
+
+    current = load_settings(plugin.plugin_dir)
+    if setting_key in current:
+        current.pop(setting_key, None)
+        save_settings(plugin.plugin_dir, current)
+
+    return {
+        "status": "ok",
+        "engine_id": engine_id,
+        "setting": setting_key,
+        "cleared": True,
+        "value": None,
+    }
+
+
 @app.post("/engines/{engine_id}/install")
 def install_dependencies(engine_id: str) -> dict[str, Any]:
     """Trigger dependency installation for an engine."""
     plugin = _plugin_by_id(engine_id)
     req_file = plugin.plugin_dir / "requirements.txt"
-    if not req_file.is_file() and engine_id == "xtts":
-        # Fallback for bundled XTTS requirements
-        from app.config import BASE_DIR # noqa: PLC0415
-        req_file = BASE_DIR / "app/engines/voice/xtts/requirements.txt"
-
     if not req_file.is_file():
         return {"ok": True, "message": "No requirements.txt found for this engine."}
 
@@ -303,6 +381,15 @@ def reverify_engine(engine_id: str) -> dict[str, Any]:
     }
 
 
+@app.post("/tasks/{task_id}/cancel")
+def cancel_task(task_id: str) -> dict[str, Any]:
+    """Mark a task as cancelled so the synthesis loop can terminate it."""
+    with _state_lock:
+        _cancelled_tasks.add(task_id)
+    logger.info("Task %s marked for cancellation", task_id)
+    return {"ok": True, "task_id": task_id}
+
+
 @app.post("/synthesize")
 def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
     """Synthesize audio for a text request."""
@@ -333,6 +420,7 @@ def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
         "reference_audio_path": body.voice_ref,
         "settings": merged_settings,
         "language": body.language,
+        "script": body.script,
     }
     h.preprocess_request(request_dict)
 
@@ -350,13 +438,22 @@ def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
         voice_ref=request_dict.get("reference_audio_path") or body.voice_ref,  # type: ignore[arg-type]
         settings=request_dict.get("settings", merged_settings),  # type: ignore[arg-type]
         language=str(request_dict.get("language", body.language)),
+        script=request_dict.get("script") or body.script,  # type: ignore[arg-type]
+        task_id=body.task_id,
+        cancel_check=lambda: (body.task_id in _cancelled_tasks) if body.task_id else False,
     )
 
-    ok, msg = plugin.engine.check_request(req)
-    if not ok:
-        raise HTTPException(status_code=422, detail=f"Request validation failed: {msg}")
+    try:
+        ok, msg = plugin.engine.check_request(req)
+        if not ok:
+            raise HTTPException(status_code=422, detail=f"Request validation failed: {msg}")
 
-    result = plugin.engine.synthesize(req)
+        result = plugin.engine.synthesize(req)
+    finally:
+        # Cleanup cancellation flag after synthesis attempt
+        if body.task_id:
+            with _state_lock:
+                _cancelled_tasks.discard(body.task_id)
 
     if not result.ok:
         raise HTTPException(
@@ -458,6 +555,7 @@ def plan_synthesis(engine_id: str, body: SynthesizeRequest) -> dict[str, Any]:
         voice_ref=body.voice_ref,
         settings=merged_settings,
         language=body.language,
+        script=body.script,
     )
 
     plan = plugin.engine.hooks().plan_synthesis(req)

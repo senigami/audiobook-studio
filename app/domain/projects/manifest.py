@@ -4,14 +4,14 @@ import os
 from pathlib import Path
 from typing import Dict, Any, Optional
 
-from ...pathing import secure_join_flat
+from ...utils.pathing import secure_join_flat
 logger = logging.getLogger(__name__)
 
 PROJECT_MANIFEST_FILENAME = "project.json"
 CURRENT_STORAGE_VERSION = 2
 
 def get_project_manifest_path(project_dir: Path) -> Path:
-    from ...config import PROJECTS_DIR
+    from ...core.config import PROJECTS_DIR
     # Rule 9: Explicit containment check for scanner locality
     try:
         projects_root = os.path.abspath(os.fspath(PROJECTS_DIR))
@@ -24,14 +24,14 @@ def get_project_manifest_path(project_dir: Path) -> Path:
     return secure_join_flat(project_dir, PROJECT_MANIFEST_FILENAME)
 
 def load_project_manifest(project_dir: Path) -> Dict[str, Any]:
-    """Loads the project manifest from disk, or returns a default v1 manifest if missing."""
+    """Loads the project manifest from disk. Returns empty dict if missing."""
     try:
         manifest_path = get_project_manifest_path(project_dir)
         if not manifest_path.exists():
-            return {"version": 1}
+            return {}
 
         import os
-        from ...config import PROJECTS_DIR
+        from ...core.config import PROJECTS_DIR
         trusted_root = os.path.abspath(os.fspath(PROJECTS_DIR))
         resolved_path = os.path.abspath(os.fspath(manifest_path))
 
@@ -40,10 +40,10 @@ def load_project_manifest(project_dir: Path) -> Dict[str, Any]:
                 return json.load(f)
         else:
             logger.warning("Blocking manifest load outside projects root: %s", resolved_path)
-            return {"version": 1}
+            return {}
     except Exception as e:
         logger.warning("Failed to load project manifest: %s", e)
-        return {"version": 1}
+        return {}
 
 def save_project_manifest(project_dir: Path, manifest: Dict[str, Any]) -> bool:
     """Saves the project manifest to disk atomically."""
@@ -52,7 +52,7 @@ def save_project_manifest(project_dir: Path, manifest: Dict[str, Any]) -> bool:
         tmp_path = manifest_path.with_suffix(".json.tmp")
 
         import os
-        from ...config import PROJECTS_DIR
+        from ...core.config import PROJECTS_DIR
         trusted_root = os.path.abspath(os.fspath(PROJECTS_DIR))
         resolved_path = os.path.abspath(os.fspath(manifest_path))
         resolved_tmp = os.path.abspath(os.fspath(tmp_path))
@@ -70,6 +70,6 @@ def save_project_manifest(project_dir: Path, manifest: Dict[str, Any]) -> bool:
         return False
 
 def get_storage_version(project_dir: Path) -> int:
-    """Helper to get the storage version of a project."""
+    """Helper to get the storage version of a project. Returns 0 if missing."""
     manifest = load_project_manifest(project_dir)
-    return int(manifest.get("version", 1))
+    return int(manifest.get("version", 0))

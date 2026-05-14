@@ -14,7 +14,7 @@ def verify_api_key(credentials: HTTPAuthorizationCredentials = Security(security
     If tts_api_key is empty in settings, authentication is skipped (open).
     If tts_api_enabled is False, all requests are rejected with 403.
     """
-    from app.state import get_settings  # noqa: PLC0415
+    from app.db.state import get_settings  # noqa: PLC0415
 
     settings = get_settings()
 

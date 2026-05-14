@@ -34,6 +34,8 @@ class RemoteBridgeHandler:
                 voice_ref=request.get("reference_audio_path") or None,
                 settings=extract_synthesis_settings(request),
                 language=str(request.get("language", "en")),
+                script=request.get("script"),
+                task_id=request.get("task_id"),
             )
         except TtsServerError as exc:
             raise EngineUnavailableError(f"TTS Server synthesis failed: {exc}") from exc
@@ -54,6 +56,15 @@ class RemoteBridgeHandler:
             "tts_server_result": result,
         }
 
+    def cancel(self, task_id: str) -> bool:
+        """Forward cancellation to TTS Server."""
+        try:
+            client = self._get_tts_client()
+            return client.cancel(task_id)
+        except Exception as exc:
+            logger.warning("Failed to forward cancel(%s) to TTS Server: %s", task_id, exc)
+            return False
+
     def preview(self, request: dict[str, Any]) -> dict[str, Any]:
         """Route preview to TTS Server."""
         from app.engines.tts_client import TtsServerError
@@ -68,6 +79,7 @@ class RemoteBridgeHandler:
                 voice_ref=request.get("reference_audio_path") or None,
                 settings=extract_synthesis_settings(request),
                 language=str(request.get("language", "en")),
+                task_id=request.get("task_id"),
             )
         except TtsServerError as exc:
             raise EngineUnavailableError(f"TTS Server preview failed: {exc}") from exc
@@ -94,6 +106,8 @@ class RemoteBridgeHandler:
                 voice_ref=request.get("reference_audio_path") or None,
                 settings=extract_synthesis_settings(request),
                 language=str(request.get("language", "en")),
+                script=request.get("script"),
+                task_id=request.get("task_id"),
             )
             from app.engines.voice.sdk import SynthesisPlan
             return SynthesisPlan(**payload)
@@ -119,6 +133,10 @@ class RemoteBridgeHandler:
         """Update settings via TTS Server."""
         return self._get_tts_client().update_settings(engine_id, settings)
 
+    def clear_setting(self, engine_id: str, setting_key: str) -> dict[str, Any]:
+        """Clear a read-only computed setting via TTS Server."""
+        return self._get_tts_client().clear_setting(engine_id, setting_key)
+
     def refresh_plugins(self) -> dict[str, Any]:
         """Refresh plugins via TTS Server."""
         return self._get_tts_client().refresh_plugins()
@@ -126,6 +144,10 @@ class RemoteBridgeHandler:
     def verify_engine(self, engine_id: str) -> dict[str, Any]:
         """Verify engine via TTS Server."""
         return self._get_tts_client().verify_engine(engine_id)
+
+    def run_test(self, engine_id: str) -> dict[str, Any]:
+        """Run self-contained test via TTS Server."""
+        return self._get_tts_client().run_test(engine_id)
 
     def install_dependencies(self, engine_id: str) -> dict[str, Any]:
         """Install dependencies via TTS Server."""

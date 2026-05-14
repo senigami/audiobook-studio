@@ -1,5 +1,5 @@
-import type { Job, Project, Chapter, ProductionBlocksResponse, ProductionBlock, ScriptViewResponse, ScriptAssignmentsUpdate } from '../types';
-import { DEFAULT_VOICE_SENTINEL } from '../constants/api';
+import type { Job, Project, Chapter, ProductionBlocksResponse, ProductionBlock, ScriptViewResponse, ScriptAssignmentsUpdate } from '@/types';
+import { DEFAULT_VOICE_SENTINEL } from '@/constants/api';
 
 const parseApiResponse = async (res: Response) => {
   const data = await res.json();
@@ -66,7 +66,7 @@ export const api = {
     return res.json();
   },
   // --- Backups ---
-  fetchProjectBackups: async (projectId: string): Promise<import('../types').StoredBackup[]> => {
+  fetchProjectBackups: async (projectId: string): Promise<import('@/types').StoredBackup[]> => {
     const res = await fetch(`/api/projects/${projectId}/backups`);
     return parseApiResponse(res);
   },
@@ -92,7 +92,7 @@ export const api = {
   },
 
   // --- Characters ---
-  fetchCharacters: async (projectId: string): Promise<import('../types').Character[]> => {
+  fetchCharacters: async (projectId: string): Promise<import('@/types').Character[]> => {
     const res = await fetch(`/api/projects/${projectId}/characters`);
     const data = await res.json();
     return data.characters || [];
@@ -248,7 +248,7 @@ export const api = {
   },
 
   // --- Segments ---
-  fetchSegments: async (chapterId: string): Promise<import('../types').ChapterSegment[]> => {
+  fetchSegments: async (chapterId: string): Promise<import('@/types').ChapterSegment[]> => {
     const res = await fetch(`/api/chapters/${chapterId}/segments`);
     const data = await res.json();
     return data.segments || [];
@@ -318,14 +318,6 @@ export const api = {
   },
   resetChapter: async (chapterId: string): Promise<any> => {
     const res = await fetch(`/api/chapters/${chapterId}/reset`, { method: 'POST' });
-    return res.json();
-  },
-  enqueueSingle: async (filename: string, engine: 'xtts', voice?: string): Promise<any> => {
-    const formData = new FormData();
-    formData.append('chapter_file', filename);
-    formData.append('engine', engine);
-    if (voice) formData.append('voice', voice);
-    const res = await fetch('/api/queue/single', { method: 'POST', body: formData });
     return res.json();
   },
   cancelPending: async (): Promise<any> => {
@@ -405,6 +397,12 @@ export const api = {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(settings),
+    });
+    return parseApiResponse(res);
+  },
+  clearEngineSetting: async (engineId: string, settingKey: string): Promise<any> => {
+    const res = await fetch(`/api/engines/${encodeURIComponent(engineId)}/settings/${encodeURIComponent(settingKey)}`, {
+      method: 'DELETE',
     });
     return parseApiResponse(res);
   },

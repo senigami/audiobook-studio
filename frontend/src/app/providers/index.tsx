@@ -3,9 +3,9 @@
 // This module will eventually compose query, socket, theme, and notification
 // providers without letting feature code wire global providers ad hoc.
 
-import { createApiClient } from '../../api/client';
-import { createHydrationCoordinator } from '../../api/hydration';
-import { createNotificationsStore } from '../../store/notifications';
+import { createApiClient } from '@/api/client';
+import { createHydrationCoordinator } from '@/api/hydration';
+import { createNotificationsStore } from '@/store/notifications';
 
 const INTENDED_UPSTREAM_CALLERS = ['frontend/src/app/routes/index.tsx'];
 const INTENDED_DOWNSTREAM_DEPENDENCIES = [

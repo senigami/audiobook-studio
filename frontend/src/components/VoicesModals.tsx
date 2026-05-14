@@ -1,7 +1,7 @@
 import React from 'react';
-import type { Speaker, SpeakerProfile, VoiceEngine, TtsEngine } from '../types';
-import { ConfirmModal } from './ConfirmModal';
-import { RecordingGuide } from './RecordingGuide';
+import type { Speaker, SpeakerProfile, VoiceEngine, TtsEngine } from '@/types';
+import { ConfirmModal } from '@/components/overlays/ConfirmModal';
+import { RecordingGuide } from '@/components/RecordingGuide';
 import {
     NewVoiceModal,
     RenameVoiceModal,
@@ -9,8 +9,8 @@ import {
     MoveVariantModal,
     Drawer,
     ScriptEditor
-} from './voices';
-import { getVariantDisplayName } from '../utils/voiceProfiles';
+} from '@/pages/Voices/components';
+import { getVariantDisplayName } from '@/utils/voiceProfiles';
 
 interface VoicesModalsProps {
     // New Voice Modal
@@ -69,8 +69,8 @@ interface VoicesModalsProps {
     setTestText: (text: string) => void;
     referenceSample: string;
     setReferenceSample: (sample: string) => void;
-    voxtralVoiceId: string;
-    setVoxtralVoiceId: (voiceId: string) => void;
+    engineVoiceId: string;
+    setEngineVoiceId: (voiceId: string) => void;
     isSavingText: boolean;
     handleResetTestText: () => void;
     handleSaveTestText: () => void;
@@ -165,8 +165,8 @@ export const VoicesModals: React.FC<VoicesModalsProps> = (props) => {
                     referenceSample={props.referenceSample}
                     onReferenceSampleChange={props.setReferenceSample}
                     availableSamples={props.editingProfile?.samples || []}
-                    voxtralVoiceId={props.voxtralVoiceId}
-                    onVoxtralVoiceIdChange={props.setVoxtralVoiceId}
+                    engineVoiceId={props.engineVoiceId}
+                    onEngineVoiceIdChange={props.setEngineVoiceId}
                     onResetTestText={props.handleResetTestText}
                     onSave={props.handleSaveTestText}
                     isSaving={props.isSavingText}

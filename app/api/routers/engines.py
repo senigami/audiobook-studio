@@ -1,6 +1,5 @@
 from pathlib import Path
-from typing import Any
-from uuid import uuid4
+from typing import Any, Optional
 from fastapi import APIRouter, Body
 from fastapi.responses import JSONResponse, FileResponse
 from ...engines.bridge import create_voice_bridge
@@ -16,10 +15,9 @@ def list_engines():
     try:
         return bridge.describe_registry()
     except EngineUnavailableError as exc:
-        # During startup the managed TTS Server can still be warming up.
-        # Fall back to the local registry metadata so Settings can load
-        # without surfacing a transient error.
-        return bridge.local.describe_registry()
+        # We no longer fall back to the local registry in production.
+        # This prevents masking TTS Server failures.
+        return JSONResponse({"status": "error", "message": str(exc)}, status_code=503)
 
 
 @router.put("/{engine_id}/settings")
@@ -38,6 +36,22 @@ def update_engine_settings(engine_id: str, settings: dict[str, Any] = Body(...))
         import logging
         logging.getLogger(__name__).error(f"Engine settings update failed: {exc}")
         return JSONResponse({"status": "error", "message": "Failed to update engine settings"}, status_code=500)
+
+
+@router.delete("/{engine_id}/settings/{setting_key}")
+def clear_engine_setting(engine_id: str, setting_key: str):
+    """Clear a read-only computed setting for an engine."""
+    from ...engines.errors import EngineUnavailableError
+    bridge = create_voice_bridge()
+    try:
+        result = bridge.clear_engine_setting(engine_id, setting_key)
+        return JSONResponse(result)
+    except EngineUnavailableError as exc:
+        return JSONResponse({"status": "error", "message": str(exc)}, status_code=503)
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).error(f"Engine setting reset failed: {exc}")
+        return JSONResponse({"status": "error", "message": "Failed to reset engine setting"}, status_code=500)
 
 
 @router.post("/refresh")
@@ -70,9 +84,17 @@ def verify_engine(engine_id: str):
 @router.get("/{engine_id}/test/audio")
 def get_test_audio(engine_id: str):
     """Retrieve the latest test audio for an engine."""
-    from app.config import ENGINE_TEST_DIR  # noqa: PLC0415
-    safe_engine_id = "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in engine_id)
-    audio_path = ENGINE_TEST_DIR / safe_engine_id / "last_test.wav"
+    from ...engines.registry import load_engine_registry  # noqa: PLC0415
+    registry = load_engine_registry()
+    reg = registry.get(engine_id)
+    if not reg:
+        return JSONResponse({"ok": False, "message": "Engine not found"}, status_code=404)
+
+    plugin_dir = _resolve_plugin_dir(engine_id=engine_id, module_path=reg.manifest.module_path)
+    if not plugin_dir:
+        return JSONResponse({"ok": False, "message": "Could not resolve plugin directory"}, status_code=404)
+    audio_path = plugin_dir / "assets" / "test_output.wav"
+
     if not audio_path.exists():
         return JSONResponse({"ok": False, "message": "No test audio found"}, status_code=404)
     return FileResponse(audio_path, media_type="audio/wav")
@@ -80,64 +102,50 @@ def get_test_audio(engine_id: str):
 
 @router.post("/{engine_id}/test")
 def test_engine(engine_id: str):
-    """Run a real sample render or a minimal playable voice sample path."""
+    """Run a self-contained synthesis test on the engine."""
     from ...engines.errors import EngineUnavailableError
     bridge = create_voice_bridge()
 
-    # Resolve the default voice for testing
-    from app.tts_server.verification import _resolve_default_voice_reference # noqa: PLC0415
-    voice_ref, error = _resolve_default_voice_reference()
-
-    # If no default voice, look for a bundled sample in the plugin directory
-    if error:
-        registry = bridge.local.registry_loader()
-        reg = registry.get(engine_id)
-        if reg:
-            plugin_dir = Path(reg.manifest.module_path.replace(".", "/") + ".py").parent
-            bundled = plugin_dir / "sample.wav"
-            if bundled.exists():
-                voice_ref = str(bundled)
-                error = None
-
-    if error:
-        return JSONResponse({"ok": False, "message": f"Test failed: {error}"}, status_code=400)
-
     try:
-        from app.config import ENGINE_TEST_DIR  # noqa: PLC0415
+        # 1. Trigger the self-contained test run on the TTS Server
+        res = bridge.run_test(engine_id)
+        if not res.get("ok"):
+            return JSONResponse({"ok": False, "message": f"Test failed: {res.get('message')}"}, status_code=400)
+
+        from ...engines.registry import load_engine_registry  # noqa: PLC0415
+        registry = load_engine_registry()
+        reg = registry.get(engine_id)
+        if not reg:
+             return JSONResponse({"ok": False, "message": "Engine not found"}, status_code=404)
+
+        plugin_dir = _resolve_plugin_dir(engine_id=engine_id, module_path=reg.manifest.module_path)
+        if not plugin_dir:
+             return JSONResponse({"ok": False, "message": "Could not resolve plugin directory"}, status_code=404)
+        output_path = plugin_dir / "assets" / "test_output.wav"
+
+        if not output_path.exists():
+             return JSONResponse({"ok": False, "message": "Test passed but output audio not found in plugin folder"}, status_code=404)
+
         import json
         import time
 
-        safe_engine_id = "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in engine_id)
-        engine_test_root = ENGINE_TEST_DIR / safe_engine_id
-        engine_test_root.mkdir(parents=True, exist_ok=True)
+        last_test_path = plugin_dir / "assets" / "last_test.json"
+        last_test_path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "ok": True,
+            "audio_url": f"/api/engines/{engine_id}/test/audio",
+            "generated_at": time.time(),
+        }
+        last_test_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
-        output_path = engine_test_root / "last_test.wav"
-        res = bridge.preview(engine_id, {
-            "script_text": "This is a test of the synthesis engine. How do I sound?",
-            "voice_profile_id": "Default", # Placeholder
-            "voice_ref": voice_ref,
-            "reference_audio_path": voice_ref,
-            "output_path": str(output_path),
-            "output_format": "wav"
-        })
+        return JSONResponse(payload)
+
     except EngineUnavailableError as exc:
         return JSONResponse({"ok": False, "message": str(exc)}, status_code=503)
-
-    if res.get("status") == "ok" or res.get("ok"):
-        audio_path = res.get("audio_path")
-        if audio_path and Path(audio_path).exists():
-            generated_at = time.time()
-            meta = {
-                "ok": True,
-                "engine_id": engine_id,
-                "audio_url": f"/api/engines/{engine_id}/test/audio?t={generated_at}",
-                "generated_at": generated_at,
-                "message": "Test sample generated successfully."
-            }
-            (engine_test_root / "last_test.json").write_text(json.dumps(meta), encoding="utf-8")
-            return JSONResponse(meta)
-
-    return JSONResponse({"ok": False, "message": res.get("message") or "Test synthesis failed."}, status_code=500)
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).exception("Engine test failed")
+        return JSONResponse({"ok": False, "message": f"Engine test failed: {exc}"}, status_code=500)
 
 
 @router.post("/{engine_id}/install")
@@ -174,3 +182,25 @@ def install_plugin():
     """Request plugin installation instructions or trigger install."""
     bridge = create_voice_bridge()
     return bridge.install_plugin()
+
+
+# Removed self-contained resolution helpers; they are now owned by the plugins.
+
+
+def _is_generated_sample_name(sample_name: str) -> bool:
+    sample_path = Path(sample_name)
+    return sample_path.name == sample_name and sample_name in {"sample.wav", "sample.mp3"}
+
+
+def _resolve_plugin_dir(*, engine_id: str, module_path: str) -> Optional[Path]:
+    from app.core.config import PLUGINS_DIR  # noqa: PLC0415
+
+    parts = module_path.split(".")
+    if len(parts) > 1 and parts[0] == "plugins":
+        return PLUGINS_DIR / parts[1]
+
+    safe_engine_id = "".join(ch for ch in engine_id if ch.isalnum() or ch in ("-", "_"))
+    if safe_engine_id:
+        return PLUGINS_DIR / f"tts_{safe_engine_id}"
+
+    return None

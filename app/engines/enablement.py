@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from app.engines.behavior import required_settings_for
+
 
 def can_enable_engine(
     engine_id: str,
@@ -10,6 +12,7 @@ def can_enable_engine(
     built_in: bool = False,
     verified: bool = False,
     status: str | None = None,
+    behavior: Mapping[str, Any] | None = None,
 ) -> tuple[bool, str]:
     """Return whether an engine can be toggled on.
 
@@ -40,10 +43,10 @@ def can_enable_engine(
     if normalized_status and normalized_status not in {STATUS_READY, STATUS_UNVERIFIED}:
         return False, "Resolve the engine setup before enabling it."
 
-    # Voxtral specific requirement: Mistral API key
-    if normalized_engine_id == "voxtral":
-        api_key = str(settings.get("mistral_api_key") or "").strip()
-        if not api_key:
-            return False, "Add a Mistral API key in engine settings before enabling Voxtral."
+    for requirement in required_settings_for(normalized_engine_id, behavior=behavior):
+        setting_name = requirement["name"]
+        if not str(settings.get(setting_name) or "").strip():
+            message = requirement.get("message") or f"Set {setting_name} before enabling this engine."
+            return False, message
 
     return True, ""

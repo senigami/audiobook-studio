@@ -1,4 +1,4 @@
-import type { Job } from '../types';
+import type { Job } from '@/types';
 
 export const SEGMENT_PROGRESS_LINGER_MS = 600;
 export const MIN_VISIBLE_SEGMENT_PROGRESS = 0.015;
@@ -66,6 +66,13 @@ export function getWeightedActiveGroupProgress(job?: Job): number | null {
   return Math.max(0, Math.min(1, elapsedWithinGroup / expectedActiveGroupSeconds));
 }
 
-export function isVoxtralJob(job?: Job): boolean {
-  return job?.engine === 'voxtral';
+export function isIndeterminateProgressJob(job?: Job, engines: import('@/types').TtsEngine[] = []): boolean {
+  if (!job) return false;
+  const engineList = Array.isArray(engines) ? engines : [];
+  const engineMeta = engineList.find(e => e && e.engine_id === job.engine);
+  if (engineMeta) {
+    const caps = Array.isArray(engineMeta.capabilities) ? engineMeta.capabilities : [];
+    return !!(caps.includes('simulated_finalizing') || engineMeta.cloud);
+  }
+  return false;
 }

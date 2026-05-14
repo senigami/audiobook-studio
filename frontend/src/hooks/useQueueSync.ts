@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { api } from '../api';
-import type { ProcessingQueueItem } from '../types';
-import { useWebSocket } from './useWebSocket';
-import { isStudioJobEvent } from '../api/contracts/events';
-import { createLiveJobsStore } from '../store/live-jobs';
-import { createHydrationCoordinator, selectActiveQueueCount } from '../api/hydration';
+import { api } from '@/api';
+import type { ProcessingQueueItem } from '@/types';
+import { useWebSocket } from '@/hooks/useWebSocket';
+import { isStudioJobEvent } from '@/api/contracts/events';
+import { createLiveJobsStore } from '@/store/live-jobs';
+import { createHydrationCoordinator, selectActiveQueueCount } from '@/api/hydration';
 
 const FALLBACK_POLL_MS = 60000;
 
@@ -62,8 +62,15 @@ export const useQueueSync = () => {
     if (isStudioJobEvent(data)) {
       storeRef.current.applyEvent(data);
       updateDerivedState();
+    } else if (data.type === 'job_updated') {
+      storeRef.current.applyJobUpdated(data.job_id, data.updates);
+      updateDerivedState();
+      // Also trigger refresh in case other fields changed that aren't in overlay
+      refreshQueue('refresh');
+    } else if (data.type === 'queue_updated' || data.type === 'pause_updated') {
+      refreshQueue('refresh');
     }
-  }, [updateDerivedState]);
+  }, [updateDerivedState, refreshQueue]);
 
   const { connected } = useWebSocket('/ws', onMessage);
 

@@ -100,6 +100,7 @@ def build_engine_detail(
         built_in=bool(manifest.get("built_in", False)),
         verified=bool(plugin.verified),
         status=status,
+        behavior=manifest.get("behavior"),
     )
 
     try:
@@ -139,9 +140,12 @@ def build_engine_detail(
         "network": manifest.get("network", False),
         "languages": manifest.get("languages", ["en"]),
         "capabilities": manifest.get("capabilities", ["synthesis"]),
+        "behavior": manifest.get("behavior", {}),
         "resource": manifest.get("resource", {}),
         "author": manifest.get("author", ""),
         "homepage": manifest.get("homepage", ""),
+        "test_sample": manifest.get("test_sample"),
+        "test_text": manifest.get("test_text", "This is a verification test."),
         "can_enable": can_enable,
         "enablement_message": enablement_message or getattr(plugin, "setup_message", None),
         "setup_message": getattr(plugin, "setup_message", None),

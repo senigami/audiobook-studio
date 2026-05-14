@@ -1,8 +1,8 @@
 import { useCallback } from 'react';
-import { api } from '../../api';
-import { resolveDefaultVariantName } from '../../utils/chapterEditorHelpers';
-import type { ChapterEditorState } from './useChapterEditorState';
-import type { Character, Speaker, SpeakerProfile, ScriptRangeAssignment } from '../../types';
+import { api } from '@/api';
+import { resolveDefaultVariantName } from '@/utils/chapterEditorHelpers';
+import type { ChapterEditorState } from '@/hooks/chapter/useChapterEditorState';
+import type { Character, Speaker, SpeakerProfile, ScriptRangeAssignment } from '@/types';
 
 export const useChapterAssignments = (
   state: ChapterEditorState,

@@ -1,3 +1,4 @@
+from __future__ import annotations
 import logging
 import os
 import shutil
@@ -5,11 +6,20 @@ import uuid
 from pathlib import Path
 from typing import List, Dict, Any
 
-from app import config
+from app.core import config
 from app.db.chapters import list_chapters
 from .manifest import load_project_manifest, save_project_manifest, CURRENT_STORAGE_VERSION
 
+
 logger = logging.getLogger(__name__)
+
+
+def _load_project_manifest_with_v1_fallback(project_dir: Path) -> Dict[str, Any]:
+    """Loads the project manifest, falling back to version 1 if missing for migration."""
+    manifest = load_project_manifest(project_dir)
+    if not manifest:
+        return {"version": 1}
+    return manifest
 
 
 def migrate_project_to_v2(project_id: str) -> bool:
@@ -35,7 +45,7 @@ def migrate_project_to_v2(project_id: str) -> bool:
         return False
 
     project_dir = Path(project_dir_path)
-    manifest = load_project_manifest(project_dir)
+    manifest = _load_project_manifest_with_v1_fallback(project_dir)
 
     current_version = int(manifest.get("version", 1))
 
@@ -170,7 +180,7 @@ def migrate_project_to_v2(project_id: str) -> bool:
                                 src_path = candidate_src_path
                             break
 
-                dest_filename = f"seg_{segment_index}.wav"
+                dest_filename = f"{sid}.wav"
                 segments_root_prefix = segments_dir_path if segments_dir_path.endswith(os.sep) else segments_dir_path + os.sep
                 dest_path = os.path.abspath(
                     os.path.normpath(os.path.join(segments_dir_path, dest_filename))

@@ -2,7 +2,7 @@ import logging
 from fastapi import APIRouter, File, UploadFile
 from fastapi.responses import JSONResponse, Response
 from .voices_helpers import get_voices_dir
-from ...pathing import safe_basename
+from ...utils.pathing import safe_basename
 from ...domain.voices.bundles import VoiceBundleError, export_voice_bundle, import_voice_bundle
 from ...db.speakers import sync_speakers_from_profiles
 

@@ -5,8 +5,40 @@
   "display_name": "XTTS (Local)",
   "version": "1.0.0",
   "min_studio": "2.0.0",
-  "entry_class": "engine:XttsPlugin",
+  "entry_class": "interface:XttsPlugin",
+  "app_adapter_class": "XttsVoiceEngine",
+  "app_adapter_module": "interface",
   "capabilities": ["synthesis", "preview", "voice_cloning"],
+  "worker_logic": {
+    "engine_handlers": {
+      "xtts": "interface:xtts_dispatch_adapter"
+    },
+    "kind_handlers": {
+      "voice_build": "interface:voice_job_dispatch_adapter",
+      "voice_test": "interface:voice_job_dispatch_adapter",
+      "voice_task": "interface:voice_job_dispatch_adapter"
+    }
+  },
+  "behavior": {
+    "features": [
+      "script_synthesis",
+      "batch_synthesis",
+      "voice_cloning",
+      "standard_rendering",
+      "segment_rendering",
+      "bake_rendering",
+      "mixed_rendering",
+      "sanitize_text",
+      "cps_eta",
+      "segment_orchestration"
+    ],
+    "required_settings": [],
+    "setting_aliases": {},
+    "synthesis_settings": ["temperature", "repetition_penalty", "top_k", "top_p"],
+    "text_chunk_limit": 500,
+    "text_split_target": 450,
+    "progress_pattern": "\\[PROGRESS\\]\\s*(?P<value>\\d+(?:\\.\\d+)?)\\s*%"
+  },
   "local": true,
   "cloud": false,
   "network": false,
@@ -19,5 +51,6 @@
   "author": "Coqui AI",
   "homepage": "https://github.com/coqui-ai/TTS",
   "license": "CPML-1.0",
+  "test_sample": "latent.pth",
   "test_text": "Hello, this is a verification test of the XTTS synthesis engine."
 }

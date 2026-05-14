@@ -12,20 +12,21 @@ from fastapi.responses import JSONResponse
 from ...db.speakers import (
     infer_speaker_name,
     infer_variant_name,
-    DEFAULT_PROFILE_ENGINE,
-    VALID_PROFILE_ENGINES,
 )
-from ...jobs import (
+from ...engines.voice_engines import (
+    list_tts_engines,
+    get_default_profile_engine,
+)
+from ...db.speakers import (
     get_speaker_settings,
     update_speaker_settings,
     DEFAULT_SPEAKER_TEST_TEXT,
-    enqueue,
 )
 from ...engines.bridge import create_voice_bridge
-from ... import config
-from ...pathing import safe_join_flat, find_secure_file, secure_join_flat
-from ...state import put_job
-from ...models import Job
+from ...core import config
+from ...utils.pathing import safe_join_flat, find_secure_file, secure_join_flat
+from ...db.state import put_job
+from ...db.models import Job
 
 logger = logging.getLogger(__name__)
 
@@ -58,14 +59,19 @@ def _profile_dir_has_assets(profile_dir: Path) -> bool:
     # If it's a v2 voice root (voice.json), it's NOT a playable profile directory itself.
     if find_secure_file(profile_dir, "voice.json"):
         return False
-    # For legacy/compatibility and test support, we allow directories to be treated as profiles
-    # even if empty or missing profile.json, so they can be discovered/built.
-    return True
+    # Check for loose wav discovery
+    try:
+        for entry in os.scandir(profile_dir):
+            if entry.is_file() and entry.name.endswith(".wav"):
+                return True
+    except OSError:
+        pass
+    return False
 
 
 def _normalize_profile_engine(engine: Optional[str]) -> str:
-    normalized = (engine or DEFAULT_PROFILE_ENGINE).strip().lower()
-    if normalized not in VALID_PROFILE_ENGINES:
+    normalized = (engine or get_default_profile_engine()).strip().lower()
+    if normalized not in list_tts_engines():
         raise ValueError(f"Invalid profile engine: {engine}")
     return normalized
 
@@ -77,16 +83,22 @@ def _is_engine_active(engine_id: str) -> bool:
         engines = bridge.describe_registry()
     except EngineUnavailableError:
         # If the TTS Server is starting up, we can't get the registry yet.
-        # For built-in engines, we assume they are active to avoid blocking
-        # voice listing/creation.
-        if engine_id in ("xtts", "voxtral"):
-            return True
-        return False
-
+        # We assume locally available engines are active to avoid blocking
+        # voice listing/creation during boot.
+        from ...engines.behavior import is_engine_locally_available
+        return is_engine_locally_available(engine_id)
     for e in engines:
         if e["engine_id"] == engine_id:
             return bool(e.get("enabled"))
+
+    # If not in registry, it's definitely not active
     return False
+
+
+def _has_behavior(engine_id: str, behavior_name: str) -> bool:
+    """Helper to check behavior for an engine."""
+    from ...engines.behavior import has_behavior
+    return has_behavior(engine_id, behavior_name)
 
 
 def _voice_dirs_map() -> Dict[str, Path]:
@@ -119,22 +131,6 @@ def _new_voice_profile_dir(name: str) -> Path:
         voice_name, variant_name = candidate.split(" - ", 1)
         voice_name = voice_name.strip()
         variant_name = variant_name.strip()
-        from ...config import get_voice_storage_version
-        if get_voice_storage_version(voice_name) >= 2:
-            try:
-                voice_root = secure_join_flat(root, voice_name)
-                voice_root.resolve().relative_to(root.resolve())
-                voice_root.mkdir(parents=True, exist_ok=True)
-                from ...domain.voices.manifest import save_voice_manifest
-                if not find_secure_file(voice_root, "voice.json"):
-                    save_voice_manifest(voice_root, {"version": 2, "name": voice_name})
-                dest = secure_join_flat(voice_root, variant_name)
-                dest.resolve().relative_to(voice_root.resolve())
-                return dest
-            except (ValueError, OSError, RuntimeError) as e:
-                 raise ValueError(str(e))
-        if find_secure_file(root, candidate):
-             return secure_join_flat(root, candidate)
         try:
             voice_root = secure_join_flat(root, voice_name)
             voice_root.resolve().relative_to(root.resolve())
@@ -147,7 +143,21 @@ def _new_voice_profile_dir(name: str) -> Path:
             return dest
         except (ValueError, OSError, RuntimeError) as e:
              raise ValueError(str(e))
-    return secure_join_flat(root, candidate)
+
+    voice_name = candidate.strip()
+    try:
+        voice_root = secure_join_flat(root, voice_name)
+        voice_root.resolve().relative_to(root.resolve())
+        voice_root.mkdir(parents=True, exist_ok=True)
+        from ...domain.voices.manifest import save_voice_manifest
+        if not find_secure_file(voice_root, "voice.json"):
+            save_voice_manifest(voice_root, {"version": 2, "name": voice_name})
+        dest = secure_join_flat(voice_root, "Default")
+        dest.resolve().relative_to(voice_root.resolve())
+        return dest
+    except (ValueError, OSError, RuntimeError) as e:
+         raise ValueError(str(e))
+
 
 
 def _cleanup_voice_root(root: Path):
@@ -221,8 +231,6 @@ def _voice_preview_url(name: str) -> Optional[str]:
     files = _voice_file_map(profile_dir)
     if "sample.mp3" in files:
         return f"/out/voices/{url_path}/sample.mp3"
-    if "sample.wav" in files:
-        return f"/out/voices/{url_path}/sample.wav"
     return None
 
 
@@ -236,16 +244,33 @@ def _voice_asset_base_url(profile_dir: Path) -> str:
     return f"/out/voices/{url_path}"
 
 
-def _voice_has_latent(name: str) -> bool:
+def _voice_has_test_sample(name: str) -> bool:
+    """Return whether the voice profile has the engine-declared test sample."""
+    from ...engines.behavior import get_test_sample_name
+    from ...db.speakers import get_speaker_settings
+    from ...engines.voice_engines import get_default_profile_engine
+
     profile_dir = _existing_voice_profile_dir(name)
     if not profile_dir:
         return False
-    return (_voice_file_map(profile_dir).get("latent.pth") or _new_voice_sample_path(profile_dir, "latent.pth")).exists()
+
+    settings = get_speaker_settings(name)
+    engine = settings.get("engine") or get_default_profile_engine()
+    test_sample = get_test_sample_name(engine)
+    if not test_sample:
+        return False
+
+    return (_voice_file_map(profile_dir).get(test_sample) or _new_voice_sample_path(profile_dir, test_sample)).exists()
+
+
+def _voice_has_latent(name: str) -> bool:
+    """Support the existing API field while using engine-declared samples."""
+    return _voice_has_test_sample(name)
 
 
 def _voice_has_generation_material(name: str) -> bool:
     settings = get_speaker_settings(name)
-    engine = settings.get("engine", DEFAULT_PROFILE_ENGINE)
+    engine = settings.get("engine", get_default_profile_engine())
     if not _is_engine_active(engine):
         return False
     bridge = create_voice_bridge()

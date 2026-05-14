@@ -13,8 +13,8 @@ from pydantic import BaseModel, Field
 from app.core.security import verify_api_key, rate_limit
 from app.orchestration.tasks.api_synthesis import ApiSynthesisTask
 from app.orchestration.scheduler.orchestrator import create_orchestrator
-from app.state import get_settings, get_jobs
-from app.config import XTTS_OUT_DIR
+from app.db.state import get_settings, get_jobs
+from app.core.config import TRANSIENT_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -78,9 +78,9 @@ async def list_engines():
     try:
         engines = bridge.describe_registry()
     except EngineUnavailableError:
-        # If the managed TTS Server is still booting, fall back to the local
-        # registry metadata so the API remains responsive during startup.
-        engines = bridge.local.describe_registry()
+        # If the managed TTS Server is still booting or unreachable, return
+        # an empty list rather than crashing. Discovery will succeed on next poll.
+        engines = []
     return {"engines": engines}
 
 @router.get("/engines/{engine_id}")
@@ -104,7 +104,7 @@ async def synthesize(request: SynthesisRequest, req_context: Request, background
     task_id = f"api_{uuid.uuid4().hex[:8]}"
 
     # Ensure output directory exists
-    output_dir = XTTS_OUT_DIR / "api"
+    output_dir = TRANSIENT_DIR / "api"
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / f"{task_id}.{request.output_format}"
 

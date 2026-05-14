@@ -14,30 +14,30 @@ def get_voice_manifest_path(voice_dir: Path) -> Path:
     return voice_dir / VOICE_MANIFEST_FILENAME
 
 def load_voice_manifest(voice_dir: Path) -> Dict[str, Any]:
-    """Loads the voice manifest from disk, or returns a default v1 manifest if missing."""
+    """Loads the voice manifest from disk. Returns empty dict if missing."""
     try:
-        from ...config import VOICES_DIR
+        from ...core.config import VOICES_DIR
 
         trusted_root = os.path.abspath(os.path.realpath(os.fspath(VOICES_DIR)))
         manifest_path = os.path.abspath(os.path.realpath(os.path.join(os.fspath(voice_dir), VOICE_MANIFEST_FILENAME)))
 
         if manifest_path.startswith(trusted_root + os.sep):
             if not os.path.exists(manifest_path):
-                return {"version": 1}
+                return {}
             with open(manifest_path, "r", encoding="utf-8") as f:
                 return json.load(f)
         else:
             logger.warning("Blocking voice manifest load outside voices root: %s", manifest_path)
-            return {"version": 1}
+            return {}
     except Exception as e:
         logger.warning("Failed to load voice manifest: %s", e)
-        return {"version": 1}
+        return {}
 
 
 def save_voice_manifest(voice_dir: Path, manifest: Dict[str, Any]) -> bool:
     """Saves the voice manifest to disk atomically."""
     try:
-        from ...config import VOICES_DIR
+        from ...core.config import VOICES_DIR
 
         trusted_root = os.path.abspath(os.path.realpath(os.fspath(VOICES_DIR)))
         manifest_path = os.path.abspath(os.path.realpath(os.path.join(os.fspath(voice_dir), VOICE_MANIFEST_FILENAME)))
@@ -57,9 +57,9 @@ def save_voice_manifest(voice_dir: Path, manifest: Dict[str, Any]) -> bool:
 
 
 def get_voice_storage_version(voice_dir: Path) -> int:
-    """Helper to get the storage version of a voice root."""
+    """Helper to get the storage version of a voice root. Returns 0 if missing."""
     manifest = load_voice_manifest(voice_dir)
-    return int(manifest.get("version", 1))
+    return int(manifest.get("version", 0))
 
 
 def get_variant_manifest_path(variant_dir: Path) -> Path:
@@ -69,7 +69,7 @@ def get_variant_manifest_path(variant_dir: Path) -> Path:
 def load_variant_manifest(variant_dir: Path) -> Dict[str, Any]:
     """Loads the variant manifest (profile.json)."""
     try:
-        from ...config import VOICES_DIR
+        from ...core.config import VOICES_DIR
 
         trusted_root = os.path.abspath(os.path.realpath(os.fspath(VOICES_DIR)))
         manifest_path = os.path.abspath(os.path.realpath(os.path.join(os.fspath(variant_dir), VARIANT_MANIFEST_FILENAME)))
@@ -90,7 +90,7 @@ def load_variant_manifest(variant_dir: Path) -> Dict[str, Any]:
 def save_variant_manifest(variant_dir: Path, manifest: Dict[str, Any]) -> bool:
     """Saves the variant manifest (profile.json) atomically."""
     try:
-        from ...config import VOICES_DIR
+        from ...core.config import VOICES_DIR
 
         trusted_root = os.path.abspath(os.path.realpath(os.fspath(VOICES_DIR)))
         manifest_path = os.path.abspath(

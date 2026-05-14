@@ -1,6 +1,14 @@
-import type { StudioJobEvent, StudioJobStatus } from '../api/contracts/events';
+import type { StudioJobEvent, StudioJobStatus } from '@/api/contracts/events';
 
 export interface OverlayDelta {
+  project_id?: string | null;
+  chapter_id?: string | null;
+  engine?: string | null;
+  custom_title?: string | null;
+  chapter_file?: string | null;
+  segment_ids?: string[] | null;
+  created_at?: number | null;
+  completed_at?: number | null;
   status?: StudioJobStatus;
   progress?: number;
   eta_seconds?: number | null;
@@ -10,6 +18,8 @@ export interface OverlayDelta {
   eta_basis?: 'remaining_from_update' | 'total_from_start' | null;
   active_render_batch_id?: string | null;
   active_render_batch_progress?: number | null;
+  active_segment_id?: string | null;
+  active_segment_progress?: number | null;
   reason_code?: string | null;
   message?: string | null;
 }
@@ -31,6 +41,7 @@ const STATUS_PRIORITY: Record<string, number> = {
 export interface LiveJobsStore {
   getState: () => LiveOverlayState;
   applyEvent: (event: StudioJobEvent) => void;
+  applyJobUpdated: (jobId: string, updates: any) => void;
   pruneOlderThan: (timestamp: number) => void;
   clear: () => void;
 }
@@ -146,6 +157,41 @@ export const createLiveJobsStore = (): LiveJobsStore => {
     state.eventsById[jobId] = nextDelta;
   };
 
+  const applyJobUpdated = (jobId: string, updates: any) => {
+    // Normalize job_updated into a StudioJobEvent-like shape for applyEvent
+    // This allows useQueueSync to benefit from the same merging logic
+    const jobUpdated = updates || {};
+    const existing = state.eventsById[jobId];
+    state.eventsById[jobId] = {
+      ...existing,
+      project_id: jobUpdated.project_id ?? existing?.project_id,
+      chapter_id: jobUpdated.chapter_id ?? existing?.chapter_id,
+      engine: jobUpdated.engine ?? existing?.engine,
+      custom_title: jobUpdated.custom_title ?? existing?.custom_title,
+      chapter_file: jobUpdated.chapter_file ?? existing?.chapter_file,
+      segment_ids: jobUpdated.segment_ids ?? existing?.segment_ids,
+      created_at: jobUpdated.created_at ?? existing?.created_at,
+      completed_at: jobUpdated.completed_at ?? existing?.completed_at,
+      status: jobUpdated.status ?? existing?.status,
+      progress: typeof jobUpdated.progress === 'number' ? jobUpdated.progress : existing?.progress,
+      eta_seconds: typeof jobUpdated.eta_seconds === 'number' ? jobUpdated.eta_seconds : existing?.eta_seconds,
+      started_at: typeof jobUpdated.started_at === 'number' ? jobUpdated.started_at : existing?.started_at,
+      updated_at: typeof jobUpdated.updated_at === 'number' ? jobUpdated.updated_at : existing?.updated_at,
+      estimated_end_at: typeof jobUpdated.estimated_end_at === 'number' ? jobUpdated.estimated_end_at : existing?.estimated_end_at,
+      eta_basis: jobUpdated.eta_basis ?? existing?.eta_basis,
+      active_render_batch_id: jobUpdated.active_render_batch_id ?? existing?.active_render_batch_id,
+      active_render_batch_progress: typeof jobUpdated.active_render_batch_progress === 'number'
+        ? jobUpdated.active_render_batch_progress
+        : existing?.active_render_batch_progress,
+      active_segment_id: jobUpdated.active_segment_id ?? existing?.active_segment_id,
+      active_segment_progress: typeof jobUpdated.active_segment_progress === 'number'
+        ? jobUpdated.active_segment_progress
+        : existing?.active_segment_progress,
+      reason_code: jobUpdated.reason_code ?? existing?.reason_code,
+      message: jobUpdated.message ?? jobUpdated.log ?? existing?.message,
+    };
+  };
+
   const pruneOlderThan = (timestamp: number) => {
     const nextEvents: Record<string, OverlayDelta> = {};
     Object.entries(state.eventsById).forEach(([id, delta]) => {
@@ -163,6 +209,7 @@ export const createLiveJobsStore = (): LiveJobsStore => {
   return {
     getState: () => state,
     applyEvent,
+    applyJobUpdated,
     pruneOlderThan,
     clear,
   };

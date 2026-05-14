@@ -1,8 +1,9 @@
 """Per-engine settings persistence for the TTS Server.
 
-Each plugin stores its user-editable settings in ``plugins/tts_<name>/settings.json``.
-The TTS Server reads settings on startup and writes them when Studio sends a
-``PUT /engines/{id}/settings`` request.
+Each plugin stores its user-editable settings in
+``plugin_data/<engine_id>/settings.json``.  The TTS Server reads settings on
+startup and writes them when Studio sends a ``PUT /engines/{id}/settings``
+request.
 
 Settings are validated against the engine's ``settings_schema.json`` before
 being written.  Invalid settings are rejected with a clear error message.
@@ -20,17 +21,36 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+def _engine_id_from_plugin_dir(plugin_dir: Path) -> str:
+    folder_name = plugin_dir.name
+    if folder_name.startswith("tts_") and len(folder_name) > 4:
+        return folder_name[4:]
+    if folder_name.startswith("pip:") and len(folder_name) > 4:
+        return folder_name[4:]
+    return folder_name
+
+
+def _runtime_dir(plugin_dir: Path) -> Path:
+    from app.core.config import PLUGIN_DATA_DIR  # noqa: PLC0415
+
+    return PLUGIN_DATA_DIR / _engine_id_from_plugin_dir(plugin_dir)
+
+
+def _runtime_file(plugin_dir: Path, filename: str) -> Path:
+    return _runtime_dir(plugin_dir) / filename
+
+
 def load_settings(plugin_dir: Path) -> dict[str, Any]:
     """Load persisted settings for a plugin.
 
     Args:
-        plugin_dir: The plugin's folder path (e.g. ``plugins/tts_xtts/``).
+        plugin_dir: The plugin's folder path (e.g. ``plugins/tts_example/``).
 
     Returns:
         dict[str, Any]: Settings dict, or empty dict if the file does not exist
         or cannot be parsed.
     """
-    settings_path = plugin_dir / "settings.json"
+    settings_path = _runtime_file(plugin_dir, "settings.json")
     if not settings_path.is_file():
         return {}
 
@@ -38,7 +58,7 @@ def load_settings(plugin_dir: Path) -> dict[str, Any]:
         return json.loads(settings_path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError) as exc:
         logger.warning(
-            "Could not read settings.json from %s: %s", plugin_dir.name, exc
+            "Could not read settings.json for %s: %s", plugin_dir.name, exc
         )
         return {}
 
@@ -53,7 +73,8 @@ def save_settings(plugin_dir: Path, settings: dict[str, Any]) -> None:
     Raises:
         OSError: If the file cannot be written.
     """
-    settings_path = plugin_dir / "settings.json"
+    settings_path = _runtime_file(plugin_dir, "settings.json")
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
     settings_path.write_text(
         json.dumps(settings, indent=2, ensure_ascii=False),
         encoding="utf-8",
@@ -70,7 +91,7 @@ def load_state(plugin_dir: Path) -> dict[str, Any]:
     Returns:
         dict[str, Any]: State dict, or empty dict if not found.
     """
-    state_path = plugin_dir / "state.json"
+    state_path = _runtime_file(plugin_dir, "state.json")
     if not state_path.is_file():
         return {}
 
@@ -87,8 +108,8 @@ def save_state(plugin_dir: Path, state: dict[str, Any]) -> None:
         plugin_dir: The plugin's folder path.
         state: State dict to persist.
     """
-    state_path = plugin_dir / "state.json"
-    plugin_dir.mkdir(parents=True, exist_ok=True)
+    state_path = _runtime_file(plugin_dir, "state.json")
+    state_path.parent.mkdir(parents=True, exist_ok=True)
     state_path.write_text(
         json.dumps(state, indent=2, ensure_ascii=False),
         encoding="utf-8",
@@ -107,24 +128,48 @@ def calculate_verification_metadata(plugin_dir: Path, manifest: dict[str, Any]) 
 
     # Hash requirements.txt
     req_file = plugin_dir / "requirements.txt"
-    if not req_file.is_file() and engine_id == "xtts":
-        # Fallback for bundled XTTS requirements
-        from app.config import BASE_DIR # noqa: PLC0415
-        req_file = BASE_DIR / "app/engines/voice/xtts/requirements.txt"
 
     if req_file.is_file():
         metadata["requirements_hash"] = hashlib.sha256(req_file.read_bytes()).hexdigest()
     else:
         metadata["requirements_hash"] = "none"
 
-    # Hash settings.json
-    settings_file = plugin_dir / "settings.json"
+    # Hash settings.json, but ignore computed read-only values so resets do not
+    # force a re-verify.
+    settings_file = _runtime_file(plugin_dir, "settings.json")
     if settings_file.is_file():
-        metadata["settings_hash"] = hashlib.sha256(settings_file.read_bytes()).hexdigest()
+        settings = load_settings(plugin_dir)
+        schema = _load_settings_schema(plugin_dir)
+        normalized = _strip_read_only_settings(settings, schema)
+        settings_blob = json.dumps(normalized, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+        metadata["settings_hash"] = hashlib.sha256(settings_blob.encode("utf-8")).hexdigest()
     else:
         metadata["settings_hash"] = "none"
 
     return metadata
+
+
+def _load_settings_schema(plugin_dir: Path) -> dict[str, Any]:
+    schema_path = plugin_dir / "settings_schema.json"
+    if not schema_path.is_file():
+        return {}
+    try:
+        return json.loads(schema_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def _strip_read_only_settings(settings: dict[str, Any], schema: dict[str, Any]) -> dict[str, Any]:
+    properties = schema.get("properties", {}) if isinstance(schema, dict) else {}
+    if not isinstance(properties, dict) or not properties:
+        return dict(settings)
+
+    read_only_keys = {
+        key
+        for key, prop in properties.items()
+        if isinstance(prop, dict) and prop.get("readOnly")
+    }
+    return {key: value for key, value in settings.items() if key not in read_only_keys}
 
 
 def merge_settings(
@@ -157,6 +202,9 @@ def merge_settings(
             continue
 
         prop = properties.get(key, {})
+        if prop.get("readOnly"):
+            continue
+
         expected_type = prop.get("type")
         if expected_type:
             type_ok = _check_type(value, expected_type)

@@ -8,7 +8,7 @@ they must not import anything from the rest of ``app``.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable, Dict, List, Optional
 
 
 @dataclass(frozen=True)
@@ -29,6 +29,7 @@ class TTSRequest:
             ``settings.json``.  Keys and value types match the engine's own
             ``settings_schema.json``.
         language: BCP-47 language code, e.g. ``"en"``, ``"es"``.
+        script: Optional structured multi-segment script for batch synthesis.
     """
 
     text: str
@@ -36,6 +37,9 @@ class TTSRequest:
     voice_ref: str | None = None
     settings: dict[str, Any] = field(default_factory=dict)
     language: str = "en"
+    script: Optional[list[dict[str, Any]]] = None
+    task_id: Optional[str] = None
+    cancel_check: Optional[Callable[[], bool]] = None
 
 
 @dataclass

@@ -7,11 +7,12 @@ from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import JSONResponse
 from . import voices_helpers
 from ... import db
-from ... import jobs
+
 from ...engines import bridge
-from ... import state
-from ... import pathing
-from ... import config
+from ...db import state
+from ...utils import pathing
+from ...core import config
+from ...engines.voice_engines import get_default_profile_engine
 
 logger = logging.getLogger(__name__)
 
@@ -144,10 +145,6 @@ def _rename_profile_folders(old_name: str, new_name: str):
         resolved_old = os.path.abspath(os.fspath(old_dir))
         resolved_new = os.path.abspath(os.fspath(new_dir))
 
-        if " - " in old_name and " - " in new_name and old_dir.parent == voices_helpers.get_voices_dir():
-            # Preserve the legacy flat layout
-            resolved_new = os.path.abspath(os.fspath(pathing.secure_join_flat(voices_helpers.get_voices_dir(), new_name)))
-
         if resolved_old.startswith(trusted_voices_root + os.sep) and resolved_new.startswith(trusted_voices_root + os.sep):
             os.rename(resolved_old, resolved_new)
             db.update_voice_profile_references(old_name, new_name)
@@ -169,37 +166,49 @@ def _rename_profile_folders(old_name: str, new_name: str):
                     logger.warning("Failed to update profile metadata during rename: %s -> %s", old_name, new_name, exc_info=True)
 
     # 2. Variants (Narrator - Variant)
-    variants = []
-    for dir_name, d in voices_helpers._voice_dirs_map().items():
-        if dir_name.startswith(old_name + " - "):
-            variants.append(d)
-    for vdir in variants:
-        suffix = vdir.name[len(old_name):]
+    variants_to_rename = []
+    for profile_name, d in voices_helpers._voice_dirs_map().items():
+        if profile_name.startswith(old_name + " - "):
+            variants_to_rename.append((profile_name, d))
+
+    for old_vname, vdir in variants_to_rename:
+        suffix = old_vname[len(old_name):] # e.g. " - Variant"
         new_vname = new_name + suffix
         new_vpath = voices_helpers._existing_voice_profile_dir(new_vname) or voices_helpers._new_voice_profile_dir(new_vname)
+
         if not new_vpath.exists():
             import os
             trusted_voices_root = os.path.abspath(os.fspath(voices_helpers.get_voices_dir()))
-            resolved_vdir = os.path.abspath(os.fspath(vdir))
-            resolved_new_vpath = os.path.abspath(os.fspath(new_vpath))
 
-            if resolved_vdir.startswith(trusted_voices_root + os.sep) and resolved_new_vpath.startswith(trusted_voices_root + os.sep):
-                os.rename(resolved_vdir, resolved_new_vpath)
-                db.update_voice_profile_references(vdir.name, new_vname)
+            # If it's a V2 nested layout, the variant dir might have already moved if we renamed the base voice
+            if vdir.exists():
+                resolved_vdir = os.path.abspath(os.fspath(vdir))
+                resolved_new_vpath = os.path.abspath(os.fspath(new_vpath))
+                if resolved_vdir.startswith(trusted_voices_root + os.sep) and resolved_new_vpath.startswith(trusted_voices_root + os.sep):
+                    new_vpath.parent.mkdir(parents=True, exist_ok=True)
+                    os.rename(resolved_vdir, resolved_new_vpath)
+
+            db.update_voice_profile_references(old_vname, new_vname)
+
+            if new_vpath.exists():
                 # Update meta
+                resolved_new_vpath = os.path.abspath(os.fspath(new_vpath))
                 meta_path_full = os.path.normpath(os.path.join(resolved_new_vpath, "profile.json"))
                 if os.path.exists(meta_path_full) and meta_path_full.startswith(resolved_new_vpath + os.sep):
                     try:
                         import json
                         with open(meta_path_full, "r", encoding="utf-8") as f:
                             meta = json.loads(f.read())
-                        # Ensure metadata speaker_id stays correct if it was a UUID, or updates to new name if unassigned
+                        # Update variant_name in meta if present
+                        if " - " in new_vname:
+                            meta["variant_name"] = new_vname.split(" - ", 1)[1]
+                        # Update speaker_id if it matched the old base name
                         if meta.get("speaker_id") == old_name:
                             meta["speaker_id"] = new_name
                         with open(meta_path_full, "w", encoding="utf-8") as f:
                             f.write(json.dumps(meta, indent=2))
                     except Exception:
-                        logger.warning("Failed to update variant metadata during rename: %s -> %s", vdir.name, new_vname, exc_info=True)
+                        logger.warning("Failed to update variant metadata during rename: %s -> %s", old_vname, new_vname, exc_info=True)
 
 
 @router.get("/speaker-profiles")
@@ -229,7 +238,7 @@ def list_speaker_profiles():
     profiles = []
     for name, d in sorted_items:
         raw_wavs = sorted([f.name for f in d.glob("*.wav") if f.name != "sample.wav"])
-        spk_settings = jobs.get_speaker_settings(name)
+        spk_settings = db.speakers.get_speaker_settings(name)
         built_samples = spk_settings.get("built_samples", [])
 
         samples = []
@@ -248,20 +257,23 @@ def list_speaker_profiles():
                     "preview_test_text",
                     "preview_engine",
                     "preview_reference_sample",
-                    "preview_voxtral_voice_id",
-                    "preview_voxtral_model",
+                    "preview_voice_asset_id",
+                    "preview_model",
                 )
             )
             if has_preview_signature:
                 preview_signature_stale = (
                     spk_settings.get("preview_test_text") != spk_settings.get("test_text")
-                    or spk_settings.get("preview_engine") != spk_settings.get("engine", db.speakers.DEFAULT_PROFILE_ENGINE)
+                    or spk_settings.get("preview_engine") != spk_settings.get("engine", get_default_profile_engine())
                 )
-                if spk_settings.get("engine") == "voxtral":
+                if voices_helpers._has_behavior(spk_settings.get("engine", get_default_profile_engine()), "reference_sample"):
                     preview_signature_stale = preview_signature_stale or (
                         spk_settings.get("preview_reference_sample") != spk_settings.get("reference_sample")
-                        or spk_settings.get("preview_voxtral_voice_id") != spk_settings.get("voxtral_voice_id")
-                        or spk_settings.get("preview_voxtral_model") != spk_settings.get("voxtral_model")
+                    )
+                if voices_helpers._has_behavior(spk_settings.get("engine", get_default_profile_engine()), "voice_asset_id"):
+                    preview_signature_stale = preview_signature_stale or (
+                        spk_settings.get("preview_voice_asset_id") != spk_settings.get("voice_asset_id")
+                        or spk_settings.get("preview_model") != spk_settings.get("model")
                     )
 
         rebuild_reasons = []
@@ -291,13 +303,13 @@ def list_speaker_profiles():
             "test_text": spk_settings["test_text"],
             "speaker_id": spk_settings.get("speaker_id"),
             "variant_name": spk_settings.get("variant_name"),
-            "engine": spk_settings.get("engine", db.speakers.DEFAULT_PROFILE_ENGINE),
-            "voxtral_voice_id": spk_settings.get("voxtral_voice_id"),
-            "voxtral_model": spk_settings.get("voxtral_model"),
+            "engine": spk_settings.get("engine", get_default_profile_engine()),
+            "voice_asset_id": spk_settings.get("voice_asset_id"),
+            "model": spk_settings.get("model"),
             "reference_sample": spk_settings.get("reference_sample"),
             "preview_url": preview_url,
             "asset_base_url": voices_helpers._voice_asset_base_url(d),
-            "has_latent": voices_helpers._voice_has_latent(name),
+            "has_latent": voices_helpers._voice_has_test_sample(name),
             "is_ready": False,
             "readiness_message": "",
         }
@@ -328,8 +340,10 @@ def list_speaker_profiles():
 def api_create_speaker_profile(
     speaker_id: str = Form(...),
     variant_name: str = Form(...),
-    engine: str = Form(db.speakers.DEFAULT_PROFILE_ENGINE),
+    engine: str = Form(None),
 ):
+    if engine is None:
+        engine = get_default_profile_engine()
     logger.info(f"Creating profile for speaker_id='{speaker_id}', variant_name='{variant_name}', engine='{engine}'")
     try:
         normalized_engine = voices_helpers._normalize_profile_engine(engine)
@@ -350,7 +364,7 @@ def api_create_speaker_profile(
 
         path.mkdir(parents=True, exist_ok=True)
         # Record speaker_id (could be a UUID or a name for unassigned)
-        jobs.update_speaker_settings(name, speaker_id=speaker_id, variant_name=variant_name, engine=normalized_engine)
+        db.speakers.update_speaker_settings(name, speaker_id=speaker_id, variant_name=variant_name, engine=normalized_engine)
         return JSONResponse({"status": "ok", "name": name})
     except ValueError as e:
         return JSONResponse({"status": "error", "message": str(e)}, status_code=400)

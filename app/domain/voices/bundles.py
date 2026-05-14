@@ -16,7 +16,7 @@ from .manifest import (
     save_voice_manifest,
 )
 
-from ...config import SAFE_VOICE_NAME_RE
+from ...core.config import SAFE_VOICE_NAME_RE
 BUNDLE_SCHEMA_VERSION = 1
 BUNDLE_MANIFEST_FILENAME = "bundle.json"
 VOICE_MANIFEST_FILENAME = "voice.json"
@@ -111,11 +111,21 @@ def export_voice_bundle(voices_root: Path, voice_name: str, *, include_source_wa
             arc_prefix = variant_dir.name
             zf.writestr(f"{arc_prefix}/{VARIANT_MANIFEST_FILENAME}", json.dumps(variant_manifest, indent=2))
 
+            from ...engines.behavior import get_test_sample_name
+            from ...db.speakers import get_speaker_settings
+            from ...engines.voice_engines import get_default_profile_engine
+
+            profile_name = voice_name + " - " + variant_dir.name if variant_dir.name != "Default" else voice_name
+            spk_settings = get_speaker_settings(profile_name)
+            engine = variant_manifest.get("engine") or spk_settings.get("engine") or get_default_profile_engine()
+            test_sample = get_test_sample_name(engine)
+
+            effective_model_assets = ({test_sample} if test_sample else set()) | MODEL_ASSET_NAMES
             assets = []
-            for filename in sorted(MODEL_ASSET_NAMES | PREVIEW_ASSET_NAMES):
+            for filename in sorted(effective_model_assets | PREVIEW_ASSET_NAMES):
                 if _add_file(zf, variant_dir / filename, f"{arc_prefix}/{filename}"):
                     assets.append(filename)
-                    if filename in MODEL_ASSET_NAMES:
+                    if filename in effective_model_assets:
                         included_asset_classes.add("latent")
                     if filename in PREVIEW_ASSET_NAMES:
                         included_asset_classes.add("preview")

@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import TYPE_CHECKING, Any
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Optional
 
 from app.orchestration.tasks.base import TaskResult
+from app.utils.render_trace import trace
 
 if TYPE_CHECKING:
     from app.orchestration.tasks.base import StudioTask, TaskContext
@@ -65,30 +67,415 @@ class OrchestratorHelpersMixin:
 
     def _dispatch(self, *, task: StudioTask, context: TaskContext) -> TaskResult:
         """Dispatch the task to execution through the orchestrator-owned bridge."""
+        # Render start is separate from preparation. Marker-driven tasks anchor this
+        # on engine markers so model loading does not pollute render duration metrics.
+        timing = {"render_started_at": None}
+        marker_driven = bool(getattr(task, "is_marker_driven", False))
+        expected_duration = self._estimate_task_duration(task=task, context=context)
+
+        def task_progress_reporter(progress: float, message: str | None, reason_code: str | None, status: str = "running"):
+            # Non-marker tasks start when they first report running. Marker-driven
+            # tasks should only fall back here for real positive progress if a
+            # START_SYNTHESIS marker was missed.
+            if (
+                status == "running"
+                and timing["render_started_at"] is None
+                and (not marker_driven or progress > 0.0)
+            ):
+                timing["render_started_at"] = time.time()
+
+            self._publish(
+                context=context,
+                status=status,
+                progress=progress,
+                message=message,
+                reason_code=reason_code,
+                started_at=timing["render_started_at"],
+            )
+
+        task.set_progress_reporter(task_progress_reporter)
+
+        def record_render_stats_if_completed(result: TaskResult) -> None:
+            if result.status != "completed":
+                return
+            started_at = timing["render_started_at"]
+            if started_at is None:
+                duration_seconds = max(0.0, time.monotonic() - float(getattr(task, "submitted_at", time.monotonic())))
+            else:
+                duration_seconds = max(0.0, time.time() - started_at)
+            if duration_seconds <= 0:
+                return
+
+            payload = context.payload or {}
+            script_text = str(payload.get("script_text") or "")
+            chars = len(script_text)
+            if chars <= 0:
+                return
+
+            segment_ids = payload.get("segment_ids") or getattr(task, "segment_ids", None) or []
+            segment_count = max(1, len(segment_ids) if isinstance(segment_ids, list) else 1)
+            render_group_count = len(getattr(task, "script", None) or [])
+            word_count = len(script_text.split())
+            synthesis_settings = payload.get("synthesis_settings") if isinstance(payload.get("synthesis_settings"), dict) else {}
+            tts_model = synthesis_settings.get("model") or payload.get("model")
+            output_path = str(payload.get("output_path") or "")
+            audio_duration_seconds = None
+            if output_path:
+                try:
+                    from app.utils.subprocess_utils import probe_audio_duration  # noqa: PLC0415
+
+                    audio_file = Path(output_path)
+                    if audio_file.exists():
+                        audio_duration_seconds = probe_audio_duration(audio_file)
+                except Exception:
+                    logger.debug(
+                        "Could not probe completed audio duration for task %s.",
+                        context.task_id,
+                        exc_info=True,
+                    )
+
+            try:
+                from app.db.performance import record_render_sample  # noqa: PLC0415
+
+                record_render_sample(
+                    engine=str(payload.get("engine_id") or getattr(task, "engine_id", "")),
+                    tts_model=tts_model,
+                    chars=chars,
+                    word_count=word_count,
+                    segment_count=segment_count,
+                    duration_seconds=round(duration_seconds, 2),
+                    job_id=context.task_id,
+                    project_id=context.project_id,
+                    chapter_id=context.chapter_id,
+                    speaker_profile=payload.get("voice_profile_id"),
+                    render_group_count=render_group_count,
+                    started_at=started_at,
+                    audio_duration_seconds=audio_duration_seconds,
+                    make_mp3=bool(payload.get("make_mp3", False)),
+                    completed_at=time.time(),
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to record render performance sample for task %s.",
+                    context.task_id,
+                    exc_info=True,
+                )
+
+        self._publish(
+            context=context,
+            status="preparing",
+            progress=0.0,
+            started_at=None,
+            message="Preparing synthesis resources...",
+            force=True,
+        )
+
         # If the task exposes a bridge request, route through the injected bridge.
         bridge_request_fn = getattr(task, "to_bridge_request", None)
-        if callable(bridge_request_fn):
-            try:
-                request = bridge_request_fn()
-                # self.voice_bridge must be available on the target class
-                result = self.voice_bridge.synthesize(request)
-                ok = result.get("status", "ok") == "ok"
-                return TaskResult(
-                    status="completed" if ok else "failed",
-                    message=result.get("message"),
-                )
-            except Exception as exc:
-                logger.exception("Task %s: bridge dispatch raised.", context.task_id)
-                from app.engines.bridge_remote import EngineUnavailableError
-                is_retriable = isinstance(exc, EngineUnavailableError)
-                return TaskResult(status="failed", message=str(exc), retriable=is_retriable)
+        from app.engines.watchdog import get_watchdog
+        wd = get_watchdog()
 
-        # Fallback: let the task manage its own execution.
+        # Pre-calculate weights for grouped progress tracking
+        script = getattr(task, "script", None)
+        path_to_ids = {}  # type: dict[str, list[str]]
+        id_to_weight = {}
+        total_weight = 0
+        if script:
+            for entry in script:
+                eid = entry.get("id")
+                spath = entry.get("save_path")
+                # Grouped segments may share a save_path.
+                # If 'ids' is provided in the script entry, it's a group.
+                eids = entry.get("ids") or ([eid] if eid else [])
+
+                # Use length of text as weight if not provided
+                w = entry.get("weight") or max(1, len(entry.get("text", "")))
+
+                if eids:
+                    # Apply weight to the group as a whole
+                    id_to_weight[eids[0]] = w
+                    total_weight += w
+                    if spath:
+                        if spath not in path_to_ids:
+                            path_to_ids[spath] = []
+                        path_to_ids[spath].extend(eids)
+        trace(
+            "orchestrator.dispatch_start",
+            job_id=context.task_id,
+            project_id=context.project_id,
+            chapter_id=context.chapter_id,
+            task_type=context.task_type,
+            marker_driven=marker_driven,
+            script_group_count=len(script or []),
+            total_weight=total_weight,
+            path_to_ids=path_to_ids,
+            id_to_weight=id_to_weight,
+        )
+
+        # Volatile state for the log_listener closure
+        completed_weight = [0.0]
+        active_seg_id = [None]
+        active_seg_progress = [0.0]
+
+        def _get_grouped_progress() -> float:
+            """Compute weighted progress across all render groups."""
+            if total_weight <= 0:
+                return 0.0
+            active_w = id_to_weight.get(active_seg_id[0], 0) if active_seg_id[0] else 0
+            # Scale to 0.90 to leave room for stitching/finalizing
+            raw = (completed_weight[0] + (active_seg_progress[0] * active_w)) / total_weight
+            return round(min(0.99, raw * 0.90), 4)
+
+        def log_listener(line: str, line_task_id: Optional[str] = None):
+            # If a task_id is present in the line, it MUST match ours.
+            if line_task_id and line_task_id != context.task_id:
+                return
+
+            if "[START_SYNTHESIS]" in line:
+                if timing["render_started_at"] is None:
+                    timing["render_started_at"] = time.time()
+                trace(
+                    "orchestrator.marker_start_synthesis",
+                    job_id=context.task_id,
+                    line=line,
+                    render_started_at=timing["render_started_at"],
+                    expected_duration=expected_duration,
+                )
+                self._publish(
+                    context=context,
+                    status="running",
+                    progress=0.0,
+                    eta_seconds=self._duration_to_eta_seconds(expected_duration),
+                    started_at=timing["render_started_at"],
+                    message="Synthesis in progress...",
+                    force=True,
+                )
+
+            if "[START_SEGMENT]" in line:
+                try:
+                    # [START_SEGMENT] {segment_id}
+                    sid = line.split("[START_SEGMENT]")[1].strip().split()[0]
+                    active_seg_id[0] = sid
+                    active_seg_progress[0] = 0.0
+                    trace(
+                        "orchestrator.marker_start_segment",
+                        job_id=context.task_id,
+                        segment_id=sid,
+                        grouped_progress=_get_grouped_progress(),
+                        completed_weight=completed_weight[0],
+                        total_weight=total_weight,
+                        active_weight=id_to_weight.get(sid, 0),
+                        line=line,
+                    )
+                    self._publish(
+                        context=context,
+                        status="running",
+                        progress=_get_grouped_progress(),
+                        reason_code="segment_start",
+                        message=f"Rendering segment {sid}...",
+                        started_at=timing["render_started_at"],
+                        active_segment_id=sid,
+                    )
+                except (IndexError, ValueError):
+                    pass
+
+            from app.engines.behavior import parse_engine_progress
+            engine_id = context.payload.get("engine_id") or ""
+            raw_progress = parse_engine_progress(engine_id, line)
+
+            if raw_progress is not None:
+                if timing["render_started_at"] is None:
+                    timing["render_started_at"] = time.time()
+                try:
+                    if total_weight > 0:
+                        active_seg_progress[0] = raw_progress
+                        p = _get_grouped_progress()
+                    else:
+                        p = raw_progress
+                        # Scale progress for tasks that have post-synthesis phases
+                        if context.task_type in {"sample_build", "sample_test"}:
+                            p = p * 0.70
+
+                    eta_seconds = self._observed_remaining_seconds(
+                        started_at=timing["render_started_at"],
+                        progress=p,
+                    )
+                    trace(
+                        "orchestrator.marker_progress",
+                        job_id=context.task_id,
+                        segment_id=active_seg_id[0],
+                        raw_segment_progress=raw_progress,
+                        published_progress=p,
+                        eta_seconds=eta_seconds,
+                        completed_weight=completed_weight[0],
+                        total_weight=total_weight,
+                        active_weight=id_to_weight.get(active_seg_id[0], 0) if active_seg_id[0] else 0,
+                        line=line,
+                    )
+
+                    self._publish(
+                        context=context,
+                        status="running",
+                        progress=p,
+                        eta_seconds=eta_seconds,
+                        eta_confidence="recomputing" if eta_seconds is not None else None,
+                        reason_code="synthesis_progress",
+                        started_at=timing["render_started_at"],
+                        message="Synthesizing...",
+                        active_segment_id=active_seg_id[0],
+                        active_segment_progress=raw_progress if total_weight > 0 else 0.0,
+                    )
+                except Exception:
+                    pass
+
+            if "[SEGMENT_SAVED]" in line:
+                try:
+                    # [SEGMENT_SAVED] {path}
+                    saved_path = line.split("[SEGMENT_SAVED]")[1].strip().split()[0]
+                    sids = path_to_ids.get(saved_path)
+                    if not sids:
+                        # Fallback: try to find by filename if path doesn't match exactly
+                        fname = Path(saved_path).name
+                        for p, i in path_to_ids.items():
+                            if Path(p).name == fname:
+                                sids = i
+                                break
+
+                    if sids:
+                        # Use the first ID (leader) for weight tracking
+                        leader_id = sids[0]
+                        w = id_to_weight.get(leader_id, 0)
+                        completed_weight[0] += w
+                        active_seg_id[0] = None
+                        active_seg_progress[0] = 0.0
+                        trace(
+                            "orchestrator.marker_segment_saved",
+                            job_id=context.task_id,
+                            saved_path=saved_path,
+                            segment_ids=sids,
+                            leader_id=leader_id,
+                            completed_weight=completed_weight[0],
+                            total_weight=total_weight,
+                            grouped_progress=_get_grouped_progress(),
+                            line=line,
+                        )
+
+                        # Update segment database state for all members of the group
+                        try:
+                            from app.db import update_segments_bulk
+                            update_segments_bulk(
+                                sids,
+                                audio_status="done",
+                                audio_file_path=Path(saved_path).name,
+                                audio_generated_at=time.time(),
+                            )
+                            from app.api.ws import broadcast_segments_updated
+                            if context.chapter_id:
+                                broadcast_segments_updated(context.chapter_id)
+                        except Exception:
+                            logger.exception("Failed to update segments %s on [SEGMENT_SAVED]", sids)
+
+                        self._publish(
+                            context=context,
+                            status="running",
+                            progress=_get_grouped_progress(),
+                            reason_code="segment_saved",
+                            message=f"Completed segment {leader_id}",
+                            started_at=timing["render_started_at"],
+                            active_segment_id=None,
+                        )
+                except (IndexError, ValueError):
+                    pass
+
+        if wd:
+            wd.register_log_listener(log_listener)
+
         try:
-            return task.run()
+            if getattr(task, "prefers_local_execution", False):
+                # Explicitly opted-out of bridge dispatch (e.g. mixed chapter synthesis)
+                pass
+            elif callable(bridge_request_fn):
+                request = bridge_request_fn()
+                if request is not None:
+                    try:
+                        # self.voice_bridge must be available on the target class
+                        result = self.voice_bridge.synthesize(request)
+                        ok = result.get("status", "ok") == "ok"
+                        task_result = TaskResult(
+                            status="completed" if ok else "failed",
+                            message=result.get("message"),
+                        )
+                        record_render_stats_if_completed(task_result)
+                        return task_result
+                    except Exception as exc:
+                        logger.exception("Task %s: bridge dispatch raised.", context.task_id)
+                        from app.engines.bridge_remote import EngineUnavailableError
+                        is_retriable = isinstance(exc, EngineUnavailableError)
+                        return TaskResult(status="failed", message=str(exc), retriable=is_retriable)
+                else:
+                    # Bridge-backed task returned None for request; this is now an error
+                    # unless the task explicitly allowed local fallback.
+                    return TaskResult(
+                        status="failed",
+                        message="Task requires a voice bridge but returned no request payload."
+                    )
+
+            # Fall through to local execution ONLY if the task prefers it.
+            if not getattr(task, "prefers_local_execution", False):
+                return TaskResult(
+                    status="failed",
+                    message=f"Task type {context.task_type} does not support local execution and no bridge was available."
+                )
+
+            if not marker_driven:
+                if timing["render_started_at"] is None:
+                    timing["render_started_at"] = time.time()
+                self._publish(
+                    context=context,
+                    status="running",
+                    progress=0.0,
+                    started_at=timing["render_started_at"],
+                )
+
+            result = task.run()
+            record_render_stats_if_completed(result)
+            return result
         except Exception as exc:
             logger.exception("Task %s: dispatch raised an exception.", context.task_id)
             return TaskResult(status="failed", message=str(exc))
+        finally:
+            if wd:
+                wd.unregister_log_listener(log_listener)
+
+    def _estimate_task_duration(self, *, task: StudioTask, context: TaskContext) -> float | None:
+        """Estimate render duration without publishing it during preparation."""
+        try:
+            text = context.payload.get("test_text") or context.payload.get("script_text", "")
+            engine_id = context.payload.get("engine_id", "synthesis")
+            duration = task.get_expected_duration(text, engine_id)
+            return float(duration) if duration else None
+        except Exception:
+            return None
+
+    @staticmethod
+    def _duration_to_eta_seconds(duration: float | None) -> int | None:
+        """Normalize an optional duration estimate for websocket payloads."""
+        if duration is None or duration <= 0:
+            return None
+        return max(1, int(round(duration)))
+
+    @staticmethod
+    def _observed_remaining_seconds(*, started_at: float | None, progress: float) -> int | None:
+        """Estimate remaining render time from raw engine progress."""
+        if started_at is None or progress <= 0:
+            return None
+        if progress >= 0.995:
+            return 1
+        elapsed = max(0.0, time.time() - started_at)
+        if elapsed <= 0:
+            return None
+        remaining = elapsed * (1.0 - progress) / progress
+        return max(1, int(round(remaining)))
 
     def _publish(
         self,
@@ -96,54 +483,142 @@ class OrchestratorHelpersMixin:
         context: TaskContext,
         status: str,
         progress: float | None = None,
+        eta_seconds: int | None = None,
+        eta_confidence: str | None = None,
         message: str | None = None,
         reason_code: str | None = None,
         waiting_reason: str | None = None,
         started_at: float | None = None,
+        active_segment_id: str | None = None,
+        active_segment_progress: float | None = None,
         allow_progress_regression: bool = False,
         force: bool = False,
     ) -> None:
         """Publish a progress event through the ProgressService and sync with state."""
+        state_status = "done" if status == "completed" else status
+        state_progress = progress
+        if state_progress is None:
+            if state_status == "done":
+                state_progress = 1.0
+            elif context.task_type in {"sample_build", "sample_test"}:
+                # Provide synthetic progress fallbacks for voice tasks ONLY if no task-reported progress is available
+                progress_map = {
+                    "queued": 0.0,
+                    "preparing": 0.0,
+                    "running": 0.0, # start at 0.0, real task will report progress via heartbeat
+                    "finalizing": 0.9,
+                }
+                state_progress = progress_map.get(state_status, 0.0)
+            else:
+                state_progress = 0.0
+        # Safety: Do not emit eta_seconds=0 for active jobs; it's better to show no ETA than a false zero.
+        if eta_seconds == 0 and state_status not in {"done", "failed", "cancelled"}:
+            eta_seconds = None
+
+        finished_at = time.time() if state_status in {"done", "failed", "cancelled"} else None
+        updated_at = time.time()
+        trace(
+            "orchestrator.publish",
+            job_id=context.task_id,
+            project_id=context.project_id,
+            chapter_id=context.chapter_id,
+            status=state_status,
+            progress=state_progress,
+            eta_seconds=eta_seconds,
+            eta_confidence=eta_confidence,
+            reason_code=reason_code,
+            message=message,
+            started_at=started_at,
+            active_segment_id=active_segment_id,
+            active_segment_progress=active_segment_progress,
+            force=force,
+        )
         try:
+            # Sync with the persistent state.json for UI visibility and polling.
+            # We import lazily to stay behind the state boundary.
+            from app.db.state import get_jobs, put_job, update_job, Job  # noqa: PLC0415
+
+            # Anti-Regression: If this is an update to an existing job, don't allow progress to regress
+            # unless the status itself has regressed (e.g. requeued).
+            existing_job = get_jobs().get(context.task_id)
+            if existing_job and state_status == existing_job.status and state_progress is not None:
+                if state_progress < (existing_job.progress or 0.0):
+                    state_progress = existing_job.progress
+
             # self.progress_service must be available on the target class
             self.progress_service.publish(
                 job_id=context.task_id,
-                status=status,
+                status=state_status,
                 parent_job_id=context.project_id,
-                progress=progress,
+                progress=state_progress,
+                eta_seconds=eta_seconds,
+                eta_confidence=eta_confidence,
                 message=message,
                 reason_code=reason_code,
                 waiting_reason=waiting_reason,
                 started_at=started_at,
+                active_segment_id=active_segment_id,
+                active_segment_progress=active_segment_progress,
                 allow_progress_regression=allow_progress_regression,
                 force=force,
+                updated_at=updated_at,
             )
 
-            # Sync with the persistent state.json for UI visibility and polling.
-            # We import lazily to stay behind the state boundary.
-            from app.state import get_jobs, put_job, update_job, Job  # noqa: PLC0415
-
             # Initialize job state if this is the first event (usually 'queued')
-            if not get_jobs().get(context.task_id):
+            if not existing_job:
                 job = Job(
                     id=context.task_id,
                     engine=getattr(context, "task_type", "synthesis"),  # type: ignore[arg-type]
-                    status=status,  # type: ignore[arg-type]
+                    status=state_status,  # type: ignore[arg-type]
                     created_at=time.time(),
+                    updated_at=updated_at,
+                    started_at=started_at,
                     project_id=context.project_id,
                     chapter_id=context.chapter_id,
+                    speaker_profile=context.payload.get("speaker_profile"),
+                    progress=state_progress or 0.0,
+                    finished_at=finished_at,
+                    error=message if state_status == "failed" else None,
+                    eta_seconds=eta_seconds,
+                    eta_confidence=eta_confidence,
+                    active_segment_id=active_segment_id,
+                    active_segment_progress=active_segment_progress,
                 )
                 put_job(job)
             else:
-                update_job(
-                    context.task_id,
-                    status=status,
-                    progress=progress,
-                    message=message,
-                    reason_code=reason_code,
-                    started_at=started_at,
-                    force_broadcast=force,
-                )
+                updates: dict[str, object | None] = {
+                    "status": state_status,
+                    "progress": state_progress,
+                    "message": message,
+                    "reason_code": reason_code,
+                    "updated_at": updated_at,
+                    "active_segment_id": active_segment_id,
+                    "active_segment_progress": active_segment_progress,
+                }
+                if eta_seconds is not None:
+                    updates["eta_seconds"] = eta_seconds
+                if eta_confidence is not None:
+                    updates["eta_confidence"] = eta_confidence
+                if started_at is not None:
+                    updates["started_at"] = started_at
+                if finished_at is not None:
+                    updates["finished_at"] = finished_at
+                if state_status == "failed":
+                    updates["error"] = message or "Task failed."
+                elif state_status == "done":
+                    updates["error"] = None
+                    # Ensure chapter-level audio is linked by propagating output filenames
+                    output_path = context.payload.get("output_path")
+                    if output_path:
+                        from pathlib import Path
+                        fname = Path(output_path).name
+                        if fname.lower().endswith(".mp3"):
+                            updates["output_mp3"] = fname
+                        else:
+                            updates["output_wav"] = fname
+                update_job(context.task_id, force_broadcast=force, **updates)
+
+
 
         except Exception:
             logger.exception(
@@ -161,4 +636,5 @@ def _claim_to_dict(claim: object | None) -> dict[str, object]:
         "gpu": getattr(claim, "gpu", False),
         "vram_mb": getattr(claim, "vram_mb", 0),
         "cpu_heavy": getattr(claim, "cpu_heavy", False),
+        "exclusive": getattr(claim, "exclusive", False),
     }

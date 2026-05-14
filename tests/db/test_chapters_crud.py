@@ -48,12 +48,11 @@ def test_get_chapter_disk_checks(db_conn, tmp_path):
 
     audio_dir = tmp_path / "audio"
     audio_dir.mkdir()
-    (audio_dir / f"{cid}.wav").write_text("wav")
-    (audio_dir / f"{cid}.mp3").write_text("mp3")
-    (audio_dir / f"{cid}.m4a").write_text("m4a")
+    (audio_dir / "chapter.wav").write_text("wav")
+    (audio_dir / "chapter.mp3").write_text("mp3")
+    (audio_dir / "chapter.m4a").write_text("m4a")
 
-    with patch("app.config.get_project_audio_dir", return_value=Path(audio_dir)), \
-         patch("app.config.find_existing_project_subdir", side_effect=_existing_project_audio_dir(audio_dir)):
+    with patch("app.core.config.get_chapter_dir", return_value=Path(audio_dir)):
 
         chapter = get_chapter(cid)
         assert chapter["has_wav"] is True

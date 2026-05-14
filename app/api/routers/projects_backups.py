@@ -11,8 +11,8 @@ from fastapi.responses import JSONResponse, StreamingResponse, FileResponse
 from fastapi.encoders import jsonable_encoder
 
 from ...db import get_project
-from ...config import get_project_dir, find_existing_project_dir, find_existing_project_subdir
-from ...pathing import find_secure_file, secure_join_flat
+from ...core.config import get_project_dir
+from ...utils.pathing import find_secure_file, secure_join_flat
 from .projects_helpers import _get_project_service, _create_backup_archive
 
 logger = logging.getLogger(__name__)
@@ -97,7 +97,7 @@ def api_save_project_backup_bundle(project_id: str, comment: Optional[str] = Que
         archive_buf = _create_backup_archive(bundle)
 
         # 3. Save to project backups directory
-        project_dir_path = find_existing_project_dir(project_id) or get_project_dir(project_id)
+        project_dir_path = get_project_dir(project_id)
 
         # Rule 9: Locally visible safe-path pattern
         import os
@@ -140,7 +140,7 @@ def api_list_project_backups(project_id: str):
         if get_project(project_id) is None:
             return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
 
-        project_dir = find_existing_project_dir(project_id) or get_project_dir(project_id)
+        project_dir = get_project_dir(project_id)
         # Rule 9: Secure join for literal subdirectory
         try:
             backups_dir = secure_join_flat(project_dir, "backups")
@@ -190,7 +190,7 @@ def api_download_saved_backup(project_id: str, filename: str):
         if get_project(project_id) is None:
             return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
 
-        project_dir = find_existing_project_dir(project_id) or get_project_dir(project_id)
+        project_dir = get_project_dir(project_id)
         try:
             backups_dir = secure_join_flat(project_dir, "backups")
             backups_dir_path = os.path.abspath(os.path.realpath(os.fspath(backups_dir)))
@@ -234,7 +234,7 @@ def api_update_project_backup_metadata(project_id: str, filename: str, comment: 
         if get_project(project_id) is None:
             return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
 
-        project_dir = find_existing_project_dir(project_id) or get_project_dir(project_id)
+        project_dir = get_project_dir(project_id)
         try:
             backups_dir = secure_join_flat(project_dir, "backups")
             backups_dir_path = os.path.abspath(os.path.realpath(os.fspath(backups_dir)))
@@ -299,7 +299,7 @@ def api_delete_project_backup(project_id: str, filename: str):
         if get_project(project_id) is None:
             return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
 
-        project_dir = find_existing_project_dir(project_id) or get_project_dir(project_id)
+        project_dir = get_project_dir(project_id)
         try:
             backups_dir = secure_join_flat(project_dir, "backups")
             backups_dir_path = os.path.abspath(os.path.realpath(os.fspath(backups_dir)))

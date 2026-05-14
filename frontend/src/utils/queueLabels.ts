@@ -1,7 +1,11 @@
-import type { ProcessingQueueItem } from '../types';
+import type { ProcessingQueueItem } from '@/types';
+import { formatVoiceEngineLabel } from '@/utils/voiceProfiles';
 
-export function formatQueueContext(job: ProcessingQueueItem): string {
+export function formatQueueContext(job: ProcessingQueueItem, engines: import('@/types').TtsEngine[] = []): string {
   if (!job.project_name) {
+    const meta = engines.find(e => e.engine_id === job.engine);
+    if (meta) return `${meta.display_name} Synthesis`;
+
     switch (job.engine) {
       case 'voice_test':
         return 'Voice Preview';
@@ -9,14 +13,10 @@ export function formatQueueContext(job: ProcessingQueueItem): string {
         return 'Voice Build';
       case 'audiobook':
         return 'Audiobook Assembly';
-      case 'voxtral':
-        return 'Voxtral Generation';
       case 'mixed':
-        return 'Mixed Engine Generation';
-      case 'xtts':
-        return 'XTTS Generation';
+        return 'Mixed Engine Synthesis';
       default:
-        return 'Internal Process';
+        return `${formatVoiceEngineLabel(job.engine)} Synthesis`;
     }
   }
 

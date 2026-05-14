@@ -4,7 +4,7 @@ import uuid
 from pathlib import Path
 from typing import Dict, Optional
 
-from ..pathing import safe_join_flat
+from ..utils.pathing import safe_join_flat
 
 SAFE_AUDIO_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
 SAFE_SEGMENT_PREFIX_RE = re.compile(r"^[A-Za-z0-9_-]+$")
@@ -31,7 +31,7 @@ def _canonical_chapter_id(chapter_id: str) -> str:
 def _detect_audio_flags(chapter_id: str, audio_file_path: Optional[str], resolved_path: Optional[Path]) -> Dict[str, bool]:
     flags = {"has_wav": False, "has_mp3": False, "has_m4a": False}
 
-    names = {chapter_id, "chapter"}
+    names = {"chapter"}
     if audio_file_path:
         names.add(Path(audio_file_path).stem)
         names.add(audio_file_path.rsplit(".", 1)[0] if "." in audio_file_path else audio_file_path)

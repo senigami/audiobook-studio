@@ -2,6 +2,8 @@
 
 Use this file when the task touches UI state ownership, overlays, local session state, interaction design, or responsive layouts.
 
+For frontend folder organization, follow the project structure rules in [`modular_architecture.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/modular_architecture.md): route-level pages live in `frontend/src/pages`, reusable UI in `frontend/src/components`, app shell/routing in `frontend/src/app`, site-wide styling in `frontend/src/theme`, and tests outside runtime source under `frontend/tests`.
+
 ## Read The Right Subfile
 
 - [`frontend-state.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/frontend-state.md) for canonical data, live overlays, and local session state boundaries.

@@ -2,15 +2,16 @@ import logging
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 
-from ...domain.chapters.compatibility import (
+from ...domain.chapters.facade import (
     get_production_blocks_payload,
     save_production_blocks_payload,
     get_script_view_payload,
     save_script_assignments,
     get_resync_preview,
     compact_script_view,
-    CompatibilityRevisionMismatch,
+    RevisionMismatch,
 )
+
 from .chapters_models import (
     ResyncPreviewResponse, ResyncPreviewRequest,
     ProductionBlocksUpdate, ScriptAssignmentsUpdate,
@@ -62,7 +63,7 @@ def api_save_production_blocks(chapter_id: str, payload: ProductionBlocksUpdate)
                 base_revision_id=payload.base_revision_id,
             )
         )
-    except CompatibilityRevisionMismatch as exc:
+    except RevisionMismatch as exc:
         return JSONResponse(
             {
                 "status": "error",
@@ -86,7 +87,7 @@ def api_save_script_assignments(chapter_id: str, payload: ScriptAssignmentsUpdat
             base_revision_id=payload.base_revision_id
         )
         return JSONResponse(data)
-    except CompatibilityRevisionMismatch as exc:
+    except RevisionMismatch as exc:
         return JSONResponse(
             {
                 "status": "error",
@@ -111,7 +112,7 @@ def api_compact_script_view(chapter_id: str, payload: CompactionRequest):
             base_revision_id=payload.base_revision_id
         )
         return JSONResponse(data)
-    except CompatibilityRevisionMismatch as exc:
+    except RevisionMismatch as exc:
         return JSONResponse(
             {
                 "status": "error",

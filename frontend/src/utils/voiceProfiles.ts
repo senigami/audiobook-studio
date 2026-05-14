@@ -1,4 +1,4 @@
-import type { SpeakerProfile, Speaker, TtsEngine, VoiceEngine, Character } from '../types';
+import type { SpeakerProfile, Speaker, TtsEngine, VoiceEngine, Character } from '@/types';
 
 export interface VoiceOption {
     id: string;
@@ -13,6 +13,11 @@ export interface VoiceOption {
     profile_name?: string;
 }
 
+export function getDefaultEngineId(engines?: TtsEngine[]): VoiceEngine {
+    if (!engines || engines.length === 0) return '';
+    return engines.find(e => e.enabled && e.status === 'ready')?.engine_id || engines[0]?.engine_id || '';
+}
+
 export function getVoiceProfileEngine(profile?: Pick<SpeakerProfile, 'engine'> | null): VoiceEngine | null {
     const engine = typeof profile?.engine === 'string' ? profile.engine.trim().toLowerCase() : '';
     return engine || null;
@@ -21,8 +26,8 @@ export function getVoiceProfileEngine(profile?: Pick<SpeakerProfile, 'engine'> |
 export function formatVoiceEngineLabel(engine?: string | null): string {
     const normalized = (engine || '').trim();
     if (!normalized) return 'Unavailable';
-    if (normalized === 'xtts') return 'XTTS';
-    if (normalized === 'voxtral') return 'Voxtral';
+    // If it's a known short ID that should be uppercase, handle it generically or just capitalize
+    if (normalized.length <= 4) return normalized.toUpperCase();
     return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }
 
@@ -53,7 +58,7 @@ export function getDefaultVoiceProfileName(profiles: SpeakerProfile[]): string |
 export function isVoiceProfileSelectable(profile: SpeakerProfile, engines?: TtsEngine[]): boolean {
     let engineId = getVoiceProfileEngine(profile);
     if (!engineId) {
-        engineId = engines?.find(e => e.engine_id === 'xtts-local') ? 'xtts-local' : 'xtts';
+        engineId = getDefaultEngineId(engines);
     }
     if (!engines) {
         return false;
@@ -104,7 +109,7 @@ export function buildVoiceOptions(
 
             const selectable = isVoiceProfileSelectable(profile, engines);
             const statuses: string[] = [];
-            if (multiProfile && (sameVariantCount > 1 || engineId === 'voxtral')) {
+            if (multiProfile && (sameVariantCount > 1)) {
                 statuses.push(engineLabel);
             }
 
@@ -116,7 +121,7 @@ export function buildVoiceOptions(
                 label = `${label} (${statuses.join(', ')})`;
             }
 
-            const finalEngineId = engineId || (engines?.find(e => e.engine_id === 'xtts-local') ? 'xtts-local' : 'xtts');
+            const finalEngineId = engineId || getDefaultEngineId(engines);
             const matchingEngine = engines?.find(e => e.engine_id === finalEngineId);
             let disabledReason = '';
             if (!selectable) {
@@ -151,7 +156,7 @@ export function buildVoiceOptions(
             }
 
             const engineId = getVoiceProfileEngine(profile);
-            const finalEngineId = engineId || (engines?.find(e => e.engine_id === 'xtts-local') ? 'xtts-local' : 'xtts');
+            const finalEngineId = engineId || getDefaultEngineId(engines);
             const matchingEngine = engines?.find(e => e.engine_id === finalEngineId);
             let disabledReason = '';
             if (!selectable) {
