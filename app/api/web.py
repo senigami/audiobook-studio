@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from ..core.config import (
     VOICES_DIR, UPLOAD_DIR, REPORT_DIR, COVER_DIR, PROJECTS_DIR,
-    FRONTEND_DIST
+    FRONTEND_DIST, get_project_cover_dir, get_project_m4b_dir,
 )
 from ..db import init_db
 from .routers import projects, chapters, voices, queue, settings, generation, system, analysis, jobs, migration, engines
@@ -124,20 +124,69 @@ for d in [VOICES_DIR, PROJECTS_DIR]:
     d.mkdir(parents=True, exist_ok=True)
 
 # --- Static File Serving ---
-app.mount("/out/voices", StaticFiles(directory=str(VOICES_DIR)), name="out_voices")
-app.mount("/projects", StaticFiles(directory=str(PROJECTS_DIR)), name="projects")
 
 # Serve React build if it exists
 if FRONTEND_DIST.exists():
     app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="assets")
 
 
+@app.get("/projects/{project_id}/cover/{filename}")
+def get_project_cover_hardened(project_id: str, filename: str):
+    """Serve project cover art from the project-local cover directory."""
+    if not filename.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
+        raise HTTPException(status_code=404)
+    try:
+        root = get_project_cover_dir(project_id)
+    except ValueError:
+        raise HTTPException(status_code=404)
+    file_path = _contained_root_file(root, filename)
+    if not file_path:
+        raise HTTPException(status_code=404)
+    return FileResponse(file_path)
+
+
+@app.get("/projects/{project_id}/m4b/{filename}")
+def get_project_m4b_hardened(project_id: str, filename: str):
+    """Serve assembled audiobooks and sidecars from the project-local m4b directory."""
+    # Allow .m4b audio and common image/metadata sidecars
+    allowed_exts = (".m4b", ".jpg", ".jpeg", ".png", ".webp", ".description")
+    if not filename.lower().endswith(allowed_exts):
+        raise HTTPException(status_code=404)
+    try:
+        root = get_project_m4b_dir(project_id)
+    except ValueError:
+        raise HTTPException(status_code=404)
+    file_path = _contained_root_file(root, filename)
+    if not file_path:
+        raise HTTPException(status_code=404)
+    return FileResponse(file_path)
+
+
+@app.get("/out/voices/{full_path:path}")
+def get_voice_preview_hardened(full_path: str):
+    """Serve public voice preview samples. Blocks metadata and model assets."""
+    # Split into components to find the filename
+    parts = full_path.split("/")
+    if not parts:
+        raise HTTPException(status_code=404)
+
+    filename = parts[-1]
+    if filename.lower() not in ("sample.mp3", "sample.wav"):
+        raise HTTPException(status_code=404)
+
+    # Use _contained_file to handle the relative path from VOICES_DIR (could be nested)
+    file_path = _contained_file(VOICES_DIR, full_path)
+    if not file_path:
+        raise HTTPException(status_code=404)
+    return FileResponse(file_path)
+
 
 @app.get("/out/covers/{filename}")
-def get_cover_output(filename: str):
+def get_legacy_cover_output(filename: str):
+    """Legacy route for shared covers in UPLOAD_DIR/covers."""
     file_path = _contained_root_file(COVER_DIR, filename)
     if not file_path:
-        raise HTTPException(status_code=404, detail="Not Found")
+        raise HTTPException(status_code=404)
     return FileResponse(file_path)
 
 

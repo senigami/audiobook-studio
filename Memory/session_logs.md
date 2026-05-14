@@ -719,3 +719,12 @@
 - Added regression coverage for Voxtral-style `voice.wav` readiness/export and unsupported binary bundle rejection.
 - Marked the Phase 11 storage/output task as partial because project/chapter asset routes still need final classification.
 - Verified focused API voice/project/engine suites, plugin-local suites, ruff, and `git diff --check`.
+
+# 2026-05-13 - Public Asset Route Hardening
+
+- Replaced broad `/projects` and `/out/voices` static file exposure with explicit public asset routes in `app/api/web.py`.
+- Preserved project cover, assembled audiobook, audiobook sidecar, and voice preview sample URLs used by the app.
+- Blocked public access to chapter text, project backups, voice manifests, voice profile metadata, and model assets.
+- Added path traversal regression coverage, including a non-canonical project ID case that failed before the route helper fix.
+- Kept the Phase 11 storage/output task partial because `xtts_audio` / `audio_out` migration references still need a separate classification slice.
+- Verified focused API route suites, ruff, and `git diff --check`.

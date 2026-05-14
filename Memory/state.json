@@ -1,18 +1,18 @@
 {
-  "snapshot_version": 37,
-  "updated_at": "2026-05-13T19:48:02Z",
+  "snapshot_version": 38,
+  "updated_at": "2026-05-13T21:11:53Z",
   "branch": "studio2/phase-11",
   "current_task": "Storage and output route cleanup",
-  "status": "storage_output_route_cleanup_partial_verified",
+  "status": "public_asset_route_hardening_verified",
   "last_committed_milestone": {
-    "title": "Made voice readiness and bundles use plugin-declared test samples",
+    "title": "Hardened public project and voice asset routes",
     "commit": "pending",
     "notes": [
-      "Removed root engine_tests from the trusted config storage roots.",
-      "Added manifest-backed engine test sample lookup in behavior.py.",
-      "Voice readiness now checks the active engine's declared test sample rather than a fixed sample filename.",
-      "Voice bundle export includes engine-declared model/test assets while import remains limited to approved payload names.",
-      "Verified focused API voice/project/engine suites, plugin suites, ruff, and git diff check."
+      "Replaced broad /projects and /out/voices StaticFiles exposure with explicit routes.",
+      "Preserved public project cover, M4B, M4B sidecar, and voice preview sample URLs.",
+      "Blocked public access to project internals, chapter text, backups, voice manifests, and model assets.",
+      "Added path traversal regression coverage including non-canonical project IDs.",
+      "Verified focused API public route suites, ruff, and git diff check."
     ]
   },
   "active_constraints": [
@@ -81,7 +81,8 @@
     "Plugin settings expose computed computer speed as characters per second, not the raw internal speed multiplier.",
     "Frontend voice variant creation and character assignment availability no longer use `xtts` as the missing-engine fallback; they resolve through the frontend engine registry helper.",
     "The legacy `app/jobs/core_shim.py` module has been removed; `conftest.py` and remaining test patches have been migrated to canonical orchestration resource helpers.",
-    "Voice readiness and bundle export now use plugin manifest `test_sample` metadata instead of assuming a specific model asset filename. Root `engine_tests` is no longer a trusted storage root; remaining storage/output route cleanup is still partial."
+    "Voice readiness and bundle export now use plugin manifest `test_sample` metadata instead of assuming a specific model asset filename. Root `engine_tests` is no longer a trusted storage root; remaining storage/output route cleanup is still partial.",
+    "Broad `/projects` and `/out/voices` static exposure has been replaced with explicit public asset routes. Public access is limited to project covers, assembled audiobook files/sidecars, and voice preview samples; project internals, chapter text, backups, voice manifests, and model assets are blocked."
   ],
   "codeql_context": {
     "github_setup": "advanced",
