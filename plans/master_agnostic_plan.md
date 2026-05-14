@@ -121,12 +121,12 @@ This rename is deferred until the runtime cutover and cleanup slices are complet
 ### [MODIFY] `run.sh` & `run.ps1` (Bootstrap Sanitization)
 - [x] Relocate `requirements-xtts.txt` to `plugins/tts_xtts/requirements.txt`.
 - [x] Update `run.sh` and `run.ps1` to use plugin-local requirements.
-- [ ] Remove remaining hardcoded `XTTS_VENV` references from launchers.
-- [ ] Implement a generic plugin setup loop in `run.sh`.
-- [ ] Remove `xtts_env_has_conflicts` logic (move to XTTS plugin).
+- [x] Remove remaining hardcoded `XTTS_VENV` references from launchers (Generalized to `TTS_ENV_DIR`).
+- [/] Implement a generic plugin setup loop in `run.sh` (Relocated conflict check; generic loop pending).
+- [x] Remove `xtts_env_has_conflicts` logic (moved to `plugins/tts_xtts/scripts/check_env.py`).
 
 ### [MODIFY] Documentation
-- [/] Update `README.md` (Manual install path generalized for XTTS plugin).
+- [x] Update `README.md` (Generalized engine environment setup and variable names).
 - [ ] Update `CONTRIBUTING.md` to document the plugin-first architecture and how to implement a new engine adapter.
 
 ---

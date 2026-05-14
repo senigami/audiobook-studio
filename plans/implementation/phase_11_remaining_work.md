@@ -20,7 +20,7 @@ This is the active task board for Phase 11. Use it when triaging app problems, w
 | Storage and output routes | [x] | Root `engine_tests` is no longer a trusted storage root, voice readiness/bundle export use plugin manifest `test_sample` metadata, and broad `/projects` plus `/out/voices` static exposure has been replaced with explicit public asset routes. `uploads/covers` remains strictly as a legacy migration source for `/out/covers` compatibility. | `app/config.py`, `app/api/utils.py`, asset routes, frontend API callers | API asset tests, frontend API tests |
 | State/settings/metrics migration | Partial | Generic baseline CPS fallback is relocated to behavior.py. All legacy engine-specific state/metrics keys are quarantined in the migration layer or removed from runtime. | state modules, migration modules, performance metrics | state, settings, performance tests |
 | Frontend engine-agnostic cleanup | Open | Remove frontend assumptions tied to built-in engine names where they encode behavior. | `frontend/src/api`, queue/chapter/voice components | focused Vitest suites and build |
-| Bootstrap and docs cleanup | Partial | Move engine-specific setup into plugin docs and keep core startup docs generic. Area 23 Partial: Relocated `requirements-xtts.txt` to plugin; Updated `run.sh`/`run.ps1`. | `README`, `docs`, `wiki`, launch scripts | startup check, docs review |
+| Bootstrap and docs cleanup | [x] | Move engine-specific setup into plugin docs and keep core startup docs generic. Area 23 completed: Relocated conflict logic to `plugins/tts_xtts/scripts/check_env.py`; Generalized launcher variables; Updated `README`/`wiki`. | `README`, `docs`, `wiki`, launch scripts | startup check, docs review |
 
 ## Reported App Problems
 

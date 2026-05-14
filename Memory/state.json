@@ -2,17 +2,17 @@
   "snapshot_version": 41,
   "updated_at": "2026-05-14T14:41:50Z",
   "branch": "studio2/phase-11",
-  "current_task": "Launcher plugin requirements ownership",
-  "status": "launcher_plugin_requirements_relocated",
+  "current_task": "Launcher environment coupling cleanup",
+  "status": "launcher_env_conflict_check_plugin_local",
   "last_committed_milestone": {
-    "title": "Moved XTTS requirements ownership into plugin",
+    "title": "Moved launcher conflict checks into XTTS plugin",
     "commit": "pending",
     "notes": [
-      "Moved the full XTTS environment dependency list from root requirements-xtts.txt into plugins/tts_xtts/requirements.txt.",
-      "Updated run.sh, run.ps1, README, and planning docs to point at the plugin-local requirements file.",
-      "Deleted root requirements-xtts.txt after verifying no active launcher/doc references remain.",
-      "Tightened launcher regression coverage so plugin requirements must include both adapter and heavy inference dependencies.",
-      "Verified with focused launcher tests, shell/PowerShell syntax checks, and git diff --check."
+      "Added plugins/tts_xtts/scripts/check_env.py for plugin-local stale dependency/conflict checks.",
+      "Updated run.sh and run.ps1 to call plugin-local check_env.py when present instead of carrying inline XTTS conflict logic.",
+      "Renamed launcher internals toward TTS_ENV_DIR while preserving XTTS_ENV_DIR compatibility.",
+      "Expanded launcher regression coverage to block inline xtts_env_has_conflicts/coqpit checks and require XTTS_ENV_DIR compatibility.",
+      "Verified with focused launcher tests, ruff, shell/PowerShell syntax checks, and git diff --check."
     ]
   },
   "active_constraints": [
@@ -86,7 +86,8 @@
     "`scripts/sync_durations.py` has been removed. Remaining `audio_out` references are migration-only in `app/db/legacy_migration.py` or migration tests. `xtts_audio` is documented as decommissioned from active runtime paths. `uploads/covers` remains only as a legacy cover compatibility and migration source through COVER_DIR and /out/covers.",
     "Closed the behavior and text utility cleanup. All generic text fallbacks are relocated to behavior metadata and progress parsing is engine-agnostic. [voxtral-debug] is removed from the generic mixed handler.",
     "Relocated the remaining generic baseline CPS fallback out of core config to app/engines/behavior.py (DEFAULT_BASELINE_ENGINE_CPS = 16.7). Removed the stale voxtral_enabled mock from test_domain_contracts.py. Updated master planning docs to reflect Phase 8 state/metrics migration completion.",
-    "Moved root requirements-xtts.txt ownership into plugins/tts_xtts/requirements.txt. Launchers still use the XTTS-specific environment variable/conflict-check path, but dependency ownership is now plugin-local and root requirements-xtts.txt is deleted."
+    "Moved root requirements-xtts.txt ownership into plugins/tts_xtts/requirements.txt. Launchers still use the XTTS-specific environment variable/conflict-check path, but dependency ownership is now plugin-local and root requirements-xtts.txt is deleted.",
+    "Moved launcher stale XTTS/Coqui conflict detection into plugins/tts_xtts/scripts/check_env.py. run.sh and run.ps1 now call plugin-local check_env.py when present, while preserving XTTS_ENV_DIR as a compatibility alias for TTS_ENV_DIR."
 
   ],
   "codeql_context": {

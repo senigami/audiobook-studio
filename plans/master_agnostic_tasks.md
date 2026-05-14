@@ -51,7 +51,7 @@
 - [ ] Update `/out/xtts/{filename}` -> `/out/audio/{filename}` in `app/web.py`
 - [x] Generalize mixed-render log messages such as `[voxtral-debug]`.
 - [ ] Remove `app/engines.py` synthesis re-exports
-- [/] Sanitize `run.sh` and `run.ps1` (Relocated requirements to plugin)
+- [x] Sanitize `run.sh` and `run.ps1` (Conflict logic moved to plugin; variables generalized)
 - [ ] Implement generic plugin setup loop in `run.sh`
 - [ ] Remove hardcoded `"xtts"` defaults in `app/api/routers/generation.py`
 - [ ] Update all frontend URL references to match new generic routes

@@ -3,7 +3,7 @@ set -euo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 APP_VENV="$DIR/venv"
-XTTS_VENV="${XTTS_ENV_DIR:-$HOME/xtts-env}"
+TTS_ENV_DIR="${XTTS_ENV_DIR:-${TTS_ENV_DIR:-$HOME/xtts-env}}"
 FRONTEND_DIR="$DIR/frontend"
 APP_PORT="${AUDIOBOOK_STUDIO_PORT:-8123}"
 DEMO_ZIP="${AUDIOBOOK_STUDIO_DEMO_ZIP:-$DIR/demo/demo.zip}"
@@ -133,50 +133,19 @@ ensure_ffmpeg_ready() {
   fi
 }
 
-xtts_env_has_conflicts() {
-  local env_dir="$1"
-  local python_exe="$env_dir/bin/python"
-
-  [[ -x "$python_exe" ]] || return 1
-
-  "$python_exe" - <<'PY'
-from importlib import metadata
-
-conflicting_dists = []
-for dist_name in ("coqpit",):
-    try:
-        metadata.distribution(dist_name)
-    except metadata.PackageNotFoundError:
-        continue
-    else:
-        conflicting_dists.append(dist_name)
-
-raise SystemExit(0 if conflicting_dists else 1)
-PY
-  local probe_rc=$?
-  case $probe_rc in
-    0)
-      return 0
-      ;;
-    1)
-      return 1
-      ;;
-    *)
-      log "Warning: XTTS conflict probe failed for $env_dir; leaving environment intact"
-      return 1
-      ;;
-  esac
-}
-
 sync_python_requirements() {
   local env_dir="$1"
   local requirements_file="$2"
   local label="$3"
   local stamp_file="$env_dir/.requirements.stamp"
+  local python_exe="$env_dir/bin/python"
+  local check_script="$(dirname "$requirements_file")/scripts/check_env.py"
 
-  if [[ "$label" == "XTTS" ]] && xtts_env_has_conflicts "$env_dir"; then
-    log "Resetting XTTS environment to remove stale Coqui packages"
-    rm -rf "$env_dir"
+  if [[ -f "$check_script" ]] && [[ -x "$python_exe" ]]; then
+    if "$python_exe" "$check_script" conflicts; then
+      log "Resetting ${label} environment due to detected conflicts"
+      rm -rf "$env_dir"
+    fi
   fi
 
   if [[ ! -x "$env_dir/bin/python" ]]; then
@@ -292,7 +261,7 @@ PYTHON_BIN="$(pick_python || bootstrap_conda_python)"
 log "Using Python: $PYTHON_BIN"
 ensure_ffmpeg_ready
 sync_python_requirements "$APP_VENV" "$DIR/requirements.txt" "app"
-sync_python_requirements "$XTTS_VENV" "$DIR/plugins/tts_xtts/requirements.txt" "XTTS"
+sync_python_requirements "$TTS_ENV_DIR" "$DIR/plugins/tts_xtts/requirements.txt" "XTTS"
 ensure_frontend_ready
 maybe_restore_demo_bundle
 

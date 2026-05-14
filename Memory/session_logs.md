@@ -771,3 +771,12 @@
 - Confirmed `migrate_legacy_project_covers()` already runs at startup and did not add a duplicate bootstrap path.
 - Updated planning docs so `uploads` audit/migration is done but physical `uploads/` deletion stays pending while `/out/covers` compatibility exists.
 - Verified project cover, web endpoint, migration, and audiobook assembly tests, plus ruff and `git diff --check`.
+# 2026-05-14 - Phase 11 Bootstrap and Launcher Sanitization
+
+- Relocated XTTS environment requirements from root `requirements-xtts.txt` to `plugins/tts_xtts/requirements.txt`, making the XTTS plugin own its full dependency set.
+- Extracted hardcoded Coqui/XTTS conflict detection and environment health checks from `run.sh` and `run.ps1` into a unified plugin-local script: `plugins/tts_xtts/scripts/check_env.py`.
+- Generalized launcher environment synchronization to automatically detect and execute plugin-local `check_env.py` scripts if present, removing hardcoded "XTTS" logic branches.
+- Renamed `XTTS_VENV` to `TTS_ENV_DIR` in launchers while maintaining backwards compatibility with the `XTTS_ENV_DIR` environment variable.
+- Updated `README.md` and `wiki/Getting-Started.md` to describe environment setup in engine-agnostic terms.
+- Added permanent regression tests in `tests/core/test_launcher_agnosticism.py` asserting no root requirements references, full plugin ownership, and removal of inline conflict logic.
+- Verified with focused launcher tests, bash/powershell syntax checks, and a repository-wide reference audit.

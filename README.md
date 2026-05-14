@@ -16,24 +16,24 @@ Whether you want to preview the app, install it the easy way, or build from sour
 
 ### Just want to see what it does?
 
-**[Open the Live Demo / Showcase](https://senigami.github.io/audiobook-studio/)**  
+**[Open the Live Demo / Showcase](https://senigami.github.io/audiobook-studio/)**
 Listen to real samples, see the interface, and get a quick feel for the workflow before installing anything.
 
 ### Want the easiest install?
 
-**[Install Audiobook Studio with Pinokio](https://beta.pinokio.co/apps/github-com-senigami-audiobook-studio-pinokio)**  
+**[Install Audiobook Studio with Pinokio](https://beta.pinokio.co/apps/github-com-senigami-audiobook-studio-pinokio)**
 Best for most people. Pinokio handles the setup for you and can optionally install a demo library with sample voices so you can explore the app right away.
 
 ![Pinokio Install](assets/pinokioinstall.png)
 
 ### Want manual control or developer setup?
 
-**[Install from Source on GitHub](https://github.com/senigami/audiobook-studio)**  
+**[Install from Source on GitHub](https://github.com/senigami/audiobook-studio)**
 Best for developers or advanced users who want the full repo, direct scripts, and manual control over the environment.
 
 ### Need detailed help?
 
-**[Read the Wiki / Getting Started Guide](https://github.com/senigami/audiobook-studio/wiki)**  
+**[Read the Wiki / Getting Started Guide](https://github.com/senigami/audiobook-studio/wiki)**
 Step-by-step documentation, concepts, troubleshooting, and workflow guides.
 
 # Audiobook Studio
@@ -232,8 +232,9 @@ powershell -ExecutionPolicy Bypass -File .\run.ps1
 The startup scripts will:
 
 - create or update the main `venv`
-- create or update the XTTS environment at `~/xtts-env`
-- automatically recreate the XTTS environment if it detects stale legacy Coqui packages that would break voice builds
+- create or update the main `venv`
+- create or update the engine environments (default: `~/xtts-env`)
+- automatically repair stale environments if legacy package conflicts are detected
 - install frontend dependencies if needed
 - build the frontend if needed
 - start the app on `http://127.0.0.1:8123`
@@ -258,7 +259,7 @@ powershell -ExecutionPolicy Bypass -File .\run.ps1 -Port 9000
 <details>
 <summary>Manual Install Steps</summary>
 
-1. **Clone and Backend Setup**  
+1. **Clone and Backend Setup**
    Create the primary environment for the web server and project management.
    ```bash
    git clone https://github.com/senigami/audiobook-studio.git
@@ -269,15 +270,15 @@ powershell -ExecutionPolicy Bypass -File .\run.ps1 -Port 9000
    pip install -r requirements.txt
    ```
 
-2. **XTTS Inference Setup**  
-   XTTS requires a separate environment to avoid dependency conflicts. The app expects this at `~/xtts-env` by default (configurable in `app/config.py`).
+2. **Engine Environment Setup**
+   The application expects the primary engine environment at `~/xtts-env` by default (configurable via `TTS_ENV_DIR` or the legacy `XTTS_ENV_DIR`).
    ```bash
    python3 -m venv ~/xtts-env
    source ~/xtts-env/bin/activate
    pip install -r plugins/tts_xtts/requirements.txt
    ```
 
-3. **Frontend Build**  
+3. **Frontend Build**
    The UI must be built before it can be served by the backend.
    ```bash
    cd frontend

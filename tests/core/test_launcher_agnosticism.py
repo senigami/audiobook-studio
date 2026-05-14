@@ -52,3 +52,38 @@ def test_root_requirements_xtts_is_deleted():
     root_dir = Path(__file__).parent.parent.parent
     root_reqs_path = root_dir / "requirements-xtts.txt"
     assert not root_reqs_path.exists(), "Root requirements-xtts.txt still exists"
+
+
+def test_launchers_do_not_contain_inline_xtts_conflict_logic():
+    """Launcher scripts should not contain hardcoded XTTS conflict detection logic inline."""
+    root_dir = Path(__file__).parent.parent.parent
+
+    # Check run.sh
+    run_sh = root_dir / "run.sh"
+    if run_sh.exists():
+        content = run_sh.read_text()
+        assert "xtts_env_has_conflicts" not in content, "run.sh still contains xtts_env_has_conflicts function"
+        assert "coqpit" not in content, "run.sh still contains inline 'coqpit' conflict check"
+
+    # Check run.ps1
+    run_ps1 = root_dir / "run.ps1"
+    if run_ps1.exists():
+        content = run_ps1.read_text()
+        # Look for the stale XTTS environment reset logic
+        # if ($Label -eq "XTTS" -and (Test-Path $EnvDir) -and -not (Test-VenvPythonHealthy $EnvDir))
+        # We want this to be generalized or moved.
+        assert '$Label -eq "XTTS"' not in content, "run.ps1 still contains hardcoded XTTS-specific environment reset branch"
+
+def test_xtts_env_dir_compatibility():
+    """Launchers should still support XTTS_ENV_DIR for backwards compatibility."""
+    root_dir = Path(__file__).parent.parent.parent
+
+    run_sh = root_dir / "run.sh"
+    if run_sh.exists():
+        content = run_sh.read_text()
+        assert "XTTS_ENV_DIR" in content, "run.sh should still mention XTTS_ENV_DIR for compatibility"
+
+    run_ps1 = root_dir / "run.ps1"
+    if run_ps1.exists():
+        content = run_ps1.read_text()
+        assert "XTTS_ENV_DIR" in content, "run.ps1 should still mention XTTS_ENV_DIR for compatibility"

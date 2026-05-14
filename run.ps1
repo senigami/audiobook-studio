@@ -8,7 +8,7 @@ $ErrorActionPreference = "Stop"
 
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $AppVenv = Join-Path $Root "venv"
-$XttsVenv = if ($env:XTTS_ENV_DIR) { $env:XTTS_ENV_DIR } else { Join-Path $HOME "xtts-env" }
+$TtsEnvDir = if ($env:XTTS_ENV_DIR) { $env:XTTS_ENV_DIR } elseif ($env:TTS_ENV_DIR) { $env:TTS_ENV_DIR } else { Join-Path $HOME "xtts-env" }
 $FrontendDir = Join-Path $Root "frontend"
 $DemoZip = if ($env:AUDIOBOOK_STUDIO_DEMO_ZIP) { $env:AUDIOBOOK_STUDIO_DEMO_ZIP } else { Join-Path $Root "demo/demo.zip" }
 $BootstrapPythonEnv = Join-Path $Root ".pinokio-python311"
@@ -303,9 +303,13 @@ function Sync-PythonRequirements($PythonInfo, $EnvDir, $RequirementsFile, $Label
     $PipExe = Join-Path $EnvDir "Scripts/pip.exe"
     $StampFile = Join-Path $EnvDir ".requirements.stamp"
 
-    if ($Label -eq "XTTS" -and (Test-Path $EnvDir) -and -not (Test-VenvPythonHealthy $EnvDir)) {
-        Write-Step "Resetting XTTS environment because its Python launcher is stale"
-        Remove-Item $EnvDir -Recurse -Force
+    $CheckScript = Join-Path (Split-Path $RequirementsFile) "scripts/check_env.py"
+    if ((Test-Path $CheckScript) -and (Test-Path $PythonExe)) {
+        & $PythonExe $CheckScript "conflicts"
+        if ($LASTEXITCODE -eq 0) {
+            Write-Step "Resetting $Label environment due to detected conflicts"
+            Remove-Item $EnvDir -Recurse -Force
+        }
     }
 
     if ((Test-Path $PythonExe) -and -not (Test-Path $PipExe)) {
@@ -462,7 +466,7 @@ if (-not $PythonInfo) {
 Write-Step "Using Python: $($PythonInfo.Command)"
 Ensure-FfmpegReady
 Sync-PythonRequirements $PythonInfo $AppVenv (Join-Path $Root "requirements.txt") "app"
-Sync-PythonRequirements $PythonInfo $XttsVenv (Join-Path $Root "plugins/tts_xtts/requirements.txt") "XTTS"
+Sync-PythonRequirements $PythonInfo $TtsEnvDir (Join-Path $Root "plugins/tts_xtts/requirements.txt") "XTTS"
 Ensure-FrontendReady
 Maybe-RestoreDemoBundle $PythonInfo
 
