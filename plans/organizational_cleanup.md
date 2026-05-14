@@ -61,7 +61,7 @@ Each phase of the migration is designed to be non-destructive and verifiable. He
 
 ### Phase 1: Directory & Folder Cleanup
 - **Approach**: Move operations first, then deletions.
-- **Notes**: We will use `git mv` where possible to preserve history. Deletions of `xtts_audio` and `uploads` will only happen after verifying that no active project is referencing files in those locations.
+- **Notes**: `xtts_audio` has been removed from active runtime paths. `uploads` still needs a separate audit before removal.
 
 ### Phase 2: Storage Abstraction Layer
 - **Approach**: Shadow-testing.

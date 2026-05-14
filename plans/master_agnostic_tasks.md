@@ -3,7 +3,7 @@
 ## Phase 1: Directory & Folder Cleanup
 - [x] Keep engine test fixtures and tests inside the owning plugin folders.
 - [x] Delete the root `engine_tests/` directory.
-- [ ] Delete `xtts_audio/` transient folder
+- [x] Delete `xtts_audio/` transient folder
 - [ ] Audit `uploads/` and migrate text/covers to project folders
 - [ ] Delete `uploads/` once empty
 
@@ -13,7 +13,7 @@
 - [ ] Migrate pathing logic from `app/config.py` to `StorageManager`
 - [ ] Update `app/api/routers/chapters_assets.py` to use `StorageManager`
 - [ ] Update `app/jobs/reconcile.py` to use `StorageManager`
-- [ ] Delete `XTTS_OUT_DIR` and replace with `AUDIO_OUT_DIR` via `StorageManager`
+- [x] Remove `XTTS_OUT_DIR` from core runtime config; `AUDIO_OUT_DIR` remains migration-only.
 
 ## Phase 3: Declared Plugin Contract
 - [ ] Update `docs/plugin-guide.md` to define manifest-declared capabilities, behavior, and worker hooks as the default model.

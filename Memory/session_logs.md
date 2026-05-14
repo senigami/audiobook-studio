@@ -728,3 +728,12 @@
 - Added path traversal regression coverage, including a non-canonical project ID case that failed before the route helper fix.
 - Kept the Phase 11 storage/output task partial because `xtts_audio` / `audio_out` migration references still need a separate classification slice.
 - Verified focused API route suites, ruff, and `git diff --check`.
+
+# 2026-05-14 - V1 Storage Utility Decommission
+
+- Deleted stale `scripts/sync_durations.py` after confirming it had no active callers.
+- Updated README, wiki, and planning docs so `xtts_audio` and `audio_out` are no longer described as active runtime output roots.
+- Preserved `app/db/legacy_migration.py` and migration tests as the quarantine for legacy `audio_out` import behavior.
+- Corrected master planning docs so `uploads` cleanup remains pending as a separate audit.
+- Marked Phase 11 Storage and output routes complete while leaving unrelated storage abstraction and uploads work on their own task lines.
+- Verified migration tests, remaining storage-reference classification, and `git diff --check`.

@@ -1,18 +1,18 @@
 {
-  "snapshot_version": 38,
-  "updated_at": "2026-05-13T21:11:53Z",
+  "snapshot_version": 39,
+  "updated_at": "2026-05-14T12:52:59Z",
   "branch": "studio2/phase-11",
   "current_task": "Storage and output route cleanup",
-  "status": "public_asset_route_hardening_verified",
+  "status": "storage_output_route_cleanup_complete",
   "last_committed_milestone": {
-    "title": "Hardened public project and voice asset routes",
+    "title": "Decommissioned stale V1 storage utility",
     "commit": "pending",
     "notes": [
-      "Replaced broad /projects and /out/voices StaticFiles exposure with explicit routes.",
-      "Preserved public project cover, M4B, M4B sidecar, and voice preview sample URLs.",
-      "Blocked public access to project internals, chapter text, backups, voice manifests, and model assets.",
-      "Added path traversal regression coverage including non-canonical project IDs.",
-      "Verified focused API public route suites, ruff, and git diff check."
+      "Deleted scripts/sync_durations.py after confirming it had no active callers.",
+      "Documented xtts_audio and audio_out as legacy/migration-only storage references.",
+      "Kept app/db/legacy_migration.py and migration tests intact for legacy data import.",
+      "Corrected planning docs so uploads cleanup remains a separate audit.",
+      "Verified migration tests, remaining reference classification, and git diff check."
     ]
   },
   "active_constraints": [
@@ -82,7 +82,8 @@
     "Frontend voice variant creation and character assignment availability no longer use `xtts` as the missing-engine fallback; they resolve through the frontend engine registry helper.",
     "The legacy `app/jobs/core_shim.py` module has been removed; `conftest.py` and remaining test patches have been migrated to canonical orchestration resource helpers.",
     "Voice readiness and bundle export now use plugin manifest `test_sample` metadata instead of assuming a specific model asset filename. Root `engine_tests` is no longer a trusted storage root; remaining storage/output route cleanup is still partial.",
-    "Broad `/projects` and `/out/voices` static exposure has been replaced with explicit public asset routes. Public access is limited to project covers, assembled audiobook files/sidecars, and voice preview samples; project internals, chapter text, backups, voice manifests, and model assets are blocked."
+    "Broad `/projects` and `/out/voices` static exposure has been replaced with explicit public asset routes. Public access is limited to project covers, assembled audiobook files/sidecars, and voice preview samples; project internals, chapter text, backups, voice manifests, and model assets are blocked.",
+    "`scripts/sync_durations.py` has been removed. Remaining `audio_out` references are migration-only in `app/db/legacy_migration.py` or migration tests. `xtts_audio` is documented as decommissioned from active runtime paths. `uploads` cleanup remains a separate audit."
   ],
   "codeql_context": {
     "github_setup": "advanced",

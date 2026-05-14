@@ -42,12 +42,12 @@ This rename is deferred until the runtime cutover and cleanup slices are complet
 - Engine-owned tests and fixtures now live inside the owning plugin folders.
 - The root `engine_tests/` directory is no longer part of the runtime or trusted storage model.
 
-### [DELETE] Transient Folders
-- [DELETE] `xtts_audio/`. This folder contains transient engine test artifacts that should be managed by the plugins themselves or stored in a generic `audio_out/` directory.
-- [DELETE] `uploads/`. Confirm that project text and covers are correctly stored in `projects/{project_id}/{text|cover}/` and remove the legacy root-level `uploads/` folder.
+### [PARTIAL] Transient Folders
+- [DONE] `xtts_audio/`. This folder contains transient engine test artifacts that have been migrated to plugin-local storage or project-local folders.
+- [TODO] `uploads/`. This root still exists as the shared cover import location and needs a separate audit before removal.
 
-### [RENAME] Config Constants
-- Rename `XTTS_OUT_DIR` to `AUDIO_OUT_DIR` in `app/config.py` and all referencing files.
+### [DONE] Config Constants
+- [DONE] Rename `XTTS_OUT_DIR` to `AUDIO_OUT_DIR` (decommissioned from core config).
 - [DELETE] `BASELINE_XTTS_CPS`. This should be moved to the plugin manifest as `default_cps`. Core code will use a safe default (e.g., `15.0`) if no metadata is available.
 - [DELETE] `SENT_CHAR_LIMIT` and `SAFE_SPLIT_TARGET`. These should be moved to plugin manifests.
 - [DELETE] `XTTS_ENV_DIR`, `XTTS_ENV_PYTHON`, `XTTS_ENV_ACTIVATE` from `app/config.py`. These belong in the XTTS plugin configuration.
@@ -146,7 +146,7 @@ This rename is deferred until the runtime cutover and cleanup slices are complet
 ### Manual Verification
 - Verify that the Dashboard still renders correctly and can enqueue jobs using the default engine.
 - Verify that voice profiles can be created and tested without engine-specific errors.
-- Check that the `audio_out/` directory (renamed from `xtts_audio/`) is populated during synthesis.
+- Check that the project-local `assets/` directory is populated during synthesis.
 
 ---
 
@@ -156,7 +156,7 @@ Each phase of the migration is designed to be non-destructive and verifiable. He
 
 ### Phase 1: Directory & Folder Cleanup
 - **Approach**: Move operations first, then deletions.
-- **Notes**: We will use `git mv` where possible to preserve history. Deletions of `xtts_audio` and `uploads` will only happen after verifying that no active project is referencing files in those locations.
+- **Notes**: Deletion of `xtts_audio` from active runtime paths is complete. `uploads` cleanup remains a separate audit.
 
 ### Phase 2: Storage Abstraction Layer
 - **Approach**: Shadow-testing.
