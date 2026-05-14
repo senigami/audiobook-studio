@@ -70,7 +70,22 @@
 - [ ] Final broad test verification: `pytest tests/` before Phase 13 release docs
 
 ## Phase 12: Polish And Cleanup
+- [ ] Complete Phase 12 pre-change verification: migration idempotency, plugin boundary leaks, recovery coverage, frontend state/store pressure, helper/service ownership, and corrupt-state handling.
+- [ ] Add Library list view and sort options.
 - [ ] Add VCR-style chapter playback controls.
+- [ ] Fix voice/plugin dependency installation feedback and XTTS missing-dependencies resolution.
+- [ ] Add TTS plugin zip import/delete flows; defer GitHub search/download until after v2.0.
+- [ ] Add plugin contract-version and callable-signature compatibility verification.
+- [ ] Surface plugin-defined per-voice controls in voice settings when supported.
+- [ ] Revisit voice settings placement outside the Script popup/right queue area.
+- [ ] Align voice export bundles with Hugging Face-compatible layout and settings metadata where practical.
+- [ ] Add voice image/icon upload, standardized 1:1 JPG processing, and character-surface icon display.
+- [ ] Add searchable voice tags compatible with future voice search/Hugging Face metadata.
+- [ ] Verify system API surface for future third-party/LLM controller plugins.
+- [ ] Show queue output metadata such as generated audio duration/length.
+- [ ] Remove legacy Chapter Editor Production, Performance, and Preview tabs/code.
+- [ ] Rework crowded Chapter Editor menu bar and remove duplicate preparing pill.
+- [ ] Scan plans and memory for forgotten requests, including `tts_plugins` / `tts_voices` namespace rename ideas.
 - [ ] Manually verify fixed-but-pending Phase 11 app behaviors.
 - [ ] Triage Vite websocket `ECONNRESET` reconnect behavior.
 - [ ] Re-check large-book project/chapter load timings.

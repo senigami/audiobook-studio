@@ -12,6 +12,7 @@ Phase 12 exists to avoid mixing user-facing polish and remaining master-plan ext
 
 ## Scope
 
+- Run Phase 12 pre-change verification before new feature work: architecture boundaries, migration idempotency, recovery coverage, frontend state complexity, websocket/store update pressure, helper/service ownership, and corrupt-state handling.
 - Add chapter VCR-style playback controls: play, pause, stop, next, and previous.
 - Manually verify Phase 11 fixed-but-pending app behaviors: engine settings tests, project load time, chapter render enqueue, duplicate voice option warnings, manifest test text, failed queue timestamps, server shutdown, and mixed render retry.
 - Triage Vite websocket `ECONNRESET` logs and determine whether they are harmless reconnect noise or a lost-update path.
@@ -19,11 +20,18 @@ Phase 12 exists to avoid mixing user-facing polish and remaining master-plan ext
 - Implement or explicitly defer the generic plugin setup loop in `run.sh` and `run.ps1`.
 - Finish the master agnostic task-board items that are polish-safe: plugin documentation, plugin template docs, resource metadata in manifests, generic route/doc cleanup, and final reference audits.
 - Decide whether storage abstraction, generic job handler registry, `JobKind`/`TaskType`, and mixed-to-composite naming are needed before Phase 13 or should remain deferred architecture work.
+- Improve the Library main page with a list view and sort options.
+- Improve plugin/voice management UX: dependency installation feedback, plugin compatibility verification, plugin import/delete flows, plugin-provided per-voice settings, voice icons, tags, and export layouts.
+- Clean up Chapter Editor UI and remove legacy Production, Performance, and Preview tab code now absorbed into the Script tab.
+- Review system API coverage for third-party/LLM controller use cases without building those integrations yet.
+- Scan existing plans and memory for forgotten or leftover requests, including namespace rename requests such as `tts_plugins` and `tts_voices`.
 
 ## Non-Goals
 
 - Do not reopen v1 compatibility or silent fallback behavior.
 - Do not rename the `plugins/` namespace to `tts_engines/`; that remains a deferred structural phase.
+- Do not add GitHub or Hugging Face direct download/search in the initial v2.0 release. Phase 12 may prepare upload/import-compatible contracts, but repository/search integrations are post-release.
+- Do not build Claude, LLM, ElevenLabs, or other third-party controller plugins in Phase 12; only verify the API surface can support them later.
 - Do not treat release notes, screenshots, install validation, or promotional materials as Phase 12 work; those now belong to Phase 13.
 - Do not add broad rewrites when a focused polish fix or explicit deferral is enough.
 
@@ -31,18 +39,110 @@ Phase 12 exists to avoid mixing user-facing polish and remaining master-plan ext
 
 | Area | Status | Notes |
 | --- | --- | --- |
+| Phase 12 pre-change verification | Open | Complete the verification checklist below before adding new polish features. |
 | VCR-style chapter playback controls | Open | User-requested polish item carried forward from Phase 11 intake. |
 | Manual QA of Phase 11 fixed items | Open | Verify the app flows that tests covered but manual app checks have not confirmed. |
 | Vite websocket `ECONNRESET` triage | Open | Classify as harmless reconnect noise or fix the lost-update path if reproducible. |
 | Large-book project/chapter load timing | Open | Use focused timing probes before changing fetch or storage paths. |
 | Generic plugin setup loop | Open | Launchers are sanitized, but the automatic loop across plugin requirements remains pending. |
 | Plugin and template docs | Open | Update developer-facing docs enough that Phase 13 can build on correct architecture. |
+| Library list view and sorting | Open | Add list view to Library main page and add sort options. |
+| Voice and plugin UX | Open | Improve dependency install feedback, plugin lifecycle management, per-voice plugin settings, voice icons, tags, and export/import compatibility. |
+| Plugin compatibility verification | Open | Check manifest contract version and expected callable signatures before runtime calls. |
+| Chapter Editor cleanup | Open | Remove legacy Production, Performance, and Preview tabs/code after confirming Script tab owns their features. Rework crowded menu bar and duplicate preparing pill. |
+| Queue output metadata | Open | Queue entries should show what was produced, including generated audio duration/length when available. |
+| API surface for third-party controllers | Open | Verify Studio API can support future LLM/control plugins without building those plugins yet. |
+| Forgotten requests scan | Open | Search plans and memory for older requests such as namespace renames and classify them into Phase 12, Phase 13, or deferred. |
 | Remaining master agnostic architecture extras | Needs decision | Storage abstraction, generic job registry, `JobKind`/`TaskType`, route cleanup, and mixed/composite naming should be completed or explicitly deferred. |
 | Final reference audit | Open | Re-run app/core grep and classify retained engine names before Phase 13. |
 
+## Pre-Change Verification Checklist
+
+Complete this checklist before starting new Phase 12 feature work. The goal is to prove the Phase 11 restructure is stable enough for polish instead of discovering architectural breakage mid-feature.
+
+### Architecture And Rules
+
+- [ ] Verify migration helpers in `app/db/migration.py` and `app/db/legacy_migration.py` are idempotent or explicitly guarded when run multiple times.
+- [ ] Verify repeated migration/reconciliation does not corrupt persistent state, settings, render history, project manifests, or voice manifests.
+- [ ] Audit `plugins/tts_xtts/` and `plugins/tts_voxtral/` for direct `app/db` imports. Plugin-specific code should use the engine SDK, plugin interface, manifest metadata, or bridge contracts rather than reaching into app persistence.
+- [ ] Audit first-party plugin imports for boundary leaks into app routes, app state writers, or non-contract orchestration internals.
+
+### Recovery And Failure Coverage
+
+- [ ] Inventory recovery-path tests for worker failure mid-synthesis, TTS Server unavailable, interrupted jobs, partial artifacts, failed stitching, retry/requeue behavior, and startup reconciliation.
+- [ ] Add or update focused tests for any critical recovery path that only has happy-path coverage.
+- [ ] Verify failed jobs preserve useful timestamps, error details, retry state, and queue visibility after restart.
+
+### Frontend State And Performance
+
+- [ ] Review `useChapterEditor.ts`, `useChapterEditorState.ts`, `ScriptView`, and related hooks for god-hook growth, excessive prop drilling, and unnecessary render churn.
+- [ ] Verify `frontend/src/store/live-jobs.ts` handles high-frequency websocket updates without unbounded updates, duplicated work, or main-thread lockups for large render batches.
+- [ ] Confirm the progress visualizer, top progress bar, and chapter text updates use the smallest necessary state surface.
+
+### Technical Debt And Startup Resilience
+
+- [ ] Review helper-heavy modules such as `projects_helpers.py`, `voices_helpers.py`, and `textops_helpers.py` for responsibilities that should move to domain/service layers before Phase 13.
+- [ ] Audit corrupt-state handling, including any `state.json.corrupt` development artifacts, and verify startup validates or recovers persistent schema safely before release distribution.
+- [ ] Classify any helper/service refactor as Phase 12, Phase 13 documentation support, or deferred architecture work instead of mixing it into unrelated polish.
+
+## Broad Phase 12 Goals
+
+- Stabilize the product experience before documentation: playback controls, queue visibility, progress clarity, and manual QA of fixed flows.
+- Reduce polish drag from hidden instability: recovery paths, startup resilience, websocket update pressure, and long-book load performance.
+- Keep architecture honest after the file-structure shift: plugin isolation, service/domain ownership, and no app-level engine-name regressions.
+- Decide the remaining master-plan extras pragmatically: complete only what improves Phase 13 readiness; explicitly defer larger architectural work that does not block release documentation.
+- Make the core library/voice/plugin workflows feel complete enough for v2.0 users without depending on post-release marketplace/search integrations.
+- Make voice assets easier to identify, search, export, and later map to Hugging Face-compatible layouts.
+- Make Chapter Editor simpler by removing legacy tab surfaces and reducing toolbar clutter.
+- Ensure external API/control surfaces are coherent enough for future Claude/LLM/controller plugins.
+
+## Product Backlog
+
+### Library
+
+- [ ] Add a list view to the Library main page.
+- [ ] Add sort options to the Library main page.
+
+### Voice And Plugin Management
+
+- [ ] Fix plugin dependency installation UX so the install button shows in-progress feedback and refreshes plugin state when installation completes.
+- [ ] Fix XTTS dependency detection so installing dependencies resolves the missing-dependencies state when installation succeeds.
+- [ ] Add TTS plugin import and delete flows similar to voice import/export. Initial v2.0 target is zip upload/import from a downloaded repo; GitHub search/download is post-release.
+- [ ] Add plugin compatibility verification: declared plugin contract version, currently v1, plus expected callable existence and callable signature checks before Studio tries runtime calls.
+- [ ] Surface plugin-defined per-voice controls on the voice settings UI when the selected plugin supports applying those settings per voice.
+- [ ] Revisit voice settings placement. The current Script popup may be the wrong home; consider exposing voice settings in a dropdown within the voice UI instead of consuming the queue/right-side area.
+- [ ] Make voice export bundles compatible with Hugging Face-style layouts where practical, including expected files and settings metadata.
+- [ ] Evaluate whether Studio can use the same Hugging Face-style voice settings internally to simplify future Hugging Face import/download support.
+- [ ] Add voice image/icon upload. Standardize to 1:1, auto-compress to JPG, and show the icon in voice lists and project character surfaces while preserving color assignment.
+- [ ] Add a standard image-prompt template with fill-in fields for users who want to generate voice icons.
+- [ ] Add voice tags similar to ElevenLabs categories so voices can be identified and searched by type, such as male, female, deep, western, narrator, character, accent, age, tone, and genre.
+- [ ] Align voice tags with metadata likely to be useful for future Hugging Face-compatible voice search.
+
+### Plugin And External API Contracts
+
+- [ ] Verify the system API surface is sufficient for future third-party controller plugins such as Claude/LLM audio-generation workflows.
+- [ ] Do not build the third-party controller plugin in Phase 12; only identify missing API controls and contract gaps.
+
+### Queue And Output Metadata
+
+- [ ] Update queue entries to show what each completed job produced, including generated audio duration/length when available.
+
+### Chapter Editor
+
+- [ ] Remove legacy Production, Performance, and Preview tabs and related dead code after confirming their useful features are absorbed into the Script tab.
+- [ ] Rework the crowded Chapter Editor menu bar into two lines or another clearer layout.
+- [ ] Remove the extra `preparing` pill when the progress bar already says preparing.
+
+### Planning Hygiene
+
+- [ ] Scan plans and memory for leftover or forgotten requests, including namespace rename requests such as `tts_plugins`, `tts_voices`, or similar.
+- [ ] Classify each found request as Phase 12, Phase 13, post-release, or explicitly deferred.
+
 ## Exit Criteria
 
+- Phase 12 pre-change verification is complete, with gaps converted into concrete tasks or explicit deferrals.
 - VCR controls are implemented or intentionally deferred with a reason.
+- Library list/sort, voice/plugin UX, plugin compatibility checks, Chapter Editor cleanup, queue output metadata, and forgotten-request scan are completed or explicitly classified.
 - Phase 11 fixed-but-pending manual QA items are verified, re-opened with concrete failures, or explicitly deferred.
 - Remaining `master_agnostic_tasks.md` open items are sorted into complete, Phase 12, Phase 13, or deferred architecture buckets.
 - Focused backend/frontend tests and `git diff --check` pass for touched areas.
