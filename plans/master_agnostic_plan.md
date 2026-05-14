@@ -119,13 +119,15 @@ This rename is deferred until the runtime cutover and cleanup slices are complet
 - Ensure all callers use the `JobHandlerRegistry` or `VoiceBridge`.
 
 ### [MODIFY] `run.sh` & `run.ps1` (Bootstrap Sanitization)
-- Remove hardcoded `XTTS_VENV` and `requirements-xtts.txt` logic.
-- Implement a generic plugin setup loop: scan `plugins/*/requirements.txt` and install in a managed way (or delegate to a plugin-provided `setup.sh`).
-- Remove `xtts_env_has_conflicts` logic (move to XTTS plugin).
+- [x] Relocate `requirements-xtts.txt` to `plugins/tts_xtts/requirements.txt`.
+- [x] Update `run.sh` and `run.ps1` to use plugin-local requirements.
+- [ ] Remove remaining hardcoded `XTTS_VENV` references from launchers.
+- [ ] Implement a generic plugin setup loop in `run.sh`.
+- [ ] Remove `xtts_env_has_conflicts` logic (move to XTTS plugin).
 
 ### [MODIFY] Documentation
-- Update `README.md` to remove engine-specific installation instructions from the "Core" section.
-- Update `CONTRIBUTING.md` to document the plugin-first architecture and how to implement a new engine adapter.
+- [/] Update `README.md` (Manual install path generalized for XTTS plugin).
+- [ ] Update `CONTRIBUTING.md` to document the plugin-first architecture and how to implement a new engine adapter.
 
 ---
 

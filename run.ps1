@@ -462,7 +462,7 @@ if (-not $PythonInfo) {
 Write-Step "Using Python: $($PythonInfo.Command)"
 Ensure-FfmpegReady
 Sync-PythonRequirements $PythonInfo $AppVenv (Join-Path $Root "requirements.txt") "app"
-Sync-PythonRequirements $PythonInfo $XttsVenv (Join-Path $Root "requirements-xtts.txt") "XTTS"
+Sync-PythonRequirements $PythonInfo $XttsVenv (Join-Path $Root "plugins/tts_xtts/requirements.txt") "XTTS"
 Ensure-FrontendReady
 Maybe-RestoreDemoBundle $PythonInfo
 

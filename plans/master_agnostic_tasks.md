@@ -51,7 +51,7 @@
 - [ ] Update `/out/xtts/{filename}` -> `/out/audio/{filename}` in `app/web.py`
 - [x] Generalize mixed-render log messages such as `[voxtral-debug]`.
 - [ ] Remove `app/engines.py` synthesis re-exports
-- [ ] Sanitize `run.sh` and `run.ps1` (remove XTTS-specific venv logic)
+- [/] Sanitize `run.sh` and `run.ps1` (Relocated requirements to plugin)
 - [ ] Implement generic plugin setup loop in `run.sh`
 - [ ] Remove hardcoded `"xtts"` defaults in `app/api/routers/generation.py`
 - [ ] Update all frontend URL references to match new generic routes
@@ -64,7 +64,7 @@
 - [x] Remove `voxtral_voice_id` normalization in `app/db/speakers.py`
 
 ## Phase 9: Documentation & Final Audit
-- [ ] Update `README.md` (remove engine-specific setup)
+- [/] Update `README.md` (Generalized XTTS plugin install path)
 - [ ] Update `CONTRIBUTING.md` (document plugin lifecycle)
 - [ ] Final `grep` for "xtts" and "voxtral" across core `app/`
 - [ ] Final test verification: `pytest tests/`

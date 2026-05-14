@@ -1,3 +1,11 @@
+# 2026-05-14 - XTTS Requirements Moved To Plugin
+
+- Moved the full XTTS environment dependency list from root `requirements-xtts.txt` into `plugins/tts_xtts/requirements.txt`.
+- Updated `run.sh`, `run.ps1`, and docs to install XTTS dependencies from the plugin-local requirements file.
+- Deleted root `requirements-xtts.txt` after verifying no active launcher/doc references remain.
+- Tightened launcher regression coverage so the plugin requirements file must include both adapter and heavy inference dependencies.
+- Verified with focused launcher tests, shell/PowerShell syntax checks, and `git diff --check`.
+
 # 2026-05-14 - Phase 11 Metrics Fallback Cleanup
 
 - **Milestone**: Relocated generic baseline CPS fallback out of core config.

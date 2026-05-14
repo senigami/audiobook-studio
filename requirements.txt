@@ -11,6 +11,6 @@ pytest-cov
 mistralai
 
 # XTTS requirements (Managed separately for compatibility)
-# See requirements-xtts.txt
+# See plugins/tts_xtts/requirements.txt
 beautifulsoup4
 psutil

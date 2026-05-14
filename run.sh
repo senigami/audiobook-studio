@@ -292,7 +292,7 @@ PYTHON_BIN="$(pick_python || bootstrap_conda_python)"
 log "Using Python: $PYTHON_BIN"
 ensure_ffmpeg_ready
 sync_python_requirements "$APP_VENV" "$DIR/requirements.txt" "app"
-sync_python_requirements "$XTTS_VENV" "$DIR/requirements-xtts.txt" "XTTS"
+sync_python_requirements "$XTTS_VENV" "$DIR/plugins/tts_xtts/requirements.txt" "XTTS"
 ensure_frontend_ready
 maybe_restore_demo_bundle
 
