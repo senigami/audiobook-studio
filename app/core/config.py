@@ -15,7 +15,6 @@ PART_CHAR_LIMIT = 30000
 MAKE_MP3_DEFAULT = False
 MP3_QUALITY = "2"  # ffmpeg -q:a 2
 AUDIOBOOK_BITRATE = "64k"
-BASELINE_ENGINE_CPS = 16.7
 
 UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", str(BASE_DIR / "uploads")))
 REPORT_DIR = Path(os.getenv("REPORT_DIR", str(BASE_DIR / "reports")))

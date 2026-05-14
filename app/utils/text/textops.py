@@ -1,4 +1,4 @@
-from ...core.config import BASELINE_ENGINE_CPS
+from ...engines.behavior import DEFAULT_BASELINE_ENGINE_CPS
 from ...engines.behavior import DEFAULT_SENT_CHAR_LIMIT as SENT_CHAR_LIMIT
 from .textops_helpers import (
     CHAPTER_RE,
@@ -34,7 +34,7 @@ def get_text_stats(text: str) -> dict:
     word_count = len(text.split())
     # Count periods, exclamation marks, and question marks as sentence markers
     sent_count = text.count('.') + text.count('?') + text.count('!')
-    pred_seconds = int(char_count / BASELINE_ENGINE_CPS)
+    pred_seconds = int(char_count / DEFAULT_BASELINE_ENGINE_CPS)
 
     return {
         "char_count": char_count,

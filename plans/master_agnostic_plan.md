@@ -48,7 +48,7 @@ This rename is deferred until the runtime cutover and cleanup slices are complet
 
 ### [DONE] Config Constants
 - [DONE] Rename `XTTS_OUT_DIR` to `AUDIO_OUT_DIR` (decommissioned from core config).
-- [DELETE] `BASELINE_XTTS_CPS`. This should be moved to the plugin manifest as `default_cps`. Core code will use a safe default (e.g., `15.0`) if no metadata is available.
+- [DONE] The generic baseline CPS fallback has been moved to `app/engines/behavior.py` as `DEFAULT_BASELINE_ENGINE_CPS` (16.7).
 - [DONE] `SENT_CHAR_LIMIT` and `SAFE_SPLIT_TARGET` were removed from core config and preserved as generic behavior fallbacks. Engine-specific chunk and split limits now come from plugin manifest behavior metadata.
 - [DELETE] `XTTS_ENV_DIR`, `XTTS_ENV_PYTHON`, `XTTS_ENV_ACTIVATE` from `app/config.py`. These belong in the XTTS plugin configuration.
 
@@ -104,14 +104,14 @@ This rename is deferred until the runtime cutover and cleanup slices are complet
 
 ## 3. State & Metrics Migration
 
-### [MODIFY] `app/state_performance.py`
-- Rename `xtts_cps` to `engine_cps` (or store it in a per-engine dictionary).
-- Rename `xtts_render_history` to `render_history`.
+### [DONE] `app/state_performance.py`
+- [DONE] Rename `xtts_cps` -> `engine_cps` (stored in settings table).
+- [DONE] Rename `xtts_render_history` -> `render_history` (stored in `render_performance_samples` table).
 
-### [DELETE] Compatibility Shims
-- Remove `voxtral_enabled` from `state_settings.py`, `bridge_local.py`, and `tts_server/server.py`.
-- Remove `xtts_speed` migration logic from `state_settings.py`.
-- Remove legacy profile metadata normalization for `voxtral_voice_id` in `app/db/speakers.py`.
+### [DONE] Compatibility Shims
+- [DONE] Remove `voxtral_enabled` from `state_settings.py`, `bridge_local.py`, and `tts_server/server.py`.
+- [DONE] Remove `xtts_speed` migration logic from `state_settings.py` (quarantined in `legacy_migration.py`).
+- [DONE] Remove legacy profile metadata normalization for `voxtral_voice_id` in `app/db/speakers.py`.
 
 ### [MODIFY] `app/engines.py` (Legacy Cleanup)
 - Strip all `xtts_*` and `voxtral_*` re-exports.

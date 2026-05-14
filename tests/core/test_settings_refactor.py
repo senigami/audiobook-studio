@@ -42,6 +42,14 @@ def test_api_home_reflects_new_state_structure(client, clean_state):
     assert "render_stats" in payload
 
 
+def test_baseline_engine_cps_lives_in_behavior_not_core_config():
+    from app.core import config
+    from app.engines.behavior import DEFAULT_BASELINE_ENGINE_CPS
+
+    assert not hasattr(config, "BASELINE_ENGINE_CPS")
+    assert DEFAULT_BASELINE_ENGINE_CPS == 16.7
+
+
 def test_verification_metadata_ignores_read_only_computed_settings(tmp_path):
     from app.tts_server.settings_store import calculate_verification_metadata, save_settings
 

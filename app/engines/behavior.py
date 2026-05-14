@@ -19,6 +19,7 @@ _ENGINE_ID_RE = re.compile(r"^[a-z][a-z0-9_-]{1,63}$")
 # Generic text utility defaults (historically in config.py)
 DEFAULT_SENT_CHAR_LIMIT = 500
 DEFAULT_SAFE_SPLIT_TARGET = 250
+DEFAULT_BASELINE_ENGINE_CPS = 16.7
 
 # Engine defaults for manifest fallbacks
 DEFAULT_ENGINE_TEXT_CHUNK_LIMIT = 500

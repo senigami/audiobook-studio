@@ -85,7 +85,8 @@
     "Voice readiness and bundle export now use plugin manifest `test_sample` metadata instead of assuming a specific model asset filename. Root `engine_tests` is no longer a trusted storage root; remaining storage/output route cleanup is still partial.",
     "Broad `/projects` and `/out/voices` static exposure has been replaced with explicit public asset routes. Public access is limited to project covers, assembled audiobook files/sidecars, and voice preview samples; project internals, chapter text, backups, voice manifests, and model assets are blocked.",
     "`scripts/sync_durations.py` has been removed. Remaining `audio_out` references are migration-only in `app/db/legacy_migration.py` or migration tests. `xtts_audio` is documented as decommissioned from active runtime paths. `uploads/covers` remains only as a legacy cover compatibility and migration source through COVER_DIR and /out/covers.",
-    "Closed the behavior and text utility cleanup. All generic text fallbacks are relocated to behavior metadata and progress parsing is engine-agnostic. [voxtral-debug] is removed from the generic mixed handler."
+    "Closed the behavior and text utility cleanup. All generic text fallbacks are relocated to behavior metadata and progress parsing is engine-agnostic. [voxtral-debug] is removed from the generic mixed handler.",
+    "Relocated the remaining generic baseline CPS fallback out of core config to app/engines/behavior.py (DEFAULT_BASELINE_ENGINE_CPS = 16.7). Removed the stale voxtral_enabled mock from test_domain_contracts.py. Updated master planning docs to reflect Phase 8 state/metrics migration completion."
 
   ],
   "codeql_context": {

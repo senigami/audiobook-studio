@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from app.core.config import BASELINE_ENGINE_CPS
+from ..engines.behavior import DEFAULT_BASELINE_ENGINE_CPS
 from app.tts_server.settings_store import load_settings, save_settings
 
 logger = logging.getLogger(__name__)
@@ -18,9 +18,9 @@ def computer_speed_multiplier_from_cps(cps: float) -> float:
     try:
         measured_cps = float(cps)
     except (TypeError, ValueError):
-        measured_cps = BASELINE_ENGINE_CPS
+        measured_cps = DEFAULT_BASELINE_ENGINE_CPS
 
-    multiplier = max(0.01, measured_cps / max(0.01, BASELINE_ENGINE_CPS))
+    multiplier = max(0.01, measured_cps / max(0.01, DEFAULT_BASELINE_ENGINE_CPS))
     return round(multiplier, 2)
 
 

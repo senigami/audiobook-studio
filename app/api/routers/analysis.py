@@ -12,7 +12,7 @@ from ...utils.text.textops import (
     find_long_sentences, clean_text_for_tts, safe_split_long_sentences,
     pack_text_to_limit, sanitize_text, get_text_stats, format_duration
 )
-from ...core.config import BASELINE_ENGINE_CPS
+from ...engines.behavior import DEFAULT_BASELINE_ENGINE_CPS
 from ...engines.behavior import get_text_chunk_limit, get_text_split_target
 from ...db import state
 from ...utils.pathing import safe_basename, safe_join_flat

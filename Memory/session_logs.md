@@ -1,3 +1,11 @@
+# 2026-05-14 - Phase 11 Metrics Fallback Cleanup
+
+- **Milestone**: Relocated generic baseline CPS fallback out of core config.
+- **Action**: Moved `BASELINE_ENGINE_CPS` to `app/engines/behavior.py` (renamed to `DEFAULT_BASELINE_ENGINE_CPS`).
+- **Action**: Removed stale `voxtral_enabled` settings mock from domain tests.
+- **Verification**: Passed 64 tests across settings refactor, domain contracts, performance metrics, and ETA logic.
+- **Result**: Core config is further sanitized of engine-specific historical fallbacks.
+
 # 2026-05-14 - Phase 11 Behavior And Text Utility Cleanup Closed
 
 - Relocated `SENT_CHAR_LIMIT` and `SAFE_SPLIT_TARGET` from core config to behavior-helper fallbacks in `app/engines/behavior.py`.
@@ -153,6 +161,7 @@
 - Kept the per-voice export shortcut in the narrator card menu for quick access while making the primary path easier to discover.
 - Updated the Phase 8 handoff memory and plan to reflect the discoverability fix, then re-verified the frontend voice portability test slice and build.
 - Checkpoint commit created and pushed: `b2f6211 Make voice export/import more discoverable`.
+
 
 # 2026-04-24 - Phase 8 Diagnostic Audit and Cleanup Verified
 

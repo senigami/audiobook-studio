@@ -3,7 +3,7 @@ import time
 import logging
 
 from ..db.state import update_performance_metrics as _update_performance_metrics, get_jobs, get_performance_metrics
-from ..core.config import BASELINE_ENGINE_CPS
+from ..engines.behavior import DEFAULT_BASELINE_ENGINE_CPS
 from ..orchestration.scheduler.eta import get_robust_eta_params
 from .worker_helpers import _job_field
 
@@ -99,7 +99,7 @@ def record_engine_sample(job, start: float, chars: int, perf: dict, source_segme
     history = _filter_history_for_engine_model(all_history, engine, tts_model)
 
     engine_cps_map = current_perf.get("engine_cps") or {}
-    fallback_cps = engine_cps_map.get(engine, BASELINE_ENGINE_CPS)
+    fallback_cps = engine_cps_map.get(engine, DEFAULT_BASELINE_ENGINE_CPS)
 
     robust_params = get_robust_eta_params(history, fallback_cps)
     robust_cps = robust_params[0] if robust_params else fallback_cps

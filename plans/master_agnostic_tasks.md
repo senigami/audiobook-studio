@@ -23,7 +23,7 @@
 
 ## Phase 4: Configuration & Models
 - [x] Delete `SENT_CHAR_LIMIT` and `SAFE_SPLIT_TARGET` from core config and preserve them as generic behavior fallbacks.
-- [ ] Delete or migrate remaining baseline CPS config through the per-engine metrics/settings path.
+- [x] Relocate the remaining generic baseline CPS fallback out of core config.
 - [ ] Move engine-specific config to plugin manifests
 - [ ] Update `Engine` literal in `app/models.py` to `str`
 - [ ] Introduce `TaskType` or `JobKind` in `app/models.py`
@@ -57,11 +57,11 @@
 - [ ] Update all frontend URL references to match new generic routes
 
 ## Phase 8: State & Metrics Cleanup
-- [ ] Rename `xtts_cps` -> `engine_cps` in `app/state_performance.py`
-- [ ] Rename `xtts_render_history` -> `render_history` in `app/state_performance.py`
-- [ ] Remove `voxtral_enabled` shim from `app/state_settings.py`
-- [ ] Remove `xtts_speed` migration logic from `app/state_settings.py`
-- [ ] Remove `voxtral_voice_id` normalization in `app/db/speakers.py`
+- [x] Rename `xtts_cps` -> `engine_cps` in `app/state_performance.py`
+- [x] Rename `xtts_render_history` -> `render_history` in `app/state_performance.py`
+- [x] Remove `voxtral_enabled` shim from `app/state_settings.py`
+- [x] Remove `xtts_speed` migration logic from `app/state_settings.py`
+- [x] Remove `voxtral_voice_id` normalization in `app/db/speakers.py`
 
 ## Phase 9: Documentation & Final Audit
 - [ ] Update `README.md` (remove engine-specific setup)
