@@ -11,7 +11,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Callable
 
-from app.utils.text.textops import pack_text_to_limit, safe_split_long_sentences, sanitize_text
+from .text_utils import pack_text_to_limit, safe_split_long_sentences, sanitize_text
+from .proc_utils import run_cmd_stream
 # Engine environment resolution
 XTTS_ENV_DIR_DEFAULT = Path.home() / "xtts-env"
 XTTS_ENV_DIR = Path(os.getenv("XTTS_ENV_DIR", str(XTTS_ENV_DIR_DEFAULT)))
@@ -49,7 +50,6 @@ def xtts_generate(
     task_id: str | None = None,
 ) -> int:
     """Invoke XTTS inference via subprocess."""
-    from app.engines.proc_utils import run_cmd_stream
 
     import sys
     python_exe = XTTS_ENV_PYTHON
@@ -120,7 +120,6 @@ def xtts_generate_script(
     task_id: str | None = None,
 ) -> int:
     """Invoke XTTS script-based inference via subprocess."""
-    from app.engines.proc_utils import run_cmd_stream
 
     import sys
     python_exe = XTTS_ENV_PYTHON

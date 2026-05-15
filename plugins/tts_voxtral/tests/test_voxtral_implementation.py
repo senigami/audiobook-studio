@@ -95,13 +95,13 @@ def test_voxtral_generate_converts_non_wav_audio(tmp_path):
     ref_audio.write_bytes(b"ref")
     client = FakeClient(FakeResponse(status_code=200, content=b"ID3fake-mp3", headers={"content-type": "audio/mpeg"}))
 
-    def fake_convert(src: Path, dest: Path):
-        dest.write_bytes(b"RIFFconvertedWAVE")
+    def fake_convert(in_file: Path, out_wav: Path):
+        out_wav.write_bytes(b"RIFFconvertedWAVE")
         return 0
 
     with patch("plugins.tts_voxtral.plugin.core.implementation.resolve_reference_audio_path", return_value=ref_audio), \
          patch("plugins.tts_voxtral.plugin.core.implementation.httpx.Client", return_value=client), \
-         patch("plugins.tts_voxtral.plugin.core.implementation.convert_to_wav", side_effect=fake_convert):
+         patch("plugins.tts_voxtral.plugin.core.implementation._convert_to_wav", side_effect=fake_convert):
         rc = voxtral_generate("Hello", out_wav, profile_name="VoiceA", settings={"mistral_api_key": "test-key"})
 
     assert rc == 0

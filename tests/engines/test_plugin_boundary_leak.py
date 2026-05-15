@@ -5,16 +5,8 @@ import re
 from pathlib import Path
 
 FORBIDDEN_PATTERNS = [
-    r"from app\.db",
-    r"import app\.db",
-    r"from app\.api",
-    r"import app\.api",
-    r"from app\.orchestration",
-    r"import app\.orchestration",
-    r"from app\.jobs",
-    r"import app\.jobs",
-    r"from app\.engines\.behavior",
-    r"import app\.engines\.behavior",
+    r"from app\.",
+    r"import app\.",
 ]
 
 

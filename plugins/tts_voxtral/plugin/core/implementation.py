@@ -7,7 +7,7 @@ from typing import Any, Optional
 
 import httpx
 
-from app.engines.audio_ops import convert_to_wav
+import subprocess
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +27,12 @@ def _never_cancel() -> bool:
 
 def _noop_output(*_args) -> None:
     return None
+
+
+def _convert_to_wav(in_file: Path, out_wav: Path) -> int:
+    """Converts any audio file to a standard 22050Hz mono WAV."""
+    cmd = ["ffmpeg", "-y", "-i", str(in_file), "-ar", "22050", "-ac", "1", str(out_wav)]
+    return subprocess.run(cmd, capture_output=True, check=False).returncode
 
 
 def resolve_mistral_api_key(settings: Optional[dict[str, Any]] = None) -> Optional[str]:
@@ -289,7 +295,7 @@ def voxtral_generate(
                 on_output(f"Saved Voxtral audio to {out_wav.name}.\n")
                 return 0
 
-            rc = convert_to_wav(tmp_audio, out_wav)
+            rc = _convert_to_wav(in_file=tmp_audio, out_wav=out_wav)
             if rc != 0 or not out_wav.exists():
                 raise VoxtralError("Voxtral audio was returned in an unsupported format.")
             on_output(f"Normalized Voxtral audio to {out_wav.name}.\n")

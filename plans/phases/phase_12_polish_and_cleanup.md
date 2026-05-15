@@ -56,7 +56,7 @@ Phase 12 exists to avoid mixing user-facing polish and remaining master-plan ext
 | Plugin and template docs | Open | Update developer-facing docs enough that Phase 13 can build on correct architecture. |
 | Library list view and sorting | Open | Add list view to Library main page and add sort options. |
 | Voice and plugin UX | Open | Improve dependency install feedback, plugin lifecycle management, per-voice plugin settings, voice icons, tags, and export/import compatibility. |
-| Plugin boundary cleanup | In progress | `app.db` and app behavior imports are removed from portable plugin core code. Remaining work: decide whether shared `app.utils` / `app.engines.audio_ops` imports should move to a plugin SDK/common package, then reduce `plugin/studio` app-persistence coupling behind explicit context/contracts. |
+| Plugin boundary cleanup | Complete | `app.db`, app behavior, and app utility imports are removed from portable plugin core code. Trivial audio helpers and complex text/proc utilities were localized to plugin-core to ensure absolute portability for future standalone repos. |
 | Plugin compatibility verification | Open | Check manifest contract version and expected callable signatures before runtime calls. |
 | Chapter Editor cleanup | Open | Remove legacy Production, Performance, and Preview tabs/code after confirming Script tab owns their features. Rework crowded menu bar and duplicate preparing pill. |
 | Queue output metadata | Open | Queue entries should show what was produced, including generated audio duration/length when available. |
@@ -118,7 +118,7 @@ Complete this checklist before starting new Phase 12 feature work. The goal is t
 - [ ] Fix XTTS dependency detection so installing dependencies resolves the missing-dependencies state when installation succeeds.
 - [ ] Add TTS plugin import and delete flows similar to voice import/export. Initial v2.0 target is zip upload/import from a downloaded repo; GitHub search/download is post-release.
 - [x] Remove direct `app.db` and app behavior imports from portable plugin core code. Prioritized `plugins/tts_voxtral/plugin/core/implementation.py` and `plugins/tts_xtts/plugin/core/implementation.py`.
-- [ ] Decide whether remaining plugin-core imports from shared app utility modules, such as `app.utils.text.textops` and `app.engines.audio_ops`, should move into a plugin SDK/common package before plugin repos are split out.
+- [x] Localize remaining plugin-core imports from shared app utility modules (`app.utils.text.textops`, `app.engines.audio_ops`, `app.engines.proc_utils`) into plugin-local core/helpers to ensure absolute portability for future standalone repos.
 - [ ] Define an explicit Studio plugin context/contract for `plugin/studio` adapters so app persistence access is owned by Studio and passed into plugin-facing glue rather than imported ad hoc.
 - [ ] Add plugin compatibility verification: declared plugin contract version, currently v1, plus expected callable existence and callable signature checks before Studio tries runtime calls.
 - [ ] Surface plugin-defined per-voice controls on the voice settings UI when the selected plugin supports applying those settings per voice.
