@@ -62,7 +62,13 @@ export const JsonSchemaForm: React.FC<{
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.25rem' }}>
         {Object.entries(schema.properties)
-          .filter(([key]) => key !== 'enabled')
+          .filter(([key, prop]: [string, any]) => {
+            const propUi = prop?.['x-ui'] || {};
+            if (key === 'enabled') return false;
+            if (propUi.hidden === true) return false;
+            if (propUi.hide_when_unverified === true && !engineVerified) return false;
+            return true;
+          })
           .map(([key, prop]: [string, any]) => {
             const propUi = prop?.['x-ui'] || {};
             const isReadOnly = !!prop.readOnly;

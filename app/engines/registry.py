@@ -180,6 +180,8 @@ def _manifest_from_tts_server_payload(data: dict) -> EngineManifestModel:
         test_text=str(data.get("test_text", "This is a verification test.")),
         test_sample=data.get("test_sample"),
         behavior=dict(data.get("behavior") or {}),
+        dev=dict(data.get("dev") or {}),
+        logo=dict(data.get("logo") or {}),
     )
 
 
@@ -309,6 +311,8 @@ def _load_engine_manifest(*, manifest_path: Path) -> EngineManifestModel:
         test_text=str(payload.get("test_text", "This is a verification test.")),
         test_sample=payload.get("test_sample"),
         behavior=dict(payload.get("behavior") or {}),
+        dev=dict(payload.get("dev") or {}),
+        logo=dict(payload.get("logo") or {}),
     )
 
 

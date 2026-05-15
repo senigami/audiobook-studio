@@ -25,7 +25,7 @@ let currentState = {
 };
 
 let harnessInputs = {
-    text: "Hello from the developer harness!",
+    text: "Hello from the CLI harness!",
     speaker_wav: "sample.wav",
     out: "output.wav"
 };

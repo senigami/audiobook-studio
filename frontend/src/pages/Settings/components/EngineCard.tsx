@@ -7,25 +7,9 @@ import { ToggleButton } from '@/pages/Settings/components/SettingsComponents';
 import { getEngineUi, getEngineStatusLabel, getBadgeStyles } from '@/pages/Settings/settingsRouteHelpers';
 import { EngineMetadataPanel } from '@/pages/Settings/components/EngineMetadataPanel';
 import { JsonSchemaForm } from '@/pages/Settings/components/JsonSchemaForm';
-
-export function formatEngineTestGeneratedAt(generatedAt: number | string | null | undefined): string {
-  if (generatedAt === null || generatedAt === undefined || generatedAt === '') {
-    return 'Unknown';
-  }
-
-  if (typeof generatedAt === 'number' && Number.isFinite(generatedAt)) {
-    return new Date(generatedAt * 1000).toLocaleString();
-  }
-
-  const numericValue = typeof generatedAt === 'string' ? Number(generatedAt) : Number.NaN;
-  if (Number.isFinite(numericValue)) {
-    const millis = numericValue > 1e12 ? numericValue : numericValue * 1000;
-    return new Date(millis).toLocaleString();
-  }
-
-  const parsed = new Date(String(generatedAt));
-  return Number.isNaN(parsed.getTime()) ? 'Unknown' : parsed.toLocaleString();
-}
+import { EngineDevPanel } from '@/pages/Settings/components/EngineDevPanel';
+import { mergeScenarioEngine } from '@/pages/Settings/components/engineScenarioMerge';
+import { formatEngineTestGeneratedAt } from '@/pages/Settings/components/engineFormatters';
 
 export const EngineCard: React.FC<{
   engine: TtsEngine;
@@ -37,32 +21,56 @@ export const EngineCard: React.FC<{
   const [installing, setInstalling] = useState(false);
   const [testResult, setTestResult] = useState(engine.last_test);
   const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
+  const [activeScenario, setActiveScenario] = useState<any | null>(null);
+  const [devLogs, setDevLogs] = useState<string[]>([]);
+
+  const addDevLog = (msg: string) => {
+    setDevLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 50));
+  };
 
   React.useEffect(() => {
     setTestResult(engine.last_test);
-  }, [engine.last_test]);
-  const engineUi = getEngineUi(engine.settings_schema);
-  const tone = engine.status === 'ready'
+    // Clear scenario and logs if engine ID changes
+    setActiveScenario(null);
+    setDevLogs([]);
+  }, [engine.last_test, engine.engine_id]);
+
+  const displayEngine = activeScenario
+    ? mergeScenarioEngine(engine, activeScenario.engine_detail)
+    : engine;
+
+  const engineUi = getEngineUi(displayEngine.settings_schema);
+  const uiMetadata = displayEngine.settings_schema?.['x-ui'];
+  const tone = displayEngine.status === 'ready'
     ? 'blue'
-    : engine.status === 'needs_setup'
+    : displayEngine.status === 'needs_setup' || displayEngine.status === 'unverified'
       ? 'yellow'
-      : engine.status === 'invalid_config'
+      : displayEngine.status === 'invalid_config'
         ? 'red'
         : 'gray';
-  const statusLabel = getEngineStatusLabel(engine.status);
-  const verificationLabel = engine.verified ? 'VERIFIED' : (engine.status === 'not_loaded' ? 'NOT LOADED' : 'UNVERIFIED');
-  const canEnable = engine.can_enable ?? (engine.status === 'ready' || engine.enabled);
-  const missingDependencies = Array.isArray(engine.missing_dependencies)
-    ? engine.missing_dependencies.filter((dep): dep is string => Boolean(dep && String(dep).trim()))
+  const statusLabel = getEngineStatusLabel(displayEngine.status);
+  const verificationLabel = displayEngine.verified ? 'VERIFIED' : (displayEngine.status === 'not_loaded' ? 'NOT LOADED' : 'UNVERIFIED');
+  const canEnable = displayEngine.can_enable ?? (displayEngine.status === 'ready' || displayEngine.enabled);
+  const missingDependencies = Array.isArray(displayEngine.missing_dependencies)
+    ? displayEngine.missing_dependencies.filter((dep): dep is string => Boolean(dep && String(dep).trim()))
     : [];
-  const needsDependencyInstall = engine.dependencies_satisfied === false;
+  const needsDependencyInstall = displayEngine.dependencies_satisfied === false;
   const dependencyMessage = needsDependencyInstall && missingDependencies.length > 0
     ? `Missing dependencies: ${missingDependencies.join(', ')}.`
     : '';
-  const setupMessage = engine.setup_message || engine.health_message || '';
-  const enablementMessage = engine.enablement_message || setupMessage || dependencyMessage || (!engine.enabled && !canEnable ? 'Resolve engine setup before enabling this plugin.' : '');
+  const setupMessage = displayEngine.setup_message || displayEngine.health_message || '';
+  const enablementMessage = displayEngine.enablement_message || setupMessage || dependencyMessage || (!displayEngine.enabled && !canEnable ? 'Resolve engine setup before enabling this plugin.' : '');
+  const hideSettingsPanel = Boolean(
+    uiMetadata?.hidden ||
+    (uiMetadata?.hide_settings_when_not_ready && displayEngine.status !== 'ready') ||
+    (uiMetadata?.hide_settings_when_unverified && !displayEngine.verified)
+  );
 
   const handleSaveSettings = async (settings: Record<string, any>) => {
+    if (activeScenario) {
+      addDevLog(`Simulated: Settings saved for ${displayEngine.display_name}.`);
+      return;
+    }
     setSaving(true);
     try {
       await api.updateEngineSettings(engine.engine_id, settings);
@@ -77,6 +85,10 @@ export const EngineCard: React.FC<{
   };
 
   const handleResetSetting = async (settingKey: string) => {
+    if (activeScenario) {
+      addDevLog(`Simulated: Reset setting '${settingKey}' for ${displayEngine.display_name}.`);
+      return;
+    }
     setSaving(true);
     try {
       await api.clearEngineSetting(engine.engine_id, settingKey);
@@ -115,32 +127,65 @@ export const EngineCard: React.FC<{
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
           <ChevronDown size={17} color="var(--text-muted)" className="details-chevron" />
+          {engine.logo_url && (
+            <div style={{ width: '32px', height: '32px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border)', flexShrink: 0 }}>
+              <img
+                src={engine.logo_url}
+                alt={`${engine.display_name} logo`}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                onError={(e) => {
+                   // Fallback for broken images
+                   (e.target as HTMLImageElement).style.display = 'none';
+                }}
+              />
+            </div>
+          )}
           <div>
-            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800 }}>{engine.display_name}</h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800 }}>{displayEngine.display_name}</h3>
+              {displayEngine.dev?.enabled && (
+                <span style={{
+                  fontSize: '0.62rem',
+                  fontWeight: 900,
+                  background: 'rgba(244, 114, 182, 0.1)',
+                  color: 'var(--accent)',
+                  padding: '1px 4px',
+                  borderRadius: '4px',
+                  border: '1px solid rgba(244, 114, 182, 0.2)',
+                  letterSpacing: '0.05em'
+                }}>
+                  DEV
+                </span>
+              )}
+            </div>
             <p style={{ margin: '0.2rem 0 0 0', color: 'var(--text-muted)', fontSize: '0.78rem', fontWeight: 600 }}>
-              {engine.engine_id} {engine.version ? `• v${engine.version}` : ''}
+              {displayEngine.engine_id} {displayEngine.version ? `• v${displayEngine.version}` : ''}
             </p>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-          {engine.cloud && <Cloud size={15} color="#92400e" />}
+          {displayEngine.cloud && <Cloud size={15} color="#92400e" />}
           <div style={{ marginRight: '0.5rem' }}>
             <ToggleButton
-              enabled={engine.enabled}
+              enabled={displayEngine.enabled}
               busy={saving}
-              disabled={saving || (!engine.enabled && !canEnable)}
-              title={engine.enabled ? 'Disable plugin' : enablementMessage || (engine.verified ? 'Enable plugin' : 'Verify this engine before enabling it.')}
+              disabled={saving || (!displayEngine.enabled && !canEnable)}
+              title={displayEngine.enabled ? 'Disable plugin' : enablementMessage || (displayEngine.verified ? 'Enable plugin' : 'Verify this engine before enabling it.')}
               onClick={async (e: React.MouseEvent) => {
                 e.preventDefault();
                 e.stopPropagation();
-                if (!engine.enabled && !canEnable) return;
+                if (!displayEngine.enabled && !canEnable) return;
+                if (activeScenario) {
+                  addDevLog(`Simulated: ${displayEngine.display_name} ${!displayEngine.enabled ? 'enabled' : 'disabled'}.`);
+                  return;
+                }
                 setSaving(true);
                 try {
-                  await api.updateEngineSettings(engine.engine_id, { enabled: !engine.enabled });
+                  await api.updateEngineSettings(displayEngine.engine_id, { enabled: !displayEngine.enabled });
                   await onUpdate();
-                  onShowNotification?.(`${engine.display_name} ${!engine.enabled ? 'enabled' : 'disabled'}.`);
+                  onShowNotification?.(`${displayEngine.display_name} ${!displayEngine.enabled ? 'enabled' : 'disabled'}.`);
                 } catch (err) {
-                  onShowNotification?.(`Failed to ${!engine.enabled ? 'enable' : 'disable'} ${engine.display_name}.`);
+                  onShowNotification?.(`Failed to ${!displayEngine.enabled ? 'enable' : 'disable'} ${displayEngine.display_name}.`);
                 } finally {
                   setSaving(false);
                 }
@@ -159,33 +204,31 @@ export const EngineCard: React.FC<{
           >
             {statusLabel}
           </span>
-          {engine.status !== 'not_loaded' && (
-            <span
-              style={{
-                borderRadius: '999px',
-                padding: '0.28rem 0.6rem',
-                fontSize: '0.7rem',
-                fontWeight: 900,
-                letterSpacing: '0.02em',
-                ...getBadgeStyles(engine.verified ? 'blue' : 'gray'),
-              }}
-            >
-              {verificationLabel}
-            </span>
-          )}
+          <span
+            style={{
+              borderRadius: '999px',
+              padding: '0.28rem 0.6rem',
+              fontSize: '0.7rem',
+              fontWeight: 900,
+              letterSpacing: '0.02em',
+              ...getBadgeStyles(displayEngine.verified ? 'blue' : 'gray'),
+            }}
+          >
+            {verificationLabel}
+          </span>
         </div>
       </summary>
       <div style={{ padding: '0 1rem 1.25rem 2.95rem', color: 'var(--text-secondary)', fontSize: '0.88rem', lineHeight: 1.55 }}>
         <p style={{ margin: '0 0 1.25rem 0', fontSize: '0.85rem' }}>
-          {engine.author ? `Engine by ${engine.author}. ` : ''}
-          {engine.homepage && (
-            <a href={engine.homepage} target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', textDecoration: 'none' }}>
+          {displayEngine.author ? `Engine by ${displayEngine.author}. ` : ''}
+          {displayEngine.homepage && (
+            <a href={displayEngine.homepage} target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', textDecoration: 'none' }}>
               View Documentation
             </a>
           )}
         </p>
 
-        {engine.cloud && (
+        {displayEngine.cloud && (
           <div
             style={{
               marginBottom: '1.25rem',
@@ -194,9 +237,9 @@ export const EngineCard: React.FC<{
               gap: '0.6rem',
               padding: '0.85rem',
               borderRadius: '12px',
-              border: '1px solid rgba(217, 119, 6, 0.25)',
-              background: 'rgba(245, 158, 11, 0.08)',
-              color: '#92400e',
+              border: `1px solid ${uiMetadata?.privacy_tone === 'warning' ? 'rgba(217, 119, 6, 0.25)' : 'var(--border)'}`,
+              background: uiMetadata?.privacy_tone === 'warning' ? 'rgba(245, 158, 11, 0.08)' : 'rgba(0,0,0,0.03)',
+              color: uiMetadata?.privacy_tone === 'warning' ? '#92400e' : 'var(--text-secondary)',
               fontSize: '0.82rem',
             }}
           >
@@ -205,7 +248,7 @@ export const EngineCard: React.FC<{
           </div>
         )}
 
-        {(setupMessage || dependencyMessage || engine.status === 'needs_setup') && (
+        {(setupMessage || dependencyMessage || displayEngine.status === 'needs_setup') && (
           <div
             style={{
               marginBottom: '1.1rem',
@@ -237,29 +280,43 @@ export const EngineCard: React.FC<{
                   Install Deps installs the Python packages listed for this engine in the same environment Studio is running in.
                 </span>
               )}
-              {engine.verified === false && (
+              {displayEngine.verified === false && !displayEngine.settings_schema?.['x-ui']?.hide_verification_guidance && (
                 <span>
-                  {engine.display_name} verification uses your Default Voice from General settings as the reference sample.
+                  {displayEngine.display_name} verification uses your Default Voice from General settings as the reference sample.
                 </span>
               )}
             </div>
           </div>
         )}
 
-        {(engineUi || engine.settings_schema?.description) && (
-          <EngineMetadataPanel engine={engine} schema={engine.settings_schema} getBadgeStyles={getBadgeStyles} />
+        {!hideSettingsPanel && (engineUi || displayEngine.settings_schema?.description || (displayEngine.current_settings && Object.keys(displayEngine.current_settings).length > 0)) && (
+          <div style={{
+            marginBottom: '1rem',
+            padding: '1.25rem',
+            borderRadius: '16px',
+            border: '1px solid rgba(43, 110, 255, 0.2)',
+            background: 'linear-gradient(180deg, rgba(240, 247, 255, 0.94), rgba(245, 250, 255, 0.85))'
+          }}>
+            {(engineUi || displayEngine.settings_schema?.description) && (
+              <div style={{ marginBottom: '1.5rem' }}>
+                <EngineMetadataPanel
+                  engine={displayEngine}
+                  schema={displayEngine.settings_schema}
+                  getBadgeStyles={getBadgeStyles}
+                  unframed={true}
+                />
+              </div>
+            )}
+            <JsonSchemaForm
+              schema={displayEngine.settings_schema}
+              values={displayEngine.current_settings || {}}
+              onSave={handleSaveSettings}
+              onReset={handleResetSetting}
+              busy={saving}
+              engineVerified={displayEngine.verified}
+            />
+          </div>
         )}
-
-        <div style={{ background: 'white', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
-          <JsonSchemaForm
-            schema={engine.settings_schema}
-            values={engine.current_settings || {}}
-            onSave={handleSaveSettings}
-            onReset={handleResetSetting}
-            busy={saving}
-            engineVerified={engine.verified}
-          />
-        </div>
 
         {testResult && testResult.ok && (
           <div style={{ marginTop: '1.25rem', padding: '1rem', background: 'rgba(0,0,0,0.02)', borderRadius: '12px', border: '1px solid var(--border)', animation: 'fade-in 0.3s ease-out' }}>
@@ -276,128 +333,154 @@ export const EngineCard: React.FC<{
         )}
 
 
-        <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border)', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            className="btn-glass"
-            title="Run a real sample render using the Studio default voice reference."
-            disabled={saving || testing || engine.status !== 'ready'}
-            onClick={async () => {
-              setTesting(true);
-              try {
-                const res = await api.testEngine(engine.engine_id);
-                setTestResult(res);
-                onShowNotification?.(`Test sample generated for ${engine.display_name}.`);
-              } catch (err: any) {
-                onShowNotification?.(`Test failed: ${err.message || 'Unknown error'}`);
-              } finally {
-                setTesting(false);
-              }
-            }}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.8rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 800, opacity: engine.status !== 'ready' ? 0.5 : 1 }}
-          >
-            {testing ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-            {testing ? 'Running...' : 'Run Test'}
-          </button>
-          
-          <button
-            type="button"
-            className="btn-glass"
-            title="Verify this engine using the Studio default voice reference sample."
-            disabled={saving || engine.verified}
-            onClick={async () => {
-              setSaving(true);
-              try {
-                const res = await api.verifyEngine(engine.engine_id);
-                if (res.ok) {
-                  onShowNotification?.(`${engine.display_name} verified successfully.`);
-                  await onUpdate();
-                } else {
-                  onShowNotification?.(`Verification failed: ${res.error || res.message || 'Unknown error'}`);
-                }
-              } catch (err) {
-                onShowNotification?.(`Verification failed for ${engine.display_name}.`);
-              } finally {
-                setSaving(false);
-              }
-            }}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.8rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 800, opacity: engine.verified ? 0.5 : 1 }}
-          >
-            <ShieldCheck size={14} /> {engine.verified ? 'Verified' : 'Verify'}
-          </button>
-
-
-          {needsDependencyInstall && (
+        <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
             <button
               type="button"
               className="btn-glass"
-              title="Install the Python packages required by this engine."
-              disabled={saving || installing}
+              title="Run a real sample render using the Studio default voice reference."
+              disabled={saving || testing || displayEngine.status !== 'ready'}
               onClick={async () => {
-                setInstalling(true);
+                if (activeScenario) {
+                  addDevLog(activeScenario.dev_logs?.test || `Simulated: Synthesis requested for ${displayEngine.display_name}.`);
+                  return;
+                }
+                setTesting(true);
                 try {
-                  const res = await api.installEngineDependencies(engine.engine_id);
-                  onShowNotification?.(res.message || 'Dependency installation completed.');
-                  await onUpdate();
+                  const res = await api.testEngine(displayEngine.engine_id);
+                  setTestResult(res);
+                  onShowNotification?.(`Test sample generated for ${displayEngine.display_name}.`);
                 } catch (err: any) {
-                  onShowNotification?.(`Installation failed: ${err.message || 'Unknown error'}`);
+                  onShowNotification?.(`Test failed: ${err.message || 'Unknown error'}`);
                 } finally {
-                  setInstalling(false);
+                  setTesting(false);
                 }
               }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.5rem 0.8rem',
-                borderRadius: '10px',
-                fontSize: '0.8rem',
-                fontWeight: 800,
-                color: '#92400e',
-                background: 'rgba(245, 158, 11, 0.08)',
-                border: '1px solid rgba(245, 158, 11, 0.2)',
-                opacity: (saving || installing) ? 0.5 : 1
-              }}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.8rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 800, opacity: displayEngine.status !== 'ready' ? 0.5 : 1 }}
             >
-              {installing ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-              {installing ? 'Installing...' : 'Install Deps'}
+              {testing ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+              {testing ? 'Running...' : 'Run Test'}
             </button>
-          )}
-
-          {!engine.verified && engine.status !== 'ready' && (
             <button
               type="button"
               className="btn-glass"
-              title="Remove this plugin"
-              onClick={() => setRemoveConfirmOpen(true)}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.8rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 800, color: '#b91c1c' }}
+              title="Verify this engine using the Studio default voice reference sample."
+              disabled={saving || displayEngine.verified}
+              onClick={async () => {
+                if (activeScenario) {
+                  addDevLog(activeScenario.dev_logs?.verify || `Simulated: Verification requested for ${displayEngine.display_name}.`);
+                  return;
+                }
+                setSaving(true);
+                try {
+                  const res = await api.verifyEngine(displayEngine.engine_id);
+                  if (res.ok) {
+                    onShowNotification?.(`${displayEngine.display_name} verified successfully.`);
+                    await onUpdate();
+                  } else {
+                    onShowNotification?.(`Verification failed: ${res.error || res.message || 'Unknown error'}`);
+                  }
+                } catch (err) {
+                  onShowNotification?.(`Verification failed for ${displayEngine.display_name}.`);
+                } finally {
+                  setSaving(false);
+                }
+              }}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.8rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 800, opacity: displayEngine.verified ? 0.5 : 1 }}
             >
-              <Trash2 size={14} /> Remove
+              <ShieldCheck size={14} /> {displayEngine.verified ? 'Verified' : 'Verify'}
             </button>
-          )}
+
+
+            {needsDependencyInstall && (
+              <button
+                type="button"
+                className="btn-glass"
+                title="Install the Python packages required by this engine."
+                disabled={saving || installing}
+                onClick={async () => {
+                  if (activeScenario) {
+                    addDevLog(activeScenario.dev_logs?.install || `Simulated: Installing dependencies for ${displayEngine.display_name}.`);
+                    return;
+                  }
+                  setInstalling(true);
+                  try {
+                    const res = await api.installEngineDependencies(displayEngine.engine_id);
+                    onShowNotification?.(res.message || 'Dependency installation completed.');
+                    await onUpdate();
+                  } catch (err: any) {
+                    onShowNotification?.(`Installation failed: ${err.message || 'Unknown error'}`);
+                  } finally {
+                    setInstalling(false);
+                  }
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.5rem 0.8rem',
+                  borderRadius: '10px',
+                  fontSize: '0.8rem',
+                  fontWeight: 800,
+                  color: '#92400e',
+                  background: 'rgba(245, 158, 11, 0.08)',
+                  border: '1px solid rgba(245, 158, 11, 0.2)',
+                  opacity: (saving || installing) ? 0.5 : 1
+                }}
+              >
+                {installing ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                {installing ? 'Installing...' : 'Install Deps'}
+              </button>
+            )}
+          </div>
+
+          <button
+            type="button"
+            className="btn-glass"
+            title="Uninstall this plugin"
+            onClick={() => setRemoveConfirmOpen(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.8rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 800, color: '#b91c1c' }}
+          >
+            <Trash2 size={14} /> Uninstall
+          </button>
         </div>
         <ConfirmModal
           isOpen={removeConfirmOpen}
           onCancel={() => setRemoveConfirmOpen(false)}
           onConfirm={async () => {
             setRemoveConfirmOpen(false);
+            if (activeScenario) {
+              addDevLog(`Simulated: Uninstall requested for ${displayEngine.display_name}.`);
+              return;
+            }
             try {
-              const res = await api.removeEnginePlugin(engine.engine_id);
+              const res = await api.removeEnginePlugin(displayEngine.engine_id);
               if (res.ok) {
-                onShowNotification?.('Plugin removed successfully.');
+                onShowNotification?.('Plugin uninstalled successfully.');
                 await onUpdate();
               } else {
-                onShowNotification?.(res.message || 'Removal failed.');
+                onShowNotification?.(res.message || 'Uninstall failed.');
               }
             } catch (err) {
-              onShowNotification?.('Failed to remove plugin.');
+              onShowNotification?.('Failed to uninstall plugin.');
             }
           }}
-          title="Remove Plugin"
-          message={`Are you sure you want to remove the ${engine.display_name} plugin? This will delete its folder.`}
-          confirmText="Remove Plugin"
+          title="Uninstall Plugin"
+          message={`Are you sure you want to uninstall the ${displayEngine.display_name} plugin? This will delete its folder and all associated data.`}
+          confirmText="Uninstall Plugin"
           isDestructive={true}
         />
+
+        {/* Plugin Developer Panel */}
+        {engine.dev?.enabled && (
+          <EngineDevPanel
+            engine={displayEngine}
+            activeScenario={activeScenario}
+            onScenarioSelect={setActiveScenario}
+            logs={devLogs}
+            onAddLog={addDevLog}
+          />
+        )}
       </div>
     </details>
   );

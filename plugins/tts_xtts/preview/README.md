@@ -1,14 +1,14 @@
-# XTTS Static Developer Harness
+# XTTS CLI Builder Harness
 
-This directory contains a standalone developer harness for the XTTS plugin. It allows you to visualize the plugin's data contract, test the CLI command composer, and persist test inputs without needing a web server.
+This directory contains a standalone CLI builder harness for the XTTS plugin. It allows you to compose CLI commands, test the plugin's data contract, and persist test inputs without needing a web server or a running Studio instance.
 
 > [!IMPORTANT]
-> This harness is a development tool. Audiobook Studio 2.0 remains the authoritative source for the actual plugin UI. Use this page to verify that your `manifest.json` and `settings_schema.json` produce the expected state objects.
+> This harness is a technical development tool for CLI testing. For an accurate visual preview of the plugin settings UI, use **Studio Dev Mode** (available in the Studio app when `dev.enabled` is set in the manifest).
 
 ## Usage
 
-1. Open `index.html` directly in your web browser (e.g., drag and drop it into Chrome or Firefox).
-2. Use the state buttons at the top to simulate different plugin conditions (Ready, Needs Setup, Error, etc.).
+1. Open `index.html` directly in your web browser.
+2. Use the state buttons at the top to simulate different plugin conditions (Ready, Needs Setup, etc.).
 3. Adjust the settings fields in the "Engine Settings" panel.
 4. Fill in the "Harness Inputs" (Text, Voice, Out) to compose a CLI command.
 5. Copy the generated command from the "CLI Command Composer" panel to test audio generation in your terminal.
@@ -24,4 +24,4 @@ This directory contains a standalone developer harness for the XTTS plugin. It a
 
 ## Design Goal
 
-This harness ensures that the plugin's metadata (manifest and schema) translates correctly to the Studio 2.0 UI before the plugin is ingested into a repository or distributed to users.
+This harness ensures that the plugin's metadata translates correctly to a functional CLI command and a valid JSON contract. Visual fidelity is handled exclusively by Studio's internal rendering components.

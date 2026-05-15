@@ -33,6 +33,11 @@ export interface TtsEngine {
     generated_at: number | string;
     message?: string;
   };
+  dev?: {
+    enabled?: boolean;
+    scenarios?: string;
+  };
+  logo_url?: string;
 }
 
 export type Status = 'queued' | 'preparing' | 'running' | 'finalizing' | 'done' | 'failed' | 'cancelled' | 'error';

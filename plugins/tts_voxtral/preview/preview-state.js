@@ -19,7 +19,7 @@ let currentState = {
 };
 
 let harnessInputs = {
-    text: "Hello from the Voxtral developer harness!",
+    text: "Hello from the CLI harness!",
     ref_audio: "voice.wav",
     out: "output.wav"
 };

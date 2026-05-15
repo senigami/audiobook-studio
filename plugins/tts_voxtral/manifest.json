@@ -53,8 +53,16 @@
     "cpu_heavy": false
   },
   "author": "Mistral AI",
-  "homepage": "https://mistral.ai",
+  "homepage": "https://mistral.ai/news/voxtral-tts",
   "license": "Commercial API",
   "test_sample": "voice.wav",
-  "test_text": "Hello, this is a verification test of the Voxtral synthesis engine."
+  "test_text": "Hello, this is a verification test of the Voxtral synthesis engine.",
+  "dev": {
+    "enabled": true,
+    "scenarios": "dev/scenarios.json"
+  },
+  "logo": {
+    "svg": "assets/logo.svg",
+    "png": "assets/logo.png"
+  }
 }

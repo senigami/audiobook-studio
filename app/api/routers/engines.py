@@ -191,11 +191,78 @@ def get_engine_logs(engine_id: str):
         return JSONResponse({"status": "error", "message": str(exc)}, status_code=503)
 
 
-@router.post("/install")
-def install_plugin():
-    """Request plugin installation instructions or trigger install."""
-    bridge = create_voice_bridge()
-    return bridge.install_plugin()
+@router.get("/{engine_id}/dev/scenarios")
+def get_engine_scenarios(engine_id: str):
+    """Fetch developer scenario fixtures for an engine."""
+    from ...engines.registry import load_engine_registry  # noqa: PLC0415
+    registry = load_engine_registry()
+    reg = registry.get(engine_id)
+    if not reg:
+        return JSONResponse({"ok": False, "message": "Engine not found"}, status_code=404)
+
+    plugin_dir = _resolve_plugin_dir(engine_id=engine_id, module_path=reg.manifest.module_path)
+    if not plugin_dir:
+        return JSONResponse({"ok": False, "message": "Could not resolve plugin directory"}, status_code=404)
+
+    dev_config = getattr(reg.manifest, "dev", None)
+    if dev_config is None:
+        dev_config = getattr(reg.manifest, "raw", {}).get("dev", {})
+    scenarios_path = dev_config.get("scenarios")
+    if not scenarios_path:
+        return JSONResponse({"ok": False, "message": "No dev scenarios declared in manifest"}, status_code=404)
+
+    # Path safety check
+    full_path = (plugin_dir / scenarios_path).resolve()
+    try:
+        full_path.relative_to(plugin_dir.resolve())
+    except ValueError:
+        return JSONResponse({"ok": False, "message": "Scenario path escapes plugin directory"}, status_code=403)
+
+    if not full_path.is_file():
+        return JSONResponse({"ok": False, "message": f"Scenarios file not found: {scenarios_path}"}, status_code=404)
+
+    return FileResponse(full_path, media_type="application/json")
+
+
+@router.get("/{engine_id}/assets/{asset_path:path}")
+def get_engine_asset(engine_id: str, asset_path: str):
+    """Serve a static asset from a plugin's folder."""
+    from ...engines.registry import load_engine_registry  # noqa: PLC0415
+    registry = load_engine_registry()
+    reg = registry.get(engine_id)
+    if not reg:
+        return JSONResponse({"ok": False, "message": "Engine not found"}, status_code=404)
+
+    plugin_dir = _resolve_plugin_dir(engine_id=engine_id, module_path=reg.manifest.module_path)
+    if not plugin_dir:
+        return JSONResponse({"ok": False, "message": "Could not resolve plugin directory"}, status_code=404)
+
+    # Security: only allow files inside assets/ and with specific extensions
+    if not asset_path.startswith("assets/"):
+        return JSONResponse({"ok": False, "message": "Access denied: assets only"}, status_code=403)
+
+    allowed_exts = {".svg", ".png", ".jpg", ".jpeg", ".webp"}
+    if Path(asset_path).suffix.lower() not in allowed_exts:
+        return JSONResponse({"ok": False, "message": "Unsupported asset type"}, status_code=403)
+
+    full_path = (plugin_dir / asset_path).resolve()
+    try:
+        full_path.relative_to(plugin_dir.resolve())
+    except ValueError:
+        return JSONResponse({"ok": False, "message": "Asset path escapes plugin directory"}, status_code=403)
+
+    if not full_path.is_file():
+        return JSONResponse({"ok": False, "message": "Asset not found"}, status_code=404)
+
+    media_types = {
+        ".svg": "image/svg+xml",
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".webp": "image/webp",
+    }
+    media_type = media_types.get(Path(asset_path).suffix.lower(), "application/octet-stream")
+    return FileResponse(full_path, media_type=media_type)
 
 
 # Removed self-contained resolution helpers; they are now owned by the plugins.

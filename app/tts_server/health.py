@@ -167,5 +167,30 @@ def build_engine_detail(
         "current_settings": current_settings,
         "dependencies_satisfied": plugin.dependencies_satisfied,
         "missing_dependencies": plugin.missing_dependencies,
+        "dev": manifest.get("dev"),
+        "logo_url": _resolve_logo_url(plugin),
         **info_extra,
     }
+
+
+def _resolve_logo_url(plugin: "LoadedPlugin") -> str | None:
+    manifest = plugin.manifest
+    logo_config = manifest.get("logo")
+    if not logo_config:
+        return None
+
+    # Prefer SVG
+    svg_path = logo_config.get("svg")
+    if svg_path:
+        full_svg = plugin.plugin_dir / svg_path
+        if full_svg.is_file():
+            return f"/api/engines/{plugin.engine_id}/assets/{svg_path}"
+
+    # Fallback to PNG
+    png_path = logo_config.get("png")
+    if png_path:
+        full_png = plugin.plugin_dir / png_path
+        if full_png.is_file():
+            return f"/api/engines/{plugin.engine_id}/assets/{png_path}"
+
+    return None

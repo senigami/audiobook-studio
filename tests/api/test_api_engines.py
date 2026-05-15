@@ -240,3 +240,31 @@ def test_get_test_audio_resolves_tts_server_registry_shape(clean_db, client, tmp
 
     assert response.status_code == 200
     assert response.content == b"remote registry wav content"
+
+
+def test_get_engine_scenarios_resolves_from_manifest(clean_db, client, tmp_path):
+    from app.engines.models import EngineManifestModel
+
+    registration = SimpleNamespace(
+        manifest=EngineManifestModel(
+            engine_id="mock-engine",
+            display_name="Mock Engine",
+            phase="test",
+            module_path="plugins.tts_mock.plugin.server.engine",
+            dev={"scenarios": "dev/scenarios.json"},
+        )
+    )
+
+    plugin_dir = tmp_path / "plugins" / "tts_mock"
+    dev_dir = plugin_dir / "dev"
+    dev_dir.mkdir(parents=True)
+    scenario_path = dev_dir / "scenarios.json"
+    scenario_content = '{"scenarios": [{"id": "test"}]}'
+    scenario_path.write_text(scenario_content)
+
+    with patch("app.engines.registry.load_engine_registry", return_value={"mock-engine": registration}), \
+         patch("app.core.config.PLUGINS_DIR", tmp_path / "plugins"):
+        response = client.get("/api/engines/mock-engine/dev/scenarios")
+
+    assert response.status_code == 200
+    assert response.json() == {"scenarios": [{"id": "test"}]}

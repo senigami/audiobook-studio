@@ -68,6 +68,8 @@ class EngineManifestModel:
     test_sample: str | None = None
     verified: bool = False
     behavior: dict[str, Any] = field(default_factory=dict)
+    dev: dict[str, Any] = field(default_factory=dict)
+    logo: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -131,6 +133,8 @@ class EngineRegistrationModel:
             "homepage": self.manifest.homepage,
             "test_text": self.manifest.test_text,
             "behavior": dict(self.manifest.behavior),
+            "dev": dict(self.manifest.dev),
+            "logo": dict(self.manifest.logo),
         }
 
         try:

@@ -16,14 +16,20 @@
       "title": "Model",
       "description": "Mistral TTS model to use for synthesis.",
       "enum": ["mistral-tts-latest", "mistral-tts-1", "mistral-tts-1-hd", "voxtral-mini-tts-2603"],
-      "default": "mistral-tts-latest"
+      "default": "mistral-tts-latest",
+      "x-ui": {
+        "hide_when_unverified": true
+      }
     },
     "output_format": {
       "type": "string",
       "title": "Output Format",
       "description": "Audio format for synthesis output.",
       "enum": ["wav", "mp3"],
-      "default": "wav"
+      "default": "wav",
+      "x-ui": {
+        "hide_when_unverified": true
+      }
     },
     "computer_speed_multiplier": {
       "type": "number",
@@ -35,7 +41,8 @@
       "readOnly": true,
       "x-ui": {
         "display": "computer_speed_cps",
-        "baseline_cps": 16.7
+        "baseline_cps": 16.7,
+        "hide_when_unverified": true
       }
     }
   },
@@ -43,8 +50,9 @@
   "x-ui": {
     "panel_title": "Voxtral Cloud Voices",
     "summary": "Create a Mistral API key in your workspace settings. Get started by following the instructions in the link below.",
-    "privacy_notice": "Privacy note: This engine sends text and optional reference audio to external servers.",
     "privacy_tone": "warning",
+    "hide_metadata_when_verified": true,
+    "hide_verification_guidance": true,
     "help_label": "Open Mistral API key instructions",
     "help_url": "https://help.mistral.ai/en/articles/347464-how-do-i-create-api-keys-within-a-workspace"
   }

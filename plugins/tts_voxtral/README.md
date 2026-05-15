@@ -23,9 +23,15 @@ export MISTRAL_API_KEY="your-key"
 python cli.py --text "Hello" --out output.wav --voice-id "mistral-tts-latest"
 ```
 
-## Developer Harness
+## CLI Builder Harness
 
-This plugin includes a [Static Developer Harness](./preview/index.html) to visualize its Studio 2.0 settings contract and CLI command generation without a running server.
+This plugin includes a [CLI Builder Harness](./preview/index.html) to help you compose `cli.py` commands and visualize the JSON state contract without a running server.
+
+## Studio Dev Mode
+
+For an accurate UI preview, you can use the Studio-hosted Dev Mode. This mode renders the real Studio UI components using fixtures defined in [dev/scenarios.json](./dev/scenarios.json).
+
+To use it, enable Dev Mode in the Studio settings or run with `VITE_DEV_MODE=true`, then navigate to the Plugin Developer tab.
 
 ## Internal Layout
 

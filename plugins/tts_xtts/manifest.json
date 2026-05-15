@@ -48,9 +48,17 @@
     "vram_mb": 4000,
     "cpu_heavy": true
   },
-  "author": "Coqui AI",
-  "homepage": "https://github.com/coqui-ai/TTS",
+  "author": "idiap/coqui-ai-TTS",
+  "homepage": "https://github.com/idiap/coqui-ai-TTS",
   "license": "CPML-1.0",
   "test_sample": "latent.pth",
-  "test_text": "Hello, this is a verification test of the XTTS synthesis engine."
+  "test_text": "Hello, this is a verification test of the XTTS synthesis engine.",
+  "dev": {
+    "enabled": true,
+    "scenarios": "dev/scenarios.json"
+  },
+  "logo": {
+    "svg": "assets/logo.svg",
+    "png": "assets/logo.png"
+  }
 }
