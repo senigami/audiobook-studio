@@ -24,6 +24,7 @@ def _make_plugin_dir(
 
 def _minimal_manifest(engine_id="mock", entry_class="engine:MockEngine"):
     return {
+        "studio_tts_manifest": "1.0",
         "engine_id": engine_id,
         "display_name": f"Mock {engine_id}",
         "entry_class": entry_class,

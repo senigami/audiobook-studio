@@ -20,6 +20,7 @@ STATUS_READY = "ready"
 STATUS_NEEDS_SETUP = "needs_setup"
 STATUS_UNVERIFIED = "unverified"
 STATUS_NOT_LOADED = "not_loaded"
+STATUS_INVALID_CONFIG = "invalid_config"
 
 
 def engine_status(
@@ -34,6 +35,9 @@ def engine_status(
     Returns:
         str: One of ``"ready"``, ``"needs_setup"``, or ``"unverified"``.
     """
+    if getattr(plugin, "load_error", None):
+        return STATUS_INVALID_CONFIG
+
     try:
         check_env = plugin.engine.check_env
         if _accepts_settings(check_env):
@@ -86,12 +90,15 @@ def build_health_response(plugins: "list[LoadedPlugin]") -> dict[str, Any]:
                 "display_name": plugin.display_name,
                 "status": status,
                 "verified": plugin.verified,
-                "verification_error": plugin.verification_error,
+                "verification_error": plugin.load_error or plugin.verification_error,
             }
         )
 
     overall = "ok"
-    if any(e["status"] == STATUS_NEEDS_SETUP for e in engine_summaries):
+    if any(
+        e["status"] in {STATUS_NEEDS_SETUP, STATUS_INVALID_CONFIG}
+        for e in engine_summaries
+    ):
         overall = "degraded"
 
     return {

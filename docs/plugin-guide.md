@@ -42,7 +42,7 @@ plugins/tts_myengine/
 
 Required files:
 
-- `manifest.json`
+- `manifest.json` (must declare `studio_tts_manifest`: "1.0")
 - `settings_schema.json`
 - `interface.py`
 
@@ -211,8 +211,9 @@ Use the manifest as the declaration layer:
 
 - `capabilities` says what the plugin can do
 - `behavior` says what Studio should ask for or expect from the plugin
-- `worker_logic` says which job kinds or engine ids the plugin owns, if the plugin participates in worker dispatch
-- `entry_class` says which class implements the plugin, usually via `interface.py`
+- `worker_logic` says which job kinds or engine ids the plugin owns. Handlers must be in `module:function` format.
+- `entry_class` says which class implements the plugin, usually via `interface.py`. Must be in `module:Class` format.
+- `studio_tts_manifest` must be "1.0" for this version of Studio.
 
 Use the Python SDK as the runtime layer:
 

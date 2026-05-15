@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from app.tts_server.health import (
+    STATUS_INVALID_CONFIG,
     STATUS_NEEDS_SETUP,
     STATUS_READY,
     STATUS_UNVERIFIED,
@@ -35,6 +36,7 @@ class _MockPlugin:
         self.engine = _MockEngine(env_ok=env_ok)
         self.verified = verified
         self.verification_error = None
+        self.load_error = None
         self.manifest = {}
         self.dependencies_satisfied = deps_ok
         self.missing_dependencies = [] if deps_ok else ["missing-pkg"]
@@ -62,6 +64,13 @@ class TestEngineStatus:
         plugin = _MockPlugin()
         plugin.engine = BrokenEngine()
         assert engine_status(plugin) == STATUS_NEEDS_SETUP
+
+    def test_invalid_config_when_plugin_has_load_error(self):
+        plugin = _MockPlugin()
+        plugin.engine = None
+        plugin.load_error = "manifest.json missing required field 'entry_class'"
+
+        assert engine_status(plugin) == STATUS_INVALID_CONFIG
 
     def test_uses_current_settings_when_check_env_accepts_settings(self):
         class SettingsAwareEngine:
@@ -148,6 +157,16 @@ class TestBuildHealthResponse:
         ]
         result = build_health_response(plugins)
         assert result["status"] == "degraded"
+
+    def test_invalid_config_returns_degraded(self):
+        plugin = _MockPlugin("broken", env_ok=True, verified=False)
+        plugin.load_error = "Unsupported studio_tts_manifest version '9.0'"
+
+        result = build_health_response([plugin])
+
+        assert result["status"] == "degraded"
+        assert result["engines"][0]["status"] == STATUS_INVALID_CONFIG
+        assert result["engines"][0]["verification_error"] == plugin.load_error
 
     def test_engine_fields_present(self):
         plugins = [_MockPlugin("mock", env_ok=True, verified=True)]

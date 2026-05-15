@@ -52,7 +52,7 @@ class EngineManifestModel:
     built_in: bool = True
 
     # SDK fields — populated by the TTS Server plugin loader
-    schema_version: str = "1.0"
+    studio_tts_manifest: str = "1.0"
     version: str = "0.0.0"
     min_studio: str = "2.0.0"
     entry_class: str = ""
@@ -118,6 +118,7 @@ class EngineRegistrationModel:
 
         # Flatten manifest for top-level compatibility with TTS Server detail shape
         flattened = {
+            "studio_tts_manifest": self.manifest.studio_tts_manifest,
             "engine_id": self.manifest.engine_id,
             "display_name": self.manifest.display_name,
             "status": self.health.status,

@@ -71,6 +71,7 @@ def _make_plugin_dir(
 
 def _minimal_manifest(engine_id="mock", entry_class="engine:MockEngine", cloud=False, network=False):
     return {
+        "studio_tts_manifest": "1.0",
         "engine_id": engine_id,
         "display_name": "Mock Engine",
         "entry_class": entry_class,
@@ -169,8 +170,10 @@ class TestDiscoverPlugins:
             _mock_engine_src(),
         )
         result = discover_plugins(tmp_path)
-        assert len(result) == 1
-        assert result[0].engine_id == "good"
+        assert len(result) == 2
+        assert [plugin.engine_id for plugin in result] == ["bad", "good"]
+        assert result[0].load_error
+        assert result[1].load_error is None
 
     def test_plugin_settings_schema_file_is_exposed_when_engine_lacks_method(self, tmp_path):
         schema = {
@@ -195,7 +198,7 @@ class TestDiscoverPlugins:
         assert len(result) == 1
         detail = build_engine_detail(result[0], {})
         assert detail["settings_schema"]["x-ui"]["help_label"] == "Open Mistral API key instructions"
-        assert detail["settings_schema"]["x-ui"]["privacy_notice"].startswith("Privacy note:")
+        assert "privacy_notice" not in detail["settings_schema"]["x-ui"]
 
     def test_dotted_entry_class_in_folder(self, tmp_path):
         plugins_dir = tmp_path / "plugins"
@@ -207,6 +210,7 @@ class Engine:
     def check_env(self): return True, "OK"
 """)
         (plugins_dir / "tts_dotted" / "manifest.json").write_text(json.dumps({
+            "studio_tts_manifest": "1.0",
             "engine_id": "dotted",
             "display_name": "Dotted Engine",
             "entry_class": "pkg.mod:Engine",
@@ -248,6 +252,7 @@ class Engine:
         (plugin_dir / "manifest.json").write_text(
             json.dumps(
                 {
+                    "studio_tts_manifest": "1.0",
                     "engine_id": "iface",
                     "display_name": "Interface Engine",
                     "entry_class": "interface:InterfaceEngine",
@@ -297,6 +302,7 @@ class Engine:
         (plugin_dir / "manifest.json").write_text(
             json.dumps(
                 {
+                    "studio_tts_manifest": "1.0",
                     "engine_id": "nested",
                     "display_name": "Nested Engine",
                     "entry_class": "plugin.server.engine:NestedEngine",
@@ -319,27 +325,65 @@ class TestManifestValidation:
         del manifest["engine_id"]
         _make_plugin_dir(tmp_path, "tts_test", manifest)
         result = discover_plugins(tmp_path)
-        assert result == []
+        assert len(result) == 1
+        assert result[0].engine_id == "test"
+        assert result[0].load_error
+        assert "missing required field 'engine_id'" in result[0].load_error
 
-    def test_missing_capabilities_raises(self, tmp_path):
+    def test_missing_capabilities_is_reported_as_invalid_config(self, tmp_path):
         manifest = _minimal_manifest()
         del manifest["capabilities"]
         _make_plugin_dir(tmp_path, "tts_test", manifest)
         result = discover_plugins(tmp_path)
-        assert result == []
+        assert len(result) == 1
+        assert result[0].engine_id == "mock"
+        assert result[0].load_error
+        assert "missing required field 'capabilities'" in result[0].load_error
 
-    def test_synthesis_not_in_capabilities_raises(self, tmp_path):
+    def test_synthesis_not_in_capabilities_is_reported_as_invalid_config(self, tmp_path):
         manifest = _minimal_manifest()
         manifest["capabilities"] = ["preview"]
         _make_plugin_dir(tmp_path, "tts_test", manifest)
         result = discover_plugins(tmp_path)
-        assert result == []
+        assert len(result) == 1
+        assert result[0].engine_id == "mock"
+        assert result[0].load_error
+        assert "capabilities must include 'synthesis'" in result[0].load_error
 
-    def test_invalid_engine_id_format_raises(self, tmp_path):
+    def test_invalid_engine_id_format_is_reported_as_invalid_config(self, tmp_path):
         manifest = _minimal_manifest("INVALID_ID")
         _make_plugin_dir(tmp_path, "tts_test", manifest)
         result = discover_plugins(tmp_path)
-        assert result == []
+        assert len(result) == 1
+        assert result[0].engine_id == "INVALID_ID"
+        assert result[0].load_error
+        assert "does not match required pattern" in result[0].load_error
+
+    def test_unsupported_manifest_version_is_reported_as_invalid_config(self, tmp_path):
+        manifest = _minimal_manifest()
+        manifest["studio_tts_manifest"] = "9.0"
+        _make_plugin_dir(tmp_path, "tts_test", manifest)
+
+        result = discover_plugins(tmp_path)
+
+        assert len(result) == 1
+        assert result[0].engine_id == "mock"
+        assert result[0].load_error
+        assert "Unsupported studio_tts_manifest version '9.0'" in result[0].load_error
+        detail = build_engine_detail(result[0], {})
+        assert detail["status"] == "invalid_config"
+        assert detail["enablement_message"]
+
+    def test_invalid_callable_format_is_reported_as_invalid_config(self, tmp_path):
+        manifest = _minimal_manifest(entry_class="not-a-callable")
+        _make_plugin_dir(tmp_path, "tts_test", manifest)
+
+        result = discover_plugins(tmp_path)
+
+        assert len(result) == 1
+        assert result[0].engine_id == "mock"
+        assert result[0].load_error
+        assert "entry_class" in result[0].load_error
 
 
 # ---------------------------------------------------------------------------
@@ -353,6 +397,7 @@ class TestPipDiscovery:
         plugins_dir.mkdir()
         (plugins_dir / "tts_folder").mkdir()
         (plugins_dir / "tts_folder" / "manifest.json").write_text(json.dumps({
+            "studio_tts_manifest": "1.0",
             "engine_id": "folderengine",
             "display_name": "Folder Engine",
             "entry_class": "engine:Engine",
@@ -371,6 +416,7 @@ class Engine:
         # Mock distribution for manifest
         mock_dist = MagicMock()
         mock_dist.read_text.return_value = json.dumps({
+            "studio_tts_manifest": "1.0",
             "engine_id": "pipengine",
             "display_name": "Pip Engine",
             "entry_class": "pip_package.module:Engine",
@@ -407,6 +453,7 @@ class Engine:
         # Folder plugin with engine_id="clash"
         (plugins_dir / "tts_clash").mkdir()
         (plugins_dir / "tts_clash" / "manifest.json").write_text(json.dumps({
+            "studio_tts_manifest": "1.0",
             "engine_id": "clash",
             "display_name": "Folder Clash",
             "entry_class": "engine:Engine",

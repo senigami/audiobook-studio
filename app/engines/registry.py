@@ -284,6 +284,15 @@ def _load_plugin_engines() -> dict[str, EngineRegistrationModel]:
 def _load_engine_manifest(*, manifest_path: Path) -> EngineManifestModel:
     """Load and parse a built-in engine manifest."""
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+    # Contract version validation
+    manifest_version = str(payload.get("studio_tts_manifest", "")).strip()
+    if manifest_version != "1.0":
+        raise ValueError(
+            f"Engine manifest {manifest_path} has unsupported "
+            f"studio_tts_manifest version {manifest_version!r}"
+        )
+
     engine_id = str(payload.get("engine_id") or "").strip()
     display_name = str(payload.get("display_name") or engine_id).strip() or engine_id
     phase = str(payload.get("phase") or "unknown").strip()
@@ -293,6 +302,7 @@ def _load_engine_manifest(*, manifest_path: Path) -> EngineManifestModel:
         engine_id=engine_id,
         display_name=display_name,
         phase=phase,
+        studio_tts_manifest=manifest_version or "1.0",
         module_path=_manifest_module_path(manifest_path),
         notes=tuple(str(note).strip() for note in payload.get("notes", []) if str(note).strip()),
         capabilities=tuple(
