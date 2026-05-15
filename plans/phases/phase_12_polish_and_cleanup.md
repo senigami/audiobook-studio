@@ -21,7 +21,7 @@ Phase 12 exists to avoid mixing user-facing polish and remaining master-plan ext
 ## Scope
 
 - [x] Complete Phase 12 pre-change verification audit.
-- Add chapter VCR-style playback controls: play, pause, stop, next, and previous.
+- [x] Add chapter VCR-style playback controls: play, pause, stop, next, and previous.
 - Manually verify Phase 11 fixed-but-pending app behaviors: engine settings tests, project load time, chapter render enqueue, duplicate voice option warnings, manifest test text, failed queue timestamps, server shutdown, and mixed render retry.
 - Triage Vite websocket `ECONNRESET` logs and determine whether they are harmless reconnect noise or a lost-update path.
 - Re-check project and chapter load performance on large books and trim obvious duplicate fetch or file-resolution hot paths.
@@ -48,7 +48,7 @@ Phase 12 exists to avoid mixing user-facing polish and remaining master-plan ext
 | Area | Status | Notes |
 | --- | --- | --- |
 | Phase 12 pre-change verification | Complete | Audit is complete; findings are converted into Phase 12 cleanup items below. |
-| VCR-style chapter playback controls | Open | User-requested polish item carried forward from Phase 11 intake. |
+| VCR-style chapter playback controls | Complete | Play, Pause, Stop, Previous, and Next controls added to Chapter Editor. |
 | Manual QA of Phase 11 fixed items | Open | Verify the app flows that tests covered but manual app checks have not confirmed. |
 | Vite websocket `ECONNRESET` triage | Open | Classify as harmless reconnect noise or fix the lost-update path if reproducible. |
 | Large-book project/chapter load timing | Open | Use focused timing probes before changing fetch or storage paths. |

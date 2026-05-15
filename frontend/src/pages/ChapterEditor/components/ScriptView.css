@@ -31,6 +31,92 @@
   gap: 0.75rem;
 }
 
+.script-view-toolbar-media {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  /* Do not allow this container to push others out of the way */
+  flex: 0 1 auto;
+}
+
+.playback-controls {
+  display: inline-flex;
+  align-items: center;
+  width: auto;
+}
+
+.playback-controls-button-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  /* Use explicit light gray background that works in both themes as a fallback */
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  width: fit-content;
+}
+
+.playback-control-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: #ffffff;
+  /* Use explicit dark slate for icons - high visibility */
+  color: #0f172a !important;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.playback-control-button svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  /* Force stroke visibility */
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.playback-control-button:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  color: #2563eb !important; /* Blue-600 on hover */
+}
+
+.playback-control-button:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+}
+
+.playback-control-button:active:not(:disabled) {
+  background: #e2e8f0;
+}
+
+.playback-control-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+  background: #f1f5f9;
+  color: #64748b !important; /* Slate-500 */
+}
+
+.playback-control-button-primary {
+  /* Use slightly different background for play/pause to make them stand out */
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.playback-control-button-primary.is-active {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+  color: #2563eb !important;
+}
+
 .script-view-toggle-btn {
   padding: 6px 14px;
   font-size: 0.85rem;
@@ -99,6 +185,18 @@
   background: var(--accent-active);
   color: #ffffff;
   border-color: var(--accent-active);
+}
+
+@media (max-width: 760px) {
+  .script-view-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .script-view-toolbar-media {
+    order: 3;
+    flex-basis: 100%;
+    justify-content: flex-start;
+  }
 }
 
 .script-content-scroll {

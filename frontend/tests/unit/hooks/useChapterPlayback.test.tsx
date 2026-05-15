@@ -88,6 +88,41 @@ describe('useChapterPlayback', () => {
     expect(result.current.playingSegmentId).toBeNull();
   });
 
+  it('keeps stop from leaving playback in a paused state', async () => {
+    const { result } = renderHook(() =>
+      useChapterPlayback('proj1', segments, chunkGroups, generatingSegmentIds, onGenerate)
+    );
+
+    let mockAudioInstance: any;
+    (global.Audio as any).mockImplementation((_src: string) => {
+      mockAudioInstance = {
+        play: vi.fn().mockResolvedValue(undefined),
+        pause: vi.fn(),
+      };
+      return mockAudioInstance;
+    });
+
+    await act(async () => {
+      await result.current.playSegment('s1', ['s1', 's2']);
+    });
+
+    act(() => {
+      result.current.stopPlayback();
+      mockAudioInstance.onpause?.();
+    });
+
+    expect(result.current.playingSegmentId).toBeNull();
+    expect(result.current.isPlaying).toBe(false);
+    expect(result.current.isPaused).toBe(false);
+
+    await act(async () => {
+      await result.current.playSegment('s1', ['s1', 's2']);
+    });
+
+    expect(result.current.playingSegmentId).toBe('s1');
+    expect(result.current.isPlaying).toBe(true);
+  });
+
   it('triggers onGenerate for missing audio', async () => {
     const segmentsMissing = [
       { id: 's1', text_content: 'Hello', audio_status: 'unprocessed' },

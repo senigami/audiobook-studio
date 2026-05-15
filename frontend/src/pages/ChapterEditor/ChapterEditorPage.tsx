@@ -15,6 +15,7 @@ import { ResyncPreviewModal, type ResyncPreviewData } from '@/pages/ChapterEdito
 import { CharacterSidebar } from '@/pages/ChapterEditor/components/CharacterSidebar';
 import { QueueNotice } from '@/pages/ChapterEditor/components/QueueNotice';
 import { ScriptViewFallback } from '@/pages/ChapterEditor/components/ScriptViewFallback';
+import { PlaybackControls } from '@/pages/ChapterEditor/components/PlaybackControls';
 
 // Extracted Hooks
 import { useChapterPlayback } from '@/hooks/useChapterPlayback';
@@ -281,11 +282,46 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   }, [liveBarSegmentProgress, chapterRenderRenderingSegmentIds, generatingSegmentJob, job, scriptViewData?.render_batches, scriptViewData?.spans]);
 
 
-  const { playingSegmentId, playingSegmentIds, playSegment, stopPlayback } = useChapterPlayback(
+  const { playingSegmentId, playingSegmentIds, playSegment, stopPlayback, togglePause, isPlaying, isPaused } = useChapterPlayback(
     projectId, segments, chunkGroups, chapterRenderPendingSegmentIds, 
     (sids) => handleGenerate(sids, effectiveSelectedVoice, (msg) => setConfirmConfig({ title: 'Generation Blocked', message: msg, onConfirm: () => {}, confirmText: 'OK' })),
     scriptViewData?.audio_groups || []
   );
+
+  const playbackQueue = useMemo(() => segments.map(segment => segment.id), [segments]);
+
+  const playbackBlockStartIds = useMemo(() => {
+    const queueSet = new Set(playbackQueue);
+    const consumed = new Set<string>();
+    const blockStarts: string[] = [];
+    const audioGroups = [...(scriptViewData?.audio_groups || [])].sort((a, b) => a.order_index - b.order_index);
+
+    audioGroups.forEach(group => {
+      const groupIds = group.span_ids.filter(spanId => queueSet.has(spanId));
+      if (groupIds.length === 0) return;
+      blockStarts.push(groupIds[0]);
+      groupIds.forEach(spanId => consumed.add(spanId));
+    });
+
+    playbackQueue.forEach(segmentId => {
+      if (!consumed.has(segmentId)) {
+        blockStarts.push(segmentId);
+      }
+    });
+
+    return blockStarts;
+  }, [playbackQueue, scriptViewData?.audio_groups]);
+
+  const currentPlaybackBlockIndex = useMemo(() => {
+    if (!playingSegmentId) return -1;
+
+    return playbackBlockStartIds.findIndex(startId => {
+      if (startId === playingSegmentId) return true;
+      return scriptViewData?.audio_groups?.some(group => (
+        group.span_ids.includes(startId) && group.span_ids.includes(playingSegmentId)
+      ));
+    });
+  }, [playbackBlockStartIds, playingSegmentId, scriptViewData?.audio_groups]);
 
   useEffect(() => {
     if (loading) return;
@@ -451,7 +487,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                     renderingBatchProgressById={chapterRenderRenderingBatchProgressById}
                     playingSpanId={playingSegmentId}
                     playingSpanIds={playingSegmentIds}
-                    onPlaySpan={(sid) => playSegment(sid, segments.map(s => s.id))}
+                    onPlaySpan={(sid) => playSegment(sid, playbackQueue)}
                     onAssign={(sids) => handleScriptAssign(sids, selectedCharacterId, selectedProfileName, () => setConfirmConfig({
                       title: 'Assignment Conflict',
                       message: 'This chapter was modified by another process. Please reload to see the latest changes.',
@@ -472,6 +508,22 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                     }))}
                     activeCharacterId={selectedCharacterId}
                     speakers={speakers}
+                    toolbarControls={(
+                      <PlaybackControls
+                        isPlaying={isPlaying}
+                        isPaused={isPaused}
+                        onPlay={() => {
+                            if (isPaused && playingSegmentId) togglePause();
+                            else if (playbackBlockStartIds.length > 0) playSegment(playingSegmentId || playbackBlockStartIds[0], playbackQueue);
+                        }}
+                        onPause={togglePause}
+                        onStop={stopPlayback}
+                        onPrev={currentPlaybackBlockIndex > 0 ? () => playSegment(playbackBlockStartIds[currentPlaybackBlockIndex - 1], playbackQueue) : undefined}
+                        onNext={currentPlaybackBlockIndex >= 0 && currentPlaybackBlockIndex < playbackBlockStartIds.length - 1 ? () => playSegment(playbackBlockStartIds[currentPlaybackBlockIndex + 1], playbackQueue) : undefined}
+                        hasPrev={currentPlaybackBlockIndex > 0}
+                        hasNext={currentPlaybackBlockIndex >= 0 && currentPlaybackBlockIndex < playbackBlockStartIds.length - 1}
+                      />
+                    )}
                   />
                 )}
                 {editorTab === 'script' && !scriptViewData && (

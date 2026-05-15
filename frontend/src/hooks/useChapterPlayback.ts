@@ -12,6 +12,8 @@ export function useChapterPlayback(
 ) {
   const [playingSegmentId, setPlayingSegmentId] = useState<string | null>(null);
   const [playingSegmentIds, setPlayingSegmentIds] = useState<Set<string>>(new Set());
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
   const playbackQueueRef = useRef<string[]>([]);
   const isPlayingRef = useRef<boolean>(false);
@@ -80,6 +82,13 @@ export function useChapterPlayback(
     let urlIdx = 0;
     const playWithFallback = (u: string) => {
       const audio = new Audio(u);
+      audio.onplay = () => {
+        setIsPaused(false);
+      };
+      audio.onpause = () => {
+        if (!isPlayingRef.current) return;
+        setIsPaused(true);
+      };
       audio.onended = () => {
         if (!isPlayingRef.current) return;
         let nextIdx = idx + 1;
@@ -134,12 +143,15 @@ export function useChapterPlayback(
 
   const stopPlayback = () => {
     if (audioPlayerRef.current) {
+      audioPlayerRef.current.onpause = null;
       audioPlayerRef.current.pause();
       audioPlayerRef.current = null;
     }
     setPlayingSegmentId(null);
     setPlayingSegmentIds(new Set());
     isPlayingRef.current = false;
+    setIsPlaying(false);
+    setIsPaused(false);
     playbackQueueRef.current = [];
     pendingPlaybackRef.current = null;
   };
@@ -181,10 +193,15 @@ export function useChapterPlayback(
 
     stopPlayback();
     isPlayingRef.current = true;
+    setIsPlaying(true);
+    setIsPaused(false);
     playbackQueueRef.current = fullQueue;
     
     const currentIndex = fullQueue.indexOf(segmentId);
-    if (currentIndex === -1) return;
+    if (currentIndex === -1) {
+      setIsPlaying(false);
+      return;
+    }
     pendingPlaybackRef.current = { segmentId, queue: fullQueue };
     await playFromIndex(currentIndex, fullQueue);
   };
@@ -195,6 +212,7 @@ export function useChapterPlayback(
     playSegment,
     stopPlayback,
     togglePause,
-    isPlaying: isPlayingRef.current
+    isPlaying,
+    isPaused
   };
 }

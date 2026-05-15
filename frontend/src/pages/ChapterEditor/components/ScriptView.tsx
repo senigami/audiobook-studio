@@ -42,6 +42,7 @@ interface ScriptViewProps {
   engines?: TtsEngine[];
   speakerProfiles?: SpeakerProfile[];
   speakers?: Speaker[];
+  toolbarControls?: React.ReactNode;
 }
 
 const clamp01 = (value: number) => Math.max(0, Math.min(value, 1));
@@ -95,6 +96,7 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
   engines = [],
   speakerProfiles = [],
   speakers = [],
+  toolbarControls,
 }) => {
   const anyEnginesEnabled = useMemo(() => engines.some(e => e.enabled && e.status === 'ready'), [engines]);
   const [viewMode, setViewMode] = useState<'book' | 'script'>('book');
@@ -555,6 +557,12 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
             Script
           </button>
         </div>
+
+        {toolbarControls && (
+          <div className="script-view-toolbar-media">
+            {toolbarControls}
+          </div>
+        )}
 
         <div className="script-view-toggle-actions">
           <button

@@ -41,6 +41,9 @@ vi.mock('@/hooks/useChapterPlayback', () => ({
     playingSegmentIds: new Set(),
     playSegment: vi.fn(),
     stopPlayback: vi.fn(),
+    togglePause: vi.fn(),
+    isPlaying: false,
+    isPaused: false,
   }),
 }));
 
