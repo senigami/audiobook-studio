@@ -23,6 +23,10 @@ export MISTRAL_API_KEY="your-key"
 python cli.py --text "Hello" --out output.wav --voice-id "mistral-tts-latest"
 ```
 
+## Developer Harness
+
+This plugin includes a [Static Developer Harness](./preview/index.html) to visualize its Studio 2.0 settings contract and CLI command generation without a running server.
+
 ## Internal Layout
 
 - `plugin/server/` implements the TTS Server `StudioTTSEngine` contract.
