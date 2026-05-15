@@ -251,7 +251,7 @@ def test_get_engine_scenarios_resolves_from_manifest(clean_db, client, tmp_path)
             display_name="Mock Engine",
             phase="test",
             module_path="plugins.tts_mock.plugin.server.engine",
-            dev={"scenarios": "dev/scenarios.json"},
+            dev={"enabled": True, "scenarios": "dev/scenarios.json"},
         )
     )
 

@@ -150,4 +150,16 @@ describe('EngineCard developer scenarios', () => {
     });
     expect(screen.getByText('Computer Speed')).toBeInTheDocument();
   });
+
+  it('hides DEV badge and panel when dev mode is disabled', () => {
+    const disabledDevEngine = {
+      ...voxtralEngine,
+      dev: { enabled: false }
+    };
+
+    render(<EngineCard engine={disabledDevEngine} onUpdate={vi.fn()} />);
+
+    expect(screen.queryByText('DEV')).not.toBeInTheDocument();
+    expect(screen.queryByText('Engine Developer Panel')).not.toBeInTheDocument();
+  });
 });

@@ -207,6 +207,9 @@ def get_engine_scenarios(engine_id: str):
     dev_config = getattr(reg.manifest, "dev", None)
     if dev_config is None:
         dev_config = getattr(reg.manifest, "raw", {}).get("dev", {})
+    if not dev_config or not dev_config.get("enabled"):
+        return JSONResponse({"ok": False, "message": "Developer mode is disabled for this engine"}, status_code=403)
+
     scenarios_path = dev_config.get("scenarios")
     if not scenarios_path:
         return JSONResponse({"ok": False, "message": "No dev scenarios declared in manifest"}, status_code=404)
