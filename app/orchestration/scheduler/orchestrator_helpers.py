@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from app.orchestration.tasks.base import TaskResult
 from app.utils.render_trace import trace
+from app.jobs.registry import get_handler_registry, initialize_default_handlers
+from app.db.models import Job
 
 if TYPE_CHECKING:
     from app.orchestration.tasks.base import StudioTask, TaskContext
@@ -390,10 +392,88 @@ class OrchestratorHelpersMixin:
         if wd:
             wd.register_log_listener(log_listener)
 
+        # 1. Try registry-based dispatch (Plugin handlers or generic kind handlers)
+        reg = get_handler_registry()
+        j = self._context_to_job(context)
+        handler = reg.get_handler(j)
+
+        if handler:
+            if not marker_driven:
+                if timing["render_started_at"] is None:
+                    timing["render_started_at"] = time.time()
+                self._publish(
+                    context=context,
+                    status="running",
+                    progress=0.0,
+                    started_at=timing["render_started_at"],
+                )
+
+            # Execute via registry handler
+            try:
+                # Registry handlers usually take (jid, job, start, on_output, cancel_check)
+                # or (jid, job, on_output, cancel_check). We adapt here.
+                start_time = timing["render_started_at"] or time.time()
+
+                # Inspect handler or just try with start
+                import inspect
+                sig = inspect.signature(handler)
+
+                kwargs = {
+                    "jid": context.task_id,
+                    "j": j,
+                    "on_output": self._relay_output_wrapper(task),
+                    "cancel_check": lambda: getattr(task, "_cancelled", False),
+                }
+                if "start" in sig.parameters:
+                    kwargs["start"] = start_time
+
+                result_val = handler(**kwargs)
+
+                # Convert handler result to TaskResult
+                result = TaskResult(status="failed", message="Unknown handler error")
+                if isinstance(result_val, TaskResult):
+                    result = result_val
+                elif isinstance(result_val, tuple) and len(result_val) == 2:
+                    status, message = result_val
+                    result = TaskResult(
+                        status="completed" if status == "done" else status,
+                        message=message,
+                    )
+                elif result_val is None:
+                    # Some handlers update DB directly and return None; reconcile status
+                    from app.db import state
+                    jobs = state.get_jobs()
+                    job_obj = jobs.get(context.task_id)
+                    if job_obj and job_obj.status == "done":
+                        result = TaskResult(status="completed")
+                    else:
+                        msg = getattr(job_obj, "message", "Handler finished without 'done' status")
+                        result = TaskResult(status="failed", message=msg)
+
+                record_render_stats_if_completed(result)
+                return result
+            except Exception as e:
+                logger.exception("Task %s: registry handler raised.", context.task_id)
+                return TaskResult(status="failed", message=f"Handler error: {e}")
+
         try:
+            # 2. Local fallback if explicitly opted-out of bridge dispatch
             if getattr(task, "prefers_local_execution", False):
-                # Explicitly opted-out of bridge dispatch (e.g. mixed chapter synthesis)
-                pass
+                if not marker_driven:
+                    if timing["render_started_at"] is None:
+                        timing["render_started_at"] = time.time()
+                    self._publish(
+                        context=context,
+                        status="running",
+                        progress=0.0,
+                        started_at=timing["render_started_at"],
+                    )
+
+                result = task.run()
+                record_render_stats_if_completed(result)
+                return result
+
+            # 3. Bridge-backed dispatch
             elif callable(bridge_request_fn):
                 request = bridge_request_fn()
                 if request is not None:
@@ -413,33 +493,15 @@ class OrchestratorHelpersMixin:
                         is_retriable = isinstance(exc, EngineUnavailableError)
                         return TaskResult(status="failed", message=str(exc), retriable=is_retriable)
                 else:
-                    # Bridge-backed task returned None for request; this is now an error
-                    # unless the task explicitly allowed local fallback.
                     return TaskResult(
                         status="failed",
                         message="Task requires a voice bridge but returned no request payload."
                     )
 
-            # Fall through to local execution ONLY if the task prefers it.
-            if not getattr(task, "prefers_local_execution", False):
-                return TaskResult(
-                    status="failed",
-                    message=f"Task type {context.task_type} does not support local execution and no bridge was available."
-                )
-
-            if not marker_driven:
-                if timing["render_started_at"] is None:
-                    timing["render_started_at"] = time.time()
-                self._publish(
-                    context=context,
-                    status="running",
-                    progress=0.0,
-                    started_at=timing["render_started_at"],
-                )
-
-            result = task.run()
-            record_render_stats_if_completed(result)
-            return result
+            return TaskResult(
+                status="failed",
+                message=f"Task type {context.task_type} has no handler and no bridge fallback."
+            )
         except Exception as exc:
             logger.exception("Task %s: dispatch raised an exception.", context.task_id)
             return TaskResult(status="failed", message=str(exc))
@@ -626,6 +688,47 @@ class OrchestratorHelpersMixin:
                 context.task_id,
                 status,
             )
+
+    def _context_to_job(self, context: TaskContext) -> Job:
+        """Convert a TaskContext into a Job shim for the legacy handler registry."""
+        payload = context.payload or {}
+        return Job(
+            id=context.task_id,
+            engine=str(payload.get("engine_id") or payload.get("engine") or ""),
+            kind=str(context.task_type),
+            status="running",
+            created_at=context.submitted_at or time.time(),
+            project_id=context.project_id,
+            chapter_id=context.chapter_id,
+            chapter_file=str(payload.get("chapter_file") or Path(payload.get("output_path", "")).name),
+            speaker_profile=payload.get("voice_profile_id") or payload.get("speaker_profile"),
+            safe_mode=payload.get("safe_mode", True),
+            make_mp3=payload.get("make_mp3", False),
+            is_bake=payload.get("is_bake", False),
+            segment_ids=payload.get("segment_ids"),
+            custom_title=payload.get("custom_title"),
+            author_meta=payload.get("author"),
+            narrator_meta=payload.get("narrator"),
+            chapter_list=payload.get("chapters"),
+            cover_path=str(payload.get("cover_path")) if payload.get("cover_path") else None,
+        )
+
+    def _relay_output_wrapper(self, task: StudioTask) -> Callable[[str], None]:
+        """Return a callback that relays output lines to the orchestrator's log listener."""
+        def on_output(line: str) -> None:
+            if not line.strip():
+                return
+            # Use the task's internal relay if available
+            relay = getattr(task, "_relay_output", None)
+            if callable(relay):
+                relay(line)
+            else:
+                # Fallback: broadcast directly to watchdog
+                from app.engines.watchdog import get_watchdog
+                wd = get_watchdog()
+                if wd:
+                    wd._broadcast_log(line, task_id=task.task_id)
+        return on_output
 
 
 def _claim_to_dict(claim: object | None) -> dict[str, object]:

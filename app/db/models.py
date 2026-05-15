@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Optional, Literal, List
 
 JobEngineId = str
+JobKind = Literal["synthesis", "assembly", "voice_build", "voice_test", "mixed", "generic"]
 Status = Literal["queued", "preparing", "running", "finalizing", "done", "failed", "cancelled"]
 
 @dataclass
@@ -10,6 +11,7 @@ class Job:
     engine: JobEngineId
     status: Status
     created_at: float
+    kind: Optional[JobKind] = None
 
     chapter_file: Optional[str] = None
     project_id: Optional[str] = None

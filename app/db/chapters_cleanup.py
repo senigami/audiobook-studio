@@ -25,53 +25,40 @@ def cleanup_chapter_audio_files(
     delete_chapter_outputs: bool = True,
 ) -> bool:
     """Delete chapter-level and selected segment audio files without touching DB state."""
-    from ..core import config
+    from ..storage.manager import get_storage_manager
+    storage = get_storage_manager()
 
     try:
-        chapter_id = config.canonical_chapter_id(chapter_id)
-    except ValueError:
-        logger.warning("Skipping cleanup for invalid chapter id %s", chapter_id)
-        return False
+        # 1. Identify all candidate directories
+        if not project_id:
+            return True
 
-    # 1. Identify all candidate directories
-    if not project_id:
-        return True
+        ctx = storage.get_project_context(project_id)
+        nested_pdir = ctx.get_chapter_dir(chapter_id)
 
-    nested_pdir = config.get_chapter_dir(project_id, chapter_id)
-
-    target_dirs: List[str] = []
-    # Rule 9: Explicit containment check for scanner locality
-    try:
-        # 1. Nested (V2) paths
-        if nested_pdir:
-            # Rule 9: Security containment
-            n_path = os.path.abspath(os.path.realpath(os.fspath(nested_pdir)))
-            if is_safe(n_path):
-                target_dirs.append(n_path)
-                # Check segments subdir
-                s_path = os.path.abspath(os.path.realpath(os.fspath(secure_join_flat(nested_pdir, "segments"))))
-                if s_path.startswith(n_path + os.sep) and os.path.isdir(s_path):
-                    target_dirs.append(s_path)
+        target_dirs: List[Path] = []
+        if nested_pdir.exists() and storage.is_safe(nested_pdir):
+            target_dirs.append(nested_pdir)
+            seg_dir = nested_pdir / "segments"
+            if seg_dir.exists() and storage.is_safe(seg_dir):
+                target_dirs.append(seg_dir)
     except (OSError, ValueError):
-        pass
+        return False
 
     if not target_dirs:
         return True
 
-    # 2. Collect all files from all target directories using string-based scandir
-    known_files: List[tuple[str, str, str]] = []  # (root, full_path, name)
+    # 2. Collect all files from all target directories
+    known_files: List[tuple[Path, Path, str]] = []  # (root, full_path, name)
     for d_path in target_dirs:
         try:
-            # Rule 9: Locally visible proof for discovery sink
-            if not is_safe(d_path):
+            if not storage.is_safe(d_path):
                 continue
 
             for entry in os.scandir(d_path):
                 if entry.is_file() and entry.name.lower().endswith((".wav", ".mp3", ".m4a")):
-                    # Prove containment of result path
-                    res_path = os.path.abspath(os.path.realpath(entry.path))
-                    if res_path.startswith(d_path + os.sep):
-                        known_files.append((d_path, res_path, entry.name))
+                    if storage.is_safe(entry.path):
+                        known_files.append((d_path, Path(entry.path), entry.name))
         except OSError:
             continue
 
@@ -82,9 +69,8 @@ def cleanup_chapter_audio_files(
         for root, f_path, f_name in list(known_files):
             if f_name == raw_name:
                 try:
-                    # Rule 9: Proof for deletion sink
-                    if f_path.startswith(root + os.sep):
-                        os.remove(f_path)
+                    if storage.is_safe(f_path):
+                        f_path.unlink(missing_ok=True)
                         known_files = [item for item in known_files if item[1] != f_path]
                 except Exception:
                     logger.warning("Failed to delete explicit audio file %s", f_path, exc_info=True)
@@ -92,14 +78,13 @@ def cleanup_chapter_audio_files(
     # 4. Cleanup chapter outputs
     if delete_chapter_outputs:
         for root, f_path, f_name in list(known_files):
-            is_match = nested_pdir and root == os.path.abspath(os.path.realpath(os.fspath(nested_pdir))) and (
-                f_name.startswith("chapter.")
-            )
+            # Chapter outputs are in the chapter root dir, not segments subdir
+            is_match = root == nested_pdir and f_name.startswith("chapter.")
 
             if is_match:
                 try:
-                    if f_path.startswith(root + os.sep):
-                        os.remove(f_path)
+                    if storage.is_safe(f_path):
+                        f_path.unlink(missing_ok=True)
                         known_files = [item for item in known_files if item[1] != f_path]
                 except Exception:
                     logger.warning("Failed to delete chapter audio file %s", f_path, exc_info=True)
@@ -128,79 +113,58 @@ def move_chapter_artifacts_to_trash(
     segment_ids: Optional[List[str]] = None,
     explicit_audio_files: Optional[List[str]] = None,
 ) -> bool:
-    from ..core import config
+    from ..storage.manager import get_storage_manager
+    storage = get_storage_manager()
 
     if not project_id:
         return True
 
     try:
-        chapter_id = config.canonical_chapter_id(chapter_id)
-    except ValueError:
-        logger.warning("Skipping trash move for invalid chapter id %s", chapter_id)
-        return False
-
-    # Rule 9: Explicit containment for dynamic chapter_id
-    try:
+        ctx = storage.get_project_context(project_id)
         # Use project-aware trash dir resolution
-        base_trash_path = config.get_project_trash_dir(project_id) or config.TRASH_DIR
-        trash_root_path = os.path.abspath(os.path.realpath(os.path.join(os.fspath(base_trash_path), chapter_id)))
+        base_trash_path = ctx.root / "trash"
+        trash_root_path = base_trash_path / chapter_id
 
-        # Explicit containment check for scanner locality
-        trash_base_resolved = os.path.abspath(os.path.realpath(os.fspath(base_trash_path)))
-        p_root = os.path.abspath(os.path.realpath(os.fspath(config.PROJECTS_DIR)))
-
-        def is_trash_safe(path_str: str) -> bool:
-            if path_str == trash_base_resolved or path_str.startswith(trash_base_resolved + os.sep):
-                return True
-            if path_str == p_root or path_str.startswith(p_root + os.sep):
-                return True
-            return False
-
-        if not is_trash_safe(trash_root_path):
+        if not storage.is_safe(trash_root_path):
             raise ValueError("Trash path escape")
     except Exception:
         logger.warning("Skipping trash move for invalid chapter id %s", chapter_id)
         return False
 
-    # Rule 9: secure_join_flat for literals
-    trash_audio_dir = os.path.join(trash_root_path, "audio")
-    trash_text_dir = os.path.join(trash_root_path, "text")
+    # secure_join_flat for literals
+    trash_audio_dir = trash_root_path / "audio"
+    trash_text_dir = trash_root_path / "text"
 
     # Prove containment before mkdir
-    if trash_audio_dir.startswith(trash_root_path + os.sep):
-        os.makedirs(trash_audio_dir, exist_ok=True)
-    if trash_text_dir.startswith(trash_root_path + os.sep):
-        os.makedirs(trash_text_dir, exist_ok=True)
+    if storage.is_safe(trash_audio_dir):
+        trash_audio_dir.mkdir(parents=True, exist_ok=True)
+    if storage.is_safe(trash_text_dir):
+        trash_text_dir.mkdir(parents=True, exist_ok=True)
 
     # 1. Identify all source candidates
     try:
-        nested_dir = config.get_chapter_dir(project_id, chapter_id)
+        nested_dir = ctx.get_chapter_dir(chapter_id)
     except (OSError, ValueError):
         nested_dir = None
 
-    # 2. Collect all potential files using string-based scandir
-    source_files: List[tuple[str, str, str]] = []  # (root_path, full_path, name)
-    for d in [nested_dir]:
-        if d:
-            d_path = os.path.abspath(os.path.realpath(os.fspath(d)))
-            if os.path.isdir(d_path):
-                try:
-                    for entry in os.scandir(d_path):
-                        if entry.is_file():
-                            res_path = os.path.abspath(os.path.realpath(entry.path))
-                            if res_path.startswith(d_path + os.sep):
-                                source_files.append((d_path, res_path, entry.name))
-                    # Also check segments subdir if nested
-                    if d == nested_dir:
-                        seg_dir = os.path.abspath(os.path.realpath(os.fspath(secure_join_flat(nested_dir, "segments"))))
-                        if seg_dir.startswith(d_path + os.sep) and os.path.isdir(seg_dir):
-                            for entry in os.scandir(seg_dir):
-                                if entry.is_file():
-                                    res_path = os.path.abspath(os.path.realpath(entry.path))
-                                    if res_path.startswith(seg_dir + os.sep):
-                                        source_files.append((seg_dir, res_path, entry.name))
-                except OSError:
-                    pass
+    # 2. Collect all potential files
+    source_files: List[tuple[Path, Path, str]] = []  # (root_path, full_path, name)
+    if nested_dir and nested_dir.exists() and storage.is_safe(nested_dir):
+        try:
+            for entry in os.scandir(nested_dir):
+                if entry.is_file():
+                    if storage.is_safe(entry.path):
+                        source_files.append((nested_dir, Path(entry.path), entry.name))
+
+            # Also check segments subdir
+            seg_dir = nested_dir / "segments"
+            if seg_dir.exists() and storage.is_safe(seg_dir):
+                for entry in os.scandir(seg_dir):
+                    if entry.is_file():
+                        if storage.is_safe(entry.path):
+                            source_files.append((seg_dir, Path(entry.path), entry.name))
+        except OSError:
+            pass
 
     # 3. Filter and move
     audio_moved = 0
@@ -236,14 +200,14 @@ def move_chapter_artifacts_to_trash(
             if not SAFE_AUDIO_NAME_RE.fullmatch(name) and not SAFE_TEXT_NAME_RE.fullmatch(name):
                  continue
 
-            dest = os.path.abspath(os.path.realpath(os.path.join(target_dir, name)))
+            dest = target_dir / name
             # Ensure unique destination name if multiple sources have same filename
-            if os.path.exists(dest):
+            if dest.exists():
                 unique_name = f"{uuid.uuid4().hex}_{name}"
-                dest = os.path.abspath(os.path.realpath(os.path.join(target_dir, unique_name)))
+                dest = target_dir / unique_name
 
             # Rule 9: Locally visible containment proof for both source and destination
-            if src_path.startswith(root + os.sep) and dest.startswith(target_dir + os.sep):
+            if storage.is_safe(src_path) and storage.is_safe(dest):
                 shutil.move(src_path, dest)
                 if is_audio: audio_moved += 1
                 else: text_moved += 1

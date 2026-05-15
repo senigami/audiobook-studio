@@ -36,7 +36,8 @@ def api_export_chapter_audio(chapter_id: str, payload: AudioExportRequest):
     try:
         resolved = export_path.resolve()
         # Must be under PROJECTS_DIR
-        projects_root = config.PROJECTS_DIR.resolve()
+        from ...storage.manager import get_storage_manager
+        projects_root = get_storage_manager().projects_dir.resolve()
         try:
             resolved.relative_to(projects_root)
         except ValueError:
@@ -136,7 +137,8 @@ def api_get_chapter_asset(
     # Rule 9: Explicit containment check for scanner locality
     try:
         res_resolved = resolved.resolve()
-        res_resolved.relative_to(config.PROJECTS_DIR.resolve())
+        from ...storage.manager import get_storage_manager
+        res_resolved.relative_to(get_storage_manager().projects_dir.resolve())
     except (OSError, ValueError, RuntimeError):
          raise HTTPException(status_code=403, detail="Asset path out of bounds")
 

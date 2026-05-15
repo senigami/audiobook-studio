@@ -97,25 +97,23 @@ def api_save_project_backup_bundle(project_id: str, comment: Optional[str] = Que
         archive_buf = _create_backup_archive(bundle)
 
         # 3. Save to project backups directory
-        project_dir_path = get_project_dir(project_id)
+        from ...storage.manager import get_storage_manager
+        storage = get_storage_manager()
+        ctx = storage.get_project_context(project_id)
+        backups_dir = ctx.root / "backups"
 
-        # Rule 9: Locally visible safe-path pattern
-        import os
-        trusted_root = os.path.abspath(os.path.realpath(os.fspath(project_dir_path)))
-        backups_dir_path = os.path.normpath(os.path.join(trusted_root, "backups"))
-
-        if not backups_dir_path.startswith(trusted_root + os.sep) and backups_dir_path != trusted_root:
+        # Rule 9: Locally visible containment check via abstraction
+        if not storage.is_safe(backups_dir):
              raise ValueError(f"Invalid backups directory for project: {project_id}")
 
-        os.makedirs(backups_dir_path, exist_ok=True)
+        backups_dir.mkdir(parents=True, exist_ok=True)
 
         # Validate bundle name
-        safe_name = os.path.basename(bundle.bundle_name)
-        if safe_name != bundle.bundle_name:
-            raise ValueError(f"Invalid bundle name: {bundle.bundle_name}")
+        from ...utils.pathing import safe_basename
+        safe_name = safe_basename(bundle.bundle_name)
+        backup_full_path = backups_dir / safe_name
 
-        backup_full_path = os.path.normpath(os.path.join(backups_dir_path, safe_name))
-        if not backup_full_path.startswith(backups_dir_path + os.sep):
+        if not storage.is_safe(backup_full_path):
             raise ValueError(f"Invalid backup path for project {project_id}")
 
         with open(backup_full_path, "wb") as f:
@@ -140,22 +138,21 @@ def api_list_project_backups(project_id: str):
         if get_project(project_id) is None:
             return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
 
-        project_dir = get_project_dir(project_id)
-        # Rule 9: Secure join for literal subdirectory
-        try:
-            backups_dir = secure_join_flat(project_dir, "backups")
-            backups_dir_path = os.path.abspath(os.path.realpath(os.fspath(backups_dir)))
-        except ValueError:
+        from ...storage.manager import get_storage_manager
+        storage = get_storage_manager()
+        ctx = storage.get_project_context(project_id)
+        backups_dir = ctx.root / "backups"
+
+        if not storage.is_safe(backups_dir):
              return JSONResponse({"status": "error", "message": "Invalid backups directory"}, status_code=403)
 
         backups = []
-        if os.path.exists(backups_dir_path):
+        if backups_dir.exists():
             # Rule 8: match from backups dir using os.scandir for explicit containment proof
-            for entry in os.scandir(backups_dir_path):
+            for entry in os.scandir(backups_dir):
                 if entry.is_file() and entry.name.lower().endswith((".zip", ".abf")):
                     # Prove containment for entry
-                    entry_path = os.path.abspath(os.path.realpath(entry.path))
-                    if not entry_path.startswith(backups_dir_path + os.sep):
+                    if not storage.is_safe(entry.path):
                         continue
 
                     st = entry.stat()
@@ -190,11 +187,12 @@ def api_download_saved_backup(project_id: str, filename: str):
         if get_project(project_id) is None:
             return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
 
-        project_dir = get_project_dir(project_id)
-        try:
-            backups_dir = secure_join_flat(project_dir, "backups")
-            backups_dir_path = os.path.abspath(os.path.realpath(os.fspath(backups_dir)))
-        except ValueError:
+        from ...storage.manager import get_storage_manager
+        storage = get_storage_manager()
+        ctx = storage.get_project_context(project_id)
+        backups_dir = ctx.root / "backups"
+
+        if not storage.is_safe(backups_dir):
              return JSONResponse({"status": "error", "message": "Invalid backups directory"}, status_code=403)
 
         # Validation
@@ -203,12 +201,12 @@ def api_download_saved_backup(project_id: str, filename: str):
 
         # Rule 8: Enumerate and match from backups dir for local proof
         backup_found_path = None
-        for entry in os.scandir(backups_dir_path):
-            if entry.is_file() and entry.name == filename:
-                cand_path = os.path.abspath(os.path.realpath(entry.path))
-                if cand_path.startswith(backups_dir_path + os.sep):
-                    backup_found_path = cand_path
-                    break
+        if backups_dir.exists():
+            for entry in os.scandir(backups_dir):
+                if entry.is_file() and entry.name == filename:
+                    if storage.is_safe(entry.path):
+                        backup_found_path = entry.path
+                        break
 
         if not backup_found_path:
             return JSONResponse({"status": "error", "message": "Backup not found"}, status_code=404)
@@ -234,11 +232,12 @@ def api_update_project_backup_metadata(project_id: str, filename: str, comment: 
         if get_project(project_id) is None:
             return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
 
-        project_dir = get_project_dir(project_id)
-        try:
-            backups_dir = secure_join_flat(project_dir, "backups")
-            backups_dir_path = os.path.abspath(os.path.realpath(os.fspath(backups_dir)))
-        except ValueError:
+        from ...storage.manager import get_storage_manager
+        storage = get_storage_manager()
+        ctx = storage.get_project_context(project_id)
+        backups_dir = ctx.root / "backups"
+
+        if not storage.is_safe(backups_dir):
              return JSONResponse({"status": "error", "message": "Invalid backups directory"}, status_code=403)
 
         # Validation
@@ -247,12 +246,12 @@ def api_update_project_backup_metadata(project_id: str, filename: str, comment: 
 
         # Rule 8: Enumerate and match for local proof
         backup_found_path = None
-        for entry in os.scandir(backups_dir_path):
-            if entry.is_file() and entry.name == filename:
-                cand_path = os.path.abspath(os.path.realpath(entry.path))
-                if cand_path.startswith(backups_dir_path + os.sep):
-                    backup_found_path = cand_path
-                    break
+        if backups_dir.exists():
+            for entry in os.scandir(backups_dir):
+                if entry.is_file() and entry.name == filename:
+                    if storage.is_safe(entry.path):
+                        backup_found_path = entry.path
+                        break
 
         if not backup_found_path:
             return JSONResponse({"status": "error", "message": "Backup not found"}, status_code=404)
@@ -262,18 +261,16 @@ def api_update_project_backup_metadata(project_id: str, filename: str, comment: 
         import shutil
 
         # Use a safe temp directory
-        fd, temp_path = tempfile.mkstemp(dir=os.path.dirname(backup_found_path))
+        # Explicit cast to string for mkstemp dir
+        fd, temp_path = tempfile.mkstemp(dir=str(backups_dir))
         try:
             os.close(fd)
             # Proof both sides independently for move
-            source_abs = os.path.abspath(os.path.realpath(temp_path))
-            dest_abs = os.path.abspath(os.path.realpath(backup_found_path))
-
-            if not source_abs.startswith(backups_dir_path + os.sep) or not dest_abs.startswith(backups_dir_path + os.sep):
+            if not storage.is_safe(temp_path) or not storage.is_safe(backup_found_path):
                  raise ValueError("Invalid operation path")
 
-            with zipfile.ZipFile(dest_abs, "r") as zin:
-                with zipfile.ZipFile(source_abs, "w", zipfile.ZIP_DEFLATED) as zout:
+            with zipfile.ZipFile(backup_found_path, "r") as zin:
+                with zipfile.ZipFile(temp_path, "w", zipfile.ZIP_DEFLATED) as zout:
                     for item in zin.infolist():
                         if item.filename == "bundle.json":
                             data = json.loads(zin.read(item.filename))
@@ -282,7 +279,7 @@ def api_update_project_backup_metadata(project_id: str, filename: str, comment: 
                         else:
                             zout.writestr(item, zin.read(item.filename))
 
-            shutil.move(source_abs, dest_abs)
+            shutil.move(temp_path, backup_found_path)
         finally:
             if os.path.exists(temp_path):
                 os.remove(temp_path)
@@ -299,11 +296,12 @@ def api_delete_project_backup(project_id: str, filename: str):
         if get_project(project_id) is None:
             return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
 
-        project_dir = get_project_dir(project_id)
-        try:
-            backups_dir = secure_join_flat(project_dir, "backups")
-            backups_dir_path = os.path.abspath(os.path.realpath(os.fspath(backups_dir)))
-        except ValueError:
+        from ...storage.manager import get_storage_manager
+        storage = get_storage_manager()
+        ctx = storage.get_project_context(project_id)
+        backups_dir = ctx.root / "backups"
+
+        if not storage.is_safe(backups_dir):
              return JSONResponse({"status": "error", "message": "Invalid backups directory"}, status_code=403)
 
         # Validation
@@ -312,12 +310,12 @@ def api_delete_project_backup(project_id: str, filename: str):
 
         # Rule 8: Enumerate and match for local proof
         backup_found_path = None
-        for entry in os.scandir(backups_dir_path):
-            if entry.is_file() and entry.name == filename:
-                cand_path = os.path.abspath(os.path.realpath(entry.path))
-                if cand_path.startswith(backups_dir_path + os.sep):
-                    backup_found_path = cand_path
-                    break
+        if backups_dir.exists():
+            for entry in os.scandir(backups_dir):
+                if entry.is_file() and entry.name == filename:
+                    if storage.is_safe(entry.path):
+                        backup_found_path = entry.path
+                        break
 
         if not backup_found_path:
             return JSONResponse({"status": "error", "message": "Backup not found"}, status_code=404)

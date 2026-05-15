@@ -3,6 +3,7 @@ import re
 import logging
 import io
 import time
+import os
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -182,37 +183,31 @@ def _get_project_service() -> ProjectService:
     )
 
 
-async def _store_project_cover(project_id: str, project_dir: Path, cover):
-    import os
-    # Rule 9: Locally visible safe-path pattern
-    trusted_root = os.path.abspath(os.path.realpath(os.fspath(project_dir)))
+async def _store_project_cover(project_id: str, cover):
+    from ...storage.manager import get_storage_manager
+    storage = get_storage_manager()
+    ctx = storage.get_project_context(project_id)
+    cover_dir = ctx.cover_dir
 
     # 1. Validate filename
     safe_cover_name = safe_basename(cover.filename)
     ext = Path(safe_cover_name).suffix.lower() or ".jpg"
     cover_filename = f"cover{ext}"
+    cover_full_path = cover_dir / cover_filename
 
-    # 2. Derive and normalize paths
-    cover_dir_path = os.path.normpath(os.path.join(trusted_root, "cover"))
-    cover_full_path = os.path.normpath(os.path.join(cover_dir_path, cover_filename))
-
-    # 3. Prove containment
-    if not cover_dir_path.startswith(trusted_root + os.sep) and cover_dir_path != trusted_root:
-        raise ValueError(f"Invalid cover directory for project: {project_id}")
-    if not cover_full_path.startswith(cover_dir_path + os.sep):
+    # 2. Safety check (redundant but good practice)
+    if not storage.is_safe(cover_full_path):
         raise ValueError(f"Invalid cover path for project: {project_id}")
 
-    # 4. Perform filesystem operations using proven paths
-    os.makedirs(cover_dir_path, exist_ok=True)
+    # 3. Perform filesystem operations
+    cover_dir.mkdir(parents=True, exist_ok=True)
 
     # Cleanup old covers
-    for entry in os.scandir(cover_dir_path):
+    for entry in os.scandir(cover_dir):
         if entry.is_file() and entry.name != cover_filename:
             try:
-                # Rule 8: Explicit containment proof for each entry
-                res_path = os.path.abspath(os.path.realpath(entry.path))
-                if res_path.startswith(cover_dir_path + os.sep):
-                    os.unlink(res_path)
+                if storage.is_safe(entry.path):
+                    os.unlink(entry.path)
             except OSError:
                 pass
 

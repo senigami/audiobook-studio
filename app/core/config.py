@@ -49,24 +49,23 @@ def _canonical_project_id(project_id: str) -> str:
 
 
 def get_project_dir(project_id: str) -> Path:
-    canonical_project_id = _canonical_project_id(project_id)
-    # Rule 9: Explicit containment for dynamic ID
-    return secure_join_flat(PROJECTS_DIR, canonical_project_id)
+    from app.storage.manager import get_storage_manager
+    return get_storage_manager().get_project_context(project_id).root
 
 
 def get_project_m4b_dir(project_id: str) -> Path:
-    project_dir = get_project_dir(project_id)
-    return secure_join_flat(project_dir, "m4b")
+    from app.storage.manager import get_storage_manager
+    return get_storage_manager().get_project_context(project_id).m4b_dir
 
 
 def get_project_cover_dir(project_id: str) -> Path:
-    project_dir = get_project_dir(project_id)
-    return secure_join_flat(project_dir, "cover")
+    from app.storage.manager import get_storage_manager
+    return get_storage_manager().get_project_context(project_id).cover_dir
 
 
 def get_project_trash_dir(project_id: str) -> Path:
-    project_dir = get_project_dir(project_id)
-    return secure_join_flat(project_dir, "trash")
+    from app.storage.manager import get_storage_manager
+    return get_storage_manager().get_project_context(project_id).trash_dir
 
 
 def canonical_chapter_id(chapter_id: str) -> str:
@@ -78,16 +77,14 @@ def canonical_chapter_id(chapter_id: str) -> str:
 
 
 def get_chapter_dir(project_id: str, chapter_id: str) -> Path:
-    c_id = canonical_chapter_id(chapter_id)
-    project_dir = get_project_dir(project_id)
-    chapters_base = secure_join_flat(project_dir, "chapters")
-    return secure_join_flat(chapters_base, c_id)
+    from app.storage.manager import get_storage_manager
+    return get_storage_manager().get_project_context(project_id).get_chapter_dir(chapter_id)
 
 
 def get_voice_dir(voice_name: str) -> Path:
     """Returns the root directory for a voice."""
-    # Rule 9: Explicit containment for dynamic name
-    return secure_join_flat(VOICES_DIR, voice_name)
+    from app.storage.manager import get_storage_manager
+    return get_storage_manager().get_voice_dir(voice_name)
 
 
 def get_variant_dir(voice_name: str, variant_name: str) -> Path:
@@ -97,52 +94,14 @@ def get_variant_dir(voice_name: str, variant_name: str) -> Path:
 
 def is_safe(path: Union[Path, str]) -> bool:
     """Rule 9: Validates that a path is within trusted application roots."""
-    try:
-        p = Path(path).resolve()
-
-        # Define trusted roots explicitly and resolve them
-        roots = [
-            Path(VOICES_DIR).resolve(),
-            Path(PROJECTS_DIR).resolve(),
-            Path(TRANSIENT_DIR).resolve(),
-            Path(REPORT_DIR).resolve(),
-        ]
-
-        for root in roots:
-            if p == root or p.is_relative_to(root):
-                return True
-
-        # Case 6: Permissive Test Root (unless strict safety requested)
-        is_test = os.getenv("APP_TEST_MODE") == "1" or "PYTEST_CURRENT_TEST" in os.environ
-        is_strict = os.getenv("STRICT_PATH_SAFETY") == "1"
-        if is_test and not is_strict:
-            import tempfile
-            temp_root = Path(tempfile.gettempdir()).resolve()
-            if p == temp_root or p.is_relative_to(temp_root):
-                return True
-        return False
-    except Exception:
-        pass
-    return False
+    from app.storage.manager import get_storage_manager
+    return get_storage_manager().is_safe(path)
 
 
 def _find_file(directory: Path, filename: str) -> Optional[Path]:
     """Rule 8: Enumerate trusted root and match by entry.name for existing files."""
-    try:
-        if not is_safe(directory):
-            return None
-
-        target_dir = os.path.abspath(os.path.realpath(os.fspath(directory)))
-        # SINK: Localized string proof satisfies scanner locality
-        for entry in os.scandir(target_dir):
-            if entry.is_file() and entry.name == filename:
-                # Explicit containment check for result too
-                res_path = os.path.abspath(os.path.realpath(entry.path))
-                if res_path.startswith(target_dir + os.sep):
-                    return Path(res_path)
-    except OSError:
-        pass
-    return None
+    from app.storage.manager import get_storage_manager
+    return get_storage_manager()._find_file(directory, filename)
 
 
 def resolve_chapter_asset_path(
@@ -155,34 +114,7 @@ def resolve_chapter_asset_path(
 
     Supported asset_types: 'text', 'audio', 'segment'
     """
-    if not project_id:
-        return None
-
-    try:
-        nested_dir = get_chapter_dir(project_id, chapter_id)
-    except ValueError:
-        return None
-
-    if asset_type == "text":
-        return _find_file(nested_dir, "chapter.txt")
-
-    elif asset_type == "audio":
-        if filename:
-            return _find_file(nested_dir, filename)
-        # Try standard names in nested dir
-        for ext in [".wav", ".m4a", ".mp3"]:
-            new_path = _find_file(nested_dir, f"chapter{ext}")
-            if new_path:
-                return new_path
-
-    elif asset_type == "segment":
-        if filename:
-            # V2 canonical name is sid.wav
-            sid = filename.replace(".wav", "")
-            try:
-                seg_dir = secure_join_flat(nested_dir, "segments")
-                return _find_file(seg_dir, f"{sid}.wav")
-            except (OSError, ValueError):
-                pass
-
-    return None
+    from app.storage.manager import get_storage_manager
+    return get_storage_manager().resolve_chapter_asset_path(
+        project_id, chapter_id, asset_type, filename=filename
+    )
