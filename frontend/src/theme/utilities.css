@@ -401,3 +401,25 @@
 .editable-cell:hover .show-on-hover {
     opacity: 0.6;
 }
+
+/* Project Library List View */
+.list-row-hover:hover {
+    background: var(--surface-alt) !important;
+}
+
+.list-row-hover:hover h3 {
+    color: var(--accent) !important;
+}
+
+.project-list-view table th {
+    white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+    .project-list-view table th:nth-child(2),
+    .project-list-view table td:nth-child(2),
+    .project-list-view table th:nth-child(3),
+    .project-list-view table td:nth-child(3) {
+        display: none;
+    }
+}

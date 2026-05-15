@@ -1,5 +1,5 @@
 import React from 'react';
-import { Book, Clock, User } from 'lucide-react';
+import { Book, Calendar, Clock, User } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { ActionMenu } from '@/components/ui/ActionMenu';
 import type { Project } from '@/types';
@@ -168,9 +168,12 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                         No author specified
                     </p>
                 )}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border)' }}>
                     <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500 }}>
-                        <Clock size={14} opacity={0.7} /> {formatDate(project.updated_at)}
+                        <Calendar size={14} opacity={0.7} /> Created {formatDate(project.created_at)}
+                    </p>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500 }}>
+                        <Clock size={14} opacity={0.7} /> Updated {formatDate(project.updated_at)}
                     </p>
                 </div>
             </div>

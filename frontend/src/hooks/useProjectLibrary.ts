@@ -19,6 +19,10 @@ export const useProjectLibrary = (onSelectProject?: (projectId: string) => void)
     const [isDragging, setIsDragging] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    // View and Sort state
+    const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+    const [sortOption, setSortOption] = useState<'updated-desc' | 'created-desc' | 'title-asc' | 'title-desc'>('updated-desc');
+
     // Hover state for cards
     const [hoveredProjectId, setHoveredProjectId] = useState<string | null>(null);
 
@@ -47,6 +51,22 @@ export const useProjectLibrary = (onSelectProject?: (projectId: string) => void)
     useEffect(() => {
         loadProjects();
     }, []);
+
+    const sortedProjects = [...projects].sort((a, b) => {
+        if (sortOption === 'updated-desc') {
+            return (b.updated_at || 0) - (a.updated_at || 0);
+        }
+        if (sortOption === 'created-desc') {
+            return (b.created_at || 0) - (a.created_at || 0);
+        }
+        if (sortOption === 'title-asc') {
+            return a.name.localeCompare(b.name);
+        }
+        if (sortOption === 'title-desc') {
+            return b.name.localeCompare(a.name);
+        }
+        return 0;
+    });
 
     const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -153,6 +173,11 @@ export const useProjectLibrary = (onSelectProject?: (projectId: string) => void)
         handleDragOver,
         handleDragLeave,
         handleDrop,
-        loadProjects
+        loadProjects,
+        viewMode,
+        setViewMode,
+        sortOption,
+        setSortOption,
+        sortedProjects
     };
 };
