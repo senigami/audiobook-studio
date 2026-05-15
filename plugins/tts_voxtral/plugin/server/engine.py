@@ -163,7 +163,7 @@ class VoxtralPlugin(StudioTTSEngine):
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_format = output_path.suffix.lower().lstrip(".")
 
-        model = req.settings.get("model") or self._resolve_model()
+        model = req.settings.get("model") or self._resolve_model(req.settings)
 
         profile_name: str = ""
         reference_sample: str | None = None
@@ -214,6 +214,7 @@ class VoxtralPlugin(StudioTTSEngine):
                 reference_sample=reference_sample,
                 task_id=req.task_id,
                 voice_profile_dir=voice_profile_dir,
+                settings=req.settings,
             )
         except Exception as exc:
             return TTSResult(ok=False, error=f"Voxtral synthesis raised: {exc}")
@@ -267,7 +268,7 @@ class VoxtralPlugin(StudioTTSEngine):
                 error="Voxtral preview requires voice_ref or voice_profile_id.",
             )
 
-        model = req.settings.get("model") or self._resolve_model()
+        model = req.settings.get("model") or self._resolve_model(req.settings)
 
         try:
             rc = self._voxtral_generate(
@@ -279,6 +280,7 @@ class VoxtralPlugin(StudioTTSEngine):
                 reference_sample=reference_sample,
                 task_id=req.task_id,
                 voice_profile_dir=voice_profile_dir,
+                settings=req.settings,
             )
         except Exception as exc:
             return TTSResult(ok=False, error=f"Voxtral preview raised: {exc}")
@@ -300,20 +302,20 @@ class VoxtralPlugin(StudioTTSEngine):
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _resolve_api_key() -> str | None:
+    def _resolve_api_key(settings: dict[str, Any] | None = None) -> str | None:
         try:
             from ..core.implementation import resolve_mistral_api_key  # noqa: PLC0415
 
-            return resolve_mistral_api_key()
+            return resolve_mistral_api_key(settings=settings)
         except Exception:
             return os.environ.get("MISTRAL_API_KEY") or None
 
     @staticmethod
-    def _resolve_model() -> str:
+    def _resolve_model(settings: dict[str, Any] | None = None) -> str:
         try:
             from ..core.implementation import resolve_voxtral_model  # noqa: PLC0415
 
-            return resolve_voxtral_model()
+            return resolve_voxtral_model(settings=settings)
         except Exception:
             return "mistral-tts-1"
 
@@ -330,6 +332,7 @@ class VoxtralPlugin(StudioTTSEngine):
         reference_sample: str | None,
         task_id: str | None = None,
         voice_profile_dir: Path | None = None,
+        settings: dict[str, Any] | None = None,
     ) -> int:
         from ..core.implementation import voxtral_generate as _gen  # noqa: PLC0415
 
@@ -342,6 +345,7 @@ class VoxtralPlugin(StudioTTSEngine):
             reference_sample=reference_sample,
             task_id=task_id,
             voice_profile_dir=voice_profile_dir,
+            settings=settings,
         )
 
     @staticmethod

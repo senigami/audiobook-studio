@@ -49,18 +49,18 @@ def wav_to_mp3(in_wav: Path, out_mp3: Path, on_output=None, cancel_check=None) -
 
 def resolve_mistral_api_key() -> str | None:
     """Resolve the Voxtral API key through the core helper lazily."""
-
+    from app.db.state import get_settings
     from ..core.implementation import resolve_mistral_api_key as resolver
 
-    return resolver()
+    return resolver(settings=get_settings())
 
 
 def resolve_voxtral_model() -> str:
     """Resolve the Voxtral model name through the core helper lazily."""
-
+    from app.db.state import get_settings
     from ..core.implementation import resolve_voxtral_model as resolver
 
-    return resolver()
+    return resolver(settings=get_settings())
 
 
 def _load_settings_schema() -> dict[str, object]:
@@ -86,9 +86,10 @@ def voxtral_generate(
     model: str | None = None,
     reference_sample: str | None = None,
     task_id: str | None = None,
+    voice_profile_dir: Path | None = None,
 ) -> int:
     """Invoke the Voxtral generator lazily."""
-
+    from app.db.state import get_settings
     from ..core.implementation import voxtral_generate as generate
 
     return generate(
@@ -101,6 +102,8 @@ def voxtral_generate(
         model=model,
         reference_sample=reference_sample,
         task_id=task_id,
+        voice_profile_dir=voice_profile_dir,
+        settings=get_settings(),
     )
 
 
@@ -207,10 +210,11 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
         cleanup_root: Path | None = None
         temp_wav: Path | None = None
         profile_name = voice_profile_id
+        voice_profile_dir: Path | None = None
 
         # Priority 1: Resolved voice_id from hook (becomes voice_asset_id for Voxtral)
         if request.get("voice_id"):
-             voice_asset_id = str(request["voice_id"])
+            voice_asset_id = str(request["voice_id"])
 
         render_wav_path = output_path
         if reference_audio_path:
@@ -218,6 +222,13 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
                 voice_profile_id=voice_profile_id,
                 reference_audio_path=Path(reference_audio_path),
             )
+            voice_profile_dir = cleanup_root
+        elif not voice_asset_id:
+            from app.db.speakers import get_profile_dir as get_voice_profile_dir
+            try:
+                voice_profile_dir = get_voice_profile_dir(voice_profile_id)
+            except Exception:
+                pass
         if output_format == "mp3":
             fd, temp_wav_path = tempfile.mkstemp(
                 prefix=f"{output_path.stem}_",
@@ -241,6 +252,7 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
                 model=request.get("voxtral_model"),
                 reference_sample=reference_sample,
                 task_id=str(request.get("task_id") or "") or None,
+                voice_profile_dir=voice_profile_dir,
             )
         except VoxtralError as exc:
             raise EngineExecutionError(f"Voxtral synthesis failed: {exc}") from exc
@@ -300,11 +312,19 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
         cleanup_root: Path | None = None
         profile_name = voice_profile_id
         reference_sample: str | None = None
+        voice_profile_dir: Path | None = None
         if reference_audio_path:
             cleanup_root, profile_name, reference_sample = self._stage_reference_audio(
                 voice_profile_id=voice_profile_id,
                 reference_audio_path=Path(reference_audio_path),
             )
+            voice_profile_dir = cleanup_root
+        elif not voice_asset_id:
+            from app.db.speakers import get_profile_dir as get_voice_profile_dir
+            try:
+                voice_profile_dir = get_voice_profile_dir(voice_profile_id)
+            except Exception:
+                pass
 
         safe_prefix = "".join(
             ch if ch.isalnum() or ch in {"-", "_"} else "_"
@@ -324,6 +344,7 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
                 model=request.get("voxtral_model"),
                 reference_sample=reference_sample,
                 task_id=str(request.get("task_id") or "") or None,
+                voice_profile_dir=voice_profile_dir,
             )
         except VoxtralError as exc:
             raise EngineExecutionError(f"Voxtral preview failed: {exc}") from exc

@@ -45,8 +45,7 @@ def test_resolve_reference_audio_path_prefers_configured_sample(tmp_path):
     fallback.write_bytes(b"a")
     preferred.write_bytes(b"b")
 
-    with patch("app.db.speakers.get_profile_dir", return_value=profile_dir):
-        result = resolve_reference_audio_path("VoiceA", "clip2.wav")
+    result = resolve_reference_audio_path("VoiceA", "clip2.wav", voice_profile_dir=profile_dir)
 
     assert result == preferred
 
@@ -64,10 +63,9 @@ def test_voxtral_generate_writes_wav_response(tmp_path):
     wav_bytes = b"RIFF\x24\x00\x00\x00WAVEfmt "
     client = FakeClient(FakeResponse(status_code=200, content=wav_bytes, headers={"content-type": "audio/wav"}))
 
-    with patch("plugins.tts_voxtral.plugin.core.implementation.get_settings", return_value={"mistral_api_key": "test-key"}), \
-         patch("plugins.tts_voxtral.plugin.core.implementation.resolve_reference_audio_path", return_value=ref_audio), \
+    with patch("plugins.tts_voxtral.plugin.core.implementation.resolve_reference_audio_path", return_value=ref_audio), \
          patch("plugins.tts_voxtral.plugin.core.implementation.httpx.Client", return_value=client):
-        rc = voxtral_generate("Hello", out_wav, profile_name="VoiceA")
+        rc = voxtral_generate("Hello", out_wav, profile_name="VoiceA", settings={"mistral_api_key": "test-key"})
 
     assert rc == 0
     assert out_wav.read_bytes() == wav_bytes
@@ -101,11 +99,10 @@ def test_voxtral_generate_converts_non_wav_audio(tmp_path):
         dest.write_bytes(b"RIFFconvertedWAVE")
         return 0
 
-    with patch("plugins.tts_voxtral.plugin.core.implementation.get_settings", return_value={"mistral_api_key": "test-key"}), \
-         patch("plugins.tts_voxtral.plugin.core.implementation.resolve_reference_audio_path", return_value=ref_audio), \
+    with patch("plugins.tts_voxtral.plugin.core.implementation.resolve_reference_audio_path", return_value=ref_audio), \
          patch("plugins.tts_voxtral.plugin.core.implementation.httpx.Client", return_value=client), \
          patch("plugins.tts_voxtral.plugin.core.implementation.convert_to_wav", side_effect=fake_convert):
-        rc = voxtral_generate("Hello", out_wav, profile_name="VoiceA")
+        rc = voxtral_generate("Hello", out_wav, profile_name="VoiceA", settings={"mistral_api_key": "test-key"})
 
     assert rc == 0
     assert out_wav.read_bytes() == b"RIFFconvertedWAVE"
@@ -114,5 +111,4 @@ def test_voxtral_generate_converts_non_wav_audio(tmp_path):
 def test_resolve_voxtral_model_upgrades_short_default():
     from plugins.tts_voxtral.plugin.core.implementation import resolve_voxtral_model
 
-    with patch("plugins.tts_voxtral.plugin.core.implementation.get_settings", return_value={"voxtral_model": "voxtral-tts"}):
-        assert resolve_voxtral_model() == "voxtral-mini-tts-2603"
+    assert resolve_voxtral_model(settings={"voxtral_model": "voxtral-tts"}) == "voxtral-mini-tts-2603"

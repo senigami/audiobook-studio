@@ -10,9 +10,17 @@ Close the remaining product polish, manual verification, and structural cleanup 
 
 Phase 12 exists to avoid mixing user-facing polish and remaining master-plan extras into the Phase 11 hard-cutover cleanup. It should produce a stable, easier-to-document Studio 2.0 baseline before Phase 13 release documentation and distribution work begins.
 
+## Pre-Change Verification Audit Findings
+- **Migration Idempotency**: [OK] Most migrations are idempotent. `import_legacy_filesystem_data` is not, but only used in tests.
+- **Plugin Boundary Leaks**: [PHASE 12 CLEANUP] `plugin/core` code should be portable and must not reach into Studio persistence. `tts_voxtral/plugin/core/implementation.py` currently imports `app.db.state` and `app.db.speakers`; `tts_xtts/plugin/core/implementation.py` imports app behavior helpers for limits. `plugin/studio` imports are less severe because they are app-side adapters, but they still block the long-term downloadable-repo goal and should be moved behind an explicit Studio plugin context/contract.
+- **Recovery and Failure Coverage**: [GAP] Basic recovery tests exist. Gaps include process-crash regression tests and mid-synthesis failure mocks.
+- **Frontend State and Update Pressure**: [RISK] `useChapterEditorState` is a broad coordinator hook and `ScriptView` can create high render pressure through letter-by-letter span mapping. Confirm with profiling before refactoring. `live-jobs.ts` update pressure needs review for high-frequency websocket batches.
+- **Helper/Service Ownership**: [RISK] Repository and service logic for Projects and Voices still lives in `api/routers/` helpers. Move only when touched for meaningful behavior or before Phase 13 if the helper boundary blocks documentation/API clarity.
+- **Startup Resilience**: [OK] `boot.py` and `web.py` handle startup reconciliation and corrupt `state.json` reset safely.
+
 ## Scope
 
-- Run Phase 12 pre-change verification before new feature work: architecture boundaries, migration idempotency, recovery coverage, frontend state complexity, websocket/store update pressure, helper/service ownership, and corrupt-state handling.
+- [x] Complete Phase 12 pre-change verification audit.
 - Add chapter VCR-style playback controls: play, pause, stop, next, and previous.
 - Manually verify Phase 11 fixed-but-pending app behaviors: engine settings tests, project load time, chapter render enqueue, duplicate voice option warnings, manifest test text, failed queue timestamps, server shutdown, and mixed render retry.
 - Triage Vite websocket `ECONNRESET` logs and determine whether they are harmless reconnect noise or a lost-update path.
@@ -39,7 +47,7 @@ Phase 12 exists to avoid mixing user-facing polish and remaining master-plan ext
 
 | Area | Status | Notes |
 | --- | --- | --- |
-| Phase 12 pre-change verification | Open | Complete the verification checklist below before adding new polish features. |
+| Phase 12 pre-change verification | Complete | Audit is complete; findings are converted into Phase 12 cleanup items below. |
 | VCR-style chapter playback controls | Open | User-requested polish item carried forward from Phase 11 intake. |
 | Manual QA of Phase 11 fixed items | Open | Verify the app flows that tests covered but manual app checks have not confirmed. |
 | Vite websocket `ECONNRESET` triage | Open | Classify as harmless reconnect noise or fix the lost-update path if reproducible. |
@@ -48,6 +56,7 @@ Phase 12 exists to avoid mixing user-facing polish and remaining master-plan ext
 | Plugin and template docs | Open | Update developer-facing docs enough that Phase 13 can build on correct architecture. |
 | Library list view and sorting | Open | Add list view to Library main page and add sort options. |
 | Voice and plugin UX | Open | Improve dependency install feedback, plugin lifecycle management, per-voice plugin settings, voice icons, tags, and export/import compatibility. |
+| Plugin boundary cleanup | In progress | `app.db` and app behavior imports are removed from portable plugin core code. Remaining work: decide whether shared `app.utils` / `app.engines.audio_ops` imports should move to a plugin SDK/common package, then reduce `plugin/studio` app-persistence coupling behind explicit context/contracts. |
 | Plugin compatibility verification | Open | Check manifest contract version and expected callable signatures before runtime calls. |
 | Chapter Editor cleanup | Open | Remove legacy Production, Performance, and Preview tabs/code after confirming Script tab owns their features. Rework crowded menu bar and duplicate preparing pill. |
 | Queue output metadata | Open | Queue entries should show what was produced, including generated audio duration/length when available. |
@@ -62,28 +71,28 @@ Complete this checklist before starting new Phase 12 feature work. The goal is t
 
 ### Architecture And Rules
 
-- [ ] Verify migration helpers in `app/db/migration.py` and `app/db/legacy_migration.py` are idempotent or explicitly guarded when run multiple times.
-- [ ] Verify repeated migration/reconciliation does not corrupt persistent state, settings, render history, project manifests, or voice manifests.
-- [ ] Audit `plugins/tts_xtts/` and `plugins/tts_voxtral/` for direct `app/db` imports. Plugin-specific code should use the engine SDK, plugin interface, manifest metadata, or bridge contracts rather than reaching into app persistence.
-- [ ] Audit first-party plugin imports for boundary leaks into app routes, app state writers, or non-contract orchestration internals.
+- [x] Verify migration helpers in `app/db/migration.py` and `app/db/legacy_migration.py` are idempotent or explicitly guarded when run multiple times.
+- [x] Verify repeated migration/reconciliation does not corrupt persistent state, settings, render history, project manifests, or voice manifests.
+- [x] Audit `plugins/tts_xtts/` and `plugins/tts_voxtral/` for direct `app/db` imports. Plugin-specific code should use the engine SDK, plugin interface, manifest metadata, or bridge contracts rather than reaching into app persistence.
+- [x] Audit first-party plugin imports for boundary leaks into app routes, app state writers, or non-contract orchestration internals.
 
 ### Recovery And Failure Coverage
 
-- [ ] Inventory recovery-path tests for worker failure mid-synthesis, TTS Server unavailable, interrupted jobs, partial artifacts, failed stitching, retry/requeue behavior, and startup reconciliation.
+- [x] Inventory recovery-path tests for worker failure mid-synthesis, TTS Server unavailable, interrupted jobs, partial artifacts, failed stitching, retry/requeue behavior, and startup reconciliation.
 - [ ] Add or update focused tests for any critical recovery path that only has happy-path coverage.
 - [ ] Verify failed jobs preserve useful timestamps, error details, retry state, and queue visibility after restart.
 
 ### Frontend State And Performance
 
-- [ ] Review `useChapterEditor.ts`, `useChapterEditorState.ts`, `ScriptView`, and related hooks for god-hook growth, excessive prop drilling, and unnecessary render churn.
-- [ ] Verify `frontend/src/store/live-jobs.ts` handles high-frequency websocket updates without unbounded updates, duplicated work, or main-thread lockups for large render batches.
-- [ ] Confirm the progress visualizer, top progress bar, and chapter text updates use the smallest necessary state surface.
+- [x] Review `useChapterEditor.ts`, `useChapterEditorState.ts`, `ScriptView`, and related hooks for god-hook growth, excessive prop drilling, and unnecessary render churn.
+- [x] Verify `frontend/src/store/live-jobs.ts` handles high-frequency websocket updates without unbounded updates, duplicated work, or main-thread lockups for large render batches.
+- [x] Confirm the progress visualizer, top progress bar, and chapter text updates use the smallest necessary state surface.
 
 ### Technical Debt And Startup Resilience
 
-- [ ] Review helper-heavy modules such as `projects_helpers.py`, `voices_helpers.py`, and `textops_helpers.py` for responsibilities that should move to domain/service layers before Phase 13.
-- [ ] Audit corrupt-state handling, including any `state.json.corrupt` development artifacts, and verify startup validates or recovers persistent schema safely before release distribution.
-- [ ] Classify any helper/service refactor as Phase 12, Phase 13 documentation support, or deferred architecture work instead of mixing it into unrelated polish.
+- [x] Review helper-heavy modules such as `projects_helpers.py`, `voices_helpers.py`, and `textops_helpers.py` for responsibilities that should move to domain/service layers before Phase 13.
+- [x] Audit corrupt-state handling, including any `state.json.corrupt` development artifacts, and verify startup validates or recovers persistent schema safely before release distribution.
+- [x] Classify any helper/service refactor as Phase 12, Phase 13 documentation support, or deferred architecture work instead of mixing it into unrelated polish.
 
 ## Broad Phase 12 Goals
 
@@ -108,6 +117,9 @@ Complete this checklist before starting new Phase 12 feature work. The goal is t
 - [ ] Fix plugin dependency installation UX so the install button shows in-progress feedback and refreshes plugin state when installation completes.
 - [ ] Fix XTTS dependency detection so installing dependencies resolves the missing-dependencies state when installation succeeds.
 - [ ] Add TTS plugin import and delete flows similar to voice import/export. Initial v2.0 target is zip upload/import from a downloaded repo; GitHub search/download is post-release.
+- [x] Remove direct `app.db` and app behavior imports from portable plugin core code. Prioritized `plugins/tts_voxtral/plugin/core/implementation.py` and `plugins/tts_xtts/plugin/core/implementation.py`.
+- [ ] Decide whether remaining plugin-core imports from shared app utility modules, such as `app.utils.text.textops` and `app.engines.audio_ops`, should move into a plugin SDK/common package before plugin repos are split out.
+- [ ] Define an explicit Studio plugin context/contract for `plugin/studio` adapters so app persistence access is owned by Studio and passed into plugin-facing glue rather than imported ad hoc.
 - [ ] Add plugin compatibility verification: declared plugin contract version, currently v1, plus expected callable existence and callable signature checks before Studio tries runtime calls.
 - [ ] Surface plugin-defined per-voice controls on the voice settings UI when the selected plugin supports applying those settings per voice.
 - [ ] Revisit voice settings placement. The current Script popup may be the wrong home; consider exposing voice settings in a dropdown within the voice UI instead of consuming the queue/right-side area.

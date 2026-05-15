@@ -6,16 +6,35 @@ import hashlib
 import os
 import re
 import shutil
+import json
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Callable
 
-from app.core import config as app_config
 from app.utils.text.textops import pack_text_to_limit, safe_split_long_sentences, sanitize_text
 # Engine environment resolution
 XTTS_ENV_DIR_DEFAULT = Path.home() / "xtts-env"
 XTTS_ENV_DIR = Path(os.getenv("XTTS_ENV_DIR", str(XTTS_ENV_DIR_DEFAULT)))
 XTTS_ENV_PYTHON = Path(os.getenv("XTTS_ENV_PYTHON", str(XTTS_ENV_DIR / ("Scripts/python.exe" if os.name == "nt" else "bin/python"))))
 XTTS_ENV_ACTIVATE = XTTS_ENV_DIR / ("Scripts/Activate.ps1" if os.name == "nt" else "bin/activate")
+
+
+
+@lru_cache(maxsize=1)
+def _load_local_manifest() -> dict[str, Any]:
+    """Load the manifest.json from the plugin root for local behavior discovery."""
+    try:
+        # Implementation is in plugin/core/, manifest is 2 levels up
+        manifest_path = Path(__file__).parents[2] / "manifest.json"
+        if manifest_path.exists():
+            return json.loads(manifest_path.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return {}
+
+
+def _get_local_behavior() -> dict[str, Any]:
+    return _load_local_manifest().get("behavior") or {}
 
 
 def xtts_generate(
@@ -53,15 +72,17 @@ def xtts_generate(
 
     if safe_mode:
         text = sanitize_text(text)
-        from app.engines.behavior import get_text_split_target
-        text = safe_split_long_sentences(text, target=get_text_split_target("xtts"))
+        behavior = _get_local_behavior()
+        split_target = behavior.get("text_split_target", 450)
+        text = safe_split_long_sentences(text, target=split_target)
     else:
         # Raw mode: Absolute bare minimum to prevent speech engine crashes
         text = re.sub(r"[^\x00-\x7F]+", "", text)  # ASCII only
         text = text.strip()
 
-    from app.engines.behavior import get_text_chunk_limit
-    text = pack_text_to_limit(text, limit=get_text_chunk_limit("xtts"), pad=True) or " "
+    behavior = _get_local_behavior()
+    chunk_limit = behavior.get("text_chunk_limit", 500)
+    text = pack_text_to_limit(text, limit=chunk_limit, pad=True) or " "
 
     cmd = [
         str(python_exe),

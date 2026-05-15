@@ -8,7 +8,6 @@ from typing import Any, Optional
 import httpx
 
 from app.engines.audio_ops import convert_to_wav
-from app.db.state import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -30,33 +29,33 @@ def _noop_output(*_args) -> None:
     return None
 
 
-def resolve_mistral_api_key() -> Optional[str]:
-    # 1. Check plugin settings first. Voxtral-specific settings should take
-    # precedence over global Studio defaults so the UI-saved key wins.
-    try:
-        from app.tts_server.settings_store import load_settings  # noqa: PLC0415
-
-        plugin_settings = load_settings(Path(__file__).parents[2])
-        key = str(plugin_settings.get("mistral_api_key") or "").strip()
+def resolve_mistral_api_key(settings: Optional[dict[str, Any]] = None) -> Optional[str]:
+    # 1. Check provided settings dict (Studio 2.0 style)
+    if settings:
+        key = str(settings.get("mistral_api_key") or "").strip()
         if key:
             return key
-    except Exception:
-        pass
 
-    # 2. Check global Studio settings
-    settings = get_settings()
-    key = str(settings.get("mistral_api_key") or "").strip()
-    if key:
-        return key
-
-    # 3. Check environment variable
+    # 2. Check environment variable (Portable/Standalone style)
     return os.getenv("MISTRAL_API_KEY") or None
 
 
-def resolve_voxtral_model(profile_model: Optional[str] = None) -> str:
-    settings = get_settings()
+def resolve_voxtral_model(profile_model: Optional[str] = None, settings: Optional[dict[str, Any]] = None) -> str:
+    # 1. Check profile override
+    if profile_model:
+        return profile_model
+
+    # 2. Check provided settings dict
+    if settings:
+        model = str(settings.get("voxtral_model") or "").strip()
+        if model:
+            if model == "voxtral-tts":
+                return DEFAULT_VOXTRAL_MODEL
+            return model
+
+    # 3. Check environment variable or fallback
     model = (
-        str(profile_model or settings.get("voxtral_model") or os.getenv("VOXTRAL_MODEL") or DEFAULT_VOXTRAL_MODEL)
+        str(os.getenv("VOXTRAL_MODEL") or DEFAULT_VOXTRAL_MODEL)
         .strip()
     ) or DEFAULT_VOXTRAL_MODEL
     if model == "voxtral-tts":
@@ -75,13 +74,9 @@ def resolve_reference_audio_path(
 ) -> Optional[Path]:
     profile_dir = voice_profile_dir
 
-    if not profile_dir and profile_name:
-        try:
-            from app.db.speakers import get_profile_dir as get_voice_profile_dir
-
-            profile_dir = get_voice_profile_dir(profile_name)
-        except Exception:
-            return None
+    if not profile_dir:
+        # The caller (adapter or server) must provide the directory to keep core portable.
+        return None
 
     if not profile_dir.exists():
         return None
@@ -219,6 +214,7 @@ def voxtral_generate(
     reference_sample: Optional[str] = None,
     task_id: Optional[str] = None,
     voice_profile_dir: Optional[Path] = None,
+    settings: Optional[dict[str, Any]] = None,
 ) -> int:
     on_output = on_output or _noop_output
     cancel_check = cancel_check or _never_cancel
@@ -226,11 +222,11 @@ def voxtral_generate(
     if cancel_check():
         return 1
 
-    api_key = resolve_mistral_api_key()
+    api_key = resolve_mistral_api_key(settings)
     if not api_key:
         raise VoxtralError("Missing Mistral API key. Set MISTRAL_API_KEY or save mistral_api_key in settings.")
 
-    model_name = resolve_voxtral_model(model)
+    model_name = resolve_voxtral_model(model, settings)
     endpoint = resolve_mistral_tts_url()
     clean_voice_id = str(voice_id or "").strip() or None
     ref_audio_path = (
@@ -320,7 +316,7 @@ def list_mistral_models(strict: bool = False) -> list[str]:
     import time
     import hashlib
 
-    api_key = resolve_mistral_api_key()
+    api_key = resolve_mistral_api_key(settings=None)
     if not api_key:
         return []
 
