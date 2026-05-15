@@ -51,6 +51,13 @@ def migrate_project_to_v2(project_id: str) -> bool:
     try:
         chapters = list_chapters(project_id)
 
+        # Derive string forms of the project dir and projects root for the legacy
+        # path-containment checks further down in the file-move loops.
+        project_dir_path = os.path.abspath(os.path.realpath(os.fspath(project_dir)))
+        from app.core import config as _cfg
+        _projects_root = os.path.abspath(os.path.realpath(os.fspath(_cfg.PROJECTS_DIR)))
+        projects_root_prefix = _projects_root if _projects_root.endswith(os.sep) else _projects_root + os.sep
+
         # Resolve legacy dirs as proven strings
         audio_root = os.path.abspath(os.path.realpath(os.path.join(project_dir_path, "audio")))
         if not audio_root.startswith(project_dir_path + os.sep):

@@ -20,7 +20,7 @@ def test_assembly_task_uses_registry(orchestrator, tmp_path):
         output_path = tmp_path / "chapter.wav"
     segment_paths = [tmp_path / "seg1.wav", tmp_path / "seg2.wav"]
     for p in segment_paths: p.write_text("audio")
-    
+
     task = AssemblyTask(
         task_id="assembly_job",
         output_path=output_path,
@@ -28,14 +28,14 @@ def test_assembly_task_uses_registry(orchestrator, tmp_path):
         project_id="00000000-0000-0000-0000-000000000001",
         chapter_id="00000000-0000-0000-0000-000000000002"
     )
-    
+
     # We also need to mock db.state.get_jobs to return a job with status="done"
     mock_job = MagicMock()
     mock_job.status = "done"
-    
+
     with patch("app.db.state.get_jobs", return_value={"assembly_job": mock_job}):
         context = task.describe()
         result = orchestrator._dispatch(task=task, context=context)
-        
+
         assert result.status == "completed"
         mock_handler.assert_called_once()

@@ -159,7 +159,7 @@ def api_list_project_backups(project_id: str):
                     comment = None
                     # Try to extract comment from bundle.json inside the zip
                     try:
-                        with zipfile.ZipFile(entry_path, "r") as zf:
+                        with zipfile.ZipFile(entry.path, "r") as zf:
                             if "bundle.json" in zf.namelist():
                                 bundle_data = json.loads(zf.read("bundle.json"))
                                 comment = bundle_data.get("comment")

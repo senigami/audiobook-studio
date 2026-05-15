@@ -161,6 +161,10 @@ def assemble_project(
     except ValueError:
         return JSONResponse({"error": "Project not found"}, status_code=404)
 
+    project = get_project(project_id)
+    if not project:
+        return JSONResponse({"error": "Project not found"}, status_code=404)
+
     chapters = db_list_chapters(project_id)
     if not chapters:
         return JSONResponse({"error": "No chapters found in project"}, status_code=400)

@@ -30,6 +30,20 @@ class StorageManager:
     def get_project_context(self, project_id: str) -> ProjectContext:
         return ProjectContext(project_id, self.projects_dir)
 
+    def list_projects(self) -> list[str]:
+        """Return the IDs of all project directories under projects_dir."""
+        ids: list[str] = []
+        if not self.projects_dir.exists():
+            return ids
+        try:
+            for entry in os.scandir(self.projects_dir):
+                if entry.is_dir():
+                    ids.append(entry.name)
+        except OSError:
+            pass
+        return ids
+
+
     def get_voice_dir(self, voice_name: str) -> Path:
         """Returns the root directory for a voice."""
         return secure_join_flat(self.voices_dir, voice_name)
