@@ -105,4 +105,31 @@ describe('PlaybackControls Component', () => {
     fireEvent.click(screen.getByLabelText('Next Segment'));
     expect(onNext).toHaveBeenCalled();
   });
+
+  it('triggers skim handlers', () => {
+    const onSkimStart = vi.fn();
+    const onSkimStop = vi.fn();
+    render(
+      <PlaybackControls
+        {...defaultProps}
+        isPlaying={true}
+        onSkimStart={onSkimStart}
+        onSkimStop={onSkimStop}
+      />
+    );
+
+    const forward = screen.getByLabelText('Skim Forward');
+    fireEvent.pointerDown(forward);
+    expect(onSkimStart).toHaveBeenCalledWith('forward');
+
+    fireEvent.pointerUp(forward);
+    expect(onSkimStop).toHaveBeenCalled();
+
+    const backward = screen.getByLabelText('Skim Backward');
+    fireEvent.pointerDown(backward);
+    expect(onSkimStart).toHaveBeenCalledWith('backward');
+
+    fireEvent.pointerLeave(backward);
+    expect(onSkimStop).toHaveBeenCalled();
+  });
 });

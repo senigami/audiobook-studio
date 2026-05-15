@@ -282,7 +282,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   }, [liveBarSegmentProgress, chapterRenderRenderingSegmentIds, generatingSegmentJob, job, scriptViewData?.render_batches, scriptViewData?.spans]);
 
 
-  const { playingSegmentId, playingSegmentIds, playSegment, stopPlayback, togglePause, isPlaying, isPaused } = useChapterPlayback(
+  const { playingSegmentId, playingSegmentIds, playSegment, stopPlayback, togglePause, isPlaying, isPaused, startSkim, stopSkim } = useChapterPlayback(
     projectId, segments, chunkGroups, chapterRenderPendingSegmentIds, 
     (sids) => handleGenerate(sids, effectiveSelectedVoice, (msg) => setConfirmConfig({ title: 'Generation Blocked', message: msg, onConfirm: () => {}, confirmText: 'OK' })),
     scriptViewData?.audio_groups || []
@@ -520,6 +520,8 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                         onStop={stopPlayback}
                         onPrev={currentPlaybackBlockIndex > 0 ? () => playSegment(playbackBlockStartIds[currentPlaybackBlockIndex - 1], playbackQueue) : undefined}
                         onNext={currentPlaybackBlockIndex >= 0 && currentPlaybackBlockIndex < playbackBlockStartIds.length - 1 ? () => playSegment(playbackBlockStartIds[currentPlaybackBlockIndex + 1], playbackQueue) : undefined}
+                        onSkimStart={startSkim}
+                        onSkimStop={stopSkim}
                         hasPrev={currentPlaybackBlockIndex > 0}
                         hasNext={currentPlaybackBlockIndex >= 0 && currentPlaybackBlockIndex < playbackBlockStartIds.length - 1}
                       />

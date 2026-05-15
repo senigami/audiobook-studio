@@ -286,4 +286,56 @@ describe('useChapterPlayback', () => {
     // Should skip s2 and move to s3
     expect(result.current.playingSegmentId).toBe('s3');
   });
+
+  it('skims forward and backward', async () => {
+    const { result } = renderHook(() =>
+      useChapterPlayback('proj1', segments, chunkGroups, generatingSegmentIds, onGenerate)
+    );
+
+    let mockAudioInstance: any;
+    (global.Audio as any).mockImplementation((src: string) => {
+      mockAudioInstance = {
+        play: vi.fn().mockResolvedValue(undefined),
+        pause: vi.fn(),
+        currentTime: 10,
+        duration: 100,
+        src,
+      };
+      return mockAudioInstance;
+    });
+
+    await act(async () => {
+      await result.current.playSegment('s1', ['s1', 's2']);
+    });
+
+    act(() => {
+      result.current.startSkim('forward');
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(150);
+    });
+
+    expect(mockAudioInstance.currentTime).toBe(10.5);
+
+    act(() => {
+      result.current.startSkim('backward');
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(150);
+    });
+
+    expect(mockAudioInstance.currentTime).toBe(10.0); // 10.5 - 0.5
+
+    act(() => {
+      result.current.stopSkim();
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(150);
+    });
+
+    expect(mockAudioInstance.currentTime).toBe(10.0); // Should not change after stop
+  });
 });

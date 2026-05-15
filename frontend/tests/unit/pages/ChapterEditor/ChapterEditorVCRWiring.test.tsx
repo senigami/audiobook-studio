@@ -36,6 +36,8 @@ vi.mock('@/hooks/useChapterPlayback', () => ({
     togglePause: mockTogglePause,
     isPlaying: false,
     isPaused: false,
+    startSkim: vi.fn(),
+    stopSkim: vi.fn(),
   })),
 }));
 

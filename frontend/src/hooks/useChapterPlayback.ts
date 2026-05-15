@@ -22,6 +22,7 @@ export function useChapterPlayback(
   const chunkGroupsRef = useRef<ChunkGroup[]>(chunkGroups);
   const audioGroupsRef = useRef<AudioGroup[]>(audioGroups);
   const pendingPlaybackRef = useRef<{ segmentId: string; queue: string[] } | null>(null);
+  const skimIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     segmentsRef.current = segments;
@@ -141,7 +142,12 @@ export function useChapterPlayback(
     }
   }, [segments, generatingSegmentIds]);
 
+  useEffect(() => {
+    return () => stopSkim();
+  }, []);
+
   const stopPlayback = () => {
+    stopSkim();
     if (audioPlayerRef.current) {
       audioPlayerRef.current.onpause = null;
       audioPlayerRef.current.pause();
@@ -206,6 +212,28 @@ export function useChapterPlayback(
     await playFromIndex(currentIndex, fullQueue);
   };
 
+  const startSkim = (direction: 'forward' | 'backward') => {
+    if (!audioPlayerRef.current || !isPlayingRef.current) return;
+    stopSkim();
+
+    const step = direction === 'forward' ? 0.5 : -0.5;
+    skimIntervalRef.current = setInterval(() => {
+      if (audioPlayerRef.current) {
+        const newTime = audioPlayerRef.current.currentTime + step;
+        audioPlayerRef.current.currentTime = Math.max(0, Math.min(newTime, audioPlayerRef.current.duration || 0));
+      } else {
+        stopSkim();
+      }
+    }, 150);
+  };
+
+  const stopSkim = () => {
+    if (skimIntervalRef.current) {
+      clearInterval(skimIntervalRef.current);
+      skimIntervalRef.current = null;
+    }
+  };
+
   return {
     playingSegmentId,
     playingSegmentIds,
@@ -213,6 +241,8 @@ export function useChapterPlayback(
     stopPlayback,
     togglePause,
     isPlaying,
-    isPaused
+    isPaused,
+    startSkim,
+    stopSkim
   };
 }
