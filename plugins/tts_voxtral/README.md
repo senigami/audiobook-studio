@@ -11,8 +11,17 @@ service while still exposing the same Studio-facing interface contract.
   values for the Settings UI.
 - `interface.py` is the public Python surface Studio loads.
 
-Everything under `plugin/` is internal implementation detail and can be
-organized differently by future plugins.
+Everything under `plugin/` is internal implementation detail.
+
+## Standalone Usage
+
+This plugin can be run as a standalone CLI without the Studio app:
+
+```bash
+pip install -r requirements.txt
+export MISTRAL_API_KEY="your-key"
+python cli.py --text "Hello" --out output.wav --voice-id "mistral-tts-latest"
+```
 
 ## Internal Layout
 

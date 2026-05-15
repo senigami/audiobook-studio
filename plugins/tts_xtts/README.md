@@ -12,8 +12,16 @@ synthesis code.
   values for the Settings UI.
 - `interface.py` is the public Python surface Studio loads.
 
-Everything under `plugin/` is internal implementation detail and can be
-organized differently by future plugins.
+Everything under `plugin/` is internal implementation detail.
+
+## Standalone Usage
+
+This plugin can be run as a standalone CLI without the Studio app:
+
+```bash
+pip install -r requirements.txt
+python cli.py --text "Hello" --out output.wav --speaker-wav path/to/voice.wav
+```
 
 ## Internal Layout
 
