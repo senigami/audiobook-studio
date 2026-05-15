@@ -30,6 +30,7 @@ Phase 12 exists to avoid mixing user-facing polish and remaining master-plan ext
 - Resolve the remaining master agnostic architecture items: plugin documentation, plugin template docs, resource metadata in manifests, generic plugin setup loop, StorageManager, generic job handler registry, `JobKind`/`TaskType`, mixed-to-composite naming, generic route/doc cleanup, and final reference audits.
 - Improve the Library main page with a list view and sort options.
 - Improve plugin/voice management UX: dependency installation feedback, plugin compatibility verification, plugin import/delete flows, plugin-provided per-voice settings, voice icons, tags, and export layouts.
+- Align first-party TTS plugins with real repository ingestion by planning XTTS and Voxtral Web as standalone repos that can run from a CLI and produce audio independently of Studio. Optionally evaluate a plugin-hosted web page that mirrors the Studio TTS panel interface so a repo can be tested locally or surfaced in Studio before installation.
 - Clean up Chapter Editor UI and remove legacy Production, Performance, and Preview tab code now absorbed into the Script tab.
 - Retire the legacy jobs request/response API path and move live job control/status messaging to WebSockets where practical.
 - Review system API coverage for third-party/LLM controller use cases without building those integrations yet.
@@ -57,6 +58,7 @@ Phase 12 exists to avoid mixing user-facing polish and remaining master-plan ext
 | Plugin and template docs | Open | Update developer-facing docs enough that Phase 13 can build on correct architecture. |
 | Library list view and sorting | Open | Add list view to Library main page and add sort options. |
 | Voice and plugin UX | Open | Improve dependency install feedback, plugin lifecycle management, per-voice plugin settings, voice icons, tags, and export/import compatibility. |
+| Standalone first-party TTS repos | Open | Prepare XTTS and Voxtral Web for real repo ingestion: each should be extractable as a repo with CLI audio generation; plugin-hosted web UI mirroring the Studio TTS panel is optional. |
 | Plugin boundary cleanup | Complete | `app.db`, app behavior, and app utility imports are removed from portable plugin core code. Trivial audio helpers and complex text/proc utilities were localized to plugin-core to ensure absolute portability for future standalone repos. |
 | Plugin compatibility verification | Open | Check manifest contract version and expected callable signatures before runtime calls. |
 | Chapter Editor cleanup | Open | Remove legacy Production, Performance, and Preview tabs/code after confirming Script tab owns their features. Rework crowded menu bar and duplicate preparing pill. |
@@ -119,6 +121,8 @@ Complete this checklist before starting new Phase 12 feature work. The goal is t
 - [ ] Fix plugin dependency installation UX so the install button shows in-progress feedback and refreshes plugin state when installation completes.
 - [ ] Fix XTTS dependency detection so installing dependencies resolves the missing-dependencies state when installation succeeds.
 - [ ] Add TTS plugin import and delete flows similar to voice import/export. Initial v2.0 target is zip upload/import from a downloaded repo; GitHub search/download is post-release.
+- [ ] Define real standalone repo readiness for XTTS and Voxtral Web: repo layout, CLI entry point, dependency install path, and a smoke test proving each can produce audio outside Studio.
+- [ ] Optionally evaluate a plugin-hosted web interface that mirrors the Studio TTS panel so standalone repos can be tested locally and later surfaced inside Studio before installation.
 - [x] Remove direct `app.db` and app behavior imports from portable plugin core code. Prioritized `plugins/tts_voxtral/plugin/core/implementation.py` and `plugins/tts_xtts/plugin/core/implementation.py`.
 - [x] Localize remaining plugin-core imports from shared app utility modules (`app.utils.text.textops`, `app.engines.audio_ops`, `app.engines.proc_utils`) into plugin-local core/helpers to ensure absolute portability for future standalone repos.
 - [ ] Define an explicit Studio plugin context/contract for `plugin/studio` adapters so app persistence access is owned by Studio and passed into plugin-facing glue rather than imported ad hoc.
@@ -159,7 +163,7 @@ Complete this checklist before starting new Phase 12 feature work. The goal is t
 
 - Phase 12 pre-change verification is complete, with gaps converted into concrete tasks or explicit deferrals.
 - VCR controls are implemented or intentionally deferred with a reason.
-- Library list/sort, voice/plugin UX, plugin compatibility checks, Chapter Editor cleanup, queue output metadata, and forgotten-request scan are completed or explicitly classified.
+- Library list/sort, voice/plugin UX, standalone first-party TTS repo readiness, plugin compatibility checks, Chapter Editor cleanup, queue output metadata, and forgotten-request scan are completed or explicitly classified.
 - Phase 11 fixed-but-pending manual QA items are verified, re-opened with concrete failures, or explicitly deferred.
 - Remaining `master_agnostic_tasks.md` open items are completed or explicitly deferred with rationale.
 - Focused backend/frontend tests and `git diff --check` pass for touched areas.

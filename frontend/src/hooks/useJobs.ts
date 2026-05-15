@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Job, SegmentProgress } from '@/types';
-import { api } from '@/api';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { isStudioJobEvent } from '@/api/contracts/events';
 import { shouldEnableStudioDebugLogging, recordStudioDebugSnapshot } from '@/utils/runtimeDebug';
@@ -22,28 +21,20 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
   const prevJobsRef = useRef<Record<string, Job>>({});
   const shouldLogSocketFlow = import.meta.env.DEV || shouldEnableStudioDebugLogging();
 
-  const refreshJobs = useCallback(async () => {
-    try {
-      const data = await api.fetchJobs();
-      const jobMap = data.reduce((acc, job) => {
-        acc[job.id] = job;
-        return acc;
-      }, {} as Record<string, Job>);
+  const { connected, sendMessage } = useWebSocket('/ws', (data) => handleUpdate(data));
 
-      setJobs(jobMap);
-    } catch (e) {
-      console.error('Failed to refresh jobs', e);
-    } finally {
-      setLoading(false);
+  const refreshJobs = useCallback(() => {
+    if (connected) {
+      sendMessage({ type: 'jobs_snapshot_request' });
     }
-  }, []);
+  }, [connected, sendMessage]);
 
   const [testProgress, setTestProgress] = useState<Record<string, { progress: number; started_at?: number }>>({});
 
   const handleUpdate = useCallback((data: any) => {
     if (shouldLogSocketFlow && (
       data.type === 'studio_job_event'
-      || data.type === 'job_updated'
+      || data.type === 'jobs_snapshot'
       || data.type === 'queue_updated'
       || data.type === 'segments_updated'
       || data.type === 'chapter_updated'
@@ -51,6 +42,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
       recordStudioDebugSnapshot('ws:inbound', {
         type: data.type,
         job_id: data.job_id,
+        jobs_count: data.jobs?.length,
         chapter_id: data.chapter_id,
         status: data.status,
         progress: data.progress,
@@ -61,7 +53,14 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
         update_keys: data.updates ? Object.keys(data.updates) : undefined,
       });
     }
-    if (data.type === 'studio_job_event' || isStudioJobEvent(data)) {
+    if (data.type === 'jobs_snapshot') {
+      const jobMap = (data.jobs || []).reduce((acc: Record<string, Job>, job: Job) => {
+        acc[job.id] = job;
+        return acc;
+      }, {} as Record<string, Job>);
+      setJobs(jobMap);
+      setLoading(false);
+    } else if (data.type === 'studio_job_event' || isStudioJobEvent(data)) {
       const job_id = data.job_id;
       const nextUpdates: Record<string, any> = {
         status: data.status,
@@ -149,7 +148,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
         const oldJob = prev[job_id];
         if (!oldJob) {
           // Bootstrap unknown jobs directly from the websocket payload instead of
-          // falling back to /api/jobs. Queue creation broadcasts include the
+          // waiting for a global refresh. Queue creation broadcasts include the
           // chapter/project context we need for UI wiring.
           return { ...prev, [job_id]: { id: job_id, ...updates } as Job };
         }
@@ -234,7 +233,6 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
     }
   }, [onQueueUpdate, onPauseUpdate, onSegmentsUpdate, onChapterUpdate, shouldLogSocketFlow, refreshJobs]);
 
-  const { connected } = useWebSocket('/ws', handleUpdate);
 
   // Monitor jobs for completions to trigger global data refresh
   useEffect(() => {

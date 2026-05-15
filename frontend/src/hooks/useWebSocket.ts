@@ -63,5 +63,11 @@ export const useWebSocket = (url: string, onMessage: (data: any) => void) => {
     };
   }, [connect]);
 
-  return { connected };
+  const sendMessage = useCallback((data: any) => {
+    if (socketRef.current?.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify(data));
+    }
+  }, []);
+
+  return { connected, sendMessage };
 };

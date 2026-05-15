@@ -59,8 +59,7 @@ describe('api methods', () => {
     })
 
     it('other', async () => {
-        await api.fetchJobs()
-        expect(global.fetch).toHaveBeenCalledWith('/api/jobs')
+
 
         await api.updateTitle('c1.txt', 'New Title')
         expect(global.fetch).toHaveBeenCalledWith('/api/job/update_title', expect.anything())

@@ -108,7 +108,7 @@ def test_speaker_endpoints():
 
 def test_queue_endpoints():
     res = client.get("/api/jobs")
-    assert res.status_code == 200
+    assert res.status_code == 404
 
     res = client.get("/api/processing_queue")
     assert res.status_code == 200
@@ -184,3 +184,18 @@ def test_serves_legacy_output_files_without_precreated_mounts(monkeypatch, tmp_p
 
     assert client.get("/out/covers/cover.jpg").status_code == 200
     assert client.get("/out/covers/../secrets.txt").status_code == 404
+
+
+def test_api_discovery_fallback_excludes_retired_jobs_route(monkeypatch, tmp_path):
+    # Ensure FRONTEND_DIST is a non-existent or empty directory
+    dist_dir = tmp_path / "empty_dist"
+    dist_dir.mkdir()
+    monkeypatch.setattr("app.api.web.FRONTEND_DIST", dist_dir)
+
+    # Hit the root which should trigger the fallback discovery JSON
+    res = client.get("/")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["name"] == "Audiobook Studio API"
+    assert "jobs" not in data["endpoints"]
+    assert data["endpoints"]["home"] == "/api/home"

@@ -40,9 +40,7 @@ def test_api_preview_processed():
 
 def test_api_jobs_list():
     response = client.get("/api/jobs")
-    assert response.status_code == 200
-    data = response.json()
-    assert isinstance(data, list)
+    assert response.status_code == 404
 
 
 

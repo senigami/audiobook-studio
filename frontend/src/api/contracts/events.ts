@@ -48,3 +48,12 @@ export const isStudioJobEvent = (value: unknown): value is StudioJobEvent => {
   const event = value as Partial<StudioJobEvent>;
   return event.type === 'studio_job_event' && typeof event.job_id === 'string' && typeof event.status === 'string';
 };
+
+export interface JobsSnapshotRequest {
+  type: 'jobs_snapshot_request';
+}
+
+export interface JobsSnapshot {
+  type: 'jobs_snapshot';
+  jobs: any[];
+}

@@ -89,4 +89,18 @@ describe('useWebSocket', () => {
     unmount();
     expect(mockSocket.close).toHaveBeenCalled();
   });
+
+  it('sends messages when socket is open', async () => {
+    const { result } = renderHook(() => useWebSocket('/ws', vi.fn()));
+
+    await act(async () => {
+      vi.advanceTimersByTime(1);
+    });
+
+    act(() => {
+      result.current.sendMessage({ type: 'hello' });
+    });
+
+    expect(mockSocket.send).toHaveBeenCalledWith(JSON.stringify({ type: 'hello' }));
+  });
 });

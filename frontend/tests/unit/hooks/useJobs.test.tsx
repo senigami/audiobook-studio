@@ -1,15 +1,7 @@
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useJobs } from '@/hooks/useJobs';
-import { api } from '@/api';
 import { useWebSocket } from '@/hooks/useWebSocket';
-
-// Mock API
-vi.mock('@/api', () => ({
-  api: {
-    fetchJobs: vi.fn(),
-  },
-}));
 
 // Mock useWebSocket
 vi.mock('@/hooks/useWebSocket', () => ({
@@ -17,41 +9,43 @@ vi.mock('@/hooks/useWebSocket', () => ({
 }));
 
 describe('useJobs', () => {
+  let wsHandler: (data: any) => void = () => {};
+  let sendMessage = vi.fn();
+
   beforeEach(() => {
     vi.clearAllMocks();
-    (useWebSocket as any).mockReturnValue({ connected: true });
+    sendMessage = vi.fn();
+    (useWebSocket as any).mockImplementation((_url: string, handler: any) => {
+      wsHandler = handler;
+      return { connected: true, sendMessage };
+    });
   });
 
-  it('refreshes jobs on mount', async () => {
-    const mockJobs = [{ id: 'job1', status: 'running', progress: 0.5 }];
-    (api.fetchJobs as any).mockResolvedValue(mockJobs);
-
+  it('refreshes jobs on mount by sending a snapshot request', async () => {
     const { result } = renderHook(() => useJobs());
 
     expect(result.current.loading).toBe(true);
-    
-    await waitFor(() => {
-      expect(result.current.loading).toBe(false);
+    expect(sendMessage).toHaveBeenCalledWith({ type: 'jobs_snapshot_request' });
+
+    const mockJobs = [{ id: 'job1', status: 'running', progress: 0.5 }];
+    act(() => {
+      wsHandler({ type: 'jobs_snapshot', jobs: mockJobs });
     });
 
+    expect(result.current.loading).toBe(false);
     expect(result.current.jobs).toEqual({
       job1: mockJobs[0]
     });
   });
 
   it('handles job updates via WebSocket', async () => {
-    let wsHandler: (data: any) => void = () => {};
-    (useWebSocket as any).mockImplementation((_url: string, handler: any) => {
-      wsHandler = handler;
-      return { connected: true };
-    });
-
-    const mockInitialJobs = [{ id: 'job1', status: 'running', progress: 0.1 }];
-    (api.fetchJobs as any).mockResolvedValue(mockInitialJobs);
-
     const { result } = renderHook(() => useJobs());
 
-    await waitFor(() => expect(result.current.loading).toBe(false));
+    // Bootstrap with snapshot
+    act(() => {
+      wsHandler({ type: 'jobs_snapshot', jobs: [{ id: 'job1', status: 'running', progress: 0.1 }] });
+    });
+    expect(result.current.loading).toBe(false);
 
     // Simulate WS update
     act(() => {
@@ -66,18 +60,12 @@ describe('useJobs', () => {
   });
 
   it('handles normalized studio_job_event websocket payloads', async () => {
-    let wsHandler: (data: any) => void = () => {};
-    (useWebSocket as any).mockImplementation((_url: string, handler: any) => {
-      wsHandler = handler;
-      return { connected: true };
-    });
-
-    (api.fetchJobs as any).mockResolvedValue([
-      { id: 'job1', status: 'queued', progress: 0 } as any,
-    ]);
-
     const { result } = renderHook(() => useJobs());
-    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // Bootstrap
+    act(() => {
+      wsHandler({ type: 'jobs_snapshot', jobs: [{ id: 'job1', status: 'queued', progress: 0 }] });
+    });
 
     act(() => {
       wsHandler({
@@ -101,18 +89,12 @@ describe('useJobs', () => {
   });
 
   it('does not fall back to fetchJobs when a new websocket job appears', async () => {
-    let wsHandler: (data: any) => void = () => {};
-    (useWebSocket as any).mockImplementation((_url: string, handler: any) => {
-      wsHandler = handler;
-      return { connected: true };
-    });
-
-    (api.fetchJobs as any).mockResolvedValue([]);
-
     const { result } = renderHook(() => useJobs());
-    await waitFor(() => expect(result.current.loading).toBe(false));
 
-    expect(api.fetchJobs).toHaveBeenCalledTimes(1);
+    // Bootstrap empty
+    act(() => {
+      wsHandler({ type: 'jobs_snapshot', jobs: [] });
+    });
 
     act(() => {
       wsHandler({
@@ -137,23 +119,16 @@ describe('useJobs', () => {
       engine: 'mixed',
       segment_ids: ['seg-1', 'seg-2'],
     });
-    expect(api.fetchJobs).toHaveBeenCalledTimes(1);
   });
 
   it('triggers onJobComplete when a job finishes', async () => {
-    let wsHandler: (data: any) => void = () => {};
-    (useWebSocket as any).mockImplementation((_url: string, handler: any) => {
-      wsHandler = handler;
-      return { connected: true };
-    });
-
     const onJobComplete = vi.fn();
-    const mockInitialJobs = [{ id: 'job1', status: 'running', progress: 0.9 }];
-    (api.fetchJobs as any).mockResolvedValue(mockInitialJobs);
-
     const { result } = renderHook(() => useJobs(onJobComplete));
 
-    await waitFor(() => expect(result.current.loading).toBe(false));
+    // Bootstrap
+    act(() => {
+      wsHandler({ type: 'jobs_snapshot', jobs: [{ id: 'job1', status: 'running', progress: 0.9 }] });
+    });
 
     // Simulate WS update to 'done'
     act(() => {
@@ -167,50 +142,44 @@ describe('useJobs', () => {
     expect(onJobComplete).toHaveBeenCalled();
   });
 
-  it('handles queue_updated, pause_updated, segments_updated, and chapter_updated', async () => {
-    let wsHandler: (data: any) => void = () => {};
-    (useWebSocket as any).mockImplementation((_url: string, handler: any) => {
-      wsHandler = handler;
-      return { connected: true };
-    });
-
+  it('handles queue_updated by requesting a new snapshot', async () => {
     const onQueueUpdate = vi.fn();
-    const onPauseUpdate = vi.fn();
-    const onSegmentsUpdate = vi.fn();
-    const onChapterUpdate = vi.fn();
-    
-    (api.fetchJobs as any).mockResolvedValue([]);
-
-    const { result } = renderHook(() => useJobs(undefined, onQueueUpdate, onPauseUpdate, onSegmentsUpdate, onChapterUpdate));
-    await waitFor(() => expect(result.current.loading).toBe(false));
+    renderHook(() => useJobs(undefined, onQueueUpdate));
 
     act(() => {
       wsHandler({ type: 'queue_updated' });
+    });
+
+    expect(onQueueUpdate).toHaveBeenCalled();
+    // One for mount, one for queue_updated
+    expect(sendMessage).toHaveBeenCalledTimes(2);
+    expect(sendMessage).toHaveBeenLastCalledWith({ type: 'jobs_snapshot_request' });
+  });
+
+  it('handles pause_updated, segments_updated, and chapter_updated', async () => {
+    const onPauseUpdate = vi.fn();
+    const onSegmentsUpdate = vi.fn();
+    const onChapterUpdate = vi.fn();
+
+    renderHook(() => useJobs(undefined, undefined, onPauseUpdate, onSegmentsUpdate, onChapterUpdate));
+
+    act(() => {
       wsHandler({ type: 'pause_updated', paused: true });
       wsHandler({ type: 'segments_updated', chapter_id: 'chap1' });
       wsHandler({ type: 'chapter_updated', chapter_id: 'chap1' });
     });
 
-    expect(onQueueUpdate).toHaveBeenCalled();
     expect(onPauseUpdate).toHaveBeenCalledWith(true);
     expect(onSegmentsUpdate).toHaveBeenCalledWith('chap1');
     expect(onChapterUpdate).toHaveBeenCalledWith('chap1');
-    expect(api.fetchJobs).toHaveBeenCalledTimes(2);
   });
 
   it('stores dedicated segment progress websocket updates separately from job progress', async () => {
-    let wsHandler: (data: any) => void = () => {};
-    (useWebSocket as any).mockImplementation((_url: string, handler: any) => {
-      wsHandler = handler;
-      return { connected: true };
-    });
-
-    (api.fetchJobs as any).mockResolvedValue([
-      { id: 'job1', status: 'running', progress: 0.35, active_segment_id: 'seg-2' }
-    ]);
-
     const { result } = renderHook(() => useJobs());
-    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    act(() => {
+      wsHandler({ type: 'jobs_snapshot', jobs: [{ id: 'job1', status: 'running', progress: 0.35, active_segment_id: 'seg-2' }] });
+    });
 
     act(() => {
       wsHandler({
@@ -232,21 +201,14 @@ describe('useJobs', () => {
   });
 
   it('ignores websocket status regressions for an existing job', async () => {
-    let wsHandler: ((data: any) => void) | undefined;
-    vi.mocked(useWebSocket).mockImplementation((_path: string, handler: any) => {
-      wsHandler = handler;
-      return { connected: true } as any;
-    });
-
-    vi.mocked(api.fetchJobs).mockResolvedValue([
-      { id: 'job-1', status: 'done', progress: 1, created_at: 1 } as any,
-    ]);
-
     const { result } = renderHook(() => useJobs());
-    await waitFor(() => expect(result.current.jobs['job-1']?.status).toBe('done'));
 
     act(() => {
-      wsHandler?.({ type: 'job_updated', job_id: 'job-1', updates: { status: 'running', progress: 0.5 } });
+      wsHandler({ type: 'jobs_snapshot', jobs: [{ id: 'job-1', status: 'done', progress: 1, created_at: 1 } as any] });
+    });
+
+    act(() => {
+      wsHandler({ type: 'job_updated', job_id: 'job-1', updates: { status: 'running', progress: 0.5 } });
     });
 
     expect(result.current.jobs['job-1']?.status).toBe('done');
@@ -254,21 +216,14 @@ describe('useJobs', () => {
   });
 
   it('ignores stale normalized websocket updates by updated_at', async () => {
-    let wsHandler: ((data: any) => void) | undefined;
-    vi.mocked(useWebSocket).mockImplementation((_path: string, handler: any) => {
-      wsHandler = handler;
-      return { connected: true } as any;
-    });
-
-    vi.mocked(api.fetchJobs).mockResolvedValue([
-      { id: 'job-1', status: 'running', progress: 0.7, created_at: 1, updated_at: 200 } as any,
-    ]);
-
     const { result } = renderHook(() => useJobs());
-    await waitFor(() => expect(result.current.jobs['job-1']?.updated_at).toBe(200));
 
     act(() => {
-      wsHandler?.({
+      wsHandler({ type: 'jobs_snapshot', jobs: [{ id: 'job-1', status: 'running', progress: 0.7, created_at: 1, updated_at: 200 } as any] });
+    });
+
+    act(() => {
+      wsHandler({
         type: 'studio_job_event',
         job_id: 'job-1',
         scope: 'job',

@@ -11,24 +11,7 @@ from ..utils import probe_audiobook_metadata
 
 router = APIRouter(prefix="/api", tags=["jobs"])
 
-@router.get("/jobs")
-def api_jobs():
-    """Returns jobs explicitly tracked in the active state."""
-    all_jobs = get_jobs()
 
-    # Only return jobs explicitly tracked in state
-    jobs = [asdict(j) for j in all_jobs.values()]
-    jobs.sort(key=lambda j: j.get('created_at', 0))
-
-
-    # bandwidth optimization
-    for j in jobs:
-        if j.get('status') == 'running':
-            continue
-        if 'log' in j:
-            del j['log']
-
-    return JSONResponse(jobs[:400])
 
 @router.get("/active_job")
 def api_active_job():

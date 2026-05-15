@@ -204,7 +204,25 @@ async def websocket_endpoint(websocket: WebSocket):
         except RuntimeError: pass
     try:
         while True:
-            await websocket.receive_text()
+            data = await websocket.receive_json()
+            if isinstance(data, dict) and data.get("type") == "jobs_snapshot_request":
+                from ..db.state import get_jobs
+                from dataclasses import asdict
+                all_jobs = get_jobs()
+                jobs_list = [asdict(j) for j in all_jobs.values()]
+                jobs_list.sort(key=lambda j: j.get('created_at', 0))
+
+                # bandwidth optimization (matching retired HTTP behavior)
+                for j in jobs_list:
+                    if j.get('status') == 'running':
+                        continue
+                    if 'log' in j:
+                        del j['log']
+
+                await websocket.send_json({
+                    "type": "jobs_snapshot",
+                    "jobs": jobs_list[:400]
+                })
     except WebSocketDisconnect:
         manager.disconnect(websocket)
     except Exception as e:
@@ -384,7 +402,6 @@ def catch_all(full_path: str):
         "frontend": "Not built/found",
         "endpoints": {
             "home": "/api/home",
-            "jobs": "/api/jobs",
             "speaker_profiles": "/api/speaker-profiles"
         }
     })

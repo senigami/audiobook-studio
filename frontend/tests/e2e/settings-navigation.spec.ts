@@ -89,10 +89,16 @@ const fulfillJson = async (route, payload: unknown) => {
 
 test.describe('settings navigation', () => {
   test('switches tabs and shows production tally data', async ({ page }) => {
-    await page.routeWebSocket('/ws', () => {});
+    await page.routeWebSocket('/ws', ws => {
+      ws.on('message', message => {
+        const data = JSON.parse(typeof message === 'string' ? message : message.toString());
+        if (data.type === 'jobs_snapshot_request') {
+          ws.send(JSON.stringify({ type: 'jobs_snapshot', jobs: [] }));
+        }
+      });
+    });
 
     await page.route('**/api/home', route => fulfillJson(route, mockHome));
-    await page.route('**/api/jobs', route => fulfillJson(route, []));
     await page.route('**/api/processing_queue', route => fulfillJson(route, []));
     await page.route('**/api/engines', route => fulfillJson(route, [mockEngine]));
 

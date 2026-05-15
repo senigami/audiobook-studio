@@ -289,10 +289,7 @@ export const api = {
   },
 
   // --- Jobs ---
-  fetchJobs: async (): Promise<Job[]> => {
-    const res = await fetch('/api/jobs');
-    return res.json();
-  },
+
   fetchActiveJob: async (): Promise<Job | null> => {
     const res = await fetch('/api/active_job');
     return res.json();

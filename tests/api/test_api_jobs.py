@@ -36,10 +36,12 @@ def test_jobs_api(clean_db, tmp_path, client, monkeypatch):
     job = Job(id=jid, engine="xtts", chapter_file=chapter_file, status="queued", created_at=time.time())
     put_job(job)
 
-    # List jobs
-    response = client.get("/api/jobs")
-    assert response.status_code == 200
-    assert any(j["id"] == jid for j in response.json())
+    # List jobs via WebSocket
+    with client.websocket_connect("/ws") as websocket:
+        websocket.send_json({"type": "jobs_snapshot_request"})
+        data = websocket.receive_json()
+        assert data["type"] == "jobs_snapshot"
+        assert any(j["id"] == jid for j in data["jobs"])
 
     # Get job details
     response = client.get(f"/api/jobs/{jid}")

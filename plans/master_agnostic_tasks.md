@@ -76,6 +76,8 @@
 - [x] Add VCR-style chapter playback controls.
 - [x] Fix voice/plugin dependency installation feedback and XTTS missing-dependencies resolution.
 - [ ] Add TTS plugin zip import/delete flows; defer GitHub search/download until after v2.0.
+- [ ] Define standalone XTTS and Voxtral Web repo readiness for real repo ingestion: repo layout, CLI entry point, dependency install path, and smoke test that produces audio outside Studio.
+- [ ] Optionally evaluate a plugin-hosted web page that mirrors the Studio TTS panel interface for standalone local testing and future in-Studio preview before installation.
 - [ ] Add plugin contract-version and callable-signature compatibility verification.
 - [ ] Surface plugin-defined per-voice controls in voice settings when supported.
 - [ ] Revisit voice settings placement outside the Script popup/right queue area.
