@@ -231,7 +231,7 @@ def update_engine_settings(
             current_settings=merged,
             built_in=bool(getattr(plugin.manifest, "built_in", False)),
             verified=bool(getattr(plugin, "verified", False)),
-            status=engine_status(plugin),
+            status=engine_status(plugin, current_settings=merged),
             behavior=plugin.manifest.get("behavior"),
         )
         if not can_enable:
@@ -342,8 +342,22 @@ def install_dependencies(engine_id: str) -> dict[str, Any]:
     try:
         # Use sys.executable to ensure we use the same venv.
         cmd = [sys.executable, "-m", "pip", "install", "-r", str(req_file)]
-        # We use check_call for simplicity, but in a real app we might want to stream logs.
-        subprocess.check_call(cmd)
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        if result.returncode != 0:
+            output = "\n".join(
+                part.strip()
+                for part in (result.stderr, result.stdout)
+                if part and part.strip()
+            )
+            output = output[-4000:]
+            detail = (
+                f"Dependency installation failed for {engine_id} "
+                f"(exit {result.returncode})."
+            )
+            if output:
+                detail = f"{detail}\n{output}"
+            logger.error("Pip install failed for %s: %s", engine_id, detail)
+            raise HTTPException(status_code=500, detail=detail)
 
         # Re-check dependencies and update plugin state.
         deps_ok, missing = _check_dependencies(plugin.plugin_dir)
@@ -356,11 +370,8 @@ def install_dependencies(engine_id: str) -> dict[str, Any]:
             "dependencies_satisfied": deps_ok,
             "missing_dependencies": missing,
         }
-    except subprocess.CalledProcessError as exc:
-        logger.error("Pip install failed for %s: %s", engine_id, exc)
-        raise HTTPException(
-            status_code=500, detail=f"Dependency installation failed: {exc}"
-        ) from exc
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.exception("Unexpected error installing dependencies for %s", engine_id)
         raise HTTPException(status_code=500, detail=f"Unexpected error: {exc}") from exc

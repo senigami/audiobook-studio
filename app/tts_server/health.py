@@ -6,6 +6,7 @@ summarising the overall server status.
 
 from __future__ import annotations
 
+import inspect
 from typing import Any, TYPE_CHECKING
 
 from app.engines.enablement import can_enable_engine
@@ -21,7 +22,10 @@ STATUS_UNVERIFIED = "unverified"
 STATUS_NOT_LOADED = "not_loaded"
 
 
-def engine_status(plugin: "LoadedPlugin") -> str:
+def engine_status(
+    plugin: "LoadedPlugin",
+    current_settings: dict[str, Any] | None = None,
+) -> str:
     """Return the canonical status string for a loaded plugin.
 
     Args:
@@ -31,7 +35,11 @@ def engine_status(plugin: "LoadedPlugin") -> str:
         str: One of ``"ready"``, ``"needs_setup"``, or ``"unverified"``.
     """
     try:
-        ok, _msg = plugin.engine.check_env()
+        check_env = plugin.engine.check_env
+        if _accepts_settings(check_env):
+            ok, _msg = check_env(settings=current_settings or {})
+        else:
+            ok, _msg = check_env()
     except Exception:
         return STATUS_NEEDS_SETUP
 
@@ -45,6 +53,19 @@ def engine_status(plugin: "LoadedPlugin") -> str:
         return STATUS_UNVERIFIED
 
     return STATUS_READY
+
+
+def _accepts_settings(callable_obj: Any) -> bool:
+    """Return True when a plugin method supports a settings keyword."""
+    try:
+        signature = inspect.signature(callable_obj)
+    except (TypeError, ValueError):
+        return False
+
+    return any(
+        param.kind == inspect.Parameter.VAR_KEYWORD or name == "settings"
+        for name, param in signature.parameters.items()
+    )
 
 
 def build_health_response(plugins: "list[LoadedPlugin]") -> dict[str, Any]:
@@ -93,7 +114,7 @@ def build_engine_detail(
         dict[str, Any]: Engine detail payload ready for JSON serialisation.
     """
     manifest = plugin.manifest
-    status = engine_status(plugin)
+    status = engine_status(plugin, current_settings=current_settings)
     can_enable, enablement_message = can_enable_engine(
         plugin.engine_id,
         current_settings=current_settings,
@@ -115,18 +136,10 @@ def build_engine_detail(
     if not schema and getattr(plugin, "settings_schema", None):
         schema = plugin.settings_schema
 
-    if isinstance(schema, dict):
-        # Inject privacy notice for cloud/network engines if missing from x-ui
-        if manifest.get("cloud") or manifest.get("network"):
-            if "x-ui" not in schema:
-                schema["x-ui"] = {}
-            if "privacy_notice" not in schema["x-ui"]:
-                schema["x-ui"]["privacy_notice"] = (
-                    "Privacy note: This engine sends text and optional reference audio to external servers."
-                )
-                schema["x-ui"]["privacy_tone"] = "warning"
-
     enabled = bool(current_settings.get("enabled"))
+    setup_message = getattr(plugin, "setup_message", None)
+    if status != STATUS_NEEDS_SETUP:
+        setup_message = None
 
     return {
         "engine_id": plugin.engine_id,
@@ -147,9 +160,9 @@ def build_engine_detail(
         "test_sample": manifest.get("test_sample"),
         "test_text": manifest.get("test_text", "This is a verification test."),
         "can_enable": can_enable,
-        "enablement_message": enablement_message or getattr(plugin, "setup_message", None),
-        "setup_message": getattr(plugin, "setup_message", None),
-        "health_message": getattr(plugin, "setup_message", None),
+        "enablement_message": enablement_message or setup_message,
+        "setup_message": setup_message,
+        "health_message": setup_message,
         "settings_schema": schema,
         "current_settings": current_settings,
         "dependencies_satisfied": plugin.dependencies_satisfied,

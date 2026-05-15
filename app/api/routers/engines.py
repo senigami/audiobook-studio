@@ -152,11 +152,25 @@ def test_engine(engine_id: str):
 def install_engine_dependencies(engine_id: str):
     """Trigger dependency installation for an engine."""
     from ...engines.errors import EngineUnavailableError
+    from ...engines.tts_client import TtsServerError
     bridge = create_voice_bridge()
     try:
         return bridge.install_dependencies(engine_id)
     except EngineUnavailableError as exc:
         return JSONResponse({"status": "error", "message": str(exc)}, status_code=503)
+    except TtsServerError as exc:
+        return JSONResponse({"status": "error", "message": str(exc)}, status_code=500)
+    except Exception as exc:
+        import logging
+
+        logging.getLogger(__name__).exception("Engine dependency installation failed")
+        return JSONResponse(
+            {
+                "status": "error",
+                "message": f"Failed to install engine dependencies: {exc}",
+            },
+            status_code=500,
+        )
 
 
 @router.delete("/{engine_id}")

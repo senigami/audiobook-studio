@@ -313,7 +313,10 @@ def voxtral_generate(
 _models_cache: dict[str, Any] = {"data": [], "timestamp": 0.0, "api_key_hash": ""}
 
 
-def list_mistral_models(strict: bool = False) -> list[str]:
+def list_mistral_models(
+    settings: Optional[dict[str, Any]] = None,
+    strict: bool = False,
+) -> list[str]:
     """Fetch the list of available TTS models from Mistral AI.
 
     Requires a valid API key. Returns a subset of models filtered for TTS relevance.
@@ -322,7 +325,7 @@ def list_mistral_models(strict: bool = False) -> list[str]:
     import time
     import hashlib
 
-    api_key = resolve_mistral_api_key(settings=None)
+    api_key = resolve_mistral_api_key(settings=settings)
     if not api_key:
         return []
 

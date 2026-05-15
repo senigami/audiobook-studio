@@ -19,6 +19,7 @@ import sys
 import types
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs, urlparse
 
 logger = logging.getLogger(__name__)
 
@@ -478,13 +479,20 @@ def _check_dependencies(plugin_dir: Path) -> tuple[bool, list[str]]:
         content = req_file.read_text(encoding="utf-8")
         for line in content.splitlines():
             line = line.strip()
-            # Skip comments, empty lines, and links/flags.
+            # Skip comments, empty lines, links, and pip flags.
             if not line or line.startswith(("#", "-", "http://", "https://")):
                 continue
 
-            # Simple split to get package name before any specifiers.
-            # Handles: pkg, pkg==1.0, pkg>=2.0, pkg[extra], pkg ; python_version > '3.7'
-            pkg_name = re.split(r"[<>=!~;\[]", line)[0].strip()
+            if line.startswith("git+"):
+                fragment = parse_qs(urlparse(line).fragment)
+                pkg_name = (fragment.get("egg") or [""])[0].strip()
+            elif " @ " in line:
+                pkg_name = line.split(" @ ", 1)[0].strip()
+            else:
+                # Simple split to get package name before any specifiers.
+                # Handles: pkg, pkg==1.0, pkg>=2.0, pkg[extra], pkg ; python_version > '3.7'
+                pkg_name = re.split(r"[<>=!~;\[]", line)[0].strip()
+
             if not pkg_name:
                 continue
 

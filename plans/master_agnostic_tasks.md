@@ -70,6 +70,7 @@
 - [ ] Final broad test verification: `pytest tests/` before Phase 13 release docs
 
 ## Phase 12: Polish And Cleanup
+- [ ] Complete the remaining master agnostic conversion checklist before Phase 13, or explicitly mark each unfinished item deferred with rationale.
 - [ ] Complete Phase 12 pre-change verification: migration idempotency, plugin boundary leaks, recovery coverage, frontend state/store pressure, helper/service ownership, and corrupt-state handling.
 - [ ] Add Library list view and sort options.
 - [ ] Add VCR-style chapter playback controls.

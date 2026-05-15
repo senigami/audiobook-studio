@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 from app.tts_server.plugin_loader import LoadedPlugin
 from app.tts_server.verification import verify_plugin, VerificationResult
 from app.engines.voice.sdk import VerificationResult as SDKVerificationResult
+from app.tts_server.settings_store import save_settings
 
 class TestVerificationIsolation:
     def test_verify_success(self, tmp_path):
@@ -75,3 +76,30 @@ class TestVerificationIsolation:
         # We don't even need to mock them because they shouldn't be called.
         result = verify_plugin(plugin)
         assert result.ok is True
+
+    def test_verify_passes_persisted_engine_settings_when_supported(self, tmp_path):
+        """Cloud plugins need saved settings during verification."""
+        plugin_dir = tmp_path / "tts_cloud"
+        plugin_dir.mkdir()
+        save_settings(plugin_dir, {"mistral_api_key": "saved-key"})
+
+        class SettingsAwareEngine:
+            def __init__(self):
+                self.seen_settings = None
+
+            def run_test(self, settings=None):
+                self.seen_settings = settings
+                return SDKVerificationResult(ok=bool(settings.get("mistral_api_key")))
+
+        engine = SettingsAwareEngine()
+        plugin = LoadedPlugin(
+            folder_name="tts_cloud",
+            plugin_dir=plugin_dir,
+            manifest={"engine_id": "cloud", "display_name": "Cloud"},
+            engine=engine,
+        )
+
+        result = verify_plugin(plugin)
+
+        assert result.ok is True
+        assert engine.seen_settings == {"mistral_api_key": "saved-key"}

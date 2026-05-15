@@ -5,6 +5,8 @@ import base64
 import pytest
 
 from plugins.tts_voxtral.plugin.core.implementation import VoxtralError, resolve_reference_audio_path, voxtral_generate
+from plugins.tts_voxtral.plugin.server.engine import VoxtralPlugin
+from app.engines.voice.sdk import TTSRequest
 
 
 class FakeResponse:
@@ -33,6 +35,10 @@ class FakeClient:
         return False
 
     def post(self, *args, **kwargs):
+        self.calls.append((args, kwargs))
+        return self.response
+
+    def get(self, *args, **kwargs):
         self.calls.append((args, kwargs))
         return self.response
 
@@ -112,3 +118,45 @@ def test_resolve_voxtral_model_upgrades_short_default():
     from plugins.tts_voxtral.plugin.core.implementation import resolve_voxtral_model
 
     assert resolve_voxtral_model(settings={"voxtral_model": "voxtral-tts"}) == "voxtral-mini-tts-2603"
+
+
+def test_list_mistral_models_uses_saved_settings_key(monkeypatch):
+    from plugins.tts_voxtral.plugin.core import implementation
+
+    implementation._models_cache = {"data": [], "timestamp": 0.0, "api_key_hash": ""}
+    monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
+    response = FakeResponse(
+        status_code=200,
+        json_payload={"data": [{"id": "mistral-tts-latest"}]},
+    )
+    client = FakeClient(response)
+
+    with patch("plugins.tts_voxtral.plugin.core.implementation.httpx.Client", return_value=client):
+        models = implementation.list_mistral_models(settings={"mistral_api_key": "saved-key"}, strict=True)
+
+    assert models == ["mistral-tts-latest"]
+    _, kwargs = client.calls[0]
+    assert kwargs["headers"]["Authorization"] == "Bearer saved-key"
+
+
+def test_voxtral_verify_passes_saved_settings_to_model_check(monkeypatch):
+    seen = {}
+
+    def fake_list_models(*, settings=None, strict=False):
+        seen["settings"] = settings
+        seen["strict"] = strict
+        return ["mistral-tts-latest"]
+
+    monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
+
+    with patch("plugins.tts_voxtral.plugin.core.implementation.list_mistral_models", side_effect=fake_list_models):
+        result = VoxtralPlugin().verify(
+            TTSRequest(
+                text="hello",
+                output_path="out.wav",
+                settings={"mistral_api_key": "saved-key"},
+            )
+        )
+
+    assert result.ok is True
+    assert seen == {"settings": {"mistral_api_key": "saved-key"}, "strict": True}

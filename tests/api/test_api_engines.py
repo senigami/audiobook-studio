@@ -122,6 +122,24 @@ def test_install_engine_dependencies_delegates_to_bridge(clean_db, client):
     bridge.install_dependencies.assert_called_once_with("mock-engine")
 
 
+def test_install_engine_dependencies_returns_tts_server_error(clean_db, client):
+    from app.engines.tts_client import TtsServerResponseError
+
+    bridge = MagicMock()
+    bridge.install_dependencies.side_effect = TtsServerResponseError(
+        "TTS Server returned 500 for install: Dependency installation failed: pip exited 1"
+    )
+
+    with patch("app.api.routers.engines.create_voice_bridge", return_value=bridge):
+        response = client.post("/api/engines/mock-engine/install")
+
+    assert response.status_code == 500
+    assert response.json() == {
+        "status": "error",
+        "message": "TTS Server returned 500 for install: Dependency installation failed: pip exited 1",
+    }
+
+
 def test_engine_test_endpoint_delegates_run_test(clean_db, client, tmp_path):
     bridge = MagicMock()
     bridge.run_test.return_value = {"ok": True, "message": "Test passed"}

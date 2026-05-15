@@ -4,7 +4,7 @@ import { DEFAULT_VOICE_SENTINEL } from '@/constants/api';
 const parseApiResponse = async (res: Response) => {
   const data = await res.json();
   if (!res.ok || data?.status === 'error') {
-    const error = new Error(data?.message || 'Request failed') as Error & { status?: number };
+    const error = new Error(data?.message || data?.detail || 'Request failed') as Error & { status?: number };
     error.status = res.status;
     throw error;
   }

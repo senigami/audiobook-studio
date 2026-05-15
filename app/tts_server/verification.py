@@ -9,6 +9,7 @@ and manually re-verifies.
 
 from __future__ import annotations
 
+import inspect
 import logging
 import time
 from pathlib import Path
@@ -49,7 +50,7 @@ def verify_plugin(plugin: "LoadedPlugin") -> VerificationResult:
     Returns:
         VerificationResult: Result of the verification attempt.
     """
-    from app.tts_server.settings_store import calculate_verification_metadata, save_state # noqa: PLC0415
+    from app.tts_server.settings_store import calculate_verification_metadata, load_settings, save_state # noqa: PLC0415
 
     engine_id = plugin.engine_id
 
@@ -57,7 +58,11 @@ def verify_plugin(plugin: "LoadedPlugin") -> VerificationResult:
         # Plugins are responsible for their own test execution and asset management.
         # This keeps them self-contained so they can be their own separate repos.
         start_time = time.perf_counter()
-        result = plugin.engine.run_test()
+        run_test = plugin.engine.run_test
+        if _accepts_settings(run_test):
+            result = run_test(settings=load_settings(plugin.plugin_dir))
+        else:
+            result = run_test()
         duration = time.perf_counter() - start_time
 
         # Normalize SDK VerificationResult to internal VerificationResult
@@ -90,6 +95,19 @@ def verify_plugin(plugin: "LoadedPlugin") -> VerificationResult:
             ok=False,
             error=f"run_test() raised: {exc}",
         )
+
+
+def _accepts_settings(callable_obj: object) -> bool:
+    """Return True when a plugin method supports a settings keyword."""
+    try:
+        signature = inspect.signature(callable_obj)
+    except (TypeError, ValueError):
+        return False
+
+    return any(
+        param.kind == inspect.Parameter.VAR_KEYWORD or name == "settings"
+        for name, param in signature.parameters.items()
+    )
 
 
 def verify_all(plugins: "list[LoadedPlugin]") -> list[VerificationResult]:

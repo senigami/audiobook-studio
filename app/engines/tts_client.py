@@ -17,13 +17,13 @@ import httpx
 logger = logging.getLogger(__name__)
 
 # Default connect and read timeouts used for regular requests.
-_CONNECT_TIMEOUT = 5.0   # seconds
-_READ_TIMEOUT    = 60.0  # seconds — synthesis can be slow
+_CONNECT_TIMEOUT = 5.0  # seconds
+_READ_TIMEOUT = 60.0  # seconds — synthesis can be slow
+_INSTALL_TIMEOUT = 900.0  # seconds — pip installs can be slow
 
 # Tighter timeout for heartbeat checks.
 _HEARTBEAT_TIMEOUT = 3.0
-_LIST_TIMEOUT      = 10.0  # seconds for registry/plugin list
-
+_LIST_TIMEOUT = 10.0  # seconds for registry/plugin list
 
 
 class TtsServerError(RuntimeError):
@@ -256,6 +256,7 @@ class TtsClient:
         return self._post(
             f"/engines/{_safe_id(engine_id)}/install",
             payload={},
+            timeout=_INSTALL_TIMEOUT,
         )
 
     # ------------------------------------------------------------------
@@ -330,9 +331,25 @@ class TtsClient:
 def _raise_for_status(resp: httpx.Response, url: str) -> None:
     """Raise TtsServerResponseError for non-success status codes."""
     if resp.status_code not in (200, 201, 207):
+        detail = _response_error_detail(resp)
         raise TtsServerResponseError(
-            f"TTS Server returned {resp.status_code} for {url}: {resp.text[:200]}"
+            f"TTS Server returned {resp.status_code} for {url}: {detail}"
         )
+
+
+def _response_error_detail(resp: httpx.Response) -> str:
+    """Extract useful error details from a TTS Server response."""
+    try:
+        payload = resp.json()
+    except ValueError:
+        payload = None
+
+    if isinstance(payload, dict):
+        detail = payload.get("detail") or payload.get("message")
+        if detail:
+            return str(detail)[-4000:]
+
+    return resp.text[-4000:]
 
 
 def _safe_id(engine_id: str) -> str:

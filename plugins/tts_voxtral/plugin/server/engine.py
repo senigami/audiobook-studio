@@ -26,7 +26,7 @@ class VoxtralPlugin(StudioTTSEngine):
         """Perform a real API connectivity check by listing models."""
         from ..core.implementation import list_mistral_models  # noqa: PLC0415
 
-        api_key = self._resolve_api_key()
+        api_key = self._resolve_api_key(req.settings)
         if not api_key:
             return VerificationResult(
                 ok=False,
@@ -34,7 +34,7 @@ class VoxtralPlugin(StudioTTSEngine):
             )
 
         try:
-            models = list_mistral_models(strict=True)
+            models = list_mistral_models(settings=req.settings, strict=True)
         except Exception as exc:
             return VerificationResult(
                 ok=False,
@@ -46,9 +46,10 @@ class VoxtralPlugin(StudioTTSEngine):
             message=f"Successfully connected to Mistral AI. Detected {len(models)} models.",
         )
 
-    def run_test(self) -> VerificationResult:
+    def run_test(self, settings: dict[str, Any] | None = None) -> VerificationResult:
         """Run a self-contained synthesis test."""
-        ok, msg = self.check_env()
+        settings = settings or {}
+        ok, msg = self.check_env(settings=settings)
         if not ok:
             return VerificationResult(ok=False, message=msg)
 
@@ -84,6 +85,7 @@ class VoxtralPlugin(StudioTTSEngine):
             text=test_text,
             output_path=str(output_path),
             voice_ref=voice_ref,
+            settings=settings,
         )
 
         # 4. Run synthesis
@@ -106,13 +108,13 @@ class VoxtralPlugin(StudioTTSEngine):
             "source": "Mistral AI Cloud API",
         }
 
-    def check_env(self) -> tuple[bool, str]:
+    def check_env(self, settings: dict[str, Any] | None = None) -> tuple[bool, str]:
         """Verify that a Mistral API key is available."""
-        api_key = self._resolve_api_key()
+        api_key = self._resolve_api_key(settings)
         if not api_key:
             return (
                 False,
-                "Voxtral requires MISTRAL_API_KEY environment variable.",
+                "Voxtral requires a Mistral API key in engine settings or MISTRAL_API_KEY.",
             )
         return True, "OK"
 

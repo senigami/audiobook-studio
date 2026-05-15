@@ -34,6 +34,7 @@ export const EngineCard: React.FC<{
 }> = ({ engine, onUpdate, onShowNotification }) => {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [installing, setInstalling] = useState(false);
   const [testResult, setTestResult] = useState(engine.last_test);
   const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
 
@@ -54,7 +55,8 @@ export const EngineCard: React.FC<{
   const missingDependencies = Array.isArray(engine.missing_dependencies)
     ? engine.missing_dependencies.filter((dep): dep is string => Boolean(dep && String(dep).trim()))
     : [];
-  const dependencyMessage = !engine.dependencies_satisfied && missingDependencies.length > 0
+  const needsDependencyInstall = engine.dependencies_satisfied === false;
+  const dependencyMessage = needsDependencyInstall && missingDependencies.length > 0
     ? `Missing dependencies: ${missingDependencies.join(', ')}.`
     : '';
   const setupMessage = engine.setup_message || engine.health_message || '';
@@ -230,9 +232,11 @@ export const EngineCard: React.FC<{
                   Missing: {dependencyMessage}
                 </div>
               )}
-              <span style={{ marginTop: '0.4rem' }}>
-                Install Deps installs the Python packages listed for this engine in the same environment Studio is running in.
-              </span>
+              {needsDependencyInstall && (
+                <span style={{ marginTop: '0.4rem' }}>
+                  Install Deps installs the Python packages listed for this engine in the same environment Studio is running in.
+                </span>
+              )}
               {engine.verified === false && (
                 <span>
                   {engine.display_name} verification uses your Default Voice from General settings as the reference sample.
@@ -323,22 +327,40 @@ export const EngineCard: React.FC<{
           </button>
 
 
-          {engine.status === 'needs_setup' && (
+          {needsDependencyInstall && (
             <button
               type="button"
               className="btn-glass"
               title="Install the Python packages required by this engine."
-            onClick={async () => {
-              try {
-                const res = await api.installEngineDependencies(engine.engine_id);
-                onShowNotification?.(res.message || 'Dependency installation triggered.');
-                } catch (err) {
-                  onShowNotification?.('Failed to trigger installation.');
+              disabled={saving || installing}
+              onClick={async () => {
+                setInstalling(true);
+                try {
+                  const res = await api.installEngineDependencies(engine.engine_id);
+                  onShowNotification?.(res.message || 'Dependency installation completed.');
+                  await onUpdate();
+                } catch (err: any) {
+                  onShowNotification?.(`Installation failed: ${err.message || 'Unknown error'}`);
+                } finally {
+                  setInstalling(false);
                 }
-            }}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.8rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 800, color: '#92400e', background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.2)' }}
-          >
-            <Download size={14} /> Install Deps
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.5rem 0.8rem',
+                borderRadius: '10px',
+                fontSize: '0.8rem',
+                fontWeight: 800,
+                color: '#92400e',
+                background: 'rgba(245, 158, 11, 0.08)',
+                border: '1px solid rgba(245, 158, 11, 0.2)',
+                opacity: (saving || installing) ? 0.5 : 1
+              }}
+            >
+              {installing ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+              {installing ? 'Installing...' : 'Install Deps'}
             </button>
           )}
 

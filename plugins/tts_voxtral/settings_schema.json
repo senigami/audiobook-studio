@@ -43,6 +43,7 @@
   "x-ui": {
     "panel_title": "Voxtral Cloud Voices",
     "summary": "Create a Mistral API key in your workspace settings. Get started by following the instructions in the link below.",
+    "privacy_notice": "Privacy note: This engine sends text and optional reference audio to external servers.",
     "privacy_tone": "warning",
     "help_label": "Open Mistral API key instructions",
     "help_url": "https://help.mistral.ai/en/articles/347464-how-do-i-create-api-keys-within-a-workspace"

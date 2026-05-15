@@ -26,11 +26,12 @@ Phase 12 exists to avoid mixing user-facing polish and remaining master-plan ext
 - Triage Vite websocket `ECONNRESET` logs and determine whether they are harmless reconnect noise or a lost-update path.
 - Re-check project and chapter load performance on large books and trim obvious duplicate fetch or file-resolution hot paths.
 - Implement or explicitly defer the generic plugin setup loop in `run.sh` and `run.ps1`.
-- Finish the master agnostic task-board items that are polish-safe: plugin documentation, plugin template docs, resource metadata in manifests, generic route/doc cleanup, and final reference audits.
-- Decide whether storage abstraction, generic job handler registry, `JobKind`/`TaskType`, and mixed-to-composite naming are needed before Phase 13 or should remain deferred architecture work.
+- Complete the remaining master agnostic conversion in `plans/master_agnostic_tasks.md`, or explicitly mark individual items deferred with rationale before Phase 13.
+- Resolve the remaining master agnostic architecture items: plugin documentation, plugin template docs, resource metadata in manifests, generic plugin setup loop, StorageManager, generic job handler registry, `JobKind`/`TaskType`, mixed-to-composite naming, generic route/doc cleanup, and final reference audits.
 - Improve the Library main page with a list view and sort options.
 - Improve plugin/voice management UX: dependency installation feedback, plugin compatibility verification, plugin import/delete flows, plugin-provided per-voice settings, voice icons, tags, and export layouts.
 - Clean up Chapter Editor UI and remove legacy Production, Performance, and Preview tab code now absorbed into the Script tab.
+- Retire the legacy jobs request/response API path and move live job control/status messaging to WebSockets where practical.
 - Review system API coverage for third-party/LLM controller use cases without building those integrations yet.
 - Scan existing plans and memory for forgotten or leftover requests, including namespace rename requests such as `tts_plugins` and `tts_voices`.
 
@@ -60,9 +61,10 @@ Phase 12 exists to avoid mixing user-facing polish and remaining master-plan ext
 | Plugin compatibility verification | Open | Check manifest contract version and expected callable signatures before runtime calls. |
 | Chapter Editor cleanup | Open | Remove legacy Production, Performance, and Preview tabs/code after confirming Script tab owns their features. Rework crowded menu bar and duplicate preparing pill. |
 | Queue output metadata | Open | Queue entries should show what was produced, including generated audio duration/length when available. |
+| Legacy jobs request API retirement | Open | Audit remaining jobs request endpoints and clients; migrate live control/status messaging to WebSockets and keep only proven non-live REST endpoints. |
 | API surface for third-party controllers | Open | Verify Studio API can support future LLM/control plugins without building those plugins yet. |
 | Forgotten requests scan | Open | Search plans and memory for older requests such as namespace renames and classify them into Phase 12, Phase 13, or deferred. |
-| Remaining master agnostic architecture extras | Needs decision | Storage abstraction, generic job registry, `JobKind`/`TaskType`, route cleanup, and mixed/composite naming should be completed or explicitly deferred. |
+| Master agnostic conversion completion | Open | Work through `plans/master_agnostic_tasks.md`; complete remaining conversion items or mark each deferred with a clear reason before Phase 13. |
 | Final reference audit | Open | Re-run app/core grep and classify retained engine names before Phase 13. |
 
 ## Pre-Change Verification Checklist
@@ -138,6 +140,8 @@ Complete this checklist before starting new Phase 12 feature work. The goal is t
 ### Queue And Output Metadata
 
 - [ ] Update queue entries to show what each completed job produced, including generated audio duration/length when available.
+- [ ] Remove the legacy jobs request/response API path after auditing remaining callers. Live job progress, control, and status messages should use WebSockets instead of waiting on jobs API requests.
+- [ ] Add WebSocket coverage for job message delivery, reconnect behavior, failure handling, and any replacement control messages needed before removing REST jobs calls.
 
 ### Chapter Editor
 
@@ -147,6 +151,7 @@ Complete this checklist before starting new Phase 12 feature work. The goal is t
 
 ### Planning Hygiene
 
+- [ ] Complete the remaining `plans/master_agnostic_tasks.md` conversion checklist, or explicitly defer each unfinished item with rationale before Phase 13.
 - [ ] Scan plans and memory for leftover or forgotten requests, including namespace rename requests such as `tts_plugins`, `tts_voices`, or similar.
 - [ ] Classify each found request as Phase 12, Phase 13, post-release, or explicitly deferred.
 
@@ -156,6 +161,6 @@ Complete this checklist before starting new Phase 12 feature work. The goal is t
 - VCR controls are implemented or intentionally deferred with a reason.
 - Library list/sort, voice/plugin UX, plugin compatibility checks, Chapter Editor cleanup, queue output metadata, and forgotten-request scan are completed or explicitly classified.
 - Phase 11 fixed-but-pending manual QA items are verified, re-opened with concrete failures, or explicitly deferred.
-- Remaining `master_agnostic_tasks.md` open items are sorted into complete, Phase 12, Phase 13, or deferred architecture buckets.
+- Remaining `master_agnostic_tasks.md` open items are completed or explicitly deferred with rationale.
 - Focused backend/frontend tests and `git diff --check` pass for touched areas.
 - `Memory/state.json`, `Memory/active_context.md`, and relevant plan files identify Phase 13 as the release documentation/distribution phase.
