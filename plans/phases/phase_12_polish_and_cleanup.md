@@ -31,6 +31,7 @@ Phase 12 exists to avoid mixing user-facing polish and remaining master-plan ext
 - Improve the Library main page with a list view and sort options.
 - Improve plugin/voice management UX: dependency installation feedback, plugin compatibility verification, plugin import/delete flows, plugin-provided per-voice settings, voice icons, tags, and export layouts.
 - Align first-party TTS plugins with real repository ingestion by planning XTTS and Voxtral Web as standalone repos that can run from a CLI and produce audio independently of Studio. Each repo includes a standalone CLI Builder Harness (static page) to help compose commands, while Studio Dev Mode provides the authoritative UI state preview.
+- Capture multilingual voice/text language support as a planned voice workflow: engine manifests are the master list of supported language codes, voice profiles store a default language chosen from the selected engine's manifest, chapter text initially inherits the assigned voice's default language, individual sentences/segments/blocks can override that language when needed, and synthesis sends the resolved language to the engine instead of assuming English.
 - Clean up Chapter Editor UI and remove legacy Production, Performance, and Preview tab code now absorbed into the Script tab.
 - Retire the legacy jobs request/response API path and move live job control/status messaging to WebSockets where practical.
 - Review system API coverage for third-party/LLM controller use cases without building those integrations yet.
@@ -59,6 +60,7 @@ Phase 12 exists to avoid mixing user-facing polish and remaining master-plan ext
 | Library list view and sorting | Open | Add list view to Library main page and add sort options. |
 | Voice and plugin UX | Open | Improve dependency install feedback, plugin lifecycle management, per-voice plugin settings, voice icons, tags, and export/import compatibility. |
 | Standalone first-party TTS repos | Open | Prepare XTTS and Voxtral Web for real repo ingestion: each should be extractable as a repo with CLI audio generation and a standalone CLI Builder Harness. Studio Dev Mode is used for real UI preview. |
+| Multilingual voice/text language support | Planned | Engine manifests are the master language list; voice profiles should get a default language at creation/training time; assigned chapter text should preset to the voice default; individual sentences/segments/blocks should allow explicit overrides; resolved language should be sent with synthesis requests. |
 | Plugin boundary cleanup | Complete | `app.db`, app behavior, and app utility imports are removed from portable plugin core code. Trivial audio helpers and complex text/proc utilities were localized to plugin-core to ensure absolute portability for future standalone repos. |
 | Plugin compatibility verification | Open | Check manifest contract version and expected callable signatures before runtime calls. |
 | Chapter Editor cleanup | Open | Remove legacy Production, Performance, and Preview tabs/code after confirming Script tab owns their features. Rework crowded menu bar and duplicate preparing pill. |
@@ -128,6 +130,7 @@ Complete this checklist before starting new Phase 12 feature work. The goal is t
 - [ ] Define an explicit Studio plugin context/contract for `plugin/studio` adapters so app persistence access is owned by Studio and passed into plugin-facing glue rather than imported ad hoc.
 - [ ] Add plugin compatibility verification: declared plugin contract version, currently v1, plus expected callable existence and callable signature checks before Studio tries runtime calls.
 - [ ] Surface plugin-defined per-voice controls on the voice settings UI when the selected plugin supports applying those settings per voice.
+- [ ] Plan multilingual voice/text language support before implementing it: engine manifest `languages` is the master list of allowed codes; voice profiles store a default language selected from the active engine; character/speaker assignments and newly assigned chapter text preset to that voice default; individual sentences, segments, or production blocks can override language; synthesis resolves `sentence/segment/block override -> voice default -> project default -> engine default`.
 - [ ] Revisit voice settings placement. The current Script popup may be the wrong home; consider exposing voice settings in a dropdown within the voice UI instead of consuming the queue/right-side area.
 - [ ] Make voice export bundles compatible with Hugging Face-style layouts where practical, including expected files and settings metadata.
 - [ ] Evaluate whether Studio can use the same Hugging Face-style voice settings internally to simplify future Hugging Face import/download support.
