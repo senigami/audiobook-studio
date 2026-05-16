@@ -86,7 +86,7 @@
 - [ ] Add voice image/icon upload, standardized 1:1 JPG processing, and character-surface icon display.
 - [ ] Add searchable voice tags compatible with future voice search/Hugging Face metadata.
 - [ ] Verify system API surface for future third-party/LLM controller plugins.
-- [ ] Show queue output metadata such as generated audio duration/length.
+- [x] Show queue output metadata such as generated audio duration/length.
 - [x] Remove legacy Chapter Editor Production, Performance, and Preview tabs/code.
 - [x] Rework crowded Chapter Editor menu bar and remove duplicate preparing pill.
 - [ ] Scan plans and memory for forgotten requests, including `tts_plugins` / `tts_voices` namespace rename ideas.

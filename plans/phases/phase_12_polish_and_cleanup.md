@@ -64,7 +64,7 @@ Phase 12 exists to avoid mixing user-facing polish and remaining master-plan ext
 | Plugin boundary cleanup | Complete | `app.db`, app behavior, and app utility imports are removed from portable plugin core code. Trivial audio helpers and complex text/proc utilities were localized to plugin-core to ensure absolute portability for future standalone repos. |
 | Plugin compatibility verification | Open | Check manifest contract version and expected callable signatures before runtime calls. |
 | Chapter Editor cleanup | Complete | Removed legacy Production, Performance, and Preview tabs/code, pruned production-block infrastructure, hid redundant preparing/status duplication during live progress, and reorganized the header/toolbars around Script-focused editing. |
-| Queue output metadata | Open | Queue entries should show what was produced, including generated audio duration/length when available. |
+| Queue output metadata | Complete | Completed queue history now shows generated audio duration and content metrics when durable chapter or render-performance metadata is available. |
 | Legacy jobs request API retirement | Open | Audit remaining jobs request endpoints and clients; migrate live control/status messaging to WebSockets and keep only proven non-live REST endpoints. |
 | API surface for third-party controllers | Open | Verify Studio API can support future LLM/control plugins without building those plugins yet. |
 | Forgotten requests scan | Open | Search plans and memory for older requests such as namespace renames and classify them into Phase 12, Phase 13, or deferred. |
@@ -146,7 +146,7 @@ Complete this checklist before starting new Phase 12 feature work. The goal is t
 
 ### Queue And Output Metadata
 
-- [ ] Update queue entries to show what each completed job produced, including generated audio duration/length when available.
+- [x] Update queue entries to show what each completed job produced, including generated audio duration/length when available.
 - [ ] Remove the legacy jobs request/response API path after auditing remaining callers. Live job progress, control, and status messages should use WebSockets instead of waiting on jobs API requests.
 - [ ] Add WebSocket coverage for job message delivery, reconnect behavior, failure handling, and any replacement control messages needed before removing REST jobs calls.
 

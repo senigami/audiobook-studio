@@ -133,6 +133,29 @@ describe('GlobalQueue', () => {
         expect(screen.getByText((content) => content.includes('2024') || content.includes('Mar'))).toBeTruthy()
     })
 
+    it('shows completed output metadata in history when available', async () => {
+        const queue = [
+            {
+                id: 'job-done-metadata',
+                status: 'done',
+                chapter_title: 'Chapter With Metadata',
+                project_name: 'Project A',
+                split_part: 0,
+                produced_audio_length: 75.4,
+                produced_chars: 1234,
+                produced_segment_count: 5,
+            },
+        ];
+
+        render(<GlobalQueue queue={queue as any[]} />)
+
+        fireEvent.click(await screen.findByText(/Completed \/ Failed History/i))
+
+        expect(await screen.findByText('Chapter With Metadata')).toBeTruthy()
+        expect(screen.getByText('1m 15s')).toBeTruthy()
+        expect(screen.getByText('1,234 chars • 5 segments')).toBeTruthy()
+    })
+
     it('calls clear completed from ActionMenu', async () => {
         render(<GlobalQueue queue={mockJobs as any[]} />)
         

@@ -200,6 +200,11 @@ export interface ProcessingQueueItem {
   active_render_group_weight?: number;
   active_segment_id?: string | null;
   active_segment_progress?: number;
+  audio_length_seconds?: number;
+  produced_audio_length?: number;
+  produced_chars?: number;
+  produced_word_count?: number;
+  produced_segment_count?: number;
 }
 
 export interface SpeakerProfile {

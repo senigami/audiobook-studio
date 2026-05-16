@@ -112,10 +112,22 @@ def get_queue() -> List[Dict[str, Any]]:
                 SELECT q.*, p.name as project_name, c.title as chapter_title, 
                        c.predicted_audio_length, c.char_count,
                        c.audio_status as chapter_audio_status,
-                       c.audio_file_path as chapter_audio_file_path
+                       c.audio_file_path as chapter_audio_file_path,
+                       c.audio_length_seconds,
+                       s.audio_duration_seconds as produced_audio_length,
+                       s.chars as produced_chars,
+                       s.word_count as produced_word_count,
+                       s.segment_count as produced_segment_count
                 FROM processing_queue q
                 LEFT JOIN projects p ON q.project_id = p.id
                 LEFT JOIN chapters c ON q.chapter_id = c.id
+                LEFT JOIN render_performance_samples s ON s.id = (
+                    SELECT latest.id
+                    FROM render_performance_samples latest
+                    WHERE latest.job_id = q.id
+                    ORDER BY latest.completed_at DESC, latest.id DESC
+                    LIMIT 1
+                )
                 ORDER BY 
                    CASE WHEN q.status IN ('queued', 'running', 'preparing', 'finalizing') THEN 0 ELSE 1 END,
                    CASE WHEN q.status IN ('queued', 'running', 'preparing', 'finalizing') THEN q.created_at END ASC,

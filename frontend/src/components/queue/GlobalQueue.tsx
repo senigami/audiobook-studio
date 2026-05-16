@@ -70,6 +70,14 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
         return `${seconds}s`;
     }, []);
 
+    const formatAudioDuration = React.useCallback((seconds: number | undefined) => {
+        if (!seconds) return "";
+        if (seconds < 60) return `${seconds.toFixed(1)}s`;
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.round(seconds % 60);
+        return `${mins}m ${secs}s`;
+    }, []);
+
     const formatJobTitle = React.useCallback((job: ProcessingQueueItem) => {
         const base = job.custom_title || job.chapter_title || "System Task";
         if (job.engine === 'audiobook') {
@@ -249,6 +257,23 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
                                                                 </span>
                                                             )}
                                                             <span style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: job.status === 'done' ? 'var(--success)' : 'var(--error)' }}>{job.status}</span>
+                                                            {job.status === 'done' && (job.produced_audio_length || job.audio_length_seconds) && (
+                                                                <>
+                                                                    <span style={{ width: '3px', height: '3px', borderRadius: '50%', background: 'var(--text-muted)' }} />
+                                                                    <span style={{ fontSize: '0.72rem', color: 'var(--accent)', fontWeight: 600 }}>
+                                                                        {formatAudioDuration(job.produced_audio_length || job.audio_length_seconds)}
+                                                                    </span>
+                                                                </>
+                                                            )}
+                                                            {job.status === 'done' && (job.produced_chars || job.char_count) && (
+                                                                <>
+                                                                    <span style={{ width: '3px', height: '3px', borderRadius: '50%', background: 'var(--text-muted)' }} />
+                                                                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                                                                        {(job.produced_chars || job.char_count)?.toLocaleString()} chars
+                                                                        {job.produced_segment_count ? ` • ${job.produced_segment_count} segments` : ''}
+                                                                    </span>
+                                                                </>
+                                                            )}
                                                         </div>
                                                     </div>
                                                     <button onClick={() => handleRemove(job.id)} className="hover-bg-destructive" style={{ background: 'none', border: 'none', padding: '8px', borderRadius: '8px', cursor: 'pointer', color: hoveredJobId === job.id ? 'var(--error)' : 'var(--text-muted)', opacity: hoveredJobId === job.id ? 1 : 0.4, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s ease' }}>

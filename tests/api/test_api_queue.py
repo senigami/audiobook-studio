@@ -302,3 +302,56 @@ def test_processing_queue_hydrates_preparing_progress_for_reload(clean_db, clien
     row = next(item for item in response.json() if item["id"] == jid)
     assert row["status"] == "preparing"
     assert row["progress"] == 0.0
+
+
+def test_processing_queue_returns_completed_output_metadata_without_duplicate_rows(clean_db, client):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.performance import record_render_sample
+    from app.db.queue import upsert_queue_row, update_queue_item
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "T1")
+    jid = "job-output-metadata"
+    completed_at = time.time()
+
+    upsert_queue_row(jid, project_id=pid, chapter_id=cid, status="queued", engine="mixed")
+    update_queue_item(jid, "running")
+    record_render_sample(
+        engine="mixed",
+        chars=100,
+        word_count=20,
+        segment_count=2,
+        duration_seconds=4.0,
+        audio_duration_seconds=10.0,
+        job_id=jid,
+        project_id=pid,
+        chapter_id=cid,
+        completed_at=completed_at - 5,
+    )
+    record_render_sample(
+        engine="mixed",
+        chars=1234,
+        word_count=250,
+        segment_count=5,
+        duration_seconds=8.0,
+        audio_duration_seconds=75.4,
+        job_id=jid,
+        project_id=pid,
+        chapter_id=cid,
+        completed_at=completed_at,
+    )
+    update_queue_item(jid, "done", audio_length_seconds=75.4, output_file=f"{cid}.wav")
+
+    response = client.get("/api/processing_queue")
+    assert response.status_code == 200
+    rows = [item for item in response.json() if item["id"] == jid]
+
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["status"] == "done"
+    assert row["audio_length_seconds"] == 75.4
+    assert row["produced_audio_length"] == 75.4
+    assert row["produced_chars"] == 1234
+    assert row["produced_word_count"] == 250
+    assert row["produced_segment_count"] == 5
