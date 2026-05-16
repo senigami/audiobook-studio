@@ -1,6 +1,41 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import { ChapterHeader } from '@/pages/ChapterEditor/components/ChapterHeader';
+import { useChapterStatus, ChapterTopBar, ChapterScriptToolbar } from '@/pages/ChapterEditor/components/ChapterHeader';
+import type { Job } from '@/types';
+
+const TestHeaderWrapper = (props: any) => {
+  const status = useChapterStatus(
+    props.chapter,
+    props.job,
+    props.generatingJob,
+    props.queuePending,
+    props.generatingSegmentIdsCount,
+    props.queueLocked
+  );
+
+  return (
+    <>
+      <ChapterTopBar
+        title={props.title}
+        setTitle={props.setTitle}
+        onPrev={props.onPrev}
+        onNext={props.onNext}
+      />
+      <ChapterScriptToolbar
+        chapter={props.chapter}
+        saving={props.saving}
+        hasUnsavedChanges={props.hasUnsavedChanges}
+        submitting={props.submitting}
+        queueLabel={props.queueLabel}
+        queueTitle={props.queueTitle}
+        onQueue={props.onQueue}
+        onStopAll={props.onStopAll}
+        onSegmentDisplayProgress={props.onSegmentDisplayProgress}
+        status={status}
+      />
+    </>
+  );
+};
 
 describe('ChapterHeader', () => {
   const mockChapter = {
@@ -15,7 +50,7 @@ describe('ChapterHeader', () => {
   it('renders title and handles changes', () => {
     const setTitle = vi.fn();
     render(
-      <ChapterHeader
+      <TestHeaderWrapper
         chapter={mockChapter as any}
         title="Initial Title"
         setTitle={setTitle}
@@ -43,7 +78,7 @@ describe('ChapterHeader', () => {
 
   it('keeps the queue button disabled while the header still shows queue status', () => {
     const { rerender } = render(
-      <ChapterHeader
+      <TestHeaderWrapper
         chapter={mockChapter as any}
         title={mockChapter.title}
         setTitle={vi.fn()}
@@ -68,7 +103,7 @@ describe('ChapterHeader', () => {
     expect(screen.getByTitle('Already processing')).toBeDisabled();
 
     rerender(
-      <ChapterHeader
+      <TestHeaderWrapper
         chapter={mockChapter as any}
         title={mockChapter.title}
         setTitle={vi.fn()}
@@ -95,7 +130,7 @@ describe('ChapterHeader', () => {
 
   it('shows working header state for active segment generation without a chapter render job', () => {
     const { rerender } = render(
-      <ChapterHeader
+      <TestHeaderWrapper
         chapter={mockChapter as any}
         title={mockChapter.title}
         setTitle={vi.fn()}
@@ -123,7 +158,7 @@ describe('ChapterHeader', () => {
     expect(screen.getByText('40%')).toBeInTheDocument();
 
     rerender(
-      <ChapterHeader
+      <TestHeaderWrapper
         chapter={mockChapter as any}
         title={mockChapter.title}
         setTitle={vi.fn()}
@@ -153,7 +188,7 @@ describe('ChapterHeader', () => {
     const onSegmentDisplayProgress = vi.fn();
 
     render(
-      <ChapterHeader
+      <TestHeaderWrapper
         chapter={mockChapter as any}
         title={mockChapter.title}
         setTitle={vi.fn()}

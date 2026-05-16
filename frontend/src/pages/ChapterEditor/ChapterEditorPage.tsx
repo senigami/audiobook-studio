@@ -4,7 +4,7 @@ import { api } from '@/api';
 import type { Job, SegmentProgress, TtsEngine, SpeakerProfile } from '@/types';
 
 // Extracted Components
-import { ChapterHeader } from '@/pages/ChapterEditor/components/ChapterHeader';
+import { useChapterStatus, ChapterTopBar, ChapterScriptToolbar } from '@/pages/ChapterEditor/components/ChapterHeader';
 import { EditorTabs } from '@/pages/ChapterEditor/components/EditorTabs';
 import { EditTab } from '@/pages/ChapterEditor/components/EditTab';
 import { ScriptView } from '@/pages/ChapterEditor/components/ScriptView';
@@ -418,6 +418,15 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     return () => clearTimeout(timer);
   }, [queueNotice]);
 
+  const status = useChapterStatus(
+    chapter || ({} as any),
+    job,
+    generatingSegmentJob,
+    headerQueuePending,
+    chapterRenderRenderingSegmentIds.size || chapterRenderPendingSegmentIds.size,
+    submitting || !anyEnginesEnabled
+  );
+
   if (loading) return <div style={{ padding: '2rem' }}>Loading editor...</div>;
   if (!chapter) return <div style={{ padding: '2rem' }}>Chapter not found.</div>;
 
@@ -426,52 +435,13 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
 
   return (
     <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, background: 'var(--bg)', position: 'relative', zIndex: 100 }}>
-      <ChapterHeader
-        chapter={chapter} title={title} setTitle={setTitle} saving={saving} hasUnsavedChanges={hasUnsavedChanges}
+      <ChapterTopBar
+        title={title} setTitle={setTitle}
         onPrev={onPrev ? async () => { await handleSave(); onPrev(); } : undefined}
         onNext={onNext ? async () => { await handleSave(); onNext(); } : undefined}
-        selectedVoice={localVoice}
-        onVoiceChange={(v) => handleVoiceChange(v, (msg) => setConfirmConfig({ title: 'Voice Update Failed', message: msg, onConfirm: () => {}, confirmText: 'OK' }))}
-        availableVoices={availableVoices} defaultVoiceLabel={chapterDefaultVoiceLabel}
-        submitting={submitting} queueLocked={submitting || !anyEnginesEnabled} queuePending={headerQueuePending} job={job} generatingJob={generatingSegmentJob} generatingSegmentIdsCount={chapterRenderRenderingSegmentIds.size || chapterRenderPendingSegmentIds.size}
-        queueLabel={queueButtonLabel}
-        queueTitle={queueButtonTitle}
         onSaveWav={() => void handleExportAudio('wav')}
         onSaveMp3={() => void handleExportAudio('mp3')}
         exportingFormat={exportingFormat}
-        onQueue={() => {
-            const onBlocked = (msg: string) => setConfirmConfig({ title: 'Queue Blocked', message: msg, onConfirm: () => {}, confirmText: 'OK' });
-            const onSuccess = (msg: string) => setQueueNotice(msg);
-
-            if (shouldWarnBeforeRequeue) {
-                setConfirmConfig({
-                    title: 'Requeue Completed Chapter',
-                    message: 'All audio for this chapter is already complete. Rebuilding will delete the existing final render and regenerate from the current segments. Continue?',
-                    onConfirm: async () => { setConfirmConfig(null); await executeQueue(effectiveSelectedVoice, onBlocked, onSuccess); },
-                    confirmText: 'Yes, Rebuild It',
-                    isDestructive: true
-                });
-            } else if (chapter?.char_count && chapter.char_count > 50000) {
-                setConfirmConfig({
-                    title: 'Large Chapter Warning',
-                    message: `Chapter is long (${chapter.char_count.toLocaleString()} chars). Queue anyway?`,
-                    onConfirm: async () => { setConfirmConfig(null); await executeQueue(effectiveSelectedVoice, onBlocked, onSuccess); },
-                    confirmText: 'Yes, Queue It',
-                    isDestructive: false
-                });
-            } else executeQueue(effectiveSelectedVoice, onBlocked, onSuccess);
-        }}
-        onStopAll={async () => {
-            try {
-                stopPlayback();
-                await api.cancelChapterGeneration(chapterId);
-                loadChapter('cancel');
-            }
-            catch (e) { console.error("Cancel failed", e); }
-        }}
-        onCommitSourceText={handleRequestResyncPreview}
-        canCommitSourceText={editorTab === 'edit' && sourceTextMode === 'edit' && (text !== chapter?.text_content)}
-        onSegmentDisplayProgress={setLiveBarSegmentProgress}
       />
 
       <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
@@ -495,7 +465,50 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                     });
                   }}
                   sourceTextMode={sourceTextMode}
-                />
+                >
+                  <ChapterScriptToolbar
+                    chapter={chapter}
+                    saving={saving}
+                    hasUnsavedChanges={hasUnsavedChanges}
+                    submitting={submitting}
+                    queueLabel={queueButtonLabel}
+                    queueTitle={queueButtonTitle}
+                    onQueue={() => {
+                        const onBlocked = (msg: string) => setConfirmConfig({ title: 'Queue Blocked', message: msg, onConfirm: () => {}, confirmText: 'OK' });
+                        const onSuccess = (msg: string) => setQueueNotice(msg);
+
+                        if (shouldWarnBeforeRequeue) {
+                            setConfirmConfig({
+                                title: 'Requeue Completed Chapter',
+                                message: 'All audio for this chapter is already complete. Rebuilding will delete the existing final render and regenerate from the current segments. Continue?',
+                                onConfirm: async () => { setConfirmConfig(null); await executeQueue(effectiveSelectedVoice, onBlocked, onSuccess); },
+                                confirmText: 'Yes, Rebuild It',
+                                isDestructive: true
+                            });
+                        } else if (chapter?.char_count && chapter.char_count > 50000) {
+                            setConfirmConfig({
+                                title: 'Large Chapter Warning',
+                                message: `Chapter is long (${chapter.char_count.toLocaleString()} chars). Queue anyway?`,
+                                onConfirm: async () => { setConfirmConfig(null); await executeQueue(effectiveSelectedVoice, onBlocked, onSuccess); },
+                                confirmText: 'Yes, Queue It',
+                                isDestructive: false
+                            });
+                        } else executeQueue(effectiveSelectedVoice, onBlocked, onSuccess);
+                    }}
+                    onStopAll={async () => {
+                        try {
+                            stopPlayback();
+                            await api.cancelChapterGeneration(chapterId);
+                            loadChapter('cancel');
+                        }
+                        catch (e) { console.error("Cancel failed", e); }
+                    }}
+                    onCommitSourceText={handleRequestResyncPreview}
+                    canCommitSourceText={editorTab === 'edit' && sourceTextMode === 'edit' && (text !== chapter?.text_content)}
+                    onSegmentDisplayProgress={setLiveBarSegmentProgress}
+                    status={status}
+                  />
+                </EditorTabs>
 
                 {editorTab === 'script' && scriptViewData && (
                   <ScriptView
@@ -555,6 +568,11 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
             expandedCharacterId={expandedCharacterId} setExpandedCharacterId={setExpandedCharacterId}
             onUpdateCharacterColor={handleUpdateCharacterColor}
             segmentsCount={segments.length} wordCount={chapter.word_count || 0}
+            selectedVoice={localVoice}
+            onVoiceChange={(v) => handleVoiceChange(v, (msg) => setConfirmConfig({ title: 'Voice Update Failed', message: msg, onConfirm: () => {}, confirmText: 'OK' }))}
+            availableVoices={availableVoices}
+            defaultVoiceLabel={chapterDefaultVoiceLabel}
+            submitting={submitting}
         />
       </div>
 

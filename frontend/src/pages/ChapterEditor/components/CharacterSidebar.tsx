@@ -1,6 +1,7 @@
 import React from 'react';
 import { User, Info, ChevronRight, ChevronDown } from 'lucide-react';
 import { ColorSwatchPicker } from '@/components/forms/ColorSwatchPicker';
+import { VoiceProfileSelect } from '@/pages/ChapterEditor/components/VoiceProfileSelect';
 import type { Character, SpeakerProfile, Speaker } from '@/types';
 import {
   getDefaultVoiceProfileName,
@@ -25,6 +26,11 @@ interface CharacterSidebarProps {
   onUpdateCharacterColor: (id: string, color: string) => void;
   segmentsCount: number;
   wordCount: number;
+  selectedVoice?: string;
+  onVoiceChange?: (voice: string) => void;
+  availableVoices?: import('@/utils/voiceProfiles').VoiceOption[];
+  defaultVoiceLabel?: string;
+  submitting?: boolean;
 }
 
 export const CharacterSidebar: React.FC<CharacterSidebarProps> = ({
@@ -40,7 +46,12 @@ export const CharacterSidebar: React.FC<CharacterSidebarProps> = ({
   setExpandedCharacterId,
   onUpdateCharacterColor,
   segmentsCount,
-  wordCount
+  wordCount,
+  selectedVoice,
+  onVoiceChange,
+  availableVoices = [],
+  defaultVoiceLabel = 'Use Project Default',
+  submitting = false
 }) => {
   const resolveDefaultProfileName = (char: Character) => {
     const profile = (speakerProfiles || []).find(p => p.name === char.speaker_profile_name);
@@ -81,6 +92,22 @@ export const CharacterSidebar: React.FC<CharacterSidebarProps> = ({
       gap: '1rem'
     }}>
         <div className="glass-panel" style={{ padding: '1rem', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            {availableVoices.length > 0 && onVoiceChange && (
+                <div style={{ marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border)' }}>
+                    <h3 style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Default Voice
+                    </h3>
+                    <VoiceProfileSelect
+                        value={selectedVoice || ''}
+                        onChange={onVoiceChange}
+                        options={availableVoices}
+                        defaultLabel={defaultVoiceLabel}
+                        title="Select Default Voice Profile for this chapter"
+                        disabled={submitting}
+                    />
+                </div>
+            )}
+
             <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                 <User size={16} />
                 Characters
