@@ -1,14 +1,10 @@
 import React from 'react';
-import { RefreshCw } from 'lucide-react';
 
 interface EditorTabsProps {
-  editorTab: 'script' | 'edit' | 'preview' | 'production' | 'performance';
-  setEditorTab: (tab: 'script' | 'edit' | 'preview' | 'production' | 'performance') => void;
+  editorTab: 'script' | 'edit' | 'production';
+  setEditorTab: (tab: 'script' | 'edit' | 'production') => void;
   onSave: () => Promise<boolean>;
-  onEnsureVoiceChunks: () => Promise<void>;
   onRequestEditSourceText?: () => void;
-  analysis?: any;
-  loadingVoiceChunks: boolean;
   sourceTextMode?: 'view' | 'edit';
 }
 
@@ -16,10 +12,7 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
   editorTab,
   setEditorTab,
   onSave,
-  onEnsureVoiceChunks,
   onRequestEditSourceText,
-  analysis,
-  loadingVoiceChunks,
   sourceTextMode = 'view'
 }) => {
   return (
@@ -48,32 +41,6 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
           style={{ padding: '8px 16px', fontSize: '0.9rem', borderRadius: '8px' }}
         >
             Production
-        </button>
-        <button 
-          onClick={async () => {
-              await onSave();
-              setEditorTab('performance');
-          }} 
-          className={editorTab === 'performance' ? 'btn-primary' : 'btn-ghost'}
-          style={{ padding: '8px 16px', fontSize: '0.9rem', borderRadius: '8px' }}
-        >
-            Performance
-        </button>
-        <button 
-          onClick={async () => {
-              if (!analysis?.voice_chunks && !analysis?.safe_text) {
-                  alert("Please wait for text to be analyzed...");
-                  return;
-              }
-              await onEnsureVoiceChunks();
-              setEditorTab('preview');
-          }} 
-          className={editorTab === 'preview' ? 'btn-primary' : 'btn-ghost'}
-          style={{ padding: '8px 16px', fontSize: '0.9rem', borderRadius: '8px' }}
-          disabled={(!analysis?.safe_text && !analysis?.voice_chunks && !analysis?.char_count) || loadingVoiceChunks}
-        >
-            {loadingVoiceChunks ? <RefreshCw size={14} className="animate-spin" style={{ display: 'inline', marginRight: '6px' }} /> : null}
-            Preview Safe Output
         </button>
       </div>
       {editorTab === 'edit' && sourceTextMode === 'view' && onRequestEditSourceText && (

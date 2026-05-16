@@ -7,8 +7,6 @@ import type { Job, SegmentProgress, TtsEngine, SpeakerProfile } from '@/types';
 import { ChapterHeader } from '@/pages/ChapterEditor/components/ChapterHeader';
 import { EditorTabs } from '@/pages/ChapterEditor/components/EditorTabs';
 import { EditTab } from '@/pages/ChapterEditor/components/EditTab';
-import { PerformanceTab } from '@/pages/ChapterEditor/components/PerformanceTab';
-import { PreviewTab } from '@/pages/ChapterEditor/components/PreviewTab';
 import { ProductionTab } from '@/pages/ChapterEditor/components/ProductionTab';
 import { ScriptView } from '@/pages/ChapterEditor/components/ScriptView';
 import { ResyncPreviewModal, type ResyncPreviewData } from '@/pages/ChapterEditor/components/ResyncPreviewModal';
@@ -54,7 +52,6 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   engines = [],
   job: propJob,
   chapterJobs = [],
-  segmentProgress = {},
   selectedVoice: externalVoice,
   onNext,
   onPrev,
@@ -78,8 +75,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     scriptViewLoading,
     generatingSegmentIds,
     analysis, setAnalysis,
-    analyzing, loadingVoiceChunks,
-    ensureVoiceChunks,
+    analyzing,
     loadChapter,
     reloadLatestBlocks,
     generatingSegmentJob,
@@ -98,7 +94,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     executeQueue
   } = useChapterEditor(chapterId, projectId, speakerProfiles, speakers, engines, chapterJobs, segmentUpdate, chapterUpdate);
 
-  const [editorTab, setEditorTab] = useState<'script' | 'edit' | 'preview' | 'production' | 'performance'>('script');
+  const [editorTab, setEditorTab] = useState<'script' | 'edit' | 'production'>('script');
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
   const [selectedProfileName, setSelectedProfileName] = useState<string | null>(null);
   const [expandedCharacterId, setExpandedCharacterId] = useState<string | null>(null);
@@ -508,7 +504,6 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                     setEditorTab(tab);
                     setSourceTextMode('view');
                   }} onSave={handleSave}
-                  onEnsureVoiceChunks={() => ensureVoiceChunks(handleSave)}
                   onRequestEditSourceText={() => {
                     setConfirmConfig({
                       title: 'Edit Source Text',
@@ -521,7 +516,6 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                       isDestructive: true
                     });
                   }}
-                  analysis={analysis} loadingVoiceChunks={loadingVoiceChunks}
                   sourceTextMode={sourceTextMode}
                 />
 
@@ -572,18 +566,6 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                     sourceTextMode={sourceTextMode}
                   />
                 )}
-                {editorTab === 'performance' && (
-                  <PerformanceTab
-                    chunkGroups={chunkGroups} characters={characters} playingSegmentId={playingSegmentId}
-                    playbackQueue={segments.map(s => s.id)} generatingSegmentIds={generatingSegmentIds} queuedSegmentIds={queuedSegmentJobIds}
-                    allSegmentIds={segments.map(s => s.id)} segments={segments}
-                    onPlay={playSegment} onStop={stopPlayback} onGenerate={(sids) => handleGenerate(sids, effectiveSelectedVoice, (msg) => setConfirmConfig({ title: 'Generation Blocked', message: msg, onConfirm: () => {}, confirmText: 'OK' }))}
-                    generatingJob={generatingSegmentJob}
-                    segmentProgress={segmentProgress}
-                    engines={engines}
-                  />
-                )}
-                {editorTab === 'preview' && <PreviewTab analysis={analysis} analyzing={analyzing} />}
                 {editorTab === 'production' && (
                   <ProductionTab
                     chapterId={chapterId}
@@ -610,6 +592,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                     segmentsCount={segments.length}
                   />
                 )}
+
             </div>
         </div>
 

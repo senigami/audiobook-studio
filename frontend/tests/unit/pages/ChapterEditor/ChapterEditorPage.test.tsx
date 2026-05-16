@@ -128,14 +128,8 @@ describe('ChapterEditor - Core Orchestration', () => {
     fireEvent.click(screen.getByText('Source Text'));
     expect(await screen.findByText('Analysis')).toBeInTheDocument();
     
-    fireEvent.click(screen.getByText('Performance'));
-    expect(await screen.findByText('Performance View')).toBeInTheDocument();
-    
     fireEvent.click(screen.getByText('Production'));
     expect(await screen.findByText('Production Blocks')).toBeInTheDocument();
-    
-    fireEvent.click(screen.getByText('Preview Safe Output'));
-    expect(await screen.findByText('Preview Safe Output')).toBeInTheDocument();
   });
 
   it('handles title changes and auto-save', async () => {

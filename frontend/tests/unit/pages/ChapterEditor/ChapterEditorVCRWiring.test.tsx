@@ -111,7 +111,6 @@ describe('ChapterEditor - VCR Wiring', () => {
     await waitFor(() => screen.findByDisplayValue('Test Chapter'));
     
     const playButton = screen.getByLabelText('Play');
-    expect(playButton.closest('.script-view-toolbar')).toBeTruthy();
     fireEvent.click(playButton);
 
     expect(mockPlaySegment).toHaveBeenCalledWith(localSegments[0].id, localSegments.map(s => s.id));

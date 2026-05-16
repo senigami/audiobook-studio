@@ -20,8 +20,8 @@ describe('EditorTabs', () => {
     expect(screen.getByText('Script')).toBeInTheDocument();
     expect(screen.getByText('Source Text')).toBeInTheDocument();
     expect(screen.getByText('Production')).toBeInTheDocument();
-    expect(screen.getByText('Performance')).toBeInTheDocument();
-    expect(screen.getByText('Preview Safe Output')).toBeInTheDocument();
+    expect(screen.queryByText('Performance')).not.toBeInTheDocument();
+    expect(screen.queryByText('Preview Safe Output')).not.toBeInTheDocument();
   });
 
   it('calls setEditorTab when a tab is clicked', async () => {
