@@ -259,7 +259,7 @@ def test_get_engine_scenarios_resolves_from_manifest(clean_db, client, tmp_path)
     dev_dir = plugin_dir / "dev"
     dev_dir.mkdir(parents=True)
     scenario_path = dev_dir / "scenarios.json"
-    scenario_content = '{"scenarios": [{"id": "test"}]}'
+    scenario_content = '{"scenarios": [{"id": "test", "label": "Test Scenario", "engine_detail": {}}]}'
     scenario_path.write_text(scenario_content)
 
     with patch("app.engines.registry.load_engine_registry", return_value={"mock-engine": registration}), \
@@ -267,4 +267,124 @@ def test_get_engine_scenarios_resolves_from_manifest(clean_db, client, tmp_path)
         response = client.get("/api/engines/mock-engine/dev/scenarios")
 
     assert response.status_code == 200
-    assert response.json() == {"scenarios": [{"id": "test"}]}
+    assert response.json() == {"scenarios": [{"id": "test", "label": "Test Scenario", "engine_detail": {}}]}
+
+
+def test_get_engine_scenarios_missing_file_returns_404(client, tmp_path):
+    from app.engines.models import EngineManifestModel
+
+    registration = SimpleNamespace(
+        manifest=EngineManifestModel(
+            engine_id="mock-engine",
+            display_name="Mock Engine",
+            phase="test",
+            module_path="plugins.tts_mock.plugin.server.engine",
+            dev={"enabled": True, "scenarios": "dev/missing.json"},
+        )
+    )
+
+    with patch("app.engines.registry.load_engine_registry", return_value={"mock-engine": registration}), \
+         patch("app.core.config.PLUGINS_DIR", tmp_path / "plugins"):
+        response = client.get("/api/engines/mock-engine/dev/scenarios")
+
+    assert response.status_code == 404
+    assert "not found" in response.json()["message"]
+
+
+def test_get_engine_scenarios_malformed_json_returns_400(client, tmp_path):
+    from app.engines.models import EngineManifestModel
+
+    registration = SimpleNamespace(
+        manifest=EngineManifestModel(
+            engine_id="mock-engine",
+            display_name="Mock Engine",
+            phase="test",
+            module_path="plugins.tts_mock.plugin.server.engine",
+            dev={"enabled": True, "scenarios": "dev/scenarios.json"},
+        )
+    )
+
+    plugin_dir = tmp_path / "plugins" / "tts_mock"
+    dev_dir = plugin_dir / "dev"
+    dev_dir.mkdir(parents=True)
+    (dev_dir / "scenarios.json").write_text("{ invalid json }")
+
+    with patch("app.engines.registry.load_engine_registry", return_value={"mock-engine": registration}), \
+         patch("app.core.config.PLUGINS_DIR", tmp_path / "plugins"):
+        response = client.get("/api/engines/mock-engine/dev/scenarios")
+
+    assert response.status_code == 400
+    assert "Invalid JSON" in response.json()["message"]
+
+
+def test_get_engine_scenarios_invalid_structure_returns_400(client, tmp_path):
+    from app.engines.models import EngineManifestModel
+
+    registration = SimpleNamespace(
+        manifest=EngineManifestModel(
+            engine_id="mock-engine",
+            display_name="Mock Engine",
+            phase="test",
+            module_path="plugins.tts_mock.plugin.server.engine",
+            dev={"enabled": True, "scenarios": "dev/scenarios.json"},
+        )
+    )
+
+    plugin_dir = tmp_path / "plugins" / "tts_mock"
+    dev_dir = plugin_dir / "dev"
+    dev_dir.mkdir(parents=True)
+
+    # Case: not a dict
+    (dev_dir / "scenarios.json").write_text("[1, 2, 3]")
+
+    with patch("app.engines.registry.load_engine_registry", return_value={"mock-engine": registration}), \
+         patch("app.core.config.PLUGINS_DIR", tmp_path / "plugins"):
+        response = client.get("/api/engines/mock-engine/dev/scenarios")
+        assert response.status_code == 400
+        assert "must be a JSON object" in response.json()["message"]
+
+    # Case: missing 'scenarios' key
+    (dev_dir / "scenarios.json").write_text('{"other": []}')
+    with patch("app.engines.registry.load_engine_registry", return_value={"mock-engine": registration}), \
+         patch("app.core.config.PLUGINS_DIR", tmp_path / "plugins"):
+        response = client.get("/api/engines/mock-engine/dev/scenarios")
+        assert response.status_code == 400
+        assert "Missing 'scenarios' key" in response.json()["message"]
+
+    # Case: scenarios not a list
+    (dev_dir / "scenarios.json").write_text('{"scenarios": {}}')
+    with patch("app.engines.registry.load_engine_registry", return_value={"mock-engine": registration}), \
+         patch("app.core.config.PLUGINS_DIR", tmp_path / "plugins"):
+        response = client.get("/api/engines/mock-engine/dev/scenarios")
+        assert response.status_code == 400
+        assert "'scenarios' must be a list" in response.json()["message"]
+
+    # Case: scenario missing required fields
+    (dev_dir / "scenarios.json").write_text('{"scenarios": [{"id": "test"}]}')
+    with patch("app.engines.registry.load_engine_registry", return_value={"mock-engine": registration}), \
+         patch("app.core.config.PLUGINS_DIR", tmp_path / "plugins"):
+        response = client.get("/api/engines/mock-engine/dev/scenarios")
+        assert response.status_code == 400
+        assert "missing required fields" in response.json()["message"]
+
+    # Case: scenario has required fields with invalid types
+    (dev_dir / "scenarios.json").write_text('{"scenarios": [{"id": 123, "label": "Test", "engine_detail": {}}]}')
+    with patch("app.engines.registry.load_engine_registry", return_value={"mock-engine": registration}), \
+         patch("app.core.config.PLUGINS_DIR", tmp_path / "plugins"):
+        response = client.get("/api/engines/mock-engine/dev/scenarios")
+        assert response.status_code == 400
+        assert "id must be a string" in response.json()["message"]
+
+    (dev_dir / "scenarios.json").write_text('{"scenarios": [{"id": "test", "label": 123, "engine_detail": {}}]}')
+    with patch("app.engines.registry.load_engine_registry", return_value={"mock-engine": registration}), \
+         patch("app.core.config.PLUGINS_DIR", tmp_path / "plugins"):
+        response = client.get("/api/engines/mock-engine/dev/scenarios")
+        assert response.status_code == 400
+        assert "label must be a string" in response.json()["message"]
+
+    (dev_dir / "scenarios.json").write_text('{"scenarios": [{"id": "test", "label": "Test", "engine_detail": []}]}')
+    with patch("app.engines.registry.load_engine_registry", return_value={"mock-engine": registration}), \
+         patch("app.core.config.PLUGINS_DIR", tmp_path / "plugins"):
+        response = client.get("/api/engines/mock-engine/dev/scenarios")
+        assert response.status_code == 400
+        assert "engine_detail must be an object" in response.json()["message"]

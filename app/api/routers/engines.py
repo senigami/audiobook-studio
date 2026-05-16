@@ -224,7 +224,37 @@ def get_engine_scenarios(engine_id: str):
     if not full_path.is_file():
         return JSONResponse({"ok": False, "message": f"Scenarios file not found: {scenarios_path}"}, status_code=404)
 
-    return FileResponse(full_path, media_type="application/json")
+    import json
+    try:
+        data = json.loads(full_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return JSONResponse({"ok": False, "message": f"Invalid JSON in scenarios file: {exc}"}, status_code=400)
+
+    if not isinstance(data, dict):
+        return JSONResponse({"ok": False, "message": "Scenarios file must be a JSON object at the root"}, status_code=400)
+
+    scenarios = data.get("scenarios")
+    if scenarios is None:
+        return JSONResponse({"ok": False, "message": "Missing 'scenarios' key in scenarios file"}, status_code=400)
+
+    if not isinstance(scenarios, list):
+        return JSONResponse({"ok": False, "message": "'scenarios' must be a list"}, status_code=400)
+
+    for i, s in enumerate(scenarios):
+        if not isinstance(s, dict):
+            return JSONResponse({"ok": False, "message": f"Scenario at index {i} must be an object"}, status_code=400)
+        required = ["id", "label", "engine_detail"]
+        missing = [f for f in required if f not in s]
+        if missing:
+            return JSONResponse({"ok": False, "message": f"Scenario at index {i} is missing required fields: {', '.join(missing)}"}, status_code=400)
+        if not isinstance(s["id"], str):
+            return JSONResponse({"ok": False, "message": f"Scenario at index {i} id must be a string"}, status_code=400)
+        if not isinstance(s["label"], str):
+            return JSONResponse({"ok": False, "message": f"Scenario at index {i} label must be a string"}, status_code=400)
+        if not isinstance(s["engine_detail"], dict):
+            return JSONResponse({"ok": False, "message": f"Scenario at index {i} engine_detail must be an object"}, status_code=400)
+
+    return JSONResponse(data)
 
 
 @router.get("/{engine_id}/assets/{asset_path:path}")

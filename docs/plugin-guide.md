@@ -372,6 +372,67 @@ If you are extending Studio itself, the relevant code paths are:
 - `app/api/routers/engines.py` for settings and refresh endpoints
 - `frontend/src/features/settings/routes/SettingsRoute.tsx` for the engine cards and schema-driven settings UI
 
+## Developer Scenarios
+
+Plugin authors can define **Developer Scenarios** to test how their engine card renders in different states (e.g., missing dependencies, unverified, or ready) without manually breaking their environment.
+
+### 1. Enable Developer Mode
+
+In your `manifest.json`, enable developer mode and point to a scenarios file:
+
+```json
+{
+  "dev": {
+    "enabled": true,
+    "scenarios": "dev/scenarios.json"
+  }
+}
+```
+
+### 2. Define Scenarios
+
+Create `dev/scenarios.json` in your plugin folder. It must contain a `scenarios` array. Each scenario defines overrides for the engine's runtime state.
+
+```json
+{
+  "scenarios": [
+    {
+      "id": "missing_deps",
+      "label": "Missing Dependencies",
+      "engine_detail": {
+        "status": "needs_setup",
+        "verified": false,
+        "enabled": false,
+        "dependencies_satisfied": false,
+        "missing_dependencies": ["torch", "coqui-tts"],
+        "setup_message": "Run Install Deps to continue."
+      }
+    },
+    {
+      "id": "ready",
+      "label": "Ready",
+      "engine_detail": {
+        "status": "ready",
+        "verified": true,
+        "enabled": true
+      }
+    }
+  ]
+}
+```
+
+### 3. Scenario Contract
+
+- **Required Fields**: Each scenario must have `id`, `label`, and `engine_detail`.
+- **Identity Protection**: Identity fields (like `engine_id`, `display_name`, `author`, `logo_url`) cannot be overridden by scenarios. Studio will ignore these if present in `engine_detail`.
+- **State Overrides**: You can override any other field in `TtsEngine`, such as `status`, `verified`, `enabled`, `current_settings`, and `settings_schema`.
+- **Deep Merge**: `current_settings` and `settings_schema` are deep-merged with the base values, allowing you to override specific fields while keeping the rest of the original state.
+- **Simulated Logs**: You can optionally include a `dev_logs` object to provide custom messages when "Run Test", "Verify", or "Install Deps" are clicked while the scenario is active.
+
+### 4. Validation
+
+Studio validates the structure and JSON syntax of your scenarios file. If it is malformed, the Engine Developer Panel will display a specific error message describing the issue.
+
 ## Plugin Author Rule Of Thumb
 
 If the plugin behavior is different because of the engine, keep it in the plugin.

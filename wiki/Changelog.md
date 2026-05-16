@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 - **Unified Settings Experience**: Redesigned the Settings interface with dedicated tabs for General, TTS Engines, About, and API, featuring a schema-driven engine configuration system.
 - **Engine Registry & Fallback**: Implemented a robust engine registry that supports both remote TTS Server plugins and local in-process fallbacks, ensuring reliability even when the server is unavailable.
 - **Plugin Manifest Diagnostics**: Studio now validates the `studio_tts_manifest` contract and callable references for TTS plugins, surfaces parseable manifest errors as `invalid_config`, and keeps runtime plugin crashes isolated from healthy engines.
+- **Plugin Developer Scenario Validation**: Studio now validates developer scenario fixtures before the Settings UI consumes them, returning actionable errors for malformed JSON, missing fields, and invalid scenario shapes.
 - **Production Tally & Diagnostics**: Added real-time production statistics and runtime diagnostics to the About panel for better visibility into system performance and health.
 - **Version Migration**: Completed the transition from the 1.8.x release line to the 2.0.0 baseline with consistent branding and metadata across all surfaces.
 - **Global Queue UI Alignment**: Fixed a regression in the job history display where a colon was used instead of an arrow symbol, restoring consistency with validation tests and improving history legibility.
