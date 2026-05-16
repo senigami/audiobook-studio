@@ -15,13 +15,12 @@ If a behavior is not supported, declare it as unsupported or return an explicit 
 
 ## Quick Start
 
-1. Copy `docs/plugin-template/` into `plugins/tts_myengine/`.
-2. Rename `engine_id`, `display_name`, and the engine class.
-3. Edit `manifest.json` so it declares the plugin's capabilities, behavior, and worker hooks.
-4. Edit `settings_schema.json` so it declares the plugin's settings contract.
-5. Implement your public surface in `interface.py` and your internals under `plugin/`.
-5. Start Studio and click `Refresh Plugins` in Settings > TTS Engines.
-6. Verify the plugin appears in the engine list and can pass discovery checks.
+1. Copy `docs/plugin-template/` to a new folder and customize it.
+2. Update `manifest.json` with your `engine_id`, `display_name`, and `entry_class`.
+3. Compress your plugin folder into a **.zip** file (ensure `manifest.json` is at the root of the zip).
+4. In Studio, go to **Settings > TTS Engines** and click **Import Plugin (.zip)**.
+5. Verify the plugin appears in the list and passes initial discovery.
+6. Once ready for distribution, authors can also submit plugins for inclusion as built-in engines.
 7. Treat the template as the canonical example of the declared-hook model, not as a no-op stub library.
 
 ## Plugin Layout
@@ -213,6 +212,7 @@ Use the manifest as the declaration layer:
 - `behavior` says what Studio should ask for or expect from the plugin
 - `worker_logic` says which job kinds or engine ids the plugin owns. Handlers must be in `module:function` format.
 - `entry_class` says which class implements the plugin, usually via `interface.py`. Must be in `module:Class` format.
+- `built_in` (optional, default: `false`) if `true`, Studio will protect the plugin from being uninstalled via the UI. Usually reserved for first-party engines.
 - `studio_tts_manifest` must be "1.0" for this version of Studio.
 
 Use the Python SDK as the runtime layer:
@@ -288,9 +288,27 @@ If this returns `False`, the Build and Test buttons in the UI will be disabled o
 
 Use this hook to ensure users have provided all required model inputs before they try to render audio.
 
+## Installation and Lifecycle
+
+Studio supports two main ways to install plugins:
+
+### 1. Manual Drop-in
+Copy the plugin folder into the `plugins/` directory. The folder name **must** follow the pattern `tts_[a-z][a-z0-9_]{1,14}`. After copying, click **Refresh Plugins** in the Studio UI.
+
+### 2. Zip Import (Recommended)
+Users can upload a `.zip` file containing the plugin via the **Import Plugin (.zip)** button in Settings.
+- **Safety**: Studio validates the zip for path traversal attacks and ensures `manifest.json` is present and valid before extraction.
+- **Root Level**: `manifest.json` must be at the top level of the zip file.
+- **Conflicts**: Studio will reject the import if a plugin with the same `engine_id` already exists.
+
+### Uninstalling
+Plugins can be uninstalled directly from their Engine Card in Settings.
+- **Atomic Deletion**: Studio shuts down the engine instance, deletes the plugin folder, and refreshes the registry.
+- **Built-in Protection**: Plugins marked with `"built_in": true` in their manifest cannot be uninstalled via the UI.
+
 ## Settings Schema Tips
 
-Keep your schema small and readable.
+Your `settings_schema.json` **must be a JSON dictionary (object)** at the root level. Studio will reject the plugin if the schema is a list or other primitive type.
 
 Recommended fields:
 

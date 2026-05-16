@@ -545,7 +545,12 @@ def _load_optional_json(path: Path) -> dict[str, Any]:
         raise PluginLoadError(
             f"{path.name} is not valid JSON: {exc}"
         ) from exc
-    return data if isinstance(data, dict) else {}
+
+    if not isinstance(data, dict):
+        raise PluginLoadError(
+            f"{path.name} must be a JSON dictionary (object) at the root."
+        )
+    return data
 
 
 def _check_dependencies(plugin_dir: Path) -> tuple[bool, list[str]]:
@@ -681,6 +686,22 @@ def _import_engine_class(
     if not isinstance(engine_cls, type):
         raise PluginLoadError(
             f"{class_name!r} in {folder_name} is not a class"
+        )
+
+    # 4. Verify signature compatibility (Duck Typing check for StudioTTSEngine contract)
+    required_methods = ["info", "check_env", "check_request", "synthesize", "settings_schema"]
+    missing_methods = [m for m in required_methods if not hasattr(engine_cls, m) or not callable(getattr(engine_cls, m))]
+
+    # Also check for unimplemented abstract methods if they used the ABC contract
+    abstract_methods = getattr(engine_cls, "__abstractmethods__", set())
+    unimplemented = abstract_methods.intersection(set(required_methods))
+
+    if missing_methods or unimplemented:
+        all_missing = sorted(list(set(missing_methods) | unimplemented))
+        methods_str = ", ".join(all_missing)
+        raise PluginLoadError(
+            f"Class {class_name!r} in {folder_name} is missing or has unimplemented required methods: {methods_str}. "
+            "Engines must implement the StudioTTSEngine contract."
         )
 
     return engine_cls

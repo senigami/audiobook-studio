@@ -25,6 +25,7 @@ export const EngineCard: React.FC<{
   const [testing, setTesting] = useState(false);
   const [installing, setInstalling] = useState(false);
   const [testResult, setTestResult] = useState(engine.last_test);
+  const [removing, setRemoving] = useState(false);
   const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
   const [activeScenario, setActiveScenario] = useState<any | null>(null);
   const [devLogs, setDevLogs] = useState<string[]>([]);
@@ -453,15 +454,29 @@ export const EngineCard: React.FC<{
             )}
           </div>
 
-          <button
-            type="button"
-            className="btn-glass"
-            title="Uninstall this plugin"
-            onClick={() => setRemoveConfirmOpen(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.8rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 800, color: '#b91c1c' }}
-          >
-            <Trash2 size={14} /> Uninstall
-          </button>
+            {!displayEngine.built_in && (
+              <button
+                type="button"
+                className="btn-glass"
+                disabled={removing || saving || installing}
+                title="Uninstall this plugin"
+                onClick={() => setRemoveConfirmOpen(true)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.5rem 0.8rem',
+                  borderRadius: '10px',
+                  fontSize: '0.8rem',
+                  fontWeight: 800,
+                  color: '#b91c1c',
+                  opacity: removing ? 0.5 : 1
+                }}
+              >
+                {removing ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                {removing ? 'Uninstalling...' : 'Uninstall'}
+              </button>
+            )}
         </div>
         <ConfirmModal
           isOpen={removeConfirmOpen}
@@ -473,6 +488,7 @@ export const EngineCard: React.FC<{
               return;
             }
             try {
+              setRemoving(true);
               const res = await api.removeEnginePlugin(displayEngine.engine_id);
               if (res.ok) {
                 onShowNotification?.('Plugin uninstalled successfully.');
@@ -484,6 +500,8 @@ export const EngineCard: React.FC<{
               const msg = getErrorMessage(err);
               if (engine.dev?.enabled) addDevLog(`Error: ${msg}`);
               onShowNotification?.('Failed to uninstall plugin.');
+            } finally {
+              setRemoving(false);
             }
           }}
           title="Uninstall Plugin"

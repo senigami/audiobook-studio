@@ -229,4 +229,30 @@ describe('EngineCard dependency installation', () => {
       expect(onUpdate).toHaveBeenCalled();
     });
   });
+
+  it('shows "Uninstalling..." and disables the button during uninstall, then calls onUpdate and shows notification on success', async () => {
+    const onUpdate = vi.fn();
+    const onShowNotification = vi.fn();
+    vi.mocked(api.removeEnginePlugin).mockResolvedValue({ ok: true });
+
+    render(<EngineCard engine={voxtralEngine} onUpdate={onUpdate} onShowNotification={onShowNotification} />);
+
+    // Click Uninstall to open modal
+    fireEvent.click(screen.getByRole('button', { name: 'Uninstall' }));
+
+    // Click Confirm in modal
+    fireEvent.click(screen.getByRole('button', { name: 'Uninstall Plugin' }));
+
+    const uninstallBtn = screen.getByRole('button', { name: 'Uninstalling...' });
+    expect(uninstallBtn).toBeInTheDocument();
+    expect(uninstallBtn).toBeDisabled();
+
+    await waitFor(() => {
+      expect(onShowNotification).toHaveBeenCalledWith('Plugin uninstalled successfully.');
+      expect(onUpdate).toHaveBeenCalled();
+    });
+
+    expect(screen.queryByText('Uninstalling...')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Uninstall' })).not.toBeDisabled();
+  });
 });

@@ -38,6 +38,7 @@ export interface TtsEngine {
     scenarios?: string;
   };
   logo_url?: string;
+  built_in?: boolean;
 }
 
 export type Status = 'queued' | 'preparing' | 'running' | 'finalizing' | 'done' | 'failed' | 'cancelled' | 'error';

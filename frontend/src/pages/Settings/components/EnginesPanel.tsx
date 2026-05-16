@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { RefreshCw, FileText, Loader2 } from 'lucide-react';
+import { RefreshCw, FileText, Loader2, Upload } from 'lucide-react';
 import type { TtsEngine } from '@/types';
 import { api } from '@/api';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
@@ -16,10 +16,12 @@ export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [installModal, setInstallModal] = useState<{ open: boolean; message: string }>({ open: false, message: '' });
   const [showLogs, setShowLogs] = useState(false);
   const [logs, setLogs] = useState<string>('');
   const [fetchingLogs, setFetchingLogs] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const loadEngines = useCallback(async () => {
     try {
@@ -66,12 +68,29 @@ export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, 
     }
   };
 
-  const handleInstallPlugin = async () => {
+  const handleInstallPlugin = () => {
+    // Open file selector instead of just showing instructions
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setImporting(true);
     try {
-      const res = await api.installPlugin();
-      setInstallModal({ open: true, message: res.message || 'Place your plugin folder in the "plugins/" directory and click Refresh.' });
-    } catch (err) {
-      onShowNotification?.('Failed to retrieve installation instructions.');
+      const res = await api.importEnginePlugin(file);
+      if (res.ok || res.engine_id) {
+        onShowNotification?.(`Plugin ${res.engine_id || ''} imported successfully.`);
+        await refreshAppState();
+      } else {
+        onShowNotification?.(res.message || 'Import failed.');
+      }
+    } catch (err: any) {
+      onShowNotification?.(`Import failed: ${err.message || err}`);
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -117,13 +136,22 @@ export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, 
         />
       ))}
       <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', paddingTop: '0.25rem' }}>
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          accept=".zip"
+          style={{ display: 'none' }}
+        />
         <button
           type="button"
           className="btn-glass"
+          disabled={importing}
           onClick={handleInstallPlugin}
-          style={{ padding: '0.65rem 0.9rem', borderRadius: '10px', border: '1px solid var(--border)', fontWeight: 800 }}
+          style={{ padding: '0.65rem 0.9rem', borderRadius: '10px', border: '1px solid var(--border)', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem' }}
         >
-          Install Plugin
+          {importing ? <Loader2 size={14} className="spin" /> : <Upload size={14} />}
+          {importing ? 'Importing...' : 'Import Plugin (.zip)'}
         </button>
         <button
           type="button"

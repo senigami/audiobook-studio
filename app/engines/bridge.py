@@ -143,7 +143,11 @@ class VoiceBridge:
 
     def remove_plugin(self, engine_id: str) -> dict[str, Any]:
         """Uninstall a plugin."""
-        return {"ok": False, "message": f"Plugin removal not implemented for {engine_id}."}
+        return self.remote.delete_engine(engine_id)
+
+    def import_plugin(self, file_content: bytes, filename: str) -> dict[str, Any]:
+        """Import a plugin from a zip file."""
+        return self.remote.import_plugin(file_content, filename)
 
     def install_plugin(self) -> dict[str, Any]:
         """Provide instructions for manual install."""

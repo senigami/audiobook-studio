@@ -431,6 +431,15 @@ export const api = {
     const res = await fetch(`/api/engines/${encodeURIComponent(engineId)}/test`, { method: 'POST' });
     return parseApiResponse(res);
   },
+  importEnginePlugin: async (file: File): Promise<any> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch('/api/engines/import', {
+      method: 'POST',
+      body: formData,
+    });
+    return parseApiResponse(res);
+  },
   installPlugin: async (): Promise<any> => {
     const res = await fetch('/api/engines/install', { method: 'POST' });
     return parseApiResponse(res);

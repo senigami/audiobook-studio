@@ -259,6 +259,15 @@ class TtsClient:
             timeout=_INSTALL_TIMEOUT,
         )
 
+    def delete_engine(self, engine_id: str) -> dict[str, Any]:
+        """DELETE /engines/{engine_id} — uninstall a plugin."""
+        return self._delete(f"/engines/{_safe_id(engine_id)}")
+
+    def import_plugin(self, file_content: bytes, filename: str) -> dict[str, Any]:
+        """POST /plugins/import — upload and install a plugin zip."""
+        files = {"file": (filename, file_content, "application/zip")}
+        return self._post_files("/plugins/import", files=files)
+
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
@@ -284,6 +293,27 @@ class TtsClient:
         url = f"{self.base_url}{path}"
         try:
             resp = httpx.post(url, json=payload, timeout=timeout)
+        except httpx.ConnectError as exc:
+            raise TtsServerConnectionError(
+                f"Could not connect to TTS Server at {url}: {exc}"
+            ) from exc
+        except httpx.TimeoutException as exc:
+            raise TtsServerConnectionError(
+                f"TTS Server request timed out: {url}: {exc}"
+            ) from exc
+        _raise_for_status(resp, url)
+        return resp.json()
+
+    def _post_files(
+        self,
+        path: str,
+        *,
+        files: dict[str, Any],
+        timeout: float = _CONNECT_TIMEOUT,
+    ) -> Any:
+        url = f"{self.base_url}{path}"
+        try:
+            resp = httpx.post(url, files=files, timeout=timeout)
         except httpx.ConnectError as exc:
             raise TtsServerConnectionError(
                 f"Could not connect to TTS Server at {url}: {exc}"

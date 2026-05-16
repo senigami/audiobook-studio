@@ -104,6 +104,9 @@ class MockEngine:
     def check_env(self): return True, "OK"
     def check_request(self, req): return True, "OK"
     def synthesize(self, req): return TTSResult(ok=True, output_path=req.output_path)
+    # Missing settings_schema intentionally to test fallback if we decide to allow it,
+    # but for now we'll add it to pass signature check or we update signature check.
+    def settings_schema(self): return {}
 """
 
 
@@ -139,11 +142,29 @@ class TestDiscoverPlugins:
         assert result == []
 
     def test_malformed_manifest_json_skipped(self, tmp_path):
-        plugin_dir = tmp_path / "tts_bad"
+        plugin_dir = tmp_path / "tts_malformed"
         plugin_dir.mkdir()
         (plugin_dir / "manifest.json").write_text("NOT JSON", encoding="utf-8")
-        result = discover_plugins(tmp_path)
-        assert result == []
+
+        loaded = discover_plugins(tmp_path)
+        assert len(loaded) == 0
+
+    def test_malformed_settings_schema_json_surfaces_as_invalid(self, tmp_path):
+        # Malformed settings_schema.json should surface if manifest is valid
+        manifest = _minimal_manifest("badschema")
+        manifest["dev"] = {"enabled": True}
+        plugin_dir = _make_plugin_dir(
+            tmp_path,
+            "tts_badschema",
+            manifest,
+            engine_src=_mock_engine_src(),
+        )
+        (plugin_dir / "settings_schema.json").write_text("NOT JSON", encoding="utf-8")
+
+        loaded = discover_plugins(tmp_path)
+        assert len(loaded) == 1
+        assert loaded[0].engine_id == "badschema"
+        assert "not valid JSON" in loaded[0].load_error
 
     def test_duplicate_engine_id_second_skipped(self, tmp_path):
         for folder in ["tts_first", "tts_second"]:
@@ -207,7 +228,11 @@ class TestDiscoverPlugins:
         (plugins_dir / "tts_dotted" / "pkg").mkdir()
         (plugins_dir / "tts_dotted" / "pkg" / "mod.py").write_text("""
 class Engine:
+    def info(self): return {}
     def check_env(self): return True, "OK"
+    def check_request(self, req): return True, "OK"
+    def synthesize(self, req): return None
+    def settings_schema(self): return {}
 """)
         (plugins_dir / "tts_dotted" / "manifest.json").write_text(json.dumps({
             "studio_tts_manifest": "1.0",
@@ -405,7 +430,11 @@ class TestPipDiscovery:
         }))
         (plugins_dir / "tts_folder" / "engine.py").write_text("""
 class Engine:
+    def info(self): return {}
     def check_env(self): return True, "OK"
+    def check_request(self, req): return True, "OK"
+    def synthesize(self, req): return None
+    def settings_schema(self): return {}
 """)
 
         # Mock entry points
@@ -428,7 +457,11 @@ class Engine:
         mock_engine_cls = MagicMock()
         mock_engine_cls.__name__ = "PipEngine"
         mock_instance = MagicMock()
+        mock_instance.info.return_value = {}
         mock_instance.check_env.return_value = (True, "OK")
+        mock_instance.check_request.return_value = (True, "OK")
+        mock_instance.synthesize.return_value = None
+        mock_instance.settings_schema.return_value = {}
         mock_engine_cls.return_value = mock_instance
         mock_ep.load.return_value = mock_engine_cls
 
@@ -461,7 +494,11 @@ class Engine:
         }))
         (plugins_dir / "tts_clash" / "engine.py").write_text("""
 class Engine:
+    def info(self): return {}
     def check_env(self): return True, "OK"
+    def check_request(self, req): return True, "OK"
+    def synthesize(self, req): return None
+    def settings_schema(self): return {}
 """)
 
         # Pip plugin also named "clash"
@@ -623,8 +660,12 @@ class TestPluginIsolation:
         """A plugin that crashes in __init__ should be surfaced if dev.enabled is True."""
         src = """
         class MockEngine:
-            def __init__(self):
-                raise RuntimeError('init crash in dev')
+            def info(self): return {}
+            def check_env(self): return True, "OK"
+            def check_request(self, req): return True, "OK"
+            def synthesize(self, req): return None
+            def settings_schema(self): return {}
+            def __init__(self): raise ValueError("init crash in dev")
         """
         manifest = _minimal_manifest("initdev")
         manifest["dev"] = {"enabled": True}
@@ -643,6 +684,10 @@ class TestPluginIsolation:
         """A plugin that crashes in check_env() should be skipped by default."""
         src = """
         class MockEngine:
+            def info(self): return {}
+            def check_request(self, req): return True, "OK"
+            def synthesize(self, req): return None
+            def settings_schema(self): return {}
             def check_env(self):
                 raise RuntimeError('check_env crash')
         """
@@ -666,8 +711,11 @@ class TestPluginIsolation:
         """A plugin that crashes in check_env() should be surfaced if dev.enabled is True."""
         src = """
         class MockEngine:
-            def check_env(self):
-                raise RuntimeError('check_env crash in dev')
+            def info(self): return {}
+            def check_request(self, req): return True, "OK"
+            def synthesize(self, req): return None
+            def settings_schema(self): return {}
+            def check_env(self): raise ValueError("check_env crash in dev")
         """
         manifest = _minimal_manifest("envdev")
         manifest["dev"] = {"enabled": True}

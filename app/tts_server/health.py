@@ -157,6 +157,7 @@ def build_engine_detail(
         setup_message = None
 
     return {
+        **info_extra,
         "engine_id": plugin.engine_id,
         "display_name": plugin.display_name,
         "status": status,
@@ -185,7 +186,7 @@ def build_engine_detail(
         "missing_dependencies": plugin.missing_dependencies,
         "dev": manifest.get("dev"),
         "logo_url": _resolve_logo_url(plugin),
-        **info_extra,
+        "built_in": manifest.get("built_in", False),
     }
 
 

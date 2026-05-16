@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import Any, Optional
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, File, UploadFile
 from fastapi.responses import JSONResponse, FileResponse
 from ...engines.bridge import create_voice_bridge
 
@@ -171,6 +171,25 @@ def install_engine_dependencies(engine_id: str):
             },
             status_code=500,
         )
+
+
+@router.post("/import")
+async def import_engine_plugin(file: UploadFile = File(...)):
+    """Import an engine plugin from a .zip file."""
+    from ...engines.tts_client import TtsServerError
+    if not file.filename or not file.filename.lower().endswith(".zip"):
+        return JSONResponse({"status": "error", "message": "Only .zip files are supported."}, status_code=400)
+
+    bridge = create_voice_bridge()
+    try:
+        content = await file.read()
+        return bridge.import_plugin(content, file.filename)
+    except TtsServerError as exc:
+        return JSONResponse({"status": "error", "message": str(exc)}, status_code=500)
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).exception("Plugin import failed")
+        return JSONResponse({"status": "error", "message": f"Plugin import failed: {exc}"}, status_code=500)
 
 
 @router.delete("/{engine_id}")

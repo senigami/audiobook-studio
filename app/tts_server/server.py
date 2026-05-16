@@ -16,7 +16,7 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, File, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -404,6 +404,46 @@ def install_dependencies(engine_id: str) -> dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"Unexpected error: {exc}") from exc
 
 
+@app.delete("/engines/{engine_id}")
+def delete_engine(engine_id: str) -> dict[str, Any]:
+    """Uninstall a plugin by shutting it down and deleting its directory."""
+    plugin = _plugin_by_id(engine_id)
+
+    # Protect built-in plugins from deletion.
+    if plugin.manifest.get("built_in"):
+        raise HTTPException(
+            status_code=403,
+            detail="Built-in plugins cannot be uninstalled.",
+        )
+
+    # 1. Shutdown the engine.
+    if plugin.engine is not None:
+        try:
+            plugin.engine.shutdown()
+        except Exception as exc:
+            logger.warning("Shutdown failed during deletion for %s: %s", engine_id, exc)
+
+    # 2. Delete the directory.
+    import shutil
+    try:
+        if plugin.plugin_dir.exists():
+            shutil.rmtree(plugin.plugin_dir)
+            logger.info("Deleted plugin directory: %s", plugin.plugin_dir)
+    except OSError as exc:
+        logger.error("Failed to delete plugin directory %s: %s", plugin.plugin_dir, exc)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to delete plugin directory: {exc}",
+        ) from exc
+
+    # 3. Remove from memory.
+    with _state_lock:
+        global _plugins
+        _plugins = [p for p in _plugins if p.engine_id != engine_id]
+
+    return {"ok": True, "message": f"Successfully uninstalled plugin {engine_id}"}
+
+
 @app.post("/engines/{engine_id}/verify")
 def reverify_engine(engine_id: str) -> dict[str, Any]:
     """Re-run verification synthesis for an engine."""
@@ -629,4 +669,89 @@ def refresh_plugins() -> dict[str, Any]:
     return {
         "ok": True,
         "loaded_count": new_count,
+    }
+
+
+@app.post("/plugins/import")
+async def import_plugin(file: UploadFile = File(...)) -> dict[str, Any]:
+    """Import a plugin from a .zip file."""
+    import io
+    import json
+    import zipfile
+    import shutil
+    from pathlib import PurePosixPath
+
+    if not file.filename or not file.filename.lower().endswith(".zip"):
+        raise HTTPException(status_code=400, detail="Only .zip files are supported.")
+
+    content = await file.read()
+    try:
+        zf = zipfile.ZipFile(io.BytesIO(content))
+    except zipfile.BadZipFile as exc:
+        raise HTTPException(status_code=400, detail="Invalid zip file.") from exc
+
+    with zf:
+        # 1. Path safety and member list
+        members = zf.infolist()
+        for member in members:
+            path = PurePosixPath(member.filename)
+            if path.is_absolute() or any(part in ("", ".", "..") for part in path.parts):
+                raise HTTPException(status_code=400, detail=f"Unsafe path in zip: {member.filename}")
+
+        # 2. Check for manifest.json
+        manifest_names = [m.filename for m in members if m.filename.lower() == "manifest.json"]
+        if not manifest_names:
+            raise HTTPException(status_code=400, detail="Plugin zip is missing manifest.json")
+
+        try:
+            manifest_data = json.loads(zf.read(manifest_names[0]).decode("utf-8"))
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid manifest.json: {exc}") from exc
+
+        # 2b. Check for optional settings_schema.json
+        schema_names = [m.filename for m in members if m.filename.lower() == "settings_schema.json"]
+        if schema_names:
+            try:
+                schema_data = json.loads(zf.read(schema_names[0]).decode("utf-8"))
+                if not isinstance(schema_data, dict):
+                    raise ValueError("settings_schema.json must be a dictionary (object) at the root.")
+            except Exception as exc:
+                raise HTTPException(status_code=400, detail=f"Invalid settings_schema.json: {exc}") from exc
+
+        # 3. Validate engine_id
+        engine_id = manifest_data.get("engine_id")
+        if not engine_id:
+            raise HTTPException(status_code=400, detail="manifest.json missing engine_id")
+
+        import re
+        if not re.fullmatch(r"[a-z][a-z0-9_]{1,14}", engine_id):
+            raise HTTPException(status_code=400, detail=f"Invalid engine_id: {engine_id}")
+
+        # 4. Check for conflicts
+        target_folder = f"tts_{engine_id}"
+        target_dir = _plugins_dir / target_folder
+        if target_dir.exists():
+            raise HTTPException(status_code=409, detail=f"Plugin folder {target_folder} already exists.")
+
+        # 5. Extract to staging
+        import uuid
+        staging_dir = _plugins_dir / f".import_{uuid.uuid4().hex}"
+        try:
+            staging_dir.mkdir(parents=True)
+            zf.extractall(staging_dir)
+
+            # 6. Atomic-ish move
+            staging_dir.rename(target_dir)
+        except Exception as exc:
+            if staging_dir.exists():
+                shutil.rmtree(staging_dir)
+            raise HTTPException(status_code=500, detail=f"Failed to extract plugin: {exc}") from exc
+
+    # 7. Refresh plugins in memory
+    load_plugins(_plugins_dir)
+
+    return {
+        "ok": True,
+        "message": f"Successfully imported plugin {engine_id}",
+        "engine_id": engine_id,
     }
