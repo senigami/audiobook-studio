@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from app.tts_server.plugin_loader import discover_plugins, LoadedPlugin
 from app.tts_server.verification import verify_all
 from app.tts_server.server import load_plugins, refresh_plugins
+from app.engines.voice.sdk import TTSResult
 
 def _make_plugin_dir(
     tmp_path: Path,
@@ -32,6 +33,26 @@ def _minimal_manifest(engine_id="mock", entry_class="engine:MockEngine"):
     }
 
 class TestTTSServerIsolation:
+    class _NoopHooks:
+        def preprocess_request(self, _request):
+            return None
+
+        def postprocess_audio(self, _output_path, _settings):
+            return None
+
+    class _PendingVerificationEngine:
+        def check_env(self):
+            return True, "OK"
+
+        def hooks(self):
+            return TestTTSServerIsolation._NoopHooks()
+
+        def check_request(self, _req):
+            return True, "OK"
+
+        def synthesize(self, req):
+            return TTSResult(ok=True, output_path=req.output_path)
+
     def test_ready_endpoint_is_cheap(self):
         from app.tts_server.server import app
 
@@ -59,6 +80,8 @@ class TestTTSServerIsolation:
                 def check_env(self): return True, "OK"
                 def check_request(self, req): return True, "OK"
                 def info(self): return {}
+                def settings_schema(self): return {}
+                def synthesize(self, req): return VerificationResult(ok=True)
                 def run_test(self): return VerificationResult(ok=True)
         """)
 
@@ -69,12 +92,21 @@ class TestTTSServerIsolation:
         _make_plugin_dir(tmp_path, "tts_badinit", _minimal_manifest("badinit"), """
             class MockEngine:
                 def __init__(self): raise RuntimeError("init crash")
+                def check_env(self): return True, "OK"
+                def check_request(self, req): return True, "OK"
+                def info(self): return {}
+                def settings_schema(self): return {}
+                def synthesize(self, req): return None
         """)
 
         # 4. Crash on check_env plugin
         _make_plugin_dir(tmp_path, "tts_badenv", _minimal_manifest("badenv"), """
             class MockEngine:
                 def check_env(self): raise RuntimeError("env crash")
+                def check_request(self, req): return True, "OK"
+                def info(self): return {}
+                def settings_schema(self): return {}
+                def synthesize(self, req): return None
         """)
 
         # 5. Crash on verification plugin (passes loader but fails verify_all)
@@ -82,6 +114,9 @@ class TestTTSServerIsolation:
             class MockEngine:
                 def check_env(self): return True, "OK"
                 def check_request(self, req): return True, "OK"
+                def info(self): return {}
+                def settings_schema(self): return {}
+                def synthesize(self, req): return None
                 def run_test(self): raise RuntimeError("verify crash")
         """)
 
@@ -117,6 +152,10 @@ class TestTTSServerIsolation:
             from app.engines.voice.sdk import VerificationResult
             class MockEngine:
                 def check_env(self): return True, "OK"
+                def check_request(self, req): return True, "OK"
+                def info(self): return {}
+                def settings_schema(self): return {}
+                def synthesize(self, req): return VerificationResult(ok=True)
                 def shutdown(self): pass
                 def run_test(self): return VerificationResult(ok=True)
         """)
@@ -183,3 +222,74 @@ class TestTTSServerIsolation:
         settings = json.loads((plugin_data_dir / "mock" / "settings.json").read_text(encoding="utf-8"))
         assert "computer_speed_multiplier" not in settings
         assert settings["temperature"] == 0.7
+
+    def test_synthesize_allows_pending_verification_engine(self, tmp_path):
+        from app.tts_server.server import app
+
+        plugin_dir = tmp_path / "tts_pending"
+        plugin_dir.mkdir()
+        plugin = SimpleNamespace(
+            engine_id="pending",
+            folder_name="tts_pending",
+            plugin_dir=plugin_dir,
+            engine=self._PendingVerificationEngine(),
+            manifest={},
+            verified=False,
+            verification_error=None,
+            load_error=None,
+            dependencies_satisfied=True,
+            missing_dependencies=[],
+            setup_message=None,
+        )
+
+        client = TestClient(app)
+        with patch("app.tts_server.server._plugins", [plugin]), \
+             patch("app.tts_server.server.load_settings", return_value={}):
+            response = client.post(
+                "/synthesize",
+                json={
+                    "engine_id": "pending",
+                    "text": "Hello world",
+                    "output_path": str(tmp_path / "out.wav"),
+                    "task_id": "task-1",
+                },
+            )
+
+        assert response.status_code == 200
+        assert response.json()["ok"] is True
+        assert response.json()["output_path"] == str(tmp_path / "out.wav")
+
+    def test_synthesize_blocks_after_failed_verification(self, tmp_path):
+        from app.tts_server.server import app
+
+        plugin_dir = tmp_path / "tts_failed"
+        plugin_dir.mkdir()
+        plugin = SimpleNamespace(
+            engine_id="failed",
+            folder_name="tts_failed",
+            plugin_dir=plugin_dir,
+            engine=self._PendingVerificationEngine(),
+            manifest={},
+            verified=False,
+            verification_error="verify crash",
+            load_error=None,
+            dependencies_satisfied=True,
+            missing_dependencies=[],
+            setup_message=None,
+        )
+
+        client = TestClient(app)
+        with patch("app.tts_server.server._plugins", [plugin]), \
+             patch("app.tts_server.server.load_settings", return_value={}):
+            response = client.post(
+                "/synthesize",
+                json={
+                    "engine_id": "failed",
+                    "text": "Hello world",
+                    "output_path": str(tmp_path / "out.wav"),
+                    "task_id": "task-2",
+                },
+            )
+
+        assert response.status_code == 503
+        assert "failed verification" in response.json()["detail"]

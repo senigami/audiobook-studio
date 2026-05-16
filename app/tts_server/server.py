@@ -476,11 +476,21 @@ def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
 
     plugin = _plugin_by_id(body.engine_id)
 
-    if not plugin.verified:
-        status = engine_status(plugin)
+    status = engine_status(plugin)
+    if status in {"needs_setup", "invalid_config"}:
         raise HTTPException(
             status_code=503,
-            detail=f"Engine {body.engine_id} is not verified (status: {status})",
+            detail=f"Engine {body.engine_id} is not ready (status: {status})",
+        )
+    if getattr(plugin, "verification_error", None):
+        raise HTTPException(
+            status_code=503,
+            detail=f"Engine {body.engine_id} failed verification: {plugin.verification_error}",
+        )
+    if not plugin.verified:
+        logger.warning(
+            "Engine %s is synthesizing while verification is still pending.",
+            body.engine_id,
         )
 
     # Load persisted settings and merge with request overrides.
