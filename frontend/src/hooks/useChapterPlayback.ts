@@ -4,6 +4,7 @@ import type { ChunkGroup } from '@/utils/chunkGroups';
 
 export function useChapterPlayback(
   projectId: string,
+  chapterId: string,
   segments: ChapterSegment[],
   chunkGroups: ChunkGroup[],
   generatingSegmentIds: Set<string>,
@@ -14,6 +15,8 @@ export function useChapterPlayback(
   const [playingSegmentIds, setPlayingSegmentIds] = useState<Set<string>>(new Set());
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
   const playbackQueueRef = useRef<string[]>([]);
   const isPlayingRef = useRef<boolean>(false);
@@ -73,7 +76,7 @@ export function useChapterPlayback(
     const audioPath = seg.audio_file_path;
     const wavPath = audioPath.replace(/\.[^.]+$/, '.wav');
     const mp3Path = audioPath.replace(/\.[^.]+$/, '.mp3');
-    
+
     const urls = [
       `/api/projects/${projectId}/chapters/${seg.chapter_id}/assets/segment?filename=${encodeURIComponent(audioPath)}`,
       `/api/projects/${projectId}/chapters/${seg.chapter_id}/assets/segment?filename=${encodeURIComponent(wavPath)}`,
@@ -104,7 +107,7 @@ export function useChapterPlayback(
         }
         playFromIndex(nextIdx, queue);
       };
-      
+
       audio.onerror = () => {
         if (!isPlayingRef.current) return;
         urlIdx++;
@@ -114,7 +117,15 @@ export function useChapterPlayback(
           playFromIndex(idx + 1, queue);
         }
       };
-      
+
+      audio.ontimeupdate = () => {
+        setCurrentTime(audio.currentTime);
+      };
+
+      audio.onloadedmetadata = () => {
+        setDuration(audio.duration);
+      };
+
       audio.play().catch(e => {
         console.error("Playback failed", e);
         audio.onerror?.(new Event('error') as any);
@@ -143,13 +154,15 @@ export function useChapterPlayback(
   }, [segments, generatingSegmentIds]);
 
   useEffect(() => {
-    return () => stopSkim();
-  }, []);
+    return () => stopPlayback();
+  }, [chapterId]);
 
   const stopPlayback = () => {
     stopSkim();
     if (audioPlayerRef.current) {
       audioPlayerRef.current.onpause = null;
+      audioPlayerRef.current.ontimeupdate = null;
+      audioPlayerRef.current.onloadedmetadata = null;
       audioPlayerRef.current.pause();
       audioPlayerRef.current = null;
     }
@@ -158,6 +171,8 @@ export function useChapterPlayback(
     isPlayingRef.current = false;
     setIsPlaying(false);
     setIsPaused(false);
+    setCurrentTime(0);
+    setDuration(0);
     playbackQueueRef.current = [];
     pendingPlaybackRef.current = null;
   };
@@ -169,6 +184,13 @@ export function useChapterPlayback(
       audio.play().catch(() => {});
     } else {
       audio.pause();
+    }
+  };
+
+  const seekTo = (time: number) => {
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.currentTime = time;
+      setCurrentTime(time);
     }
   };
 
@@ -202,7 +224,7 @@ export function useChapterPlayback(
     setIsPlaying(true);
     setIsPaused(false);
     playbackQueueRef.current = fullQueue;
-    
+
     const currentIndex = fullQueue.indexOf(segmentId);
     if (currentIndex === -1) {
       setIsPlaying(false);
@@ -240,8 +262,11 @@ export function useChapterPlayback(
     playSegment,
     stopPlayback,
     togglePause,
+    seekTo,
     isPlaying,
     isPaused,
+    currentTime,
+    duration,
     startSkim,
     stopSkim
   };

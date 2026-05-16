@@ -42,8 +42,8 @@ describe('useChapterPlayback', () => {
   });
 
   it('starts playback and plays next segment on end', async () => {
-    const { result } = renderHook(() => 
-      useChapterPlayback('proj1', segments, chunkGroups, generatingSegmentIds, onGenerate)
+    const { result, unmount } = renderHook(() =>
+      useChapterPlayback('proj1', 'chap1', segments, chunkGroups, generatingSegmentIds, onGenerate)
     );
 
     let mockAudioInstance: any;
@@ -70,11 +70,14 @@ describe('useChapterPlayback', () => {
 
     // Should move to s2
     expect(result.current.playingSegmentId).toBe('s2');
+
+    unmount();
+    expect(mockAudioInstance.pause).toHaveBeenCalled();
   });
 
   it('stops playback', async () => {
-    const { result } = renderHook(() => 
-      useChapterPlayback('proj1', segments, chunkGroups, generatingSegmentIds, onGenerate)
+    const { result } = renderHook(() =>
+      useChapterPlayback('proj1', 'chap1', segments, chunkGroups, generatingSegmentIds, onGenerate)
     );
 
     await act(async () => {
@@ -88,9 +91,39 @@ describe('useChapterPlayback', () => {
     expect(result.current.playingSegmentId).toBeNull();
   });
 
+  it('stops playback on chapter change', async () => {
+    const { result, rerender } = renderHook(
+      ({ chapterId }) => useChapterPlayback('proj1', chapterId, segments, chunkGroups, generatingSegmentIds, onGenerate),
+      { initialProps: { chapterId: 'chap1' } }
+    );
+
+    let mockAudioInstance: any;
+    (global.Audio as any).mockImplementation((src: string) => {
+      mockAudioInstance = {
+        play: vi.fn().mockResolvedValue(undefined),
+        pause: vi.fn(),
+        src,
+      };
+      return mockAudioInstance;
+    });
+
+    await act(async () => {
+      await result.current.playSegment('s1', ['s1', 's2']);
+    });
+
+    expect(result.current.isPlaying).toBe(true);
+
+    await act(async () => {
+      rerender({ chapterId: 'chap2' });
+    });
+
+    expect(result.current.isPlaying).toBe(false);
+    expect(mockAudioInstance.pause).toHaveBeenCalled();
+  });
+
   it('keeps stop from leaving playback in a paused state', async () => {
     const { result } = renderHook(() =>
-      useChapterPlayback('proj1', segments, chunkGroups, generatingSegmentIds, onGenerate)
+      useChapterPlayback('proj1', 'chap1', segments, chunkGroups, generatingSegmentIds, onGenerate)
     );
 
     let mockAudioInstance: any;
@@ -128,8 +161,8 @@ describe('useChapterPlayback', () => {
       { id: 's1', text_content: 'Hello', audio_status: 'unprocessed' },
     ] as any;
 
-    const { result } = renderHook(() => 
-      useChapterPlayback('proj1', segmentsMissing, [{ characterId: null, profileName: null, engine: 'xtts', segments: segmentsMissing as any }], generatingSegmentIds, onGenerate)
+    const { result } = renderHook(() =>
+      useChapterPlayback('proj1', 'chap1', segmentsMissing, [{ characterId: null, profileName: null, engine: 'xtts', segments: segmentsMissing as any }], generatingSegmentIds, onGenerate)
     );
 
     await act(async () => {
@@ -148,6 +181,7 @@ describe('useChapterPlayback', () => {
     const { result } = renderHook(() =>
       useChapterPlayback(
         'proj1',
+        'chap1',
         nextGroupMissing as any,
         [
           { characterId: 'char-1', profileName: null, engine: 'xtts', segments: [nextGroupMissing[0] as any] },
@@ -176,7 +210,7 @@ describe('useChapterPlayback', () => {
     ] as any;
 
     const { result, rerender } = renderHook(
-      ({ segs, chunked, generating }) => useChapterPlayback('proj1', segs, chunked, generating, onGenerate),
+      ({ segs, chunked, generating }) => useChapterPlayback('proj1', 'chap1', segs, chunked, generating, onGenerate),
       {
         initialProps: {
           segs: segmentsMissing,
@@ -218,8 +252,8 @@ describe('useChapterPlayback', () => {
   });
 
   it('handles playback error with fallback', async () => {
-    const { result } = renderHook(() => 
-      useChapterPlayback('proj1', segments, chunkGroups, generatingSegmentIds, onGenerate)
+    const { result } = renderHook(() =>
+      useChapterPlayback('proj1', 'chap1', segments, chunkGroups, generatingSegmentIds, onGenerate)
     );
 
     let errorTriggered = false;
@@ -229,7 +263,7 @@ describe('useChapterPlayback', () => {
         pause: vi.fn(),
         onerror: null,
       };
-      
+
       audio.play.mockImplementation(() => {
         if (!errorTriggered) {
           errorTriggered = true;
@@ -239,7 +273,7 @@ describe('useChapterPlayback', () => {
         }
         return Promise.resolve();
       });
-      
+
       return audio;
     });
 
@@ -259,7 +293,7 @@ describe('useChapterPlayback', () => {
     ] as any;
 
     const { result } = renderHook(() =>
-      useChapterPlayback('proj1', groupedSegments, [], new Set(), onGenerate)
+      useChapterPlayback('proj1', 'chap1', groupedSegments, [], new Set(), onGenerate)
     );
 
     let mockAudioInstance: any;
@@ -289,7 +323,7 @@ describe('useChapterPlayback', () => {
 
   it('skims forward and backward', async () => {
     const { result } = renderHook(() =>
-      useChapterPlayback('proj1', segments, chunkGroups, generatingSegmentIds, onGenerate)
+      useChapterPlayback('proj1', 'chap1', segments, chunkGroups, generatingSegmentIds, onGenerate)
     );
 
     let mockAudioInstance: any;
@@ -338,4 +372,5 @@ describe('useChapterPlayback', () => {
 
     expect(mockAudioInstance.currentTime).toBe(10.0); // Should not change after stop
   });
+
 });

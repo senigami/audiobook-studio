@@ -13,7 +13,7 @@ describe('PlaybackControls Component', () => {
     onNext: vi.fn(),
     hasPrev: true,
     hasNext: true,
-    currentLabel: 'Test Segment'
+    activeLabel: 'Test Segment'
   };
 
   it('renders all controls', () => {
@@ -66,13 +66,13 @@ describe('PlaybackControls Component', () => {
     const onNext = vi.fn();
 
     const { rerender } = render(
-      <PlaybackControls 
-        {...defaultProps} 
-        onPlay={onPlay} 
-        onPause={onPause} 
-        onStop={onStop} 
-        onPrev={onPrev} 
-        onNext={onNext} 
+      <PlaybackControls
+        {...defaultProps}
+        onPlay={onPlay}
+        onPause={onPause}
+        onStop={onStop}
+        onPrev={onPrev}
+        onNext={onNext}
         isPlaying={false}
       />
     );
@@ -81,13 +81,13 @@ describe('PlaybackControls Component', () => {
     expect(onPlay).toHaveBeenCalled();
 
     rerender(
-      <PlaybackControls 
-        {...defaultProps} 
-        onPlay={onPlay} 
-        onPause={onPause} 
-        onStop={onStop} 
-        onPrev={onPrev} 
-        onNext={onNext} 
+      <PlaybackControls
+        {...defaultProps}
+        onPlay={onPlay}
+        onPause={onPause}
+        onStop={onStop}
+        onPrev={onPrev}
+        onNext={onNext}
         isPlaying={true}
         isPaused={false}
       />
@@ -131,5 +131,40 @@ describe('PlaybackControls Component', () => {
 
     fireEvent.pointerLeave(backward);
     expect(onSkimStop).toHaveBeenCalled();
+  });
+
+  it('renders seek bar and time labels when playing', () => {
+    render(
+      <PlaybackControls
+        {...defaultProps}
+        isPlaying={true}
+        currentTime={125.5}
+        duration={300}
+        activeLabel="Speaker A: Hello world"
+      />
+    );
+
+    expect(screen.getByText('2:05')).toBeInTheDocument(); // 125.5s
+    expect(screen.getByText('5:00')).toBeInTheDocument(); // 300s
+    expect(screen.getByText('Speaker A: Hello world')).toBeInTheDocument();
+    expect(screen.getByLabelText('Seek')).toBeInTheDocument();
+    expect(screen.getByLabelText('Seek')).toHaveValue('125.5');
+  });
+
+  it('calls onSeek when slider changes', () => {
+    const onSeek = vi.fn();
+    render(
+      <PlaybackControls
+        {...defaultProps}
+        isPlaying={true}
+        currentTime={0}
+        duration={100}
+        onSeek={onSeek}
+      />
+    );
+
+    const slider = screen.getByLabelText('Seek');
+    fireEvent.change(slider, { target: { value: '50' } });
+    expect(onSeek).toHaveBeenCalledWith(50);
   });
 });

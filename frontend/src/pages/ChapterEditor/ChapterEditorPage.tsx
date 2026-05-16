@@ -23,10 +23,10 @@ import { useChapterEditor } from '@/hooks/useChapterEditor';
 import { buildVoiceOptions, getDefaultVoiceProfileName, getVoiceOptionLabel } from '@/utils/voiceProfiles';
 import { buildChunkGroups } from '@/utils/chunkGroups';
 
-import { 
-  resolveVoiceEngineStatus, 
-  downloadBlob, 
-  formatExportFilename 
+import {
+  resolveVoiceEngineStatus,
+  downloadBlob,
+  formatExportFilename
 } from '@/utils/chapterEditorHelpers';
 
 interface ChapterEditorProps {
@@ -46,18 +46,18 @@ interface ChapterEditorProps {
   chapterUpdate?: { chapterId: string; tick: number };
 }
 
-export const ChapterEditor: React.FC<ChapterEditorProps> = ({ 
-  chapterId, 
-  projectId, 
-  speakerProfiles, 
-  speakers, 
+export const ChapterEditor: React.FC<ChapterEditorProps> = ({
+  chapterId,
+  projectId,
+  speakerProfiles,
+  speakers,
   engines = [],
-  job: propJob, 
+  job: propJob,
   chapterJobs = [],
   segmentProgress = {},
-  selectedVoice: externalVoice, 
-  onNext, 
-  onPrev, 
+  selectedVoice: externalVoice,
+  onNext,
+  onPrev,
   segmentUpdate,
   chapterUpdate
 }) => {
@@ -79,7 +79,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     generatingSegmentIds,
     analysis, setAnalysis,
     analyzing, loadingVoiceChunks,
-    ensureVoiceChunks, 
+    ensureVoiceChunks,
     loadChapter,
     reloadLatestBlocks,
     generatingSegmentJob,
@@ -114,7 +114,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   // so letter animation stays frame-accurate with the visual bar.
   const [liveBarSegmentProgress, setLiveBarSegmentProgress] = useState(0);
 
-  
+
   const [confirmConfig, setConfirmConfig] = useState<{
     title: string;
     message: string;
@@ -204,13 +204,13 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   const chapterRenderRenderingSegmentIds = useMemo(() => {
     const ids = new Set<string>();
     if (!isChapterProcessing) return ids;
-    
-    // 1. Add optimistic highlights for segments being queued, 
+
+    // 1. Add optimistic highlights for segments being queued,
     // but only if they aren't already being handled by an active job's batch rendering
     if (generatingSegmentIds.size > 0) {
       for (const id of generatingSegmentIds) {
-        // If this segment is part of an active job, we let the job-based 
-        // batch highlighting logic below handle it to ensure finished spans 
+        // If this segment is part of an active job, we let the job-based
+        // batch highlighting logic below handle it to ensure finished spans
         // in the job correctly lose their highlight.
         if (!liveSegmentJobIds.has(id)) {
           ids.add(id);
@@ -282,13 +282,36 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   }, [liveBarSegmentProgress, chapterRenderRenderingSegmentIds, generatingSegmentJob, job, scriptViewData?.render_batches, scriptViewData?.spans]);
 
 
-  const { playingSegmentId, playingSegmentIds, playSegment, stopPlayback, togglePause, isPlaying, isPaused, startSkim, stopSkim } = useChapterPlayback(
-    projectId, segments, chunkGroups, chapterRenderPendingSegmentIds, 
+  const {
+    playingSegmentId,
+    playingSegmentIds,
+    playSegment,
+    stopPlayback,
+    togglePause,
+    seekTo,
+    isPlaying,
+    isPaused,
+    currentTime,
+    duration,
+    startSkim,
+    stopSkim
+  } = useChapterPlayback(
+    projectId, chapterId, segments, chunkGroups, chapterRenderPendingSegmentIds,
     (sids) => handleGenerate(sids, effectiveSelectedVoice, (msg) => setConfirmConfig({ title: 'Generation Blocked', message: msg, onConfirm: () => {}, confirmText: 'OK' })),
     scriptViewData?.audio_groups || []
   );
 
   const playbackQueue = useMemo(() => segments.map(segment => segment.id), [segments]);
+
+  const activePlaybackLabel = useMemo(() => {
+    if (!playingSegmentId) return undefined;
+    const seg = segments.find(s => s.id === playingSegmentId);
+    if (!seg) return undefined;
+    const char = characters.find(c => c.id === seg.character_id);
+    const speakerName = char?.name || 'Narrator';
+    return `${speakerName}: ${seg.text_content.slice(0, 40)}${seg.text_content.length > 40 ? '...' : ''}`;
+  }, [playingSegmentId, segments, characters]);
+
 
   const playbackBlockStartIds = useMemo(() => {
     const queueSet = new Set(playbackQueue);
@@ -311,6 +334,30 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
 
     return blockStarts;
   }, [playbackQueue, scriptViewData?.audio_groups]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (confirmConfig || e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || (e.target as HTMLElement).isContentEditable) {
+        return;
+      }
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (isPlaying) {
+          togglePause();
+        } else if (playbackBlockStartIds.length > 0) {
+          playSegment(playingSegmentId || playbackBlockStartIds[0], playbackQueue);
+        }
+      } else if (e.code === 'Escape') {
+        if (isPlaying) {
+          stopPlayback();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [confirmConfig, isPlaying, playingSegmentId, playbackBlockStartIds, playbackQueue, togglePause, playSegment, stopPlayback]);
 
   const currentPlaybackBlockIndex = useMemo(() => {
     if (!playingSegmentId) return -1;
@@ -400,17 +447,17 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   if (loading) return <div style={{ padding: '2rem' }}>Loading editor...</div>;
   if (!chapter) return <div style={{ padding: '2rem' }}>Chapter not found.</div>;
 
-  const hasUnsavedChanges = (title || "").trim() !== (chapter.title || "").trim() || 
+  const hasUnsavedChanges = (title || "").trim() !== (chapter.title || "").trim() ||
                            (text || "").replace(/\r\n/g, '\n') !== (chapter.text_content || "").replace(/\r\n/g, '\n');
 
   return (
     <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, background: 'var(--bg)', position: 'relative', zIndex: 100 }}>
-      <ChapterHeader 
+      <ChapterHeader
         chapter={chapter} title={title} setTitle={setTitle} saving={saving} hasUnsavedChanges={hasUnsavedChanges}
         onPrev={onPrev ? async () => { await handleSave(); onPrev(); } : undefined}
         onNext={onNext ? async () => { await handleSave(); onNext(); } : undefined}
-        selectedVoice={localVoice} 
-        onVoiceChange={(v) => handleVoiceChange(v, (msg) => setConfirmConfig({ title: 'Voice Update Failed', message: msg, onConfirm: () => {}, confirmText: 'OK' }))} 
+        selectedVoice={localVoice}
+        onVoiceChange={(v) => handleVoiceChange(v, (msg) => setConfirmConfig({ title: 'Voice Update Failed', message: msg, onConfirm: () => {}, confirmText: 'OK' }))}
         availableVoices={availableVoices} defaultVoiceLabel={chapterDefaultVoiceLabel}
         submitting={submitting} queueLocked={submitting || !anyEnginesEnabled} queuePending={headerQueuePending} job={job} generatingJob={generatingSegmentJob} generatingSegmentIdsCount={chapterRenderRenderingSegmentIds.size || chapterRenderPendingSegmentIds.size}
         queueLabel={queueButtonLabel}
@@ -421,7 +468,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         onQueue={() => {
             const onBlocked = (msg: string) => setConfirmConfig({ title: 'Queue Blocked', message: msg, onConfirm: () => {}, confirmText: 'OK' });
             const onSuccess = (msg: string) => setQueueNotice(msg);
-            
+
             if (shouldWarnBeforeRequeue) {
                 setConfirmConfig({
                     title: 'Requeue Completed Chapter',
@@ -441,7 +488,11 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
             } else executeQueue(effectiveSelectedVoice, onBlocked, onSuccess);
         }}
         onStopAll={async () => {
-            try { await api.cancelChapterGeneration(chapterId); loadChapter('cancel'); }
+            try {
+                stopPlayback();
+                await api.cancelChapterGeneration(chapterId);
+                loadChapter('cancel');
+            }
             catch (e) { console.error("Cancel failed", e); }
         }}
         onCommitSourceText={handleRequestResyncPreview}
@@ -452,11 +503,11 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
       <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '1.5rem', overflow: 'hidden', minHeight: 0 }}>
             <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-                <EditorTabs 
+                <EditorTabs
                   editorTab={editorTab} setEditorTab={(tab) => {
                     setEditorTab(tab);
                     setSourceTextMode('view');
-                  }} onSave={handleSave} 
+                  }} onSave={handleSave}
                   onEnsureVoiceChunks={() => ensureVoiceChunks(handleSave)}
                   onRequestEditSourceText={() => {
                     setConfirmConfig({
@@ -473,7 +524,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                   analysis={analysis} loadingVoiceChunks={loadingVoiceChunks}
                   sourceTextMode={sourceTextMode}
                 />
-                
+
                 {editorTab === 'script' && scriptViewData && (
                   <ScriptView
                     data={scriptViewData}
@@ -508,40 +559,22 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                     }))}
                     activeCharacterId={selectedCharacterId}
                     speakers={speakers}
-                    toolbarControls={(
-                      <PlaybackControls
-                        isPlaying={isPlaying}
-                        isPaused={isPaused}
-                        onPlay={() => {
-                            if (isPaused && playingSegmentId) togglePause();
-                            else if (playbackBlockStartIds.length > 0) playSegment(playingSegmentId || playbackBlockStartIds[0], playbackQueue);
-                        }}
-                        onPause={togglePause}
-                        onStop={stopPlayback}
-                        onPrev={currentPlaybackBlockIndex > 0 ? () => playSegment(playbackBlockStartIds[currentPlaybackBlockIndex - 1], playbackQueue) : undefined}
-                        onNext={currentPlaybackBlockIndex >= 0 && currentPlaybackBlockIndex < playbackBlockStartIds.length - 1 ? () => playSegment(playbackBlockStartIds[currentPlaybackBlockIndex + 1], playbackQueue) : undefined}
-                        onSkimStart={startSkim}
-                        onSkimStop={stopSkim}
-                        hasPrev={currentPlaybackBlockIndex > 0}
-                        hasNext={currentPlaybackBlockIndex >= 0 && currentPlaybackBlockIndex < playbackBlockStartIds.length - 1}
-                      />
-                    )}
                   />
                 )}
                 {editorTab === 'script' && !scriptViewData && (
                   <ScriptViewFallback loading={scriptViewLoading} textContent={chapter?.text_content || text} />
                 )}
                 {editorTab === 'edit' && (
-                  <EditTab 
-                    text={text} setText={setText} analysis={analysis} setAnalysis={setAnalysis} 
-                    analyzing={analyzing} chapter={chapter} segmentsCount={segments.length} 
+                  <EditTab
+                    text={text} setText={setText} analysis={analysis} setAnalysis={setAnalysis}
+                    analyzing={analyzing} chapter={chapter} segmentsCount={segments.length}
                     hasUnsavedChanges={hasUnsavedChanges}
                     sourceTextMode={sourceTextMode}
                   />
                 )}
                 {editorTab === 'performance' && (
-                  <PerformanceTab 
-                    chunkGroups={chunkGroups} characters={characters} playingSegmentId={playingSegmentId} 
+                  <PerformanceTab
+                    chunkGroups={chunkGroups} characters={characters} playingSegmentId={playingSegmentId}
                     playbackQueue={segments.map(s => s.id)} generatingSegmentIds={generatingSegmentIds} queuedSegmentIds={queuedSegmentJobIds}
                     allSegmentIds={segments.map(s => s.id)} segments={segments}
                     onPlay={playSegment} onStop={stopPlayback} onGenerate={(sids) => handleGenerate(sids, effectiveSelectedVoice, (msg) => setConfirmConfig({ title: 'Generation Blocked', message: msg, onConfirm: () => {}, confirmText: 'OK' }))}
@@ -552,7 +585,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                 )}
                 {editorTab === 'preview' && <PreviewTab analysis={analysis} analyzing={analyzing} />}
                 {editorTab === 'production' && (
-                  <ProductionTab 
+                  <ProductionTab
                     chapterId={chapterId}
                     blocks={productionBlocks}
                     renderBatches={renderBatches}
@@ -580,7 +613,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
             </div>
         </div>
 
-        <CharacterSidebar 
+        <CharacterSidebar
             characters={characters} speakers={speakers} speakerProfiles={speakerProfiles} engines={engines}
             selectedCharacterId={selectedCharacterId} setSelectedCharacterId={setSelectedCharacterId}
             selectedProfileName={selectedProfileName} setSelectedProfileName={setSelectedProfileName}
@@ -588,6 +621,29 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
             onUpdateCharacterColor={handleUpdateCharacterColor}
             segmentsCount={segments.length} wordCount={chapter.word_count || 0}
         />
+      </div>
+
+      <div style={{ padding: '0 1.5rem 1.5rem 1.5rem', flexShrink: 0 }}>
+          <PlaybackControls
+            isPlaying={isPlaying}
+            isPaused={isPaused}
+            currentTime={currentTime}
+            duration={duration}
+            onSeek={seekTo}
+            activeLabel={activePlaybackLabel}
+            onPlay={() => {
+                if (isPaused && playingSegmentId) togglePause();
+                else if (playbackBlockStartIds.length > 0) playSegment(playingSegmentId || playbackBlockStartIds[0], playbackQueue);
+            }}
+            onPause={togglePause}
+            onStop={stopPlayback}
+            onPrev={currentPlaybackBlockIndex > 0 ? () => playSegment(playbackBlockStartIds[currentPlaybackBlockIndex - 1], playbackQueue) : undefined}
+            onNext={currentPlaybackBlockIndex >= 0 && currentPlaybackBlockIndex < playbackBlockStartIds.length - 1 ? () => playSegment(playbackBlockStartIds[currentPlaybackBlockIndex + 1], playbackQueue) : undefined}
+            onSkimStart={startSkim}
+            onSkimStop={stopSkim}
+            hasPrev={currentPlaybackBlockIndex > 0}
+            hasNext={currentPlaybackBlockIndex >= 0 && currentPlaybackBlockIndex < playbackBlockStartIds.length - 1}
+          />
       </div>
 
       <ConfirmModal

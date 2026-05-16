@@ -41,34 +41,40 @@
 }
 
 .playback-controls {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  width: auto;
+  width: 100%;
 }
 
-.playback-controls-button-row {
+.playback-controls-row {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  width: 100%;
+  padding: 0.25rem 0.5rem;
+}
+
+.playback-controls-group {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  /* Use explicit light gray background that works in both themes as a fallback */
-  background: #f1f5f9;
+  background: var(--bg-alt);
   padding: 4px;
-  border-radius: 8px;
-  border: 1px solid #cbd5e1;
-  width: fit-content;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
 .playback-control-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
+  width: 2.25rem;
+  height: 2.25rem;
   border: 1px solid transparent;
-  border-radius: 6px;
-  background: #ffffff;
-  /* Use explicit dark slate for icons - high visibility */
-  color: #0f172a !important;
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-primary) !important;
   cursor: pointer;
   transition: all 0.2s ease;
   padding: 0;
@@ -84,37 +90,78 @@
 }
 
 .playback-control-button:hover:not(:disabled) {
-  background: #f8fafc;
-  border-color: #94a3b8;
-  color: #2563eb !important; /* Blue-600 on hover */
+  background: var(--surface-light);
+  border-color: var(--accent-muted);
+  color: var(--accent) !important;
 }
 
 .playback-control-button:focus-visible {
-  outline: 2px solid #2563eb;
+  outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
 
 .playback-control-button:active:not(:disabled) {
-  background: #e2e8f0;
+  background: var(--bg-alt);
 }
 
 .playback-control-button:disabled {
   cursor: not-allowed;
   opacity: 0.35;
-  background: #f1f5f9;
-  color: #64748b !important; /* Slate-500 */
+  background: transparent;
+  color: var(--text-muted) !important;
 }
 
 .playback-control-button-primary {
-  /* Use slightly different background for play/pause to make them stand out */
-  background: #f8fafc;
-  border-color: #cbd5e1;
+  background: var(--surface-alt);
+  border-color: var(--border);
 }
 
 .playback-control-button-primary.is-active {
-  background: #e2e8f0;
-  border-color: #94a3b8;
-  color: #2563eb !important;
+  background: var(--accent-glow);
+  border-color: var(--accent);
+  color: var(--accent) !important;
+}
+
+.playback-controls-seek {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 120px;
+}
+
+.playback-time-label {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  min-width: 3rem;
+  text-align: center;
+}
+
+.playback-seek-slider {
+  flex: 1;
+  height: 6px;
+  -webkit-appearance: none;
+  background: var(--border);
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+}
+
+.playback-seek-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.2s ease;
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent-glow);
+}
+
+.playback-seek-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 6px var(--accent-glow);
 }
 
 .script-view-toggle-btn {
@@ -614,4 +661,18 @@
 .script-view-pill-toggle.is-loading {
   cursor: wait;
   opacity: 0.8;
+}
+
+.playback-active-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-glow);
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  white-space: nowrap;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
 }
