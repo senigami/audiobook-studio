@@ -93,6 +93,32 @@ describe('formatEngineTestGeneratedAt', () => {
 });
 
 describe('EngineCard developer scenarios', () => {
+  it('shows a scenario-load error in the dev panel and logs it', async () => {
+    vi.mocked(api.fetchEngineScenarios).mockRejectedValueOnce(new Error('Scenario service unavailable'));
+
+    render(<EngineCard engine={voxtralEngine} onUpdate={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByText((content, element) => element?.tagName === 'DIV' && element.childElementCount === 0 && content === 'Scenario service unavailable')).toBeInTheDocument();
+      expect(screen.getAllByText((content, element) => element?.tagName === 'DIV' && element.childElementCount === 0 && content.includes('Error: Scenario service unavailable'))).toHaveLength(1);
+    });
+  });
+
+  it('logs real action failures to the dev console when dev mode is enabled', async () => {
+    vi.mocked(api.fetchEngineScenarios).mockResolvedValue({ scenarios: [] } as any);
+    vi.mocked(api.testEngine).mockRejectedValueOnce(new Error('Network down'));
+    const onShowNotification = vi.fn();
+
+    render(<EngineCard engine={voxtralEngine} onUpdate={vi.fn()} onShowNotification={onShowNotification} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Run Test' }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText((content, element) => element?.tagName === 'DIV' && element.childElementCount === 0 && content.includes('Error: Network down'))).toHaveLength(1);
+    });
+    expect(onShowNotification).toHaveBeenCalledWith('Test failed: Network down');
+  });
+
   it('keeps engine identity stable and deep-merges schema when a scenario is selected', async () => {
     vi.mocked(api.fetchEngineScenarios).mockResolvedValue({
       scenarios: [

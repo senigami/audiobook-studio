@@ -11,6 +11,11 @@ import { EngineDevPanel } from '@/pages/Settings/components/EngineDevPanel';
 import { mergeScenarioEngine } from '@/pages/Settings/components/engineScenarioMerge';
 import { formatEngineTestGeneratedAt } from '@/pages/Settings/components/engineFormatters';
 
+const getErrorMessage = (err: any): string => {
+  if (typeof err === 'string') return err;
+  return err.message || err.error || 'Unknown error';
+};
+
 export const EngineCard: React.FC<{
   engine: TtsEngine;
   onUpdate: () => void;
@@ -78,6 +83,8 @@ export const EngineCard: React.FC<{
       onShowNotification?.(`${engine.display_name} settings saved.`);
     } catch (err) {
       console.error('Failed to save settings', err);
+      const msg = getErrorMessage(err);
+      if (engine.dev?.enabled) addDevLog(`Error: ${msg}`);
       onShowNotification?.('Failed to save settings.');
     } finally {
       setSaving(false);
@@ -99,6 +106,8 @@ export const EngineCard: React.FC<{
       onShowNotification?.(`${engine.display_name} ${label} reset.`);
     } catch (err) {
       console.error('Failed to reset engine setting', err);
+      const msg = getErrorMessage(err);
+      if (engine.dev?.enabled) addDevLog(`Error: ${msg}`);
       onShowNotification?.('Failed to reset engine setting.');
     } finally {
       setSaving(false);
@@ -185,6 +194,8 @@ export const EngineCard: React.FC<{
                   await onUpdate();
                   onShowNotification?.(`${displayEngine.display_name} ${!displayEngine.enabled ? 'enabled' : 'disabled'}.`);
                 } catch (err) {
+                  const msg = getErrorMessage(err);
+                  if (engine.dev?.enabled) addDevLog(`Error: ${msg}`);
                   onShowNotification?.(`Failed to ${!displayEngine.enabled ? 'enable' : 'disable'} ${displayEngine.display_name}.`);
                 } finally {
                   setSaving(false);
@@ -351,7 +362,9 @@ export const EngineCard: React.FC<{
                   setTestResult(res);
                   onShowNotification?.(`Test sample generated for ${displayEngine.display_name}.`);
                 } catch (err: any) {
-                  onShowNotification?.(`Test failed: ${err.message || 'Unknown error'}`);
+                  const msg = getErrorMessage(err);
+                  if (engine.dev?.enabled) addDevLog(`Error: ${msg}`);
+                  onShowNotification?.(`Test failed: ${msg}`);
                 } finally {
                   setTesting(false);
                 }
@@ -378,9 +391,13 @@ export const EngineCard: React.FC<{
                     onShowNotification?.(`${displayEngine.display_name} verified successfully.`);
                     await onUpdate();
                   } else {
-                    onShowNotification?.(`Verification failed: ${res.error || res.message || 'Unknown error'}`);
+                    const msg = res.error || res.message || 'Unknown error';
+                    if (engine.dev?.enabled) addDevLog(`Error: Verification failed: ${msg}`);
+                    onShowNotification?.(`Verification failed: ${msg}`);
                   }
                 } catch (err) {
+                  const msg = getErrorMessage(err);
+                  if (engine.dev?.enabled) addDevLog(`Error: ${msg}`);
                   onShowNotification?.(`Verification failed for ${displayEngine.display_name}.`);
                 } finally {
                   setSaving(false);
@@ -409,7 +426,9 @@ export const EngineCard: React.FC<{
                     onShowNotification?.(res.message || 'Dependency installation completed.');
                     await onUpdate();
                   } catch (err: any) {
-                    onShowNotification?.(`Installation failed: ${err.message || 'Unknown error'}`);
+                    const msg = getErrorMessage(err);
+                    if (engine.dev?.enabled) addDevLog(`Error: ${msg}`);
+                    onShowNotification?.(`Installation failed: ${msg}`);
                   } finally {
                     setInstalling(false);
                   }
@@ -462,6 +481,8 @@ export const EngineCard: React.FC<{
                 onShowNotification?.(res.message || 'Uninstall failed.');
               }
             } catch (err) {
+              const msg = getErrorMessage(err);
+              if (engine.dev?.enabled) addDevLog(`Error: ${msg}`);
               onShowNotification?.('Failed to uninstall plugin.');
             }
           }}

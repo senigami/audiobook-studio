@@ -14,13 +14,19 @@ interface EngineDevPanelProps {
 export const EngineDevPanel: React.FC<EngineDevPanelProps> = ({ engine, onScenarioSelect, activeScenario, logs, onAddLog }) => {
   const [scenarios, setScenarios] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [showJson, setShowJson] = useState(false);
 
   useEffect(() => {
     setLoading(true);
+    setError(null);
     api.fetchEngineScenarios(engine.engine_id)
       .then(res => setScenarios(res.scenarios || []))
-      .catch(err => console.error('Failed to load scenarios', err))
+      .catch(err => {
+        const msg = err.message || 'Failed to load scenarios';
+        setError(msg);
+        onAddLog(`Error: ${msg}`);
+      })
       .finally(() => setLoading(false));
   }, [engine.engine_id]);
 
@@ -60,6 +66,10 @@ export const EngineDevPanel: React.FC<EngineDevPanelProps> = ({ engine, onScenar
           </button>
           {loading ? (
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Loading...</div>
+          ) : error ? (
+            <div style={{ fontSize: '0.7rem', color: '#ef4444', background: 'rgba(239, 68, 68, 0.05)', padding: '0.4rem', borderRadius: '6px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+              {error}
+            </div>
           ) : scenarios.map(s => (
             <button
               key={s.id}
