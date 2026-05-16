@@ -1,6 +1,5 @@
 import pytest
 from fastapi.testclient import TestClient
-from pathlib import Path
 
 # Import the app from app.api.web
 from app.api.web import app
@@ -44,9 +43,7 @@ def test_api_jobs_list():
 
 
 
-def test_api_active_job():
-    response = client.get("/api/active_job")
-    assert response.status_code == 200
+
 
 
 

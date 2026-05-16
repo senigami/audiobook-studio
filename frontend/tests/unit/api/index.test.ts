@@ -55,9 +55,6 @@ describe('api methods', () => {
     it('other', async () => {
 
 
-        await api.updateTitle('c1.txt', 'New Title')
-        expect(global.fetch).toHaveBeenCalledWith('/api/job/update_title', expect.anything())
-
         await api.deleteAudiobook('ab1')
         expect(global.fetch).toHaveBeenCalledWith('/api/audiobook/ab1', expect.objectContaining({ method: 'DELETE' }))
 
@@ -72,18 +69,6 @@ describe('api methods', () => {
 
         await api.reorderChapters('p1', ['c1', 'c2'])
         expect(global.fetch).toHaveBeenCalledWith('/api/projects/p1/reorder_chapters', expect.objectContaining({ method: 'POST' }))
-
-        await api.fetchActiveJob()
-        expect(global.fetch).toHaveBeenCalledWith('/api/active_job')
-
-        await api.fetchJobDetails('f1')
-        expect(global.fetch).toHaveBeenCalledWith('/api/job/f1')
-
-        await api.fetchPreview('f1', true)
-        expect(global.fetch).toHaveBeenCalledWith('/api/chapters/f1/preview?processed=true')
-
-        await api.cancelPending()
-        expect(global.fetch).toHaveBeenCalledWith('/api/generation/cancel-all', expect.objectContaining({ method: 'POST' }))
 
         await api.exportSample('f1')
         expect(global.fetch).toHaveBeenCalledWith('/api/chapters/f1/export-sample', expect.objectContaining({ method: 'POST' }))

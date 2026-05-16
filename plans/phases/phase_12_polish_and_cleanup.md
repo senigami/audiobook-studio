@@ -16,7 +16,7 @@
 | **Voice and plugin UX** | **Partial** | Dependency installation feedback and XTTS resolution complete. Voice icons/tags pending. |
 | **Plugin-provided voice settings** | **Complete** | Per-voice plugin settings rendered in ScriptEditor via JsonSchemaForm. |
 | **Plugin boundary cleanup** | **Complete** | Core plugin code is portable; app-specific logic localized to adapters. |
-| **Legacy jobs API retirement** | **Open** | Retirement of legacy request/response endpoints in favor of WebSockets. |
+| **Legacy jobs API retirement** | **Complete** | Removed legacy request/response endpoints; WebSocket snapshots remain authoritative. |
 | **Manual QA pass** | **Open** | Final verification of fixed-but-pending behaviors. |
 | **Multilingual support plan** | **Open** | Planning for voice/text language support. |
 
@@ -43,7 +43,7 @@
 - [x] localize XTTS/Voxtral core logic for absolute portability.
 - [ ] Implement `check_output` interface in plugin adapters.
 - [ ] Update `app/jobs/reconcile.py` to use `engine.check_output(job)`.
-- [ ] Retire legacy job request/response API endpoints.
+- [x] Retire legacy job request/response API endpoints.
 
 ### Documentation and Final Audit
 - [ ] Update Wiki/Changelog for Studio 2.0 release.

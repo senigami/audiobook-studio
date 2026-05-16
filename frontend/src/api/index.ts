@@ -1,4 +1,4 @@
-import type { Job, Project, Chapter, ScriptViewResponse, ScriptAssignmentsUpdate } from '@/types';
+import type { Project, Chapter, ScriptViewResponse, ScriptAssignmentsUpdate } from '@/types';
 import { DEFAULT_VOICE_SENTINEL } from '@/constants/api';
 
 const parseApiResponse = async (res: Response) => {
@@ -268,37 +268,12 @@ export const api = {
     return res.json();
   },
 
-  // --- Jobs ---
-
-  fetchActiveJob: async (): Promise<Job | null> => {
-    const res = await fetch('/api/active_job');
-    return res.json();
-  },
-  fetchJobDetails: async (filename: string): Promise<Job | null> => {
-    const res = await fetch(`/api/job/${encodeURIComponent(filename)}`);
-    return res.json();
-  },
-  fetchPreview: async (chapterId: string, processed: boolean = false): Promise<{ text: string; error?: string }> => {
-    const res = await fetch(`/api/chapters/${chapterId}/preview?processed=${processed}`);
-    return res.json();
-  },
-  updateTitle: async (filename: string, newTitle: string): Promise<any> => {
-    const formData = new FormData();
-    formData.append('chapter_file', filename);
-    formData.append('new_title', newTitle);
-    const res = await fetch('/api/job/update_title', { method: 'POST', body: formData });
-    return res.json();
-  },
   deleteAudiobook: async (filename: string, projectId?: string): Promise<any> => {
     const res = await fetch(`/api/audiobook/${encodeURIComponent(filename)}${projectId ? `?project_id=${projectId}` : ''}`, { method: 'DELETE' });
     return res.json();
   },
   resetChapter: async (chapterId: string): Promise<any> => {
     const res = await fetch(`/api/chapters/${chapterId}/reset`, { method: 'POST' });
-    return res.json();
-  },
-  cancelPending: async (): Promise<any> => {
-    const res = await fetch('/api/generation/cancel-all', { method: 'POST' });
     return res.json();
   },
   exportSample: async (chapterId: string, projectId?: string): Promise<{ url: string; status?: string; message?: string }> => {

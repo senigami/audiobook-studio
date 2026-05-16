@@ -14,7 +14,7 @@ from ..core.config import (
     FRONTEND_DIST, get_project_cover_dir, get_project_m4b_dir,
 )
 from ..db import init_db
-from .routers import projects, chapters, voices, queue, settings, generation, system, analysis, jobs, migration, engines
+from .routers import projects, chapters, voices, queue, settings, generation, system, analysis, migration, engines
 from .ws import manager, broadcast_job_updated
 from .tts_api import tts_app
 from .routers.analysis import AnalysisError
@@ -374,7 +374,6 @@ app.include_router(settings.router)
 app.include_router(generation.router)
 app.include_router(system.router)
 app.include_router(analysis.router)
-app.include_router(jobs.router)
 app.include_router(migration.router)
 app.include_router(engines.router)
 

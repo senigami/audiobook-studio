@@ -2,7 +2,6 @@ import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation, useMatch } from 'react-router-dom';
 import { api } from '@/api';
 import { Layout } from '@/components/layout/Layout';
-import { PreviewModal } from '@/components/overlays/PreviewModal';
 import { VoicesTab } from '@/pages/Voices/VoicesPage';
 import { ProjectLibrary } from '@/pages/ProjectLibrary/ProjectLibraryPage';
 import { ProjectView } from '@/pages/ProjectDetail/ProjectDetailPage';
@@ -99,7 +98,6 @@ function App() {
     };
   }, [chapterIdFromRoute]);
 
-  const [previewFilename, setPreviewFilename] = useState<string | null>(null);
 
   const [confirmConfig, setConfirmConfig] = useState<{
     title: string;
@@ -345,11 +343,6 @@ function App() {
       )}
 
 
-      <PreviewModal
-        isOpen={!!previewFilename}
-        onClose={() => setPreviewFilename(null)}
-        filename={previewFilename || ''}
-      />
 
       <Drawer
         isOpen={isQueueDrawerOpen}
