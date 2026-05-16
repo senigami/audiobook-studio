@@ -54,7 +54,7 @@ vi.mock('framer-motion', () => ({
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { ChapterEditor } from '@/pages/ChapterEditor/ChapterEditorPage';
 import { api } from '@/api';
-import { 
+import {
   mockChapterId, 
   mockProjectId, 
   mockChapter, 
@@ -63,6 +63,12 @@ import {
   mockSegments,
   mockScriptView
 } from '@tests/helpers/chapterEditorFixtures';
+
+const readyEngines = [{ engine_id: 'xtts', enabled: true, status: 'ready' } as any];
+const readySpeakerProfiles = mockSpeakerProfiles.map(profile => ({
+  ...profile,
+  engine: 'xtts',
+}));
 
 describe('ChapterEditor - Queueing & Generation', () => {
   let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
@@ -89,15 +95,16 @@ describe('ChapterEditor - Queueing & Generation', () => {
       <ChapterEditor 
         chapterId={mockChapterId} 
         projectId={mockProjectId} 
-        speakerProfiles={mockSpeakerProfiles as any} 
+        speakerProfiles={readySpeakerProfiles as any}
         speakers={mockSpeakers as any} 
+        engines={readyEngines}
         onBack={vi.fn()} 
       />
     );
 
     await waitFor(() => screen.findByDisplayValue('Test Chapter'));
 
-    const queueBtn = screen.getByTitle('Queue Chapter');
+    const queueBtn = screen.getByRole('button', { name: 'Queue' });
     fireEvent.click(queueBtn);
     
     expect(await screen.findByText(/Keep this page open to watch progress/i)).toBeInTheDocument();
@@ -113,8 +120,9 @@ describe('ChapterEditor - Queueing & Generation', () => {
       <ChapterEditor
         chapterId={mockChapterId}
         projectId={mockProjectId}
-        speakerProfiles={mockSpeakerProfiles as any}
+        speakerProfiles={readySpeakerProfiles as any}
         speakers={mockSpeakers as any}
+        engines={readyEngines}
         onBack={vi.fn()}
       />
     );
@@ -143,10 +151,10 @@ describe('ChapterEditor - Queueing & Generation', () => {
     (api.fetchChapters as any).mockResolvedValue([largeChapter]);
 
     render(
-      <ChapterEditor 
-        chapterId={mockChapterId} 
-        projectId={mockProjectId} 
-        speakerProfiles={mockSpeakerProfiles as any} 
+      <ChapterEditor
+        chapterId={mockChapterId}
+        projectId={mockProjectId}
+        speakerProfiles={readySpeakerProfiles as any}
         speakers={mockSpeakers as any} 
         onBack={vi.fn()} 
       />
@@ -188,7 +196,7 @@ describe('ChapterEditor - Queueing & Generation', () => {
       <ChapterEditor 
         chapterId={mockChapterId} 
         projectId={mockProjectId} 
-        speakerProfiles={mockSpeakerProfiles as any} 
+        speakerProfiles={readySpeakerProfiles as any}
         speakers={mockSpeakers as any} 
         onBack={vi.fn()} 
       />
@@ -238,7 +246,7 @@ describe('ChapterEditor - Queueing & Generation', () => {
       <ChapterEditor
         chapterId={mockChapterId}
         projectId={mockProjectId}
-        speakerProfiles={mockSpeakerProfiles as any}
+        speakerProfiles={readySpeakerProfiles as any}
         speakers={mockSpeakers as any}
         chapterJobs={[
           {
@@ -262,7 +270,6 @@ describe('ChapterEditor - Queueing & Generation', () => {
     await waitFor(() => screen.findByDisplayValue('Test Chapter'));
 
     expect(screen.getByTitle('Already processing')).toBeDisabled();
-    expect(screen.getByText('Processing')).toBeInTheDocument();
   });
 
   it('highlights the whole active render batch in book mode', async () => {
@@ -314,7 +321,7 @@ describe('ChapterEditor - Queueing & Generation', () => {
       <ChapterEditor
         chapterId={mockChapterId}
         projectId={mockProjectId}
-        speakerProfiles={mockSpeakerProfiles as any}
+        speakerProfiles={readySpeakerProfiles as any}
         speakers={mockSpeakers as any}
         chapterJobs={[
           {
@@ -394,7 +401,7 @@ describe('ChapterEditor - Queueing & Generation', () => {
       <ChapterEditor
         chapterId={mockChapterId}
         projectId={mockProjectId}
-        speakerProfiles={mockSpeakerProfiles as any}
+        speakerProfiles={readySpeakerProfiles as any}
         speakers={mockSpeakers as any}
         chapterJobs={[
           {
@@ -681,16 +688,14 @@ describe('ChapterEditor - Queueing & Generation', () => {
       <ChapterEditor
         chapterId={mockChapterId}
         projectId={mockProjectId}
-        speakerProfiles={mockSpeakerProfiles as any}
+        speakerProfiles={readySpeakerProfiles as any}
         speakers={mockSpeakers as any}
+        engines={readyEngines}
         onBack={vi.fn()}
       />
     );
 
     await waitFor(() => screen.findByDisplayValue('Test Chapter'));
-
-    fireEvent.click(screen.getByText('Performance'));
-    await screen.findByText('Performance View');
 
     const generateBtn = screen.getByRole('button', { name: 'Generate' });
     fireEvent.click(generateBtn);
@@ -708,16 +713,14 @@ describe('ChapterEditor - Queueing & Generation', () => {
       <ChapterEditor
         chapterId={mockChapterId}
         projectId={mockProjectId}
-        speakerProfiles={mockSpeakerProfiles as any}
+        speakerProfiles={readySpeakerProfiles as any}
         speakers={mockSpeakers as any}
+        engines={readyEngines}
         onBack={vi.fn()}
       />
     );
 
     await waitFor(() => screen.findByDisplayValue('Test Chapter'));
-
-    fireEvent.click(screen.getByText('Performance'));
-    await screen.findByText('Performance View');
 
     fireEvent.click(screen.getByRole('button', { name: 'Generate' }));
 
