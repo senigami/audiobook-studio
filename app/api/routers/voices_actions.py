@@ -47,8 +47,24 @@ async def api_update_profile_settings(name: str, request: Request):
         form = await request.form()
         settings = dict(form)
 
+    # Rule 9: Validate against the target engine allowlist while preserving
+    # existing profile metadata fields that the drawer still submits.
+    spk_settings = get_speaker_settings(name)
+    requested_engine = str(settings.get("engine") or spk_settings.get("engine") or get_default_profile_engine())
+
+    from ...engines.behavior import get_synthesis_settings_allowlist
+    allowed = set(get_synthesis_settings_allowlist(requested_engine))
+    allowed.update({"engine", "test_text"})
+
+    invalid_keys = [k for k in settings if k not in allowed]
+    if invalid_keys:
+        return JSONResponse(
+            {"status": "error", "message": f"Settings not allowed for engine '{requested_engine}': {', '.join(invalid_keys)}"},
+            status_code=400
+        )
+
     if not update_speaker_settings(name, **settings):
-         return JSONResponse({"status": "error", "message": "Profile not found"}, status_code=404)
+        return JSONResponse({"status": "error", "message": "Profile not found"}, status_code=404)
     return {"status": "ok"}
 
 

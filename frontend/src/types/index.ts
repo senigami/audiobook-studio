@@ -37,6 +37,7 @@ export interface TtsEngine {
     enabled?: boolean;
     scenarios?: string;
   };
+  behavior?: Record<string, any>;
   logo_url?: string;
   built_in?: boolean;
 }
@@ -246,6 +247,7 @@ export interface SpeakerProfile {
   samples_detailed?: Array<{ name: string; is_new: boolean }>;
   is_ready?: boolean;
   readiness_message?: string;
+  settings?: Record<string, any>;
 }
 
 export interface Speaker {

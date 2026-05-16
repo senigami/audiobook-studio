@@ -310,6 +310,7 @@ def list_speaker_profiles():
             "preview_url": preview_url,
             "asset_base_url": voices_helpers._voice_asset_base_url(d),
             "has_latent": voices_helpers._voice_has_test_sample(name),
+            "settings": spk_settings,
             "is_ready": False,
             "readiness_message": "",
         }

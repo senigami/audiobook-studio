@@ -204,6 +204,32 @@ Studio uses this schema to:
 - validate updates
 - persist runtime settings under Studio-owned `plugin_data/<engine_id>/`
 
+### Per-Voice Settings
+
+Plugins can declare which settings from their `settings_schema.json` should be available for per-voice overrides (e.g., custom temperature or repetition penalty for a specific voice variant).
+
+To enable this, list the allowed keys in your `manifest.json` under `behavior.synthesis_settings`:
+
+```json
+{
+  "behavior": {
+    "synthesis_settings": [
+      "temperature",
+      "repetition_penalty",
+      "top_k",
+      "top_p"
+    ]
+  }
+}
+```
+
+Studio uses this list to:
+- Filter the engine schema when displaying per-voice controls in the UI.
+- Validate that updates to a voice profile's settings only contain allowed keys.
+- Merge these overrides into the synthesis request before calling your plugin's `synthesize()` or `preview()` methods.
+
+Common settings like `speed` and `model` are always allowed for per-voice overrides and do not need to be listed in `synthesis_settings`.
+
 ## Manifest And Hook Declaration Rules
 
 Use the manifest as the declaration layer:

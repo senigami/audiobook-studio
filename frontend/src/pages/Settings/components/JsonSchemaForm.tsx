@@ -24,7 +24,8 @@ export const JsonSchemaForm: React.FC<{
   onReset?: (key: string) => Promise<void> | void;
   busy: boolean;
   engineVerified: boolean;
-}> = ({ schema, values, onSave, onReset, busy, engineVerified }) => {
+  propertyFilter?: string[];
+}> = ({ schema, values, onSave, onReset, busy, engineVerified, propertyFilter }) => {
   const [localValues, setLocalValues] = useState<Record<string, any>>(values);
   const [resettingKey, setResettingKey] = useState<string | null>(null);
 
@@ -67,6 +68,7 @@ export const JsonSchemaForm: React.FC<{
             if (key === 'enabled') return false;
             if (propUi.hidden === true) return false;
             if (propUi.hide_when_unverified === true && !engineVerified) return false;
+            if (propertyFilter && !propertyFilter.includes(key)) return false;
             return true;
           })
           .map(([key, prop]: [string, any]) => {

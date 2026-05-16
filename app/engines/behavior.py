@@ -145,6 +145,17 @@ def extract_engine_settings(
     return settings
 
 
+def get_synthesis_settings_allowlist(engine_id: str) -> set[str]:
+    """Get the set of allowed synthesis setting keys for an engine."""
+    normalized = behavior_for_engine(engine_id)
+    allowed = set(COMMON_SYNTHESIS_SETTINGS)
+    allowed.update(str(item) for item in normalized.get("synthesis_settings", []))
+    # Also include source keys that have aliases
+    aliases = setting_aliases_for(engine_id, behavior=normalized)
+    allowed.update(aliases.keys())
+    return allowed
+
+
 def behavior_for_engine(
     engine_id: str,
     *,
