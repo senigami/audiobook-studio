@@ -45,7 +45,7 @@
 - [x] Update `app/engines/behavior.py` to remove all `is_built_in` checks
 
 ## Phase 7: API & Routing
-- [ ] Rename `mixed.py` -> `composite.py`
+- [ ] Rename `mixed.py` -> `composite.py` (Deferred to Phase 13)
 - [/] Update composite/mixed rendering to use metadata-driven progress and sanitization hooks
 - [x] Remove `/{name}/voxtral-voice-id` route in `app/api/routers/voices_actions.py`
 - [x] Remove `/out/xtts/{filename}` route from app routing
@@ -75,12 +75,12 @@
 - [x] Add Library list view and sort options.
 - [x] Add VCR-style chapter playback controls.
 - [x] Fix voice/plugin dependency installation feedback and XTTS missing-dependencies resolution.
-- [ ] Add TTS plugin zip import/delete flows; defer GitHub search/download until after v2.0.
+- [ ] Add TTS plugin zip import/delete flows (Import done; Uninstall done).
 - [x] Define standalone XTTS and Voxtral Web repo readiness for real repo ingestion: repo layout, CLI entry point, dependency install path, and a standalone CLI Builder Harness.
 - [x] Implement Studio Dev Mode as the authoritative UI preview path using plugin-provided scenario fixtures.
 - [ ] Add plugin contract-version and callable-signature compatibility verification.
-- [ ] Surface plugin-defined per-voice controls in voice settings when supported.
-- [ ] Plan multilingual voice/text language support: engine manifests are the master list of supported languages, voice profiles store a default language selected from that list, newly assigned chapter text presets to the voice default, individual sentences/segments/blocks can override it, and synthesis sends the resolved language instead of assuming English.
+- [x] Surface plugin-defined per-voice controls in voice settings when supported.
+- [ ] Plan multilingual voice/text language support.
 - [ ] Revisit voice settings placement outside the Script popup/right queue area.
 - [ ] Align voice export bundles with Hugging Face-compatible layout and settings metadata where practical.
 - [ ] Add voice image/icon upload, standardized 1:1 JPG processing, and character-surface icon display.
