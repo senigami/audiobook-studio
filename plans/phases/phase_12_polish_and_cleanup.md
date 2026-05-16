@@ -35,7 +35,7 @@
 - [ ] Add voice image/icon upload and standardized 1:1 JPG processing.
 - [ ] Add searchable voice tags compatible with future search.
 - [ ] Align voice export bundles with Hugging Face-compatible layout.
-- [ ] Implement TTS plugin zip import/delete flows (Import done; Delete/Uninstall done).
+- [x] Implement TTS plugin zip import/delete flows (Import done; Delete/Uninstall done).
 
 ### Backend and Orchestration
 - [x] Enriched queue metadata for completed jobs (audio length, chars, segments).

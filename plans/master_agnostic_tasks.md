@@ -75,7 +75,7 @@
 - [x] Add Library list view and sort options.
 - [x] Add VCR-style chapter playback controls.
 - [x] Fix voice/plugin dependency installation feedback and XTTS missing-dependencies resolution.
-- [ ] Add TTS plugin zip import/delete flows (Import done; Uninstall done).
+- [x] Add TTS plugin zip import/delete flows (Import done; Uninstall done).
 - [x] Define standalone XTTS and Voxtral Web repo readiness for real repo ingestion: repo layout, CLI entry point, dependency install path, and a standalone CLI Builder Harness.
 - [x] Implement Studio Dev Mode as the authoritative UI preview path using plugin-provided scenario fixtures.
 - [ ] Add plugin contract-version and callable-signature compatibility verification.
