@@ -7,7 +7,6 @@ import type { Job, SegmentProgress, TtsEngine, SpeakerProfile } from '@/types';
 import { ChapterHeader } from '@/pages/ChapterEditor/components/ChapterHeader';
 import { EditorTabs } from '@/pages/ChapterEditor/components/EditorTabs';
 import { EditTab } from '@/pages/ChapterEditor/components/EditTab';
-import { ProductionTab } from '@/pages/ChapterEditor/components/ProductionTab';
 import { ScriptView } from '@/pages/ChapterEditor/components/ScriptView';
 import { ResyncPreviewModal, type ResyncPreviewData } from '@/pages/ChapterEditor/components/ResyncPreviewModal';
 import { CharacterSidebar } from '@/pages/ChapterEditor/components/CharacterSidebar';
@@ -68,38 +67,28 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     localVoice,
     segments,
     characters,
-    productionBlocks,
-    renderBatches,
-    productionBaseRevisionId,
     scriptViewData,
     scriptViewLoading,
     generatingSegmentIds,
     analysis, setAnalysis,
     analyzing,
     loadChapter,
-    reloadLatestBlocks,
     generatingSegmentJob,
     liveSegmentJobIds,
     handleSave,
     handleVoiceChange,
     hasRenderedOutput,
-    saveProductionBlocks,
-    saveConflictError,
     handleScriptAssign,
     handleScriptAssignRange,
-    handleParagraphBulkAssign,
-    handleParagraphBulkReset,
     handleUpdateCharacterColor,
     handleGenerate,
     executeQueue
   } = useChapterEditor(chapterId, projectId, speakerProfiles, speakers, engines, chapterJobs, segmentUpdate, chapterUpdate);
 
-  const [editorTab, setEditorTab] = useState<'script' | 'edit' | 'production'>('script');
+  const [editorTab, setEditorTab] = useState<'script' | 'edit'>('script');
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
   const [selectedProfileName, setSelectedProfileName] = useState<string | null>(null);
   const [expandedCharacterId, setExpandedCharacterId] = useState<string | null>(null);
-  const [hoveredBlockId, setHoveredBlockId] = useState<string | null>(null);
-  const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const [exportingFormat, setExportingFormat] = useState<'wav' | 'mp3' | null>(null);
   const [queueNotice, setQueueNotice] = useState<string | null>(null);
   const [isPreviewingResync, setIsPreviewingResync] = useState(false);
@@ -134,17 +123,6 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   const chunkGroups = useMemo(() => {
     return buildChunkGroups(segments, characters, effectiveSelectedVoice, speakerProfiles);
   }, [segments, characters, effectiveSelectedVoice, speakerProfiles]);
-
-  const queuedSegmentJobIds = useMemo(() => {
-    const ids = new Set<string>();
-    for (const chapterJob of chapterJobs) {
-      if (!['queued', 'preparing'].includes(chapterJob.status)) continue;
-      for (const segmentId of chapterJob.segment_ids || []) {
-        ids.add(segmentId);
-      }
-    }
-    return ids;
-  }, [chapterJobs]);
 
   const effectivePendingSegmentIds = useMemo(() => {
     const ids = new Set<string>(generatingSegmentIds);
@@ -503,7 +481,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                   editorTab={editorTab} setEditorTab={(tab) => {
                     setEditorTab(tab);
                     setSourceTextMode('view');
-                  }} onSave={handleSave}
+                  }}
                   onRequestEditSourceText={() => {
                     setConfirmConfig({
                       title: 'Edit Source Text',
@@ -564,32 +542,6 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                     analyzing={analyzing} chapter={chapter} segmentsCount={segments.length}
                     hasUnsavedChanges={hasUnsavedChanges}
                     sourceTextMode={sourceTextMode}
-                  />
-                )}
-                {editorTab === 'production' && (
-                  <ProductionTab
-                    chapterId={chapterId}
-                    blocks={productionBlocks}
-                    renderBatches={renderBatches}
-                    baseRevisionId={productionBaseRevisionId}
-                    characters={characters}
-                    speakerProfiles={speakerProfiles}
-                    selectedCharacterId={selectedCharacterId}
-                    selectedProfileName={selectedProfileName}
-                    hoveredBlockId={hoveredBlockId}
-                    setHoveredBlockId={setHoveredBlockId}
-                    activeBlockId={activeBlockId}
-                    setActiveBlockId={setActiveBlockId}
-                    onBulkAssign={(sids) => handleParagraphBulkAssign(sids, selectedCharacterId, selectedProfileName)}
-                    onBulkReset={handleParagraphBulkReset}
-                    onSaveBlocks={saveProductionBlocks}
-                    onGenerateBatch={(sids) => handleGenerate(sids, effectiveSelectedVoice, (msg) => setConfirmConfig({ title: 'Generation Blocked', message: msg, onConfirm: () => {}, confirmText: 'OK' }))}
-                    saveConflictError={saveConflictError}
-                    onReloadBlocks={reloadLatestBlocks}
-                    pendingSegmentIds={chapterRenderPendingSegmentIds}
-                    queuedSegmentIds={queuedSegmentJobIds}
-                    segments={segments}
-                    segmentsCount={segments.length}
                   />
                 )}
 

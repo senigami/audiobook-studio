@@ -1,9 +1,8 @@
 import React from 'react';
 
 interface EditorTabsProps {
-  editorTab: 'script' | 'edit' | 'production';
-  setEditorTab: (tab: 'script' | 'edit' | 'production') => void;
-  onSave: () => Promise<boolean>;
+  editorTab: 'script' | 'edit';
+  setEditorTab: (tab: 'script' | 'edit') => void;
   onRequestEditSourceText?: () => void;
   sourceTextMode?: 'view' | 'edit';
 }
@@ -11,7 +10,6 @@ interface EditorTabsProps {
 export const EditorTabs: React.FC<EditorTabsProps> = ({
   editorTab,
   setEditorTab,
-  onSave,
   onRequestEditSourceText,
   sourceTextMode = 'view'
 }) => {
@@ -32,17 +30,8 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
         >
             Source Text
         </button>
-        <button 
-          onClick={async () => {
-              await onSave();
-              setEditorTab('production');
-          }} 
-          className={editorTab === 'production' ? 'btn-primary' : 'btn-ghost'}
-          style={{ padding: '8px 16px', fontSize: '0.9rem', borderRadius: '8px' }}
-        >
-            Production
-        </button>
       </div>
+
       {editorTab === 'edit' && sourceTextMode === 'view' && onRequestEditSourceText && (
         <button
           type="button"

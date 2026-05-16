@@ -127,9 +127,8 @@ describe('ChapterEditor - Core Orchestration', () => {
     
     fireEvent.click(screen.getByText('Source Text'));
     expect(await screen.findByText('Analysis')).toBeInTheDocument();
-    
-    fireEvent.click(screen.getByText('Production'));
-    expect(await screen.findByText('Production Blocks')).toBeInTheDocument();
+
+    expect(screen.queryByText('Production')).not.toBeInTheDocument();
   });
 
   it('handles title changes and auto-save', async () => {
