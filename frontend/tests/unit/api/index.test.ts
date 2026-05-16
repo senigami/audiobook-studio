@@ -122,6 +122,4 @@ describe('api methods', () => {
         await expect(api.generateSegments(['seg-1'], 'Test')).rejects.toThrow(/Enable Cloud Engine/i)
         await expect(api.addProcessingQueue('p1', 'c1', 0, 'Test')).rejects.toThrow(/Enable Cloud Engine/i)
     })
-
-    })
 })
