@@ -364,6 +364,33 @@ def install_dependencies(engine_id: str) -> dict[str, Any]:
         plugin.dependencies_satisfied = deps_ok
         plugin.missing_dependencies = missing
 
+        # If dependencies are now satisfied, try to recover the plugin state.
+        if deps_ok:
+            if plugin.engine is not None:
+                # Re-run check_env to update setup_message.
+                try:
+                    ok, msg = plugin.engine.check_env()
+                    if ok:
+                        plugin.setup_message = None
+                    else:
+                        plugin.setup_message = str(msg or "Setup required.")
+                except Exception as exc:
+                    plugin.setup_message = f"check_env() crashed: {exc}"
+            elif plugin.load_error:
+                # Attempt to reload the plugin entirely.
+                from app.tts_server.plugin_loader import _load_plugin  # noqa: PLC0415
+                try:
+                    new_plugin = _load_plugin(plugin_dir=plugin.plugin_dir, folder_name=plugin.folder_name)
+                    # Update our shared state with the new loaded plugin.
+                    with _state_lock:
+                        for i, p in enumerate(_plugins):
+                            if p.engine_id == engine_id:
+                                _plugins[i] = new_plugin
+                                plugin = new_plugin
+                                break
+                except Exception as exc:
+                    logger.debug("Reload after install failed for %s: %s", engine_id, exc)
+
         return {
             "ok": True,
             "message": f"Successfully installed dependencies for {engine_id}",

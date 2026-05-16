@@ -91,3 +91,66 @@ def test_install_dependencies_reports_pip_stderr(tmp_path, monkeypatch):
     assert exc_info.value.status_code == 500
     assert "Dependency installation failed for xtts" in exc_info.value.detail
     assert "pip stderr details" in exc_info.value.detail
+
+
+def test_install_dependencies_refreshes_setup_message_after_success(tmp_path, monkeypatch):
+    from app.tts_server import server
+
+    req_file = tmp_path / "requirements.txt"
+    req_file.write_text("requests", encoding="utf-8")
+    plugin = SimpleNamespace(
+        plugin_dir=tmp_path,
+        dependencies_satisfied=False,
+        missing_dependencies=["requests"],
+        engine=SimpleNamespace(check_env=lambda: (False, "API key missing")),
+        load_error=None,
+    )
+
+    monkeypatch.setattr(server, "_plugin_by_id", lambda engine_id: plugin)
+    monkeypatch.setattr("subprocess.run", lambda *args, **kwargs: SimpleNamespace(returncode=0, stdout="", stderr=""))
+    monkeypatch.setattr("app.tts_server.plugin_loader._check_dependencies", lambda plugin_dir: (True, []))
+
+    response = server.install_dependencies("xtts")
+
+    assert response["ok"] is True
+    assert response["dependencies_satisfied"] is True
+    assert response["missing_dependencies"] == []
+    assert plugin.dependencies_satisfied is True
+    assert plugin.missing_dependencies == []
+    assert plugin.setup_message == "API key missing"
+
+
+def test_install_dependencies_reloads_plugin_after_successful_install(tmp_path, monkeypatch):
+    from app.tts_server import server
+
+    req_file = tmp_path / "requirements.txt"
+    req_file.write_text("requests", encoding="utf-8")
+    plugin = SimpleNamespace(
+        engine_id="mock-engine",
+        folder_name="tts_mock",
+        plugin_dir=tmp_path,
+        dependencies_satisfied=False,
+        missing_dependencies=["requests"],
+        engine=None,
+        load_error="ImportError: missing dependency",
+    )
+    reloaded_plugin = SimpleNamespace(
+        engine_id="mock-engine",
+        folder_name="tts_mock",
+        plugin_dir=tmp_path,
+        dependencies_satisfied=True,
+        missing_dependencies=[],
+        engine=SimpleNamespace(check_env=lambda: (True, "OK")),
+        load_error=None,
+    )
+
+    monkeypatch.setattr(server, "_plugin_by_id", lambda engine_id: plugin)
+    monkeypatch.setattr(server, "_plugins", [plugin])
+    monkeypatch.setattr("subprocess.run", lambda *args, **kwargs: SimpleNamespace(returncode=0, stdout="", stderr=""))
+    monkeypatch.setattr("app.tts_server.plugin_loader._check_dependencies", lambda plugin_dir: (True, []))
+    monkeypatch.setattr("app.tts_server.plugin_loader._load_plugin", lambda plugin_dir, folder_name: reloaded_plugin)
+
+    response = server.install_dependencies("mock-engine")
+
+    assert response["ok"] is True
+    assert server._plugins[0] is reloaded_plugin

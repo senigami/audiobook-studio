@@ -189,3 +189,44 @@ describe('EngineCard developer scenarios', () => {
     expect(screen.queryByText('Engine Developer Panel')).not.toBeInTheDocument();
   });
 });
+
+describe('EngineCard dependency installation', () => {
+  it('shows "Installing..." and disables the button during install, then calls onUpdate and shows notification on success', async () => {
+    const engineWithDeps = { ...voxtralEngine, dependencies_satisfied: false, missing_dependencies: ['some-pkg'] };
+    const onUpdate = vi.fn();
+    const onShowNotification = vi.fn();
+    vi.mocked(api.installEngineDependencies).mockResolvedValue({ ok: true, message: 'Done!' });
+
+    render(<EngineCard engine={engineWithDeps} onUpdate={onUpdate} onShowNotification={onShowNotification} />);
+
+    const installBtn = screen.getByRole('button', { name: 'Install Deps' });
+    fireEvent.click(installBtn);
+
+    expect(screen.getByText('Installing...')).toBeInTheDocument();
+    expect(installBtn).toBeDisabled();
+
+    await waitFor(() => {
+      expect(onShowNotification).toHaveBeenCalledWith('Done!');
+      expect(onUpdate).toHaveBeenCalled();
+    });
+
+    expect(screen.queryByText('Installing...')).not.toBeInTheDocument();
+    expect(installBtn).not.toBeDisabled();
+  });
+
+  it('shows error notification and still calls onUpdate on failure', async () => {
+    const engineWithDeps = { ...voxtralEngine, dependencies_satisfied: false, missing_dependencies: ['some-pkg'] };
+    const onUpdate = vi.fn();
+    const onShowNotification = vi.fn();
+    vi.mocked(api.installEngineDependencies).mockRejectedValue(new Error('Pip failed'));
+
+    render(<EngineCard engine={engineWithDeps} onUpdate={onUpdate} onShowNotification={onShowNotification} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Install Deps' }));
+
+    await waitFor(() => {
+      expect(onShowNotification).toHaveBeenCalledWith('Installation failed: Pip failed');
+      expect(onUpdate).toHaveBeenCalled();
+    });
+  });
+});

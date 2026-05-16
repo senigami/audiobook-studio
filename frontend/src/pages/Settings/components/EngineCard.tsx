@@ -424,12 +424,12 @@ export const EngineCard: React.FC<{
                   try {
                     const res = await api.installEngineDependencies(displayEngine.engine_id);
                     onShowNotification?.(res.message || 'Dependency installation completed.');
-                    await onUpdate();
                   } catch (err: any) {
                     const msg = getErrorMessage(err);
                     if (engine.dev?.enabled) addDevLog(`Error: ${msg}`);
                     onShowNotification?.(`Installation failed: ${msg}`);
                   } finally {
+                    await onUpdate();
                     setInstalling(false);
                   }
                 }}
