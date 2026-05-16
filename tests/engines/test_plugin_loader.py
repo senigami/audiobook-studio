@@ -563,72 +563,127 @@ class TestDependencies:
 # ---------------------------------------------------------------------------
 
 class TestPluginIsolation:
-    def test_import_crash_isolated(self, tmp_path):
-        """A plugin that crashes during module import should be skipped."""
+    def test_import_crash_isolated_by_default(self, tmp_path):
+        """A plugin that crashes during module import should be skipped by default."""
         _make_plugin_dir(
-            tmp_path, "tts_crash_import",
-            _minimal_manifest("crash_import"),
+            tmp_path, "tts_importcrash",
+            _minimal_manifest("importcrash"),
             "raise RuntimeError('import crash')"
         )
         # Good plugin as a control
         _make_plugin_dir(
-            tmp_path, "tts_good",
-            _minimal_manifest("good"),
+            tmp_path, "tts_goog",
+            _minimal_manifest("goog"),
             _mock_engine_src()
         )
 
         result = discover_plugins(tmp_path)
         assert len(result) == 1
-        assert result[0].engine_id == "good"
+        assert result[0].engine_id == "goog"
 
-    def test_instantiation_crash_isolated(self, tmp_path):
-        """A plugin that crashes in __init__ should be skipped."""
+    def test_import_crash_surfaced_in_dev_mode(self, tmp_path):
+        """A plugin that crashes during module import should be surfaced if dev.enabled is True."""
+        manifest = _minimal_manifest("crashdev")
+        manifest["dev"] = {"enabled": True}
+        _make_plugin_dir(
+            tmp_path, "tts_crashdev",
+            manifest,
+            "raise RuntimeError('import crash in dev')"
+        )
+
+        result = discover_plugins(tmp_path)
+        assert len(result) == 1
+        assert result[0].engine_id == "crashdev"
+        assert "import crash in dev" in result[0].load_error
+
+    def test_instantiation_crash_isolated_by_default(self, tmp_path):
+        """A plugin that crashes in __init__ should be skipped by default."""
         src = """
         class MockEngine:
             def __init__(self):
                 raise RuntimeError('init crash')
         """
         _make_plugin_dir(
-            tmp_path, "tts_crash_init",
-            _minimal_manifest("crash_init"),
+            tmp_path, "tts_initcrash",
+            _minimal_manifest("initcrash"),
             src
         )
         # Good plugin
         _make_plugin_dir(
-            tmp_path, "tts_good",
-            _minimal_manifest("good"),
+            tmp_path, "tts_goog",
+            _minimal_manifest("goog"),
             _mock_engine_src()
         )
 
         result = discover_plugins(tmp_path)
         assert len(result) == 1
-        assert result[0].engine_id == "good"
+        assert result[0].engine_id == "goog"
 
-    def test_check_env_crash_isolated(self, tmp_path):
-        """A plugin that crashes in check_env() should be skipped."""
+    def test_instantiation_crash_surfaced_in_dev_mode(self, tmp_path):
+        """A plugin that crashes in __init__ should be surfaced if dev.enabled is True."""
+        src = """
+        class MockEngine:
+            def __init__(self):
+                raise RuntimeError('init crash in dev')
+        """
+        manifest = _minimal_manifest("initdev")
+        manifest["dev"] = {"enabled": True}
+        _make_plugin_dir(
+            tmp_path, "tts_initdev",
+            manifest,
+            src
+        )
+
+        result = discover_plugins(tmp_path)
+        assert len(result) == 1
+        assert result[0].engine_id == "initdev"
+        assert "init crash in dev" in result[0].load_error
+
+    def test_check_env_crash_isolated_by_default(self, tmp_path):
+        """A plugin that crashes in check_env() should be skipped by default."""
         src = """
         class MockEngine:
             def check_env(self):
                 raise RuntimeError('check_env crash')
         """
         _make_plugin_dir(
-            tmp_path, "tts_crash_env",
-            _minimal_manifest("crash_env"),
+            tmp_path, "tts_envcrash",
+            _minimal_manifest("envcrash"),
             src
         )
         # Good plugin
         _make_plugin_dir(
-            tmp_path, "tts_good",
-            _minimal_manifest("good"),
+            tmp_path, "tts_goog",
+            _minimal_manifest("goog"),
             _mock_engine_src()
         )
 
         result = discover_plugins(tmp_path)
         assert len(result) == 1
-        assert result[0].engine_id == "good"
+        assert result[0].engine_id == "goog"
 
-    def test_syntax_error_isolated(self, tmp_path):
-        """A plugin with a syntax error should be skipped."""
+    def test_check_env_crash_surfaced_in_dev_mode(self, tmp_path):
+        """A plugin that crashes in check_env() should be surfaced if dev.enabled is True."""
+        src = """
+        class MockEngine:
+            def check_env(self):
+                raise RuntimeError('check_env crash in dev')
+        """
+        manifest = _minimal_manifest("envdev")
+        manifest["dev"] = {"enabled": True}
+        _make_plugin_dir(
+            tmp_path, "tts_envdev",
+            manifest,
+            src
+        )
+
+        result = discover_plugins(tmp_path)
+        assert len(result) == 1
+        assert result[0].engine_id == "envdev"
+        assert "check_env crash in dev" in result[0].load_error
+
+    def test_syntax_error_isolated_by_default(self, tmp_path):
+        """A plugin with a syntax error should be skipped by default."""
         _make_plugin_dir(
             tmp_path, "tts_syntax",
             _minimal_manifest("syntax"),
@@ -636,11 +691,26 @@ class TestPluginIsolation:
         )
         # Good plugin
         _make_plugin_dir(
-            tmp_path, "tts_good",
-            _minimal_manifest("good"),
+            tmp_path, "tts_goog",
+            _minimal_manifest("goog"),
             _mock_engine_src()
         )
 
         result = discover_plugins(tmp_path)
         assert len(result) == 1
-        assert result[0].engine_id == "good"
+        assert result[0].engine_id == "goog"
+
+    def test_syntax_error_surfaced_in_dev_mode(self, tmp_path):
+        """A plugin with a syntax error should be surfaced if dev.enabled is True."""
+        manifest = _minimal_manifest("syntaxdev")
+        manifest["dev"] = {"enabled": True}
+        _make_plugin_dir(
+            tmp_path, "tts_syntaxdev",
+            manifest,
+            "class MockEngine: invalid syntax here !!!"
+        )
+
+        result = discover_plugins(tmp_path)
+        assert len(result) == 1
+        assert result[0].engine_id == "syntaxdev"
+        assert "invalid syntax" in result[0].load_error

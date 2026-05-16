@@ -101,7 +101,6 @@ def discover_plugins(plugins_dir: Path) -> list[LoadedPlugin]:
             continue
 
         folder_name = entry.name
-
         # Reject folder names that don't match the naming convention.
         if not _PLUGIN_FOLDER_RE.match(folder_name):
             logger.debug("Skipping non-plugin folder: %s", folder_name)
@@ -180,20 +179,35 @@ def _invalid_manifest_plugin(
 
     Broken manifests are useful to surface in Studio because the plugin author
     can fix them from the diagnostics. Runtime failures remain isolated so a
-    crashing plugin engine does not appear as an installed engine.
+    crashing plugin engine does not appear as an installed engine, EXCEPT when
+    dev.enabled is True in the manifest.
     """
     try:
         manifest = _load_manifest(plugin_dir=plugin_dir, folder_name=folder_name)
     except PluginLoadError:
+        # If manifest itself is missing or unparseable, we can't even check dev mode safely.
+        # Isolation remains strict for security.
         return None
 
     try:
         _validate_manifest(manifest=manifest, folder_name=folder_name)
     except PluginLoadError:
+        # Manifest validation failed. This is a "contract" error we surface.
         manifest = dict(manifest)
         manifest.setdefault("engine_id", folder_name.replace("tts_", "", 1))
         manifest.setdefault("display_name", folder_name)
         manifest.setdefault("capabilities", [])
+        return LoadedPlugin(
+            folder_name=folder_name,
+            plugin_dir=plugin_dir,
+            manifest=manifest,
+            load_error=load_error,
+        )
+
+    # If we reached here, the manifest is valid but something else failed (import/init).
+    # We only surface these if dev.enabled is True.
+    dev_config = manifest.get("dev", {})
+    if isinstance(dev_config, dict) and dev_config.get("enabled") is True:
         return LoadedPlugin(
             folder_name=folder_name,
             plugin_dir=plugin_dir,

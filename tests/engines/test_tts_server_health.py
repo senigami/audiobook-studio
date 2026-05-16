@@ -64,6 +64,17 @@ class TestEngineStatus:
         plugin = _MockPlugin()
         plugin.engine = BrokenEngine()
         assert engine_status(plugin) == STATUS_NEEDS_SETUP
+        assert "check_env() crashed: crash" in plugin.setup_message
+
+    def test_needs_setup_when_check_env_fails_with_message(self):
+        class FailingEngine:
+            def check_env(self):
+                return False, "API key missing"
+
+        plugin = _MockPlugin()
+        plugin.engine = FailingEngine()
+        assert engine_status(plugin) == STATUS_NEEDS_SETUP
+        assert plugin.setup_message == "API key missing"
 
     def test_invalid_config_when_plugin_has_load_error(self):
         plugin = _MockPlugin()
@@ -71,6 +82,20 @@ class TestEngineStatus:
         plugin.load_error = "manifest.json missing required field 'entry_class'"
 
         assert engine_status(plugin) == STATUS_INVALID_CONFIG
+
+    def test_invalid_config_engine_detail_is_safe_without_engine_object(self):
+        plugin = _MockPlugin()
+        plugin.engine = None
+        plugin.load_error = "manifest.json missing required field 'entry_class'"
+        plugin.manifest = {"engine_id": "broken", "behavior": {}}
+
+        detail = build_engine_detail(plugin, {})
+
+        assert detail["status"] == STATUS_INVALID_CONFIG
+        assert detail["verification_error"] == plugin.load_error
+        assert detail["setup_message"] == plugin.load_error
+        assert detail["health_message"] == plugin.load_error
+        assert detail["settings_schema"] == {}
 
     def test_uses_current_settings_when_check_env_accepts_settings(self):
         class SettingsAwareEngine:
@@ -113,7 +138,7 @@ class TestEngineStatus:
         assert detail["setup_message"] is None
         assert detail["health_message"] is None
 
-    def test_engine_detail_preserves_setup_message_when_settings_still_invalid(self):
+    def test_engine_detail_preserves_setup_message_from_check_env_when_settings_still_invalid(self):
         class SettingsAwareEngine:
             def check_env(self, settings=None):
                 return bool((settings or {}).get("mistral_api_key")), "Missing API key"
@@ -126,13 +151,13 @@ class TestEngineStatus:
 
         plugin = _MockPlugin(engine_id="voxtral", env_ok=False, verified=False)
         plugin.engine = SettingsAwareEngine()
-        plugin.setup_message = "Voxtral requires a Mistral API key."
+        plugin.setup_message = "Initial message"
         plugin.manifest = {"engine_id": "voxtral", "behavior": {}}
 
         detail = build_engine_detail(plugin, {})
 
         assert detail["status"] == STATUS_NEEDS_SETUP
-        assert detail["setup_message"] == "Voxtral requires a Mistral API key."
+        assert detail["setup_message"] == "Missing API key"
 
 
 class TestBuildHealthResponse:

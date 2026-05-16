@@ -31,9 +31,10 @@ def engine_status(
 
     Args:
         plugin: A loaded plugin (may have failed env check or verification).
+        current_settings: Current persisted settings for this engine.
 
     Returns:
-        str: One of ``"ready"``, ``"needs_setup"``, or ``"unverified"``.
+        str: One of ``"ready"``, ``"needs_setup"``, ``"unverified"``, or ``"invalid_config"``.
     """
     if getattr(plugin, "load_error", None):
         return STATUS_INVALID_CONFIG
@@ -41,13 +42,15 @@ def engine_status(
     try:
         check_env = plugin.engine.check_env
         if _accepts_settings(check_env):
-            ok, _msg = check_env(settings=current_settings or {})
+            ok, msg = check_env(settings=current_settings or {})
         else:
-            ok, _msg = check_env()
-    except Exception:
+            ok, msg = check_env()
+    except Exception as exc:
+        plugin.setup_message = f"check_env() crashed: {exc}"
         return STATUS_NEEDS_SETUP
 
     if not ok:
+        plugin.setup_message = str(msg or "Resolve engine setup before enabling this plugin.")
         return STATUS_NEEDS_SETUP
 
     if not plugin.dependencies_satisfied:
@@ -131,21 +134,26 @@ def build_engine_detail(
         behavior=manifest.get("behavior"),
     )
 
-    try:
-        info_extra = plugin.engine.info()
-    except Exception:
-        info_extra = {}
+    info_extra = {}
+    schema = {}
+    if getattr(plugin, "engine", None) is not None:
+        try:
+            info_extra = plugin.engine.info()
+        except Exception:
+            info_extra = {}
 
-    try:
-        schema = plugin.engine.settings_schema()
-    except Exception:
-        schema = {}
+        try:
+            schema = plugin.engine.settings_schema()
+        except Exception:
+            schema = {}
     if not schema and getattr(plugin, "settings_schema", None):
         schema = plugin.settings_schema
 
     enabled = bool(current_settings.get("enabled"))
     setup_message = getattr(plugin, "setup_message", None)
-    if status != STATUS_NEEDS_SETUP:
+    if status == STATUS_INVALID_CONFIG:
+        setup_message = getattr(plugin, "load_error", None) or setup_message
+    elif status != STATUS_NEEDS_SETUP:
         setup_message = None
 
     return {
@@ -170,6 +178,7 @@ def build_engine_detail(
         "enablement_message": enablement_message or setup_message,
         "setup_message": setup_message,
         "health_message": setup_message,
+        "verification_error": getattr(plugin, "load_error", None) or getattr(plugin, "verification_error", None),
         "settings_schema": schema,
         "current_settings": current_settings,
         "dependencies_satisfied": plugin.dependencies_satisfied,
