@@ -87,8 +87,8 @@
 - [ ] Add searchable voice tags compatible with future voice search/Hugging Face metadata.
 - [ ] Verify system API surface for future third-party/LLM controller plugins.
 - [ ] Show queue output metadata such as generated audio duration/length.
-- [ ] Remove legacy Chapter Editor Production, Performance, and Preview tabs/code.
-- [ ] Rework crowded Chapter Editor menu bar and remove duplicate preparing pill.
+- [x] Remove legacy Chapter Editor Production, Performance, and Preview tabs/code.
+- [x] Rework crowded Chapter Editor menu bar and remove duplicate preparing pill.
 - [ ] Scan plans and memory for forgotten requests, including `tts_plugins` / `tts_voices` namespace rename ideas.
 - [ ] Manually verify fixed-but-pending Phase 11 app behaviors.
 - [ ] Triage Vite websocket `ECONNRESET` reconnect behavior.

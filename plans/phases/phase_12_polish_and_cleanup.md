@@ -32,7 +32,7 @@ Phase 12 exists to avoid mixing user-facing polish and remaining master-plan ext
 - Improve plugin/voice management UX: dependency installation feedback, plugin compatibility verification, plugin import/delete flows, plugin-provided per-voice settings, voice icons, tags, and export layouts.
 - Align first-party TTS plugins with real repository ingestion by planning XTTS and Voxtral Web as standalone repos that can run from a CLI and produce audio independently of Studio. Each repo includes a standalone CLI Builder Harness (static page) to help compose commands, while Studio Dev Mode provides the authoritative UI state preview.
 - Capture multilingual voice/text language support as a planned voice workflow: engine manifests are the master list of supported language codes, voice profiles store a default language chosen from the selected engine's manifest, chapter text initially inherits the assigned voice's default language, individual sentences/segments/blocks can override that language when needed, and synthesis sends the resolved language to the engine instead of assuming English.
-- Clean up Chapter Editor UI and remove legacy Production, Performance, and Preview tab code now absorbed into the Script tab.
+- [x] Clean up Chapter Editor UI and remove legacy Production, Performance, and Preview tab code now absorbed into the Script tab.
 - Retire the legacy jobs request/response API path and move live job control/status messaging to WebSockets where practical.
 - Review system API coverage for third-party/LLM controller use cases without building those integrations yet.
 - Scan existing plans and memory for forgotten or leftover requests, including namespace rename requests such as `tts_plugins` and `tts_voices`.
@@ -63,7 +63,7 @@ Phase 12 exists to avoid mixing user-facing polish and remaining master-plan ext
 | Multilingual voice/text language support | Planned | Engine manifests are the master language list; voice profiles should get a default language at creation/training time; assigned chapter text should preset to the voice default; individual sentences/segments/blocks should allow explicit overrides; resolved language should be sent with synthesis requests. |
 | Plugin boundary cleanup | Complete | `app.db`, app behavior, and app utility imports are removed from portable plugin core code. Trivial audio helpers and complex text/proc utilities were localized to plugin-core to ensure absolute portability for future standalone repos. |
 | Plugin compatibility verification | Open | Check manifest contract version and expected callable signatures before runtime calls. |
-| Chapter Editor cleanup | Open | Remove legacy Production, Performance, and Preview tabs/code after confirming Script tab owns their features. Rework crowded menu bar and duplicate preparing pill. |
+| Chapter Editor cleanup | Complete | Removed legacy Production, Performance, and Preview tabs/code, pruned production-block infrastructure, hid redundant preparing/status duplication during live progress, and reorganized the header/toolbars around Script-focused editing. |
 | Queue output metadata | Open | Queue entries should show what was produced, including generated audio duration/length when available. |
 | Legacy jobs request API retirement | Open | Audit remaining jobs request endpoints and clients; migrate live control/status messaging to WebSockets and keep only proven non-live REST endpoints. |
 | API surface for third-party controllers | Open | Verify Studio API can support future LLM/control plugins without building those plugins yet. |
@@ -152,9 +152,9 @@ Complete this checklist before starting new Phase 12 feature work. The goal is t
 
 ### Chapter Editor
 
-- [ ] Remove legacy Production, Performance, and Preview tabs and related dead code after confirming their useful features are absorbed into the Script tab.
-- [ ] Rework the crowded Chapter Editor menu bar into two lines or another clearer layout.
-- [ ] Remove the extra `preparing` pill when the progress bar already says preparing.
+- [x] Remove legacy Production, Performance, and Preview tabs and related dead code after confirming their useful features are absorbed into the Script tab.
+- [x] Rework the crowded Chapter Editor menu bar into a clearer layout.
+- [x] Remove the extra `preparing` pill when the progress bar already says preparing.
 
 ### Planning Hygiene
 
