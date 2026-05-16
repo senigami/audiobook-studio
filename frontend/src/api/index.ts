@@ -1,4 +1,4 @@
-import type { Job, Project, Chapter, ProductionBlocksResponse, ProductionBlock, ScriptViewResponse, ScriptAssignmentsUpdate } from '@/types';
+import type { Job, Project, Chapter, ScriptViewResponse, ScriptAssignmentsUpdate } from '@/types';
 import { DEFAULT_VOICE_SENTINEL } from '@/constants/api';
 
 const parseApiResponse = async (res: Response) => {
@@ -161,10 +161,6 @@ export const api = {
     const res = await fetch(`/api/chapters/${chapterId}/analyze`);
     return res.json();
   },
-  fetchProductionBlocks: async (chapterId: string): Promise<ProductionBlocksResponse> => {
-    const res = await fetch(`/api/chapters/${chapterId}/production-blocks`);
-    return parseApiResponse(res);
-  },
   fetchScriptView: async (chapterId: string): Promise<ScriptViewResponse> => {
     const res = await fetch(`/api/chapters/${chapterId}/script-view`);
     return parseApiResponse(res);
@@ -213,22 +209,6 @@ export const api = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text_content: textContent })
-    });
-    return parseApiResponse(res);
-  },
-  updateProductionBlocks: async (
-    chapterId: string,
-    data: { base_revision_id?: string; blocks: ProductionBlock[] }
-  ): Promise<ProductionBlocksResponse> => {
-    const res = await fetch(`/api/chapters/${chapterId}/production-blocks`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        base_revision_id: data.base_revision_id,
-        blocks: data.blocks,
-      }),
     });
     return parseApiResponse(res);
   },

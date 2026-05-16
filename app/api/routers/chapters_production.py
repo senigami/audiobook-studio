@@ -3,8 +3,6 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 
 from ...domain.chapters.facade import (
-    get_production_blocks_payload,
-    save_production_blocks_payload,
     get_script_view_payload,
     save_script_assignments,
     get_resync_preview,
@@ -14,21 +12,13 @@ from ...domain.chapters.facade import (
 
 from .chapters_models import (
     ResyncPreviewResponse, ResyncPreviewRequest,
-    ProductionBlocksUpdate, ScriptAssignmentsUpdate,
+    ScriptAssignmentsUpdate,
     ScriptViewResponse, CompactionRequest
 )
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-@router.get("/chapters/{chapter_id}/production-blocks")
-def api_get_production_blocks(chapter_id: str):
-    try:
-        return JSONResponse(get_production_blocks_payload(chapter_id))
-    except KeyError:
-        return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
 
 
 @router.get("/chapters/{chapter_id}/script-view")
@@ -51,30 +41,6 @@ def api_get_resync_preview(chapter_id: str, payload: ResyncPreviewRequest):
     except Exception as e:
         logger.error(f"Error generating resync preview: {e}")
         return JSONResponse({"status": "error", "message": "Internal server error during resync preview"}, status_code=500)
-
-
-@router.put("/chapters/{chapter_id}/production-blocks")
-def api_save_production_blocks(chapter_id: str, payload: ProductionBlocksUpdate):
-    try:
-        return JSONResponse(
-            save_production_blocks_payload(
-                chapter_id,
-                blocks=payload.blocks,
-                base_revision_id=payload.base_revision_id,
-            )
-        )
-    except RevisionMismatch as exc:
-        return JSONResponse(
-            {
-                "status": "error",
-                "message": "Chapter production blocks were updated by someone else. Reload before saving again.",
-                "expected_base_revision_id": exc.expected_revision_id,
-                "base_revision_id": exc.actual_revision_id,
-            },
-            status_code=409,
-        )
-    except KeyError:
-        return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
 
 
 @router.put("/chapters/{chapter_id}/script-view/assignments", response_model=ScriptViewResponse)

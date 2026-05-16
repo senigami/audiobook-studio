@@ -119,7 +119,6 @@ describe('ChapterHeader', () => {
     );
 
     expect(screen.queryByTestId('progress-bar-segments')).toBeNull();
-    expect(screen.getByText('Processing')).toBeInTheDocument();
     expect(screen.getByTitle('Already processing')).toBeDisabled();
     expect(screen.getByText('40%')).toBeInTheDocument();
 

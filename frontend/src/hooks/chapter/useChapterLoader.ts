@@ -1,6 +1,5 @@
 import { useEffect, useCallback, useRef, useMemo } from 'react';
 import { api } from '@/api';
-import { buildFallbackProductionBlocks } from '@/utils/chapterEditorHelpers';
 import { shouldEnableStudioDebugLogging, recordStudioDebugSnapshot } from '@/utils/runtimeDebug';
 import type { ChapterEditorState } from '@/hooks/chapter/useChapterEditorState';
 import type { Job } from '@/types';
@@ -16,8 +15,6 @@ export const useChapterLoader = (
   const {
     setChapter, setTitle, setText, setLocalVoice,
     setSegments, setCharacters, setScriptViewData,
-    syncProductionBlocks, setProductionBaseRevisionId,
-    setProductionBlocks, setRenderBatches,
     setGeneratingSegmentIds, pendingGenerationIdsRef,
     pendingGenerationTimesRef, segmentRefreshTimerRef,
     completionPollTimerRef, completionPollAttemptsRef,
@@ -62,10 +59,9 @@ export const useChapterLoader = (
         setLocalVoice(target.speaker_profile_name || '');
       }
       const detailsStartedAt = performance.now();
-      const [segs, chars, production, scriptView] = await Promise.all([
+      const [segs, chars, scriptView] = await Promise.all([
         api.fetchSegments(chapterId),
         api.fetchCharacters(projectId),
-        api.fetchProductionBlocks(chapterId).catch(() => null),
         api.fetchScriptView(chapterId).catch(() => null)
       ]);
       if (shouldLogLoadTimings) {
@@ -75,7 +71,6 @@ export const useChapterLoader = (
           source,
           ms: Math.round(performance.now() - detailsStartedAt),
           segments: segs.length,
-          hasProduction: !!production?.blocks?.length,
           hasScriptView: !!scriptView,
         });
       }
@@ -83,14 +78,6 @@ export const useChapterLoader = (
       setCharacters(chars);
       if (scriptView) setScriptViewData(scriptView);
       else setScriptViewData(null);
-      
-      if (production?.blocks?.length) {
-        syncProductionBlocks(production);
-      } else {
-        setProductionBaseRevisionId(null);
-        setProductionBlocks(buildFallbackProductionBlocks(segs));
-        setRenderBatches([]);
-      }
 
       setGeneratingSegmentIds(prev => {
         const currentLiveIds = liveSegmentJobIdsRef.current;
@@ -139,7 +126,7 @@ export const useChapterLoader = (
       setLoading(false);
       setScriptViewLoading(false);
     }
-  }, [chapterId, projectId, syncProductionBlocks, setChapter, setTitle, setText, setLocalVoice, setSegments, setCharacters, setScriptViewData, setProductionBaseRevisionId, setProductionBlocks, setRenderBatches, setGeneratingSegmentIds, setLoading, setScriptViewLoading]);
+  }, [chapterId, projectId, setChapter, setTitle, setText, setLocalVoice, setSegments, setCharacters, setScriptViewData, setGeneratingSegmentIds, setLoading, setScriptViewLoading]);
 
   useEffect(() => { loadChapter('mount'); }, [loadChapter]);
 
@@ -154,20 +141,12 @@ export const useChapterLoader = (
     if (segmentRefreshTimerRef.current) clearTimeout(segmentRefreshTimerRef.current);
     segmentRefreshTimerRef.current = setTimeout(async () => {
         try {
-        const [updatedSegments, updatedProduction, updatedScript] = await Promise.all([
+        const [updatedSegments, updatedScript] = await Promise.all([
           api.fetchSegments(chapterId),
-          api.fetchProductionBlocks(chapterId).catch(() => null),
           api.fetchScriptView(chapterId).catch(() => null),
         ]);
         setSegments(updatedSegments);
         if (updatedScript) setScriptViewData(updatedScript);
-        if (updatedProduction?.blocks?.length) {
-          syncProductionBlocks(updatedProduction);
-        } else {
-          setProductionBlocks(buildFallbackProductionBlocks(updatedSegments));
-          setRenderBatches([]);
-          setProductionBaseRevisionId(null);
-        }
         setGeneratingSegmentIds(prev => {
           const next = new Set(prev);
           const currentLiveIds = liveSegmentJobIdsRef.current;
@@ -192,7 +171,8 @@ export const useChapterLoader = (
         });
       } catch (e) { console.error("WS refresh failed", e); }
     }, 300);
-  }, [segmentUpdate, chapterId, syncProductionBlocks, setSegments, setScriptViewData, setProductionBlocks, setRenderBatches, setProductionBaseRevisionId, setGeneratingSegmentIds]);
+  }, [segmentUpdate, chapterId, setSegments, setScriptViewData, setGeneratingSegmentIds]);
+
 
   useEffect(() => {
     if (chapterJobs.length > 0) return;

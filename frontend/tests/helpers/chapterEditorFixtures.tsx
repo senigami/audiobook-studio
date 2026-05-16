@@ -27,27 +27,6 @@ export const mockSegments = [
   { id: 'seg-1', chapter_id: mockChapterId, segment_order: 0, text_content: 'Once upon a time.', character_id: null, audio_status: 'unprocessed' }
 ];
 
-export const mockProductionBlocks = [
-  {
-    id: 'block-1',
-    order_index: 0,
-    text: 'Once upon a time.',
-    character_id: null,
-    speaker_profile_name: null,
-    status: 'draft',
-    source_segment_ids: ['seg-1']
-  }
-];
-
-export const mockRenderBatches = [
-  {
-    id: 'batch-1',
-    block_ids: ['block-1'],
-    status: 'queued',
-    estimated_work_weight: 1
-  }
-];
-
 export const mockCharacters: Character[] = [
   { id: 'char-1', project_id: mockProjectId, name: 'Char 1', color: '#ff0000', speaker_profile_name: 'Voice 1' } as any
 ];

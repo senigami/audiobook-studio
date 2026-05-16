@@ -346,7 +346,7 @@ export const ChapterHeader: React.FC<ChapterHeaderProps> = ({
               </button>
           )}
 
-          {queueStatus && (
+          {!liveSegmentProgressJob && queueStatus && (
               <div style={{
                   display: 'flex',
                   alignItems: 'center',

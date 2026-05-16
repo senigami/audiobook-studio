@@ -9,26 +9,6 @@ from app.db.segments import sync_chapter_segments
 from app.utils.render_trace import trace
 from app.utils.text.textops import compute_chapter_metrics
 from . import helpers
-from . import blocks as blocks_module
-
-def get_production_blocks_payload(chapter_id: str) -> dict[str, Any]:
-    """Build the production-block payload for a chapter."""
-    with _db_lock:
-        with get_connection() as conn:
-            chapter_row = helpers._load_chapter_row(conn, chapter_id)
-            if chapter_row is None:
-                raise KeyError(f"Chapter not found: {chapter_id}")
-            segment_rows = helpers._load_segment_rows(conn, chapter_id)
-
-    block_list = blocks_module._group_segments_into_blocks(chapter_id=chapter_id, segment_rows=segment_rows)
-    render_batches = blocks_module._derive_render_batches(chapter_id=chapter_id, blocks=block_list)
-    return {
-        "chapter_id": chapter_id,
-        "base_revision_id": helpers._build_base_revision_id(chapter_row, segment_rows),
-        "blocks": block_list,
-        "render_batches": render_batches,
-    }
-
 
 def get_script_view_payload(chapter_id: str) -> dict[str, Any]:
     """Build the Phase 7 Script View read model payload for a chapter."""
@@ -177,77 +157,6 @@ def _build_script_batch(
         "order_index": order_index,
         "estimated_work_weight": sum(span.get("sanitized_char_count", 0) for span in spans),
     }
-
-
-def save_production_blocks_payload(
-    chapter_id: str,
-    *,
-    blocks_payload: Sequence[Mapping[str, Any]] | None = None,
-    blocks: Sequence[Mapping[str, Any]] | None = None,
-    base_revision_id: str | None = None,
-) -> dict[str, Any]:
-    """Persist editable production blocks."""
-    if blocks_payload is None:
-        if blocks is None:
-            raise TypeError("save_production_blocks_payload() missing required keyword-only argument: 'blocks'")
-        blocks_payload = blocks
-    elif blocks is not None:
-        raise TypeError("save_production_blocks_payload() received both 'blocks_payload' and 'blocks'")
-
-    normalized_blocks = [helpers._normalize_block_payload(block, order_index=index) for index, block in enumerate(blocks_payload)]
-    raw_text = helpers._reconstruct_raw_text(normalized_blocks)
-
-    with _db_lock:
-        with get_connection() as conn:
-            cursor = conn.cursor()
-            chapter_row = helpers._load_chapter_row(conn, chapter_id)
-            if chapter_row is None:
-                raise KeyError(f"Chapter not found: {chapter_id}")
-
-            current_segments = helpers._load_segment_rows(conn, chapter_id)
-            current_base_revision_id = helpers._build_base_revision_id(chapter_row, current_segments)
-            if base_revision_id and base_revision_id != current_base_revision_id:
-                raise helpers.RevisionMismatch(current_base_revision_id, base_revision_id)
-
-            existing_blocks = blocks_module._group_segments_into_blocks(chapter_id=chapter_id, segment_rows=current_segments)
-            metrics = compute_chapter_metrics(raw_text)
-            cursor.execute(
-                """
-                UPDATE chapters
-                SET text_content = ?,
-                    text_last_modified = ?,
-                    audio_status = 'unprocessed',
-                    audio_file_path = NULL,
-                    audio_generated_at = NULL,
-                    audio_length_seconds = NULL,
-                    char_count = ?,
-                    word_count = ?,
-                    predicted_audio_length = ?
-                WHERE id = ?
-                """,
-                (
-                    raw_text,
-                    time.time(),
-                    metrics["char_count"],
-                    metrics["word_count"],
-                    metrics["predicted_audio_length"],
-                    chapter_id,
-                ),
-            )
-
-            sync_chapter_segments(chapter_id, raw_text, conn=conn)
-
-            updated_segments = helpers._load_segment_rows(conn, chapter_id)
-            blocks_module._preserve_segment_assignments(
-                cursor=cursor,
-                chapter_id=chapter_id,
-                updated_segments=updated_segments,
-                normalized_blocks=normalized_blocks,
-                existing_blocks=existing_blocks,
-            )
-            conn.commit()
-
-    return get_production_blocks_payload(chapter_id)
 
 
 def save_script_assignments(

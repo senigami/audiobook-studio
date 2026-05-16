@@ -1,7 +1,6 @@
-import { useState, useRef, useCallback } from 'react';
-import type { 
-  Chapter, ChapterSegment, Character, ProductionBlock, 
-  ProductionRenderBatch, ScriptViewResponse 
+import { useState, useRef } from 'react';
+import type {
+  Chapter, ChapterSegment, Character, ScriptViewResponse
 } from '@/types';
 import { useChapterAnalysis } from '@/hooks/useChapterAnalysis';
 
@@ -13,15 +12,12 @@ export const useChapterEditorState = (chapterId: string) => {
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [localVoice, setLocalVoice] = useState<string>('');
-  
+
   const [segments, setSegments] = useState<ChapterSegment[]>([]);
   const [characters, setCharacters] = useState<Character[]>([]);
-  const [productionBlocks, setProductionBlocks] = useState<ProductionBlock[]>([]);
-  const [renderBatches, setRenderBatches] = useState<ProductionRenderBatch[]>([]);
-  const [productionBaseRevisionId, setProductionBaseRevisionId] = useState<string | null>(null);
   const [scriptViewData, setScriptViewData] = useState<ScriptViewResponse | null>(null);
   const [scriptViewLoading, setScriptViewLoading] = useState(true);
-  
+
   const [generatingSegmentIds, setGeneratingSegmentIds] = useState<Set<string>>(new Set());
   const pendingGenerationIdsRef = useRef<Set<string>>(new Set());
   const pendingGenerationTimesRef = useRef<Map<string, number>>(new Map());
@@ -31,20 +27,10 @@ export const useChapterEditorState = (chapterId: string) => {
   const completionPollAttemptsRef = useRef(0);
   const [saveConflictError, setSaveConflictError] = useState<string | null>(null);
 
-  const { 
-    analysis, setAnalysis, analyzing, loadingVoiceChunks, 
-    ensureVoiceChunks, runAnalysis 
+  const {
+    analysis, setAnalysis, analyzing, loadingVoiceChunks,
+    ensureVoiceChunks, runAnalysis
   } = useChapterAnalysis(chapterId, text);
-
-  const syncProductionBlocks = useCallback((payload: {
-    base_revision_id?: string | null;
-    blocks: ProductionBlock[];
-    render_batches?: ProductionRenderBatch[];
-  }) => {
-    setProductionBaseRevisionId(payload.base_revision_id ?? null);
-    setProductionBlocks([...payload.blocks].sort((a, b) => a.order_index - b.order_index));
-    setRenderBatches(payload.render_batches ? [...payload.render_batches] : []);
-  }, []);
 
   return {
     chapter, setChapter,
@@ -56,9 +42,6 @@ export const useChapterEditorState = (chapterId: string) => {
     localVoice, setLocalVoice,
     segments, setSegments,
     characters, setCharacters,
-    productionBlocks, setProductionBlocks,
-    renderBatches, setRenderBatches,
-    productionBaseRevisionId, setProductionBaseRevisionId,
     scriptViewData, setScriptViewData,
     scriptViewLoading, setScriptViewLoading,
     generatingSegmentIds, setGeneratingSegmentIds,
@@ -71,8 +54,7 @@ export const useChapterEditorState = (chapterId: string) => {
     saveConflictError, setSaveConflictError,
     analysis, setAnalysis,
     analyzing, loadingVoiceChunks,
-    ensureVoiceChunks, runAnalysis,
-    syncProductionBlocks
+    ensureVoiceChunks, runAnalysis
   };
 };
 

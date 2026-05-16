@@ -44,12 +44,6 @@ describe('api methods', () => {
         await api.updateChapter('c1', { title: 'Chapter 1' })
         expect(global.fetch).toHaveBeenCalledWith('/api/chapters/c1', expect.anything())
 
-        await api.fetchProductionBlocks('c1')
-        expect(global.fetch).toHaveBeenCalledWith('/api/chapters/c1/production-blocks')
-
-        await api.updateProductionBlocks('c1', { blocks: [] })
-        expect(global.fetch).toHaveBeenCalledWith('/api/chapters/c1/production-blocks', expect.objectContaining({ method: 'PUT' }))
-
         await api.exportChapterAudio('c1', 'wav')
         expect(global.fetch).toHaveBeenCalledWith('/api/chapters/c1/export-audio', expect.objectContaining({ 
             method: 'POST',
@@ -129,12 +123,5 @@ describe('api methods', () => {
         await expect(api.addProcessingQueue('p1', 'c1', 0, 'Test')).rejects.toThrow(/Enable Cloud Engine/i)
     })
 
-    it('rejects production block updates when the backend reports a revision conflict', async () => {
-        global.fetch = vi.fn().mockResolvedValue({
-            ok: false,
-            json: () => Promise.resolve({ status: 'error', message: 'Revision mismatch' })
-        }) as any
-
-        await expect(api.updateProductionBlocks('c1', { blocks: [] })).rejects.toThrow('Revision mismatch')
     })
 })

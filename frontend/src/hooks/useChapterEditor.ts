@@ -89,11 +89,6 @@ export const useChapterEditor = (
     setSegments: state.setSegments,
     characters: state.characters, 
     setCharacters: state.setCharacters,
-    productionBlocks: state.productionBlocks, 
-    setProductionBlocks: state.setProductionBlocks,
-    renderBatches: state.renderBatches, 
-    setRenderBatches: state.setRenderBatches,
-    productionBaseRevisionId: state.productionBaseRevisionId,
     scriptViewData: state.scriptViewData, 
     setScriptViewData: state.setScriptViewData,
     scriptViewLoading: state.scriptViewLoading,
@@ -112,24 +107,19 @@ export const useChapterEditor = (
     
     // Loading & Sync
     loadChapter,
-    syncProductionBlocks: state.syncProductionBlocks,
     generatingSegmentJob: queue.generatingSegmentJob,
     liveSegmentJobIds,
     hasRenderedOutput,
     
     // Actions
-    reloadLatestBlocks: persistence.reloadLatestBlocks,
     handleSave: persistence.handleSave,
     handleVoiceChange: persistence.handleVoiceChange,
-    saveProductionBlocks: persistence.saveProductionBlocks,
     saveConflictError: state.saveConflictError, 
     setSaveConflictError: state.setSaveConflictError,
     handleUpdateCharacterColor: persistence.handleUpdateCharacterColor,
     
     handleScriptAssign: assignments.handleScriptAssign,
     handleScriptAssignRange: assignments.handleScriptAssignRange,
-    handleParagraphBulkAssign: assignments.handleParagraphBulkAssign,
-    handleParagraphBulkReset: assignments.handleParagraphBulkReset,
     
     handleGenerate: queue.handleGenerate,
     executeQueue: queue.executeQueue

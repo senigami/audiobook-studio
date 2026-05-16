@@ -57,18 +57,6 @@ test('chapter segment rendering highlights correctly', async ({ page }) => {
     });
   });
 
-  await page.route(`**/api/chapters/${chapterId}/production-blocks`, async route => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        base_revision_id: 'rev1',
-        blocks: [],
-        render_batches: []
-      })
-    });
-  });
-
   await page.route(`**/api/projects/${projectId}/characters`, async route => {
     await route.fulfill({
       status: 200,

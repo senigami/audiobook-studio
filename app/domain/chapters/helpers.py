@@ -73,18 +73,6 @@ def _aggregate_status(statuses: Sequence[Any]) -> str:
     return "draft"
 
 
-def _derive_block_status(source_rows: Sequence[dict[str, Any]]) -> str:
-    statuses = [str(row.get("audio_status") or "unprocessed") for row in source_rows]
-    if any(status in {"failed", "error"} for status in statuses):
-        return "failed"
-    if any(status == "processing" for status in statuses):
-        return "rendering"
-    if any(status in {"queued", "preparing", "finalizing"} for status in statuses):
-        return "queued"
-    if all(status == "done" for status in statuses):
-        return "rendered"
-    if any(status == "done" for status in statuses):
-        return "stale"
     return "draft"
 
 
@@ -113,14 +101,6 @@ def _segment_contains_paragraph_break(segment_row: dict[str, Any]) -> bool:
     return bool(re.search(r"[\r\n]", text))
 
 
-def _stable_block_id(*, chapter_id: str, source_segment_ids: Sequence[str], order_index: int) -> str:
-    payload = {
-        "chapter_id": chapter_id,
-        "source_segment_ids": list(source_segment_ids),
-        "order_index": order_index,
-    }
-    digest = sha256(json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")).hexdigest()
-    return f"block_{digest[:12]}"
 
 
 def _stable_batch_id(*, chapter_id: str, block_ids: Sequence[str], order_index: int) -> str:
@@ -163,26 +143,3 @@ def _resolve_engine_from_profile(profile_name: str | None) -> str:
         return engine or "unknown"
     except Exception:
         return "unknown"
-
-
-def _normalize_block_payload(block: dict[str, Any], *, order_index: int) -> dict[str, Any]:
-    text = str(block.get("text") or "")
-    source_segment_ids = [str(segment_id) for segment_id in block.get("source_segment_ids", []) if str(segment_id)]
-    return {
-        "id": _clean_optional_text(block.get("id")) or _stable_block_id(
-            chapter_id="draft",
-            source_segment_ids=source_segment_ids or [f"block-{order_index + 1}"],
-            order_index=order_index,
-        ),
-        "order_index": order_index,
-        "text": text.strip(),
-        "character_id": _clean_optional_text(block.get("character_id")),
-        "speaker_profile_name": _clean_optional_text(block.get("speaker_profile_name")),
-        "status": str(block.get("status") or "draft"),
-        "source_segment_ids": source_segment_ids,
-    }
-
-
-def _reconstruct_raw_text(blocks: Sequence[dict[str, Any]]) -> str:
-    texts = [str(block.get("text") or "").strip() for block in blocks if str(block.get("text") or "").strip()]
-    return "\n\n".join(texts)

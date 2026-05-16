@@ -1,8 +1,6 @@
 import { useCallback } from 'react';
 import { api } from '@/api';
-import { buildFallbackProductionBlocks } from '@/utils/chapterEditorHelpers';
 import type { ChapterEditorState } from '@/hooks/chapter/useChapterEditorState';
-import type { ProductionBlock } from '@/types';
 
 export const useChapterPersistence = (
   state: ChapterEditorState,
@@ -12,10 +10,7 @@ export const useChapterPersistence = (
   const {
     chapter, setChapter, title, text, runAnalysis,
     setSaving, setSegments, setScriptViewData,
-    syncProductionBlocks, setProductionBlocks,
-    setRenderBatches, setProductionBaseRevisionId,
-    productionBaseRevisionId, setCharacters,
-    setSaveConflictError
+    setCharacters
   } = state;
 
   const handleSave = useCallback(async (manualTitle?: string, manualText?: string) => {
@@ -29,26 +24,18 @@ export const useChapterPersistence = (
       const result = await api.updateChapter(chapterId, { title: finalTitle, text_content: finalText });
       if (result.chapter) setChapter(result.chapter);
       if (finalText !== chapter.text_content) {
-          const [updatedSegs, updatedProduction, updatedScript] = await Promise.all([
+          const [updatedSegs, updatedScript] = await Promise.all([
             api.fetchSegments(chapterId),
-            api.fetchProductionBlocks(chapterId).catch(() => null),
             api.fetchScriptView(chapterId).catch(() => null)
           ]);
           setSegments(updatedSegs);
           if (updatedScript) setScriptViewData(updatedScript);
-          if (updatedProduction?.blocks?.length) {
-            syncProductionBlocks(updatedProduction);
-          } else {
-            setProductionBlocks(buildFallbackProductionBlocks(updatedSegs));
-            setRenderBatches([]);
-            setProductionBaseRevisionId(null);
-          }
           runAnalysis(finalText);
       }
       return true;
     } catch (e) { console.error("Save failed", e); return false; }
     finally { setTimeout(() => setSaving(false), 500); }
-  }, [chapter, chapterId, title, text, runAnalysis, syncProductionBlocks, setChapter, setSaving, setSegments, setScriptViewData, setProductionBlocks, setRenderBatches, setProductionBaseRevisionId]);
+  }, [chapter, chapterId, title, text, runAnalysis, setChapter, setSaving, setSegments, setScriptViewData]);
 
   const handleVoiceChange = useCallback(async (voice: string, onError?: (msg: string) => void) => {
       const previousVoice = state.localVoice;
@@ -65,24 +52,6 @@ export const useChapterPersistence = (
       }
   }, [chapter, chapterId, state.localVoice, state.setLocalVoice, setChapter]);
 
-  const saveProductionBlocks = useCallback(async (blocks: ProductionBlock[]) => {
-    setSaveConflictError(null);
-    try {
-      const result = await api.updateProductionBlocks(chapterId, {
-        base_revision_id: productionBaseRevisionId ?? undefined,
-        blocks,
-      });
-      syncProductionBlocks(result);
-      return result;
-    } catch (e: any) {
-      if (e.status === 409) {
-        setSaveConflictError(e.message || "A conflict occurred while saving. The chapter was modified by another process.");
-      } else {
-        throw e;
-      }
-    }
-  }, [chapterId, productionBaseRevisionId, syncProductionBlocks, setSaveConflictError]);
-
   const handleUpdateCharacterColor = useCallback(async (id: string, color: string) => {
     try {
       setCharacters(prev => prev.map(c => c.id === id ? { ...c, color } : c));
@@ -90,23 +59,9 @@ export const useChapterPersistence = (
     } catch (e) { console.error("Color update failed", e); loadChapter('color-refresh'); }
   }, [loadChapter, setCharacters]);
 
-  const reloadLatestBlocks = useCallback(async () => {
-    try {
-      const result = await api.fetchProductionBlocks(chapterId);
-      syncProductionBlocks(result);
-      setSaveConflictError(null);
-      return result;
-    } catch (e) {
-      console.error("Failed to reload production blocks", e);
-      return null;
-    }
-  }, [chapterId, syncProductionBlocks, setSaveConflictError]);
-
   return {
     handleSave,
     handleVoiceChange,
-    saveProductionBlocks,
-    handleUpdateCharacterColor,
-    reloadLatestBlocks
+    handleUpdateCharacterColor
   };
 };
