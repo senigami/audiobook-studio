@@ -77,6 +77,25 @@ def test_queue_api(clean_db, client):
     assert response.status_code == 200
 
 
+def test_failed_queue_items_expose_error_reason(clean_db, client):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.queue import add_to_queue, update_queue_item
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "T1")
+    qid = add_to_queue(pid, cid)
+
+    update_queue_item(qid, "running")
+    update_queue_item(qid, "failed", error="Stitching failed (rc=1)")
+
+    response = client.get("/api/processing_queue")
+    assert response.status_code == 200
+    row = next(item for item in response.json() if item["id"] == qid)
+    assert row["status"] == "failed"
+    assert row["error"] == "Stitching failed (rc=1)"
+
+
 
 
 

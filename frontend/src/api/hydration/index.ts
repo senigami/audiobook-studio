@@ -87,6 +87,7 @@ function buildOverlayQueueItem(jobId: string, delta: OverlayDelta): ProcessingQu
     chapter_audio_status: undefined,
     chapter_audio_file_path: null,
     updated_at: delta.updated_at ?? undefined,
+    error: delta.error ?? delta.message ?? undefined,
     render_group_count: undefined,
     completed_render_groups: undefined,
     active_render_group_index: undefined,
@@ -141,6 +142,7 @@ export const createHydrationCoordinator = (): HydrationCoordinator => ({
         estimated_end_at: delta.estimated_end_at !== undefined ? (delta.estimated_end_at ?? undefined) : item.estimated_end_at,
         started_at: delta.started_at !== undefined ? (delta.started_at ?? undefined) : item.started_at,
         log: delta.message ?? item.log,
+        error: delta.error ?? delta.message ?? item.error,
         // active_render_batch_id etc are not in ProcessingQueueItem but we could add them if needed
       };
 

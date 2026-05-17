@@ -172,8 +172,13 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
         return
 
     rc = xtts_facade.stitch_segments(pdir, segment_paths, out_wav, on_output, cancel_check)
-    if rc == 0 and not out_wav.exists() and len(segment_paths) == 1 and segment_paths[0].exists():
-        shutil.copy2(segment_paths[0], out_wav)
+    if (rc != 0 or not out_wav.exists()) and len(segment_paths) == 1 and segment_paths[0].exists():
+        try:
+            shutil.copy2(segment_paths[0], out_wav)
+            rc = 0
+        except Exception:
+            pass
+
     if rc == 0 and out_wav.exists():
         duration = xtts_facade.get_audio_duration(out_wav)
         from app.db import update_queue_item

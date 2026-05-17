@@ -156,7 +156,7 @@ def clear_queue() -> bool:
             conn.commit()
             return True
 
-def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 0.0, force_chapter_id: str = None, output_file: str = None, chapter_scoped: bool = True):
+def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 0.0, force_chapter_id: str = None, output_file: str = None, error: str = None, chapter_scoped: bool = True):
     import logging
 
     logger = logging.getLogger(__name__)
@@ -178,6 +178,9 @@ def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 
             elif status in ('done', 'failed', 'cancelled'):
                 updates.append("completed_at = ?")
                 params.append(now)
+            if status in ('done', 'failed', 'cancelled') or error is not None:
+                updates.append("error = ?")
+                params.append(error if status in ('failed', 'cancelled') else None)
 
             params.append(queue_id)
             cursor.execute(f"UPDATE processing_queue SET {', '.join(updates)} WHERE id = ?", params)

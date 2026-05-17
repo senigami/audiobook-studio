@@ -78,16 +78,22 @@ def broadcast_pause_state(paused: bool):
 def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None = None):
     merged = dict(current_job or {})
     merged.update(updates or {})
+    status = str(merged.get("status") or "queued")
+    message = None
+    if status in ("failed", "cancelled"):
+        message = merged.get("error") or updates.get("error")
+    if not message:
+        message = updates.get("message") or updates.get("log")
     normalized = build_studio_job_event(
         job_id=job_id,
-        status=str(merged.get("status") or "queued"),
+        status=status,
         scope="job",
         parent_job_id=merged.get("parent_job_id"),
         progress=merged.get("progress"),
         eta_seconds=updates.get("eta_seconds"),
         eta_basis=updates.get("eta_basis"),
         estimated_end_at=updates.get("estimated_end_at"),
-        message=updates.get("message") or updates.get("log"),
+        message=message,
         reason_code=merged.get("reason_code"),
         updated_at=merged.get("updated_at"),
         started_at=merged.get("started_at"),

@@ -112,6 +112,7 @@ def init_db():
                     created_at REAL,
                     started_at REAL,
                     completed_at REAL,
+                    error TEXT,
                     FOREIGN KEY (project_id) REFERENCES projects (id),
                     FOREIGN KEY (chapter_id) REFERENCES chapters (id)
                 )
@@ -208,6 +209,7 @@ def init_db():
             add_column_if_missing("ALTER TABLE chapter_segments ADD COLUMN sanitized_text TEXT", "chapter_segments.sanitized_text")
             add_column_if_missing("ALTER TABLE processing_queue ADD COLUMN started_at REAL", "processing_queue.started_at")
             add_column_if_missing("ALTER TABLE processing_queue ADD COLUMN completed_at REAL", "processing_queue.completed_at")
+            add_column_if_missing("ALTER TABLE processing_queue ADD COLUMN error TEXT", "processing_queue.error")
             add_column_if_missing("ALTER TABLE processing_queue ADD COLUMN custom_title TEXT", "processing_queue.custom_title")
             add_column_if_missing("ALTER TABLE processing_queue ADD COLUMN engine TEXT", "processing_queue.engine")
             add_column_if_missing("ALTER TABLE render_performance_samples ADD COLUMN job_id TEXT", "render_performance_samples.job_id")
@@ -243,6 +245,7 @@ def init_db():
                                 created_at REAL,
                                 started_at REAL,
                                 completed_at REAL,
+                                error TEXT,
                                 custom_title TEXT,
                                 engine TEXT,
                                 FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE,
@@ -250,8 +253,8 @@ def init_db():
                             )
                         """)
                         cursor.execute("""
-                            INSERT INTO processing_queue (id, project_id, chapter_id, split_part, status, created_at, started_at, completed_at, custom_title, engine)
-                            SELECT id, project_id, chapter_id, split_part, status, created_at, started_at, completed_at, custom_title, NULL
+                            INSERT INTO processing_queue (id, project_id, chapter_id, split_part, status, created_at, started_at, completed_at, error, custom_title, engine)
+                            SELECT id, project_id, chapter_id, split_part, status, created_at, started_at, completed_at, NULL, custom_title, NULL
                             FROM _processing_queue_old
                         """)
                         cursor.execute("DROP TABLE _processing_queue_old")

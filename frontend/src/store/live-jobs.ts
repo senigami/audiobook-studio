@@ -22,6 +22,7 @@ export interface OverlayDelta {
   active_segment_progress?: number | null;
   reason_code?: string | null;
   message?: string | null;
+  error?: string | null;
 }
 
 export interface LiveOverlayState {
@@ -148,6 +149,7 @@ export const createLiveJobsStore = (): LiveJobsStore => {
     nextDelta.eta_basis = event.eta_basis ?? 'remaining_from_update';
 
     if (event.message) nextDelta.message = event.message;
+    if (event.message) nextDelta.error = event.message;
     if (event.reason_code) nextDelta.reason_code = event.reason_code;
     if (event.active_render_batch_id) nextDelta.active_render_batch_id = event.active_render_batch_id;
     if (typeof event.active_render_batch_progress === 'number') {
@@ -188,7 +190,8 @@ export const createLiveJobsStore = (): LiveJobsStore => {
         ? jobUpdated.active_segment_progress
         : existing?.active_segment_progress,
       reason_code: jobUpdated.reason_code ?? existing?.reason_code,
-      message: jobUpdated.message ?? jobUpdated.log ?? existing?.message,
+      message: jobUpdated.message ?? jobUpdated.log ?? jobUpdated.error ?? existing?.message,
+      error: jobUpdated.error ?? jobUpdated.message ?? jobUpdated.log ?? existing?.error,
     };
   };
 

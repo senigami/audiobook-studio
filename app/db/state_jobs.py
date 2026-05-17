@@ -225,6 +225,7 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
 
                 audio_length = 0.0
                 output_file = None
+                queue_error = None
                 new_status = updates.get("status", j.get("status"))
                 project_id = updates.get("project_id", j.get("project_id"))
 
@@ -244,6 +245,8 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
                                 audio_length = probe_audio_duration(full_audio_path)
                             except Exception:
                                 logger.warning("Could not get duration for %s", output_file, exc_info=True)
+                elif new_status in ("failed", "cancelled"):
+                    queue_error = updates.get("error") or j.get("error")
 
                 update_queue_item(
                     job_id, 
@@ -251,6 +254,7 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
                     audio_length_seconds=audio_length, 
                     force_chapter_id=j.get("chapter_id"), 
                     output_file=output_file,
+                    error=queue_error,
                     chapter_scoped=not bool(j.get("segment_ids")),
                 )
 

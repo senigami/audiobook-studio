@@ -183,6 +183,7 @@ export interface ProcessingQueueItem {
   eta_basis?: 'remaining_from_update' | 'total_from_start';
   started_at?: number;
   log?: string;
+  error?: string | null;
   custom_title?: string;
   predicted_audio_length?: number;
   char_count?: number;

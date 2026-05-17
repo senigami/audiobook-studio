@@ -275,6 +275,11 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
                                                                 </>
                                                             )}
                                                         </div>
+                                                        {job.status !== 'done' && (job.error || job.log) && (
+                                                            <div style={{ marginTop: '0.35rem', fontSize: '0.75rem', lineHeight: 1.45, color: 'var(--error)', whiteSpace: 'normal' }}>
+                                                                Reason: {job.error || job.log}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                     <button onClick={() => handleRemove(job.id)} className="hover-bg-destructive" style={{ background: 'none', border: 'none', padding: '8px', borderRadius: '8px', cursor: 'pointer', color: hoveredJobId === job.id ? 'var(--error)' : 'var(--text-muted)', opacity: hoveredJobId === job.id ? 1 : 0.4, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s ease' }}>
                                                         <Trash2 size={16} strokeWidth={2} />

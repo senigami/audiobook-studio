@@ -130,6 +130,8 @@ describe('GlobalQueue', () => {
 
         expect(await screen.findByText('Failed Chapter')).toBeTruthy()
         expect(screen.getByText('failed')).toBeTruthy()
+        expect(screen.getByText(/Reason:/i)).toBeTruthy()
+        expect(screen.getByText(/Mixed synthesis returned failed/i)).toBeTruthy()
         expect(screen.getByText((content) => content.includes('2024') || content.includes('Mar'))).toBeTruthy()
     })
 
