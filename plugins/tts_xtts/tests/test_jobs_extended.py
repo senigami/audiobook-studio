@@ -62,7 +62,7 @@ def test_handle_xtts_job_bake(mock_job, tmp_path):
 
         assert mock_generate.called
         assert mock_stitch.called
-        mock_update_queue.assert_called_with("test_job", "done", audio_length_seconds=10.0)
+        mock_update_queue.assert_called_with("test_job", "done", audio_length_seconds=10.0, output_file="output.wav")
 
 def test_handle_xtts_job_segments(mock_job, tmp_path):
     mock_job.segment_ids = ["s1"]

@@ -1,5 +1,6 @@
 from __future__ import annotations
 import time
+import shutil
 from pathlib import Path
 
 from app.engines.behavior import DEFAULT_SENT_CHAR_LIMIT as SENT_CHAR_LIMIT
@@ -171,10 +172,12 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
         return
 
     rc = xtts_facade.stitch_segments(pdir, segment_paths, out_wav, on_output, cancel_check)
+    if rc == 0 and not out_wav.exists() and len(segment_paths) == 1 and segment_paths[0].exists():
+        shutil.copy2(segment_paths[0], out_wav)
     if rc == 0 and out_wav.exists():
         duration = xtts_facade.get_audio_duration(out_wav)
         from app.db import update_queue_item
-        update_queue_item(jid, "done", audio_length_seconds=duration)
+        update_queue_item(jid, "done", audio_length_seconds=duration, output_file=out_wav.name)
         return 0
     else:
         xtts_facade.update_job(jid, status="failed", error=f"Stitching failed (rc={rc})")

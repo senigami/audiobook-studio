@@ -1,5 +1,6 @@
 from __future__ import annotations
 import time
+import shutil
 from pathlib import Path
 
 from app.engines.behavior import DEFAULT_SENT_CHAR_LIMIT as SENT_CHAR_LIMIT
@@ -227,6 +228,8 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                     xtts_facade.update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error="No valid segment audio was available to stitch.")
                     return 1
                 rc = xtts_facade.stitch_segments(pdir, segment_paths, out_wav, on_output, cancel_check)
+                if rc == 0 and not out_wav.exists() and len(segment_paths) == 1 and segment_paths[0].exists():
+                    shutil.copy2(segment_paths[0], out_wav)
                 return rc
             return rc
         else:
