@@ -1,0 +1,87 @@
+{
+  "snapshot_version": 69,
+  "updated_at": "2026-05-17T00:38:42Z",
+  "branch": "studio2/phase-12",
+  "current_task": "Surface queue failure reasons",
+  "status": "queue_failure_reason_surface_added",
+  "last_committed_milestone": {
+    "title": "Surface queue failure reasons",
+    "commit": "7a8fe58",
+    "notes": [
+      "Persisted queue failure reasons in the processing_queue table and surfaced them in the global queue history so failed jobs show more than a generic status.",
+      "Forwarded failure reasons through the websocket job overlay and queue hydration path so the reason survives refreshes and live updates.",
+      "Added backend queue regression coverage plus a GlobalQueue unit test, then verified with queue-focused pytest coverage, the plugin regression suite, frontend queue tests, frontend build, and git diff whitespace checks."
+    ]
+  },
+  "active_constraints": [
+    "Use Memory/rules.md as the shared source of truth for Codex and Antigravity/Gemini session behavior.",
+    "Use .agent/rules.md and .agent/rules/* for repo-persistent normative guidance.",
+    "Codex is lead architect, reviewer, integrator, verifier, checkpoint owner, and manual-QA caller.",
+    "Use Antigravity/Gemini for bounded non-trivial worker tasks; Codex must verify and checkpoint coherent results locally.",
+    "Use JSON-style prompts for Antigravity/Gemini handoffs.",
+    "Preserve the human-readable frontend, backend, test, and plugin folder structure documented in .agent/rules/modular_architecture.md.",
+    "Keep diffs tightly scoped; flag adjacent issues as follow-up work instead of silently expanding the patch.",
+    "For new behavior and bug fixes, follow red -> green -> refactor where practical.",
+    "Before handoff or commit, self-review the actual diff for correctness, edge cases, cleanup, type safety, accessibility, security, performance, and test quality.",
+    "Plugin metadata should remain canonical in plugins/*/manifest.json and plugins/*/settings_schema.json.",
+    "App-level behavior decisions should be plugin-behavior driven, not hardcoded to specific engine ids such as xtts or voxtral.",
+    "Main app code should not mention specific engine names; engine names belong only in plugins, plugin manifests/schemas, plugin-internal adapters, meaningful tests, or explicitly approved migration scripts.",
+    "Do not preserve legacy support or backwards compatibility for v1/beta behavior unless the user explicitly approves a specific exception.",
+    "Do not reintroduce USE_TTS_SERVER, USE_STUDIO_ORCHESTRATOR, or USE_V2_* runtime switches."
+  ],
+  "phase_status": {
+    "phase_10": "wrapped",
+    "phase_11": "closeout_ready",
+    "phase_12": "planned_polish_and_cleanup",
+    "phase_13": "deferred_release_documentation_and_distribution"
+  },
+  "phase_11_guidance": [
+    "Phase 11 audit entry point is plans/phase_11_audit.md.",
+    "Phase 11 historical task board is plans/implementation/phase_11_remaining_work.md.",
+    "Phase 11 completed work log is plans/implementation/phase_11_completed_work.md.",
+    "Phase 11 core cleanup is closeout-ready: runtime fallbacks are removed, engine implementation is plugin-local, behavior is metadata-driven, frontend engine fallbacks are registry-driven, storage/output route exposure is hardened, and metrics/settings cleanup is complete or migration-only.",
+    "The voice registry fallback bug is fixed with is_engine_locally_available in app/engines/behavior.py and a permanent API regression test.",
+    "Remaining user-facing polish and manual app checks now belong to Phase 12, not Phase 11."
+  ],
+  "phase_12_guidance": [
+    "Phase 12 plan is plans/phases/phase_12_polish_and_cleanup.md.",
+    "Phase 12 item audit is complete. Verified complete: Library list/sort, Plugin dependency UX, Per-voice settings, Plugin boundary cleanup, Chapter Editor tab removal, VCR controls, Plugin ZIP import/delete, Queue output metadata, Legacy jobs API retirement.",
+    "Phase 12 product backlog items such as voice icons, searchable voice tags, and Hugging Face-compatible export bundles remain open for the final polish pass.",
+    "Chapter audio completion now recovers single-segment renders when stitching reports success but does not materialize the output WAV.",
+    "Queue history now persists and renders failure reasons instead of only showing a generic failed status.",
+    "Implementing the `check_output` interface in plugin adapters and completing the generic plugin setup loop in run.sh are the next high-value cleanup items.",
+    "Manual QA targets include engine settings test, project load time, chapter render enqueue, duplicate voice option warning, server shutdown, and mixed render retry.",
+    "Triage Vite websocket ECONNRESET and large-book project/chapter load timing.",
+    "Composite renaming (mixed.py -> composite.py) is explicitly deferred to Phase 13.",
+    "The TTS Server synth endpoint now allows synthesis while verification is still pending, but still blocks failed verification and setup errors."
+  ],
+  "phase_13_guidance": [
+    "Phase 13 plan is plans/phases/phase_13_release_documentation_and_distribution.md.",
+    "Phase 13 owns release documentation, docs/demo assets, install validation, API docs, plugin author docs, release notes, and promotional materials."
+  ],
+  "codeql_context": {
+    "github_setup": "advanced",
+    "current_policy": "Defer CodeQL triage to the security verification track unless a finding directly blocks the current task.",
+    "local_annotations": "codeql-annotations.json, if present, is informational and should not distract from Phase 12 polish unless intentionally used."
+  },
+  "next_logical_steps": [
+    "Implement the check_output interface in plugin adapters to improve engine-agnostic output verification.",
+    "Complete the generic plugin setup loop in run.sh so plugin install/setup automation is symmetrical.",
+    "Prepare the voice icon and tagging implementation to improve large-library usability."
+  ],
+  "verification": {
+    "latest_backend_focus": "2026-05-17: ./venv/bin/python -m pytest tests/api/test_api_queue.py tests/db/test_db_queue.py --tb=short and ./venv/bin/python -m pytest plugins/tts_xtts/tests/test_handler.py plugins/tts_xtts/tests/test_jobs_extended.py --tb=short passed after surfacing queue failure reasons.",
+    "latest_frontend_focus": "2026-05-17: `cd frontend && npx vitest run tests/unit/components/queue/GlobalQueue.test.tsx` and `cd frontend && npm run build` passed after surfacing queue failure reasons.",
+    "latest_lint_focus": "2026-05-17: `git diff --check` passed after surfacing queue failure reasons.",
+    "latest_diff_check": "2026-05-17: git diff --check passed after surfacing queue failure reasons.",
+    "known_warnings": [
+      "Vite chunk-size warning remains on frontend builds.",
+      "Some frontend motion tests may emit harmless animation warnings."
+    ]
+  },
+  "handoff_policy": {
+    "codex": "Lead architect, reviewer, integrator, verifier, checkpoint owner, and manual-QA caller.",
+    "gemini": "Bounded worker for scoped patches and exploration only.",
+    "memory": "Update Memory/state.json and Memory/session_logs.md after verified milestones; update .agent rules only for durable repo-level guidance."
+  }
+}
