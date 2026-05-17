@@ -1,5 +1,6 @@
 import { useEffect, useCallback, useRef, useMemo } from 'react';
 import { api } from '@/api';
+import { pickRelevantJob } from '@/utils/jobSelection';
 import { shouldEnableStudioDebugLogging, recordStudioDebugSnapshot } from '@/utils/runtimeDebug';
 import type { ChapterEditorState } from '@/hooks/chapter/useChapterEditorState';
 import type { Job } from '@/types';
@@ -195,9 +196,12 @@ export const useChapterLoader = (
     });
   }, [chapterJobs, segments, setGeneratingSegmentIds]);
 
-  const hasRenderedOutput = state.chapter?.audio_status === 'done' || !!state.chapter?.audio_file_path || !!state.chapter?.has_wav || !!state.chapter?.has_mp3;
+  const hasRenderedOutput = !!state.chapter?.audio_file_path || !!state.chapter?.has_wav || !!state.chapter?.has_mp3 || !!state.chapter?.has_m4a;
   const jobLooksPendingCompletion = useMemo(() => {
-    const mainJob = chapterJobs.find(j => !j.segment_ids || j.segment_ids.length === 0);
+    const mainJob = pickRelevantJob(
+      chapterJobs.filter(j => (j.render_group_count ?? 0) > 0 || !j.segment_ids || j.segment_ids.length === 0),
+      true
+    );
     return mainJob?.status === 'done' && !hasRenderedOutput && state.chapter?.audio_status !== 'processing';
   }, [chapterJobs, hasRenderedOutput, state.chapter?.audio_status]);
   

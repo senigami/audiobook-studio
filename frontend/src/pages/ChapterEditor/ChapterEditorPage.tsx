@@ -130,7 +130,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     return ids;
   }, [generatingSegmentIds, liveSegmentJobIds]);
 
-  const job = propJob || generatingSegmentJob;
+  const job = generatingSegmentJob || propJob;
   const isChapterProcessing = useMemo(() => {
     return !!job && ['queued', 'preparing', 'running', 'finalizing'].includes(job.status)
       || chapter?.audio_status === 'processing'
@@ -481,7 +481,17 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                             setConfirmConfig({
                                 title: 'Requeue Completed Chapter',
                                 message: 'All audio for this chapter is already complete. Rebuilding will delete the existing final render and regenerate from the current segments. Continue?',
-                                onConfirm: async () => { setConfirmConfig(null); await executeQueue(effectiveSelectedVoice, onBlocked, onSuccess); },
+                                onConfirm: async () => {
+                                    setConfirmConfig(null);
+                                    try {
+                                        await api.resetChapter(chapterId);
+                                    } catch (e) {
+                                        console.error('Failed to reset chapter for rebuild:', e);
+                                        onBlocked('Failed to clear existing chapter audio before rebuild. Try clearing audio from the chapter list, then queue again.');
+                                        return;
+                                    }
+                                    await executeQueue(effectiveSelectedVoice, onBlocked, onSuccess);
+                                },
                                 confirmText: 'Yes, Rebuild It',
                                 isDestructive: true
                             });

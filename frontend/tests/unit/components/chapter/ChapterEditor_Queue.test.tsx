@@ -18,6 +18,7 @@ vi.mock('@/api', () => ({
     saveScriptAssignments: vi.fn(),
     compactScriptView: vi.fn(),
     previewSourceTextResync: vi.fn(),
+    resetChapter: vi.fn(),
   },
 }));
 
@@ -191,6 +192,7 @@ describe('ChapterEditor - Queueing & Generation', () => {
 
     (api.fetchChapters as any).mockResolvedValue([renderedChapter]);
     (api.fetchSegments as any).mockResolvedValue(renderedSegments);
+    (api.resetChapter as any).mockResolvedValue({ status: 'ok' });
 
     render(
       <ChapterEditor 
@@ -210,8 +212,51 @@ describe('ChapterEditor - Queueing & Generation', () => {
     expect(await screen.findByText('Requeue Completed Chapter')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Yes, Rebuild It'));
     await waitFor(() => {
+      expect(api.resetChapter).toHaveBeenCalledWith(mockChapterId);
       expect(api.addProcessingQueue).toHaveBeenCalled();
     });
+  });
+
+  it('does not queue a rebuild if clearing existing chapter audio fails', async () => {
+    const renderedChapter = {
+      ...mockChapter,
+      audio_status: 'done' as const,
+      audio_file_path: 'chap-456.wav',
+      has_wav: true,
+      total_segments_count: 1,
+      done_segments_count: 1
+    };
+    const renderedSegments = [{
+      ...mockSegments[0],
+      audio_status: 'done' as const,
+      audio_file_path: 'seg-1.wav',
+      audio_generated_at: Date.now() / 1000
+    }];
+
+    (api.fetchChapters as any).mockResolvedValue([renderedChapter]);
+    (api.fetchSegments as any).mockResolvedValue(renderedSegments);
+    (api.resetChapter as any).mockRejectedValue(new Error('reset failed'));
+
+    render(
+      <ChapterEditor
+        chapterId={mockChapterId}
+        projectId={mockProjectId}
+        speakerProfiles={readySpeakerProfiles as any}
+        speakers={mockSpeakers as any}
+        onBack={vi.fn()}
+      />
+    );
+
+    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
+
+    fireEvent.click(screen.getByTitle('Rebuild Chapter'));
+    expect(await screen.findByText('Requeue Completed Chapter')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Yes, Rebuild It'));
+
+    expect(await screen.findByText('Queue Blocked')).toBeInTheDocument();
+    expect(screen.getByText(/Failed to clear existing chapter audio/i)).toBeInTheDocument();
+    expect(api.addProcessingQueue).not.toHaveBeenCalled();
   });
 
   it('shows processing for segment generation without entering chapter render states', async () => {
@@ -270,6 +315,102 @@ describe('ChapterEditor - Queueing & Generation', () => {
     await waitFor(() => screen.findByDisplayValue('Test Chapter'));
 
     expect(screen.getByTitle('Already processing')).toBeDisabled();
+  });
+
+  it('keeps the live active job visible when a stale completed chapter job is still present', async () => {
+    const renderingChapter = {
+      ...mockChapter,
+      audio_status: 'processing' as const,
+      audio_file_path: null,
+      has_wav: false,
+      has_mp3: false,
+    };
+    const renderingSegments = [
+      { id: 'seg-1', chapter_id: mockChapterId, segment_order: 0, text_content: 'One.', character_id: null, audio_status: 'unprocessed' as const, audio_file_path: null },
+      { id: 'seg-2', chapter_id: mockChapterId, segment_order: 1, text_content: 'Two.', character_id: null, audio_status: 'unprocessed' as const, audio_file_path: null },
+      { id: 'seg-3', chapter_id: mockChapterId, segment_order: 2, text_content: 'Three.', character_id: null, audio_status: 'unprocessed' as const, audio_file_path: null },
+    ];
+    const renderingScriptView = {
+      chapter_id: mockChapterId,
+      base_revision_id: 'rev-1',
+      paragraphs: [
+        { id: 'para-1', span_ids: ['seg-1'] },
+        { id: 'para-2', span_ids: ['seg-2'] },
+        { id: 'para-3', span_ids: ['seg-3'] },
+      ],
+      spans: renderingSegments.map(segment => ({
+        id: segment.id,
+        order_index: segment.segment_order,
+        text: segment.text_content,
+        sanitized_text: segment.text_content,
+        character_id: null,
+        speaker_profile_name: null,
+        status: segment.audio_status,
+        audio_file_path: null,
+        audio_generated_at: null,
+        char_count: segment.text_content.length,
+        sanitized_char_count: segment.text_content.length,
+      })),
+      render_batches: [
+        { id: 'batch-1', span_ids: ['seg-1', 'seg-2'], status: 'draft', estimated_work_weight: 1 },
+        { id: 'batch-2', span_ids: ['seg-3'], status: 'draft', estimated_work_weight: 1 },
+      ],
+      audio_groups: [],
+    };
+    const staleCompletedJob = {
+      id: 'job-stale-done',
+      engine: 'xtts',
+      chapter_file: 'chapter.wav',
+      status: 'done',
+      created_at: Date.now() / 1000 - 120,
+      finished_at: Date.now() / 1000 - 60,
+      chapter_id: mockChapterId,
+      project_id: mockProjectId,
+      safe_mode: false,
+      make_mp3: false,
+      progress: 1,
+      segment_ids: ['seg-1', 'seg-2', 'seg-3'],
+      active_segment_id: 'seg-3',
+      active_segment_progress: 1,
+      render_group_count: 2,
+      completed_render_groups: 2,
+      active_render_group_index: 1,
+      total_render_weight: 3,
+      completed_render_weight: 3,
+      active_render_group_weight: 1,
+      grouped_progress: 1,
+    } as any;
+    const liveRunningJob = {
+      ...staleCompletedJob,
+      id: 'job-live-running',
+      status: 'running',
+      progress: 0.42,
+      started_at: Date.now() / 1000 - 10,
+      updated_at: Date.now() / 1000 - 5,
+      finished_at: undefined,
+      active_segment_id: 'seg-1',
+      active_segment_progress: 0.25,
+    } as any;
+
+    (api.fetchChapters as any).mockResolvedValue([renderingChapter]);
+    (api.fetchSegments as any).mockResolvedValue(renderingSegments);
+    (api.fetchScriptView as any).mockResolvedValue(renderingScriptView);
+
+    render(
+      <ChapterEditor
+        chapterId={mockChapterId}
+        projectId={mockProjectId}
+        speakerProfiles={readySpeakerProfiles as any}
+        speakers={mockSpeakers as any}
+        job={staleCompletedJob}
+        chapterJobs={[staleCompletedJob, liveRunningJob]}
+        onBack={vi.fn()}
+      />
+    );
+
+    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
+
+    expect(screen.getByTestId('script-span-seg-3')).toHaveClass('is-book-queued');
   });
 
   it('highlights the whole active render batch in book mode', async () => {
@@ -518,6 +659,92 @@ describe('ChapterEditor - Queueing & Generation', () => {
     expect(document.querySelectorAll('.script-span.is-book-pending').length).toBe(0);
     expect(document.querySelectorAll('.script-span.is-book-queued').length).toBe(0);
     expect(document.querySelectorAll('.script-span.is-book-rendering').length).toBe(0);
+  });
+
+  it('refreshes completion state for grouped chapter renders so finalizing clears once audio is available', async () => {
+    const pendingChapter = {
+      ...mockChapter,
+      audio_status: 'done' as const,
+      audio_file_path: null,
+      has_wav: false,
+      has_mp3: false,
+    };
+    const completedChapter = {
+      ...pendingChapter,
+      audio_file_path: 'chapter.wav',
+      has_wav: true,
+    };
+    const groupedSegments = [
+      { id: 'seg-1', chapter_id: mockChapterId, segment_order: 0, text_content: 'One.', character_id: null, audio_status: 'done' as const, audio_file_path: 'seg-1.wav' },
+      { id: 'seg-2', chapter_id: mockChapterId, segment_order: 1, text_content: 'Two.', character_id: null, audio_status: 'done' as const, audio_file_path: 'seg-2.wav' },
+    ];
+    const groupedScriptView = {
+      chapter_id: mockChapterId,
+      base_revision_id: 'rev-1',
+      paragraphs: [{ id: 'para-1', span_ids: ['seg-1', 'seg-2'] }],
+      spans: groupedSegments.map(segment => ({
+        id: segment.id,
+        order_index: segment.segment_order,
+        text: segment.text_content,
+        sanitized_text: segment.text_content,
+        character_id: null,
+        speaker_profile_name: null,
+        status: segment.audio_status,
+        audio_file_path: segment.audio_file_path,
+        audio_generated_at: Date.now() / 1000,
+        char_count: segment.text_content.length,
+        sanitized_char_count: segment.text_content.length,
+      })),
+      render_batches: [
+        { id: 'batch-1', span_ids: ['seg-1', 'seg-2'], status: 'done', estimated_work_weight: 2 },
+      ],
+      audio_groups: [],
+    };
+    const groupedJob = {
+      id: 'job-chapter-grouped',
+      engine: 'xtts',
+      chapter_file: 'chapter.wav',
+      status: 'done',
+      created_at: Date.now() / 1000 - 10,
+      finished_at: Date.now() / 1000,
+      chapter_id: mockChapterId,
+      safe_mode: false,
+      make_mp3: false,
+      progress: 1,
+      segment_ids: ['seg-1', 'seg-2'],
+      render_group_count: 1,
+      active_segment_id: 'seg-2',
+      active_segment_progress: 1,
+    } as any;
+
+    (api.fetchChapters as any)
+      .mockResolvedValueOnce([pendingChapter])
+      .mockResolvedValue([completedChapter]);
+    (api.fetchSegments as any).mockResolvedValue(groupedSegments);
+    (api.fetchScriptView as any).mockResolvedValue(groupedScriptView);
+
+    render(
+      <ChapterEditor
+        chapterId={mockChapterId}
+        projectId={mockProjectId}
+        speakerProfiles={readySpeakerProfiles as any}
+        speakers={mockSpeakers as any}
+        job={groupedJob}
+        chapterJobs={[groupedJob]}
+        onBack={vi.fn()}
+      />
+    );
+
+    await waitFor(() => screen.findByDisplayValue('Test Chapter'));
+    expect(screen.getByText('Finalizing')).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(api.fetchChapters).toHaveBeenCalledTimes(2);
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Finalizing')).not.toBeInTheDocument();
+    });
   });
 
   it('maps top-bar block progress across the active render batch text', async () => {

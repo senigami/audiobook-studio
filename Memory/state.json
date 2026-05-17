@@ -1,9 +1,9 @@
 {
-  "snapshot_version": 69,
-  "updated_at": "2026-05-17T00:38:42Z",
+  "snapshot_version": 70,
+  "updated_at": "2026-05-17T04:31:00Z",
   "branch": "studio2/phase-12",
-  "current_task": "Surface queue failure reasons",
-  "status": "queue_failure_reason_surface_added",
+  "current_task": "Chapter Editor live queue sync regression audit",
+  "status": "chapter_editor_live_queue_sync_fixed",
   "last_committed_milestone": {
     "title": "Surface queue failure reasons",
     "commit": "7a8fe58",
@@ -46,9 +46,11 @@
   "phase_12_guidance": [
     "Phase 12 plan is plans/phases/phase_12_polish_and_cleanup.md.",
     "Phase 12 item audit is complete. Verified complete: Library list/sort, Plugin dependency UX, Per-voice settings, Plugin boundary cleanup, Chapter Editor tab removal, VCR controls, Plugin ZIP import/delete, Queue output metadata, Legacy jobs API retirement.",
+    "Chapter Editor live queue selection now prefers the active job over stale completed chapter jobs so live progress and queued spans stay visible without waiting for a reload.",
     "Phase 12 product backlog items such as voice icons, searchable voice tags, and Hugging Face-compatible export bundles remain open for the final polish pass.",
     "Chapter audio completion now recovers single-segment renders when stitching reports success but does not materialize the output WAV.",
     "Queue history now persists and renders failure reasons instead of only showing a generic failed status.",
+    "Voxtral segment and bake rendering is still open, and default voice fallback should be audited because profiles are still drifting to Voxtral unexpectedly.",
     "Implementing the `check_output` interface in plugin adapters and completing the generic plugin setup loop in run.sh are the next high-value cleanup items.",
     "Manual QA targets include engine settings test, project load time, chapter render enqueue, duplicate voice option warning, server shutdown, and mixed render retry.",
     "Triage Vite websocket ECONNRESET and large-book project/chapter load timing.",
@@ -67,13 +69,14 @@
   "next_logical_steps": [
     "Implement the check_output interface in plugin adapters to improve engine-agnostic output verification.",
     "Complete the generic plugin setup loop in run.sh so plugin install/setup automation is symmetrical.",
+    "Implement Voxtral segment and bake rendering for chapter jobs, then audit the default voice fallback that keeps drifting to Voxtral.",
     "Prepare the voice icon and tagging implementation to improve large-library usability."
   ],
   "verification": {
     "latest_backend_focus": "2026-05-17: ./venv/bin/python -m pytest tests/api/test_api_queue.py tests/db/test_db_queue.py --tb=short and ./venv/bin/python -m pytest plugins/tts_xtts/tests/test_handler.py plugins/tts_xtts/tests/test_jobs_extended.py --tb=short passed after surfacing queue failure reasons.",
-    "latest_frontend_focus": "2026-05-17: `cd frontend && npx vitest run tests/unit/components/queue/GlobalQueue.test.tsx` and `cd frontend && npm run build` passed after surfacing queue failure reasons.",
-    "latest_lint_focus": "2026-05-17: `git diff --check` passed after surfacing queue failure reasons.",
-    "latest_diff_check": "2026-05-17: git diff --check passed after surfacing queue failure reasons.",
+    "latest_frontend_focus": "2026-05-17: `cd frontend && npx vitest run tests/unit/components/chapter/ChapterEditor_Queue.test.tsx tests/unit/pages/ChapterEditor tests/unit/components/progress tests/unit/hooks` and `cd frontend && npm run build` passed after fixing Chapter Editor live queue selection.",
+    "latest_lint_focus": "2026-05-17: `git diff --check` passed after fixing Chapter Editor live queue selection.",
+    "latest_diff_check": "2026-05-17: git diff --check passed after fixing Chapter Editor live queue selection.",
     "known_warnings": [
       "Vite chunk-size warning remains on frontend builds.",
       "Some frontend motion tests may emit harmless animation warnings."

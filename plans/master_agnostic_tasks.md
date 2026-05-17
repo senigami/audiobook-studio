@@ -81,6 +81,8 @@
 - [ ] Add plugin contract-version and callable-signature compatibility verification.
 - [x] Surface plugin-defined per-voice controls in voice settings when supported.
 - [ ] Plan multilingual voice/text language support.
+- [ ] Implement Voxtral segment and bake rendering for chapter jobs.
+- [ ] Audit default voice fallback so chapters do not silently default to Voxtral.
 - [ ] Revisit voice settings placement outside the Script popup/right queue area.
 - [ ] Align voice export bundles with Hugging Face-compatible layout and settings metadata where practical.
 - [ ] Add voice image/icon upload, standardized 1:1 JPG processing, and character-surface icon display.
@@ -89,6 +91,7 @@
 - [x] Show queue output metadata such as generated audio duration/length.
 - [x] Remove legacy Chapter Editor Production, Performance, and Preview tabs/code.
 - [x] Rework crowded Chapter Editor menu bar and remove duplicate preparing pill.
+- [x] Keep Chapter Editor live queue state anchored to the active job instead of stale completed jobs.
 - [ ] Scan plans and memory for forgotten requests, including `tts_plugins` / `tts_voices` namespace rename ideas.
 - [ ] Manually verify fixed-but-pending Phase 11 app behaviors.
 - [ ] Triage Vite websocket `ECONNRESET` reconnect behavior.

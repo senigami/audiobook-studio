@@ -9,11 +9,11 @@
 
 | Task | Status | Notes |
 | :--- | :--- | :--- |
-| **Chapter Editor cleanup** | **Complete** | Production/Performance/Preview tabs removed. Live editor uses ScriptView. |
+| **Chapter Editor cleanup** | **Complete** | Production/Performance/Preview tabs removed. Live editor uses ScriptView and now prefers the active live job over stale completed chapter jobs. |
 | **VCR Controls** | **Complete** | VCR-style chapter playback controls added to Chapter Editor. |
 | **Queue Metadata** | **Complete** | Completed jobs show generated audio duration and content metrics. |
 | **Library list view and sorting** | **Complete** | Added list view and sort options to the Library main page. |
-| **Voice and plugin UX** | **Partial** | Dependency installation feedback and XTTS resolution complete. Voice icons/tags pending. |
+| **Voice and plugin UX** | **Partial** | Dependency installation feedback and XTTS resolution complete. Voxtral chapter rendering and voice icons/tags remain open. |
 | **Plugin-provided voice settings** | **Complete** | Per-voice plugin settings rendered in ScriptEditor via JsonSchemaForm. |
 | **Plugin boundary cleanup** | **Complete** | Core plugin code is portable; app-specific logic localized to adapters. |
 | **Legacy jobs API retirement** | **Complete** | Removed legacy request/response endpoints; WebSocket snapshots remain authoritative. |
@@ -27,6 +27,7 @@
 - [x] Add sort options to the Library main page.
 - [x] Fix Chapter Editor header crowding and toolbar ordering.
 - [x] Remove duplicate "Preparing" indicator.
+- [x] Keep Chapter Editor live queue state anchored to the active job instead of stale completed jobs.
 
 ### Plugin and Voice Management
 - [x] Fix plugin dependency installation UX (Install Deps button + feedback).
@@ -35,6 +36,8 @@
 - [ ] Add voice image/icon upload and standardized 1:1 JPG processing.
 - [ ] Add searchable voice tags compatible with future search.
 - [ ] Align voice export bundles with Hugging Face-compatible layout.
+- [ ] Implement Voxtral segment and bake rendering for chapter jobs.
+- [x] Audit default voice fallback so chapters do not silently default to Voxtral.
 - [x] Implement TTS plugin zip import/delete flows (Import done; Delete/Uninstall done).
 
 ### Backend and Orchestration

@@ -430,7 +430,8 @@ class OrchestratorHelpersMixin:
                 result_val = handler(**kwargs)
 
                 # Convert handler result to TaskResult
-                result = TaskResult(status="failed", message="Unknown handler error")
+                handler_name = getattr(handler, "__name__", str(handler))
+                result = None
                 if isinstance(result_val, TaskResult):
                     result = result_val
                 elif isinstance(result_val, tuple) and len(result_val) == 2:
@@ -439,22 +440,55 @@ class OrchestratorHelpersMixin:
                         status="completed" if status == "done" else status,
                         message=message,
                     )
-                elif result_val is None:
-                    # Some handlers update DB directly and return None; reconcile status
+                else:
                     from app.db import state
                     jobs = state.get_jobs()
                     job_obj = jobs.get(context.task_id)
                     if job_obj and job_obj.status == "done":
                         result = TaskResult(status="completed")
-                    else:
-                        msg = getattr(job_obj, "message", "Handler finished without 'done' status")
+                    elif job_obj and job_obj.status == "failed":
+                        msg = job_obj.error or "Unknown failure"
                         result = TaskResult(status="failed", message=msg)
+                    elif result_val == 0:
+                        result = TaskResult(status="completed")
+                    elif isinstance(result_val, int) and result_val != 0:
+                        err_msg = f"Handler failed with exit code {result_val}"
+                        if job_obj and job_obj.error:
+                            err_msg = f"{err_msg}: {job_obj.error}"
+                        result = TaskResult(status="failed", message=err_msg)
+                    else:
+                        msg = "Handler finished without 'done' status"
+                        if job_obj and job_obj.error:
+                            msg = job_obj.error
+                        elif isinstance(result_val, str):
+                            msg = result_val
+                        result = TaskResult(status="failed", message=msg)
+
+                if result is None:
+                    result = TaskResult(status="failed", message=f"Handler returned unexpected type: {type(result_val)}")
+
+                if result.status == "failed":
+                    engine_id = getattr(j, "engine", "unknown")
+                    kind = getattr(context, "task_type", "unknown")
+                    debug_info = f" [Handler: {handler_name} | Engine: {engine_id} | Kind: {kind}]"
+                    msg = result.message or "Failed"
+                    if debug_info not in msg:
+                        msg = f"{msg}{debug_info}"
+                    result = TaskResult(status="failed", message=msg, retriable=result.retriable)
 
                 record_render_stats_if_completed(result)
                 return result
             except Exception as e:
                 logger.exception("Task %s: registry handler raised.", context.task_id)
-                return TaskResult(status="failed", message=f"Handler error: {e}")
+                import traceback
+                tb_summary = "".join(traceback.format_exception_only(type(e), e)).strip()
+                handler_name = getattr(handler, "__name__", str(handler))
+                engine_id = getattr(j, "engine", "unknown")
+                kind = getattr(context, "task_type", "unknown")
+                return TaskResult(
+                    status="failed",
+                    message=f"Handler raised exception: {tb_summary} [Handler: {handler_name} | Engine: {engine_id} | Kind: {kind}]",
+                )
 
         try:
             # 2. Local fallback if explicitly opted-out of bridge dispatch
@@ -470,6 +504,14 @@ class OrchestratorHelpersMixin:
                     )
 
                 result = task.run()
+                if result.status == "failed":
+                    engine_id = getattr(j, "engine", "unknown")
+                    kind = getattr(context, "task_type", "unknown")
+                    debug_info = f" [Engine: {engine_id} | Kind: {kind}]"
+                    msg = result.message or "Failed"
+                    if debug_info not in msg:
+                        msg = f"{msg}{debug_info}"
+                    result = TaskResult(status="failed", message=msg, retriable=result.retriable)
                 record_render_stats_if_completed(result)
                 return result
 
@@ -485,26 +527,53 @@ class OrchestratorHelpersMixin:
                             status="completed" if ok else "failed",
                             message=result.get("message"),
                         )
+                        if not ok:
+                            engine_id = getattr(j, "engine", "unknown")
+                            kind = getattr(context, "task_type", "unknown")
+                            debug_info = f" [Engine: {engine_id} | Kind: {kind}]"
+                            msg = task_result.message or "Bridge synthesis failed"
+                            if debug_info not in msg:
+                                msg = f"{msg}{debug_info}"
+                            task_result = TaskResult(status="failed", message=msg, retriable=task_result.retriable)
                         record_render_stats_if_completed(task_result)
                         return task_result
                     except Exception as exc:
                         logger.exception("Task %s: bridge dispatch raised.", context.task_id)
                         from app.engines.bridge_remote import EngineUnavailableError
                         is_retriable = isinstance(exc, EngineUnavailableError)
-                        return TaskResult(status="failed", message=str(exc), retriable=is_retriable)
+                        import traceback
+                        tb_summary = "".join(traceback.format_exception_only(type(exc), exc)).strip()
+                        engine_id = getattr(j, "engine", "unknown")
+                        kind = getattr(context, "task_type", "unknown")
+                        return TaskResult(
+                            status="failed",
+                            message=f"Bridge raised exception: {tb_summary} [Engine: {engine_id} | Kind: {kind}]",
+                            retriable=is_retriable
+                        )
                 else:
+                    engine_id = getattr(j, "engine", "unknown")
+                    kind = getattr(context, "task_type", "unknown")
                     return TaskResult(
                         status="failed",
-                        message="Task requires a voice bridge but returned no request payload."
+                        message=f"Task requires a voice bridge but returned no request payload. [Engine: {engine_id} | Kind: {kind}]"
                     )
 
+            engine_id = getattr(j, "engine", "unknown")
+            kind = getattr(context, "task_type", "unknown")
             return TaskResult(
                 status="failed",
-                message=f"Task type {context.task_type} has no handler and no bridge fallback."
+                message=f"Task type {context.task_type} has no handler and no bridge fallback. [Engine: {engine_id} | Kind: {kind}]"
             )
         except Exception as exc:
             logger.exception("Task %s: dispatch raised an exception.", context.task_id)
-            return TaskResult(status="failed", message=str(exc))
+            import traceback
+            tb_summary = "".join(traceback.format_exception_only(type(exc), exc)).strip()
+            engine_id = getattr(j, "engine", "unknown")
+            kind = getattr(context, "task_type", "unknown")
+            return TaskResult(
+                status="failed",
+                message=f"Dispatch error: {tb_summary} [Engine: {engine_id} | Kind: {kind}]"
+            )
         finally:
             if wd:
                 wd.unregister_log_listener(log_listener)

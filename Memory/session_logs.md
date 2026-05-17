@@ -1,3 +1,9 @@
+# 2026-05-17 - Chapter Editor Live Queue Selection Repaired
+
+- Changed Chapter Editor to prefer the active live job over stale completed chapter jobs so queued spans and live render progress stay visible without a page reload.
+- Tightened Chapter Editor completion refresh to choose the most relevant chapter job instead of the first matching row in the local job list.
+- Verified the focused Chapter Editor and hook suites, plus the frontend production build and `git diff --check`.
+
 # 2026-05-16 - TTS Server Verification Race Fixed
 
 - Allowed synthesis to proceed while a plugin verification run is still pending, while still blocking failed verification and setup errors.
@@ -1047,3 +1053,8 @@
 - Persisted queue failure reasons in `processing_queue`, forwarded them through websocket job overlays, and rendered them in the Global Queue history.
 - Added regression coverage for queue error persistence and the history row reason line, then verified with queue/db pytest coverage, the XTTS plugin suite, the queue unit test, frontend build, and `git diff --check`.
 - Checkpointed commit `7a8fe58`.
+
+# 2026-05-17 - Voxtral Rendering Backlog Added
+
+- Added Voxtral segment and bake rendering plus default voice fallback drift to the Phase 12 and master-agnostic task boards.
+- Reflected the new backlog in `Memory/state.json` so future handoffs keep the missing Voxtral render path and voice-default drift visible.
