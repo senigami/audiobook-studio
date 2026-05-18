@@ -34,7 +34,7 @@ import { shouldEnableStudioDebugLogging, recordStudioDebugSnapshot } from '@/uti
 import { useProjectActions } from '@/hooks/useProjectActions';
 import { buildVoiceOptions, getDefaultVoiceProfileName, getVoiceOptionLabel } from '@/utils/voiceProfiles';
 import { isChapterScopedJob, pickRelevantJob } from '@/utils/jobSelection';
-
+import { resolveVoiceEngineStatus } from '@/utils/chapterEditorHelpers';
 interface ProjectViewProps {
   jobs: Record<string, Job>;
   segmentProgress?: Record<string, SegmentProgress>;
@@ -247,9 +247,12 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
     return selectedVoice
       || project?.speaker_profile_name
       || settings?.default_speaker_profile
-      || getDefaultVoiceProfileName(speakerProfiles)
+      || getDefaultVoiceProfileName(speakerProfiles, engines)
       || '';
-  }, [selectedVoice, project?.speaker_profile_name, settings?.default_speaker_profile, speakerProfiles]);
+  }, [selectedVoice, project?.speaker_profile_name, settings?.default_speaker_profile, speakerProfiles, engines]);
+  const projectVoiceStatus = React.useMemo(() => {
+    return resolveVoiceEngineStatus(effectiveProjectVoice, engines || [], speakerProfiles || []);
+  }, [effectiveProjectVoice, engines, speakerProfiles]);
   const projectDefaultVoiceLabel = React.useMemo(() => {
     const fallbackVoiceLabel = getVoiceOptionLabel(effectiveProjectVoice, speakerProfiles, speakers, engines, characters);
     return fallbackVoiceLabel ? `Default Speaker (${fallbackVoiceLabel})` : 'Default Speaker';
@@ -346,6 +349,28 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
           formatLength={formatLength}
           compact={!!editingChapterId}
         />
+
+        {!editingChapterId && !projectVoiceStatus.enabled && projectVoiceStatus.message && (
+          <div style={{
+            margin: '0.5rem 0',
+            padding: '1rem',
+            background: 'rgba(239, 68, 68, 0.1)',
+            border: '1px solid rgba(239, 68, 68, 0.2)',
+            borderRadius: '8px',
+            color: 'var(--text-primary)',
+            fontSize: '0.875rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            boxShadow: 'var(--shadow-sm)',
+          }}>
+            <span style={{ fontSize: '1.25rem' }}>⚠️</span>
+            <div style={{ flex: 1 }}>
+              <strong style={{ display: 'block', marginBottom: '0.25rem', color: '#ef4444' }}>Project Default Voice Engine Unavailable</strong>
+              <span>{projectVoiceStatus.message}</span>
+            </div>
+          </div>
+        )}
 
         {editingChapterId ? (
           <ChapterEditor

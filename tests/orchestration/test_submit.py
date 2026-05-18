@@ -173,8 +173,12 @@ class TestOrchestratorProgressTransitions:
             synthesis_settings={"model": "model-a"},
         )
 
+        import time
+        task.submitted_at = time.monotonic() - 5.0
+
         with patch("app.orchestration.scheduler.orchestrator.reserve_task_resources", return_value={"admitted": True}), \
              patch("app.orchestration.scheduler.orchestrator.release_task_resources"), \
+             patch("app.jobs.registry.JobHandlerRegistry.get_handler", return_value=None), \
              patch("app.db.performance.record_render_sample") as mock_record:
             orchestrator.voice_bridge.synthesize.return_value = {"status": "ok"}
             orchestrator.submit(task)

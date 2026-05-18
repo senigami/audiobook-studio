@@ -236,4 +236,64 @@ describe('useJobs', () => {
     expect(result.current.jobs['job-1']?.progress).toBe(0.7);
     expect(result.current.jobs['job-1']?.updated_at).toBe(200);
   });
+
+  it('feeds done progress=1 followed by finalizing progress=0.99 for the same job_id and proves the frontend keeps done/progress=1', async () => {
+    const { result } = renderHook(() => useJobs());
+
+    act(() => {
+      wsHandler({ type: 'jobs_snapshot', jobs: [{ id: 'job-term', status: 'running', progress: 0.9, created_at: 1, updated_at: 100 } as any] });
+    });
+
+    act(() => {
+      wsHandler({
+        type: 'studio_job_event',
+        job_id: 'job-term',
+        scope: 'job',
+        status: 'done',
+        progress: 1.0,
+        updated_at: 200,
+      });
+    });
+
+    expect(result.current.jobs['job-term']?.status).toBe('done');
+    expect(result.current.jobs['job-term']?.progress).toBe(1.0);
+
+    // Now send the delayed regressive finalizing update
+    act(() => {
+      wsHandler({
+        type: 'studio_job_event',
+        job_id: 'job-term',
+        scope: 'job',
+        status: 'finalizing',
+        progress: 0.99,
+        updated_at: 210, // Even if it claims to be newer
+      });
+      wsHandler({
+        type: 'job_updated',
+        job_id: 'job-term',
+        updates: { status: 'finalizing', progress: 0.99, updated_at: 211 }
+      });
+    });
+
+    expect(result.current.jobs['job-term']?.status).toBe('done');
+    expect(result.current.jobs['job-term']?.progress).toBe(1.0);
+  });
+
+  it('unrelated project_updated/chapter_updated/queue_updated messages do not alter live progress state', async () => {
+    const { result } = renderHook(() => useJobs());
+
+    act(() => {
+      wsHandler({ type: 'jobs_snapshot', jobs: [{ id: 'job-live', status: 'running', progress: 0.5 } as any] });
+    });
+
+    act(() => {
+      wsHandler({ type: 'queue_updated' });
+      wsHandler({ type: 'project_updated', project_id: 'proj1' });
+      wsHandler({ type: 'chapter_updated', chapter_id: 'chap1' });
+    });
+
+    // It should still be exactly as it was
+    expect(result.current.jobs['job-live']?.status).toBe('running');
+    expect(result.current.jobs['job-live']?.progress).toBe(0.5);
+  });
 });

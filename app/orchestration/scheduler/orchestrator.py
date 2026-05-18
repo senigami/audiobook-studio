@@ -417,13 +417,18 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
         return True
 
 
+_GLOBAL_ORCHESTRATOR = None
+
 def create_orchestrator() -> TaskOrchestrator:
     """Create the TaskOrchestrator with production dependency wiring.
 
     Returns:
         TaskOrchestrator: Ready for use by API route handlers and boot sequence.
     """
-    return TaskOrchestrator(
-        progress_service=create_progress_service(),
-        voice_bridge=create_voice_bridge(),
-    )
+    global _GLOBAL_ORCHESTRATOR
+    if _GLOBAL_ORCHESTRATOR is None:
+        _GLOBAL_ORCHESTRATOR = TaskOrchestrator(
+            progress_service=create_progress_service(),
+            voice_bridge=create_voice_bridge(),
+        )
+    return _GLOBAL_ORCHESTRATOR

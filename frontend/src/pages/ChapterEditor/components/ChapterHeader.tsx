@@ -1,5 +1,5 @@
 import React from 'react';
-import { RefreshCw, Zap, CheckCircle, AlertTriangle, ChevronLeft, ChevronRight, MoreVertical } from 'lucide-react';
+import { RefreshCw, Zap, CheckCircle, AlertTriangle, ChevronLeft, ChevronRight, Copy, MoreVertical } from 'lucide-react';
 import type { Chapter, Job } from '@/types';
 import { PredictiveProgressBar } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
 import { deriveActiveBatchProgress } from '@/utils/chapterRenderProgress';
@@ -40,16 +40,60 @@ export const useChapterStatus = (
   const queueStatus = heldQueueStatus ?? rawQueueStatus;
   const effectiveQueueLocked = queueLocked || !!queueStatus || chapter.audio_status === 'processing';
   const isQueued = queueStatus === 'Queued';
+
+  const [heldLiveJob, setHeldLiveJob] = React.useState<Job | undefined>(undefined);
+  const heldLiveJobTimerRef = React.useRef<number | null>(null);
+  const terminalJobIdBridgedRef = React.useRef<string | null>(null);
+
+  React.useEffect(() => {
+    if (generatingJob && ['preparing', 'running', 'finalizing'].includes(generatingJob.status)) {
+      if (heldLiveJobTimerRef.current !== null) {
+        window.clearTimeout(heldLiveJobTimerRef.current);
+        heldLiveJobTimerRef.current = null;
+      }
+      terminalJobIdBridgedRef.current = null;
+      setHeldLiveJob(generatingJob);
+    } else if (generatingJob?.status === 'done' || generatingJob?.status === 'failed' || generatingJob?.status === 'cancelled') {
+      if (terminalJobIdBridgedRef.current !== generatingJob.id) {
+        terminalJobIdBridgedRef.current = generatingJob.id;
+        setHeldLiveJob(generatingJob);
+        if (heldLiveJobTimerRef.current !== null) {
+          window.clearTimeout(heldLiveJobTimerRef.current);
+        }
+        heldLiveJobTimerRef.current = window.setTimeout(() => {
+          setHeldLiveJob(undefined);
+          heldLiveJobTimerRef.current = null;
+        }, 1500);
+      }
+    } else if (!generatingJob && heldLiveJob) {
+      if (heldLiveJobTimerRef.current === null) {
+        heldLiveJobTimerRef.current = window.setTimeout(() => {
+          setHeldLiveJob(undefined);
+          heldLiveJobTimerRef.current = null;
+        }, 1500);
+      }
+    }
+  }, [generatingJob, heldLiveJob]);
+
+  React.useEffect(() => {
+    return () => {
+      if (heldLiveJobTimerRef.current !== null) {
+        window.clearTimeout(heldLiveJobTimerRef.current);
+      }
+    };
+  }, []);
+
   const liveSegmentProgressJob = generatingJob && ['preparing', 'running', 'finalizing'].includes(generatingJob.status)
     ? generatingJob
-    : undefined;
+    : (heldLiveJob && ['done', 'failed', 'cancelled'].includes(heldLiveJob.status) ? heldLiveJob : undefined);
+
   const liveProgressIsRenderBlock = !!liveSegmentProgressJob && (
     (liveSegmentProgressJob.render_group_count ?? 0) > 0 ||
     typeof liveSegmentProgressJob.active_render_batch_progress === 'number' ||
     typeof liveSegmentProgressJob.active_render_batch_id === 'string'
   );
   const liveSegmentProgressValue = liveSegmentProgressJob
-    ? (liveSegmentProgressJob.status === 'finalizing'
+    ? (['finalizing', 'done', 'failed', 'cancelled'].includes(liveSegmentProgressJob.status)
         ? 1
         : (liveProgressIsRenderBlock
             ? deriveActiveBatchProgress(liveSegmentProgressJob, liveSegmentProgressJob.active_render_group_weight ?? 1, Date.now())
@@ -236,13 +280,16 @@ export const ChapterScriptToolbar: React.FC<{
   queueTitle?: string;
   onQueue: () => void;
   onStopAll: () => void;
+  onCopyDebugState?: () => void;
   onCommitSourceText?: () => void;
   canCommitSourceText?: boolean;
   onSegmentDisplayProgress?: (progress: number) => void;
+  onProgressBarDebugSnapshot?: (snapshot: any) => void;
   status: ReturnType<typeof useChapterStatus>;
 }> = ({
   chapter, saving, hasUnsavedChanges, submitting, queueLabel = 'Queue', queueTitle = 'Queue Chapter',
-  onQueue, onStopAll, onCommitSourceText, canCommitSourceText, onSegmentDisplayProgress, status
+  onQueue, onStopAll, onCopyDebugState, onCommitSourceText, canCommitSourceText, onSegmentDisplayProgress,
+  onProgressBarDebugSnapshot, status
 }) => {
   return (
     <>
@@ -302,6 +349,26 @@ export const ChapterScriptToolbar: React.FC<{
             </button>
         )}
 
+        {onCopyDebugState && (
+            <button
+                onClick={onCopyDebugState}
+                className="btn-ghost"
+                style={{
+                    padding: '0.4rem 0.6rem',
+                    fontSize: '0.8rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px'
+                }}
+                title="Copy debug state"
+            >
+                <Copy size={14} />
+                Debug
+            </button>
+        )}
+
         {!status.liveSegmentProgressJob && status.queueStatus && (
             <div style={{
                 display: 'flex',
@@ -336,11 +403,19 @@ export const ChapterScriptToolbar: React.FC<{
                     label="Segment Progress"
                     predictive={true}
                     allowBackwardProgress={false}
+                    checkpointMode={
+                        (status.liveSegmentProgressJob.render_group_count ?? 0) > 0
+                            ? 'queue'
+                            : (status.liveSegmentProgressJob.segment_ids?.length || status.liveSegmentProgressJob.active_segment_id)
+                            ? 'segment'
+                            : 'default'
+                    }
                     transitionTickCount={3}
                     backwardTransitionTickCount={2}
                     tickMs={250}
                     showEta={false}
                     onDisplayProgress={onSegmentDisplayProgress}
+                    onDebugSnapshot={onProgressBarDebugSnapshot}
                 />
             </div>
         )}

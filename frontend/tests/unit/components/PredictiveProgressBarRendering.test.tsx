@@ -139,4 +139,66 @@ describe('PredictiveProgressBar - Rendering', () => {
         expect(fill().style.width).toBe('0%')
         expect(container.querySelector('.progress-bar-pending')).toBeNull()
     })
+
+    it('does not reset visual progress to 0 when the same bar instance receives a new segment-level persistenceKey mid-run', () => {
+        // RED: ChapterHeader was using key={job:segment} which caused full remounts on segment
+        // transitions. After remount, the bar starts from 0 even though the job is mid-run.
+        // This test verifies the bar KEEPS its progress when only persistenceKey changes (no remount).
+        const { rerender, container } = render(
+            <PredictiveProgressBar
+                progress={0.45}
+                startedAt={Date.now() / 1000 - 10}
+                etaSeconds={30}
+                etaBasis="remaining_from_update"
+                persistenceKey="job-abc:seg-1:1234"
+                status="running"
+                label="Prog"
+                predictive={true}
+                allowBackwardProgress={false}
+                showEta={false}
+            />
+        )
+
+        const fill = () => container.querySelector('[data-testid="progress-bar"] > div:last-child > div') as HTMLElement
+        // Bar should be near 45% (initial progress)
+        const beforeWidth = parseFloat(fill().style.width)
+        expect(beforeWidth).toBeGreaterThan(30)
+
+        // Simulate segment transition: same component instance (no React key remount),
+        // only persistenceKey changes to a new segment. Progress resets to 0 for new segment.
+        rerender(
+            <PredictiveProgressBar
+                progress={0}
+                startedAt={Date.now() / 1000 - 10}
+                etaSeconds={30}
+                etaBasis="remaining_from_update"
+                persistenceKey="job-abc:seg-2:1234"
+                status="running"
+                label="Prog"
+                predictive={true}
+                allowBackwardProgress={false}
+                showEta={false}
+            />
+        )
+
+        // Even though progress=0, allowBackwardProgress=false means the bar must not
+        // snap backward below the memory floor from seg-1. Visual should stay >= 30%.
+        // (Without the key-remount bug, the bar animates smoothly; it will not jump to 0%.)
+        const afterWidth = parseFloat(fill().style.width)
+        expect(afterWidth).toBeGreaterThan(30)
+        expect(screen.queryByText('0%')).toBeNull()
+    })
+
+    it('rounds CSS style width strictly to 1 decimal place', () => {
+        const { container } = render(
+            <PredictiveProgressBar
+                progress={0.2192458603132432}
+                status="running"
+                showEta={false}
+            />
+        )
+        const fill = () => container.querySelector('[data-testid="progress-bar"] > div:last-child > div') as HTMLElement
+        // 0.2192458603132432 * 100 = 21.92458603132432. toFixed(1) should be "21.9"
+        expect(fill().style.width).toBe('21.9%')
+    })
 })

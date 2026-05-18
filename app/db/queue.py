@@ -233,14 +233,6 @@ def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 
                 audio_length_seconds=audio_length_seconds,
             )
 
-            # Broadcast project update to refresh orbs and counts
-            if row and row['project_id']:
-                try:
-                    from ..api.ws import broadcast_project_updated
-                    broadcast_project_updated(row['project_id'])
-                except Exception:
-                    pass
-
 def reconcile_queue_status(active_ids: List[str], known_job_statuses: Optional[Dict[str, str]] = None):
     """
     Reconcile active queue rows against the in-memory job map.

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildVoiceOptions } from '@/utils/voiceProfiles';
+import { buildVoiceOptions, getDefaultEngineId, getDefaultVoiceProfileName } from '@/utils/voiceProfiles';
 import type { SpeakerProfile, Speaker, Character, TtsEngine } from '@/types';
 
 describe('voiceProfiles - buildVoiceOptions grouping', () => {
@@ -96,5 +96,62 @@ describe('voiceProfiles - buildVoiceOptions grouping', () => {
     
     expect(options[0].name).toBe('Wizard 🚫');
     expect(options[0].disabled).toBe(true);
+  });
+});
+
+describe('getDefaultVoiceProfileName', () => {
+  it('returns default profile name when it exists', () => {
+    const profiles: SpeakerProfile[] = [
+      { name: 'V1 - Custom', speaker_id: 's1', is_default: false } as any,
+      { name: 'V2', speaker_id: 's2', is_default: true } as any,
+    ];
+    expect(getDefaultVoiceProfileName(profiles)).toBe('V2');
+  });
+
+  it('filters out profiles associated with disabled engines when engines list is provided', () => {
+    const profiles: SpeakerProfile[] = [
+      { name: 'V1', speaker_id: 's1', is_default: true, engine: 'voxtral' } as any,
+      { name: 'V2', speaker_id: 's2', is_default: false, engine: 'xtts' } as any,
+    ];
+
+    const engines: TtsEngine[] = [
+      { engine_id: 'voxtral', enabled: false, status: 'ready' } as any,
+      { engine_id: 'xtts', enabled: true, status: 'ready' } as any,
+    ];
+
+    // V1 (default) is disabled, so it should resolve to V2 (first selectable profile)
+    expect(getDefaultVoiceProfileName(profiles, engines)).toBe('V2');
+  });
+
+  it('returns null if all selectable profiles belong to disabled engines', () => {
+    const profiles: SpeakerProfile[] = [
+      { name: 'V1', speaker_id: 's1', is_default: true, engine: 'voxtral' } as any,
+      { name: 'V2', speaker_id: 's2', is_default: false, engine: 'voxtral' } as any,
+    ];
+
+    const engines: TtsEngine[] = [
+      { engine_id: 'voxtral', enabled: false, status: 'ready' } as any,
+    ];
+
+    expect(getDefaultVoiceProfileName(profiles, engines)).toBeNull();
+  });
+});
+
+describe('getDefaultEngineId', () => {
+  it('ignores disabled or non-ready engines instead of falling back to the first entry', () => {
+    const engines: TtsEngine[] = [
+      { engine_id: 'voxtral', enabled: false, status: 'needs_setup' } as any,
+      { engine_id: 'xtts', enabled: true, status: 'ready' } as any,
+    ];
+
+    expect(getDefaultEngineId(engines)).toBe('xtts');
+  });
+
+  it('returns an empty string when no enabled ready engine exists', () => {
+    const engines: TtsEngine[] = [
+      { engine_id: 'voxtral', enabled: false, status: 'needs_setup' } as any,
+    ];
+
+    expect(getDefaultEngineId(engines)).toBe('');
   });
 });

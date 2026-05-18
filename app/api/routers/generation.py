@@ -97,6 +97,70 @@ def _ensure_engines_enabled(engine_ids: list[str]) -> Optional[JSONResponse]:
     return None
 
 
+def _validate_generation_engines(chapter_id: str, active_profile: Optional[str], only_segment_ids: Optional[set[str]] = None) -> Optional[JSONResponse]:
+    from app.engines.voice_engines import resolve_profile_engine
+    from app.engines.bridge import create_voice_bridge
+
+    settings = get_settings()
+    profiles = set()
+    if active_profile:
+        profiles.add(active_profile)
+    for p in _resolved_segment_profiles(chapter_id, only_segment_ids):
+        if p:
+            profiles.add(p)
+
+    bridge = create_voice_bridge()
+    registry = {entry.get("engine_id"): entry for entry in bridge.describe_registry()}
+
+    for profile in profiles:
+        engine_id = resolve_profile_engine(profile, fallback_engine=settings.get("default_engine"))
+        if not engine_id:
+            return JSONResponse(
+                {
+                    "status": "error",
+                    "message": f"No TTS engine is currently configured for voice profile '{profile}'. Please select an engine in Settings."
+                },
+                status_code=400,
+            )
+
+        entry = registry.get(engine_id)
+        display_name = (entry.get("display_name") if entry else None) or engine_id.capitalize() or "this engine"
+
+        # Check if can_enable is False
+        if entry and entry.get("can_enable") is False:
+            return JSONResponse(
+                {
+                    "status": "error",
+                    "message": entry.get("enablement_message") or f"Enable {display_name} in Settings to use these voices.",
+                },
+                status_code=400,
+            )
+
+        # Check if disabled
+        if not bridge.is_engine_enabled(engine_id) or (entry and not entry.get("enabled")):
+            return JSONResponse(
+                {
+                    "status": "error",
+                    "message": f"Engine {display_name} is disabled. Enable {display_name} in Settings to use these voices."
+                },
+                status_code=400,
+            )
+
+        # Check if needs setup or invalid config
+        if entry:
+            status = entry.get("status")
+            if status in ("needs_setup", "invalid_config"):
+                return JSONResponse(
+                    {
+                        "status": "error",
+                        "message": f"Engine {engine_id} is not ready (status: {status}). Please configure {display_name} in Settings."
+                    },
+                    status_code=400,
+                )
+
+    return None
+
+
 def _build_script_for_chapter(chapter_id: str, project_id: str, default_profile: str, safe_mode: bool = True) -> list[dict[str, Any]]:
     """Build a structured script payload for segment-orchestrated engines."""
     from ...db.segments import get_chapter_segments
@@ -204,6 +268,10 @@ def api_add_to_queue(
         if not active_profile:
             return JSONResponse({"status": "error", "message": "No speaker profile selected and no default set. Please choose a voice first."}, status_code=400)
         settings = get_settings()
+
+        validation_error = _validate_generation_engines(chapter_id, active_profile)
+        if validation_error:
+            return validation_error
 
         qid = db_add_to_queue(project_id, chapter_id, split_part)
         if not qid:
@@ -379,6 +447,10 @@ def api_bake_chapter(chapter_id: str, background_tasks: BackgroundTasks):
         default_profile=active_profile,
         fallback_engine=settings.get("default_engine"),
     )
+    validation_error = _validate_generation_engines(chapter_id, active_profile)
+    if validation_error:
+        return validation_error
+
     engines_to_check = _engines_for_profiles(
         _resolved_segment_profiles(chapter_id),
         settings.get("default_engine"),
@@ -546,6 +618,11 @@ def api_generate_segments(
 
     settings = get_settings()
     active_profile = speaker_profile or settings.get("default_speaker_profile")
+
+    validation_error = _validate_generation_engines(chapter_id, active_profile, set(sids))
+    if validation_error:
+        return validation_error
+
     segment_profiles = _resolved_segment_profiles(chapter_id, set(sids))
     resolved_engine, mixed_engines = resolve_tts_engine_for_profiles(
         segment_profiles,

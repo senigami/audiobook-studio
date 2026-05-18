@@ -28,6 +28,9 @@ router = APIRouter()
 
 @router.get("/{project_id}/audiobooks")
 def api_list_project_audiobooks(project_id: str):
+    if not get_project(project_id):
+        return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
+
     from ...storage.manager import get_storage_manager
     storage = get_storage_manager()
     try:

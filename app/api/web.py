@@ -136,7 +136,9 @@ def get_project_cover_hardened(project_id: str, filename: str):
     if not filename.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
         raise HTTPException(status_code=404)
     try:
-        root = get_project_cover_dir(project_id)
+        from ..core.config import _canonical_project_id
+        canonical_pid = _canonical_project_id(project_id)
+        root = get_project_cover_dir(canonical_pid)
     except ValueError:
         raise HTTPException(status_code=404)
     file_path = _contained_root_file(root, filename)
@@ -153,7 +155,9 @@ def get_project_m4b_hardened(project_id: str, filename: str):
     if not filename.lower().endswith(allowed_exts):
         raise HTTPException(status_code=404)
     try:
-        root = get_project_m4b_dir(project_id)
+        from ..core.config import _canonical_project_id
+        canonical_pid = _canonical_project_id(project_id)
+        root = get_project_m4b_dir(canonical_pid)
     except ValueError:
         raise HTTPException(status_code=404)
     file_path = _contained_root_file(root, filename)

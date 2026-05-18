@@ -57,12 +57,21 @@ def put_job(job: Job) -> None:
 
 
 def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
+    skip_studio_job_event = updates.pop("skip_studio_job_event", False)
     with _STATE_LOCK:
         state = _load_state_no_lock()
         jobs = state.setdefault("jobs", {})
         j = jobs.get(job_id)
         if not j:
             return
+
+        current_status = j.get("status")
+        if not force_broadcast and current_status in ("done", "failed", "cancelled"):
+            incoming_status = updates.get("status")
+            if incoming_status not in ("queued", "preparing"):
+                # Drop updates to terminal jobs
+                return
+
 
         # Apply updates with protection
         changed_fields = []
@@ -159,7 +168,13 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
             elapsed = event_updated_at - started_at
             if elapsed > 1:
                 import math
-                remaining = math.ceil(elapsed * (1 - progress) / progress)
+                extrapolated = math.ceil(elapsed * (1 - progress) / progress)
+                previous_eta = j.get("eta_seconds")
+                if previous_eta is not None and progress < 0.15:
+                    alpha = progress / 0.15
+                    remaining = math.ceil(alpha * extrapolated + (1 - alpha) * previous_eta)
+                else:
+                    remaining = extrapolated
                 # Omit if remaining is absurdly huge (> 24 hours) or if progress stagnant
                 if 1 <= remaining <= 86400:
                     j["eta_seconds"] = remaining
@@ -271,6 +286,8 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
                 logger.warning("Failed to sync job status to SQLite for %s", job_id, exc_info=True)
 
         broadcast_dict = {k: v for k, v in updates.items() if k != "log"}
+        if skip_studio_job_event:
+            broadcast_dict["skip_studio_job_event"] = True
         if auto_updated_at is not None:
             broadcast_dict.setdefault("updated_at", auto_updated_at)
         if broadcast_dict or force_broadcast:

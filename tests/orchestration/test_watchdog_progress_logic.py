@@ -75,7 +75,7 @@ class MockSampleBuildTask(StudioTask):
     def __init__(self, bridge):
         self.bridge = bridge
     def describe(self):
-        return TaskContext(task_id="build-1", task_type="sample_build")
+        return TaskContext(task_id="build-1", task_type="sample_build", payload={"script_text": "hello"})
     @property
     def prefers_local_execution(self) -> bool:
         return True
@@ -131,7 +131,8 @@ def test_sample_build_receives_markers_live():
 
     wd = TtsServerWatchdog()
     # Mock get_watchdog to return our local wd
-    with patch("app.engines.watchdog.get_watchdog", return_value=wd):
+    with patch("app.engines.watchdog.get_watchdog", return_value=wd), \
+         patch("app.jobs.registry.JobHandlerRegistry.get_handler", return_value=None):
         # Simulate synthesis emitting logs while blocking
         def side_effect(*args, **kwargs):
             with patch.object(OrchestratorHelpersMixin, "_observed_remaining_seconds", return_value=10):

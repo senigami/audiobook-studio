@@ -44,30 +44,115 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-def broadcast_queue_update():
-    trace("ws.broadcast_queue_update")
-    manager.broadcast({"type": "queue_updated"})
+def broadcast_queue_update(
+    reason: str | None = None,
+    job_id: str | None = None,
+    project_id: str | None = None,
+    changed_fields: list[str] | None = None
+):
+    trace(
+        "ws.broadcast_queue_update",
+        reason=reason,
+        job_id=job_id,
+        project_id=project_id,
+        changed_fields=changed_fields
+    )
+    payload = {"type": "queue_updated"}
+    if reason is not None:
+        payload["reason"] = reason
+    if job_id is not None:
+        payload["job_id"] = job_id
+    if project_id is not None:
+        payload["project_id"] = project_id
+    if changed_fields is not None:
+        payload["changed_fields"] = changed_fields
+    manager.broadcast(payload)
 
-def broadcast_segments_updated(chapter_id: str):
-    trace("ws.broadcast_segments_updated", chapter_id=chapter_id)
-    manager.broadcast({
+
+def broadcast_segments_updated(
+    chapter_id: str,
+    reason: str | None = None,
+    job_id: str | None = None,
+    project_id: str | None = None,
+    changed_fields: list[str] | None = None
+):
+    trace(
+        "ws.broadcast_segments_updated",
+        chapter_id=chapter_id,
+        reason=reason,
+        job_id=job_id,
+        project_id=project_id,
+        changed_fields=changed_fields
+    )
+    payload = {
         "type": "segments_updated",
         "chapter_id": chapter_id
-    })
+    }
+    if reason is not None:
+        payload["reason"] = reason
+    if job_id is not None:
+        payload["job_id"] = job_id
+    if project_id is not None:
+        payload["project_id"] = project_id
+    if changed_fields is not None:
+        payload["changed_fields"] = changed_fields
+    manager.broadcast(payload)
 
-def broadcast_chapter_updated(chapter_id: str):
-    trace("ws.broadcast_chapter_updated", chapter_id=chapter_id)
-    manager.broadcast({
+
+def broadcast_chapter_updated(
+    chapter_id: str,
+    reason: str | None = None,
+    job_id: str | None = None,
+    project_id: str | None = None,
+    changed_fields: list[str] | None = None
+):
+    trace(
+        "ws.broadcast_chapter_updated",
+        chapter_id=chapter_id,
+        reason=reason,
+        job_id=job_id,
+        project_id=project_id,
+        changed_fields=changed_fields
+    )
+    payload = {
         "type": "chapter_updated",
         "chapter_id": chapter_id
-    })
+    }
+    if reason is not None:
+        payload["reason"] = reason
+    if job_id is not None:
+        payload["job_id"] = job_id
+    if project_id is not None:
+        payload["project_id"] = project_id
+    if changed_fields is not None:
+        payload["changed_fields"] = changed_fields
+    manager.broadcast(payload)
 
-def broadcast_project_updated(project_id: str):
-    trace("ws.broadcast_project_updated", project_id=project_id)
-    manager.broadcast({
+
+def broadcast_project_updated(
+    project_id: str,
+    reason: str | None = None,
+    job_id: str | None = None,
+    changed_fields: list[str] | None = None
+):
+    trace(
+        "ws.broadcast_project_updated",
+        project_id=project_id,
+        reason=reason,
+        job_id=job_id,
+        changed_fields=changed_fields
+    )
+    payload = {
         "type": "project_updated",
         "project_id": project_id
-    })
+    }
+    if reason is not None:
+        payload["reason"] = reason
+    if job_id is not None:
+        payload["job_id"] = job_id
+    if changed_fields is not None:
+        payload["changed_fields"] = changed_fields
+    manager.broadcast(payload)
 
 def broadcast_pause_state(paused: bool):
     manager.broadcast({
@@ -76,8 +161,14 @@ def broadcast_pause_state(paused: bool):
     })
 
 def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None = None):
+    skip_studio_job_event = False
+    if updates:
+        skip_studio_job_event = updates.pop("skip_studio_job_event", False)
+
     merged = dict(current_job or {})
     merged.update(updates or {})
+    merged.pop("skip_studio_job_event", None)
+
     status = str(merged.get("status") or "queued")
     message = None
     if status in ("failed", "cancelled"):
@@ -99,6 +190,8 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
         started_at=merged.get("started_at"),
         active_render_batch_id=merged.get("active_render_batch_id"),
         active_render_batch_progress=merged.get("active_render_batch_progress"),
+        active_segment_id=merged.get("active_segment_id"),
+        active_segment_progress=merged.get("active_segment_progress"),
     )
     trace(
         "ws.broadcast_job_updated",
@@ -107,7 +200,8 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
         current_job=current_job,
         normalized_event=normalized,
     )
-    manager.broadcast(normalized)
+    if not skip_studio_job_event:
+        manager.broadcast(normalized)
     manager.broadcast({
         "type": "job_updated",
         "job_id": job_id,

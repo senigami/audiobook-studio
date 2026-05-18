@@ -99,6 +99,18 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
   // so letter animation stays frame-accurate with the visual bar.
   const [liveBarSegmentProgress, setLiveBarSegmentProgress] = useState(0);
 
+  // Captures the latest PredictiveProgressBar debug snapshot and a small history so that
+  // the copied debug bundle shows live bar state, not just shell-level chapter/job state.
+  const lastProgressBarSnapshotRef = React.useRef<any>(null);
+  const progressBarSnapshotHistoryRef = React.useRef<any[]>([]);
+
+  const handleProgressBarDebugSnapshot = React.useCallback((snapshot: any) => {
+    lastProgressBarSnapshotRef.current = snapshot;
+    progressBarSnapshotHistoryRef.current = [
+      snapshot,
+      ...progressBarSnapshotHistoryRef.current,
+    ].slice(0, 8);
+  }, []);
 
   const [confirmConfig, setConfirmConfig] = useState<{
     title: string;
@@ -110,7 +122,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
 
   const effectiveSelectedVoice = localVoice || externalVoice || '';
   const chapterDefaultVoiceLabel = useMemo(() => {
-    const fallbackVoiceValue = externalVoice || getDefaultVoiceProfileName(speakerProfiles || []) || '';
+    const fallbackVoiceValue = externalVoice || getDefaultVoiceProfileName(speakerProfiles || [], engines) || '';
     const fallbackVoiceLabel = getVoiceOptionLabel(fallbackVoiceValue, speakerProfiles || [], speakers || [], engines, characters);
     return fallbackVoiceLabel ? `Use Project Default (${fallbackVoiceLabel})` : 'Use Project Default';
   }, [externalVoice, speakerProfiles, speakers, engines, characters]);
@@ -407,7 +419,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     return engines.some(e => e.enabled && e.status === 'ready');
   }, [engines]);
 
-  const queueVoiceStatus = resolveVoiceEngineStatus(effectiveSelectedVoice || getDefaultVoiceProfileName(speakerProfiles || []), engines, speakerProfiles);
+  const queueVoiceStatus = resolveVoiceEngineStatus(effectiveSelectedVoice || getDefaultVoiceProfileName(speakerProfiles || [], engines), engines, speakerProfiles);
   const queueButtonLabel = !anyEnginesEnabled ? 'Disabled' : !queueVoiceStatus.enabled ? 'Unavailable' : (shouldWarnBeforeRequeue ? 'Rebuild' : hasPartialSegmentProgress ? 'Complete' : 'Queue');
   const queueButtonTitle = !anyEnginesEnabled ? 'All TTS engines are disabled in Settings' : (queueVoiceStatus.enabled ? (shouldWarnBeforeRequeue ? 'Rebuild Chapter' : hasPartialSegmentProgress ? 'Complete Chapter Audio' : 'Queue Chapter') : queueVoiceStatus.message || 'Selected voice is unavailable');
   const headerQueuePending = submitting || (!job && chapter?.audio_status === 'processing');
@@ -427,6 +439,112 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     submitting || !anyEnginesEnabled
   );
 
+  const handleCopyDebugState = async () => {
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+      console.error('Clipboard API is not available.');
+      return;
+    }
+
+    const snapshot = {
+      generatedAt: new Date().toISOString(),
+      frontend: {
+        chapter: chapter ? {
+          id: chapter.id,
+          title: chapter.title,
+          audio_status: chapter.audio_status,
+          audio_file_path: chapter.audio_file_path,
+          has_wav: chapter.has_wav,
+          has_mp3: chapter.has_mp3,
+          has_m4a: chapter.has_m4a,
+          char_count: chapter.char_count,
+          word_count: chapter.word_count,
+          done_segments_count: chapter.done_segments_count,
+          total_segments_count: chapter.total_segments_count,
+        } : null,
+        editor: {
+          editorTab,
+          sourceTextMode,
+          loading,
+          saving,
+          submitting,
+          analyzing,
+          queueNotice,
+          isPreviewingResync,
+          isResyncing,
+          liveBarSegmentProgress,
+          hasRenderedOutput,
+          hasUnsavedChanges,
+        },
+        jobs: {
+          propJob,
+          generatingSegmentJob,
+          effectiveJob: job,
+          chapterJobs: chapterJobs.map(j => ({
+            id: j.id,
+            status: j.status,
+            progress: j.progress,
+            started_at: j.started_at,
+            finished_at: j.finished_at,
+            active_segment_id: j.active_segment_id,
+            active_segment_progress: j.active_segment_progress,
+            render_group_count: (j as any).render_group_count,
+            eta_seconds: j.eta_seconds,
+          })),
+        },
+        status: {
+          queueStatus: status.queueStatus,
+          effectiveQueueLocked: status.effectiveQueueLocked,
+          isQueued: status.isQueued,
+          liveSegmentProgressValue: status.liveSegmentProgressValue,
+          liveSegmentProgressJob: status.liveSegmentProgressJob ? {
+            id: status.liveSegmentProgressJob.id,
+            status: status.liveSegmentProgressJob.status,
+            progress: status.liveSegmentProgressJob.progress,
+            active_segment_id: status.liveSegmentProgressJob.active_segment_id,
+            active_segment_progress: status.liveSegmentProgressJob.active_segment_progress,
+            render_group_count: (status.liveSegmentProgressJob as any).render_group_count,
+            eta_seconds: status.liveSegmentProgressJob.eta_seconds,
+            started_at: status.liveSegmentProgressJob.started_at,
+            updated_at: status.liveSegmentProgressJob.updated_at,
+          } : null,
+          generatingSegmentIdsCount: status.generatingSegmentIdsCount,
+        },
+        progressBar: {
+          latestSnapshot: lastProgressBarSnapshotRef.current,
+          recentHistory: progressBarSnapshotHistoryRef.current,
+        },
+        scriptView: {
+          loading: scriptViewLoading,
+          hasData: !!scriptViewData,
+          renderBatchCount: scriptViewData?.render_batches?.length ?? 0,
+          audioGroupCount: scriptViewData?.audio_groups?.length ?? 0,
+        },
+        render: {
+          chapterRenderActiveSegmentId,
+          chapterRenderRenderingSegmentIds: Array.from(chapterRenderRenderingSegmentIds),
+          chapterRenderQueuedSegmentIds: Array.from(chapterRenderQueuedSegmentIds),
+          chapterRenderPendingSegmentIds: Array.from(chapterRenderPendingSegmentIds),
+          chapterRenderRenderingBatchProgressById,
+        },
+        websocket: {
+          recentMessages: typeof window !== 'undefined' ? (window as any).__websocketRecentMessages ?? [] : [],
+        },
+      },
+      backend: typeof window !== 'undefined' ? {
+        websocketDebugTrail: (window as any).__studioDebugSnapshots ?? [],
+        lastSnapshot: (window as any).__studioDebugLast ?? null,
+      } : null,
+    };
+
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(snapshot, null, 2));
+      setQueueNotice('Copied debug state to clipboard.');
+    } catch (error) {
+      console.error('Failed to copy debug state', error);
+      setQueueNotice('Could not copy debug state.');
+    }
+  };
+
   if (loading) return <div style={{ padding: '2rem' }}>Loading editor...</div>;
   if (!chapter) return <div style={{ padding: '2rem' }}>Chapter not found.</div>;
 
@@ -443,6 +561,28 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         onSaveMp3={() => void handleExportAudio('mp3')}
         exportingFormat={exportingFormat}
       />
+
+      {!queueVoiceStatus.enabled && queueVoiceStatus.message && (
+        <div style={{
+          margin: '1rem 1.5rem 0 1.5rem',
+          padding: '1rem',
+          background: 'rgba(239, 68, 68, 0.1)',
+          border: '1px solid rgba(239, 68, 68, 0.2)',
+          borderRadius: '8px',
+          color: 'var(--text-primary)',
+          fontSize: '0.875rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.75rem',
+          boxShadow: 'var(--shadow-sm)',
+        }}>
+          <span style={{ fontSize: '1.25rem' }}>⚠️</span>
+          <div style={{ flex: 1 }}>
+            <strong style={{ display: 'block', marginBottom: '0.25rem', color: '#ef4444' }}>Voice Engine Unavailable</strong>
+            <span>{queueVoiceStatus.message}</span>
+          </div>
+        </div>
+      )}
 
       <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '1.5rem', overflow: 'hidden', minHeight: 0 }}>
@@ -471,6 +611,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                     saving={saving}
                     hasUnsavedChanges={hasUnsavedChanges}
                     submitting={submitting}
+                    onCopyDebugState={handleCopyDebugState}
                     queueLabel={queueButtonLabel}
                     queueTitle={queueButtonTitle}
                     onQueue={() => {
@@ -516,6 +657,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                     onCommitSourceText={handleRequestResyncPreview}
                     canCommitSourceText={editorTab === 'edit' && sourceTextMode === 'edit' && (text !== chapter?.text_content)}
                     onSegmentDisplayProgress={setLiveBarSegmentProgress}
+                    onProgressBarDebugSnapshot={handleProgressBarDebugSnapshot}
                     status={status}
                   />
                 </EditorTabs>

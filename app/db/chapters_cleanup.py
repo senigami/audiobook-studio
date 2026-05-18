@@ -120,10 +120,12 @@ def move_chapter_artifacts_to_trash(
         return True
 
     try:
+        from ..core.config import canonical_chapter_id
+        canonical_cid = canonical_chapter_id(chapter_id)
         ctx = storage.get_project_context(project_id)
         # Use project-aware trash dir resolution
         base_trash_path = ctx.root / "trash"
-        trash_root_path = base_trash_path / chapter_id
+        trash_root_path = base_trash_path / canonical_cid
 
         if not storage.is_safe(trash_root_path):
             raise ValueError("Trash path escape")

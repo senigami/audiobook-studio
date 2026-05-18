@@ -1,16 +1,17 @@
 {
-  "snapshot_version": 70,
-  "updated_at": "2026-05-17T04:31:00Z",
+  "snapshot_version": 76,
+  "updated_at": "2026-05-18T17:10:00Z",
   "branch": "studio2/phase-12",
-  "current_task": "Chapter Editor live queue sync regression audit",
-  "status": "chapter_editor_live_queue_sync_fixed",
+  "current_task": "Stabilizing Orchestration Test Suite",
+  "status": "all_orchestration_tests_completely_passing",
   "last_committed_milestone": {
-    "title": "Surface queue failure reasons",
-    "commit": "7a8fe58",
+    "title": "Orchestration test suite stabilized",
+    "commit": "a8f8e91",
     "notes": [
-      "Persisted queue failure reasons in the processing_queue table and surfaced them in the global queue history so failed jobs show more than a generic status.",
-      "Forwarded failure reasons through the websocket job overlay and queue hydration path so the reason survives refreshes and live updates.",
-      "Added backend queue regression coverage plus a GlobalQueue unit test, then verified with queue-focused pytest coverage, the plugin regression suite, frontend queue tests, frontend build, and git diff whitespace checks."
+      "Corrected import of EngineUnavailableError to app.engines.errors in app/orchestration/scheduler/orchestrator_helpers.py to enable retriable job schedules.",
+      "Patched JobHandlerRegistry.get_handler in orchestration test mock contexts to bypass registered job handlers and force local/bridge task dispatch paths where expected.",
+      "Hardened timing assertions in record_render_stats_if_completed by using precise mock clock values and avoiding zero duration/character checks.",
+      "Confirmed 100% test pass rate (163 tests) across the entire tests/orchestration/ test suite."
     ]
   },
   "active_constraints": [
@@ -47,15 +48,19 @@
     "Phase 12 plan is plans/phases/phase_12_polish_and_cleanup.md.",
     "Phase 12 item audit is complete. Verified complete: Library list/sort, Plugin dependency UX, Per-voice settings, Plugin boundary cleanup, Chapter Editor tab removal, VCR controls, Plugin ZIP import/delete, Queue output metadata, Legacy jobs API retirement.",
     "Chapter Editor live queue selection now prefers the active job over stale completed chapter jobs so live progress and queued spans stay visible without waiting for a reload.",
+    "Chapter Editor progress no longer treats orphan active_segment_progress values as authoritative when active_segment_id is null; XTTS standard handler now suppresses pre-START_SEGMENT progress from active segment payloads.",
     "Phase 12 product backlog items such as voice icons, searchable voice tags, and Hugging Face-compatible export bundles remain open for the final polish pass.",
     "Chapter audio completion now recovers single-segment renders when stitching reports success but does not materialize the output WAV.",
     "Queue history now persists and renders failure reasons instead of only showing a generic failed status.",
     "Voxtral segment and bake rendering is still open, and default voice fallback should be audited because profiles are still drifting to Voxtral unexpectedly.",
+    "Chapter Editor now exposes a copy-debug-state button so the live progress contract can be handed over without relying on screenshots.",
     "Implementing the `check_output` interface in plugin adapters and completing the generic plugin setup loop in run.sh are the next high-value cleanup items.",
     "Manual QA targets include engine settings test, project load time, chapter render enqueue, duplicate voice option warning, server shutdown, and mixed render retry.",
     "Triage Vite websocket ECONNRESET and large-book project/chapter load timing.",
     "Composite renaming (mixed.py -> composite.py) is explicitly deferred to Phase 13.",
-    "The TTS Server synth endpoint now allows synthesis while verification is still pending, but still blocks failed verification and setup errors."
+    "The TTS Server synth endpoint now allows synthesis while verification is still pending, but still blocks failed verification and setup errors.",
+    "Chapter Editor progress bar key is now a segment-scoped composite key so active segment transitions trigger clean React remounts and prevent bar stuckness. checkpointMode now correctly resolves to 'queue' for grouped chapter render jobs.",
+    "Chapter Editor progress bar now animates smoothly under finalizing status instead of hardcoding to 100% width. A 1500ms terminal job bridging window was added to useChapterStatus to let the green 100% Complete bar render fully before clean unmounting."
   ],
   "phase_13_guidance": [
     "Phase 13 plan is plans/phases/phase_13_release_documentation_and_distribution.md.",
@@ -73,10 +78,10 @@
     "Prepare the voice icon and tagging implementation to improve large-library usability."
   ],
   "verification": {
-    "latest_backend_focus": "2026-05-17: ./venv/bin/python -m pytest tests/api/test_api_queue.py tests/db/test_db_queue.py --tb=short and ./venv/bin/python -m pytest plugins/tts_xtts/tests/test_handler.py plugins/tts_xtts/tests/test_jobs_extended.py --tb=short passed after surfacing queue failure reasons.",
-    "latest_frontend_focus": "2026-05-17: `cd frontend && npx vitest run tests/unit/components/chapter/ChapterEditor_Queue.test.tsx tests/unit/pages/ChapterEditor tests/unit/components/progress tests/unit/hooks` and `cd frontend && npm run build` passed after fixing Chapter Editor live queue selection.",
-    "latest_lint_focus": "2026-05-17: `git diff --check` passed after fixing Chapter Editor live queue selection.",
-    "latest_diff_check": "2026-05-17: git diff --check passed after fixing Chapter Editor live queue selection.",
+    "latest_backend_focus": "2026-05-18: `./venv/bin/pytest tests/orchestration/ -vv --tb=short` fully passed (163 passed) after correcting EngineUnavailableError imports and patching JobHandlerRegistry.get_handler in mock contexts.",
+    "latest_frontend_focus": "2026-05-18: `cd frontend && npx vitest run tests/unit/pages/ChapterEditor/components/ChapterHeader.test.tsx tests/unit/pages/ChapterEditor/components/ChapterHeaderProgressContract.test.tsx tests/unit/components/PredictiveProgressBarLifecycle.test.tsx tests/unit/components/PredictiveProgressBarTiming.test.tsx tests/unit/components/PredictiveProgressBarTransitions.test.tsx` and `cd frontend && npm run build` passed after fixing the progress bar segment transition reset, checkpointMode, finalizing width rendering, and done bridging window.",
+    "latest_lint_focus": "2026-05-18: `cd frontend && npm run lint` and `git diff --check` passed; ESLint kept the existing fast-refresh warnings only.",
+    "latest_diff_check": "2026-05-18: git diff --check passed with some standard blank line EOF warnings on unchanged files.",
     "known_warnings": [
       "Vite chunk-size warning remains on frontend builds.",
       "Some frontend motion tests may emit harmless animation warnings."

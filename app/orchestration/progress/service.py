@@ -322,8 +322,8 @@ class ProgressService:
             payload["active_render_batch_progress"] = round(max(0.0, min(float(active_render_batch_progress), 1.0)), 2)
         if active_segment_id is not None:
             payload["active_segment_id"] = active_segment_id
-        if active_segment_progress is not None:
-            payload["active_segment_progress"] = round(max(0.0, min(float(active_segment_progress), 1.0)), 2)
+            if active_segment_progress is not None:
+                payload["active_segment_progress"] = round(max(0.0, min(float(active_segment_progress), 1.0)), 2)
         return payload
 
     def _should_emit(self, payload: dict[str, object], *, allow_progress_regression: bool = False) -> bool:
@@ -337,6 +337,11 @@ class ProgressService:
             previous=previous,
             allow_progress_regression=allow_progress_regression,
         )
+
+        prev_status = previous.get("status")
+        curr_status = payload.get("status")
+        if prev_status in {"done", "failed", "cancelled"} and curr_status not in {"done", "failed", "cancelled", "queued", "preparing"}:
+            return False
 
         if payload.get("status") != previous.get("status"):
             return True

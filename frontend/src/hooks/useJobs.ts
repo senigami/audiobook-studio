@@ -104,6 +104,9 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
         if (incomingStatus && currentStatus) {
           const incomingPriority = STATUS_PRIORITY[incomingStatus] ?? 0;
           const currentPriority = STATUS_PRIORITY[currentStatus] ?? 0;
+          if (currentPriority >= 5 && incomingPriority < currentPriority) {
+            return prev;
+          }
           if (incomingPriority < currentPriority) {
             delete normalizedUpdates.status;
           }
@@ -167,6 +170,9 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
         if (incomingStatus && currentStatus) {
           const incomingPriority = STATUS_PRIORITY[incomingStatus] ?? 0;
           const currentPriority = STATUS_PRIORITY[currentStatus] ?? 0;
+          if (currentPriority >= 5 && incomingPriority < currentPriority) {
+            return prev;
+          }
           if (incomingPriority < currentPriority) {
             delete nextUpdates.status;
           }

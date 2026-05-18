@@ -301,6 +301,7 @@ class OrchestratorHelpersMixin:
                     eta_seconds = self._observed_remaining_seconds(
                         started_at=timing["render_started_at"],
                         progress=p,
+                        expected_duration=expected_duration,
                     )
                     trace(
                         "orchestrator.marker_progress",
@@ -538,9 +539,12 @@ class OrchestratorHelpersMixin:
                         record_render_stats_if_completed(task_result)
                         return task_result
                     except Exception as exc:
+                        print(f"\n[DEBUG] Caught exc: {type(exc)}: {exc}")
                         logger.exception("Task %s: bridge dispatch raised.", context.task_id)
-                        from app.engines.bridge_remote import EngineUnavailableError
+                        from app.engines.errors import EngineUnavailableError
+                        print(f"[DEBUG] EngineUnavailableError class: {EngineUnavailableError}")
                         is_retriable = isinstance(exc, EngineUnavailableError)
+                        print(f"[DEBUG] is_retriable: {is_retriable}")
                         import traceback
                         tb_summary = "".join(traceback.format_exception_only(type(exc), exc)).strip()
                         engine_id = getattr(j, "engine", "unknown")
@@ -596,7 +600,7 @@ class OrchestratorHelpersMixin:
         return max(1, int(round(duration)))
 
     @staticmethod
-    def _observed_remaining_seconds(*, started_at: float | None, progress: float) -> int | None:
+    def _observed_remaining_seconds(*, started_at: float | None, progress: float, expected_duration: float | None = None) -> int | None:
         """Estimate remaining render time from raw engine progress."""
         if started_at is None or progress <= 0:
             return None
@@ -605,7 +609,14 @@ class OrchestratorHelpersMixin:
         elapsed = max(0.0, time.time() - started_at)
         if elapsed <= 0:
             return None
-        remaining = elapsed * (1.0 - progress) / progress
+        extrapolated = elapsed * (1.0 - progress) / progress
+
+        if expected_duration is not None and progress < 0.15:
+            alpha = progress / 0.15
+            remaining = alpha * extrapolated + (1 - alpha) * expected_duration
+        else:
+            remaining = extrapolated
+
         return max(1, int(round(remaining)))
 
     def _publish(
@@ -747,7 +758,7 @@ class OrchestratorHelpersMixin:
                             updates["output_mp3"] = fname
                         else:
                             updates["output_wav"] = fname
-                update_job(context.task_id, force_broadcast=force, **updates)
+                update_job(context.task_id, force_broadcast=force, skip_studio_job_event=True, **updates)
 
 
 

@@ -30,6 +30,7 @@ const TestHeaderWrapper = (props: any) => {
         queueTitle={props.queueTitle}
         onQueue={props.onQueue}
         onStopAll={props.onStopAll}
+        onCopyDebugState={props.onCopyDebugState}
         onSegmentDisplayProgress={props.onSegmentDisplayProgress}
         status={status}
       />
@@ -181,7 +182,11 @@ describe('ChapterHeader', () => {
       />
     );
 
+    // Under segment-scoped composite keys, changing the active segment ID cleanly remounts the bar,
+    // resetting the progress memory floor so it displays the actual progress of the new active segment (10%).
     expect(screen.getByText('10%')).toBeInTheDocument();
+    // Bar is still active (not "Queued" or "Preparing")
+    expect(screen.getByTitle('Already processing')).toBeDisabled();
   });
 
   it('uses active render-block progress for grouped chapter renders', () => {
@@ -223,5 +228,35 @@ describe('ChapterHeader', () => {
 
     expect(screen.getByText('25%')).toBeInTheDocument();
     expect(onSegmentDisplayProgress).toHaveBeenCalledWith(0.25);
+  });
+
+  it('exposes a copy debug state button when a handler is provided', () => {
+    const onCopyDebugState = vi.fn();
+
+    render(
+      <TestHeaderWrapper
+        chapter={mockChapter as any}
+        title={mockChapter.title}
+        setTitle={vi.fn()}
+        saving={false}
+        hasUnsavedChanges={false}
+        onBack={vi.fn()}
+        selectedVoice=""
+        onVoiceChange={vi.fn()}
+        availableVoices={[]}
+        submitting={false}
+        queueLocked={false}
+        queuePending={false}
+        queueLabel="Queue"
+        queueTitle="Queue Chapter"
+        onQueue={vi.fn()}
+        onStopAll={vi.fn()}
+        onCopyDebugState={onCopyDebugState}
+        generatingSegmentIdsCount={0}
+      />
+    );
+
+    fireEvent.click(screen.getByTitle('Copy debug state'));
+    expect(onCopyDebugState).toHaveBeenCalledTimes(1);
   });
 });

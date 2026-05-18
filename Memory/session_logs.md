@@ -1,3 +1,32 @@
+# 2026-05-18 - Chapter Editor Progress Bar Regression Fixed End-To-End
+
+- Modified `PredictiveProgressBar.tsx` to smoothly animate `width` using actual `${localProgress * 100}%` under `'finalizing'` status instead of hardcoding to `'100%'` when not indeterminate.
+- Added a `1500ms` terminal job bridging window in `ChapterHeader.tsx`'s `useChapterStatus` so completed jobs (status `'done'`, `'failed'`, or `'cancelled'`) stay mounted briefly, allowing the progress bar to complete its green 100% "Complete" animation before unmounting.
+- Hardened the job completion bridge against infinite reschedule loops using an identity and status guard (`terminalJobIdBridgedRef`).
+- Added a Vitest TDD test case in `PredictiveProgressBarLifecycle.test.tsx` verifying smooth finalizing progress animation.
+- Added a Vitest TDD test case in `ChapterHeaderProgressContract.test.tsx` verifying the 1500ms done bridging and clean unmount lifecycle.
+- Verified all 31 `PredictiveProgressBar` tests and all 13 `ChapterHeader` tests passed perfectly (44 tests total), with a successful production build and clean ESLint pass.
+
+# 2026-05-18 - PredictiveProgressBar Segment Transition Reset And checkpointMode Fixed
+
+- Replaced the Chapter Editor progress bar key with a segment-scoped composite key (`key={`${job.id}:${active_segment_id || 'none'}`}`) so active segment transitions trigger clean React remounts and prevent progress bar stuckness under `allowBackwardProgress={false}`.
+- Updated `checkpointMode` in `ChapterHeader.tsx` to handle grouped chapter render jobs correctly by evaluating to `'queue'` when `render_group_count > 0` is true.
+- Modified `ChapterHeader.test.tsx` and `ChapterHeaderProgressContract.test.tsx` unit tests to assert the correct composite key remount behavior and `'queue'` checkpointMode routing.
+- Verified all related Vitest test suites (11 tests in ChapterHeader/ProgressContract and 19 tests in PredictiveProgressBar Timing/Lifecycle/Transitions) passed successfully.
+
+# 2026-05-18 - Chapter Editor Progress Contract Aligned And Debug Copy Added
+
+- Aligned the Chapter Editor progress prop contract with the working studio reference and added a copy-debug-state control so the live queue/progress bundle can be handed over without screenshots.
+- Added a focused regression test that locks the ChapterHeader ETA basis fallback path, plus a toolbar test that proves the debug-copy handler is exposed when provided.
+- Verified the ChapterHeader and ChapterEditor queue/progress Vitest slices, the frontend production build, ESLint, and `git diff --check`.
+
+# 2026-05-18 - Chapter Editor Orphan Segment Progress Guarded
+
+- Compared factory against the known-good `d7fda0a` checkout in `/Users/stevendunn/GitHub-Steven/audiobook-studio`; shared progress bar code matched, so the regression traced to backend payload contract drift.
+- Fixed XTTS standard chapter rendering so pre-`[START_SEGMENT]` progress output no longer broadcasts `active_segment_progress` as an active segment value.
+- Added backend and frontend regressions proving orphan `active_segment_progress` with no `active_segment_id` cannot drive the Chapter Editor progress bar to 100%.
+- Verified plugin tests, Chapter Editor/progress Vitest slices, frontend build, frontend lint, Ruff, and `git diff --check`.
+
 # 2026-05-17 - Chapter Editor Live Queue Selection Repaired
 
 - Changed Chapter Editor to prefer the active live job over stale completed chapter jobs so queued spans and live render progress stay visible without a page reload.
@@ -1058,3 +1087,18 @@
 
 - Added Voxtral segment and bake rendering plus default voice fallback drift to the Phase 12 and master-agnostic task boards.
 - Reflected the new backlog in `Memory/state.json` so future handoffs keep the missing Voxtral render path and voice-default drift visible.
+
+# 2026-05-18 - Voxtral Default Voice Drift and Disablement Fallback Fixed
+
+- Fixed the backend voice fallback resolution so that disabled voice engines (e.g. Voxtral) are filtered out inside `get_default_profile_engine` and `normalize_tts_engine` rather than being allowed as default or effective voices.
+- Fixed the frontend default voice resolution in `getDefaultVoiceProfileName` to filter out voices belonging to disabled engines.
+- Surfaced a beautiful, premium warning card on both the Project Detail and Chapter Editor pages if the default voice is disabled/unavailable, prompting user action instead of silently switching.
+- Prevented the frontend from silently persisting transient default fallbacks to the database during hydration or queueing.
+- Wrote comprehensive backend (python/pytest) and frontend (vitest/typescript) unit tests to ensure fallback and disablement logic is robustly validated.
+
+# 2026-05-18 - Orchestration Test Suite Stabilized
+
+- Corrected import of EngineUnavailableError to app.engines.errors in app/orchestration/scheduler/orchestrator_helpers.py to ensure that retriable job schedules are correctly routed.
+- Patched JobHandlerRegistry.get_handler in tests/orchestration/test_submit.py, tests/orchestration/test_synthesis_task_and_resources.py, and tests/orchestration/test_voices_orchestration_integration.py to bypass system-registered handlers during mock dispatch.
+- Hardened timing and mock assertions in record_render_stats_if_completed.
+- Successfully verified 100% test pass rate across the entire orchestration test suite.

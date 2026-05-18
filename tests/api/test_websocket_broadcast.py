@@ -92,3 +92,157 @@ def test_broadcast_job_updated_uses_phase4_progress_rounding(monkeypatch):
     )
 
     assert messages[0]["progress"] == 0.12
+
+
+def test_broadcast_job_updated_propagates_active_segment(monkeypatch):
+    messages = []
+
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    broadcast_job_updated(
+        "job-segment-test",
+        {"active_segment_id": "seg-1", "active_segment_progress": 0.75},
+        {
+            "status": "running",
+            "progress": 0.5,
+            "active_segment_id": "seg-1",
+            "active_segment_progress": 0.75,
+        },
+    )
+
+    # The studio_job_event payload must include active_segment_id and active_segment_progress
+    assert messages[0]["active_segment_id"] == "seg-1"
+    assert messages[0]["active_segment_progress"] == 0.75
+
+
+def test_broadcast_job_updated_active_segment_progress_guard(monkeypatch):
+    messages = []
+
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    broadcast_job_updated(
+        "job-segment-test-guard",
+        {"active_segment_progress": 0.75},
+        {
+            "status": "running",
+            "progress": 0.5,
+            "active_segment_id": None,
+            "active_segment_progress": 0.75,
+        },
+    )
+
+    # The studio_job_event payload must NOT include active_segment_id or active_segment_progress
+    assert "active_segment_id" not in messages[0]
+    assert "active_segment_progress" not in messages[0]
+
+
+def test_broadcast_queue_update_sends_structured_payload(monkeypatch):
+    messages = []
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    from app.api.ws import broadcast_queue_update
+    broadcast_queue_update(
+        reason="job_status_change",
+        job_id="job-123",
+        project_id="proj-456",
+        changed_fields=["status"]
+    )
+
+    assert len(messages) == 1
+    assert messages[0] == {
+        "type": "queue_updated",
+        "reason": "job_status_change",
+        "job_id": "job-123",
+        "project_id": "proj-456",
+        "changed_fields": ["status"]
+    }
+
+
+def test_broadcast_segments_updated_sends_structured_payload(monkeypatch):
+    messages = []
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    from app.api.ws import broadcast_segments_updated
+    broadcast_segments_updated(
+        chapter_id="chap-789",
+        reason="segments_rebuilt",
+        job_id="job-123",
+        project_id="proj-456",
+        changed_fields=["audio_status"]
+    )
+
+    assert len(messages) == 1
+    assert messages[0] == {
+        "type": "segments_updated",
+        "chapter_id": "chap-789",
+        "reason": "segments_rebuilt",
+        "job_id": "job-123",
+        "project_id": "proj-456",
+        "changed_fields": ["audio_status"]
+    }
+
+
+def test_broadcast_chapter_updated_sends_structured_payload(monkeypatch):
+    messages = []
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    from app.api.ws import broadcast_chapter_updated
+    broadcast_chapter_updated(
+        chapter_id="chap-789",
+        reason="chapter_metadata_change",
+        job_id="job-123",
+        project_id="proj-456",
+        changed_fields=["title"]
+    )
+
+    assert len(messages) == 1
+    assert messages[0] == {
+        "type": "chapter_updated",
+        "chapter_id": "chap-789",
+        "reason": "chapter_metadata_change",
+        "job_id": "job-123",
+        "project_id": "proj-456",
+        "changed_fields": ["title"]
+    }
+
+
+def test_broadcast_project_updated_sends_structured_payload(monkeypatch):
+    messages = []
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    from app.api.ws import broadcast_project_updated
+    broadcast_project_updated(
+        project_id="proj-456",
+        reason="project_membership_change",
+        job_id="job-123",
+        changed_fields=["status"]
+    )
+
+    assert len(messages) == 1
+    assert messages[0] == {
+        "type": "project_updated",
+        "project_id": "proj-456",
+        "reason": "project_membership_change",
+        "job_id": "job-123",
+        "changed_fields": ["status"]
+    }

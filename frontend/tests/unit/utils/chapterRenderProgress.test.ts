@@ -35,4 +35,21 @@ describe('chapterRenderProgress', () => {
     expect(progress).toBeGreaterThan(0.2);
     expect(progress).toBeLessThan(1);
   });
+
+  it('ignores orphan active segment progress when no active segment is selected', () => {
+    const job = {
+      status: 'running',
+      progress: 0,
+      active_segment_id: null,
+      active_segment_progress: 1,
+      updated_at: 100,
+      eta_seconds: 10,
+      eta_basis: 'remaining_from_update',
+      total_render_weight: 0,
+      completed_render_weight: 0,
+      active_render_group_weight: 0,
+    } as any;
+
+    expect(deriveActiveBatchProgress(job, 0, 100_000)).toBe(0);
+  });
 });

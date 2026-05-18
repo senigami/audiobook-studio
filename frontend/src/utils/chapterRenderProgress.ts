@@ -73,7 +73,7 @@ export const deriveActiveBatchProgress = (job: Job, fallbackBatchWeight: number,
     return clamp01(activeFilledWeight / jobActiveWeight);
   }
 
-  if (typeof job.active_segment_progress === 'number') {
+  if (job.active_segment_id && typeof job.active_segment_progress === 'number') {
     return predictScalarProgress(job, job.active_segment_progress, nowMs);
   }
 

@@ -27,20 +27,17 @@ def get_default_profile_engine(settings: Optional[dict] = None) -> str:
     explicit = settings.get("default_engine")
     enabled_plugins = settings.get("enabled_plugins") or {}
 
+    active_valid = [eid for eid in valid_engines if enabled_plugins.get(eid, True)]
+
     if explicit and not valid_engines:
         return str(explicit).strip().lower()
 
-    if explicit and explicit in valid_engines and enabled_plugins.get(explicit, True):
+    if explicit and explicit in active_valid:
         return explicit
 
     # Find first enabled in registry
-    for eid in valid_engines:
-        if enabled_plugins.get(eid, True):
-            return eid
-
-    # Fallback to the first available engine in registry
-    if valid_engines:
-        return valid_engines[0]
+    if active_valid:
+        return active_valid[0]
 
     # Rule 9: Generic placeholder if no engines are discovered yet.
     # This avoids hardcoding a specific engine name as a runtime default.
@@ -70,21 +67,41 @@ def list_tts_engines() -> list[str]:
 def normalize_tts_engine(engine: Optional[str], fallback: Optional[str] = None, settings: Optional[dict] = None) -> str:
     """Normalize an engine ID, resolving to system default if invalid or empty."""
     valid = list_tts_engines()
+
+    # 1. Load settings to check enablement
+    if settings is None:
+        try:
+            from ..db.state_settings import get_settings
+            settings = get_settings()
+        except (ImportError, AttributeError, RecursionError):
+            settings = {}
+
+    enabled_plugins = settings.get("enabled_plugins") or {}
+    active_valid = [eid for eid in valid if enabled_plugins.get(eid, True)]
     normalized = str(engine or fallback or "").strip().lower()
 
-    if not valid:
-        return normalized
+    if not active_valid:
+        if not valid:
+            return normalized
+        return normalized if normalized in valid else (fallback or "")
 
-    # If the engine is empty or invalid, try to resolve the default
-    if not engine or engine.strip().lower() not in valid:
+    # If the engine is empty, invalid, or disabled, try to resolve the default active engine
+    if not engine or normalized not in active_valid:
         resolved_default = get_default_profile_engine(settings=settings)
-        if resolved_default in valid:
+        if resolved_default in active_valid:
             return resolved_default
         if resolved_default:
             return resolved_default
 
-    # Use provided engine or ultimate fallback
-    return normalized if normalized in valid else (fallback or "")
+    # Use provided engine if active/valid, or fallback to an active/valid default
+    if normalized in active_valid:
+        return normalized
+
+    resolved_default = get_default_profile_engine(settings=settings)
+    if resolved_default in active_valid:
+        return resolved_default
+
+    return active_valid[0]
 
 
 def is_tts_engine(engine: Optional[str]) -> bool:

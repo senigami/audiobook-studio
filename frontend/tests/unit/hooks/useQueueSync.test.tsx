@@ -102,6 +102,40 @@ describe('useQueueSync', () => {
     await waitFor(() => expect(result.current.activeSource).toBeUndefined());
   });
 
+  it('does not refetch the queue for job_updated websocket events', async () => {
+    let handler: (data: any) => void = () => {};
+    (useWebSocket as any).mockImplementation((_url: string, onMessage: any) => {
+      handler = onMessage;
+      return { connected: true };
+    });
+
+    renderHook(() => useQueueSync());
+
+    await waitFor(() => expect(api.getProcessingQueue).toHaveBeenCalledTimes(1));
+
+    act(() => {
+      handler({
+        type: 'job_updated',
+        job_id: 'job-1',
+        updates: { status: 'running', progress: 0.25 },
+      });
+    });
+
+    expect(api.getProcessingQueue).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables websocket debug capture for queue sync', async () => {
+    renderHook(() => useQueueSync());
+
+    await waitFor(() => {
+      expect(useWebSocket).toHaveBeenCalledWith(
+        '/ws',
+        expect.any(Function),
+        { captureDebugMessages: false }
+      );
+    });
+  });
+
   it('reserves steady-state connected sessions for ready status', async () => {
     const { result } = renderHook(() => useQueueSync());
 

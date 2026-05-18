@@ -48,12 +48,16 @@ def test_voice_build_api_uses_real_orchestrator_submit(clean_db, voices_root, cl
     files = {"files": ("input.wav", io.BytesIO(b"fake wav"), "audio/wav")}
     with patch("app.engines.bridge.create_voice_bridge", return_value=mock_bridge), \
          patch("app.engines.audio_ops.wav_to_mp3", side_effect=fake_wav_to_mp3), \
-         patch("app.db.speakers.list_tts_engines", return_value=["xtts"]), \
-         patch("app.db.speakers.get_default_profile_engine", return_value="xtts"), \
+         patch("app.engines.voice_engines.list_tts_engines", return_value=["xtts"]), \
+         patch("app.engines.voice_engines.get_default_profile_engine", return_value="xtts"), \
          patch("app.orchestration.scheduler.orchestrator.reserve_task_resources", return_value={"admitted": True}), \
-         patch("app.orchestration.scheduler.orchestrator.release_task_resources"):
+         patch("app.orchestration.scheduler.orchestrator.release_task_resources"), \
+         patch("app.jobs.registry.JobHandlerRegistry.get_handler", return_value=None):
         response = client.post("/api/speaker-profiles/ApiOrchSpeaker/build", files=files)
 
+    if not mock_bridge.synthesize.called:
+        print(f"\n[DEBUG] response: {response.json()}")
+        print(f"[DEBUG] mock_bridge calls: {mock_bridge.mock_calls}")
     assert response.status_code == 200
     assert mock_bridge.synthesize.called
     request = mock_bridge.synthesize.call_args.args[0]

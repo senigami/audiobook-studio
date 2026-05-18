@@ -65,14 +65,12 @@ export const useQueueSync = () => {
     } else if (data.type === 'job_updated') {
       storeRef.current.applyJobUpdated(data.job_id, data.updates);
       updateDerivedState();
-      // Also trigger refresh in case other fields changed that aren't in overlay
-      refreshQueue('refresh');
     } else if (data.type === 'queue_updated' || data.type === 'pause_updated') {
       refreshQueue('refresh');
     }
   }, [updateDerivedState, refreshQueue]);
 
-  const { connected } = useWebSocket('/ws', onMessage);
+  const { connected } = useWebSocket('/ws', onMessage, { captureDebugMessages: false });
 
   // 1. Bootstrap
   useEffect(() => {

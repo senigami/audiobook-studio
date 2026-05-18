@@ -12,7 +12,7 @@ export type ProgressPresentationState =
     | 'cancelled';
 
 export const isActiveStatus = (status?: string) => status === 'running' || status === 'processing' || status === 'finalizing';
-export const isLiveAnimatedStatus = (status?: string) => status === 'running' || status === 'processing';
+export const isLiveAnimatedStatus = (status?: string) => status === 'running' || status === 'processing' || status === 'finalizing';
 export const isPreparingStatus = (status?: string) => status === 'preparing';
 export const isFinalizingStatus = (status?: string) => status === 'finalizing';
 export const isQueuedStatus = (status?: string) => status === 'queued';
@@ -24,6 +24,8 @@ export const isTerminalStatus = (status?: string) =>
     isQueuedStatus(status) || isDoneStatus(status) || isFailedStatus(status) || isCancelledStatus(status);
 
 export const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
+
+export const formatStylePercent = (value: number) => `${(clamp01(value) * 100).toFixed(1)}%`;
 
 export const formatTime = (seconds: number) => {
     const h = Math.floor(seconds / 3600);
@@ -61,7 +63,7 @@ export const getProgressInfo = ({
         return { localProgress: 1, indeterminate: false };
     }
     if (isFinalizingStatus(presentationState)) {
-        return { localProgress: 0, indeterminate: true };
+        return { localProgress: clamp01(displayProgress), indeterminate: false };
     }
     if (isQueuedStatus(presentationState) || isCancelledStatus(presentationState)) {
         return { localProgress: 0, indeterminate: false };

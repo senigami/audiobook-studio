@@ -10,6 +10,23 @@ from app.orchestration.tasks.base import StudioTask, TaskContext, TaskResult
 from app.orchestration.scheduler.resources import ResourceClaim
 
 
+@pytest.fixture(autouse=True)
+def reset_global_orchestrator():
+    import app.orchestration.scheduler.orchestrator as orch_mod
+    orch_mod._GLOBAL_ORCHESTRATOR = None
+
+    # Clear job listeners to prevent cross-test pollution
+    from app.db.state_helpers import _JOB_LISTENERS, _LISTENER_SNAPSHOT_SUPPORT
+    _JOB_LISTENERS.clear()
+    _LISTENER_SNAPSHOT_SUPPORT.clear()
+
+    yield
+
+    orch_mod._GLOBAL_ORCHESTRATOR = None
+    _JOB_LISTENERS.clear()
+    _LISTENER_SNAPSHOT_SUPPORT.clear()
+
+
 @pytest.fixture
 def progress_service():
     """Return a mock ProgressService with a default reconcile result."""

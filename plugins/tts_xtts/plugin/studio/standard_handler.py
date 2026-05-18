@@ -177,11 +177,12 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                         p_str = line.split("[PROGRESS]")[1].split("%")[0].strip()
                         segment_progress = float(p_str) / 100.0
                         prog = _progress_from_weight(segment_progress, active_save_path[0])
+                        active_progress = segment_progress if active_save_path[0] else 0.0
                         xtts_facade.update_job(
                             jid,
                             force_broadcast=True,
                             progress=prog,
-                            active_segment_progress=segment_progress,
+                            active_segment_progress=active_progress,
                             completed_render_groups=completed_count[0],
                             render_group_count=total_groups,
                             total_render_weight=total_weight,
