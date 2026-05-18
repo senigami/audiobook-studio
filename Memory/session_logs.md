@@ -1102,3 +1102,15 @@
 - Patched JobHandlerRegistry.get_handler in tests/orchestration/test_submit.py, tests/orchestration/test_synthesis_task_and_resources.py, and tests/orchestration/test_voices_orchestration_integration.py to bypass system-registered handlers during mock dispatch.
 - Hardened timing and mock assertions in record_render_stats_if_completed.
 - Successfully verified 100% test pass rate across the entire orchestration test suite.
+
+# 2026-05-18 - Global Queue Chapter Scope Restored
+
+- Narrowed `isSegmentScopedJob` so `active_segment_id` no longer hides grouped chapter jobs from the main queue once rendering starts.
+- Kept true segment-scoped jobs filtered from the global queue while preserving Chapter Editor segment highlighting.
+- Added regression tests for chapter jobs with active segment progress and verified the targeted frontend queue, hydration, and job-selection tests pass.
+
+# 2026-05-18 - Websocket Source Tagging Added
+
+- Added a `source` field to websocket payloads and inferred the emitting backend function or callsite so queue chatter can be traced without scraping console noise.
+- Updated the frontend websocket debug ring buffer to record `source` alongside the raw payload and key message fields.
+- Verified the backend websocket broadcast tests, progress-service payload tests, and frontend websocket capture tests pass after the contract change.

@@ -18,6 +18,7 @@ class StudioJobEvent(TypedDict, total=False):
     """Canonical normalized job event payload shared by backend and frontend."""
 
     type: Literal["studio_job_event"]
+    source: NotRequired[str]
     job_id: str
     parent_job_id: NotRequired[str | None]
     scope: StudioJobEventScope
@@ -56,6 +57,7 @@ def build_studio_job_event(
     active_render_batch_progress: float | None = None,
     active_segment_id: str | None = None,
     active_segment_progress: float | None = None,
+    source: str | None = None,
 ) -> StudioJobEvent:
     """Build a normalized job event payload."""
 
@@ -93,6 +95,8 @@ def build_studio_job_event(
         event["active_segment_id"] = active_segment_id
         if active_segment_progress is not None:
             event["active_segment_progress"] = round(float(active_segment_progress), 2)
+    if source is not None:
+        event["source"] = source
     return event
 
 

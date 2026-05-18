@@ -1,6 +1,7 @@
 from __future__ import annotations
 import asyncio
 import logging
+import sys
 from typing import List
 from fastapi import WebSocket
 
@@ -44,11 +45,24 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
+
+def _resolve_source(default: str) -> str:
+    try:
+        frame = sys._getframe(2)
+    except (AttributeError, ValueError):
+        return default
+    module = frame.f_globals.get("__name__", "")
+    function = frame.f_code.co_name
+    if module and function:
+        return f"{module}.{function}"
+    return default
+
 def broadcast_queue_update(
     reason: str | None = None,
     job_id: str | None = None,
     project_id: str | None = None,
-    changed_fields: list[str] | None = None
+    changed_fields: list[str] | None = None,
+    source: str | None = None,
 ):
     trace(
         "ws.broadcast_queue_update",
@@ -57,7 +71,7 @@ def broadcast_queue_update(
         project_id=project_id,
         changed_fields=changed_fields
     )
-    payload = {"type": "queue_updated"}
+    payload = {"type": "queue_updated", "source": source or _resolve_source("app.api.ws.broadcast_queue_update")}
     if reason is not None:
         payload["reason"] = reason
     if job_id is not None:
@@ -74,7 +88,8 @@ def broadcast_segments_updated(
     reason: str | None = None,
     job_id: str | None = None,
     project_id: str | None = None,
-    changed_fields: list[str] | None = None
+    changed_fields: list[str] | None = None,
+    source: str | None = None,
 ):
     trace(
         "ws.broadcast_segments_updated",
@@ -86,7 +101,8 @@ def broadcast_segments_updated(
     )
     payload = {
         "type": "segments_updated",
-        "chapter_id": chapter_id
+        "chapter_id": chapter_id,
+        "source": source or _resolve_source("app.api.ws.broadcast_segments_updated"),
     }
     if reason is not None:
         payload["reason"] = reason
@@ -104,7 +120,8 @@ def broadcast_chapter_updated(
     reason: str | None = None,
     job_id: str | None = None,
     project_id: str | None = None,
-    changed_fields: list[str] | None = None
+    changed_fields: list[str] | None = None,
+    source: str | None = None,
 ):
     trace(
         "ws.broadcast_chapter_updated",
@@ -116,7 +133,8 @@ def broadcast_chapter_updated(
     )
     payload = {
         "type": "chapter_updated",
-        "chapter_id": chapter_id
+        "chapter_id": chapter_id,
+        "source": source or _resolve_source("app.api.ws.broadcast_chapter_updated"),
     }
     if reason is not None:
         payload["reason"] = reason
@@ -133,7 +151,8 @@ def broadcast_project_updated(
     project_id: str,
     reason: str | None = None,
     job_id: str | None = None,
-    changed_fields: list[str] | None = None
+    changed_fields: list[str] | None = None,
+    source: str | None = None,
 ):
     trace(
         "ws.broadcast_project_updated",
@@ -144,7 +163,8 @@ def broadcast_project_updated(
     )
     payload = {
         "type": "project_updated",
-        "project_id": project_id
+        "project_id": project_id,
+        "source": source or _resolve_source("app.api.ws.broadcast_project_updated"),
     }
     if reason is not None:
         payload["reason"] = reason
@@ -154,13 +174,14 @@ def broadcast_project_updated(
         payload["changed_fields"] = changed_fields
     manager.broadcast(payload)
 
-def broadcast_pause_state(paused: bool):
+def broadcast_pause_state(paused: bool, source: str | None = None):
     manager.broadcast({
         "type": "pause_updated",
-        "paused": paused
+        "paused": paused,
+        "source": source or _resolve_source("app.api.ws.broadcast_pause_state"),
     })
 
-def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None = None):
+def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None = None, source: str | None = None):
     skip_studio_job_event = False
     if updates:
         skip_studio_job_event = updates.pop("skip_studio_job_event", False)
@@ -192,6 +213,7 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
         active_render_batch_progress=merged.get("active_render_batch_progress"),
         active_segment_id=merged.get("active_segment_id"),
         active_segment_progress=merged.get("active_segment_progress"),
+        source=source or _resolve_source("app.api.ws.broadcast_job_updated"),
     )
     trace(
         "ws.broadcast_job_updated",
@@ -205,23 +227,26 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
     manager.broadcast({
         "type": "job_updated",
         "job_id": job_id,
-        "updates": merged
+        "updates": merged,
+        "source": source or _resolve_source("app.api.ws.broadcast_job_updated"),
     })
 
 
-def broadcast_segment_progress(job_id: str, chapter_id: str | None, segment_id: str, progress: float):
+def broadcast_segment_progress(job_id: str, chapter_id: str | None, segment_id: str, progress: float, source: str | None = None):
     manager.broadcast({
         "type": "segment_progress",
         "job_id": job_id,
         "chapter_id": chapter_id,
         "segment_id": segment_id,
         "progress": progress,
+        "source": source or _resolve_source("app.api.ws.broadcast_segment_progress"),
     })
 
-def broadcast_test_progress(name: str, progress: float, started_at: float = None):
+def broadcast_test_progress(name: str, progress: float, started_at: float = None, source: str | None = None):
     manager.broadcast({
         "type": "test_progress",
         "name": name,
         "progress": progress,
-        "started_at": started_at
+        "started_at": started_at,
+        "source": source or _resolve_source("app.api.ws.broadcast_test_progress"),
     })

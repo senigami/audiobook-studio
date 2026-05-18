@@ -296,4 +296,53 @@ describe('useJobs', () => {
     expect(result.current.jobs['job-live']?.status).toBe('running');
     expect(result.current.jobs['job-live']?.progress).toBe(0.5);
   });
+
+  it('updates live job progress and status entirely from job_updated or studio_job_event alone without requiring full refetches', async () => {
+    const { result } = renderHook(() => useJobs());
+
+    // 1. Initial snapshot has progress = 0.1
+    act(() => {
+      wsHandler({ type: 'jobs_snapshot', jobs: [{ id: 'job-1', status: 'preparing', progress: 0.1 } as any] });
+    });
+    expect(result.current.jobs['job-1']?.progress).toBe(0.1);
+    expect(result.current.jobs['job-1']?.status).toBe('preparing');
+
+    // Reset calls count on mock
+    sendMessage.mockClear();
+
+    // 2. Receive studio_job_event status-only updates (queued -> preparing -> running)
+    act(() => {
+      wsHandler({
+        type: 'studio_job_event',
+        job_id: 'job-1',
+        status: 'running',
+        progress: 0.33,
+      });
+    });
+
+    // Verify progress and status updated immediately
+    expect(result.current.jobs['job-1']?.progress).toBe(0.33);
+    expect(result.current.jobs['job-1']?.status).toBe('running');
+
+    // Proves that we didn't request a new jobs snapshot (no full refetch)
+    expect(sendMessage).not.toHaveBeenCalled();
+
+    // 3. Receive job_updated status-only updates
+    act(() => {
+      wsHandler({
+        type: 'job_updated',
+        job_id: 'job-1',
+        updates: {
+          status: 'running',
+          progress: 0.66,
+        }
+      });
+    });
+
+    // Verify progress updated
+    expect(result.current.jobs['job-1']?.progress).toBe(0.66);
+
+    // Again, no full refetch requested
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
 });

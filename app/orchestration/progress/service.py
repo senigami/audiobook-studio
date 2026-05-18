@@ -7,6 +7,7 @@ gating for the live websocket path.
 from __future__ import annotations
 
 import time
+import sys
 from collections.abc import Callable, Mapping
 
 from .broadcaster import broadcast_progress
@@ -27,6 +28,18 @@ FORBIDDEN_DIRECT_IMPORTS = (
     "app.engines",
     "app.db.queue",
 )
+
+
+def _resolve_source(default: str) -> str:
+    try:
+        frame = sys._getframe(2)
+    except (AttributeError, ValueError):
+        return default
+    module = frame.f_globals.get("__name__", "")
+    function = frame.f_code.co_name
+    if module and function:
+        return f"{module}.{function}"
+    return default
 
 
 class ProgressService:
@@ -143,6 +156,7 @@ class ProgressService:
         active_render_batch_progress: float | None = None,
         active_segment_id: str | None = None,
         active_segment_progress: float | None = None,
+        source: str | None = None,
         allow_progress_regression: bool = False,
         force: bool = False,
     ) -> dict[str, object] | None:
@@ -188,6 +202,7 @@ class ProgressService:
             active_render_batch_progress=active_render_batch_progress,
             active_segment_id=active_segment_id,
             active_segment_progress=active_segment_progress,
+            source=source,
         )
         if not force and not self._should_emit(payload, allow_progress_regression=allow_progress_regression):
             return None
@@ -261,6 +276,7 @@ class ProgressService:
         active_render_batch_progress: float | None,
         active_segment_id: str | None = None,
         active_segment_progress: float | None = None,
+        source: str | None = None,
     ) -> dict[str, object]:
         """Describe the canonical payload sent to live frontend listeners.
 
@@ -294,6 +310,7 @@ class ProgressService:
             "scope": scope,
             "status": status,
             "updated_at": now,
+            "source": source or _resolve_source("app.orchestration.progress.service.ProgressService.publish"),
         }
         if parent_job_id is not None:
             payload["parent_job_id"] = parent_job_id

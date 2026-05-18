@@ -9,6 +9,7 @@ import { ReorderableQueueItem } from '@/components/queue/ReorderableQueueItem';
 import { QueueStats } from '@/components/queue/QueueStats';
 import type { Job, ProcessingQueueItem } from '@/types';
 import { formatQueueContext } from '@/utils/queueLabels';
+import { isSegmentScopedJob } from '@/utils/jobSelection';
 
 interface GlobalQueueProps {
     paused?: boolean;
@@ -86,9 +87,10 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
         return base;
     }, []);
 
-    const activeJobs = React.useMemo(() => queue.filter(q => q.status === 'running' || q.status === 'preparing' || q.status === 'finalizing'), [queue]);
-    const pendingJobs = React.useMemo(() => queue.filter(q => q.status === 'queued'), [queue]);
-    const pastJobs = React.useMemo(() => queue.filter(q => q.status === 'done' || q.status === 'failed' || q.status === 'cancelled'), [queue]);
+    const chapterJobs = React.useMemo(() => queue.filter(q => !isSegmentScopedJob(q)), [queue]);
+    const activeJobs = React.useMemo(() => chapterJobs.filter(q => q.status === 'running' || q.status === 'preparing' || q.status === 'finalizing'), [chapterJobs]);
+    const pendingJobs = React.useMemo(() => chapterJobs.filter(q => q.status === 'queued'), [chapterJobs]);
+    const pastJobs = React.useMemo(() => chapterJobs.filter(q => q.status === 'done' || q.status === 'failed' || q.status === 'cancelled'), [chapterJobs]);
     if (loading) return <div style={{ padding: '2rem' }}>Loading Queue...</div>;
 
     return (
@@ -108,8 +110,8 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
                     </h2>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px' }}>
                         {!compact && <p style={{ color: 'var(--text-muted)', margin: 0 }}>Manage your batch audio generation tasks</p>}
-                        {queue.some(q => ['queued', 'preparing', 'running', 'finalizing'].includes(q.status)) && (
-                            <QueueStats queue={queue} jobs={jobs} />
+                        {chapterJobs.some(q => ['queued', 'preparing', 'running', 'finalizing'].includes(q.status)) && (
+                            <QueueStats queue={chapterJobs} jobs={jobs} />
                         )}
                     </div>
                 </div>
@@ -145,7 +147,7 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
                 </div>
             </header>
 
-            {queue.length === 0 ? (
+            {chapterJobs.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '5rem 2rem', background: 'var(--surface)', borderRadius: '20px', border: '2px dashed var(--border)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem', color: 'var(--text-muted)' }}>
                     <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'var(--surface-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}>
                         <Layers size={32} />

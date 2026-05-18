@@ -63,3 +63,26 @@ def test_job_cancellation_timing():
     assert item['status'] == 'cancelled'
     assert item['started_at'] is not None
     assert item['completed_at'] is not None
+
+
+def test_requeued_job_clears_terminal_timing_fields():
+    pid = create_project("Timing Reset Project")
+    cid = create_chapter(pid, "Reset Chapter")
+    qid = add_to_queue(pid, cid)
+
+    update_queue_item(qid, 'running')
+    update_queue_item(qid, 'done')
+
+    queue = get_queue()
+    item = next(q for q in queue if q['id'] == qid)
+    assert item['status'] == 'done'
+    assert item['started_at'] is not None
+    assert item['completed_at'] is not None
+
+    update_queue_item(qid, 'queued')
+
+    queue = get_queue()
+    item = next(q for q in queue if q['id'] == qid)
+    assert item['status'] == 'queued'
+    assert item['started_at'] is None
+    assert item['completed_at'] is None

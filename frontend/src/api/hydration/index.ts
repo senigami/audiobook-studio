@@ -116,11 +116,12 @@ export const createHydrationCoordinator = (): HydrationCoordinator => ({
         if (mergedIds.has(jobId)) return null;
         const item = buildOverlayQueueItem(jobId, delta);
         if (!item || !ACTIVE_STATUSES.includes(item.status)) return null;
+        if (isSegmentScopedJob(item)) return null;
         return item;
       })
       .filter((item): item is ProcessingQueueItem => !!item);
 
-    const baseItems = [...items, ...extraItems];
+    const baseItems = [...items, ...extraItems].filter(item => !isSegmentScopedJob(item));
 
     return baseItems.map(item => {
       const delta = eventsById[item.id];
@@ -166,6 +167,6 @@ export const createHydrationCoordinator = (): HydrationCoordinator => ({
 
 export const selectActiveQueueCount = (queue: ProcessingQueueItem[]): number => {
   return queue.filter(item => 
-    ['queued', 'preparing', 'running', 'finalizing'].includes(item.status)
+    ['queued', 'preparing', 'running', 'finalizing'].includes(item.status) && !isSegmentScopedJob(item)
   ).length;
 };

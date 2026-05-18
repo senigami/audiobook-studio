@@ -51,6 +51,7 @@ export const useWebSocket = (
 
           if (data && typeof data === 'object') {
             if (data.type !== undefined) debugMsg.type = data.type;
+            if (data.source !== undefined) debugMsg.source = data.source;
             if (data.job_id !== undefined) debugMsg.job_id = data.job_id;
             if (data.project_id !== undefined) debugMsg.project_id = data.project_id;
             if (data.chapter_id !== undefined) debugMsg.chapter_id = data.chapter_id;

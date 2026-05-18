@@ -1,9 +1,9 @@
 {
-  "snapshot_version": 76,
-  "updated_at": "2026-05-18T17:10:00Z",
+  "snapshot_version": 78,
+  "updated_at": "2026-05-18T20:06:19Z",
   "branch": "studio2/phase-12",
-  "current_task": "Stabilizing Orchestration Test Suite",
-  "status": "all_orchestration_tests_completely_passing",
+  "current_task": "Websocket source tagging for traceability",
+  "status": "websocket_source_tagging_verified",
   "last_committed_milestone": {
     "title": "Orchestration test suite stabilized",
     "commit": "a8f8e91",
@@ -54,6 +54,7 @@
     "Queue history now persists and renders failure reasons instead of only showing a generic failed status.",
     "Voxtral segment and bake rendering is still open, and default voice fallback should be audited because profiles are still drifting to Voxtral unexpectedly.",
     "Chapter Editor now exposes a copy-debug-state button so the live progress contract can be handed over without relying on screenshots.",
+    "Websocket payloads now include a source field so queue chatter can be traced back to the emitting backend function or callsite.",
     "Implementing the `check_output` interface in plugin adapters and completing the generic plugin setup loop in run.sh are the next high-value cleanup items.",
     "Manual QA targets include engine settings test, project load time, chapter render enqueue, duplicate voice option warning, server shutdown, and mixed render retry.",
     "Triage Vite websocket ECONNRESET and large-book project/chapter load timing.",
@@ -61,6 +62,7 @@
     "The TTS Server synth endpoint now allows synthesis while verification is still pending, but still blocks failed verification and setup errors.",
     "Chapter Editor progress bar key is now a segment-scoped composite key so active segment transitions trigger clean React remounts and prevent bar stuckness. checkpointMode now correctly resolves to 'queue' for grouped chapter render jobs.",
     "Chapter Editor progress bar now animates smoothly under finalizing status instead of hardcoding to 100% width. A 1500ms terminal job bridging window was added to useChapterStatus to let the green 100% Complete bar render fully before clean unmounting."
+    ,"Global Queue now filters only true segment-scoped overlay jobs; grouped chapter jobs with active_segment_id stay visible so overall chapter progress does not disappear once rendering starts."
   ],
   "phase_13_guidance": [
     "Phase 13 plan is plans/phases/phase_13_release_documentation_and_distribution.md.",
@@ -80,6 +82,8 @@
   "verification": {
     "latest_backend_focus": "2026-05-18: `./venv/bin/pytest tests/orchestration/ -vv --tb=short` fully passed (163 passed) after correcting EngineUnavailableError imports and patching JobHandlerRegistry.get_handler in mock contexts.",
     "latest_frontend_focus": "2026-05-18: `cd frontend && npx vitest run tests/unit/pages/ChapterEditor/components/ChapterHeader.test.tsx tests/unit/pages/ChapterEditor/components/ChapterHeaderProgressContract.test.tsx tests/unit/components/PredictiveProgressBarLifecycle.test.tsx tests/unit/components/PredictiveProgressBarTiming.test.tsx tests/unit/components/PredictiveProgressBarTransitions.test.tsx` and `cd frontend && npm run build` passed after fixing the progress bar segment transition reset, checkpointMode, finalizing width rendering, and done bridging window.",
+    "latest_queue_focus": "2026-05-18: `frontend/src/utils/jobSelection.ts` now treats `active_segment_id` as chapter-render progress rather than segment scope, keeping grouped chapter jobs visible in the main queue while still hiding true segment jobs.",
+    "latest_websocket_focus": "2026-05-18: websocket payloads now carry a source field from the emitting backend function or callsite, and the frontend debug ring buffer records that source for traceability.",
     "latest_lint_focus": "2026-05-18: `cd frontend && npm run lint` and `git diff --check` passed; ESLint kept the existing fast-refresh warnings only.",
     "latest_diff_check": "2026-05-18: git diff --check passed with some standard blank line EOF warnings on unchanged files.",
     "known_warnings": [

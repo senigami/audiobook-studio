@@ -172,9 +172,17 @@ def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 
             if status == 'running':
                 updates.append("started_at = COALESCE(started_at, ?)")
                 params.append(now)
+                updates.append("completed_at = NULL")
+                updates.append("error = NULL")
             elif status == 'preparing':
-                # We NO LONGER set started_at during preparing to avoid corrupting render duration
-                pass
+                # Preparing is not processing time. Treat it as a reset-friendly active state.
+                updates.append("started_at = NULL")
+                updates.append("completed_at = NULL")
+                updates.append("error = NULL")
+            elif status == 'queued':
+                updates.append("started_at = NULL")
+                updates.append("completed_at = NULL")
+                updates.append("error = NULL")
             elif status in ('done', 'failed', 'cancelled'):
                 updates.append("completed_at = ?")
                 params.append(now)

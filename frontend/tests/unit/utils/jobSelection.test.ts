@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Job } from '@/types';
-import { pickRelevantJob } from '@/utils/jobSelection';
+import { isSegmentScopedJob, pickRelevantJob } from '@/utils/jobSelection';
 
 function makeJob(overrides: Partial<Job>): Job {
   return {
@@ -41,5 +41,22 @@ describe('pickRelevantJob', () => {
     const secondQueued = makeJob({ id: 'queued-2', status: 'queued', created_at: 200 });
 
     expect(pickRelevantJob([secondQueued, firstQueued])?.id).toBe('queued-1');
+  });
+});
+
+describe('isSegmentScopedJob', () => {
+  it('does not treat chapter render progress markers as segment-scoped jobs', () => {
+    expect(isSegmentScopedJob({
+      custom_title: 'chapter 1',
+      render_group_count: 2,
+      active_segment_id: 'seg-1',
+    })).toBe(false);
+  });
+
+  it('treats explicit segment jobs as segment-scoped', () => {
+    expect(isSegmentScopedJob({
+      custom_title: 'chapter 1 * Part 2: segment #7',
+      segment_ids: ['seg-7'],
+    })).toBe(true);
   });
 });

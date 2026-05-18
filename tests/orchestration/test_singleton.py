@@ -25,7 +25,7 @@ def test_singleton_orchestrator_cancellation_routing():
 
     # Mock dependencies
     orchestrator.progress_service = MagicMock()
-    
+
     # Create a mock active task
     task = MagicMock(spec=StudioTask)
     task.task_id = "job-12345"
@@ -42,10 +42,10 @@ def test_singleton_orchestrator_cancellation_routing():
 
     # Separately fetch the orchestrator (simulating a separate API call context)
     o2 = create_orchestrator()
-    
+
     # Call cancel
     res = o2.cancel("job-12345")
-    
+
     # Verify cancellation was successful and called task.on_cancel()
     assert res is True
     task.on_cancel.assert_called_once()

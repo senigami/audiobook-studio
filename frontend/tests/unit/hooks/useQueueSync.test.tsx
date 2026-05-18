@@ -148,4 +148,38 @@ describe('useQueueSync', () => {
 
     // In App.tsx, this combined state translates to 'ready'
   });
+
+  it('does not refetch the queue for studio_job_event websocket events, and still updates status and progress correctly via overlays', async () => {
+    let handler: (data: any) => void = () => {};
+    (useWebSocket as any).mockImplementation((_url: string, onMessage: any) => {
+      handler = onMessage;
+      return { connected: true };
+    });
+
+    // Mock response for initial bootstrap call
+    (api.getProcessingQueue as any).mockResolvedValue([
+      { id: 'job-1', job_id: 'job-1', status: 'queued', progress: 0 }
+    ]);
+
+    const { result } = renderHook(() => useQueueSync());
+
+    await waitFor(() => expect(api.getProcessingQueue).toHaveBeenCalledTimes(1));
+    expect(result.current.queue[0]?.status).toBe('queued');
+
+    // Send studio_job_event progress update
+    act(() => {
+      handler({
+        type: 'studio_job_event',
+        job_id: 'job-1',
+        status: 'running',
+        progress: 0.77,
+      });
+    });
+
+    // Check that we did NOT call getProcessingQueue again
+    expect(api.getProcessingQueue).toHaveBeenCalledTimes(1);
+    // Verify overlay update worked and status/progress is updated
+    expect(result.current.queue[0]?.status).toBe('running');
+    expect(result.current.queue[0]?.progress).toBe(0.77);
+  });
 });

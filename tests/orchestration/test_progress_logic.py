@@ -112,6 +112,7 @@ def test_active_segment_progress_guard():
         active_segment_id=None,
         active_segment_progress=0.4,
     )
+    assert payload1["source"].endswith("test_active_segment_progress_guard")
     assert "active_segment_progress" not in payload1
     assert "active_segment_id" not in payload1
 
@@ -134,6 +135,7 @@ def test_active_segment_progress_guard():
         active_segment_id="seg1",
         active_segment_progress=0.4,
     )
+    assert payload2["source"].endswith("test_active_segment_progress_guard")
     assert payload2.get("active_segment_id") == "seg1"
     assert payload2.get("active_segment_progress") == 0.4
 

@@ -66,6 +66,7 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
             return
 
         current_status = j.get("status")
+        terminal_reset = current_status in ("done", "failed", "cancelled") and updates.get("status") in ("queued", "preparing")
         if not force_broadcast and current_status in ("done", "failed", "cancelled"):
             incoming_status = updates.get("status")
             if incoming_status not in ("queued", "preparing"):
@@ -96,6 +97,13 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
                     elif not is_reset:
                         logger.debug("Preventing status regression for %s: %s -> %s", job_id, current_status, v)
                         continue
+
+            if terminal_reset and k in ("finished_at", "started_at", "eta_seconds", "eta_basis", "estimated_end_at", "active_segment_id", "active_segment_progress", "active_render_batch_id", "active_render_batch_progress", "reason_code", "error"):
+                # A rerun of a terminal job should come back as a clean active job record.
+                if j.get(k) is not None:
+                    j[k] = None
+                    changed_fields.append(k)
+                continue
 
             # 2. Progress regression protection
             if k == "progress":
@@ -275,10 +283,23 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
 
                 try:
                     from ..api.ws import broadcast_chapter_updated, broadcast_queue_update
-                    chapter_id = j.get("chapter_id")
-                    if chapter_id:
-                        broadcast_chapter_updated(chapter_id)
-                    broadcast_queue_update()
+                    # Gate invalidation broadcasts to terminal status transitions (done, failed, cancelled) or explicit force_broadcast.
+                    if new_status in ("done", "failed", "cancelled") or terminal_reset or force_broadcast:
+                        chapter_id = j.get("chapter_id")
+                        if chapter_id:
+                            broadcast_chapter_updated(
+                                chapter_id,
+                                reason="job_terminal_status" if new_status in ("done", "failed", "cancelled") else "job_reset_to_active",
+                                job_id=job_id,
+                                project_id=project_id,
+                                changed_fields=["status"]
+                            )
+                        broadcast_queue_update(
+                            reason="job_terminal_status" if new_status in ("done", "failed", "cancelled") else "job_reset_to_active",
+                            job_id=job_id,
+                            project_id=project_id,
+                            changed_fields=["status"]
+                        )
                 except ImportError:
                     logger.debug("broadcast_queue_update is unavailable during state sync")
 

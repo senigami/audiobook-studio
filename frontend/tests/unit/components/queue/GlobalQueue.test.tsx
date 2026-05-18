@@ -50,7 +50,7 @@ describe('GlobalQueue', () => {
             id: 'job-seg',
             status: 'running',
             chapter_title: 'overview',
-            custom_title: 'overview * Part 5: segment #7',
+            custom_title: 'overview * Part 5: Custom Title',
             project_name: 'Project A',
             split_part: 0,
             progress: 0.5
@@ -58,8 +58,62 @@ describe('GlobalQueue', () => {
 
         render(<GlobalQueue queue={[customItem] as any[]} />)
 
-        expect(await screen.findByText('overview * Part 5: segment #7')).toBeTruthy()
+        expect(await screen.findByText('overview * Part 5: Custom Title')).toBeTruthy()
         expect(screen.queryByText(/^overview$/i)).toBeNull()
+    })
+
+    it('does not render segment-scoped overlay jobs as separate active items', () => {
+        const segmentItem = {
+            id: 'job-seg-1',
+            status: 'running',
+            chapter_title: 'overview',
+            custom_title: 'overview * Part 5: segment #7',
+            project_name: 'Project A',
+            split_part: 0,
+            progress: 0.5,
+            segment_ids: ['seg-1']
+        };
+
+        render(<GlobalQueue queue={[segmentItem] as any[]} />)
+
+        // Queue is empty because segment jobs are filtered out
+        expect(screen.queryByText('overview * Part 5: segment #7')).toBeNull()
+        expect(screen.getByText(/Queue is empty/i)).toBeTruthy()
+    })
+
+    it('chapter-scoped jobs still render in the main queue', async () => {
+        const chapterItem = {
+            id: 'job-chap-1',
+            status: 'running',
+            chapter_title: 'Chapter 1',
+            project_name: 'Project A',
+            split_part: 0,
+            progress: 0.5
+        };
+
+        render(<GlobalQueue queue={[chapterItem] as any[]} />)
+
+        expect(await screen.findByText('Chapter 1')).toBeTruthy()
+        expect(screen.queryByText(/Queue is empty/i)).toBeNull()
+    })
+
+    it('keeps grouped chapter jobs visible after active segment progress starts', async () => {
+        const groupedChapterItem = {
+            id: 'job-grouped-chap-1',
+            status: 'running',
+            chapter_title: 'Chapter 1',
+            project_name: 'Project A',
+            split_part: 0,
+            progress: 0.5,
+            render_group_count: 2,
+            active_segment_id: 'seg-1',
+            active_segment_progress: 0.2,
+        };
+
+        render(<GlobalQueue queue={[groupedChapterItem] as any[]} />)
+
+        expect(await screen.findByText('Chapter 1')).toBeTruthy()
+        expect(screen.queryByText(/Queue is empty/i)).toBeNull()
     })
 
     it('toggles pause state', async () => {
