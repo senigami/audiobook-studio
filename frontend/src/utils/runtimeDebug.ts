@@ -32,9 +32,30 @@ export type StudioDebugSnapshot = {
   payload: unknown;
 };
 
+export type WebsocketDebugSnapshot = {
+  listener: string;
+  receivedAt: string;
+  raw: string;
+  type?: string;
+  source?: string;
+  scope?: string;
+  classification?: string;
+  job_id?: string;
+  project_id?: string;
+  chapter_id?: string;
+  status?: string;
+  progress?: number;
+  reason_code?: string;
+};
+
 type StudioDebugWindow = Window & {
   __studioDebugSnapshots?: StudioDebugSnapshot[];
   __studioDebugLast?: StudioDebugSnapshot | null;
+};
+
+type WebsocketDebugWindow = Window & {
+  __websocketRecentMessages?: WebsocketDebugSnapshot[];
+  __websocketLastMessage?: WebsocketDebugSnapshot | null;
 };
 
 export const recordStudioDebugSnapshot = (tag: string, payload: unknown) => {
@@ -57,4 +78,39 @@ export const recordStudioDebugSnapshot = (tag: string, payload: unknown) => {
   }
   win.__studioDebugLast = entry;
   console.warn(`[${tag}]`, payload);
+};
+
+export const recordWebsocketDebugMessage = (listener: string, payload: unknown, raw?: string) => {
+  if (typeof window === 'undefined') return;
+
+  const win = window as WebsocketDebugWindow;
+  const entry: WebsocketDebugSnapshot = {
+    listener,
+    receivedAt: new Date().toISOString(),
+    raw: raw ?? (typeof payload === 'string' ? payload : JSON.stringify(payload)),
+  };
+
+  if (payload && typeof payload === 'object') {
+    const data = payload as Record<string, any>;
+    if (data.type !== undefined) entry.type = data.type;
+    if (data.source !== undefined) entry.source = data.source;
+    if (data.scope !== undefined) entry.scope = data.scope;
+    if (data.classification !== undefined) entry.classification = data.classification;
+    if (data.job_id !== undefined) entry.job_id = data.job_id;
+    if (data.project_id !== undefined) entry.project_id = data.project_id;
+    if (data.chapter_id !== undefined) entry.chapter_id = data.chapter_id;
+    if (data.status !== undefined) entry.status = data.status;
+    if (data.progress !== undefined) entry.progress = data.progress;
+    if (data.reason_code !== undefined) entry.reason_code = data.reason_code;
+  }
+
+  if (!Array.isArray(win.__websocketRecentMessages)) {
+    win.__websocketRecentMessages = [];
+  }
+
+  win.__websocketRecentMessages.push(entry);
+  if (win.__websocketRecentMessages.length > 400) {
+    win.__websocketRecentMessages.shift();
+  }
+  win.__websocketLastMessage = entry;
 };

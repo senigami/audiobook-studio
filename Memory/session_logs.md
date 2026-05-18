@@ -1121,3 +1121,9 @@
 - Threaded the classification through the live overlay store, queue hydration, queue selection, and websocket debug capture.
 - Removed the stale websocket debug-trail mirroring from `useJobs` so only the dedicated websocket ring buffer records inbound socket traffic.
 - Verified the backend websocket broadcast tests, frontend websocket capture tests, queue hydration tests, queue sync tests, and frontend build/type-check pass after the contract update.
+
+# 2026-05-18 - Listener-Owned Websocket Logging
+
+- Moved websocket debug recording into the consuming listener path so the debug buffer reflects handled messages instead of raw socket transport frames.
+- Kept `useWebSocket` transport-only and continued threading raw payload text to listeners for traceability.
+- Verified the frontend websocket capture, listener logging, queue sync, and hydration tests pass after the logging shift.

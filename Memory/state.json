@@ -1,9 +1,9 @@
 {
-  "snapshot_version": 79,
-  "updated_at": "2026-05-18T20:53:03Z",
+  "snapshot_version": 80,
+  "updated_at": "2026-05-18T20:56:45Z",
   "branch": "studio2/phase-12",
-  "current_task": "Websocket classification for queue filtering and traceability",
-  "status": "websocket_classification_verified",
+  "current_task": "Websocket listener-owned logging and traceability",
+  "status": "websocket_listener_logging_verified",
   "last_committed_milestone": {
     "title": "Orchestration test suite stabilized",
     "commit": "a8f8e91",
@@ -83,7 +83,7 @@
     "latest_backend_focus": "2026-05-18: `./venv/bin/pytest tests/orchestration/ -vv --tb=short` fully passed (163 passed) after correcting EngineUnavailableError imports and patching JobHandlerRegistry.get_handler in mock contexts.",
     "latest_frontend_focus": "2026-05-18: `cd frontend && npx vitest run tests/unit/pages/ChapterEditor/components/ChapterHeader.test.tsx tests/unit/pages/ChapterEditor/components/ChapterHeaderProgressContract.test.tsx tests/unit/components/PredictiveProgressBarLifecycle.test.tsx tests/unit/components/PredictiveProgressBarTiming.test.tsx tests/unit/components/PredictiveProgressBarTransitions.test.tsx` and `cd frontend && npm run build` passed after fixing the progress bar segment transition reset, checkpointMode, finalizing width rendering, and done bridging window.",
     "latest_queue_focus": "2026-05-18: `frontend/src/utils/jobSelection.ts` now treats `active_segment_id` as chapter-render progress rather than segment scope, keeping grouped chapter jobs visible in the main queue while still hiding true segment jobs.",
-    "latest_websocket_focus": "2026-05-18: websocket payloads now carry a source field from the emitting backend function or callsite, and the frontend debug ring buffer records that source for traceability.",
+    "latest_websocket_focus": "2026-05-18: websocket payloads now carry source and classification, and the frontend debug ring buffer records only listener-handled messages so the trace reflects what the UI actually consumed.",
     "latest_lint_focus": "2026-05-18: `cd frontend && npm run lint` and `git diff --check` passed; ESLint kept the existing fast-refresh warnings only.",
     "latest_diff_check": "2026-05-18: git diff --check passed with some standard blank line EOF warnings on unchanged files.",
     "known_warnings": [

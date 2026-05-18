@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 
 export const useWebSocket = (
   url: string,
-  onMessage: (data: any) => void,
+  onMessage: (data: any, raw?: string) => void,
   options?: { captureDebugMessages?: boolean }
 ) => {
+  void options?.captureDebugMessages;
   const [connected, setConnected] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
@@ -37,39 +38,7 @@ export const useWebSocket = (
         const raw = event.data;
         const data = JSON.parse(raw);
 
-        // Record message in a global ring buffer
-        if (captureDebugMessages && typeof window !== 'undefined') {
-          if (!(window as any).__websocketRecentMessages) {
-            (window as any).__websocketRecentMessages = [];
-          }
-          const buffer = (window as any).__websocketRecentMessages;
-
-          const debugMsg: any = {
-            receivedAt: new Date().toISOString(),
-            raw,
-          };
-
-          if (data && typeof data === 'object') {
-            if (data.type !== undefined) debugMsg.type = data.type;
-            if (data.source !== undefined) debugMsg.source = data.source;
-            if (data.scope !== undefined) debugMsg.scope = data.scope;
-            if (data.classification !== undefined) debugMsg.classification = data.classification;
-            if (data.job_id !== undefined) debugMsg.job_id = data.job_id;
-            if (data.project_id !== undefined) debugMsg.project_id = data.project_id;
-            if (data.chapter_id !== undefined) debugMsg.chapter_id = data.chapter_id;
-            if (data.status !== undefined) debugMsg.status = data.status;
-            if (data.progress !== undefined) debugMsg.progress = data.progress;
-            if (data.reason_code !== undefined) debugMsg.reason_code = data.reason_code;
-          }
-
-          buffer.push(debugMsg);
-          // Cap at 400 messages (between 300 and 500)
-          if (buffer.length > 400) {
-            buffer.shift();
-          }
-        }
-
-        onMessageRef.current(data);
+        onMessageRef.current(data, raw);
       } catch (e) {
         console.error('WS parse error', e);
       }
@@ -86,7 +55,7 @@ export const useWebSocket = (
     socket.onerror = () => {
       socket.close();
     };
-  }, [url, captureDebugMessages]);
+  }, [url]);
 
   useEffect(() => {
     connect();

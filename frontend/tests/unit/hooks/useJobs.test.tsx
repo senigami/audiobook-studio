@@ -60,6 +60,7 @@ describe('useJobs', () => {
   });
 
   it('handles normalized studio_job_event websocket payloads', async () => {
+    delete (window as any).__websocketRecentMessages;
     const { result } = renderHook(() => useJobs());
 
     // Bootstrap
@@ -87,6 +88,18 @@ describe('useJobs', () => {
       eta_seconds: 12,
       log: 'Rendering chapter',
       classification: 'chapter',
+    });
+
+    const recent = (window as any).__websocketRecentMessages;
+    expect(recent).toHaveLength(1);
+    expect(recent[0]).toMatchObject({
+      listener: 'useJobs',
+      type: 'studio_job_event',
+      scope: 'job',
+      classification: 'chapter',
+      job_id: 'job1',
+      status: 'running',
+      progress: 0.42,
     });
   });
 
