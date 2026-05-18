@@ -57,6 +57,19 @@ def _resolve_source(default: str) -> str:
         return f"{module}.{function}"
     return default
 
+
+def _classify_job_payload(job: dict | None) -> str:
+    if not isinstance(job, dict):
+        return "job"
+    explicit = job.get("classification")
+    if explicit in {"job", "chapter", "segment"}:
+        return str(explicit)
+    if job.get("parent_job_id"):
+        return "segment"
+    if job.get("chapter_id"):
+        return "chapter"
+    return "job"
+
 def broadcast_queue_update(
     reason: str | None = None,
     job_id: str | None = None,
@@ -189,6 +202,8 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
     merged = dict(current_job or {})
     merged.update(updates or {})
     merged.pop("skip_studio_job_event", None)
+    classification = _classify_job_payload(merged)
+    merged["classification"] = classification
 
     status = str(merged.get("status") or "queued")
     message = None
@@ -213,6 +228,7 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
         active_render_batch_progress=merged.get("active_render_batch_progress"),
         active_segment_id=merged.get("active_segment_id"),
         active_segment_progress=merged.get("active_segment_progress"),
+        classification=classification,
         source=source or _resolve_source("app.api.ws.broadcast_job_updated"),
     )
     trace(
@@ -228,6 +244,7 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
         "type": "job_updated",
         "job_id": job_id,
         "updates": merged,
+        "classification": classification,
         "source": source or _resolve_source("app.api.ws.broadcast_job_updated"),
     })
 

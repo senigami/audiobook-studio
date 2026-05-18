@@ -6,7 +6,9 @@ export interface OverlayDelta {
   engine?: string | null;
   custom_title?: string | null;
   chapter_file?: string | null;
+  parent_job_id?: string | null;
   segment_ids?: string[] | null;
+  classification?: 'job' | 'chapter' | 'segment' | null;
   created_at?: number | null;
   completed_at?: number | null;
   status?: StudioJobStatus;
@@ -140,6 +142,20 @@ export const createLiveJobsStore = (): LiveJobsStore => {
       nextDelta.started_at = null;
     }
 
+    if (typeof event.parent_job_id === 'string') {
+      nextDelta.parent_job_id = event.parent_job_id;
+    } else if (event.parent_job_id === null) {
+      nextDelta.parent_job_id = null;
+    }
+
+    if (typeof event.classification === 'string') {
+      nextDelta.classification = event.classification;
+    } else if (event.scope === 'segment') {
+      nextDelta.classification = 'segment';
+    } else if (event.scope === 'chapter') {
+      nextDelta.classification = 'chapter';
+    }
+
     // 6. Metadata/Basis
     if (typeof event.updated_at === 'number') nextDelta.updated_at = event.updated_at;
     if (typeof event.estimated_end_at === 'number') nextDelta.estimated_end_at = event.estimated_end_at;
@@ -171,7 +187,9 @@ export const createLiveJobsStore = (): LiveJobsStore => {
       engine: jobUpdated.engine ?? existing?.engine,
       custom_title: jobUpdated.custom_title ?? existing?.custom_title,
       chapter_file: jobUpdated.chapter_file ?? existing?.chapter_file,
+      parent_job_id: jobUpdated.parent_job_id ?? existing?.parent_job_id,
       segment_ids: jobUpdated.segment_ids ?? existing?.segment_ids,
+      classification: jobUpdated.classification ?? existing?.classification,
       created_at: jobUpdated.created_at ?? existing?.created_at,
       completed_at: jobUpdated.completed_at ?? existing?.completed_at,
       status: jobUpdated.status ?? existing?.status,

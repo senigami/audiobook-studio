@@ -1,5 +1,6 @@
 export type Engine = string;
 export type VoiceEngine = string;
+export type JobClassification = 'job' | 'chapter' | 'segment';
 
 export interface TtsEngine {
   engine_id: string;
@@ -172,6 +173,8 @@ export interface ProcessingQueueItem {
   project_id: string;
   chapter_id: string;
   split_part: number;
+  parent_job_id?: string | null;
+  classification?: JobClassification;
   status: Status;
   created_at: number;
   completed_at: number | null;
@@ -246,8 +249,10 @@ export interface Job {
   chapter_file: string;
   status: Status;
   created_at: number;
+  parent_job_id?: string | null;
   project_id?: string;
   chapter_id?: string;
+  classification?: JobClassification;
   started_at?: number;
   updated_at?: number;
   finished_at?: number;

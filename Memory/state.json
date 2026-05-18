@@ -1,9 +1,9 @@
 {
-  "snapshot_version": 78,
-  "updated_at": "2026-05-18T20:06:19Z",
+  "snapshot_version": 79,
+  "updated_at": "2026-05-18T20:53:03Z",
   "branch": "studio2/phase-12",
-  "current_task": "Websocket source tagging for traceability",
-  "status": "websocket_source_tagging_verified",
+  "current_task": "Websocket classification for queue filtering and traceability",
+  "status": "websocket_classification_verified",
   "last_committed_milestone": {
     "title": "Orchestration test suite stabilized",
     "commit": "a8f8e91",
@@ -54,7 +54,7 @@
     "Queue history now persists and renders failure reasons instead of only showing a generic failed status.",
     "Voxtral segment and bake rendering is still open, and default voice fallback should be audited because profiles are still drifting to Voxtral unexpectedly.",
     "Chapter Editor now exposes a copy-debug-state button so the live progress contract can be handed over without relying on screenshots.",
-    "Websocket payloads now include a source field so queue chatter can be traced back to the emitting backend function or callsite.",
+    "Websocket payloads now include source plus a classification field so queue chatter can be traced back to the emitting backend function or callsite and chapter jobs can be distinguished from segment-scoped child jobs.",
     "Implementing the `check_output` interface in plugin adapters and completing the generic plugin setup loop in run.sh are the next high-value cleanup items.",
     "Manual QA targets include engine settings test, project load time, chapter render enqueue, duplicate voice option warning, server shutdown, and mixed render retry.",
     "Triage Vite websocket ECONNRESET and large-book project/chapter load timing.",

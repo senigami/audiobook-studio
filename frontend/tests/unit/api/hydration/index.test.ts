@@ -76,6 +76,30 @@ describe('HydrationCoordinator', () => {
     expect(merged[0].status).toBe('queued');
   });
 
+  it('filters segment-classified overlay jobs out of the chapter queue', () => {
+    const snapshot = coordinator.createSnapshot([]);
+
+    const overlays: LiveOverlayState = {
+      eventsById: {
+        job1: {
+          project_id: 'proj-1',
+          chapter_id: 'chap-1',
+          engine: 'xtts',
+          custom_title: 'Chapter 1',
+          classification: 'segment',
+          status: 'running',
+          progress: 0.25,
+          updated_at: 1000,
+          created_at: 900,
+        }
+      }
+    };
+
+    const merged = coordinator.mergeQueueWithOverlays(snapshot, overlays);
+    expect(merged).toHaveLength(0);
+    expect(selectActiveQueueCount(merged)).toBe(0);
+  });
+
   it('stays stable when thinner live data arrives (Merge Rule Check)', () => {
     const snapshot = coordinator.createSnapshot([
       { id: 'job1', status: 'running', progress: 0.5, eta_seconds: 30 } as any

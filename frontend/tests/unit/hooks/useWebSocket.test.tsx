@@ -118,6 +118,8 @@ describe('useWebSocket', () => {
     const payload = {
       type: 'studio_job_event',
       source: 'app.db.state_jobs.update_job',
+      scope: 'chapter',
+      classification: 'chapter',
       job_id: 'job-123',
       project_id: 'proj-456',
       chapter_id: 'chap-789',
@@ -139,6 +141,8 @@ describe('useWebSocket', () => {
     expect(recent[0].receivedAt).toBeDefined();
     expect(recent[0].type).toBe(payload.type);
     expect(recent[0].source).toBe(payload.source);
+    expect(recent[0].scope).toBe(payload.scope);
+    expect(recent[0].classification).toBe(payload.classification);
     expect(recent[0].job_id).toBe(payload.job_id);
     expect(recent[0].project_id).toBe(payload.project_id);
     expect(recent[0].chapter_id).toBe(payload.chapter_id);

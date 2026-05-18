@@ -20,6 +20,7 @@ export type StudioJobEventScope =
   | 'export'
   | 'voice_test'
   | 'voice_build';
+export type StudioJobClassification = 'job' | 'chapter' | 'segment';
 
 export type StudioEtaConfidence = 'estimating' | 'stable' | 'recomputing';
 export type StudioEtaBasis = 'remaining_from_update' | 'total_from_start';
@@ -27,6 +28,7 @@ export type StudioEtaBasis = 'remaining_from_update' | 'total_from_start';
 export interface StudioJobEvent {
   type: 'studio_job_event';
   source?: string | null;
+  classification?: StudioJobClassification | null;
   job_id: string;
   parent_job_id?: string | null;
   scope: StudioJobEventScope;

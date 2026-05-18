@@ -10,6 +10,7 @@ else:
     from typing_extensions import NotRequired
 
 StudioJobStatus = Literal["queued", "preparing", "running", "finalizing", "done", "failed", "cancelled"]
+StudioJobClassification = Literal["job", "chapter", "segment"]
 StudioJobEventScope = Literal["job", "queue", "chapter", "segment", "export", "voice_test", "voice_build"]
 StudioEtaBasis = Literal["remaining_from_update", "total_from_start"]
 
@@ -19,6 +20,7 @@ class StudioJobEvent(TypedDict, total=False):
 
     type: Literal["studio_job_event"]
     source: NotRequired[str]
+    classification: NotRequired[StudioJobClassification]
     job_id: str
     parent_job_id: NotRequired[str | None]
     scope: StudioJobEventScope
@@ -57,6 +59,7 @@ def build_studio_job_event(
     active_render_batch_progress: float | None = None,
     active_segment_id: str | None = None,
     active_segment_progress: float | None = None,
+    classification: StudioJobClassification | None = None,
     source: str | None = None,
 ) -> StudioJobEvent:
     """Build a normalized job event payload."""
@@ -95,6 +98,8 @@ def build_studio_job_event(
         event["active_segment_id"] = active_segment_id
         if active_segment_progress is not None:
             event["active_segment_progress"] = round(float(active_segment_progress), 2)
+    if classification is not None:
+        event["classification"] = classification
     if source is not None:
         event["source"] = source
     return event

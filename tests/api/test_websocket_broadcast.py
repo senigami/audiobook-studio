@@ -51,9 +51,11 @@ def test_broadcast_job_updated_uses_current_job_status_for_normalized_event(monk
     assert messages[0]["status"] == "running"
     assert messages[0]["progress"] == 0.5
     assert messages[0]["eta_seconds"] == 12
+    assert messages[0]["classification"] == "job"
     assert messages[1]["type"] == "job_updated"
     assert messages[1]["job_id"] == "job-1"
-    assert messages[1]["updates"] == {"status": "running", "progress": 0.5, "eta_seconds": 12}
+    assert messages[1]["classification"] == "job"
+    assert messages[1]["updates"] == {"status": "running", "progress": 0.5, "eta_seconds": 12, "classification": "job"}
     assert messages[1]["source"].endswith("test_broadcast_job_updated_uses_current_job_status_for_normalized_event")
 
 
@@ -69,11 +71,12 @@ def test_broadcast_job_updated_preserves_context_in_job_updated_payload(monkeypa
     broadcast_job_updated(
         "job-3",
         {"progress": 0.5},
-        {"status": "running", "progress": 0.5, "chapter_id": "chap-1", "project_id": "proj-1"},
+        {"status": "running", "progress": 0.5, "chapter_id": "chap-1", "project_id": "proj-1", "parent_job_id": "chapter-parent"},
     )
 
     assert messages[1]["updates"]["chapter_id"] == "chap-1"
     assert messages[1]["updates"]["project_id"] == "proj-1"
+    assert messages[1]["updates"]["classification"] == "segment"
     assert messages[1]["source"].endswith("test_broadcast_job_updated_preserves_context_in_job_updated_payload")
 
 

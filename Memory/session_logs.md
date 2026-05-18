@@ -1114,3 +1114,10 @@
 - Added a `source` field to websocket payloads and inferred the emitting backend function or callsite so queue chatter can be traced without scraping console noise.
 - Updated the frontend websocket debug ring buffer to record `source` alongside the raw payload and key message fields.
 - Verified the backend websocket broadcast tests, progress-service payload tests, and frontend websocket capture tests pass after the contract change.
+
+# 2026-05-18 - Websocket Classification Added
+
+- Added an explicit `classification` field to websocket job payloads so chapter-level queue rows can be distinguished from segment-scoped child jobs without relying on title heuristics.
+- Threaded the classification through the live overlay store, queue hydration, queue selection, and websocket debug capture.
+- Removed the stale websocket debug-trail mirroring from `useJobs` so only the dedicated websocket ring buffer records inbound socket traffic.
+- Verified the backend websocket broadcast tests, frontend websocket capture tests, queue hydration tests, queue sync tests, and frontend build/type-check pass after the contract update.

@@ -69,6 +69,8 @@ function buildOverlayQueueItem(jobId: string, delta: OverlayDelta): ProcessingQu
     project_id: delta.project_id,
     chapter_id: delta.chapter_id,
     split_part: 0,
+    parent_job_id: delta.parent_job_id ?? undefined,
+    classification: delta.classification ?? undefined,
     status: delta.status as ProcessingQueueItem['status'],
     created_at: delta.created_at ?? delta.updated_at ?? Date.now() / 1000,
     completed_at: delta.completed_at ?? null,
@@ -136,6 +138,8 @@ export const createHydrationCoordinator = (): HydrationCoordinator => ({
       // Merge trusted fields from overlay
       const merged: ProcessingQueueItem = {
         ...item,
+        classification: delta.classification ?? item.classification,
+        parent_job_id: delta.parent_job_id ?? item.parent_job_id,
         status: (delta.status as LegacyStatus) ?? item.status,
         progress: Math.max(delta.progress ?? 0, item.progress ?? 0),
         eta_seconds: delta.eta_seconds !== undefined ? (delta.eta_seconds ?? undefined) : item.eta_seconds,

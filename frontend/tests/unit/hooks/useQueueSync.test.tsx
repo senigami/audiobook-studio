@@ -164,7 +164,7 @@ describe('useQueueSync', () => {
     const { result } = renderHook(() => useQueueSync());
 
     await waitFor(() => expect(api.getProcessingQueue).toHaveBeenCalledTimes(1));
-    expect(result.current.queue[0]?.status).toBe('queued');
+    await waitFor(() => expect(result.current.queue[0]?.status).toBe('queued'));
 
     // Send studio_job_event progress update
     act(() => {

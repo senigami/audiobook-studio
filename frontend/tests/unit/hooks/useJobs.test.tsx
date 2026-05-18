@@ -72,6 +72,7 @@ describe('useJobs', () => {
         type: 'studio_job_event',
         job_id: 'job1',
         scope: 'job',
+        classification: 'chapter',
         status: 'running',
         progress: 0.42,
         eta_seconds: 12,
@@ -85,6 +86,7 @@ describe('useJobs', () => {
       progress: 0.42,
       eta_seconds: 12,
       log: 'Rendering chapter',
+      classification: 'chapter',
     });
   });
 
@@ -107,6 +109,8 @@ describe('useJobs', () => {
           project_id: 'proj-1',
           engine: 'mixed',
           segment_ids: ['seg-1', 'seg-2'],
+          classification: 'segment',
+          parent_job_id: 'job-parent',
         }
       });
     });
@@ -118,6 +122,8 @@ describe('useJobs', () => {
       project_id: 'proj-1',
       engine: 'mixed',
       segment_ids: ['seg-1', 'seg-2'],
+      classification: 'segment',
+      parent_job_id: 'job-parent',
     });
   });
 
