@@ -374,3 +374,33 @@ def test_processing_queue_returns_completed_output_metadata_without_duplicate_ro
     assert row["produced_chars"] == 1234
     assert row["produced_word_count"] == 250
     assert row["produced_segment_count"] == 5
+
+
+def test_queue_never_returns_simulated_finalizing(clean_db, client):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.core import get_connection
+    import time
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "T1")
+    now = time.time()
+
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO processing_queue (id, project_id, chapter_id, split_part, status, created_at, completed_at, engine)
+            VALUES (?, ?, ?, 0, 'done', ?, ?, 'voxtral')
+            """,
+            ("job-test-finalizing", pid, cid, now - 5, now - 2),
+        )
+        conn.commit()
+
+    # Even if engine is voxtral (which declares simulated_finalizing), and completed within 12 seconds
+    # and has no audio, it must NOT return status "finalizing".
+    response = client.get("/api/processing_queue")
+    assert response.status_code == 200
+    rows = {item["id"]: item for item in response.json()}
+    assert rows["job-test-finalizing"]["status"] == "done"
+

@@ -15,7 +15,7 @@ describe('PredictiveProgressBar - Lifecycle', () => {
         )
         const fill = () => container.querySelector('[data-testid="progress-bar"] > div:last-child > div') as HTMLElement
         expect(fill()).toBeTruthy()
-        expect(fill().style.width).toBe('100%')
+        expect(fill().style.width).toBe('0%')
         rerender(
             <PredictiveProgressBar
                 progress={0.01}
@@ -112,7 +112,7 @@ describe('PredictiveProgressBar - Lifecycle', () => {
             />
         )
         const fill = () => container.querySelector('[data-testid="progress-bar"] > div:last-child > div') as HTMLElement
-        expect(fill().style.width).toBe('100%')
+        expect(fill().style.width).toBe('0%')
         act(() => {
             rerender(
                 <PredictiveProgressBar

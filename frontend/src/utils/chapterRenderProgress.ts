@@ -37,7 +37,7 @@ const predictScalarProgress = (job: Job, progress: number, nowMs: number) => {
 
   const anchorMs = (job.updated_at ?? (nowMs / 1000)) * 1000;
   const durationMs = endAtMs - anchorMs;
-  if (durationMs <= 0) return Math.max(baseProgress, 0.995);
+  if (durationMs <= 0) return baseProgress;
 
   const elapsedFraction = clamp01((nowMs - anchorMs) / durationMs);
   return baseProgress + ((0.995 - baseProgress) * elapsedFraction);
@@ -53,6 +53,10 @@ export const getPredictiveJobProgress = (job: Job, nowMs: number) => {
 export const deriveActiveBatchProgress = (job: Job, fallbackBatchWeight: number, nowMs: number) => {
   if (typeof job.active_render_batch_progress === 'number') {
     return predictScalarProgress(job, job.active_render_batch_progress, nowMs);
+  }
+
+  if (job.active_segment_id && typeof job.active_segment_progress === 'number') {
+    return predictScalarProgress(job, job.active_segment_progress, nowMs);
   }
 
   const jobTotalWeight = typeof job.total_render_weight === 'number'
@@ -73,9 +77,16 @@ export const deriveActiveBatchProgress = (job: Job, fallbackBatchWeight: number,
     return clamp01(activeFilledWeight / jobActiveWeight);
   }
 
-  if (job.active_segment_id && typeof job.active_segment_progress === 'number') {
-    return predictScalarProgress(job, job.active_segment_progress, nowMs);
-  }
-
   return getPredictiveJobProgress(job, nowMs);
+};
+
+export const getRawActiveRenderProgress = (job: Job | null | undefined, fallbackProgress = 0) => {
+  if (!job) return clamp01(fallbackProgress);
+  if (typeof job.active_render_batch_progress === 'number') {
+    return clamp01(job.active_render_batch_progress);
+  }
+  if (typeof job.active_segment_progress === 'number') {
+    return clamp01(job.active_segment_progress);
+  }
+  return clamp01(fallbackProgress);
 };

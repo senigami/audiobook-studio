@@ -8,6 +8,7 @@ from app.domain.chunk_groups import build_chunk_groups
 from app.utils.text.textops import sanitize_text, safe_split_long_sentences
 from app.engines.errors import EngineBridgeError
 from . import handler as xtts_facade
+from .helpers import _segment_group_weight
 from app.jobs.handlers.bridge_helpers import generate_via_bridge
 
 
@@ -18,7 +19,7 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
         groups = build_chunk_groups(xtts_facade.load_chunk_segments(j.chapter_id), j.speaker_profile)
         if groups:
             def _group_weight(g: dict) -> int:
-                return max(1, int(g.get("text_length") or 0))
+                return _segment_group_weight(g["segments"])
 
             def _group_is_done(g: dict) -> bool:
                 import logging as _logging

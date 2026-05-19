@@ -126,7 +126,7 @@ const resolveEndAtMs = ({
 const getLaneProgress = (lane: ProgressLane, nowMs: number) => {
     if (lane.endAtMs === null) return lane.startProgress;
     const duration = lane.endAtMs - lane.startedAtMs;
-    if (duration <= 0) return 0.995;
+    if (duration <= 0) return lane.startProgress;
     const t = Math.max(0, Math.min(1, (nowMs - lane.startedAtMs) / duration));
     return lane.startProgress + ((0.995 - lane.startProgress) * t);
 };
@@ -333,7 +333,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         : Math.max(0, Math.ceil((activeTargetLane.endAtMs - now) / 1000));
 
     const autoFinalizing = isLiveAnimatedStatus(presentationState)
-        && (localProgress >= 0.995 || (displayedRemaining !== null && displayedRemaining <= 0))
+        && localProgress >= 0.995
         && !isDoneStatus(presentationState)
         && !isFailedStatus(presentationState)
         && !isCancelledStatus(presentationState);
@@ -352,13 +352,16 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     }, [localProgress, onDisplayProgress]);
 
     const visualState = autoFinalizing ? 'finalizing' : presentationState;
+    const displayStatusLabel = presentationState === 'running' && checkpointMode === 'queue'
+        ? 'Rendering'
+        : formatStatusLabel(presentationState);
     const shouldAnimateWidth = !indeterminate && isActiveStatus(visualState);
     const indeterminateClassName = indeterminate
         ? (visualState === 'finalizing' ? 'progress-bar-finalizing' : preparingIndeterminate ? 'progress-bar-pending' : 'progress-bar-animated')
         : undefined;
-    const busyStatusText = getBusyStatusText(visualState, indeterminate);
-    const terminalStatusText = getTerminalStatusText(visualState);
-    const terminalFillStyle = getTerminalFillStyle(visualState);
+    const busyStatusText = getBusyStatusText(presentationState, indeterminate);
+    const terminalStatusText = getTerminalStatusText(presentationState);
+    const terminalFillStyle = getTerminalFillStyle(presentationState);
 
     // Deriving a stable phase key forces a remount on broad mode transitions (preparing -> active),
     // which prevents the browser from trying to animate widthRegressions from 100% back to 0.
@@ -438,14 +441,14 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', minWidth: 0 }}>
                         {showLabel && <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600 }}>{label}</span>}
-                        {visualState && (
+                        {presentationState && (
                             <span style={{
                                 fontSize: '0.58rem', textTransform: 'uppercase', letterSpacing: '0.08em',
                                 padding: '0.14rem 0.42rem', borderRadius: '999px', border: '1px solid rgba(0,0,0,0.08)',
-                                background: visualState === 'running' || visualState === 'processing' ? 'rgba(37, 99, 235, 0.10)' : visualState === 'preparing' ? 'rgba(245, 158, 11, 0.12)' : visualState === 'finalizing' ? 'rgba(59, 130, 246, 0.10)' : 'rgba(100, 116, 139, 0.10)',
+                                background: presentationState === 'running' || presentationState === 'processing' ? 'rgba(37, 99, 235, 0.10)' : presentationState === 'preparing' ? 'rgba(245, 158, 11, 0.12)' : presentationState === 'finalizing' ? 'rgba(59, 130, 246, 0.10)' : 'rgba(100, 116, 139, 0.10)',
                                 color: 'var(--text-secondary)', fontWeight: 800, whiteSpace: 'nowrap',
                             }}>
-                                {formatStatusLabel(visualState)}
+                                {displayStatusLabel}
                             </span>
                         )}
                     </div>
@@ -471,7 +474,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                     className={visualState === 'finalizing' ? 'progress-bar-finalizing' : indeterminateClassName}
                     style={{
                         height: '100%',
-                        width: indeterminate ? (visualState === 'preparing' || visualState === 'finalizing' ? '100%' : '35%') : terminalStatusText ? (isDoneStatus(visualState) || isFailedStatus(visualState) ? '100%' : '0%') : formatStylePercent(localProgress),
+                        width: indeterminate ? (visualState === 'preparing' ? '0%' : visualState === 'finalizing' ? '100%' : '35%') : terminalStatusText ? (isDoneStatus(visualState) || isFailedStatus(visualState) ? '100%' : '0%') : formatStylePercent(localProgress),
                         background: visualState === 'finalizing' ? 'rgba(191, 219, 254, 0.34)' : (indeterminate && preparingIndeterminate ? 'rgba(248, 250, 252, 0.96)' : terminalFillStyle?.background ?? 'var(--accent)'),
                         opacity: terminalStatusText && (isQueuedStatus(visualState) || isCancelledStatus(visualState)) ? 0.55 : 1,
                         boxShadow: visualState === 'finalizing' ? '0 0 15px rgba(59, 130, 246, 0.45)' : (indeterminate && preparingIndeterminate ? '0 0 10px rgba(226,232,240,0.45)' : terminalFillStyle?.boxShadow ?? '0 0 15px var(--accent)'),

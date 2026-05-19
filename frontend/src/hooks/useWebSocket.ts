@@ -11,6 +11,7 @@ export const useWebSocket = (
   const reconnectTimerRef = useRef<number | null>(null);
   const onMessageRef = useRef(onMessage);
   const captureDebugMessages = options?.captureDebugMessages ?? true;
+  void captureDebugMessages;
 
   useEffect(() => {
     onMessageRef.current = onMessage;

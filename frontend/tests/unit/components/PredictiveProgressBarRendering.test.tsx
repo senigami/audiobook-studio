@@ -66,7 +66,7 @@ describe('PredictiveProgressBar - Rendering', () => {
         expect(screen.getAllByText('Prep').length).toBeGreaterThan(0)
         const bar = container.querySelector('.progress-bar-pending') as HTMLElement
         expect(bar).toBeTruthy()
-        expect(bar.style.width).toBe('100%')
+        expect(bar.style.width).toBe('0%')
     })
 
     it('auto-flips a running bar to finalizing at 100 percent until done arrives', () => {

@@ -219,12 +219,6 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
         if result.status == "completed":
             self._publish(
                 context=context,
-                status="finalizing",
-                progress=0.99,
-                message="Synthesis complete, finalizing outputs.",
-            )
-            self._publish(
-                context=context,
                 status="completed",
                 progress=1.0,
                 message="Task completed successfully.",

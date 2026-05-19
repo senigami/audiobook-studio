@@ -1,7 +1,8 @@
 import pytest
 from pathlib import Path
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import MagicMock, AsyncMock, patch
 from app.api.routers.projects_helpers import _store_project_cover
+from app.storage.manager import StorageManager
 
 @pytest.mark.anyio
 async def test_store_project_cover_injection_blocked(tmp_path):
@@ -19,7 +20,9 @@ async def test_store_project_cover_injection_blocked(tmp_path):
     # so "../../secret.txt" becomes "secret.txt".
     # However, if we didn't use safe_basename, it would be dangerous.
 
-    result_url = await _store_project_cover("project1", project_dir, cover)
+    mock_manager = StorageManager(base_dir=tmp_path, projects_dir=tmp_path)
+    with patch("app.storage.manager.get_storage_manager", return_value=mock_manager):
+        result_url = await _store_project_cover("project1", cover)
 
     # Resulting path should be project1/cover/cover.txt (since safe_basename strips ../..)
     # and it should be relative to project1/cover
@@ -44,7 +47,9 @@ async def test_store_project_cover_absolute_path_blocked(tmp_path):
     cover.filename = "/tmp/evil.jpg"
     cover.read = AsyncMock(return_value=b"evil")
 
-    await _store_project_cover("project1", project_dir, cover)
+    mock_manager = StorageManager(base_dir=tmp_path, projects_dir=tmp_path)
+    with patch("app.storage.manager.get_storage_manager", return_value=mock_manager):
+        await _store_project_cover("project1", cover)
 
     # Should still end up in project1/cover/cover.jpg
     assert (project_dir / "cover" / "cover.jpg").exists()

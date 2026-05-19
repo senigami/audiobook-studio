@@ -19,6 +19,7 @@ import { useChapterPlayback } from '@/hooks/useChapterPlayback';
 import { useChapterEditor } from '@/hooks/useChapterEditor';
 import { buildVoiceOptions, getDefaultVoiceProfileName, getVoiceOptionLabel } from '@/utils/voiceProfiles';
 import { buildChunkGroups } from '@/utils/chunkGroups';
+import { getRawActiveRenderProgress } from '@/utils/chapterRenderProgress';
 
 import {
   resolveVoiceEngineStatus,
@@ -263,9 +264,10 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     );
     if (!activeBatch) return progressById;
 
-    progressById[activeBatch.id] = Math.max(0, Math.min(liveBarSegmentProgress, 1));
+    const rawProgress = getRawActiveRenderProgress(activeJob, 0);
+    progressById[activeBatch.id] = liveBarSegmentProgress > 0 ? liveBarSegmentProgress : rawProgress;
     return progressById;
-  }, [liveBarSegmentProgress, chapterRenderRenderingSegmentIds, generatingSegmentJob, job, scriptViewData?.render_batches, scriptViewData?.spans]);
+  }, [chapterRenderRenderingSegmentIds, generatingSegmentJob, job, scriptViewData?.render_batches, scriptViewData?.spans, liveBarSegmentProgress]);
 
 
   const {

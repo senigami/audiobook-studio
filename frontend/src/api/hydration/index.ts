@@ -117,7 +117,10 @@ export const createHydrationCoordinator = (): HydrationCoordinator => ({
       .map(([jobId, delta]) => {
         if (mergedIds.has(jobId)) return null;
         const item = buildOverlayQueueItem(jobId, delta);
-        if (!item || !ACTIVE_STATUSES.includes(item.status)) return null;
+        if (!item) return null;
+        const isChapterScoped = !isSegmentScopedJob(item);
+        const hasSnapshotSibling = isChapterScoped && items.some(snapItem => snapItem.chapter_id === item.chapter_id);
+        if (!ACTIVE_STATUSES.includes(item.status) && !hasSnapshotSibling) return null;
         if (isSegmentScopedJob(item)) return null;
         return item;
       })
@@ -125,11 +128,48 @@ export const createHydrationCoordinator = (): HydrationCoordinator => ({
 
     const baseItems = [...items, ...extraItems].filter(item => !isSegmentScopedJob(item));
 
-    return baseItems.map(item => {
+    const STATUS_RANK: Record<string, number> = {
+      running: 5,
+      finalizing: 4,
+      preparing: 3,
+      queued: 2,
+      done: 1,
+      failed: 0,
+      cancelled: 0,
+      error: 0,
+    };
+
+    const chapterJobsMap: Record<string, ProcessingQueueItem> = {};
+    baseItems.forEach(item => {
+      if (!item.chapter_id) return;
+      const existing = chapterJobsMap[item.chapter_id];
+      if (!existing) {
+        chapterJobsMap[item.chapter_id] = item;
+        return;
+      }
+      const itemTime = item.created_at ?? item.started_at ?? item.updated_at ?? 0;
+      const existingTime = existing.created_at ?? existing.started_at ?? existing.updated_at ?? 0;
+      if (itemTime > existingTime) {
+        chapterJobsMap[item.chapter_id] = item;
+      } else if (itemTime === existingTime) {
+        const itemRank = STATUS_RANK[item.status] ?? 0;
+        const existingRank = STATUS_RANK[existing.status] ?? 0;
+        if (itemRank > existingRank) {
+          chapterJobsMap[item.chapter_id] = item;
+        }
+      }
+    });
+
+    const dedupedItems = baseItems.filter(item => {
+      if (!item.chapter_id) return true;
+      return chapterJobsMap[item.chapter_id].id === item.id;
+    });
+
+    return dedupedItems.map(item => {
       const delta = eventsById[item.id];
       if (!delta) {
         // Even without delta, check for finalizing hold from snapshot state
-        if (item.status === 'done' && shouldHoldCompletedIndeterminateJob(item, undefined, items, 'done', nowSeconds)) {
+        if (item.status === 'done' && shouldHoldCompletedIndeterminateJob(item, undefined, dedupedItems, 'done', nowSeconds)) {
           return { ...item, status: 'finalizing' as LegacyStatus, progress: 1.0 };
         }
         return item;

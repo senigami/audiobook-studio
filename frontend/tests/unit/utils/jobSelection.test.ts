@@ -42,6 +42,13 @@ describe('pickRelevantJob', () => {
 
     expect(pickRelevantJob([secondQueued, firstQueued])?.id).toBe('queued-1');
   });
+
+  it('prefers a newer terminal job over an older running job when includeDone is true', () => {
+    const olderRunning = makeJob({ id: 'running-old', status: 'running', created_at: 100 });
+    const newerDone = makeJob({ id: 'done-new', status: 'done', created_at: 200 });
+
+    expect(pickRelevantJob([olderRunning, newerDone], true)?.id).toBe('done-new');
+  });
 });
 
 describe('isSegmentScopedJob', () => {

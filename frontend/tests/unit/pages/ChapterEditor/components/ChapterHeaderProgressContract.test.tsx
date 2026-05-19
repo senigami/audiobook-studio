@@ -5,13 +5,19 @@ import { useChapterStatus, ChapterScriptToolbar } from '@/pages/ChapterEditor/co
 
 let capturedOnDebugSnapshot: ((snapshot: any) => void) | undefined;
 let capturedCheckpointMode: string | undefined;
+let capturedState: string | undefined;
+let capturedAllowBackwardProgress: boolean | undefined;
+let capturedTransitionTickCount: number | undefined;
 let renderCount = 0;
 let mountCount = 0;
 
 vi.mock('@/components/progress/PredictiveProgressBar/PredictiveProgressBar', () => ({
-  PredictiveProgressBar: ({ progress, etaBasis, onDebugSnapshot, checkpointMode }: any) => {
+  PredictiveProgressBar: ({ progress, etaBasis, onDebugSnapshot, checkpointMode, state, allowBackwardProgress, transitionTickCount }: any) => {
     capturedOnDebugSnapshot = onDebugSnapshot;
     capturedCheckpointMode = checkpointMode;
+    capturedState = state;
+    capturedAllowBackwardProgress = allowBackwardProgress;
+    capturedTransitionTickCount = transitionTickCount;
     renderCount++;
     React.useEffect(() => {
       mountCount++;
@@ -21,6 +27,9 @@ vi.mock('@/components/progress/PredictiveProgressBar/PredictiveProgressBar', () 
         data-testid="chapter-header-progress-bar"
         data-eta-basis={etaBasis ?? ''}
         data-checkpoint-mode={checkpointMode ?? ''}
+        data-state={state ?? ''}
+        data-allow-backward={String(!!allowBackwardProgress)}
+        data-transition-ticks={String(transitionTickCount)}
       >
         {`${Math.round(progress * 100)}%`}
       </div>
@@ -68,6 +77,9 @@ describe('ChapterHeader progress contract', () => {
   beforeEach(() => {
     capturedOnDebugSnapshot = undefined;
     capturedCheckpointMode = undefined;
+    capturedState = undefined;
+    capturedAllowBackwardProgress = undefined;
+    capturedTransitionTickCount = undefined;
     renderCount = 0;
     mountCount = 0;
   });
@@ -249,6 +261,106 @@ describe('ChapterHeader progress contract', () => {
 
     expect(screen.getByTestId('chapter-header-progress-bar'))
       .toHaveAttribute('data-checkpoint-mode', 'queue');
+  });
+
+  it('keeps grouped running jobs in processing state until an active render block exists', () => {
+    render(
+      <TestHeaderWrapper
+        chapter={mockChapter as any}
+        title={mockChapter.title}
+        setTitle={vi.fn()}
+        saving={false}
+        hasUnsavedChanges={false}
+        submitting={false}
+        queueLocked={false}
+        queuePending={false}
+        generatingJob={{
+          id: 'job-grouped-pre-render',
+          engine: 'mixed',
+          status: 'running',
+          progress: 0.12,
+          started_at: Date.now() / 1000,
+          render_group_count: 3,
+          completed_render_groups: 0,
+        } as any}
+        generatingSegmentIdsCount={0}
+        queueLabel="Queue"
+        queueTitle="Queue Chapter"
+        onQueue={vi.fn()}
+        onStopAll={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('chapter-header-progress-bar')).toHaveAttribute('data-state', 'processing');
+    expect(capturedState).toBe('processing');
+  });
+
+  it('allows active segment progress corrections to move backward', () => {
+    render(
+      <TestHeaderWrapper
+        chapter={mockChapter as any}
+        title={mockChapter.title}
+        setTitle={vi.fn()}
+        saving={false}
+        hasUnsavedChanges={false}
+        submitting={false}
+        queueLocked={false}
+        queuePending={false}
+        generatingJob={{
+          id: 'job-active-segment',
+          engine: 'mixed',
+          status: 'running',
+          progress: 0.44,
+          started_at: Date.now() / 1000,
+          render_group_count: 2,
+          active_segment_id: 'seg-1',
+          active_segment_progress: 0.2,
+        } as any}
+        generatingSegmentIdsCount={1}
+        queueLabel="Queue"
+        queueTitle="Queue Chapter"
+        onQueue={vi.fn()}
+        onStopAll={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('chapter-header-progress-bar')).toHaveAttribute('data-allow-backward', 'false');
+    expect(capturedAllowBackwardProgress).toBe(false);
+  });
+
+  it('uses segment checkpointMode and transitionTickCount=3 for grouped jobs when active_segment_id is present', () => {
+    render(
+      <TestHeaderWrapper
+        chapter={mockChapter as any}
+        title={mockChapter.title}
+        setTitle={vi.fn()}
+        saving={false}
+        hasUnsavedChanges={false}
+        submitting={false}
+        queueLocked={false}
+        queuePending={false}
+        generatingJob={{
+          id: 'job-grouped-active-segment',
+          engine: 'mixed',
+          status: 'running',
+          progress: 0.44,
+          started_at: Date.now() / 1000,
+          render_group_count: 2,
+          active_segment_id: 'seg-1',
+          active_segment_progress: 0.2,
+        } as any}
+        generatingSegmentIdsCount={1}
+        queueLabel="Queue"
+        queueTitle="Queue Chapter"
+        onQueue={vi.fn()}
+        onStopAll={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('chapter-header-progress-bar')).toHaveAttribute('data-checkpoint-mode', 'segment');
+    expect(capturedCheckpointMode).toBe('segment');
+    expect(screen.getByTestId('chapter-header-progress-bar')).toHaveAttribute('data-transition-ticks', '3');
+    expect(capturedTransitionTickCount).toBe(3);
   });
 
   it('uses segment-scoped composite React key so active_segment_id changes cause clean remounts', () => {

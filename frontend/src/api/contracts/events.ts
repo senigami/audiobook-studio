@@ -44,6 +44,8 @@ export interface StudioJobEvent {
   started_at?: number | null;
   active_render_batch_id?: string | null;
   active_render_batch_progress?: number | null;
+  active_segment_id?: string | null;
+  active_segment_progress?: number | null;
 }
 
 export const isStudioJobEvent = (value: unknown): value is StudioJobEvent => {

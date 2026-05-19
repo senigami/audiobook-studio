@@ -7,12 +7,14 @@ vi.mock('@/components/progress/PredictiveProgressBar/PredictiveProgressBar', () 
   PredictiveProgressBar: ({
     progress,
     status,
+    state,
     predictive,
     allowBackwardProgress,
     evidenceWeightFraction,
   }: {
     progress: number;
     status?: string;
+    state?: string;
     predictive?: boolean;
     allowBackwardProgress?: boolean;
     evidenceWeightFraction?: number;
@@ -21,6 +23,7 @@ vi.mock('@/components/progress/PredictiveProgressBar/PredictiveProgressBar', () 
       data-testid="progress-bar"
       data-progress={progress}
       data-status={status ?? ''}
+      data-state={state ?? ''}
       data-predictive={String(!!predictive)}
       data-allow-backward={String(!!allowBackwardProgress)}
       data-evidence-weight-fraction={evidenceWeightFraction ?? ''}
@@ -142,6 +145,30 @@ describe('ChapterList', () => {
     expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-progress', '0.63');
     expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-allow-backward', 'false');
     expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-evidence-weight-fraction', '0.4');
+  });
+
+  it('keeps a grouped running chapter in processing state until an active render block exists', () => {
+    const groupedJob = {
+      id: 'job-grouped-pre-render',
+      project_id: 'proj-1',
+      chapter_id: 'chap-123',
+      status: 'running',
+      progress: 0.12,
+      started_at: Date.now() / 1000 - 3,
+      eta_seconds: 120,
+      render_group_count: 3,
+      completed_render_groups: 0,
+      active_render_group_index: 0,
+      total_render_weight: 300,
+      completed_render_weight: 0,
+      active_render_group_weight: 100,
+    } as any;
+
+    render(<ChapterList {...defaultProps} jobs={{ [groupedJob.id]: groupedJob }} />);
+
+    expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-status', 'running');
+    expect(screen.getByTestId('progress-bar')).toHaveAttribute('data-state', 'processing');
+    expect(screen.getByText('Processing')).toBeInTheDocument();
   });
 
   it('shows an indeterminate preparing state for active chapter jobs', () => {

@@ -183,7 +183,11 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                     allowBackwardProgress={false}
                     checkpointMode={(job.segment_ids?.length || liveJob?.segment_ids?.length || activeSegmentId) ? 'segment' : 'default'}
                     evidenceWeightFraction={1}
-                    transitionTickCount={3}
+                    transitionTickCount={
+                        (job.segment_ids?.length || liveJob?.segment_ids?.length || activeSegmentId)
+                            ? 3
+                            : 8
+                    }
                     backwardTransitionTickCount={2}
                     tickMs={250}
                 />

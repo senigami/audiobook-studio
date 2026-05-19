@@ -16,6 +16,11 @@ export const useChapterStatus = (
 ) => {
   const hasChapterAudio = !!(chapter.has_wav || chapter.has_mp3 || chapter.has_m4a);
   const recentlyFinishedDoneJob = !!(job?.status === 'done' && job?.finished_at && ((Date.now() / 1000) - job.finished_at) <= RECENT_DONE_WINDOW_SECONDS);
+  const liveSegmentProgressIsRenderBlock = !!generatingJob && (
+    !!generatingJob.active_segment_id ||
+    !!generatingJob.active_render_batch_id ||
+    typeof generatingJob.active_render_batch_progress === 'number'
+  );
   const rawQueueStatus = queuePending
     ? 'Queued'
     : job?.status === 'queued'
@@ -23,7 +28,9 @@ export const useChapterStatus = (
       : job?.status === 'preparing'
         ? 'Preparing'
       : job?.status === 'running'
-          ? ((job.render_group_count ?? 0) > 0 ? 'Rendering' : 'Processing')
+          ? (job.active_segment_id || job.active_render_batch_id || typeof job.active_render_batch_progress === 'number'
+              ? 'Rendering'
+              : 'Processing')
           : job?.status === 'finalizing'
             ? 'Finalizing'
             : generatingSegmentIdsCount > 0
@@ -83,9 +90,9 @@ export const useChapterStatus = (
     };
   }, []);
 
-  const liveSegmentProgressJob = generatingJob && ['preparing', 'running', 'finalizing'].includes(generatingJob.status)
+  const liveSegmentProgressJob = generatingJob && !['done', 'failed', 'cancelled'].includes(generatingJob.status)
     ? generatingJob
-    : (heldLiveJob && ['done', 'failed', 'cancelled'].includes(heldLiveJob.status) ? heldLiveJob : undefined);
+    : (heldLiveJob && ['done', 'failed', 'cancelled'].includes(heldLiveJob.status) && !(recentlyFinishedDoneJob && !hasChapterAudio) ? heldLiveJob : undefined);
 
   const liveProgressIsRenderBlock = !!liveSegmentProgressJob && (
     (liveSegmentProgressJob.render_group_count ?? 0) > 0 ||
@@ -149,7 +156,7 @@ export const useChapterStatus = (
   return {
     queueStatus, heldQueueStatus, effectiveQueueLocked, isQueued,
     liveSegmentProgressJob, liveSegmentProgressValue, hasChapterAudio,
-    generatingSegmentIdsCount
+    generatingSegmentIdsCount, liveSegmentProgressIsRenderBlock
   };
 };
 
@@ -400,17 +407,32 @@ export const ChapterScriptToolbar: React.FC<{
                     updatedAt={status.liveSegmentProgressJob.updated_at}
                     persistenceKey={`${status.liveSegmentProgressJob.id}:${status.liveSegmentProgressJob.active_segment_id || 'none'}`}
                     status={status.liveSegmentProgressJob.status}
+                    state={
+                        status.liveSegmentProgressJob.status === 'preparing'
+                            ? 'preparing'
+                            : status.liveSegmentProgressJob.status === 'finalizing'
+                                ? 'finalizing'
+                                : status.liveSegmentProgressJob.status === 'running'
+                                    ? (status.liveSegmentProgressIsRenderBlock ? 'running' : 'processing')
+                                    : (status.liveSegmentProgressJob.status === 'error' ? 'failed' : status.liveSegmentProgressJob.status as any)
+                    }
                     label="Segment Progress"
                     predictive={true}
                     allowBackwardProgress={false}
                     checkpointMode={
-                        (status.liveSegmentProgressJob.render_group_count ?? 0) > 0
-                            ? 'queue'
-                            : (status.liveSegmentProgressJob.segment_ids?.length || status.liveSegmentProgressJob.active_segment_id)
+                        (status.liveSegmentProgressJob.segment_ids?.length || status.liveSegmentProgressJob.active_segment_id)
                             ? 'segment'
+                            : (status.liveSegmentProgressJob.render_group_count ?? 0) > 0
+                            ? 'queue'
                             : 'default'
                     }
-                    transitionTickCount={3}
+                    transitionTickCount={
+                        (status.liveSegmentProgressJob.segment_ids?.length || status.liveSegmentProgressJob.active_segment_id)
+                            ? 3
+                            : (status.liveSegmentProgressJob.render_group_count ?? 0) > 0
+                            ? 12
+                            : 8
+                    }
                     backwardTransitionTickCount={2}
                     tickMs={250}
                     showEta={false}

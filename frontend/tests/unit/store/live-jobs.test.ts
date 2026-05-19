@@ -106,4 +106,77 @@ describe('LiveJobsStore', () => {
     expect(state.eventsById['job1'].status).toBe('queued');
     expect(state.eventsById['job1'].progress).toBe(0); // Allowed reset
   });
+
+  it('handles active segment/batch id and progress events and clearing', () => {
+    const store = createLiveJobsStore();
+
+    // 1. Initial event sets segment and batch info
+    store.applyEvent({
+      type: 'studio_job_event',
+      job_id: 'job1',
+      status: 'running',
+      updated_at: 1000,
+      scope: 'segment',
+      active_segment_id: 'seg1',
+      active_segment_progress: 0.4,
+      active_render_batch_id: 'batch1',
+      active_render_batch_progress: 0.3,
+    } as any);
+
+    let state = store.getState();
+    expect(state.eventsById['job1'].active_segment_id).toBe('seg1');
+    expect(state.eventsById['job1'].active_segment_progress).toBe(0.4);
+    expect(state.eventsById['job1'].active_render_batch_id).toBe('batch1');
+    expect(state.eventsById['job1'].active_render_batch_progress).toBe(0.3);
+
+    // 2. Omitted fields in newer event should preserve existing values
+    store.applyEvent({
+      type: 'studio_job_event',
+      job_id: 'job1',
+      status: 'running',
+      updated_at: 1100,
+      scope: 'segment',
+      // active_segment_id/progress omitted
+    } as any);
+
+    state = store.getState();
+    expect(state.eventsById['job1'].active_segment_id).toBe('seg1');
+    expect(state.eventsById['job1'].active_segment_progress).toBe(0.4);
+
+    // 3. Clear fields via null in applyEvent
+    store.applyEvent({
+      type: 'studio_job_event',
+      job_id: 'job1',
+      status: 'running',
+      updated_at: 1200,
+      scope: 'segment',
+      active_segment_id: null,
+      active_segment_progress: null,
+      active_render_batch_id: null,
+      active_render_batch_progress: null,
+    } as any);
+
+    state = store.getState();
+    expect(state.eventsById['job1'].active_segment_id).toBeNull();
+    expect(state.eventsById['job1'].active_segment_progress).toBeNull();
+    expect(state.eventsById['job1'].active_render_batch_id).toBeNull();
+    expect(state.eventsById['job1'].active_render_batch_progress).toBeNull();
+
+    // 4. Re-set and clear via applyJobUpdated
+    store.applyJobUpdated('job1', {
+      active_segment_id: 'seg2',
+      active_segment_progress: 0.8,
+    });
+    state = store.getState();
+    expect(state.eventsById['job1'].active_segment_id).toBe('seg2');
+    expect(state.eventsById['job1'].active_segment_progress).toBe(0.8);
+
+    store.applyJobUpdated('job1', {
+      active_segment_id: null,
+      active_segment_progress: null,
+    });
+    state = store.getState();
+    expect(state.eventsById['job1'].active_segment_id).toBeNull();
+    expect(state.eventsById['job1'].active_segment_progress).toBeNull();
+  });
 });

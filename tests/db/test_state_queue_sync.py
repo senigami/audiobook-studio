@@ -47,7 +47,7 @@ def test_update_job_syncs_queue_before_broadcast_listener(tmp_path):
 
     with patch("app.core.config.resolve_chapter_asset_path", return_value=audio_dir / "chapter.wav"), \
          patch("app.db.update_queue_item", side_effect=lambda *args, **kwargs: events.append("queue-sync")), \
-         patch("app.api.ws.broadcast_queue_update", side_effect=lambda: events.append("queue-broadcast")):
+         patch("app.api.ws.broadcast_queue_update", side_effect=lambda *args, **kwargs: events.append("queue-broadcast")):
         state_module.update_job(
             "job-voxtral-sync",
             status="done",

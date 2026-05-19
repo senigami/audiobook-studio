@@ -1,4 +1,6 @@
 import type { StudioJobEvent, StudioJobStatus } from '@/api/contracts/events';
+import { isSegmentScopedJob } from '@/utils/jobSelection';
+
 
 export interface OverlayDelta {
   project_id?: string | null;
@@ -167,12 +169,50 @@ export const createLiveJobsStore = (): LiveJobsStore => {
     if (event.message) nextDelta.message = event.message;
     if (event.message) nextDelta.error = event.message;
     if (event.reason_code) nextDelta.reason_code = event.reason_code;
-    if (event.active_render_batch_id) nextDelta.active_render_batch_id = event.active_render_batch_id;
-    if (typeof event.active_render_batch_progress === 'number') {
+    if (event.active_render_batch_id !== undefined) {
+      nextDelta.active_render_batch_id = event.active_render_batch_id;
+    }
+    if (event.active_render_batch_progress !== undefined) {
       nextDelta.active_render_batch_progress = event.active_render_batch_progress;
+    }
+    if (event.active_segment_id !== undefined) {
+      nextDelta.active_segment_id = event.active_segment_id;
+    }
+    if (event.active_segment_progress !== undefined) {
+      nextDelta.active_segment_progress = event.active_segment_progress;
     }
 
     state.eventsById[jobId] = nextDelta;
+
+    if (nextDelta.chapter_id && !isSegmentScopedJob({
+      segment_ids: nextDelta.segment_ids ?? undefined,
+      custom_title: nextDelta.custom_title,
+      classification: nextDelta.classification,
+      parent_job_id: nextDelta.parent_job_id,
+    })) {
+      pruneOlderOverlaysForChapter(jobId, nextDelta.chapter_id, nextDelta.updated_at ?? nextDelta.created_at ?? Date.now() / 1000);
+    }
+  };
+
+  const pruneOlderOverlaysForChapter = (jobId: string, chapterId: string, timestamp: number) => {
+    Object.keys(state.eventsById).forEach(otherJobId => {
+      if (otherJobId === jobId) return;
+      const other = state.eventsById[otherJobId];
+      if (other.chapter_id === chapterId) {
+        const isOtherSegment = isSegmentScopedJob({
+          segment_ids: other.segment_ids ?? undefined,
+          custom_title: other.custom_title,
+          classification: other.classification,
+          parent_job_id: other.parent_job_id,
+        });
+        if (!isOtherSegment) {
+          const otherTime = other.updated_at ?? other.created_at ?? 0;
+          if (otherTime <= timestamp) {
+            delete state.eventsById[otherJobId];
+          }
+        }
+      }
+    });
   };
 
   const applyJobUpdated = (jobId: string, updates: any) => {
@@ -199,18 +239,32 @@ export const createLiveJobsStore = (): LiveJobsStore => {
       updated_at: typeof jobUpdated.updated_at === 'number' ? jobUpdated.updated_at : existing?.updated_at,
       estimated_end_at: typeof jobUpdated.estimated_end_at === 'number' ? jobUpdated.estimated_end_at : existing?.estimated_end_at,
       eta_basis: jobUpdated.eta_basis ?? existing?.eta_basis,
-      active_render_batch_id: jobUpdated.active_render_batch_id ?? existing?.active_render_batch_id,
-      active_render_batch_progress: typeof jobUpdated.active_render_batch_progress === 'number'
+      active_render_batch_id: jobUpdated.active_render_batch_id !== undefined
+        ? jobUpdated.active_render_batch_id
+        : existing?.active_render_batch_id,
+      active_render_batch_progress: jobUpdated.active_render_batch_progress !== undefined
         ? jobUpdated.active_render_batch_progress
         : existing?.active_render_batch_progress,
-      active_segment_id: jobUpdated.active_segment_id ?? existing?.active_segment_id,
-      active_segment_progress: typeof jobUpdated.active_segment_progress === 'number'
+      active_segment_id: jobUpdated.active_segment_id !== undefined
+        ? jobUpdated.active_segment_id
+        : existing?.active_segment_id,
+      active_segment_progress: jobUpdated.active_segment_progress !== undefined
         ? jobUpdated.active_segment_progress
         : existing?.active_segment_progress,
       reason_code: jobUpdated.reason_code ?? existing?.reason_code,
       message: jobUpdated.message ?? jobUpdated.log ?? jobUpdated.error ?? existing?.message,
       error: jobUpdated.error ?? jobUpdated.message ?? jobUpdated.log ?? existing?.error,
     };
+
+    const savedDelta = state.eventsById[jobId];
+    if (savedDelta && savedDelta.chapter_id && !isSegmentScopedJob({
+      segment_ids: savedDelta.segment_ids ?? undefined,
+      custom_title: savedDelta.custom_title,
+      classification: savedDelta.classification,
+      parent_job_id: savedDelta.parent_job_id,
+    })) {
+      pruneOlderOverlaysForChapter(jobId, savedDelta.chapter_id, savedDelta.updated_at ?? savedDelta.created_at ?? Date.now() / 1000);
+    }
   };
 
   const pruneOlderThan = (timestamp: number) => {

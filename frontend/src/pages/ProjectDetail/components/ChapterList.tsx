@@ -110,6 +110,11 @@ export const ChapterList: React.FC<ChapterListProps> = ({
           const totalRenderWeight = activeJob?.total_render_weight ?? 0;
           const completedRenderWeight = activeJob?.completed_render_weight ?? 0;
           const activeRenderGroupWeight = activeJob?.active_render_group_weight ?? 0;
+          const liveRenderBlockIsActive = !!activeJob && (
+            !!activeJob.active_segment_id ||
+            !!activeJob.active_render_batch_id ||
+            typeof activeJob.active_render_batch_progress === 'number'
+          );
           const activeGroupProgress = activeRenderGroupIndex > completedRenderGroups
             ? Math.max(0, Math.min(activeJob?.active_segment_progress ?? 0, 1))
             : 0;
@@ -137,8 +142,8 @@ export const ChapterList: React.FC<ChapterListProps> = ({
               ? 'Queued'
               : displayStatus === 'preparing'
                 ? 'Preparing'
-                : displayStatus === 'running'
-                  ? 'Rendering'
+              : displayStatus === 'running'
+                  ? (liveRenderBlockIsActive ? 'Rendering' : 'Processing')
                   : displayStatus === 'finalizing'
                     ? 'Finalizing'
                     : null)
@@ -233,12 +238,27 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                           updatedAt={activeJob.updated_at}
                           persistenceKey={activeJob.id}
                           status={showIndeterminateProgress ? 'preparing' : displayStatus}
+                          state={
+                            displayStatus === 'preparing'
+                              ? 'preparing'
+                              : displayStatus === 'finalizing'
+                                ? 'finalizing'
+                                : displayStatus === 'running'
+                                  ? (liveRenderBlockIsActive ? 'running' : 'processing')
+                                  : (displayStatus === 'error' ? 'failed' : displayStatus as any)
+                          }
                           label={displayStatus} 
                           predictive={true}
                           allowBackwardProgress={!isGroupedChapterJob}
                           checkpointMode={isGroupedChapterJob ? 'queue' : (isSegmentScopedJob(activeJob) ? 'segment' : 'default')}
                           evidenceWeightFraction={isGroupedChapterJob ? evidenceWeightFraction : 1}
-                          transitionTickCount={isGroupedChapterJob ? 12 : 3}
+                          transitionTickCount={
+                            isGroupedChapterJob
+                                ? 12
+                                : isSegmentScopedJob(activeJob)
+                                ? 3
+                                : 8
+                          }
                           backwardTransitionTickCount={2}
                           tickMs={250}
                         />

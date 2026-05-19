@@ -290,9 +290,15 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
   const activeChapter = editingChapterId ? chapters.find(c => c.id === editingChapterId) || null : null;
 
   // Derive editor state
-  const matchingChapterJobs = Object.values(jobs).filter(j =>
+  const rawMatchingJobs = Object.values(jobs).filter(j =>
     j.project_id === effectiveProjectId &&
     (j.chapter_id === editingChapterId || j.chapter_file?.includes(editingChapterId || 'none'))
+  );
+  const rawChapterRenderJobs = rawMatchingJobs.filter(isChapterScopedJob);
+  const newestChapterScopedJob = pickRelevantJob(rawChapterRenderJobs, true);
+
+  const matchingChapterJobs = rawMatchingJobs.filter(j =>
+    !isChapterScopedJob(j) || (newestChapterScopedJob && j.id === newestChapterScopedJob.id)
   );
   const chapterRenderJobs = matchingChapterJobs.filter(isChapterScopedJob);
   const includeDoneForEditor = !!activeChapter

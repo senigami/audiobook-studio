@@ -45,6 +45,17 @@ export function pickRelevantJob(candidates: Job[], includeDone = false): Job | u
   return [...candidates]
     .filter(job => includeDone || ['queued', 'preparing', 'running', 'finalizing'].includes(job.status))
     .sort((a, b) => {
+      const aIsTerminal = ['done', 'failed', 'cancelled', 'error'].includes(a.status);
+      const bIsTerminal = ['done', 'failed', 'cancelled', 'error'].includes(b.status);
+
+      if (aIsTerminal !== bIsTerminal) {
+        const aTime = a.created_at ?? a.started_at ?? 0;
+        const bTime = b.created_at ?? b.started_at ?? 0;
+        if (aTime !== bTime) {
+          return bTime - aTime;
+        }
+      }
+
       const aRank = STATUS_RANK[a.status] ?? 0;
       const bRank = STATUS_RANK[b.status] ?? 0;
       if (aRank !== bRank) return bRank - aRank;

@@ -83,7 +83,7 @@ class TestOrchestratorProgressTransitions:
         assert statuses[0] == "queued"
         assert "preparing" in statuses
         assert "running" in statuses
-        assert "finalizing" in statuses
+        assert "finalizing" not in statuses
         assert statuses[-1] == "done"
 
     def test_running_event_includes_started_at(self, orchestrator, progress_service, make_task):

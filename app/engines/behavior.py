@@ -219,9 +219,7 @@ def uses_segment_orchestration(engine_id: str) -> bool:
     return has_behavior(engine_id, "segment_orchestration")
 
 
-def has_simulated_finalizing(engine_id: str) -> bool:
-    """Return whether an engine should show a simulated finalizing state in the UI."""
-    return has_behavior(engine_id, "simulated_finalizing")
+
 
 
 def get_text_chunk_limit(engine_id: str) -> int:
