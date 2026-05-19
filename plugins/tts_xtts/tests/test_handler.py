@@ -3,6 +3,7 @@ import pytest
 import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+from plugins.tts_xtts.plugin.studio import handler as xtts_handler
 from plugins.tts_xtts.plugin.studio.handler import handle_xtts_job, _group_job_progress
 from app.db.models import Job
 
@@ -58,6 +59,10 @@ def test_handle_xtts_standard_full(mock_job, mock_params):
          patch("app.db.update_segments_status_bulk"):
         handle_xtts_job(j=mock_job, **mock_params)
         assert mock_job.status == "running"
+
+
+def test_xtts_handler_exports_logger():
+    assert hasattr(xtts_handler, "logger")
 
 def test_handle_xtts_bake_mode(mock_job, mock_params):
     """Test chapter baking path."""

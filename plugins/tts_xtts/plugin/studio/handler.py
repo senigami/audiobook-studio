@@ -1,4 +1,5 @@
 from __future__ import annotations
+import logging
 import time
 from pathlib import Path
 
@@ -11,6 +12,8 @@ from .bake import handle_xtts_bake
 from .segments import handle_xtts_segments
 from .standard_handler import handle_xtts_standard
 from .helpers import _group_job_progress
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "handle_xtts_job",

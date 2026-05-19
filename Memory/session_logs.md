@@ -1127,3 +1127,9 @@
 - Moved websocket debug recording into the consuming listener path so the debug buffer reflects handled messages instead of raw socket transport frames.
 - Kept `useWebSocket` transport-only and continued threading raw payload text to listeners for traceability.
 - Verified the frontend websocket capture, listener logging, queue sync, and hydration tests pass after the logging shift.
+
+# 2026-05-19 - XTTS Handler Logger Restored
+
+- Added a module-level logger to `plugins/tts_xtts/plugin/studio/handler.py` so the standard/bake/segments handlers can log bridge exceptions without crashing the job.
+- Added a regression test asserting the xtts studio handler facade exports `logger`.
+- Verified the targeted `plugins/tts_xtts/tests/test_handler.py` and `plugins/tts_xtts/tests/test_jobs_extended.py` suite passes after the fix.
