@@ -360,3 +360,39 @@ def test_update_job_with_force_broadcast_emits_chapter_and_queue_updates(monkeyp
     assert len(broadcasts) > 0
     assert any(b[0] == "chapter_updated" for b in broadcasts)
     assert any(b[0] == "queue_updated" for b in broadcasts)
+
+
+def test_update_job_propagates_source(monkeypatch):
+    broadcasts = []
+
+    def dummy_broadcast(job_id, updates, job_snapshot=None):
+        broadcasts.append((job_id, dict(updates), job_snapshot))
+
+    import app.db.state as state_module
+    monkeypatch.setattr(state_module, "_JOB_LISTENERS", [dummy_broadcast])
+    monkeypatch.setattr(state_module, "_LISTENER_SNAPSHOT_SUPPORT", {dummy_broadcast: True})
+    monkeypatch.setattr("app.db.update_queue_item", lambda *args, **kwargs: None)
+
+    state_mock = {"jobs": {
+        "job-source-test": {
+            "id": "job-source-test",
+            "status": "running",
+            "progress": 0.5,
+            "engine": "xtts"
+        }
+    }}
+    monkeypatch.setattr("app.db.state_jobs._load_state_no_lock", lambda: state_mock)
+    monkeypatch.setattr("app.db.state_jobs._atomic_write_text", lambda *args, **kwargs: None)
+
+    from app.db.state_jobs import update_job
+
+    # 1. Test explicit source
+    update_job("job-source-test", progress=0.6, source="explicit_test_caller")
+    assert len(broadcasts) == 1
+    assert broadcasts[0][1].get("source") == "explicit_test_caller"
+
+    # 2. Test auto-resolved source
+    update_job("job-source-test", progress=0.7)
+    assert len(broadcasts) == 2
+    assert broadcasts[1][1].get("source") == "tests.api.test_websocket_broadcast.test_update_job_propagates_source"
+

@@ -30,16 +30,20 @@ FORBIDDEN_DIRECT_IMPORTS = (
 )
 
 
-def _resolve_source(default: str) -> str:
+def _resolve_source(default: str, depth: int = 1) -> str:
     try:
-        frame = sys._getframe(2)
+        while True:
+            frame = sys._getframe(depth)
+            module = frame.f_globals.get("__name__", "")
+            function = frame.f_code.co_name
+            if module == "app.orchestration.progress.service" or function in ("publish", "_build_progress_payload"):
+                depth += 1
+                continue
+            if module and function:
+                return f"{module}.{function}"
+            depth += 1
     except (AttributeError, ValueError):
         return default
-    module = frame.f_globals.get("__name__", "")
-    function = frame.f_code.co_name
-    if module and function:
-        return f"{module}.{function}"
-    return default
 
 
 class ProgressService:

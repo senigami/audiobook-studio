@@ -179,3 +179,36 @@ def test_eta_projection_uses_clamped_progress():
     assert state["jobs"]["test_eta_clamp"]["eta_seconds"] == 26
 
 
+def test_active_segment_progress_forced_to_zero_when_id_is_none():
+    job = Job(
+        id="test_active_seg",
+        engine="xtts",
+        chapter_file="c1.txt",
+        status="running",
+        progress=0.0,
+        active_segment_id=None,
+        active_segment_progress=0.0,
+        created_at=time.time()
+    )
+    put_job(job)
+
+    # 1. Update job with progress but with id=None
+    update_job("test_active_seg", active_segment_id=None, active_segment_progress=0.5)
+    state = load_state()
+    assert state["jobs"]["test_active_seg"]["active_segment_id"] is None
+    assert state["jobs"]["test_active_seg"]["active_segment_progress"] == 0.0
+
+    # 2. Update job with progress and id=some-id, should be allowed
+    update_job("test_active_seg", active_segment_id="some-id", active_segment_progress=0.7)
+    state = load_state()
+    assert state["jobs"]["test_active_seg"]["active_segment_id"] == "some-id"
+    assert state["jobs"]["test_active_seg"]["active_segment_progress"] == 0.7
+
+    # 3. Update job setting id to None, progress should be reset
+    update_job("test_active_seg", active_segment_id=None)
+    state = load_state()
+    assert state["jobs"]["test_active_seg"]["active_segment_id"] is None
+    assert state["jobs"]["test_active_seg"]["active_segment_progress"] == 0.0
+
+
+

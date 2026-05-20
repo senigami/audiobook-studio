@@ -196,12 +196,16 @@ def broadcast_pause_state(paused: bool, source: str | None = None):
 
 def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None = None, source: str | None = None):
     skip_studio_job_event = False
+    source_from_updates = None
     if updates:
         skip_studio_job_event = updates.pop("skip_studio_job_event", False)
+        source_from_updates = updates.pop("source", None)
 
+    source = source or source_from_updates
     merged = dict(current_job or {})
     merged.update(updates or {})
     merged.pop("skip_studio_job_event", None)
+    merged.pop("source", None)
     classification = _classify_job_payload(merged)
     merged["classification"] = classification
 

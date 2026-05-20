@@ -330,7 +330,7 @@ class OrchestratorHelpersMixin:
                         started_at=timing["render_started_at"],
                         message="Synthesizing...",
                         active_segment_id=active_seg_id[0],
-                        active_segment_progress=raw_progress if total_weight > 0 else 0.0,
+                        active_segment_progress=raw_progress if (total_weight > 0 and active_seg_id[0] is not None) else 0.0,
                     )
                 except Exception:
                     pass

@@ -26,6 +26,23 @@ ETA_PROJECTION_SKIP_REASONS = {
 }
 
 
+def _resolve_caller(depth: int = 1) -> str | None:
+    try:
+        import sys
+        while True:
+            frame = sys._getframe(depth)
+            module = frame.f_globals.get("__name__", "")
+            function = frame.f_code.co_name
+            if module == "app.db.state_jobs" or function == "update_job":
+                depth += 1
+                continue
+            if module and function:
+                return f"{module}.{function}"
+            depth += 1
+    except (AttributeError, ValueError):
+        return None
+
+
 def get_jobs() -> Dict[str, Job]:
     with _STATE_LOCK:
         state = _load_state_no_lock()
@@ -58,8 +75,10 @@ def put_job(job: Job) -> None:
         pass
 
 
-def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
+def update_job(job_id: str, force_broadcast: bool = False, source: str | None = None, **updates) -> None:
     skip_studio_job_event = updates.pop("skip_studio_job_event", False)
+    if source is None:
+        source = _resolve_caller()
     if "status" in updates and updates["status"] == "finalizing":
         updates["status"] = "running"
     with _STATE_LOCK:
@@ -68,6 +87,15 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
         j = jobs.get(job_id)
         if not j:
             return
+
+        # Normalize segment and batch progress when their respective IDs are None
+        effective_active_seg_id = updates.get("active_segment_id") if "active_segment_id" in updates else j.get("active_segment_id")
+        if effective_active_seg_id is None:
+            updates["active_segment_progress"] = 0.0
+
+        effective_active_batch_id = updates.get("active_render_batch_id") if "active_render_batch_id" in updates else j.get("active_render_batch_id")
+        if effective_active_batch_id is None:
+            updates["active_render_batch_progress"] = None
 
         current_status = j.get("status")
         terminal_reset = current_status in ("done", "failed", "cancelled") and updates.get("status") in ("queued", "preparing")
@@ -313,6 +341,8 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
         broadcast_dict = {k: v for k, v in updates.items() if k != "log"}
         if skip_studio_job_event:
             broadcast_dict["skip_studio_job_event"] = True
+        if source is not None:
+            broadcast_dict["source"] = source
         if auto_updated_at is not None:
             broadcast_dict.setdefault("updated_at", auto_updated_at)
         if broadcast_dict or force_broadcast:
