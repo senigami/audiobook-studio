@@ -129,7 +129,7 @@ export function buildVoiceOptions(
                 label = `${label} (${statuses.join(', ')})`;
             }
 
-            const finalEngineId = engineId || getDefaultEngineId(engines);
+            const finalEngineId = engineId || getDefaultEngineId(engines) || (engines && engines.length > 0 ? engines[0].engine_id : '');
             const matchingEngine = engines?.find(e => e.engine_id === finalEngineId);
             let disabledReason = '';
             if (!selectable) {
@@ -164,7 +164,7 @@ export function buildVoiceOptions(
             }
 
             const engineId = getVoiceProfileEngine(profile);
-            const finalEngineId = engineId || getDefaultEngineId(engines);
+            const finalEngineId = engineId || getDefaultEngineId(engines) || (engines && engines.length > 0 ? engines[0].engine_id : '');
             const matchingEngine = engines?.find(e => e.engine_id === finalEngineId);
             let disabledReason = '';
             if (!selectable) {

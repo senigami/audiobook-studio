@@ -199,7 +199,7 @@ export const CharacterSidebar: React.FC<CharacterSidebarProps> = ({
                                         const defaultProfile = resolveDefaultProfileName(char);
                                         const profileObj = speakerProfiles.find(p => p.name === defaultProfile);
                                         if (profileObj && !isSidebarProfileSelectable(profileObj)) {
-                                            const engineId = getVoiceProfileEngine(profileObj) || getDefaultEngineId(engines);
+                                            const engineId = getVoiceProfileEngine(profileObj) || getDefaultEngineId(engines) || (engines.length > 0 ? engines[0].engine_id : '');
                                             const engine = engines.find(e => e.engine_id === engineId);
                                             const engineLabel = engine?.display_name || formatVoiceEngineLabel(engineId);
                                             if (!engine) return `Engine ${engineId} not found`;
@@ -253,7 +253,7 @@ export const CharacterSidebar: React.FC<CharacterSidebarProps> = ({
                             {isExpanded && variants.map(variant => {
                                 const isVariantSelected = selectedCharacterId === char.id && selectedProfileName === variant.name;
                                 const selectable = isSidebarProfileSelectable(variant);
-                                const engineId = getVoiceProfileEngine(variant) || getDefaultEngineId(engines);
+                                const engineId = getVoiceProfileEngine(variant) || getDefaultEngineId(engines) || (engines.length > 0 ? engines[0].engine_id : '');
                                 const engineLabel = formatVoiceEngineLabel(engineId);
                                 const engine = engines.find(e => e.engine_id === engineId);
                                 let disabledReason = '';

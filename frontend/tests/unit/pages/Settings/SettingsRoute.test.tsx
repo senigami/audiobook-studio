@@ -18,6 +18,7 @@ vi.mock('@/api', () => ({
     installPlugin: vi.fn(),
     resetRenderStats: vi.fn(),
     restartTtsServer: vi.fn(),
+    importEnginePlugin: vi.fn(),
   },
 }));
 
@@ -233,23 +234,31 @@ describe('SettingsRoute', () => {
     await waitFor(() => expect(mockVerify).toHaveBeenCalledWith('xtts-local'));
   });
 
-  it('shows installation instructions when Install Plugin is clicked', async () => {
-    const mockInstall = vi.spyOn(api, 'installPlugin').mockResolvedValue({ 
-      ok: false, 
-      message: 'Place your plugin folder in the plugins/ directory.' 
+  it('triggers file input selection and handles zip import', async () => {
+    const mockImport = vi.spyOn(api, 'importEnginePlugin').mockResolvedValue({
+      ok: true,
+      engine_id: 'new-plugin'
     });
-    
+
     render(
       <MemoryRouter initialEntries={['/settings/engines']}>
         <SettingsRoute {...defaultProps} />
       </MemoryRouter>
     );
-    
-    const installBtn = await screen.findByText(/Install Plugin/i);
-    fireEvent.click(installBtn);
-    
-    expect(mockInstall).toHaveBeenCalled();
-    expect(await screen.findByText(/Place your plugin folder in the plugins\/ directory./i)).toBeTruthy();
+
+    const importBtn = await screen.findByText(/Import Plugin/i);
+    expect(importBtn).toBeTruthy();
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    expect(fileInput).toBeTruthy();
+
+    const file = new File(['test'], 'plugin.zip', { type: 'application/zip' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(mockImport).toHaveBeenCalledWith(file);
+      expect(defaultProps.onShowNotification).toHaveBeenCalledWith('Plugin new-plugin imported successfully.');
+    });
   });
 
   it('renders deep-linked engine settings cards and schema-driven controls', async () => {

@@ -157,7 +157,8 @@ describe('EngineCard Install Deps', () => {
 
     expect(screen.queryByText('Setup required')).not.toBeInTheDocument();
     expect(screen.queryByText(/Voxtral requires/i)).not.toBeInTheDocument();
-    expect(screen.getAllByText('UNVERIFIED')).toHaveLength(2);
+    expect(screen.getByText('UNVERIFIED')).toBeInTheDocument();
+    expect(screen.getByText('NOT READY')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Verify/i })).toBeInTheDocument();
   });
 });

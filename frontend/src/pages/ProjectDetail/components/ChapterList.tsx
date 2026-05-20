@@ -73,7 +73,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
         return bTime - aTime;
       });
     return ranked[0] || null;
-  }, [jobs, projectId]);
+  }, [jobs, projectId, chapters]);
 
   if (chapters.length === 0) {
     return (

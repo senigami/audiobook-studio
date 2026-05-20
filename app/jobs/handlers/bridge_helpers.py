@@ -24,6 +24,7 @@ def generate_via_bridge(
     model: str | None = None,
     safe_mode: bool = True,
     script: list[dict[str, Any]] | None = None,
+    task_id: str | None = None,
     **kwargs,
 ) -> int:
     """Standardized bridge call for non-orchestrated job handlers.
@@ -53,6 +54,8 @@ def generate_via_bridge(
         request["model"] = model
     if voice_profile_dir:
         request["voice_profile_dir"] = str(voice_profile_dir)
+    if task_id:
+        request["task_id"] = task_id
 
     if kwargs:
         request.update(kwargs)

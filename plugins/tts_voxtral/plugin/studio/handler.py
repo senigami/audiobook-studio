@@ -121,6 +121,7 @@ def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
             voice_asset_id=spk.get("voice_asset_id"),
             model=spk.get("model"),
             reference_sample=spk.get("reference_sample"),
+            task_id=jid,
         )
         logger.info(
             "[%s-debug %s] generate_via_bridge returned job=%s rc=%s wav_exists=%s",

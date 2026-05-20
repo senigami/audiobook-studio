@@ -145,6 +145,7 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
                 cancel_check=cancel_check,
                 speed=speed,
                 script=full_script,
+                task_id=jid,
             )
         except EngineBridgeError as exc:
             logger = xtts_facade.logger
@@ -155,7 +156,7 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
 
     # Final Stitch
     if cancel_check(): return
-    xtts_facade.update_job(jid, status="finalizing", progress=0.91, **_group_display_updates(total_missing_groups, total_missing_groups, 0.0, limit=0.9, group_weights=missing_group_weights if missing_groups else []))
+    xtts_facade.update_job(jid, status="running", progress=0.91, **_group_display_updates(total_missing_groups, total_missing_groups, 0.0, limit=0.9, group_weights=missing_group_weights if missing_groups else []))
     fresh_segs = get_chapter_segments(j.chapter_id)
     segment_paths = []
     last_path = None

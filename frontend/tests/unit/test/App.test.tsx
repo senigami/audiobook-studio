@@ -5,7 +5,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest'
 
 let wsConnected = true;
 vi.mock('@/hooks/useWebSocket', () => ({
-  useWebSocket: () => ({ connected: wsConnected })
+  useWebSocket: () => ({ connected: wsConnected, sendMessage: vi.fn() })
 }))
 
 describe('App', () => {

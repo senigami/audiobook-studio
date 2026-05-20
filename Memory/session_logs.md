@@ -1,3 +1,44 @@
+# 2026-05-20 - Fixed Subprocess Stream Buffering Delay (Unbuffered Readline)
+
+- Switched `TtsServerWatchdog._drain_stream` to use a `readline()` generator loop if the stream has a `readline` method.
+- This bypasses Python's internal read-ahead block-buffering for `TextIOWrapper` iteration when stdout/stderr is read from subprocesses, resolving the delay in receiving logs and job progress/status updates.
+- Added a unit test `test_watchdog_uses_readline_to_avoid_buffering` in `test_watchdog_progress_logic.py` asserting that `readline` is called instead of iteration when present.
+- Confirmed that all 840 backend unit tests pass successfully.
+
+# 2026-05-20 - Restored Working Segment Progress and Highlighting Logic (Commit 3e44973)
+
+- Reverted `ChapterEditorPage.tsx` and `ChapterHeader.tsx` back to commit `3e44973`'s simple, working behavior to address user feedback.
+- Re-established segment-scoped composite keys (`${job.id}:${active_segment_id}`) in `PredictiveProgressBar` to trigger clean remounts on segment transitions.
+- Restored `label="Segment Progress"` and verified that progress is tracked and displayed per segment, not overall chapter.
+- Aligned text highlighting to directly consume `liveBarSegmentProgress` without complex over-engineered scaling or local interval calculations.
+- Confirmed all 82 frontend unit test files (510 tests total) pass successfully.
+
+# 2026-05-20 - Multi-segment Batch Progress Highlighting Stabilized
+
+- Updated `chapterRenderRenderingBatchProgressById` in `ChapterEditorPage.tsx` to handle multi-segment render batches correctly.
+- If the active job defines `active_render_batch_progress`, the UI uses it directly.
+- Otherwise, it dynamically calculates the overall batch progress using segment text lengths to distribute segment-level progress across the entire multi-segment batch.
+- Added a new integration test case `calculates overall batch progress across multiple segments in a batch` to `ChapterEditorPage.test.tsx` to verify correct character-based batch progress calculation.
+- Verified that all 82 frontend test files (511 tests total) and all 780 backend pytest tests pass successfully with zero failures.
+
+# 2026-05-20 - Frontend Unit Tests Repaired and Passing
+
+- Fixed the `useWebSocket` mock in `App.test.tsx` by returning `sendMessage` to prevent `sendMessage is not a function` errors.
+- Corrected the `UNVERIFIED` and `NOT READY` badge count assertion in `EngineCardInstall.test.tsx` to align with the canonical status mapping.
+- Updated `ChapterEditor_Assets.test.tsx` to click `Export Audio Options` before selecting WAV/MP3 exports, and to target `Select Default Voice Profile for this chapter` instead of the outdated title.
+- Added default engine fallback to tooltips and dropdown labeling in `CharacterSidebar.tsx` and `voiceProfiles.ts` when no enabled ready engine exists, resolving tooltip mismatches in `CharacterSidebar.test.tsx`.
+- Updated zip import test in `SettingsRoute.test.tsx` to test the new file import flow and mock `importEnginePlugin`.
+- Verified all 82 frontend test files (510 tests total) pass successfully with zero failures.
+
+# 2026-05-20 - Chapter Editor Stable Overall Progress Bar and Local Segment Derivation Fixed
+
+- Resolved the progress bar "blips" and reset/remount issues by making the header `PredictiveProgressBar` use a stable job-level key and overall chapter-level progress.
+- Decoupled the script editor's active segment progress animation from the header bar by computing active segment progress locally in `ChapterEditorPage.tsx` via `deriveActiveBatchProgress` and an interval timer.
+- Simplified `ChapterHeader.tsx`'s hook `useChapterStatus` to calculate `liveSegmentProgressValue` as the overall job progress.
+- Removed the 4-second completion delay for finished jobs in `ChapterList.tsx` (`pickActiveJob` helper), allowing done jobs to immediately reveal the audio controls.
+- Modified tests in `ChapterHeader.test.tsx`, `ChapterHeaderProgressContract.test.tsx`, and `ChapterList.test.tsx` to assert the stable overall chapter progress behavior, the absence of segment-based remounts, and the immediate replacement of done jobs with audio player controls.
+- Verified all 27 frontend tests across `ChapterHeader`, `ChapterHeaderProgressContract`, and `PredictiveProgressBarRendering` pass successfully, along with all 14 tests in `ChapterList.test.tsx`.
+
 # 2026-05-18 - Chapter Editor Progress Bar Regression Fixed End-To-End
 
 - Modified `PredictiveProgressBar.tsx` to smoothly animate `width` using actual `${localProgress * 100}%` under `'finalizing'` status instead of hardcoding to `'100%'` when not indeterminate.
@@ -1152,3 +1193,17 @@
 - Increased the synthesis HTTP client read timeout (`_READ_TIMEOUT`) from 60 seconds to 300 seconds to prevent slow synthesis operations (such as long chapters) from timing out and failing jobs at the end of the run.
 - Added regression tests `test_log_listener_progress_is_monotonic()` in `tests/orchestration/test_watchdog_progress_logic.py`, `test_eta_projection_uses_clamped_progress()` in `tests/db/test_state_rules.py`, and `test_synthesize_uses_large_read_timeout()` in `tests/engines/test_tts_client.py`.
 - Verified that all 836 tests pass successfully.
+
+# 2026-05-20 - Chapter List Done Job UI Persistence Added
+
+- Added a 4-second persistence delay for completed jobs in `ChapterList.tsx` to let the progress bar finish its 100% animation and show the completed state indicators (green checkmark, Done label) before unmounting and revealing the audio player.
+- Checked if the chapter has been explicitly requeued (`audio_status === 'processing'`) to bypass the persistence window so that new jobs immediately render the fresh queue/preparing state.
+- Added new Vitest unit tests in `ChapterList.test.tsx` verifying the 4-second completion state retention and eventual unmount behavior.
+- Successfully verified that all 15 Vitest tests for the Chapter List pass.
+
+# 2026-05-20 - Passed task_id to generate_via_bridge to Eliminate Progress Race Conditions
+
+- Updated the signature of `generate_via_bridge` in `app/jobs/handlers/bridge_helpers.py` to explicitly accept `task_id` and added it to the synthesis request payload.
+- Updated job handlers across XTTS, Voxtral, and Synthesis Mixed plugins to pass their currently executing job's `jid`/`task_id` into `generate_via_bridge`.
+- Added unit test `test_generate_via_bridge_propagates_task_id` in `tests/bridge/test_bridge_helpers.py` to verify that `task_id` is propagated correctly.
+- Confirmed all 841 backend tests passed successfully.

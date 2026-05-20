@@ -72,7 +72,7 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
     if j.make_mp3:
         update_job(
             jid,
-            status="finalizing",
+            status="running",
             progress=0.99,
             completed_render_groups=j.render_group_count if getattr(j, "render_group_count", 0) else 0,
             render_group_count=getattr(j, "render_group_count", 0),

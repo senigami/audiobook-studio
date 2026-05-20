@@ -330,4 +330,21 @@ describe('ChapterList', () => {
     const spinner = container.querySelector('.animate-spin');
     expect(spinner).toBeTruthy();
   });
+
+  it('immediately hides the done job and renders the audio player without delay', () => {
+    const liveJob = {
+      id: 'job-done-recent',
+      project_id: 'proj-1',
+      chapter_id: 'chap-123',
+      status: 'done',
+      progress: 1,
+      finished_at: Date.now() / 1000 - 1,
+    } as any;
+
+    const { container } = render(<ChapterList {...defaultProps} jobs={{ [liveJob.id]: liveJob }} chapters={[{ ...mockChapters[0], has_wav: true, audio_status: 'done' } as any]} />);
+
+    expect(screen.queryByTestId('progress-bar')).toBeNull();
+    const audioTags = container.querySelectorAll('audio');
+    expect(audioTags).toHaveLength(1);
+  });
 });

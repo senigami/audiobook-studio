@@ -100,7 +100,7 @@ def _chunk_output_path(pdir: Path, chunk: dict) -> Path:
     return sdir / f"{chunk['segments'][0]['id']}.wav"
 
 
-def _render_segment(engine_id: str, text: str, profile_name: str | None, out_wav: Path, safe_mode: bool, on_output, cancel_check) -> int:
+def _render_segment(engine_id: str, text: str, profile_name: str | None, out_wav: Path, safe_mode: bool, on_output, cancel_check, task_id: str | None = None) -> int:
     if not profile_name:
         on_output(f"[error] No profile is assigned for this segment ({engine_id}).\n")
         return 1
@@ -123,6 +123,7 @@ def _render_segment(engine_id: str, text: str, profile_name: str | None, out_wav
         safe_mode=safe_mode,
         on_output=on_output,
         cancel_check=cancel_check,
+        task_id=task_id,
         **settings
     )
 
@@ -308,7 +309,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
                     ),
                 )
 
-            rc = _render_segment(engine, chunk_text, profile_name, seg_out, j.safe_mode, engine_on_output, cancel_check)
+            rc = _render_segment(engine, chunk_text, profile_name, seg_out, j.safe_mode, engine_on_output, cancel_check, task_id=jid)
         except EngineBridgeError as exc:
             update_job(jid, status="failed", finished_at=time.time(), progress=1.0, error=str(exc))
             return "failed", str(exc)

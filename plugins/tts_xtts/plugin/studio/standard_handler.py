@@ -205,6 +205,7 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                     cancel_check=cancel_check,
                     speed=speed,
                     script=script,
+                    task_id=jid,
                 )
             except EngineBridgeError as exc:
                 xtts_facade.logger.error("Bridge synthesis failed in xtts_standard: %s", exc)
@@ -214,7 +215,7 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                     scratch_wav.unlink()
 
             if rc == 0:
-                xtts_facade.update_job(jid, status="finalizing", progress=0.91,
+                xtts_facade.update_job(jid, status="running", progress=0.91,
                            completed_render_groups=total_groups, render_group_count=total_groups,
                            total_render_weight=total_weight, completed_render_weight=total_weight,
                            active_render_group_weight=0, grouped_progress=_RENDER_LIMIT)
@@ -248,6 +249,7 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                 cancel_check=cancel_check,
                 speed=speed,
                 safe_mode=j.safe_mode,
+                task_id=jid,
             )
     else:
         return generate_via_bridge(
@@ -259,4 +261,5 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
             cancel_check=cancel_check,
             speed=speed,
             safe_mode=j.safe_mode,
+            task_id=jid,
         )

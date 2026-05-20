@@ -148,6 +148,7 @@ def handle_xtts_segments(jid, j, start, on_output, cancel_check, default_sw, spe
             cancel_check=cancel_check,
             speed=speed,
             script=full_script,
+            task_id=jid,
         )
     except EngineBridgeError as exc:
         logger = xtts_facade.logger

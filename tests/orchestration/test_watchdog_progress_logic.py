@@ -294,3 +294,34 @@ def test_log_listener_progress_is_monotonic():
     progress_values = [p["progress"] for p in running_events]
     assert progress_values == [0.0, 0.0, 0.0, 0.225, 0.45, 0.45]
 
+
+def test_watchdog_uses_readline_to_avoid_buffering():
+    wd = TtsServerWatchdog()
+
+    class ReadlineStream:
+        def __init__(self, lines):
+            self.lines = list(lines)
+            self.readline_called = 0
+            self.iter_called = 0
+
+        def readline(self):
+            self.readline_called += 1
+            if self.lines:
+                return self.lines.pop(0)
+            return ""
+
+        def __iter__(self):
+            self.iter_called += 1
+            return iter(self.lines)
+
+        def close(self):
+            pass
+
+    stream = ReadlineStream(["line1\n", "line2\n"])
+    wd._drain_stream(None, "stdout", stream)
+
+    # We want it to have called readline, not __iter__
+    assert stream.readline_called > 0
+    assert stream.iter_called == 0
+
+

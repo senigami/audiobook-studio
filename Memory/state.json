@@ -1,17 +1,17 @@
 {
-  "snapshot_version": 84,
-  "updated_at": "2026-05-20T00:24:00Z",
+  "snapshot_version": 91,
+  "updated_at": "2026-05-20T14:40:00Z",
   "branch": "studio2/phase-12",
-  "current_task": "Fix XTTS ETA Volatility and Synthesis Timeout",
-  "status": "xtts_stabilized_and_timeout_fixed",
+  "current_task": "Pass task_id to generate_via_bridge to eliminate progress race conditions",
+  "status": "task_id_propagation_to_bridge_implemented",
   "last_committed_milestone": {
-    "title": "XTTS progress/ETA volatility stabilized and synthesis timeout increased",
+    "title": "Propagated task_id through generate_via_bridge to prevent progress race conditions",
     "commit": "pending",
     "notes": [
-      "Identified that segment-level progress regressions in standard_handler caused severe backend ETA calculation fluctuations; enforced progress monotonicity in OrchestratorHelpersMixin._get_grouped_progress using a max_progress clamp.",
-      "Fixed update_job ETA projection in state_jobs.py to read progress from the clamped, database-aligned state dict (j) instead of the raw updates payload.",
-      "Increased the synthesis HTTP client read timeout (_READ_TIMEOUT) from 60 seconds to 300 seconds to prevent slow synthesis operations from timing out and failing jobs.",
-      "Added regression tests in test_state_rules.py, test_watchdog_progress_logic.py, and test_tts_client.py."
+      "Added explicit task_id parameter to generate_via_bridge in app/jobs/handlers/bridge_helpers.py and propagated it to the request payload.",
+      "Updated call sites in standard_handler.py, bake.py, segments.py, Voxtral handler.py, and mixed/handler.py to pass jid/task_id.",
+      "Added unit test `test_generate_via_bridge_propagates_task_id` in `tests/bridge/test_bridge_helpers.py` verifying task_id propagation.",
+      "Confirmed all 841 backend unit tests pass successfully."
     ]
   },
   "active_constraints": [
@@ -60,7 +60,7 @@
     "Triage Vite websocket ECONNRESET and large-book project/chapter load timing.",
     "Composite renaming (mixed.py -> composite.py) is explicitly deferred to Phase 13.",
     "The TTS Server synth endpoint now allows synthesis while verification is still pending, but still blocks failed verification and setup errors.",
-    "Chapter Editor progress bar key is now a segment-scoped composite key so active segment transitions trigger clean React remounts and prevent bar stuckness. checkpointMode now correctly resolves to 'queue' for grouped chapter render jobs.",
+    "Chapter Editor progress bar key is reverted to the segment-level key (`${job.id}:${active_segment_id}`) of commit 3e44973. This ensures the progress bar remounts per segment and progress/highlighting updates are aligned perfectly on a per-segment basis.",
     "Chapter Editor progress bar now animates smoothly under finalizing status instead of hardcoding to 100% width. A 1500ms terminal job bridging window was added to useChapterStatus to let the green 100% Complete bar render fully before clean unmounting."
     ,"Global Queue now filters only true segment-scoped overlay jobs; grouped chapter jobs with active_segment_id stay visible so overall chapter progress does not disappear once rendering starts."
   ],
@@ -80,8 +80,8 @@
     "Prepare the voice icon and tagging implementation to improve large-library usability."
   ],
   "verification": {
-    "latest_backend_focus": "2026-05-20: `./venv/bin/pytest` fully passed (791 passed) after adding monotonic progress logic to stabilize XTTS ETA projections; ruff check passed.",
-    "latest_frontend_focus": "2026-05-18: `cd frontend && npx vitest run tests/unit/pages/ChapterEditor/components/ChapterHeader.test.tsx tests/unit/pages/ChapterEditor/components/ChapterHeaderProgressContract.test.tsx tests/unit/components/PredictiveProgressBarLifecycle.test.tsx tests/unit/components/PredictiveProgressBarTiming.test.tsx tests/unit/components/PredictiveProgressBarTransitions.test.tsx` and `cd frontend && npm run build` passed after fixing the progress bar segment transition reset, checkpointMode, finalizing width rendering, and done bridging window.",
+    "latest_backend_focus": "2026-05-20: `./venv/bin/pytest` fully passed (841 passed) after passing task_id to generate_via_bridge and adding test_bridge_helpers.py; ruff check passed.",
+    "latest_frontend_focus": "2026-05-20: Reverted progress bar and text highlighting in the chapter editor back to the working behavior of commit 3e44973; all 82 frontend test files (510 tests total) are passing.",
     "latest_queue_focus": "2026-05-18: `frontend/src/utils/jobSelection.ts` now treats `active_segment_id` as chapter-render progress rather than segment scope, keeping grouped chapter jobs visible in the main queue while still hiding true segment jobs.",
     "latest_websocket_focus": "2026-05-19: websocket payloads still carry source and classification, and the frontend debug ring buffer remains listener-owned for handled messages.",
     "latest_lint_focus": "2026-05-18: `cd frontend && npm run lint` and `git diff --check` passed; ESLint kept the existing fast-refresh warnings only.",

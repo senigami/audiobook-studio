@@ -92,12 +92,14 @@ describe('ChapterEditor - Assets & Voices', () => {
 
     await waitFor(() => screen.findByDisplayValue('Test Chapter'));
 
-    fireEvent.click(screen.getByTitle('Export WAV'));
+    fireEvent.click(screen.getByTitle('Export Audio Options'));
+    fireEvent.click(screen.getByText('Export WAV'));
     await waitFor(() => {
       expect(api.exportChapterAudio).toHaveBeenCalledWith(mockChapterId, 'wav');
     });
 
-    fireEvent.click(screen.getByTitle('Export MP3'));
+    fireEvent.click(screen.getByTitle('Export Audio Options'));
+    fireEvent.click(screen.getByText('Export MP3'));
     await waitFor(() => {
       expect(api.exportChapterAudio).toHaveBeenCalledWith(mockChapterId, 'mp3');
     });
@@ -120,7 +122,7 @@ describe('ChapterEditor - Assets & Voices', () => {
     );
 
     await waitFor(() => screen.findByDisplayValue('Test Chapter'));
-    const voiceSelect = screen.getByTitle('Select Voice Profile for this chapter');
+    const voiceSelect = screen.getByTitle('Select Default Voice Profile for this chapter');
     fireEvent.change(voiceSelect, { target: { value: '' } });
     fireEvent.click(screen.getByTitle('Queue Chapter'));
 
@@ -142,7 +144,7 @@ describe('ChapterEditor - Assets & Voices', () => {
     );
 
     await waitFor(() => screen.findByDisplayValue('Test Chapter'));
-    const voiceSelect = screen.getByTitle('Select Voice Profile for this chapter');
+    const voiceSelect = screen.getByTitle('Select Default Voice Profile for this chapter');
     fireEvent.change(voiceSelect, { target: { value: 'Profile 1' } });
 
     await waitFor(() => {
@@ -165,7 +167,7 @@ describe('ChapterEditor - Assets & Voices', () => {
     );
 
     await waitFor(() => screen.findByDisplayValue('Test Chapter'));
-    const voiceSelect = screen.getByTitle('Select Voice Profile for this chapter') as HTMLSelectElement;
+    const voiceSelect = screen.getByTitle('Select Default Voice Profile for this chapter') as HTMLSelectElement;
     expect(voiceSelect.value).toBe('Profile 1');
   });
 });
