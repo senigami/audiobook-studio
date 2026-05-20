@@ -44,6 +44,8 @@ def put_job(job: Job) -> None:
     with _STATE_LOCK:
         state = _load_state_no_lock()
         state.setdefault("jobs", {})
+        if job.status == "finalizing":
+            job.status = "running"
         if job.updated_at is None:
             job.updated_at = job.created_at
         state["jobs"][job.id] = asdict(job)
@@ -58,6 +60,8 @@ def put_job(job: Job) -> None:
 
 def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
     skip_studio_job_event = updates.pop("skip_studio_job_event", False)
+    if "status" in updates and updates["status"] == "finalizing":
+        updates["status"] = "running"
     with _STATE_LOCK:
         state = _load_state_no_lock()
         jobs = state.setdefault("jobs", {})
@@ -130,7 +134,7 @@ def update_job(job_id: str, force_broadcast: bool = False, **updates) -> None:
         # 4. ETA basis/end_at hardening & Observed Progress Projection
         event_updated_at = float(updates.get("updated_at") or time.time())
         status = updates.get("status") or j.get("status")
-        progress = updates.get("progress") if "progress" in updates else j.get("progress")
+        progress = j.get("progress")
         started_at = updates.get("started_at") or j.get("started_at")
 
         # Explicit ETA check or Observed projection

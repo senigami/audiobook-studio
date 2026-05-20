@@ -185,6 +185,8 @@ class ProgressService:
             dict[str, object] | None: The emitted payload, or ``None`` when the
             update was coalesced as non-meaningful.
         """
+        if status == "finalizing":
+            status = "running"
         payload = self._build_progress_payload(
             job_id=job_id,
             scope=scope,

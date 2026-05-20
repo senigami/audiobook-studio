@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 # Default connect and read timeouts used for regular requests.
 _CONNECT_TIMEOUT = 5.0  # seconds
-_READ_TIMEOUT = 60.0  # seconds — synthesis can be slow
+_READ_TIMEOUT = 300.0  # seconds — synthesis can be slow
 _INSTALL_TIMEOUT = 900.0  # seconds — pip installs can be slow
 
 # Tighter timeout for heartbeat checks.

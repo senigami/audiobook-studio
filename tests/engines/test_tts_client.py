@@ -154,3 +154,8 @@ class TestTtsClientSynthesize:
                     text="Test",
                     output_path="/tmp/out.wav",
                 )
+
+    def test_synthesize_uses_large_read_timeout(self):
+        from app.engines.tts_client import _READ_TIMEOUT
+        assert _READ_TIMEOUT >= 300.0
+

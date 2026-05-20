@@ -61,19 +61,19 @@ def test_progress_regression_protection():
     assert state["jobs"]["test_regress"]["progress"] == 0.6
 
 def test_status_regression_protection():
-    job = Job(id="test_status_regress", engine="xtts", chapter_file="c1.txt", status="finalizing", progress=0.9, created_at=time.time())
+    job = Job(id="test_status_regress", engine="xtts", chapter_file="c1.txt", status="running", progress=0.9, created_at=time.time())
     put_job(job)
 
-    # status_priority = {"done": 5, "failed": 5, "cancelled": 5, "finalizing": 4, "running": 3, "preparing": 2, "queued": 1, None: 0}
-    # finalizing (4) -> running (3) should be blocked
-    update_job("test_status_regress", status="running")
+    # running (3) -> preparing (2) should be blocked
+    update_job("test_status_regress", status="preparing")
     state = load_state()
-    assert state["jobs"]["test_status_regress"]["status"] == "finalizing"
+    assert state["jobs"]["test_status_regress"]["status"] == "running"
 
-    # finalizing (4) -> done (5) should be allowed
+    # running (3) -> done (5) should be allowed
     update_job("test_status_regress", status="done")
     state = load_state()
     assert state["jobs"]["test_status_regress"]["status"] == "done"
+
 
 def test_reset_to_queued_from_terminal_status():
     # Rule: Allow regression only if explicitly resetting (e.g. back to queued from a terminal state)
@@ -129,3 +129,53 @@ def test_requeue_clean_slate():
     assert j["finished_at"] is None
     assert j["error"] is None
     assert j["warning_count"] == 0
+
+
+def test_finalizing_status_mapped_to_running():
+    job = Job(id="test_finalizing_mapping", engine="xtts", chapter_file="c1.txt", status="finalizing", progress=0.9, created_at=time.time())
+    put_job(job)
+
+    # After put_job, status should be remapped to running
+    state = load_state()
+    assert state["jobs"]["test_finalizing_mapping"]["status"] == "running"
+
+    # If we call update_job with finalizing, it should also map to running
+    update_job("test_finalizing_mapping", status="finalizing", progress=0.95)
+    state = load_state()
+    assert state["jobs"]["test_finalizing_mapping"]["status"] == "running"
+    assert state["jobs"]["test_finalizing_mapping"]["progress"] == 0.95
+
+
+def test_eta_projection_uses_clamped_progress():
+    started_at = 1000.0
+    job = Job(
+        id="test_eta_clamp",
+        engine="xtts",
+        chapter_file="c1.txt",
+        status="running",
+        progress=0.44,
+        started_at=started_at,
+        created_at=started_at,
+    )
+    put_job(job)
+
+    # 1. Update at t = 1010.0 with progress = 0.44
+    # Expected elapsed = 10.0
+    # Projected ETA = 10.0 * (1 - 0.44) / 0.44 = 12.72s -> 13s
+    update_job("test_eta_clamp", progress=0.44, updated_at=1010.0)
+    state = load_state()
+    assert state["jobs"]["test_eta_clamp"]["progress"] == 0.44
+    assert state["jobs"]["test_eta_clamp"]["eta_seconds"] == 13
+
+    # 2. Now update at t = 1020.0 with progress = 0.08 (which is a regression)
+    # Regression guard should clamp progress to 0.44.
+    # If the ETA projection uses the clamped progress (0.44):
+    # Expected elapsed = 20.0
+    # Projected ETA = 20.0 * (1 - 0.44) / 0.44 = 25.45s -> 26s.
+    # So we assert that the computed eta_seconds is 26, NOT 230!
+    update_job("test_eta_clamp", progress=0.08, updated_at=1020.0)
+    state = load_state()
+    assert state["jobs"]["test_eta_clamp"]["progress"] == 0.44
+    assert state["jobs"]["test_eta_clamp"]["eta_seconds"] == 26
+
+

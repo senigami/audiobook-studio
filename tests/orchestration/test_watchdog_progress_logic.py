@@ -239,3 +239,58 @@ def test_started_at_marker_driven():
     assert running_event["started_at"] is not None
     assert running_event["started_at"] > 0
     assert running_event["eta_seconds"] == 25
+
+
+class MockScriptedTask(StudioTask):
+    def __init__(self, bridge):
+        self.bridge = bridge
+        self.script = [
+            {"id": "segA", "text": "hello 1234567", "save_path": "a.wav"},
+            {"id": "segB", "text": "hello 1234567", "save_path": "b.wav"},
+        ]
+    def describe(self):
+        return TaskContext(task_id="script-1", task_type="synthesis")
+    @property
+    def prefers_local_execution(self) -> bool:
+        return True
+    def run(self):
+        self.bridge.synthesize({"text": "test"})
+        return TaskResult(status="completed")
+
+def test_log_listener_progress_is_monotonic():
+    bridge = MagicMock()
+    orc = MockOrchestrator(voice_bridge=bridge)
+    task = MockScriptedTask(bridge)
+    context = task.describe()
+    wd = TtsServerWatchdog()
+
+    with patch("app.engines.watchdog.get_watchdog", return_value=wd), \
+         patch("app.jobs.registry.JobHandlerRegistry.get_handler", return_value=None):
+        def side_effect(*args, **kwargs):
+            wd._drain_stream(None, "stdout", MockStream([
+                "[START_SYNTHESIS] script-1\n",
+                "[START_SEGMENT] segA\n",
+                "[PROGRESS] 50% script-1\n",
+                "[PROGRESS] 100% script-1\n",
+                "[PROGRESS] 20% script-1\n",
+            ]))
+            return {"status": "ok"}
+
+        bridge.synthesize.side_effect = side_effect
+        orc.progress_service = MagicMock()
+
+        orc._dispatch(task=task, context=context)
+
+    # Filter running events from orc.published
+    running_events = [p for p in orc.published if p.get("status") == "running" and p.get("progress") is not None]
+
+    # Progress values published should be:
+    # 1. 0.0 (from START_SYNTHESIS)
+    # 2. 0.0 (from START_SEGMENT)
+    # 3. 0.0 (from initial segment progress parsed)
+    # 4. 0.225 (from 50% segment progress)
+    # 5. 0.45 (from 100% segment progress)
+    # 6. 0.45 (remains at 0.45 because of monotonicity clamp, NOT 0.09)
+    progress_values = [p["progress"] for p in running_events]
+    assert progress_values == [0.0, 0.0, 0.0, 0.225, 0.45, 0.45]
+

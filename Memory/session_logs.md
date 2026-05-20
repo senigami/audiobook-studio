@@ -1128,8 +1128,27 @@
 - Kept `useWebSocket` transport-only and continued threading raw payload text to listeners for traceability.
 - Verified the frontend websocket capture, listener logging, queue sync, and hydration tests pass after the logging shift.
 
+
 # 2026-05-19 - XTTS Handler Logger Restored
 
 - Added a module-level logger to `plugins/tts_xtts/plugin/studio/handler.py` so the standard/bake/segments handlers can log bridge exceptions without crashing the job.
 - Added a regression test asserting the xtts studio handler facade exports `logger`.
 - Verified the targeted `plugins/tts_xtts/tests/test_handler.py` and `plugins/tts_xtts/tests/test_jobs_extended.py` suite passes after the fix.
+
+# 2026-05-19 - "finalizing" Job Status Eliminated
+
+- Implemented centralized remapping of the `"finalizing"` job status to `"running"` at the database boundary (`put_job` and `update_job` in `app/db/state_jobs.py`).
+- Added status remapping to `"running"` in orchestrator broadcasts (`OrchestratorHelpersMixin._publish` in `app/orchestration/scheduler/orchestrator_helpers.py`) and progress service publishing (`ProgressService.publish` in `app/orchestration/progress/service.py`).
+- Fixed custom title, author, and narrator metadata mapping fallback in the legacy task job shim (`_context_to_job` in `app/orchestration/scheduler/orchestrator_helpers.py`).
+- Added unit tests `test_finalizing_status_mapped_to_running()` and `test_publish_remaps_finalizing_to_running()` in `tests/db/test_state_rules.py` and `tests/orchestration/test_progress_service.py`.
+- Updated the audiobook assembly integration test to be robust to positional/keyword arg calling patterns in `tests/orchestration/test_assembly_orchestration_integration.py`.
+- Verified that all 833 tests pass successfully.
+
+# 2026-05-20 - XTTS Progress/ETA Volatility Stabilized & Synthesis Timeout Increased
+
+- Identified that segment-level progress regressions in the XTTS standard handler (e.g. active segment progress resetting from 100% to 20% on next segment start) were causing backend ETA projections to fluctuate wildly.
+- Enforced monotonic progress reporting in `OrchestratorHelpersMixin._get_grouped_progress` using a `max_progress` list container that caches and clamps progress value to the highest seen so far during the task run.
+- Fixed database-level ETA projection in `update_job` within `app/db/state_jobs.py` to use the clamped, database-aligned progress value from the updated state dictionary (`j`) instead of the raw `updates` payload.
+- Increased the synthesis HTTP client read timeout (`_READ_TIMEOUT`) from 60 seconds to 300 seconds to prevent slow synthesis operations (such as long chapters) from timing out and failing jobs at the end of the run.
+- Added regression tests `test_log_listener_progress_is_monotonic()` in `tests/orchestration/test_watchdog_progress_logic.py`, `test_eta_projection_uses_clamped_progress()` in `tests/db/test_state_rules.py`, and `test_synthesize_uses_large_read_timeout()` in `tests/engines/test_tts_client.py`.
+- Verified that all 836 tests pass successfully.

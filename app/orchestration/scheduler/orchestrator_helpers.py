@@ -218,6 +218,7 @@ class OrchestratorHelpersMixin:
         completed_weight = [0.0]
         active_seg_id = [None]
         active_seg_progress = [0.0]
+        max_progress = [0.0]
 
         def _get_grouped_progress() -> float:
             """Compute weighted progress across all render groups."""
@@ -226,7 +227,10 @@ class OrchestratorHelpersMixin:
             active_w = id_to_weight.get(active_seg_id[0], 0) if active_seg_id[0] else 0
             # Scale to 0.90 to leave room for stitching/finalizing
             raw = (completed_weight[0] + (active_seg_progress[0] * active_w)) / total_weight
-            return round(min(0.99, raw * 0.90), 4)
+            val = round(min(0.99, raw * 0.90), 4)
+            if val > max_progress[0]:
+                max_progress[0] = val
+            return max_progress[0]
 
         def log_listener(line: str, line_task_id: Optional[str] = None):
             # If a task_id is present in the line, it MUST match ours.
@@ -638,6 +642,8 @@ class OrchestratorHelpersMixin:
     ) -> None:
         """Publish a progress event through the ProgressService and sync with state."""
         state_status = "done" if status == "completed" else status
+        if state_status == "finalizing":
+            state_status = "running"
         state_progress = progress
         if state_progress is None:
             if state_status == "done":
@@ -786,9 +792,9 @@ class OrchestratorHelpersMixin:
             make_mp3=payload.get("make_mp3", False),
             is_bake=payload.get("is_bake", False),
             segment_ids=payload.get("segment_ids"),
-            custom_title=payload.get("custom_title"),
-            author_meta=payload.get("author"),
-            narrator_meta=payload.get("narrator"),
+            custom_title=payload.get("custom_title") or payload.get("book_title"),
+            author_meta=payload.get("author") or payload.get("author_meta"),
+            narrator_meta=payload.get("narrator") or payload.get("narrator_meta"),
             chapter_list=payload.get("chapters"),
             cover_path=str(payload.get("cover_path")) if payload.get("cover_path") else None,
         )

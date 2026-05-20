@@ -1,17 +1,17 @@
 {
-  "snapshot_version": 81,
-  "updated_at": "2026-05-19T16:09:36Z",
+  "snapshot_version": 84,
+  "updated_at": "2026-05-20T00:24:00Z",
   "branch": "studio2/phase-12",
-  "current_task": "XtTS handler logger regression fix",
-  "status": "xtts_handler_logger_verified",
+  "current_task": "Fix XTTS ETA Volatility and Synthesis Timeout",
+  "status": "xtts_stabilized_and_timeout_fixed",
   "last_committed_milestone": {
-    "title": "Orchestration test suite stabilized",
-    "commit": "a8f8e91",
+    "title": "XTTS progress/ETA volatility stabilized and synthesis timeout increased",
+    "commit": "pending",
     "notes": [
-      "Corrected import of EngineUnavailableError to app.engines.errors in app/orchestration/scheduler/orchestrator_helpers.py to enable retriable job schedules.",
-      "Patched JobHandlerRegistry.get_handler in orchestration test mock contexts to bypass registered job handlers and force local/bridge task dispatch paths where expected.",
-      "Hardened timing assertions in record_render_stats_if_completed by using precise mock clock values and avoiding zero duration/character checks.",
-      "Confirmed 100% test pass rate (163 tests) across the entire tests/orchestration/ test suite."
+      "Identified that segment-level progress regressions in standard_handler caused severe backend ETA calculation fluctuations; enforced progress monotonicity in OrchestratorHelpersMixin._get_grouped_progress using a max_progress clamp.",
+      "Fixed update_job ETA projection in state_jobs.py to read progress from the clamped, database-aligned state dict (j) instead of the raw updates payload.",
+      "Increased the synthesis HTTP client read timeout (_READ_TIMEOUT) from 60 seconds to 300 seconds to prevent slow synthesis operations from timing out and failing jobs.",
+      "Added regression tests in test_state_rules.py, test_watchdog_progress_logic.py, and test_tts_client.py."
     ]
   },
   "active_constraints": [
@@ -80,7 +80,7 @@
     "Prepare the voice icon and tagging implementation to improve large-library usability."
   ],
   "verification": {
-    "latest_backend_focus": "2026-05-18: `./venv/bin/pytest tests/orchestration/ -vv --tb=short` fully passed (163 passed) after correcting EngineUnavailableError imports and patching JobHandlerRegistry.get_handler in mock contexts.",
+    "latest_backend_focus": "2026-05-20: `./venv/bin/pytest` fully passed (791 passed) after adding monotonic progress logic to stabilize XTTS ETA projections; ruff check passed.",
     "latest_frontend_focus": "2026-05-18: `cd frontend && npx vitest run tests/unit/pages/ChapterEditor/components/ChapterHeader.test.tsx tests/unit/pages/ChapterEditor/components/ChapterHeaderProgressContract.test.tsx tests/unit/components/PredictiveProgressBarLifecycle.test.tsx tests/unit/components/PredictiveProgressBarTiming.test.tsx tests/unit/components/PredictiveProgressBarTransitions.test.tsx` and `cd frontend && npm run build` passed after fixing the progress bar segment transition reset, checkpointMode, finalizing width rendering, and done bridging window.",
     "latest_queue_focus": "2026-05-18: `frontend/src/utils/jobSelection.ts` now treats `active_segment_id` as chapter-render progress rather than segment scope, keeping grouped chapter jobs visible in the main queue while still hiding true segment jobs.",
     "latest_websocket_focus": "2026-05-19: websocket payloads still carry source and classification, and the frontend debug ring buffer remains listener-owned for handled messages.",

@@ -206,3 +206,18 @@ def test_publish_includes_explicit_eta_basis():
     # 1200 (now) + 45 (eta) = 1245
     assert emitted["estimated_end_at"] == 1245.0
     assert emitted["updated_at"] == 1200.0
+
+
+def test_publish_remaps_finalizing_to_running():
+    service, events, _, _ = _make_service()
+
+    emitted = service.publish(
+        job_id="job-7",
+        status="finalizing",
+        progress=0.91,
+    )
+    assert emitted is not None
+    assert emitted["status"] == "running"
+    assert emitted["progress"] == 0.91
+    assert events[0][0]["status"] == "running"
+

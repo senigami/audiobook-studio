@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.2] - 2026-05-20
+
+### Highlights
+
+- **Stabilized XTTS Progress and ETA Projection**: Fixed a bug where progress regressions inside the XTTS standard handler caused the projected ETA to jump erratically. The orchestrator helper's `_get_grouped_progress` calculation is now strictly monotonic by tracking and clamping to the maximum progress seen so far during a task dispatch run, and the database `update_job` ETA projection now correctly uses the clamped/monotonic progress value.
+- **Increased Synthesis Read Timeout**: Increased the synthesis HTTP client read timeout (`_READ_TIMEOUT`) from 60 seconds to 300 seconds to prevent slow synthesis operations (e.g., long chapters or CPU/GPU load spikes) from timing out and failing jobs at the end of the run.
+- **Added Monotonic Progress & Timeout Regression Tests**: Added unit tests to `test_state_rules.py`, `test_watchdog_progress_logic.py`, and `test_tts_client.py` verifying that database-level ETA calculations, log-listener progress reporting, and read timeouts are robust.
+
+## [2.0.1] - 2026-05-19
+
+### Highlights
+
+- **Eliminated "finalizing" Job Status**: Sanitized all references to the legacy `"finalizing"` status throughout the backend. The database, orchestrator helpers, and progress service now automatically map any incoming `"finalizing"` status to `"running"` before persistence and websocket broadcasting.
+- **Fixed Legacy Task Translation**: Fixed a translation bug in the legacy job shim (`_context_to_job`) where custom title and narrator metadata were not correctly mapped, resolving audiobook title fallback to filename during assembly.
+- **Integration Test Robustness**: Made the audiobook assembly integration test robust to positional and keyword calling patterns.
+
 ## [2.0.0] - 2026-05-11
 
 ### Highlights

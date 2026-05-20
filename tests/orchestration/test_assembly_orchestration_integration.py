@@ -46,7 +46,9 @@ def test_audiobook_assembly_orchestration_integration(clean_db, monkeypatch, tmp
     monkeypatch.setattr("app.api.routers.projects_assembly.create_orchestrator", lambda: real_orchestrator)
 
     # 5. Patch external engine call to avoid real FFmpeg
-    with patch("app.engines.audiobook_utils.assemble_audiobook", return_value=0) as mock_assemble:
+    mock_assemble = MagicMock(return_value=0)
+    with patch("app.engines.audiobook_utils.assemble_audiobook", mock_assemble), \
+         patch("app.jobs.handlers.audiobook.assemble_audiobook", mock_assemble):
 
         # 6. Patch state side-effects and resource admission
         with patch("app.api.routers.projects_assembly.put_job"), \
@@ -65,9 +67,13 @@ def test_audiobook_assembly_orchestration_integration(clean_db, monkeypatch, tmp
 
             # 9. Verify the arguments passed to the engine utility
             # assemble_audiobook(input_folder, book_title, output_m4b, ...)
-            kwargs = mock_assemble.call_args.kwargs
-            assert kwargs["book_title"] == project_name
-            assert "chapters" in kwargs
-            assert len(kwargs["chapters"]) == 1
-            assert kwargs["chapters"][0]["title"] == "Chapter 1"
-            assert str(fake_audio) in str(kwargs["chapters"][0]["filename"])
+            args, kwargs = mock_assemble.call_args
+            def get_arg(name, pos_idx):
+                return kwargs[name] if name in kwargs else args[pos_idx]
+
+            assert get_arg("book_title", 1) == project_name
+            chapters_arg = get_arg("chapters", 8)
+            assert chapters_arg is not None
+            assert len(chapters_arg) == 1
+            assert chapters_arg[0]["title"] == "Chapter 1"
+            assert str(fake_audio) in str(chapters_arg[0]["filename"])
