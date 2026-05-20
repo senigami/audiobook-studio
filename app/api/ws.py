@@ -241,15 +241,18 @@ def broadcast_pause_state(paused: bool, source: str | None = None):
 
 def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None = None, source: str | None = None):
     skip_studio_job_event = False
+    skip_job_updated = False
     source_from_updates = None
     if updates:
         skip_studio_job_event = updates.pop("skip_studio_job_event", False)
+        skip_job_updated = updates.pop("skip_job_updated", False)
         source_from_updates = updates.pop("source", None)
 
     source = source or source_from_updates
     merged = dict(current_job or {})
     merged.update(updates or {})
     merged.pop("skip_studio_job_event", None)
+    merged.pop("skip_job_updated", None)
     merged.pop("source", None)
     classification = _classify_job_payload(merged)
     merged["classification"] = classification
@@ -296,13 +299,14 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
     )
     if not skip_studio_job_event:
         manager.broadcast(normalized)
-    manager.broadcast({
-        "type": "job_updated",
-        "job_id": job_id,
-        "updates": merged,
-        "classification": classification,
-        "source": source or _resolve_source("app.api.ws.broadcast_job_updated"),
-    })
+    if not skip_job_updated:
+        manager.broadcast({
+            "type": "job_updated",
+            "job_id": job_id,
+            "updates": merged,
+            "classification": classification,
+            "source": source or _resolve_source("app.api.ws.broadcast_job_updated"),
+        })
 
 
 def broadcast_segment_progress(job_id: str, chapter_id: str | None, segment_id: str, progress: float, source: str | None = None):

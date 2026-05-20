@@ -77,6 +77,7 @@ def put_job(job: Job) -> None:
 
 def update_job(job_id: str, force_broadcast: bool = False, source: str | None = None, **updates) -> None:
     skip_studio_job_event = updates.pop("skip_studio_job_event", False)
+    skip_job_updated = updates.pop("skip_job_updated", False)
     if source is None:
         source = _resolve_caller()
     if "status" in updates and updates["status"] == "finalizing":
@@ -341,6 +342,8 @@ def update_job(job_id: str, force_broadcast: bool = False, source: str | None = 
         broadcast_dict = {k: v for k, v in updates.items() if k != "log"}
         if skip_studio_job_event:
             broadcast_dict["skip_studio_job_event"] = True
+        if skip_job_updated:
+            broadcast_dict["skip_job_updated"] = True
         if source is not None:
             broadcast_dict["source"] = source
         if auto_updated_at is not None:

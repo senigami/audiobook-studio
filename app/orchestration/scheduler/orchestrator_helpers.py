@@ -845,7 +845,7 @@ class OrchestratorHelpersMixin:
                             updates["output_mp3"] = fname
                         else:
                             updates["output_wav"] = fname
-                update_job(context.task_id, force_broadcast=force, skip_studio_job_event=True, **updates)
+                update_job(context.task_id, force_broadcast=force, skip_studio_job_event=True, skip_job_updated=True, **updates)
 
 
 

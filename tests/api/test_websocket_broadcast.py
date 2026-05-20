@@ -499,3 +499,53 @@ def test_update_job_propagates_source(monkeypatch):
     update_job("job-source-test", progress=0.7)
     assert len(broadcasts) == 2
     assert broadcasts[1][1].get("source") == "tests.api.test_websocket_broadcast.test_update_job_propagates_source"
+
+
+def test_broadcast_job_updated_respects_skip_job_updated(monkeypatch):
+    messages = []
+
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    # When skip_job_updated=True, the job_updated message should be skipped.
+    broadcast_job_updated(
+        "job-1",
+        {"progress": 0.5, "eta_seconds": 12, "skip_job_updated": True},
+        {"status": "running", "progress": 0.5, "eta_seconds": 12},
+    )
+
+    # We expect only the studio_job_event message, and NO job_updated message.
+    assert len(messages) == 1
+    assert messages[0]["type"] == "studio_job_event"
+
+
+def test_update_job_respects_skip_job_updated(monkeypatch):
+    broadcasts = []
+
+    def dummy_broadcast(job_id, updates, job_snapshot=None):
+        broadcasts.append((job_id, dict(updates), job_snapshot))
+
+    import app.db.state as state_module
+    monkeypatch.setattr(state_module, "_JOB_LISTENERS", [dummy_broadcast])
+    monkeypatch.setattr(state_module, "_LISTENER_SNAPSHOT_SUPPORT", {dummy_broadcast: True})
+    monkeypatch.setattr("app.db.update_queue_item", lambda *args, **kwargs: None)
+
+    state_mock = {"jobs": {
+        "job-skip-test": {
+            "id": "job-skip-test",
+            "status": "running",
+            "progress": 0.5,
+            "engine": "xtts"
+        }
+    }}
+    monkeypatch.setattr("app.db.state_jobs._load_state_no_lock", lambda: state_mock)
+    monkeypatch.setattr("app.db.state_jobs._atomic_write_text", lambda *args, **kwargs: None)
+
+    from app.db.state_jobs import update_job
+
+    update_job("job-skip-test", progress=0.6, skip_job_updated=True)
+    assert len(broadcasts) == 1
+    assert broadcasts[0][1].get("skip_job_updated") is True

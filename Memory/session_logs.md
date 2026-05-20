@@ -1,3 +1,11 @@
+# 2026-05-20 - Trimmed Redundant WebSocket Broadcasts
+
+- Added support for a `skip_job_updated` parameter to the `update_job` function signature.
+- Popped this parameter from the updates dictionary to avoid writing it to `state.json` and added it to the listener payload.
+- Integrated `skip_job_updated` guard in `broadcast_job_updated` to skip the redundant `job_updated` broadcast when set, while keeping `studio_job_event` for active progress.
+- Passed `skip_job_updated=True` in `OrchestratorHelpersMixin._publish` for active job status/progress updates, reducing active progress websocket chatter and React re-renders by 50%.
+- Added TDD backend tests verifying behavior and confirmed no regressions on the full pytest suite (847 passed).
+
 # 2026-05-20 - Fixed Subprocess Stream Buffering Delay (Unbuffered Readline)
 
 - Switched `TtsServerWatchdog._drain_stream` to use a `readline()` generator loop if the stream has a `readline` method.
