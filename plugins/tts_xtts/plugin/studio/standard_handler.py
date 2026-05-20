@@ -11,6 +11,11 @@ from . import handler as xtts_facade
 from .helpers import _segment_group_weight
 from app.jobs.handlers.bridge_helpers import generate_via_bridge
 
+_SKIP_LIVE_BROADCASTS = {
+    "skip_studio_job_event": True,
+    "skip_job_updated": True,
+}
+
 
 def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, speed, pdir, out_wav, text=None):
     from app.db import update_segment
@@ -115,6 +120,7 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                 completed_render_weight=done_weight,
                 active_render_group_weight=0,
                 grouped_progress=_progress_from_weight(),
+                **_SKIP_LIVE_BROADCASTS,
             )
 
             active_save_path = [None]  
@@ -142,6 +148,7 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                         completed_render_weight=completed_weight[0],
                         active_render_group_weight=path_to_weight.get(matched_path, 0) if matched_path else 0,
                         grouped_progress=prog,
+                        **_SKIP_LIVE_BROADCASTS,
                     )
 
                 if "[SEGMENT_SAVED]" in line:
@@ -171,6 +178,7 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                             completed_render_weight=completed_weight[0],
                             active_render_group_weight=0,
                             grouped_progress=prog,
+                            **_SKIP_LIVE_BROADCASTS,
                         )
 
                 if "[PROGRESS]" in line:
@@ -190,6 +198,7 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                             completed_render_weight=completed_weight[0],
                             active_render_group_weight=path_to_weight.get(active_save_path[0], 0) if active_save_path[0] else 0,
                             grouped_progress=prog,
+                            **_SKIP_LIVE_BROADCASTS,
                         )
                     except Exception:
                         pass
@@ -218,7 +227,8 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                 xtts_facade.update_job(jid, status="running", progress=0.91,
                            completed_render_groups=total_groups, render_group_count=total_groups,
                            total_render_weight=total_weight, completed_render_weight=total_weight,
-                           active_render_group_weight=0, grouped_progress=_RENDER_LIMIT)
+                           active_render_group_weight=0, grouped_progress=_RENDER_LIMIT,
+                           **_SKIP_LIVE_BROADCASTS)
                 segment_paths = []
                 last_path = None
                 for group in build_chunk_groups(xtts_facade.load_chunk_segments(j.chapter_id), j.speaker_profile):

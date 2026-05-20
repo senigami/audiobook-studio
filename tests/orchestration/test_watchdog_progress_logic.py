@@ -123,6 +123,42 @@ def test_marker_driven_preparing_has_no_render_timing():
     assert preparing_event.get("eta_seconds") is None
     assert preparing_event.get("estimated_end_at") is None
 
+
+def test_dispatch_unregisters_watchdog_listener_for_registry_handler():
+    orc = MockOrchestrator(voice_bridge=MagicMock())
+    wd = TtsServerWatchdog()
+
+    class RegistryTask(StudioTask):
+        def validate(self):
+            pass
+
+        def describe(self):
+            return TaskContext(task_id="registry-job", task_type="synthesis", payload={"engine_id": "xtts"})
+
+        @property
+        def prefers_local_execution(self) -> bool:
+            return False
+
+        def run(self):
+            raise AssertionError("registry handler path should not call run()")
+
+        def on_cancel(self):
+            pass
+
+    def registry_handler(**_kwargs):
+        return TaskResult(status="completed")
+
+    task = RegistryTask()
+    context = task.describe()
+
+    with patch("app.engines.watchdog.get_watchdog", return_value=wd), \
+         patch("app.orchestration.scheduler.orchestrator_helpers.get_handler_registry") as mock_registry:
+        mock_registry.return_value.get_handler.return_value = registry_handler
+        result = orc._dispatch(task=task, context=context)
+
+    assert result.status == "completed"
+    assert wd._log_listeners == []
+
 def test_sample_build_receives_markers_live():
     bridge = MagicMock()
     orc = MockOrchestrator(voice_bridge=bridge)
@@ -323,5 +359,4 @@ def test_watchdog_uses_readline_to_avoid_buffering():
     # We want it to have called readline, not __iter__
     assert stream.readline_called > 0
     assert stream.iter_called == 0
-
 

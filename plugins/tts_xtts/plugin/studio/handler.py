@@ -13,6 +13,11 @@ from .segments import handle_xtts_segments
 from .standard_handler import handle_xtts_standard
 from .helpers import _group_job_progress
 
+_SKIP_LIVE_BROADCASTS = {
+    "skip_studio_job_event": True,
+    "skip_job_updated": True,
+}
+
 logger = logging.getLogger(__name__)
 
 __all__ = [
@@ -77,6 +82,7 @@ def handle_xtts_job(jid, j, start, on_output, cancel_check, default_sw, speed, p
             completed_render_groups=j.render_group_count if getattr(j, "render_group_count", 0) else 0,
             render_group_count=getattr(j, "render_group_count", 0),
             active_render_group_index=0,
+            **_SKIP_LIVE_BROADCASTS,
         )
         frc = wav_to_mp3(out_wav, out_mp3, on_output=on_output, cancel_check=cancel_check)
         if frc == 0 and out_mp3.exists():

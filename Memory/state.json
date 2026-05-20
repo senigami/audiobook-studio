@@ -1,18 +1,17 @@
 {
-  "snapshot_version": 94,
-  "updated_at": "2026-05-20T16:28:45Z",
+  "snapshot_version": 95,
+  "updated_at": "2026-05-20T17:02:13Z",
   "branch": "studio2/phase-12",
-  "current_task": "Trim redundant job_updated WebSocket broadcasts during active progress heartbeat",
-  "status": "redundant_websocket_broadcasts_trimmed",
+  "current_task": "Harden live TTS broadcasts and watchdog listener cleanup",
+  "status": "live_tts_broadcasts_and_listener_cleanup_verified",
   "last_committed_milestone": {
-    "title": "Trim redundant job_updated WebSocket broadcasts during active progress heartbeat",
+    "title": "Harden live TTS broadcasts and watchdog listener cleanup",
     "commit": "pending",
     "notes": [
-      "Added support for a `skip_job_updated` parameter to the `update_job` function signature.",
-      "Popped this parameter from the updates dictionary to avoid writing it to `state.json` and added it to the listener payload.",
-      "Integrated `skip_job_updated` guard in `broadcast_job_updated` to skip the redundant `job_updated` broadcast when set, while keeping `studio_job_event` for active progress.",
-      "Passed `skip_job_updated=True` in `OrchestratorHelpersMixin._publish` for active job status/progress updates, reducing active progress websocket chatter by 50%.",
-      "Added TDD backend tests verifying behavior and confirmed no regressions on the full pytest suite (847 passed)."
+      "Wrapped registry-handler dispatch cleanup so watchdog log listeners always unregister, even when registry handlers return directly.",
+      "Added skip flags to direct live `update_job` calls in XTTS standard, segment, and bake handlers plus the mixed and Voxtral handlers so only terminal broadcasts keep propagating.",
+      "Added regression tests covering watchdog listener cleanup and the live progress update paths.",
+      "Verified the focused pytest set (50 passed), plus py_compile and Ruff checks on the touched files."
     ]
   },
   "active_constraints": [
@@ -81,11 +80,11 @@
     "Prepare the voice icon and tagging implementation to improve large-library usability."
   ],
   "verification": {
-    "latest_backend_focus": "2026-05-20: `./venv/bin/pytest` fully passed (847 passed) after trimming redundant job_updated broadcasts and adding tests; ruff check passed.",
+    "latest_backend_focus": "2026-05-20: Focused pytest set for watchdog cleanup and live progress paths passed (50 passed) after py_compile and Ruff.",
     "latest_frontend_focus": "2026-05-20: Reverted progress bar and text highlighting in the chapter editor back to the working behavior of commit 3e44973; all 82 frontend test files (510 tests total) are passing.",
     "latest_queue_focus": "2026-05-18: `frontend/src/utils/jobSelection.ts` now treats `active_segment_id` as chapter-render progress rather than segment scope, keeping grouped chapter jobs visible in the main queue while still hiding true segment jobs.",
-    "latest_websocket_focus": "2026-05-20: Trimmed duplicate job_updated broadcasts during synthesis using skip_job_updated flag; verified on test_websocket_broadcast.py.",
-    "latest_lint_focus": "2026-05-20: `cd frontend && npm run lint` passed with existing fast-refresh warnings only; targeted Ruff check passed.",
+    "latest_websocket_focus": "2026-05-20: Live synthesis updates now skip duplicate websocket broadcasts on direct plugin progress calls, and registry-handler dispatch unregisters watchdog listeners on exit.",
+    "latest_lint_focus": "2026-05-20: `ruff check` on the touched files passed.",
     "latest_diff_check": "2026-05-20: git diff --check passed with no whitespace or formatting warnings.",
     "known_warnings": [
       "Vite chunk-size warning remains on frontend builds.",

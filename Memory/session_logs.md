@@ -1227,3 +1227,10 @@
 - Propagated `render_group_count`, `completed_render_groups`, `active_render_group_index`, and render weight fields through `studio_job_event`, `job_updated`, live overlay hydration, and the communication timeline.
 - Updated the Chapter Editor Live Output tab and the frontend debug snapshot path so the live trace now shows the same group context that the backend emits.
 - Verified targeted backend tests for progress/websocket broadcasting plus frontend Vitest slices for runtime debug capture, `useJobs`, live-jobs store merging, hydration, and Live Output rendering.
+
+# 2026-05-20 - Live TTS Broadcast Skips and Watchdog Cleanup Verified
+
+- Wrapped the registry-handler branch in `OrchestratorHelpersMixin._dispatch` so watchdog log listeners always unregister, even when a registry handler returns directly.
+- Added skip flags to direct live `update_job` calls in XTTS standard, segment, and bake handlers, the mixed handler, and the Voxtral handler so only terminal broadcasts keep propagating.
+- Added regression coverage for watchdog listener cleanup and the live progress update paths.
+- Verified the focused pytest set (50 passed), `python -m py_compile`, `ruff check`, and `git diff --check`.

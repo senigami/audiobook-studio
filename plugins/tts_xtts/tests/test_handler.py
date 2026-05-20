@@ -79,11 +79,18 @@ def test_handle_xtts_bake_mode(mock_job, mock_params):
          patch("plugins.tts_xtts.plugin.studio.handler.wav_to_mp3", return_value=0), \
          patch("plugins.tts_xtts.plugin.studio.handler.get_audio_duration", return_value=10.0), \
          patch("app.db.update_queue_item"), \
-         patch("plugins.tts_xtts.plugin.studio.handler.update_job"), \
+         patch("plugins.tts_xtts.plugin.studio.handler.update_job") as mock_update_job, \
          patch("plugins.tts_xtts.plugin.studio.handler.get_speaker_wavs", return_value="spk.wav"):
 
         handle_xtts_job(j=mock_job, **mock_params)
         mock_params["on_output"].assert_any_call("Baking Chapter chap_123 starting...\n")
+
+    for call in mock_update_job.call_args_list:
+        status = call.kwargs.get("status")
+        if status in {"done", "failed", "cancelled"}:
+            continue
+        assert call.kwargs.get("skip_studio_job_event") is True
+        assert call.kwargs.get("skip_job_updated") is True
 
 def test_handle_xtts_bake_recovers_single_segment_output_when_stitch_leaves_no_file(mock_job, mock_params, tmp_path):
     """A successful stitch should still yield a chapter file even if the stitch helper does not materialize it."""
@@ -192,10 +199,17 @@ def test_handle_xtts_segments_mode(mock_job, mock_params):
 
     with patch("app.db.get_chapter_segments", return_value=segs), \
          patch("plugins.tts_xtts.plugin.studio.segments.generate_via_bridge", return_value=0), \
-         patch("plugins.tts_xtts.plugin.studio.handler.update_job"), \
+         patch("plugins.tts_xtts.plugin.studio.handler.update_job") as mock_update_job, \
          patch("plugins.tts_xtts.plugin.studio.handler.get_speaker_wavs", return_value="spk.wav"):
 
         handle_xtts_job(j=mock_job, **mock_params)
+
+    for call in mock_update_job.call_args_list:
+        status = call.kwargs.get("status")
+        if status in {"done", "failed", "cancelled"}:
+            continue
+        assert call.kwargs.get("skip_studio_job_event") is True
+        assert call.kwargs.get("skip_job_updated") is True
 
 def test_handle_xtts_cancel(mock_job, mock_params):
     """Test cancellation check."""

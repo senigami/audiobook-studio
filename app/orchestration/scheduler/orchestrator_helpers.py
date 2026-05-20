@@ -535,6 +535,8 @@ class OrchestratorHelpersMixin:
                     result = TaskResult(status="failed", message=msg, retriable=result.retriable)
 
                 record_render_stats_if_completed(result)
+                if wd:
+                    wd.unregister_log_listener(log_listener)
                 return result
             except Exception as e:
                 logger.exception("Task %s: registry handler raised.", context.task_id)
@@ -543,6 +545,8 @@ class OrchestratorHelpersMixin:
                 handler_name = getattr(handler, "__name__", str(handler))
                 engine_id = getattr(j, "engine", "unknown")
                 kind = getattr(context, "task_type", "unknown")
+                if wd:
+                    wd.unregister_log_listener(log_listener)
                 return TaskResult(
                     status="failed",
                     message=f"Handler raised exception: {tb_summary} [Handler: {handler_name} | Engine: {engine_id} | Kind: {kind}]",

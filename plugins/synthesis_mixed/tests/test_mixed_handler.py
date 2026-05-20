@@ -229,6 +229,13 @@ def test_handle_mixed_job_progress_uses_render_group_count(clean_db, tmp_path):
     ]
     assert 0.54 in progress_updates
 
+    for call in mock_update.call_args_list:
+        status = call.kwargs.get("status")
+        if status in {"done", "failed", "cancelled"}:
+            continue
+        assert call.kwargs.get("skip_studio_job_event") is True
+        assert call.kwargs.get("skip_job_updated") is True
+
 
 def test_handle_mixed_job_progress_weights_short_final_group(clean_db, tmp_path):
     from app.db.projects import create_project

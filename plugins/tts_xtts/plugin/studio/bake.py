@@ -16,6 +16,11 @@ from .helpers import (
     _group_job_progress
 )
 
+_SKIP_LIVE_BROADCASTS = {
+    "skip_studio_job_event": True,
+    "skip_job_updated": True,
+}
+
 
 def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, pdir, out_wav):
     from app.db import get_chapter_segments, update_segment
@@ -66,7 +71,11 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
         j.render_group_count = total_missing_groups
         j.completed_render_groups = offset
         j.active_render_group_index = offset
-        xtts_facade.update_job(jid, **_group_display_updates(offset, total_missing_groups, 0.0, limit=0.9, active_index=offset, group_weights=missing_group_weights))
+        xtts_facade.update_job(
+            jid,
+            **_group_display_updates(offset, total_missing_groups, 0.0, limit=0.9, active_index=offset, group_weights=missing_group_weights),
+            **_SKIP_LIVE_BROADCASTS,
+        )
 
         def bake_on_output(line):
             on_output(line)
@@ -93,6 +102,7 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
                         active_segment_id=None,
                         active_segment_progress=0.0,
                         **_group_display_updates(completed_groups[0], total_missing_groups, 0.0, limit=0.9, group_weights=missing_group_weights),
+                        **_SKIP_LIVE_BROADCASTS,
                     )
 
             if "[START_SEGMENT]" in line:
@@ -112,6 +122,7 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
                     active_segment_id=asid,
                     active_segment_progress=0.0,
                     **_group_display_updates(completed_groups[0], total_missing_groups, 0.0, limit=0.9, active_index=min(completed_groups[0] + 1, total_missing_groups), group_weights=missing_group_weights),
+                    **_SKIP_LIVE_BROADCASTS,
                 )
 
             if "[PROGRESS]" in line:
@@ -131,6 +142,7 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
                         progress=overall_progress,
                         active_segment_progress=segment_progress,
                         **_group_display_updates(completed_groups[0], total_missing_groups, segment_progress, limit=0.9, active_index=min(completed_groups[0] + 1, total_missing_groups), group_weights=missing_group_weights),
+                        **_SKIP_LIVE_BROADCASTS,
                     )
                 except: pass
 
@@ -156,7 +168,13 @@ def handle_xtts_bake(jid, j, start, on_output, cancel_check, default_sw, speed, 
 
     # Final Stitch
     if cancel_check(): return
-    xtts_facade.update_job(jid, status="running", progress=0.91, **_group_display_updates(total_missing_groups, total_missing_groups, 0.0, limit=0.9, group_weights=missing_group_weights if missing_groups else []))
+    xtts_facade.update_job(
+        jid,
+        status="running",
+        progress=0.91,
+        **_group_display_updates(total_missing_groups, total_missing_groups, 0.0, limit=0.9, group_weights=missing_group_weights if missing_groups else []),
+        **_SKIP_LIVE_BROADCASTS,
+    )
     fresh_segs = get_chapter_segments(j.chapter_id)
     segment_paths = []
     last_path = None

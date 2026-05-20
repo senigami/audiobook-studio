@@ -236,6 +236,13 @@ def test_handle_xtts_job_standard_ignores_orphan_progress_before_start_segment(m
     ]
     assert active_progress_calls
 
+    for call in mock_update_job.call_args_list:
+        status = call.kwargs.get("status")
+        if status in {"done", "failed", "cancelled"}:
+            continue
+        assert call.kwargs.get("skip_studio_job_event") is True
+        assert call.kwargs.get("skip_job_updated") is True
+
 def test_handle_xtts_job_standard_with_mp3(mock_job, tmp_path):
     mock_job.make_mp3 = True
     pdir = tmp_path / "project"
@@ -358,4 +365,9 @@ def test_no_finalizing_status_is_set(mock_job, tmp_path):
         )
 
         for call in mock_update_job.call_args_list:
-            assert call.kwargs.get("status") != "finalizing"
+            status = call.kwargs.get("status")
+            assert status != "finalizing"
+            if status in {"done", "failed", "cancelled"}:
+                continue
+            assert call.kwargs.get("skip_studio_job_event") is True
+            assert call.kwargs.get("skip_job_updated") is True
