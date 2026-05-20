@@ -216,9 +216,20 @@ class OrchestratorHelpersMixin:
 
         # Volatile state for the log_listener closure
         completed_weight = [0.0]
+        completed_group_count = [0]
         active_seg_id = [None]
         active_seg_progress = [0.0]
+        active_render_group_index = [0]
         max_progress = [0.0]
+        group_index_by_leader: dict[str, int] = {}
+
+        for group_index, entry in enumerate(script or []):
+            eids = entry.get("ids") or []
+            if not eids:
+                continue
+            group_index_by_leader[eids[0]] = group_index
+
+        render_group_count = len(script or [])
 
         def _get_grouped_progress() -> float:
             """Compute weighted progress across all render groups."""
@@ -236,6 +247,17 @@ class OrchestratorHelpersMixin:
             # If a task_id is present in the line, it MUST match ours.
             if line_task_id and line_task_id != context.task_id:
                 return
+            try:
+                from app.api.ws import broadcast_tts_log_line
+                broadcast_tts_log_line(
+                    job_id=context.task_id,
+                    project_id=context.project_id,
+                    chapter_id=context.chapter_id,
+                    line=line,
+                    source="app.orchestration.scheduler.orchestrator_helpers.log_listener",
+                )
+            except Exception:
+                logger.exception("Failed to broadcast TTS log line for task %s", context.task_id)
 
             if "[START_SYNTHESIS]" in line:
                 if timing["render_started_at"] is None:
@@ -254,6 +276,13 @@ class OrchestratorHelpersMixin:
                     eta_seconds=self._duration_to_eta_seconds(expected_duration),
                     started_at=timing["render_started_at"],
                     message="Synthesis in progress...",
+                    render_group_count=render_group_count,
+                    completed_render_groups=completed_group_count[0],
+                    active_render_group_index=active_render_group_index[0],
+                    total_render_weight=total_weight,
+                    completed_render_weight=completed_weight[0],
+                    active_render_group_weight=id_to_weight.get(active_seg_id[0], 0) if active_seg_id[0] else 0,
+                    grouped_progress=_get_grouped_progress(),
                     force=True,
                 )
 
@@ -263,6 +292,7 @@ class OrchestratorHelpersMixin:
                     sid = line.split("[START_SEGMENT]")[1].strip().split()[0]
                     active_seg_id[0] = sid
                     active_seg_progress[0] = 0.0
+                    active_render_group_index[0] = group_index_by_leader.get(sid, active_render_group_index[0])
                     trace(
                         "orchestrator.marker_start_segment",
                         job_id=context.task_id,
@@ -281,6 +311,13 @@ class OrchestratorHelpersMixin:
                         message=f"Rendering segment {sid}...",
                         started_at=timing["render_started_at"],
                         active_segment_id=sid,
+                        render_group_count=render_group_count,
+                        completed_render_groups=completed_group_count[0],
+                        active_render_group_index=active_render_group_index[0],
+                        total_render_weight=total_weight,
+                        completed_render_weight=completed_weight[0],
+                        active_render_group_weight=id_to_weight.get(sid, 0),
+                        grouped_progress=_get_grouped_progress(),
                     )
                 except (IndexError, ValueError):
                     pass
@@ -331,6 +368,13 @@ class OrchestratorHelpersMixin:
                         message="Synthesizing...",
                         active_segment_id=active_seg_id[0],
                         active_segment_progress=raw_progress if (total_weight > 0 and active_seg_id[0] is not None) else 0.0,
+                        render_group_count=render_group_count,
+                        completed_render_groups=completed_group_count[0],
+                        active_render_group_index=active_render_group_index[0],
+                        total_render_weight=total_weight,
+                        completed_render_weight=completed_weight[0],
+                        active_render_group_weight=id_to_weight.get(active_seg_id[0], 0) if active_seg_id[0] else 0,
+                        grouped_progress=_get_grouped_progress(),
                     )
                 except Exception:
                     pass
@@ -353,8 +397,10 @@ class OrchestratorHelpersMixin:
                         leader_id = sids[0]
                         w = id_to_weight.get(leader_id, 0)
                         completed_weight[0] += w
+                        completed_group_count[0] += 1
                         active_seg_id[0] = None
                         active_seg_progress[0] = 0.0
+                        active_render_group_index[0] = group_index_by_leader.get(leader_id, active_render_group_index[0])
                         trace(
                             "orchestrator.marker_segment_saved",
                             job_id=context.task_id,
@@ -390,6 +436,13 @@ class OrchestratorHelpersMixin:
                             message=f"Completed segment {leader_id}",
                             started_at=timing["render_started_at"],
                             active_segment_id=None,
+                            render_group_count=render_group_count,
+                            completed_render_groups=completed_group_count[0],
+                            active_render_group_index=active_render_group_index[0],
+                            total_render_weight=total_weight,
+                            completed_render_weight=completed_weight[0],
+                            active_render_group_weight=0,
+                            grouped_progress=_get_grouped_progress(),
                         )
                 except (IndexError, ValueError):
                     pass
@@ -637,6 +690,13 @@ class OrchestratorHelpersMixin:
         started_at: float | None = None,
         active_segment_id: str | None = None,
         active_segment_progress: float | None = None,
+        render_group_count: int | None = None,
+        completed_render_groups: int | None = None,
+        active_render_group_index: int | None = None,
+        total_render_weight: int | None = None,
+        completed_render_weight: int | None = None,
+        active_render_group_weight: int | None = None,
+        grouped_progress: float | None = None,
         allow_progress_regression: bool = False,
         force: bool = False,
     ) -> None:
@@ -707,6 +767,13 @@ class OrchestratorHelpersMixin:
                 started_at=started_at,
                 active_segment_id=active_segment_id,
                 active_segment_progress=active_segment_progress,
+                render_group_count=render_group_count,
+                completed_render_groups=completed_render_groups,
+                active_render_group_index=active_render_group_index,
+                total_render_weight=total_render_weight,
+                completed_render_weight=completed_render_weight,
+                active_render_group_weight=active_render_group_weight,
+                grouped_progress=grouped_progress,
                 allow_progress_regression=allow_progress_regression,
                 force=force,
                 updated_at=updated_at,
@@ -731,6 +798,13 @@ class OrchestratorHelpersMixin:
                     eta_confidence=eta_confidence,
                     active_segment_id=active_segment_id,
                     active_segment_progress=active_segment_progress,
+                    render_group_count=render_group_count,
+                    completed_render_groups=completed_render_groups,
+                    active_render_group_index=active_render_group_index,
+                    total_render_weight=total_render_weight,
+                    completed_render_weight=completed_render_weight,
+                    active_render_group_weight=active_render_group_weight,
+                    grouped_progress=grouped_progress,
                 )
                 put_job(job)
             else:
@@ -742,6 +816,13 @@ class OrchestratorHelpersMixin:
                     "updated_at": updated_at,
                     "active_segment_id": active_segment_id,
                     "active_segment_progress": active_segment_progress,
+                    "render_group_count": render_group_count,
+                    "completed_render_groups": completed_render_groups,
+                    "active_render_group_index": active_render_group_index,
+                    "total_render_weight": total_render_weight,
+                    "completed_render_weight": completed_render_weight,
+                    "active_render_group_weight": active_render_group_weight,
+                    "grouped_progress": grouped_progress,
                 }
                 if eta_seconds is not None:
                     updates["eta_seconds"] = eta_seconds

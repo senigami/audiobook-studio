@@ -24,6 +24,7 @@ export type StudioJobClassification = 'job' | 'chapter' | 'segment';
 
 export type StudioEtaConfidence = 'estimating' | 'stable' | 'recomputing';
 export type StudioEtaBasis = 'remaining_from_update' | 'total_from_start';
+export type TtsLogLineMarker = 'START_SYNTHESIS' | 'START_SEGMENT' | 'PROGRESS' | 'SEGMENT_SAVED' | 'raw';
 
 export interface StudioJobEvent {
   type: 'studio_job_event';
@@ -46,12 +47,37 @@ export interface StudioJobEvent {
   active_render_batch_progress?: number | null;
   active_segment_id?: string | null;
   active_segment_progress?: number | null;
+  render_group_count?: number | null;
+  completed_render_groups?: number | null;
+  active_render_group_index?: number | null;
+  total_render_weight?: number | null;
+  completed_render_weight?: number | null;
+  active_render_group_weight?: number | null;
+  grouped_progress?: number | null;
 }
 
 export const isStudioJobEvent = (value: unknown): value is StudioJobEvent => {
   if (!value || typeof value !== 'object') return false;
   const event = value as Partial<StudioJobEvent>;
   return event.type === 'studio_job_event' && typeof event.job_id === 'string' && typeof event.status === 'string';
+};
+
+export interface TtsLogLineEvent {
+  type: 'tts_log_line';
+  source?: string | null;
+  job_id: string;
+  project_id?: string | null;
+  chapter_id?: string | null;
+  line: string;
+  marker: TtsLogLineMarker;
+  sequence: number;
+  received_at: number;
+}
+
+export const isTtsLogLineEvent = (value: unknown): value is TtsLogLineEvent => {
+  if (!value || typeof value !== 'object') return false;
+  const event = value as Partial<TtsLogLineEvent>;
+  return event.type === 'tts_log_line' && typeof event.job_id === 'string' && typeof event.line === 'string';
 };
 
 export interface JobsSnapshotRequest {

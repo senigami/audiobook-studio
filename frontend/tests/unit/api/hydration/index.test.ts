@@ -39,13 +39,33 @@ describe('HydrationCoordinator', () => {
 
     const overlays: LiveOverlayState = {
       eventsById: {
-        job1: { status: 'running', progress: 0.5, updated_at: 1000 },
+        job1: {
+          status: 'running',
+          progress: 0.5,
+          updated_at: 1000,
+          render_group_count: 3,
+          completed_render_groups: 1,
+          active_render_group_index: 2,
+          total_render_weight: 100,
+          completed_render_weight: 40,
+          active_render_group_weight: 20,
+          grouped_progress: 0.5,
+        },
       }
     };
 
     const merged = coordinator.mergeQueueWithOverlays(snapshot, overlays);
     expect(merged[0].status).toBe('running');
     expect(merged[0].progress).toBe(0.5);
+    expect(merged[0]).toMatchObject({
+      render_group_count: 3,
+      completed_render_groups: 1,
+      active_render_group_index: 2,
+      total_render_weight: 100,
+      completed_render_weight: 40,
+      active_render_group_weight: 20,
+      grouped_progress: 0.5,
+    });
     expect(merged[1].status).toBe('running');
     expect(merged[1].progress).toBe(0.1);
   });
@@ -64,6 +84,13 @@ describe('HydrationCoordinator', () => {
           progress: 0,
           updated_at: 1000,
           created_at: 900,
+          render_group_count: 2,
+          completed_render_groups: 1,
+          active_render_group_index: 1,
+          total_render_weight: 50,
+          completed_render_weight: 25,
+          active_render_group_weight: 25,
+          grouped_progress: 0.5,
         }
       }
     };
@@ -74,6 +101,15 @@ describe('HydrationCoordinator', () => {
     expect(merged[0].chapter_id).toBe('chap-1');
     expect(merged[0].project_id).toBe('proj-1');
     expect(merged[0].status).toBe('queued');
+    expect(merged[0]).toMatchObject({
+      render_group_count: 2,
+      completed_render_groups: 1,
+      active_render_group_index: 1,
+      total_render_weight: 50,
+      completed_render_weight: 25,
+      active_render_group_weight: 25,
+      grouped_progress: 0.5,
+    });
   });
 
   it('filters segment-classified overlay jobs out of the chapter queue', () => {

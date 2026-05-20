@@ -16,6 +16,7 @@ describe('EditorTabs', () => {
 
     expect(screen.getByText('Script')).toBeInTheDocument();
     expect(screen.getByText('Source Text')).toBeInTheDocument();
+    expect(screen.getByText('Live Output')).toBeInTheDocument();
     expect(screen.queryByText('Production')).not.toBeInTheDocument();
     expect(screen.queryByText('Performance')).not.toBeInTheDocument();
     expect(screen.queryByText('Preview Safe Output')).not.toBeInTheDocument();
@@ -35,6 +36,9 @@ describe('EditorTabs', () => {
 
     fireEvent.click(screen.getByText('Source Text'));
     expect(setEditorTab).toHaveBeenCalledWith('edit');
+
+    fireEvent.click(screen.getByText('Live Output'));
+    expect(setEditorTab).toHaveBeenCalledWith('live');
   });
 
   it('shows edit source text button in edit tab mode', () => {

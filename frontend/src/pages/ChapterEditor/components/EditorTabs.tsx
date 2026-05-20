@@ -1,8 +1,10 @@
 import React from 'react';
 
+export type ChapterEditorTab = 'script' | 'edit' | 'live';
+
 interface EditorTabsProps {
-  editorTab: 'script' | 'edit';
-  setEditorTab: (tab: 'script' | 'edit') => void;
+  editorTab: ChapterEditorTab;
+  setEditorTab: (tab: ChapterEditorTab) => void;
   onRequestEditSourceText?: () => void;
   sourceTextMode?: 'view' | 'edit';
   children?: React.ReactNode;
@@ -31,6 +33,13 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
           style={{ padding: '8px 16px', fontSize: '0.9rem', borderRadius: '8px' }}
         >
             Source Text
+        </button>
+        <button
+          onClick={() => setEditorTab('live')}
+          className={editorTab === 'live' ? 'btn-primary' : 'btn-ghost'}
+          style={{ padding: '8px 16px', fontSize: '0.9rem', borderRadius: '8px' }}
+        >
+            Live Output
         </button>
       </div>
 

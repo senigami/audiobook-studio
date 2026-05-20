@@ -1,17 +1,18 @@
 {
-  "snapshot_version": 91,
-  "updated_at": "2026-05-20T14:40:00Z",
+  "snapshot_version": 93,
+  "updated_at": "2026-05-20T16:11:04Z",
   "branch": "studio2/phase-12",
-  "current_task": "Pass task_id to generate_via_bridge to eliminate progress race conditions",
-  "status": "task_id_propagation_to_bridge_implemented",
+  "current_task": "Temporary live TTS communication timeline for render/socket diagnosis",
+  "status": "live_tts_communication_timeline_implemented",
   "last_committed_milestone": {
-    "title": "Propagated task_id through generate_via_bridge to prevent progress race conditions",
+    "title": "Added temporary live TTS communication timeline",
     "commit": "pending",
     "notes": [
-      "Added explicit task_id parameter to generate_via_bridge in app/jobs/handlers/bridge_helpers.py and propagated it to the request payload.",
-      "Updated call sites in standard_handler.py, bake.py, segments.py, Voxtral handler.py, and mixed/handler.py to pass jid/task_id.",
-      "Added unit test `test_generate_via_bridge_propagates_task_id` in `tests/bridge/test_bridge_helpers.py` verifying task_id propagation.",
-      "Confirmed all 841 backend unit tests pass successfully."
+      "Added diagnostic `tts_log_line` websocket events emitted once per real TTS bridge log line from the orchestrator log listener.",
+      "Added frontend communication timeline capture that records raw TTS log events alongside existing websocket events without mutating job state.",
+      "Added a temporary Chapter Editor `Live Output` tab with filtering, pause/resume autoscroll, clear, and copy JSON controls.",
+      "Propagated render-group context through normalized websocket events, live overlay hydration, and the timeline UI so group counts and weights stay visible.",
+      "Verified backend broadcaster/orchestration slices, frontend hooks/timeline UI, frontend lint/build, Ruff, and git diff checks."
     ]
   },
   "active_constraints": [
@@ -83,9 +84,9 @@
     "latest_backend_focus": "2026-05-20: `./venv/bin/pytest` fully passed (841 passed) after passing task_id to generate_via_bridge and adding test_bridge_helpers.py; ruff check passed.",
     "latest_frontend_focus": "2026-05-20: Reverted progress bar and text highlighting in the chapter editor back to the working behavior of commit 3e44973; all 82 frontend test files (510 tests total) are passing.",
     "latest_queue_focus": "2026-05-18: `frontend/src/utils/jobSelection.ts` now treats `active_segment_id` as chapter-render progress rather than segment scope, keeping grouped chapter jobs visible in the main queue while still hiding true segment jobs.",
-    "latest_websocket_focus": "2026-05-19: websocket payloads still carry source and classification, and the frontend debug ring buffer remains listener-owned for handled messages.",
-    "latest_lint_focus": "2026-05-18: `cd frontend && npm run lint` and `git diff --check` passed; ESLint kept the existing fast-refresh warnings only.",
-    "latest_diff_check": "2026-05-19: git diff --check passed before the xtts handler logger checkpoint.",
+    "latest_websocket_focus": "2026-05-20: added diagnostic `tts_log_line` websocket events plus a frontend communication timeline and temporary Chapter Editor Live Output tab, with render-group context preserved through the normalized websocket path.",
+    "latest_lint_focus": "2026-05-20: `cd frontend && npm run lint` passed with existing fast-refresh warnings only; targeted Ruff check passed.",
+    "latest_diff_check": "2026-05-20: git diff --check passed after adding the live TTS communication timeline.",
     "known_warnings": [
       "Vite chunk-size warning remains on frontend builds.",
       "Some frontend motion tests may emit harmless animation warnings."

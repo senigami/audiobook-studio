@@ -79,6 +79,13 @@ describe('useJobs', () => {
         eta_seconds: 12,
         message: 'Rendering chapter',
         updated_at: 123,
+        render_group_count: 3,
+        completed_render_groups: 1,
+        active_render_group_index: 2,
+        total_render_weight: 100,
+        completed_render_weight: 40,
+        active_render_group_weight: 20,
+        grouped_progress: 0.42,
       });
     });
 
@@ -88,6 +95,13 @@ describe('useJobs', () => {
       eta_seconds: 12,
       log: 'Rendering chapter',
       classification: 'chapter',
+      render_group_count: 3,
+      completed_render_groups: 1,
+      active_render_group_index: 2,
+      total_render_weight: 100,
+      completed_render_weight: 40,
+      active_render_group_weight: 20,
+      grouped_progress: 0.42,
     });
 
     const recent = (window as any).__websocketRecentMessages;
@@ -100,6 +114,79 @@ describe('useJobs', () => {
       job_id: 'job1',
       status: 'running',
       progress: 0.42,
+    });
+  });
+
+  it('preserves render-group fields from job_updated payloads', async () => {
+    const { result } = renderHook(() => useJobs());
+
+    act(() => {
+      wsHandler({ type: 'jobs_snapshot', jobs: [{ id: 'job1', status: 'queued', progress: 0 }] });
+    });
+
+    act(() => {
+      wsHandler({
+        type: 'job_updated',
+        job_id: 'job1',
+        updates: {
+          status: 'running',
+          progress: 0.44,
+          render_group_count: 2,
+          completed_render_groups: 1,
+          active_render_group_index: 1,
+          total_render_weight: 200,
+          completed_render_weight: 100,
+          active_render_group_weight: 100,
+          grouped_progress: 0.44,
+          updated_at: 999,
+        },
+      });
+    });
+
+    expect(result.current.jobs.job1).toMatchObject({
+      status: 'running',
+      progress: 0.44,
+      render_group_count: 2,
+      completed_render_groups: 1,
+      active_render_group_index: 1,
+      total_render_weight: 200,
+      completed_render_weight: 100,
+      active_render_group_weight: 100,
+      grouped_progress: 0.44,
+    });
+  });
+
+  it('records tts_log_line diagnostics without mutating job state', async () => {
+    delete (window as any).__websocketRecentMessages;
+    delete (window as any).__ttsCommunicationTimeline;
+    const { result } = renderHook(() => useJobs());
+
+    act(() => {
+      wsHandler({ type: 'jobs_snapshot', jobs: [{ id: 'job1', status: 'running', progress: 0.2 }] });
+    });
+
+    act(() => {
+      wsHandler({
+        type: 'tts_log_line',
+        job_id: 'job1',
+        chapter_id: 'chap1',
+        line: '[PROGRESS] 40% job1',
+        marker: 'PROGRESS',
+        sequence: 3,
+        received_at: 123,
+      });
+    });
+
+    expect(result.current.jobs.job1).toMatchObject({ status: 'running', progress: 0.2 });
+    expect((window as any).__ttsCommunicationTimeline).toHaveLength(1);
+    expect((window as any).__ttsCommunicationTimeline[0]).toMatchObject({
+      kind: 'tts_log',
+      type: 'tts_log_line',
+      job_id: 'job1',
+      chapter_id: 'chap1',
+      line: '[PROGRESS] 40% job1',
+      marker: 'PROGRESS',
+      sequence: 3,
     });
   });
 

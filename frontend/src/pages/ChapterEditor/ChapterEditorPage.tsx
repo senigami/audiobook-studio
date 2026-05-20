@@ -5,7 +5,8 @@ import type { Job, SegmentProgress, TtsEngine, SpeakerProfile } from '@/types';
 
 // Extracted Components
 import { useChapterStatus, ChapterTopBar, ChapterScriptToolbar } from '@/pages/ChapterEditor/components/ChapterHeader';
-import { EditorTabs } from '@/pages/ChapterEditor/components/EditorTabs';
+import { EditorTabs, type ChapterEditorTab } from '@/pages/ChapterEditor/components/EditorTabs';
+import { LiveOutputTab } from '@/pages/ChapterEditor/components/LiveOutputTab';
 import { EditTab } from '@/pages/ChapterEditor/components/EditTab';
 import { ScriptView } from '@/pages/ChapterEditor/components/ScriptView';
 import { ResyncPreviewModal, type ResyncPreviewData } from '@/pages/ChapterEditor/components/ResyncPreviewModal';
@@ -86,7 +87,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     executeQueue
   } = useChapterEditor(chapterId, projectId, speakerProfiles, speakers, engines, chapterJobs, segmentUpdate, chapterUpdate);
 
-  const [editorTab, setEditorTab] = useState<'script' | 'edit'>('script');
+  const [editorTab, setEditorTab] = useState<ChapterEditorTab>('script');
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
   const [selectedProfileName, setSelectedProfileName] = useState<string | null>(null);
   const [expandedCharacterId, setExpandedCharacterId] = useState<string | null>(null);
@@ -530,6 +531,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
         },
         websocket: {
           recentMessages: typeof window !== 'undefined' ? (window as any).__websocketRecentMessages ?? [] : [],
+          liveTimeline: typeof window !== 'undefined' ? (window as any).__ttsCommunicationTimeline ?? [] : [],
         },
       },
       backend: typeof window !== 'undefined' ? {
@@ -710,6 +712,9 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                     hasUnsavedChanges={hasUnsavedChanges}
                     sourceTextMode={sourceTextMode}
                   />
+                )}
+                {editorTab === 'live' && (
+                  <LiveOutputTab chapterId={chapterId} currentJobId={job?.id ?? generatingSegmentJob?.id ?? null} />
                 )}
 
             </div>

@@ -160,6 +160,13 @@ class ProgressService:
         active_render_batch_progress: float | None = None,
         active_segment_id: str | None = None,
         active_segment_progress: float | None = None,
+        render_group_count: int | None = None,
+        completed_render_groups: int | None = None,
+        active_render_group_index: int | None = None,
+        total_render_weight: int | None = None,
+        completed_render_weight: int | None = None,
+        active_render_group_weight: int | None = None,
+        grouped_progress: float | None = None,
         source: str | None = None,
         allow_progress_regression: bool = False,
         force: bool = False,
@@ -208,6 +215,13 @@ class ProgressService:
             active_render_batch_progress=active_render_batch_progress,
             active_segment_id=active_segment_id,
             active_segment_progress=active_segment_progress,
+            render_group_count=render_group_count,
+            completed_render_groups=completed_render_groups,
+            active_render_group_index=active_render_group_index,
+            total_render_weight=total_render_weight,
+            completed_render_weight=completed_render_weight,
+            active_render_group_weight=active_render_group_weight,
+            grouped_progress=grouped_progress,
             source=source,
         )
         if not force and not self._should_emit(payload, allow_progress_regression=allow_progress_regression):
@@ -282,6 +296,13 @@ class ProgressService:
         active_render_batch_progress: float | None,
         active_segment_id: str | None = None,
         active_segment_progress: float | None = None,
+        render_group_count: int | None = None,
+        completed_render_groups: int | None = None,
+        active_render_group_index: int | None = None,
+        total_render_weight: int | None = None,
+        completed_render_weight: int | None = None,
+        active_render_group_weight: int | None = None,
+        grouped_progress: float | None = None,
         source: str | None = None,
     ) -> dict[str, object]:
         """Describe the canonical payload sent to live frontend listeners.
@@ -347,6 +368,20 @@ class ProgressService:
             payload["active_segment_id"] = active_segment_id
             if active_segment_progress is not None:
                 payload["active_segment_progress"] = round(max(0.0, min(float(active_segment_progress), 1.0)), 2)
+        if render_group_count is not None:
+            payload["render_group_count"] = int(render_group_count)
+        if completed_render_groups is not None:
+            payload["completed_render_groups"] = int(completed_render_groups)
+        if active_render_group_index is not None:
+            payload["active_render_group_index"] = int(active_render_group_index)
+        if total_render_weight is not None:
+            payload["total_render_weight"] = int(total_render_weight)
+        if completed_render_weight is not None:
+            payload["completed_render_weight"] = int(completed_render_weight)
+        if active_render_group_weight is not None:
+            payload["active_render_group_weight"] = int(active_render_group_weight)
+        if grouped_progress is not None:
+            payload["grouped_progress"] = round(max(0.0, min(float(grouped_progress), 1.0)), 2)
         return payload
 
     def _should_emit(self, payload: dict[str, object], *, allow_progress_regression: bool = False) -> bool:

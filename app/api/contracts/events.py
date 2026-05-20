@@ -13,6 +13,7 @@ StudioJobStatus = Literal["queued", "preparing", "running", "finalizing", "done"
 StudioJobClassification = Literal["job", "chapter", "segment"]
 StudioJobEventScope = Literal["job", "queue", "chapter", "segment", "export", "voice_test", "voice_build"]
 StudioEtaBasis = Literal["remaining_from_update", "total_from_start"]
+TtsLogLineMarker = Literal["START_SYNTHESIS", "START_SEGMENT", "PROGRESS", "SEGMENT_SAVED", "raw"]
 
 
 class StudioJobEvent(TypedDict, total=False):
@@ -38,6 +39,66 @@ class StudioJobEvent(TypedDict, total=False):
     active_render_batch_progress: NotRequired[float | None]
     active_segment_id: NotRequired[str | None]
     active_segment_progress: NotRequired[float | None]
+    render_group_count: NotRequired[int | None]
+    completed_render_groups: NotRequired[int | None]
+    active_render_group_index: NotRequired[int | None]
+    total_render_weight: NotRequired[int | None]
+    completed_render_weight: NotRequired[int | None]
+    active_render_group_weight: NotRequired[int | None]
+    grouped_progress: NotRequired[float | None]
+
+
+class TtsLogLineEvent(TypedDict, total=False):
+    """Diagnostic raw TTS log event for correlating bridge output with websocket fan-out."""
+
+    type: Literal["tts_log_line"]
+    source: NotRequired[str]
+    job_id: str
+    project_id: NotRequired[str | None]
+    chapter_id: NotRequired[str | None]
+    line: str
+    marker: TtsLogLineMarker
+    sequence: int
+    received_at: float
+
+
+def classify_tts_log_line(line: str) -> TtsLogLineMarker:
+    """Classify known TTS bridge marker lines without changing their raw text."""
+    if "[START_SYNTHESIS]" in line:
+        return "START_SYNTHESIS"
+    if "[START_SEGMENT]" in line:
+        return "START_SEGMENT"
+    if "[PROGRESS]" in line:
+        return "PROGRESS"
+    if "[SEGMENT_SAVED]" in line:
+        return "SEGMENT_SAVED"
+    return "raw"
+
+
+def build_tts_log_line_event(
+    *,
+    job_id: str,
+    project_id: str | None,
+    chapter_id: str | None,
+    line: str,
+    sequence: int,
+    received_at: float,
+    source: str | None = None,
+) -> TtsLogLineEvent:
+    """Build a diagnostic raw TTS log event payload."""
+    event: TtsLogLineEvent = {
+        "type": "tts_log_line",
+        "job_id": str(job_id),
+        "project_id": project_id,
+        "chapter_id": chapter_id,
+        "line": line.rstrip("\n"),
+        "marker": classify_tts_log_line(line),
+        "sequence": int(sequence),
+        "received_at": float(received_at),
+    }
+    if source is not None:
+        event["source"] = source
+    return event
 
 
 def build_studio_job_event(
@@ -59,6 +120,13 @@ def build_studio_job_event(
     active_render_batch_progress: float | None = None,
     active_segment_id: str | None = None,
     active_segment_progress: float | None = None,
+    render_group_count: int | None = None,
+    completed_render_groups: int | None = None,
+    active_render_group_index: int | None = None,
+    total_render_weight: int | None = None,
+    completed_render_weight: int | None = None,
+    active_render_group_weight: int | None = None,
+    grouped_progress: float | None = None,
     classification: StudioJobClassification | None = None,
     source: str | None = None,
 ) -> StudioJobEvent:
@@ -98,6 +166,20 @@ def build_studio_job_event(
         event["active_segment_id"] = active_segment_id
         if active_segment_progress is not None:
             event["active_segment_progress"] = round(float(active_segment_progress), 2)
+    if render_group_count is not None:
+        event["render_group_count"] = int(render_group_count)
+    if completed_render_groups is not None:
+        event["completed_render_groups"] = int(completed_render_groups)
+    if active_render_group_index is not None:
+        event["active_render_group_index"] = int(active_render_group_index)
+    if total_render_weight is not None:
+        event["total_render_weight"] = int(total_render_weight)
+    if completed_render_weight is not None:
+        event["completed_render_weight"] = int(completed_render_weight)
+    if active_render_group_weight is not None:
+        event["active_render_group_weight"] = int(active_render_group_weight)
+    if grouped_progress is not None:
+        event["grouped_progress"] = round(float(grouped_progress), 2)
     if classification is not None:
         event["classification"] = classification
     if source is not None:

@@ -208,6 +208,34 @@ def test_publish_includes_explicit_eta_basis():
     assert emitted["updated_at"] == 1200.0
 
 
+def test_publish_includes_render_group_context():
+    service, events, wall_now, _ = _make_service()
+
+    wall_now["value"] = 1200.0
+    emitted = service.publish(
+        job_id="job-8",
+        status="running",
+        progress=0.44,
+        render_group_count=2,
+        completed_render_groups=1,
+        active_render_group_index=1,
+        total_render_weight=945,
+        completed_render_weight=420,
+        active_render_group_weight=525,
+        grouped_progress=0.44,
+    )
+
+    assert emitted is not None
+    assert emitted["render_group_count"] == 2
+    assert emitted["completed_render_groups"] == 1
+    assert emitted["active_render_group_index"] == 1
+    assert emitted["total_render_weight"] == 945
+    assert emitted["completed_render_weight"] == 420
+    assert emitted["active_render_group_weight"] == 525
+    assert emitted["grouped_progress"] == 0.44
+    assert events == [(emitted, "jobs")]
+
+
 def test_publish_remaps_finalizing_to_running():
     service, events, _, _ = _make_service()
 
@@ -220,4 +248,3 @@ def test_publish_remaps_finalizing_to_running():
     assert emitted["status"] == "running"
     assert emitted["progress"] == 0.91
     assert events[0][0]["status"] == "running"
-

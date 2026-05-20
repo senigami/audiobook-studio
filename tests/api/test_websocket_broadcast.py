@@ -125,6 +125,56 @@ def test_broadcast_job_updated_propagates_active_segment(monkeypatch):
     assert messages[0]["source"].endswith("test_broadcast_job_updated_propagates_active_segment")
 
 
+def test_broadcast_job_updated_propagates_render_group_context(monkeypatch):
+    messages = []
+
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    broadcast_job_updated(
+        "job-group-test",
+        {
+            "render_group_count": 2,
+            "completed_render_groups": 1,
+            "active_render_group_index": 1,
+            "total_render_weight": 945,
+            "completed_render_weight": 420,
+            "active_render_group_weight": 525,
+            "grouped_progress": 0.44,
+        },
+        {
+            "status": "running",
+            "progress": 0.44,
+            "render_group_count": 2,
+            "completed_render_groups": 1,
+            "active_render_group_index": 1,
+            "total_render_weight": 945,
+            "completed_render_weight": 420,
+            "active_render_group_weight": 525,
+            "grouped_progress": 0.44,
+        },
+    )
+
+    assert messages[0]["render_group_count"] == 2
+    assert messages[0]["completed_render_groups"] == 1
+    assert messages[0]["active_render_group_index"] == 1
+    assert messages[0]["total_render_weight"] == 945
+    assert messages[0]["completed_render_weight"] == 420
+    assert messages[0]["active_render_group_weight"] == 525
+    assert messages[0]["grouped_progress"] == 0.44
+    assert messages[1]["updates"]["render_group_count"] == 2
+    assert messages[1]["updates"]["completed_render_groups"] == 1
+    assert messages[1]["updates"]["active_render_group_index"] == 1
+    assert messages[1]["updates"]["total_render_weight"] == 945
+    assert messages[1]["updates"]["completed_render_weight"] == 420
+    assert messages[1]["updates"]["active_render_group_weight"] == 525
+    assert messages[1]["updates"]["grouped_progress"] == 0.44
+    assert messages[1]["source"].endswith("test_broadcast_job_updated_propagates_render_group_context")
+
+
 def test_broadcast_job_updated_active_segment_progress_guard(monkeypatch):
     messages = []
 
@@ -149,6 +199,60 @@ def test_broadcast_job_updated_active_segment_progress_guard(monkeypatch):
     assert "active_segment_id" not in messages[0]
     assert "active_segment_progress" not in messages[0]
     assert messages[0]["source"].endswith("test_broadcast_job_updated_active_segment_progress_guard")
+
+
+def test_broadcast_tts_log_line_sends_structured_diagnostic_payload(monkeypatch):
+    messages = []
+
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    from app.api.ws import broadcast_tts_log_line, reset_tts_log_line_sequences_for_tests
+
+    reset_tts_log_line_sequences_for_tests()
+    broadcast_tts_log_line(
+        job_id="job-tts",
+        project_id="proj-1",
+        chapter_id="chap-1",
+        line="[PROGRESS] 40% job-tts",
+        received_at=123.45,
+    )
+
+    assert len(messages) == 1
+    assert messages[0] == {
+        "type": "tts_log_line",
+        "job_id": "job-tts",
+        "project_id": "proj-1",
+        "chapter_id": "chap-1",
+        "line": "[PROGRESS] 40% job-tts",
+        "marker": "PROGRESS",
+        "sequence": 1,
+        "received_at": 123.45,
+        "source": "tests.api.test_websocket_broadcast.test_broadcast_tts_log_line_sends_structured_diagnostic_payload",
+    }
+
+
+def test_broadcast_tts_log_line_sequences_are_per_job(monkeypatch):
+    messages = []
+
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    from app.api.ws import broadcast_tts_log_line, reset_tts_log_line_sequences_for_tests
+
+    reset_tts_log_line_sequences_for_tests()
+    broadcast_tts_log_line(job_id="job-a", project_id=None, chapter_id=None, line="[START_SYNTHESIS] job-a", received_at=1.0)
+    broadcast_tts_log_line(job_id="job-a", project_id=None, chapter_id=None, line="[START_SEGMENT] seg-1", received_at=2.0)
+    broadcast_tts_log_line(job_id="job-b", project_id=None, chapter_id=None, line="plain output", received_at=3.0)
+
+    assert [message["sequence"] for message in messages] == [1, 2, 1]
+    assert [message["marker"] for message in messages] == ["START_SYNTHESIS", "START_SEGMENT", "raw"]
 
 
 def test_broadcast_queue_update_sends_structured_payload(monkeypatch):
@@ -395,4 +499,3 @@ def test_update_job_propagates_source(monkeypatch):
     update_job("job-source-test", progress=0.7)
     assert len(broadcasts) == 2
     assert broadcasts[1][1].get("source") == "tests.api.test_websocket_broadcast.test_update_job_propagates_source"
-

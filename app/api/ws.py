@@ -2,10 +2,12 @@ from __future__ import annotations
 import asyncio
 import logging
 import sys
+import threading
+import time
 from typing import List
 from fastapi import WebSocket
 
-from .contracts.events import build_studio_job_event
+from .contracts.events import build_studio_job_event, build_tts_log_line_event
 from ..utils.render_trace import trace
 
 logger = logging.getLogger(__name__)
@@ -44,6 +46,8 @@ class ConnectionManager:
             logger.debug("Dropped dead websocket connection while broadcasting")
 
 manager = ConnectionManager()
+_tts_log_line_sequences: dict[str, int] = {}
+_tts_log_line_sequences_lock = threading.Lock()
 
 
 def _resolve_source(default: str) -> str:
@@ -69,6 +73,47 @@ def _classify_job_payload(job: dict | None) -> str:
     if job.get("chapter_id"):
         return "chapter"
     return "job"
+
+
+def _next_tts_log_line_sequence(job_id: str) -> int:
+    with _tts_log_line_sequences_lock:
+        next_sequence = _tts_log_line_sequences.get(job_id, 0) + 1
+        _tts_log_line_sequences[job_id] = next_sequence
+        return next_sequence
+
+
+def reset_tts_log_line_sequences_for_tests() -> None:
+    with _tts_log_line_sequences_lock:
+        _tts_log_line_sequences.clear()
+
+
+def broadcast_tts_log_line(
+    *,
+    job_id: str,
+    project_id: str | None,
+    chapter_id: str | None,
+    line: str,
+    received_at: float | None = None,
+    source: str | None = None,
+) -> None:
+    payload = build_tts_log_line_event(
+        job_id=job_id,
+        project_id=project_id,
+        chapter_id=chapter_id,
+        line=line,
+        sequence=_next_tts_log_line_sequence(job_id),
+        received_at=received_at if received_at is not None else time.time(),
+        source=source or _resolve_source("app.api.ws.broadcast_tts_log_line"),
+    )
+    trace(
+        "ws.broadcast_tts_log_line",
+        job_id=job_id,
+        project_id=project_id,
+        chapter_id=chapter_id,
+        marker=payload["marker"],
+        sequence=payload["sequence"],
+    )
+    manager.broadcast(payload)
 
 def broadcast_queue_update(
     reason: str | None = None,
@@ -232,6 +277,13 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
         active_render_batch_progress=merged.get("active_render_batch_progress"),
         active_segment_id=merged.get("active_segment_id"),
         active_segment_progress=merged.get("active_segment_progress"),
+        render_group_count=merged.get("render_group_count"),
+        completed_render_groups=merged.get("completed_render_groups"),
+        active_render_group_index=merged.get("active_render_group_index"),
+        total_render_weight=merged.get("total_render_weight"),
+        completed_render_weight=merged.get("completed_render_weight"),
+        active_render_group_weight=merged.get("active_render_group_weight"),
+        grouped_progress=merged.get("grouped_progress"),
         classification=classification,
         source=source or _resolve_source("app.api.ws.broadcast_job_updated"),
     )

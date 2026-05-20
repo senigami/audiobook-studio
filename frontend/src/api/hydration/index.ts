@@ -96,6 +96,7 @@ function buildOverlayQueueItem(jobId: string, delta: OverlayDelta): ProcessingQu
     total_render_weight: undefined,
     completed_render_weight: undefined,
     active_render_group_weight: undefined,
+    grouped_progress: delta.grouped_progress ?? delta.progress,
     active_segment_id: delta.active_segment_id ?? undefined,
     active_segment_progress: delta.active_segment_progress ?? undefined,
   };
@@ -188,7 +189,13 @@ export const createHydrationCoordinator = (): HydrationCoordinator => ({
         started_at: delta.started_at !== undefined ? (delta.started_at ?? undefined) : item.started_at,
         log: delta.message ?? item.log,
         error: delta.error ?? delta.message ?? item.error,
-        // active_render_batch_id etc are not in ProcessingQueueItem but we could add them if needed
+        render_group_count: delta.render_group_count !== undefined ? delta.render_group_count ?? undefined : item.render_group_count,
+        completed_render_groups: delta.completed_render_groups !== undefined ? delta.completed_render_groups ?? undefined : item.completed_render_groups,
+        active_render_group_index: delta.active_render_group_index !== undefined ? delta.active_render_group_index ?? undefined : item.active_render_group_index,
+        total_render_weight: delta.total_render_weight !== undefined ? delta.total_render_weight ?? undefined : item.total_render_weight,
+        completed_render_weight: delta.completed_render_weight !== undefined ? delta.completed_render_weight ?? undefined : item.completed_render_weight,
+        active_render_group_weight: delta.active_render_group_weight !== undefined ? delta.active_render_group_weight ?? undefined : item.active_render_group_weight,
+        grouped_progress: delta.grouped_progress !== undefined ? delta.grouped_progress ?? undefined : item.grouped_progress,
       };
 
       // Apply Finalizing Hold heuristic

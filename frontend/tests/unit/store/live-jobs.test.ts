@@ -18,17 +18,63 @@ describe('LiveJobsStore', () => {
     expect(state.eventsById['job1'].status).toBe('running');
   });
 
+  it('keeps render-group context from studio_job_event updates', () => {
+    const store = createLiveJobsStore();
+    store.applyEvent({
+      type: 'studio_job_event',
+      job_id: 'job1',
+      status: 'running',
+      progress: 0.42,
+      updated_at: 1000,
+      scope: 'job',
+      render_group_count: 3,
+      completed_render_groups: 1,
+      active_render_group_index: 2,
+      total_render_weight: 100,
+      completed_render_weight: 40,
+      active_render_group_weight: 20,
+      grouped_progress: 0.42,
+    } as any);
+
+    const state = store.getState();
+    expect(state.eventsById['job1']).toMatchObject({
+      render_group_count: 3,
+      completed_render_groups: 1,
+      active_render_group_index: 2,
+      total_render_weight: 100,
+      completed_render_weight: 40,
+      active_render_group_weight: 20,
+      grouped_progress: 0.42,
+    });
+  });
+
   it('applies job_updated updates correctly via applyJobUpdated', () => {
     const store = createLiveJobsStore();
     store.applyJobUpdated('job1', {
       status: 'running',
       progress: 0.7,
-      updated_at: 2000
+      updated_at: 2000,
+      render_group_count: 4,
+      completed_render_groups: 2,
+      active_render_group_index: 1,
+      total_render_weight: 120,
+      completed_render_weight: 60,
+      active_render_group_weight: 30,
+      grouped_progress: 0.7,
     });
 
     const state = store.getState();
     expect(state.eventsById['job1'].progress).toBe(0.7);
     expect(state.eventsById['job1'].status).toBe('running');
+    expect(state.eventsById['job1']).toMatchObject({
+      render_group_count: 4,
+      completed_render_groups: 2,
+      active_render_group_index: 1,
+      total_render_weight: 120,
+      completed_render_weight: 60,
+      active_render_group_weight: 30,
+      grouped_progress: 0.7,
+    });
   });
 
   it('prevents stale updates based on updated_at', () => {

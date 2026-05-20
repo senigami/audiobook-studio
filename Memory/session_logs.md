@@ -1207,3 +1207,15 @@
 - Updated job handlers across XTTS, Voxtral, and Synthesis Mixed plugins to pass their currently executing job's `jid`/`task_id` into `generate_via_bridge`.
 - Added unit test `test_generate_via_bridge_propagates_task_id` in `tests/bridge/test_bridge_helpers.py` to verify that `task_id` is propagated correctly.
 - Confirmed all 841 backend tests passed successfully.
+
+# 2026-05-20 - Temporary Live TTS Communication Timeline Added
+
+- Added diagnostic `tts_log_line` websocket events from the orchestrator log listener so each real TTS bridge output line is visible with job/chapter/project ids, marker classification, and per-job sequence.
+- Extended frontend websocket debug capture with a capped communication timeline and added a temporary Chapter Editor `Live Output` tab for raw TTS lines plus socket fan-out, including filtering, pause/resume, clear, and copy JSON controls.
+- Verified targeted backend/frontend tests, Ruff, `git diff --check`, frontend lint, and frontend build all pass; lint retains only the existing fast-refresh warnings.
+
+# 2026-05-20 - Render-Group Fields Propagated Into Live Output Path
+
+- Propagated `render_group_count`, `completed_render_groups`, `active_render_group_index`, and render weight fields through `studio_job_event`, `job_updated`, live overlay hydration, and the communication timeline.
+- Updated the Chapter Editor Live Output tab and the frontend debug snapshot path so the live trace now shows the same group context that the backend emits.
+- Verified targeted backend tests for progress/websocket broadcasting plus frontend Vitest slices for runtime debug capture, `useJobs`, live-jobs store merging, hydration, and Live Output rendering.

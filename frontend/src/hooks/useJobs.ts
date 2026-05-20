@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Job, SegmentProgress } from '@/types';
 import { useWebSocket } from '@/hooks/useWebSocket';
-import { isStudioJobEvent } from '@/api/contracts/events';
+import { isStudioJobEvent, isTtsLogLineEvent } from '@/api/contracts/events';
 import { recordWebsocketDebugMessage } from '@/utils/runtimeDebug';
 
 const STATUS_PRIORITY: Record<string, number> = {
@@ -12,6 +12,23 @@ const STATUS_PRIORITY: Record<string, number> = {
   running: 3,
   preparing: 2,
   queued: 1,
+};
+
+const copyRenderGroupFields = (target: Record<string, any>, source: Record<string, any>) => {
+  const fields = [
+    'render_group_count',
+    'completed_render_groups',
+    'active_render_group_index',
+    'total_render_weight',
+    'completed_render_weight',
+    'active_render_group_weight',
+    'grouped_progress',
+  ];
+  for (const key of fields) {
+    if (source[key] !== undefined) {
+      target[key] = source[key];
+    }
+  }
 };
 
 export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, onPauseUpdate?: (paused: boolean) => void, onSegmentsUpdate?: (chapterId: string) => void, onChapterUpdate?: (chapterId: string) => void) => {
@@ -38,6 +55,8 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
       }, {} as Record<string, Job>);
       setJobs(jobMap);
       setLoading(false);
+    } else if (data.type === 'tts_log_line' || isTtsLogLineEvent(data)) {
+      recordWebsocketDebugMessage('useJobs', data, raw);
     } else if (data.type === 'studio_job_event' || isStudioJobEvent(data)) {
       const job_id = data.job_id;
       const nextUpdates: Record<string, any> = {
@@ -46,6 +65,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
         eta_seconds: data.eta_seconds,
         started_at: data.started_at,
       };
+      copyRenderGroupFields(nextUpdates, data);
       if (data.classification) {
         nextUpdates.classification = data.classification;
       }
@@ -150,6 +170,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
         }
 
         const nextUpdates = { ...updates } as Record<string, any>;
+        copyRenderGroupFields(nextUpdates, updates as Record<string, any>);
         const incomingStatus = typeof nextUpdates.status === 'string' ? nextUpdates.status : undefined;
         const currentStatus = typeof oldJob.status === 'string' ? oldJob.status : undefined;
         if (incomingStatus && currentStatus) {

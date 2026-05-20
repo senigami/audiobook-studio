@@ -24,6 +24,13 @@ export interface OverlayDelta {
   active_render_batch_progress?: number | null;
   active_segment_id?: string | null;
   active_segment_progress?: number | null;
+  render_group_count?: number | null;
+  completed_render_groups?: number | null;
+  active_render_group_index?: number | null;
+  total_render_weight?: number | null;
+  completed_render_weight?: number | null;
+  active_render_group_weight?: number | null;
+  grouped_progress?: number | null;
   reason_code?: string | null;
   message?: string | null;
   error?: string | null;
@@ -181,6 +188,27 @@ export const createLiveJobsStore = (): LiveJobsStore => {
     if (event.active_segment_progress !== undefined) {
       nextDelta.active_segment_progress = event.active_segment_progress;
     }
+    if (event.render_group_count !== undefined) {
+      nextDelta.render_group_count = event.render_group_count;
+    }
+    if (event.completed_render_groups !== undefined) {
+      nextDelta.completed_render_groups = event.completed_render_groups;
+    }
+    if (event.active_render_group_index !== undefined) {
+      nextDelta.active_render_group_index = event.active_render_group_index;
+    }
+    if (event.total_render_weight !== undefined) {
+      nextDelta.total_render_weight = event.total_render_weight;
+    }
+    if (event.completed_render_weight !== undefined) {
+      nextDelta.completed_render_weight = event.completed_render_weight;
+    }
+    if (event.active_render_group_weight !== undefined) {
+      nextDelta.active_render_group_weight = event.active_render_group_weight;
+    }
+    if (event.grouped_progress !== undefined) {
+      nextDelta.grouped_progress = event.grouped_progress;
+    }
 
     state.eventsById[jobId] = nextDelta;
 
@@ -251,6 +279,27 @@ export const createLiveJobsStore = (): LiveJobsStore => {
       active_segment_progress: jobUpdated.active_segment_progress !== undefined
         ? jobUpdated.active_segment_progress
         : existing?.active_segment_progress,
+      render_group_count: jobUpdated.render_group_count !== undefined
+        ? jobUpdated.render_group_count
+        : existing?.render_group_count,
+      completed_render_groups: jobUpdated.completed_render_groups !== undefined
+        ? jobUpdated.completed_render_groups
+        : existing?.completed_render_groups,
+      active_render_group_index: jobUpdated.active_render_group_index !== undefined
+        ? jobUpdated.active_render_group_index
+        : existing?.active_render_group_index,
+      total_render_weight: jobUpdated.total_render_weight !== undefined
+        ? jobUpdated.total_render_weight
+        : existing?.total_render_weight,
+      completed_render_weight: jobUpdated.completed_render_weight !== undefined
+        ? jobUpdated.completed_render_weight
+        : existing?.completed_render_weight,
+      active_render_group_weight: jobUpdated.active_render_group_weight !== undefined
+        ? jobUpdated.active_render_group_weight
+        : existing?.active_render_group_weight,
+      grouped_progress: jobUpdated.grouped_progress !== undefined
+        ? jobUpdated.grouped_progress
+        : existing?.grouped_progress,
       reason_code: jobUpdated.reason_code ?? existing?.reason_code,
       message: jobUpdated.message ?? jobUpdated.log ?? jobUpdated.error ?? existing?.message,
       error: jobUpdated.error ?? jobUpdated.message ?? jobUpdated.log ?? existing?.error,
