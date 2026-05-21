@@ -28,25 +28,7 @@ DEFAULT_SPEAKER_TEST_TEXT = (
 def _infer_profile_engine(meta: Optional[Dict[str, Any]] = None) -> str:
     """Infer the target engine for a voice profile."""
     meta = dict(meta or {})
-    explicit_engine = str(meta.get("engine") or "").strip().lower()
-    if explicit_engine:
-        # Trust explicit engine metadata even if discovery is temporarily empty/stale.
-        return explicit_engine
-
-    from ..engines.behavior import setting_aliases_for
-
-    # Check if any field matches a known alias for a non-default engine
-    default_engine = get_default_profile_engine()
-    for engine_id in list_tts_engines():
-        if engine_id == default_engine:
-            continue
-
-        aliases = setting_aliases_for(engine_id)
-        for alias_key in aliases:
-            if str(meta.get(alias_key) or "").strip():
-                return engine_id
-
-    return default_engine
+    return str(meta.get("engine") or "").strip().lower()
 
 
 def _profile_name_or_error(profile_name: str) -> str:
@@ -77,7 +59,8 @@ def _existing_profile_dir(profile_name: str) -> Optional[Path]:
     """Internal helper to resolve an existing profile directory in V2 nested storage."""
     voices_dir = config.VOICES_DIR
     profile_name = _profile_name_or_error(profile_name)
-    voices_root = os.path.abspath(os.path.realpath(os.fspath(voices_dir)))
+    voices_root = os.fspath(voices_dir) if hasattr(voices_dir, "resolve") else str(voices_dir)
+    voices_root = os.path.abspath(os.path.realpath(voices_root))
 
     # Rule 8: Enumerate trusted root and match by entry.name
     try:
@@ -249,24 +232,22 @@ def _resolve_existing_profile_name(profile_name_or_id: str) -> Optional[str]:
 
 def get_profile_engine(profile_name_or_id: Optional[str], fallback_engine: Optional[str] = None) -> str:
     """Resolve the engine ID for a profile name or speaker ID without depending on app.jobs."""
-    from ..engines.voice_engines import normalize_tts_engine
-    fallback = normalize_tts_engine(fallback_engine, fallback=fallback_engine)
     if not profile_name_or_id:
-        return fallback
+        return ""
 
     # 1. Resolve canonical profile name
     target_profile = _resolve_existing_profile_name(profile_name_or_id)
     if not target_profile:
-        return fallback
+        return ""
 
     # 2. Find profile directory and read metadata
     pdir = _existing_profile_dir(target_profile)
     if not pdir:
-        return fallback
+        return ""
 
     meta_file = find_secure_file(pdir, "profile.json")
     if not meta_file:
-        return _infer_profile_engine({})
+        return ""
 
     try:
         with open(meta_file, "r", encoding="utf-8", errors="replace") as f:
@@ -274,7 +255,12 @@ def get_profile_engine(profile_name_or_id: Optional[str], fallback_engine: Optio
     except Exception:
         meta = {}
 
-    return normalize_tts_engine(_infer_profile_engine(meta), fallback)
+    explicit_engine = meta.get("engine")
+    if not explicit_engine:
+        return ""
+
+    from ..engines.voice_engines import normalize_tts_engine
+    return normalize_tts_engine(explicit_engine, settings=None)
 
 
 def get_profile_dir(profile_name: str) -> Path:
@@ -322,7 +308,7 @@ def get_speaker_settings(profile_name_or_id: str) -> dict:
         "speaker_id": None,
         "variant_name": None,
         "built_samples": [],
-        "engine": get_default_profile_engine(),
+        "engine": "",
     }
     # Resolve to canonical name if it exists
     target_profile = _resolve_existing_profile_name(profile_name_or_id)

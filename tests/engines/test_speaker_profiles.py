@@ -46,6 +46,11 @@ def test_list_profiles_empty(clean_voices):
     assert response.json() == []
 
 def test_build_profile(clean_voices):
+    # Setup profile dir with configured engine first to satisfy strict policy
+    profile_dir = _new_voice_profile_dir("TestSpeaker")
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "profile.json").write_text(json.dumps({"engine": "xtts"}))
+
     # Mocking files
     files = [
         ("files", ("test1.wav", b"fake wav content 1", "audio/wav")),
@@ -57,7 +62,6 @@ def test_build_profile(clean_voices):
     )
     assert response.status_code == 200
 
-    profile_dir = _new_voice_profile_dir("TestSpeaker")
     assert profile_dir.exists()
     assert (profile_dir / "test1.wav").exists()
     assert (profile_dir / "test2.wav").exists()
@@ -74,7 +78,7 @@ def test_build_profile_allows_latent_without_raw_samples(clean_voices):
 
     profile_dir = _new_voice_profile_dir("LatentOnly")
     profile_dir.mkdir(parents=True, exist_ok=True)
-    (profile_dir / "profile.json").write_text("{}")
+    (profile_dir / "profile.json").write_text(json.dumps({"engine": "xtts"}))
     (profile_dir / "latent.pth").write_text("latent")
 
     response = client.post("/api/speaker-profiles/LatentOnly/build")
@@ -85,7 +89,7 @@ def test_update_speed(clean_voices):
     # Create a profile first
     profile_dir = _new_voice_profile_dir("Speedy")
     profile_dir.mkdir(parents=True, exist_ok=True)
-    (profile_dir / "profile.json").write_text("{}")
+    (profile_dir / "profile.json").write_text(json.dumps({"engine": "xtts"}))
     (profile_dir / "1.wav").write_text("audio")
 
     response = client.post(
@@ -111,7 +115,7 @@ def test_speaker_profile_test_endpoint(mock_orchestrator, clean_voices):
     name = "Tester"
     profile_dir = _new_voice_profile_dir(name)
     profile_dir.mkdir(parents=True, exist_ok=True)
-    (profile_dir / "profile.json").write_text("{}")
+    (profile_dir / "profile.json").write_text(json.dumps({"engine": "xtts"}))
     (profile_dir / "1.wav").write_text("audio")
     (profile_dir / "1.wav").write_text("audio")
     mp3_path = profile_dir / "sample.mp3"
@@ -141,7 +145,7 @@ def test_speaker_profile_test_endpoint_allows_latent_without_raw_samples(mock_or
     name = "LatentTester"
     profile_dir = _new_voice_profile_dir(name)
     profile_dir.mkdir(parents=True, exist_ok=True)
-    (profile_dir / "profile.json").write_text("{}")
+    (profile_dir / "profile.json").write_text(json.dumps({"engine": "xtts"}))
     (profile_dir / "latent.pth").write_text("latent")
 
     response = client.post(f"/api/speaker-profiles/{name}/test")
@@ -381,8 +385,8 @@ def test_speaker_listing_normalizes_base_profile_to_default(clean_voices):
         angry_dir = _new_voice_profile_dir("Dracula Test Normalize - Angry")
         angry_dir.mkdir(parents=True, exist_ok=True)
         (angry_dir / "profile.json").write_text("{}")
-        (base_dir / "profile.json").write_text(json.dumps({"built_samples": []}))
-        (angry_dir / "profile.json").write_text(json.dumps({"speaker_id": speaker_id, "variant_name": "Angry"}))
+        (base_dir / "profile.json").write_text(json.dumps({"built_samples": [], "engine": "xtts"}))
+        (angry_dir / "profile.json").write_text(json.dumps({"speaker_id": speaker_id, "variant_name": "Angry", "engine": "xtts"}))
 
         normalize_base_profiles(voices_dir=clean_voices)
 
@@ -404,6 +408,6 @@ def test_speaker_listing_normalizes_base_profile_to_default(clean_voices):
         meta = json.loads((base_dir / "profile.json").read_text())
         assert "variant_name" not in meta
         assert meta["speaker_id"] == speaker_id
-        assert "engine" not in meta
+        assert meta["engine"] == "xtts"
     finally:
         delete_speaker(speaker_id)

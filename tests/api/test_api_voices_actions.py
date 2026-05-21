@@ -205,7 +205,7 @@ def test_build_and_test_profiles(clean_db, voices_root, client):
         (profile_root / "voice.json").write_text(json.dumps({"version": 2, "name": "SpeakerA"}))
         profile_dir = profile_root / "Default"
         profile_dir.mkdir(parents=True, exist_ok=True)
-        (profile_dir / "profile.json").write_text(json.dumps({"variant_name": "Default"}))
+        (profile_dir / "profile.json").write_text(json.dumps({"variant_name": "Default", "engine": "xtts"}))
         with patch("app.db.state.put_job"), \
              patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"):
             response = client.post("/api/speaker-profiles/SpeakerA/build", files=files)
@@ -245,6 +245,13 @@ def test_engine_actions_reject_when_disabled(clean_db, voices_root, client):
 def test_build_and_rename_profile(clean_db, voices_root, client):
     voices_dir = voices_root
     voices_dir.mkdir(parents=True, exist_ok=True)
+
+    profile_root = voices_dir / "SpeakerL"
+    profile_root.mkdir(parents=True, exist_ok=True)
+    (profile_root / "voice.json").write_text(json.dumps({"version": 2, "name": "SpeakerL"}))
+    profile_dir = profile_root / "Default"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "profile.json").write_text(json.dumps({"variant_name": "Default", "engine": "xtts"}))
 
     # Legacy Build
     with patch("app.db.state.put_job"), \

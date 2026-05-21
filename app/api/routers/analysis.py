@@ -102,9 +102,9 @@ def api_analyze_chapter(chapter_id: str):
             chars = get_characters(chap["project_id"])
             char_map = {c["id"]: c for c in chars}
 
-            # Determine limit based on engine
-            from ...engines.voice_engines import get_default_profile_engine
-            engine_id = chap.get("engine_id") or state.get_settings().get("default_engine", get_default_profile_engine())
+            engine_id = chap.get("engine_id") or state.get_settings().get("default_engine")
+            if not engine_id:
+                raise AnalysisError("No TTS engine configured", 400)
             chunk_limit = get_text_chunk_limit(engine_id)
             split_target = get_text_split_target(engine_id)
 
@@ -222,8 +222,9 @@ def api_analyze_text(req: AnalyzeTextRequest):
         text_content = req.text_content
         stats = get_text_stats(text_content)
 
-        from ...engines.voice_engines import get_default_profile_engine
-        engine_id = state.get_settings().get("default_engine", get_default_profile_engine())
+        engine_id = state.get_settings().get("default_engine")
+        if not engine_id:
+            raise AnalysisError("No TTS engine configured", 400)
         chunk_limit = get_text_chunk_limit(engine_id)
         split_target = get_text_split_target(engine_id)
 

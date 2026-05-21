@@ -5,6 +5,8 @@ from unittest.mock import patch
 
 
 def test_create_and_delete_profile(clean_db, voices_root, client):
+    from app.db.state import update_settings
+    update_settings({"default_engine": "xtts"})
     voices_dir = voices_root
     voices_dir.mkdir()
 
@@ -165,6 +167,8 @@ def test_rename_profile_default_sync(clean_db, voices_root, client):
 
 
 def test_profile_creation_errors(clean_db, voices_root, client):
+    from app.db.state import update_settings
+    update_settings({"default_engine": "xtts"})
     voices_dir = voices_root
     voices_dir.mkdir()
 
@@ -197,3 +201,10 @@ def test_assign_profile_to_speaker_errors(clean_db, voices_root, client):
     with patch("app.api.routers.voices_management.db.get_speaker", side_effect=Exception("db crash")):
         response = client.post("/api/speaker-profiles/SomeProf/assign", data={"speaker_id": "sid"})
         assert response.status_code == 500
+
+
+def test_create_speaker_profile_fails_when_no_engine_and_no_default(clean_db, voices_root, client):
+    from app.db.state import update_settings
+    update_settings({"default_engine": ""})
+    response = client.post("/api/speaker-profiles", data={"speaker_id": "S1", "variant_name": "V1"})
+    assert response.status_code == 400

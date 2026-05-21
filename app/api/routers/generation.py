@@ -247,8 +247,6 @@ def _engines_for_profiles(profile_names: list[Optional[str]], fallback_engine: O
         if not profile_name:
             continue
         engine_id = resolve_profile_engine(profile_name, fallback_engine)
-        if not engine_id:
-            continue
         if engine_id in seen:
             continue
         seen.add(engine_id)

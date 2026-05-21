@@ -50,3 +50,13 @@ def test_build_chunk_groups_respects_engine_limit():
             assert len(groups) == 2, "Should have split into 2 groups due to engine limit"
             assert groups[0]["segments"][0]["id"] == "s1"
             assert groups[1]["segments"][0]["id"] == "s2"
+
+
+def test_build_chunk_groups_resolves_empty_engine_for_unknown_profiles():
+    segments = [
+        {"id": "s1", "text_content": "Hello world.", "character_id": "char1"},
+    ]
+    # Under explicit-only resolution, if profile engine resolution fails/empty,
+    # the resolved engine in chunk grouping should be "" rather than "unknown".
+    groups = build_chunk_groups(segments, default_profile=None)
+    assert groups[0]["engine"] == ""

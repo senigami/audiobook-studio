@@ -25,6 +25,8 @@ def clean_db():
 def test_analyze_chapter(clean_db, client):
     from app.db.projects import create_project
     from app.db.chapters import create_chapter
+    from app.db.state import update_settings
+    update_settings({"default_engine": "xtts"})
     pid = create_project("P1")
     cid = create_chapter(pid, "C1", "This is a test sentence. Another one here.")
 
@@ -40,6 +42,8 @@ def test_analyze_chapter(clean_db, client):
     assert "char_count" in data
 
 def test_analyze_text(clean_db, client):
+    from app.db.state import update_settings
+    update_settings({"default_engine": "xtts"})
     payload = {"text_content": "Hello world. This is a sample sentence for testing."}
     response = client.post("/api/analyze_text", json=payload)
     assert response.status_code == 200
@@ -55,3 +59,34 @@ def test_report_not_found(clean_db, tmp_path, client):
     response = client.get("/api/report/nonexistent")
     assert response.status_code == 404
     fastapi_app.dependency_overrides = {}
+
+
+def test_analyze_chapter_fails_when_no_engine(clean_db, client):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from unittest.mock import patch
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "This is a test sentence. Another one here.")
+
+    # Sync segments so analyze has real data
+    response = client.post(f"/api/chapters/{cid}/sync-segments",
+                           json={"text": "This is a test sentence. Another one here."})
+    assert response.status_code == 200
+
+    # Mock settings to have no default engine. The router should NOT fall back to discovery.
+    with patch("app.api.routers.analysis.state.get_settings", return_value={}):
+        # Analyze the chapter
+        response = client.get(f"/api/chapters/{cid}/analyze")
+        assert response.status_code == 400
+        assert "engine" in response.json()["message"].lower()
+
+
+def test_analyze_text_fails_when_no_engine(clean_db, client):
+    from unittest.mock import patch
+    payload = {"text_content": "Hello world. This is a sample sentence for testing."}
+
+    # Mock settings to have no default engine. The router should NOT fall back to discovery.
+    with patch("app.api.routers.analysis.state.get_settings", return_value={}):
+        response = client.post("/api/analyze_text", json=payload)
+        assert response.status_code == 400
+        assert "engine" in response.json()["message"].lower()

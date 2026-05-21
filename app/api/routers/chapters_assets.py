@@ -86,8 +86,15 @@ def api_get_chapter_preview(
     if processed:
         settings = get_settings()
         is_safe = settings.get("safe_mode", True)
-        from ...engines.voice_engines import get_default_profile_engine
-        engine_id = chapter.get("engine_id") or settings.get("default_engine", get_default_profile_engine())
+        engine_id = chapter.get("engine_id") or settings.get("default_engine")
+        if not engine_id:
+            return JSONResponse(
+                {
+                    "status": "error",
+                    "message": "No TTS engine is currently configured. Please select an engine in Settings."
+                },
+                status_code=400,
+            )
         from ...engines.behavior import get_text_chunk_limit, get_text_split_target
         limit = get_text_chunk_limit(engine_id)
         split_target = get_text_split_target(engine_id)

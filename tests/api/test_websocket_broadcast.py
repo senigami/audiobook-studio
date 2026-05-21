@@ -551,9 +551,10 @@ def test_update_job_respects_skip_job_updated(monkeypatch):
     assert broadcasts[0][1].get("skip_job_updated") is True
 
 
-def test_api_add_to_queue_websocket_burst_no_redundancy(monkeypatch, tmp_path):
+def test_api_add_to_queue_websocket_burst_no_redundancy(monkeypatch, tmp_path, voices_root):
     import os
     import importlib
+    import json
     from unittest.mock import patch
     from fastapi.testclient import TestClient
     from app.api.web import app as fastapi_app
@@ -564,6 +565,12 @@ def test_api_add_to_queue_websocket_burst_no_redundancy(monkeypatch, tmp_path):
     import app.db.core
     importlib.reload(app.db.core)
     app.db.core.init_db()
+
+    # Create Voice1 profile on disk
+    v_dir = voices_root / "Voice1" / "Default"
+    v_dir.mkdir(parents=True, exist_ok=True)
+    (v_dir / "profile.json").write_text(json.dumps({"variant_name": "Default", "engine": "xtts"}))
+    (voices_root / "Voice1" / "voice.json").write_text(json.dumps({"version": 2, "name": "Voice1"}))
 
     from app.db.projects import create_project
     from app.db.chapters import create_chapter

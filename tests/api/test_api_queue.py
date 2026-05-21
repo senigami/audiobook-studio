@@ -33,7 +33,12 @@ def clean_db(tmp_path):
     if os.path.exists(db_path):
         os.unlink(db_path)
 
-def test_queue_api(clean_db, client):
+def test_queue_api(clean_db, voices_root, client):
+    default_profile_dir = voices_root / "DefaultVoice" / "Default"
+    default_profile_dir.mkdir(parents=True, exist_ok=True)
+    (default_profile_dir / "profile.json").write_text(json.dumps({"variant_name": "Default", "engine": "xtts"}))
+    (voices_root / "DefaultVoice" / "voice.json").write_text(json.dumps({"version": 2, "name": "DefaultVoice"}))
+
     from app.db.projects import create_project
     from app.db.chapters import create_chapter
     prefix = uuid.uuid4().hex[:6]

@@ -9,7 +9,7 @@ def test_get_default_profile_engine_filters_disabled_engines():
     ]
 
     # 1. Configured default is "voxtral", but "voxtral" is disabled.
-    # It should fallback to the first enabled engine: "xtts"
+    # Under strict policy, it returns "" instead of falling back.
     settings = {
         "default_engine": "voxtral",
         "enabled_plugins": {
@@ -20,7 +20,7 @@ def test_get_default_profile_engine_filters_disabled_engines():
 
     with patch("app.engines.voice_engines._get_registry_manifests", return_value=manifests):
         resolved = get_default_profile_engine(settings=settings)
-        assert resolved == "xtts"
+        assert resolved == ""
 
 def test_get_default_profile_engine_returns_empty_when_all_disabled():
     manifests = [
@@ -41,13 +41,13 @@ def test_get_default_profile_engine_returns_empty_when_all_disabled():
         resolved = get_default_profile_engine(settings=settings)
         assert resolved == ""
 
-def test_normalize_tts_engine_resolves_to_enabled_default_when_disabled():
+def test_normalize_tts_engine_returns_empty_when_disabled():
     manifests = [
         {"engine_id": "voxtral", "local": False, "cloud": True, "network": True},
         {"engine_id": "xtts", "local": True, "cloud": False, "network": False}
     ]
 
-    # 3. Requesting "voxtral" when "voxtral" is disabled should resolve to "xtts" (enabled default)
+    # 3. Requesting "voxtral" when "voxtral" is disabled should resolve to ""
     settings = {
         "default_engine": "xtts",
         "enabled_plugins": {
@@ -58,9 +58,9 @@ def test_normalize_tts_engine_resolves_to_enabled_default_when_disabled():
 
     with patch("app.engines.voice_engines._get_registry_manifests", return_value=manifests), \
          patch("app.db.state_settings.get_settings", return_value=settings):
-        # We request "voxtral", but it is disabled. It should normalize to "xtts"
+        # We request "voxtral", but it is disabled. It should normalize to ""
         normalized = normalize_tts_engine("voxtral", settings=settings)
-        assert normalized == "xtts"
+        assert normalized == ""
 
 
 def test_get_default_profile_engine_ranking_prefers_local():
@@ -75,11 +75,11 @@ def test_get_default_profile_engine_ranking_prefers_local():
             "xtts": True
         }
     }
-    # With no explicit default set, it should prefer the local non-cloud engine: 'xtts'
+    # Under strict policy, with no explicit default set, it returns ""
     with patch("app.engines.voice_engines._get_registry_manifests", return_value=manifests), \
          patch("app.db.state_settings.get_settings", return_value=settings):
         resolved = get_default_profile_engine(settings=settings)
-        assert resolved == "xtts"
+        assert resolved == ""
 
 
 def test_get_default_profile_engine_explicit_wins_when_valid():
@@ -151,11 +151,6 @@ def test_sync_speakers_from_profiles_preserves_existing_engine(tmp_path, monkeyp
 
 
 def test_get_default_profile_engine_ranking_all_layers():
-    # Registry has 4 engines:
-    # 1. 'cloud-engine' (local=False, cloud=True, network=True)
-    # 2. 'network-local' (local=True, cloud=False, network=True)
-    # 3. 'non-cloud-non-network-local' (local=True, cloud=False, network=False)
-    # 4. 'another-non-cloud-non-network-local' (local=True, cloud=False, network=False)
     manifests = [
         {"engine_id": "cloud-engine", "local": False, "cloud": True, "network": True},
         {"engine_id": "network-local", "local": True, "cloud": False, "network": True},
@@ -163,9 +158,7 @@ def test_get_default_profile_engine_ranking_all_layers():
         {"engine_id": "another-non-cloud-non-network-local", "local": True, "cloud": False, "network": False}
     ]
 
-    # All are enabled, no default_engine is set.
-    # It should prefer local non-cloud non-network engines.
-    # Between those, Timsort is stable, so stable registry order: 'non-cloud-non-network-local' comes before 'another-non-cloud-non-network-local'.
+    # No default_engine is set. Should strictly return "".
     settings = {
         "enabled_plugins": {
             "cloud-engine": True,
@@ -177,28 +170,7 @@ def test_get_default_profile_engine_ranking_all_layers():
     with patch("app.engines.voice_engines._get_registry_manifests", return_value=manifests), \
          patch("app.db.state_settings.get_settings", return_value=settings):
         resolved = get_default_profile_engine(settings=settings)
-        assert resolved == "non-cloud-non-network-local"
-
-    # Now if 'non-cloud-non-network-local' is disabled, it should prefer 'another-non-cloud-non-network-local' (which is still local non-cloud non-network).
-    settings["enabled_plugins"]["non-cloud-non-network-local"] = False
-    with patch("app.engines.voice_engines._get_registry_manifests", return_value=manifests), \
-         patch("app.db.state_settings.get_settings", return_value=settings):
-        resolved = get_default_profile_engine(settings=settings)
-        assert resolved == "another-non-cloud-non-network-local"
-
-    # Now if both non-cloud non-network are disabled, it should prefer local but cloud/network engines over non-local: 'network-local'.
-    settings["enabled_plugins"]["another-non-cloud-non-network-local"] = False
-    with patch("app.engines.voice_engines._get_registry_manifests", return_value=manifests), \
-         patch("app.db.state_settings.get_settings", return_value=settings):
-        resolved = get_default_profile_engine(settings=settings)
-        assert resolved == "network-local"
-
-    # Now if all local engines are disabled, it should fall back to any remaining enabled engine: 'cloud-engine'.
-    settings["enabled_plugins"]["network-local"] = False
-    with patch("app.engines.voice_engines._get_registry_manifests", return_value=manifests), \
-         patch("app.db.state_settings.get_settings", return_value=settings):
-        resolved = get_default_profile_engine(settings=settings)
-        assert resolved == "cloud-engine"
+        assert resolved == ""
 
 
 def test_sync_speakers_from_profiles_does_not_write_inferred_engine(tmp_path, monkeypatch):
@@ -305,9 +277,9 @@ def test_update_settings_preserves_disabled_invalid_default_engine(tmp_path, mon
         # The disk value must still be voxtral, NOT xtts
         assert raw_state["settings"]["default_engine"] == "voxtral", "Disabled/invalid default_engine should be preserved on disk"
 
-        # The runtime memory value should resolve to xtts
+        # The runtime memory value should resolve to ""
         runtime_settings = get_settings()
-        assert runtime_settings["default_engine"] == "xtts", "In memory, disabled default_engine should fallback to an active one"
+        assert runtime_settings["default_engine"] == "", "In memory, disabled default_engine should resolve to empty"
 
 
 def test_normalize_profile_metadata_does_not_write_inferred_engine(tmp_path, monkeypatch):
@@ -418,9 +390,9 @@ def test_update_settings_explicit_invalid_default_engine_preserves_on_disk(tmp_p
 
         assert raw_state["settings"]["default_engine"] == "voxtral", "Disabled default_engine should be saved exactly as requested on disk"
 
-        # But in memory, it resolves to the active "xtts"
+        # But in memory, it resolves to ""
         runtime_settings = get_settings()
-        assert runtime_settings["default_engine"] == "xtts"
+        assert runtime_settings["default_engine"] == ""
 
 
 def test_normalize_tts_engine_fails_clear_when_invalid_and_no_usable_engine():
@@ -428,6 +400,26 @@ def test_normalize_tts_engine_fails_clear_when_invalid_and_no_usable_engine():
     with patch("app.engines.voice_engines._get_registry_manifests", return_value=[]):
         normalized = normalize_tts_engine("voxtral")
         assert normalized == "", "Should return empty string (or fail) when engine is invalid/disabled and no runtime candidate exists"
+
+
+def test_alias_only_profile_metadata_resolves_to_empty():
+    from app.db.speakers import get_profile_engine
+    # If the profile metadata only has alias-related keys but no explicit engine key,
+    # it must NOT resolve to that engine implicitly.
+    meta = {
+        "voice_profile_id": "some_id",
+        # For example, xtts-specific aliases, but no explicit "engine": "xtts"
+    }
+    with patch("app.db.speakers.find_secure_file", return_value="/fake/profile.json"), \
+         patch("app.db.speakers._existing_profile_dir", return_value="/fake/dir"), \
+         patch("builtins.open", MagicMock()), \
+         patch("json.loads", return_value=meta), \
+         patch("app.engines.voice_engines.list_tts_engines", return_value=["xtts"]), \
+         patch("app.engines.voice_engines._get_registry_manifests", return_value=[{"engine_id": "xtts"}]) as mock_manifests:
+        # Note: get_profile_engine does normalize_tts_engine(_infer_profile_engine(meta), fallback)
+        resolved = get_profile_engine("Dracula")
+        assert resolved == "", "Alias-only metadata must resolve to empty engine"
+
 
 
 def test_normalize_base_profiles_does_not_add_engine_when_absent(tmp_path, monkeypatch):
@@ -503,3 +495,20 @@ def test_normalize_base_profiles_preserves_explicit_engine(tmp_path, monkeypatch
         saved_profile = json.load(f)
 
     assert saved_profile["engine"] == "voxtral"
+
+
+def test_normalize_tts_engine_returns_empty_when_no_valid_engine_or_fallback():
+    manifests = [
+        {"engine_id": "xtts", "local": True, "cloud": False, "network": False}
+    ]
+    # Under strict policy, if we ask to normalize with no requested engine, and no fallback engine,
+    # it must return "" immediately, even if a valid default engine exists in settings.
+    settings = {
+        "default_engine": "xtts",
+        "enabled_plugins": {
+            "xtts": True
+        }
+    }
+    with patch("app.engines.voice_engines._get_registry_manifests", return_value=manifests), \
+         patch("app.db.state_settings.get_settings", return_value=settings):
+        assert normalize_tts_engine(None, None, settings=settings) == ""

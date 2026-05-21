@@ -1,18 +1,19 @@
 {
-  "snapshot_version": 99,
-  "updated_at": "2026-05-21T16:50:00Z",
+  "snapshot_version": 100,
+  "updated_at": "2026-05-21T20:13:00Z",
   "branch": "studio2/phase-12",
-  "current_task": "Fix Voice Profile Engine Drift",
-  "status": "voice_profile_engine_drift_fixed",
+  "current_task": "Tighten Voice Engine Fallback Policy (Explicit Config Only)",
+  "status": "explicit_only_voice_engine_policy_implemented",
   "last_committed_milestone": {
-    "title": "Fix Voice Profile Engine Drift",
+    "title": "Tighten Voice Engine Fallback Policy (Explicit Config Only)",
     "commit": "pending",
     "notes": [
-      "Implemented select_default_engine ranking prioritizing enabled local non-cloud/non-network engines, then local engines, and falling back to stable registry order.",
-      "Refactored get_default_profile_engine to be non-recursive via a registry manifest helper.",
-      "Minimized disk writes in normalize_profile_metadata and sync_speakers_from_profiles to only write to profile.json when actual differences are detected, preserving original keys and avoiding persisting inferred defaults.",
-      "Equipped both tests/api and tests/speaker suites with autouse VOICES_DIR isolation guards checking that the real repository voices/ directory is not targeted.",
-      "Verified backend tests, ruff lints, and git diff check pass cleanly."
+      "Eliminated all discovery-based ranking and fallbacks in voice_engines.py, select_runtime_engine_candidate, get_default_profile_engine, and normalize_tts_engine.",
+      "Removed alias-based engine inference in speakers.py, resolving engine strictly from configured profile metadata or settings.",
+      "Refactored api_analyze_chapter and api_analyze_text to strictly validate engine configuration and fail with HTTP 400 when missing.",
+      "Updated api_get_chapter_preview, voices_actions.py, and generation.py to raise clear HTTP 400 responses on empty resolved engines.",
+      "Ensured chunk_groups.py, bundles.py, and worker_voice.py fail cleanly instead of falling back to default or placeholder values.",
+      "All 879 pytest backend tests pass cleanly, with git diff --check and ruff check fully green."
     ]
   },
   "active_constraints": [
@@ -81,12 +82,12 @@
     "Prepare the voice icon and tagging implementation to improve large-library usability."
   ],
   "verification": {
-    "latest_backend_focus": "2026-05-20: Focused pytest set for watchdog cleanup and live progress paths passed (50 passed) after py_compile and Ruff.",
+    "latest_backend_focus": "2026-05-21: Full pytest suite passed (879 passed, 2 skipped).",
     "latest_frontend_focus": "2026-05-20: Reverted progress bar and text highlighting in the chapter editor back to the working behavior of commit 3e44973; all 82 frontend test files (510 tests total) are passing.",
     "latest_queue_focus": "2026-05-18: `frontend/src/utils/jobSelection.ts` now treats `active_segment_id` as chapter-render progress rather than segment scope, keeping grouped chapter jobs visible in the main queue while still hiding true segment jobs.",
     "latest_websocket_focus": "2026-05-20: Live synthesis updates now skip duplicate websocket broadcasts on direct plugin progress calls, and registry-handler dispatch unregisters watchdog listeners on exit.",
-    "latest_lint_focus": "2026-05-20: `ruff check` on the touched files passed.",
-    "latest_diff_check": "2026-05-20: git diff --check passed with no whitespace or formatting warnings.",
+    "latest_lint_focus": "2026-05-21: ruff check app tests passed.",
+    "latest_diff_check": "2026-05-21: git diff --check passed.",
     "known_warnings": [
       "Vite chunk-size warning remains on frontend builds.",
       "Some frontend motion tests may emit harmless animation warnings."

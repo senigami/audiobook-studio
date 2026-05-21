@@ -3,6 +3,28 @@ import os
 import importlib
 from unittest.mock import patch, MagicMock
 
+@pytest.fixture(autouse=True)
+def setup_test_voices(tmp_path, monkeypatch):
+    from app.core import config
+    import app.db.speakers
+    import json
+
+    voices_dir = tmp_path / "voices"
+    voices_dir.mkdir(exist_ok=True)
+
+    # Create Voice1 profile directory, voice.json, and Default variant profile.json
+    v1_dir = voices_dir / "Voice1"
+    v1_dir.mkdir(exist_ok=True)
+    (v1_dir / "voice.json").write_text(json.dumps({"id": "voice1-id", "default_variant": "Default"}))
+
+    v1_default_dir = v1_dir / "Default"
+    v1_default_dir.mkdir(exist_ok=True)
+    (v1_default_dir / "profile.json").write_text(json.dumps({"engine": "xtts"}))
+
+    monkeypatch.setattr(config, "VOICES_DIR", voices_dir)
+    return voices_dir
+
+
 @pytest.fixture
 def client(clean_db):
     from fastapi.testclient import TestClient
@@ -18,7 +40,7 @@ def clean_db(tmp_path):
     app.db.core.init_db()
 
     from app.db.state import update_settings
-    update_settings({"default_speaker_profile": "Voice1", "mistral_api_key": "test_key", "enabled_plugins": {"voxtral": True}})
+    update_settings({"default_speaker_profile": "Voice1", "default_engine": "xtts", "mistral_api_key": "test_key", "enabled_plugins": {"voxtral": True}})
 
     yield
 
@@ -779,7 +801,8 @@ def test_queue_chapter_mixed_render_runs_end_to_end(clean_db, client, monkeypatc
          patch("app.core.config.get_chapter_dir", return_value=chapter_dir), \
          patch("plugins.synthesis_mixed.handler.get_chapter_dir", return_value=chapter_dir), \
          patch("app.api.routers.generation.resolve_tts_engine_for_profiles", return_value=("xtts", ["xtts", "voxtral"])), \
-         patch("app.api.routers.generation.resolve_profile_engine", side_effect=lambda name, fallback=None: "voxtral" if name == "Voice2" else "xtts"), \
+         patch("app.engines.voice_engines.resolve_profile_engine", side_effect=lambda name, fallback_engine=None, fallback=None: "voxtral" if name == "Voice2" else "xtts"), \
+         patch("app.api.routers.generation.resolve_profile_engine", side_effect=lambda name, fallback_engine=None, fallback=None: "voxtral" if name == "Voice2" else "xtts"), \
          patch("app.domain.chunk_groups.resolve_profile_engine", side_effect=lambda name, fallback=None: "voxtral" if name == "Voice2" else "xtts"), \
          patch("plugins.synthesis_mixed.handler.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "voice_123"} if name == "Voice2" else {"speed": 1.0}), \
          patch("plugins.synthesis_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \

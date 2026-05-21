@@ -8,11 +8,12 @@ from app.engines.voice_engines import (
 )
 
 
-def test_engine_normalization_preserves_configured_value_when_registry_is_empty():
-    with patch("app.engines.voice_engines.list_tts_engines", return_value=[]):
-        assert get_default_profile_engine({"default_engine": "xtts"}) == "xtts"
-        assert normalize_tts_engine("xtts", settings={"default_engine": "xtts"}) == "xtts"
-        assert resolve_profile_engine("Some Voice", fallback_engine="xtts") == "xtts"
+def test_engine_normalization_returns_empty_when_registry_is_empty():
+    with patch("app.engines.voice_engines.list_tts_engines", return_value=[]), \
+         patch("app.engines.voice_engines._get_registry_manifests", return_value=[]):
+        assert get_default_profile_engine({"default_engine": "xtts"}) == ""
+        assert normalize_tts_engine("xtts", settings={"default_engine": "xtts"}) == ""
+        assert resolve_profile_engine("Some Voice", fallback_engine="xtts") == ""
 
 
 def test_resolve_tts_engine_for_profiles_ignores_empty_engine_results():

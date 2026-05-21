@@ -179,3 +179,46 @@ def test_voice_test_orchestration_e2e(voices_root):
     settings = get_speaker_settings("TestSpeaker")
     assert settings["preview_test_text"] == "Testing 1 2 3"
     assert settings["preview_model"] == "large"
+
+
+def test_voice_build_fails_when_no_engine(clean_db, voices_root):
+    from app.orchestration.tasks.sample_build import SampleBuildTask
+    from app.jobs.worker_voice import handle_voice_job
+    from unittest.mock import patch
+
+    # 1. Test validate() raises ValueError
+    task = SampleBuildTask(
+        task_id="build-1",
+        speaker_profile="OrchSpeaker",
+        engine_id="",
+        output_path=Path("sample.mp3"),
+        test_text="This is a test build."
+    )
+    with pytest.raises(ValueError):
+        task.validate()
+
+    # 2. Test handle_voice_job fails via _mark_queue_failed
+    # Set up voice profile without engine in settings
+    profile_root = voices_root / "NoEngineSpeaker"
+    profile_root.mkdir(parents=True, exist_ok=True)
+    (profile_root / "voice.json").write_text(json.dumps({"version": 2, "name": "NoEngineSpeaker"}))
+    profile_dir = profile_root / "Default"
+    profile_dir.mkdir()
+    (profile_dir / "profile.json").write_text(json.dumps({
+        "variant_name": "Default"
+    }))
+
+    # We mock _mark_queue_failed to see if it is called
+    with patch("app.jobs.worker_voice._mark_queue_failed") as mock_fail, \
+         patch("app.engines.voice_engines.get_default_profile_engine", return_value=""):
+
+        class DummyJob:
+            def __init__(self):
+                self.speaker_profile = "NoEngineSpeaker"
+                self.engine = "voice_build"
+
+        dummy_job = DummyJob()
+        handle_voice_job("job-123", dummy_job, lambda msg: None, lambda: False)
+
+        assert mock_fail.called
+        assert "no tts engine" in mock_fail.call_args[0][1].lower()

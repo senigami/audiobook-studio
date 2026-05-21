@@ -57,7 +57,7 @@ def build_chunk_groups(
         if cache_key in engine_cache:
             engine = engine_cache[cache_key]
         else:
-            engine = resolve_profile_engine(profile_name, "unknown")
+            engine = resolve_profile_engine(profile_name, "")
             engine_cache[cache_key] = engine
         text_length = len(text)
 

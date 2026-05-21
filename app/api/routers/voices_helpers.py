@@ -15,7 +15,6 @@ from ...db.speakers import (
 )
 from ...engines.voice_engines import (
     list_tts_engines,
-    get_default_profile_engine,
 )
 from ...db.speakers import (
     get_speaker_settings,
@@ -70,13 +69,17 @@ def _profile_dir_has_assets(profile_dir: Path) -> bool:
 
 
 def _normalize_profile_engine(engine: Optional[str]) -> str:
-    normalized = (engine or get_default_profile_engine()).strip().lower()
+    if not engine:
+        raise ValueError("Profile engine is empty")
+    normalized = engine.strip().lower()
     if normalized not in list_tts_engines():
         raise ValueError(f"Invalid profile engine: {engine}")
     return normalized
 
 
 def _is_engine_active(engine_id: str) -> bool:
+    if not engine_id:
+        return False
     from ...engines.errors import EngineUnavailableError
     bridge = create_voice_bridge()
     try:
@@ -248,14 +251,15 @@ def _voice_has_test_sample(name: str) -> bool:
     """Return whether the voice profile has the engine-declared test sample."""
     from ...engines.behavior import get_test_sample_name
     from ...db.speakers import get_speaker_settings
-    from ...engines.voice_engines import get_default_profile_engine
 
     profile_dir = _existing_voice_profile_dir(name)
     if not profile_dir:
         return False
 
     settings = get_speaker_settings(name)
-    engine = settings.get("engine") or get_default_profile_engine()
+    engine = settings.get("engine") or ""
+    if not engine:
+        return False
     test_sample = get_test_sample_name(engine)
     if not test_sample:
         return False
@@ -270,8 +274,8 @@ def _voice_has_latent(name: str) -> bool:
 
 def _voice_has_generation_material(name: str) -> bool:
     settings = get_speaker_settings(name)
-    engine = settings.get("engine", get_default_profile_engine())
-    if not _is_engine_active(engine):
+    engine = settings.get("engine") or ""
+    if not engine or not _is_engine_active(engine):
         return False
     bridge = create_voice_bridge()
     try:

@@ -1274,3 +1274,12 @@
 - Extended the autouse `VOICES_DIR` isolation guard to run across both API voice tests and speaker tests, ensuring tests do not touch the real repository `voices/` directory.
 - Added comprehensive fallback unit tests and isolation tests verifying ranking layers, explicit engine overrides, normalization preservation, write-minimization, and path isolation.
 - Ran backend test suites (45 tests passed), ruff check, and git diff check cleanly.
+
+# 2026-05-21 - Tighten Voice Engine Fallback Policy (Explicit Config Only)
+
+- Established a strict, explicit-only voice engine policy across the backend. Removed all discovery-based ranking and fallbacks in `voice_engines.py`, `select_runtime_engine_candidate`, `get_default_profile_engine`, and `normalize_tts_engine`.
+- Removed alias-based engine inference from profile metadata in `speakers.py`, ensuring engine resolution strictly retrieves configured values or empty strings.
+- Refactored `api_analyze_chapter` and `api_analyze_text` in `analysis.py` to strictly validate engine configuration and fail with HTTP 400 when missing/empty.
+- Updated `api_get_chapter_preview`, `voices_actions.py`, and `generation.py` to raise clear HTTP 400 responses on empty resolved engines.
+- Refactored `chunk_groups.py`, `bundles.py`, and `worker_voice.py` to fail cleanly when engine resolution yields an empty string instead of falling back to default or placeholder values.
+- Verified all 879 pytest backend tests pass cleanly, with `git diff --check` and `ruff check` fully green.

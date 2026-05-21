@@ -76,7 +76,7 @@ def _normalize_settings(
 
     # 5. Check if default_engine is still enabled
     if not enabled_plugins.get(normalized["default_engine"], True):
-        normalized["default_engine"] = get_default_profile_engine(settings=normalized)
+        normalized["default_engine"] = ""
 
     default_speaker = str(normalized.get("default_speaker_profile") or "").strip()
     if default_speaker:

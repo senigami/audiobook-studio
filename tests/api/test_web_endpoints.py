@@ -31,6 +31,8 @@ def test_crud_projects():
     assert client.get(f"/api/projects/{pid}").status_code == 404
 
 def test_chapter_endpoints():
+    from app.db.state import update_settings
+    update_settings({"default_engine": "xtts"})
     res = client.post("/api/projects", data={"name": "ChapProj"})
     pid = res.json()["project_id"]
 
