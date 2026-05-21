@@ -70,7 +70,7 @@ def put_job(job: Job) -> None:
 
     try:
         from ..api.ws import broadcast_job_updated
-        broadcast_job_updated(job.id, {}, current_job=asdict(job))
+        broadcast_job_updated(job.id, {"skip_job_updated": True}, current_job=asdict(job))
     except Exception:
         pass
 

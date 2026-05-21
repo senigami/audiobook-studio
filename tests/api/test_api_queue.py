@@ -404,3 +404,30 @@ def test_queue_never_returns_simulated_finalizing(clean_db, client):
     rows = {item["id"]: item for item in response.json()}
     assert rows["job-test-finalizing"]["status"] == "done"
 
+
+def test_processing_queue_hydrates_classification(clean_db, client):
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.queue import upsert_queue_row, update_queue_item
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "T1")
+    jid = "job-classification-test"
+
+    put_job(Job(
+        id=jid,
+        project_id=pid,
+        chapter_id=cid,
+        chapter_file=f"{cid}_0.txt",
+        status="running",
+        created_at=time.time(),
+        engine="xtts",
+    ))
+    upsert_queue_row(jid, project_id=pid, chapter_id=cid, status="queued", engine="xtts")
+    update_queue_item(jid, "running")
+
+    response = client.get("/api/processing_queue")
+    assert response.status_code == 200
+
+    row = next(item for item in response.json() if item["id"] == jid)
+    assert row["classification"] == "chapter"

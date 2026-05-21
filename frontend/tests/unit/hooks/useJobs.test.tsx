@@ -451,4 +451,66 @@ describe('useJobs', () => {
     // Again, no full refetch requested
     expect(sendMessage).not.toHaveBeenCalled();
   });
+  it('propagates active_segment_id and active_segment_progress from studio_job_event into Job map', async () => {
+    // Regression: useJobs studio_job_event handler called copyRenderGroupFields (which
+    // listed 7 render-group fields) but did not explicitly copy active_segment_id or
+    // active_segment_progress. QueueItem prefers liveJob.active_segment_progress over
+    // job.active_segment_progress, so this gap meant the rendered bar used stale data.
+    const { result } = renderHook(() => useJobs());
+
+    act(() => {
+      wsHandler({ type: 'jobs_snapshot', jobs: [{ id: 'job-seg', status: 'running', progress: 0 }] });
+    });
+
+    act(() => {
+      wsHandler({
+        type: 'studio_job_event',
+        job_id: 'job-seg',
+        scope: 'job',
+        status: 'running',
+        progress: 0.44,
+        updated_at: 500,
+        active_segment_id: 'seg-abc',
+        active_segment_progress: 0.8,
+      });
+    });
+
+    expect(result.current.jobs['job-seg']?.active_segment_id).toBe('seg-abc');
+    expect(result.current.jobs['job-seg']?.active_segment_progress).toBe(0.8);
+  });
+
+  it('clears active_segment_id and resets active_segment_progress=0 when terminal job_updated arrives', async () => {
+    // The terminal job_updated from the backend carries active_segment_id=null and
+    // active_segment_progress=0.0. copyRenderGroupFields must copy these (null !== undefined)
+    // so the Job map reflects the cleared segment context. This does NOT cause a visual
+    // regression: QueueItem gates the progress display on isTrulyActive, which is false for
+    // status='done', so the PredictiveProgressBar receives progress=0 but renders the
+    // terminal fill (100% done bar) regardless of the progress prop value.
+    const { result } = renderHook(() => useJobs());
+
+    act(() => {
+      wsHandler({ type: 'jobs_snapshot', jobs: [{ id: 'job-t', status: 'running', progress: 0.9, active_segment_id: 'seg-x', active_segment_progress: 0.9 }] });
+    });
+
+    // Simulate running → done via job_updated (matches debug_log.txt terminal payload)
+    act(() => {
+      wsHandler({
+        type: 'job_updated',
+        job_id: 'job-t',
+        updates: {
+          status: 'done',
+          progress: 1.0,
+          updated_at: 9999,
+          active_segment_id: null,
+          active_segment_progress: 0.0,
+        },
+      });
+    });
+
+    expect(result.current.jobs['job-t']?.status).toBe('done');
+    expect(result.current.jobs['job-t']?.progress).toBe(1.0);
+    // Segment context cleared by null payload
+    expect(result.current.jobs['job-t']?.active_segment_id).toBeNull();
+    expect(result.current.jobs['job-t']?.active_segment_progress).toBe(0.0);
+  });
 });

@@ -58,3 +58,11 @@ class Job:
     grouped_progress: float = 0.0
     active_render_batch_id: Optional[str] = None
     active_render_batch_progress: Optional[float] = None
+
+    @property
+    def classification(self) -> str:
+        if getattr(self, "parent_job_id", None) or getattr(self, "segment_ids", None):
+            return "segment"
+        if getattr(self, "chapter_id", None):
+            return "chapter"
+        return "job"

@@ -127,7 +127,16 @@ export const createHydrationCoordinator = (): HydrationCoordinator => ({
       })
       .filter((item): item is ProcessingQueueItem => !!item);
 
-    const baseItems = [...items, ...extraItems].filter(item => !isSegmentScopedJob(item));
+    const baseItems = [...items, ...extraItems]
+      .map(item => {
+        const delta = eventsById[item.id];
+        if (!delta) return item;
+        return {
+          ...item,
+          classification: delta.classification ?? item.classification,
+        };
+      })
+      .filter(item => !isSegmentScopedJob(item));
 
     const STATUS_RANK: Record<string, number> = {
       running: 5,
@@ -196,6 +205,8 @@ export const createHydrationCoordinator = (): HydrationCoordinator => ({
         completed_render_weight: delta.completed_render_weight !== undefined ? delta.completed_render_weight ?? undefined : item.completed_render_weight,
         active_render_group_weight: delta.active_render_group_weight !== undefined ? delta.active_render_group_weight ?? undefined : item.active_render_group_weight,
         grouped_progress: delta.grouped_progress !== undefined ? delta.grouped_progress ?? undefined : item.grouped_progress,
+        active_segment_id: delta.active_segment_id !== undefined ? delta.active_segment_id ?? undefined : item.active_segment_id,
+        active_segment_progress: delta.active_segment_progress !== undefined ? delta.active_segment_progress ?? undefined : item.active_segment_progress,
       };
 
       // Apply Finalizing Hold heuristic

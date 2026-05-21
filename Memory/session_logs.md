@@ -38,6 +38,14 @@
 - Updated zip import test in `SettingsRoute.test.tsx` to test the new file import flow and mock `importEnginePlugin`.
 - Verified all 82 frontend test files (510 tests total) pass successfully with zero failures.
 
+# 2026-05-20 - Trim Redundant WebSocket Broadcasts during Enqueuing
+
+- Identified redundant `update_job` calls immediately following `put_job` within the `api_add_to_queue`, `api_bake_chapter`, and `api_generate_segments` endpoints.
+- Removed these redundant calls to prevent duplicate emissions of initial `"queued"` statuses, reducing network traffic and frontend re-renders during startup.
+- Authored a pytest integration regression test `test_api_add_to_queue_websocket_burst_no_redundancy` to assert only a single instance of `studio_job_event` (queued), `job_updated` (queued), `chapter_updated`, and `queue_updated` is broadcasted.
+- Verified that all 21 tests in `tests/api/test_websocket_broadcast.py` and 26 tests in `tests/api/test_api_generation.py` pass cleanly.
+- Confirmed `git diff --check` and Ruff linter report clean status.
+
 # 2026-05-20 - Chapter Editor Stable Overall Progress Bar and Local Segment Derivation Fixed
 
 - Resolved the progress bar "blips" and reset/remount issues by making the header `PredictiveProgressBar` use a stable job-level key and overall chapter-level progress.
@@ -1234,3 +1242,11 @@
 - Added skip flags to direct live `update_job` calls in XTTS standard, segment, and bake handlers, the mixed handler, and the Voxtral handler so only terminal broadcasts keep propagating.
 - Added regression coverage for watchdog listener cleanup and the live progress update paths.
 - Verified the focused pytest set (50 passed), `python -m py_compile`, `ruff check`, and `git diff --check`.
+
+# 2026-05-21 - Queue Row Synthesis Visibility & Classification Hydration Fixed
+
+- Identified that chapter-scoped jobs undergoing synthesis (which have segment IDs) were being filtered out of the queue UI because HTTP REST API items from `/api/processing_queue` lacked the `classification` field.
+- Fixed the frontend in `mergeQueueWithOverlays` to copy the `classification` from the websocket overlay delta onto base HTTP items before filtering them.
+- Enhanced the backend queue API router by adding `"classification"` to `_LIVE_QUEUE_JOB_FIELDS` and updating `_merge_live_queue_job` to use `getattr(job, field, None)` to correctly merge computed properties from active memory jobs.
+- Added a computed `classification` property getter to the backend `Job` model to dynamically resolve `"segment"`, `"chapter"`, or `"job"`.
+- Verified with focused frontend Vitest tests and backend python tests (`test_processing_queue_hydrates_classification`), all of which pass successfully.

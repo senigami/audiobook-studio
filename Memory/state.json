@@ -1,17 +1,17 @@
 {
-  "snapshot_version": 95,
-  "updated_at": "2026-05-20T17:02:13Z",
+  "snapshot_version": 97,
+  "updated_at": "2026-05-21T03:30:00Z",
   "branch": "studio2/phase-12",
-  "current_task": "Harden live TTS broadcasts and watchdog listener cleanup",
-  "status": "live_tts_broadcasts_and_listener_cleanup_verified",
+  "current_task": "Queue Row Synthesis Visibility & Classification Hydration",
+  "status": "queue_synthesis_visibility_classification_hydration_verified",
   "last_committed_milestone": {
-    "title": "Harden live TTS broadcasts and watchdog listener cleanup",
+    "title": "Queue Row Synthesis Visibility & Classification Hydration",
     "commit": "pending",
     "notes": [
-      "Wrapped registry-handler dispatch cleanup so watchdog log listeners always unregister, even when registry handlers return directly.",
-      "Added skip flags to direct live `update_job` calls in XTTS standard, segment, and bake handlers plus the mixed and Voxtral handlers so only terminal broadcasts keep propagating.",
-      "Added regression tests covering watchdog listener cleanup and the live progress update paths.",
-      "Verified the focused pytest set (50 passed), plus py_compile and Ruff checks on the touched files."
+      "Fixed filtering out of chapter-scoped jobs during active synthesis by copying classification from overlay delta onto base HTTP items before filtering in the frontend.",
+      "Added computed classification property getter to Job model on the backend.",
+      "Added classification to _LIVE_QUEUE_JOB_FIELDS in the backend queue API router, using getattr to merge computed properties from active memory jobs.",
+      "Added unit tests on frontend and backend verifying the classification hydration and visibility flows."
     ]
   },
   "active_constraints": [

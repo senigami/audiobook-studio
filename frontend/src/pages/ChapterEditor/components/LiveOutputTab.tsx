@@ -67,7 +67,8 @@ const rowText = (entry: TtsCommunicationTimelineEntry) => {
 
 export const LiveOutputTab: React.FC<LiveOutputTabProps> = ({ chapterId, currentJobId }) => {
   const [entries, setEntries] = useState<TtsCommunicationTimelineEntry[]>(() => getTtsCommunicationTimeline());
-  const [filter, setFilter] = useState<LiveOutputFilter>('chapter');
+  const [filter, setFilter] = useState<LiveOutputFilter>('all');
+
   const [paused, setPaused] = useState(false);
   const endRef = useRef<HTMLDivElement | null>(null);
 
@@ -123,13 +124,30 @@ export const LiveOutputTab: React.FC<LiveOutputTabProps> = ({ chapterId, current
         <span style={{ marginLeft: 'auto', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
           {filteredEntries.length} / {entries.length} entries
         </span>
+        <span
+          data-testid="audience-legend"
+          style={{ display: 'flex', gap: '0.75rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}
+        >
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+            <span style={{ width: 10, height: 10, borderRadius: 2, background: 'rgba(96, 165, 250, 0.35)' }} />
+            Queue
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+            <span style={{ width: 10, height: 10, borderRadius: 2, background: 'rgba(251, 191, 36, 0.35)' }} />
+            Chapter
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+            <span style={{ width: 10, height: 10, borderRadius: 2, background: 'rgba(52, 211, 153, 0.35)' }} />
+            Both
+          </span>
+        </span>
       </div>
 
       <div style={{ flex: 1, minHeight: 0, overflow: 'auto', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace' }}>
           <thead style={{ position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 1 }}>
             <tr>
-              {['Time', 'Kind', 'Event', 'Job', 'Segment', 'Progress', 'Seg %', 'Group', 'Done', 'Weight', 'Reason', 'Source', 'Line / message'].map((label) => (
+              {['Time', 'Consumer', 'Kind', 'Event', 'Job', 'Segment', 'Progress', 'Seg %', 'Group', 'Done', 'Weight', 'Reason', 'Source', 'Line / message'].map((label) => (
                 <th key={label} style={{ textAlign: 'left', padding: '0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>
                   {label}
                 </th>
@@ -139,14 +157,26 @@ export const LiveOutputTab: React.FC<LiveOutputTabProps> = ({ chapterId, current
           <tbody>
             {filteredEntries.length === 0 && (
               <tr>
-                <td colSpan={13} style={{ padding: '1rem', color: 'var(--text-muted)' }}>
+                <td colSpan={14} style={{ padding: '1rem', color: 'var(--text-muted)' }}>
                   No live output captured yet.
                 </td>
               </tr>
             )}
-            {filteredEntries.map((entry, index) => (
-              <tr key={`${entry.receivedAt}-${entry.sequence ?? 'n'}-${entry.job_id ?? 'job'}-${entry.type ?? 'event'}-${index}`}>
+            {filteredEntries.map((entry, index) => {
+              const audienceBg: Record<string, string> = {
+                queue: 'rgba(96, 165, 250, 0.08)',   // blue tint
+                chapter: 'rgba(251, 191, 36, 0.08)', // yellow tint
+                both: 'rgba(52, 211, 153, 0.08)',    // green tint
+              };
+              const rowBg = audienceBg[entry.audience] ?? undefined;
+              return (
+              <tr
+                key={`${entry.receivedAt}-${entry.sequence ?? 'n'}-${entry.job_id ?? 'job'}-${entry.type ?? 'event'}-${index}`}
+                data-audience={entry.audience}
+                style={rowBg ? { background: rowBg } : undefined}
+              >
                 <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{formatTime(entry.receivedAt)}</td>
+                <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap', opacity: 0.75, fontSize: '0.72rem' }}>{entry.listener}</td>
                 <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)' }}>{entry.kind}</td>
                 <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{entry.marker ?? entry.type ?? '-'}</td>
                 <td title={entry.job_id ?? ''} style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{shortId(entry.job_id)}</td>
@@ -160,7 +190,8 @@ export const LiveOutputTab: React.FC<LiveOutputTabProps> = ({ chapterId, current
                 <td title={entry.source ?? ''} style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.source ?? '-'}</td>
                 <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', minWidth: 320, whiteSpace: 'pre-wrap' }}>{rowText(entry)}</td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
         <div ref={endRef} />

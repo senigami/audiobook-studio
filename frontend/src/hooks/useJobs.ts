@@ -23,6 +23,8 @@ const copyRenderGroupFields = (target: Record<string, any>, source: Record<strin
     'completed_render_weight',
     'active_render_group_weight',
     'grouped_progress',
+    'active_segment_id',
+    'active_segment_progress',
   ];
   for (const key of fields) {
     if (source[key] !== undefined) {

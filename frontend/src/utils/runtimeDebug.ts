@@ -55,6 +55,38 @@ export type WebsocketDebugSnapshot = {
   grouped_progress?: number | null;
 };
 
+/**
+ * Which hook(s) consume a given websocket message type.
+ *
+ * - `queue`   → only useQueueSync reads it  (queue_updated, pause_updated)
+ * - `chapter` → only useJobs reads it for chapter/segment context
+ *               (tts_log_line, segment_progress, segments_updated,
+ *                chapter_updated, test_progress)
+ * - `both`    → both hooks react to it (studio_job_event, job_updated)
+ * - `other`   → unknown / unclassified type
+ */
+export type WsAudience = 'queue' | 'chapter' | 'both' | 'other';
+
+/** Derive the audience from the websocket message type string. */
+export const wsAudienceForType = (type: string | undefined): WsAudience => {
+  switch (type) {
+    case 'queue_updated':
+    case 'pause_updated':
+      return 'queue';
+    case 'tts_log_line':
+    case 'segment_progress':
+    case 'segments_updated':
+    case 'chapter_updated':
+    case 'test_progress':
+      return 'chapter';
+    case 'studio_job_event':
+    case 'job_updated':
+      return 'both';
+    default:
+      return 'other';
+  }
+};
+
 export type TtsCommunicationTimelineEntry = {
   kind: 'tts_log' | 'socket';
   listener: string;
@@ -83,6 +115,8 @@ export type TtsCommunicationTimelineEntry = {
   total_render_weight?: number | null;
   grouped_progress?: number | null;
   message?: string | null;
+  /** Debug-only: which hook(s) consume this message type. */
+  audience: WsAudience;
 };
 
 type StudioDebugWindow = Window & {
@@ -138,6 +172,7 @@ const appendTimelineEntry = (listener: string, payload: unknown, raw: string) =>
     listener,
     receivedAt,
     raw,
+    audience: wsAudienceForType(type),
   };
 
   if (type !== undefined) entry.type = type;
@@ -193,12 +228,28 @@ const appendTimelineEntry = (listener: string, payload: unknown, raw: string) =>
   if (!Array.isArray(win.__ttsCommunicationTimeline)) {
     win.__ttsCommunicationTimeline = [];
   }
-  win.__ttsCommunicationTimeline.push(entry);
+  // Check for existing entry with same type and job_id within a short window
+  const existingIdx = win.__ttsCommunicationTimeline.findIndex(e =>
+    e.type === entry.type &&
+    e.job_id === entry.job_id &&
+    Math.abs(new Date(e.receivedAt).getTime() - new Date(entry.receivedAt).getTime()) <= 1000
+  );
+  if (existingIdx !== -1) {
+    // Merge listeners, avoid duplicates
+    const existing = win.__ttsCommunicationTimeline[existingIdx];
+    const listeners = new Set([existing.listener, listener]);
+    existing.listener = Array.from(listeners).join(', ');
+    // Keep audience as 'both'
+    existing.audience = 'both';
+  } else {
+    win.__ttsCommunicationTimeline.push(entry);
+  }
   while (win.__ttsCommunicationTimeline.length > TIMELINE_LIMIT) {
     win.__ttsCommunicationTimeline.shift();
   }
   win.__ttsCommunicationLast = entry;
   window.dispatchEvent(new CustomEvent(TIMELINE_EVENT_NAME, { detail: entry }));
+
 };
 
 export const recordStudioDebugSnapshot = (tag: string, payload: unknown) => {

@@ -549,3 +549,53 @@ def test_update_job_respects_skip_job_updated(monkeypatch):
     update_job("job-skip-test", progress=0.6, skip_job_updated=True)
     assert len(broadcasts) == 1
     assert broadcasts[0][1].get("skip_job_updated") is True
+
+
+def test_api_add_to_queue_websocket_burst_no_redundancy(monkeypatch, tmp_path):
+    import os
+    import importlib
+    from unittest.mock import patch
+    from fastapi.testclient import TestClient
+    from app.api.web import app as fastapi_app
+
+    # Setup test DB
+    db_path = tmp_path / "test_ws_burst.db"
+    os.environ["DB_PATH"] = str(db_path)
+    import app.db.core
+    importlib.reload(app.db.core)
+    app.db.core.init_db()
+
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.segments import sync_chapter_segments
+    from app.db.state import update_settings
+
+    update_settings({"default_speaker_profile": "Voice1", "mistral_api_key": "test_key", "default_engine": "xtts"})
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "Hello world.")
+    sync_chapter_segments(cid, "Hello world.")
+
+    messages = []
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    # We patch the TaskOrchestrator.submit to prevent running background tasks
+    with patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"):
+        client = TestClient(fastapi_app)
+        response = client.post("/api/processing_queue", data={"project_id": pid, "chapter_id": cid})
+        assert response.status_code == 200
+
+    # Count message types
+    studio_job_queued = [m for m in messages if m.get("type") == "studio_job_event" and m.get("status") == "queued"]
+    job_updated_queued = [m for m in messages if m.get("type") == "job_updated" and m.get("updates", {}).get("status") == "queued"]
+    chapter_updated = [m for m in messages if m.get("type") == "chapter_updated"]
+    queue_updated = [m for m in messages if m.get("type") == "queue_updated"]
+
+    assert len(studio_job_queued) == 1, f"Expected 1 studio_job_event (queued), got {len(studio_job_queued)}: {studio_job_queued}"
+    assert len(job_updated_queued) == 0, f"Expected 0 job_updated (queued) after suppression, got {len(job_updated_queued)}: {job_updated_queued}"
+    assert len(chapter_updated) == 1, f"Expected 1 chapter_updated, got {len(chapter_updated)}: {chapter_updated}"
+    assert len(queue_updated) == 1, f"Expected 1 queue_updated, got {len(queue_updated)}: {queue_updated}"

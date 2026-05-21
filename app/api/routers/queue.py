@@ -33,13 +33,13 @@ _LIVE_QUEUE_JOB_FIELDS = (
     "reason_code",
     "active_render_batch_id",
     "active_render_batch_progress",
+    "classification",
 )
 
 
 def _merge_live_queue_job(item: dict, job) -> None:
-    job_dict = asdict(job)
     for field in _LIVE_QUEUE_JOB_FIELDS:
-        value = job_dict.get(field)
+        value = getattr(job, field, None)
         if value is not None:
             item[field] = value
 

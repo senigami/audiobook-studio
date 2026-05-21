@@ -354,16 +354,6 @@ def api_add_to_queue(
             )
 
             put_job(j)
-            update_job(
-                qid,
-                status="queued",
-                progress=0.0,
-                active_segment_id=None,
-                active_segment_progress=0.0,
-                error=None,
-                warning_count=0,
-                force_broadcast=True
-            )
 
             make_mp3 = bool(settings.get("make_mp3", False))
             audio_filename = f"{Path(temp_filename).stem}.mp3" if make_mp3 else f"{Path(temp_filename).stem}.wav"
@@ -478,17 +468,6 @@ def api_bake_chapter(chapter_id: str, background_tasks: BackgroundTasks):
         custom_title=display_title,
     )
     put_job(j)
-    update_job(
-        jid,
-        force_broadcast=True,
-        status="queued",
-        progress=0.0,
-        started_at=None,
-        finished_at=None,
-        active_segment_id=None,
-        active_segment_progress=0.0,
-        custom_title=display_title,
-    )
 
     make_mp3 = bool(settings.get("make_mp3", False))
     audio_filename = f"{chapter_id}_0.mp3" if make_mp3 else f"{chapter_id}_0.wav"
@@ -679,16 +658,6 @@ def api_generate_segments(
     broadcast_chapter_updated(chapter_id)
 
     put_job(job)
-    update_job(
-        job.id,
-        force_broadcast=True,
-        status="queued",
-        progress=0.0,
-        active_segment_id=None,
-        active_segment_progress=0.0,
-        error=None,
-        warning_count=0,
-    )
 
     orchestrator = create_orchestrator()
     task = SynthesisTask(

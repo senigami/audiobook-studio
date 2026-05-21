@@ -3,6 +3,9 @@ import {
   recordStudioDebugSnapshot,
   recordWebsocketDebugMessage,
   shouldEnableStudioDebugLogging,
+  wsAudienceForType,
+  getTtsCommunicationTimeline,
+  clearTtsCommunicationTimeline,
 } from '@/utils/runtimeDebug';
 
 describe('shouldEnableStudioDebugLogging', () => {
@@ -141,5 +144,61 @@ describe('shouldEnableStudioDebugLogging', () => {
         grouped_progress: 0.4,
       }),
     ]);
+  });
+});
+
+describe('wsAudienceForType', () => {
+  it('classifies queue-only message types', () => {
+    expect(wsAudienceForType('queue_updated')).toBe('queue');
+    expect(wsAudienceForType('pause_updated')).toBe('queue');
+  });
+
+  it('classifies chapter-only message types', () => {
+    expect(wsAudienceForType('tts_log_line')).toBe('chapter');
+    expect(wsAudienceForType('segment_progress')).toBe('chapter');
+    expect(wsAudienceForType('segments_updated')).toBe('chapter');
+    expect(wsAudienceForType('chapter_updated')).toBe('chapter');
+    expect(wsAudienceForType('test_progress')).toBe('chapter');
+  });
+
+  it('classifies dual-audience message types as both', () => {
+    expect(wsAudienceForType('studio_job_event')).toBe('both');
+    expect(wsAudienceForType('job_updated')).toBe('both');
+  });
+
+  it('classifies unknown types as other', () => {
+    expect(wsAudienceForType(undefined)).toBe('other');
+    expect(wsAudienceForType('jobs_snapshot')).toBe('other');
+  });
+});
+
+describe('timeline entry audience field', () => {
+  beforeEach(() => {
+    clearTtsCommunicationTimeline();
+    delete (window as any).__ttsCommunicationTimeline;
+  });
+
+  afterEach(() => {
+    clearTtsCommunicationTimeline();
+    delete (window as any).__ttsCommunicationTimeline;
+  });
+
+  it('stamps audience=both on studio_job_event entries', () => {
+    recordWebsocketDebugMessage('useJobs', { type: 'studio_job_event', job_id: 'j1', status: 'running' });
+    const timeline = getTtsCommunicationTimeline();
+    expect(timeline).toHaveLength(1);
+    expect(timeline[0].audience).toBe('both');
+  });
+
+  it('stamps audience=queue on queue_updated entries', () => {
+    recordWebsocketDebugMessage('useJobs', { type: 'queue_updated', reason: 'job_status_change' });
+    const timeline = getTtsCommunicationTimeline();
+    expect(timeline[0].audience).toBe('queue');
+  });
+
+  it('stamps audience=chapter on tts_log_line entries', () => {
+    recordWebsocketDebugMessage('useJobs', { type: 'tts_log_line', job_id: 'j1', line: 'hello', marker: 'raw', sequence: 1 });
+    const timeline = getTtsCommunicationTimeline();
+    expect(timeline[0].audience).toBe('chapter');
   });
 });

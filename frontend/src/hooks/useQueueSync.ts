@@ -2,11 +2,18 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '@/api';
 import type { ProcessingQueueItem } from '@/types';
 import { useWebSocket } from '@/hooks/useWebSocket';
+import { recordWebsocketDebugMessage } from '@/utils/runtimeDebug';
 import { isStudioJobEvent } from '@/api/contracts/events';
 import { createLiveJobsStore } from '@/store/live-jobs';
 import { createHydrationCoordinator, selectActiveQueueCount } from '@/api/hydration';
 
 const FALLBACK_POLL_MS = 60000;
+// Grace window for reconnect overlay pruning. Events that arrive on the websocket
+// during the reconnect API call have server-side updated_at stamps that may be
+// slightly behind the wall-clock time when the API response is received. Subtracting
+// this buffer ensures we never prune overlays that are still fresh.
+const PRUNE_GRACE_SECONDS = 5;
+
 
 export const useQueueSync = () => {
   const [queue, setQueue] = useState<ProcessingQueueItem[]>([]);
@@ -42,10 +49,16 @@ export const useQueueSync = () => {
       const snapshot = coordinatorRef.current.createSnapshot(items, source);
       lastSnapshotRef.current = snapshot;
       
-      // On reconnect/refresh, prune overlays older than the snapshot (units: seconds)
-      if (source !== 'bootstrap') {
-        storeRef.current.pruneOlderThan(snapshot.hydratedAtSeconds);
+      // On reconnect only: prune overlays that predate the new snapshot. This clears
+      // stale overlays accumulated during a disconnect. We intentionally skip this for
+      // 'refresh' (queue_updated-triggered) because the server updated_at timestamps
+      // on in-flight events are often slightly behind the wall-clock time at which the
+      // API response arrives, causing valid live overlays to be pruned and progress to
+      // disappear until the next event arrives.
+      if (source === 'reconnect') {
+        storeRef.current.pruneOlderThan(snapshot.hydratedAtSeconds - PRUNE_GRACE_SECONDS);
       }
+
 
       updateDerivedState();
       setLoading(false);
@@ -60,17 +73,21 @@ export const useQueueSync = () => {
 
   const onMessage = useCallback((data: any) => {
     if (isStudioJobEvent(data)) {
+      recordWebsocketDebugMessage('useQueueSync', data);
       storeRef.current.applyEvent(data);
       updateDerivedState();
     } else if (data.type === 'job_updated') {
+      recordWebsocketDebugMessage('useQueueSync', data);
       storeRef.current.applyJobUpdated(data.job_id, data.updates);
       updateDerivedState();
     } else if (data.type === 'queue_updated' || data.type === 'pause_updated') {
+      // Record debug message for queue consumer
+      recordWebsocketDebugMessage('useQueueSync', data);
       refreshQueue('refresh');
     }
   }, [updateDerivedState, refreshQueue]);
 
-  const { connected } = useWebSocket('/ws', onMessage, { captureDebugMessages: false });
+  const { connected } = useWebSocket('/ws', onMessage, { captureDebugMessages: true });
 
   // 1. Bootstrap
   useEffect(() => {

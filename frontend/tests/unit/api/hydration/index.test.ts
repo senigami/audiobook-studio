@@ -181,4 +181,63 @@ describe('HydrationCoordinator', () => {
     ];
     expect(selectActiveQueueCount(queue)).toBe(3);
   });
+
+  it('propagates active_segment_id and active_segment_progress from overlay to merged item', () => {
+    // Regression: mergeQueueWithOverlays was not forwarding active_segment_id or
+    // active_segment_progress from the live overlay delta into the merged queue item,
+    // causing QueueItem to always receive undefined for these fields and fall back to
+    // displaying job.progress (the snapshot value) instead of the live segment progress.
+    const snapshot = coordinator.createSnapshot([
+      {
+        id: 'job-seg',
+        status: 'running',
+        progress: 0,
+        chapter_id: 'chap-1',
+        active_segment_id: undefined,
+        active_segment_progress: undefined,
+      } as any,
+    ]);
+
+    const overlays: LiveOverlayState = {
+      eventsById: {
+        'job-seg': {
+          status: 'running',
+          progress: 0.44,
+          updated_at: Date.now() / 1000,
+          active_segment_id: 'seg-abc',
+          active_segment_progress: 0.8,
+        },
+      },
+    };
+
+    const merged = coordinator.mergeQueueWithOverlays(snapshot, overlays);
+    expect(merged[0].active_segment_id).toBe('seg-abc');
+    expect(merged[0].active_segment_progress).toBe(0.8);
+  });
+
+  it('does not filter out a chapter job if segment_ids is present but overlay specifies classification: chapter', () => {
+    const snapshot = coordinator.createSnapshot([
+      {
+        id: 'job-chapter-with-segs',
+        status: 'running',
+        chapter_id: 'chap-1',
+        segment_ids: ['seg-1', 'seg-2'],
+        classification: undefined,
+      } as any,
+    ]);
+
+    const overlays: LiveOverlayState = {
+      eventsById: {
+        'job-chapter-with-segs': {
+          status: 'running',
+          classification: 'chapter',
+          updated_at: Date.now() / 1000,
+        },
+      },
+    };
+
+    const merged = coordinator.mergeQueueWithOverlays(snapshot, overlays);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].id).toBe('job-chapter-with-segs');
+  });
 });
