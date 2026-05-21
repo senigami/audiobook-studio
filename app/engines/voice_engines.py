@@ -5,17 +5,31 @@ import threading
 _DISCOVERY_LOCK = threading.Lock()
 _IN_DISCOVERY = False
 
-def get_default_profile_engine(settings: Optional[dict] = None) -> str:
-    """Resolve the system-wide default engine ID from settings or discovery."""
-    if settings == {}:
-        # Rule 9: Safe schema default for initial boot before discovery is ready.
-        # This prevents problematic discovery calls during early module import.
-        return ""
+def _get_registry_manifests() -> list[dict]:
+    """Helper to fetch engine registry manifests once without recursion."""
+    global _IN_DISCOVERY
+    if _IN_DISCOVERY:
+        return []
+    _IN_DISCOVERY = True
+    try:
+        from ..engines.bridge import create_voice_bridge
+        bridge = create_voice_bridge()
+        return bridge.describe_registry()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).debug("Registry discovery failed: %s", e)
+        return []
+    finally:
+        _IN_DISCOVERY = False
 
-    # 1. Verification list
-    valid_engines = list_tts_engines()
 
-    # 2. Use provided settings or try to fetch them
+def select_runtime_engine_candidate(registry_entries: list[dict], settings: Optional[dict] = None) -> str:
+    """Ranks active/enabled engines based on ranking guidelines to select a runtime candidate:
+    1. Explicit default engine (if enabled) wins.
+    2. Enabled local non-cloud, non-network engine is preferred.
+    3. Enabled local engine is preferred.
+    4. Stable registry order fallback.
+    """
     if settings is None:
         try:
             from ..db.state_settings import get_settings
@@ -23,45 +37,86 @@ def get_default_profile_engine(settings: Optional[dict] = None) -> str:
         except (ImportError, AttributeError, RecursionError):
             settings = {}
 
-    # 3. Resolve from settings
-    explicit = settings.get("default_engine")
     enabled_plugins = settings.get("enabled_plugins") or {}
+    explicit = settings.get("default_engine")
 
-    active_valid = [eid for eid in valid_engines if enabled_plugins.get(eid, True)]
+    if not registry_entries:
+        return str(explicit).strip().lower() if explicit else ""
 
-    if explicit and not valid_engines:
-        return str(explicit).strip().lower()
+    # Map manifest payload representation to dict
+    active_entries = []
+    for entry in registry_entries:
+        eid = entry.get("engine_id")
+        if not eid:
+            continue
+        if enabled_plugins.get(eid, True):
+            active_entries.append(entry)
 
-    if explicit and explicit in active_valid:
-        return explicit
+    active_ids = {entry["engine_id"] for entry in active_entries}
 
-    # Find first enabled in registry
-    if active_valid:
-        return active_valid[0]
+    if explicit:
+        explicit_str = str(explicit).strip().lower()
+        if explicit_str in active_ids:
+            return explicit_str
 
-    # Rule 9: Generic placeholder if no engines are discovered yet.
-    # This avoids hardcoding a specific engine name as a runtime default.
-    return ""
+    if not active_entries:
+        return ""
+
+    # Helper function to rank active engines.
+    # Lower number = higher priority.
+    def rank_key(e):
+        # Retrieve properties from manifest representation.
+        manifest = e.get("manifest") or {}
+
+        is_local = e.get("local")
+        if is_local is None:
+            is_local = manifest.get("local", True)
+
+        is_cloud = e.get("cloud")
+        if is_cloud is None:
+            is_cloud = manifest.get("cloud", False)
+
+        is_network = e.get("network")
+        if is_network is None:
+            is_network = manifest.get("network", False)
+
+        is_local = bool(is_local)
+        is_cloud = bool(is_cloud)
+        is_network = bool(is_network)
+
+        if is_local and not is_cloud and not is_network:
+            return 0
+        elif is_local:
+            return 1
+        else:
+            return 2
+
+    # Timsort is stable, so we preserve the original/registry ordering for equal ranks.
+    sorted_active = sorted(active_entries, key=rank_key)
+    return sorted_active[0]["engine_id"]
+
+
+def get_default_profile_engine(settings: Optional[dict] = None) -> str:
+    """Resolve the system-wide default engine ID from settings or discovery."""
+    if settings == {}:
+        # Rule 9: Safe schema default for initial boot before discovery is ready.
+        # This prevents problematic discovery calls during early module import.
+        return ""
+
+    # Use provided settings or try to fetch them
+    if settings is None:
+        try:
+            from ..db.state_settings import get_settings
+            settings = get_settings()
+        except (ImportError, AttributeError, RecursionError):
+            settings = {}
+
+    manifests = _get_registry_manifests()
+    return select_runtime_engine_candidate(manifests, settings)
 
 
 def list_tts_engines() -> list[str]:
-    global _IN_DISCOVERY
-    if _IN_DISCOVERY:
-        return []
-    _IN_DISCOVERY = True
-    try:
-        import logging
-        logger = logging.getLogger(__name__)
-        from ..engines.bridge import create_voice_bridge
-        bridge = create_voice_bridge()
-        return [entry["engine_id"] for entry in bridge.describe_registry()]
-    except Exception as e:
-        # Fallback if bridge is not ready
-        import logging
-        logging.getLogger(__name__).debug("Registry discovery failed: %s", e)
-        return []
-    finally:
-        _IN_DISCOVERY = False
+    return [entry["engine_id"] for entry in _get_registry_manifests() if entry.get("engine_id")]
 
 
 def normalize_tts_engine(engine: Optional[str], fallback: Optional[str] = None, settings: Optional[dict] = None) -> str:
@@ -82,8 +137,13 @@ def normalize_tts_engine(engine: Optional[str], fallback: Optional[str] = None, 
 
     if not active_valid:
         if not valid:
-            return normalized
-        return normalized if normalized in valid else (fallback or "")
+            explicit = settings.get("default_engine")
+            if explicit and normalized == str(explicit).strip().lower():
+                return normalized
+            if fallback and normalized == str(fallback).strip().lower():
+                return normalized
+            return ""
+        return ""
 
     # If the engine is empty, invalid, or disabled, try to resolve the default active engine
     if not engine or normalized not in active_valid:
@@ -110,7 +170,7 @@ def is_tts_engine(engine: Optional[str]) -> bool:
 
 
 def resolve_profile_engine(profile_name_or_id: Optional[str], fallback_engine: Optional[str] = None) -> str:
-    fallback = normalize_tts_engine(fallback_engine)
+    fallback = normalize_tts_engine(fallback_engine, fallback=fallback_engine)
     if not profile_name_or_id:
         return fallback
 

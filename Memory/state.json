@@ -1,17 +1,18 @@
 {
-  "snapshot_version": 97,
-  "updated_at": "2026-05-21T03:30:00Z",
+  "snapshot_version": 99,
+  "updated_at": "2026-05-21T16:50:00Z",
   "branch": "studio2/phase-12",
-  "current_task": "Queue Row Synthesis Visibility & Classification Hydration",
-  "status": "queue_synthesis_visibility_classification_hydration_verified",
+  "current_task": "Fix Voice Profile Engine Drift",
+  "status": "voice_profile_engine_drift_fixed",
   "last_committed_milestone": {
-    "title": "Queue Row Synthesis Visibility & Classification Hydration",
+    "title": "Fix Voice Profile Engine Drift",
     "commit": "pending",
     "notes": [
-      "Fixed filtering out of chapter-scoped jobs during active synthesis by copying classification from overlay delta onto base HTTP items before filtering in the frontend.",
-      "Added computed classification property getter to Job model on the backend.",
-      "Added classification to _LIVE_QUEUE_JOB_FIELDS in the backend queue API router, using getattr to merge computed properties from active memory jobs.",
-      "Added unit tests on frontend and backend verifying the classification hydration and visibility flows."
+      "Implemented select_default_engine ranking prioritizing enabled local non-cloud/non-network engines, then local engines, and falling back to stable registry order.",
+      "Refactored get_default_profile_engine to be non-recursive via a registry manifest helper.",
+      "Minimized disk writes in normalize_profile_metadata and sync_speakers_from_profiles to only write to profile.json when actual differences are detected, preserving original keys and avoiding persisting inferred defaults.",
+      "Equipped both tests/api and tests/speaker suites with autouse VOICES_DIR isolation guards checking that the real repository voices/ directory is not targeted.",
+      "Verified backend tests, ruff lints, and git diff check pass cleanly."
     ]
   },
   "active_constraints": [

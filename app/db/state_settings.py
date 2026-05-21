@@ -111,11 +111,30 @@ def update_settings(updates: dict = None, **kwargs) -> None:
     with _STATE_LOCK:
         state = _load_state_no_lock()
         state.setdefault("settings", {})
+
+        orig_settings = state["settings"].copy()
+        orig_default_engine_present = "default_engine" in orig_settings
+        orig_default_engine_val = orig_settings.get("default_engine")
+
         merged_updates: Dict[str, Any] = {}
         if updates:
             merged_updates.update(updates)
         if kwargs:
             merged_updates.update(kwargs)
+
         state["settings"].update(merged_updates)
-        state["settings"] = _normalize_settings(state["settings"], incoming_updates=merged_updates)
+        normalized = _normalize_settings(state["settings"], incoming_updates=merged_updates)
+
+        save_settings = normalized.copy()
+        if "default_engine" in merged_updates:
+            # User explicitly updated default_engine, so we save the exact new value
+            save_settings["default_engine"] = merged_updates["default_engine"]
+        elif orig_default_engine_present:
+            # Preserve the exact original default_engine value on disk
+            save_settings["default_engine"] = orig_default_engine_val
+        else:
+            # Omit default_engine to prevent persisting inferred default settings
+            save_settings.pop("default_engine", None)
+
+        state["settings"] = save_settings
         _atomic_write_text(get_state_file(), json.dumps(state, indent=2))

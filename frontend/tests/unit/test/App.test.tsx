@@ -2,14 +2,32 @@ import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
 import App from '@/app/App'
 import { MemoryRouter } from 'react-router-dom'
 import { vi, describe, it, expect, beforeEach } from 'vitest'
+import { useEffect } from 'react'
 
 let wsConnected = true;
+let activeConnections = 0;
+const mockUseWebSocket = vi.fn(() => {
+  useEffect(() => {
+    activeConnections++;
+    return () => {
+      activeConnections--;
+    };
+  }, []);
+  return {
+    connected: wsConnected,
+    sendMessage: vi.fn()
+  };
+});
+
 vi.mock('@/hooks/useWebSocket', () => ({
-  useWebSocket: () => ({ connected: wsConnected, sendMessage: vi.fn() })
-}))
+  useWebSocket: () => mockUseWebSocket()
+}));
 
 describe('App', () => {
+
   beforeEach(() => {
+    mockUseWebSocket.mockClear();
+    activeConnections = 0;
     global.fetch = vi.fn((url) => {
       if (url === '/api/home') {
         return Promise.resolve({
@@ -79,6 +97,19 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByText(/Audiobook/i)).toBeTruthy()
     })
+  })
+
+  it('proves only one websocket transport is mounted from App', async () => {
+    mockUseWebSocket.mockClear()
+    render(
+      <MemoryRouter>
+        <App />
+      </MemoryRouter>
+    )
+    await waitFor(() => {
+      expect(screen.getByText(/Audiobook/i)).toBeTruthy()
+    })
+    expect(activeConnections).toBe(1)
   })
 
   it('reports ready hydration status when idle and connected', async () => {

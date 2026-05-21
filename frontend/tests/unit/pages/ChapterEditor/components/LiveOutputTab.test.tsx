@@ -139,9 +139,9 @@ describe('LiveOutputTab', () => {
     expect(rows[1].textContent).toContain('useJobs');
   });
   it('merges duplicate both entries into a single row with combined listeners', () => {
-    // Record the same studio_job_event from both hooks
-    recordWebsocketDebugMessage('useJobs', { type: 'studio_job_event', job_id: 'j', chapter_id: 'chap-1' });
-    recordWebsocketDebugMessage('useQueueSync', { type: 'studio_job_event', job_id: 'j', chapter_id: 'chap-1' });
+    // Record the same studio_job_event from both hooks using the same frameId
+    recordWebsocketDebugMessage('useJobs', { type: 'studio_job_event', job_id: 'j', chapter_id: 'chap-1' }, undefined, { frameId: 1, receivedAt: new Date().toISOString(), data: {} });
+    recordWebsocketDebugMessage('useQueueSync', { type: 'studio_job_event', job_id: 'j', chapter_id: 'chap-1' }, undefined, { frameId: 1, receivedAt: new Date().toISOString(), data: {} });
 
     render(<LiveOutputTab chapterId="chap-1" currentJobId="j" />);
     fireEvent.change(screen.getByLabelText('Live output filter'), { target: { value: 'all' } });
@@ -167,5 +167,24 @@ describe('LiveOutputTab', () => {
 
     render(<LiveOutputTab chapterId="chap-1" currentJobId="job-current" />);
     expect(screen.getByText('[PROGRESS] 80% job-other')).toBeInTheDocument();
+  });
+
+  it('renders distinct same-job studio_job_event rows in insertion order and shows unique consumers', () => {
+    recordWebsocketDebugMessage('useJobs', { type: 'studio_job_event', job_id: 'job-same', status: 'queued' }, undefined, { frameId: 1, receivedAt: '2026-05-21T10:00:00.000Z', data: {} });
+    recordWebsocketDebugMessage('useQueueSync', { type: 'studio_job_event', job_id: 'job-same', status: 'queued' }, undefined, { frameId: 1, receivedAt: '2026-05-21T10:00:00.000Z', data: {} });
+    recordWebsocketDebugMessage('useJobs', { type: 'studio_job_event', job_id: 'job-same', status: 'running' }, undefined, { frameId: 2, receivedAt: '2026-05-21T10:00:00.500Z', data: {} });
+    recordWebsocketDebugMessage('useQueueSync', { type: 'studio_job_event', job_id: 'job-same', status: 'running' }, undefined, { frameId: 2, receivedAt: '2026-05-21T10:00:00.500Z', data: {} });
+
+    render(<LiveOutputTab chapterId="chap-1" currentJobId="job-same" />);
+    fireEvent.change(screen.getByLabelText('Live output filter'), { target: { value: 'all' } });
+
+    const rows = document.querySelectorAll('tr[data-audience]');
+    expect(rows).toHaveLength(2);
+
+    expect(rows[0].textContent).toContain('useJobs, useQueueSync');
+    expect(rows[0].textContent).toContain('queued');
+
+    expect(rows[1].textContent).toContain('useJobs, useQueueSync');
+    expect(rows[1].textContent).toContain('running');
   });
 });

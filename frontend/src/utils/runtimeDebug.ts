@@ -1,3 +1,5 @@
+import type { StudioSocketEnvelope } from '@/store/studioSocketBus';
+
 const isTruthy = (value: string | null | undefined) => {
   if (!value) return false;
   return ['1', 'true', 'yes', 'on'].includes(value.trim().toLowerCase());
@@ -117,6 +119,7 @@ export type TtsCommunicationTimelineEntry = {
   message?: string | null;
   /** Debug-only: which hook(s) consume this message type. */
   audience: WsAudience;
+  frameId?: number;
 };
 
 type StudioDebugWindow = Window & {
@@ -159,12 +162,12 @@ const pickValue = (data: Record<string, any>, updateData: Record<string, any>, k
   return updateData[key];
 };
 
-const appendTimelineEntry = (listener: string, payload: unknown, raw: string) => {
+const appendTimelineEntry = (listener: string, payload: unknown, raw: string, envelope?: StudioSocketEnvelope) => {
   if (!payload || typeof payload !== 'object' || typeof window === 'undefined') return;
 
   const data = payload as Record<string, any>;
   const updates = data.updates && typeof data.updates === 'object' ? data.updates as Record<string, any> : {};
-  const receivedAt = new Date().toISOString();
+  const receivedAt = envelope?.receivedAt ?? new Date().toISOString();
   const type = typeof data.type === 'string' ? data.type : undefined;
 
   const entry: TtsCommunicationTimelineEntry = {
@@ -174,6 +177,10 @@ const appendTimelineEntry = (listener: string, payload: unknown, raw: string) =>
     raw,
     audience: wsAudienceForType(type),
   };
+
+  if (envelope?.frameId !== undefined) {
+    entry.frameId = envelope.frameId;
+  }
 
   if (type !== undefined) entry.type = type;
   if (data.source !== undefined) entry.source = data.source;
@@ -228,18 +235,19 @@ const appendTimelineEntry = (listener: string, payload: unknown, raw: string) =>
   if (!Array.isArray(win.__ttsCommunicationTimeline)) {
     win.__ttsCommunicationTimeline = [];
   }
-  // Check for existing entry with same type and job_id within a short window
-  const existingIdx = win.__ttsCommunicationTimeline.findIndex(e =>
-    e.type === entry.type &&
-    e.job_id === entry.job_id &&
-    Math.abs(new Date(e.receivedAt).getTime() - new Date(entry.receivedAt).getTime()) <= 1000
-  );
+  // Find existing entry with the same frameId (if frameId is present).
+  // Distinct messages must not be collapsed, and lossless append-only behavior is used if no frameId.
+  const existingIdx = entry.frameId !== undefined
+    ? win.__ttsCommunicationTimeline.findIndex(e => e.frameId === entry.frameId)
+    : -1;
+
   if (existingIdx !== -1) {
-    // Merge listeners, avoid duplicates
     const existing = win.__ttsCommunicationTimeline[existingIdx];
-    const listeners = new Set([existing.listener, listener]);
-    existing.listener = Array.from(listeners).join(', ');
-    // Keep audience as 'both'
+    const existingListeners = existing.listener.split(',').map(s => s.trim()).filter(Boolean);
+    if (!existingListeners.includes(listener)) {
+      existingListeners.push(listener);
+    }
+    existing.listener = existingListeners.join(', ');
     existing.audience = 'both';
   } else {
     win.__ttsCommunicationTimeline.push(entry);
@@ -274,14 +282,15 @@ export const recordStudioDebugSnapshot = (tag: string, payload: unknown) => {
   console.warn(`[${tag}]`, payload);
 };
 
-export const recordWebsocketDebugMessage = (listener: string, payload: unknown, raw?: string) => {
+export const recordWebsocketDebugMessage = (listener: string, payload: unknown, raw?: string, envelope?: StudioSocketEnvelope) => {
   if (typeof window === 'undefined') return;
 
   const win = window as WebsocketDebugWindow;
   const serializedRaw = raw ?? (typeof payload === 'string' ? payload : JSON.stringify(payload));
+  const receivedAt = envelope?.receivedAt ?? new Date().toISOString();
   const entry: WebsocketDebugSnapshot = {
     listener,
-    receivedAt: new Date().toISOString(),
+    receivedAt,
     raw: serializedRaw,
   };
 
@@ -315,5 +324,5 @@ export const recordWebsocketDebugMessage = (listener: string, payload: unknown, 
     win.__websocketRecentMessages.shift();
   }
   win.__websocketLastMessage = entry;
-  appendTimelineEntry(listener, payload, serializedRaw);
+  appendTimelineEntry(listener, payload, serializedRaw, envelope);
 };

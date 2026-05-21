@@ -273,8 +273,8 @@ def test_get_speaker_settings_repairs_blank_profile_metadata(clean_voices):
 
     assert settings["variant_name"] == "Default"
     repaired = json.loads(meta_path.read_text(encoding="utf-8"))
-    assert repaired["variant_name"] == "Default"
-    assert repaired["engine"] == "xtts"
+    assert "variant_name" not in repaired
+    assert "engine" not in repaired
 
 def test_get_speaker_settings_normalizes_default_variant(clean_voices):
     from app.db.speakers import get_speaker_settings
@@ -290,7 +290,8 @@ def test_get_speaker_settings_normalizes_default_variant(clean_voices):
     meta_path = profile_dir / "profile.json"
     assert meta_path.exists()
     meta = json.loads(meta_path.read_text())
-    assert meta["variant_name"] == "Default"
+    assert "variant_name" not in meta
+    assert "engine" not in meta
 
 def test_get_speaker_settings_infers_variant_from_folder_name(clean_voices):
     from app.db.speakers import get_speaker_settings
@@ -401,8 +402,8 @@ def test_speaker_listing_normalizes_base_profile_to_default(clean_voices):
         # After migrate_voices_to_v2() (called by listing endpoint), the flat
         # profile.json is promoted to Default/profile.json.
         meta = json.loads((base_dir / "profile.json").read_text())
-        assert meta["variant_name"] == "Default"
+        assert "variant_name" not in meta
         assert meta["speaker_id"] == speaker_id
-        assert meta["engine"] == "xtts"
+        assert "engine" not in meta
     finally:
         delete_speaker(speaker_id)

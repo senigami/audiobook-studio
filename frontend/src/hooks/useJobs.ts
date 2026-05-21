@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Job, SegmentProgress } from '@/types';
-import { useWebSocket } from '@/hooks/useWebSocket';
 import { isStudioJobEvent, isTtsLogLineEvent } from '@/api/contracts/events';
 import { recordWebsocketDebugMessage } from '@/utils/runtimeDebug';
+import { sendStudioSocketMessage, subscribeStudioSocketMessages, type StudioSocketEnvelope } from '@/store/studioSocketBus';
+import { useStudioSocketConnection } from '@/hooks/useStudioSocketConnection';
 
 const STATUS_PRIORITY: Record<string, number> = {
   done: 5,
@@ -38,18 +39,17 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
   const [segmentProgress, setSegmentProgress] = useState<Record<string, SegmentProgress>>({});
   const [loading, setLoading] = useState(true);
   const prevJobsRef = useRef<Record<string, Job>>({});
-
-  const { connected, sendMessage } = useWebSocket('/ws', (data) => handleUpdate(data));
+  const connected = useStudioSocketConnection();
 
   const refreshJobs = useCallback(() => {
     if (connected) {
-      sendMessage({ type: 'jobs_snapshot_request' });
+      sendStudioSocketMessage({ type: 'jobs_snapshot_request' });
     }
-  }, [connected, sendMessage]);
+  }, [connected]);
 
   const [testProgress, setTestProgress] = useState<Record<string, { progress: number; started_at?: number }>>({});
 
-  const handleUpdate = useCallback((data: any, raw?: string) => {
+  const handleUpdate = useCallback((data: any, raw?: string, envelope?: StudioSocketEnvelope) => {
     if (data.type === 'jobs_snapshot') {
       const jobMap = (data.jobs || []).reduce((acc: Record<string, Job>, job: Job) => {
         acc[job.id] = job;
@@ -58,7 +58,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
       setJobs(jobMap);
       setLoading(false);
     } else if (data.type === 'tts_log_line' || isTtsLogLineEvent(data)) {
-      recordWebsocketDebugMessage('useJobs', data, raw);
+      recordWebsocketDebugMessage('useJobs', data, raw, envelope);
     } else if (data.type === 'studio_job_event' || isStudioJobEvent(data)) {
       const job_id = data.job_id;
       const nextUpdates: Record<string, any> = {
@@ -151,7 +151,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
         const newJob = { ...oldJob, ...normalizedUpdates };
         return { ...prev, [job_id]: newJob };
       });
-      recordWebsocketDebugMessage('useJobs', data, raw);
+      recordWebsocketDebugMessage('useJobs', data, raw, envelope);
     } else if (data.type === 'job_updated') {
       const { job_id, updates } = data;
       setJobs(prev => {
@@ -219,18 +219,18 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
         const newJob = { ...oldJob, ...nextUpdates };
         return { ...prev, [job_id]: newJob };
       });
-      recordWebsocketDebugMessage('useJobs', data, raw);
+      recordWebsocketDebugMessage('useJobs', data, raw, envelope);
     } else if (data.type === 'queue_updated') {
         refreshJobs();
         if (onQueueUpdate) onQueueUpdate();
-        recordWebsocketDebugMessage('useJobs', data, raw);
+        recordWebsocketDebugMessage('useJobs', data, raw, envelope);
     } else if (data.type === 'pause_updated') {
         if (onPauseUpdate) onPauseUpdate(data.paused);
-        recordWebsocketDebugMessage('useJobs', data, raw);
+        recordWebsocketDebugMessage('useJobs', data, raw, envelope);
     } else if (data.type === 'test_progress') {
       const { name, progress, started_at } = data;
       setTestProgress(prev => ({ ...prev, [name]: { progress, started_at } }));
-      recordWebsocketDebugMessage('useJobs', data, raw);
+      recordWebsocketDebugMessage('useJobs', data, raw, envelope);
     } else if (data.type === 'segment_progress') {
       const next: SegmentProgress = {
         job_id: data.job_id,
@@ -239,15 +239,21 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
         progress: data.progress,
       };
       setSegmentProgress(prev => ({ ...prev, [next.segment_id]: next }));
-      recordWebsocketDebugMessage('useJobs', data, raw);
+      recordWebsocketDebugMessage('useJobs', data, raw, envelope);
     } else if (data.type === 'segments_updated') {
       if (onSegmentsUpdate) onSegmentsUpdate(data.chapter_id);
-      recordWebsocketDebugMessage('useJobs', data, raw);
+      recordWebsocketDebugMessage('useJobs', data, raw, envelope);
     } else if (data.type === 'chapter_updated') {
       if (onChapterUpdate) onChapterUpdate(data.chapter_id);
-      recordWebsocketDebugMessage('useJobs', data, raw);
+      recordWebsocketDebugMessage('useJobs', data, raw, envelope);
     }
   }, [onQueueUpdate, onPauseUpdate, onSegmentsUpdate, onChapterUpdate, refreshJobs]);
+
+  useEffect(() => {
+    return subscribeStudioSocketMessages((data, raw, envelope) => {
+      handleUpdate(data, raw, envelope);
+    });
+  }, [handleUpdate]);
 
 
   // Monitor jobs for completions to trigger global data refresh

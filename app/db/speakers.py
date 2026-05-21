@@ -250,7 +250,7 @@ def _resolve_existing_profile_name(profile_name_or_id: str) -> Optional[str]:
 def get_profile_engine(profile_name_or_id: Optional[str], fallback_engine: Optional[str] = None) -> str:
     """Resolve the engine ID for a profile name or speaker ID without depending on app.jobs."""
     from ..engines.voice_engines import normalize_tts_engine
-    fallback = normalize_tts_engine(fallback_engine)
+    fallback = normalize_tts_engine(fallback_engine, fallback=fallback_engine)
     if not profile_name_or_id:
         return fallback
 
@@ -414,9 +414,38 @@ def update_speaker_settings(profile_name: str, **updates) -> bool:
         return False
 
 
+def _get_minimal_save_metadata(profile_name: str, meta: Dict[str, Any], orig_meta: Dict[str, Any]) -> Dict[str, Any]:
+    save_meta = orig_meta.copy()
+
+    # Normalize aliases in save_meta
+    from ..engines.behavior import setting_aliases_for
+    engine = meta.get("engine") or _infer_profile_engine(meta)
+    aliases = setting_aliases_for(engine)
+    for source, target in aliases.items():
+        if source in save_meta and target not in save_meta:
+            save_meta[target] = save_meta.pop(source)
+
+    # Retain variant_name only if it was explicitly present
+    if "variant_name" in orig_meta:
+        if not orig_meta.get("variant_name"):
+            save_meta["variant_name"] = meta.get("variant_name") or infer_variant_name(profile_name)
+    else:
+        save_meta.pop("variant_name", None)
+
+    # Retain engine only if it was explicitly present
+    if "engine" in orig_meta:
+        if not orig_meta.get("engine"):
+            save_meta["engine"] = meta.get("engine") or _infer_profile_engine(meta)
+    else:
+        save_meta.pop("engine", None)
+
+    return save_meta
+
+
 def normalize_profile_metadata(profile_name: str, meta: Optional[Dict[str, Any]] = None, persist: bool = False) -> Dict[str, Any]:
 
     meta = dict(meta or {})
+    orig_meta = meta.copy()
     if "variant_name" not in meta or not meta.get("variant_name"):
         meta["variant_name"] = infer_variant_name(profile_name)
     meta["engine"] = _infer_profile_engine(meta)
@@ -429,23 +458,30 @@ def normalize_profile_metadata(profile_name: str, meta: Optional[Dict[str, Any]]
             meta[target] = meta.pop(source)
 
     if persist:
+        save_meta = _get_minimal_save_metadata(profile_name, meta, orig_meta)
+
         profile_dir = get_profile_dir(profile_name)
-        if not profile_dir:
-            return meta
+        if profile_dir:
+            import os
+            trusted_voices_root = os.path.abspath(os.fspath(config.VOICES_DIR))
+            resolved_pdir = os.path.abspath(os.fspath(profile_dir))
 
-        import os
-        trusted_voices_root = os.path.abspath(os.fspath(config.VOICES_DIR))
-        resolved_pdir = os.path.abspath(os.fspath(profile_dir))
+            # Rule 9: Locally visible containment check
+            if resolved_pdir.startswith(trusted_voices_root + os.sep):
+                meta_path_full = os.path.normpath(os.path.join(resolved_pdir, "profile.json"))
+                if meta_path_full.startswith(resolved_pdir + os.sep):
+                    needs_write = (
+                        save_meta != orig_meta
+                        or not os.path.exists(meta_path_full)
+                        or os.path.getsize(meta_path_full) == 0
+                    )
+                    if needs_write:
+                        try:
+                            with open(meta_path_full, "w", encoding="utf-8") as f:
+                                f.write(json.dumps(save_meta, indent=2))
+                        except Exception:
+                            logger.warning("Failed to persist normalized profile metadata for %s", profile_name, exc_info=True)
 
-        # Rule 9: Locally visible containment check
-        if resolved_pdir.startswith(trusted_voices_root + os.sep):
-            meta_path_full = os.path.normpath(os.path.join(resolved_pdir, "profile.json"))
-            if meta_path_full.startswith(resolved_pdir + os.sep):
-                try:
-                    with open(meta_path_full, "w", encoding="utf-8") as f:
-                        f.write(json.dumps(meta, indent=2))
-                except Exception:
-                    logger.warning("Failed to persist normalized profile metadata for %s", profile_name, exc_info=True)
 
     return meta
 
@@ -517,15 +553,18 @@ def normalize_base_profiles(voices_dir: Optional[Path] = None) -> None:
         orig_meta = meta.copy()
         meta = normalize_profile_metadata(speaker_name, meta, persist=False)
 
-        if meta != orig_meta:
+        save_meta = _get_minimal_save_metadata(speaker_name, meta, orig_meta)
+
+        if save_meta != orig_meta:
             try:
                 with open(meta_path_full, "w", encoding="utf-8") as f:
-                    f.write(json.dumps(meta, indent=2))
+                    f.write(json.dumps(save_meta, indent=2))
             except Exception:
                 logger.warning("Failed to persist base profile metadata for %s", speaker_name, exc_info=True)
 
         if speaker.get("default_profile_name") != speaker_name:
             pending_updates.append((speaker_name, time.time(), speaker["id"]))
+
 
     if pending_updates:
         with _db_lock:
@@ -631,6 +670,9 @@ def sync_speakers_from_profiles(voices_dir: Optional[Path] = None) -> None:
                         logger.warning("Failed to read speaker metadata for %s", meta_path_full, exc_info=True)
                         meta = {}
 
+                # Create a copy of the original metadata on disk
+                orig_meta = json.loads(json.dumps(meta))
+
                 meta = normalize_profile_metadata(profile_name, meta, persist=False)
                 speaker_name = infer_speaker_name(profile_name, meta)
                 is_default_profile = is_default_profile_name(profile_name, meta)
@@ -673,12 +715,18 @@ def sync_speakers_from_profiles(voices_dir: Optional[Path] = None) -> None:
                     speakers_by_id[speaker["id"]] = speaker
                     speakers_by_name[speaker["name"]] = speaker
 
-                if meta.get("speaker_id") != speaker["id"] or not os.path.exists(meta_path_full):
-                    meta["speaker_id"] = speaker["id"]
+                if orig_meta.get("speaker_id") != speaker["id"] or not os.path.exists(meta_path_full):
+                    orig_meta["speaker_id"] = speaker["id"]
+                    if orig_meta.get("engine"):
+                        from ..engines.behavior import setting_aliases_for
+                        aliases = setting_aliases_for(orig_meta["engine"])
+                        for source, target in aliases.items():
+                            if source in orig_meta and target not in orig_meta:
+                                orig_meta[target] = orig_meta.pop(source)
                     try:
                         os.makedirs(os.path.dirname(meta_path_full), exist_ok=True)
                         with open(meta_path_full, "w", encoding="utf-8") as f:
-                            f.write(json.dumps(meta, indent=2))
+                            f.write(json.dumps(orig_meta, indent=2))
                     except Exception:
                         logger.warning("Failed to persist synchronized speaker metadata for %s", meta_path_full, exc_info=True)
 

@@ -9,6 +9,7 @@ import { GlobalQueue } from '@/components/queue/GlobalQueue';
 import { ProgressBarTestPage } from '@/pages/DevProgressBar/DevProgressBarPage';
 import { useJobs } from '@/hooks/useJobs';
 import { useQueueSync } from '@/hooks/useQueueSync';
+import { useStudioSocketTransport } from '@/hooks/useStudioSocketTransport';
 import { useInitialData } from '@/hooks/useInitialData';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 import { createStudioShellState } from '@/app/layout/StudioShell';
@@ -22,6 +23,7 @@ import { Drawer } from '@/pages/Voices/components/VoiceUtils';
 function App() {
   const navigate = useNavigate();
   const location = useLocation();
+  useStudioSocketTransport();
   const projectMatch = useMatch('/project/:projectId');
   const chapterMatch = useMatch('/chapter/:chapterId');
   const projectIdFromRoute = projectMatch?.params.projectId;

@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '@/api';
 import type { ProcessingQueueItem } from '@/types';
-import { useWebSocket } from '@/hooks/useWebSocket';
 import { recordWebsocketDebugMessage } from '@/utils/runtimeDebug';
 import { isStudioJobEvent } from '@/api/contracts/events';
 import { createLiveJobsStore } from '@/store/live-jobs';
 import { createHydrationCoordinator, selectActiveQueueCount } from '@/api/hydration';
+import { subscribeStudioSocketMessages, type StudioSocketEnvelope } from '@/store/studioSocketBus';
+import { useStudioSocketConnection } from '@/hooks/useStudioSocketConnection';
 
 const FALLBACK_POLL_MS = 60000;
 // Grace window for reconnect overlay pruning. Events that arrive on the websocket
@@ -21,6 +22,7 @@ export const useQueueSync = () => {
   const [loading, setLoading] = useState(true);
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [activeSource, setActiveSource] = useState<'bootstrap' | 'reconnect' | 'refresh' | undefined>(undefined);
+  const connected = useStudioSocketConnection();
 
   // Pure stores initialized once
   const storeRef = useRef(createLiveJobsStore());
@@ -71,23 +73,27 @@ export const useQueueSync = () => {
     }
   }, [updateDerivedState]);
 
-  const onMessage = useCallback((data: any) => {
+  const onMessage = useCallback((data: any, raw?: string, envelope?: StudioSocketEnvelope) => {
     if (isStudioJobEvent(data)) {
-      recordWebsocketDebugMessage('useQueueSync', data);
+      recordWebsocketDebugMessage('useQueueSync', data, raw, envelope);
       storeRef.current.applyEvent(data);
       updateDerivedState();
     } else if (data.type === 'job_updated') {
-      recordWebsocketDebugMessage('useQueueSync', data);
+      recordWebsocketDebugMessage('useQueueSync', data, raw, envelope);
       storeRef.current.applyJobUpdated(data.job_id, data.updates);
       updateDerivedState();
     } else if (data.type === 'queue_updated' || data.type === 'pause_updated') {
       // Record debug message for queue consumer
-      recordWebsocketDebugMessage('useQueueSync', data);
+      recordWebsocketDebugMessage('useQueueSync', data, raw, envelope);
       refreshQueue('refresh');
     }
   }, [updateDerivedState, refreshQueue]);
 
-  const { connected } = useWebSocket('/ws', onMessage, { captureDebugMessages: true });
+  useEffect(() => {
+    return subscribeStudioSocketMessages((data, raw, envelope) => {
+      onMessage(data, raw, envelope);
+    });
+  }, [onMessage]);
 
   // 1. Bootstrap
   useEffect(() => {

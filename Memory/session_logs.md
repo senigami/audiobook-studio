@@ -1,3 +1,10 @@
+# 2026-05-21 - Fix Voice Engine Drift Path & Clarify Default Policy Resolution
+
+- Fixed voice engine resolution and normalization in [app/engines/voice_engines.py](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/app/engines/voice_engines.py) and [app/db/speakers.py](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/app/db/speakers.py) to pass `fallback_engine` as the `fallback` parameter of `normalize_tts_engine`.
+- This ensures that configured defaults (e.g. `xtts` or `voxtral`) are correctly preserved during normalization even when the voice engine registry discovery lists are completely empty.
+- Verified that all 19 tests in `tests/api/test_voice_engines_fallback.py` pass cleanly.
+- Confirmed that the full pytest suite (871 tests passed, 2 skipped) executes successfully with zero failures and that code hygiene checks (`git diff --check` and Ruff) pass without issues.
+
 # 2026-05-20 - Trimmed Redundant WebSocket Broadcasts
 
 - Added support for a `skip_job_updated` parameter to the `update_job` function signature.
@@ -1250,3 +1257,20 @@
 - Enhanced the backend queue API router by adding `"classification"` to `_LIVE_QUEUE_JOB_FIELDS` and updating `_merge_live_queue_job` to use `getattr(job, field, None)` to correctly merge computed properties from active memory jobs.
 - Added a computed `classification` property getter to the backend `Job` model to dynamically resolve `"segment"`, `"chapter"`, or `"job"`.
 - Verified with focused frontend Vitest tests and backend python tests (`test_processing_queue_hydrates_classification`), all of which pass successfully.
+
+# 2026-05-21 - Single WebSocket Transport Refactor
+
+- Reviewed and completed the single-websocket transport refactor where `App.tsx` shell owns the only active WebSocket connection via `useStudioSocketTransport`.
+- Migrated `useJobs` and `useQueueSync` to consume websocket updates and connection status through the shared `studioSocketBus` and `useStudioSocketConnection()`, ensuring they no longer call `useWebSocket` directly.
+- Added a robust unit test in `App.test.tsx` utilizing a custom React hook mock with `useEffect` to verify that only one active websocket transport is mounted across the entire application shell layout.
+- Cleaned up React test `act` warnings in `useQueueSync.test.tsx` by awaiting active queue hydration and refresh completion states via `waitFor(() => expect(result.current.activeSource).toBeUndefined())`.
+- Verified all 105 frontend unit tests pass successfully, and confirmed ESLint reports zero errors.
+
+# 2026-05-21 - Voice Profile Engine Drift Fix & Isolation Guards
+
+- Resolved voice profile engine drift from XTTS to Voxtral by implementing `select_default_engine` in `app/engines/voice_engines.py` that ranks active/enabled engines (explicit user-specified default wins first, followed by enabled local non-cloud/non-network engines, then local engines, and finally stable registry order fallback).
+- Refactored `get_default_profile_engine` to be non-recursive, fetching registry metadata once through a helper function.
+- Minimized disk writes to `profile.json` in `normalize_profile_metadata` and `sync_speakers_from_profiles` by storing `orig_meta` from disk and checking for differences before writing, preventing inferred engine defaults from mutating existing configuration files.
+- Extended the autouse `VOICES_DIR` isolation guard to run across both API voice tests and speaker tests, ensuring tests do not touch the real repository `voices/` directory.
+- Added comprehensive fallback unit tests and isolation tests verifying ranking layers, explicit engine overrides, normalization preservation, write-minimization, and path isolation.
+- Ran backend test suites (45 tests passed), ruff check, and git diff check cleanly.

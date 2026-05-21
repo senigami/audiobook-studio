@@ -202,3 +202,42 @@ describe('timeline entry audience field', () => {
     expect(timeline[0].audience).toBe('chapter');
   });
 });
+
+describe('timeline entry frameId merging', () => {
+  beforeEach(() => {
+    clearTtsCommunicationTimeline();
+    delete (window as any).__ttsCommunicationTimeline;
+  });
+
+  afterEach(() => {
+    clearTtsCommunicationTimeline();
+    delete (window as any).__ttsCommunicationTimeline;
+  });
+
+  it('two distinct studio_job_event frames with the same job_id inside 1 second remain two timeline rows', () => {
+    recordWebsocketDebugMessage('useJobs', { type: 'studio_job_event', job_id: 'job-1', status: 'queued' }, undefined, { frameId: 1, receivedAt: '2026-05-21T10:00:00.000Z', data: {} });
+    recordWebsocketDebugMessage('useJobs', { type: 'studio_job_event', job_id: 'job-1', status: 'running' }, undefined, { frameId: 2, receivedAt: '2026-05-21T10:00:00.500Z', data: {} });
+
+    const timeline = getTtsCommunicationTimeline();
+    expect(timeline).toHaveLength(2);
+    expect(timeline[0].status).toBe('queued');
+    expect(timeline[1].status).toBe('running');
+  });
+
+  it('the same frame recorded by useJobs and useQueueSync becomes one timeline row with listeners useJobs, useQueueSync exactly once each', () => {
+    recordWebsocketDebugMessage('useJobs', { type: 'studio_job_event', job_id: 'job-1', status: 'running' }, undefined, { frameId: 3, receivedAt: '2026-05-21T10:00:00.000Z', data: {} });
+    recordWebsocketDebugMessage('useQueueSync', { type: 'studio_job_event', job_id: 'job-1', status: 'running' }, undefined, { frameId: 3, receivedAt: '2026-05-21T10:00:00.000Z', data: {} });
+
+    const timeline = getTtsCommunicationTimeline();
+    expect(timeline).toHaveLength(1);
+    expect(timeline[0].listener).toBe('useJobs, useQueueSync');
+  });
+
+  it('queue_updated frames without job_id but different frameIds remain separate rows', () => {
+    recordWebsocketDebugMessage('useJobs', { type: 'queue_updated' }, undefined, { frameId: 4, receivedAt: '2026-05-21T10:00:00.000Z', data: {} });
+    recordWebsocketDebugMessage('useJobs', { type: 'queue_updated' }, undefined, { frameId: 5, receivedAt: '2026-05-21T10:00:00.100Z', data: {} });
+
+    const timeline = getTtsCommunicationTimeline();
+    expect(timeline).toHaveLength(2);
+  });
+});
