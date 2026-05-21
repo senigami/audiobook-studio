@@ -15,7 +15,7 @@ class VariantModel:
     id: str
     voice_id: str
     name: str
-    engine: str = field(default_factory=lambda: __import__("app.engines.voice_engines", fromlist=["get_default_profile_engine"]).get_default_profile_engine())
+    engine: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 @dataclass

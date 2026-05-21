@@ -2,18 +2,16 @@
   "snapshot_version": 100,
   "updated_at": "2026-05-21T20:13:00Z",
   "branch": "studio2/phase-12",
-  "current_task": "Tighten Voice Engine Fallback Policy (Explicit Config Only)",
-  "status": "explicit_only_voice_engine_policy_implemented",
+  "current_task": "Audit and Remove VariantModel Engine Default Factory",
+  "status": "variant_model_engine_default_factory_removed",
   "last_committed_milestone": {
-    "title": "Tighten Voice Engine Fallback Policy (Explicit Config Only)",
+    "title": "Audit and Remove VariantModel Engine Default Factory",
     "commit": "pending",
     "notes": [
-      "Eliminated all discovery-based ranking and fallbacks in voice_engines.py, select_runtime_engine_candidate, get_default_profile_engine, and normalize_tts_engine.",
-      "Removed alias-based engine inference in speakers.py, resolving engine strictly from configured profile metadata or settings.",
-      "Refactored api_analyze_chapter and api_analyze_text to strictly validate engine configuration and fail with HTTP 400 when missing.",
-      "Updated api_get_chapter_preview, voices_actions.py, and generation.py to raise clear HTTP 400 responses on empty resolved engines.",
-      "Ensured chunk_groups.py, bundles.py, and worker_voice.py fail cleanly instead of falling back to default or placeholder values.",
-      "All 879 pytest backend tests pass cleanly, with git diff --check and ruff check fully green."
+      "Audited VariantModel in voices/models.py and confirmed it is an unused domain model dataclass.",
+      "Replaced default_factory on VariantModel.engine with Optional[str] = None, eliminating the last convenience default that called get_default_profile_engine().",
+      "Confirmed no codebase or test references depend on VariantModel or its default value.",
+      "All 882 backend pytest tests pass cleanly with git diff --check and ruff check fully green."
     ]
   },
   "active_constraints": [

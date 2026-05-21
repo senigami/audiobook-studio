@@ -60,3 +60,20 @@ def test_build_chunk_groups_resolves_empty_engine_for_unknown_profiles():
     # the resolved engine in chunk grouping should be "" rather than "unknown".
     groups = build_chunk_groups(segments, default_profile=None)
     assert groups[0]["engine"] == ""
+
+
+def test_build_chunk_groups_does_not_mask_empty_engine():
+    # If segments resolve to empty engine, we should propagate engine=""
+    # and they should not be grouped using a default chunk limit (each segment
+    # should be its own group).
+    segments = [
+        {"id": "s1", "text_content": "Hello.", "character_id": "char1"},
+        {"id": "s2", "text_content": "World.", "character_id": "char1"},
+    ]
+    with patch("app.domain.chunk_groups.resolve_profile_engine", return_value=""):
+        groups = build_chunk_groups(segments, default_profile=None)
+    # If we do not mask the missing engine, we should not group them
+    # because they have no valid engine. Therefore, len(groups) should be 2.
+    assert len(groups) == 2
+    assert groups[0]["engine"] == ""
+    assert groups[1]["engine"] == ""

@@ -165,8 +165,10 @@ def test_handle_xtts_job_standard_mixed_latent_only_profiles_builds_script(mock_
          patch("plugins.tts_xtts.plugin.studio.standard_handler.generate_via_bridge", side_effect=inspect_script), \
          patch("plugins.tts_xtts.plugin.studio.handler.stitch_segments", side_effect=lambda *_args, **_kwargs: (out_wav.write_text("wav"), 0)[1]), \
          patch("plugins.tts_xtts.plugin.studio.handler.update_job"), \
+         patch("app.domain.chunk_groups.resolve_profile_engine", return_value="xtts"), \
          patch("plugins.tts_xtts.plugin.studio.handler.get_speaker_wavs", return_value=None), \
          patch("plugins.tts_xtts.plugin.studio.handler.get_voice_profile_dir", side_effect=lambda name: Path(f"/tmp/voices/{name}")):
+
 
         handle_xtts_job(
             "test_job", mock_job, time.time(),

@@ -11,8 +11,10 @@ def test_grouped_segments_validation_regression(db_conn, tmp_path):
     pid = create_project("P_GROUP", "/tmp")
     cid = create_chapter(pid, "C_GROUP", "One. Two.")
 
-    with patch("app.core.config.PROJECTS_DIR", tmp_path):
+    with patch("app.core.config.PROJECTS_DIR", tmp_path), \
+         patch("app.domain.chunk_groups.resolve_profile_engine", return_value="xtts"):
         chapter_dir = get_chapter_dir(pid, cid)
+
         chapter_dir.mkdir(parents=True, exist_ok=True)
         seg_dir = chapter_dir / "segments"
         seg_dir.mkdir(exist_ok=True)

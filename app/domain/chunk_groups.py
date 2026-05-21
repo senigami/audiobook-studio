@@ -57,7 +57,7 @@ def build_chunk_groups(
         if cache_key in engine_cache:
             engine = engine_cache[cache_key]
         else:
-            engine = resolve_profile_engine(profile_name, "")
+            engine = resolve_profile_engine(profile_name, None)
             engine_cache[cache_key] = engine
         text_length = len(text)
 
@@ -67,6 +67,7 @@ def build_chunk_groups(
             and last_group["character_id"] == segment.get("character_id")
             and last_group["profile_name"] == profile_name
             and last_group["engine"] == engine
+            and engine  # Do not group segments when engine is empty (do not mask with placeholder limit)
             and (last_group["text_length"] + text_length + 1) <= get_text_chunk_limit(engine)
         ):
             last_group["segments"].append(segment)

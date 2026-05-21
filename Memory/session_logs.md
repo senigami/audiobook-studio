@@ -1283,3 +1283,18 @@
 - Updated `api_get_chapter_preview`, `voices_actions.py`, and `generation.py` to raise clear HTTP 400 responses on empty resolved engines.
 - Refactored `chunk_groups.py`, `bundles.py`, and `worker_voice.py` to fail cleanly when engine resolution yields an empty string instead of falling back to default or placeholder values.
 - Verified all 879 pytest backend tests pass cleanly, with `git diff --check` and `ruff check` fully green.
+
+# 2026-05-21 - Removed Helper-Level Voice Engine Masking Paths
+
+- Updated `_voice_has_test_sample` and `_voice_has_generation_material` in `app/api/routers/voices_helpers.py` to immediately return `False` if no voice engine is configured in the profile settings, eliminating fallback checking behavior.
+- Refactored `build_chunk_groups` in `app/domain/chunk_groups.py` to call `resolve_profile_engine(profile_name, None)` and propagate the empty engine resolution, and to check `and engine` before grouping segments so they are not grouped under a placeholder limit when no engine is configured.
+- Added unit tests in `tests/domain/test_chunk_groups.py` verifying that empty engines do not group segments.
+- Corrected mock setups in regression tests (`test_grouped_segments_validation_regression` and `test_handle_xtts_job_standard_mixed_latent_only_profiles_builds_script`) to specify a valid engine (`xtts`) instead of defaulting to empty behavior.
+- Verified all 882 backend tests pass successfully.
+
+# 2026-05-21 - Audited and Removed VariantModel Engine Default Factory
+
+- Audited `VariantModel` in `app/domain/voices/models.py` and determined that it is an unused domain model dataclass.
+- Replaced the convenience `default_factory` on `VariantModel.engine` that loaded `get_default_profile_engine()` with a `None` default (`Optional[str] = None`).
+- Confirmed no other files in the workspace (including the codebase and all test suites) make use of `VariantModel`.
+- Verified that all 882 backend pytest tests continue to pass cleanly, and both `ruff check` and `git diff --check` remain fully green.
