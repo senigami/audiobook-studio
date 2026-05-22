@@ -1,9 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Job, SegmentProgress } from '@/types';
-import { isStudioJobEvent, isTtsLogLineEvent } from '@/api/contracts/events';
 import { recordWebsocketDebugMessage } from '@/utils/runtimeDebug';
 import { recordLiveEventSubscriberObservation } from '@/store/liveEventAuditStore';
-import { sendStudioSocketMessage, subscribeStudioSocketMessages, type StudioSocketEnvelope } from '@/store/studioSocketBus';
+import {
+  sendStudioSocketMessage,
+  subscribeStudioSocketMessages,
+} from '@/store/studioSocketBus';
+import { subscribeToLiveEventTopics } from '@/store/liveEventTopicRouter';
 import { useStudioSocketConnection } from '@/hooks/useStudioSocketConnection';
 
 const STATUS_PRIORITY: Record<string, number> = {
@@ -50,220 +53,234 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
 
   const [testProgress, setTestProgress] = useState<Record<string, { progress: number; started_at?: number }>>({});
 
-  const handleUpdate = useCallback((data: any, raw?: string, envelope?: StudioSocketEnvelope) => {
-    if (data.type === 'jobs_snapshot') {
+  const applyStudioJobEvent = useCallback((data: any) => {
+    const job_id = data.job_id;
+    const nextUpdates: Record<string, any> = {
+      status: data.status,
+      progress: data.progress,
+      eta_seconds: data.eta_seconds,
+      started_at: data.started_at,
+    };
+    copyRenderGroupFields(nextUpdates, data);
+    if (data.classification) nextUpdates.classification = data.classification;
+    if (data.parent_job_id) nextUpdates.parent_job_id = data.parent_job_id;
+    if (data.message) nextUpdates.log = data.message;
+    if (data.reason_code) nextUpdates.reason_code = data.reason_code;
+    if (data.active_render_batch_id) nextUpdates.active_render_batch_id = data.active_render_batch_id;
+    if (typeof data.active_render_batch_progress === 'number') {
+      nextUpdates.active_render_batch_progress = data.active_render_batch_progress;
+    }
+
+    setJobs(prev => {
+      const oldJob = prev[job_id];
+      if (!oldJob) {
+        return { ...prev, [job_id]: { id: job_id, ...nextUpdates } as Job };
+      }
+
+      if (
+        typeof oldJob.updated_at === 'number'
+        && typeof data.updated_at === 'number'
+        && data.updated_at < oldJob.updated_at
+      ) {
+        return prev;
+      }
+
+      const normalizedUpdates = { ...nextUpdates };
+      if (typeof data.updated_at === 'number') {
+        normalizedUpdates.updated_at = data.updated_at;
+      }
+      const currentStatus = typeof oldJob.status === 'string' ? oldJob.status : undefined;
+      const incomingStatus = typeof normalizedUpdates.status === 'string' ? normalizedUpdates.status : undefined;
+      if (incomingStatus && currentStatus) {
+        const incomingPriority = STATUS_PRIORITY[incomingStatus] ?? 0;
+        const currentPriority = STATUS_PRIORITY[currentStatus] ?? 0;
+        if (currentPriority >= 5 && incomingPriority < currentPriority) {
+          return prev;
+        }
+        if (incomingPriority < currentPriority) {
+          delete normalizedUpdates.status;
+        }
+      }
+
+      if (typeof normalizedUpdates.progress === 'number') {
+        const currentProgress = typeof oldJob.progress === 'number' ? oldJob.progress : 0;
+        const effectiveStatus = (normalizedUpdates.status as string | undefined) ?? currentStatus;
+        if (!['queued', 'preparing'].includes(effectiveStatus || '') && normalizedUpdates.progress < currentProgress) {
+          delete normalizedUpdates.progress;
+        }
+      }
+
+      const effectiveStatus = (normalizedUpdates.status as string | undefined) ?? currentStatus;
+      if (
+        typeof oldJob.started_at === 'number'
+        && typeof normalizedUpdates.started_at === 'number'
+        && ['running', 'processing', 'finalizing', 'done'].includes(effectiveStatus || '')
+        && normalizedUpdates.started_at !== oldJob.started_at
+      ) {
+        delete normalizedUpdates.started_at;
+      }
+
+      if (
+        typeof oldJob.eta_seconds === 'number'
+        && typeof normalizedUpdates.eta_seconds === 'number'
+        && ['running', 'processing', 'finalizing'].includes(effectiveStatus || '')
+      ) {
+        const currentEta = oldJob.eta_seconds;
+        const nextEta = normalizedUpdates.eta_seconds;
+        if (Math.abs(nextEta - currentEta) < 1) {
+          delete normalizedUpdates.eta_seconds;
+        }
+      }
+
+      const newJob = { ...oldJob, ...normalizedUpdates };
+      return { ...prev, [job_id]: newJob };
+    });
+  }, []);
+
+  const applyJobUpdatedEvent = useCallback((data: any) => {
+    const { job_id, updates } = data;
+    setJobs(prev => {
+      const oldJob = prev[job_id];
+      if (!oldJob) {
+        return { ...prev, [job_id]: { id: job_id, ...updates } as Job };
+      }
+
+      if (
+        typeof oldJob.updated_at === 'number'
+        && typeof updates?.updated_at === 'number'
+        && updates.updated_at < oldJob.updated_at
+      ) {
+        return prev;
+      }
+
+      const nextUpdates = { ...updates } as Record<string, any>;
+      copyRenderGroupFields(nextUpdates, updates as Record<string, any>);
+      const incomingStatus = typeof nextUpdates.status === 'string' ? nextUpdates.status : undefined;
+      const currentStatus = typeof oldJob.status === 'string' ? oldJob.status : undefined;
+      if (incomingStatus && currentStatus) {
+        const incomingPriority = STATUS_PRIORITY[incomingStatus] ?? 0;
+        const currentPriority = STATUS_PRIORITY[currentStatus] ?? 0;
+        if (currentPriority >= 5 && incomingPriority < currentPriority) {
+          return prev;
+        }
+        if (incomingPriority < currentPriority) {
+          delete nextUpdates.status;
+        }
+      }
+
+      if (typeof nextUpdates.progress === 'number') {
+        const currentProgress = typeof oldJob.progress === 'number' ? oldJob.progress : 0;
+        const effectiveStatus = (nextUpdates.status as string | undefined) ?? currentStatus;
+        if (!['queued', 'preparing'].includes(effectiveStatus || '') && nextUpdates.progress < currentProgress) {
+          delete nextUpdates.progress;
+        }
+      }
+
+      const effectiveStatus = (nextUpdates.status as string | undefined) ?? currentStatus;
+      if (
+        typeof oldJob.started_at === 'number'
+        && typeof nextUpdates.started_at === 'number'
+        && ['running', 'processing', 'finalizing', 'done'].includes(effectiveStatus || '')
+        && nextUpdates.started_at !== oldJob.started_at
+      ) {
+        delete nextUpdates.started_at;
+      }
+
+      if (
+        typeof oldJob.eta_seconds === 'number'
+        && typeof nextUpdates.eta_seconds === 'number'
+        && ['running', 'processing', 'finalizing'].includes(effectiveStatus || '')
+      ) {
+        const currentEta = oldJob.eta_seconds;
+        const nextEta = nextUpdates.eta_seconds;
+        if (Math.abs(nextEta - currentEta) < 1) {
+          delete nextUpdates.eta_seconds;
+        }
+      }
+
+      const newJob = { ...oldJob, ...nextUpdates };
+      return { ...prev, [job_id]: newJob };
+    });
+  }, []);
+
+  const applyLegacySegmentProgress = useCallback((data: any) => {
+    const next: SegmentProgress = {
+      job_id: data.job_id,
+      chapter_id: data.chapter_id,
+      segment_id: data.segment_id,
+      progress: data.progress,
+    };
+    setSegmentProgress(prev => ({ ...prev, [next.segment_id]: next }));
+  }, []);
+
+  // Snapshot/control frames (jobs_snapshot) are not domain live events, so they ride the raw bus
+  // rather than the topic router. Everything else dispatches by topic below.
+  useEffect(() => {
+    return subscribeStudioSocketMessages((data) => {
+      if (data?.type !== 'jobs_snapshot') return;
       const jobMap = (data.jobs || []).reduce((acc: Record<string, Job>, job: Job) => {
         acc[job.id] = job;
         return acc;
       }, {} as Record<string, Job>);
       setJobs(jobMap);
       setLoading(false);
-    } else if (data.type === 'tts_log_line' || isTtsLogLineEvent(data)) {
-      recordWebsocketDebugMessage('useJobs', data, raw, envelope);
-      recordLiveEventSubscriberObservation(envelope?.frameId, 'jobs-state', 'handled');
-    } else if (data.type === 'studio_job_event' || isStudioJobEvent(data)) {
-      const job_id = data.job_id;
-      const nextUpdates: Record<string, any> = {
-        status: data.status,
-        progress: data.progress,
-        eta_seconds: data.eta_seconds,
-        started_at: data.started_at,
-      };
-      copyRenderGroupFields(nextUpdates, data);
-      if (data.classification) {
-        nextUpdates.classification = data.classification;
-      }
-      if (data.parent_job_id) {
-        nextUpdates.parent_job_id = data.parent_job_id;
-      }
-      if (data.message) {
-        nextUpdates.log = data.message;
-      }
-      if (data.reason_code) {
-        nextUpdates.reason_code = data.reason_code;
-      }
-      if (data.active_render_batch_id) {
-        nextUpdates.active_render_batch_id = data.active_render_batch_id;
-      }
-      if (typeof data.active_render_batch_progress === 'number') {
-        nextUpdates.active_render_batch_progress = data.active_render_batch_progress;
-      }
-
-      setJobs(prev => {
-        const oldJob = prev[job_id];
-        if (!oldJob) {
-          return { ...prev, [job_id]: { id: job_id, ...nextUpdates } as Job };
-        }
-
-        if (
-          typeof oldJob.updated_at === 'number'
-          && typeof data.updated_at === 'number'
-          && data.updated_at < oldJob.updated_at
-        ) {
-          return prev;
-        }
-
-        const normalizedUpdates = { ...nextUpdates };
-        if (typeof data.updated_at === 'number') {
-          normalizedUpdates.updated_at = data.updated_at;
-        }
-        const currentStatus = typeof oldJob.status === 'string' ? oldJob.status : undefined;
-        const incomingStatus = typeof normalizedUpdates.status === 'string' ? normalizedUpdates.status : undefined;
-        if (incomingStatus && currentStatus) {
-          const incomingPriority = STATUS_PRIORITY[incomingStatus] ?? 0;
-          const currentPriority = STATUS_PRIORITY[currentStatus] ?? 0;
-          if (currentPriority >= 5 && incomingPriority < currentPriority) {
-            return prev;
-          }
-          if (incomingPriority < currentPriority) {
-            delete normalizedUpdates.status;
-          }
-        }
-
-        if (typeof normalizedUpdates.progress === 'number') {
-          const currentProgress = typeof oldJob.progress === 'number' ? oldJob.progress : 0;
-          const effectiveStatus = (normalizedUpdates.status as string | undefined) ?? currentStatus;
-          if (!['queued', 'preparing'].includes(effectiveStatus || '') && normalizedUpdates.progress < currentProgress) {
-            delete normalizedUpdates.progress;
-          }
-        }
-
-        const effectiveStatus = (normalizedUpdates.status as string | undefined) ?? currentStatus;
-        if (
-          typeof oldJob.started_at === 'number'
-          && typeof normalizedUpdates.started_at === 'number'
-          && ['running', 'processing', 'finalizing', 'done'].includes(effectiveStatus || '')
-          && normalizedUpdates.started_at !== oldJob.started_at
-        ) {
-          delete normalizedUpdates.started_at;
-        }
-
-        if (
-          typeof oldJob.eta_seconds === 'number'
-          && typeof normalizedUpdates.eta_seconds === 'number'
-          && ['running', 'processing', 'finalizing'].includes(effectiveStatus || '')
-        ) {
-          const currentEta = oldJob.eta_seconds;
-          const nextEta = normalizedUpdates.eta_seconds;
-          if (Math.abs(nextEta - currentEta) < 1) {
-            delete normalizedUpdates.eta_seconds;
-          }
-        }
-
-        const newJob = { ...oldJob, ...normalizedUpdates };
-        return { ...prev, [job_id]: newJob };
-      });
-      recordWebsocketDebugMessage('useJobs', data, raw, envelope);
-      recordLiveEventSubscriberObservation(envelope?.frameId, 'jobs-state', 'handled');
-    } else if (data.type === 'job_updated') {
-      const { job_id, updates } = data;
-      setJobs(prev => {
-        const oldJob = prev[job_id];
-        if (!oldJob) {
-          // Bootstrap unknown jobs directly from the websocket payload instead of
-          // waiting for a global refresh. Queue creation broadcasts include the
-          // chapter/project context we need for UI wiring.
-          return { ...prev, [job_id]: { id: job_id, ...updates } as Job };
-        }
-
-        if (
-          typeof oldJob.updated_at === 'number'
-          && typeof updates?.updated_at === 'number'
-          && updates.updated_at < oldJob.updated_at
-        ) {
-          return prev;
-        }
-
-        const nextUpdates = { ...updates } as Record<string, any>;
-        copyRenderGroupFields(nextUpdates, updates as Record<string, any>);
-        const incomingStatus = typeof nextUpdates.status === 'string' ? nextUpdates.status : undefined;
-        const currentStatus = typeof oldJob.status === 'string' ? oldJob.status : undefined;
-        if (incomingStatus && currentStatus) {
-          const incomingPriority = STATUS_PRIORITY[incomingStatus] ?? 0;
-          const currentPriority = STATUS_PRIORITY[currentStatus] ?? 0;
-          if (currentPriority >= 5 && incomingPriority < currentPriority) {
-            return prev;
-          }
-          if (incomingPriority < currentPriority) {
-            delete nextUpdates.status;
-          }
-        }
-
-        if (typeof nextUpdates.progress === 'number') {
-          const currentProgress = typeof oldJob.progress === 'number' ? oldJob.progress : 0;
-          const effectiveStatus = (nextUpdates.status as string | undefined) ?? currentStatus;
-          if (!['queued', 'preparing'].includes(effectiveStatus || '') && nextUpdates.progress < currentProgress) {
-            delete nextUpdates.progress;
-          }
-        }
-
-        const effectiveStatus = (nextUpdates.status as string | undefined) ?? currentStatus;
-        if (
-          typeof oldJob.started_at === 'number'
-          && typeof nextUpdates.started_at === 'number'
-          && ['running', 'processing', 'finalizing', 'done'].includes(effectiveStatus || '')
-          && nextUpdates.started_at !== oldJob.started_at
-        ) {
-          delete nextUpdates.started_at;
-        }
-
-        if (
-          typeof oldJob.eta_seconds === 'number'
-          && typeof nextUpdates.eta_seconds === 'number'
-          && ['running', 'processing', 'finalizing'].includes(effectiveStatus || '')
-        ) {
-          const currentEta = oldJob.eta_seconds;
-          const nextEta = nextUpdates.eta_seconds;
-          if (Math.abs(nextEta - currentEta) < 1) {
-            delete nextUpdates.eta_seconds;
-          }
-        }
-
-        const newJob = { ...oldJob, ...nextUpdates };
-        return { ...prev, [job_id]: newJob };
-      });
-      recordWebsocketDebugMessage('useJobs', data, raw, envelope);
-      recordLiveEventSubscriberObservation(envelope?.frameId, 'jobs-state', 'handled');
-    } else if (data.type === 'queue_updated') {
-      refreshJobs();
-      if (onQueueUpdate) onQueueUpdate();
-      recordWebsocketDebugMessage('useJobs', data, raw, envelope);
-      recordLiveEventSubscriberObservation(envelope?.frameId, 'jobs-state', 'handled');
-    } else if (data.type === 'pause_updated') {
-      if (onPauseUpdate) onPauseUpdate(data.paused);
-      recordWebsocketDebugMessage('useJobs', data, raw, envelope);
-      recordLiveEventSubscriberObservation(envelope?.frameId, 'jobs-state', 'handled');
-    } else if (data.type === 'test_progress') {
-      const { name, progress, started_at } = data;
-      setTestProgress(prev => ({ ...prev, [name]: { progress, started_at } }));
-      recordWebsocketDebugMessage('useJobs', data, raw, envelope);
-      recordLiveEventSubscriberObservation(envelope?.frameId, 'jobs-state', 'handled');
-    } else if (data.type === 'segment_progress') {
-      const next: SegmentProgress = {
-        job_id: data.job_id,
-        chapter_id: data.chapter_id,
-        segment_id: data.segment_id,
-        progress: data.progress,
-      };
-      setSegmentProgress(prev => ({ ...prev, [next.segment_id]: next }));
-      recordWebsocketDebugMessage('useJobs', data, raw, envelope);
-      recordLiveEventSubscriberObservation(envelope?.frameId, 'jobs-state', 'handled');
-    } else if (data.type === 'segments_updated') {
-      if (onSegmentsUpdate) onSegmentsUpdate(data.chapter_id);
-      recordWebsocketDebugMessage('useJobs', data, raw, envelope);
-      recordLiveEventSubscriberObservation(envelope?.frameId, 'jobs-state', 'handled');
-    } else if (data.type === 'chapter_updated') {
-      if (onChapterUpdate) onChapterUpdate(data.chapter_id);
-      recordWebsocketDebugMessage('useJobs', data, raw, envelope);
-      recordLiveEventSubscriberObservation(envelope?.frameId, 'jobs-state', 'handled');
-    }
-  }, [onQueueUpdate, onPauseUpdate, onSegmentsUpdate, onChapterUpdate, refreshJobs]);
+    });
+  }, []);
 
   useEffect(() => {
-    return subscribeStudioSocketMessages((data, raw, envelope) => {
-      handleUpdate(data, raw, envelope);
+    return subscribeToLiveEventTopics({
+      'tts.logs': (_event, { rawData, raw, envelope }) => {
+        recordWebsocketDebugMessage('useJobs', rawData, raw, envelope);
+        recordLiveEventSubscriberObservation(envelope?.frameId, 'jobs-state', 'handled');
+      },
+      'jobs.progress': (event, { rawData, raw, envelope }) => {
+        recordWebsocketDebugMessage('useJobs', rawData, raw, envelope);
+        recordLiveEventSubscriberObservation(envelope?.frameId, 'jobs-state', 'handled');
+        if (event.rawType === 'studio_job_event') {
+          applyStudioJobEvent(rawData);
+        } else if (event.rawType === 'job_updated') {
+          applyJobUpdatedEvent(rawData);
+        } else if (event.rawType === 'segment_progress') {
+          applyLegacySegmentProgress(rawData);
+        }
+      },
+      'queue.lifecycle': (event, { rawData, raw, envelope }) => {
+        recordWebsocketDebugMessage('useJobs', rawData, raw, envelope);
+        recordLiveEventSubscriberObservation(envelope?.frameId, 'jobs-state', 'handled');
+        if (event.rawType === 'queue_updated') {
+          refreshJobs();
+          if (onQueueUpdate) onQueueUpdate();
+        } else if (event.rawType === 'pause_updated') {
+          if (onPauseUpdate) onPauseUpdate(rawData.paused);
+        }
+      },
+      'chapter.invalidate': (_event, { rawData, raw, envelope }) => {
+        recordWebsocketDebugMessage('useJobs', rawData, raw, envelope);
+        recordLiveEventSubscriberObservation(envelope?.frameId, 'jobs-state', 'handled');
+        if (onChapterUpdate && rawData.chapter_id) onChapterUpdate(rawData.chapter_id);
+      },
+      'segments.invalidate': (_event, { rawData, raw, envelope }) => {
+        recordWebsocketDebugMessage('useJobs', rawData, raw, envelope);
+        recordLiveEventSubscriberObservation(envelope?.frameId, 'jobs-state', 'handled');
+        if (onSegmentsUpdate && rawData.chapter_id) onSegmentsUpdate(rawData.chapter_id);
+      },
+      'voice.test': (_event, { rawData, raw, envelope }) => {
+        recordWebsocketDebugMessage('useJobs', rawData, raw, envelope);
+        recordLiveEventSubscriberObservation(envelope?.frameId, 'jobs-state', 'handled');
+        const { name, progress, started_at } = rawData;
+        setTestProgress(prev => ({ ...prev, [name]: { progress, started_at } }));
+      },
     });
-  }, [handleUpdate]);
+  }, [
+    applyStudioJobEvent,
+    applyJobUpdatedEvent,
+    applyLegacySegmentProgress,
+    refreshJobs,
+    onQueueUpdate,
+    onPauseUpdate,
+    onSegmentsUpdate,
+    onChapterUpdate,
+  ]);
 
 
   // Monitor jobs for completions to trigger global data refresh

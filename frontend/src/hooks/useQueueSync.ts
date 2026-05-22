@@ -3,10 +3,9 @@ import { api } from '@/api';
 import type { ProcessingQueueItem } from '@/types';
 import { recordWebsocketDebugMessage } from '@/utils/runtimeDebug';
 import { recordLiveEventSubscriberObservation } from '@/store/liveEventAuditStore';
-import { isStudioJobEvent } from '@/api/contracts/events';
 import { createLiveJobsStore } from '@/store/live-jobs';
 import { createHydrationCoordinator, selectActiveQueueCount } from '@/api/hydration';
-import { subscribeStudioSocketMessages, type StudioSocketEnvelope } from '@/store/studioSocketBus';
+import { subscribeToLiveEventTopics } from '@/store/liveEventTopicRouter';
 import { useStudioSocketConnection } from '@/hooks/useStudioSocketConnection';
 
 const FALLBACK_POLL_MS = 60000;
@@ -74,30 +73,26 @@ export const useQueueSync = () => {
     }
   }, [updateDerivedState]);
 
-  const onMessage = useCallback((data: any, raw?: string, envelope?: StudioSocketEnvelope) => {
-    if (isStudioJobEvent(data)) {
-      recordWebsocketDebugMessage('useQueueSync', data, raw, envelope);
-      recordLiveEventSubscriberObservation(envelope?.frameId, 'queue-sync', 'handled');
-      storeRef.current.applyEvent(data);
-      updateDerivedState();
-    } else if (data.type === 'job_updated') {
-      recordWebsocketDebugMessage('useQueueSync', data, raw, envelope);
-      recordLiveEventSubscriberObservation(envelope?.frameId, 'queue-sync', 'handled');
-      storeRef.current.applyJobUpdated(data.job_id, data.updates);
-      updateDerivedState();
-    } else if (data.type === 'queue_updated' || data.type === 'pause_updated') {
-      // Record debug message for queue consumer
-      recordWebsocketDebugMessage('useQueueSync', data, raw, envelope);
-      recordLiveEventSubscriberObservation(envelope?.frameId, 'queue-sync', 'handled');
-      refreshQueue('refresh');
-    }
-  }, [updateDerivedState, refreshQueue]);
-
   useEffect(() => {
-    return subscribeStudioSocketMessages((data, raw, envelope) => {
-      onMessage(data, raw, envelope);
+    return subscribeToLiveEventTopics({
+      'jobs.progress': (event, { rawData, raw, envelope }) => {
+        recordWebsocketDebugMessage('useQueueSync', rawData, raw, envelope);
+        recordLiveEventSubscriberObservation(envelope?.frameId, 'queue-sync', 'handled');
+        if (event.rawType === 'job_updated') {
+          storeRef.current.applyJobUpdated(rawData.job_id, rawData.updates);
+        } else {
+          // studio_job_event (and legacy segment_progress, which carries job-scoped progress fields)
+          storeRef.current.applyEvent(rawData);
+        }
+        updateDerivedState();
+      },
+      'queue.lifecycle': (_event, { rawData, raw, envelope }) => {
+        recordWebsocketDebugMessage('useQueueSync', rawData, raw, envelope);
+        recordLiveEventSubscriberObservation(envelope?.frameId, 'queue-sync', 'handled');
+        refreshQueue('refresh');
+      },
     });
-  }, [onMessage]);
+  }, [updateDerivedState, refreshQueue]);
 
   // 1. Bootstrap
   useEffect(() => {

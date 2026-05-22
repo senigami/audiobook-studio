@@ -65,6 +65,11 @@ export const subscribeLiveEventAudit = (listener: () => void) => {
 
 export const getLiveEventAuditSnapshot = (): LiveEventRecord[] => records;
 
+export const getLiveEventAuditRecordByFrameId = (frameId: number | undefined): LiveEventRecord | undefined => {
+  if (typeof frameId !== 'number') return undefined;
+  return recordsByFrameId.get(frameId);
+};
+
 export const clearLiveEventAudit = () => {
   records = [];
   recordsByFrameId.clear();
