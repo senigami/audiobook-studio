@@ -1,4 +1,8 @@
 import type { StudioSocketEnvelope } from '@/api/contracts/liveEvents';
+import {
+  recordLiveEventEnvelope,
+  resetLiveEventAuditForTests,
+} from '@/store/liveEventAuditStore';
 
 export type { StudioSocketEnvelope } from '@/api/contracts/liveEvents';
 
@@ -26,6 +30,8 @@ export const publishStudioSocketMessage = (data: any, raw?: string) => {
     data,
     raw,
   };
+  // Every websocket frame creates exactly one audit record before any consumer filters it.
+  recordLiveEventEnvelope(envelope);
   messageListeners.forEach(listener => listener(data, raw, envelope));
 };
 
@@ -58,4 +64,5 @@ export const resetStudioSocketBusForTests = () => {
   connected = false;
   sender = null;
   nextFrameId = 1;
+  resetLiveEventAuditForTests();
 };

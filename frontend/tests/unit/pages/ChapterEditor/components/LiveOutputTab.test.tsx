@@ -1,29 +1,40 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { LiveOutputTab } from '@/pages/ChapterEditor/components/LiveOutputTab';
-import { clearTtsCommunicationTimeline, recordWebsocketDebugMessage } from '@/utils/runtimeDebug';
+import {
+  publishStudioSocketMessage,
+  resetStudioSocketBusForTests,
+} from '@/store/studioSocketBus';
+import {
+  recordLiveEventSubscriberObservation,
+  resetLiveEventAuditForTests,
+} from '@/store/liveEventAuditStore';
+
+const publish = (data: any) => {
+  act(() => {
+    publishStudioSocketMessage(data);
+  });
+};
 
 describe('LiveOutputTab', () => {
   beforeEach(() => {
-    clearTtsCommunicationTimeline();
+    resetStudioSocketBusForTests();
+    resetLiveEventAuditForTests();
     Object.assign(navigator, {
-      clipboard: {
-        writeText: vi.fn().mockResolvedValue(undefined),
-      },
+      clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
     });
   });
 
-  it('renders tts log lines and socket messages in timeline order', async () => {
-    recordWebsocketDebugMessage('useJobs', {
+  it('renders one row per published websocket frame with normalized domain columns', () => {
+    publish({
       type: 'tts_log_line',
       job_id: 'job-current',
       chapter_id: 'chap-1',
       line: '[START_SEGMENT] seg-1',
       marker: 'START_SEGMENT',
       sequence: 1,
-      received_at: 1,
     });
-    recordWebsocketDebugMessage('useJobs', {
+    publish({
       type: 'job_updated',
       job_id: 'job-current',
       chapter_id: 'chap-1',
@@ -33,12 +44,6 @@ describe('LiveOutputTab', () => {
         progress: 0.42,
         active_segment_id: 'seg-1',
         active_segment_progress: 0.5,
-        active_render_group_index: 1,
-        render_group_count: 4,
-        completed_render_groups: 2,
-        completed_render_weight: 40,
-        total_render_weight: 100,
-        active_render_group_weight: 20,
         reason_code: 'segment_start',
       },
     });
@@ -49,142 +54,125 @@ describe('LiveOutputTab', () => {
     expect(screen.getByText('Rendering segment seg-1...')).toBeInTheDocument();
     expect(screen.getByText('42%')).toBeInTheDocument();
     expect(screen.getByText('50%')).toBeInTheDocument();
-    expect(screen.getByText('1/4')).toBeInTheDocument();
-    expect(screen.getByText('2/4')).toBeInTheDocument();
-    expect(screen.getByText('40/100 active 20')).toBeInTheDocument();
+
+    const headers = Array.from(document.querySelectorAll('th')).map(th => th.textContent);
+    expect(headers).toEqual(expect.arrayContaining([
+      'Time', 'Topic', 'Category', 'Event', 'Subscribers',
+      'Job', 'Chapter', 'Segment', 'Job %', 'Segment %',
+      'Reason', 'Source', 'Message',
+    ]));
   });
 
-  it('clears, filters, pauses, and copies the visible timeline', async () => {
-    recordWebsocketDebugMessage('useJobs', {
+  it('renders distinct same-job studio_job_event frames as separate rows in insertion order', () => {
+    publish({ type: 'studio_job_event', job_id: 'job-same', status: 'queued' });
+    publish({ type: 'studio_job_event', job_id: 'job-same', status: 'running' });
+
+    render(<LiveOutputTab chapterId="chap-1" currentJobId="job-same" />);
+    fireEvent.change(screen.getByLabelText('Live output filter'), { target: { value: 'all' } });
+
+    const rows = document.querySelectorAll('tbody tr[data-frame-id]');
+    expect(rows).toHaveLength(2);
+    expect(rows[0].getAttribute('data-frame-id')).toBe('1');
+    expect(rows[1].getAttribute('data-frame-id')).toBe('2');
+    expect(rows[0].textContent).toContain('queued');
+    expect(rows[1].textContent).toContain('running');
+  });
+
+  it('merges subscriber observations on the same frame into one row without duplicating subscriber names', () => {
+    publish({ type: 'studio_job_event', job_id: 'job-1', status: 'running' });
+    const frameId = 1;
+    act(() => {
+      recordLiveEventSubscriberObservation(frameId, 'jobs-state', 'handled');
+      recordLiveEventSubscriberObservation(frameId, 'queue-sync', 'handled');
+      recordLiveEventSubscriberObservation(frameId, 'jobs-state', 'handled');
+    });
+
+    render(<LiveOutputTab chapterId="chap-1" currentJobId="job-1" />);
+    fireEvent.change(screen.getByLabelText('Live output filter'), { target: { value: 'all' } });
+
+    const rows = document.querySelectorAll('tbody tr[data-frame-id]');
+    expect(rows).toHaveLength(1);
+    const subscribersCell = rows[0].querySelector('[data-testid="subscribers-cell"]');
+    expect(subscribersCell?.textContent).toBe('jobs-state, queue-sync');
+  });
+
+  it('shows unknown/unhandled frames as system.unknown audit rows', () => {
+    publish({ type: 'mystery_backend_event', foo: 'bar' });
+
+    render(<LiveOutputTab chapterId="chap-1" currentJobId={null} />);
+    fireEvent.change(screen.getByLabelText('Live output filter'), { target: { value: 'all' } });
+
+    const rows = document.querySelectorAll('tbody tr[data-frame-id]');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].textContent).toContain('system.unknown');
+    expect(rows[0].textContent).toContain('mystery_backend_event');
+  });
+
+  it('updates the table live as new frames arrive after mount', () => {
+    render(<LiveOutputTab chapterId="chap-1" currentJobId="job-live" />);
+    expect(screen.getByText('No live output captured yet.')).toBeInTheDocument();
+
+    publish({ type: 'studio_job_event', job_id: 'job-live', status: 'running' });
+
+    const rows = document.querySelectorAll('tbody tr[data-frame-id]');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].textContent).toContain('running');
+  });
+
+  it('filters by chapter, by job, or shows all when requested', () => {
+    publish({
       type: 'tts_log_line',
       job_id: 'job-current',
       chapter_id: 'chap-1',
-      line: '[PROGRESS] 40% job-current',
+      line: '[PROGRESS] chap-1 frame',
       marker: 'PROGRESS',
       sequence: 1,
-      received_at: 1,
     });
-    recordWebsocketDebugMessage('useJobs', {
+    publish({
       type: 'tts_log_line',
       job_id: 'job-other',
       chapter_id: 'chap-2',
-      line: '[PROGRESS] 80% job-other',
+      line: '[PROGRESS] chap-2 frame',
       marker: 'PROGRESS',
       sequence: 1,
-      received_at: 2,
     });
 
     render(<LiveOutputTab chapterId="chap-1" currentJobId="job-current" />);
-
-    expect(screen.getByText('[PROGRESS] 40% job-current')).toBeInTheDocument();
-    expect(screen.getByText('[PROGRESS] 80% job-other')).toBeInTheDocument();
+    expect(screen.getByText('[PROGRESS] chap-1 frame')).toBeInTheDocument();
+    expect(screen.getByText('[PROGRESS] chap-2 frame')).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Live output filter'), { target: { value: 'chapter' } });
-    expect(screen.queryByText('[PROGRESS] 80% job-other')).not.toBeInTheDocument();
+    expect(screen.getByText('[PROGRESS] chap-1 frame')).toBeInTheDocument();
+    expect(screen.queryByText('[PROGRESS] chap-2 frame')).not.toBeInTheDocument();
 
+    fireEvent.change(screen.getByLabelText('Live output filter'), { target: { value: 'job' } });
+    expect(screen.queryByText('[PROGRESS] chap-2 frame')).not.toBeInTheDocument();
+  });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Pause autoscroll' }));
-    expect(screen.getByRole('button', { name: 'Resume autoscroll' })).toBeInTheDocument();
+  it('clears the audit and copies the visible rows as JSON', async () => {
+    publish({ type: 'studio_job_event', job_id: 'job-1', status: 'running' });
+    publish({ type: 'studio_job_event', job_id: 'job-2', status: 'running' });
 
+    render(<LiveOutputTab chapterId="chap-1" currentJobId="job-1" />);
     fireEvent.change(screen.getByLabelText('Live output filter'), { target: { value: 'all' } });
+
     fireEvent.click(screen.getByRole('button', { name: 'Copy JSON' }));
     await waitFor(() => {
-      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('job-other'));
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('job-2'));
     });
-
 
     fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
     expect(screen.getByText('No live output captured yet.')).toBeInTheDocument();
   });
 
-  it('colours rows by audience: blue=queue, yellow=chapter, green=both', () => {
-    recordWebsocketDebugMessage('useJobs', { type: 'queue_updated' });
-    recordWebsocketDebugMessage('useJobs', { type: 'tts_log_line', job_id: 'j', chapter_id: 'chap-1', line: 'l', marker: 'raw', sequence: 1 });
-    recordWebsocketDebugMessage('useJobs', { type: 'studio_job_event', job_id: 'j', chapter_id: 'chap-1', status: 'running' });
+  it('toggles autoscroll pause without removing rows', () => {
+    publish({ type: 'studio_job_event', job_id: 'job-1', status: 'running' });
 
-    render(<LiveOutputTab chapterId="chap-1" currentJobId="j" />);
+    render(<LiveOutputTab chapterId="chap-1" currentJobId="job-1" />);
 
-    // Switch to "all" so every entry is visible regardless of chapter/job filter
-    fireEvent.change(screen.getByLabelText('Live output filter'), { target: { value: 'all' } });
-
-    const rows = document.querySelectorAll('tr[data-audience]');
-    expect(rows).toHaveLength(3);
-    const audiences = Array.from(rows).map(r => r.getAttribute('data-audience'));
-    expect(audiences).toContain('queue');
-    expect(audiences).toContain('chapter');
-    expect(audiences).toContain('both');
+    fireEvent.click(screen.getByRole('button', { name: 'Pause autoscroll' }));
+    expect(screen.getByRole('button', { name: 'Resume autoscroll' })).toBeInTheDocument();
+    expect(document.querySelectorAll('tbody tr[data-frame-id]')).toHaveLength(1);
   });
 
-  it('shows a legend explaining row color meanings', () => {
-    render(<LiveOutputTab chapterId="chap-1" currentJobId="j" />);
-
-    const legend = screen.getByTestId('audience-legend');
-    expect(legend).toBeInTheDocument();
-    expect(legend.textContent).toContain('Queue');
-    expect(legend.textContent).toContain('Chapter');
-    expect(legend.textContent).toContain('Both');
-  });
-
-  it('shows consumer (listener) in each row', () => {
-    recordWebsocketDebugMessage('useQueueSync', { type: 'queue_updated' });
-    recordWebsocketDebugMessage('useJobs', { type: 'tts_log_line', job_id: 'j', chapter_id: 'chap-1', line: 'log', marker: 'raw', sequence: 1 });
-
-    render(<LiveOutputTab chapterId="chap-1" currentJobId="j" />);
-    fireEvent.change(screen.getByLabelText('Live output filter'), { target: { value: 'all' } });
-
-    const rows = document.querySelectorAll('tr[data-audience]');
-    expect(rows).toHaveLength(2);
-    // The consumer column should show the listener name
-    expect(rows[0].textContent).toContain('useQueueSync');
-    expect(rows[1].textContent).toContain('useJobs');
-  });
-  it('merges duplicate both entries into a single row with combined listeners', () => {
-    // Record the same studio_job_event from both hooks using the same frameId
-    recordWebsocketDebugMessage('useJobs', { type: 'studio_job_event', job_id: 'j', chapter_id: 'chap-1' }, undefined, { frameId: 1, receivedAt: new Date().toISOString(), data: {} });
-    recordWebsocketDebugMessage('useQueueSync', { type: 'studio_job_event', job_id: 'j', chapter_id: 'chap-1' }, undefined, { frameId: 1, receivedAt: new Date().toISOString(), data: {} });
-
-    render(<LiveOutputTab chapterId="chap-1" currentJobId="j" />);
-    fireEvent.change(screen.getByLabelText('Live output filter'), { target: { value: 'all' } });
-
-    const rows = document.querySelectorAll('tr[data-audience]');
-    const bothRows = Array.from(rows).filter(r => r.getAttribute('data-audience') === 'both');
-    expect(bothRows).toHaveLength(1);
-    const text = bothRows[0].textContent || '';
-    expect(text).toContain('useJobs');
-    expect(text).toContain('useQueueSync');
-  });
-
-  it('defaults to showing all output (unfiltered) by default', () => {
-    recordWebsocketDebugMessage('useJobs', {
-      type: 'tts_log_line',
-      job_id: 'job-other',
-      chapter_id: 'chap-2',
-      line: '[PROGRESS] 80% job-other',
-      marker: 'PROGRESS',
-      sequence: 1,
-      received_at: 2,
-    });
-
-    render(<LiveOutputTab chapterId="chap-1" currentJobId="job-current" />);
-    expect(screen.getByText('[PROGRESS] 80% job-other')).toBeInTheDocument();
-  });
-
-  it('renders distinct same-job studio_job_event rows in insertion order and shows unique consumers', () => {
-    recordWebsocketDebugMessage('useJobs', { type: 'studio_job_event', job_id: 'job-same', status: 'queued' }, undefined, { frameId: 1, receivedAt: '2026-05-21T10:00:00.000Z', data: {} });
-    recordWebsocketDebugMessage('useQueueSync', { type: 'studio_job_event', job_id: 'job-same', status: 'queued' }, undefined, { frameId: 1, receivedAt: '2026-05-21T10:00:00.000Z', data: {} });
-    recordWebsocketDebugMessage('useJobs', { type: 'studio_job_event', job_id: 'job-same', status: 'running' }, undefined, { frameId: 2, receivedAt: '2026-05-21T10:00:00.500Z', data: {} });
-    recordWebsocketDebugMessage('useQueueSync', { type: 'studio_job_event', job_id: 'job-same', status: 'running' }, undefined, { frameId: 2, receivedAt: '2026-05-21T10:00:00.500Z', data: {} });
-
-    render(<LiveOutputTab chapterId="chap-1" currentJobId="job-same" />);
-    fireEvent.change(screen.getByLabelText('Live output filter'), { target: { value: 'all' } });
-
-    const rows = document.querySelectorAll('tr[data-audience]');
-    expect(rows).toHaveLength(2);
-
-    expect(rows[0].textContent).toContain('useJobs, useQueueSync');
-    expect(rows[0].textContent).toContain('queued');
-
-    expect(rows[1].textContent).toContain('useJobs, useQueueSync');
-    expect(rows[1].textContent).toContain('running');
-  });
 });

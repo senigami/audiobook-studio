@@ -7,6 +7,10 @@ import {
   setStudioSocketConnected,
   setStudioSocketSender,
 } from '@/store/studioSocketBus';
+import {
+  getLiveEventAuditSnapshot,
+  resetLiveEventAuditForTests,
+} from '@/store/liveEventAuditStore';
 
 describe('useJobs', () => {
   let sendMessage = vi.fn();
@@ -14,6 +18,7 @@ describe('useJobs', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resetStudioSocketBusForTests();
+    resetLiveEventAuditForTests();
     setStudioSocketConnected(true);
     sendMessage = vi.fn();
     setStudioSocketSender(sendMessage);
@@ -399,6 +404,24 @@ describe('useJobs', () => {
 
     expect(result.current.jobs['job-seg']?.active_segment_id).toBe('seg-abc');
     expect(result.current.jobs['job-seg']?.active_segment_progress).toBe(0.8);
+  });
+
+  it('records a jobs-state subscriber observation on each handled bus frame', async () => {
+    renderHook(() => useJobs());
+
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_job_event',
+        job_id: 'job-audit',
+        status: 'running',
+        progress: 0.5,
+      });
+    });
+
+    const records = getLiveEventAuditSnapshot();
+    expect(records).toHaveLength(1);
+    const subscribers = records[0].subscribers.map(s => s.subscriber);
+    expect(subscribers).toContain('jobs-state');
   });
 
   it('clears active_segment_id and resets active_segment_progress=0 when terminal job_updated arrives', async () => {

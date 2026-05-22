@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '@/api';
 import type { ProcessingQueueItem } from '@/types';
 import { recordWebsocketDebugMessage } from '@/utils/runtimeDebug';
+import { recordLiveEventSubscriberObservation } from '@/store/liveEventAuditStore';
 import { isStudioJobEvent } from '@/api/contracts/events';
 import { createLiveJobsStore } from '@/store/live-jobs';
 import { createHydrationCoordinator, selectActiveQueueCount } from '@/api/hydration';
@@ -76,15 +77,18 @@ export const useQueueSync = () => {
   const onMessage = useCallback((data: any, raw?: string, envelope?: StudioSocketEnvelope) => {
     if (isStudioJobEvent(data)) {
       recordWebsocketDebugMessage('useQueueSync', data, raw, envelope);
+      recordLiveEventSubscriberObservation(envelope?.frameId, 'queue-sync', 'handled');
       storeRef.current.applyEvent(data);
       updateDerivedState();
     } else if (data.type === 'job_updated') {
       recordWebsocketDebugMessage('useQueueSync', data, raw, envelope);
+      recordLiveEventSubscriberObservation(envelope?.frameId, 'queue-sync', 'handled');
       storeRef.current.applyJobUpdated(data.job_id, data.updates);
       updateDerivedState();
     } else if (data.type === 'queue_updated' || data.type === 'pause_updated') {
       // Record debug message for queue consumer
       recordWebsocketDebugMessage('useQueueSync', data, raw, envelope);
+      recordLiveEventSubscriberObservation(envelope?.frameId, 'queue-sync', 'handled');
       refreshQueue('refresh');
     }
   }, [updateDerivedState, refreshQueue]);

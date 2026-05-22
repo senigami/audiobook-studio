@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Job, SegmentProgress } from '@/types';
 import { isStudioJobEvent, isTtsLogLineEvent } from '@/api/contracts/events';
 import { recordWebsocketDebugMessage } from '@/utils/runtimeDebug';
+import { recordLiveEventSubscriberObservation } from '@/store/liveEventAuditStore';
 import { sendStudioSocketMessage, subscribeStudioSocketMessages, type StudioSocketEnvelope } from '@/store/studioSocketBus';
 import { useStudioSocketConnection } from '@/hooks/useStudioSocketConnection';
 
@@ -59,6 +60,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
       setLoading(false);
     } else if (data.type === 'tts_log_line' || isTtsLogLineEvent(data)) {
       recordWebsocketDebugMessage('useJobs', data, raw, envelope);
+      recordLiveEventSubscriberObservation(envelope?.frameId, 'jobs-state', 'handled');
     } else if (data.type === 'studio_job_event' || isStudioJobEvent(data)) {
       const job_id = data.job_id;
       const nextUpdates: Record<string, any> = {
@@ -152,6 +154,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
         return { ...prev, [job_id]: newJob };
       });
       recordWebsocketDebugMessage('useJobs', data, raw, envelope);
+      recordLiveEventSubscriberObservation(envelope?.frameId, 'jobs-state', 'handled');
     } else if (data.type === 'job_updated') {
       const { job_id, updates } = data;
       setJobs(prev => {
@@ -220,17 +223,21 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
         return { ...prev, [job_id]: newJob };
       });
       recordWebsocketDebugMessage('useJobs', data, raw, envelope);
+      recordLiveEventSubscriberObservation(envelope?.frameId, 'jobs-state', 'handled');
     } else if (data.type === 'queue_updated') {
-        refreshJobs();
-        if (onQueueUpdate) onQueueUpdate();
-        recordWebsocketDebugMessage('useJobs', data, raw, envelope);
+      refreshJobs();
+      if (onQueueUpdate) onQueueUpdate();
+      recordWebsocketDebugMessage('useJobs', data, raw, envelope);
+      recordLiveEventSubscriberObservation(envelope?.frameId, 'jobs-state', 'handled');
     } else if (data.type === 'pause_updated') {
-        if (onPauseUpdate) onPauseUpdate(data.paused);
-        recordWebsocketDebugMessage('useJobs', data, raw, envelope);
+      if (onPauseUpdate) onPauseUpdate(data.paused);
+      recordWebsocketDebugMessage('useJobs', data, raw, envelope);
+      recordLiveEventSubscriberObservation(envelope?.frameId, 'jobs-state', 'handled');
     } else if (data.type === 'test_progress') {
       const { name, progress, started_at } = data;
       setTestProgress(prev => ({ ...prev, [name]: { progress, started_at } }));
       recordWebsocketDebugMessage('useJobs', data, raw, envelope);
+      recordLiveEventSubscriberObservation(envelope?.frameId, 'jobs-state', 'handled');
     } else if (data.type === 'segment_progress') {
       const next: SegmentProgress = {
         job_id: data.job_id,
@@ -240,12 +247,15 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
       };
       setSegmentProgress(prev => ({ ...prev, [next.segment_id]: next }));
       recordWebsocketDebugMessage('useJobs', data, raw, envelope);
+      recordLiveEventSubscriberObservation(envelope?.frameId, 'jobs-state', 'handled');
     } else if (data.type === 'segments_updated') {
       if (onSegmentsUpdate) onSegmentsUpdate(data.chapter_id);
       recordWebsocketDebugMessage('useJobs', data, raw, envelope);
+      recordLiveEventSubscriberObservation(envelope?.frameId, 'jobs-state', 'handled');
     } else if (data.type === 'chapter_updated') {
       if (onChapterUpdate) onChapterUpdate(data.chapter_id);
       recordWebsocketDebugMessage('useJobs', data, raw, envelope);
+      recordLiveEventSubscriberObservation(envelope?.frameId, 'jobs-state', 'handled');
     }
   }, [onQueueUpdate, onPauseUpdate, onSegmentsUpdate, onChapterUpdate, refreshJobs]);
 

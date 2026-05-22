@@ -1,19 +1,19 @@
 {
-  "snapshot_version": 101,
-  "updated_at": "2026-05-21T21:05:00Z",
+  "snapshot_version": 102,
+  "updated_at": "2026-05-21T21:58:00Z",
   "branch": "studio2/phase-12",
-  "current_task": "Live Event Stream Contract Tightening",
-  "status": "live_event_stream_contract_tightened",
+  "current_task": "Live Event Stream Audit Store Wiring",
+  "status": "live_event_audit_store_verified",
   "last_committed_milestone": {
-    "title": "Live Event Stream Contract Tightening",
+    "title": "Live Event Stream Audit Store Wiring",
     "commit": "pending",
     "notes": [
-      "Created and tightened plans/implementation/live_event_stream_contract.md as the source of truth for the frontend live event stream.",
-      "Added executable TypeScript schemas and normalizer helpers in frontend/src/api/contracts/liveEvents.ts, with the socket bus reusing the shared StudioSocketEnvelope type.",
-      "Tightened runtime compatibility so nested job_updated.updates payloads flatten before normalization and legacy segment_progress.segment_id remains visible in the debug stream.",
-      "Defined concrete LiveEvent topics, categories, event kinds, discriminated event shapes, and subscriber observation records.",
-      "Clarified that Live Output observes the bus-level audit store for every frame instead of depending on useJobs/useQueueSync debug side effects.",
-      "Confirmed documentation diff passes git diff --check."
+      "Added frontend/src/store/liveEventAuditStore.ts so every StudioSocketEnvelope is normalized into exactly one LiveEventRecord before hook-level filtering.",
+      "Wired studioSocketBus.publishStudioSocketMessage to record audit events before fanning out to useJobs/useQueueSync subscribers.",
+      "Wired useJobs and useQueueSync to attach de-duped jobs-state and queue-sync subscriber observations by frameId.",
+      "Rewired LiveOutputTab to use useSyncExternalStore against the audit store and render normalized Topic, Category, Event, Subscribers, Job, Chapter, Segment, Job %, Segment %, Group, Reason, Source, and Message columns.",
+      "Kept runtimeDebug compatibility intact, but Live Output no longer depends on the legacy window timeline or timing-based row merge.",
+      "Verified focused frontend event-stream tests, full frontend Vitest suite, frontend build, frontend lint, and git diff --check."
     ]
   },
   "active_constraints": [
@@ -65,7 +65,8 @@
     "Chapter Editor progress bar key is reverted to the segment-level key (`${job.id}:${active_segment_id}`) of commit 3e44973. This ensures the progress bar remounts per segment and progress/highlighting updates are aligned perfectly on a per-segment basis.",
     "Chapter Editor progress bar now animates smoothly under finalizing status instead of hardcoding to 100% width. A 1500ms terminal job bridging window was added to useChapterStatus to let the green 100% Complete bar render fully before clean unmounting."
     ,"Global Queue now filters only true segment-scoped overlay jobs; grouped chapter jobs with active_segment_id stay visible so overall chapter progress does not disappear once rendering starts.",
-    "The frontend live event stream contract now defines topics, concrete event kinds, audit records, consumer ownership, diagnostics reconciliation, queue/segment progress absorption rules, and an executable TypeScript schema module before the next implementation pass."
+    "The frontend live event stream contract now defines topics, concrete event kinds, audit records, consumer ownership, diagnostics reconciliation, queue/segment progress absorption rules, and an executable TypeScript schema module before the next implementation pass.",
+    "Live Output now reads from the bus-level liveEventAuditStore instead of the legacy runtimeDebug timeline. Every websocket frame receives one normalized audit record, and useJobs/useQueueSync attach unique subscriber observations by frameId."
   ],
   "phase_13_guidance": [
     "Phase 13 plan is plans/phases/phase_13_release_documentation_and_distribution.md.",
@@ -77,7 +78,9 @@
     "local_annotations": "codeql-annotations.json, if present, is informational and should not distract from Phase 12 polish unless intentionally used."
   },
   "next_logical_steps": [
-    "Implement the Live Event Stream contract: add a frontend event normalizer/audit store, wire Live Output to bus-level records, wire TTS diagnostics to tts.logs, and route queue/segment updates through topic-specific consumers.",
+    "Wire TTS Engine log diagnostics to the live event stream so tts.logs append live without requiring Refresh Logs.",
+    "Tune queue and segment progress consumers against the normalized jobs.progress and queue.lifecycle topics, preserving the existing queue overlay behavior while making the topic ownership explicit.",
+    "Retire or narrow the legacy runtimeDebug timeline once no user-facing surface depends on __ttsCommunicationTimeline / __websocketRecentMessages.",
     "Implement the check_output interface in plugin adapters to improve engine-agnostic output verification.",
     "Complete the generic plugin setup loop in run.sh so plugin install/setup automation is symmetrical.",
     "Prepare the voice icon and tagging implementation to improve large-library usability."
@@ -88,7 +91,8 @@
     "latest_queue_focus": "2026-05-18: `frontend/src/utils/jobSelection.ts` now treats `active_segment_id` as chapter-render progress rather than segment scope, keeping grouped chapter jobs visible in the main queue while still hiding true segment jobs.",
     "latest_websocket_focus": "2026-05-20: Live synthesis updates now skip duplicate websocket broadcasts on direct plugin progress calls, and registry-handler dispatch unregisters watchdog listeners on exit.",
     "latest_lint_focus": "2026-05-21: ruff check app tests passed.",
-    "latest_diff_check": "2026-05-21: git diff --check passed for the live event stream contract tightening.",
+    "latest_frontend_event_stream_focus": "2026-05-21: Live Output now reads from liveEventAuditStore; focused event-stream Vitest suite passed (66 tests), full frontend Vitest passed (555 passed, 5 skipped), frontend build passed, frontend lint passed with 7 existing warnings, and git diff --check passed.",
+    "latest_diff_check": "2026-05-21: git diff --check passed for the live event audit store wiring.",
     "known_warnings": [
       "Vite chunk-size warning remains on frontend builds.",
       "Some frontend motion tests may emit harmless animation warnings."

@@ -1309,3 +1309,12 @@
 - Removed TTS log ownership from `jobs-state`; `tts-diagnostics` owns `tts.logs`, `queue-sync` owns queue progress/lifecycle absorption, and `jobs-state` owns job/chapter/segment/voice state updates.
 - Documented segment-start versus segment-progress semantics, diagnostics refresh reconciliation, and queue overlay preservation rules.
 - Verified the documentation diff with `git diff --check`.
+
+# 2026-05-21 - Live Output Wired to Live Event Audit Store
+
+- Added `frontend/src/store/liveEventAuditStore.ts` so every `StudioSocketEnvelope` is normalized into exactly one `LiveEventRecord` before hook-level filtering or consumer-specific handling.
+- Updated `studioSocketBus.publishStudioSocketMessage` to record the audit entry before fanning the frame out to subscribers.
+- Updated `useJobs` and `useQueueSync` to attach de-duped `jobs-state` and `queue-sync` subscriber observations to the matching frame by `frameId`.
+- Rewired `LiveOutputTab` away from the legacy `runtimeDebug` window timeline and onto the audit store via `useSyncExternalStore`, with normalized domain columns for topic, category, event kind, subscribers, job/chapter/segment ids, progress, reason, source, and message.
+- Kept `runtimeDebug` compatibility intact for existing tests and debug globals, but it is no longer the authoritative Live Output source.
+- Verified focused frontend event-stream tests (66 passed), full frontend Vitest (555 passed, 5 skipped), frontend build, frontend lint (7 existing warnings), and `git diff --check`.

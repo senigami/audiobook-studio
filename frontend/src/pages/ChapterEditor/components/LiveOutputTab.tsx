@@ -1,10 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import type { LiveEvent, LiveEventRecord, JobProgressPayload } from '@/api/contracts/liveEvents';
 import {
-  clearTtsCommunicationTimeline,
-  getTtsCommunicationTimeline,
-  subscribeTtsCommunicationTimeline,
-  type TtsCommunicationTimelineEntry,
-} from '@/utils/runtimeDebug';
+  clearLiveEventAudit,
+  getLiveEventAuditSnapshot,
+  subscribeLiveEventAudit,
+} from '@/store/liveEventAuditStore';
 
 type LiveOutputFilter = 'chapter' | 'job' | 'all';
 
@@ -36,71 +36,106 @@ const formatProgress = (value?: number | null) => {
   return `${Math.round(value * 1000) / 10}%`;
 };
 
-const formatWeight = (entry: TtsCommunicationTimelineEntry) => {
-  const completed = entry.completed_render_weight;
-  const total = entry.total_render_weight;
-  const active = entry.active_render_group_weight;
-  if (typeof completed !== 'number' && typeof total !== 'number' && typeof active !== 'number') {
+const formatGroup = (payload: JobProgressPayload | undefined) => {
+  if (!payload) return '-';
+  if (typeof payload.active_render_group_index !== 'number' && typeof payload.render_group_count !== 'number') {
     return '-';
   }
-  return `${completed ?? '-'}/${total ?? '-'} active ${active ?? '-'}`;
+  return `${payload.active_render_group_index ?? '-'}/${payload.render_group_count ?? '-'}`;
 };
 
-const formatGroup = (entry: TtsCommunicationTimelineEntry) => {
-  if (typeof entry.active_render_group_index !== 'number' && typeof entry.render_group_count !== 'number') {
-    return '-';
+const jobProgressPayloadFor = (event: LiveEvent): JobProgressPayload | undefined =>
+  event.topic === 'jobs.progress' ? event.payload : undefined;
+
+const messageFor = (event: LiveEvent): string => {
+  if (event.topic === 'tts.logs') return event.payload.line ?? '';
+  if (event.topic === 'jobs.progress') {
+    const message = event.payload.message ?? '';
+    const status = event.payload.status ?? '';
+    if (message && status) return `[${status}] ${message}`;
+    return message || status;
   }
-  return `${entry.active_render_group_index ?? '-'}/${entry.render_group_count ?? '-'}`;
-};
-
-const formatCompletedGroups = (entry: TtsCommunicationTimelineEntry) => {
-  if (typeof entry.completed_render_groups !== 'number' && typeof entry.render_group_count !== 'number') {
-    return '-';
+  if (
+    event.topic === 'queue.lifecycle'
+    || event.topic === 'chapter.invalidate'
+    || event.topic === 'segments.invalidate'
+  ) {
+    return event.payload.reason ?? '';
   }
-  return `${entry.completed_render_groups ?? '-'}/${entry.render_group_count ?? '-'}`;
+  if (event.topic === 'system.unknown') {
+    try {
+      return JSON.stringify(event.payload);
+    } catch {
+      return String(event.payload);
+    }
+  }
+  return '';
 };
 
-const rowText = (entry: TtsCommunicationTimelineEntry) => {
-  if (entry.kind === 'tts_log') return entry.line ?? entry.raw;
-  return entry.message ?? entry.line ?? entry.raw;
+const reasonFor = (event: LiveEvent): string => {
+  if (event.topic === 'jobs.progress') return event.payload.reason_code ?? '-';
+  if (
+    event.topic === 'queue.lifecycle'
+    || event.topic === 'chapter.invalidate'
+    || event.topic === 'segments.invalidate'
+  ) {
+    return event.payload.reason ?? '-';
+  }
+  return '-';
 };
+
+const COLUMNS = [
+  'Time',
+  'Topic',
+  'Category',
+  'Event',
+  'Subscribers',
+  'Job',
+  'Chapter',
+  'Segment',
+  'Job %',
+  'Segment %',
+  'Group',
+  'Reason',
+  'Source',
+  'Message',
+];
 
 export const LiveOutputTab: React.FC<LiveOutputTabProps> = ({ chapterId, currentJobId }) => {
-  const [entries, setEntries] = useState<TtsCommunicationTimelineEntry[]>(() => getTtsCommunicationTimeline());
-  const [filter, setFilter] = useState<LiveOutputFilter>('all');
+  const records = useSyncExternalStore(
+    subscribeLiveEventAudit,
+    getLiveEventAuditSnapshot,
+    getLiveEventAuditSnapshot,
+  );
 
+  const [filter, setFilter] = useState<LiveOutputFilter>('all');
   const [paused, setPaused] = useState(false);
   const endRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    const refresh = () => setEntries(getTtsCommunicationTimeline());
-    refresh();
-    return subscribeTtsCommunicationTimeline(refresh);
-  }, []);
-
-  const filteredEntries = useMemo(() => {
-    if (filter === 'all') return entries;
+  const filteredRecords = useMemo(() => {
+    if (filter === 'all') return records;
     if (filter === 'job' && currentJobId) {
-      return entries.filter(entry => entry.job_id === currentJobId);
+      return records.filter(record => record.event.jobId === currentJobId);
     }
-    return entries.filter(entry => entry.chapter_id === chapterId || entry.job_id === currentJobId);
-  }, [chapterId, currentJobId, entries, filter]);
+    return records.filter(
+      record => record.event.chapterId === chapterId || record.event.jobId === currentJobId,
+    );
+  }, [chapterId, currentJobId, filter, records]);
 
   useEffect(() => {
     if (paused) return;
     if (typeof endRef.current?.scrollIntoView === 'function') {
       endRef.current.scrollIntoView({ block: 'end' });
     }
-  }, [filteredEntries.length, paused]);
+  }, [filteredRecords.length, paused]);
 
   const handleClear = () => {
-    clearTtsCommunicationTimeline();
-    setEntries([]);
+    clearLiveEventAudit();
   };
 
   const handleCopy = async () => {
     if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) return;
-    await navigator.clipboard.writeText(JSON.stringify(filteredEntries, null, 2));
+    await navigator.clipboard.writeText(JSON.stringify(filteredRecords, null, 2));
   };
 
   return (
@@ -122,24 +157,7 @@ export const LiveOutputTab: React.FC<LiveOutputTabProps> = ({ chapterId, current
         <button type="button" className="btn-ghost" onClick={handleClear}>Clear</button>
         <button type="button" className="btn-ghost" onClick={() => void handleCopy()}>Copy JSON</button>
         <span style={{ marginLeft: 'auto', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-          {filteredEntries.length} / {entries.length} entries
-        </span>
-        <span
-          data-testid="audience-legend"
-          style={{ display: 'flex', gap: '0.75rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}
-        >
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-            <span style={{ width: 10, height: 10, borderRadius: 2, background: 'rgba(96, 165, 250, 0.35)' }} />
-            Queue
-          </span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-            <span style={{ width: 10, height: 10, borderRadius: 2, background: 'rgba(251, 191, 36, 0.35)' }} />
-            Chapter
-          </span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-            <span style={{ width: 10, height: 10, borderRadius: 2, background: 'rgba(52, 211, 153, 0.35)' }} />
-            Both
-          </span>
+          {filteredRecords.length} / {records.length} entries
         </span>
       </div>
 
@@ -147,7 +165,7 @@ export const LiveOutputTab: React.FC<LiveOutputTabProps> = ({ chapterId, current
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace' }}>
           <thead style={{ position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 1 }}>
             <tr>
-              {['Time', 'Consumer', 'Kind', 'Event', 'Job', 'Segment', 'Progress', 'Seg %', 'Group', 'Done', 'Weight', 'Reason', 'Source', 'Line / message'].map((label) => (
+              {COLUMNS.map(label => (
                 <th key={label} style={{ textAlign: 'left', padding: '0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>
                   {label}
                 </th>
@@ -155,41 +173,44 @@ export const LiveOutputTab: React.FC<LiveOutputTabProps> = ({ chapterId, current
             </tr>
           </thead>
           <tbody>
-            {filteredEntries.length === 0 && (
+            {filteredRecords.length === 0 && (
               <tr>
-                <td colSpan={14} style={{ padding: '1rem', color: 'var(--text-muted)' }}>
+                <td colSpan={COLUMNS.length} style={{ padding: '1rem', color: 'var(--text-muted)' }}>
                   No live output captured yet.
                 </td>
               </tr>
             )}
-            {filteredEntries.map((entry, index) => {
-              const audienceBg: Record<string, string> = {
-                queue: 'rgba(96, 165, 250, 0.08)',   // blue tint
-                chapter: 'rgba(251, 191, 36, 0.08)', // yellow tint
-                both: 'rgba(52, 211, 153, 0.08)',    // green tint
-              };
-              const rowBg = audienceBg[entry.audience] ?? undefined;
+            {filteredRecords.map((record: LiveEventRecord) => {
+              const event = record.event;
+              const jobPayload = jobProgressPayloadFor(event);
+              const subscribers = record.subscribers.map(s => s.subscriber).join(', ');
               return (
-              <tr
-                key={`${entry.receivedAt}-${entry.sequence ?? 'n'}-${entry.job_id ?? 'job'}-${entry.type ?? 'event'}-${index}`}
-                data-audience={entry.audience}
-                style={rowBg ? { background: rowBg } : undefined}
-              >
-                <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{formatTime(entry.receivedAt)}</td>
-                <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap', opacity: 0.75, fontSize: '0.72rem' }}>{entry.listener}</td>
-                <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)' }}>{entry.kind}</td>
-                <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{entry.marker ?? entry.type ?? '-'}</td>
-                <td title={entry.job_id ?? ''} style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{shortId(entry.job_id)}</td>
-                <td title={entry.active_segment_id ?? ''} style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{shortId(entry.active_segment_id)}</td>
-                <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{formatProgress(entry.progress)}</td>
-                <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{formatProgress(entry.active_segment_progress)}</td>
-                <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{formatGroup(entry)}</td>
-                <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{formatCompletedGroups(entry)}</td>
-                <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{formatWeight(entry)}</td>
-                <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{entry.reason_code ?? '-'}</td>
-                <td title={entry.source ?? ''} style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.source ?? '-'}</td>
-                <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', minWidth: 320, whiteSpace: 'pre-wrap' }}>{rowText(entry)}</td>
-              </tr>
+                <tr
+                  key={event.frameId}
+                  data-frame-id={event.frameId}
+                  data-topic={event.topic}
+                  data-category={event.category}
+                >
+                  <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{formatTime(event.receivedAt)}</td>
+                  <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{event.topic}</td>
+                  <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{event.category}</td>
+                  <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{event.eventKind}</td>
+                  <td
+                    data-testid="subscribers-cell"
+                    style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap', opacity: 0.85, fontSize: '0.72rem' }}
+                  >
+                    {subscribers || '-'}
+                  </td>
+                  <td title={event.jobId ?? ''} style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{shortId(event.jobId)}</td>
+                  <td title={event.chapterId ?? ''} style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{shortId(event.chapterId)}</td>
+                  <td title={event.segmentId ?? ''} style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{shortId(event.segmentId)}</td>
+                  <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{formatProgress(jobPayload?.progress)}</td>
+                  <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{formatProgress(jobPayload?.active_segment_progress)}</td>
+                  <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{formatGroup(jobPayload)}</td>
+                  <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{reasonFor(event)}</td>
+                  <td title={event.source ?? ''} style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{event.source ?? '-'}</td>
+                  <td style={{ padding: '0.45rem 0.5rem', borderBottom: '1px solid var(--border)', minWidth: 320, whiteSpace: 'pre-wrap' }}>{messageFor(event)}</td>
+                </tr>
               );
             })}
           </tbody>

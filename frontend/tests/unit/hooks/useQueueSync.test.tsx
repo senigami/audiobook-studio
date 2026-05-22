@@ -9,6 +9,10 @@ import {
   setStudioSocketSender,
 } from '@/store/studioSocketBus';
 import { clearTtsCommunicationTimeline } from '@/utils/runtimeDebug';
+import {
+  getLiveEventAuditSnapshot,
+  resetLiveEventAuditForTests,
+} from '@/store/liveEventAuditStore';
 
 vi.mock('@/api', () => ({
   api: {
@@ -24,6 +28,7 @@ describe('useQueueSync', () => {
     clearTtsCommunicationTimeline();
     delete (window as any).__ttsCommunicationTimeline;
     resetStudioSocketBusForTests();
+    resetLiveEventAuditForTests();
     setStudioSocketConnected(true);
     sendMessage = vi.fn();
     setStudioSocketSender(sendMessage);
@@ -161,6 +166,19 @@ describe('useQueueSync', () => {
     const queueEntries = timeline.filter((e: any) => e.listener === 'useQueueSync');
     expect(queueEntries).toHaveLength(1);
     expect(queueEntries[0].audience).toBe('both');
+  });
+
+  it('records a queue-sync subscriber observation on each handled bus frame', async () => {
+    const { result } = renderHook(() => useQueueSync());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    emit({ type: 'studio_job_event', job_id: 'job-audit', status: 'running' });
+
+    const records = getLiveEventAuditSnapshot();
+    const observed = records.find(r => r.event.jobId === 'job-audit');
+    expect(observed).toBeDefined();
+    const subscribers = observed!.subscribers.map(s => s.subscriber);
+    expect(subscribers).toContain('queue-sync');
   });
 
   it('preserves overlay progress after a queue_updated triggered refresh', async () => {
