@@ -57,7 +57,7 @@ describe('LiveOutputTab', () => {
 
     const headers = Array.from(document.querySelectorAll('th')).map(th => th.textContent);
     expect(headers).toEqual(expect.arrayContaining([
-      'Time', 'Topic', 'Category', 'Event', 'Subscribers',
+      'Time', 'Topic', 'Category', 'Event', 'Handled by',
       'Job', 'Chapter', 'Segment', 'Job %', 'Segment %',
       'Reason', 'Source', 'Message',
     ]));
@@ -127,11 +127,17 @@ describe('LiveOutputTab', () => {
     render(<LiveOutputTab />);
     expect(document.querySelectorAll('tbody tr[data-frame-id]')).toHaveLength(2);
 
+    // jobs-state listens to jobs.progress and queue.lifecycle, so both match
     fireEvent.click(screen.getByRole('button', { name: 'jobs-state' }));
-    expect(document.querySelectorAll('tbody tr[data-frame-id]')).toHaveLength(1);
+    expect(document.querySelectorAll('tbody tr[data-frame-id]')).toHaveLength(2);
 
+    // queue-sync listens to jobs.progress and queue.lifecycle, so both match
     fireEvent.click(screen.getByRole('button', { name: 'queue-sync' }));
-    expect(document.querySelectorAll('tbody tr[data-frame-id]')).toHaveLength(1);
+    expect(document.querySelectorAll('tbody tr[data-frame-id]')).toHaveLength(2);
+
+    // tts-diagnostics does not listen to jobs.progress or queue.lifecycle, so 0 match
+    fireEvent.click(screen.getByRole('button', { name: 'tts-diagnostics' }));
+    expect(document.querySelectorAll('tbody tr[data-frame-id]')).toHaveLength(0);
 
     fireEvent.click(screen.getByRole('button', { name: /all/i }));
     expect(document.querySelectorAll('tbody tr[data-frame-id]')).toHaveLength(2);

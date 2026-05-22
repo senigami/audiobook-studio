@@ -1351,3 +1351,11 @@
 - Removed the false `jobs-state` subscriber observation from `tts.logs` handling in `frontend/src/hooks/useJobs.ts` so the Live Output subscribers column reflects actual consumer ownership instead of claiming TTS diagnostics frames for job state.
 - Added a regression test in `tests/unit/hooks/useJobs.test.tsx` confirming `tts.logs` frames are not attributed to `jobs-state`.
 - Verified targeted frontend tests covering `useJobs`, `LiveOutputPage`, and `SettingsRoute` passed, and re-ran frontend build, lint (7 existing warnings), and `git diff --check` successfully.
+
+# 2026-05-22 - Consumer-Listening Registry live output filter model
+
+- Created `frontend/src/config/liveEventConsumers.ts` containing the `LIVE_EVENT_CONSUMERS` configuration matching real component topic subscriptions.
+- Refactored `LiveOutputTable.tsx` to dynamically drive consumer filter toggle buttons and filter records based on topic listening rules rather than subscriber observations.
+- Renamed the column header `'Subscribers'` to `'Handled by'` to be more descriptive of actual observations.
+- Updated Vitest unit tests in `LiveOutputPage.test.tsx` and `LiveOutputTab.test.tsx` to assert correct filtering based on consumer registry topic subscription rules.
+- Verified that all unit tests, eslint, production build, and git diff checks are green.

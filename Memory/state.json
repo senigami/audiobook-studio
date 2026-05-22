@@ -1,19 +1,19 @@
 {
-  "snapshot_version": 106,
-  "updated_at": "2026-05-22T18:41:10Z",
+  "snapshot_version": 107,
+  "updated_at": "2026-05-22T14:56:00-04:00",
   "branch": "studio2/phase-12",
-  "current_task": "Rename live output route to /event-stream and implement consumer filter toggles",
-  "status": "event_stream_route_and_consumer_filters_verified",
+  "current_task": "Replace misleading live-output 'subscribers' filter model with explicit consumer-listening registry",
+  "status": "consumer_listening_registry_verified",
   "last_committed_milestone": {
-    "title": "Rename live output route to /event-stream and implement consumer filter toggles",
+    "title": "Replace misleading live-output 'subscribers' filter model with explicit consumer-listening registry",
     "commit": "pending",
     "notes": [
-      "Renamed the standalone live output page route from `/internal/live-output` to `/event-stream` in App.tsx.",
-      "Replaced the 'All Output' select dropdown with a premium segmented control button group containing 'all' and the active consumers ('jobs-state', 'queue-sync', 'tts-diagnostics') in LiveOutputTable.tsx.",
-      "Configured row filtering to query record.subscribers to isolate websocket frame intake by subscriber.",
-      "Removed the false `jobs-state` subscriber observation for `tts.logs` so TTS diagnostics is the only consumer that owns log lines.",
-      "Resolved TS6198 compiler error in LiveOutputTable.tsx by handling unused destructured props with _props.",
-      "Fixed test query ambiguities in LiveOutputPage.test.tsx and verified that all 580 unit tests are green, the production bundle builds cleanly, and eslint/git diff checks pass."
+      "Created `liveEventConsumers.ts` to centralize explicit consumer topic mapping configuration matching actual hook subscriptions.",
+      "Refactored `LiveOutputTable.tsx` to dynamically derive filter buttons from the consumer registry instead of hardcoding.",
+      "Refactored `LiveOutputTable.tsx` record filtering to evaluate consumer listening predicates (`listensTo`) instead of transient subscriber observations.",
+      "Renamed the 'Subscribers' column to 'Handled by' to clarify the intent, while preserving the test IDs (`data-testid=\"subscribers-cell\"`).",
+      "Updated Vitest unit tests in `LiveOutputPage.test.tsx` and `LiveOutputTab.test.tsx` to assert registry-based filtering behavior instead of observation-based filtering.",
+      "Verified that all 88 frontend test files (578 tests total) pass, build is successful, lint warnings are unmodified, and git diff --check is clean."
     ]
   },
   "active_constraints": [

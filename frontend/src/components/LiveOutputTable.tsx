@@ -5,6 +5,8 @@ import {
   getLiveEventAuditSnapshot,
   subscribeLiveEventAudit,
 } from '@/store/liveEventAuditStore';
+import { LIVE_EVENT_CONSUMERS } from '@/config/liveEventConsumers';
+
 
 type LiveOutputFilter = 'all' | 'jobs-state' | 'queue-sync' | 'tts-diagnostics';
 
@@ -89,7 +91,7 @@ const COLUMNS = [
   'Topic',
   'Category',
   'Event',
-  'Subscribers',
+  'Handled by',
   'Job',
   'Chapter',
   'Segment',
@@ -114,9 +116,9 @@ export const LiveOutputTable: React.FC<LiveOutputTableProps> = (_props) => {
 
   const filteredRecords = useMemo(() => {
     if (filter === 'all') return records;
-    return records.filter(record =>
-      record.subscribers.some(sub => sub.subscriber === filter),
-    );
+    const consumer = LIVE_EVENT_CONSUMERS.find(c => c.id === filter);
+    if (!consumer) return records;
+    return records.filter(record => consumer.listensTo(record.event));
   }, [filter, records]);
 
   useEffect(() => {
@@ -135,12 +137,10 @@ export const LiveOutputTable: React.FC<LiveOutputTableProps> = (_props) => {
     await navigator.clipboard.writeText(JSON.stringify(filteredRecords, null, 2));
   };
 
-  const filters: { value: LiveOutputFilter; label: string }[] = [
+  const filters = useMemo<{ value: LiveOutputFilter; label: string }[]>(() => [
     { value: 'all', label: 'All' },
-    { value: 'jobs-state', label: 'jobs-state' },
-    { value: 'queue-sync', label: 'queue-sync' },
-    { value: 'tts-diagnostics', label: 'tts-diagnostics' },
-  ];
+    ...LIVE_EVENT_CONSUMERS.map(c => ({ value: c.id as LiveOutputFilter, label: c.label })),
+  ], []);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, height: '100%', gap: '0.75rem' }}>
