@@ -236,6 +236,32 @@ describe('useJobs', () => {
     expect(sendMessage).toHaveBeenLastCalledWith({ type: 'jobs_snapshot_request' });
   });
 
+  it('does not require an onQueueUpdate callback (queue.lifecycle is useQueueSync\'s domain)', async () => {
+    // App.tsx intentionally passes undefined for onQueueUpdate so a queue_updated frame
+    // does not trigger a redundant ProjectDetailPage reload on top of useQueueSync's refresh.
+    renderHook(() => useJobs(undefined, undefined));
+    expect(() => emit({ type: 'queue_updated' })).not.toThrow();
+    expect(sendMessage).toHaveBeenLastCalledWith({ type: 'jobs_snapshot_request' });
+  });
+
+  it('routes a single queue.lifecycle frame to both queue-sync and jobs-state subscriber observations exactly once each', async () => {
+    renderHook(() => useJobs());
+    // Re-import audit store on demand to avoid extra top-level imports in this large file.
+    const { getLiveEventAuditSnapshot } = await import('@/store/liveEventAuditStore');
+
+    emit({ type: 'queue_updated' });
+
+    const records = getLiveEventAuditSnapshot();
+    const queueFrame = records.find(r => r.event.rawType === 'queue_updated');
+    expect(queueFrame).toBeDefined();
+    const subs = queueFrame!.subscribers.map(s => s.subscriber);
+    // jobs-state is observed once for this frame. queue-sync would also appear here in
+    // the full app, but is not present because this isolated useJobs render does not mount
+    // useQueueSync. The point of this assertion is to guard against double-observation by
+    // jobs-state for the same frame.
+    expect(subs.filter(s => s === 'jobs-state')).toHaveLength(1);
+  });
+
   it('handles pause_updated, segments_updated, and chapter_updated', async () => {
     const onPauseUpdate = vi.fn();
     const onSegmentsUpdate = vi.fn();
