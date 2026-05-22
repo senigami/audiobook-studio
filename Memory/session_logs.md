@@ -1,3 +1,21 @@
+# 2026-05-22 - Rename Live Output Route to /event-stream & Add Consumer Filters
+
+- Renamed standalone live output route from `/internal/live-output` to `/event-stream` in [App.tsx](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/src/app/App.tsx).
+- Replaced the select dropdown filter in [LiveOutputTable.tsx](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/src/components/LiveOutputTable.tsx) with a segmented control button group (toggling between 'all', 'jobs-state', 'queue-sync', 'tts-diagnostics').
+- Configured row filtering to query `record.subscribers` to filter rows by consumer observations.
+- Resolved TS6198 compiler error in [LiveOutputTable.tsx](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/src/components/LiveOutputTable.tsx) by replacing unused destructured props with `_props`.
+- Fixed testing query ambiguity in [LiveOutputPage.test.tsx](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/tests/unit/pages/LiveOutput/LiveOutputPage.test.tsx) by checking `data-frame-id` row attributes rather than searching text that conflicts with permanent filter buttons.
+- Verified all 580 frontend unit tests pass successfully, the frontend production bundle compiles without issue, linter is clean, and `git diff --check` passes cleanly.
+
+# 2026-05-22 - Extract LiveOutputTab into Standalone Page
+
+- Extracted `LiveOutputTab` into a reusable component `LiveOutputTable` located under `frontend/src/components/LiveOutputTable.tsx`.
+- Created the standalone internal page `LiveOutputPage` at `frontend/src/pages/LiveOutput/LiveOutputPage.tsx` which renders the table layout.
+- Registered `/internal/live-output` in `frontend/src/app/App.tsx` as a route that is not advertised in the main navigation.
+- Removed the "Live Output" tab and button from the Chapter Editor page (`ChapterEditorPage.tsx`) and tabs list (`EditorTabs.tsx`), replacing `LiveOutputTab.tsx` with a lightweight backward-compatibility wrapper pointing to `LiveOutputTable`.
+- Updated unit tests in `LiveOutputTab.test.tsx` and `EditorTabs.test.tsx` to align with the new routing and extracted components, and added route-level verification in `App.test.tsx`.
+- Verified that all 571 frontend unit tests pass successfully, the frontend production bundle builds cleanly, linter checks pass, and `git diff --check` shows no formatting anomalies.
+
 # 2026-05-21 - Fix Voice Engine Drift Path & Clarify Default Policy Resolution
 
 - Fixed voice engine resolution and normalization in [app/engines/voice_engines.py](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/app/engines/voice_engines.py) and [app/db/speakers.py](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/app/db/speakers.py) to pass `fallback_engine` as the `fallback` parameter of `normalize_tts_engine`.
@@ -1327,3 +1345,9 @@
 - Added reconciliation for log frames that arrive while the initial diagnostics history fetch is in flight, preserving those live lines even when the REST response omits them.
 - Added auto-scroll so the diagnostics viewport stays pinned to the newest line as live logs arrive.
 - Verified focused diagnostics/event-stream tests (27 passed), full frontend Vitest (560 passed, 5 skipped), frontend build, frontend lint (7 existing warnings), and `git diff --check`.
+
+# 2026-05-22 - Live Output Subscriber Ownership Correction
+
+- Removed the false `jobs-state` subscriber observation from `tts.logs` handling in `frontend/src/hooks/useJobs.ts` so the Live Output subscribers column reflects actual consumer ownership instead of claiming TTS diagnostics frames for job state.
+- Added a regression test in `tests/unit/hooks/useJobs.test.tsx` confirming `tts.logs` frames are not attributed to `jobs-state`.
+- Verified targeted frontend tests covering `useJobs`, `LiveOutputPage`, and `SettingsRoute` passed, and re-ran frontend build, lint (7 existing warnings), and `git diff --check` successfully.

@@ -19,6 +19,7 @@ import { SettingsRoute } from '@/pages/Settings';
 import type { Chapter, Project } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Drawer } from '@/pages/Voices/components/VoiceUtils';
+import { LiveOutputPage } from '@/pages/LiveOutput/LiveOutputPage';
 
 function App() {
   const navigate = useNavigate();
@@ -296,6 +297,7 @@ function App() {
                 />
               } />
               <Route path="/progress-test" element={<ProgressBarTestPage />} />
+              <Route path="/event-stream" element={<LiveOutputPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>

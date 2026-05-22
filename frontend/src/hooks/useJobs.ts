@@ -231,7 +231,6 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
     return subscribeToLiveEventTopics({
       'tts.logs': (_event, { rawData, raw, envelope }) => {
         recordWebsocketDebugMessage('useJobs', rawData, raw, envelope);
-        recordLiveEventSubscriberObservation(envelope?.frameId, 'jobs-state', 'handled');
       },
       'jobs.progress': (event, { rawData, raw, envelope }) => {
         recordWebsocketDebugMessage('useJobs', rawData, raw, envelope);

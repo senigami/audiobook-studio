@@ -6,7 +6,7 @@ import type { Job, SegmentProgress, TtsEngine, SpeakerProfile } from '@/types';
 // Extracted Components
 import { useChapterStatus, ChapterTopBar, ChapterScriptToolbar } from '@/pages/ChapterEditor/components/ChapterHeader';
 import { EditorTabs, type ChapterEditorTab } from '@/pages/ChapterEditor/components/EditorTabs';
-import { LiveOutputTab } from '@/pages/ChapterEditor/components/LiveOutputTab';
+
 import { EditTab } from '@/pages/ChapterEditor/components/EditTab';
 import { ScriptView } from '@/pages/ChapterEditor/components/ScriptView';
 import { ResyncPreviewModal, type ResyncPreviewData } from '@/pages/ChapterEditor/components/ResyncPreviewModal';
@@ -713,9 +713,7 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                     sourceTextMode={sourceTextMode}
                   />
                 )}
-                {editorTab === 'live' && (
-                  <LiveOutputTab chapterId={chapterId} currentJobId={job?.id ?? generatingSegmentJob?.id ?? null} />
-                )}
+
 
             </div>
         </div>

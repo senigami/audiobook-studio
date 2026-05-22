@@ -1,6 +1,6 @@
 import React from 'react';
 
-export type ChapterEditorTab = 'script' | 'edit' | 'live';
+export type ChapterEditorTab = 'script' | 'edit';
 
 interface EditorTabsProps {
   editorTab: ChapterEditorTab;
@@ -34,13 +34,7 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
         >
             Source Text
         </button>
-        <button
-          onClick={() => setEditorTab('live')}
-          className={editorTab === 'live' ? 'btn-primary' : 'btn-ghost'}
-          style={{ padding: '8px 16px', fontSize: '0.9rem', borderRadius: '8px' }}
-        >
-            Live Output
-        </button>
+
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>

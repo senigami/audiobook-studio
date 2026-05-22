@@ -177,6 +177,25 @@ describe('useJobs', () => {
     });
   });
 
+  it('does not attribute tts.logs frames to jobs-state', async () => {
+    renderHook(() => useJobs());
+
+    emit({
+      type: 'tts_log_line',
+      job_id: 'job1',
+      chapter_id: 'chap1',
+      line: '[PROGRESS] 40% job1',
+      marker: 'PROGRESS',
+      sequence: 3,
+      received_at: 123,
+    });
+
+    const records = getLiveEventAuditSnapshot();
+    expect(records).toHaveLength(1);
+    expect(records[0].event.topic).toBe('tts.logs');
+    expect(records[0].subscribers.map(s => s.subscriber)).not.toContain('jobs-state');
+  });
+
   it('does not fall back to fetchJobs when a new websocket job appears', async () => {
     const { result } = renderHook(() => useJobs());
 

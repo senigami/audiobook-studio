@@ -1,20 +1,19 @@
 {
-  "snapshot_version": 103,
-  "updated_at": "2026-05-21T22:08:00Z",
+  "snapshot_version": 106,
+  "updated_at": "2026-05-22T18:41:10Z",
   "branch": "studio2/phase-12",
-  "current_task": "TTS Diagnostics Live Event Wiring",
-  "status": "tts_diagnostics_live_logs_verified",
+  "current_task": "Rename live output route to /event-stream and implement consumer filter toggles",
+  "status": "event_stream_route_and_consumer_filters_verified",
   "last_committed_milestone": {
-    "title": "TTS Diagnostics Live Event Wiring",
+    "title": "Rename live output route to /event-stream and implement consumer filter toggles",
     "commit": "pending",
     "notes": [
-      "Added frontend/src/hooks/useLiveTtsLogLines.ts to subscribe to liveEventAuditStore and consume only tts.logs events while diagnostics are open.",
-      "Wired EnginesPanel diagnostics output to merge the initial API-fetched historical log buffer with live tts.logs lines from the audit store.",
-      "Removed the open-state Refresh Logs UX; View Diagnostics loads history once and the panel then live-updates from the event stream.",
-      "Added reconciliation so tts.logs frames that arrive while the initial diagnostics history fetch is in flight are preserved even if the REST response omits them.",
-      "Added auto-scroll so the diagnostics log stays pinned to the bottom as new live lines append.",
-      "Recorded tts-diagnostics subscriber observations on consumed tts.logs frames.",
-      "Verified focused diagnostics/event-stream tests, full frontend Vitest suite, frontend build, frontend lint, and git diff --check."
+      "Renamed the standalone live output page route from `/internal/live-output` to `/event-stream` in App.tsx.",
+      "Replaced the 'All Output' select dropdown with a premium segmented control button group containing 'all' and the active consumers ('jobs-state', 'queue-sync', 'tts-diagnostics') in LiveOutputTable.tsx.",
+      "Configured row filtering to query record.subscribers to isolate websocket frame intake by subscriber.",
+      "Removed the false `jobs-state` subscriber observation for `tts.logs` so TTS diagnostics is the only consumer that owns log lines.",
+      "Resolved TS6198 compiler error in LiveOutputTable.tsx by handling unused destructured props with _props.",
+      "Fixed test query ambiguities in LiveOutputPage.test.tsx and verified that all 580 unit tests are green, the production bundle builds cleanly, and eslint/git diff checks pass."
     ]
   },
   "active_constraints": [
@@ -92,10 +91,10 @@
     "latest_frontend_focus": "2026-05-20: Reverted progress bar and text highlighting in the chapter editor back to the working behavior of commit 3e44973; all 82 frontend test files (510 tests total) are passing.",
     "latest_queue_focus": "2026-05-18: `frontend/src/utils/jobSelection.ts` now treats `active_segment_id` as chapter-render progress rather than segment scope, keeping grouped chapter jobs visible in the main queue while still hiding true segment jobs.",
     "latest_websocket_focus": "2026-05-20: Live synthesis updates now skip duplicate websocket broadcasts on direct plugin progress calls, and registry-handler dispatch unregisters watchdog listeners on exit.",
-    "latest_lint_focus": "2026-05-21: ruff check app tests passed.",
-    "latest_frontend_event_stream_focus": "2026-05-21: Live Output now reads from liveEventAuditStore; focused event-stream Vitest suite passed (66 tests), full frontend Vitest passed (555 passed, 5 skipped), frontend build passed, frontend lint passed with 7 existing warnings, and git diff --check passed.",
-        "latest_frontend_diagnostics_focus": "2026-05-21: Settings engine diagnostics now appends live tts.logs from liveEventAuditStore after the initial View Diagnostics history fetch and auto-scrolls to the newest line; focused diagnostics/event-stream tests passed (27 tests), full frontend Vitest passed (560 passed, 5 skipped), frontend build passed, frontend lint passed with 7 existing warnings, and git diff --check passed.",
-    "latest_diff_check": "2026-05-21: git diff --check passed for TTS diagnostics live log wiring.",
+    "latest_lint_focus": "2026-05-22: eslint passed on frontend with 7 existing warnings.",
+    "latest_frontend_event_stream_focus": "2026-05-22: Live Output route renamed to /event-stream and consumer filter toggles implemented; focused Vitest passed, full frontend Vitest passed (580 tests), frontend build passed, frontend lint passed, and git diff --check passed.",
+    "latest_frontend_live_output_ownership": "2026-05-22: Removed the false jobs-state ownership from tts.logs so the Live Output subscribers column now reflects actual consumer handling.",
+    "latest_diff_check": "2026-05-22: git diff --check passed for event-stream route and consumer filters.",
     "known_warnings": [
       "Vite chunk-size warning remains on frontend builds.",
       "Some frontend motion tests may emit harmless animation warnings."

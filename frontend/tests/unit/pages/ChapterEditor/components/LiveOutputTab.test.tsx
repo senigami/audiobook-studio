@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { LiveOutputTab } from '@/pages/ChapterEditor/components/LiveOutputTab';
+import { LiveOutputTable as LiveOutputTab } from '@/components/LiveOutputTable';
 import {
   publishStudioSocketMessage,
   resetStudioSocketBusForTests,
@@ -67,8 +67,7 @@ describe('LiveOutputTab', () => {
     publish({ type: 'studio_job_event', job_id: 'job-same', status: 'queued' });
     publish({ type: 'studio_job_event', job_id: 'job-same', status: 'running' });
 
-    render(<LiveOutputTab chapterId="chap-1" currentJobId="job-same" />);
-    fireEvent.change(screen.getByLabelText('Live output filter'), { target: { value: 'all' } });
+    render(<LiveOutputTab />);
 
     const rows = document.querySelectorAll('tbody tr[data-frame-id]');
     expect(rows).toHaveLength(2);
@@ -87,8 +86,7 @@ describe('LiveOutputTab', () => {
       recordLiveEventSubscriberObservation(frameId, 'jobs-state', 'handled');
     });
 
-    render(<LiveOutputTab chapterId="chap-1" currentJobId="job-1" />);
-    fireEvent.change(screen.getByLabelText('Live output filter'), { target: { value: 'all' } });
+    render(<LiveOutputTab />);
 
     const rows = document.querySelectorAll('tbody tr[data-frame-id]');
     expect(rows).toHaveLength(1);
@@ -99,8 +97,7 @@ describe('LiveOutputTab', () => {
   it('shows unknown/unhandled frames as system.unknown audit rows', () => {
     publish({ type: 'mystery_backend_event', foo: 'bar' });
 
-    render(<LiveOutputTab chapterId="chap-1" currentJobId={null} />);
-    fireEvent.change(screen.getByLabelText('Live output filter'), { target: { value: 'all' } });
+    render(<LiveOutputTab />);
 
     const rows = document.querySelectorAll('tbody tr[data-frame-id]');
     expect(rows).toHaveLength(1);
@@ -109,7 +106,7 @@ describe('LiveOutputTab', () => {
   });
 
   it('updates the table live as new frames arrive after mount', () => {
-    render(<LiveOutputTab chapterId="chap-1" currentJobId="job-live" />);
+    render(<LiveOutputTab />);
     expect(screen.getByText('No live output captured yet.')).toBeInTheDocument();
 
     publish({ type: 'studio_job_event', job_id: 'job-live', status: 'running' });
@@ -119,42 +116,32 @@ describe('LiveOutputTab', () => {
     expect(rows[0].textContent).toContain('running');
   });
 
-  it('filters by chapter, by job, or shows all when requested', () => {
-    publish({
-      type: 'tts_log_line',
-      job_id: 'job-current',
-      chapter_id: 'chap-1',
-      line: '[PROGRESS] chap-1 frame',
-      marker: 'PROGRESS',
-      sequence: 1,
-    });
-    publish({
-      type: 'tts_log_line',
-      job_id: 'job-other',
-      chapter_id: 'chap-2',
-      line: '[PROGRESS] chap-2 frame',
-      marker: 'PROGRESS',
-      sequence: 1,
+  it('filters by consumer when toggle buttons are clicked', () => {
+    publish({ type: 'studio_job_event', job_id: 'job-1' });
+    publish({ type: 'queue_updated' });
+    act(() => {
+      recordLiveEventSubscriberObservation(1, 'jobs-state', 'handled');
+      recordLiveEventSubscriberObservation(2, 'queue-sync', 'handled');
     });
 
-    render(<LiveOutputTab chapterId="chap-1" currentJobId="job-current" />);
-    expect(screen.getByText('[PROGRESS] chap-1 frame')).toBeInTheDocument();
-    expect(screen.getByText('[PROGRESS] chap-2 frame')).toBeInTheDocument();
+    render(<LiveOutputTab />);
+    expect(document.querySelectorAll('tbody tr[data-frame-id]')).toHaveLength(2);
 
-    fireEvent.change(screen.getByLabelText('Live output filter'), { target: { value: 'chapter' } });
-    expect(screen.getByText('[PROGRESS] chap-1 frame')).toBeInTheDocument();
-    expect(screen.queryByText('[PROGRESS] chap-2 frame')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'jobs-state' }));
+    expect(document.querySelectorAll('tbody tr[data-frame-id]')).toHaveLength(1);
 
-    fireEvent.change(screen.getByLabelText('Live output filter'), { target: { value: 'job' } });
-    expect(screen.queryByText('[PROGRESS] chap-2 frame')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'queue-sync' }));
+    expect(document.querySelectorAll('tbody tr[data-frame-id]')).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole('button', { name: /all/i }));
+    expect(document.querySelectorAll('tbody tr[data-frame-id]')).toHaveLength(2);
   });
 
   it('clears the audit and copies the visible rows as JSON', async () => {
     publish({ type: 'studio_job_event', job_id: 'job-1', status: 'running' });
     publish({ type: 'studio_job_event', job_id: 'job-2', status: 'running' });
 
-    render(<LiveOutputTab chapterId="chap-1" currentJobId="job-1" />);
-    fireEvent.change(screen.getByLabelText('Live output filter'), { target: { value: 'all' } });
+    render(<LiveOutputTab />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Copy JSON' }));
     await waitFor(() => {
@@ -168,7 +155,7 @@ describe('LiveOutputTab', () => {
   it('toggles autoscroll pause without removing rows', () => {
     publish({ type: 'studio_job_event', job_id: 'job-1', status: 'running' });
 
-    render(<LiveOutputTab chapterId="chap-1" currentJobId="job-1" />);
+    render(<LiveOutputTab />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Pause autoscroll' }));
     expect(screen.getByRole('button', { name: 'Resume autoscroll' })).toBeInTheDocument();
