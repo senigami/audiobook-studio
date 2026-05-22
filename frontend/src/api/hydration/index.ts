@@ -85,7 +85,6 @@ function buildOverlayQueueItem(jobId: string, delta: OverlayDelta): ProcessingQu
     custom_title: delta.custom_title ?? undefined,
     engine: delta.engine as any,
     segment_ids: delta.segment_ids ?? undefined,
-    grouped_progress: delta.progress,
     chapter_audio_status: undefined,
     chapter_audio_file_path: null,
     updated_at: delta.updated_at ?? undefined,

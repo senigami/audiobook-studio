@@ -1298,3 +1298,13 @@
 - Replaced the convenience `default_factory` on `VariantModel.engine` that loaded `get_default_profile_engine()` with a `None` default (`Optional[str] = None`).
 - Confirmed no other files in the workspace (including the codebase and all test suites) make use of `VariantModel`.
 - Verified that all 882 backend pytest tests continue to pass cleanly, and both `ruff check` and `git diff --check` remain fully green.
+
+# 2026-05-21 - Live Event Stream Contract Tightened
+
+- Created and tightened `plans/implementation/live_event_stream_contract.md` as the source of truth for the frontend live event stream.
+- Added executable TypeScript schemas and normalizer helpers in `frontend/src/api/contracts/liveEvents.ts`, with the socket bus reusing the shared `StudioSocketEnvelope` type.
+- Defined concrete live event topics, categories, event kinds, discriminated event shapes, and subscriber observation records.
+- Clarified that Live Output must read bus-level audit records for every received frame, including unknown/unhandled events, rather than depending on `useJobs` or `useQueueSync` debug side effects.
+- Removed TTS log ownership from `jobs-state`; `tts-diagnostics` owns `tts.logs`, `queue-sync` owns queue progress/lifecycle absorption, and `jobs-state` owns job/chapter/segment/voice state updates.
+- Documented segment-start versus segment-progress semantics, diagnostics refresh reconciliation, and queue overlay preservation rules.
+- Verified the documentation diff with `git diff --check`.

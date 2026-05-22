@@ -5,6 +5,11 @@ It defines the purpose, event shapes, topic taxonomy, producer/consumer
 responsibilities, UI display rules, and test expectations for websocket-driven
 updates.
 
+The executable TypeScript contract lives in
+`frontend/src/api/contracts/liveEvents.ts`. Keep that file and this document in
+sync. The document explains policy and ownership; the TypeScript module defines
+the importable producer/consumer shapes and normalizer helpers.
+
 The live event stream is not a second database. It is a transport and routing
 layer for short-lived updates that are merged into API-hydrated state or shown
 in diagnostics surfaces.
@@ -83,12 +88,28 @@ export type LiveEventSubscriber =
   | 'tts-diagnostics'
   | 'live-output';
 
-export interface LiveEvent<TPayload = unknown> {
+export type LiveEventKind =
+  | 'tts_log'
+  | 'job_status'
+  | 'job_progress'
+  | 'job_terminal'
+  | 'segment_started'
+  | 'segment_progress'
+  | 'segment_saved'
+  | 'queue_invalidated'
+  | 'queue_pause_changed'
+  | 'chapter_invalidated'
+  | 'segments_invalidated'
+  | 'voice_test_progress'
+  | 'unknown';
+
+export interface LiveEventBase<TPayload = unknown> {
   frameId: number;
   receivedAt: string;
   rawType: string;
   topic: LiveEventTopic;
   category: LiveEventCategory;
+  eventKind: LiveEventKind;
   source?: string | null;
   jobId?: string | null;
   projectId?: string | null;
@@ -102,23 +123,154 @@ export interface LiveEvent<TPayload = unknown> {
 The normalized event must preserve the raw backend `type` as `rawType`. The
 frontend topic and category are derived fields for routing and display.
 
+Implementations should represent `LiveEvent` as a discriminated union of
+concrete event shapes, not as a permanent `payload: unknown` bag. Unknown events
+are the only place where the payload should remain unknown.
+
+```ts
+export interface TtsLogLiveEvent extends LiveEventBase<{
+  line: string;
+  marker?: string | null;
+  sequence?: number | null;
+  backendReceivedAt?: number | null;
+}> {
+  topic: 'tts.logs';
+  category: 'log';
+  eventKind: 'tts_log';
+}
+
+export interface JobProgressLiveEvent extends LiveEventBase<{
+  status?: string | null;
+  progress?: number | null;
+  eta_seconds?: number | null;
+  estimated_end_at?: number | null;
+  eta_basis?: string | null;
+  eta_confidence?: string | null;
+  started_at?: number | null;
+  updated_at?: number | null;
+  reason_code?: string | null;
+  message?: string | null;
+  active_segment_id?: string | null;
+  active_segment_progress?: number | null;
+  render_group_count?: number | null;
+  completed_render_groups?: number | null;
+  active_render_group_index?: number | null;
+  total_render_weight?: number | null;
+  completed_render_weight?: number | null;
+  active_render_group_weight?: number | null;
+  grouped_progress?: number | null;
+}> {
+  topic: 'jobs.progress';
+  category: 'job' | 'segment';
+  eventKind:
+    | 'job_status'
+    | 'job_progress'
+    | 'job_terminal'
+    | 'segment_started'
+    | 'segment_progress'
+    | 'segment_saved';
+}
+
+export interface QueueLifecycleLiveEvent extends LiveEventBase<{
+  reason?: string | null;
+  changed_fields?: string[] | null;
+  paused?: boolean | null;
+}> {
+  topic: 'queue.lifecycle';
+  category: 'queue';
+  eventKind: 'queue_invalidated' | 'queue_pause_changed';
+}
+
+export interface ChapterInvalidationLiveEvent extends LiveEventBase<{
+  reason?: string | null;
+}> {
+  topic: 'chapter.invalidate';
+  category: 'chapter';
+  eventKind: 'chapter_invalidated';
+}
+
+export interface SegmentsInvalidationLiveEvent extends LiveEventBase<{
+  reason?: string | null;
+}> {
+  topic: 'segments.invalidate';
+  category: 'segment';
+  eventKind: 'segments_invalidated';
+}
+
+export interface VoiceTestLiveEvent extends LiveEventBase<Record<string, unknown>> {
+  topic: 'voice.test';
+  category: 'voice';
+  eventKind: 'voice_test_progress';
+}
+
+export interface UnknownLiveEvent extends LiveEventBase<unknown> {
+  topic: 'system.unknown';
+  category: 'system';
+  eventKind: 'unknown';
+}
+
+export type LiveEvent =
+  | TtsLogLiveEvent
+  | JobProgressLiveEvent
+  | QueueLifecycleLiveEvent
+  | ChapterInvalidationLiveEvent
+  | SegmentsInvalidationLiveEvent
+  | VoiceTestLiveEvent
+  | UnknownLiveEvent;
+```
+
+### Audit Record
+
+Live Output should not depend on `useJobs` or `useQueueSync` side effects to
+discover that a frame exists. The bus/normalizer appends one audit record for
+every normalized frame before any consumer handles it. Consumers then add
+observations to the existing record.
+
+```ts
+export interface LiveEventSubscriberObservation {
+  subscriber: LiveEventSubscriber;
+  observedAt: string;
+  action: 'handled' | 'ignored' | 'recorded' | 'refreshed' | 'errored';
+  detail?: string;
+}
+
+export interface LiveEventRecord<T extends LiveEvent = LiveEvent> {
+  event: T;
+  subscribers: LiveEventSubscriberObservation[];
+}
+```
+
+Rules:
+
+- one websocket frame creates one `LiveEventRecord`
+- `frameId` is the join key between the event and subscriber observations
+- `live-output` reads records from the bus/audit store; it is not a producer of
+  application state
+- unknown or currently unhandled event types still appear in Live Output as
+  `system.unknown`
+- subscriber names must be unique per record and sorted or insertion-stable, but
+  never duplicated
+
 ## Topic Mapping
 
 The normalizer owns the mapping from backend wire payloads to frontend topics.
 
-| Backend `type` | Topic | Category | Primary meaning |
-| --- | --- | --- | --- |
-| `tts_log_line` | `tts.logs` | `log` | Append a human-readable TTS engine log line. |
-| `studio_job_event` with `active_segment_id` | `jobs.progress` | `segment` | Update current segment progress and grouped chapter progress. |
-| `studio_job_event` without `active_segment_id` | `jobs.progress` | `job` | Update job status, overall progress, ETA, or render-group context. |
-| `job_updated` | `jobs.progress` | `job` | Apply a fuller job update payload, often terminal state. |
-| `queue_updated` | `queue.lifecycle` | `queue` | Queue snapshot invalidation or lifecycle change. |
-| `pause_updated` | `queue.lifecycle` | `queue` | Queue pause/resume lifecycle state. |
-| `chapter_updated` | `chapter.invalidate` | `chapter` | Chapter-level invalidation; refresh visible chapter data. |
-| `segments_updated` | `segments.invalidate` | `segment` | Segment list/status invalidation for a chapter. |
-| `segment_progress` | `jobs.progress` | `segment` | Legacy/direct segment progress event. |
-| `test_progress` | `voice.test` | `voice` | Voice test/build progress update. |
-| unknown | `system.unknown` | `system` | Preserve and display for audit; do not mutate app state. |
+| Backend `type` | Topic | Category | Event kind | Primary meaning |
+| --- | --- | --- | --- | --- |
+| `tts_log_line` | `tts.logs` | `log` | `tts_log` | Append a human-readable TTS engine log line. |
+| `studio_job_event` with active status and numeric `active_segment_progress` | `jobs.progress` | `segment` | `segment_progress` | Update current segment progress and grouped chapter progress. |
+| `studio_job_event` with `active_segment_id` but no numeric `active_segment_progress` | `jobs.progress` | `segment` | `segment_started` | Switch active segment/remount segment bar without treating it as a progress tick. |
+| `studio_job_event` with `reason_code: "segment_saved"` or matching saved marker | `jobs.progress` | `segment` | `segment_saved` | Mark the active segment output as saved/complete. |
+| `studio_job_event` with terminal status | `jobs.progress` | `job` | `job_terminal` | Apply terminal job state. |
+| `studio_job_event` without `active_segment_id` | `jobs.progress` | `job` | `job_status` or `job_progress` | Update job status, overall progress, ETA, or render-group context. |
+| `job_updated` | `jobs.progress` | `job` | `job_status`, `job_progress`, or `job_terminal` | Apply a fuller job update payload, often terminal state. |
+| `queue_updated` | `queue.lifecycle` | `queue` | `queue_invalidated` | Queue snapshot invalidation or lifecycle change. |
+| `pause_updated` | `queue.lifecycle` | `queue` | `queue_pause_changed` | Queue pause/resume lifecycle state. |
+| `chapter_updated` | `chapter.invalidate` | `chapter` | `chapter_invalidated` | Chapter-level invalidation; refresh visible chapter data. |
+| `segments_updated` | `segments.invalidate` | `segment` | `segments_invalidated` | Segment list/status invalidation for a chapter. |
+| `segment_progress` | `jobs.progress` | `segment` | `segment_progress` | Legacy/direct segment progress event. |
+| `test_progress` | `voice.test` | `voice` | `voice_test_progress` | Voice test/build progress update. |
+| unknown | `system.unknown` | `system` | `unknown` | Preserve and display for audit; do not mutate app state. |
 
 `queue_updated` is not a progress event. It is an invalidation signal that may
 trigger canonical queue hydration. Progress comes from `studio_job_event`,
@@ -153,6 +305,7 @@ Normalized event:
   "rawType": "tts_log_line",
   "topic": "tts.logs",
   "category": "log",
+  "eventKind": "tts_log",
   "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
   "jobId": "job-8793039f-d2a8-46da-9f0a-c21a9e6ada83",
   "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
@@ -200,6 +353,7 @@ Normalized event:
   "rawType": "studio_job_event",
   "topic": "jobs.progress",
   "category": "segment",
+  "eventKind": "segment_progress",
   "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
   "jobId": "job-8793039f-d2a8-46da-9f0a-c21a9e6ada83",
   "segmentId": "1777057465137731000_5",
@@ -240,6 +394,7 @@ Normalized event:
   "rawType": "queue_updated",
   "topic": "queue.lifecycle",
   "category": "queue",
+  "eventKind": "queue_invalidated",
   "source": "app.db.state_jobs.update_job",
   "jobId": "job-8793039f-d2a8-46da-9f0a-c21a9e6ada83",
   "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
@@ -326,7 +481,6 @@ Subscribes to:
 - `chapter.invalidate`
 - `segments.invalidate`
 - `voice.test`
-- `tts.logs` only for log/debug state
 
 Responsibilities:
 
@@ -339,18 +493,19 @@ Non-responsibilities:
 
 - canonical queue hydration
 - diagnostics panel text rendering
+- TTS engine log storage or display
 
 ### `live-output`
 
-Subscribes to:
+Observes:
 
 - all topics
 
 Responsibilities:
 
-- render an auditable event timeline
+- render the bus-level auditable event timeline
 - preserve receipt order
-- merge subscriber names only for the same `frameId`
+- show subscriber observations attached to the same `frameId`
 - expose copied JSON that includes frame, topic, category, raw type, subscriber,
   and payload details
 
@@ -359,6 +514,10 @@ Non-responsibilities:
 - mutating application state
 - fetching snapshots
 - smoothing progress
+
+`live-output` should not subscribe as a normal domain consumer that can miss
+frames based on hook mount order. It should read the bus/audit store that is
+fed by the normalizer for every received frame.
 
 ## Display Rules
 
@@ -423,9 +582,15 @@ Rules:
 - `progress` is whole-job progress.
 - `grouped_progress` is the grouped chapter render progress when present.
 - `active_segment_progress` is current segment progress only.
+- `segment_started` events set segment identity and render-group context, but do
+  not advance the numeric segment bar unless a numeric
+  `active_segment_progress` is present.
 - `queue_updated` triggers refresh; it does not update the progress bar directly.
 - `job_updated` may carry terminal state and must be merged with the same field
   rules as `studio_job_event`.
+- queue refreshes must not clear newer overlay progress unless a reconnect,
+  terminal, cancellation, or explicit snapshot reconciliation says the overlay
+  is stale.
 
 ### Segment Bar
 
@@ -469,9 +634,13 @@ Rules:
 
 - initial diagnostics load comes from `/api/engines/all/logs`
 - live updates append from `tts.logs`
-- manual refresh replaces or reconciles the buffer with backend logs
+- manual refresh reconciles the buffer with backend logs
 - duplicate live lines should be de-duped by `(job_id, sequence)` when both are
   present, otherwise by `frameId`
+- refresh reconciliation should rebuild from backend text, then preserve newer
+  live records that are not present in the backend response by `(job_id,
+  sequence)`; append-only live records should not disappear just because the log
+  endpoint is slightly behind the websocket stream
 
 ## Ordering And Dedupe
 
@@ -488,13 +657,23 @@ Dedupe authority:
   match.
 - TTS log diagnostics may additionally de-dupe by `(job_id, sequence)` to avoid
   repeated display after manual refresh.
+- Subscriber observations are de-duped by `(frameId, subscriber)`.
+- The audit store must append unknown frames before any consumer filtering, so
+  filtering cannot hide stream-level evidence.
 
 ## Testing Requirements
 
 Normalizer tests must cover:
 
 - `tts_log_line` -> `tts.logs` / `log`
-- `studio_job_event` with `active_segment_id` -> `jobs.progress` / `segment`
+- `studio_job_event` with `active_segment_id` and numeric
+  `active_segment_progress` -> `jobs.progress` / `segment` /
+  `segment_progress`
+- `studio_job_event` with `active_segment_id` and no numeric
+  `active_segment_progress` -> `jobs.progress` / `segment` /
+  `segment_started`
+- terminal `studio_job_event` or `job_updated` -> `jobs.progress` / `job` /
+  `job_terminal`
 - `studio_job_event` without `active_segment_id` -> `jobs.progress` / `job`
 - `queue_updated` -> `queue.lifecycle` / `queue`
 - `chapter_updated` -> `chapter.invalidate` / `chapter`
@@ -508,6 +687,10 @@ Consumer tests must cover:
 - jobs state carries `active_segment_id` and `active_segment_progress`
 - live output preserves distinct frames in receipt order
 - live output merges subscriber names only for the same `frameId`
+- live output shows unknown/unhandled frames even when no domain consumer handles
+  them
+- a `segment_started` frame changes active segment identity without advancing
+  segment progress
 
 Suggested frontend verification:
 

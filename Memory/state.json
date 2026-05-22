@@ -1,17 +1,18 @@
 {
-  "snapshot_version": 100,
-  "updated_at": "2026-05-21T20:13:00Z",
+  "snapshot_version": 101,
+  "updated_at": "2026-05-21T21:05:00Z",
   "branch": "studio2/phase-12",
-  "current_task": "Audit and Remove VariantModel Engine Default Factory",
-  "status": "variant_model_engine_default_factory_removed",
+  "current_task": "Live Event Stream Contract Tightening",
+  "status": "live_event_stream_contract_tightened",
   "last_committed_milestone": {
-    "title": "Audit and Remove VariantModel Engine Default Factory",
+    "title": "Live Event Stream Contract Tightening",
     "commit": "pending",
     "notes": [
-      "Audited VariantModel in voices/models.py and confirmed it is an unused domain model dataclass.",
-      "Replaced default_factory on VariantModel.engine with Optional[str] = None, eliminating the last convenience default that called get_default_profile_engine().",
-      "Confirmed no codebase or test references depend on VariantModel or its default value.",
-      "All 882 backend pytest tests pass cleanly with git diff --check and ruff check fully green."
+      "Created and tightened plans/implementation/live_event_stream_contract.md as the source of truth for the frontend live event stream.",
+      "Added executable TypeScript schemas and normalizer helpers in frontend/src/api/contracts/liveEvents.ts, with the socket bus reusing the shared StudioSocketEnvelope type.",
+      "Defined concrete LiveEvent topics, categories, event kinds, discriminated event shapes, and subscriber observation records.",
+      "Clarified that Live Output observes the bus-level audit store for every frame instead of depending on useJobs/useQueueSync debug side effects.",
+      "Confirmed documentation diff passes git diff --check."
     ]
   },
   "active_constraints": [
@@ -62,7 +63,8 @@
     "The TTS Server synth endpoint now allows synthesis while verification is still pending, but still blocks failed verification and setup errors.",
     "Chapter Editor progress bar key is reverted to the segment-level key (`${job.id}:${active_segment_id}`) of commit 3e44973. This ensures the progress bar remounts per segment and progress/highlighting updates are aligned perfectly on a per-segment basis.",
     "Chapter Editor progress bar now animates smoothly under finalizing status instead of hardcoding to 100% width. A 1500ms terminal job bridging window was added to useChapterStatus to let the green 100% Complete bar render fully before clean unmounting."
-    ,"Global Queue now filters only true segment-scoped overlay jobs; grouped chapter jobs with active_segment_id stay visible so overall chapter progress does not disappear once rendering starts."
+    ,"Global Queue now filters only true segment-scoped overlay jobs; grouped chapter jobs with active_segment_id stay visible so overall chapter progress does not disappear once rendering starts.",
+    "The frontend live event stream contract now defines topics, concrete event kinds, audit records, consumer ownership, diagnostics reconciliation, queue/segment progress absorption rules, and an executable TypeScript schema module before the next implementation pass."
   ],
   "phase_13_guidance": [
     "Phase 13 plan is plans/phases/phase_13_release_documentation_and_distribution.md.",
@@ -74,9 +76,9 @@
     "local_annotations": "codeql-annotations.json, if present, is informational and should not distract from Phase 12 polish unless intentionally used."
   },
   "next_logical_steps": [
+    "Implement the Live Event Stream contract: add a frontend event normalizer/audit store, wire Live Output to bus-level records, wire TTS diagnostics to tts.logs, and route queue/segment updates through topic-specific consumers.",
     "Implement the check_output interface in plugin adapters to improve engine-agnostic output verification.",
     "Complete the generic plugin setup loop in run.sh so plugin install/setup automation is symmetrical.",
-    "Implement Voxtral segment and bake rendering for chapter jobs, then audit the default voice fallback that keeps drifting to Voxtral.",
     "Prepare the voice icon and tagging implementation to improve large-library usability."
   ],
   "verification": {
@@ -85,7 +87,7 @@
     "latest_queue_focus": "2026-05-18: `frontend/src/utils/jobSelection.ts` now treats `active_segment_id` as chapter-render progress rather than segment scope, keeping grouped chapter jobs visible in the main queue while still hiding true segment jobs.",
     "latest_websocket_focus": "2026-05-20: Live synthesis updates now skip duplicate websocket broadcasts on direct plugin progress calls, and registry-handler dispatch unregisters watchdog listeners on exit.",
     "latest_lint_focus": "2026-05-21: ruff check app tests passed.",
-    "latest_diff_check": "2026-05-21: git diff --check passed.",
+    "latest_diff_check": "2026-05-21: git diff --check passed for the live event stream contract tightening.",
     "known_warnings": [
       "Vite chunk-size warning remains on frontend builds.",
       "Some frontend motion tests may emit harmless animation warnings."

@@ -1,9 +1,6 @@
-export interface StudioSocketEnvelope {
-  frameId: number;
-  receivedAt: string;
-  data: any;
-  raw?: string;
-}
+import type { StudioSocketEnvelope } from '@/api/contracts/liveEvents';
+
+export type { StudioSocketEnvelope } from '@/api/contracts/liveEvents';
 
 type StudioSocketMessageListener = (data: any, raw?: string, envelope?: StudioSocketEnvelope) => void;
 type StudioSocketSender = (data: any) => void;
