@@ -263,12 +263,12 @@ The normalizer owns the mapping from backend wire payloads to frontend topics.
 | `studio_job_event` with `reason_code: "segment_saved"` or matching saved marker | `jobs.progress` | `segment` | `segment_saved` | Mark the active segment output as saved/complete. |
 | `studio_job_event` with terminal status | `jobs.progress` | `job` | `job_terminal` | Apply terminal job state. |
 | `studio_job_event` without `active_segment_id` | `jobs.progress` | `job` | `job_status` or `job_progress` | Update job status, overall progress, ETA, or render-group context. |
-| `job_updated` | `jobs.progress` | `job` | `job_status`, `job_progress`, or `job_terminal` | Apply a fuller job update payload, often terminal state. |
+| `job_updated` | `jobs.progress` | `job` | `job_status`, `job_progress`, or `job_terminal` | Apply a fuller job update payload, often terminal state. The normalizer flattens nested `updates` payloads before mapping. |
 | `queue_updated` | `queue.lifecycle` | `queue` | `queue_invalidated` | Queue snapshot invalidation or lifecycle change. |
 | `pause_updated` | `queue.lifecycle` | `queue` | `queue_pause_changed` | Queue pause/resume lifecycle state. |
 | `chapter_updated` | `chapter.invalidate` | `chapter` | `chapter_invalidated` | Chapter-level invalidation; refresh visible chapter data. |
 | `segments_updated` | `segments.invalidate` | `segment` | `segments_invalidated` | Segment list/status invalidation for a chapter. |
-| `segment_progress` | `jobs.progress` | `segment` | `segment_progress` | Legacy/direct segment progress event. |
+| `segment_progress` | `jobs.progress` | `segment` | `segment_progress` | Legacy/direct segment progress event. The normalizer preserves `segment_id` as active segment identity. |
 | `test_progress` | `voice.test` | `voice` | `voice_test_progress` | Voice test/build progress update. |
 | unknown | `system.unknown` | `system` | `unknown` | Preserve and display for audit; do not mutate app state. |
 

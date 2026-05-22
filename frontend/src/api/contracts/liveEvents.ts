@@ -196,6 +196,18 @@ const booleanOrNull = (value: unknown): boolean | null | undefined => {
 const rawTypeFor = (data: Record<string, unknown>) =>
   typeof data.type === 'string' ? data.type : 'unknown';
 
+const normalizeSourceData = (data: Record<string, unknown>) => {
+  if (data.type === 'job_updated' && isRecord(data.updates)) {
+    return { ...data, ...data.updates };
+  }
+  return data;
+};
+
+const segmentIdFromData = (data: Record<string, unknown>) =>
+  data.active_segment_id !== undefined
+    ? (data.active_segment_id as string | null)
+    : (data.segment_id as string | null | undefined);
+
 const baseEvent = <TPayload>(
   envelope: StudioSocketEnvelope,
   data: Record<string, unknown>,
@@ -211,7 +223,7 @@ const baseEvent = <TPayload>(
   jobId: stringOrNull(data.job_id),
   projectId: stringOrNull(data.project_id),
   chapterId: stringOrNull(data.chapter_id),
-  segmentId: stringOrNull(data.active_segment_id),
+  segmentId: segmentIdFromData(data),
   payload: fields.payload,
   raw: envelope.raw,
 });
@@ -235,11 +247,12 @@ const normalizeJobProgress = (
   envelope: StudioSocketEnvelope,
   data: Record<string, unknown>,
 ): JobProgressLiveEvent => {
-  const status = stringOrNull(data.status);
-  const segmentId = stringOrNull(data.active_segment_id);
-  const segmentProgress = numberOrNull(data.active_segment_progress);
-  const progress = numberOrNull(data.progress);
-  const reasonCode = stringOrNull(data.reason_code);
+  const normalizedData = normalizeSourceData(data);
+  const status = stringOrNull(normalizedData.status);
+  const segmentId = segmentIdFromData(normalizedData);
+  const segmentProgress = numberOrNull(normalizedData.active_segment_progress);
+  const progress = numberOrNull(normalizedData.progress);
+  const reasonCode = stringOrNull(normalizedData.reason_code);
   const isTerminal = typeof status === 'string' && TERMINAL_STATUSES.has(status);
   const hasSegment = typeof segmentId === 'string' && segmentId.length > 0;
   const hasSegmentProgress = typeof segmentProgress === 'number';
@@ -262,30 +275,30 @@ const normalizeJobProgress = (
     eventKind = 'job_progress';
   }
 
-  return baseEvent(envelope, data, {
+  return baseEvent(envelope, normalizedData, {
     topic: 'jobs.progress',
     category,
     eventKind,
     payload: {
       status,
       progress,
-      eta_seconds: numberOrNull(data.eta_seconds),
-      estimated_end_at: numberOrNull(data.estimated_end_at),
-      eta_basis: stringOrNull(data.eta_basis),
-      eta_confidence: stringOrNull(data.eta_confidence),
-      started_at: numberOrNull(data.started_at),
-      updated_at: numberOrNull(data.updated_at),
+      eta_seconds: numberOrNull(normalizedData.eta_seconds),
+      estimated_end_at: numberOrNull(normalizedData.estimated_end_at),
+      eta_basis: stringOrNull(normalizedData.eta_basis),
+      eta_confidence: stringOrNull(normalizedData.eta_confidence),
+      started_at: numberOrNull(normalizedData.started_at),
+      updated_at: numberOrNull(normalizedData.updated_at),
       reason_code: reasonCode,
-      message: stringOrNull(data.message),
+      message: stringOrNull(normalizedData.message),
       active_segment_id: segmentId,
       active_segment_progress: segmentProgress,
-      render_group_count: numberOrNull(data.render_group_count),
-      completed_render_groups: numberOrNull(data.completed_render_groups),
-      active_render_group_index: numberOrNull(data.active_render_group_index),
-      total_render_weight: numberOrNull(data.total_render_weight),
-      completed_render_weight: numberOrNull(data.completed_render_weight),
-      active_render_group_weight: numberOrNull(data.active_render_group_weight),
-      grouped_progress: numberOrNull(data.grouped_progress),
+      render_group_count: numberOrNull(normalizedData.render_group_count),
+      completed_render_groups: numberOrNull(normalizedData.completed_render_groups),
+      active_render_group_index: numberOrNull(normalizedData.active_render_group_index),
+      total_render_weight: numberOrNull(normalizedData.total_render_weight),
+      completed_render_weight: numberOrNull(normalizedData.completed_render_weight),
+      active_render_group_weight: numberOrNull(normalizedData.active_render_group_weight),
+      grouped_progress: numberOrNull(normalizedData.grouped_progress),
     },
   }) as JobProgressLiveEvent;
 };

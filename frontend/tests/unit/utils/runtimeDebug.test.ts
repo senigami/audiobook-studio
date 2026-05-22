@@ -145,6 +145,65 @@ describe('shouldEnableStudioDebugLogging', () => {
       }),
     ]);
   });
+
+  it('flattens nested job_updated updates into the recorded timeline entry', () => {
+    recordWebsocketDebugMessage('useJobs', {
+      type: 'job_updated',
+      job_id: 'job-1',
+      source: 'test-source',
+      updates: {
+        status: 'running',
+        progress: 0.4,
+        active_segment_id: 'seg-1',
+        active_segment_progress: 0.4,
+        active_render_group_index: 1,
+        completed_render_groups: 2,
+        render_group_count: 5,
+        completed_render_weight: 20,
+        total_render_weight: 50,
+        active_render_group_weight: 10,
+        grouped_progress: 0.4,
+      },
+    });
+
+    expect((window as any).__ttsCommunicationTimeline).toEqual([
+      expect.objectContaining({
+        kind: 'socket',
+        type: 'job_updated',
+        status: 'running',
+        progress: 0.4,
+        active_segment_id: 'seg-1',
+        active_segment_progress: 0.4,
+        active_render_group_index: 1,
+        completed_render_groups: 2,
+        render_group_count: 5,
+        completed_render_weight: 20,
+        total_render_weight: 50,
+        active_render_group_weight: 10,
+        grouped_progress: 0.4,
+      }),
+    ]);
+  });
+
+  it('records legacy segment_progress events with the explicit segment id', () => {
+    recordWebsocketDebugMessage('useJobs', {
+      type: 'segment_progress',
+      job_id: 'job-1',
+      chapter_id: 'chap-1',
+      segment_id: 'seg-legacy',
+      progress: 0.75,
+    });
+
+    expect((window as any).__ttsCommunicationTimeline).toEqual([
+      expect.objectContaining({
+        type: 'segment_progress',
+        job_id: 'job-1',
+        chapter_id: 'chap-1',
+        active_segment_id: 'seg-legacy',
+        progress: 0.75,
+      }),
+    ]);
+  });
 });
 
 describe('wsAudienceForType', () => {

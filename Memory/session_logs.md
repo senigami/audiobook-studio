@@ -1303,6 +1303,7 @@
 
 - Created and tightened `plans/implementation/live_event_stream_contract.md` as the source of truth for the frontend live event stream.
 - Added executable TypeScript schemas and normalizer helpers in `frontend/src/api/contracts/liveEvents.ts`, with the socket bus reusing the shared `StudioSocketEnvelope` type.
+- Tightened runtime compatibility so nested `job_updated.updates` payloads are flattened before normalization and legacy `segment_progress.segment_id` is preserved as active segment identity in the debug stream.
 - Defined concrete live event topics, categories, event kinds, discriminated event shapes, and subscriber observation records.
 - Clarified that Live Output must read bus-level audit records for every received frame, including unknown/unhandled events, rather than depending on `useJobs` or `useQueueSync` debug side effects.
 - Removed TTS log ownership from `jobs-state`; `tts-diagnostics` owns `tts.logs`, `queue-sync` owns queue progress/lifecycle absorption, and `jobs-state` owns job/chapter/segment/voice state updates.

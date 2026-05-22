@@ -10,6 +10,7 @@
     "notes": [
       "Created and tightened plans/implementation/live_event_stream_contract.md as the source of truth for the frontend live event stream.",
       "Added executable TypeScript schemas and normalizer helpers in frontend/src/api/contracts/liveEvents.ts, with the socket bus reusing the shared StudioSocketEnvelope type.",
+      "Tightened runtime compatibility so nested job_updated.updates payloads flatten before normalization and legacy segment_progress.segment_id remains visible in the debug stream.",
       "Defined concrete LiveEvent topics, categories, event kinds, discriminated event shapes, and subscriber observation records.",
       "Clarified that Live Output observes the bus-level audit store for every frame instead of depending on useJobs/useQueueSync debug side effects.",
       "Confirmed documentation diff passes git diff --check."

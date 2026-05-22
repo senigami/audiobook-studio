@@ -39,12 +39,16 @@ export type WebsocketDebugSnapshot = {
   receivedAt: string;
   raw: string;
   type?: string;
+  topic?: string;
+  category?: string;
+  eventKind?: string;
   source?: string;
   scope?: string;
   classification?: string;
   job_id?: string;
   project_id?: string;
   chapter_id?: string;
+  segment_id?: string;
   status?: string;
   progress?: number;
   reason_code?: string;
@@ -95,12 +99,16 @@ export type TtsCommunicationTimelineEntry = {
   receivedAt: string;
   raw: string;
   type?: string;
+  topic?: string;
+  category?: string;
+  eventKind?: string;
   source?: string;
   scope?: string;
   classification?: string;
   job_id?: string;
   project_id?: string;
   chapter_id?: string;
+  segment_id?: string;
   status?: string;
   progress?: number;
   reason_code?: string;
@@ -166,9 +174,19 @@ const appendTimelineEntry = (listener: string, payload: unknown, raw: string, en
   if (!payload || typeof payload !== 'object' || typeof window === 'undefined') return;
 
   const data = payload as Record<string, any>;
-  const updates = data.updates && typeof data.updates === 'object' ? data.updates as Record<string, any> : {};
+  const normalizedData = data.type === 'job_updated' && data.updates && typeof data.updates === 'object'
+    ? { ...data, ...data.updates }
+    : data;
+  const updates = normalizedData.updates && typeof normalizedData.updates === 'object' ? normalizedData.updates as Record<string, any> : {};
   const receivedAt = envelope?.receivedAt ?? new Date().toISOString();
-  const type = typeof data.type === 'string' ? data.type : undefined;
+  const type = typeof normalizedData.type === 'string' ? normalizedData.type : undefined;
+  const segmentId = normalizedData.active_segment_id !== undefined
+    ? normalizedData.active_segment_id
+    : normalizedData.segment_id;
+
+  if (segmentId !== undefined && normalizedData.active_segment_id === undefined) {
+    normalizedData.active_segment_id = segmentId;
+  }
 
   const entry: TtsCommunicationTimelineEntry = {
     kind: type === 'tts_log_line' ? 'tts_log' : 'socket',
@@ -183,19 +201,23 @@ const appendTimelineEntry = (listener: string, payload: unknown, raw: string, en
   }
 
   if (type !== undefined) entry.type = type;
-  if (data.source !== undefined) entry.source = data.source;
-  if (data.scope !== undefined) entry.scope = data.scope;
-  if (data.classification !== undefined) entry.classification = data.classification;
-  if (data.job_id !== undefined) entry.job_id = data.job_id;
-  if (data.project_id !== undefined) entry.project_id = data.project_id;
-  if (data.chapter_id !== undefined) entry.chapter_id = data.chapter_id;
-  if (data.status !== undefined) entry.status = data.status;
-  if (data.reason_code !== undefined) entry.reason_code = data.reason_code;
-  if (data.message !== undefined) entry.message = data.message;
-  if (typeof data.progress === 'number') entry.progress = data.progress;
-  if (data.line !== undefined) entry.line = data.line;
-  if (data.marker !== undefined) entry.marker = data.marker;
-  if (typeof data.sequence === 'number') entry.sequence = data.sequence;
+  if (normalizedData.source !== undefined) entry.source = normalizedData.source;
+  if (normalizedData.scope !== undefined) entry.scope = normalizedData.scope;
+  if (normalizedData.classification !== undefined) entry.classification = normalizedData.classification;
+  if (normalizedData.job_id !== undefined) entry.job_id = normalizedData.job_id;
+  if (normalizedData.project_id !== undefined) entry.project_id = normalizedData.project_id;
+  if (normalizedData.chapter_id !== undefined) entry.chapter_id = normalizedData.chapter_id;
+  if (segmentId !== undefined) {
+    entry.segment_id = segmentId;
+    entry.active_segment_id = segmentId;
+  }
+  if (normalizedData.status !== undefined) entry.status = normalizedData.status;
+  if (normalizedData.reason_code !== undefined) entry.reason_code = normalizedData.reason_code;
+  if (normalizedData.message !== undefined) entry.message = normalizedData.message;
+  if (typeof normalizedData.progress === 'number') entry.progress = normalizedData.progress;
+  if (normalizedData.line !== undefined) entry.line = normalizedData.line;
+  if (normalizedData.marker !== undefined) entry.marker = normalizedData.marker;
+  if (typeof normalizedData.sequence === 'number') entry.sequence = normalizedData.sequence;
 
   const summaryFields = [
     'active_segment_id',
@@ -210,7 +232,7 @@ const appendTimelineEntry = (listener: string, payload: unknown, raw: string, en
     'progress',
   ];
   for (const key of summaryFields) {
-    const value = pickValue(data, updates, key);
+    const value = pickValue(normalizedData, updates, key);
     if (value !== undefined) {
       (entry as Record<string, any>)[key] = value;
     }
