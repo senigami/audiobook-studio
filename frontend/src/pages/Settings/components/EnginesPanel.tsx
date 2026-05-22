@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { RefreshCw, FileText, Loader2, Upload } from 'lucide-react';
 import type { TtsEngine } from '@/types';
 import { api } from '@/api';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 import { EngineCard } from '@/pages/Settings/components/EngineCard';
+import { useLiveTtsLogLines } from '@/hooks/useLiveTtsLogLines';
 
 interface EnginesPanelProps {
   onShowNotification?: (message: string) => void;
@@ -22,6 +23,8 @@ export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, 
   const [logs, setLogs] = useState<string>('');
   const [fetchingLogs, setFetchingLogs] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const logsEndRef = useRef<HTMLDivElement | null>(null);
+  const { liveLines, markRefreshStart, resetCursor: resetLiveCursor } = useLiveTtsLogLines(showLogs);
 
   const loadEngines = useCallback(async () => {
     try {
@@ -95,12 +98,15 @@ export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, 
   };
 
   const handleFetchLogs = async () => {
+    const refreshStartedAfterFrameId = markRefreshStart();
     setFetchingLogs(true);
     setShowLogs(true);
     try {
       // The backend watchdog buffer captures all TTS server output
       const res = await api.fetchEngineLogs('all');
       setLogs(res.logs || '');
+      // Reconcile: the backend text is fresh, but preserve live frames that arrived during this fetch.
+      resetLiveCursor({ preserveAfterFrameId: refreshStartedAfterFrameId });
       if (!res.logs && res.message) {
         onShowNotification?.(res.message);
       }
@@ -110,6 +116,18 @@ export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, 
       setFetchingLogs(false);
     }
   };
+
+  const combinedLogs = useMemo(() => {
+    if (liveLines.length === 0) return logs;
+    const liveText = liveLines.map(entry => entry.line).join('\n');
+    if (!logs) return liveText;
+    return `${logs.endsWith('\n') ? logs : `${logs}\n`}${liveText}`;
+  }, [logs, liveLines]);
+
+  useEffect(() => {
+    if (!showLogs) return;
+    logsEndRef.current?.scrollIntoView({ block: 'end' });
+  }, [combinedLogs, showLogs]);
 
   if (loading && engines.length === 0) {
     return (
@@ -165,12 +183,12 @@ export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, 
         <button
           type="button"
           className="btn-glass"
-          disabled={fetchingLogs}
-          onClick={handleFetchLogs}
+          disabled={fetchingLogs && !showLogs}
+          onClick={showLogs ? () => setShowLogs(false) : handleFetchLogs}
           style={{ padding: '0.65rem 0.9rem', borderRadius: '10px', border: '1px solid var(--border)', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem' }}
         >
-          {fetchingLogs ? <Loader2 size={14} className="spin" /> : <FileText size={14} />}
-          {showLogs ? 'Refresh Logs' : 'View Diagnostics'}
+          {fetchingLogs && !showLogs ? <Loader2 size={14} className="spin" /> : <FileText size={14} />}
+          {showLogs ? 'Close Diagnostics' : 'View Diagnostics'}
         </button>
       </div>
 
@@ -183,12 +201,6 @@ export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, 
                 TTS Server Diagnostics
               </span>
             </div>
-            <button
-              onClick={() => setShowLogs(false)}
-              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '0.7rem', cursor: 'pointer', fontWeight: 700 }}
-            >
-              Close Diagnostics
-            </button>
           </div>
           <div
             style={{
@@ -206,11 +218,12 @@ export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, 
               boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)'
             }}
           >
-            {fetchingLogs && !logs ? (
+            {fetchingLogs && !combinedLogs ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#666' }}>
                 <Loader2 size={14} className="spin" /> Streaming logs...
               </div>
-            ) : logs || 'No diagnostics captured yet.'}
+            ) : combinedLogs || 'No diagnostics captured yet.'}
+            <div ref={logsEndRef} aria-hidden="true" />
           </div>
         </div>
       )}

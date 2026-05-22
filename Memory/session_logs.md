@@ -1318,3 +1318,12 @@
 - Rewired `LiveOutputTab` away from the legacy `runtimeDebug` window timeline and onto the audit store via `useSyncExternalStore`, with normalized domain columns for topic, category, event kind, subscribers, job/chapter/segment ids, progress, reason, source, and message.
 - Kept `runtimeDebug` compatibility intact for existing tests and debug globals, but it is no longer the authoritative Live Output source.
 - Verified focused frontend event-stream tests (66 passed), full frontend Vitest (555 passed, 5 skipped), frontend build, frontend lint (7 existing warnings), and `git diff --check`.
+
+# 2026-05-21 - TTS Diagnostics Wired to Live Logs
+
+- Added `frontend/src/hooks/useLiveTtsLogLines.ts` to subscribe to `liveEventAuditStore`, consume only `tts.logs` events while diagnostics are open, de-dupe by `(jobId, sequence)` when available, and record `tts-diagnostics` subscriber observations.
+- Updated Settings -> Engines diagnostics to load historical logs once with `View Diagnostics`, then append live `tts.logs` frames from the audit store without needing `Refresh Logs`.
+- Removed the open-state `Refresh Logs` button so the diagnostics panel now communicates the live-update behavior directly.
+- Added reconciliation for log frames that arrive while the initial diagnostics history fetch is in flight, preserving those live lines even when the REST response omits them.
+- Added auto-scroll so the diagnostics viewport stays pinned to the newest line as live logs arrive.
+- Verified focused diagnostics/event-stream tests (27 passed), full frontend Vitest (560 passed, 5 skipped), frontend build, frontend lint (7 existing warnings), and `git diff --check`.

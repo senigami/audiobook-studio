@@ -1,19 +1,20 @@
 {
-  "snapshot_version": 102,
-  "updated_at": "2026-05-21T21:58:00Z",
+  "snapshot_version": 103,
+  "updated_at": "2026-05-21T22:08:00Z",
   "branch": "studio2/phase-12",
-  "current_task": "Live Event Stream Audit Store Wiring",
-  "status": "live_event_audit_store_verified",
+  "current_task": "TTS Diagnostics Live Event Wiring",
+  "status": "tts_diagnostics_live_logs_verified",
   "last_committed_milestone": {
-    "title": "Live Event Stream Audit Store Wiring",
+    "title": "TTS Diagnostics Live Event Wiring",
     "commit": "pending",
     "notes": [
-      "Added frontend/src/store/liveEventAuditStore.ts so every StudioSocketEnvelope is normalized into exactly one LiveEventRecord before hook-level filtering.",
-      "Wired studioSocketBus.publishStudioSocketMessage to record audit events before fanning out to useJobs/useQueueSync subscribers.",
-      "Wired useJobs and useQueueSync to attach de-duped jobs-state and queue-sync subscriber observations by frameId.",
-      "Rewired LiveOutputTab to use useSyncExternalStore against the audit store and render normalized Topic, Category, Event, Subscribers, Job, Chapter, Segment, Job %, Segment %, Group, Reason, Source, and Message columns.",
-      "Kept runtimeDebug compatibility intact, but Live Output no longer depends on the legacy window timeline or timing-based row merge.",
-      "Verified focused frontend event-stream tests, full frontend Vitest suite, frontend build, frontend lint, and git diff --check."
+      "Added frontend/src/hooks/useLiveTtsLogLines.ts to subscribe to liveEventAuditStore and consume only tts.logs events while diagnostics are open.",
+      "Wired EnginesPanel diagnostics output to merge the initial API-fetched historical log buffer with live tts.logs lines from the audit store.",
+      "Removed the open-state Refresh Logs UX; View Diagnostics loads history once and the panel then live-updates from the event stream.",
+      "Added reconciliation so tts.logs frames that arrive while the initial diagnostics history fetch is in flight are preserved even if the REST response omits them.",
+      "Added auto-scroll so the diagnostics log stays pinned to the bottom as new live lines append.",
+      "Recorded tts-diagnostics subscriber observations on consumed tts.logs frames.",
+      "Verified focused diagnostics/event-stream tests, full frontend Vitest suite, frontend build, frontend lint, and git diff --check."
     ]
   },
   "active_constraints": [
@@ -66,7 +67,9 @@
     "Chapter Editor progress bar now animates smoothly under finalizing status instead of hardcoding to 100% width. A 1500ms terminal job bridging window was added to useChapterStatus to let the green 100% Complete bar render fully before clean unmounting."
     ,"Global Queue now filters only true segment-scoped overlay jobs; grouped chapter jobs with active_segment_id stay visible so overall chapter progress does not disappear once rendering starts.",
     "The frontend live event stream contract now defines topics, concrete event kinds, audit records, consumer ownership, diagnostics reconciliation, queue/segment progress absorption rules, and an executable TypeScript schema module before the next implementation pass.",
-    "Live Output now reads from the bus-level liveEventAuditStore instead of the legacy runtimeDebug timeline. Every websocket frame receives one normalized audit record, and useJobs/useQueueSync attach unique subscriber observations by frameId."
+    "Live Output now reads from the bus-level liveEventAuditStore instead of the legacy runtimeDebug timeline. Every websocket frame receives one normalized audit record, and useJobs/useQueueSync attach unique subscriber observations by frameId.",
+    "Settings -> Engines diagnostics now loads historical logs once via View Diagnostics, then appends live tts.logs frames from liveEventAuditStore without requiring Refresh Logs.",
+    "The diagnostics log viewport auto-scrolls to the bottom so new live lines remain visible without manual scrolling."
   ],
   "phase_13_guidance": [
     "Phase 13 plan is plans/phases/phase_13_release_documentation_and_distribution.md.",
@@ -78,7 +81,6 @@
     "local_annotations": "codeql-annotations.json, if present, is informational and should not distract from Phase 12 polish unless intentionally used."
   },
   "next_logical_steps": [
-    "Wire TTS Engine log diagnostics to the live event stream so tts.logs append live without requiring Refresh Logs.",
     "Tune queue and segment progress consumers against the normalized jobs.progress and queue.lifecycle topics, preserving the existing queue overlay behavior while making the topic ownership explicit.",
     "Retire or narrow the legacy runtimeDebug timeline once no user-facing surface depends on __ttsCommunicationTimeline / __websocketRecentMessages.",
     "Implement the check_output interface in plugin adapters to improve engine-agnostic output verification.",
@@ -92,7 +94,8 @@
     "latest_websocket_focus": "2026-05-20: Live synthesis updates now skip duplicate websocket broadcasts on direct plugin progress calls, and registry-handler dispatch unregisters watchdog listeners on exit.",
     "latest_lint_focus": "2026-05-21: ruff check app tests passed.",
     "latest_frontend_event_stream_focus": "2026-05-21: Live Output now reads from liveEventAuditStore; focused event-stream Vitest suite passed (66 tests), full frontend Vitest passed (555 passed, 5 skipped), frontend build passed, frontend lint passed with 7 existing warnings, and git diff --check passed.",
-    "latest_diff_check": "2026-05-21: git diff --check passed for the live event audit store wiring.",
+        "latest_frontend_diagnostics_focus": "2026-05-21: Settings engine diagnostics now appends live tts.logs from liveEventAuditStore after the initial View Diagnostics history fetch and auto-scrolls to the newest line; focused diagnostics/event-stream tests passed (27 tests), full frontend Vitest passed (560 passed, 5 skipped), frontend build passed, frontend lint passed with 7 existing warnings, and git diff --check passed.",
+    "latest_diff_check": "2026-05-21: git diff --check passed for TTS diagnostics live log wiring.",
     "known_warnings": [
       "Vite chunk-size warning remains on frontend builds.",
       "Some frontend motion tests may emit harmless animation warnings."

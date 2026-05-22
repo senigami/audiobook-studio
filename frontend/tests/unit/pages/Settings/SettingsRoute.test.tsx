@@ -1,8 +1,16 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '@/api';
 import { SettingsRoute } from '@/pages/Settings/SettingsRoute';
+import {
+  publishStudioSocketMessage,
+  resetStudioSocketBusForTests,
+} from '@/store/studioSocketBus';
+import {
+  getLiveEventAuditSnapshot,
+  resetLiveEventAuditForTests,
+} from '@/store/liveEventAuditStore';
 
 vi.mock('@/api', () => ({
   api: {
@@ -136,6 +144,13 @@ const defaultProps = {
 describe('SettingsRoute', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetStudioSocketBusForTests();
+    resetLiveEventAuditForTests();
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: scrollIntoView,
+    });
     global.fetch = vi.fn((input: RequestInfo | URL) => {
       const url = String(input);
       if (url === '/settings') {
@@ -457,5 +472,201 @@ describe('SettingsRoute', () => {
         'Log streaming is not available yet. Check the logs/ directory in your Studio root.'
       );
     });
+  });
+
+  it('appends incoming tts.logs lines to the diagnostics panel without pressing Refresh Logs', async () => {
+    vi.mocked(api.fetchEngineLogs).mockResolvedValue({
+      ok: true,
+      logs: '[boot] historical line\n',
+    } as any);
+
+    render(
+      <MemoryRouter initialEntries={['/settings/engines']}>
+        <SettingsRoute {...defaultProps} />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('XTTS Local')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /View Diagnostics/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/historical line/)).toBeInTheDocument();
+    });
+
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'tts_log_line',
+        job_id: 'job-1',
+        sequence: 1,
+        line: '[live] synthesis started',
+        marker: 'raw',
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/\[live\] synthesis started/)).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/historical line/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Refresh Logs/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Close Diagnostics/i }));
+    expect(screen.queryByText(/historical line/)).not.toBeInTheDocument();
+    expect(HTMLElement.prototype.scrollIntoView).toHaveBeenCalled();
+  });
+
+  it('ignores non-tts events for the diagnostics panel', async () => {
+    vi.mocked(api.fetchEngineLogs).mockResolvedValue({
+      ok: true,
+      logs: '[boot] historical line\n',
+    } as any);
+
+    render(
+      <MemoryRouter initialEntries={['/settings/engines']}>
+        <SettingsRoute {...defaultProps} />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('XTTS Local')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /View Diagnostics/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/historical line/)).toBeInTheDocument();
+    });
+
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_job_event',
+        job_id: 'job-1',
+        status: 'running',
+        message: 'should-not-appear-in-diagnostics',
+      });
+      publishStudioSocketMessage({
+        type: 'queue_updated',
+        reason: 'should-not-appear-either',
+      });
+    });
+
+    expect(screen.queryByText(/should-not-appear-in-diagnostics/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/should-not-appear-either/)).not.toBeInTheDocument();
+  });
+
+  it('records a tts-diagnostics subscriber observation for consumed tts.logs frames', async () => {
+    vi.mocked(api.fetchEngineLogs).mockResolvedValue({
+      ok: true,
+      logs: '',
+    } as any);
+
+    render(
+      <MemoryRouter initialEntries={['/settings/engines']}>
+        <SettingsRoute {...defaultProps} />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('XTTS Local')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /View Diagnostics/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/No diagnostics captured yet|TTS Server Diagnostics/)).toBeInTheDocument();
+    });
+
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'tts_log_line',
+        job_id: 'job-1',
+        sequence: 1,
+        line: '[live] observed',
+        marker: 'raw',
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/\[live\] observed/)).toBeInTheDocument();
+    });
+
+    const records = getLiveEventAuditSnapshot();
+    const ttsRecord = records.find(r => r.event.topic === 'tts.logs');
+    expect(ttsRecord).toBeDefined();
+    const subscribers = ttsRecord!.subscribers.map(s => s.subscriber);
+    expect(subscribers).toContain('tts-diagnostics');
+  });
+
+  it('preserves live lines that arrive while the initial diagnostics history fetch is in flight', async () => {
+    let resolveFirstFetch: (value: any) => void = () => {};
+    vi.mocked(api.fetchEngineLogs)
+      .mockReturnValueOnce(new Promise(resolve => { resolveFirstFetch = resolve; }) as any);
+
+    render(
+      <MemoryRouter initialEntries={['/settings/engines']}>
+        <SettingsRoute {...defaultProps} />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('XTTS Local')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /View Diagnostics/i }));
+
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'tts_log_line',
+        job_id: 'job-refresh',
+        sequence: 22,
+        line: '[live] arrived during refresh',
+        marker: 'raw',
+      });
+    });
+
+    await act(async () => {
+      resolveFirstFetch({ ok: true, logs: '[boot] historical without live line\n' });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/historical without live line/)).toBeInTheDocument();
+      expect(screen.getByText(/\[live\] arrived during refresh/)).toBeInTheDocument();
+    });
+
+    expect(screen.queryByRole('button', { name: /Refresh Logs/i })).not.toBeInTheDocument();
+  });
+
+  it('dedupes consecutive live frames with the same (job_id, sequence)', async () => {
+    vi.mocked(api.fetchEngineLogs).mockResolvedValue({
+      ok: true,
+      logs: '',
+    } as any);
+
+    render(
+      <MemoryRouter initialEntries={['/settings/engines']}>
+        <SettingsRoute {...defaultProps} />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('XTTS Local')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /View Diagnostics/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/No diagnostics captured yet|TTS Server Diagnostics/)).toBeInTheDocument();
+    });
+
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'tts_log_line',
+        job_id: 'job-1',
+        sequence: 7,
+        line: '[live] unique-line',
+        marker: 'raw',
+      });
+      publishStudioSocketMessage({
+        type: 'tts_log_line',
+        job_id: 'job-1',
+        sequence: 7,
+        line: '[live] unique-line',
+        marker: 'raw',
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/\[live\] unique-line/)).toBeInTheDocument();
+    });
+
+    const allMatches = screen.getAllByText(/\[live\] unique-line/);
+    expect(allMatches).toHaveLength(1);
   });
 });
