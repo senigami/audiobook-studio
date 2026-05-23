@@ -817,7 +817,9 @@ def test_build_core_topic_helpers():
         "status": "running",
         "progress": 0.5,
         "startedAt": 100.0,
-        "message": "building"
+        "message": "building",
+        "name": "VoiceA",
+        "started_at": 100.0  # Legacy compatibility
     }
 
     # 10. system.events
@@ -998,3 +1000,39 @@ def test_broadcast_pause_state_sends_canonical_envelope(monkeypatch):
         "changed_fields": ["paused"]  # Legacy compatibility
     }
     assert event["source"].endswith("test_broadcast_pause_state_sends_canonical_envelope")
+
+
+def test_broadcast_test_progress_sends_canonical_envelope(monkeypatch):
+    from app.api.ws import broadcast_test_progress
+
+    messages = []
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    broadcast_test_progress(name="VoiceB", progress=0.75, started_at=123.45)
+
+    assert len(messages) == 1
+    event = messages[0]
+    assert event["type"] == "studio_event"
+    assert event["version"] == 1
+    assert event["topic"] == "voice.test"
+    assert event["eventKind"] == "voice_test_progress"
+    assert event["ids"] == {
+        "projectId": None,
+        "chapterId": None,
+        "jobId": None,
+        "segmentId": None
+    }
+    assert event["payload"] == {
+        "voiceName": "VoiceB",
+        "status": "running",
+        "progress": 0.75,
+        "startedAt": 123.45,
+        "message": None,
+        "name": "VoiceB",
+        "started_at": 123.45  # Legacy compatibility
+    }
+    assert event["source"].endswith("test_broadcast_test_progress_sends_canonical_envelope")

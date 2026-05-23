@@ -12,6 +12,7 @@ from .contracts.events import (
     build_tts_log_line_event,
     build_queue_item_invalidated_event,
     build_queue_paused_event,
+    build_voice_test_progress_event,
 )
 from ..utils.render_trace import trace
 
@@ -323,13 +324,14 @@ def broadcast_segment_progress(job_id: str, chapter_id: str | None, segment_id: 
     })
 
 def broadcast_test_progress(name: str, progress: float, started_at: float = None, source: str | None = None):
-    manager.broadcast({
-        "type": "test_progress",
-        "name": name,
-        "progress": progress,
-        "started_at": started_at,
-        "source": source or _resolve_source("app.api.ws.broadcast_test_progress"),
-    })
+    event = build_voice_test_progress_event(
+        voice_name=name,
+        status="running",
+        progress=progress,
+        started_at=started_at if started_at is not None else time.time(),
+        source=source or _resolve_source("app.api.ws.broadcast_test_progress"),
+    )
+    broadcast_studio_event(event)
 
 
 def broadcast_studio_event(event: dict) -> None:

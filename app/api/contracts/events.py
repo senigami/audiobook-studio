@@ -482,6 +482,7 @@ def build_voice_test_progress_event(
     progress: float,
     started_at: float,
     message: str | None = None,
+    source: str | None = None,
 ) -> dict:
     """Build a voice.test topic envelope."""
     payload = {
@@ -489,13 +490,15 @@ def build_voice_test_progress_event(
         "status": status,
         "progress": round(float(progress), 2),
         "startedAt": float(started_at),
-        "message": message
+        "message": message,
+        "name": voice_name,
+        "started_at": float(started_at),  # Legacy compatibility
     }
     return build_studio_event(
         topic="voice.test",
         event_kind="voice_test_progress",
         payload=payload,
-        source=_resolve_source_path()
+        source=source or _resolve_source_path()
     )
 
 
