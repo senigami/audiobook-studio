@@ -1,7 +1,7 @@
 import type { LiveEvent } from '@/api/contracts/liveEvents';
 
 export interface LiveEventConsumer {
-  id: 'main-queue' | 'chapter-state' | 'segment-state' | 'tts-diagnostics' | 'voice-test-state' | string;
+  id: 'main-queue' | 'chapter-state' | 'segment-state' | 'project-state' | 'tts-diagnostics' | 'voice-test-state' | string;
   label: string;
   listensTo: (event: LiveEvent) => boolean;
 }
@@ -34,6 +34,11 @@ export const LIVE_EVENT_CONSUMERS: LiveEventConsumer[] = [
     id: 'voice-test-state',
     label: 'voice-test-state',
     listensTo: (event: LiveEvent) => event.topic === 'voice.test',
+  },
+  {
+    id: 'project-state',
+    label: 'project-state',
+    listensTo: (event: LiveEvent) => event.topic === 'projects.lifecycle',
   },
 ];
 

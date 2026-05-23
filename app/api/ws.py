@@ -13,6 +13,10 @@ from .contracts.events import (
     build_queue_item_invalidated_event,
     build_queue_paused_event,
     build_voice_test_progress_event,
+    build_chapter_lifecycle_event,
+    build_segment_lifecycle_event,
+    build_segment_progress_event,
+    build_project_lifecycle_event,
 )
 from ..utils.render_trace import trace
 
@@ -164,20 +168,15 @@ def broadcast_segments_updated(
         project_id=project_id,
         changed_fields=changed_fields
     )
-    payload = {
-        "type": "segments_updated",
-        "chapter_id": chapter_id,
-        "source": source or _resolve_source("app.api.ws.broadcast_segments_updated"),
-    }
-    if reason is not None:
-        payload["reason"] = reason
-    if job_id is not None:
-        payload["job_id"] = job_id
-    if project_id is not None:
-        payload["project_id"] = project_id
-    if changed_fields is not None:
-        payload["changed_fields"] = changed_fields
-    manager.broadcast(payload)
+    event = build_segment_lifecycle_event(
+        chapter_id=chapter_id,
+        reason=reason or "segments_updated",
+        changed_fields=changed_fields or [],
+        project_id=project_id,
+        job_id=job_id,
+        source=source or _resolve_source("app.api.ws.broadcast_segments_updated"),
+    )
+    broadcast_studio_event(event)
 
 
 def broadcast_chapter_updated(
@@ -196,20 +195,15 @@ def broadcast_chapter_updated(
         project_id=project_id,
         changed_fields=changed_fields
     )
-    payload = {
-        "type": "chapter_updated",
-        "chapter_id": chapter_id,
-        "source": source or _resolve_source("app.api.ws.broadcast_chapter_updated"),
-    }
-    if reason is not None:
-        payload["reason"] = reason
-    if job_id is not None:
-        payload["job_id"] = job_id
-    if project_id is not None:
-        payload["project_id"] = project_id
-    if changed_fields is not None:
-        payload["changed_fields"] = changed_fields
-    manager.broadcast(payload)
+    event = build_chapter_lifecycle_event(
+        chapter_id=chapter_id,
+        reason=reason or "chapter_updated",
+        changed_fields=changed_fields or [],
+        project_id=project_id,
+        job_id=job_id,
+        source=source or _resolve_source("app.api.ws.broadcast_chapter_updated"),
+    )
+    broadcast_studio_event(event)
 
 
 def broadcast_project_updated(
@@ -226,18 +220,14 @@ def broadcast_project_updated(
         job_id=job_id,
         changed_fields=changed_fields
     )
-    payload = {
-        "type": "project_updated",
-        "project_id": project_id,
-        "source": source or _resolve_source("app.api.ws.broadcast_project_updated"),
-    }
-    if reason is not None:
-        payload["reason"] = reason
-    if job_id is not None:
-        payload["job_id"] = job_id
-    if changed_fields is not None:
-        payload["changed_fields"] = changed_fields
-    manager.broadcast(payload)
+    event = build_project_lifecycle_event(
+        project_id=project_id,
+        reason=reason or "project_updated",
+        changed_fields=changed_fields or [],
+        job_id=job_id,
+        source=source or _resolve_source("app.api.ws.broadcast_project_updated"),
+    )
+    broadcast_studio_event(event)
 
 def broadcast_pause_state(paused: bool, source: str | None = None):
     event = build_queue_paused_event(
@@ -317,14 +307,15 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
 
 
 def broadcast_segment_progress(job_id: str, chapter_id: str | None, segment_id: str, progress: float, source: str | None = None):
-    manager.broadcast({
-        "type": "segment_progress",
-        "job_id": job_id,
-        "chapter_id": chapter_id,
-        "segment_id": segment_id,
-        "progress": progress,
-        "source": source or _resolve_source("app.api.ws.broadcast_segment_progress"),
-    })
+    event = build_segment_progress_event(
+        segment_id=segment_id,
+        status="running",
+        progress=progress,
+        job_id=job_id,
+        chapter_id=chapter_id,
+        source=source or _resolve_source("app.api.ws.broadcast_segment_progress"),
+    )
+    broadcast_studio_event(event)
 
 def broadcast_test_progress(name: str, progress: float, started_at: float = None, source: str | None = None):
     event = build_voice_test_progress_event(

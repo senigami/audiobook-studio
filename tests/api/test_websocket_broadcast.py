@@ -310,7 +310,7 @@ def test_broadcast_queue_update_sends_canonical_envelope(monkeypatch):
     assert event["source"].endswith("test_broadcast_queue_update_sends_canonical_envelope")
 
 
-def test_broadcast_segments_updated_sends_structured_payload(monkeypatch):
+def test_broadcast_segments_updated_sends_canonical_envelope(monkeypatch):
     messages = []
     class DummyManager:
         def broadcast(self, message):
@@ -327,16 +327,26 @@ def test_broadcast_segments_updated_sends_structured_payload(monkeypatch):
     )
 
     assert len(messages) == 1
-    assert messages[0]["type"] == "segments_updated"
-    assert messages[0]["chapter_id"] == "chap-789"
-    assert messages[0]["reason"] == "segments_rebuilt"
-    assert messages[0]["job_id"] == "job-123"
-    assert messages[0]["project_id"] == "proj-456"
-    assert messages[0]["changed_fields"] == ["audio_status"]
-    assert messages[0]["source"].endswith("test_broadcast_segments_updated_sends_structured_payload")
+    event = messages[0]
+    assert event["type"] == "studio_event"
+    assert event["version"] == 1
+    assert event["topic"] == "segments.lifecycle"
+    assert event["eventKind"] == "segment_lifecycle"
+    assert event["ids"] == {
+        "projectId": "proj-456",
+        "chapterId": "chap-789",
+        "jobId": "job-123",
+        "segmentId": None
+    }
+    assert event["payload"] == {
+        "reason": "segments_rebuilt",
+        "changedFields": ["audio_status"],
+        "changed_fields": ["audio_status"]  # Legacy compatibility
+    }
+    assert event["source"].endswith("test_broadcast_segments_updated_sends_canonical_envelope")
 
 
-def test_broadcast_chapter_updated_sends_structured_payload(monkeypatch):
+def test_broadcast_chapter_updated_sends_canonical_envelope(monkeypatch):
     messages = []
     class DummyManager:
         def broadcast(self, message):
@@ -353,16 +363,26 @@ def test_broadcast_chapter_updated_sends_structured_payload(monkeypatch):
     )
 
     assert len(messages) == 1
-    assert messages[0]["type"] == "chapter_updated"
-    assert messages[0]["chapter_id"] == "chap-789"
-    assert messages[0]["reason"] == "chapter_metadata_change"
-    assert messages[0]["job_id"] == "job-123"
-    assert messages[0]["project_id"] == "proj-456"
-    assert messages[0]["changed_fields"] == ["title"]
-    assert messages[0]["source"].endswith("test_broadcast_chapter_updated_sends_structured_payload")
+    event = messages[0]
+    assert event["type"] == "studio_event"
+    assert event["version"] == 1
+    assert event["topic"] == "chapters.lifecycle"
+    assert event["eventKind"] == "chapter_lifecycle"
+    assert event["ids"] == {
+        "projectId": "proj-456",
+        "chapterId": "chap-789",
+        "jobId": "job-123",
+        "segmentId": None
+    }
+    assert event["payload"] == {
+        "reason": "chapter_metadata_change",
+        "changedFields": ["title"],
+        "changed_fields": ["title"]  # Legacy compatibility
+    }
+    assert event["source"].endswith("test_broadcast_chapter_updated_sends_canonical_envelope")
 
 
-def test_broadcast_project_updated_sends_structured_payload(monkeypatch):
+def test_broadcast_project_updated_sends_canonical_envelope(monkeypatch):
     messages = []
     class DummyManager:
         def broadcast(self, message):
@@ -378,12 +398,23 @@ def test_broadcast_project_updated_sends_structured_payload(monkeypatch):
     )
 
     assert len(messages) == 1
-    assert messages[0]["type"] == "project_updated"
-    assert messages[0]["project_id"] == "proj-456"
-    assert messages[0]["reason"] == "project_membership_change"
-    assert messages[0]["job_id"] == "job-123"
-    assert messages[0]["changed_fields"] == ["status"]
-    assert messages[0]["source"].endswith("test_broadcast_project_updated_sends_structured_payload")
+    event = messages[0]
+    assert event["type"] == "studio_event"
+    assert event["version"] == 1
+    assert event["topic"] == "projects.lifecycle"
+    assert event["eventKind"] == "project_invalidated"
+    assert event["ids"] == {
+        "projectId": "proj-456",
+        "chapterId": None,
+        "jobId": "job-123",
+        "segmentId": None
+    }
+    assert event["payload"] == {
+        "reason": "project_membership_change",
+        "changedFields": ["status"],
+        "changed_fields": ["status"]  # Legacy compatibility
+    }
+    assert event["source"].endswith("test_broadcast_project_updated_sends_canonical_envelope")
 
 def test_status_only_job_updates_do_not_emit_chapter_or_queue_updates(monkeypatch):
     """
@@ -630,7 +661,12 @@ def test_api_add_to_queue_websocket_burst_no_redundancy(monkeypatch, tmp_path, v
     # Count message types
     studio_job_queued = [m for m in messages if m.get("type") == "studio_job_event" and m.get("status") == "queued"]
     job_updated_queued = [m for m in messages if m.get("type") == "job_updated" and m.get("updates", {}).get("status") == "queued"]
-    chapter_updated = [m for m in messages if m.get("type") == "chapter_updated"]
+    chapter_updated = [
+        m for m in messages
+        if m.get("type") == "studio_event"
+        and m.get("topic") == "chapters.lifecycle"
+        and m.get("eventKind") == "chapter_lifecycle"
+    ]
     queue_updated = [
         m for m in messages
         if m.get("type") == "studio_event"
@@ -640,7 +676,7 @@ def test_api_add_to_queue_websocket_burst_no_redundancy(monkeypatch, tmp_path, v
 
     assert len(studio_job_queued) == 1, f"Expected 1 studio_job_event (queued), got {len(studio_job_queued)}: {studio_job_queued}"
     assert len(job_updated_queued) == 0, f"Expected 0 job_updated (queued) after suppression, got {len(job_updated_queued)}: {job_updated_queued}"
-    assert len(chapter_updated) == 1, f"Expected 1 chapter_updated, got {len(chapter_updated)}: {chapter_updated}"
+    assert len(chapter_updated) == 1, f"Expected 1 chapter_updated studio_event, got {len(chapter_updated)}: {chapter_updated}"
     assert len(queue_updated) == 1, f"Expected 1 queue_updated studio_event, got {len(queue_updated)}: {queue_updated}"
 
 
@@ -689,7 +725,8 @@ def test_build_core_topic_helpers():
         build_segment_lifecycle_event,
         build_chapter_lifecycle_event,
         build_voice_test_progress_event,
-        build_system_event
+        build_system_event,
+        build_project_lifecycle_event
     )
 
     # 1. tts.logs
@@ -794,7 +831,8 @@ def test_build_core_topic_helpers():
         "segmentIndex": 2,
         "segmentCount": 5,
         "message": "synthesizing segment",
-        "reasonCode": "segment_synth"
+        "reasonCode": "segment_synth",
+        "reason_code": "segment_synth"  # Legacy compatibility
     }
 
     # 7. segments.lifecycle
@@ -806,7 +844,8 @@ def test_build_core_topic_helpers():
     assert e_seg_life["topic"] == "segments.lifecycle"
     assert e_seg_life["payload"] == {
         "reason": "saved",
-        "changedFields": ["audio_path"]
+        "changedFields": ["audio_path"],
+        "changed_fields": ["audio_path"]  # Legacy compatibility
     }
 
     # 8. chapters.lifecycle
@@ -818,7 +857,8 @@ def test_build_core_topic_helpers():
     assert e_chap_life["topic"] == "chapters.lifecycle"
     assert e_chap_life["payload"] == {
         "reason": "reset",
-        "changedFields": ["audio_status"]
+        "changedFields": ["audio_status"],
+        "changed_fields": ["audio_status"]  # Legacy compatibility
     }
 
     # 9. voice.test
@@ -851,6 +891,27 @@ def test_build_core_topic_helpers():
         "eventKind": "disk_space_low",
         "message": "Remaining disk space below 10%",
         "details": {"free_bytes": 10000}
+    }
+
+    # 11. projects.lifecycle
+    e_proj = build_project_lifecycle_event(
+        project_id="proj-456",
+        reason="project_membership_change",
+        changed_fields=["status"],
+        job_id="job-123"
+    )
+    assert e_proj["topic"] == "projects.lifecycle"
+    assert e_proj["eventKind"] == "project_invalidated"
+    assert e_proj["ids"] == {
+        "projectId": "proj-456",
+        "chapterId": None,
+        "jobId": "job-123",
+        "segmentId": None
+    }
+    assert e_proj["payload"] == {
+        "reason": "project_membership_change",
+        "changedFields": ["status"],
+        "changed_fields": ["status"]  # Legacy compatibility
     }
 
 
@@ -1054,3 +1115,44 @@ def test_broadcast_test_progress_sends_canonical_envelope(monkeypatch):
         "started_at": 123.45  # Legacy compatibility
     }
     assert event["source"].endswith("test_broadcast_test_progress_sends_canonical_envelope")
+
+
+def test_broadcast_segment_progress_sends_canonical_envelope(monkeypatch):
+    from app.api.ws import broadcast_segment_progress
+
+    messages = []
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    broadcast_segment_progress(
+        job_id="job-123",
+        chapter_id="chap-456",
+        segment_id="seg-789",
+        progress=0.67,
+    )
+
+    assert len(messages) == 1
+    event = messages[0]
+    assert event["type"] == "studio_event"
+    assert event["version"] == 1
+    assert event["topic"] == "segments.progress"
+    assert event["eventKind"] == "segment_progress"
+    assert event["ids"] == {
+        "projectId": None,
+        "chapterId": "chap-456",
+        "jobId": "job-123",
+        "segmentId": "seg-789"
+    }
+    assert event["payload"] == {
+        "status": "running",
+        "progress": 0.67,
+        "segmentIndex": None,
+        "segmentCount": None,
+        "message": None,
+        "reasonCode": None,
+        "reason_code": None  # Legacy compatibility
+    }
+    assert event["source"].endswith("test_broadcast_segment_progress_sends_canonical_envelope")

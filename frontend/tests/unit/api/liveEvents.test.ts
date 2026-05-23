@@ -340,9 +340,59 @@ describe('live event contract', () => {
         payload: canonicalEvent.payload,
       });
     });
+
+    it('handles canonical studio_event envelope for projects.lifecycle', () => {
+      const canonicalEvent = {
+        type: 'studio_event',
+        version: 1,
+        topic: 'projects.lifecycle',
+        eventKind: 'project_invalidated',
+        source: 'backend.source',
+        emittedAt: 1779486175.62,
+        pluginId: null,
+        ids: {
+          projectId: 'project-1',
+          chapterId: null,
+          jobId: 'job-1',
+          segmentId: null,
+        },
+        payload: {
+          reason: 'project_membership_change',
+          changedFields: ['status'],
+        },
+      };
+
+      const event = normalizeStudioSocketEnvelope(envelope(canonicalEvent));
+
+      expect(event).toMatchObject({
+        topic: 'projects.lifecycle',
+        category: 'project',
+        eventKind: 'project_invalidated',
+        projectId: 'project-1',
+        jobId: 'job-1',
+        payload: canonicalEvent.payload,
+      });
+    });
   });
 
   describe('legacy to canonical topic mapping', () => {
+    it('maps legacy project_updated to projects.lifecycle', () => {
+      const projEv = normalizeStudioSocketEnvelope(envelope({
+        type: 'project_updated',
+        project_id: 'project-1',
+        reason: 'update',
+        changed_fields: ['title'],
+      }));
+      expect(projEv.topic).toBe('projects.lifecycle');
+      expect(projEv.category).toBe('project');
+      expect(projEv.eventKind).toBe('project_invalidated');
+      expect(projEv.projectId).toBe('project-1');
+      expect(projEv.payload).toMatchObject({
+        reason: 'update',
+        changedFields: ['title'],
+      });
+    });
+
     it('maps legacy queue_updated and pause_updated to queue.items', () => {
       const queueEv = normalizeStudioSocketEnvelope(envelope({
         type: 'queue_updated',

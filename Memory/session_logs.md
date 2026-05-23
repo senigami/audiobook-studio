@@ -1,3 +1,15 @@
+# 2026-05-22 - Migrate broadcast_project_updated to canonical projects.lifecycle studio_event
+
+- Added `"projects.lifecycle"` to `CORE_TOPICS` in `app/api/contracts/events.py`.
+- Implemented `build_project_lifecycle_event(project_id, reason, changed_fields, job_id, source)` helper in `app/api/contracts/events.py` with both camelCase `changedFields` and legacy `changed_fields` in the payload.
+- Rewired `broadcast_project_updated` in `app/api/ws.py` to use the new builder and dispatch via `broadcast_studio_event`; legacy `project_updated` frame is gone.
+- Added `'projects.lifecycle'` to `LiveEventTopic`, `'project'` to `LiveEventCategory`, `ProjectLifecyclePayload` / `ProjectLifecycleLiveEvent` types, and updated `categoryForTopic` in `frontend/src/api/contracts/liveEvents.ts`.
+- Added `normalizeProjectLifecycle` normalizer and `'project_updated'` switch case to `normalizeStudioSocketEnvelope` in `frontend/src/api/contracts/liveEvents.ts`.
+- Registered `project-state` listener consumer (listens to `projects.lifecycle`) in `frontend/src/config/liveEventConsumers.ts` for Live Output filter support; not wired to `recordLiveEventSubscriberObservation` so "Handled by" remains actual runtime telemetry.
+- Backend tests: replaced `test_broadcast_project_updated_sends_structured_payload` with `test_broadcast_project_updated_sends_canonical_envelope`; extended `test_build_core_topic_helpers` with project lifecycle case.
+- Frontend tests: added canonical and legacy normalizer tests in `liveEvents.test.ts`; added `project-state` filter button assertion and filter-by-topic integration test in `LiveOutputPage.test.tsx`.
+- Verified: 30 backend tests passed, Ruff clean, 22 Vitest tests passed, frontend build clean, 0 lint errors, `git diff --check` clean.
+
 # 2026-05-22 - Add transport facade for canonical websocket events
 
 - Implemented `broadcast_studio_event` in `app/api/ws.py` to transmit prebuilt canonical envelopes over the ConnectionManager WebSocket without double-wrapping or payload modifications.

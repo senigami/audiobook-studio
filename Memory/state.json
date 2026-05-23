@@ -1,18 +1,18 @@
 {
-  "snapshot_version": 110,
-  "updated_at": "2026-05-22T20:40:00-04:00",
+  "snapshot_version": 111,
+  "updated_at": "2026-05-22T22:36:00-04:00",
   "branch": "studio2/phase-12",
-  "current_task": "Add a non-invasive broadcast_studio_event facade for canonical studio_event envelopes.",
-  "status": "broadcaster_facade_implemented",
+  "current_task": "Migrate broadcast_project_updated to canonical projects.lifecycle studio_event.",
+  "status": "projects_lifecycle_migration_complete",
   "last_committed_milestone": {
-    "title": "Add a non-invasive broadcast_studio_event facade for canonical studio_event envelopes",
+    "title": "Migrate broadcast_project_updated to canonical projects.lifecycle studio_event",
     "commit": "pending",
     "notes": [
-      "Implemented `broadcast_studio_event` in `app/api/ws.py` to route prebuilt envelopes to client WebSockets without mutation or duplicate wrapping.",
-      "Added detailed `trace` telemetry logging that captures topic, eventKind, and contextual identifiers (jobId, projectId, etc.).",
-      "Exposed the facade and canonical builder APIs cleanly from `app/api/contracts/__init__.py`.",
-      "Wrote new TDD unit tests in `tests/api/test_websocket_broadcast.py` asserting exact envelope transmittal and proving legacy emitters remain unchanged.",
-      "Verified with the full backend test suite, Ruff linter, and `git diff --check`."
+      "Added projects.lifecycle to CORE_TOPICS and implemented build_project_lifecycle_event in app/api/contracts/events.py.",
+      "Rewired broadcast_project_updated in app/api/ws.py to emit canonical studio_event on projects.lifecycle; removed legacy project_updated frame.",
+      "Added ProjectLifecyclePayload, ProjectLifecycleLiveEvent, project category, and normalizeProjectLifecycle to frontend/src/api/contracts/liveEvents.ts.",
+      "Registered project-state consumer in frontend/src/config/liveEventConsumers.ts for Live Output filter support only (no subscriber observation recording).",
+      "Updated backend and frontend tests; all pass: 30 pytest, 22 Vitest, 0 ruff errors, 0 lint errors, git diff --check clean."
     ]
   },
   "active_constraints": [
@@ -89,7 +89,7 @@
     "latest_backend_focus": "2026-05-21: Full pytest suite passed (879 passed, 2 skipped).",
     "latest_frontend_focus": "2026-05-20: Reverted progress bar and text highlighting in the chapter editor back to the working behavior of commit 3e44973; all 82 frontend test files (510 tests total) are passing.",
     "latest_queue_focus": "2026-05-18: `frontend/src/utils/jobSelection.ts` now treats `active_segment_id` as chapter-render progress rather than segment scope, keeping grouped chapter jobs visible in the main queue while still hiding true segment jobs.",
-    "latest_websocket_focus": "2026-05-20: Live synthesis updates now skip duplicate websocket broadcasts on direct plugin progress calls, and registry-handler dispatch unregisters watchdog listeners on exit.",
+    "latest_websocket_focus": "2026-05-22: broadcast_project_updated migrated to canonical studio_event on projects.lifecycle; 30 backend tests pass, 22 Vitest tests pass.",
     "latest_lint_focus": "2026-05-22: eslint passed on frontend with 7 existing warnings.",
     "latest_frontend_event_stream_focus": "2026-05-22: Live Output route renamed to /event-stream and consumer filter toggles implemented; focused Vitest passed, full frontend Vitest passed (580 tests), frontend build passed, frontend lint passed, and git diff --check passed.",
     "latest_frontend_live_output_ownership": "2026-05-22: Removed the false jobs-state ownership from tts.logs so the Live Output subscribers column now reflects actual consumer handling.",

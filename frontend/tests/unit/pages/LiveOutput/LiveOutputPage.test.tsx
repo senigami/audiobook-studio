@@ -37,6 +37,7 @@ describe('LiveOutputPage & Table Consumer Filters', () => {
     expect(screen.getByRole('button', { name: 'chapter-state' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'segment-state' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'tts-diagnostics' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'project-state' })).toBeInTheDocument();
   });
 
   it('toggles active filter and filters rows by consumer listening definitions correctly', async () => {
@@ -45,6 +46,7 @@ describe('LiveOutputPage & Table Consumer Filters', () => {
     publish({ type: 'queue_updated', reason: 'test-reason' });                                           // frameId 2 -> queue.items
     publish({ type: 'tts_log_line', line: 'Synthesizing line' });                                         // frameId 3 -> tts.logs
     publish({ type: 'mystery_backend_event', details: 'unobserved' });                                    // frameId 4 -> system.unknown
+    publish({ type: 'project_updated', project_id: 'proj-1', reason: 'updated' });                       // frameId 5 -> projects.lifecycle
 
     // 2. Add observations (Handled by column will display these)
     act(() => {
@@ -55,8 +57,8 @@ describe('LiveOutputPage & Table Consumer Filters', () => {
 
     render(<LiveOutputPage />);
 
-    // Initially, 'All' should show all 4 frames
-    expect(document.querySelectorAll('tbody tr[data-frame-id]')).toHaveLength(4);
+    // Initially, 'All' should show all 5 frames
+    expect(document.querySelectorAll('tbody tr[data-frame-id]')).toHaveLength(5);
 
     // Filter to main-queue (listens to queue.items and chapters.progress)
     fireEvent.click(screen.getByRole('button', { name: 'main-queue' }));
@@ -78,9 +80,15 @@ describe('LiveOutputPage & Table Consumer Filters', () => {
     expect(rowsTts).toHaveLength(1);
     expect(rowsTts[0].getAttribute('data-frame-id')).toBe('3');
 
+    // Filter to project-state (listens to projects.lifecycle)
+    fireEvent.click(screen.getByRole('button', { name: 'project-state' }));
+    const rowsProj = document.querySelectorAll('tbody tr[data-frame-id]');
+    expect(rowsProj).toHaveLength(1);
+    expect(rowsProj[0].getAttribute('data-frame-id')).toBe('5');
+
     // Go back to All
     fireEvent.click(screen.getByRole('button', { name: /all/i }));
-    expect(document.querySelectorAll('tbody tr[data-frame-id]')).toHaveLength(4);
+    expect(document.querySelectorAll('tbody tr[data-frame-id]')).toHaveLength(5);
   });
 
   it('derives filter buttons from the explicit consumer registry', () => {

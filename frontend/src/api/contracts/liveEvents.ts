@@ -14,6 +14,7 @@ export type LiveEventTopic =
   | 'tts.logs'
   | 'voice.test'
   | 'system.events'
+  | 'projects.lifecycle'
   | `plugins.${string}.${string}`
   | string;
 
@@ -25,7 +26,8 @@ export type LiveEventCategory =
   | 'segment'
   | 'voice'
   | 'system'
-  | 'plugin';
+  | 'plugin'
+  | 'project';
 
 export type LiveEventSubscriber =
   | 'main-queue'
@@ -218,6 +220,19 @@ export interface PluginLiveEvent extends LiveEventBase<unknown> {
   eventKind: string;
 }
 
+export interface ProjectLifecyclePayload {
+  reason: string;
+  changedFields: string[];
+  // Legacy compatibility
+  changed_fields?: string[];
+}
+
+export interface ProjectLifecycleLiveEvent extends LiveEventBase<ProjectLifecyclePayload> {
+  topic: 'projects.lifecycle';
+  category: 'project';
+  eventKind: 'project_invalidated';
+}
+
 export interface UnknownLiveEvent extends LiveEventBase<unknown> {
   topic: 'system.events';
   category: 'system';
@@ -234,6 +249,7 @@ export type LiveEvent =
   | VoiceTestLiveEvent
   | SystemEventLiveEvent
   | PluginLiveEvent
+  | ProjectLifecycleLiveEvent
   | UnknownLiveEvent;
 
 export interface LiveEventSubscriberObservation {
@@ -294,6 +310,7 @@ const segmentIdFromData = (data: Record<string, unknown>) =>
 
 const categoryForTopic = (topic: string): LiveEventCategory => {
   if (topic === 'queue.items') return 'queue';
+  if (topic === 'projects.lifecycle') return 'project';
   if (topic === 'chapters.lifecycle' || topic === 'chapters.progress') return 'chapter';
   if (topic === 'segments.lifecycle' || topic === 'segments.progress') return 'segment';
   if (topic === 'tts.logs') return 'log';
@@ -507,6 +524,20 @@ const normalizeVoiceTest = (
   },
 }) as any;
 
+const normalizeProjectLifecycle = (
+  envelope: StudioSocketEnvelope,
+  data: Record<string, unknown>,
+): LiveEvent => baseEvent(envelope, data, {
+  topic: 'projects.lifecycle',
+  category: 'project',
+  eventKind: 'project_invalidated',
+  payload: {
+    reason: stringOrNull(data.reason) || 'project_updated',
+    changedFields: stringArrayOrNull(data.changed_fields) || [],
+    changed_fields: stringArrayOrNull(data.changed_fields),
+  },
+}) as any;
+
 const normalizeUnknown = (
   envelope: StudioSocketEnvelope,
   data: unknown,
@@ -561,6 +592,8 @@ export const normalizeStudioSocketEnvelope = (envelope: StudioSocketEnvelope): L
       return normalizeInvalidation(envelope, envelope.data);
     case 'test_progress':
       return normalizeVoiceTest(envelope, envelope.data);
+    case 'project_updated':
+      return normalizeProjectLifecycle(envelope, envelope.data);
     default:
       return normalizeUnknown(envelope, envelope.data);
   }

@@ -192,6 +192,17 @@ Core topics define the stable communication channels for main application featur
   }
   ```
 
+### 3.9 Topic: `projects.lifecycle`
+* **Purpose**: Project-level lifecycles, configuration changes, metadata updates, and cache invalidation.
+* **Producer API**: `events.project_lifecycle`
+* **Payload Fields**:
+  ```typescript
+  interface ProjectLifecyclePayload {
+    reason: string;
+    changedFields: string[];
+  }
+  ```
+
 ---
 
 ## 4. Plugin-Private Namespaced Topics
@@ -483,6 +494,7 @@ The frontend maps incoming topics to logical consumer surfaces. The registry mus
 | **`main-queue`** | `queue.items`, `chapters.progress` | Queue manager state, Queue files overlays |
 | **`chapter-state`** | `chapters.lifecycle`, `chapters.progress`, `segments.progress` | ChapterEditor workspace, chapter status badges |
 | **`segment-state`** | `segments.lifecycle`, `segments.progress` | ChapterEditor script view, segment progress bars |
+| **`project-state`** | `projects.lifecycle` | Project settings page, project dashboard state |
 | **`tts-diagnostics`** | `tts.logs` | Settings -> Engine Diagnostics console panel |
 | **`voice-test-state`** | `voice.test` | Voice management drawer, preview modals |
 | **`plugin:<plugin_id>:<area>`** | `plugins.<plugin_id>.<area>` | Dedicated plugin UI components, custom metrics views |

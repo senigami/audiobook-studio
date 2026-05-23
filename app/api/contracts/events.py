@@ -228,6 +228,7 @@ CORE_TOPICS = {
     "tts.logs",
     "voice.test",
     "system.events",
+    "projects.lifecycle",
 }
 
 
@@ -427,6 +428,10 @@ def build_segment_progress_event(
     segment_count: int | None = None,
     message: str | None = None,
     reason_code: str | None = None,
+    job_id: str | None = None,
+    chapter_id: str | None = None,
+    project_id: str | None = None,
+    source: str | None = None,
 ) -> dict:
     """Build a segments.progress topic envelope."""
     payload = {
@@ -435,14 +440,18 @@ def build_segment_progress_event(
         "segmentIndex": segment_index,
         "segmentCount": segment_count,
         "message": message,
-        "reasonCode": reason_code
+        "reasonCode": reason_code,
+        "reason_code": reason_code,  # Legacy compatibility
     }
     return build_studio_event(
         topic="segments.progress",
         event_kind="segment_progress",
         payload=payload,
+        project_id=project_id,
+        chapter_id=chapter_id,
+        job_id=job_id,
         segment_id=segment_id,
-        source=_resolve_source_path()
+        source=source or _resolve_source_path()
     )
 
 
@@ -450,18 +459,24 @@ def build_segment_lifecycle_event(
     chapter_id: str,
     reason: str,
     changed_fields: list[str],
+    project_id: str | None = None,
+    job_id: str | None = None,
+    source: str | None = None,
 ) -> dict:
     """Build a segments.lifecycle topic envelope."""
     payload = {
         "reason": reason,
-        "changedFields": changed_fields
+        "changedFields": changed_fields,
+        "changed_fields": changed_fields,  # Legacy compatibility
     }
     return build_studio_event(
         topic="segments.lifecycle",
         event_kind="segment_lifecycle",
         payload=payload,
+        project_id=project_id,
         chapter_id=chapter_id,
-        source=_resolve_source_path()
+        job_id=job_id,
+        source=source or _resolve_source_path()
     )
 
 
@@ -469,18 +484,47 @@ def build_chapter_lifecycle_event(
     chapter_id: str,
     reason: str,
     changed_fields: list[str],
+    project_id: str | None = None,
+    job_id: str | None = None,
+    source: str | None = None,
 ) -> dict:
     """Build a chapters.lifecycle topic envelope."""
     payload = {
         "reason": reason,
-        "changedFields": changed_fields
+        "changedFields": changed_fields,
+        "changed_fields": changed_fields,  # Legacy compatibility
     }
     return build_studio_event(
         topic="chapters.lifecycle",
         event_kind="chapter_lifecycle",
         payload=payload,
+        project_id=project_id,
         chapter_id=chapter_id,
-        source=_resolve_source_path()
+        job_id=job_id,
+        source=source or _resolve_source_path()
+    )
+
+
+def build_project_lifecycle_event(
+    project_id: str,
+    reason: str,
+    changed_fields: list[str],
+    job_id: str | None = None,
+    source: str | None = None,
+) -> dict:
+    """Build a projects.lifecycle topic envelope."""
+    payload = {
+        "reason": reason,
+        "changedFields": changed_fields,
+        "changed_fields": changed_fields,  # Legacy compatibility
+    }
+    return build_studio_event(
+        topic="projects.lifecycle",
+        event_kind="project_invalidated",
+        payload=payload,
+        project_id=project_id,
+        job_id=job_id,
+        source=source or _resolve_source_path()
     )
 
 
