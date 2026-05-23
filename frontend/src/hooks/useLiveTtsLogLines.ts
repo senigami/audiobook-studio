@@ -11,6 +11,8 @@ export interface LiveTtsLogLine {
   line: string;
   jobId?: string | null;
   sequence?: number | null;
+  timestamp?: string;
+  pluginShortName?: string;
 }
 
 export interface UseLiveTtsLogLinesResult {
@@ -69,6 +71,8 @@ export const useLiveTtsLogLines = (active: boolean): UseLiveTtsLogLinesResult =>
           line: tts.payload.line,
           jobId: event.jobId,
           sequence: tts.payload.sequence,
+          timestamp: event.receivedAt,
+          pluginShortName: tts.payload.pluginShortName,
         });
         recordLiveEventSubscriberObservation(event.frameId, 'tts-diagnostics', 'handled');
       }
@@ -104,6 +108,8 @@ export const useLiveTtsLogLines = (active: boolean): UseLiveTtsLogLinesResult =>
           line: tts.payload.line,
           jobId: event.jobId,
           sequence: tts.payload.sequence,
+          timestamp: event.receivedAt,
+          pluginShortName: tts.payload.pluginShortName,
         });
         recordLiveEventSubscriberObservation(event.frameId, 'tts-diagnostics', 'handled');
       }

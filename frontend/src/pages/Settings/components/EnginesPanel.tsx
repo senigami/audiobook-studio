@@ -119,7 +119,31 @@ export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, 
 
   const combinedLogs = useMemo(() => {
     if (liveLines.length === 0) return logs;
-    const liveText = liveLines.map(entry => entry.line).join('\n');
+    const formatTimestamp = (isoString?: string): string => {
+      if (!isoString) return '';
+      try {
+        const date = new Date(isoString);
+        if (isNaN(date.getTime())) return '';
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+        const ms = String(date.getMilliseconds()).padStart(3, '0');
+        return `${hours}:${minutes}:${seconds}.${ms}`;
+      } catch {
+        return '';
+      }
+    };
+
+    const liveText = liveLines.map(entry => {
+      const timePart = formatTimestamp(entry.timestamp);
+      const label = entry.pluginShortName ? entry.pluginShortName.substring(0, 10) : '';
+      const prefix = [
+        timePart ? `[${timePart}]` : '',
+        label ? `[${label}]` : '',
+      ].filter(Boolean).join(' ');
+      return prefix ? `${prefix} ${entry.line}` : entry.line;
+    }).join('\n');
+
     if (!logs) return liveText;
     return `${logs.endsWith('\n') ? logs : `${logs}\n`}${liveText}`;
   }, [logs, liveLines]);

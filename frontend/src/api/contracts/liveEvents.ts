@@ -171,6 +171,7 @@ export interface TtsLogPayload {
   level?: 'DEBUG' | 'INFO' | 'WARNING' | 'ERROR';
   sequence?: number | null;
   pluginId?: string;
+  pluginShortName?: string;
   jobId?: string | null;
   chapterId?: string | null;
   source?: string;

@@ -2,7 +2,6 @@
 
 from .events import (
     StudioEventEnvelope,
-    StudioJobEvent,
     StudioJobEventScope,
     StudioJobStatus,
     build_chapter_lifecycle_event,
@@ -14,16 +13,13 @@ from .events import (
     build_segment_lifecycle_event,
     build_segment_progress_event,
     build_studio_event,
-    build_studio_job_event,
     build_system_event,
     build_tts_log_event,
     build_voice_test_progress_event,
-    is_studio_job_event,
 )
 
 __all__ = [
     "StudioEventEnvelope",
-    "StudioJobEvent",
     "StudioJobEventScope",
     "StudioJobStatus",
     "build_chapter_lifecycle_event",
@@ -35,9 +31,7 @@ __all__ = [
     "build_segment_lifecycle_event",
     "build_segment_progress_event",
     "build_studio_event",
-    "build_studio_job_event",
     "build_system_event",
     "build_tts_log_event",
     "build_voice_test_progress_event",
-    "is_studio_job_event",
 ]

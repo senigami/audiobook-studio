@@ -229,6 +229,30 @@ class ProgressService:
         if not force and not self._should_emit(payload, allow_progress_regression=allow_progress_regression):
             return None
 
+        # Capture the previous active segment state before mutating self._last_payload_by_job
+        previous = self._last_payload_by_job.get(job_id)
+        prev_active_segment_id = previous.get("active_segment_id") if previous else None
+        new_active_segment_id = payload.get("active_segment_id")
+
+        if prev_active_segment_id and prev_active_segment_id != new_active_segment_id:
+            from app.api.contracts.events import build_segment_progress_event  # noqa: PLC0415
+            seg_status = status if status in ("failed", "cancelled") else "done"
+            seg_event = build_segment_progress_event(
+                segment_id=prev_active_segment_id,
+                status=seg_status,
+                progress=1.0,
+                segment_index=previous.get("active_render_group_index") or active_render_group_index,
+                segment_count=render_group_count or previous.get("render_group_count"),
+                message=message,
+                reason_code=reason_code,
+                job_id=job_id,
+                chapter_id=chapter_id,
+                project_id=parent_job_id,
+                source=payload.get("source"),
+                eta_seconds=None,
+            )
+            self.broadcaster(payload=seg_event, channel="jobs")
+
         self._last_payload_by_job[job_id] = payload
         self._last_emit_tick_by_job[job_id] = float(self.monotonic_clock())
         if isinstance(payload.get("progress"), (int, float)):
@@ -238,17 +262,39 @@ class ProgressService:
         if status == "queued":
             self._last_payload_by_job.pop(job_id, None)
 
+        emitted_any = False
+
+        # 1. Segment progress tick (first)
+        if new_active_segment_id is not None or scope == "segment":
+            from app.api.contracts.events import build_segment_progress_event  # noqa: PLC0415
+            seg_p = payload.get("active_segment_progress") if new_active_segment_id is not None else payload.get("progress")
+            if seg_p is None:
+                seg_p = 0.0
+            seg_event = build_segment_progress_event(
+                segment_id=new_active_segment_id or job_id,
+                status=status,
+                progress=seg_p,
+                segment_index=active_render_group_index,
+                segment_count=render_group_count,
+                message=message,
+                reason_code=reason_code,
+                job_id=job_id,
+                chapter_id=chapter_id,
+                project_id=parent_job_id,
+                source=payload.get("source"),
+                eta_seconds=payload.get("eta_seconds"),
+            )
+            self.broadcaster(payload=seg_event, channel="jobs")
+            emitted_any = True
+
+        # 2. Chapter progress (second)
         is_chapter_progress = (
             scope == "chapter"
-            or (chapter_id is not None and active_segment_id is None and scope != "segment")
+            or (chapter_id is not None and scope != "segment")
         )
-        is_segment_progress = (
-            scope == "segment"
-        )
-
         if is_chapter_progress:
             from app.api.contracts.events import build_chapter_progress_event  # noqa: PLC0415
-            event_payload = build_chapter_progress_event(
+            chap_event = build_chapter_progress_event(
                 chapter_id=chapter_id or "",
                 status=status,
                 progress=payload.get("progress") if payload.get("progress") is not None else 0.0,
@@ -262,27 +308,42 @@ class ProgressService:
                 project_id=parent_job_id,
                 source=payload.get("source"),
             )
-            self.broadcaster(payload=event_payload, channel="jobs")
-        elif is_segment_progress:
-            from app.api.contracts.events import build_segment_progress_event  # noqa: PLC0415
-            event_payload = build_segment_progress_event(
-                segment_id=active_segment_id or job_id,
+            self.broadcaster(payload=chap_event, channel="jobs")
+            emitted_any = True
+
+            # Terminal Chapter Progress also emits queue.items status
+            if status in ("done", "failed", "cancelled"):
+                from app.api.contracts.events import build_queue_item_status_event  # noqa: PLC0415
+                queue_event = build_queue_item_status_event(
+                    job_id=job_id,
+                    status=status,
+                    progress=payload.get("progress") if payload.get("progress") is not None else 0.0,
+                    eta_seconds=payload.get("eta_seconds"),
+                    message=payload.get("message"),
+                    reason_code=payload.get("reason_code"),
+                    classification="chapter",
+                    project_id=parent_job_id,
+                    chapter_id=chapter_id,
+                    source=payload.get("source"),
+                )
+                self.broadcaster(payload=queue_event, channel="jobs")
+
+        # 3. Fallback queue status event
+        if not emitted_any:
+            from app.api.contracts.events import build_queue_item_status_event  # noqa: PLC0415
+            queue_event = build_queue_item_status_event(
+                job_id=job_id,
                 status=status,
                 progress=payload.get("progress") if payload.get("progress") is not None else 0.0,
-                segment_index=active_render_group_index,
-                segment_count=render_group_count,
-                message=message,
-                reason_code=reason_code,
-                job_id=job_id,
-                chapter_id=chapter_id,
-                project_id=parent_job_id,
-                source=payload.get("source"),
                 eta_seconds=payload.get("eta_seconds"),
+                message=payload.get("message"),
+                reason_code=payload.get("reason_code"),
+                classification=scope if scope in ("job", "chapter", "segment") else "job",
+                project_id=parent_job_id,
+                chapter_id=chapter_id,
+                source=payload.get("source"),
             )
-            self.broadcaster(payload=event_payload, channel="jobs")
-        else:
-            self.broadcaster(payload=payload, channel="jobs")
-
+            self.broadcaster(payload=queue_event, channel="jobs")
 
         self._last_payload_by_job[job_id] = payload
         return payload

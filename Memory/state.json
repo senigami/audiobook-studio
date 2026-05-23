@@ -1,18 +1,19 @@
 {
-  "snapshot_version": 114,
-  "updated_at": "2026-05-23T10:14:00-04:00",
+  "snapshot_version": 115,
+  "updated_at": "2026-05-23T10:23:00-04:00",
   "branch": "studio2/phase-12",
-  "current_task": "Remove frontend live-event compatibility shim and legacy normalization paths.",
-  "status": "live_event_frontend_cleanup_complete",
+  "current_task": "Audit and clean up the backend websocket layer after frontend canonicalization is complete.",
+  "status": "backend_websocket_cleanup_complete",
   "last_committed_milestone": {
-    "title": "Remove frontend live-event compatibility shim and legacy normalization paths",
+    "title": "Audit and clean up the backend websocket layer after frontend canonicalization",
     "commit": "pending",
     "notes": [
-      "Deleted liveEventTopicRouter.ts and its unit test.",
-      "Removed all legacy normalization and fallback routing code in liveEvents.ts.",
-      "Switched useJobs and useQueueSync to subscribe directly to the websocket bus and use canonical topic checks.",
-      "Updated all frontend test mock socket events to emit canonical studio_event envelopes.",
-      "Verified all 87 test files (577 tests) passed, with clean build, lint, and git diff checks."
+      "Refactored broadcast_job_updated in app/api/ws.py to remove legacy studio_job_event and job_updated frames.",
+      "Canonicalized fallback generic job updates to queue.items / queue_item_status events.",
+      "Honored skip_studio_job_event as a full suppression signal on the generic path to avoid duplicate broadcasts.",
+      "Updated tests/api/test_websocket_broadcast.py and tests/orchestration/test_progress_logic.py assertions to check canonical envelopes.",
+      "Removed obsolete legacy context propagation tests.",
+      "Verified all 893 backend tests, ruff, and git diff check passed successfully."
     ]
   },
   "active_constraints": [

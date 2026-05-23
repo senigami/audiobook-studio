@@ -249,12 +249,34 @@ class OrchestratorHelpersMixin:
                 return
             try:
                 from app.api.ws import broadcast_tts_log_line
+                engine_id = None
+                if context and context.payload:
+                    engine_id = context.payload.get("engine_id")
+                if not engine_id:
+                    engine_id = getattr(task, "engine_id", None)
+
+                plugin_short_name = None
+                plugin_id = engine_id
+                if engine_id:
+                    try:
+                        from app.engines.registry import load_engine_registry
+                        registry = load_engine_registry()
+                        registration = registry.get(engine_id)
+                        if registration and registration.manifest:
+                            plugin_short_name = registration.manifest.display_name
+                    except Exception:
+                        pass
+                    if not plugin_short_name:
+                        plugin_short_name = engine_id[:10] if len(engine_id) > 10 else engine_id
+
                 broadcast_tts_log_line(
                     job_id=context.task_id,
                     project_id=context.project_id,
                     chapter_id=context.chapter_id,
                     line=line,
                     source="app.orchestration.scheduler.orchestrator_helpers.log_listener",
+                    plugin_id=plugin_id,
+                    plugin_short_name=plugin_short_name,
                 )
             except Exception:
                 logger.exception("Failed to broadcast TTS log line for task %s", context.task_id)

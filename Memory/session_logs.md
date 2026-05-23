@@ -1,3 +1,12 @@
+# 2026-05-23 - Audit and clean up backend websocket layer after frontend canonicalization
+
+- Removed legacy `studio_job_event` and `job_updated` websocket frame emissions from `broadcast_job_updated` in `app/api/ws.py`.
+- Canonicalized fallback generic `"job"` classification updates to emit `queue_item_status` events on the `queue.items` topic.
+- Honored the `skip_studio_job_event` parameter to fully suppress generic job broadcasts when set.
+- Removed the stale import of the retired `build_studio_job_event` builder function.
+- Updated `tests/api/test_websocket_broadcast.py` and `tests/orchestration/test_progress_logic.py` assertions to expect the canonical envelopes, and deleted obsolete legacy context-propagation unit tests.
+- Verified that all 893 backend tests, Ruff checks, and `git diff --check` passed successfully.
+
 # 2026-05-23 - Remove frontend live-event compatibility shim and legacy normalization paths
 
 - Deleted `frontend/src/store/liveEventTopicRouter.ts` and its unit test `frontend/tests/unit/store/liveEventTopicRouter.test.ts`.

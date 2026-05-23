@@ -255,12 +255,8 @@ def test_skip_studio_job_event(tmp_path):
             # Call broadcast_job_updated directly with skip_studio_job_event=True
             broadcast_job_updated("test_skip", {"progress": 0.2, "skip_studio_job_event": True}, current_job=asdict(job))
 
-            # Verify that only one broadcast was made (job_updated), and studio_job_event was skipped
-            assert mock_broadcast.call_count == 1
-            call_arg = mock_broadcast.call_args[0][0]
-            assert call_arg["type"] == "job_updated"
-            # Ensure skip_studio_job_event is NOT in the broadcast updates payload
-            assert "skip_studio_job_event" not in call_arg["updates"]
+            # Verify that the broadcast was completely suppressed
+            assert mock_broadcast.call_count == 0
 
 
 def test_progress_service_chapter_progress_sends_canonical_envelope():
@@ -360,3 +356,141 @@ def test_progress_service_segment_progress_sends_canonical_envelope():
     assert event["payload"]["etaSeconds"] == 15
     assert event["payload"]["eta_seconds"] == 15
     assert event["payload"]["message"] == "Synthesizing segment..."
+
+
+def test_progress_service_dual_progress_emission():
+    from app.orchestration.progress.service import ProgressService
+    broadcast_events = []
+
+    def dummy_broadcaster(*, payload: dict, channel: str):
+        broadcast_events.append((payload, channel))
+
+    service = ProgressService(
+        reconcile_fn=lambda **kwargs: kwargs,
+        eta_fn=lambda **kwargs: 10,
+        broadcaster=dummy_broadcaster
+    )
+
+    # Publish progress update containing both chapter progress and active segment progress
+    service.publish(
+        job_id="job-chap-1",
+        status="running",
+        scope="chapter",
+        parent_job_id="proj-1",
+        chapter_id="chap-1",
+        progress=0.45,
+        grouped_progress=0.4,
+        eta_seconds=120,
+        message="Synthesizing segment 2...",
+        active_segment_id="seg-2",
+        active_segment_progress=0.6,
+        render_group_count=10,
+        completed_render_groups=1,
+        active_render_group_index=2,
+    )
+
+    # We expect TWO events: segments.progress first, chapters.progress second
+    assert len(broadcast_events) == 2
+
+    # 1. Segment progress event
+    seg_event, seg_channel = broadcast_events[0]
+    assert seg_channel == "jobs"
+    assert seg_event["topic"] == "segments.progress"
+    assert seg_event["eventKind"] == "segment_progress"
+    assert seg_event["ids"]["segmentId"] == "seg-2"
+    assert seg_event["payload"]["status"] == "running"
+    assert seg_event["payload"]["progress"] == 0.6
+    assert seg_event["payload"]["segmentIndex"] == 2
+    assert seg_event["payload"]["segmentCount"] == 10
+
+    # 2. Chapter progress event
+    chap_event, chap_channel = broadcast_events[1]
+    assert chap_channel == "jobs"
+    assert chap_event["topic"] == "chapters.progress"
+    assert chap_event["eventKind"] == "chapter_progress"
+    assert chap_event["ids"]["chapterId"] == "chap-1"
+    assert chap_event["payload"]["status"] == "running"
+    assert chap_event["payload"]["progress"] == 0.45
+
+
+def test_progress_service_segment_completion_matching_outcome():
+    from app.orchestration.progress.service import ProgressService
+    broadcast_events = []
+
+    def dummy_broadcaster(*, payload: dict, channel: str):
+        broadcast_events.append((payload, channel))
+
+    service = ProgressService(
+        reconcile_fn=lambda **kwargs: kwargs,
+        eta_fn=lambda **kwargs: 10,
+        broadcaster=dummy_broadcaster
+    )
+
+    # 1. Start a segment
+    service.publish(
+        job_id="job-chap-1",
+        status="running",
+        scope="chapter",
+        parent_job_id="proj-1",
+        chapter_id="chap-1",
+        active_segment_id="seg-1",
+        active_segment_progress=0.5,
+    )
+    broadcast_events.clear()
+
+    # 2. Complete the segment while the job is still running (clears active segment)
+    service.publish(
+        job_id="job-chap-1",
+        status="running",
+        scope="chapter",
+        parent_job_id="proj-1",
+        chapter_id="chap-1",
+        active_segment_id=None,
+    )
+
+    # Expect segment completion event with status 'done' and progress 1.0, plus chapter progress
+    assert len(broadcast_events) == 2
+    seg_event = broadcast_events[0][0]
+    assert seg_event["topic"] == "segments.progress"
+    assert seg_event["ids"]["segmentId"] == "seg-1"
+    assert seg_event["payload"]["status"] == "done"
+    assert seg_event["payload"]["progress"] == 1.0
+
+    # 3. Start another segment
+    service.publish(
+        job_id="job-chap-1",
+        status="running",
+        scope="chapter",
+        parent_job_id="proj-1",
+        chapter_id="chap-1",
+        active_segment_id="seg-2",
+        active_segment_progress=0.8,
+    )
+    broadcast_events.clear()
+
+    # 4. Fail the job while the segment is active
+    service.publish(
+        job_id="job-chap-1",
+        status="failed",
+        scope="chapter",
+        parent_job_id="proj-1",
+        chapter_id="chap-1",
+        active_segment_id=None,
+        message="Failure reason"
+    )
+
+    # Expect segment completion event to MATCH the job outcome ('failed' with progress 1.0 or less, here we assert status 'failed')
+    # plus chapter progress event and queue.items terminal status
+    assert len(broadcast_events) == 3
+    seg_event = broadcast_events[0][0]
+    assert seg_event["topic"] == "segments.progress"
+    assert seg_event["ids"]["segmentId"] == "seg-2"
+    assert seg_event["payload"]["status"] == "failed"
+
+    chap_event = broadcast_events[1][0]
+    assert chap_event["topic"] == "chapters.progress"
+    assert chap_event["payload"]["status"] == "failed"
+
+    queue_event = broadcast_events[2][0]
+    assert queue_event["topic"] == "queue.items"
+    assert queue_event["payload"]["status"] == "failed"

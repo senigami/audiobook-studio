@@ -570,3 +570,19 @@ To avoid breaking existing websocket features during cutover, we will execute a 
 # Frontend Vitest suite
 cd frontend && /opt/homebrew/bin/npx vitest run tests/unit/store/studioSocketBus.test.ts tests/unit/pages/LiveOutput/LiveOutputPage.test.tsx
 ```
+
+---
+
+## 10. Studio Event Lifecycle Audit Matrix
+
+| Lifecycle Step | Producer | Durable State Write | Topic | eventKind | Required IDs | Payload Fields |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Browser enqueue** | `processing_queue.py` / `TaskOrchestrator.submit` | `put_job()` writes `status: "queued"`, `progress: 0.0` | `queue.items` | `queue_item_status` | `projectId`, `chapterId`, `jobId` | `status: "queued"`, `progress: 0.0`, `etaSeconds: null`, `classification: "chapter" \| "segment"` |
+| **Processor pickup** | `TaskOrchestrator._publish` / `ProgressService.publish` | `update_job()` writes `status: "preparing"` | `queue.items` / `chapters.progress` | `queue_item_status` / `chapter_progress` | `projectId`, `chapterId`, `jobId` | `status: "preparing"`, `progress: 0.0`, `etaSeconds: null`, `classification: "chapter"` |
+| **Plugin receipt/ack** | `TaskOrchestrator._publish` / `ProgressService.publish` | `update_job()` writes `status: "running"` | `chapters.progress` | `chapter_progress` | `projectId`, `chapterId`, `jobId` | `status: "running"`, `progress: 0.0` \| prev, `etaSeconds: ...` |
+| **Segment render start** | `TaskOrchestrator._publish` (triggered by log parser) | `update_job()` writes `active_segment_id`, `active_segment_progress: 0.0` | `segments.progress` | `segment_progress` | `projectId`, `chapterId`, `jobId`, `segmentId` | `status: "running"`, `progress: 0.0`, `segmentIndex: ...`, `segmentCount: ...` |
+| **Chapter render progress** | `TaskOrchestrator._publish` / `ProgressService.publish` | `update_job()` writes overall `progress`, `grouped_progress` | `chapters.progress` | `chapter_progress` | `projectId`, `chapterId`, `jobId` | `status: "running"`, `progress: ...`, `groupedProgress: ...`, `etaSeconds: ...`, `renderGroupCount: ...`, `completedRenderGroups: ...` |
+| **Segment render progress** | `TaskOrchestrator._publish` / `ProgressService.publish` | `update_job()` writes `active_segment_progress` | `segments.progress` | `segment_progress` | `projectId`, `chapterId`, `jobId`, `segmentId` | `status: "running"`, `progress: ...`, `segmentIndex: ...`, `segmentCount: ...` |
+| **Segment completion** | `TaskOrchestrator._publish` (triggered by log parser) | `update_segment()` writes `audio_status: "done"`, `audio_file_path: ...` | `segments.progress` / `segments.lifecycle` | `segment_progress` / `segment_lifecycle` | `projectId`, `chapterId`, `jobId`, `segmentId` | `status: "done"`, `progress: 1.0` (for segments.progress) \| `reason: "saved"`, `changedFields: ["audio_status", ...]` (for segments.lifecycle) |
+| **Chapter/job completion** | `TaskOrchestrator._publish` / `ProgressService.publish` | `update_job()` writes `status: "done"`, `progress: 1.0`, `finished_at` | `chapters.progress` / `queue.items` | `chapter_progress` / `queue_item_status` | `projectId`, `chapterId`, `jobId` | `status: "done"`, `progress: 1.0` (for both) |
+| **TTS logs** | `broadcast_tts_log_line` | None (watchdog log buffer updated in-memory) | `tts.logs` | `tts_log` | `projectId`, `chapterId`, `jobId` | `line: ...`, `level: "INFO"`, `sequence: ...`, `pluginId: ...`, `pluginShortName: ...` |

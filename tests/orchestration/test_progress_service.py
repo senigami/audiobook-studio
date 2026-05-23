@@ -38,8 +38,10 @@ def test_publish_throttles_small_progress_churn():
         message="Rendering",
     )
     assert emitted is not None
-    assert emitted["progress"] == 0.2
-    assert events == [(emitted, "jobs")]
+    assert len(events) == 1
+    assert events[0][1] == "jobs"
+    assert events[0][0]["payload"]["progress"] == 0.2
+    assert events[0][0]["payload"]["status"] == "running"
 
     wall_now["value"] += 1.0
     monotonic_now["value"] += 1.0
@@ -232,8 +234,10 @@ def test_publish_includes_render_group_context():
     assert emitted["total_render_weight"] == 945
     assert emitted["completed_render_weight"] == 420
     assert emitted["active_render_group_weight"] == 525
-    assert emitted["grouped_progress"] == 0.44
-    assert events == [(emitted, "jobs")]
+    assert len(events) == 1
+    assert events[0][1] == "jobs"
+    assert events[0][0]["payload"]["progress"] == 0.44
+    assert events[0][0]["payload"]["status"] == "running"
 
 
 def test_publish_remaps_finalizing_to_running():
@@ -247,4 +251,4 @@ def test_publish_remaps_finalizing_to_running():
     assert emitted is not None
     assert emitted["status"] == "running"
     assert emitted["progress"] == 0.91
-    assert events[0][0]["status"] == "running"
+    assert events[0][0]["payload"]["status"] == "running"

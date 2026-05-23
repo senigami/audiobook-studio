@@ -45,18 +45,23 @@ def test_broadcast_job_updated_uses_current_job_status_for_normalized_event(monk
         {"status": "running", "progress": 0.5, "eta_seconds": 12},
     )
 
-    assert messages[0]["type"] == "studio_job_event"
-    assert messages[0]["source"].endswith("test_broadcast_job_updated_uses_current_job_status_for_normalized_event")
-    assert messages[0]["job_id"] == "job-1"
-    assert messages[0]["status"] == "running"
-    assert messages[0]["progress"] == 0.5
-    assert messages[0]["eta_seconds"] == 12
-    assert messages[0]["classification"] == "job"
-    assert messages[1]["type"] == "job_updated"
-    assert messages[1]["job_id"] == "job-1"
-    assert messages[1]["classification"] == "job"
-    assert messages[1]["updates"] == {"status": "running", "progress": 0.5, "eta_seconds": 12, "classification": "job"}
-    assert messages[1]["source"].endswith("test_broadcast_job_updated_uses_current_job_status_for_normalized_event")
+    assert len(messages) == 1
+    event = messages[0]
+    assert event["type"] == "studio_event"
+    assert event["topic"] == "queue.items"
+    assert event["eventKind"] == "queue_item_status"
+    assert event["ids"] == {
+        "projectId": None,
+        "chapterId": None,
+        "jobId": "job-1",
+        "segmentId": None
+    }
+    assert event["payload"]["status"] == "running"
+    assert event["payload"]["progress"] == 0.5
+    assert event["payload"]["etaSeconds"] == 12
+    assert event["payload"]["eta_seconds"] == 12  # Legacy compatibility key
+    assert event["payload"]["classification"] == "job"
+    assert event["source"].endswith("test_broadcast_job_updated_uses_current_job_status_for_normalized_event")
 
 
 def test_broadcast_job_updated_preserves_context_in_job_updated_payload(monkeypatch):
@@ -99,110 +104,9 @@ def test_broadcast_job_updated_uses_phase4_progress_rounding(monkeypatch):
         {"status": "running", "progress": 0.1234},
     )
 
-    assert messages[0]["progress"] == 0.12
+    assert len(messages) == 1
+    assert messages[0]["payload"]["progress"] == 0.12
     assert messages[0]["source"].endswith("test_broadcast_job_updated_uses_phase4_progress_rounding")
-
-
-def test_broadcast_job_updated_propagates_active_segment(monkeypatch):
-    messages = []
-
-    class DummyManager:
-        def broadcast(self, message):
-            messages.append(message)
-
-    monkeypatch.setattr("app.api.ws.manager", DummyManager())
-
-    broadcast_job_updated(
-        "job-segment-test",
-        {"active_segment_id": "seg-1", "active_segment_progress": 0.75},
-        {
-            "status": "running",
-            "progress": 0.5,
-            "active_segment_id": "seg-1",
-            "active_segment_progress": 0.75,
-        },
-    )
-
-    # The studio_job_event payload must include active_segment_id and active_segment_progress
-    assert messages[0]["active_segment_id"] == "seg-1"
-    assert messages[0]["active_segment_progress"] == 0.75
-    assert messages[0]["source"].endswith("test_broadcast_job_updated_propagates_active_segment")
-
-
-def test_broadcast_job_updated_propagates_render_group_context(monkeypatch):
-    messages = []
-
-    class DummyManager:
-        def broadcast(self, message):
-            messages.append(message)
-
-    monkeypatch.setattr("app.api.ws.manager", DummyManager())
-
-    broadcast_job_updated(
-        "job-group-test",
-        {
-            "render_group_count": 2,
-            "completed_render_groups": 1,
-            "active_render_group_index": 1,
-            "total_render_weight": 945,
-            "completed_render_weight": 420,
-            "active_render_group_weight": 525,
-            "grouped_progress": 0.44,
-        },
-        {
-            "status": "running",
-            "progress": 0.44,
-            "render_group_count": 2,
-            "completed_render_groups": 1,
-            "active_render_group_index": 1,
-            "total_render_weight": 945,
-            "completed_render_weight": 420,
-            "active_render_group_weight": 525,
-            "grouped_progress": 0.44,
-        },
-    )
-
-    assert messages[0]["render_group_count"] == 2
-    assert messages[0]["completed_render_groups"] == 1
-    assert messages[0]["active_render_group_index"] == 1
-    assert messages[0]["total_render_weight"] == 945
-    assert messages[0]["completed_render_weight"] == 420
-    assert messages[0]["active_render_group_weight"] == 525
-    assert messages[0]["grouped_progress"] == 0.44
-    assert messages[1]["updates"]["render_group_count"] == 2
-    assert messages[1]["updates"]["completed_render_groups"] == 1
-    assert messages[1]["updates"]["active_render_group_index"] == 1
-    assert messages[1]["updates"]["total_render_weight"] == 945
-    assert messages[1]["updates"]["completed_render_weight"] == 420
-    assert messages[1]["updates"]["active_render_group_weight"] == 525
-    assert messages[1]["updates"]["grouped_progress"] == 0.44
-    assert messages[1]["source"].endswith("test_broadcast_job_updated_propagates_render_group_context")
-
-
-def test_broadcast_job_updated_active_segment_progress_guard(monkeypatch):
-    messages = []
-
-    class DummyManager:
-        def broadcast(self, message):
-            messages.append(message)
-
-    monkeypatch.setattr("app.api.ws.manager", DummyManager())
-
-    broadcast_job_updated(
-        "job-segment-test-guard",
-        {"active_segment_progress": 0.75},
-        {
-            "status": "running",
-            "progress": 0.5,
-            "active_segment_id": None,
-            "active_segment_progress": 0.75,
-        },
-    )
-
-    # The studio_job_event payload must NOT include active_segment_id or active_segment_progress
-    assert "active_segment_id" not in messages[0]
-    assert "active_segment_progress" not in messages[0]
-    assert messages[0]["source"].endswith("test_broadcast_job_updated_active_segment_progress_guard")
 
 
 def test_broadcast_tts_log_line_sends_canonical_envelope(monkeypatch):
@@ -242,6 +146,7 @@ def test_broadcast_tts_log_line_sends_canonical_envelope(monkeypatch):
         "level": "INFO",
         "sequence": 1,
         "pluginId": None,
+        "pluginShortName": None,
         "jobId": "job-tts",
         "chapterId": "chap-1",
         "source": "tests.api.test_websocket_broadcast.test_broadcast_tts_log_line_sends_canonical_envelope",
@@ -576,16 +481,17 @@ def test_broadcast_job_updated_respects_skip_job_updated(monkeypatch):
 
     monkeypatch.setattr("app.api.ws.manager", DummyManager())
 
-    # When skip_job_updated=True, the job_updated message should be skipped.
+    # When skip_job_updated=True, the legacy job_updated message is skipped.
+    # We still expect the canonical queue.items status event.
     broadcast_job_updated(
         "job-1",
         {"progress": 0.5, "eta_seconds": 12, "skip_job_updated": True},
         {"status": "running", "progress": 0.5, "eta_seconds": 12},
     )
 
-    # We expect only the studio_job_event message, and NO job_updated message.
     assert len(messages) == 1
-    assert messages[0]["type"] == "studio_job_event"
+    assert messages[0]["type"] == "studio_event"
+    assert messages[0]["topic"] == "queue.items"
 
 
 def test_update_job_respects_skip_job_updated(monkeypatch):
@@ -756,6 +662,7 @@ def test_build_core_topic_helpers():
         "level": "INFO",
         "sequence": 42,
         "pluginId": "tts_xtts",
+        "pluginShortName": None,
         "jobId": "j-1",
         "chapterId": "c-1",
         "source": e_tts["payload"]["source"],
@@ -783,7 +690,10 @@ def test_build_core_topic_helpers():
         "message": "Running synthesis",
         "reasonCode": "synth_progress",
         "classification": "segment",
-        "changedFields": None
+        "changedFields": None,
+        "paused": None,
+        "eta_seconds": 120,
+        "reason_code": "synth_progress"
     }
 
     # 3. queue.items invalidated
@@ -1285,3 +1195,106 @@ def test_broadcast_job_updated_segment_progress_sends_canonical_envelope(monkeyp
     assert event["payload"]["active_segment_progress"] == 0.5
     assert event["payload"]["etaSeconds"] == 15
     assert event["payload"]["eta_seconds"] == 15
+
+
+def test_broadcast_job_updated_chapter_completion_emits_both(monkeypatch):
+    messages = []
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    # Completed chapter job with skip_studio_job_event=False
+    broadcast_job_updated(
+        "job-chap-completed",
+        {"status": "done", "progress": 1.0},
+        {"status": "done", "progress": 1.0, "chapter_id": "chap-1", "project_id": "proj-1"},
+    )
+
+    # We expect TWO broadcasts: chapters.progress AND queue.items
+    assert len(messages) == 2
+    assert messages[0]["topic"] == "chapters.progress"
+    assert messages[0]["payload"]["status"] == "done"
+
+    assert messages[1]["topic"] == "queue.items"
+    assert messages[1]["payload"]["status"] == "done"
+
+
+def test_broadcast_job_updated_chapter_completion_suppression(monkeypatch):
+    messages = []
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    # Completed chapter job with skip_studio_job_event=True
+    broadcast_job_updated(
+        "job-chap-completed",
+        {"status": "done", "progress": 1.0, "skip_studio_job_event": True},
+        {"status": "done", "progress": 1.0, "chapter_id": "chap-1", "project_id": "proj-1"},
+    )
+
+    # Since skip_studio_job_event=True, we expect ZERO broadcasts from broadcast_job_updated
+    assert len(messages) == 0
+
+
+def test_broadcast_job_updated_segment_completion(monkeypatch):
+    messages = []
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    # active_segment_id changes from seg-1 to seg-2
+    broadcast_job_updated(
+        "job-seg-comp",
+        {"active_segment_id": "seg-2", "active_segment_progress": 0.0},
+        # We pass a current_job snapshot that reflects the PREVIOUS state where seg-1 was active:
+        current_job={"status": "running", "active_segment_id": "seg-1", "active_segment_progress": 0.8, "chapter_id": "chap-1", "project_id": "proj-1"}
+    )
+
+    # We expect segment completion for seg-1 (first), segment progress for seg-2 (second), and chapter progress (third)
+    assert len(messages) == 3
+    assert messages[0]["topic"] == "segments.progress"
+    assert messages[0]["ids"]["segmentId"] == "seg-1"
+    assert messages[0]["payload"]["status"] == "done"
+    assert messages[0]["payload"]["progress"] == 1.0
+
+    assert messages[1]["topic"] == "segments.progress"
+    assert messages[1]["ids"]["segmentId"] == "seg-2"
+    assert messages[1]["payload"]["status"] == "running"
+    assert messages[1]["payload"]["progress"] == 0.0
+
+    assert messages[2]["topic"] == "chapters.progress"
+    assert messages[2]["ids"]["chapterId"] == "chap-1"
+    assert messages[2]["payload"]["status"] == "running"
+
+
+def test_broadcast_tts_log_line_includes_plugin_metadata(monkeypatch):
+    messages = []
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    from app.api.ws import broadcast_tts_log_line, reset_tts_log_line_sequences_for_tests
+    reset_tts_log_line_sequences_for_tests()
+
+    broadcast_tts_log_line(
+        job_id="job-log-1",
+        project_id="proj-1",
+        chapter_id="chap-1",
+        line="synthesized text line",
+        plugin_id="tts_xtts",
+        plugin_short_name="XTTS",
+    )
+
+    assert len(messages) == 1
+    event = messages[0]
+    assert event["topic"] == "tts.logs"
+    assert event["payload"]["pluginId"] == "tts_xtts"
+    assert event["payload"]["pluginShortName"] == "XTTS"
