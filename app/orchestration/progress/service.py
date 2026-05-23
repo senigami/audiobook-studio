@@ -148,6 +148,7 @@ class ProgressService:
         status: str,
         scope: str = "job",
         parent_job_id: str | None = None,
+        chapter_id: str | None = None,
         progress: float | None = None,
         eta_seconds: int | None = None,
         eta_confidence: str | None = None,
@@ -178,6 +179,7 @@ class ProgressService:
             status: Canonical live job status.
             scope: Normalized event scope.
             parent_job_id: Optional parent task/job identifier.
+            chapter_id: Optional chapter identifier.
             progress: Optional normalized progress percentage or ratio.
             eta_seconds: Optional remaining seconds estimate.
             eta_confidence: Optional ETA confidence hint.
@@ -235,9 +237,56 @@ class ProgressService:
             self._last_progress_by_job.pop(job_id, None)
         if status == "queued":
             self._last_payload_by_job.pop(job_id, None)
-        self.broadcaster(payload=payload, channel="jobs")
+
+        is_chapter_progress = (
+            scope == "chapter"
+            or (chapter_id is not None and active_segment_id is None and scope != "segment")
+        )
+        is_segment_progress = (
+            scope == "segment"
+        )
+
+        if is_chapter_progress:
+            from app.api.contracts.events import build_chapter_progress_event  # noqa: PLC0415
+            event_payload = build_chapter_progress_event(
+                chapter_id=chapter_id or "",
+                status=status,
+                progress=payload.get("progress") if payload.get("progress") is not None else 0.0,
+                grouped_progress=payload.get("grouped_progress"),
+                eta_seconds=payload.get("eta_seconds"),
+                message=payload.get("message"),
+                reason_code=payload.get("reason_code"),
+                render_group_count=payload.get("render_group_count"),
+                completed_render_groups=payload.get("completed_render_groups"),
+                job_id=job_id,
+                project_id=parent_job_id,
+                source=payload.get("source"),
+            )
+            self.broadcaster(payload=event_payload, channel="jobs")
+        elif is_segment_progress:
+            from app.api.contracts.events import build_segment_progress_event  # noqa: PLC0415
+            event_payload = build_segment_progress_event(
+                segment_id=active_segment_id or job_id,
+                status=status,
+                progress=payload.get("progress") if payload.get("progress") is not None else 0.0,
+                segment_index=active_render_group_index,
+                segment_count=render_group_count,
+                message=message,
+                reason_code=reason_code,
+                job_id=job_id,
+                chapter_id=chapter_id,
+                project_id=parent_job_id,
+                source=payload.get("source"),
+                eta_seconds=payload.get("eta_seconds"),
+            )
+            self.broadcaster(payload=event_payload, channel="jobs")
+        else:
+            self.broadcaster(payload=payload, channel="jobs")
+
+
         self._last_payload_by_job[job_id] = payload
         return payload
+
 
     def _normalize_monotonic_progress(
         self,

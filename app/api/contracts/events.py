@@ -399,6 +399,9 @@ def build_chapter_progress_event(
     reason_code: str | None = None,
     render_group_count: int | None = None,
     completed_render_groups: int | None = None,
+    job_id: str | None = None,
+    project_id: str | None = None,
+    source: str | None = None,
 ) -> dict:
     """Build a chapters.progress topic envelope."""
     payload = {
@@ -409,15 +412,25 @@ def build_chapter_progress_event(
         "message": message,
         "reasonCode": reason_code,
         "renderGroupCount": render_group_count,
-        "completedRenderGroups": completed_render_groups
+        "completedRenderGroups": completed_render_groups,
+        # Legacy compatibility duplicate fields
+        "grouped_progress": round(float(grouped_progress), 2) if grouped_progress is not None else None,
+        "eta_seconds": eta_seconds,
+        "reason_code": reason_code,
+        "render_group_count": render_group_count,
+        "completed_render_groups": completed_render_groups,
     }
+    resolved_source = source or _resolve_source_path()
     return build_studio_event(
         topic="chapters.progress",
         event_kind="chapter_progress",
         payload=payload,
+        project_id=project_id,
         chapter_id=chapter_id,
-        source=_resolve_source_path()
+        job_id=job_id,
+        source=resolved_source
     )
+
 
 
 def build_segment_progress_event(
@@ -432,6 +445,7 @@ def build_segment_progress_event(
     chapter_id: str | None = None,
     project_id: str | None = None,
     source: str | None = None,
+    eta_seconds: int | None = None,
 ) -> dict:
     """Build a segments.progress topic envelope."""
     payload = {
@@ -442,6 +456,12 @@ def build_segment_progress_event(
         "message": message,
         "reasonCode": reason_code,
         "reason_code": reason_code,  # Legacy compatibility
+        "activeSegmentId": segment_id,
+        "activeSegmentProgress": round(float(progress), 2),
+        "active_segment_id": segment_id,
+        "active_segment_progress": round(float(progress), 2),
+        "etaSeconds": eta_seconds,
+        "eta_seconds": eta_seconds,
     }
     return build_studio_event(
         topic="segments.progress",
@@ -453,6 +473,7 @@ def build_segment_progress_event(
         segment_id=segment_id,
         source=source or _resolve_source_path()
     )
+
 
 
 def build_segment_lifecycle_event(

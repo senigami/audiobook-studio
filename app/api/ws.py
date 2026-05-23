@@ -17,6 +17,7 @@ from .contracts.events import (
     build_segment_lifecycle_event,
     build_segment_progress_event,
     build_project_lifecycle_event,
+    build_chapter_progress_event,
 )
 from ..utils.render_trace import trace
 
@@ -253,6 +254,60 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
     merged.pop("source", None)
     classification = _classify_job_payload(merged)
     merged["classification"] = classification
+
+    if classification == "chapter":
+        if not skip_studio_job_event:
+            status = str(merged.get("status") or "queued")
+            message = None
+            if status in ("failed", "cancelled"):
+                message = merged.get("error") or updates.get("error")
+            if not message:
+                message = updates.get("message") or updates.get("log")
+
+            event = build_chapter_progress_event(
+                chapter_id=merged.get("chapter_id") or "",
+                status=status,
+                progress=merged.get("progress") or 0.0,
+                grouped_progress=merged.get("grouped_progress"),
+                eta_seconds=updates.get("eta_seconds") or merged.get("eta_seconds"),
+                message=message,
+                reason_code=merged.get("reason_code"),
+                render_group_count=merged.get("render_group_count"),
+                completed_render_groups=merged.get("completed_render_groups"),
+                job_id=job_id,
+                project_id=merged.get("project_id"),
+                source=source or _resolve_source("app.api.ws.broadcast_job_updated"),
+            )
+            broadcast_studio_event(event)
+        return
+
+    if classification == "segment":
+        if not skip_studio_job_event:
+            status = str(merged.get("status") or "running")
+            message = None
+            if status in ("failed", "cancelled"):
+                message = merged.get("error") or updates.get("error")
+            if not message:
+                message = updates.get("message") or updates.get("log")
+
+            event = build_segment_progress_event(
+                segment_id=merged.get("active_segment_id") or merged.get("segment_id") or job_id,
+                status=status,
+                progress=merged.get("progress") or 0.0,
+                segment_index=merged.get("active_render_group_index") or merged.get("segment_index"),
+                segment_count=merged.get("render_group_count") or merged.get("segment_count"),
+                message=message,
+                reason_code=merged.get("reason_code"),
+                job_id=job_id,
+                chapter_id=merged.get("chapter_id"),
+                project_id=merged.get("project_id") or merged.get("parent_job_id"),
+                source=source or _resolve_source("app.api.ws.broadcast_job_updated"),
+                eta_seconds=updates.get("eta_seconds") or merged.get("eta_seconds"),
+            )
+            broadcast_studio_event(event)
+        return
+
+
 
     status = str(merged.get("status") or "queued")
     message = None

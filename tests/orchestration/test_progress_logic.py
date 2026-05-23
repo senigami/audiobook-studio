@@ -261,3 +261,102 @@ def test_skip_studio_job_event(tmp_path):
             assert call_arg["type"] == "job_updated"
             # Ensure skip_studio_job_event is NOT in the broadcast updates payload
             assert "skip_studio_job_event" not in call_arg["updates"]
+
+
+def test_progress_service_chapter_progress_sends_canonical_envelope():
+    from app.orchestration.progress.service import ProgressService
+    broadcast_events = []
+
+    def dummy_broadcaster(*, payload: dict, channel: str):
+        broadcast_events.append((payload, channel))
+
+    service = ProgressService(
+        reconcile_fn=lambda **kwargs: kwargs,
+        eta_fn=lambda **kwargs: 10,
+        broadcaster=dummy_broadcaster
+    )
+
+    # Publish a chapter progress event
+    service.publish(
+        job_id="job-chap-1",
+        status="running",
+        scope="chapter",
+        parent_job_id="proj-1",
+        chapter_id="chap-1",
+        progress=0.45,
+        grouped_progress=0.4,
+        eta_seconds=120,
+        message="Synthesizing...",
+    )
+
+    # Verify that the broadcaster received a canonical studio_event envelope for chapters.progress
+    assert len(broadcast_events) == 1
+    event, channel = broadcast_events[0]
+    assert channel == "jobs"
+    assert event["type"] == "studio_event"
+    assert event["version"] == 1
+    assert event["topic"] == "chapters.progress"
+    assert event["eventKind"] == "chapter_progress"
+    assert event["ids"] == {
+        "projectId": "proj-1",
+        "chapterId": "chap-1",
+        "jobId": "job-chap-1",
+        "segmentId": None
+    }
+    assert event["payload"]["status"] == "running"
+    assert event["payload"]["progress"] == 0.45
+    assert event["payload"]["groupedProgress"] == 0.4
+    assert event["payload"]["grouped_progress"] == 0.4
+    assert event["payload"]["etaSeconds"] == 120
+    assert event["payload"]["eta_seconds"] == 120
+    assert event["payload"]["message"] == "Synthesizing..."
+
+
+def test_progress_service_segment_progress_sends_canonical_envelope():
+    from app.orchestration.progress.service import ProgressService
+    broadcast_events = []
+
+    def dummy_broadcaster(*, payload: dict, channel: str):
+        broadcast_events.append((payload, channel))
+
+    service = ProgressService(
+        reconcile_fn=lambda **kwargs: kwargs,
+        eta_fn=lambda **kwargs: 10,
+        broadcaster=dummy_broadcaster
+    )
+
+    # Publish a segment progress event
+    service.publish(
+        job_id="job-seg-1",
+        status="running",
+        scope="segment",
+        parent_job_id="proj-1",
+        chapter_id="chap-1",
+        progress=0.75,
+        eta_seconds=15,
+        message="Synthesizing segment...",
+    )
+
+    # Verify that the broadcaster received a canonical studio_event envelope for segments.progress
+    assert len(broadcast_events) == 1
+    event, channel = broadcast_events[0]
+    assert channel == "jobs"
+    assert event["type"] == "studio_event"
+    assert event["version"] == 1
+    assert event["topic"] == "segments.progress"
+    assert event["eventKind"] == "segment_progress"
+    assert event["ids"] == {
+        "projectId": "proj-1",
+        "chapterId": "chap-1",
+        "jobId": "job-seg-1",
+        "segmentId": "job-seg-1"
+    }
+    assert event["payload"]["status"] == "running"
+    assert event["payload"]["progress"] == 0.75
+    assert event["payload"]["activeSegmentId"] == "job-seg-1"
+    assert event["payload"]["activeSegmentProgress"] == 0.75
+    assert event["payload"]["active_segment_id"] == "job-seg-1"
+    assert event["payload"]["active_segment_progress"] == 0.75
+    assert event["payload"]["etaSeconds"] == 15
+    assert event["payload"]["eta_seconds"] == 15
+    assert event["payload"]["message"] == "Synthesizing segment..."

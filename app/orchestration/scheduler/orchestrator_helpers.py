@@ -762,6 +762,7 @@ class OrchestratorHelpersMixin:
                 job_id=context.task_id,
                 status=state_status,
                 parent_job_id=context.project_id,
+                chapter_id=context.chapter_id,
                 progress=state_progress,
                 eta_seconds=eta_seconds,
                 eta_confidence=eta_confidence,

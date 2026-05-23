@@ -74,10 +74,14 @@ def test_broadcast_job_updated_preserves_context_in_job_updated_payload(monkeypa
         {"status": "running", "progress": 0.5, "chapter_id": "chap-1", "project_id": "proj-1", "parent_job_id": "chapter-parent"},
     )
 
-    assert messages[1]["updates"]["chapter_id"] == "chap-1"
-    assert messages[1]["updates"]["project_id"] == "proj-1"
-    assert messages[1]["updates"]["classification"] == "segment"
-    assert messages[1]["source"].endswith("test_broadcast_job_updated_preserves_context_in_job_updated_payload")
+    assert len(messages) == 1
+    event = messages[0]
+    assert event["type"] == "studio_event"
+    assert event["topic"] == "segments.progress"
+    assert event["ids"]["projectId"] == "proj-1"
+    assert event["ids"]["chapterId"] == "chap-1"
+    assert event["ids"]["jobId"] == "job-3"
+    assert event["source"].endswith("test_broadcast_job_updated_preserves_context_in_job_updated_payload")
 
 
 def test_broadcast_job_updated_uses_phase4_progress_rounding(monkeypatch):
@@ -659,7 +663,13 @@ def test_api_add_to_queue_websocket_burst_no_redundancy(monkeypatch, tmp_path, v
         assert response.status_code == 200
 
     # Count message types
-    studio_job_queued = [m for m in messages if m.get("type") == "studio_job_event" and m.get("status") == "queued"]
+    # Count message types
+    chapter_progress_queued = [
+        m for m in messages
+        if m.get("type") == "studio_event"
+        and m.get("topic") == "chapters.progress"
+        and m.get("payload", {}).get("status") == "queued"
+    ]
     job_updated_queued = [m for m in messages if m.get("type") == "job_updated" and m.get("updates", {}).get("status") == "queued"]
     chapter_updated = [
         m for m in messages
@@ -674,10 +684,11 @@ def test_api_add_to_queue_websocket_burst_no_redundancy(monkeypatch, tmp_path, v
         and m.get("eventKind") == "queue_item_invalidated"
     ]
 
-    assert len(studio_job_queued) == 1, f"Expected 1 studio_job_event (queued), got {len(studio_job_queued)}: {studio_job_queued}"
+    assert len(chapter_progress_queued) == 1, f"Expected 1 chapters.progress (queued), got {len(chapter_progress_queued)}: {chapter_progress_queued}"
     assert len(job_updated_queued) == 0, f"Expected 0 job_updated (queued) after suppression, got {len(job_updated_queued)}: {job_updated_queued}"
     assert len(chapter_updated) == 1, f"Expected 1 chapter_updated studio_event, got {len(chapter_updated)}: {chapter_updated}"
     assert len(queue_updated) == 1, f"Expected 1 queue_updated studio_event, got {len(queue_updated)}: {queue_updated}"
+
 
 
 # --- Phase 1 Studio Event Broadcaster Contract tests ---
@@ -811,8 +822,14 @@ def test_build_core_topic_helpers():
         "message": "rendering",
         "reasonCode": "rendering_chapter",
         "renderGroupCount": 10,
-        "completedRenderGroups": 5
+        "completedRenderGroups": 5,
+        "grouped_progress": 0.5,
+        "eta_seconds": 60,
+        "reason_code": "rendering_chapter",
+        "render_group_count": 10,
+        "completed_render_groups": 5,
     }
+
 
     # 6. segments.progress
     e_seg_prog = build_segment_progress_event(
@@ -832,8 +849,15 @@ def test_build_core_topic_helpers():
         "segmentCount": 5,
         "message": "synthesizing segment",
         "reasonCode": "segment_synth",
-        "reason_code": "segment_synth"  # Legacy compatibility
+        "reason_code": "segment_synth",  # Legacy compatibility
+        "activeSegmentId": "s-1",
+        "activeSegmentProgress": 0.25,
+        "active_segment_id": "s-1",
+        "active_segment_progress": 0.25,
+        "etaSeconds": None,
+        "eta_seconds": None,
     }
+
 
     # 7. segments.lifecycle
     e_seg_life = build_segment_lifecycle_event(
@@ -1153,6 +1177,111 @@ def test_broadcast_segment_progress_sends_canonical_envelope(monkeypatch):
         "segmentCount": None,
         "message": None,
         "reasonCode": None,
-        "reason_code": None  # Legacy compatibility
+        "reason_code": None,  # Legacy compatibility
+        "activeSegmentId": "seg-789",
+        "activeSegmentProgress": 0.67,
+        "active_segment_id": "seg-789",
+        "active_segment_progress": 0.67,
+        "etaSeconds": None,
+        "eta_seconds": None,
     }
     assert event["source"].endswith("test_broadcast_segment_progress_sends_canonical_envelope")
+
+
+def test_broadcast_job_updated_chapter_progress_sends_canonical_envelope(monkeypatch):
+    messages = []
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    # Send a chapter-classified update
+    broadcast_job_updated(
+        "job-chap-123",
+        {"progress": 0.77, "grouped_progress": 0.6, "eta_seconds": 45, "render_group_count": 8, "completed_render_groups": 4},
+        {"status": "running", "progress": 0.77, "chapter_id": "chap-1", "project_id": "proj-1"},
+    )
+
+    # We expect only one broadcast: the canonical chapters.progress studio_event
+    assert len(messages) == 1
+    event = messages[0]
+    assert event["type"] == "studio_event"
+    assert event["version"] == 1
+    assert event["topic"] == "chapters.progress"
+    assert event["eventKind"] == "chapter_progress"
+    assert event["ids"] == {
+        "projectId": "proj-1",
+        "chapterId": "chap-1",
+        "jobId": "job-chap-123",
+        "segmentId": None
+    }
+    # Check payload has both camelCase and snake_case compatibility keys
+    assert event["payload"]["status"] == "running"
+    assert event["payload"]["progress"] == 0.77
+    assert event["payload"]["groupedProgress"] == 0.6
+    assert event["payload"]["grouped_progress"] == 0.6
+    assert event["payload"]["etaSeconds"] == 45
+    assert event["payload"]["eta_seconds"] == 45
+    assert event["payload"]["renderGroupCount"] == 8
+    assert event["payload"]["render_group_count"] == 8
+    assert event["payload"]["completedRenderGroups"] == 4
+    assert event["payload"]["completed_render_groups"] == 4
+
+
+def test_broadcast_job_updated_chapter_progress_respects_skip_studio_job_event(monkeypatch):
+    messages = []
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    # Send a chapter-classified update with skip_studio_job_event=True
+    broadcast_job_updated(
+        "job-chap-123",
+        {"progress": 0.77, "skip_studio_job_event": True},
+        {"status": "running", "progress": 0.77, "chapter_id": "chap-1", "project_id": "proj-1"},
+    )
+
+    # Since skip_studio_job_event=True (already sent via ProgressService path), we expect ZERO broadcasts
+    assert len(messages) == 0
+
+
+def test_broadcast_job_updated_segment_progress_sends_canonical_envelope(monkeypatch):
+    messages = []
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    # Send a segment-classified update
+    broadcast_job_updated(
+        "job-seg-123",
+        {"progress": 0.5, "eta_seconds": 15},
+        {"status": "running", "progress": 0.5, "parent_job_id": "chapter-parent-job", "chapter_id": "chap-1", "project_id": "proj-1"},
+    )
+
+    # We expect only one broadcast: the canonical segments.progress studio_event
+    assert len(messages) == 1
+    event = messages[0]
+    assert event["type"] == "studio_event"
+    assert event["version"] == 1
+    assert event["topic"] == "segments.progress"
+    assert event["eventKind"] == "segment_progress"
+    assert event["ids"] == {
+        "projectId": "proj-1",
+        "chapterId": "chap-1",
+        "jobId": "job-seg-123",
+        "segmentId": "job-seg-123"
+    }
+    # Check payload has legacy/compatibility keys
+    assert event["payload"]["status"] == "running"
+    assert event["payload"]["progress"] == 0.5
+    assert event["payload"]["activeSegmentId"] == "job-seg-123"
+    assert event["payload"]["activeSegmentProgress"] == 0.5
+    assert event["payload"]["active_segment_id"] == "job-seg-123"
+    assert event["payload"]["active_segment_progress"] == 0.5
+    assert event["payload"]["etaSeconds"] == 15
+    assert event["payload"]["eta_seconds"] == 15

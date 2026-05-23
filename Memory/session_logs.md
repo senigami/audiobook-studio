@@ -1,4 +1,23 @@
+# 2026-05-23 - Migrate segment-classified progress to canonical segments.progress studio_event
+
+- Updated `build_segment_progress_event` in `app/api/contracts/events.py` to support `eta_seconds` and include legacy/active progress duplicate compatibility fields (`activeSegmentId`, `activeSegmentProgress`, `etaSeconds`, etc.).
+- Rewired `broadcast_job_updated` in `app/api/ws.py` to broadcast canonical `segments.progress` once (respecting `skip_studio_job_event`) and returned early for `"segment"` classified jobs.
+- Updated `ProgressService.publish` in `app/orchestration/progress/service.py` to transform segment-scoped updates (gated strictly on `scope == "segment"` to prevent misclassifying chapter updates) into canonical `segments.progress` envelopes.
+- Updated unit tests in `tests/api/test_websocket_broadcast.py` and `tests/orchestration/test_progress_logic.py`.
+- Verified: all 45 backend tests, 50 frontend tests, eslint, production build, and git diff check passed successfully.
+
+# 2026-05-23 - Migrate chapter-classified progress to canonical chapters.progress studio_event
+
+
+- Updated `build_chapter_progress_event` in `app/api/contracts/events.py` to support `job_id`, `project_id`, `source`, and backward-compatibility keys (`grouped_progress`, `eta_seconds`, etc.).
+- Rewired `broadcast_job_updated` in `app/api/ws.py` to broadcast canonical `chapters.progress` once (respecting `skip_studio_job_event`) and returned early for `"chapter"` classified jobs.
+- Updated `ProgressService.publish` in `app/orchestration/progress/service.py` to accept `chapter_id` and transform chapter-scoped progress events into canonical `chapters.progress` envelopes.
+- Updated `recover` in `app/orchestration/scheduler/orchestrator.py` and `_publish` in `app/orchestration/scheduler/orchestrator_helpers.py` to pass `chapter_id` to `ProgressService.publish`.
+- Added unit tests in `tests/api/test_websocket_broadcast.py` and `tests/orchestration/test_progress_logic.py`.
+- Verified with backend tests, frontend tests, eslint, production build, and git diff check.
+
 # 2026-05-22 - Migrate broadcast_project_updated to canonical projects.lifecycle studio_event
+
 
 - Added `"projects.lifecycle"` to `CORE_TOPICS` in `app/api/contracts/events.py`.
 - Implemented `build_project_lifecycle_event(project_id, reason, changed_fields, job_id, source)` helper in `app/api/contracts/events.py` with both camelCase `changedFields` and legacy `changed_fields` in the payload.

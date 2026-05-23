@@ -267,6 +267,8 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
             self.progress_service.publish(
                 job_id=task_id,
                 status="preparing",
+                parent_job_id=context.project_id,
+                chapter_id=context.chapter_id,
                 message=f"Recovering from interrupted {prior_status} state.",
                 reason_code="recovery_resumed",
                 allow_progress_regression=True,
@@ -283,6 +285,8 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
                     job_id=task_id,
                     status="completed",
                     progress=1.0,
+                    parent_job_id=context.project_id,
+                    chapter_id=context.chapter_id,
                     message="All artifacts already valid — recovery complete without re-synthesis.",
                     reason_code="recovery_reused",
                     force=True,
@@ -295,6 +299,8 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
             self.progress_service.publish(
                 job_id=task_id,
                 status="queued",
+                parent_job_id=context.project_id,
+                chapter_id=context.chapter_id,
                 message="Unresolved batches re-queued after recovery. Resuming...",
                 reason_code="recovery_requeued",
                 allow_progress_regression=True,
