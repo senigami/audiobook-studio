@@ -255,7 +255,7 @@ def test_broadcast_tts_log_line_sequences_are_per_job(monkeypatch):
     assert [message["marker"] for message in messages] == ["START_SYNTHESIS", "START_SEGMENT", "raw"]
 
 
-def test_broadcast_queue_update_sends_structured_payload(monkeypatch):
+def test_broadcast_queue_update_sends_canonical_envelope(monkeypatch):
     messages = []
     class DummyManager:
         def broadcast(self, message):
@@ -271,12 +271,28 @@ def test_broadcast_queue_update_sends_structured_payload(monkeypatch):
     )
 
     assert len(messages) == 1
-    assert messages[0]["type"] == "queue_updated"
-    assert messages[0]["reason"] == "job_status_change"
-    assert messages[0]["job_id"] == "job-123"
-    assert messages[0]["project_id"] == "proj-456"
-    assert messages[0]["changed_fields"] == ["status"]
-    assert messages[0]["source"].endswith("test_broadcast_queue_update_sends_structured_payload")
+    event = messages[0]
+    assert event["type"] == "studio_event"
+    assert event["version"] == 1
+    assert event["topic"] == "queue.items"
+    assert event["eventKind"] == "queue_item_invalidated"
+    assert event["ids"] == {
+        "projectId": "proj-456",
+        "chapterId": None,
+        "jobId": "job-123",
+        "segmentId": None
+    }
+    assert event["payload"] == {
+        "status": "queued",
+        "progress": 0.0,
+        "etaSeconds": None,
+        "message": "job_status_change",
+        "reasonCode": "queue_invalidated",
+        "classification": "job",
+        "changedFields": ["status"],
+        "changed_fields": ["status"]  # Legacy compatibility
+    }
+    assert event["source"].endswith("test_broadcast_queue_update_sends_canonical_envelope")
 
 
 def test_broadcast_segments_updated_sends_structured_payload(monkeypatch):
@@ -600,12 +616,17 @@ def test_api_add_to_queue_websocket_burst_no_redundancy(monkeypatch, tmp_path, v
     studio_job_queued = [m for m in messages if m.get("type") == "studio_job_event" and m.get("status") == "queued"]
     job_updated_queued = [m for m in messages if m.get("type") == "job_updated" and m.get("updates", {}).get("status") == "queued"]
     chapter_updated = [m for m in messages if m.get("type") == "chapter_updated"]
-    queue_updated = [m for m in messages if m.get("type") == "queue_updated"]
+    queue_updated = [
+        m for m in messages
+        if m.get("type") == "studio_event"
+        and m.get("topic") == "queue.items"
+        and m.get("eventKind") == "queue_item_invalidated"
+    ]
 
     assert len(studio_job_queued) == 1, f"Expected 1 studio_job_event (queued), got {len(studio_job_queued)}: {studio_job_queued}"
     assert len(job_updated_queued) == 0, f"Expected 0 job_updated (queued) after suppression, got {len(job_updated_queued)}: {job_updated_queued}"
     assert len(chapter_updated) == 1, f"Expected 1 chapter_updated, got {len(chapter_updated)}: {chapter_updated}"
-    assert len(queue_updated) == 1, f"Expected 1 queue_updated, got {len(queue_updated)}: {queue_updated}"
+    assert len(queue_updated) == 1, f"Expected 1 queue_updated studio_event, got {len(queue_updated)}: {queue_updated}"
 
 
 # --- Phase 1 Studio Event Broadcaster Contract tests ---
@@ -941,8 +962,8 @@ def test_broadcast_studio_event_does_not_mutate(monkeypatch):
     assert sample_event == original_event
 
 
-def test_legacy_broadcasters_remain_unchanged(monkeypatch):
-    from app.api.ws import broadcast_queue_update
+def test_broadcast_pause_state_sends_canonical_envelope(monkeypatch):
+    from app.api.ws import broadcast_pause_state
 
     messages = []
     class DummyManager:
@@ -951,9 +972,29 @@ def test_legacy_broadcasters_remain_unchanged(monkeypatch):
 
     monkeypatch.setattr("app.api.ws.manager", DummyManager())
 
-    broadcast_queue_update(reason="test")
+    broadcast_pause_state(paused=True)
 
     assert len(messages) == 1
-    # Check that legacy emitter sends legacy type, not "studio_event"
-    assert messages[0]["type"] == "queue_updated"
-    assert messages[0]["type"] != "studio_event"
+    event = messages[0]
+    assert event["type"] == "studio_event"
+    assert event["version"] == 1
+    assert event["topic"] == "queue.items"
+    assert event["eventKind"] == "queue_paused"
+    assert event["ids"] == {
+        "projectId": None,
+        "chapterId": None,
+        "jobId": None,
+        "segmentId": None
+    }
+    assert event["payload"] == {
+        "status": "queued",
+        "progress": 0.0,
+        "etaSeconds": None,
+        "message": "Queue pause status changed",
+        "reasonCode": "queue_paused",
+        "classification": "job",
+        "changedFields": ["paused"],
+        "paused": True,
+        "changed_fields": ["paused"]  # Legacy compatibility
+    }
+    assert event["source"].endswith("test_broadcast_pause_state_sends_canonical_envelope")

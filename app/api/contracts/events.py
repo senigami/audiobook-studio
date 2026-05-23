@@ -334,6 +334,9 @@ def build_queue_item_status_event(
 def build_queue_item_invalidated_event(
     reason: str,
     changed_fields: list[str],
+    job_id: str | None = None,
+    project_id: str | None = None,
+    source: str | None = None,
 ) -> dict:
     """Build a queue.items invalidated envelope."""
     payload = {
@@ -343,17 +346,20 @@ def build_queue_item_invalidated_event(
         "message": reason,
         "reasonCode": "queue_invalidated",
         "classification": "job",
-        "changedFields": changed_fields
+        "changedFields": changed_fields,
+        "changed_fields": changed_fields,  # Legacy compatibility
     }
     return build_studio_event(
         topic="queue.items",
         event_kind="queue_item_invalidated",
         payload=payload,
-        source=_resolve_source_path()
+        project_id=project_id,
+        job_id=job_id,
+        source=source or _resolve_source_path()
     )
 
 
-def build_queue_paused_event(paused: bool) -> dict:
+def build_queue_paused_event(paused: bool, source: str | None = None) -> dict:
     """Build a queue.items paused envelope."""
     payload = {
         "status": "queued",
@@ -362,13 +368,15 @@ def build_queue_paused_event(paused: bool) -> dict:
         "message": "Queue pause status changed",
         "reasonCode": "queue_paused",
         "classification": "job",
-        "changedFields": ["paused"]
+        "changedFields": ["paused"],
+        "paused": paused,
+        "changed_fields": ["paused"],  # Legacy compatibility
     }
     return build_studio_event(
         topic="queue.items",
         event_kind="queue_paused",
         payload=payload,
-        source=_resolve_source_path()
+        source=source or _resolve_source_path()
     )
 
 

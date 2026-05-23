@@ -7,7 +7,12 @@ import time
 from typing import List
 from fastapi import WebSocket
 
-from .contracts.events import build_studio_job_event, build_tts_log_line_event
+from .contracts.events import (
+    build_studio_job_event,
+    build_tts_log_line_event,
+    build_queue_item_invalidated_event,
+    build_queue_paused_event,
+)
 from ..utils.render_trace import trace
 
 logger = logging.getLogger(__name__)
@@ -129,16 +134,14 @@ def broadcast_queue_update(
         project_id=project_id,
         changed_fields=changed_fields
     )
-    payload = {"type": "queue_updated", "source": source or _resolve_source("app.api.ws.broadcast_queue_update")}
-    if reason is not None:
-        payload["reason"] = reason
-    if job_id is not None:
-        payload["job_id"] = job_id
-    if project_id is not None:
-        payload["project_id"] = project_id
-    if changed_fields is not None:
-        payload["changed_fields"] = changed_fields
-    manager.broadcast(payload)
+    event = build_queue_item_invalidated_event(
+        reason=reason or "Queue update",
+        changed_fields=changed_fields or [],
+        job_id=job_id,
+        project_id=project_id,
+        source=source or _resolve_source("app.api.ws.broadcast_queue_update"),
+    )
+    broadcast_studio_event(event)
 
 
 def broadcast_segments_updated(
@@ -233,11 +236,11 @@ def broadcast_project_updated(
     manager.broadcast(payload)
 
 def broadcast_pause_state(paused: bool, source: str | None = None):
-    manager.broadcast({
-        "type": "pause_updated",
-        "paused": paused,
-        "source": source or _resolve_source("app.api.ws.broadcast_pause_state"),
-    })
+    event = build_queue_paused_event(
+        paused=paused,
+        source=source or _resolve_source("app.api.ws.broadcast_pause_state"),
+    )
+    broadcast_studio_event(event)
 
 def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None = None, source: str | None = None):
     skip_studio_job_event = False
