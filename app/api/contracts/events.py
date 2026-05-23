@@ -278,11 +278,15 @@ def build_tts_log_event(
     line: str,
     level: str,
     sequence: int,
-    plugin_id: str,
+    plugin_id: str | None = None,
     job_id: str | None = None,
     chapter_id: str | None = None,
+    project_id: str | None = None,
+    received_at: float | None = None,
+    source: str | None = None,
 ) -> dict:
     """Build a tts.logs topic envelope."""
+    resolved_source = source or _resolve_source_path()
     payload = {
         "line": line.rstrip("\n"),
         "level": level,
@@ -290,16 +294,20 @@ def build_tts_log_event(
         "pluginId": plugin_id,
         "jobId": job_id,
         "chapterId": chapter_id,
-        "source": _resolve_source_path()
+        "source": resolved_source,
+        "marker": classify_tts_log_line(line),
+        "received_at": received_at,  # Legacy compatibility
+        "backendReceivedAt": received_at,  # camelCase variant
     }
     return build_studio_event(
         topic="tts.logs",
         event_kind="tts_log",
         payload=payload,
         plugin_id=plugin_id,
+        project_id=project_id,
         chapter_id=chapter_id,
         job_id=job_id,
-        source=payload["source"]
+        source=resolved_source
     )
 
 

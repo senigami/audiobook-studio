@@ -9,7 +9,7 @@ from fastapi import WebSocket
 
 from .contracts.events import (
     build_studio_job_event,
-    build_tts_log_line_event,
+    build_tts_log_event,
     build_queue_item_invalidated_event,
     build_queue_paused_event,
     build_voice_test_progress_event,
@@ -102,24 +102,27 @@ def broadcast_tts_log_line(
     received_at: float | None = None,
     source: str | None = None,
 ) -> None:
-    payload = build_tts_log_line_event(
-        job_id=job_id,
-        project_id=project_id,
-        chapter_id=chapter_id,
+    resolved_source = source or _resolve_source("app.api.ws.broadcast_tts_log_line")
+    event = build_tts_log_event(
         line=line,
+        level="INFO",
         sequence=_next_tts_log_line_sequence(job_id),
+        plugin_id=None,
+        job_id=job_id,
+        chapter_id=chapter_id,
+        project_id=project_id,
         received_at=received_at if received_at is not None else time.time(),
-        source=source or _resolve_source("app.api.ws.broadcast_tts_log_line"),
+        source=resolved_source,
     )
     trace(
         "ws.broadcast_tts_log_line",
         job_id=job_id,
         project_id=project_id,
         chapter_id=chapter_id,
-        marker=payload["marker"],
-        sequence=payload["sequence"],
+        marker=event["payload"]["marker"],
+        sequence=event["payload"]["sequence"],
     )
-    manager.broadcast(payload)
+    broadcast_studio_event(event)
 
 def broadcast_queue_update(
     reason: str | None = None,

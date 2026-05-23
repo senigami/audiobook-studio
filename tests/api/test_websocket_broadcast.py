@@ -201,7 +201,7 @@ def test_broadcast_job_updated_active_segment_progress_guard(monkeypatch):
     assert messages[0]["source"].endswith("test_broadcast_job_updated_active_segment_progress_guard")
 
 
-def test_broadcast_tts_log_line_sends_structured_diagnostic_payload(monkeypatch):
+def test_broadcast_tts_log_line_sends_canonical_envelope(monkeypatch):
     messages = []
 
     class DummyManager:
@@ -222,16 +222,28 @@ def test_broadcast_tts_log_line_sends_structured_diagnostic_payload(monkeypatch)
     )
 
     assert len(messages) == 1
-    assert messages[0] == {
-        "type": "tts_log_line",
-        "job_id": "job-tts",
-        "project_id": "proj-1",
-        "chapter_id": "chap-1",
+    event = messages[0]
+    assert event["type"] == "studio_event"
+    assert event["version"] == 1
+    assert event["topic"] == "tts.logs"
+    assert event["eventKind"] == "tts_log"
+    assert event["ids"] == {
+        "projectId": "proj-1",
+        "chapterId": "chap-1",
+        "jobId": "job-tts",
+        "segmentId": None
+    }
+    assert event["payload"] == {
         "line": "[PROGRESS] 40% job-tts",
-        "marker": "PROGRESS",
+        "level": "INFO",
         "sequence": 1,
+        "pluginId": None,
+        "jobId": "job-tts",
+        "chapterId": "chap-1",
+        "source": "tests.api.test_websocket_broadcast.test_broadcast_tts_log_line_sends_canonical_envelope",
+        "marker": "PROGRESS",
         "received_at": 123.45,
-        "source": "tests.api.test_websocket_broadcast.test_broadcast_tts_log_line_sends_structured_diagnostic_payload",
+        "backendReceivedAt": 123.45
     }
 
 
@@ -251,8 +263,11 @@ def test_broadcast_tts_log_line_sequences_are_per_job(monkeypatch):
     broadcast_tts_log_line(job_id="job-a", project_id=None, chapter_id=None, line="[START_SEGMENT] seg-1", received_at=2.0)
     broadcast_tts_log_line(job_id="job-b", project_id=None, chapter_id=None, line="plain output", received_at=3.0)
 
-    assert [message["sequence"] for message in messages] == [1, 2, 1]
-    assert [message["marker"] for message in messages] == ["START_SYNTHESIS", "START_SEGMENT", "raw"]
+    assert len(messages) == 3
+    assert [m["payload"]["sequence"] for m in messages] == [1, 2, 1]
+    assert [m["payload"]["marker"] for m in messages] == ["START_SYNTHESIS", "START_SEGMENT", "raw"]
+    assert all(m["type"] == "studio_event" for m in messages)
+    assert all(m["topic"] == "tts.logs" for m in messages)
 
 
 def test_broadcast_queue_update_sends_canonical_envelope(monkeypatch):
@@ -695,7 +710,10 @@ def test_build_core_topic_helpers():
         "pluginId": "tts_xtts",
         "jobId": "j-1",
         "chapterId": "c-1",
-        "source": e_tts["payload"]["source"]
+        "source": e_tts["payload"]["source"],
+        "marker": "raw",
+        "received_at": None,
+        "backendReceivedAt": None
     }
 
     # 2. queue.items status
