@@ -2,7 +2,7 @@
   {
     "event": {
       "frameId": 1,
-      "receivedAt": "2026-05-22T04:25:18.185Z",
+      "receivedAt": "2026-05-22T21:42:55.360Z",
       "rawType": "queue_updated",
       "topic": "queue.lifecycle",
       "category": "queue",
@@ -14,12 +14,12 @@
     "subscribers": [
       {
         "subscriber": "queue-sync",
-        "observedAt": "2026-05-22T04:25:18.185Z",
+        "observedAt": "2026-05-22T21:42:55.360Z",
         "action": "handled"
       },
       {
         "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:18.185Z",
+        "observedAt": "2026-05-22T21:42:55.360Z",
         "action": "handled"
       }
     ]
@@ -27,17 +27,17 @@
   {
     "event": {
       "frameId": 2,
-      "receivedAt": "2026-05-22T04:25:18.374Z",
+      "receivedAt": "2026-05-22T21:42:55.563Z",
       "rawType": "studio_job_event",
       "topic": "jobs.progress",
       "category": "job",
       "eventKind": "job_progress",
       "source": "app.db.state_jobs.put_job",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
+      "jobId": "job-fc2e0840-245b-4a74-86a7-30719eb9221a",
       "payload": {
         "status": "queued",
         "progress": 0,
-        "updated_at": 1779423918.371988,
+        "updated_at": 1779486175.5607412,
         "render_group_count": 0,
         "completed_render_groups": 0,
         "active_render_group_index": 0,
@@ -46,17 +46,17 @@
         "active_render_group_weight": 0,
         "grouped_progress": 0
       },
-      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"scope\":\"job\",\"status\":\"queued\",\"progress\":0.0,\"updated_at\":1779423918.371988,\"render_group_count\":0,\"completed_render_groups\":0,\"active_render_group_index\":0,\"total_render_weight\":0,\"completed_render_weight\":0,\"active_render_group_weight\":0,\"grouped_progress\":0.0,\"classification\":\"chapter\",\"source\":\"app.db.state_jobs.put_job\"}"
+      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-fc2e0840-245b-4a74-86a7-30719eb9221a\",\"scope\":\"job\",\"status\":\"queued\",\"progress\":0.0,\"updated_at\":1779486175.5607412,\"render_group_count\":0,\"completed_render_groups\":0,\"active_render_group_index\":0,\"total_render_weight\":0,\"completed_render_weight\":0,\"active_render_group_weight\":0,\"grouped_progress\":0.0,\"classification\":\"chapter\",\"source\":\"app.db.state_jobs.put_job\"}"
     },
     "subscribers": [
       {
         "subscriber": "queue-sync",
-        "observedAt": "2026-05-22T04:25:18.374Z",
+        "observedAt": "2026-05-22T21:42:55.564Z",
         "action": "handled"
       },
       {
         "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:18.374Z",
+        "observedAt": "2026-05-22T21:42:55.564Z",
         "action": "handled"
       }
     ]
@@ -64,7 +64,7 @@
   {
     "event": {
       "frameId": 3,
-      "receivedAt": "2026-05-22T04:25:18.411Z",
+      "receivedAt": "2026-05-22T21:42:55.606Z",
       "rawType": "chapter_updated",
       "topic": "chapter.invalidate",
       "category": "chapter",
@@ -77,7 +77,7 @@
     "subscribers": [
       {
         "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:18.411Z",
+        "observedAt": "2026-05-22T21:42:55.606Z",
         "action": "handled"
       }
     ]
@@ -85,7 +85,7 @@
   {
     "event": {
       "frameId": 4,
-      "receivedAt": "2026-05-22T04:25:18.419Z",
+      "receivedAt": "2026-05-22T21:42:55.609Z",
       "rawType": "queue_updated",
       "topic": "queue.lifecycle",
       "category": "queue",
@@ -97,12 +97,12 @@
     "subscribers": [
       {
         "subscriber": "queue-sync",
-        "observedAt": "2026-05-22T04:25:18.419Z",
+        "observedAt": "2026-05-22T21:42:55.609Z",
         "action": "handled"
       },
       {
         "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:18.419Z",
+        "observedAt": "2026-05-22T21:42:55.609Z",
         "action": "handled"
       }
     ]
@@ -110,32 +110,32 @@
   {
     "event": {
       "frameId": 5,
-      "receivedAt": "2026-05-22T04:25:18.423Z",
+      "receivedAt": "2026-05-22T21:42:55.612Z",
       "rawType": "studio_job_event",
       "topic": "jobs.progress",
       "category": "job",
       "eventKind": "job_progress",
       "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
+      "jobId": "job-fc2e0840-245b-4a74-86a7-30719eb9221a",
       "payload": {
         "status": "queued",
         "progress": 0,
         "eta_confidence": "estimating",
-        "updated_at": 1779423918.4117818,
+        "updated_at": 1779486175.606385,
         "reason_code": "submitted",
         "message": "Task accepted, reconciling batches."
       },
-      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"scope\":\"job\",\"status\":\"queued\",\"updated_at\":1779423918.4117818,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.0,\"eta_confidence\":\"estimating\",\"message\":\"Task accepted, reconciling batches.\",\"reason_code\":\"submitted\"}"
+      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-fc2e0840-245b-4a74-86a7-30719eb9221a\",\"scope\":\"job\",\"status\":\"queued\",\"updated_at\":1779486175.606385,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.0,\"eta_confidence\":\"estimating\",\"message\":\"Task accepted, reconciling batches.\",\"reason_code\":\"submitted\"}"
     },
     "subscribers": [
       {
         "subscriber": "queue-sync",
-        "observedAt": "2026-05-22T04:25:18.423Z",
+        "observedAt": "2026-05-22T21:42:55.612Z",
         "action": "handled"
       },
       {
         "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:18.423Z",
+        "observedAt": "2026-05-22T21:42:55.612Z",
         "action": "handled"
       }
     ]
@@ -143,32 +143,32 @@
   {
     "event": {
       "frameId": 6,
-      "receivedAt": "2026-05-22T04:25:18.428Z",
+      "receivedAt": "2026-05-22T21:42:55.615Z",
       "rawType": "studio_job_event",
       "topic": "jobs.progress",
       "category": "job",
       "eventKind": "job_progress",
       "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
+      "jobId": "job-fc2e0840-245b-4a74-86a7-30719eb9221a",
       "payload": {
         "status": "preparing",
         "progress": 0,
         "eta_confidence": "estimating",
-        "updated_at": 1779423918.4141629,
+        "updated_at": 1779486175.60896,
         "reason_code": "new_work",
         "message": "Preparing synthesis resources."
       },
-      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"scope\":\"job\",\"status\":\"preparing\",\"updated_at\":1779423918.4141629,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.0,\"eta_confidence\":\"estimating\",\"message\":\"Preparing synthesis resources.\",\"reason_code\":\"new_work\"}"
+      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-fc2e0840-245b-4a74-86a7-30719eb9221a\",\"scope\":\"job\",\"status\":\"preparing\",\"updated_at\":1779486175.60896,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.0,\"eta_confidence\":\"estimating\",\"message\":\"Preparing synthesis resources.\",\"reason_code\":\"new_work\"}"
     },
     "subscribers": [
       {
         "subscriber": "queue-sync",
-        "observedAt": "2026-05-22T04:25:18.428Z",
+        "observedAt": "2026-05-22T21:42:55.615Z",
         "action": "handled"
       },
       {
         "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:18.428Z",
+        "observedAt": "2026-05-22T21:42:55.615Z",
         "action": "handled"
       }
     ]
@@ -176,31 +176,31 @@
   {
     "event": {
       "frameId": 7,
-      "receivedAt": "2026-05-22T04:25:18.432Z",
+      "receivedAt": "2026-05-22T21:42:55.631Z",
       "rawType": "studio_job_event",
       "topic": "jobs.progress",
       "category": "job",
       "eventKind": "job_progress",
       "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
+      "jobId": "job-fc2e0840-245b-4a74-86a7-30719eb9221a",
       "payload": {
         "status": "preparing",
         "progress": 0,
         "eta_confidence": "estimating",
-        "updated_at": 1779423918.426364,
+        "updated_at": 1779486175.6282308,
         "message": "Preparing synthesis resources..."
       },
-      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"scope\":\"job\",\"status\":\"preparing\",\"updated_at\":1779423918.426364,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.0,\"eta_confidence\":\"estimating\",\"message\":\"Preparing synthesis resources...\"}"
+      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-fc2e0840-245b-4a74-86a7-30719eb9221a\",\"scope\":\"job\",\"status\":\"preparing\",\"updated_at\":1779486175.6282308,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.0,\"eta_confidence\":\"estimating\",\"message\":\"Preparing synthesis resources...\"}"
     },
     "subscribers": [
       {
         "subscriber": "queue-sync",
-        "observedAt": "2026-05-22T04:25:18.433Z",
+        "observedAt": "2026-05-22T21:42:55.631Z",
         "action": "handled"
       },
       {
         "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:18.433Z",
+        "observedAt": "2026-05-22T21:42:55.631Z",
         "action": "handled"
       }
     ]
@@ -208,24 +208,24 @@
   {
     "event": {
       "frameId": 8,
-      "receivedAt": "2026-05-22T04:25:18.438Z",
+      "receivedAt": "2026-05-22T21:42:55.635Z",
       "rawType": "chapter_updated",
       "topic": "chapter.invalidate",
       "category": "chapter",
       "eventKind": "chapter_invalidated",
       "source": "app.db.state_jobs.update_job",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
+      "jobId": "job-fc2e0840-245b-4a74-86a7-30719eb9221a",
       "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
       "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
       "payload": {
         "reason": "job_reset_to_active"
       },
-      "raw": "{\"type\":\"chapter_updated\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"source\":\"app.db.state_jobs.update_job\",\"reason\":\"job_reset_to_active\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"changed_fields\":[\"status\"]}"
+      "raw": "{\"type\":\"chapter_updated\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"source\":\"app.db.state_jobs.update_job\",\"reason\":\"job_reset_to_active\",\"job_id\":\"job-fc2e0840-245b-4a74-86a7-30719eb9221a\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"changed_fields\":[\"status\"]}"
     },
     "subscribers": [
       {
         "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:18.438Z",
+        "observedAt": "2026-05-22T21:42:55.635Z",
         "action": "handled"
       }
     ]
@@ -233,13 +233,13 @@
   {
     "event": {
       "frameId": 9,
-      "receivedAt": "2026-05-22T04:25:18.441Z",
+      "receivedAt": "2026-05-22T21:42:55.638Z",
       "rawType": "queue_updated",
       "topic": "queue.lifecycle",
       "category": "queue",
       "eventKind": "queue_invalidated",
       "source": "app.db.state_jobs.update_job",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
+      "jobId": "job-fc2e0840-245b-4a74-86a7-30719eb9221a",
       "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
       "payload": {
         "reason": "job_reset_to_active",
@@ -247,129 +247,17 @@
           "status"
         ]
       },
-      "raw": "{\"type\":\"queue_updated\",\"source\":\"app.db.state_jobs.update_job\",\"reason\":\"job_reset_to_active\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"changed_fields\":[\"status\"]}"
+      "raw": "{\"type\":\"queue_updated\",\"source\":\"app.db.state_jobs.update_job\",\"reason\":\"job_reset_to_active\",\"job_id\":\"job-fc2e0840-245b-4a74-86a7-30719eb9221a\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"changed_fields\":[\"status\"]}"
     },
     "subscribers": [
       {
         "subscriber": "queue-sync",
-        "observedAt": "2026-05-22T04:25:18.441Z",
+        "observedAt": "2026-05-22T21:42:55.638Z",
         "action": "handled"
       },
       {
         "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:18.441Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 10,
-      "receivedAt": "2026-05-22T04:25:18.588Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "Loading XTTS model...",
-        "marker": "raw",
-        "sequence": 1,
-        "backendReceivedAt": 1779423918.587827
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"Loading XTTS model...\",\"marker\":\"raw\",\"sequence\":1,\"received_at\":1779423918.587827,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:18.588Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 11,
-      "receivedAt": "2026-05-22T04:25:29.374Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "Loading pre-computed latents from /Users/stevendunn/GitHub-Steven/audiobook-factory/plugins/tts_xtts/assets/latent.pth...",
-        "marker": "raw",
-        "sequence": 2,
-        "backendReceivedAt": 1779423929.3724039
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"Loading pre-computed latents from /Users/stevendunn/GitHub-Steven/audiobook-factory/plugins/tts_xtts/assets/latent.pth...\",\"marker\":\"raw\",\"sequence\":2,\"received_at\":1779423929.3724039,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:29.375Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 12,
-      "receivedAt": "2026-05-22T04:25:29.382Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "Synthesizing 1 segments to /Users/stevendunn/GitHub-Steven/audiobook-factory/plugins/tts_xtts/assets/test_output.wav...",
-        "marker": "raw",
-        "sequence": 3,
-        "backendReceivedAt": 1779423929.373046
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"Synthesizing 1 segments to /Users/stevendunn/GitHub-Steven/audiobook-factory/plugins/tts_xtts/assets/test_output.wav...\",\"marker\":\"raw\",\"sequence\":3,\"received_at\":1779423929.373046,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:29.382Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 13,
-      "receivedAt": "2026-05-22T04:25:29.385Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "[START_SYNTHESIS]",
-        "marker": "START_SYNTHESIS",
-        "sequence": 4,
-        "backendReceivedAt": 1779423929.373121
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"[START_SYNTHESIS]\",\"marker\":\"START_SYNTHESIS\",\"sequence\":4,\"received_at\":1779423929.373121,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:29.385Z",
+        "observedAt": "2026-05-22T21:42:55.638Z",
         "action": "handled"
       }
     ]
@@ -377,22 +265,22 @@
   {
     "event": {
       "frameId": 14,
-      "receivedAt": "2026-05-22T04:25:29.388Z",
+      "receivedAt": "2026-05-22T21:43:17.261Z",
       "rawType": "studio_job_event",
       "topic": "jobs.progress",
       "category": "job",
       "eventKind": "job_progress",
       "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
+      "jobId": "job-fc2e0840-245b-4a74-86a7-30719eb9221a",
       "payload": {
         "status": "running",
         "progress": 0,
         "eta_seconds": 39,
-        "estimated_end_at": 1779423968.373177,
+        "estimated_end_at": 1779486236.256646,
         "eta_basis": "remaining_from_update",
         "eta_confidence": "stable",
-        "started_at": 1779423929.373131,
-        "updated_at": 1779423929.373177,
+        "started_at": 1779486197.2565958,
+        "updated_at": 1779486197.256646,
         "message": "Synthesis in progress...",
         "render_group_count": 2,
         "completed_render_groups": 0,
@@ -402,17 +290,17 @@
         "active_render_group_weight": 0,
         "grouped_progress": 0
       },
-      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"scope\":\"job\",\"status\":\"running\",\"updated_at\":1779423929.373177,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.0,\"eta_seconds\":39,\"eta_basis\":\"remaining_from_update\",\"estimated_end_at\":1779423968.373177,\"eta_confidence\":\"stable\",\"message\":\"Synthesis in progress...\",\"started_at\":1779423929.373131,\"render_group_count\":2,\"completed_render_groups\":0,\"active_render_group_index\":0,\"total_render_weight\":949,\"completed_render_weight\":0,\"active_render_group_weight\":0,\"grouped_progress\":0.0}"
+      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-fc2e0840-245b-4a74-86a7-30719eb9221a\",\"scope\":\"job\",\"status\":\"running\",\"updated_at\":1779486197.256646,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.0,\"eta_seconds\":39,\"eta_basis\":\"remaining_from_update\",\"estimated_end_at\":1779486236.256646,\"eta_confidence\":\"stable\",\"message\":\"Synthesis in progress...\",\"started_at\":1779486197.2565958,\"render_group_count\":2,\"completed_render_groups\":0,\"active_render_group_index\":0,\"total_render_weight\":949,\"completed_render_weight\":0,\"active_render_group_weight\":0,\"grouped_progress\":0.0}"
     },
     "subscribers": [
       {
         "subscriber": "queue-sync",
-        "observedAt": "2026-05-22T04:25:29.388Z",
+        "observedAt": "2026-05-22T21:43:17.261Z",
         "action": "handled"
       },
       {
         "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:29.388Z",
+        "observedAt": "2026-05-22T21:43:17.262Z",
         "action": "handled"
       }
     ]
@@ -420,24 +308,24 @@
   {
     "event": {
       "frameId": 15,
-      "receivedAt": "2026-05-22T04:25:29.395Z",
+      "receivedAt": "2026-05-22T21:43:17.266Z",
       "rawType": "chapter_updated",
       "topic": "chapter.invalidate",
       "category": "chapter",
       "eventKind": "chapter_invalidated",
       "source": "app.db.state_jobs.update_job",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
+      "jobId": "job-fc2e0840-245b-4a74-86a7-30719eb9221a",
       "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
       "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
       "payload": {
         "reason": "job_reset_to_active"
       },
-      "raw": "{\"type\":\"chapter_updated\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"source\":\"app.db.state_jobs.update_job\",\"reason\":\"job_reset_to_active\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"changed_fields\":[\"status\"]}"
+      "raw": "{\"type\":\"chapter_updated\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"source\":\"app.db.state_jobs.update_job\",\"reason\":\"job_reset_to_active\",\"job_id\":\"job-fc2e0840-245b-4a74-86a7-30719eb9221a\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"changed_fields\":[\"status\"]}"
     },
     "subscribers": [
       {
         "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:29.395Z",
+        "observedAt": "2026-05-22T21:43:17.266Z",
         "action": "handled"
       }
     ]
@@ -445,13 +333,13 @@
   {
     "event": {
       "frameId": 16,
-      "receivedAt": "2026-05-22T04:25:29.401Z",
+      "receivedAt": "2026-05-22T21:43:17.269Z",
       "rawType": "queue_updated",
       "topic": "queue.lifecycle",
       "category": "queue",
       "eventKind": "queue_invalidated",
       "source": "app.db.state_jobs.update_job",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
+      "jobId": "job-fc2e0840-245b-4a74-86a7-30719eb9221a",
       "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
       "payload": {
         "reason": "job_reset_to_active",
@@ -459,45 +347,17 @@
           "status"
         ]
       },
-      "raw": "{\"type\":\"queue_updated\",\"source\":\"app.db.state_jobs.update_job\",\"reason\":\"job_reset_to_active\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"changed_fields\":[\"status\"]}"
+      "raw": "{\"type\":\"queue_updated\",\"source\":\"app.db.state_jobs.update_job\",\"reason\":\"job_reset_to_active\",\"job_id\":\"job-fc2e0840-245b-4a74-86a7-30719eb9221a\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"changed_fields\":[\"status\"]}"
     },
     "subscribers": [
       {
         "subscriber": "queue-sync",
-        "observedAt": "2026-05-22T04:25:29.401Z",
+        "observedAt": "2026-05-22T21:43:17.269Z",
         "action": "handled"
       },
       {
         "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:29.401Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 17,
-      "receivedAt": "2026-05-22T04:25:32.072Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "Synthesizing:   0%|          | 0/1 [00:00<?, ?seg/s][PROGRESS] 100%",
-        "marker": "PROGRESS",
-        "sequence": 5,
-        "backendReceivedAt": 1779423932.0724769
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"Synthesizing:   0%|          | 0/1 [00:00<?, ?seg/s][PROGRESS] 100%\",\"marker\":\"PROGRESS\",\"sequence\":5,\"received_at\":1779423932.0724769,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:32.073Z",
+        "observedAt": "2026-05-22T21:43:17.269Z",
         "action": "handled"
       }
     ]
@@ -505,385 +365,20 @@
   {
     "event": {
       "frameId": 18,
-      "receivedAt": "2026-05-22T04:25:32.081Z",
-      "rawType": "studio_job_event",
-      "topic": "jobs.progress",
-      "category": "job",
-      "eventKind": "job_progress",
-      "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "payload": {
-        "status": "running",
-        "progress": 0,
-        "eta_confidence": "stable",
-        "started_at": 1779423929.373131,
-        "updated_at": 1779423932.072504,
-        "reason_code": "synthesis_progress",
-        "message": "Synthesizing...",
-        "render_group_count": 2,
-        "completed_render_groups": 0,
-        "active_render_group_index": 0,
-        "total_render_weight": 949,
-        "completed_render_weight": 0,
-        "active_render_group_weight": 0,
-        "grouped_progress": 0
-      },
-      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"scope\":\"job\",\"status\":\"running\",\"updated_at\":1779423932.072504,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.0,\"eta_confidence\":\"stable\",\"message\":\"Synthesizing...\",\"reason_code\":\"synthesis_progress\",\"started_at\":1779423929.373131,\"render_group_count\":2,\"completed_render_groups\":0,\"active_render_group_index\":0,\"total_render_weight\":949,\"completed_render_weight\":0,\"active_render_group_weight\":0,\"grouped_progress\":0.0}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "queue-sync",
-        "observedAt": "2026-05-22T04:25:32.081Z",
-        "action": "handled"
-      },
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:32.081Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 19,
-      "receivedAt": "2026-05-22T04:25:32.087Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "Synthesizing: 100%|������������������������������| 1/1 [00:02<00:00,  2.68s/seg]",
-        "marker": "raw",
-        "sequence": 6,
-        "backendReceivedAt": 1779423932.0750341
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"Synthesizing: 100%|������������������������������| 1/1 [00:02<00:00,  2.68s/seg]\",\"marker\":\"raw\",\"sequence\":6,\"received_at\":1779423932.0750341,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:32.087Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 20,
-      "receivedAt": "2026-05-22T04:25:32.091Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "Synthesizing: 100%|������������������������������| 1/1 [00:02<00:00,  2.68s/seg]",
-        "marker": "raw",
-        "sequence": 7,
-        "backendReceivedAt": 1779423932.075049
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"Synthesizing: 100%|������������������������������| 1/1 [00:02<00:00,  2.68s/seg]\",\"marker\":\"raw\",\"sequence\":7,\"received_at\":1779423932.075049,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:32.091Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 21,
-      "receivedAt": "2026-05-22T04:25:32.095Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "Successfully synthesized 1 audio chunks.",
-        "marker": "raw",
-        "sequence": 8,
-        "backendReceivedAt": 1779423932.075061
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"Successfully synthesized 1 audio chunks.\",\"marker\":\"raw\",\"sequence\":8,\"received_at\":1779423932.075061,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:32.095Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 22,
-      "receivedAt": "2026-05-22T04:25:32.734Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "2026-05-22 00:25:32,734 [INFO] tts-server app.tts_server.verification: Plugin tts_xtts verified OK (22.47s)",
-        "marker": "raw",
-        "sequence": 9,
-        "backendReceivedAt": 1779423932.734522
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"2026-05-22 00:25:32,734 [INFO] tts-server app.tts_server.verification: Plugin tts_xtts verified OK (22.47s)\",\"marker\":\"raw\",\"sequence\":9,\"received_at\":1779423932.734522,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:32.735Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 23,
-      "receivedAt": "2026-05-22T04:25:36.708Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "Loading cached latents for f29706a2da8ed08a324c5fafeae1ccef...",
-        "marker": "raw",
-        "sequence": 10,
-        "backendReceivedAt": 1779423936.707793
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"Loading cached latents for f29706a2da8ed08a324c5fafeae1ccef...\",\"marker\":\"raw\",\"sequence\":10,\"received_at\":1779423936.707793,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:36.708Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 24,
-      "receivedAt": "2026-05-22T04:25:36.709Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "Synthesizing 2 segments to /Users/stevendunn/GitHub-Steven/audiobook-factory/projects/5a7b020b-dd06-43cd-8b29-880865646d63/chapters/684ce461-9e2c-41af-877e-17ee74a0358e/output_job-d984f0c8-0223-4123-88ef-bf4a7b9958cf.wav...",
-        "marker": "raw",
-        "sequence": 11,
-        "backendReceivedAt": 1779423936.708931
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"Synthesizing 2 segments to /Users/stevendunn/GitHub-Steven/audiobook-factory/projects/5a7b020b-dd06-43cd-8b29-880865646d63/chapters/684ce461-9e2c-41af-877e-17ee74a0358e/output_job-d984f0c8-0223-4123-88ef-bf4a7b9958cf.wav...\",\"marker\":\"raw\",\"sequence\":11,\"received_at\":1779423936.708931,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:36.709Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 25,
-      "receivedAt": "2026-05-22T04:25:36.710Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "[START_SYNTHESIS] job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-        "marker": "START_SYNTHESIS",
-        "sequence": 12,
-        "backendReceivedAt": 1779423936.709192
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"[START_SYNTHESIS] job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"marker\":\"START_SYNTHESIS\",\"sequence\":12,\"received_at\":1779423936.709192,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:36.710Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 26,
-      "receivedAt": "2026-05-22T04:25:36.710Z",
-      "rawType": "studio_job_event",
-      "topic": "jobs.progress",
-      "category": "job",
-      "eventKind": "job_progress",
-      "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "payload": {
-        "status": "running",
-        "progress": 0,
-        "eta_seconds": 39,
-        "estimated_end_at": 1779423975.709218,
-        "eta_basis": "remaining_from_update",
-        "eta_confidence": "stable",
-        "started_at": 1779423929.373131,
-        "updated_at": 1779423936.709218,
-        "message": "Synthesis in progress...",
-        "render_group_count": 2,
-        "completed_render_groups": 0,
-        "active_render_group_index": 0,
-        "total_render_weight": 949,
-        "completed_render_weight": 0,
-        "active_render_group_weight": 0,
-        "grouped_progress": 0
-      },
-      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"scope\":\"job\",\"status\":\"running\",\"updated_at\":1779423936.709218,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.0,\"eta_seconds\":39,\"eta_basis\":\"remaining_from_update\",\"estimated_end_at\":1779423975.709218,\"eta_confidence\":\"stable\",\"message\":\"Synthesis in progress...\",\"started_at\":1779423929.373131,\"render_group_count\":2,\"completed_render_groups\":0,\"active_render_group_index\":0,\"total_render_weight\":949,\"completed_render_weight\":0,\"active_render_group_weight\":0,\"grouped_progress\":0.0}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "queue-sync",
-        "observedAt": "2026-05-22T04:25:36.710Z",
-        "action": "handled"
-      },
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:36.710Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 27,
-      "receivedAt": "2026-05-22T04:25:36.715Z",
-      "rawType": "chapter_updated",
-      "topic": "chapter.invalidate",
-      "category": "chapter",
-      "eventKind": "chapter_invalidated",
-      "source": "app.db.state_jobs.update_job",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "reason": "job_reset_to_active"
-      },
-      "raw": "{\"type\":\"chapter_updated\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"source\":\"app.db.state_jobs.update_job\",\"reason\":\"job_reset_to_active\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"changed_fields\":[\"status\"]}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:36.715Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 28,
-      "receivedAt": "2026-05-22T04:25:36.719Z",
-      "rawType": "queue_updated",
-      "topic": "queue.lifecycle",
-      "category": "queue",
-      "eventKind": "queue_invalidated",
-      "source": "app.db.state_jobs.update_job",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "payload": {
-        "reason": "job_reset_to_active",
-        "changed_fields": [
-          "status"
-        ]
-      },
-      "raw": "{\"type\":\"queue_updated\",\"source\":\"app.db.state_jobs.update_job\",\"reason\":\"job_reset_to_active\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"changed_fields\":[\"status\"]}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "queue-sync",
-        "observedAt": "2026-05-22T04:25:36.719Z",
-        "action": "handled"
-      },
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:36.719Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 29,
-      "receivedAt": "2026-05-22T04:25:36.728Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "Synthesizing:   0%|          | 0/2 [00:00<?, ?seg/s][START_SEGMENT] 1776192577192134000_0",
-        "marker": "START_SEGMENT",
-        "sequence": 13,
-        "backendReceivedAt": 1779423936.72452
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"Synthesizing:   0%|          | 0/2 [00:00<?, ?seg/s][START_SEGMENT] 1776192577192134000_0\",\"marker\":\"START_SEGMENT\",\"sequence\":13,\"received_at\":1779423936.72452,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:36.728Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 30,
-      "receivedAt": "2026-05-22T04:25:36.728Z",
+      "receivedAt": "2026-05-22T21:43:17.276Z",
       "rawType": "studio_job_event",
       "topic": "jobs.progress",
       "category": "segment",
       "eventKind": "segment_started",
       "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
+      "jobId": "job-fc2e0840-245b-4a74-86a7-30719eb9221a",
       "segmentId": "1776192577192134000_0",
       "payload": {
         "status": "running",
         "progress": 0,
         "eta_confidence": "stable",
-        "started_at": 1779423929.373131,
-        "updated_at": 1779423936.724542,
+        "started_at": 1779486197.2565958,
+        "updated_at": 1779486197.273035,
         "reason_code": "segment_start",
         "message": "Rendering segment 1776192577192134000_0...",
         "active_segment_id": "1776192577192134000_0",
@@ -895,69 +390,41 @@
         "active_render_group_weight": 466,
         "grouped_progress": 0
       },
-      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"scope\":\"job\",\"status\":\"running\",\"updated_at\":1779423936.724542,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.0,\"eta_confidence\":\"stable\",\"message\":\"Rendering segment 1776192577192134000_0...\",\"reason_code\":\"segment_start\",\"started_at\":1779423929.373131,\"active_segment_id\":\"1776192577192134000_0\",\"render_group_count\":2,\"completed_render_groups\":0,\"active_render_group_index\":0,\"total_render_weight\":949,\"completed_render_weight\":0,\"active_render_group_weight\":466,\"grouped_progress\":0.0}"
+      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-fc2e0840-245b-4a74-86a7-30719eb9221a\",\"scope\":\"job\",\"status\":\"running\",\"updated_at\":1779486197.273035,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.0,\"eta_confidence\":\"stable\",\"message\":\"Rendering segment 1776192577192134000_0...\",\"reason_code\":\"segment_start\",\"started_at\":1779486197.2565958,\"active_segment_id\":\"1776192577192134000_0\",\"render_group_count\":2,\"completed_render_groups\":0,\"active_render_group_index\":0,\"total_render_weight\":949,\"completed_render_weight\":0,\"active_render_group_weight\":466,\"grouped_progress\":0.0}"
     },
     "subscribers": [
       {
         "subscriber": "queue-sync",
-        "observedAt": "2026-05-22T04:25:36.728Z",
+        "observedAt": "2026-05-22T21:43:17.276Z",
         "action": "handled"
       },
       {
         "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:36.729Z",
+        "observedAt": "2026-05-22T21:43:17.276Z",
         "action": "handled"
       }
     ]
   },
   {
     "event": {
-      "frameId": 31,
-      "receivedAt": "2026-05-22T04:25:42.420Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "[PROGRESS] 20% job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-        "marker": "PROGRESS",
-        "sequence": 14,
-        "backendReceivedAt": 1779423942.4190478
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"[PROGRESS] 20% job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"marker\":\"PROGRESS\",\"sequence\":14,\"received_at\":1779423942.4190478,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:42.420Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 32,
-      "receivedAt": "2026-05-22T04:25:42.431Z",
+      "frameId": 20,
+      "receivedAt": "2026-05-22T21:43:23.294Z",
       "rawType": "studio_job_event",
       "topic": "jobs.progress",
       "category": "segment",
       "eventKind": "segment_progress",
       "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
+      "jobId": "job-fc2e0840-245b-4a74-86a7-30719eb9221a",
       "segmentId": "1776192577192134000_0",
       "payload": {
         "status": "running",
         "progress": 0.09,
-        "eta_seconds": 95,
-        "estimated_end_at": 1779424037.419101,
+        "eta_seconds": 53,
+        "estimated_end_at": 1779486256.284528,
         "eta_basis": "remaining_from_update",
         "eta_confidence": "recomputing",
-        "started_at": 1779423929.373131,
-        "updated_at": 1779423942.419101,
+        "started_at": 1779486197.2565958,
+        "updated_at": 1779486203.284528,
         "reason_code": "synthesis_progress",
         "message": "Synthesizing...",
         "active_segment_id": "1776192577192134000_0",
@@ -970,69 +437,41 @@
         "active_render_group_weight": 466,
         "grouped_progress": 0.09
       },
-      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"scope\":\"job\",\"status\":\"running\",\"updated_at\":1779423942.419101,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.09,\"eta_seconds\":95,\"eta_basis\":\"remaining_from_update\",\"estimated_end_at\":1779424037.419101,\"eta_confidence\":\"recomputing\",\"message\":\"Synthesizing...\",\"reason_code\":\"synthesis_progress\",\"started_at\":1779423929.373131,\"active_segment_id\":\"1776192577192134000_0\",\"active_segment_progress\":0.2,\"render_group_count\":2,\"completed_render_groups\":0,\"active_render_group_index\":0,\"total_render_weight\":949,\"completed_render_weight\":0,\"active_render_group_weight\":466,\"grouped_progress\":0.09}"
+      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-fc2e0840-245b-4a74-86a7-30719eb9221a\",\"scope\":\"job\",\"status\":\"running\",\"updated_at\":1779486203.284528,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.09,\"eta_seconds\":53,\"eta_basis\":\"remaining_from_update\",\"estimated_end_at\":1779486256.284528,\"eta_confidence\":\"recomputing\",\"message\":\"Synthesizing...\",\"reason_code\":\"synthesis_progress\",\"started_at\":1779486197.2565958,\"active_segment_id\":\"1776192577192134000_0\",\"active_segment_progress\":0.2,\"render_group_count\":2,\"completed_render_groups\":0,\"active_render_group_index\":0,\"total_render_weight\":949,\"completed_render_weight\":0,\"active_render_group_weight\":466,\"grouped_progress\":0.09}"
     },
     "subscribers": [
       {
         "subscriber": "queue-sync",
-        "observedAt": "2026-05-22T04:25:42.431Z",
+        "observedAt": "2026-05-22T21:43:23.295Z",
         "action": "handled"
       },
       {
         "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:42.432Z",
+        "observedAt": "2026-05-22T21:43:23.295Z",
         "action": "handled"
       }
     ]
   },
   {
     "event": {
-      "frameId": 33,
-      "receivedAt": "2026-05-22T04:25:44.423Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "[PROGRESS] 40% job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-        "marker": "PROGRESS",
-        "sequence": 15,
-        "backendReceivedAt": 1779423944.4228039
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"[PROGRESS] 40% job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"marker\":\"PROGRESS\",\"sequence\":15,\"received_at\":1779423944.4228039,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:44.423Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 34,
-      "receivedAt": "2026-05-22T04:25:44.430Z",
+      "frameId": 22,
+      "receivedAt": "2026-05-22T21:43:25.631Z",
       "rawType": "studio_job_event",
       "topic": "jobs.progress",
       "category": "segment",
       "eventKind": "segment_progress",
       "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
+      "jobId": "job-fc2e0840-245b-4a74-86a7-30719eb9221a",
       "segmentId": "1776192577192134000_0",
       "payload": {
         "status": "running",
         "progress": 0.18,
-        "eta_seconds": 70,
-        "estimated_end_at": 1779424014.4228532,
+        "eta_seconds": 39,
+        "estimated_end_at": 1779486244.61669,
         "eta_basis": "remaining_from_update",
         "eta_confidence": "recomputing",
-        "started_at": 1779423929.373131,
-        "updated_at": 1779423944.4228532,
+        "started_at": 1779486197.2565958,
+        "updated_at": 1779486205.61669,
         "reason_code": "synthesis_progress",
         "message": "Synthesizing...",
         "active_segment_id": "1776192577192134000_0",
@@ -1045,69 +484,41 @@
         "active_render_group_weight": 466,
         "grouped_progress": 0.18
       },
-      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"scope\":\"job\",\"status\":\"running\",\"updated_at\":1779423944.4228532,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.18,\"eta_seconds\":70,\"eta_basis\":\"remaining_from_update\",\"estimated_end_at\":1779424014.4228532,\"eta_confidence\":\"recomputing\",\"message\":\"Synthesizing...\",\"reason_code\":\"synthesis_progress\",\"started_at\":1779423929.373131,\"active_segment_id\":\"1776192577192134000_0\",\"active_segment_progress\":0.4,\"render_group_count\":2,\"completed_render_groups\":0,\"active_render_group_index\":0,\"total_render_weight\":949,\"completed_render_weight\":0,\"active_render_group_weight\":466,\"grouped_progress\":0.18}"
+      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-fc2e0840-245b-4a74-86a7-30719eb9221a\",\"scope\":\"job\",\"status\":\"running\",\"updated_at\":1779486205.61669,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.18,\"eta_seconds\":39,\"eta_basis\":\"remaining_from_update\",\"estimated_end_at\":1779486244.61669,\"eta_confidence\":\"recomputing\",\"message\":\"Synthesizing...\",\"reason_code\":\"synthesis_progress\",\"started_at\":1779486197.2565958,\"active_segment_id\":\"1776192577192134000_0\",\"active_segment_progress\":0.4,\"render_group_count\":2,\"completed_render_groups\":0,\"active_render_group_index\":0,\"total_render_weight\":949,\"completed_render_weight\":0,\"active_render_group_weight\":466,\"grouped_progress\":0.18}"
     },
     "subscribers": [
       {
         "subscriber": "queue-sync",
-        "observedAt": "2026-05-22T04:25:44.430Z",
+        "observedAt": "2026-05-22T21:43:25.631Z",
         "action": "handled"
       },
       {
         "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:44.430Z",
+        "observedAt": "2026-05-22T21:43:25.631Z",
         "action": "handled"
       }
     ]
   },
   {
     "event": {
-      "frameId": 35,
-      "receivedAt": "2026-05-22T04:25:48.944Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "[PROGRESS] 60% job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-        "marker": "PROGRESS",
-        "sequence": 16,
-        "backendReceivedAt": 1779423948.943771
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"[PROGRESS] 60% job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"marker\":\"PROGRESS\",\"sequence\":16,\"received_at\":1779423948.943771,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:48.944Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 36,
-      "receivedAt": "2026-05-22T04:25:48.957Z",
+      "frameId": 24,
+      "receivedAt": "2026-05-22T21:43:30.422Z",
       "rawType": "studio_job_event",
       "topic": "jobs.progress",
       "category": "segment",
       "eventKind": "segment_progress",
       "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
+      "jobId": "job-fc2e0840-245b-4a74-86a7-30719eb9221a",
       "segmentId": "1776192577192134000_0",
       "payload": {
         "status": "running",
         "progress": 0.27,
-        "eta_seconds": 54,
-        "estimated_end_at": 1779424002.943837,
+        "eta_seconds": 36,
+        "estimated_end_at": 1779486246.413595,
         "eta_basis": "remaining_from_update",
         "eta_confidence": "recomputing",
-        "started_at": 1779423929.373131,
-        "updated_at": 1779423948.943837,
+        "started_at": 1779486197.2565958,
+        "updated_at": 1779486210.413595,
         "reason_code": "synthesis_progress",
         "message": "Synthesizing...",
         "active_segment_id": "1776192577192134000_0",
@@ -1120,69 +531,41 @@
         "active_render_group_weight": 466,
         "grouped_progress": 0.27
       },
-      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"scope\":\"job\",\"status\":\"running\",\"updated_at\":1779423948.943837,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.27,\"eta_seconds\":54,\"eta_basis\":\"remaining_from_update\",\"estimated_end_at\":1779424002.943837,\"eta_confidence\":\"recomputing\",\"message\":\"Synthesizing...\",\"reason_code\":\"synthesis_progress\",\"started_at\":1779423929.373131,\"active_segment_id\":\"1776192577192134000_0\",\"active_segment_progress\":0.6,\"render_group_count\":2,\"completed_render_groups\":0,\"active_render_group_index\":0,\"total_render_weight\":949,\"completed_render_weight\":0,\"active_render_group_weight\":466,\"grouped_progress\":0.27}"
+      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-fc2e0840-245b-4a74-86a7-30719eb9221a\",\"scope\":\"job\",\"status\":\"running\",\"updated_at\":1779486210.413595,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.27,\"eta_seconds\":36,\"eta_basis\":\"remaining_from_update\",\"estimated_end_at\":1779486246.413595,\"eta_confidence\":\"recomputing\",\"message\":\"Synthesizing...\",\"reason_code\":\"synthesis_progress\",\"started_at\":1779486197.2565958,\"active_segment_id\":\"1776192577192134000_0\",\"active_segment_progress\":0.6,\"render_group_count\":2,\"completed_render_groups\":0,\"active_render_group_index\":0,\"total_render_weight\":949,\"completed_render_weight\":0,\"active_render_group_weight\":466,\"grouped_progress\":0.27}"
     },
     "subscribers": [
       {
         "subscriber": "queue-sync",
-        "observedAt": "2026-05-22T04:25:48.957Z",
+        "observedAt": "2026-05-22T21:43:30.422Z",
         "action": "handled"
       },
       {
         "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:48.957Z",
+        "observedAt": "2026-05-22T21:43:30.422Z",
         "action": "handled"
       }
     ]
   },
   {
     "event": {
-      "frameId": 37,
-      "receivedAt": "2026-05-22T04:25:51.316Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "[PROGRESS] 80% job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-        "marker": "PROGRESS",
-        "sequence": 17,
-        "backendReceivedAt": 1779423951.316173
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"[PROGRESS] 80% job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"marker\":\"PROGRESS\",\"sequence\":17,\"received_at\":1779423951.316173,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:51.316Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 38,
-      "receivedAt": "2026-05-22T04:25:51.330Z",
+      "frameId": 26,
+      "receivedAt": "2026-05-22T21:43:33.189Z",
       "rawType": "studio_job_event",
       "topic": "jobs.progress",
       "category": "segment",
       "eventKind": "segment_progress",
       "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
+      "jobId": "job-fc2e0840-245b-4a74-86a7-30719eb9221a",
       "segmentId": "1776192577192134000_0",
       "payload": {
         "status": "running",
         "progress": 0.35,
-        "eta_seconds": 40,
-        "estimated_end_at": 1779423991.3162189,
+        "eta_seconds": 29,
+        "estimated_end_at": 1779486242.1858208,
         "eta_basis": "remaining_from_update",
         "eta_confidence": "recomputing",
-        "started_at": 1779423929.373131,
-        "updated_at": 1779423951.3162189,
+        "started_at": 1779486197.2565958,
+        "updated_at": 1779486213.1858208,
         "reason_code": "synthesis_progress",
         "message": "Synthesizing...",
         "active_segment_id": "1776192577192134000_0",
@@ -1195,69 +578,41 @@
         "active_render_group_weight": 466,
         "grouped_progress": 0.35
       },
-      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"scope\":\"job\",\"status\":\"running\",\"updated_at\":1779423951.3162189,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.35,\"eta_seconds\":40,\"eta_basis\":\"remaining_from_update\",\"estimated_end_at\":1779423991.3162189,\"eta_confidence\":\"recomputing\",\"message\":\"Synthesizing...\",\"reason_code\":\"synthesis_progress\",\"started_at\":1779423929.373131,\"active_segment_id\":\"1776192577192134000_0\",\"active_segment_progress\":0.8,\"render_group_count\":2,\"completed_render_groups\":0,\"active_render_group_index\":0,\"total_render_weight\":949,\"completed_render_weight\":0,\"active_render_group_weight\":466,\"grouped_progress\":0.35}"
+      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-fc2e0840-245b-4a74-86a7-30719eb9221a\",\"scope\":\"job\",\"status\":\"running\",\"updated_at\":1779486213.1858208,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.35,\"eta_seconds\":29,\"eta_basis\":\"remaining_from_update\",\"estimated_end_at\":1779486242.1858208,\"eta_confidence\":\"recomputing\",\"message\":\"Synthesizing...\",\"reason_code\":\"synthesis_progress\",\"started_at\":1779486197.2565958,\"active_segment_id\":\"1776192577192134000_0\",\"active_segment_progress\":0.8,\"render_group_count\":2,\"completed_render_groups\":0,\"active_render_group_index\":0,\"total_render_weight\":949,\"completed_render_weight\":0,\"active_render_group_weight\":466,\"grouped_progress\":0.35}"
     },
     "subscribers": [
       {
         "subscriber": "queue-sync",
-        "observedAt": "2026-05-22T04:25:51.330Z",
+        "observedAt": "2026-05-22T21:43:33.189Z",
         "action": "handled"
       },
       {
         "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:51.331Z",
+        "observedAt": "2026-05-22T21:43:33.189Z",
         "action": "handled"
       }
     ]
   },
   {
     "event": {
-      "frameId": 39,
-      "receivedAt": "2026-05-22T04:25:52.671Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "[PROGRESS] 100% job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-        "marker": "PROGRESS",
-        "sequence": 18,
-        "backendReceivedAt": 1779423952.670397
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"[PROGRESS] 100% job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"marker\":\"PROGRESS\",\"sequence\":18,\"received_at\":1779423952.670397,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:52.671Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 40,
-      "receivedAt": "2026-05-22T04:25:52.686Z",
+      "frameId": 28,
+      "receivedAt": "2026-05-22T21:43:34.559Z",
       "rawType": "studio_job_event",
       "topic": "jobs.progress",
       "category": "segment",
       "eventKind": "segment_progress",
       "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
+      "jobId": "job-fc2e0840-245b-4a74-86a7-30719eb9221a",
       "segmentId": "1776192577192134000_0",
       "payload": {
         "status": "running",
         "progress": 0.44,
-        "eta_seconds": 29,
-        "estimated_end_at": 1779423981.670453,
+        "eta_seconds": 22,
+        "estimated_end_at": 1779486236.548125,
         "eta_basis": "remaining_from_update",
         "eta_confidence": "recomputing",
-        "started_at": 1779423929.373131,
-        "updated_at": 1779423952.670453,
+        "started_at": 1779486197.2565958,
+        "updated_at": 1779486214.548125,
         "reason_code": "synthesis_progress",
         "message": "Synthesizing...",
         "active_segment_id": "1776192577192134000_0",
@@ -1270,53 +625,25 @@
         "active_render_group_weight": 466,
         "grouped_progress": 0.44
       },
-      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"scope\":\"job\",\"status\":\"running\",\"updated_at\":1779423952.670453,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.44,\"eta_seconds\":29,\"eta_basis\":\"remaining_from_update\",\"estimated_end_at\":1779423981.670453,\"eta_confidence\":\"recomputing\",\"message\":\"Synthesizing...\",\"reason_code\":\"synthesis_progress\",\"started_at\":1779423929.373131,\"active_segment_id\":\"1776192577192134000_0\",\"active_segment_progress\":1.0,\"render_group_count\":2,\"completed_render_groups\":0,\"active_render_group_index\":0,\"total_render_weight\":949,\"completed_render_weight\":0,\"active_render_group_weight\":466,\"grouped_progress\":0.44}"
+      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-fc2e0840-245b-4a74-86a7-30719eb9221a\",\"scope\":\"job\",\"status\":\"running\",\"updated_at\":1779486214.548125,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.44,\"eta_seconds\":22,\"eta_basis\":\"remaining_from_update\",\"estimated_end_at\":1779486236.548125,\"eta_confidence\":\"recomputing\",\"message\":\"Synthesizing...\",\"reason_code\":\"synthesis_progress\",\"started_at\":1779486197.2565958,\"active_segment_id\":\"1776192577192134000_0\",\"active_segment_progress\":1.0,\"render_group_count\":2,\"completed_render_groups\":0,\"active_render_group_index\":0,\"total_render_weight\":949,\"completed_render_weight\":0,\"active_render_group_weight\":466,\"grouped_progress\":0.44}"
     },
     "subscribers": [
       {
         "subscriber": "queue-sync",
-        "observedAt": "2026-05-22T04:25:52.686Z",
+        "observedAt": "2026-05-22T21:43:34.559Z",
         "action": "handled"
       },
       {
         "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:52.686Z",
+        "observedAt": "2026-05-22T21:43:34.559Z",
         "action": "handled"
       }
     ]
   },
   {
     "event": {
-      "frameId": 41,
-      "receivedAt": "2026-05-22T04:25:52.695Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "[SEGMENT_SAVED] /Users/stevendunn/GitHub-Steven/audiobook-factory/projects/5a7b020b-dd06-43cd-8b29-880865646d63/chapters/684ce461-9e2c-41af-877e-17ee74a0358e/segments/1776192577192134000_0.wav",
-        "marker": "SEGMENT_SAVED",
-        "sequence": 19,
-        "backendReceivedAt": 1779423952.6727622
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"[SEGMENT_SAVED] /Users/stevendunn/GitHub-Steven/audiobook-factory/projects/5a7b020b-dd06-43cd-8b29-880865646d63/chapters/684ce461-9e2c-41af-877e-17ee74a0358e/segments/1776192577192134000_0.wav\",\"marker\":\"SEGMENT_SAVED\",\"sequence\":19,\"received_at\":1779423952.6727622,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:52.695Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 42,
-      "receivedAt": "2026-05-22T04:25:52.702Z",
+      "frameId": 30,
+      "receivedAt": "2026-05-22T21:43:34.571Z",
       "rawType": "segments_updated",
       "topic": "segments.invalidate",
       "category": "segment",
@@ -1329,27 +656,27 @@
     "subscribers": [
       {
         "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:52.702Z",
+        "observedAt": "2026-05-22T21:43:34.571Z",
         "action": "handled"
       }
     ]
   },
   {
     "event": {
-      "frameId": 43,
-      "receivedAt": "2026-05-22T04:25:52.710Z",
+      "frameId": 31,
+      "receivedAt": "2026-05-22T21:43:34.578Z",
       "rawType": "studio_job_event",
       "topic": "jobs.progress",
       "category": "segment",
       "eventKind": "segment_saved",
       "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
+      "jobId": "job-fc2e0840-245b-4a74-86a7-30719eb9221a",
       "payload": {
         "status": "running",
         "progress": 0.44,
         "eta_confidence": "stable",
-        "started_at": 1779423929.373131,
-        "updated_at": 1779423952.674067,
+        "started_at": 1779486197.2565958,
+        "updated_at": 1779486214.55358,
         "reason_code": "segment_saved",
         "message": "Completed segment 1776192577192134000_0",
         "render_group_count": 2,
@@ -1360,66 +687,38 @@
         "active_render_group_weight": 0,
         "grouped_progress": 0.44
       },
-      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"scope\":\"job\",\"status\":\"running\",\"updated_at\":1779423952.674067,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.44,\"eta_confidence\":\"stable\",\"message\":\"Completed segment 1776192577192134000_0\",\"reason_code\":\"segment_saved\",\"started_at\":1779423929.373131,\"render_group_count\":2,\"completed_render_groups\":1,\"active_render_group_index\":0,\"total_render_weight\":949,\"completed_render_weight\":466,\"active_render_group_weight\":0,\"grouped_progress\":0.44}"
+      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-fc2e0840-245b-4a74-86a7-30719eb9221a\",\"scope\":\"job\",\"status\":\"running\",\"updated_at\":1779486214.55358,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.44,\"eta_confidence\":\"stable\",\"message\":\"Completed segment 1776192577192134000_0\",\"reason_code\":\"segment_saved\",\"started_at\":1779486197.2565958,\"render_group_count\":2,\"completed_render_groups\":1,\"active_render_group_index\":0,\"total_render_weight\":949,\"completed_render_weight\":466,\"active_render_group_weight\":0,\"grouped_progress\":0.44}"
     },
     "subscribers": [
       {
         "subscriber": "queue-sync",
-        "observedAt": "2026-05-22T04:25:52.710Z",
+        "observedAt": "2026-05-22T21:43:34.578Z",
         "action": "handled"
       },
       {
         "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:52.710Z",
+        "observedAt": "2026-05-22T21:43:34.578Z",
         "action": "handled"
       }
     ]
   },
   {
     "event": {
-      "frameId": 44,
-      "receivedAt": "2026-05-22T04:25:52.716Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "Synthesizing:  50%|���������������     | 1/2 [00:15<00:15, 15.95s/seg][START_SEGMENT] 1777057465137731000_5",
-        "marker": "START_SEGMENT",
-        "sequence": 20,
-        "backendReceivedAt": 1779423952.676565
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"Synthesizing:  50%|���������������     | 1/2 [00:15<00:15, 15.95s/seg][START_SEGMENT] 1777057465137731000_5\",\"marker\":\"START_SEGMENT\",\"sequence\":20,\"received_at\":1779423952.676565,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:52.716Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 45,
-      "receivedAt": "2026-05-22T04:25:52.721Z",
+      "frameId": 33,
+      "receivedAt": "2026-05-22T21:43:34.591Z",
       "rawType": "studio_job_event",
       "topic": "jobs.progress",
       "category": "segment",
       "eventKind": "segment_started",
       "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
+      "jobId": "job-fc2e0840-245b-4a74-86a7-30719eb9221a",
       "segmentId": "1777057465137731000_5",
       "payload": {
         "status": "running",
         "progress": 0.44,
         "eta_confidence": "stable",
-        "started_at": 1779423929.373131,
-        "updated_at": 1779423952.6765802,
+        "started_at": 1779486197.2565958,
+        "updated_at": 1779486214.555976,
         "reason_code": "segment_start",
         "message": "Rendering segment 1777057465137731000_5...",
         "active_segment_id": "1777057465137731000_5",
@@ -1431,69 +730,41 @@
         "active_render_group_weight": 483,
         "grouped_progress": 0.44
       },
-      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"scope\":\"job\",\"status\":\"running\",\"updated_at\":1779423952.6765802,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.44,\"eta_confidence\":\"stable\",\"message\":\"Rendering segment 1777057465137731000_5...\",\"reason_code\":\"segment_start\",\"started_at\":1779423929.373131,\"active_segment_id\":\"1777057465137731000_5\",\"render_group_count\":2,\"completed_render_groups\":1,\"active_render_group_index\":1,\"total_render_weight\":949,\"completed_render_weight\":466,\"active_render_group_weight\":483,\"grouped_progress\":0.44}"
+      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-fc2e0840-245b-4a74-86a7-30719eb9221a\",\"scope\":\"job\",\"status\":\"running\",\"updated_at\":1779486214.555976,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.44,\"eta_confidence\":\"stable\",\"message\":\"Rendering segment 1777057465137731000_5...\",\"reason_code\":\"segment_start\",\"started_at\":1779486197.2565958,\"active_segment_id\":\"1777057465137731000_5\",\"render_group_count\":2,\"completed_render_groups\":1,\"active_render_group_index\":1,\"total_render_weight\":949,\"completed_render_weight\":466,\"active_render_group_weight\":483,\"grouped_progress\":0.44}"
     },
     "subscribers": [
       {
         "subscriber": "queue-sync",
-        "observedAt": "2026-05-22T04:25:52.721Z",
+        "observedAt": "2026-05-22T21:43:34.591Z",
         "action": "handled"
       },
       {
         "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:52.721Z",
+        "observedAt": "2026-05-22T21:43:34.591Z",
         "action": "handled"
       }
     ]
   },
   {
     "event": {
-      "frameId": 46,
-      "receivedAt": "2026-05-22T04:25:56.798Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "[PROGRESS] 16% job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-        "marker": "PROGRESS",
-        "sequence": 21,
-        "backendReceivedAt": 1779423956.7978811
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"[PROGRESS] 16% job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"marker\":\"PROGRESS\",\"sequence\":21,\"received_at\":1779423956.7978811,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:56.798Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 47,
-      "receivedAt": "2026-05-22T04:25:56.806Z",
+      "frameId": 35,
+      "receivedAt": "2026-05-22T21:43:39.059Z",
       "rawType": "studio_job_event",
       "topic": "jobs.progress",
       "category": "segment",
       "eventKind": "segment_progress",
       "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
+      "jobId": "job-fc2e0840-245b-4a74-86a7-30719eb9221a",
       "segmentId": "1777057465137731000_5",
       "payload": {
         "status": "running",
         "progress": 0.52,
-        "eta_seconds": 26,
-        "estimated_end_at": 1779423982.7979279,
+        "eta_seconds": 21,
+        "estimated_end_at": 1779486240.051008,
         "eta_basis": "remaining_from_update",
         "eta_confidence": "recomputing",
-        "started_at": 1779423929.373131,
-        "updated_at": 1779423956.7979279,
+        "started_at": 1779486197.2565958,
+        "updated_at": 1779486219.051008,
         "reason_code": "synthesis_progress",
         "message": "Synthesizing...",
         "active_segment_id": "1777057465137731000_5",
@@ -1506,69 +777,41 @@
         "active_render_group_weight": 483,
         "grouped_progress": 0.52
       },
-      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"scope\":\"job\",\"status\":\"running\",\"updated_at\":1779423956.7979279,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.52,\"eta_seconds\":26,\"eta_basis\":\"remaining_from_update\",\"estimated_end_at\":1779423982.7979279,\"eta_confidence\":\"recomputing\",\"message\":\"Synthesizing...\",\"reason_code\":\"synthesis_progress\",\"started_at\":1779423929.373131,\"active_segment_id\":\"1777057465137731000_5\",\"active_segment_progress\":0.16,\"render_group_count\":2,\"completed_render_groups\":1,\"active_render_group_index\":1,\"total_render_weight\":949,\"completed_render_weight\":466,\"active_render_group_weight\":483,\"grouped_progress\":0.52}"
+      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-fc2e0840-245b-4a74-86a7-30719eb9221a\",\"scope\":\"job\",\"status\":\"running\",\"updated_at\":1779486219.051008,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.52,\"eta_seconds\":21,\"eta_basis\":\"remaining_from_update\",\"estimated_end_at\":1779486240.051008,\"eta_confidence\":\"recomputing\",\"message\":\"Synthesizing...\",\"reason_code\":\"synthesis_progress\",\"started_at\":1779486197.2565958,\"active_segment_id\":\"1777057465137731000_5\",\"active_segment_progress\":0.16,\"render_group_count\":2,\"completed_render_groups\":1,\"active_render_group_index\":1,\"total_render_weight\":949,\"completed_render_weight\":466,\"active_render_group_weight\":483,\"grouped_progress\":0.52}"
     },
     "subscribers": [
       {
         "subscriber": "queue-sync",
-        "observedAt": "2026-05-22T04:25:56.807Z",
+        "observedAt": "2026-05-22T21:43:39.059Z",
         "action": "handled"
       },
       {
         "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:56.807Z",
+        "observedAt": "2026-05-22T21:43:39.059Z",
         "action": "handled"
       }
     ]
   },
   {
     "event": {
-      "frameId": 48,
-      "receivedAt": "2026-05-22T04:25:57.714Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "[PROGRESS] 33% job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-        "marker": "PROGRESS",
-        "sequence": 22,
-        "backendReceivedAt": 1779423957.713343
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"[PROGRESS] 33% job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"marker\":\"PROGRESS\",\"sequence\":22,\"received_at\":1779423957.713343,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:57.714Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 49,
-      "receivedAt": "2026-05-22T04:25:57.735Z",
+      "frameId": 37,
+      "receivedAt": "2026-05-22T21:43:40.072Z",
       "rawType": "studio_job_event",
       "topic": "jobs.progress",
       "category": "segment",
       "eventKind": "segment_progress",
       "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
+      "jobId": "job-fc2e0840-245b-4a74-86a7-30719eb9221a",
       "segmentId": "1777057465137731000_5",
       "payload": {
         "status": "running",
         "progress": 0.59,
-        "eta_seconds": 19,
-        "estimated_end_at": 1779423976.713393,
+        "eta_seconds": 16,
+        "estimated_end_at": 1779486236.0570781,
         "eta_basis": "remaining_from_update",
         "eta_confidence": "recomputing",
-        "started_at": 1779423929.373131,
-        "updated_at": 1779423957.713393,
+        "started_at": 1779486197.2565958,
+        "updated_at": 1779486220.0570781,
         "reason_code": "synthesis_progress",
         "message": "Synthesizing...",
         "active_segment_id": "1777057465137731000_5",
@@ -1581,69 +824,41 @@
         "active_render_group_weight": 483,
         "grouped_progress": 0.59
       },
-      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"scope\":\"job\",\"status\":\"running\",\"updated_at\":1779423957.713393,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.59,\"eta_seconds\":19,\"eta_basis\":\"remaining_from_update\",\"estimated_end_at\":1779423976.713393,\"eta_confidence\":\"recomputing\",\"message\":\"Synthesizing...\",\"reason_code\":\"synthesis_progress\",\"started_at\":1779423929.373131,\"active_segment_id\":\"1777057465137731000_5\",\"active_segment_progress\":0.33,\"render_group_count\":2,\"completed_render_groups\":1,\"active_render_group_index\":1,\"total_render_weight\":949,\"completed_render_weight\":466,\"active_render_group_weight\":483,\"grouped_progress\":0.59}"
+      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-fc2e0840-245b-4a74-86a7-30719eb9221a\",\"scope\":\"job\",\"status\":\"running\",\"updated_at\":1779486220.0570781,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.59,\"eta_seconds\":16,\"eta_basis\":\"remaining_from_update\",\"estimated_end_at\":1779486236.0570781,\"eta_confidence\":\"recomputing\",\"message\":\"Synthesizing...\",\"reason_code\":\"synthesis_progress\",\"started_at\":1779486197.2565958,\"active_segment_id\":\"1777057465137731000_5\",\"active_segment_progress\":0.33,\"render_group_count\":2,\"completed_render_groups\":1,\"active_render_group_index\":1,\"total_render_weight\":949,\"completed_render_weight\":466,\"active_render_group_weight\":483,\"grouped_progress\":0.59}"
     },
     "subscribers": [
       {
         "subscriber": "queue-sync",
-        "observedAt": "2026-05-22T04:25:57.735Z",
+        "observedAt": "2026-05-22T21:43:40.072Z",
         "action": "handled"
       },
       {
         "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:25:57.735Z",
+        "observedAt": "2026-05-22T21:43:40.072Z",
         "action": "handled"
       }
     ]
   },
   {
     "event": {
-      "frameId": 50,
-      "receivedAt": "2026-05-22T04:26:02.699Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "[PROGRESS] 50% job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-        "marker": "PROGRESS",
-        "sequence": 23,
-        "backendReceivedAt": 1779423962.6984792
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"[PROGRESS] 50% job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"marker\":\"PROGRESS\",\"sequence\":23,\"received_at\":1779423962.6984792,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:02.699Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 51,
-      "receivedAt": "2026-05-22T04:26:02.714Z",
+      "frameId": 39,
+      "receivedAt": "2026-05-22T21:43:46.128Z",
       "rawType": "studio_job_event",
       "topic": "jobs.progress",
       "category": "segment",
       "eventKind": "segment_progress",
       "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
+      "jobId": "job-fc2e0840-245b-4a74-86a7-30719eb9221a",
       "segmentId": "1777057465137731000_5",
       "payload": {
         "status": "running",
         "progress": 0.67,
-        "eta_seconds": 16,
-        "estimated_end_at": 1779423978.698529,
+        "eta_seconds": 14,
+        "estimated_end_at": 1779486240.111551,
         "eta_basis": "remaining_from_update",
         "eta_confidence": "recomputing",
-        "started_at": 1779423929.373131,
-        "updated_at": 1779423962.698529,
+        "started_at": 1779486197.2565958,
+        "updated_at": 1779486226.111551,
         "reason_code": "synthesis_progress",
         "message": "Synthesizing...",
         "active_segment_id": "1777057465137731000_5",
@@ -1656,69 +871,41 @@
         "active_render_group_weight": 483,
         "grouped_progress": 0.67
       },
-      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"scope\":\"job\",\"status\":\"running\",\"updated_at\":1779423962.698529,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.67,\"eta_seconds\":16,\"eta_basis\":\"remaining_from_update\",\"estimated_end_at\":1779423978.698529,\"eta_confidence\":\"recomputing\",\"message\":\"Synthesizing...\",\"reason_code\":\"synthesis_progress\",\"started_at\":1779423929.373131,\"active_segment_id\":\"1777057465137731000_5\",\"active_segment_progress\":0.5,\"render_group_count\":2,\"completed_render_groups\":1,\"active_render_group_index\":1,\"total_render_weight\":949,\"completed_render_weight\":466,\"active_render_group_weight\":483,\"grouped_progress\":0.67}"
+      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-fc2e0840-245b-4a74-86a7-30719eb9221a\",\"scope\":\"job\",\"status\":\"running\",\"updated_at\":1779486226.111551,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.67,\"eta_seconds\":14,\"eta_basis\":\"remaining_from_update\",\"estimated_end_at\":1779486240.111551,\"eta_confidence\":\"recomputing\",\"message\":\"Synthesizing...\",\"reason_code\":\"synthesis_progress\",\"started_at\":1779486197.2565958,\"active_segment_id\":\"1777057465137731000_5\",\"active_segment_progress\":0.5,\"render_group_count\":2,\"completed_render_groups\":1,\"active_render_group_index\":1,\"total_render_weight\":949,\"completed_render_weight\":466,\"active_render_group_weight\":483,\"grouped_progress\":0.67}"
     },
     "subscribers": [
       {
         "subscriber": "queue-sync",
-        "observedAt": "2026-05-22T04:26:02.714Z",
+        "observedAt": "2026-05-22T21:43:46.128Z",
         "action": "handled"
       },
       {
         "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:02.714Z",
+        "observedAt": "2026-05-22T21:43:46.128Z",
         "action": "handled"
       }
     ]
   },
   {
     "event": {
-      "frameId": 52,
-      "receivedAt": "2026-05-22T04:26:04.719Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "[PROGRESS] 66% job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-        "marker": "PROGRESS",
-        "sequence": 24,
-        "backendReceivedAt": 1779423964.719213
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"[PROGRESS] 66% job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"marker\":\"PROGRESS\",\"sequence\":24,\"received_at\":1779423964.719213,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:04.719Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 53,
-      "receivedAt": "2026-05-22T04:26:04.729Z",
+      "frameId": 41,
+      "receivedAt": "2026-05-22T21:43:48.370Z",
       "rawType": "studio_job_event",
       "topic": "jobs.progress",
       "category": "segment",
       "eventKind": "segment_progress",
       "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
+      "jobId": "job-fc2e0840-245b-4a74-86a7-30719eb9221a",
       "segmentId": "1777057465137731000_5",
       "payload": {
         "status": "running",
         "progress": 0.74,
-        "eta_seconds": 12,
-        "estimated_end_at": 1779423976.719266,
+        "eta_seconds": 11,
+        "estimated_end_at": 1779486239.362617,
         "eta_basis": "remaining_from_update",
         "eta_confidence": "recomputing",
-        "started_at": 1779423929.373131,
-        "updated_at": 1779423964.719266,
+        "started_at": 1779486197.2565958,
+        "updated_at": 1779486228.362617,
         "reason_code": "synthesis_progress",
         "message": "Synthesizing...",
         "active_segment_id": "1777057465137731000_5",
@@ -1731,69 +918,41 @@
         "active_render_group_weight": 483,
         "grouped_progress": 0.74
       },
-      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"scope\":\"job\",\"status\":\"running\",\"updated_at\":1779423964.719266,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.74,\"eta_seconds\":12,\"eta_basis\":\"remaining_from_update\",\"estimated_end_at\":1779423976.719266,\"eta_confidence\":\"recomputing\",\"message\":\"Synthesizing...\",\"reason_code\":\"synthesis_progress\",\"started_at\":1779423929.373131,\"active_segment_id\":\"1777057465137731000_5\",\"active_segment_progress\":0.66,\"render_group_count\":2,\"completed_render_groups\":1,\"active_render_group_index\":1,\"total_render_weight\":949,\"completed_render_weight\":466,\"active_render_group_weight\":483,\"grouped_progress\":0.74}"
+      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-fc2e0840-245b-4a74-86a7-30719eb9221a\",\"scope\":\"job\",\"status\":\"running\",\"updated_at\":1779486228.362617,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.74,\"eta_seconds\":11,\"eta_basis\":\"remaining_from_update\",\"estimated_end_at\":1779486239.362617,\"eta_confidence\":\"recomputing\",\"message\":\"Synthesizing...\",\"reason_code\":\"synthesis_progress\",\"started_at\":1779486197.2565958,\"active_segment_id\":\"1777057465137731000_5\",\"active_segment_progress\":0.66,\"render_group_count\":2,\"completed_render_groups\":1,\"active_render_group_index\":1,\"total_render_weight\":949,\"completed_render_weight\":466,\"active_render_group_weight\":483,\"grouped_progress\":0.74}"
     },
     "subscribers": [
       {
         "subscriber": "queue-sync",
-        "observedAt": "2026-05-22T04:26:04.729Z",
+        "observedAt": "2026-05-22T21:43:48.370Z",
         "action": "handled"
       },
       {
         "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:04.729Z",
+        "observedAt": "2026-05-22T21:43:48.370Z",
         "action": "handled"
       }
     ]
   },
   {
     "event": {
-      "frameId": 54,
-      "receivedAt": "2026-05-22T04:26:06.523Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "[PROGRESS] 83% job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-        "marker": "PROGRESS",
-        "sequence": 25,
-        "backendReceivedAt": 1779423966.523335
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"[PROGRESS] 83% job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"marker\":\"PROGRESS\",\"sequence\":25,\"received_at\":1779423966.523335,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:06.524Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 55,
-      "receivedAt": "2026-05-22T04:26:06.539Z",
+      "frameId": 43,
+      "receivedAt": "2026-05-22T21:43:50.352Z",
       "rawType": "studio_job_event",
       "topic": "jobs.progress",
       "category": "segment",
       "eventKind": "segment_progress",
       "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
+      "jobId": "job-fc2e0840-245b-4a74-86a7-30719eb9221a",
       "segmentId": "1777057465137731000_5",
       "payload": {
         "status": "running",
         "progress": 0.82,
-        "eta_seconds": 8,
-        "estimated_end_at": 1779423974.523386,
+        "eta_seconds": 7,
+        "estimated_end_at": 1779486237.336729,
         "eta_basis": "remaining_from_update",
         "eta_confidence": "recomputing",
-        "started_at": 1779423929.373131,
-        "updated_at": 1779423966.523386,
+        "started_at": 1779486197.2565958,
+        "updated_at": 1779486230.336729,
         "reason_code": "synthesis_progress",
         "message": "Synthesizing...",
         "active_segment_id": "1777057465137731000_5",
@@ -1806,69 +965,41 @@
         "active_render_group_weight": 483,
         "grouped_progress": 0.82
       },
-      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"scope\":\"job\",\"status\":\"running\",\"updated_at\":1779423966.523386,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.82,\"eta_seconds\":8,\"eta_basis\":\"remaining_from_update\",\"estimated_end_at\":1779423974.523386,\"eta_confidence\":\"recomputing\",\"message\":\"Synthesizing...\",\"reason_code\":\"synthesis_progress\",\"started_at\":1779423929.373131,\"active_segment_id\":\"1777057465137731000_5\",\"active_segment_progress\":0.83,\"render_group_count\":2,\"completed_render_groups\":1,\"active_render_group_index\":1,\"total_render_weight\":949,\"completed_render_weight\":466,\"active_render_group_weight\":483,\"grouped_progress\":0.82}"
+      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-fc2e0840-245b-4a74-86a7-30719eb9221a\",\"scope\":\"job\",\"status\":\"running\",\"updated_at\":1779486230.336729,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.82,\"eta_seconds\":7,\"eta_basis\":\"remaining_from_update\",\"estimated_end_at\":1779486237.336729,\"eta_confidence\":\"recomputing\",\"message\":\"Synthesizing...\",\"reason_code\":\"synthesis_progress\",\"started_at\":1779486197.2565958,\"active_segment_id\":\"1777057465137731000_5\",\"active_segment_progress\":0.83,\"render_group_count\":2,\"completed_render_groups\":1,\"active_render_group_index\":1,\"total_render_weight\":949,\"completed_render_weight\":466,\"active_render_group_weight\":483,\"grouped_progress\":0.82}"
     },
     "subscribers": [
       {
         "subscriber": "queue-sync",
-        "observedAt": "2026-05-22T04:26:06.540Z",
+        "observedAt": "2026-05-22T21:43:50.352Z",
         "action": "handled"
       },
       {
         "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:06.540Z",
+        "observedAt": "2026-05-22T21:43:50.352Z",
         "action": "handled"
       }
     ]
   },
   {
     "event": {
-      "frameId": 56,
-      "receivedAt": "2026-05-22T04:26:08.639Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "[PROGRESS] 100% job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-        "marker": "PROGRESS",
-        "sequence": 26,
-        "backendReceivedAt": 1779423968.63846
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"[PROGRESS] 100% job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"marker\":\"PROGRESS\",\"sequence\":26,\"received_at\":1779423968.63846,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:08.639Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 57,
-      "receivedAt": "2026-05-22T04:26:08.655Z",
+      "frameId": 45,
+      "receivedAt": "2026-05-22T21:43:52.691Z",
       "rawType": "studio_job_event",
       "topic": "jobs.progress",
       "category": "segment",
       "eventKind": "segment_progress",
       "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
+      "jobId": "job-fc2e0840-245b-4a74-86a7-30719eb9221a",
       "segmentId": "1777057465137731000_5",
       "payload": {
         "status": "running",
         "progress": 0.9,
         "eta_seconds": 4,
-        "estimated_end_at": 1779423972.638507,
+        "estimated_end_at": 1779486236.671463,
         "eta_basis": "remaining_from_update",
         "eta_confidence": "recomputing",
-        "started_at": 1779423929.373131,
-        "updated_at": 1779423968.638507,
+        "started_at": 1779486197.2565958,
+        "updated_at": 1779486232.671463,
         "reason_code": "synthesis_progress",
         "message": "Synthesizing...",
         "active_segment_id": "1777057465137731000_5",
@@ -1881,53 +1012,25 @@
         "active_render_group_weight": 483,
         "grouped_progress": 0.9
       },
-      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"scope\":\"job\",\"status\":\"running\",\"updated_at\":1779423968.638507,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.9,\"eta_seconds\":4,\"eta_basis\":\"remaining_from_update\",\"estimated_end_at\":1779423972.638507,\"eta_confidence\":\"recomputing\",\"message\":\"Synthesizing...\",\"reason_code\":\"synthesis_progress\",\"started_at\":1779423929.373131,\"active_segment_id\":\"1777057465137731000_5\",\"active_segment_progress\":1.0,\"render_group_count\":2,\"completed_render_groups\":1,\"active_render_group_index\":1,\"total_render_weight\":949,\"completed_render_weight\":466,\"active_render_group_weight\":483,\"grouped_progress\":0.9}"
+      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-fc2e0840-245b-4a74-86a7-30719eb9221a\",\"scope\":\"job\",\"status\":\"running\",\"updated_at\":1779486232.671463,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.9,\"eta_seconds\":4,\"eta_basis\":\"remaining_from_update\",\"estimated_end_at\":1779486236.671463,\"eta_confidence\":\"recomputing\",\"message\":\"Synthesizing...\",\"reason_code\":\"synthesis_progress\",\"started_at\":1779486197.2565958,\"active_segment_id\":\"1777057465137731000_5\",\"active_segment_progress\":1.0,\"render_group_count\":2,\"completed_render_groups\":1,\"active_render_group_index\":1,\"total_render_weight\":949,\"completed_render_weight\":466,\"active_render_group_weight\":483,\"grouped_progress\":0.9}"
     },
     "subscribers": [
       {
         "subscriber": "queue-sync",
-        "observedAt": "2026-05-22T04:26:08.655Z",
+        "observedAt": "2026-05-22T21:43:52.691Z",
         "action": "handled"
       },
       {
         "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:08.655Z",
+        "observedAt": "2026-05-22T21:43:52.691Z",
         "action": "handled"
       }
     ]
   },
   {
     "event": {
-      "frameId": 58,
-      "receivedAt": "2026-05-22T04:26:08.666Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "[SEGMENT_SAVED] /Users/stevendunn/GitHub-Steven/audiobook-factory/projects/5a7b020b-dd06-43cd-8b29-880865646d63/chapters/684ce461-9e2c-41af-877e-17ee74a0358e/segments/1777057465137731000_5.wav",
-        "marker": "SEGMENT_SAVED",
-        "sequence": 27,
-        "backendReceivedAt": 1779423968.641013
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"[SEGMENT_SAVED] /Users/stevendunn/GitHub-Steven/audiobook-factory/projects/5a7b020b-dd06-43cd-8b29-880865646d63/chapters/684ce461-9e2c-41af-877e-17ee74a0358e/segments/1777057465137731000_5.wav\",\"marker\":\"SEGMENT_SAVED\",\"sequence\":27,\"received_at\":1779423968.641013,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:08.666Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 59,
-      "receivedAt": "2026-05-22T04:26:08.674Z",
+      "frameId": 47,
+      "receivedAt": "2026-05-22T21:43:52.707Z",
       "rawType": "segments_updated",
       "topic": "segments.invalidate",
       "category": "segment",
@@ -1940,27 +1043,27 @@
     "subscribers": [
       {
         "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:08.674Z",
+        "observedAt": "2026-05-22T21:43:52.707Z",
         "action": "handled"
       }
     ]
   },
   {
     "event": {
-      "frameId": 60,
-      "receivedAt": "2026-05-22T04:26:08.689Z",
+      "frameId": 48,
+      "receivedAt": "2026-05-22T21:43:52.715Z",
       "rawType": "studio_job_event",
       "topic": "jobs.progress",
       "category": "segment",
       "eventKind": "segment_saved",
       "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
+      "jobId": "job-fc2e0840-245b-4a74-86a7-30719eb9221a",
       "payload": {
         "status": "running",
         "progress": 0.9,
         "eta_confidence": "stable",
-        "started_at": 1779423929.373131,
-        "updated_at": 1779423968.64203,
+        "started_at": 1779486197.2565958,
+        "updated_at": 1779486232.6771982,
         "reason_code": "segment_saved",
         "message": "Completed segment 1777057465137731000_5",
         "render_group_count": 2,
@@ -1971,409 +1074,17 @@
         "active_render_group_weight": 0,
         "grouped_progress": 0.9
       },
-      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"scope\":\"job\",\"status\":\"running\",\"updated_at\":1779423968.64203,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.9,\"eta_confidence\":\"stable\",\"message\":\"Completed segment 1777057465137731000_5\",\"reason_code\":\"segment_saved\",\"started_at\":1779423929.373131,\"render_group_count\":2,\"completed_render_groups\":2,\"active_render_group_index\":1,\"total_render_weight\":949,\"completed_render_weight\":949,\"active_render_group_weight\":0,\"grouped_progress\":0.9}"
+      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-fc2e0840-245b-4a74-86a7-30719eb9221a\",\"scope\":\"job\",\"status\":\"running\",\"updated_at\":1779486232.6771982,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":0.9,\"eta_confidence\":\"stable\",\"message\":\"Completed segment 1777057465137731000_5\",\"reason_code\":\"segment_saved\",\"started_at\":1779486197.2565958,\"render_group_count\":2,\"completed_render_groups\":2,\"active_render_group_index\":1,\"total_render_weight\":949,\"completed_render_weight\":949,\"active_render_group_weight\":0,\"grouped_progress\":0.9}"
     },
     "subscribers": [
       {
         "subscriber": "queue-sync",
-        "observedAt": "2026-05-22T04:26:08.689Z",
+        "observedAt": "2026-05-22T21:43:52.715Z",
         "action": "handled"
       },
       {
         "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:08.689Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 61,
-      "receivedAt": "2026-05-22T04:26:08.699Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "Synthesizing: 100%|������������������������������| 2/2 [00:31<00:00, 15.96s/seg]",
-        "marker": "raw",
-        "sequence": 28,
-        "backendReceivedAt": 1779423968.644189
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"Synthesizing: 100%|������������������������������| 2/2 [00:31<00:00, 15.96s/seg]\",\"marker\":\"raw\",\"sequence\":28,\"received_at\":1779423968.644189,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:08.699Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 62,
-      "receivedAt": "2026-05-22T04:26:08.704Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "Synthesizing: 100%|������������������������������| 2/2 [00:31<00:00, 15.96s/seg]",
-        "marker": "raw",
-        "sequence": 29,
-        "backendReceivedAt": 1779423968.644202
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"Synthesizing: 100%|������������������������������| 2/2 [00:31<00:00, 15.96s/seg]\",\"marker\":\"raw\",\"sequence\":29,\"received_at\":1779423968.644202,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:08.704Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 63,
-      "receivedAt": "2026-05-22T04:26:08.709Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "Successfully synthesized 27 audio chunks.",
-        "marker": "raw",
-        "sequence": 30,
-        "backendReceivedAt": 1779423968.6442082
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"Successfully synthesized 27 audio chunks.\",\"marker\":\"raw\",\"sequence\":30,\"received_at\":1779423968.6442082,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:08.709Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 64,
-      "receivedAt": "2026-05-22T04:26:09.225Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "ffmpeg version 8.0.1 Copyright (c) 2000-2025 the FFmpeg developers",
-        "marker": "raw",
-        "sequence": 31,
-        "backendReceivedAt": 1779423969.2242339
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"ffmpeg version 8.0.1 Copyright (c) 2000-2025 the FFmpeg developers\",\"marker\":\"raw\",\"sequence\":31,\"received_at\":1779423969.2242339,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:09.225Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 65,
-      "receivedAt": "2026-05-22T04:26:09.239Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "  built with Apple clang version 17.0.0 (clang-1700.6.3.2)",
-        "marker": "raw",
-        "sequence": 32,
-        "backendReceivedAt": 1779423969.224927
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"  built with Apple clang version 17.0.0 (clang-1700.6.3.2)\",\"marker\":\"raw\",\"sequence\":32,\"received_at\":1779423969.224927,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:09.239Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 66,
-      "receivedAt": "2026-05-22T04:26:09.245Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "  configuration: --prefix=/opt/homebrew/Cellar/ffmpeg/8.0.1_4 --enable-shared --enable-pthreads --enable-version3 --cc=clang --host-cflags= --host-ldflags= --enable-ffplay --enable-gpl --enable-libsvtav1 --enable-libopus --enable-libx264 --enable-libmp3lame --enable-libdav1d --enable-libvpx --enable-libx265 --enable-openssl --enable-videotoolbox --enable-audiotoolbox --enable-neon",
-        "marker": "raw",
-        "sequence": 33,
-        "backendReceivedAt": 1779423969.227361
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"  configuration: --prefix=/opt/homebrew/Cellar/ffmpeg/8.0.1_4 --enable-shared --enable-pthreads --enable-version3 --cc=clang --host-cflags= --host-ldflags= --enable-ffplay --enable-gpl --enable-libsvtav1 --enable-libopus --enable-libx264 --enable-libmp3lame --enable-libdav1d --enable-libvpx --enable-libx265 --enable-openssl --enable-videotoolbox --enable-audiotoolbox --enable-neon\",\"marker\":\"raw\",\"sequence\":33,\"received_at\":1779423969.227361,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:09.245Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 67,
-      "receivedAt": "2026-05-22T04:26:09.251Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "  libavutil      60.  8.100 / 60.  8.100",
-        "marker": "raw",
-        "sequence": 34,
-        "backendReceivedAt": 1779423969.227608
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"  libavutil      60.  8.100 / 60.  8.100\",\"marker\":\"raw\",\"sequence\":34,\"received_at\":1779423969.227608,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:09.251Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 68,
-      "receivedAt": "2026-05-22T04:26:09.257Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "  libavcodec     62. 11.100 / 62. 11.100",
-        "marker": "raw",
-        "sequence": 35,
-        "backendReceivedAt": 1779423969.227921
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"  libavcodec     62. 11.100 / 62. 11.100\",\"marker\":\"raw\",\"sequence\":35,\"received_at\":1779423969.227921,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:09.257Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 69,
-      "receivedAt": "2026-05-22T04:26:09.263Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "  libavformat    62.  3.100 / 62.  3.100",
-        "marker": "raw",
-        "sequence": 36,
-        "backendReceivedAt": 1779423969.228266
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"  libavformat    62.  3.100 / 62.  3.100\",\"marker\":\"raw\",\"sequence\":36,\"received_at\":1779423969.228266,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:09.263Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 70,
-      "receivedAt": "2026-05-22T04:26:09.269Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "  libavdevice    62.  1.100 / 62.  1.100",
-        "marker": "raw",
-        "sequence": 37,
-        "backendReceivedAt": 1779423969.228598
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"  libavdevice    62.  1.100 / 62.  1.100\",\"marker\":\"raw\",\"sequence\":37,\"received_at\":1779423969.228598,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:09.269Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 71,
-      "receivedAt": "2026-05-22T04:26:09.275Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "  libavfilter    11.  4.100 / 11.  4.100",
-        "marker": "raw",
-        "sequence": 38,
-        "backendReceivedAt": 1779423969.2289438
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"  libavfilter    11.  4.100 / 11.  4.100\",\"marker\":\"raw\",\"sequence\":38,\"received_at\":1779423969.2289438,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:09.275Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 72,
-      "receivedAt": "2026-05-22T04:26:09.280Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "  libswscale      9.  1.100 /  9.  1.100",
-        "marker": "raw",
-        "sequence": 39,
-        "backendReceivedAt": 1779423969.229259
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"  libswscale      9.  1.100 /  9.  1.100\",\"marker\":\"raw\",\"sequence\":39,\"received_at\":1779423969.229259,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:09.281Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 73,
-      "receivedAt": "2026-05-22T04:26:09.286Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "  libswresample   6.  1.100 /  6.  1.100",
-        "marker": "raw",
-        "sequence": 40,
-        "backendReceivedAt": 1779423969.229546
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"  libswresample   6.  1.100 /  6.  1.100\",\"marker\":\"raw\",\"sequence\":40,\"received_at\":1779423969.229546,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:09.286Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 74,
-      "receivedAt": "2026-05-22T04:26:09.294Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "[aist#0:0/pcm_s16le @ 0x917008180] Guessed Channel Layout: mono",
-        "marker": "raw",
-        "sequence": 41,
-        "backendReceivedAt": 1779423969.241812
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"[aist#0:0/pcm_s16le @ 0x917008180] Guessed Channel Layout: mono\",\"marker\":\"raw\",\"sequence\":41,\"received_at\":1779423969.241812,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:09.294Z",
+        "observedAt": "2026-05-22T21:43:52.715Z",
         "action": "handled"
       }
     ]
@@ -2381,27 +1092,24 @@
   {
     "event": {
       "frameId": 75,
-      "receivedAt": "2026-05-22T04:26:09.301Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
+      "receivedAt": "2026-05-22T21:43:53.782Z",
+      "rawType": "chapter_updated",
+      "topic": "chapter.invalidate",
+      "category": "chapter",
+      "eventKind": "chapter_invalidated",
+      "source": "app.db.state_jobs.update_job",
+      "jobId": "job-fc2e0840-245b-4a74-86a7-30719eb9221a",
       "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
       "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
       "payload": {
-        "line": "Input #0, concat, from '/var/folders/64/fp5plltd6bsdwslyws8bb36r0000gn/T/chapter_9_rsfin_.list.txt':",
-        "marker": "raw",
-        "sequence": 42,
-        "backendReceivedAt": 1779423969.242818
+        "reason": "job_terminal_status"
       },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"Input #0, concat, from '/var/folders/64/fp5plltd6bsdwslyws8bb36r0000gn/T/chapter_9_rsfin_.list.txt':\",\"marker\":\"raw\",\"sequence\":42,\"received_at\":1779423969.242818,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
+      "raw": "{\"type\":\"chapter_updated\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"source\":\"app.db.state_jobs.update_job\",\"reason\":\"job_terminal_status\",\"job_id\":\"job-fc2e0840-245b-4a74-86a7-30719eb9221a\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"changed_fields\":[\"status\"]}"
     },
     "subscribers": [
       {
         "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:09.301Z",
+        "observedAt": "2026-05-22T21:43:53.782Z",
         "action": "handled"
       }
     ]
@@ -2409,346 +1117,13 @@
   {
     "event": {
       "frameId": 76,
-      "receivedAt": "2026-05-22T04:26:09.309Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "  Duration: N/A, start: 0.000000, bitrate: 384 kb/s",
-        "marker": "raw",
-        "sequence": 43,
-        "backendReceivedAt": 1779423969.243233
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"  Duration: N/A, start: 0.000000, bitrate: 384 kb/s\",\"marker\":\"raw\",\"sequence\":43,\"received_at\":1779423969.243233,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:09.309Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 77,
-      "receivedAt": "2026-05-22T04:26:09.317Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "  Stream #0:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s",
-        "marker": "raw",
-        "sequence": 44,
-        "backendReceivedAt": 1779423969.243863
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"  Stream #0:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s\",\"marker\":\"raw\",\"sequence\":44,\"received_at\":1779423969.243863,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:09.317Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 78,
-      "receivedAt": "2026-05-22T04:26:09.324Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "Stream mapping:",
-        "marker": "raw",
-        "sequence": 45,
-        "backendReceivedAt": 1779423969.24402
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"Stream mapping:\",\"marker\":\"raw\",\"sequence\":45,\"received_at\":1779423969.24402,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:09.324Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 79,
-      "receivedAt": "2026-05-22T04:26:09.331Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "  Stream #0:0 -> #0:0 (copy)",
-        "marker": "raw",
-        "sequence": 46,
-        "backendReceivedAt": 1779423969.244302
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"  Stream #0:0 -> #0:0 (copy)\",\"marker\":\"raw\",\"sequence\":46,\"received_at\":1779423969.244302,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:09.331Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 80,
-      "receivedAt": "2026-05-22T04:26:09.337Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "Output #0, wav, to '/Users/stevendunn/GitHub-Steven/audiobook-factory/projects/5a7b020b-dd06-43cd-8b29-880865646d63/chapters/684ce461-9e2c-41af-877e-17ee74a0358e/chapter.wav':",
-        "marker": "raw",
-        "sequence": 47,
-        "backendReceivedAt": 1779423969.245481
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"Output #0, wav, to '/Users/stevendunn/GitHub-Steven/audiobook-factory/projects/5a7b020b-dd06-43cd-8b29-880865646d63/chapters/684ce461-9e2c-41af-877e-17ee74a0358e/chapter.wav':\",\"marker\":\"raw\",\"sequence\":47,\"received_at\":1779423969.245481,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:09.337Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 81,
-      "receivedAt": "2026-05-22T04:26:09.343Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "  Metadata:",
-        "marker": "raw",
-        "sequence": 48,
-        "backendReceivedAt": 1779423969.245632
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"  Metadata:\",\"marker\":\"raw\",\"sequence\":48,\"received_at\":1779423969.245632,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:09.344Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 82,
-      "receivedAt": "2026-05-22T04:26:09.350Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "    ISFT            : Lavf62.3.100",
-        "marker": "raw",
-        "sequence": 49,
-        "backendReceivedAt": 1779423969.245963
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"    ISFT            : Lavf62.3.100\",\"marker\":\"raw\",\"sequence\":49,\"received_at\":1779423969.245963,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:09.350Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 83,
-      "receivedAt": "2026-05-22T04:26:09.357Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "  Stream #0:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s",
-        "marker": "raw",
-        "sequence": 50,
-        "backendReceivedAt": 1779423969.24654
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"  Stream #0:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s\",\"marker\":\"raw\",\"sequence\":50,\"received_at\":1779423969.24654,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:09.357Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 84,
-      "receivedAt": "2026-05-22T04:26:09.363Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "Press [q] to stop, [?] for help",
-        "marker": "raw",
-        "sequence": 51,
-        "backendReceivedAt": 1779423969.246824
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"Press [q] to stop, [?] for help\",\"marker\":\"raw\",\"sequence\":51,\"received_at\":1779423969.246824,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:09.363Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 85,
-      "receivedAt": "2026-05-22T04:26:09.370Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "[out#0/wav @ 0x916c10600] video:0KiB audio:3026KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: 0.002517%",
-        "marker": "raw",
-        "sequence": 52,
-        "backendReceivedAt": 1779423969.249983
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"[out#0/wav @ 0x916c10600] video:0KiB audio:3026KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: 0.002517%\",\"marker\":\"raw\",\"sequence\":52,\"received_at\":1779423969.249983,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:09.370Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 86,
-      "receivedAt": "2026-05-22T04:26:09.376Z",
-      "rawType": "tts_log_line",
-      "topic": "tts.logs",
-      "category": "log",
-      "eventKind": "tts_log",
-      "source": "app.orchestration.scheduler.orchestrator_helpers.log_listener",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "line": "size=    3026KiB time=00:01:04.55 bitrate= 384.0kbits/s speed=8.61e+03x elapsed=0:00:00.00    ",
-        "marker": "raw",
-        "sequence": 53,
-        "backendReceivedAt": 1779423969.25069
-      },
-      "raw": "{\"type\":\"tts_log_line\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"line\":\"size=    3026KiB time=00:01:04.55 bitrate= 384.0kbits/s speed=8.61e+03x elapsed=0:00:00.00    \",\"marker\":\"raw\",\"sequence\":53,\"received_at\":1779423969.25069,\"source\":\"app.orchestration.scheduler.orchestrator_helpers.log_listener\"}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:09.376Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 87,
-      "receivedAt": "2026-05-22T04:26:09.383Z",
-      "rawType": "chapter_updated",
-      "topic": "chapter.invalidate",
-      "category": "chapter",
-      "eventKind": "chapter_invalidated",
-      "source": "app.db.state_jobs.update_job",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
-      "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
-      "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
-      "payload": {
-        "reason": "job_terminal_status"
-      },
-      "raw": "{\"type\":\"chapter_updated\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"source\":\"app.db.state_jobs.update_job\",\"reason\":\"job_terminal_status\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"changed_fields\":[\"status\"]}"
-    },
-    "subscribers": [
-      {
-        "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:09.383Z",
-        "action": "handled"
-      }
-    ]
-  },
-  {
-    "event": {
-      "frameId": 88,
-      "receivedAt": "2026-05-22T04:26:09.392Z",
+      "receivedAt": "2026-05-22T21:43:53.790Z",
       "rawType": "queue_updated",
       "topic": "queue.lifecycle",
       "category": "queue",
       "eventKind": "queue_invalidated",
       "source": "app.db.state_jobs.update_job",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
+      "jobId": "job-fc2e0840-245b-4a74-86a7-30719eb9221a",
       "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
       "payload": {
         "reason": "job_terminal_status",
@@ -2756,36 +1131,36 @@
           "status"
         ]
       },
-      "raw": "{\"type\":\"queue_updated\",\"source\":\"app.db.state_jobs.update_job\",\"reason\":\"job_terminal_status\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"changed_fields\":[\"status\"]}"
+      "raw": "{\"type\":\"queue_updated\",\"source\":\"app.db.state_jobs.update_job\",\"reason\":\"job_terminal_status\",\"job_id\":\"job-fc2e0840-245b-4a74-86a7-30719eb9221a\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"changed_fields\":[\"status\"]}"
     },
     "subscribers": [
       {
         "subscriber": "queue-sync",
-        "observedAt": "2026-05-22T04:26:09.392Z",
+        "observedAt": "2026-05-22T21:43:53.790Z",
         "action": "handled"
       },
       {
         "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:09.392Z",
+        "observedAt": "2026-05-22T21:43:53.790Z",
         "action": "handled"
       }
     ]
   },
   {
     "event": {
-      "frameId": 89,
-      "receivedAt": "2026-05-22T04:26:09.404Z",
+      "frameId": 77,
+      "receivedAt": "2026-05-22T21:43:53.797Z",
       "rawType": "studio_job_event",
       "topic": "jobs.progress",
       "category": "job",
       "eventKind": "job_terminal",
       "source": "plugins.tts_xtts.plugin.studio.handler.handle_xtts_job",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
+      "jobId": "job-fc2e0840-245b-4a74-86a7-30719eb9221a",
       "payload": {
         "status": "done",
         "progress": 1,
-        "started_at": 1779423929.373131,
-        "updated_at": 1779423969.251436,
+        "started_at": 1779486197.2565958,
+        "updated_at": 1779486233.640929,
         "reason_code": "segment_saved",
         "render_group_count": 2,
         "completed_render_groups": 2,
@@ -2795,31 +1170,31 @@
         "active_render_group_weight": 0,
         "grouped_progress": 0.9
       },
-      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"scope\":\"job\",\"status\":\"done\",\"progress\":1.0,\"reason_code\":\"segment_saved\",\"updated_at\":1779423969.251436,\"started_at\":1779423929.373131,\"render_group_count\":2,\"completed_render_groups\":2,\"active_render_group_index\":1,\"total_render_weight\":945,\"completed_render_weight\":945,\"active_render_group_weight\":0,\"grouped_progress\":0.9,\"classification\":\"chapter\",\"source\":\"plugins.tts_xtts.plugin.studio.handler.handle_xtts_job\"}"
+      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-fc2e0840-245b-4a74-86a7-30719eb9221a\",\"scope\":\"job\",\"status\":\"done\",\"progress\":1.0,\"reason_code\":\"segment_saved\",\"updated_at\":1779486233.640929,\"started_at\":1779486197.2565958,\"render_group_count\":2,\"completed_render_groups\":2,\"active_render_group_index\":1,\"total_render_weight\":945,\"completed_render_weight\":945,\"active_render_group_weight\":0,\"grouped_progress\":0.9,\"classification\":\"chapter\",\"source\":\"plugins.tts_xtts.plugin.studio.handler.handle_xtts_job\"}"
     },
     "subscribers": [
       {
         "subscriber": "queue-sync",
-        "observedAt": "2026-05-22T04:26:09.404Z",
+        "observedAt": "2026-05-22T21:43:53.797Z",
         "action": "handled"
       },
       {
         "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:09.404Z",
+        "observedAt": "2026-05-22T21:43:53.798Z",
         "action": "handled"
       }
     ]
   },
   {
     "event": {
-      "frameId": 90,
-      "receivedAt": "2026-05-22T04:26:09.414Z",
+      "frameId": 78,
+      "receivedAt": "2026-05-22T21:43:53.808Z",
       "rawType": "job_updated",
       "topic": "jobs.progress",
       "category": "job",
       "eventKind": "job_terminal",
       "source": "plugins.tts_xtts.plugin.studio.handler.handle_xtts_job",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
+      "jobId": "job-fc2e0840-245b-4a74-86a7-30719eb9221a",
       "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
       "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
       "segmentId": null,
@@ -2827,11 +1202,11 @@
         "status": "done",
         "progress": 1,
         "eta_seconds": 4,
-        "estimated_end_at": 1779423973.178435,
+        "estimated_end_at": 1779486237.4671109,
         "eta_basis": "remaining_from_update",
         "eta_confidence": "recomputing",
-        "started_at": 1779423929.373131,
-        "updated_at": 1779423969.251436,
+        "started_at": 1779486197.2565958,
+        "updated_at": 1779486233.640929,
         "reason_code": "segment_saved",
         "message": "Completed segment 1777057465137731000_5",
         "active_segment_id": null,
@@ -2844,89 +1219,89 @@
         "active_render_group_weight": 0,
         "grouped_progress": 0.9
       },
-      "raw": "{\"type\":\"job_updated\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"updates\":{\"id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"engine\":\"xtts\",\"status\":\"done\",\"created_at\":1779423918.371988,\"kind\":null,\"chapter_file\":\"chapter.txt\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"started_at\":1779423929.373131,\"updated_at\":1779423969.251436,\"finished_at\":1779423969.251039,\"safe_mode\":true,\"make_mp3\":false,\"speaker_profile\":\"Dark Fantasy\",\"output_wav\":\"chapter.wav\",\"output_mp3\":null,\"progress\":1.0,\"eta_seconds\":4,\"eta_basis\":\"remaining_from_update\",\"estimated_end_at\":1779423973.178435,\"eta_confidence\":\"recomputing\",\"reason_code\":\"segment_saved\",\"log\":\"\",\"error\":null,\"warning_count\":0,\"bypass_pause\":false,\"custom_title\":\"chapter 1\",\"author_meta\":null,\"narrator_meta\":null,\"chapter_list\":null,\"cover_path\":null,\"segment_ids\":null,\"is_bake\":false,\"active_segment_id\":null,\"active_segment_progress\":0.0,\"render_group_count\":2,\"completed_render_groups\":2,\"active_render_group_index\":1,\"total_render_weight\":945,\"completed_render_weight\":945,\"active_render_group_weight\":0,\"grouped_progress\":0.9,\"active_render_batch_id\":null,\"active_render_batch_progress\":null,\"message\":\"Completed segment 1777057465137731000_5\",\"classification\":\"chapter\"},\"classification\":\"chapter\",\"source\":\"plugins.tts_xtts.plugin.studio.handler.handle_xtts_job\"}"
+      "raw": "{\"type\":\"job_updated\",\"job_id\":\"job-fc2e0840-245b-4a74-86a7-30719eb9221a\",\"updates\":{\"id\":\"job-fc2e0840-245b-4a74-86a7-30719eb9221a\",\"engine\":\"xtts\",\"status\":\"done\",\"created_at\":1779486175.5607412,\"kind\":null,\"chapter_file\":\"chapter.txt\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"started_at\":1779486197.2565958,\"updated_at\":1779486233.640929,\"finished_at\":1779486233.6405718,\"safe_mode\":true,\"make_mp3\":false,\"speaker_profile\":\"Dark Fantasy\",\"output_wav\":\"chapter.wav\",\"output_mp3\":null,\"progress\":1.0,\"eta_seconds\":4,\"eta_basis\":\"remaining_from_update\",\"estimated_end_at\":1779486237.4671109,\"eta_confidence\":\"recomputing\",\"reason_code\":\"segment_saved\",\"log\":\"\",\"error\":null,\"warning_count\":0,\"bypass_pause\":false,\"custom_title\":\"chapter 1\",\"author_meta\":null,\"narrator_meta\":null,\"chapter_list\":null,\"cover_path\":null,\"segment_ids\":null,\"is_bake\":false,\"active_segment_id\":null,\"active_segment_progress\":0.0,\"render_group_count\":2,\"completed_render_groups\":2,\"active_render_group_index\":1,\"total_render_weight\":945,\"completed_render_weight\":945,\"active_render_group_weight\":0,\"grouped_progress\":0.9,\"active_render_batch_id\":null,\"active_render_batch_progress\":null,\"message\":\"Completed segment 1777057465137731000_5\",\"classification\":\"chapter\"},\"classification\":\"chapter\",\"source\":\"plugins.tts_xtts.plugin.studio.handler.handle_xtts_job\"}"
     },
     "subscribers": [
       {
         "subscriber": "queue-sync",
-        "observedAt": "2026-05-22T04:26:09.414Z",
+        "observedAt": "2026-05-22T21:43:53.808Z",
         "action": "handled"
       },
       {
         "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:09.414Z",
+        "observedAt": "2026-05-22T21:43:53.809Z",
         "action": "handled"
       }
     ]
   },
   {
     "event": {
-      "frameId": 91,
-      "receivedAt": "2026-05-22T04:26:09.453Z",
+      "frameId": 79,
+      "receivedAt": "2026-05-22T21:43:53.819Z",
       "rawType": "studio_job_event",
       "topic": "jobs.progress",
       "category": "job",
       "eventKind": "job_terminal",
       "source": "app.orchestration.scheduler.orchestrator_helpers._publish",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
+      "jobId": "job-fc2e0840-245b-4a74-86a7-30719eb9221a",
       "payload": {
         "status": "done",
         "progress": 1,
         "eta_confidence": "stable",
-        "updated_at": 1779423969.316864,
+        "updated_at": 1779486233.717855,
         "reason_code": "synthesis_ok",
         "message": "Task completed successfully."
       },
-      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"scope\":\"job\",\"status\":\"done\",\"updated_at\":1779423969.316864,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":1.0,\"eta_confidence\":\"stable\",\"message\":\"Task completed successfully.\",\"reason_code\":\"synthesis_ok\"}"
+      "raw": "{\"type\":\"studio_job_event\",\"job_id\":\"job-fc2e0840-245b-4a74-86a7-30719eb9221a\",\"scope\":\"job\",\"status\":\"done\",\"updated_at\":1779486233.717855,\"source\":\"app.orchestration.scheduler.orchestrator_helpers._publish\",\"parent_job_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"progress\":1.0,\"eta_confidence\":\"stable\",\"message\":\"Task completed successfully.\",\"reason_code\":\"synthesis_ok\"}"
     },
     "subscribers": [
       {
         "subscriber": "queue-sync",
-        "observedAt": "2026-05-22T04:26:09.453Z",
+        "observedAt": "2026-05-22T21:43:53.819Z",
         "action": "handled"
       },
       {
         "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:09.453Z",
+        "observedAt": "2026-05-22T21:43:53.819Z",
         "action": "handled"
       }
     ]
   },
   {
     "event": {
-      "frameId": 92,
-      "receivedAt": "2026-05-22T04:26:09.462Z",
+      "frameId": 80,
+      "receivedAt": "2026-05-22T21:43:53.826Z",
       "rawType": "chapter_updated",
       "topic": "chapter.invalidate",
       "category": "chapter",
       "eventKind": "chapter_invalidated",
       "source": "app.db.state_jobs.update_job",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
+      "jobId": "job-fc2e0840-245b-4a74-86a7-30719eb9221a",
       "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
       "chapterId": "684ce461-9e2c-41af-877e-17ee74a0358e",
       "payload": {
         "reason": "job_terminal_status"
       },
-      "raw": "{\"type\":\"chapter_updated\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"source\":\"app.db.state_jobs.update_job\",\"reason\":\"job_terminal_status\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"changed_fields\":[\"status\"]}"
+      "raw": "{\"type\":\"chapter_updated\",\"chapter_id\":\"684ce461-9e2c-41af-877e-17ee74a0358e\",\"source\":\"app.db.state_jobs.update_job\",\"reason\":\"job_terminal_status\",\"job_id\":\"job-fc2e0840-245b-4a74-86a7-30719eb9221a\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"changed_fields\":[\"status\"]}"
     },
     "subscribers": [
       {
         "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:09.462Z",
+        "observedAt": "2026-05-22T21:43:53.826Z",
         "action": "handled"
       }
     ]
   },
   {
     "event": {
-      "frameId": 93,
-      "receivedAt": "2026-05-22T04:26:09.471Z",
+      "frameId": 81,
+      "receivedAt": "2026-05-22T21:43:53.833Z",
       "rawType": "queue_updated",
       "topic": "queue.lifecycle",
       "category": "queue",
       "eventKind": "queue_invalidated",
       "source": "app.db.state_jobs.update_job",
-      "jobId": "job-d984f0c8-0223-4123-88ef-bf4a7b9958cf",
+      "jobId": "job-fc2e0840-245b-4a74-86a7-30719eb9221a",
       "projectId": "5a7b020b-dd06-43cd-8b29-880865646d63",
       "payload": {
         "reason": "job_terminal_status",
@@ -2934,17 +1309,17 @@
           "status"
         ]
       },
-      "raw": "{\"type\":\"queue_updated\",\"source\":\"app.db.state_jobs.update_job\",\"reason\":\"job_terminal_status\",\"job_id\":\"job-d984f0c8-0223-4123-88ef-bf4a7b9958cf\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"changed_fields\":[\"status\"]}"
+      "raw": "{\"type\":\"queue_updated\",\"source\":\"app.db.state_jobs.update_job\",\"reason\":\"job_terminal_status\",\"job_id\":\"job-fc2e0840-245b-4a74-86a7-30719eb9221a\",\"project_id\":\"5a7b020b-dd06-43cd-8b29-880865646d63\",\"changed_fields\":[\"status\"]}"
     },
     "subscribers": [
       {
         "subscriber": "queue-sync",
-        "observedAt": "2026-05-22T04:26:09.471Z",
+        "observedAt": "2026-05-22T21:43:53.834Z",
         "action": "handled"
       },
       {
         "subscriber": "jobs-state",
-        "observedAt": "2026-05-22T04:26:09.471Z",
+        "observedAt": "2026-05-22T21:43:53.834Z",
         "action": "handled"
       }
     ]

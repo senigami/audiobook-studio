@@ -1,19 +1,16 @@
 {
-  "snapshot_version": 107,
-  "updated_at": "2026-05-22T14:56:00-04:00",
+  "snapshot_version": 108,
+  "updated_at": "2026-05-22T20:30:00-04:00",
   "branch": "studio2/phase-12",
-  "current_task": "Replace misleading live-output 'subscribers' filter model with explicit consumer-listening registry",
-  "status": "consumer_listening_registry_verified",
+  "current_task": "Create the durable Studio Event Broadcaster contract plan document.",
+  "status": "broadcaster_contract_plan_created",
   "last_committed_milestone": {
-    "title": "Replace misleading live-output 'subscribers' filter model with explicit consumer-listening registry",
+    "title": "Create the durable Studio Event Broadcaster contract plan document",
     "commit": "pending",
     "notes": [
-      "Created `liveEventConsumers.ts` to centralize explicit consumer topic mapping configuration matching actual hook subscriptions.",
-      "Refactored `LiveOutputTable.tsx` to dynamically derive filter buttons from the consumer registry instead of hardcoding.",
-      "Refactored `LiveOutputTable.tsx` record filtering to evaluate consumer listening predicates (`listensTo`) instead of transient subscriber observations.",
-      "Renamed the 'Subscribers' column to 'Handled by' to clarify the intent, while preserving the test IDs (`data-testid=\"subscribers-cell\"`).",
-      "Updated Vitest unit tests in `LiveOutputPage.test.tsx` and `LiveOutputTab.test.tsx` to assert registry-based filtering behavior instead of observation-based filtering.",
-      "Verified that all 88 frontend test files (578 tests total) pass, build is successful, lint warnings are unmodified, and git diff --check is clean."
+      "Created the durable Studio Event Broadcaster contract plan document at `plans/implementation/studio_event_broadcaster_contract.md`.",
+      "Defined the canonical `studio_event` envelope, strict core topics, plugin namespaces, producer helper APIs, and consumer registries.",
+      "Verified the file formatting and integrity with `git diff --check`."
     ]
   },
   "active_constraints": [

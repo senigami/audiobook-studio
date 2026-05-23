@@ -1,3 +1,9 @@
+# 2026-05-22 - Create durable Studio Event Broadcaster contract plan document
+
+- Authored [studio_event_broadcaster_contract.md](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/plans/implementation/studio_event_broadcaster_contract.md) defining the contract for the next event stream refactor.
+- Specified the backend broadcaster architecture, canonical envelope structure, strict core topics (`queue.items`, `chapters.progress`, `segments.progress`, etc.), plugin-private namespaced topics (`plugins.<plugin_id>.<area>`), typed helper APIs, and consumer surface registries.
+- Verified plan document formatting with `git diff --check`.
+
 # 2026-05-22 - Rename Live Output Route to /event-stream & Add Consumer Filters
 
 - Renamed standalone live output route from `/internal/live-output` to `/event-stream` in [App.tsx](file:///Users/stevendunn/GitHub-Steven/audiobook-factory/frontend/src/app/App.tsx).
