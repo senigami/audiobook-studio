@@ -1,17 +1,18 @@
 {
-  "snapshot_version": 113,
-  "updated_at": "2026-05-23T09:59:00-04:00",
+  "snapshot_version": 114,
+  "updated_at": "2026-05-23T10:14:00-04:00",
   "branch": "studio2/phase-12",
-  "current_task": "Migrate segment-classified progress broadcasts to canonical studio_event segments.progress envelopes.",
-  "status": "segments_progress_migration_complete",
+  "current_task": "Remove frontend live-event compatibility shim and legacy normalization paths.",
+  "status": "live_event_frontend_cleanup_complete",
   "last_committed_milestone": {
-    "title": "Migrate segment-classified progress broadcasts to canonical studio_event segments.progress envelopes",
+    "title": "Remove frontend live-event compatibility shim and legacy normalization paths",
     "commit": "pending",
     "notes": [
-      "Updated build_segment_progress_event in events.py to take eta_seconds and include legacy compatibility keys.",
-      "Rewired broadcast_job_updated in ws.py to emit canonical segments.progress for segment jobs, and suppressed legacy frames.",
-      "Updated ProgressService.publish in service.py to transform updates into segments.progress envelopes (gated on scope == 'segment').",
-      "Added unit test coverage: 45 backend tests passed, 50 frontend tests passed, git diff --check clean."
+      "Deleted liveEventTopicRouter.ts and its unit test.",
+      "Removed all legacy normalization and fallback routing code in liveEvents.ts.",
+      "Switched useJobs and useQueueSync to subscribe directly to the websocket bus and use canonical topic checks.",
+      "Updated all frontend test mock socket events to emit canonical studio_event envelopes.",
+      "Verified all 87 test files (577 tests) passed, with clean build, lint, and git diff checks."
     ]
   },
   "active_constraints": [

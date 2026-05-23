@@ -264,8 +264,6 @@ export interface LiveEventRecord<T extends LiveEvent = LiveEvent> {
   subscribers: LiveEventSubscriberObservation[];
 }
 
-const TERMINAL_STATUSES = new Set(['done', 'failed', 'cancelled']);
-
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object';
 
@@ -275,33 +273,8 @@ const stringOrNull = (value: unknown): string | null | undefined => {
   return undefined;
 };
 
-const numberOrNull = (value: unknown): number | null | undefined => {
-  if (typeof value === 'number') return value;
-  if (value === null) return null;
-  return undefined;
-};
-
-const stringArrayOrNull = (value: unknown): string[] | null | undefined => {
-  if (Array.isArray(value)) return value.filter((item): item is string => typeof item === 'string');
-  if (value === null) return null;
-  return undefined;
-};
-
-const booleanOrNull = (value: unknown): boolean | null | undefined => {
-  if (typeof value === 'boolean') return value;
-  if (value === null) return null;
-  return undefined;
-};
-
 const rawTypeFor = (data: Record<string, unknown>) =>
   typeof data.type === 'string' ? data.type : 'unknown';
-
-const normalizeSourceData = (data: Record<string, unknown>) => {
-  if (data.type === 'job_updated' && isRecord(data.updates)) {
-    return { ...data, ...data.updates };
-  }
-  return data;
-};
 
 const segmentIdFromData = (data: Record<string, unknown>) =>
   data.active_segment_id !== undefined
@@ -342,202 +315,6 @@ const baseEvent = <TPayload>(
   raw: envelope.raw,
 });
 
-const normalizeTtsLog = (
-  envelope: StudioSocketEnvelope,
-  data: Record<string, unknown>,
-): LiveEvent => baseEvent(envelope, data, {
-  topic: 'tts.logs',
-  category: 'log',
-  eventKind: 'tts_log',
-  payload: {
-    line: typeof data.line === 'string' ? data.line : '',
-    marker: stringOrNull(data.marker) || null,
-    sequence: numberOrNull(data.sequence) || 0,
-    pluginId: stringOrNull(data.plugin_id) || stringOrNull(data.pluginId) || '',
-    jobId: stringOrNull(data.job_id) || null,
-    chapterId: stringOrNull(data.chapter_id) || null,
-    source: stringOrNull(data.source) || 'tts.logs',
-    backendReceivedAt: numberOrNull(data.received_at),
-  },
-}) as any;
-
-const normalizeJobProgress = (
-  envelope: StudioSocketEnvelope,
-  data: Record<string, unknown>,
-): LiveEvent => {
-  const normalizedData = normalizeSourceData(data);
-  const status = stringOrNull(normalizedData.status) || 'queued';
-  const segmentId = segmentIdFromData(normalizedData) || null;
-  const segmentProgress = numberOrNull(normalizedData.active_segment_progress);
-  const progress = numberOrNull(normalizedData.progress) ?? 0;
-  const reasonCode = stringOrNull(normalizedData.reason_code) || null;
-  const isTerminal = typeof status === 'string' && TERMINAL_STATUSES.has(status);
-  const hasSegment = typeof segmentId === 'string' && segmentId.length > 0;
-  const hasSegmentProgress = typeof segmentProgress === 'number';
-
-  const classification = stringOrNull(normalizedData.classification);
-  const parentJobId = stringOrNull(normalizedData.parent_job_id);
-  const chapterId = stringOrNull(normalizedData.chapter_id);
-
-  let topic: LiveEventTopic = 'queue.items';
-  let category: LiveEventCategory = 'queue';
-  let eventKind: LiveEventKind = 'queue_item_status';
-
-  if (classification === 'segment' || segmentId || parentJobId) {
-    topic = 'segments.progress';
-    category = 'segment';
-    eventKind = 'segment_progress';
-    if (reasonCode === 'segment_saved') {
-      eventKind = 'segment_saved';
-    } else if (hasSegment && !hasSegmentProgress) {
-      eventKind = 'segment_started';
-    }
-  } else if (classification === 'chapter' || chapterId) {
-    topic = 'chapters.progress';
-    category = 'chapter';
-    eventKind = 'chapter_progress';
-  }
-
-  if (isTerminal) {
-    eventKind = 'queue_item_status';
-    if (topic === 'chapters.progress') {
-      eventKind = 'chapter_progress';
-    } else if (topic === 'segments.progress') {
-      eventKind = 'segment_progress';
-    }
-  }
-
-  const payload: any = {
-    status,
-    progress,
-    etaSeconds: numberOrNull(normalizedData.eta_seconds) ?? null,
-    estimatedEndAt: numberOrNull(normalizedData.estimated_end_at) ?? null,
-    etaBasis: stringOrNull(normalizedData.eta_basis) ?? null,
-    etaConfidence: stringOrNull(normalizedData.eta_confidence) ?? null,
-    startedAt: numberOrNull(normalizedData.started_at) ?? null,
-    updatedAt: numberOrNull(normalizedData.updated_at) ?? null,
-    reasonCode,
-    message: stringOrNull(normalizedData.message) ?? null,
-    activeSegmentId: segmentId,
-    activeSegmentProgress: segmentProgress ?? null,
-    renderGroupCount: numberOrNull(normalizedData.render_group_count) ?? null,
-    completedRenderGroups: numberOrNull(normalizedData.completed_render_groups) ?? null,
-    activeRenderGroupIndex: numberOrNull(normalizedData.active_render_group_index) ?? null,
-    totalRenderWeight: numberOrNull(normalizedData.total_render_weight) ?? null,
-    completedRenderWeight: numberOrNull(normalizedData.completed_render_weight) ?? null,
-    activeRenderGroupWeight: numberOrNull(normalizedData.active_render_group_weight) ?? null,
-    groupedProgress: numberOrNull(normalizedData.grouped_progress) ?? null,
-    classification: classification || 'job',
-    changedFields: null,
-
-    // Legacy fields for backward compatibility with active hooks
-    eta_seconds: numberOrNull(normalizedData.eta_seconds),
-    estimated_end_at: numberOrNull(normalizedData.estimated_end_at),
-    eta_basis: stringOrNull(normalizedData.eta_basis),
-    eta_confidence: stringOrNull(normalizedData.eta_confidence),
-    started_at: numberOrNull(normalizedData.started_at),
-    updated_at: numberOrNull(normalizedData.updated_at),
-    reason_code: reasonCode,
-    active_segment_id: segmentId,
-    active_segment_progress: segmentProgress,
-    render_group_count: numberOrNull(normalizedData.render_group_count),
-    completed_render_groups: numberOrNull(normalizedData.completed_render_groups),
-    active_render_group_index: numberOrNull(normalizedData.active_render_group_index),
-    total_render_weight: numberOrNull(normalizedData.total_render_weight),
-    completed_render_weight: numberOrNull(normalizedData.completed_render_weight),
-    active_render_group_weight: numberOrNull(normalizedData.active_render_group_weight),
-    grouped_progress: numberOrNull(normalizedData.grouped_progress),
-  };
-
-  return baseEvent(envelope, normalizedData, {
-    topic,
-    category,
-    eventKind,
-    payload,
-  }) as any;
-};
-
-const normalizeQueueLifecycle = (
-  envelope: StudioSocketEnvelope,
-  data: Record<string, unknown>,
-): LiveEvent => {
-  const isPause = rawTypeFor(data) === 'pause_updated';
-  return baseEvent(envelope, data, {
-    topic: 'queue.items',
-    category: 'queue',
-    eventKind: isPause ? 'queue_paused' : 'queue_item_invalidated',
-    payload: {
-      status: 'queued',
-      progress: 0,
-      etaSeconds: null,
-      message: isPause ? 'Queue pause status changed' : (stringOrNull(data.reason) || 'Queue update'),
-      reasonCode: isPause ? 'queue_paused' : (stringOrNull(data.reason) || 'queue_invalidated'),
-      classification: 'job',
-      changedFields: stringArrayOrNull(data.changed_fields) || null,
-      paused: booleanOrNull(data.paused),
-      // Legacy duplicate fields
-      changed_fields: stringArrayOrNull(data.changed_fields),
-    },
-  }) as any;
-};
-
-const normalizeInvalidation = (
-  envelope: StudioSocketEnvelope,
-  data: Record<string, unknown>,
-): LiveEvent => {
-  if (rawTypeFor(data) === 'segments_updated') {
-    return baseEvent(envelope, data, {
-      topic: 'segments.lifecycle',
-      category: 'segment',
-      eventKind: 'segment_lifecycle',
-      payload: {
-        reason: stringOrNull(data.reason) || 'segments_updated',
-        changedFields: stringArrayOrNull(data.changed_fields) || [],
-      },
-    }) as any;
-  }
-
-  return baseEvent(envelope, data, {
-    topic: 'chapters.lifecycle',
-    category: 'chapter',
-    eventKind: 'chapter_lifecycle',
-    payload: {
-      reason: stringOrNull(data.reason) || 'chapter_updated',
-      changedFields: stringArrayOrNull(data.changed_fields) || [],
-    },
-  }) as any;
-};
-
-const normalizeVoiceTest = (
-  envelope: StudioSocketEnvelope,
-  data: Record<string, unknown>,
-): LiveEvent => baseEvent(envelope, data, {
-  topic: 'voice.test',
-  category: 'voice',
-  eventKind: 'voice_test_progress',
-  payload: {
-    voiceName: stringOrNull(data.name) || '',
-    status: 'running',
-    progress: numberOrNull(data.progress) || 0,
-    startedAt: numberOrNull(data.started_at) || 0,
-    message: null,
-  },
-}) as any;
-
-const normalizeProjectLifecycle = (
-  envelope: StudioSocketEnvelope,
-  data: Record<string, unknown>,
-): LiveEvent => baseEvent(envelope, data, {
-  topic: 'projects.lifecycle',
-  category: 'project',
-  eventKind: 'project_invalidated',
-  payload: {
-    reason: stringOrNull(data.reason) || 'project_updated',
-    changedFields: stringArrayOrNull(data.changed_fields) || [],
-    changed_fields: stringArrayOrNull(data.changed_fields),
-  },
-}) as any;
-
 const normalizeUnknown = (
   envelope: StudioSocketEnvelope,
   data: unknown,
@@ -577,26 +354,7 @@ export const normalizeStudioSocketEnvelope = (envelope: StudioSocketEnvelope): L
     } as any;
   }
 
-  switch (type) {
-    case 'tts_log_line':
-      return normalizeTtsLog(envelope, envelope.data);
-    case 'studio_job_event':
-    case 'job_updated':
-    case 'segment_progress':
-      return normalizeJobProgress(envelope, envelope.data);
-    case 'queue_updated':
-    case 'pause_updated':
-      return normalizeQueueLifecycle(envelope, envelope.data);
-    case 'chapter_updated':
-    case 'segments_updated':
-      return normalizeInvalidation(envelope, envelope.data);
-    case 'test_progress':
-      return normalizeVoiceTest(envelope, envelope.data);
-    case 'project_updated':
-      return normalizeProjectLifecycle(envelope, envelope.data);
-    default:
-      return normalizeUnknown(envelope, envelope.data);
-  }
+  return normalizeUnknown(envelope, envelope.data);
 };
 
 export const appendLiveEventSubscriber = (

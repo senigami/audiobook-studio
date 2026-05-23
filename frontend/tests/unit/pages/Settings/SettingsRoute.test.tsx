@@ -142,6 +142,22 @@ const defaultProps = {
 };
 
 describe('SettingsRoute', () => {
+  const emitEvent = (topic: string, eventKind: string, payload: any, ids: any = {}) => {
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic,
+        eventKind,
+        source: 'backend',
+        emittedAt: Date.now() / 1000,
+        pluginId: null,
+        ids,
+        payload,
+      });
+    });
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
     resetStudioSocketBusForTests();
@@ -493,15 +509,10 @@ describe('SettingsRoute', () => {
       expect(screen.getByText(/historical line/)).toBeInTheDocument();
     });
 
-    act(() => {
-      publishStudioSocketMessage({
-        type: 'tts_log_line',
-        job_id: 'job-1',
-        sequence: 1,
-        line: '[live] synthesis started',
-        marker: 'raw',
-      });
-    });
+    emitEvent('tts.logs', 'tts_log', {
+      line: '[live] synthesis started',
+      sequence: 1,
+    }, { jobId: 'job-1' });
 
     await waitFor(() => {
       expect(screen.getByText(/\[live\] synthesis started/)).toBeInTheDocument();
@@ -533,17 +544,13 @@ describe('SettingsRoute', () => {
       expect(screen.getByText(/historical line/)).toBeInTheDocument();
     });
 
-    act(() => {
-      publishStudioSocketMessage({
-        type: 'studio_job_event',
-        job_id: 'job-1',
-        status: 'running',
-        message: 'should-not-appear-in-diagnostics',
-      });
-      publishStudioSocketMessage({
-        type: 'queue_updated',
-        reason: 'should-not-appear-either',
-      });
+    emitEvent('queue.items', 'queue_item_status', {
+      status: 'running',
+      message: 'should-not-appear-in-diagnostics',
+    }, { jobId: 'job-1' });
+    emitEvent('queue.items', 'queue_item_invalidated', {
+      reason: 'should-not-appear-either',
+      changedFields: [],
     });
 
     expect(screen.queryByText(/should-not-appear-in-diagnostics/)).not.toBeInTheDocument();
@@ -569,15 +576,10 @@ describe('SettingsRoute', () => {
       expect(screen.getByText(/No diagnostics captured yet|TTS Server Diagnostics/)).toBeInTheDocument();
     });
 
-    act(() => {
-      publishStudioSocketMessage({
-        type: 'tts_log_line',
-        job_id: 'job-1',
-        sequence: 1,
-        line: '[live] observed',
-        marker: 'raw',
-      });
-    });
+    emitEvent('tts.logs', 'tts_log', {
+      line: '[live] observed',
+      sequence: 1,
+    }, { jobId: 'job-1' });
 
     await waitFor(() => {
       expect(screen.getByText(/\[live\] observed/)).toBeInTheDocument();
@@ -604,15 +606,10 @@ describe('SettingsRoute', () => {
     expect(await screen.findByText('XTTS Local')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /View Diagnostics/i }));
 
-    act(() => {
-      publishStudioSocketMessage({
-        type: 'tts_log_line',
-        job_id: 'job-refresh',
-        sequence: 22,
-        line: '[live] arrived during refresh',
-        marker: 'raw',
-      });
-    });
+    emitEvent('tts.logs', 'tts_log', {
+      line: '[live] arrived during refresh',
+      sequence: 22,
+    }, { jobId: 'job-refresh' });
 
     await act(async () => {
       resolveFirstFetch({ ok: true, logs: '[boot] historical without live line\n' });
@@ -645,22 +642,14 @@ describe('SettingsRoute', () => {
       expect(screen.getByText(/No diagnostics captured yet|TTS Server Diagnostics/)).toBeInTheDocument();
     });
 
-    act(() => {
-      publishStudioSocketMessage({
-        type: 'tts_log_line',
-        job_id: 'job-1',
-        sequence: 7,
-        line: '[live] unique-line',
-        marker: 'raw',
-      });
-      publishStudioSocketMessage({
-        type: 'tts_log_line',
-        job_id: 'job-1',
-        sequence: 7,
-        line: '[live] unique-line',
-        marker: 'raw',
-      });
-    });
+    emitEvent('tts.logs', 'tts_log', {
+      line: '[live] unique-line',
+      sequence: 7,
+    }, { jobId: 'job-1' });
+    emitEvent('tts.logs', 'tts_log', {
+      line: '[live] unique-line',
+      sequence: 7,
+    }, { jobId: 'job-1' });
 
     await waitFor(() => {
       expect(screen.getByText(/\[live\] unique-line/)).toBeInTheDocument();

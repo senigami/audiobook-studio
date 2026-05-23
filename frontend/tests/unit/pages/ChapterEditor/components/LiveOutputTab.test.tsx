@@ -10,9 +10,19 @@ import {
   resetLiveEventAuditForTests,
 } from '@/store/liveEventAuditStore';
 
-const publish = (data: any) => {
+const publishEvent = (topic: string, eventKind: string, payload: any, ids: any = {}) => {
   act(() => {
-    publishStudioSocketMessage(data);
+    publishStudioSocketMessage({
+      type: 'studio_event',
+      version: 1,
+      topic,
+      eventKind,
+      source: 'backend',
+      emittedAt: Date.now() / 1000,
+      pluginId: null,
+      ids,
+      payload,
+    });
   });
 };
 
@@ -26,27 +36,19 @@ describe('LiveOutputTab', () => {
   });
 
   it('renders one row per published websocket frame with normalized domain columns', () => {
-    publish({
-      type: 'tts_log_line',
-      job_id: 'job-current',
-      chapter_id: 'chap-1',
+    publishEvent('tts.logs', 'tts_log', {
       line: '[START_SEGMENT] seg-1',
-      marker: 'START_SEGMENT',
       sequence: 1,
-    });
-    publish({
-      type: 'job_updated',
-      job_id: 'job-current',
-      chapter_id: 'chap-1',
-      source: 'test-source',
-      updates: {
-        message: 'Rendering segment seg-1...',
-        progress: 0.42,
-        active_segment_id: 'seg-1',
-        active_segment_progress: 0.5,
-        reason_code: 'segment_start',
-      },
-    });
+    }, { jobId: 'job-current', chapterId: 'chap-1' });
+
+    publishEvent('segments.progress', 'segment_progress', {
+      message: 'Rendering segment seg-1...',
+      progress: 0.42,
+      activeSegmentId: 'seg-1',
+      activeSegmentProgress: 0.5,
+      reasonCode: 'segment_start',
+      status: 'running',
+    }, { jobId: 'job-current', chapterId: 'chap-1', segmentId: 'seg-1' });
 
     render(<LiveOutputTab chapterId="chap-1" currentJobId="job-current" />);
 
@@ -64,8 +66,8 @@ describe('LiveOutputTab', () => {
   });
 
   it('renders distinct same-job studio_job_event frames as separate rows in insertion order', () => {
-    publish({ type: 'studio_job_event', job_id: 'job-same', status: 'queued' });
-    publish({ type: 'studio_job_event', job_id: 'job-same', status: 'running' });
+    publishEvent('queue.items', 'queue_item_status', { status: 'queued' }, { jobId: 'job-same' });
+    publishEvent('queue.items', 'queue_item_status', { status: 'running' }, { jobId: 'job-same' });
 
     render(<LiveOutputTab />);
 
@@ -78,7 +80,7 @@ describe('LiveOutputTab', () => {
   });
 
   it('merges subscriber observations on the same frame into one row without duplicating subscriber names', () => {
-    publish({ type: 'studio_job_event', job_id: 'job-1', status: 'running' });
+    publishEvent('queue.items', 'queue_item_status', { status: 'running' }, { jobId: 'job-1' });
     const frameId = 1;
     act(() => {
       recordLiveEventSubscriberObservation(frameId, 'chapter-state', 'handled');
@@ -95,7 +97,7 @@ describe('LiveOutputTab', () => {
   });
 
   it('shows unknown/unhandled frames as system.events audit rows', () => {
-    publish({ type: 'mystery_backend_event', foo: 'bar' });
+    publishEvent('system.events', 'mystery_backend_event', { foo: 'bar' });
 
     render(<LiveOutputTab />);
 
@@ -109,7 +111,7 @@ describe('LiveOutputTab', () => {
     render(<LiveOutputTab />);
     expect(screen.getByText('No live output captured yet.')).toBeInTheDocument();
 
-    publish({ type: 'studio_job_event', job_id: 'job-live', status: 'running' });
+    publishEvent('queue.items', 'queue_item_status', { status: 'running' }, { jobId: 'job-live' });
 
     const rows = document.querySelectorAll('tbody tr[data-frame-id]');
     expect(rows).toHaveLength(1);
@@ -117,8 +119,8 @@ describe('LiveOutputTab', () => {
   });
 
   it('filters by consumer when toggle buttons are clicked', () => {
-    publish({ type: 'studio_job_event', job_id: 'job-1' });
-    publish({ type: 'queue_updated' });
+    publishEvent('queue.items', 'queue_item_status', { status: 'running' }, { jobId: 'job-1' });
+    publishEvent('queue.items', 'queue_item_invalidated', { reason: 'test-reason', changedFields: [] });
     act(() => {
       recordLiveEventSubscriberObservation(1, 'chapter-state', 'handled');
       recordLiveEventSubscriberObservation(2, 'main-queue', 'handled');
@@ -152,8 +154,8 @@ describe('LiveOutputTab', () => {
   });
 
   it('clears the audit and copies the visible rows as JSON', async () => {
-    publish({ type: 'studio_job_event', job_id: 'job-1', status: 'running' });
-    publish({ type: 'studio_job_event', job_id: 'job-2', status: 'running' });
+    publishEvent('queue.items', 'queue_item_status', { status: 'running' }, { jobId: 'job-1' });
+    publishEvent('queue.items', 'queue_item_status', { status: 'running' }, { jobId: 'job-2' });
 
     render(<LiveOutputTab />);
 
@@ -167,7 +169,7 @@ describe('LiveOutputTab', () => {
   });
 
   it('toggles autoscroll pause without removing rows', () => {
-    publish({ type: 'studio_job_event', job_id: 'job-1', status: 'running' });
+    publishEvent('queue.items', 'queue_item_status', { status: 'running' }, { jobId: 'job-1' });
 
     render(<LiveOutputTab />);
 

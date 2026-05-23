@@ -1,3 +1,11 @@
+# 2026-05-23 - Remove frontend live-event compatibility shim and legacy normalization paths
+
+- Deleted `frontend/src/store/liveEventTopicRouter.ts` and its unit test `frontend/tests/unit/store/liveEventTopicRouter.test.ts`.
+- Removed all legacy normalization and fallback routing code in `frontend/src/api/contracts/liveEvents.ts`.
+- Switched hooks `useJobs.ts` and `useQueueSync.ts` to subscribe directly to the websocket bus (`subscribeStudioSocketMessages`) and map canonical `studio_event` topics (`queue.items`, `chapters.progress`, `segments.progress`, `tts.logs`, etc.).
+- Cleaned up frontend components and test files (`useJobs.test.tsx`, `useQueueSync.test.tsx`, `SettingsRoute.test.tsx`, `LiveOutputPage.test.tsx`, `LiveOutputTab.test.tsx`, `liveEventAuditStore.test.ts`, `App.test.tsx`) to publish canonical `studio_event` envelopes instead of raw legacy payloads.
+- Verified: all 87 test files (577 tests) passed, frontend production builds cleanly, linter passes, and `git diff --check` passes cleanly.
+
 # 2026-05-23 - Migrate segment-classified progress to canonical segments.progress studio_event
 
 - Updated `build_segment_progress_event` in `app/api/contracts/events.py` to support `eta_seconds` and include legacy/active progress duplicate compatibility fields (`activeSegmentId`, `activeSegmentProgress`, `etaSeconds`, etc.).

@@ -64,9 +64,6 @@ const jobProgressPayloadFor = (event: LiveEvent): any => {
       status: payload.status,
     };
   }
-  if (event.topic === 'jobs.progress') {
-    return event.payload;
-  }
   return undefined;
 };
 
@@ -75,8 +72,7 @@ const messageFor = (event: LiveEvent): string => {
   if (
     event.topic === 'queue.items' ||
     event.topic === 'chapters.progress' ||
-    event.topic === 'segments.progress' ||
-    event.topic === 'jobs.progress'
+    event.topic === 'segments.progress'
   ) {
     const payload = event.payload as any;
     const message = payload.message ?? '';
@@ -85,11 +81,9 @@ const messageFor = (event: LiveEvent): string => {
     return message || status;
   }
   if (
-    event.topic === 'queue.lifecycle' ||
-    event.topic === 'chapter.invalidate' ||
-    event.topic === 'segments.invalidate' ||
     event.topic === 'chapters.lifecycle' ||
-    event.topic === 'segments.lifecycle'
+    event.topic === 'segments.lifecycle' ||
+    event.topic === 'projects.lifecycle'
   ) {
     const payload = event.payload as any;
     return payload.reason ?? '';
@@ -108,18 +102,15 @@ const reasonFor = (event: LiveEvent): string => {
   if (
     event.topic === 'queue.items' ||
     event.topic === 'chapters.progress' ||
-    event.topic === 'segments.progress' ||
-    event.topic === 'jobs.progress'
+    event.topic === 'segments.progress'
   ) {
     const payload = event.payload as any;
     return payload.reasonCode ?? payload.reason_code ?? '-';
   }
   if (
-    event.topic === 'queue.lifecycle' ||
-    event.topic === 'chapter.invalidate' ||
-    event.topic === 'segments.invalidate' ||
     event.topic === 'chapters.lifecycle' ||
-    event.topic === 'segments.lifecycle'
+    event.topic === 'segments.lifecycle' ||
+    event.topic === 'projects.lifecycle'
   ) {
     const payload = event.payload as any;
     return payload.reason ?? '-';

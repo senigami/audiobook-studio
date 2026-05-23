@@ -17,8 +17,21 @@ describe('liveEventAuditStore', () => {
   });
 
   it('appends one normalized record per published frame before any consumer can filter', () => {
-    publishStudioSocketMessage({ type: 'queue_updated', reason: 'job_started' });
-    publishStudioSocketMessage({ type: 'studio_job_event', job_id: 'job-1', status: 'running', progress: 0.4 });
+    publishStudioSocketMessage({
+      type: 'studio_event',
+      version: 1,
+      topic: 'queue.items',
+      eventKind: 'queue_item_invalidated',
+      payload: { reason: 'job_started', changedFields: [] },
+    });
+    publishStudioSocketMessage({
+      type: 'studio_event',
+      version: 1,
+      topic: 'queue.items',
+      eventKind: 'queue_item_status',
+      ids: { jobId: 'job-1' },
+      payload: { status: 'running', progress: 0.4 },
+    });
 
     const records = getLiveEventAuditSnapshot();
     expect(records).toHaveLength(2);
@@ -39,7 +52,14 @@ describe('liveEventAuditStore', () => {
   });
 
   it('attaches subscriber observations to the existing record by frameId and dedupes by subscriber name', () => {
-    publishStudioSocketMessage({ type: 'studio_job_event', job_id: 'job-1', status: 'running' });
+    publishStudioSocketMessage({
+      type: 'studio_event',
+      version: 1,
+      topic: 'queue.items',
+      eventKind: 'queue_item_status',
+      ids: { jobId: 'job-1' },
+      payload: { status: 'running' },
+    });
     const [record] = getLiveEventAuditSnapshot();
 
     recordLiveEventSubscriberObservation(record.event.frameId, 'chapter-state', 'handled');
@@ -51,8 +71,22 @@ describe('liveEventAuditStore', () => {
   });
 
   it('keeps distinct same-job studio_job_event frames as separate records even within milliseconds', () => {
-    publishStudioSocketMessage({ type: 'studio_job_event', job_id: 'job-same', status: 'queued' });
-    publishStudioSocketMessage({ type: 'studio_job_event', job_id: 'job-same', status: 'running' });
+    publishStudioSocketMessage({
+      type: 'studio_event',
+      version: 1,
+      topic: 'queue.items',
+      eventKind: 'queue_item_status',
+      ids: { jobId: 'job-same' },
+      payload: { status: 'queued' },
+    });
+    publishStudioSocketMessage({
+      type: 'studio_event',
+      version: 1,
+      topic: 'queue.items',
+      eventKind: 'queue_item_status',
+      ids: { jobId: 'job-same' },
+      payload: { status: 'running' },
+    });
 
     const records = getLiveEventAuditSnapshot();
     expect(records).toHaveLength(2);
@@ -61,7 +95,13 @@ describe('liveEventAuditStore', () => {
   });
 
   it('clearLiveEventAudit removes all records and notifies subscribers', () => {
-    publishStudioSocketMessage({ type: 'queue_updated' });
+    publishStudioSocketMessage({
+      type: 'studio_event',
+      version: 1,
+      topic: 'queue.items',
+      eventKind: 'queue_item_invalidated',
+      payload: { reason: 'test', changedFields: [] },
+    });
     expect(getLiveEventAuditSnapshot()).toHaveLength(1);
 
     clearLiveEventAudit();

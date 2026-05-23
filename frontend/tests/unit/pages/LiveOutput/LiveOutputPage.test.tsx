@@ -7,9 +7,19 @@ import { recordLiveEventSubscriberObservation, resetLiveEventAuditForTests } fro
 import { LIVE_EVENT_CONSUMERS } from '@/config/liveEventConsumers';
 
 
-const publish = (data: any) => {
+const publishEvent = (topic: string, eventKind: string, payload: any, ids: any = {}) => {
   act(() => {
-    publishStudioSocketMessage(data);
+    publishStudioSocketMessage({
+      type: 'studio_event',
+      version: 1,
+      topic,
+      eventKind,
+      source: 'backend',
+      emittedAt: Date.now() / 1000,
+      pluginId: null,
+      ids,
+      payload,
+    });
   });
 };
 
@@ -42,11 +52,11 @@ describe('LiveOutputPage & Table Consumer Filters', () => {
 
   it('toggles active filter and filters rows by consumer listening definitions correctly', async () => {
     // 1. Publish some events
-    publish({ type: 'studio_job_event', job_id: 'job-1', status: 'running', classification: 'chapter' }); // frameId 1 -> chapters.progress
-    publish({ type: 'queue_updated', reason: 'test-reason' });                                           // frameId 2 -> queue.items
-    publish({ type: 'tts_log_line', line: 'Synthesizing line' });                                         // frameId 3 -> tts.logs
-    publish({ type: 'mystery_backend_event', details: 'unobserved' });                                    // frameId 4 -> system.unknown
-    publish({ type: 'project_updated', project_id: 'proj-1', reason: 'updated' });                       // frameId 5 -> projects.lifecycle
+    publishEvent('chapters.progress', 'chapter_progress', { status: 'running', progress: 0.5 }, { jobId: 'job-1' }); // frameId 1 -> chapters.progress
+    publishEvent('queue.items', 'queue_item_invalidated', { reason: 'test-reason', changedFields: [] });            // frameId 2 -> queue.items
+    publishEvent('tts.logs', 'tts_log', { line: 'Synthesizing line' });                                             // frameId 3 -> tts.logs
+    publishEvent('system.events', 'unknown', { details: 'unobserved' });                                            // frameId 4 -> system.unknown
+    publishEvent('projects.lifecycle', 'project_invalidated', { reason: 'updated', changedFields: [] }, { projectId: 'proj-1' }); // frameId 5 -> projects.lifecycle
 
     // 2. Add observations (Handled by column will display these)
     act(() => {
@@ -100,9 +110,9 @@ describe('LiveOutputPage & Table Consumer Filters', () => {
 
   it('filters based on explicit consumer-listening definitions rather than subscriber observations', () => {
     // 1. Publish events: tts.logs, chapters.progress, queue.items. No subscriber observations!
-    publish({ type: 'tts_log_line', line: 'Synthesizing line' });                                         // frameId 1, topic tts.logs
-    publish({ type: 'studio_job_event', job_id: 'job-1', status: 'running', classification: 'chapter' }); // frameId 2, topic chapters.progress
-    publish({ type: 'queue_updated', reason: 'test-reason' });                                           // frameId 3, topic queue.items
+    publishEvent('tts.logs', 'tts_log', { line: 'Synthesizing line' });                                         // frameId 1, topic tts.logs
+    publishEvent('chapters.progress', 'chapter_progress', { status: 'running', progress: 0.5 }, { jobId: 'job-1' }); // frameId 2, topic chapters.progress
+    publishEvent('queue.items', 'queue_item_invalidated', { reason: 'test-reason', changedFields: [] });            // frameId 3, topic queue.items
 
     render(<LiveOutputPage />);
 

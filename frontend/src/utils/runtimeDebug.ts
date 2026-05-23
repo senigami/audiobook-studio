@@ -42,6 +42,7 @@ export type WebsocketDebugSnapshot = {
   topic?: string;
   category?: string;
   eventKind?: string;
+  pluginId?: string | null;
   source?: string;
   scope?: string;
   classification?: string;
@@ -194,16 +195,21 @@ const appendTimelineEntry = (listener: string, payload: unknown, raw: string, en
   const updates = normalizedData.updates && typeof normalizedData.updates === 'object' ? normalizedData.updates as Record<string, any> : {};
   const receivedAt = envelope?.receivedAt ?? new Date().toISOString();
   const type = typeof normalizedData.type === 'string' ? normalizedData.type : undefined;
+
+  const isStudioEvent = type === 'studio_event';
+  const innerPayload = isStudioEvent && normalizedData.payload && typeof normalizedData.payload === 'object'
+    ? normalizedData.payload as Record<string, any>
+    : {};
+  const innerIds = isStudioEvent && normalizedData.ids && typeof normalizedData.ids === 'object'
+    ? normalizedData.ids as Record<string, any>
+    : {};
+
   const segmentId = normalizedData.active_segment_id !== undefined
     ? normalizedData.active_segment_id
-    : normalizedData.segment_id;
-
-  if (segmentId !== undefined && normalizedData.active_segment_id === undefined) {
-    normalizedData.active_segment_id = segmentId;
-  }
+    : (normalizedData.segment_id ?? innerIds.segmentId ?? innerIds.segment_id);
 
   const entry: TtsCommunicationTimelineEntry = {
-    kind: type === 'tts_log_line' ? 'tts_log' : 'socket',
+    kind: (type === 'tts_log_line' || (isStudioEvent && normalizedData.topic === 'tts.logs')) ? 'tts_log' : 'socket',
     listener,
     receivedAt,
     raw,
@@ -221,9 +227,14 @@ const appendTimelineEntry = (listener: string, payload: unknown, raw: string, en
   if (normalizedData.source !== undefined) entry.source = normalizedData.source;
   if (normalizedData.scope !== undefined) entry.scope = normalizedData.scope;
   if (normalizedData.classification !== undefined) entry.classification = normalizedData.classification;
-  if (normalizedData.job_id !== undefined) entry.job_id = normalizedData.job_id;
-  if (normalizedData.project_id !== undefined) entry.project_id = normalizedData.project_id;
-  if (normalizedData.chapter_id !== undefined) entry.chapter_id = normalizedData.chapter_id;
+
+  const jobId = normalizedData.job_id ?? innerIds.jobId ?? innerIds.job_id;
+  const projectId = normalizedData.project_id ?? innerIds.projectId ?? innerIds.project_id;
+  const chapterId = normalizedData.chapter_id ?? innerIds.chapterId ?? innerIds.chapter_id;
+
+  if (jobId !== undefined) entry.job_id = jobId;
+  if (projectId !== undefined) entry.project_id = projectId;
+  if (chapterId !== undefined) entry.chapter_id = chapterId;
   if (segmentId !== undefined) {
     entry.segment_id = segmentId;
     entry.active_segment_id = segmentId;
@@ -232,9 +243,14 @@ const appendTimelineEntry = (listener: string, payload: unknown, raw: string, en
   if (normalizedData.reason_code !== undefined) entry.reason_code = normalizedData.reason_code;
   if (normalizedData.message !== undefined) entry.message = normalizedData.message;
   if (typeof normalizedData.progress === 'number') entry.progress = normalizedData.progress;
-  if (normalizedData.line !== undefined) entry.line = normalizedData.line;
-  if (normalizedData.marker !== undefined) entry.marker = normalizedData.marker;
-  if (typeof normalizedData.sequence === 'number') entry.sequence = normalizedData.sequence;
+
+  const line = normalizedData.line ?? innerPayload.line;
+  const marker = normalizedData.marker ?? innerPayload.marker;
+  const sequence = typeof normalizedData.sequence === 'number' ? normalizedData.sequence : innerPayload.sequence;
+
+  if (line !== undefined) entry.line = line;
+  if (marker !== undefined) entry.marker = marker;
+  if (typeof sequence === 'number') entry.sequence = sequence;
 
   const summaryFields = [
     'active_segment_id',
@@ -336,6 +352,10 @@ export const recordWebsocketDebugMessage = (listener: string, payload: unknown, 
   if (payload && typeof payload === 'object') {
     const data = payload as Record<string, any>;
     if (data.type !== undefined) entry.type = data.type;
+    if (data.topic !== undefined) entry.topic = data.topic;
+    if (data.category !== undefined) entry.category = data.category;
+    if (data.eventKind !== undefined) entry.eventKind = data.eventKind;
+    if (data.pluginId !== undefined) entry.pluginId = data.pluginId;
     if (data.source !== undefined) entry.source = data.source;
     if (data.scope !== undefined) entry.scope = data.scope;
     if (data.classification !== undefined) entry.classification = data.classification;

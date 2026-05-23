@@ -311,9 +311,12 @@ describe('App', () => {
 
     act(() => {
       publishStudioSocketMessage({
-        type: 'studio_job_event',
-        job_id: 'job-live',
-        status: 'running',
+        type: 'studio_event',
+        version: 1,
+        topic: 'queue.items',
+        eventKind: 'queue_item_status',
+        ids: { jobId: 'job-live' },
+        payload: { status: 'running' },
       })
     })
 

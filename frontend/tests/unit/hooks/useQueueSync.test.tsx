@@ -35,9 +35,19 @@ describe('useQueueSync', () => {
     (api.getProcessingQueue as any).mockResolvedValue([]);
   });
 
-  const emit = (payload: any) => {
+  const emitEvent = (topic: string, eventKind: string, payload: any, ids: any = {}) => {
     act(() => {
-      publishStudioSocketMessage(payload);
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic,
+        eventKind,
+        source: 'backend',
+        emittedAt: Date.now() / 1000,
+        pluginId: null,
+        ids,
+        payload,
+      });
     });
   };
 
@@ -118,15 +128,19 @@ describe('useQueueSync', () => {
     await waitFor(() => expect(result.current.activeSource).toBeUndefined());
   });
 
-  it('does not refetch the queue for job_updated websocket events', async () => {
+  it('does not refetch the queue for queue_item_status websocket events', async () => {
     const { result } = renderHook(() => useQueueSync());
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    emit({
-      type: 'job_updated',
-      job_id: 'job-1',
-      updates: { status: 'running', progress: 0.25 },
-    });
+    emitEvent('queue.items', 'queue_item_status', {
+      status: 'running',
+      progress: 0.25,
+      etaSeconds: null,
+      message: null,
+      reasonCode: null,
+      classification: 'job',
+      changedFields: null,
+    }, { jobId: 'job-1' });
 
     expect(api.getProcessingQueue).toHaveBeenCalledTimes(1);
   });
@@ -264,14 +278,12 @@ describe('useQueueSync', () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     const eventUpdatedAt = Date.now() / 1000 - 0.1;
-    emit({
-      type: 'studio_job_event',
-      job_id: 'job-1',
+    emitEvent('queue.items', 'queue_item_status', {
       status: 'running',
       progress: 0.5,
-      updated_at: eventUpdatedAt,
-      scope: 'job',
-    });
+      updatedAt: eventUpdatedAt,
+      classification: 'job',
+    }, { jobId: 'job-1' });
 
     await waitFor(() => {
       const job = result.current.queue.find((q: any) => q.id === 'job-1');
@@ -279,7 +291,10 @@ describe('useQueueSync', () => {
     });
 
     await act(async () => {
-      emit({ type: 'queue_updated' });
+      emitEvent('queue.items', 'queue_item_invalidated', {
+        reason: 'test',
+        changedFields: [],
+      });
     });
 
     await waitFor(() => {
@@ -325,14 +340,12 @@ describe('useQueueSync', () => {
     await waitFor(() => expect(result.current.activeSource).toBe('reconnect'));
 
     const eventUpdatedAt = Date.now() / 1000;
-    emit({
-      type: 'studio_job_event',
-      job_id: 'job-reconnect',
+    emitEvent('queue.items', 'queue_item_status', {
       status: 'running',
       progress: 0.6,
-      updated_at: eventUpdatedAt,
-      scope: 'job',
-    });
+      updatedAt: eventUpdatedAt,
+      classification: 'job',
+    }, { jobId: 'job-reconnect' });
 
     await act(async () => { resolveReconnect([jobItem]); });
     await waitFor(() => expect(result.current.activeSource).toBeUndefined());

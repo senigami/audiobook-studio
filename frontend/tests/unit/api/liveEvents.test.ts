@@ -14,103 +14,6 @@ const envelope = <T,>(data: T, frameId = 1): StudioSocketEnvelope<T> => ({
 });
 
 describe('live event contract', () => {
-  it('normalizes TTS log frames to the tts.logs topic', () => {
-    const event = normalizeStudioSocketEnvelope(envelope({
-      type: 'tts_log_line',
-      job_id: 'job-1',
-      project_id: 'project-1',
-      chapter_id: 'chapter-1',
-      line: 'Loading model...',
-      marker: 'raw',
-      sequence: 2,
-      received_at: 1779396535.09,
-      source: 'app.orchestration.scheduler.orchestrator_helpers.log_listener',
-    }));
-
-    expect(event).toMatchObject({
-      frameId: 1,
-      rawType: 'tts_log_line',
-      topic: 'tts.logs',
-      category: 'log',
-      eventKind: 'tts_log',
-      jobId: 'job-1',
-      projectId: 'project-1',
-      chapterId: 'chapter-1',
-      payload: {
-        line: 'Loading model...',
-        marker: 'raw',
-        sequence: 2,
-        backendReceivedAt: 1779396535.09,
-      },
-    });
-  });
-
-  it('distinguishes segment start from segment progress', () => {
-    const segmentStart = normalizeStudioSocketEnvelope(envelope({
-      type: 'studio_job_event',
-      job_id: 'job-1',
-      status: 'running',
-      active_segment_id: 'segment-1',
-      progress: 0.1,
-      reason_code: 'segment_start',
-    }, 2));
-
-    const segmentProgress = normalizeStudioSocketEnvelope(envelope({
-      type: 'studio_job_event',
-      job_id: 'job-1',
-      status: 'running',
-      active_segment_id: 'segment-1',
-      active_segment_progress: 0.4,
-      progress: 0.2,
-      reason_code: 'synthesis_progress',
-    }, 3));
-
-    expect(segmentStart).toMatchObject({
-      topic: 'segments.progress',
-      category: 'segment',
-      eventKind: 'segment_started',
-      segmentId: 'segment-1',
-      payload: {
-        active_segment_id: 'segment-1',
-        active_segment_progress: undefined,
-      },
-    });
-    expect(segmentProgress).toMatchObject({
-      topic: 'segments.progress',
-      category: 'segment',
-      eventKind: 'segment_progress',
-      segmentId: 'segment-1',
-      payload: {
-        active_segment_id: 'segment-1',
-        active_segment_progress: 0.4,
-      },
-    });
-  });
-
-  it('normalizes terminal job frames without treating cleared segment progress as active progress', () => {
-    const event = normalizeStudioSocketEnvelope(envelope({
-      type: 'job_updated',
-      job_id: 'job-1',
-      status: 'done',
-      progress: 1,
-      active_segment_id: null,
-      active_segment_progress: 0,
-    }, 4));
-
-    expect(event).toMatchObject({
-      topic: 'queue.items',
-      category: 'queue',
-      eventKind: 'queue_item_status',
-      segmentId: null,
-      payload: {
-        status: 'done',
-        progress: 1,
-        active_segment_id: null,
-        active_segment_progress: 0,
-      },
-    });
-  });
-
   it('preserves unknown frames as system.events audit events', () => {
     const event = normalizeStudioSocketEnvelope(envelope({
       type: 'new_backend_event',
@@ -132,7 +35,17 @@ describe('live event contract', () => {
 
   it('dedupes subscriber observations by frame and subscriber', () => {
     const record: LiveEventRecord = {
-      event: normalizeStudioSocketEnvelope(envelope({ type: 'queue_updated' }, 6)),
+      event: normalizeStudioSocketEnvelope(envelope({
+        type: 'studio_event',
+        version: 1,
+        topic: 'queue.items',
+        eventKind: 'queue_invalidated',
+        source: 'backend',
+        emittedAt: 1234567,
+        pluginId: null,
+        ids: { projectId: null, chapterId: null, jobId: null, segmentId: null },
+        payload: { reason: 'test', changedFields: [] }
+      }, 6)),
       subscribers: [],
     };
 
@@ -375,101 +288,5 @@ describe('live event contract', () => {
     });
   });
 
-  describe('legacy to canonical topic mapping', () => {
-    it('maps legacy project_updated to projects.lifecycle', () => {
-      const projEv = normalizeStudioSocketEnvelope(envelope({
-        type: 'project_updated',
-        project_id: 'project-1',
-        reason: 'update',
-        changed_fields: ['title'],
-      }));
-      expect(projEv.topic).toBe('projects.lifecycle');
-      expect(projEv.category).toBe('project');
-      expect(projEv.eventKind).toBe('project_invalidated');
-      expect(projEv.projectId).toBe('project-1');
-      expect(projEv.payload).toMatchObject({
-        reason: 'update',
-        changedFields: ['title'],
-      });
-    });
 
-    it('maps legacy queue_updated and pause_updated to queue.items', () => {
-      const queueEv = normalizeStudioSocketEnvelope(envelope({
-        type: 'queue_updated',
-        reason: 'job_status_change',
-        changed_fields: ['status'],
-      }));
-      expect(queueEv.topic).toBe('queue.items');
-
-      const pauseEv = normalizeStudioSocketEnvelope(envelope({
-        type: 'pause_updated',
-        paused: true,
-      }));
-      expect(pauseEv.topic).toBe('queue.items');
-    });
-
-    it('maps legacy chapter_updated to chapters.lifecycle', () => {
-      const chapEv = normalizeStudioSocketEnvelope(envelope({
-        type: 'chapter_updated',
-        chapter_id: 'chap-123',
-        reason: 'edit',
-      }));
-      expect(chapEv.topic).toBe('chapters.lifecycle');
-    });
-
-    it('maps legacy segments_updated to segments.lifecycle', () => {
-      const segEv = normalizeStudioSocketEnvelope(envelope({
-        type: 'segments_updated',
-        chapter_id: 'chap-123',
-        reason: 'rebuild',
-      }));
-      expect(segEv.topic).toBe('segments.lifecycle');
-    });
-
-    it('maps legacy tts_log_line to tts.logs and test_progress to voice.test', () => {
-      const logEv = normalizeStudioSocketEnvelope(envelope({
-        type: 'tts_log_line',
-        line: 'log line',
-      }));
-      expect(logEv.topic).toBe('tts.logs');
-
-      const testEv = normalizeStudioSocketEnvelope(envelope({
-        type: 'test_progress',
-        name: 'voice-a',
-        progress: 0.5,
-      }));
-      expect(testEv.topic).toBe('voice.test');
-    });
-
-    it('maps legacy jobs events to chapters.progress, segments.progress or queue.items', () => {
-      // 1. segment classification -> segments.progress
-      const segProg = normalizeStudioSocketEnvelope(envelope({
-        type: 'studio_job_event',
-        job_id: 'job-1',
-        status: 'running',
-        classification: 'segment',
-        active_segment_id: 'seg-1',
-        active_segment_progress: 0.5,
-      }));
-      expect(segProg.topic).toBe('segments.progress');
-
-      // 2. chapter classification -> chapters.progress
-      const chapProg = normalizeStudioSocketEnvelope(envelope({
-        type: 'studio_job_event',
-        job_id: 'job-1',
-        status: 'running',
-        classification: 'chapter',
-      }));
-      expect(chapProg.topic).toBe('chapters.progress');
-
-      // 3. job classification -> queue.items
-      const jobProg = normalizeStudioSocketEnvelope(envelope({
-        type: 'studio_job_event',
-        job_id: 'job-1',
-        status: 'running',
-        classification: 'job',
-      }));
-      expect(jobProg.topic).toBe('queue.items');
-    });
-  });
 });
