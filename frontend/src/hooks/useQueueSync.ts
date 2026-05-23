@@ -75,21 +75,57 @@ export const useQueueSync = () => {
 
   useEffect(() => {
     return subscribeToLiveEventTopics({
-      'jobs.progress': (event, { rawData, raw, envelope }) => {
+      'queue.items': (event, { rawData, raw, envelope }) => {
         recordWebsocketDebugMessage('useQueueSync', rawData, raw, envelope);
-        recordLiveEventSubscriberObservation(envelope?.frameId, 'queue-sync', 'handled');
-        if (event.rawType === 'job_updated') {
-          storeRef.current.applyJobUpdated(rawData.job_id, rawData.updates);
-        } else {
-          // studio_job_event (and legacy segment_progress, which carries job-scoped progress fields)
-          storeRef.current.applyEvent(rawData);
+        recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
+        const payload = event.payload as any;
+        if (event.eventKind === 'queue_item_invalidated' || event.eventKind === 'queue_paused') {
+          refreshQueue('refresh');
+        } else if (event.jobId) {
+          const updates = {
+            job_id: event.jobId,
+            project_id: event.projectId,
+            chapter_id: event.chapterId,
+            classification: payload.classification,
+            status: payload.status,
+            progress: payload.progress,
+            eta_seconds: payload.eta_seconds !== undefined ? payload.eta_seconds : payload.etaSeconds,
+            started_at: payload.started_at !== undefined ? payload.started_at : payload.startedAt,
+            updated_at: payload.updated_at !== undefined ? payload.updated_at : payload.updatedAt,
+            estimated_end_at: payload.estimated_end_at !== undefined ? payload.estimated_end_at : payload.estimatedEndAt,
+            reason_code: payload.reason_code !== undefined ? payload.reason_code : payload.reasonCode,
+            message: payload.message,
+            paused: payload.paused,
+          };
+          storeRef.current.applyJobUpdated(event.jobId, updates);
+          updateDerivedState();
         }
-        updateDerivedState();
       },
-      'queue.lifecycle': (_event, { rawData, raw, envelope }) => {
+      'chapters.progress': (event, { rawData, raw, envelope }) => {
         recordWebsocketDebugMessage('useQueueSync', rawData, raw, envelope);
-        recordLiveEventSubscriberObservation(envelope?.frameId, 'queue-sync', 'handled');
-        refreshQueue('refresh');
+        recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
+        const payload = event.payload as any;
+        if (event.jobId) {
+          const updates = {
+            job_id: event.jobId,
+            project_id: event.projectId,
+            chapter_id: event.chapterId,
+            classification: 'chapter',
+            status: payload.status,
+            progress: payload.progress,
+            eta_seconds: payload.eta_seconds !== undefined ? payload.eta_seconds : payload.etaSeconds,
+            started_at: payload.started_at !== undefined ? payload.started_at : payload.startedAt,
+            updated_at: payload.updated_at !== undefined ? payload.updated_at : payload.updatedAt,
+            estimated_end_at: payload.estimated_end_at !== undefined ? payload.estimated_end_at : payload.estimatedEndAt,
+            reason_code: payload.reason_code !== undefined ? payload.reason_code : payload.reasonCode,
+            message: payload.message,
+            grouped_progress: payload.grouped_progress !== undefined ? payload.grouped_progress : payload.groupedProgress,
+            render_group_count: payload.render_group_count !== undefined ? payload.render_group_count : payload.renderGroupCount,
+            completed_render_groups: payload.completed_render_groups !== undefined ? payload.completed_render_groups : payload.completedRenderGroups,
+          };
+          storeRef.current.applyJobUpdated(event.jobId, updates);
+          updateDerivedState();
+        }
       },
     });
   }, [updateDerivedState, refreshQueue]);

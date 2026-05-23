@@ -73,8 +73,22 @@ export type WebsocketDebugSnapshot = {
  */
 export type WsAudience = 'queue' | 'chapter' | 'both' | 'other';
 
-/** Derive the audience from the websocket message type string. */
-export const wsAudienceForType = (type: string | undefined): WsAudience => {
+/** Derive the audience from the websocket message type string or studio_event properties. */
+export const wsAudienceForType = (type: string | undefined, data?: Record<string, any>): WsAudience => {
+  if (type === 'studio_event' && data) {
+    const topic = data.topic;
+    const eventKind = data.eventKind;
+    if (topic === 'queue.items') {
+      if (eventKind === 'queue_invalidated' || eventKind === 'queue_paused') {
+        return 'queue';
+      }
+      return 'both';
+    }
+    if (topic === 'chapters.progress' || topic === 'chapters.lifecycle') {
+      return 'both';
+    }
+    return 'chapter';
+  }
   switch (type) {
     case 'queue_updated':
     case 'pause_updated':
@@ -193,7 +207,7 @@ const appendTimelineEntry = (listener: string, payload: unknown, raw: string, en
     listener,
     receivedAt,
     raw,
-    audience: wsAudienceForType(type),
+    audience: wsAudienceForType(type, normalizedData),
   };
 
   if (envelope?.frameId !== undefined) {
@@ -201,6 +215,9 @@ const appendTimelineEntry = (listener: string, payload: unknown, raw: string, en
   }
 
   if (type !== undefined) entry.type = type;
+  if (normalizedData.topic !== undefined) entry.topic = normalizedData.topic;
+  if (normalizedData.category !== undefined) entry.category = normalizedData.category;
+  if (normalizedData.eventKind !== undefined) entry.eventKind = normalizedData.eventKind;
   if (normalizedData.source !== undefined) entry.source = normalizedData.source;
   if (normalizedData.scope !== undefined) entry.scope = normalizedData.scope;
   if (normalizedData.classification !== undefined) entry.classification = normalizedData.classification;

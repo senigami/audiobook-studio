@@ -451,22 +451,97 @@ describe('useJobs', () => {
     expect(result.current.jobs['job-seg']?.active_segment_progress).toBe(0.8);
   });
 
-  it('records a jobs-state subscriber observation on each handled bus frame', async () => {
+  it('records chapter-state or segment-state subscriber observations on handled bus frames', async () => {
     renderHook(() => useJobs());
 
     act(() => {
       publishStudioSocketMessage({
-        type: 'studio_job_event',
-        job_id: 'job-audit',
-        status: 'running',
-        progress: 0.5,
+        type: 'studio_event',
+        version: 1,
+        topic: 'chapters.progress',
+        eventKind: 'chapter_progress',
+        payload: {
+          status: 'running',
+          progress: 0.5,
+          groupedProgress: null,
+          etaSeconds: null,
+          message: 'active',
+          reasonCode: null,
+          renderGroupCount: null,
+          completedRenderGroups: null,
+        },
       });
     });
 
     const records = getLiveEventAuditSnapshot();
     expect(records).toHaveLength(1);
     const subscribers = records[0].subscribers.map(s => s.subscriber);
-    expect(subscribers).toContain('jobs-state');
+    expect(subscribers).toContain('chapter-state');
+  });
+
+  it('drives segment progress directly from segments.progress topic', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-seg', status: 'running', progress: 0 }] });
+
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'segments.progress',
+        eventKind: 'segment_progress',
+        ids: { segmentId: 'seg-abc', jobId: 'job-seg', chapterId: 'chap-1' },
+        payload: {
+          status: 'running',
+          progress: 0.85,
+          segmentIndex: 1,
+          segmentCount: 10,
+          message: 'active',
+          reasonCode: null,
+        },
+      });
+    });
+
+    expect(result.current.segmentProgress['seg-abc']).toEqual({
+      job_id: 'job-seg',
+      chapter_id: 'chap-1',
+      segment_id: 'seg-abc',
+      progress: 0.85,
+    });
+  });
+
+  it('drives chapter progress directly from chapters.progress topic', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-chap', status: 'running', progress: 0.1 }] });
+
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'chapters.progress',
+        eventKind: 'chapter_progress',
+        ids: { jobId: 'job-chap', chapterId: 'chap-1' },
+        payload: {
+          status: 'running',
+          progress: 0.45,
+          groupedProgress: 0.4,
+          etaSeconds: 120,
+          message: 'chapter rendering',
+          reasonCode: null,
+          renderGroupCount: 10,
+          completedRenderGroups: 4,
+        },
+      });
+    });
+
+    expect(result.current.jobs['job-chap']).toMatchObject({
+      status: 'running',
+      progress: 0.45,
+      grouped_progress: 0.4,
+      eta_seconds: 120,
+      log: 'chapter rendering',
+      render_group_count: 10,
+      completed_render_groups: 4,
+    });
   });
 
   it('clears active_segment_id and resets active_segment_progress=0 when terminal job_updated arrives', async () => {

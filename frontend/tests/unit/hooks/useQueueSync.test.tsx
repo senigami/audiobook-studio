@@ -135,7 +135,23 @@ describe('useQueueSync', () => {
     const { result } = renderHook(() => useQueueSync());
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    emit({ type: 'queue_updated' });
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'queue.items',
+        eventKind: 'queue_invalidated',
+        payload: {
+          status: 'queued',
+          progress: 0,
+          etaSeconds: null,
+          message: 'refresh',
+          reasonCode: 'queue_invalidated',
+          classification: 'job',
+          changedFields: [],
+        },
+      });
+    });
     await waitFor(() => expect(result.current.activeSource).toBeUndefined());
 
     const timeline = (window as any).__ttsCommunicationTimeline;
@@ -148,7 +164,25 @@ describe('useQueueSync', () => {
     const { result } = renderHook(() => useQueueSync());
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    emit({ type: 'studio_job_event', job_id: 'j1', status: 'running', progress: 0.5 });
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'chapters.progress',
+        eventKind: 'chapter_progress',
+        ids: { jobId: 'j1' },
+        payload: {
+          status: 'running',
+          progress: 0.5,
+          groupedProgress: null,
+          etaSeconds: null,
+          message: 'running',
+          reasonCode: null,
+          renderGroupCount: null,
+          completedRenderGroups: null,
+        },
+      });
+    });
 
     const timeline = (window as any).__ttsCommunicationTimeline ?? [];
     const queueEntries = timeline.filter((e: any) => e.listener === 'useQueueSync');
@@ -160,7 +194,24 @@ describe('useQueueSync', () => {
     const { result } = renderHook(() => useQueueSync());
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    emit({ type: 'job_updated', job_id: 'j2', updates: { status: 'queued' } });
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'queue.items',
+        eventKind: 'queue_item_status',
+        ids: { jobId: 'j2' },
+        payload: {
+          status: 'queued',
+          progress: 0,
+          etaSeconds: null,
+          message: null,
+          reasonCode: null,
+          classification: 'job',
+          changedFields: null,
+        },
+      });
+    });
 
     const timeline = (window as any).__ttsCommunicationTimeline ?? [];
     const queueEntries = timeline.filter((e: any) => e.listener === 'useQueueSync');
@@ -168,17 +219,34 @@ describe('useQueueSync', () => {
     expect(queueEntries[0].audience).toBe('both');
   });
 
-  it('records a queue-sync subscriber observation on each handled bus frame', async () => {
+  it('records a main-queue subscriber observation on each handled bus frame', async () => {
     const { result } = renderHook(() => useQueueSync());
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    emit({ type: 'studio_job_event', job_id: 'job-audit', status: 'running' });
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'queue.items',
+        eventKind: 'queue_item_status',
+        ids: { jobId: 'job-audit' },
+        payload: {
+          status: 'running',
+          progress: 0.5,
+          etaSeconds: null,
+          message: null,
+          reasonCode: null,
+          classification: 'job',
+          changedFields: null,
+        },
+      });
+    });
 
     const records = getLiveEventAuditSnapshot();
     const observed = records.find(r => r.event.jobId === 'job-audit');
     expect(observed).toBeDefined();
     const subscribers = observed!.subscribers.map(s => s.subscriber);
-    expect(subscribers).toContain('queue-sync');
+    expect(subscribers).toContain('main-queue');
   });
 
   it('preserves overlay progress after a queue_updated triggered refresh', async () => {
